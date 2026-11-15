@@ -199,11 +199,7 @@ fn assert_report_success(report: &ScanReport) {
     assert_eq!(report.results.len(), 3, "expected dns/domain/tcp probe results");
     assert_eq!(outcome_for(report, "dns_integrity"), Some("dns_match"));
     assert_eq!(outcome_for(report, "domain_reachability"), Some("http_ok"));
-    assert!(
-        matches!(outcome_for(report, "tcp_fat_header"), Some("tcp_fat_header_ok" | "tcp_16kb_blocked")),
-        "unexpected tcp fat-header outcome: {:?}",
-        outcome_for(report, "tcp_fat_header")
-    );
+    assert_eq!(outcome_for(report, "tcp_fat_header"), Some("tcp_fat_header_ok"));
 }
 
 fn outcome_for<'a>(report: &'a ScanReport, probe_type: &str) -> Option<&'a str> {

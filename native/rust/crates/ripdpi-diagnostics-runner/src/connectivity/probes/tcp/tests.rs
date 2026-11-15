@@ -91,12 +91,15 @@ fn connection_refusal_with_tls_selected_retries_before_handshake() {
     drop(listener);
     let result = super::run_tcp_probe(
         &tcp_target(port, Some("control.test")),
-        &[],
+        &["alternate.test".to_string()],
         &super::TransportConfig::Direct { route_experiment: None },
         None,
     );
 
     assert_eq!(result.outcome, "tcp_connect_failed", "{result:?}");
+    let attempts = &result.details.iter().find(|detail| detail.key == "attempts").unwrap().value;
+    assert_eq!(attempts.split('|').count(), 2);
+    assert!(!attempts.contains("alternate.test"));
     assert!(result.details.iter().any(|detail| detail.key == "failureStage" && detail.value == "tcp_connect"));
     assert!(result.details.iter().any(|detail| detail.key == "probeRetryCount" && detail.value == "1"));
 }

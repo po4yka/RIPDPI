@@ -1,21 +1,9 @@
-//! TCP fat-header classifier wrapped as a Probe.
+//! Offline adapter for a recorded TCP fat-header outcome.
 //!
-//! Pure offline classifier for the TCP "fat header" stage: a probe that
-//! pushes a large (≈16 KiB) TLS `ClientHello`-shaped record over a TCP
-//! connection to detect DPI middleboxes that cut the stream at a byte
-//! threshold, freeze it, or reset it.
-//!
-//! ## Migration anchor
-//!
-//! This probe mirrors the scheduled connectivity stage emitted by
-//! `classify_fat_header_outcome` in the `ripdpi-diagnostics-fat-header`
-//! crate, surfaced through `run_tcp_probe` with `probe_type:
-//! "tcp_fat_header"`. The [`TcpFatHeaderStatus::scheduled_outcome`] strings
-//! are the exact `ProbeResult.outcome` values the previous scheduled runner
-//! produced; they are the equivalence anchor for the Probe-trait migration.
-//!
-//! The probe captures a [`TcpFatHeaderStatus`] at construction and
-//! [`Probe::run`] performs no I/O.
+//! The scheduled runner writes a series of padded HTTP HEAD requests and
+//! records local writes, final responses, and observed I/O failures. The
+//! legacy cutoff and freeze outcomes are parsed here for stored reports.
+//! The adapter takes an outcome at construction and does no I/O.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 
@@ -27,15 +15,13 @@ pub const TCP_FAT_HEADER_PROBE_ID: &str = "tcp_fat_header";
 /// Captured outcome of a TCP fat-header probe attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TcpFatHeaderStatus {
-    /// The full fat header was delivered and the upstream responded.
+    /// The measurement covered the configured HTTP sequence and byte boundary.
     /// Scheduled `ProbeResult.outcome`: `"tcp_fat_header_ok"`.
     Success,
-    /// The stream was cut at a fixed byte threshold (≈16 KiB) — the
-    /// classic TSPU 16 KiB ceiling.
+    /// Historical classification of a late close or reset.
     /// Scheduled `ProbeResult.outcome`: `"tcp_16kb_blocked"`.
     ThresholdCutoff,
-    /// The connection delivered the threshold bytes then froze without a
-    /// reset — silent stall after the cutoff point.
+    /// Historical classification of a late I/O timeout.
     /// Scheduled `ProbeResult.outcome`: `"tcp_freeze_after_threshold"`.
     FreezeAfterThreshold,
     /// The connection was torn down with a TCP RST.

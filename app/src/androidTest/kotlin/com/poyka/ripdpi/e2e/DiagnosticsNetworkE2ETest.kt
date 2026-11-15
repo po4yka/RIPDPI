@@ -159,7 +159,9 @@ class DiagnosticsNetworkE2ETest {
         assertTrue(
             detail.results.any { result ->
                 result.probeType == "tcp_fat_header" &&
-                    result.outcome in setOf("tcp_fat_header_ok", "tcp_16kb_blocked")
+                    result.outcome == "inconclusive" &&
+                    result.details.any { it.key == "lastError" && it.value == "peer_closed_before_series_end" } &&
+                    result.details.any { it.key == "responsesSeen" && it.value == "1" }
             },
         )
         assertTrue(detail.snapshots.isNotEmpty())
