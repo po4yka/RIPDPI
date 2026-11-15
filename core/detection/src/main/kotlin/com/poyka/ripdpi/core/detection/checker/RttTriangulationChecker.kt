@@ -36,6 +36,7 @@ object RttTriangulationChecker {
             "instagram.com",
         )
 
+    private const val MIN_TARGETS_PER_GROUP = 3
     private const val NAME = "RTT triangulation"
     private const val RUSSIA_ISO = "RU"
 
@@ -57,7 +58,10 @@ object RttTriangulationChecker {
                 FOREIGN_TARGETS.map { probeTarget(prober, it, RttTargetGroup.FOREIGN) }
         val ruMedian = probes.medianFor(RttTargetGroup.RU)
         val foreignMedian = probes.medianFor(RttTargetGroup.FOREIGN)
-        val complete = ruMedian != null && foreignMedian != null
+        val complete =
+            RttTargetGroup.entries.all { group ->
+                probes.count { it.group == group && it.hasMeasurement() } >= MIN_TARGETS_PER_GROUP
+            }
         val needsReview = complete && ruMedian?.let { it > RU_MEDIAN_THRESHOLD_MS } == true
         val confidence =
             if (needsReview) {
@@ -66,7 +70,7 @@ object RttTriangulationChecker {
                 null
             }
 
-        val findings = buildFindings(probes, ruMedian, foreignMedian, confidence)
+        val findings = buildFindings(probes, ruMedian, foreignMedian, confidence, complete)
         val reviewDescription =
             ruMedian?.let { value ->
                 "Russian target median RTT ${format(value)}ms exceeds ${format(RU_MEDIAN_THRESHOLD_MS)}ms"
@@ -122,6 +126,8 @@ object RttTriangulationChecker {
             jitterMs = probe.jitterMs,
             replied = probe.replied,
             failure = probe.failure,
+            transmitted = probe.transmitted,
+            received = probe.received,
         )
     }
 
@@ -129,13 +135,21 @@ object RttTriangulationChecker {
         probes: List<RttTargetProbeResult>,
         foreignMedian: Double?,
     ): EvidenceConfidence {
+        val available = probes.filter { it.hasMeasurement() }
         val highJitterTargets =
-            probes.count {
+            available.count {
                 it.jitterMs?.let { jitter -> jitter > JITTER_THRESHOLD_MS } == true
             }
-        val majorityHighJitter = highJitterTargets > probes.size / 2
+        val majorityHighJitter = highJitterTargets > available.size / 2
+        val incompleteQuality =
+            available.size != probes.size ||
+                available.any {
+                    it.jitterMs == null || !it.jitterMs.isFinite() || it.jitterMs < 0.0 ||
+                        it.transmitted == null || it.received == null || it.received < 2 ||
+                        it.received != it.transmitted
+                }
         val foreignAlsoHigh = foreignMedian?.let { it > FOREIGN_CONGESTION_THRESHOLD_MS } == true
-        return if (majorityHighJitter || foreignAlsoHigh) {
+        return if (incompleteQuality || majorityHighJitter || foreignAlsoHigh) {
             EvidenceConfidence.LOW
         } else {
             EvidenceConfidence.MEDIUM
@@ -147,6 +161,7 @@ object RttTriangulationChecker {
         ruMedian: Double?,
         foreignMedian: Double?,
         confidence: EvidenceConfidence?,
+        complete: Boolean,
     ): List<Finding> {
         val findings =
             probes
@@ -154,8 +169,9 @@ object RttTriangulationChecker {
                     val address = probe.resolvedIpv4 ?: "unresolved"
                     val rtt = probe.rttMs?.let { " RTT ${format(it)}ms" } ?: " no RTT"
                     val jitter = probe.jitterMs?.let { " jitter ${format(it)}ms" }.orEmpty()
+                    val samples = " replies ${probe.received ?: "?"}/${probe.transmitted ?: "?"}"
                     val status = if (probe.replied) "replied" else "failed (${probe.failure ?: "unknown"})"
-                    Finding("${probe.group.label()} ${probe.host} $status via $address$rtt$jitter")
+                    Finding("${probe.group.label()} ${probe.host} $status via $address$rtt$jitter$samples")
                 }.toMutableList()
 
         findings.add(Finding("Russian median RTT: ${ruMedian?.let(::format) ?: "N/A"}ms"))
@@ -171,7 +187,7 @@ object RttTriangulationChecker {
                     confidence = confidence,
                 ),
             )
-        } else if (ruMedian == null || foreignMedian == null) {
+        } else if (!complete) {
             findings.add(Finding("RTT triangulation: insufficient measurements"))
         } else {
             findings.add(Finding("RTT triangulation: no suspicious Russian target latency"))
@@ -181,11 +197,14 @@ object RttTriangulationChecker {
     }
 
     private fun List<RttTargetProbeResult>.medianFor(group: RttTargetGroup): Double? =
-        filter { it.group == group }
+        filter { it.group == group && it.hasMeasurement() }
             .mapNotNull { it.rttMs }
             .sorted()
             .takeIf { it.isNotEmpty() }
             ?.median()
+
+    private fun RttTargetProbeResult.hasMeasurement(): Boolean =
+        replied && rttMs != null && rttMs.isFinite() && rttMs >= 0.0
 
     private fun List<Double>.median(): Double {
         val middle = size / 2

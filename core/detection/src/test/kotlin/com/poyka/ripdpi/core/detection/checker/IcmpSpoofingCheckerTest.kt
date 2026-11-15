@@ -146,6 +146,15 @@ class IcmpSpoofingCheckerTest {
             assertEquals(emptyList<String>(), prober.probedHosts)
         }
 
+    @Test
+    fun `packet statistics preserve loss and reject impossible received counts`() {
+        assertEquals(4 to 1, pingParser.packetCounts("4 packets transmitted, 1 received, 75% packet loss"))
+        assertEquals(4 to 4, pingParser.packetCounts("4 packets transmitted, 4 packets received, 0% packet loss"))
+        assertEquals(null, pingParser.packetCounts("4 packets transmitted, 9 received"))
+        assertEquals(null, pingParser.packetCounts("malformed statistics"))
+        assertEquals(null, pingParser.parseRttMs("rtt min/avg/max = 1/" + "9".repeat(400) + "/2 ms"))
+    }
+
     private class FakePingProber(
         vararg results: Pair<String, PingProbeResult>,
     ) : PingProber {

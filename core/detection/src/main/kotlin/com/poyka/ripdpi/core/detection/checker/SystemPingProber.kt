@@ -25,6 +25,8 @@ data class PingProbeResult(
     val rawOutput: String? = null,
     val failure: PingProbeFailure? = null,
     val exitCode: Int? = null,
+    val transmitted: Int? = null,
+    val received: Int? = null,
 ) {
     companion object {
         fun replied(
@@ -33,6 +35,8 @@ data class PingProbeResult(
             rttMs: Double,
             jitterMs: Double? = null,
             rawOutput: String? = null,
+            transmitted: Int? = null,
+            received: Int? = null,
         ): PingProbeResult =
             PingProbeResult(
                 host = host,
@@ -41,6 +45,8 @@ data class PingProbeResult(
                 rttMs = rttMs,
                 jitterMs = jitterMs,
                 rawOutput = rawOutput,
+                transmitted = transmitted,
+                received = received,
             )
 
         fun unreachable(
@@ -49,12 +55,16 @@ data class PingProbeResult(
             rawOutput: String? = null,
             failure: PingProbeFailure = PingProbeFailure.NO_REPLY,
             exitCode: Int? = null,
+            transmitted: Int? = null,
+            received: Int? = null,
         ): PingProbeResult =
             PingProbeResult(
                 host = host,
                 resolvedIpv4 = resolvedIpv4,
                 failure = failure,
                 exitCode = exitCode,
+                transmitted = transmitted,
+                received = received,
                 replied = false,
                 rttMs = null,
                 rawOutput = rawOutput,
@@ -134,7 +144,15 @@ class SystemPingProber internal constructor(
                     ?: return PingProbeResult.unreachable(host, address, failure = PingProbeFailure.OUTPUT_LIMIT)
             val rtt = parseRttMs(output)
             if (process.exitValue() == 0 && rtt != null) {
-                PingProbeResult.replied(host, address, rtt, jitterMs = parseJitterMs(output), rawOutput = output)
+                PingProbeResult.replied(
+                    host,
+                    address,
+                    rtt,
+                    jitterMs = parseJitterMs(output),
+                    rawOutput = output,
+                    transmitted = packetCounts(output)?.first,
+                    received = packetCounts(output)?.second,
+                )
             } else {
                 PingProbeResult.unreachable(
                     host,
@@ -147,6 +165,8 @@ class SystemPingProber internal constructor(
                             else -> PingProbeFailure.OS_ERROR
                         },
                     exitCode = process.exitValue(),
+                    transmitted = packetCounts(output)?.first,
+                    received = packetCounts(output)?.second,
                 )
             }
         } catch (_: IOException) {
@@ -221,6 +241,7 @@ class SystemPingProber internal constructor(
             ?.groupValues
             ?.get(1)
             ?.toDoubleOrNull()
+            ?.takeIf { it.isFinite() && it >= 0.0 }
             ?: replyRttsMs(output).takeIf { it.isNotEmpty() }?.average()
 
     // iputils prints mdev; toybox does not, so derive it (population deviation, as mdev) from the replies.
@@ -230,17 +251,32 @@ class SystemPingProber internal constructor(
             ?.groupValues
             ?.getOrNull(2)
             ?.toDoubleOrNull()
+            ?.takeIf { it.isFinite() && it >= 0.0 }
             ?: replyRttsMs(output).takeIf { it.size >= 2 }?.let { rtts ->
                 val mean = rtts.average()
                 sqrt(rtts.sumOf { (it - mean) * (it - mean) } / rtts.size)
             }
 
     private fun replyRttsMs(output: String): List<Double> =
-        singleReplyRttRegex.findAll(output).mapNotNull { it.groupValues[1].toDoubleOrNull() }.toList()
+        singleReplyRttRegex
+            .findAll(output)
+            .mapNotNull {
+                it.groupValues[1].toDoubleOrNull()?.takeIf { value ->
+                    value.isFinite() &&
+                        value >= 0.0
+                }
+            }.toList()
 
     private enum class PingCommandProfile {
         IPUTILS,
         TOYBOX,
+    }
+
+    internal fun packetCounts(output: String): Pair<Int, Int>? {
+        val match = Regex("""(\d+) packets transmitted,\s*(\d+)(?: packets)? received""").find(output) ?: return null
+        val sent = match.groupValues[1].toIntOrNull() ?: return null
+        val received = match.groupValues[2].toIntOrNull() ?: return null
+        return (sent to received).takeIf { sent > 0 && received in 0..sent }
     }
 
     private companion object {

@@ -103,6 +103,22 @@ class SystemPingProberTest {
             }
         }
 
+    @Test(timeout = TestTimeoutMillis)
+    fun `no replies preserve the measured packet loss`() =
+        runBlocking {
+            withFixture("printf '%s\\n' '4 packets transmitted, 0 received, 100% packet loss'; exit 1") { script ->
+                val prober =
+                    SystemPingProber(dispatchers, 4, 1) { command ->
+                        ProcessBuilder(listOf(script.absolutePath) + command.drop(1)).redirectErrorStream(true).start()
+                    }
+                val result = prober.ping("127.0.0.1")
+                assertEquals(PingProbeFailure.NO_REPLY, result.failure)
+                assertEquals(4, result.transmitted)
+                assertEquals(0, result.received)
+                assertEquals(null, result.rttMs)
+            }
+        }
+
     private suspend fun withFixture(
         command: String,
         block: suspend (File) -> Unit,

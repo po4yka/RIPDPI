@@ -345,6 +345,8 @@ data class RttTargetProbeResult(
     val rttMs: Double?,
     val jitterMs: Double?,
     val replied: Boolean,
+    val transmitted: Int? = null,
+    val received: Int? = null,
     val failure: PingProbeFailure? = null,
 )
 

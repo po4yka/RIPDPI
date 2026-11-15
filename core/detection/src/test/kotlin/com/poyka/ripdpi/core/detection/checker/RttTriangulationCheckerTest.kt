@@ -181,6 +181,74 @@ class RttTriangulationCheckerTest {
             assertEquals(5, result.targetResults.count { it.group == RttTargetGroup.RU && it.rttMs != null })
         }
 
+    @Test
+    fun `one surviving high jitter target has no supported cohort conclusion`() =
+        runTest {
+            val result =
+                RttTriangulationChecker.check(
+                    FakePingProber(mapOf("yandex.ru" to ping("yandex.ru", 120.0, 70.0))),
+                    true,
+                    "RU",
+                )
+            assertEquals(RttTriangulationState.INCONCLUSIVE, result.state)
+            assertTrue(result.category.evidence.isEmpty())
+            assertFalse(result.category.needsReview)
+        }
+
+    @Test
+    fun `two targets per cohort are insufficient and three can support only low review`() =
+        runTest {
+            for (count in listOf(2, 3)) {
+                val replies =
+                    RttTriangulationChecker.RU_TARGETS.take(count).associateWith { ping(it, 120.0) } +
+                        RttTriangulationChecker.FOREIGN_TARGETS.take(count).associateWith { ping(it, 150.0) }
+                val result = RttTriangulationChecker.check(FakePingProber(replies), true, "RU")
+                if (count == 2) {
+                    assertEquals(RttTriangulationState.INCONCLUSIVE, result.state)
+                    assertTrue(result.category.evidence.isEmpty())
+                } else {
+                    assertEquals(RttTriangulationState.NEEDS_REVIEW, result.state)
+                    assertEquals(
+                        EvidenceConfidence.LOW,
+                        result.category.evidence
+                            .single()
+                            .confidence,
+                    )
+                }
+            }
+        }
+
+    @Test
+    fun `packet loss and unknown jitter reduce confidence of a complete target set`() =
+        runTest {
+            for (degraded in listOf(ping("yandex.ru", 120.0).copy(received = 1), ping("yandex.ru", 120.0, null))) {
+                val replies =
+                    RttTriangulationChecker.RU_TARGETS.associateWith { ping(it, 120.0) } +
+                        RttTriangulationChecker.FOREIGN_TARGETS.associateWith { ping(it, 150.0) } +
+                        mapOf("yandex.ru" to degraded)
+                val result = RttTriangulationChecker.check(FakePingProber(replies), true, "RU")
+                assertEquals(
+                    EvidenceConfidence.LOW,
+                    result.category.evidence
+                        .single()
+                        .confidence,
+                )
+            }
+        }
+
+    @Test
+    fun `invalid and unreplied RTT values do not fill the cohort`() =
+        runTest {
+            val replies =
+                RttTriangulationChecker.RU_TARGETS.associateWith { ping(it, Double.NaN) } +
+                    RttTriangulationChecker.FOREIGN_TARGETS.associateWith { ping(it, 150.0).copy(replied = false) }
+            val result = RttTriangulationChecker.check(FakePingProber(replies), true, "RU")
+            assertEquals(RttTriangulationState.INCONCLUSIVE, result.state)
+            assertEquals(null, result.ruMedianRttMs)
+            assertEquals(null, result.foreignMedianRttMs)
+            assertTrue(result.category.evidence.isEmpty())
+        }
+
     private class FakePingProber(
         private val replies: Map<String, PingProbeResult> = emptyMap(),
     ) : PingProber {
@@ -195,12 +263,14 @@ class RttTriangulationCheckerTest {
     private fun ping(
         host: String,
         rttMs: Double,
-        jitterMs: Double? = null,
+        jitterMs: Double? = 5.0,
     ): PingProbeResult =
         PingProbeResult.replied(
             host = host,
             resolvedIpv4 = "203.0.113.${host.length}",
             rttMs = rttMs,
             jitterMs = jitterMs,
+            transmitted = 4,
+            received = 4,
         )
 }
