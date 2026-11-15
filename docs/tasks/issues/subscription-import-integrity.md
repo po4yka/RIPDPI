@@ -31,7 +31,7 @@ Preserve the meaning of supported subscription inputs. Reject input that cannot 
 ## Ownership
 
 - Parser writer: SingBoxRouteRulesParser.kt (F1), ClashSubscriptionParser.kt (F2), SingBoxSubscriptionParser.kt (F3/F5), and separate owning regression tests. These files have one writer.
-- Xray writer: XrayConfigImportParser.kt, its helpers and owning tests (F4/F7). Manual input budget investigation stays in this lane.
+- Xray writer: XrayConfigImportParser.kt, its helpers and owning tests (F4/F7). Manual input budgets, background validation, and stale-result tests stay in this lane. The Xray writer alone owns any required locale key and translation export for this size error.
 - Selector writer: BootstrapConsumer.kt, SelectorUrltestGroupImport.kt, SelectorTopology.kt, ProxyGroupStores.kt, subscription persistence/selection callers, and owning tests (F6/F8/F9/F10). All saved selector fields have this single writer.
 - Integrator: SubscriptionPayloadLimits.kt and its decoding tests (F11), task/OpenSpec artifacts, combined gates, review, integration, and push.
 - Shared-file lanes: no dependency, locale, golden, protobuf, or Rust registry change is planned. Any required shared-file change is serialized through the integrator. Each writer uses a separate worktree. No writer edits another lane.

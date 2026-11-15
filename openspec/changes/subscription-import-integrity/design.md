@@ -14,8 +14,10 @@ The audit follows each parser through refresh, bootstrap, storage, and explicit 
 - Keep single-use delivery outcome separate from whether its payload can be activated. A rejected body must not cause an unsafe replay policy.
 - Save resolved selector candidates and imported default through one identifier mapping. Imported default is an initial preference only; an explicit selection wins. Import never starts VPN.
 - Follow the current Xray pin for flat credentials, and reject unsupported stream security.
+- Apply the existing 2 MiB and 2048-node import budgets to manual Xray validation. Run parsing outside Main and bind results to the current input/provider generation. Reuse existing dispatcher conventions and expose a localized size failure without truncating credentials.
 - Decode payloads with a reporting charset decoder. Do not replace malformed bytes in credentials.
-- Normalize documented URL-test defaults and validate bounded durations, tolerance, and allowed HTTP URLs. No external probe is needed for tests.
+- Replace a subscription-owned failover policy when a refreshed sing-box selector explicitly declares manual selection. Preserve policy for plain/Base64 inputs that make no declaration.
+- Use documented URL-test cadence and tolerance defaults. Require an explicit valid probe URL, and reject omitted URLs instead of introducing an implicit external probe host. Validate bounded durations and allowed HTTP URLs. No external probe is needed for tests.
 
 ## Contracts and ownership
 

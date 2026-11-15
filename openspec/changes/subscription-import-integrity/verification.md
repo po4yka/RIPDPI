@@ -31,3 +31,5 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-IMP03-F9 | DAT-1794721004924780 | Targeted owning-module regression tests and combined gates pending. | pending |
 | REQ-IMP03-F10 | DAT-1794721005420338 | Targeted owning-module regression tests and combined gates pending. | pending |
 | REQ-IMP03-F11 | DAT-1794721005921256 | Targeted owning-module regression tests and combined gates pending. | pending |
+| REQ-IMP03-H3 | DAT-1794721832362283 | Room and refresh policy replacement regressions pending. | pending |
+| REQ-IMP03-H2 | DAT-1794722137487267 | Real-parser host probe observed unbounded input; budget and stale-result regressions pending. | pending |

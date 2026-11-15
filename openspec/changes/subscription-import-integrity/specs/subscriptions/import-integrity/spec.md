@@ -102,3 +102,31 @@ Subscription payload decoding MUST fail if bytes cannot be decoded without repla
 
 - **WHEN** a password contains malformed UTF-8 bytes
 - **THEN** the payload is rejected and the previous credential is unchanged
+
+### Requirement: REQ-IMP03-H3 — Replace a declared selector probe policy
+
+A refreshed sing-box selector MUST replace the subscription-owned probe policy, including a change to manual selection. A plain or Base64 node list that has no selector policy MUST preserve the existing policy.
+
+#### Scenario: Automatic selector becomes manual
+
+- **WHEN** a saved URL-test selector receives a valid sing-box manual-only selector
+- **THEN** the saved automatic policy is removed without changing an explicit user choice
+
+#### Scenario: A plain node list has no declared probe policy
+
+- **WHEN** a saved selector receives a valid plain or Base64 node list
+- **THEN** its existing probe policy is retained
+
+### Requirement: REQ-IMP03-H2 — Bound manual Xray validation
+
+Manual Xray validation MUST apply the existing subscription byte and node budgets before it can produce an importable result. Parsing MUST run outside the Android Main dispatcher. A result for an earlier input or provider mode MUST NOT enable confirmation for the current input.
+
+#### Scenario: Oversized manual input
+
+- **WHEN** a pasted Xray payload exceeds the existing byte or node budget
+- **THEN** validation fails with a non-secret size error and no stored profile changes
+
+#### Scenario: Input changes during validation
+
+- **WHEN** input or provider selection changes before validation completes
+- **THEN** the earlier result is ignored and the current input can be validated again
