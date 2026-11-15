@@ -633,6 +633,23 @@ mod tests {
     }
 
     #[test]
+    fn rewrite_preserves_snaplen_and_truncated_record_lengths() {
+        for (snaplen, captured, original) in [(40_u32, 40_u32, 55_u32), (70_000, 65_536, 65_600)] {
+            let mut source = Vec::from(RAW_PCAP_HEADER);
+            source[16..20].copy_from_slice(&snaplen.to_le_bytes());
+            source.extend_from_slice(&[42, 0, 0, 0, 63, 66, 15, 0]);
+            source.extend_from_slice(&captured.to_le_bytes());
+            source.extend_from_slice(&original.to_le_bytes());
+            source.resize(40 + captured as usize, 0);
+
+            let mut destination = Vec::new();
+            let written = rewrite_endpoints(Cursor::new(&source), &mut destination).unwrap();
+            assert_eq!(written, 40 + u64::from(captured));
+            assert_eq!(&destination[..40], &source[..40]);
+        }
+    }
+
+    #[test]
     fn rewrite_endpoints_stream_roundtrips_three_packets() {
         let p1 = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], b"alpha");
         let p2 = make_ipv4_tcp([10, 0, 0, 3], [10, 0, 0, 4], b"beta");

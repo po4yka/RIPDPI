@@ -53,6 +53,10 @@ impl<R: Read> PcapReader<R> {
         Ok(Self { inner, snaplen })
     }
 
+    pub(crate) fn snaplen(&self) -> u32 {
+        self.snaplen
+    }
+
     /// Next record, or `None` at clean EOF or partial-tail.
     pub fn next_record(&mut self) -> io::Result<Option<PcapRecord>> {
         let mut header = [0u8; PCAP_PACKET_HEADER_LEN];

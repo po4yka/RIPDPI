@@ -50,15 +50,21 @@ impl<W: Write> PcapWriter<W> {
     /// `orig_len` field records the original length. Records that would
     /// store more than 262144 bytes are rejected.
     pub fn write_packet(&mut self, ts_micros: u64, bytes: &[u8]) -> io::Result<()> {
+        let orig_len = u32::try_from(bytes.len())
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "pcap original length exceeds u32"))?;
+        let incl_len = orig_len.min(self.snaplen);
+        self.write_captured_record(ts_micros, orig_len, &bytes[..incl_len as usize])
+    }
+
+    pub(crate) fn write_captured_record(&mut self, ts_micros: u64, orig_len: u32, bytes: &[u8]) -> io::Result<()> {
         let micros_per_second = u64::from(MICROS_PER_SECOND);
         let ts_sec = u32::try_from(ts_micros / micros_per_second)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "pcap timestamp exceeds u32 seconds"))?;
         let ts_usec = (ts_micros % micros_per_second) as u32;
-        let orig_len = u32::try_from(bytes.len())
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "pcap original length exceeds u32"))?;
-        let incl_len = orig_len.min(self.snaplen);
-        if incl_len > MAX_CAPTURED_BYTES {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "pcap captured length exceeds allocation limit"));
+        let incl_len = u32::try_from(bytes.len())
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "pcap captured length exceeds u32"))?;
+        if incl_len > orig_len.min(self.snaplen).min(MAX_CAPTURED_BYTES) {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid pcap captured length"));
         }
         let mut header = [0u8; PCAP_PACKET_HEADER_LEN];
         header[0..4].copy_from_slice(&ts_sec.to_le_bytes());
@@ -66,7 +72,7 @@ impl<W: Write> PcapWriter<W> {
         header[8..12].copy_from_slice(&incl_len.to_le_bytes());
         header[12..16].copy_from_slice(&orig_len.to_le_bytes());
         self.inner.write_all(&header)?;
-        self.inner.write_all(&bytes[..incl_len as usize])?;
+        self.inner.write_all(bytes)?;
         self.bytes_written = self.bytes_written.saturating_add(PCAP_PACKET_HEADER_LEN as u64 + u64::from(incl_len));
         Ok(())
     }
