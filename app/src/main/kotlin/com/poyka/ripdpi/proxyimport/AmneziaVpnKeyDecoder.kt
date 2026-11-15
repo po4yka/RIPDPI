@@ -34,11 +34,13 @@ internal object AmneziaVpnKeyDecoder {
             .takeIf { it.startsWith(Scheme, ignoreCase = true) }
             ?.let { key -> key.substring(Scheme.length).filterNot { it.isWhitespace() } }
             ?.let { runCatching { Base64.getUrlDecoder().decode(it) }.getOrNull() }
-            ?.let(::confFromCompressed)
+            // AmneziaVPN also accepts an uncompressed JSON key in the explicit vpn:// form.
+            ?.let { confFromJson(qUncompress(it) ?: it) }
 
-    fun confFromCompressed(compressed: ByteArray): String? {
-        // AmneziaVPN's importer also accepts an uncompressed JSON key.
-        val json = (qUncompress(compressed) ?: compressed).toString(Charsets.UTF_8)
+    fun confFromCompressed(compressed: ByteArray): String? = qUncompress(compressed)?.let(::confFromJson)
+
+    private fun confFromJson(bytes: ByteArray): String? {
+        val json = bytes.toString(Charsets.UTF_8)
         val root = runCatching { Json.parseToJsonElement(json) as? JsonObject }.getOrNull() ?: return null
         return nativeConfOf(root)
             ?.replace("\$PRIMARY_DNS", root.string("dns1").orEmpty())

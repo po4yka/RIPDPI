@@ -9,6 +9,13 @@ class AmneziaVpnKeyDecoderTest {
     private val conf = "[Interface]\nPrivateKey = k==\nDNS = \$PRIMARY_DNS, \$SECONDARY_DNS\n\n[Peer]\nPublicKey = p=="
 
     @Test
+    fun `multipart payload must have a verified compressed envelope`() {
+        val raw = AmneziaVpnKeyFixtures.keyJson("[Interface]\nPrivateKey = k==").toByteArray()
+
+        assertNull(AmneziaVpnKeyDecoder.confFromCompressed(raw))
+    }
+
+    @Test
     fun `dns placeholders are filled from the key`() {
         val key = AmneziaVpnKeyFixtures.vpnKey(conf, dns1 = "1.1.1.1", dns2 = "9.9.9.9")
 
