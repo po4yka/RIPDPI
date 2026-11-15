@@ -229,8 +229,23 @@ impl ClockState {
 /// A calibratable, monotonic-from-anchor network-time source. Cheap to share
 /// behind an [`std::sync::Arc`]; all methods are `&self`.
 pub struct NetworkTimeProvider {
-    clock: Box<dyn Clock>,
+    clock: Arc<dyn Clock>,
     state: Mutex<ClockState>,
+}
+
+/// A monotonic time source fixed to the provider's estimate at capture.
+/// Later provider calibrations and wall-clock changes do not affect this timeline.
+pub struct NetworkTimeSnapshot {
+    clock: Arc<dyn Clock>,
+    anchor: Anchor,
+}
+
+impl NetworkTimeSnapshot {
+    /// Current snapshot time as non-negative Unix seconds.
+    #[must_use]
+    pub fn now_unix_u64(&self) -> u64 {
+        u64::try_from(self.anchor.estimate(self.clock.monotonic_nanos())).unwrap_or(0)
+    }
 }
 
 impl std::fmt::Debug for NetworkTimeProvider {
@@ -244,7 +259,7 @@ impl NetworkTimeProvider {
     /// Build a provider over a custom [`Clock`] (used by tests).
     #[must_use]
     pub fn with_clock(clock: Box<dyn Clock>) -> Self {
-        Self { clock, state: Mutex::new(ClockState::default()) }
+        Self { clock: Arc::from(clock), state: Mutex::new(ClockState::default()) }
     }
 
     /// Build a provider over the production [`SystemClock`].
@@ -279,6 +294,17 @@ impl NetworkTimeProvider {
             Some(anchor) => anchor.estimate(self.clock.monotonic_nanos()),
             None => self.clock.wall_unix_secs(),
         }
+    }
+
+    /// Pin one timeline for a session that uses elapsed time and timestamp freshness together.
+    #[must_use]
+    pub fn snapshot(&self) -> NetworkTimeSnapshot {
+        let guard = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        let anchor = guard.anchor.unwrap_or_else(|| Anchor {
+            net_unix: self.clock.wall_unix_secs(),
+            mono_nanos: self.clock.monotonic_nanos(),
+        });
+        NetworkTimeSnapshot { clock: Arc::clone(&self.clock), anchor }
     }
 
     /// Network time as Unix seconds, clamped to a non-negative `u64` (the shape
@@ -559,6 +585,23 @@ mod tests {
         clock.advance_secs(601);
         assert!(!provider.calibrate(T0 + 1_007_801, source("e")));
         assert_eq!(provider.now_unix(), T0 + 1_000_601);
+    }
+
+    #[test]
+    fn live_snapshot_keeps_its_timeline_after_backward_calibration() {
+        let wall = T0 + 1_000;
+        let clock = std::sync::Arc::new(TestClock::new(wall));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
+        let snapshot = provider.snapshot();
+
+        clock.advance_secs(15);
+        clock.set_wall(wall - 20);
+        assert!(provider.calibrate(wall - 20, source("relay")));
+        assert_eq!(provider.now_unix(), wall - 20);
+        assert_eq!(snapshot.now_unix_u64(), u64::try_from(wall + 15).unwrap());
+
+        clock.advance_secs(1);
+        assert_eq!(snapshot.now_unix_u64(), u64::try_from(wall + 16).unwrap());
     }
 
     #[test]
