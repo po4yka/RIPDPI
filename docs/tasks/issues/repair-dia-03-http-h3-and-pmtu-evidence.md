@@ -2,7 +2,7 @@
 id: DGN-1794732416004558
 title: Repair DIA-03 HTTP, H3, and PMTU evidence
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: DIA-03 repair team
@@ -29,7 +29,7 @@ Repair the four DIA-03 findings and verify the H3 buffer and pseudo-header risks
 
 ## Parallel ownership
 
-- H3 worker: native/rust/vendor/h3 and diagnostics-http/src/http3*; F1 plus H1/H2 investigation and proven repairs. One writer for these paths.
+- Root H3 lane: native/rust/vendor/h3 and diagnostics-http/src/http3* for F1/H2 and the later H1 delta. The resource worker handed back its unchanged baseline before source or test writes; root owns frame.rs, proto/frame.rs, error/internal_error.rs, the patch manifest, HTTP3 resource fixtures, and the PMTU test-server helper/resource module. F1 is committed before the H1 delta. The F4 production function and deadline-test body remain frozen.
 - HTTP coding worker: diagnostics-http/src/http/probe_execution.rs, response_parser.rs and a dedicated coding test module; F2. No classifier or shared tests.rs edits.
 - Fingerprint worker: ripdpi-failure-classifier matcher/catalog/tests and diagnostics-http/src/http/classifier.rs plus dedicated regression tests; F3. No probe_execution or parser edits.
 - Root: PMTU files/tests for F4, all task/OpenSpec files, board, integration, review, and combined validation.
