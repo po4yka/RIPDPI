@@ -12,6 +12,28 @@ import org.junit.Test
  */
 class ProxyUriCodecExportTest {
     @Test
+    fun `shadowsocks 2022 exports SIP002 plain escaped userinfo`() {
+        val key = "/////////////////////w=="
+        val profile =
+            ProxyProfile.Shadowsocks(
+                id = "p1",
+                displayName = "Edge",
+                groupId = "",
+                server = "example.com",
+                serverPort = 8388,
+                method = "2022-blake3-aes-128-gcm",
+                password = key,
+            )
+
+        val uri = ProxyUriCodec.encode(profile)
+        val expectedUserInfo = "2022-blake3-aes-128-gcm:" + "%2F".repeat(21) + "w%3D%3D"
+
+        assertEquals(expectedUserInfo, java.net.URI(uri).rawUserInfo)
+        val restored = ProxyUriCodec.parse(uri.replaceFirst("ss://", "SS://")) as ProxyProfile.Shadowsocks
+        assertEquals(key, restored.password)
+    }
+
+    @Test
     fun `vless profile encodes to a canonical vless uri`() {
         val profile =
             ProxyProfile.Vless(

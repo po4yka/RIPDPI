@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelaySecurityLayerReality
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.isShadowsocks2022Method
 import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
@@ -244,12 +245,15 @@ object ProxyUriCodec {
     }
 
     private fun encodeShadowsocks(profile: ProxyProfile.Shadowsocks): String {
-        val userInfo = "${profile.method}:${profile.password}"
         val encoded =
-            Base64
-                .getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(userInfo.toByteArray(Charsets.UTF_8))
+            if (isShadowsocks2022Method(profile.method)) {
+                "${encodeQueryValue(profile.method)}:${encodeQueryValue(profile.password)}"
+            } else {
+                Base64
+                    .getUrlEncoder()
+                    .withoutPadding()
+                    .encodeToString("${profile.method}:${profile.password}".toByteArray(Charsets.UTF_8))
+            }
         return "ss://$encoded@${bracketIpv6(
             profile.server,
         )}:${profile.serverPort}#${encodeFragment(profile.displayName)}"
@@ -410,7 +414,7 @@ object ProxyUriCodec {
     private fun parseShadowsocks(uri: String): ProxyProfile? {
         // SIP002: ss://base64(method:password)@host:port#tag
         //   or    ss://method:password@host:port#tag (plain userinfo)
-        val body = uri.removePrefix("ss://")
+        val body = uri.substringAfter("://")
         val fragmentIndex = body.indexOf('#')
         val fragment = if (fragmentIndex >= 0) URI(body.substring(fragmentIndex)).fragment else null
         val core = if (fragmentIndex >= 0) body.substring(0, fragmentIndex) else body
