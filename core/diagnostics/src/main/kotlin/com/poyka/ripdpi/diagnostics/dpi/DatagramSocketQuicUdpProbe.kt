@@ -13,6 +13,7 @@ import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.SocketTimeoutException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -73,56 +74,86 @@ class DatagramSocketQuicUdpProbe internal constructor(
         deadline: TimeMark,
         validate: (ByteArray) -> QuicProbeOutcome,
     ): QuicProbeSample {
-        socket.connect(address, port)
+        socket.connect(InetSocketAddress(address, port))
         val startedAt = System.nanoTime()
         if (deadline.hasPassedNow()) {
             return QuicProbeSample(QuicProbeOutcome.BUDGET_EXHAUSTED)
         }
         socket.send(DatagramPacket(packet, packet.size, address, port))
+        return receiveReply(socket, deadline, startedAt, validate)
+    }
+
+    private fun receiveReply(
+        socket: DatagramSocket,
+        deadline: TimeMark,
+        startedAt: Long,
+        validate: (ByteArray) -> QuicProbeOutcome,
+    ): QuicProbeSample {
         val buffer = ByteArray(MaxDatagramBytes)
         val response = DatagramPacket(buffer, buffer.size)
         var invalidDatagrams = 0
         var receivedBytes = 0
-        while (invalidDatagrams < MaxReceivedDatagrams && receivedBytes < MaxReceivedBytes) {
-            val remainingNanos = (-deadline.elapsedNow()).inWholeNanoseconds
-            if (remainingNanos <= 0) break
-            socket.soTimeout = ((remainingNanos + NanosPerMillis - 1) / NanosPerMillis).toInt()
-            response.length = buffer.size
-            try {
-                socket.receive(response)
-            } catch (_: SocketTimeoutException) {
-                break
-            } catch (_: IOException) {
-                return QuicProbeSample(QuicProbeOutcome.TRANSPORT_ERROR, invalidDatagrams = invalidDatagrams)
-            }
-            val receivedAt = System.nanoTime()
-            if (deadline.hasPassedNow()) break
+        var sample: QuicProbeSample? = null
+        while (sample == null && invalidDatagrams < MaxReceivedDatagrams && receivedBytes < MaxReceivedBytes) {
+            val receivedAt =
+                try {
+                    receiveBeforeDeadline(socket, response, deadline)
+                } catch (_: IOException) {
+                    sample = QuicProbeSample(QuicProbeOutcome.TRANSPORT_ERROR, invalidDatagrams = invalidDatagrams)
+                    null
+                }
+            if (receivedAt == null) break
             receivedBytes += response.length
             if (receivedBytes <= MaxReceivedBytes) {
                 val outcome = validate(buffer.copyOf(response.length))
-                if (outcome != QuicProbeOutcome.UNCORRELATED_RESPONSE) {
-                    val latency =
-                        if (outcome ==
-                            QuicProbeOutcome.VALIDATION_ERROR
-                        ) {
-                            null
-                        } else {
-                            (receivedAt - startedAt) / NanosPerMillis
-                        }
-                    return QuicProbeSample(outcome, latency, invalidDatagrams)
+                if (outcome == QuicProbeOutcome.UNCORRELATED_RESPONSE) {
+                    invalidDatagrams++
+                } else {
+                    val latency = (receivedAt - startedAt) / NanosPerMillis
+                    sample =
+                        QuicProbeSample(
+                            outcome,
+                            latency.takeUnless { outcome == QuicProbeOutcome.VALIDATION_ERROR },
+                            invalidDatagrams,
+                        )
                 }
             }
-            invalidDatagrams++
         }
         val outcome =
-            if (invalidDatagrams ==
-                0
-            ) {
-                QuicProbeOutcome.NO_RESPONSE
-            } else {
-                QuicProbeOutcome.UNCORRELATED_RESPONSE
+            when {
+                invalidDatagrams == MaxReceivedDatagrams || receivedBytes >= MaxReceivedBytes -> {
+                    QuicProbeOutcome.RECEIVE_LIMIT_REACHED
+                }
+
+                invalidDatagrams > 0 -> {
+                    QuicProbeOutcome.UNCORRELATED_RESPONSE
+                }
+
+                else -> {
+                    QuicProbeOutcome.NO_RESPONSE
+                }
             }
-        return QuicProbeSample(outcome, invalidDatagrams = invalidDatagrams)
+        return sample ?: QuicProbeSample(outcome, invalidDatagrams = invalidDatagrams)
+    }
+
+    private fun receiveBeforeDeadline(
+        socket: DatagramSocket,
+        response: DatagramPacket,
+        deadline: TimeMark,
+    ): Long? {
+        val remainingNanos = (-deadline.elapsedNow()).inWholeNanoseconds
+        return if (remainingNanos <= 0) {
+            null
+        } else {
+            socket.soTimeout = ((remainingNanos + NanosPerMillis - 1) / NanosPerMillis).toInt()
+            response.length = response.data.size
+            try {
+                socket.receive(response)
+                System.nanoTime().takeUnless { deadline.hasPassedNow() }
+            } catch (_: SocketTimeoutException) {
+                null
+            }
+        }
     }
 
     private companion object {

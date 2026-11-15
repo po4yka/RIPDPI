@@ -1539,6 +1539,12 @@
     <string name="diagnostics_dpi_suite_tcp16_format">الأهداف ذات نمط إغلاق ⁨TCP16⁩: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">مجموعات ASN المفحوصة: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">الأهداف ذات ردود Initial/VN المكتملة: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_unmatched">رد UDP غير مطابق</string>
+    <string name="diagnostics_dpi_suite_quic_receive_limit">بلوغ حد الاستقبال</string>
+    <string name="diagnostics_dpi_suite_quic_validation_error">تعذر التحقق من الرد</string>
+    <string name="diagnostics_dpi_suite_quic_inconclusive">غير حاسم</string>
+    <string name="diagnostics_dpi_suite_quic_not_measured">لم يُقَس: %1$d</string>
+    <string name="diagnostics_dpi_suite_no_valid_targets">لا توجد أهداف صالحة</string>
     <string name="diagnostics_dpi_suite_ech_format">الأهداف التي قبلت ⁨ECH⁩: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">ربط HTTPS غير متاح لهذا الفحص</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">لا يوجد إعداد ECH قابل للاستخدام</string>

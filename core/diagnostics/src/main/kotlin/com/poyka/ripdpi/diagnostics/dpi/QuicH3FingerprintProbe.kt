@@ -30,25 +30,34 @@ enum class QuicFingerprint {
 
 enum class QuicProbeVerdict {
     QUIC_OK,
-    QUIC_DROPPED,
-    QUIC_VN_REJECTED,
     QUIC_DEGRADED,
-    QUIC_TIMEOUT,
+    QUIC_INCONCLUSIVE,
 }
 
 data class QuicProbeResult(
     val target: String,
-    val verdict: QuicProbeVerdict,
-    val chromeOk: Boolean,
-    val firefoxOk: Boolean,
-    val genericOk: Boolean,
-    val vnOk: Boolean,
-    val udpReachable: Boolean,
-    val serverInitialLatencyMs: Long?,
     val peerAddress: String? = null,
     val attempts: Map<QuicFingerprint, List<QuicProbeSample>> = emptyMap(),
     val startFailure: QuicProbeStartFailure? = null,
-)
+) {
+    val verdict: QuicProbeVerdict
+        get() =
+            when {
+                QuicFingerprint.entries.all { fingerprint ->
+                    val requiredReply =
+                        if (fingerprint == QuicFingerprint.VN_PROBE) {
+                            QuicProbeOutcome.VERSION_NEGOTIATION
+                        } else {
+                            QuicProbeOutcome.INITIAL_CRYPTO
+                        }
+                    attempts[fingerprint]?.any { it.outcome == requiredReply } == true
+                } -> QuicProbeVerdict.QUIC_OK
+
+                attempts.values.any { samples -> samples.any { it.isCorrelated } } -> QuicProbeVerdict.QUIC_DEGRADED
+
+                else -> QuicProbeVerdict.QUIC_INCONCLUSIVE
+            }
+}
 
 enum class QuicProbeStartFailure {
     DNS_TIMEOUT,
@@ -67,6 +76,7 @@ enum class QuicProbeOutcome(
     VERSION_NEGOTIATION(6),
     NO_RESPONSE,
     UNCORRELATED_RESPONSE(0),
+    RECEIVE_LIMIT_REACHED,
     TRANSPORT_ERROR,
     VALIDATION_ERROR(-1),
     PACKET_BUILD_ERROR,
@@ -106,14 +116,17 @@ class QuicH3FingerprintProbe(
 ) {
     suspend fun check(target: String): QuicProbeResult {
         val deadline = timeSource.markNow() + (timeoutMs.toLong() * QuicFingerprint.entries.size).milliseconds
-        val address =
-            try {
-                socket.resolve(target, timeoutMs)
-            } catch (_: IOException) {
-                return unresolved(target, QuicProbeStartFailure.DNS_ERROR)
-            } catch (_: SecurityException) {
-                return unresolved(target, QuicProbeStartFailure.DNS_ERROR)
-            } ?: return unresolved(target, QuicProbeStartFailure.DNS_TIMEOUT)
+        val lookup = runCatching { socket.resolve(target, timeoutMs) }
+        val address = lookup.getOrNull()
+        if (address == null) {
+            val reason =
+                when (val error = lookup.exceptionOrNull()) {
+                    null -> QuicProbeStartFailure.DNS_TIMEOUT
+                    is IOException, is SecurityException -> QuicProbeStartFailure.DNS_ERROR
+                    else -> throw error
+                }
+            return QuicProbeResult(target = target, startFailure = reason)
+        }
 
         val firstPass =
             QuicFingerprint.entries.associateWith { fingerprint ->
@@ -133,42 +146,7 @@ class QuicH3FingerprintProbe(
                 emptyMap()
             }
         val attempts = firstPass.mapValues { (fingerprint, first) -> listOfNotNull(first, retried[fingerprint]) }
-        val confirmed = firstPass + retried
-        val chrome = confirmed.getValue(QuicFingerprint.CHROME_120)
-        val firefox = confirmed.getValue(QuicFingerprint.FIREFOX_121)
-        val generic = confirmed.getValue(QuicFingerprint.GENERIC_V1)
-        val vn = confirmed.getValue(QuicFingerprint.VN_PROBE)
-
-        val v1 = listOf(chrome, firefox, generic)
-        val samples = attempts.values.flatten()
-        val udpReachable =
-            samples.any { sample ->
-                sample.isCorrelated || sample.invalidDatagrams > 0 ||
-                    sample.outcome == QuicProbeOutcome.VALIDATION_ERROR
-            }
-        val initialCryptoForAll = v1.all { it.hasInitialCrypto }
-        val hasVn = vn.outcome == QuicProbeOutcome.VERSION_NEGOTIATION
-        val allTimedOut = samples.all { sample -> sample.outcome == QuicProbeOutcome.NO_RESPONSE }
-        val verdict =
-            when {
-                initialCryptoForAll && hasVn -> QuicProbeVerdict.QUIC_OK
-                allTimedOut -> QuicProbeVerdict.QUIC_TIMEOUT
-                samples.all { it.shouldRetry } -> QuicProbeVerdict.QUIC_DROPPED
-                initialCryptoForAll && !hasVn -> QuicProbeVerdict.QUIC_VN_REJECTED
-                else -> QuicProbeVerdict.QUIC_DEGRADED
-            }
-        return QuicProbeResult(
-            target = target,
-            verdict = verdict,
-            chromeOk = chrome.hasInitialCrypto,
-            firefoxOk = firefox.hasInitialCrypto,
-            genericOk = generic.hasInitialCrypto,
-            vnOk = hasVn,
-            udpReachable = udpReachable,
-            serverInitialLatencyMs = v1.firstOrNull { it.hasInitialCrypto }?.latencyMs,
-            peerAddress = address.hostAddress,
-            attempts = attempts,
-        )
+        return QuicProbeResult(target = target, peerAddress = address.hostAddress, attempts = attempts)
     }
 
     suspend fun checkAll(targets: List<String>): List<QuicProbeResult> =
@@ -197,41 +175,29 @@ class QuicH3FingerprintProbe(
     ): QuicProbeSample {
         currentCoroutineContext().ensureActive()
         val deadline = timeSource.markNow() + minOf(timeoutMs.milliseconds, -targetDeadline.elapsedNow())
-        if (deadline.hasPassedNow()) return QuicProbeSample(QuicProbeOutcome.BUDGET_EXHAUSTED)
-        val packet =
+        return if (deadline.hasPassedNow()) {
+            QuicProbeSample(QuicProbeOutcome.BUDGET_EXHAUSTED)
+        } else {
+            val packet =
+                try {
+                    packetFactory.create(fingerprint = fingerprint, target = target)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: IllegalStateException) {
+                    return QuicProbeSample(QuicProbeOutcome.PACKET_BUILD_ERROR)
+                }
+
             try {
-                packetFactory.create(fingerprint = fingerprint, target = target)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: IllegalStateException) {
-                return QuicProbeSample(QuicProbeOutcome.PACKET_BUILD_ERROR)
+                socket.sendInitial(address, port, fingerprint, packet, deadline) { response ->
+                    responseValidator.validate(packet, response, fingerprint == QuicFingerprint.VN_PROBE)
+                }
+            } catch (_: IOException) {
+                QuicProbeSample(QuicProbeOutcome.TRANSPORT_ERROR)
+            } catch (_: SecurityException) {
+                QuicProbeSample(QuicProbeOutcome.TRANSPORT_ERROR)
             }
-        return try {
-            socket.sendInitial(address, port, fingerprint, packet, deadline) { response ->
-                responseValidator.validate(packet, response, fingerprint == QuicFingerprint.VN_PROBE)
-            }
-        } catch (_: IOException) {
-            QuicProbeSample(QuicProbeOutcome.TRANSPORT_ERROR)
-        } catch (_: SecurityException) {
-            QuicProbeSample(QuicProbeOutcome.TRANSPORT_ERROR)
         }
     }
-
-    private fun unresolved(
-        target: String,
-        reason: QuicProbeStartFailure,
-    ): QuicProbeResult =
-        QuicProbeResult(
-            target = target,
-            verdict = QuicProbeVerdict.QUIC_TIMEOUT,
-            chromeOk = false,
-            firefoxOk = false,
-            genericOk = false,
-            vnOk = false,
-            udpReachable = false,
-            serverInitialLatencyMs = null,
-            startFailure = reason,
-        )
 
     private companion object {
         private const val DefaultQuicPort = 443
@@ -451,9 +417,6 @@ private data class NativeQuicInitialResponse(
     val packetBase64: String? = null,
     val error: String? = null,
 )
-
-private val QuicProbeSample.hasInitialCrypto: Boolean
-    get() = outcome == QuicProbeOutcome.INITIAL_CRYPTO
 
 private val QuicProbeSample.isCorrelated: Boolean
     get() =

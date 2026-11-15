@@ -1435,6 +1435,12 @@
     <string name="diagnostics_dpi_suite_tcp16_format">TCP16 बंद होने के पैटर्न वाले लक्ष्य: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">जाँचे गए ASN समूह: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">पूर्ण Initial/VN जवाब वाले लक्ष्य: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_unmatched">UDP का बेमेल जवाब</string>
+    <string name="diagnostics_dpi_suite_quic_receive_limit">जवाब पाने की सीमा पूरी हुई</string>
+    <string name="diagnostics_dpi_suite_quic_validation_error">जवाब की जाँच विफल</string>
+    <string name="diagnostics_dpi_suite_quic_inconclusive">अनिर्णायक</string>
+    <string name="diagnostics_dpi_suite_quic_not_measured">मापा नहीं गया: %1$d</string>
+    <string name="diagnostics_dpi_suite_no_valid_targets">कोई मान्य लक्ष्य नहीं</string>
     <string name="diagnostics_dpi_suite_ech_format">ECH स्वीकार करने वाले लक्ष्य: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">इस जाँच के लिए HTTPS बाइंडिंग उपलब्ध नहीं है</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">उपयोग योग्य ECH कॉन्फ़िगरेशन नहीं है</string>

@@ -12,7 +12,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.net.DatagramPacket
@@ -141,9 +140,13 @@ class QuicInitialResponseValidationInstrumentedTest {
             try {
                 val result = QuicH3FingerprintProbe(port = server.localPort, timeoutMs = 500).check("127.0.0.1")
 
-                assertTrue(result.udpReachable)
-                assertFalse(result.chromeOk || result.firefoxOk || result.genericOk || result.vnOk)
-                assertEquals(QuicProbeVerdict.QUIC_DROPPED, result.verdict)
+                assertEquals(QuicProbeVerdict.QUIC_INCONCLUSIVE, result.verdict)
+                assertEquals(4, result.attempts.size)
+                for (attempts in result.attempts.values) {
+                    val response = attempts.single()
+                    assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, response.outcome)
+                    assertEquals(1, response.invalidDatagrams)
+                }
                 worker.join(3_000)
             } finally {
                 worker.join(3_000)

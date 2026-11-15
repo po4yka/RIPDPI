@@ -38,7 +38,7 @@ class DpiSuiteVerdictAggregatorTest {
     fun inconclusiveWhenQuicTemplatesHaveDifferentResponses() {
         val aggregate =
             DpiSuiteVerdictAggregator.aggregate(
-                results = listOf(quicH3(verdict = QuicProbeVerdict.QUIC_DEGRADED)),
+                results = listOf(quicH3(QuicProbeOutcome.RETRY)),
             )
 
         assertEquals(SuiteVerdict.INCONCLUSIVE, aggregate.verdict)
@@ -116,7 +116,7 @@ class DpiSuiteVerdictAggregatorTest {
     fun unavailableOrUnmeasuredProbesAreInconclusive() {
         val incomplete =
             listOf(
-                quicH3(QuicProbeVerdict.QUIC_TIMEOUT),
+                quicH3(QuicProbeOutcome.NO_RESPONSE),
                 telegram(TelegramTestVerdict.BLOCKED),
                 telegram(TelegramTestVerdict.ERROR),
                 telegram(TelegramTestVerdict.PARTIAL),
@@ -156,9 +156,9 @@ class DpiSuiteVerdictAggregatorTest {
                 domainReachability(DomainVerdict.BLOCKED),
                 domainReachability(DomainVerdict.TLS_VERSION_BLOCK),
                 domainReachability(DomainVerdict.DNS_FAIL),
-                quicH3(QuicProbeVerdict.QUIC_DROPPED),
-                quicH3(QuicProbeVerdict.QUIC_DEGRADED),
-                quicH3(QuicProbeVerdict.QUIC_VN_REJECTED),
+                quicH3(QuicProbeOutcome.UNCORRELATED_RESPONSE),
+                quicH3(QuicProbeOutcome.INITIAL_ACK),
+                quicH3(QuicProbeOutcome.RECEIVE_LIMIT_REACHED),
             ) +
                 EchProbeVerdict.entries.filter { it != EchProbeVerdict.ECH_OK }.map { verdict ->
                     DpiSuiteProbeResult.EchReadiness(
@@ -252,19 +252,14 @@ class DpiSuiteVerdictAggregatorTest {
             ),
         )
 
-    private fun quicH3(verdict: QuicProbeVerdict): DpiSuiteProbeResult.QuicH3 =
+    private fun quicH3(outcome: QuicProbeOutcome): DpiSuiteProbeResult.QuicH3 =
         DpiSuiteProbeResult.QuicH3(
-            listOf(
-                QuicProbeResult(
-                    target = "example.com",
-                    verdict = verdict,
-                    chromeOk = verdict == QuicProbeVerdict.QUIC_OK,
-                    firefoxOk = true,
-                    genericOk = true,
-                    vnOk = true,
-                    udpReachable = true,
-                    serverInitialLatencyMs = 12,
+            results =
+                listOf(
+                    QuicProbeResult(
+                        target = "quic.example",
+                        attempts = mapOf(QuicFingerprint.CHROME_120 to listOf(QuicProbeSample(outcome))),
+                    ),
                 ),
-            ),
         )
 }

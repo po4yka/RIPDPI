@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.integration
 
 import androidx.test.platform.app.InstrumentationRegistry
+import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
 import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
+import com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -9,17 +11,20 @@ import org.junit.Test
 
 class QuicH3FingerprintProbeInstrumentedTest {
     @Test
-    fun cloudflareH3RespondsToChromeInitialWhenNetworkTestsEnabled() =
+    fun cloudflareReturnsInitialCryptoForTemplateAWhenNetworkTestsEnabled() =
         runBlocking {
             assumeTrue(
-                "Set RIPDPI_RUN_NETWORK_TESTS=1 or -Pandroid.testInstrumentationRunnerArguments.ripdpi.runNetworkTests=1",
+                "Set RIPDPI_RUN_NETWORK_TESTS=1 or pass the ripdpi.runNetworkTests=1 instrumentation argument.",
                 networkTestsEnabled(),
             )
 
             val result = QuicH3FingerprintProbe().check("cloudflare.com")
 
-            assertTrue("Expected UDP/443 to be reachable: $result", result.udpReachable)
-            assertTrue("Expected Chrome-shaped QUIC Initial to receive a Server Initial: $result", result.chromeOk)
+            val samples = result.attempts[QuicFingerprint.CHROME_120].orEmpty()
+            assertTrue(
+                "Expected the template to receive a Server Initial with CRYPTO: $result",
+                samples.any { it.outcome == QuicProbeOutcome.INITIAL_CRYPTO },
+            )
         }
 
     private fun networkTestsEnabled(): Boolean =

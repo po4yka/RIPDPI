@@ -134,8 +134,10 @@ object DpiSuiteVerdictAggregator {
 
             is DpiSuiteProbeResult.QuicH3 -> {
                 val ok = result.results.count { quic -> quic.verdict == QuicProbeVerdict.QUIC_OK }
-                val flagged = result.results.count { quic -> quic.verdict != QuicProbeVerdict.QUIC_OK }
-                "QUIC Initial/VN: $ok/${result.results.size} OK, $flagged flagged"
+                val partial = result.results.count { quic -> quic.verdict == QuicProbeVerdict.QUIC_DEGRADED }
+                val total = result.results.size + result.skippedTargetCount
+                val inconclusive = total - ok - partial
+                "QUIC Initial/VN: $ok/$total complete, $partial partial, $inconclusive inconclusive"
             }
 
             is DpiSuiteProbeResult.EchReadiness -> {

@@ -1428,6 +1428,12 @@
     <string name="diagnostics_dpi_suite_tcp16_format">Ziele mit TCP16-Schließmuster: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">Geprüfte ASN-Gruppen: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">Ziele mit vollständigen Initial/VN-Antworten: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_unmatched">UDP-Antwort passt nicht</string>
+    <string name="diagnostics_dpi_suite_quic_receive_limit">Empfangslimit erreicht</string>
+    <string name="diagnostics_dpi_suite_quic_validation_error">Antwortprüfung fehlgeschlagen</string>
+    <string name="diagnostics_dpi_suite_quic_inconclusive">nicht eindeutig</string>
+    <string name="diagnostics_dpi_suite_quic_not_measured">Nicht gemessen: %1$d</string>
+    <string name="diagnostics_dpi_suite_no_valid_targets">Keine gültigen Ziele</string>
     <string name="diagnostics_dpi_suite_ech_format">Ziele mit akzeptiertem ECH: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">HTTPS-Dienstbindung für diese Prüfung nicht verfügbar</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">Keine verwendbare ECH-Konfiguration</string>

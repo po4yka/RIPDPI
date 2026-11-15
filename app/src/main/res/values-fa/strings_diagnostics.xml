@@ -1428,6 +1428,12 @@
     <string name="diagnostics_dpi_suite_tcp16_format">هدف‌های دارای الگوی بسته‌شدن ⁨TCP16⁩: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">گروه‌های ASN بررسی‌شده: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">هدف‌های دارای پاسخ کامل Initial/VN: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_unmatched">پاسخ UDP نامنطبق</string>
+    <string name="diagnostics_dpi_suite_quic_receive_limit">حد دریافت پر شد</string>
+    <string name="diagnostics_dpi_suite_quic_validation_error">اعتبارسنجی پاسخ ناموفق بود</string>
+    <string name="diagnostics_dpi_suite_quic_inconclusive">نامشخص</string>
+    <string name="diagnostics_dpi_suite_quic_not_measured">اندازه‌گیری نشد: %1$d</string>
+    <string name="diagnostics_dpi_suite_no_valid_targets">هدف معتبری وجود ندارد</string>
     <string name="diagnostics_dpi_suite_ech_format">هدف‌های پذیرفته‌شده با ⁨ECH⁩: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">پیوند HTTPS برای این آزمون در دسترس نیست</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">پیکربندی ECH قابل استفاده‌ای وجود ندارد</string>

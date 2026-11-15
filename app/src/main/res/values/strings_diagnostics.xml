@@ -1455,6 +1455,12 @@
     <string name="diagnostics_dpi_suite_tcp16_format">Targets with TCP16 closure pattern: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">ASN groups checked: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">Targets with complete Initial/VN replies: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_unmatched">Unmatched UDP reply</string>
+    <string name="diagnostics_dpi_suite_quic_receive_limit">Receive limit reached</string>
+    <string name="diagnostics_dpi_suite_quic_validation_error">Reply validation failed</string>
+    <string name="diagnostics_dpi_suite_quic_inconclusive">inconclusive</string>
+    <string name="diagnostics_dpi_suite_quic_not_measured">Not measured: %1$d</string>
+    <string name="diagnostics_dpi_suite_no_valid_targets">No valid targets</string>
     <string name="diagnostics_dpi_suite_ech_format">Targets that accepted ECH: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">HTTPS binding unavailable for this probe</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">No usable ECH configuration</string>

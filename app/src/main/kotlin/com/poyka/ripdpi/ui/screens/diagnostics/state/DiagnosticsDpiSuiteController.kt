@@ -110,7 +110,7 @@ internal class DiagnosticsDpiSuiteController(
         if (customTargets != null && !customTargets.hasTargetsFor(current.selectedKinds)) {
             // An explicit custom run with no valid host must not silently probe the bundled list.
             _tool.value =
-                current.copy(errorMessage = stringResolver.getString(R.string.strategy_tuner_message_add_domain))
+                current.copy(errorMessage = stringResolver.getString(R.string.diagnostics_dpi_suite_no_valid_targets))
             return
         }
         suiteJob?.cancel()

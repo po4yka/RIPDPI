@@ -4,15 +4,11 @@
     public java.lang.Object check(java.lang.String,kotlin.coroutines.Continuation);
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult {
-    public boolean getUdpReachable();
-    public boolean getChromeOk();
-    public boolean getFirefoxOk();
-    public boolean getGenericOk();
-    public boolean getVnOk();
+    public java.util.Map getAttempts();
     public com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict getVerdict();
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses enum com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict {
-    public static final com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict QUIC_DROPPED;
+    public static final com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict QUIC_INCONCLUSIVE;
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.diagnostics.dpi.DatagramSocketQuicUdpProbe {
     public <init>();
@@ -20,6 +16,7 @@
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.diagnostics.dpi.QuicProbeSample {
     public com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome getOutcome();
+    public int getInvalidDatagrams();
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses enum com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome {
     public static final com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome INITIAL_CRYPTO;
@@ -32,6 +29,7 @@
     public com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome validate(byte[],byte[],boolean);
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses enum com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint {
+    public static final com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint CHROME_120;
     public static final com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint GENERIC_V1;
 }
 

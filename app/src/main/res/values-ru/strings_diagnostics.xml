@@ -1471,6 +1471,12 @@
     <string name="diagnostics_dpi_suite_tcp16_format">Целей с характерным для TCP16 закрытием: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">Проверено групп ASN: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">Целей с полными ответами Initial/VN: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_unmatched">Ответ UDP не совпал с запросом</string>
+    <string name="diagnostics_dpi_suite_quic_receive_limit">Достигнут лимит приёма</string>
+    <string name="diagnostics_dpi_suite_quic_validation_error">Ошибка проверки ответа</string>
+    <string name="diagnostics_dpi_suite_quic_inconclusive">результат неясен</string>
+    <string name="diagnostics_dpi_suite_quic_not_measured">Не измерено: %1$d</string>
+    <string name="diagnostics_dpi_suite_no_valid_targets">Нет допустимых целей</string>
     <string name="diagnostics_dpi_suite_ech_format">Целей, принявших ECH: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">Привязка HTTPS недоступна для этой пробы</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">Нет подходящей конфигурации ECH</string>

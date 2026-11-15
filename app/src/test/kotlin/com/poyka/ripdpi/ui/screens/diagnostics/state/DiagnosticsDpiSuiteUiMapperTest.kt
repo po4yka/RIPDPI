@@ -14,8 +14,11 @@ import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrLookupAttempt
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrOutcome
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrSource
+import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
+import com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
-import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
+import com.poyka.ripdpi.diagnostics.dpi.QuicProbeSample
+import com.poyka.ripdpi.diagnostics.dpi.QuicProbeStartFailure
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
 import com.poyka.ripdpi.platform.StringResolver
@@ -86,31 +89,53 @@ class DiagnosticsDpiSuiteUiMapperTest {
     }
 
     @Test
-    fun quicH3RowIncludesPerTargetFingerprintMatrix() {
+    fun quicRowShowsReplyKindsAndTheirDelays() {
         val row =
             DpiSuiteProbeResult
                 .QuicH3(
                     listOf(
                         QuicProbeResult(
-                            target = "cloudflare.com",
-                            verdict = QuicProbeVerdict.QUIC_DEGRADED,
-                            chromeOk = false,
-                            firefoxOk = true,
-                            genericOk = true,
-                            vnOk = true,
-                            udpReachable = true,
-                            serverInitialLatencyMs = 42,
+                            target = "example.test",
+                            peerAddress = "192.0.2.1",
+                            attempts =
+                                mapOf(
+                                    QuicFingerprint.CHROME_120 to listOf(QuicProbeSample(QuicProbeOutcome.NO_RESPONSE)),
+                                    QuicFingerprint.FIREFOX_121 to
+                                        listOf(QuicProbeSample(QuicProbeOutcome.INITIAL_CRYPTO, latencyMs = 42)),
+                                    QuicFingerprint.GENERIC_V1 to listOf(QuicProbeSample(QuicProbeOutcome.RETRY)),
+                                    QuicFingerprint.VN_PROBE to
+                                        listOf(QuicProbeSample(QuicProbeOutcome.VERSION_NEGOTIATION)),
+                                ),
                         ),
                     ),
+                    skippedTargetCount = 2,
                 ).toDpiSuiteProbeRowUiModel(stringResolver)
 
         assertEquals(DpiProbeKind.QUIC_H3, row.kind)
         assertEquals("QUIC Initial/VN", row.label)
-        assertEquals("flagged", row.status)
-        assertEquals(1, row.detailRows.size)
-        assertEquals("cloudflare.com", row.detailRows.single().label)
-        assertEquals("Template A blocked | Template B ok | Generic ok | VN ok | 42 ms", row.detailRows.single().detail)
-        assertEquals(DiagnosticsTone.Warning, row.detailRows.single().tone)
+        assertEquals("partial", row.status)
+        assertEquals("Targets with complete Initial/VN replies: 0/3 · Not measured: 2", row.detail)
+        val target = row.detailRows.single()
+        assertEquals("example.test · 192.0.2.1", target.label)
+        assertEquals(
+            "Template A Timed out | Template B Initial + CRYPTO (42 ms) | Generic Retry | VN Observed",
+            target.detail,
+        )
+        assertEquals(DiagnosticsTone.Warning, target.tone)
+    }
+
+    @Test
+    fun quicRowWithoutReplyEvidenceIsNeutral() {
+        val noTargets = DpiSuiteProbeResult.QuicH3(emptyList()).toDpiSuiteProbeRowUiModel(stringResolver)
+        assertEquals("inconclusive", noTargets.status)
+        assertEquals(DiagnosticsTone.Neutral, noTargets.tone)
+
+        val dnsFailure =
+            DpiSuiteProbeResult
+                .QuicH3(listOf(QuicProbeResult("invalid.test", startFailure = QuicProbeStartFailure.DNS_ERROR)))
+                .toDpiSuiteProbeRowUiModel(stringResolver)
+        assertEquals("inconclusive", dnsFailure.status)
+        assertEquals("DNS resolution failed", dnsFailure.detailRows.single().detail)
     }
 
     @Test

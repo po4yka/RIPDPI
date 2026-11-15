@@ -1429,6 +1429,12 @@
     <string name="diagnostics_dpi_suite_tcp16_format">Cibles avec fermeture typique TCP16 : %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">Groupes ASN vérifiés : %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">Cibles avec des réponses Initial/VN complètes : %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_unmatched">Réponse UDP sans correspondance</string>
+    <string name="diagnostics_dpi_suite_quic_receive_limit">Limite de réception atteinte</string>
+    <string name="diagnostics_dpi_suite_quic_validation_error">Échec de la validation de la réponse</string>
+    <string name="diagnostics_dpi_suite_quic_inconclusive">non concluant</string>
+    <string name="diagnostics_dpi_suite_quic_not_measured">Non mesurées : %1$d</string>
+    <string name="diagnostics_dpi_suite_no_valid_targets">Aucune cible valide</string>
     <string name="diagnostics_dpi_suite_ech_format">Cibles ayant accepté ECH : %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">Liaison HTTPS indisponible pour ce test</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">Aucune configuration ECH utilisable</string>

@@ -11,7 +11,11 @@ import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrLookupAttempt
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrOutcome
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrSource
+import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
+import com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.QuicProbeSample
+import com.poyka.ripdpi.diagnostics.dpi.QuicProbeStartFailure
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
@@ -101,47 +105,100 @@ private fun List<DiagnosticsTlsClientState>.toDiagnosticsTlsDetailRows(
 
 private fun QuicProbeResult.toQuicDetailRow(stringResolver: StringResolver): DiagnosticsDpiSuiteProbeDetailUiModel =
     DiagnosticsDpiSuiteProbeDetailUiModel(
-        label = target,
+        label = peerAddress?.takeUnless { it == target }?.let { "$target · $it" } ?: target,
         detail =
-            listOf(
-                stringResolver.getString(
-                    R.string.diagnostics_dpi_suite_quic_template_a_format,
-                    chromeOk.okBlockedLabel(stringResolver),
-                ),
-                stringResolver.getString(
-                    R.string.diagnostics_dpi_suite_quic_template_b_format,
-                    firefoxOk.okBlockedLabel(stringResolver),
-                ),
-                stringResolver.getString(
-                    R.string.diagnostics_dpi_suite_generic_format,
-                    genericOk.okBlockedLabel(stringResolver),
-                ),
-                stringResolver.getString(R.string.diagnostics_dpi_suite_vn_format, vnOk.okBlockedLabel(stringResolver)),
-                latencyLabel(stringResolver),
-            ).joinToString(" | "),
-        tone =
-            countTone(
-                if (verdict == QuicProbeVerdict.QUIC_OK) {
-                    0
-                } else {
-                    1
+            startFailure?.label(stringResolver)
+                ?: QuicFingerprint.entries.joinToString(" | ") { fingerprint ->
+                    val samples = attempts[fingerprint].orEmpty()
+                    val details =
+                        samples.takeIf { it.isNotEmpty() }?.joinToString(" → ") { it.label(stringResolver) }
+                            ?: stringResolver.getString(R.string.diagnostics_matrix_stage_not_run)
+                    stringResolver.getString(fingerprint.detailFormat, details)
                 },
-            ),
+        tone = verdict.tone(),
     )
 
-private fun Boolean.okBlockedLabel(stringResolver: StringResolver): String =
-    if (this) {
-        stringResolver.getString(
-            R.string.diagnostics_cidr_whitelist_status_ok,
-        )
-    } else {
-        stringResolver.getString(R.string.diagnostics_dpi_suite_blocked)
-    }
+private val QuicFingerprint.detailFormat: Int
+    get() =
+        when (this) {
+            QuicFingerprint.CHROME_120 -> R.string.diagnostics_dpi_suite_quic_template_a_format
+            QuicFingerprint.FIREFOX_121 -> R.string.diagnostics_dpi_suite_quic_template_b_format
+            QuicFingerprint.GENERIC_V1 -> R.string.diagnostics_dpi_suite_generic_format
+            QuicFingerprint.VN_PROBE -> R.string.diagnostics_dpi_suite_vn_format
+        }
 
-private fun QuicProbeResult.latencyLabel(stringResolver: StringResolver): String =
-    serverInitialLatencyMs
-        ?.let { latency -> stringResolver.getString(R.string.diagnostics_transfer_ms, latency) }
-        ?: stringResolver.getString(R.string.diagnostics_dpi_suite_no_latency)
+private fun QuicProbeStartFailure.label(stringResolver: StringResolver): String =
+    stringResolver.getString(
+        when (this) {
+            QuicProbeStartFailure.DNS_TIMEOUT -> R.string.diagnostics_error_timeout
+            QuicProbeStartFailure.DNS_ERROR -> R.string.diagnostics_error_dns_failure
+        },
+    )
+
+private fun QuicProbeSample.label(stringResolver: StringResolver): String {
+    val label =
+        when (outcome) {
+            QuicProbeOutcome.INITIAL_CRYPTO -> {
+                "Initial + CRYPTO"
+            }
+
+            QuicProbeOutcome.INITIAL_ACK -> {
+                "Initial + ACK"
+            }
+
+            QuicProbeOutcome.INITIAL_OTHER -> {
+                "Initial"
+            }
+
+            QuicProbeOutcome.INITIAL_CLOSE -> {
+                "CONNECTION_CLOSE"
+            }
+
+            QuicProbeOutcome.RETRY -> {
+                "Retry"
+            }
+
+            QuicProbeOutcome.VERSION_NEGOTIATION -> {
+                stringResolver.getString(R.string.diagnostics_stages_observed)
+            }
+
+            QuicProbeOutcome.NO_RESPONSE -> {
+                stringResolver.getString(R.string.diagnostics_stages_timed_out)
+            }
+
+            QuicProbeOutcome.UNCORRELATED_RESPONSE -> {
+                stringResolver.getString(R.string.diagnostics_dpi_suite_quic_unmatched)
+            }
+
+            QuicProbeOutcome.RECEIVE_LIMIT_REACHED -> {
+                stringResolver.getString(R.string.diagnostics_dpi_suite_quic_receive_limit)
+            }
+
+            QuicProbeOutcome.TRANSPORT_ERROR -> {
+                stringResolver.getString(R.string.diagnostics_error_connect_failure)
+            }
+
+            QuicProbeOutcome.VALIDATION_ERROR -> {
+                stringResolver.getString(R.string.diagnostics_dpi_suite_quic_validation_error)
+            }
+
+            QuicProbeOutcome.PACKET_BUILD_ERROR -> {
+                stringResolver.getString(R.string.diagnostics_error_start_failed)
+            }
+
+            QuicProbeOutcome.BUDGET_EXHAUSTED -> {
+                stringResolver.getString(R.string.diagnostics_matrix_stage_not_run)
+            }
+        }
+    return latencyMs?.let { "$label (${stringResolver.getString(R.string.diagnostics_transfer_ms, it)})" } ?: label
+}
+
+private fun QuicProbeVerdict.tone(): DiagnosticsTone =
+    when (this) {
+        QuicProbeVerdict.QUIC_OK -> DiagnosticsTone.Positive
+        QuicProbeVerdict.QUIC_DEGRADED -> DiagnosticsTone.Warning
+        QuicProbeVerdict.QUIC_INCONCLUSIVE -> DiagnosticsTone.Neutral
+    }
 
 private fun EchProbeResult.toEchDetailRow(stringResolver: StringResolver): DiagnosticsDpiSuiteProbeDetailUiModel =
     DiagnosticsDpiSuiteProbeDetailUiModel(
@@ -324,9 +381,11 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
             }
 
             is DpiSuiteProbeResult.QuicH3 -> {
-                flaggedStatusResource(
-                    results.any { result -> result.verdict != QuicProbeVerdict.QUIC_OK },
-                )
+                when (quicTone()) {
+                    DiagnosticsTone.Positive -> R.string.diagnostics_cidr_whitelist_status_ok
+                    DiagnosticsTone.Warning -> R.string.diagnostics_dpi_suite_partial
+                    else -> R.string.diagnostics_dpi_suite_quic_inconclusive
+                }
             }
 
             is DpiSuiteProbeResult.EchReadiness -> {
@@ -431,7 +490,20 @@ private fun DpiSuiteProbeResult.detailLabel(stringResolver: StringResolver): Str
 
         is DpiSuiteProbeResult.QuicH3 -> {
             val ok = results.count { result -> result.verdict == QuicProbeVerdict.QUIC_OK }
-            stringResolver.getString(R.string.diagnostics_dpi_suite_quic_format, ok, results.size)
+            val summary =
+                stringResolver.getString(
+                    R.string.diagnostics_dpi_suite_quic_format,
+                    ok,
+                    results.size + skippedTargetCount,
+                )
+            if (skippedTargetCount > 0) {
+                "$summary · ${stringResolver.getString(
+                    R.string.diagnostics_dpi_suite_quic_not_measured,
+                    skippedTargetCount,
+                )}"
+            } else {
+                summary
+            }
         }
 
         is DpiSuiteProbeResult.EchReadiness -> {
@@ -442,6 +514,8 @@ private fun DpiSuiteProbeResult.detailLabel(stringResolver: StringResolver): Str
         is DpiSuiteProbeResult.Skipped -> {
             if (reason == "TCP16 detected zero blocked ASNs") {
                 stringResolver.getString(R.string.diagnostics_dpi_suite_tcp16_no_blocked_asns)
+            } else if (reason == DpiSuiteProbeResult.Skipped.NoValidTargetsReason) {
+                stringResolver.getString(R.string.diagnostics_dpi_suite_no_valid_targets)
             } else {
                 reason
             }
@@ -511,8 +585,7 @@ private fun DpiSuiteProbeResult.tone(): DiagnosticsTone =
         }
 
         is DpiSuiteProbeResult.QuicH3 -> {
-            val flagged = results.count { result -> result.verdict != QuicProbeVerdict.QUIC_OK }
-            countTone(flagged)
+            quicTone()
         }
 
         is DpiSuiteProbeResult.EchReadiness -> {
@@ -598,6 +671,13 @@ internal fun SuiteVerdict.summary(stringResolver: StringResolver): String =
                 R.string.diagnostics_dpi_suite_too_many_selected_probes_failed_to_classify_the_path,
             )
         }
+    }
+
+private fun DpiSuiteProbeResult.QuicH3.quicTone(): DiagnosticsTone =
+    when {
+        results.none { it.verdict != QuicProbeVerdict.QUIC_INCONCLUSIVE } -> DiagnosticsTone.Neutral
+        skippedTargetCount > 0 || results.any { it.verdict != QuicProbeVerdict.QUIC_OK } -> DiagnosticsTone.Warning
+        else -> DiagnosticsTone.Positive
     }
 
 private fun countTone(count: Int): DiagnosticsTone =

@@ -1400,6 +1400,12 @@
     <string name="diagnostics_dpi_suite_tcp16_format">符合 TCP16 关闭模式的目标：%1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">已检查 ASN 组：%1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">收到完整 Initial/VN 响应的目标：%1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_unmatched">UDP 响应与请求不匹配</string>
+    <string name="diagnostics_dpi_suite_quic_receive_limit">已达到接收上限</string>
+    <string name="diagnostics_dpi_suite_quic_validation_error">响应验证失败</string>
+    <string name="diagnostics_dpi_suite_quic_inconclusive">无法确定</string>
+    <string name="diagnostics_dpi_suite_quic_not_measured">未测量：%1$d</string>
+    <string name="diagnostics_dpi_suite_no_valid_targets">没有有效目标</string>
     <string name="diagnostics_dpi_suite_ech_format">接受 ECH 的目标：%1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">此探测无法使用 HTTPS 服务绑定</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">没有可用的 ECH 配置</string>

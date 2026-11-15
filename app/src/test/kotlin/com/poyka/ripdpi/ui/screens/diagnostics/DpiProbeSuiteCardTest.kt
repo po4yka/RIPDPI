@@ -54,7 +54,7 @@ class DpiProbeSuiteCardTest {
                                     DiagnosticsDpiSuiteProbeRowUiModel(
                                         kind = DpiProbeKind.QUIC_H3,
                                         label = "QUIC Initial/VN",
-                                        status = "flagged",
+                                        status = "partial",
                                         detail = "Targets with complete Initial/VN replies: 0/1",
                                         tone = DiagnosticsTone.Warning,
                                         detailRows =
@@ -85,4 +85,5 @@ class DpiProbeSuiteCardTest {
     }
 }
 
-private const val QuicTargetDetail = "Template A blocked | Template B ok | Generic ok | VN ok | 42 ms"
+private const val QuicTargetDetail =
+    "Template A Timed out | Template B Initial + CRYPTO (42 ms) | Generic Retry | VN Observed"

@@ -9,7 +9,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -27,23 +26,24 @@ class QuicH3FingerprintProbeTest {
             val result = probe(successes = QuicFingerprint.entries.toSet()).check("cloudflare.com")
 
             assertEquals(QuicProbeVerdict.QUIC_OK, result.verdict)
-            assertTrue(result.udpReachable)
-            assertTrue(result.chromeOk)
-            assertTrue(result.firefoxOk)
-            assertTrue(result.genericOk)
-            assertTrue(result.vnOk)
-            assertEquals(14L, result.serverInitialLatencyMs)
+            assertEquals(
+                QuicProbeSample(QuicProbeOutcome.INITIAL_CRYPTO, latencyMs = 14L),
+                result.attempts.getValue(QuicFingerprint.CHROME_120).single(),
+            )
+            assertEquals(QuicProbeOutcome.INITIAL_CRYPTO, result.outcome(QuicFingerprint.FIREFOX_121))
+            assertEquals(QuicProbeOutcome.INITIAL_CRYPTO, result.outcome(QuicFingerprint.GENERIC_V1))
+            assertEquals(QuicProbeOutcome.VERSION_NEGOTIATION, result.outcome(QuicFingerprint.VN_PROBE))
         }
 
     @Test
-    fun allFingerprintTimeoutsReturnTimeout() =
+    fun allFingerprintTimeoutsAreInconclusive() =
         runTest {
             val socket = RecordingQuicUdpProbe(successes = emptySet())
 
             val result = probe(socket).check("blocked.example")
 
-            assertEquals(QuicProbeVerdict.QUIC_TIMEOUT, result.verdict)
-            assertFalse(result.udpReachable)
+            assertEquals(QuicProbeVerdict.QUIC_INCONCLUSIVE, result.verdict)
+            assertTrue(result.attempts.values.all { it.single().outcome == QuicProbeOutcome.NO_RESPONSE })
             assertEquals(
                 listOf(
                     QuicFingerprint.CHROME_120,
@@ -70,7 +70,8 @@ class QuicH3FingerprintProbeTest {
 
             val result = probe(socket).check("example.com")
 
-            assertEquals(QuicProbeVerdict.QUIC_VN_REJECTED, result.verdict)
+            assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
+            assertEquals(QuicProbeOutcome.NO_RESPONSE, result.outcome(QuicFingerprint.VN_PROBE))
             assertEquals(
                 listOf(
                     QuicFingerprint.CHROME_120,
@@ -99,7 +100,7 @@ class QuicH3FingerprintProbeTest {
             val result = probe(socket).check("example.com")
 
             assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
-            assertTrue(result.udpReachable)
+            assertEquals(QuicProbeOutcome.NO_RESPONSE, result.outcome(QuicFingerprint.GENERIC_V1))
             assertEquals(
                 listOf(
                     QuicFingerprint.CHROME_120,
@@ -120,15 +121,16 @@ class QuicH3FingerprintProbeTest {
                 val result = probe(QuicFingerprint.entries.toSet() - lost).check("example.com")
 
                 assertEquals("Lost template: $lost", QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
-                assertEquals(lost != QuicFingerprint.CHROME_120, result.chromeOk)
-                assertEquals(lost != QuicFingerprint.FIREFOX_121, result.firefoxOk)
-                assertEquals(lost != QuicFingerprint.GENERIC_V1, result.genericOk)
-                assertTrue(result.vnOk)
+                assertEquals(QuicProbeOutcome.NO_RESPONSE, result.outcome(lost))
+                for (template in v1Templates - lost) {
+                    assertEquals(QuicProbeOutcome.INITIAL_CRYPTO, result.outcome(template))
+                }
+                assertEquals(QuicProbeOutcome.VERSION_NEGOTIATION, result.outcome(QuicFingerprint.VN_PROBE))
             }
         }
 
     @Test
-    fun vnProbeFailsOthersSucceedReturnsVnRejected() =
+    fun noVnReplyPreservesInitialEvidence() =
         runTest {
             val result =
                 probe(
@@ -140,11 +142,12 @@ class QuicH3FingerprintProbeTest {
                         ),
                 ).check("example.com")
 
-            assertEquals(QuicProbeVerdict.QUIC_VN_REJECTED, result.verdict)
+            assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
+            assertEquals(QuicProbeOutcome.NO_RESPONSE, result.outcome(QuicFingerprint.VN_PROBE))
         }
 
     @Test
-    fun allFingerprintsReturnNonQuicResponsesReturnsDropped() =
+    fun unrelatedRepliesAreInconclusiveAndRemainEvidence() =
         runTest {
             val result =
                 probe(
@@ -154,8 +157,13 @@ class QuicH3FingerprintProbeTest {
                     ),
                 ).check("example.com")
 
-            assertEquals(QuicProbeVerdict.QUIC_DROPPED, result.verdict)
-            assertTrue(result.udpReachable)
+            assertEquals(QuicProbeVerdict.QUIC_INCONCLUSIVE, result.verdict)
+            assertTrue(
+                result.attempts.values.all {
+                    it.single() ==
+                        QuicProbeSample(QuicProbeOutcome.UNCORRELATED_RESPONSE, invalidDatagrams = 1)
+                },
+            )
         }
 
     @Test
@@ -172,10 +180,10 @@ class QuicH3FingerprintProbeTest {
                 ).check("example.com")
 
             assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
-            assertTrue(result.chromeOk)
-            assertTrue(result.firefoxOk)
-            assertFalse(result.genericOk)
-            assertTrue(result.vnOk)
+            assertEquals(QuicProbeOutcome.INITIAL_CRYPTO, result.outcome(QuicFingerprint.CHROME_120))
+            assertEquals(QuicProbeOutcome.INITIAL_CRYPTO, result.outcome(QuicFingerprint.FIREFOX_121))
+            assertEquals(QuicProbeOutcome.NO_RESPONSE, result.outcome(QuicFingerprint.GENERIC_V1))
+            assertEquals(QuicProbeOutcome.VERSION_NEGOTIATION, result.outcome(QuicFingerprint.VN_PROBE))
         }
 
     @Test
@@ -236,8 +244,10 @@ class QuicH3FingerprintProbeTest {
                         },
                 ).check("example.com")
 
-            assertFalse(result.chromeOk || result.firefoxOk || result.genericOk)
-            assertTrue(result.vnOk)
+            for (template in QuicFingerprint.entries - QuicFingerprint.VN_PROBE) {
+                assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, result.outcome(template))
+            }
+            assertEquals(QuicProbeOutcome.VERSION_NEGOTIATION, result.outcome(QuicFingerprint.VN_PROBE))
             assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
         }
 
@@ -259,15 +269,10 @@ class QuicH3FingerprintProbeTest {
                     )
                 val result = probe.check("example.com")
                 assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
-                assertFalse(result.chromeOk || result.firefoxOk || result.genericOk)
-                assertTrue(result.udpReachable && result.vnOk)
-                assertEquals(
-                    reply,
-                    result.attempts
-                        .getValue(QuicFingerprint.CHROME_120)
-                        .single()
-                        .outcome,
-                )
+                for (template in QuicFingerprint.entries - QuicFingerprint.VN_PROBE) {
+                    assertEquals(reply, result.outcome(template))
+                }
+                assertEquals(QuicProbeOutcome.VERSION_NEGOTIATION, result.outcome(QuicFingerprint.VN_PROBE))
             }
         }
 
@@ -293,7 +298,8 @@ class QuicH3FingerprintProbeTest {
 
             val result = probe(reflector).check("echo.example")
 
-            assertFalse(result.chromeOk || result.firefoxOk || result.genericOk || result.vnOk)
+            assertEquals(QuicProbeVerdict.QUIC_INCONCLUSIVE, result.verdict)
+            assertTrue(result.attempts.values.all { it.single().outcome == QuicProbeOutcome.UNCORRELATED_RESPONSE })
         }
 
     @Test
@@ -345,7 +351,9 @@ class QuicH3FingerprintProbeTest {
                     .single()
                     .outcome,
             )
-            assertTrue(result.chromeOk && result.genericOk && result.vnOk)
+            assertEquals(QuicProbeOutcome.INITIAL_CRYPTO, result.outcome(QuicFingerprint.CHROME_120))
+            assertEquals(QuicProbeOutcome.INITIAL_CRYPTO, result.outcome(QuicFingerprint.GENERIC_V1))
+            assertEquals(QuicProbeOutcome.VERSION_NEGOTIATION, result.outcome(QuicFingerprint.VN_PROBE))
         }
 
     @Test(timeout = 10_000)
@@ -409,6 +417,9 @@ class QuicH3FingerprintProbeTest {
                 }
             }
         }
+
+    private fun QuicProbeResult.outcome(template: QuicFingerprint): QuicProbeOutcome =
+        attempts.getValue(template).last().outcome
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun TestScope.probe(successes: Set<QuicFingerprint>): QuicH3FingerprintProbe =

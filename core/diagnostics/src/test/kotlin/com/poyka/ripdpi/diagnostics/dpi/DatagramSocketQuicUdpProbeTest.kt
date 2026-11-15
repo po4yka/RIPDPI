@@ -290,6 +290,39 @@ class DatagramSocketQuicUdpProbeTest {
             }
         }
 
+    @Test(timeout = 10_000)
+    fun unvalidatedDatagramBeyondByteLimitIsNotCountedAsRejected() =
+        runBlocking {
+            DatagramSocket(0, loopback).use { server ->
+                server.soTimeout = 3_000
+                val responder =
+                    launch(Dispatchers.IO) {
+                        val received = DatagramPacket(ByteArray(16), 16)
+                        server.receive(received)
+                        val reply = ByteArray(60_000)
+                        repeat(5) {
+                            server.send(DatagramPacket(reply, reply.size, received.socketAddress))
+                            delay(20)
+                        }
+                    }
+                try {
+                    val result =
+                        DatagramSocketQuicUdpProbe().sendInitial(
+                            loopback,
+                            server.localPort,
+                            QuicFingerprint.GENERIC_V1,
+                            byteArrayOf(1),
+                            TimeSource.Monotonic.markNow() + 3_000.milliseconds,
+                        ) { QuicProbeOutcome.UNCORRELATED_RESPONSE }
+
+                    assertEquals(QuicProbeOutcome.RECEIVE_LIMIT_REACHED, result.outcome)
+                    assertEquals(4, result.invalidDatagrams)
+                } finally {
+                    responder.cancelAndJoin()
+                }
+            }
+        }
+
     private fun classify(
         received: ByteArray,
         expected: ByteArray,

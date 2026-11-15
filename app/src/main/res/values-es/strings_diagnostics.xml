@@ -1429,6 +1429,12 @@
     <string name="diagnostics_dpi_suite_tcp16_format">Destinos con cierre típico TCP16: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">Grupos ASN comprobados: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">Destinos con respuestas Initial/VN completas: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_unmatched">Respuesta UDP sin coincidencia</string>
+    <string name="diagnostics_dpi_suite_quic_receive_limit">Límite de recepción alcanzado</string>
+    <string name="diagnostics_dpi_suite_quic_validation_error">Error al validar la respuesta</string>
+    <string name="diagnostics_dpi_suite_quic_inconclusive">no concluyente</string>
+    <string name="diagnostics_dpi_suite_quic_not_measured">Sin medir: %1$d</string>
+    <string name="diagnostics_dpi_suite_no_valid_targets">No hay destinos válidos</string>
     <string name="diagnostics_dpi_suite_ech_format">Destinos que aceptaron ECH: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">Vinculación HTTPS no disponible para esta prueba</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">No hay una configuración ECH utilizable</string>
