@@ -228,6 +228,7 @@ pub(super) fn try_advance_udp_preferred_target(
         entry.destination_egress,
         &entry.running,
     )? {
+        state.discard_evolver_attempt(entry.evolution_attempt.take());
         entry.route = selection.route;
         entry.socket_settings = selection.socket_settings;
         entry.packet_settings = selection.packet_settings;
@@ -295,6 +296,7 @@ fn build_initial_udp_flow_entry(
         source_rebind_policy: selection.source_rebind_policy,
         execution_family: selection.execution_family,
         attempt_token: attempt_token.cloned(),
+        evolution_attempt: None,
         host: packet.host.clone(),
         payload: Vec::new(),
         awaiting_response: true,
@@ -341,6 +343,7 @@ fn update_udp_flow_selection(
         else {
             return Ok(false);
         };
+        state.discard_evolver_attempt(entry.evolution_attempt.take());
         entry.route = selection.route;
         entry.socket_settings = selection.socket_settings;
         entry.packet_settings = selection.packet_settings;

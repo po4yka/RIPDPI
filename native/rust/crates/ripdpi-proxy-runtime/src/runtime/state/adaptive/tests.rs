@@ -35,6 +35,7 @@ fn skipped_first_write_does_not_bind_the_ttl_of_later_sender_attempts() {
             &mut writer,
             DesyncSendRequest {
                 fake_ttl_attempt: Some(slot),
+                evolution_attempt: None,
                 lua_flow: None,
                 group_index: 0,
                 group_override: None,
@@ -72,3 +73,5 @@ fn skipped_first_write_does_not_bind_the_ttl_of_later_sender_attempts() {
     assert_eq!(bound, Some(selected));
     assert_eq!(later.execution_receipt().expect("attempt receipt").adaptive_fake_ttl, Some(7));
 }
+
+mod evolution;

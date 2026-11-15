@@ -1,6 +1,12 @@
 use super::*;
 
 impl RuntimeState {
+    /// Use the real service ports in runtime contract tests.
+    #[cfg(test)]
+    pub(in crate::runtime) fn test_services(&self) -> &ServicesStateHandle {
+        &self.services
+    }
+
     #[cfg(test)]
     pub(in crate::runtime) fn test(config: RuntimeConfig) -> Self {
         Self::test_with_context(config, None)

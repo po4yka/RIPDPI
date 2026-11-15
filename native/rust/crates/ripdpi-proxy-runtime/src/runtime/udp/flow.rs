@@ -42,6 +42,7 @@ pub(super) struct UdpFlowActivationState {
     pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
     pub(super) execution_family: Option<&'static str>,
     pub(super) attempt_token: Option<AttemptCorrelationId>,
+    pub(super) evolution_attempt: Option<crate::runtime::desync::EvolutionAttempt>,
     pub(super) host: Option<String>,
     pub(super) payload: Vec<u8>,
     pub(super) awaiting_response: bool,
@@ -131,6 +132,7 @@ pub(super) fn expire_udp_flows(
             || !entry.session.feedback_is_eligible()
             || entry.session.has_unverifiable_client_offer()
         {
+            state.discard_evolver_attempt(entry.evolution_attempt);
             continue;
         }
         if try_advance_udp_preferred_target(state, protect_path, &mut entry, now)? {
@@ -156,6 +158,7 @@ pub(super) fn retire_failed_udp_flow(
         return Ok(());
     };
     if !entry.is_active(state) {
+        state.discard_evolver_attempt(entry.evolution_attempt);
         return Ok(());
     }
     if try_advance_udp_preferred_target(state, protect_path, &mut entry, now)? {

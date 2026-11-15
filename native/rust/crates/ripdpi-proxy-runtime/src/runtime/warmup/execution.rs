@@ -34,6 +34,7 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
         &mut upstream,
         DesyncSendRequest {
             fake_ttl_attempt: Some(&mut fake_ttl_attempt),
+            evolution_attempt: None,
             lua_flow: lua_flow.as_deref(),
             group_index: route.group_index,
             group_override: None,

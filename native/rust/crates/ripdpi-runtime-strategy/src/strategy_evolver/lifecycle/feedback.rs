@@ -1,18 +1,24 @@
 use ripdpi_failure_classifier::FailureClass;
 
 use super::experiment::discard_pending_experiment;
-use crate::strategy_evolver::StrategyEvolver;
 use crate::strategy_evolver::types::{ComboStats, CooldownTransition, FITNESS_LATENCY_CAP_MS};
+use crate::strategy_evolver::{StrategyEvolver, StrategyExperiment};
 
 impl StrategyEvolver {
     /// Record successful connection with observed latency.
     pub fn record_success(&mut self, latency_ms: u64) {
-        let Some(combo) = self.current_experiment.take() else {
+        let Some(experiment) = self.take_experiment() else {
             return;
         };
-        let context = self.current_experiment_context.take().unwrap_or_else(|| self.current_learning_context.clone());
-        let family = self.current_experiment_family.take().unwrap_or_else(|| combo.family());
-        self.current_experiment_started_ms = None;
+        self.record_experiment_success(experiment, latency_ms);
+    }
+
+    /// Consume feedback for the experiment owned by the observed flow.
+    pub fn record_experiment_success(&mut self, experiment: StrategyExperiment, latency_ms: u64) {
+        if self.experiment_expired(&experiment) {
+            return;
+        }
+        let StrategyExperiment { combo, context, family, .. } = experiment;
         tracing::debug!(combo = ?combo, latency_ms, "strategy evolution recorded success");
 
         let now_ms = self.monotonic_now_ms();
@@ -44,12 +50,20 @@ impl StrategyEvolver {
             return;
         }
 
-        let Some(combo) = self.current_experiment.take() else {
+        let Some(experiment) = self.take_experiment() else {
             return;
         };
-        let context = self.current_experiment_context.take().unwrap_or_else(|| self.current_learning_context.clone());
-        let family = self.current_experiment_family.take().unwrap_or_else(|| combo.family());
-        self.current_experiment_started_ms = None;
+        self.record_experiment_failure(experiment, class);
+    }
+
+    /// Consume failure feedback for the experiment owned by the observed flow.
+    pub fn record_experiment_failure(&mut self, experiment: StrategyExperiment, class: FailureClass) {
+        if matches!(class, FailureClass::CapabilitySkipped | FailureClass::StrategyExecutionFailure)
+            || self.experiment_expired(&experiment)
+        {
+            return;
+        }
+        let StrategyExperiment { combo, context, family, .. } = experiment;
         tracing::debug!(combo = ?combo, class = class.as_str(), "strategy evolution recorded failure");
 
         let now_ms = self.monotonic_now_ms();

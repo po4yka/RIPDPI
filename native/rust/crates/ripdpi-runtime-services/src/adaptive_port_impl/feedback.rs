@@ -2,7 +2,7 @@ use crate::ServicesStateHandle;
 use crate::strategy_evolution::StrategyEvolutionResolver;
 use ripdpi_failure_classifier::FailureClass;
 use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-use ripdpi_runtime_adaptive::adaptive_port::{AdaptiveFeedbackPort, FakeTtlAttempt};
+use ripdpi_runtime_adaptive::adaptive_port::{AdaptiveFeedbackPort, EvolutionAttempt, FakeTtlAttempt};
 use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
 use ripdpi_runtime_adaptive::strategy_context::network_scope_key;
 use std::io;
@@ -96,11 +96,14 @@ impl AdaptiveFeedbackPort for ServicesStateHandle {
     ) -> io::Result<()> {
         self.with_fake_ttl(|resolver| resolver.note_server_ttl(group_index, target, host, observed_ttl, attempt))
     }
-    fn note_evolver_failure(&self, class: FailureClass) {
-        self.with_evolver(|evolver| evolver.record_failure(class));
+    fn note_evolver_failure(&self, attempt: EvolutionAttempt, class: FailureClass) {
+        self.with_evolver(|evolver| evolver.record_failure(attempt, class));
     }
-    fn note_evolver_success(&self) {
-        self.with_evolver(|evolver| evolver.record_success(0));
+    fn note_evolver_success(&self, attempt: EvolutionAttempt) {
+        self.with_evolver(|evolver| evolver.record_success(attempt, 0));
+    }
+    fn discard_evolver_attempt(&self, attempt: EvolutionAttempt) {
+        self.with_evolver(|evolver| evolver.discard(attempt));
     }
     fn note_evolver_connect_failure(&self) {
         self.reset_evolver();

@@ -146,10 +146,12 @@ pub(super) fn flush_outbound_payload(
         None
     };
     let mut fake_ttl_attempt = session.begin_fake_ttl_send()?;
+    let mut evolution_attempt = session.begin_evolution_send()?;
     let send_result = state.send_tcp_desync_payload(
         writer,
         DesyncSendRequest {
             fake_ttl_attempt: Some(&mut fake_ttl_attempt),
+            evolution_attempt: Some(&mut evolution_attempt),
             lua_flow: session.lua_flow.as_deref(),
             group_index,
             group_override: group.as_ref(),
@@ -160,6 +162,7 @@ pub(super) fn flush_outbound_payload(
         },
     );
     let fake_ttl_feedback = session.finish_fake_ttl_send(fake_ttl_attempt)?;
+    session.finish_evolution_send(state, evolution_attempt)?;
     state.note_upstream_application_send_result(&send_result);
     if let Some(feedback) = fake_ttl_feedback {
         record_stream_fake_ttl_success(state, peer_addr, group_index, host.as_deref(), feedback)?;

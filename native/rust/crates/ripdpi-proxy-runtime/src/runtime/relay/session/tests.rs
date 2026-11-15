@@ -1,4 +1,5 @@
 use super::*;
+use ripdpi_proxy_runtime_adapter::desync_platform::EvolutionHintContext;
 
 #[test]
 fn first_outbound_attempt_survives_duplex_handoff() {
@@ -74,4 +75,48 @@ fn an_overlapping_attempt_claims_fake_feedback_once_with_the_observed_ttl() {
     shared.complete_fake_ttl_feedback().expect("complete feedback");
     assert_eq!(shared.begin_fake_ttl_send().expect("begin later send"), Some(attempt));
     assert!(shared.finish_fake_ttl_send(Some(attempt)).expect("finish later send").is_none());
+}
+
+#[test]
+fn neutral_evolution_response_closes_only_its_delayed_receipt() {
+    use crate::runtime::config::RuntimeConfig;
+    use ripdpi_proxy_runtime_adapter::model::ports::AdaptiveHintPort;
+    let mut config = RuntimeConfig::default();
+    config.adaptive.strategy_evolution = true;
+    config.adaptive.evolution_epsilon_permil = 0;
+    let state = RuntimeState::test(config.clone());
+    let target = "127.0.0.1:443".parse().unwrap();
+    let payload = crate::runtime::payload::RUNTIME_DEFAULT_FAKE_TLS;
+    let resolve = |attempt| {
+        state
+            .test_services()
+            .resolve_tcp_hints_with_evolver(
+                &config,
+                EvolutionHintContext { runtime_context: None, existing_attempt: attempt },
+                0,
+                target,
+                None,
+                &config.groups[0],
+                payload,
+            )
+            .unwrap()
+    };
+    let selected = resolve(None);
+    let expected_hint = selected.hints.split_offset_base;
+    assert!(expected_hint.is_some(), "TLS attempt differs from group fallback");
+    let canceled = selected.evolution_attempt.unwrap();
+    let other = resolve(None).evolution_attempt.unwrap();
+    let shared = FirstOutboundSession::new().into_relay_session().into_shared();
+    shared.begin_evolution_send().unwrap();
+    shared.finish_first_response(FirstResponseOutcome::Neutral).unwrap();
+    shared.finish_evolution_response(&state, true).unwrap();
+    shared.finish_evolution_send(&state, Some(canceled)).unwrap();
+    shared.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: false }).unwrap();
+    shared.finish_evolution_response(&state, true).unwrap();
+    assert!(!shared.snapshot().unwrap().permits_success());
+    assert_eq!(resolve(Some(canceled)).hints.split_offset_base, None);
+    assert_eq!(resolve(Some(other)).hints.split_offset_base, expected_hint);
+    state.note_evolver_success(Some(canceled));
+    state.note_evolver_success(Some(other));
+    assert_eq!(resolve(Some(other)).hints.split_offset_base, None);
 }

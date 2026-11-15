@@ -1,5 +1,7 @@
-use std::collections::HashSet;
+use ripdpi_runtime_adaptive::adaptive_port::EvolutionAttempt;
+use std::collections::{BTreeMap, HashSet};
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use ripdpi_config::RuntimeConfig;
 use ripdpi_desync::AdaptivePlannerHints;
@@ -9,10 +11,30 @@ use ripdpi_runtime_adaptive::strategy_context::{classify_learning_payload, direc
 use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
 use ripdpi_runtime_strategy::strategy_evolver::{
     CapabilityContext, LearningAlpnClass, LearningContext, LearningHostingFamily, LearningReachabilitySet,
-    LearningTargetBucket, LearningTransportKind, ResolverHealthClass, StrategyEvolver, latest_global_probe_results,
+    LearningTargetBucket, LearningTransportKind, ResolverHealthClass, StrategyEvolver, StrategyExperiment,
+    latest_global_probe_results,
 };
 
+#[cfg(test)]
+mod attempt_tests;
+mod attempts;
+
+const MAX_PENDING_EVOLUTION_ATTEMPTS: usize = 1024;
+static NEXT_EVOLUTION_GENERATION: AtomicU64 = AtomicU64::new(1);
+
+fn next_generation() -> Option<u64> {
+    allocate_generation(&NEXT_EVOLUTION_GENERATION)
+}
+
+fn allocate_generation(counter: &AtomicU64) -> Option<u64> {
+    // Identity only: the resolver RwLock publishes all pending state.
+    counter.try_update(Ordering::Relaxed, Ordering::Relaxed, |current| current.checked_add(1)).ok()
+}
+
 pub(crate) struct StrategyEvolutionResolver {
+    generation: Option<u64>,
+    next_attempt: u64,
+    pending: BTreeMap<EvolutionAttempt, StrategyExperiment>,
     evolver: StrategyEvolver,
     current_probe_generation: u64,
     consumed_probe_domains: HashSet<(LearningTargetBucket, String)>,
@@ -23,6 +45,9 @@ impl StrategyEvolutionResolver {
         let enabled = config.adaptive.strategy_evolution;
         let epsilon = config.adaptive.evolution_epsilon_permil as f64 / 1000.0;
         Self {
+            generation: next_generation(),
+            next_attempt: 1,
+            pending: BTreeMap::new(),
             evolver: StrategyEvolver::new(enabled, epsilon).with_time_knobs(
                 config.adaptive.evolution_experiment_ttl_ms,
                 config.adaptive.evolution_decay_half_life_ms,
@@ -41,15 +66,13 @@ impl StrategyEvolutionResolver {
         target: SocketAddr,
         host: Option<&str>,
         payload: &[u8],
-    ) -> Option<AdaptivePlannerHints> {
+        existing_attempt: Option<EvolutionAttempt>,
+    ) -> Option<(AdaptivePlannerHints, EvolutionAttempt)> {
         if !config.adaptive.strategy_evolution {
             return None;
         }
         let context = tcp_learning_context(config, runtime_context, target, host, payload);
-        let bucket = context.target_bucket;
-        self.evolver.set_learning_context(context);
-        self.apply_latest_probe_results(bucket, host);
-        self.evolver.peek_hints().or_else(|| self.evolver.suggest_hints())
+        self.hints_for_attempt(context, existing_attempt, host)
     }
 
     pub(crate) fn udp_hints(
@@ -59,23 +82,13 @@ impl StrategyEvolutionResolver {
         target: SocketAddr,
         host: Option<&str>,
         payload: &[u8],
-    ) -> Option<AdaptivePlannerHints> {
+        existing_attempt: Option<EvolutionAttempt>,
+    ) -> Option<(AdaptivePlannerHints, EvolutionAttempt)> {
         if !config.adaptive.strategy_evolution {
             return None;
         }
         let context = udp_learning_context(config, runtime_context, target, host, payload);
-        let bucket = context.target_bucket;
-        self.evolver.set_learning_context(context);
-        self.apply_latest_probe_results(bucket, host);
-        self.evolver.peek_hints().or_else(|| self.evolver.suggest_hints())
-    }
-
-    pub(crate) fn record_success(&mut self, latency_ms: u64) {
-        self.evolver.record_success(latency_ms);
-    }
-
-    pub(crate) fn record_failure(&mut self, class: FailureClass) {
-        self.evolver.record_failure(class);
+        self.hints_for_attempt(context, existing_attempt, host)
     }
 
     pub(crate) fn reset(&mut self) {
@@ -90,6 +103,9 @@ impl StrategyEvolutionResolver {
             .with_learning_hardening(previous.max_arm_attempts, previous.penalties_enabled);
         evolver.max_combos = previous.max_combos;
         self.evolver = evolver;
+        self.pending.clear();
+        self.generation = next_generation();
+        self.next_attempt = 1;
         self.current_probe_generation = 0;
         self.consumed_probe_domains.clear();
     }
@@ -337,14 +353,14 @@ mod tests {
         let oob_combo = probe_combo_for_strategy_id("oob").expect("OOB strategy combo");
 
         resolver
-            .tcp_hints(&config, None, target, Some("unprobed.example"), &minimal_tls_client_hello())
+            .tcp_hints(&config, None, target, Some("unprobed.example"), &minimal_tls_client_hello(), None)
             .expect("strategy hints for unprobed host");
 
         assert!(resolver.evolver.combo_stats_for(&tls_record_combo).is_none());
         assert!(resolver.evolver.combo_stats_for(&split_combo).is_none());
 
         resolver
-            .tcp_hints(&config, None, target, Some("youtube.com"), &minimal_tls_client_hello())
+            .tcp_hints(&config, None, target, Some("youtube.com"), &minimal_tls_client_hello(), None)
             .expect("strategy hints for YouTube");
         assert_eq!(
             resolver.evolver.combo_stats_for(&tls_record_combo).expect("TLS record strategy stats").attempts,
@@ -353,7 +369,7 @@ mod tests {
         assert!(resolver.evolver.combo_stats_for(&split_combo).is_none());
 
         resolver
-            .tcp_hints(&config, None, target, Some("YOUTUBE.COM."), &minimal_tls_client_hello())
+            .tcp_hints(&config, None, target, Some("YOUTUBE.COM."), &minimal_tls_client_hello(), None)
             .expect("strategy hints for repeated YouTube host");
         assert_eq!(
             resolver.evolver.combo_stats_for(&tls_record_combo).expect("TLS record strategy stats").attempts,
@@ -361,7 +377,7 @@ mod tests {
         );
 
         resolver
-            .tcp_hints(&config, None, target, Some("Discord.COM."), &minimal_tls_client_hello())
+            .tcp_hints(&config, None, target, Some("Discord.COM."), &minimal_tls_client_hello(), None)
             .expect("strategy hints for Discord");
         assert_eq!(
             resolver.evolver.combo_stats_for(&split_combo).expect("split strategy stats").attempts,
@@ -370,7 +386,7 @@ mod tests {
 
         apply_global_probe_results(&[ProbeResult::success("oob", "youtube.com", 20)]);
         resolver
-            .tcp_hints(&config, None, target, Some("YouTube.COM."), &minimal_tls_client_hello())
+            .tcp_hints(&config, None, target, Some("YouTube.COM."), &minimal_tls_client_hello(), None)
             .expect("strategy hints for new YouTube generation");
         assert_eq!(
             resolver.evolver.combo_stats_for(&oob_combo).expect("OOB strategy stats").attempts,

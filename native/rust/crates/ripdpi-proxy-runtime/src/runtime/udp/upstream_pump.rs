@@ -44,6 +44,7 @@ pub(super) fn pump_udp_upstream_responses(
             continue;
         };
         if ensure_udp_flow_active(state, entry).is_err() {
+            state.discard_evolver_attempt(entry.evolution_attempt);
             flow_state.remove(&key);
             continue;
         }
@@ -88,6 +89,7 @@ pub(super) fn pump_udp_upstream_responses(
                     RuntimeState::encode_socks5_udp_packet_into(encode_buffer, entry.logical_target, response);
                 }
                 if ensure_udp_flow_active(state, entry).is_err() {
+                    state.discard_evolver_attempt(entry.evolution_attempt);
                     flow_state.remove(&key);
                     continue;
                 }
@@ -211,6 +213,7 @@ pub(super) fn send_udp_flow_payload(
         && let Some(plan) =
             flow.plan(entry.upstream.local_addr()?, entry.current_target, "udp", payload, entry.host.as_deref(), None)?
     {
+        state.discard_evolver_attempt(entry.evolution_attempt);
         entry.remote_feedback.poison();
         ensure_udp_flow_active(state, entry)?;
         let outcome = RuntimeState::execute_lua_udp_plan(
@@ -236,14 +239,18 @@ pub(super) fn send_udp_flow_payload(
             !entry.answered && entry.session.feedback_is_eligible() && outcome.real_writes_committed > 0;
         return Ok(());
     }
-    let actions = state.plan_udp_flow_actions(
+    let had_evolution_attempt = entry.evolution_attempt.is_some();
+    let plan = state.plan_udp_flow_actions(
         entry.route.group_index,
         payload,
         progress,
         entry.host.as_deref(),
         entry.current_target,
         entry.packet_settings.default_ttl,
+        entry.evolution_attempt,
     )?;
+    entry.evolution_attempt = plan.evolution_attempt;
+    let actions = plan.actions;
     if !feedback_safe_actions(&actions, payload) {
         entry.remote_feedback.poison();
     }
@@ -263,6 +270,7 @@ pub(super) fn send_udp_flow_payload(
                 entry.session.register_sent_initial(context);
             }
             entry.remote_feedback.execution_failed(error.outcome.real_writes_committed);
+            state.discard_evolver_attempt(entry.evolution_attempt);
             state.record_udp_desync_failure_evidence(
                 entry.attempt_token.as_ref(),
                 entry.execution_family,
@@ -271,11 +279,21 @@ pub(super) fn send_udp_flow_payload(
             return Err(error.into_io_error());
         }
     };
+    if outcome.real_writes_committed == 0
+        || outcome.payload_bytes_committed == 0
+        || outcome.fallback_reason.is_some()
+        || (!had_evolution_attempt && outcome.technique_actions_completed == 0)
+    {
+        state.discard_evolver_attempt(entry.evolution_attempt);
+    }
     if outcome.real_writes_committed > 0 {
         entry.session.register_sent_initial(context);
     }
     entry.awaiting_response =
         !entry.answered && entry.session.feedback_is_eligible() && outcome.real_writes_committed > 0;
+    if !entry.awaiting_response {
+        state.discard_evolver_attempt(entry.evolution_attempt);
+    }
     entry.remote_feedback.record_send(payload);
     state.record_udp_desync_execution_evidence(entry.attempt_token.as_ref(), entry.execution_family, outcome);
     Ok(())

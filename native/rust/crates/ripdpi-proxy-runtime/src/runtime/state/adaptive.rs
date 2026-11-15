@@ -66,11 +66,24 @@ impl RuntimeState {
     ) -> io::Result<()> {
         AdaptiveFeedbackPort::note_server_ttl(&self.services, group_index, target, host, observed_ttl, attempt)
     }
-    pub(in crate::runtime) fn note_evolver_success(&self) {
-        AdaptiveFeedbackPort::note_evolver_success(&self.services);
+    pub(in crate::runtime) fn discard_evolver_attempt(&self, attempt: Option<EvolutionAttempt>) {
+        if let Some(attempt) = attempt {
+            AdaptiveFeedbackPort::discard_evolver_attempt(&self.services, attempt);
+        }
     }
-    pub(in crate::runtime) fn note_evolver_failure(&self, class: RuntimeFailureClass) {
-        AdaptiveFeedbackPort::note_evolver_failure(&self.services, class);
+    pub(in crate::runtime) fn note_evolver_success(&self, attempt: Option<EvolutionAttempt>) {
+        if let Some(attempt) = attempt {
+            AdaptiveFeedbackPort::note_evolver_success(&self.services, attempt);
+        }
+    }
+    pub(in crate::runtime) fn note_evolver_failure(
+        &self,
+        attempt: Option<EvolutionAttempt>,
+        class: RuntimeFailureClass,
+    ) {
+        if let Some(attempt) = attempt {
+            AdaptiveFeedbackPort::note_evolver_failure(&self.services, attempt, class);
+        }
     }
 }
 

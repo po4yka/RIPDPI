@@ -1,3 +1,4 @@
+mod evolution;
 mod quic_response;
 
 use std::collections::HashMap;
@@ -356,6 +357,7 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
             source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
             execution_family: None,
             attempt_token: None,
+            evolution_attempt: None,
             host: Some("example.org".to_string()),
             payload: b"quic-initial".to_vec(),
             awaiting_response: true,
@@ -484,6 +486,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
             source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
             execution_family: None,
             attempt_token: None,
+            evolution_attempt: None,
             host: None,
             payload: Vec::new(),
             awaiting_response: false,
@@ -866,6 +869,7 @@ fn lua_nonroot_udp_modify_uses_existing_datagram_socket() {
         source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
         execution_family: None,
         attempt_token: None,
+        evolution_attempt: None,
         host: None,
         payload: Vec::new(),
         awaiting_response: false,
@@ -939,6 +943,7 @@ fn flow_entry_for(upstream: UdpSocket, target: SocketAddr) -> UdpFlowActivationS
         source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
         execution_family: None,
         attempt_token: None,
+        evolution_attempt: None,
         host: None,
         payload: Vec::new(),
         awaiting_response: false,

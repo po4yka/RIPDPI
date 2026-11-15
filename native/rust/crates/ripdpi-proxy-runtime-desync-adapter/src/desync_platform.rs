@@ -18,7 +18,7 @@ use crate::sync::AtomicBool;
 
 pub use crate::socket_lua::{PayloadPlan, SocketLuaFlow, SocketLuaStrategies};
 pub use ripdpi_desync_runtime::send_payload_segments as send_lua_payload_segments;
-pub use ripdpi_runtime_decision_ports::adaptive_ports::FakeTtlAttempt;
+pub use ripdpi_runtime_decision_ports::adaptive_ports::{EvolutionAttempt, EvolutionHintContext, FakeTtlAttempt};
 
 pub use ripdpi_desync_runtime::{
     OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
@@ -39,12 +39,14 @@ pub struct TcpDesyncExecutionContext<'a> {
     pub runtime_context: Option<&'a ripdpi_proxy_config::ProxyRuntimeContext>,
     pub telemetry: Option<&'a dyn ripdpi_runtime_api::RuntimeTelemetrySink>,
     pub adaptive_hints: &'a dyn ripdpi_runtime_decision_ports::adaptive_ports::AdaptiveHintPort,
+    pub adaptive_feedback: &'a dyn ripdpi_runtime_decision_ports::adaptive_ports::AdaptiveFeedbackPort,
     pub ttl_unavailable: &'a AtomicBool,
     pub pcap_hook: Option<&'a PcapHook>,
 }
 
 pub struct DesyncSendRequest<'a> {
     pub fake_ttl_attempt: Option<&'a mut Option<FakeTtlAttempt>>,
+    pub evolution_attempt: Option<&'a mut Option<EvolutionAttempt>>,
     pub lua_flow: Option<&'a crate::socket_lua::SocketLuaFlow>,
     pub group_index: usize,
     pub group_override: Option<&'a ripdpi_config::DesyncGroup>,
@@ -138,6 +140,9 @@ pub fn send_tcp_desync_payload(
                 _ => Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "unsupported Lua socket action")),
             })
             .collect::<Result<Vec<_>, _>>()?;
+        if let Some(attempt) = request.evolution_attempt.as_deref().copied().flatten() {
+            context.adaptive_feedback.discard_evolver_attempt(attempt);
+        }
         return send_lua_payload_segments(writer, &segments, context.pcap_hook);
     }
     let config = &context.executor.config;
@@ -170,15 +175,17 @@ pub fn send_tcp_desync_payload(
         None
     };
     let resolved_fake_ttl = fake_ttl_attempt.map(|attempt| attempt.ttl);
-    let adaptive_hints = context.adaptive_hints.resolve_tcp_hints_with_evolver(
+    let bound_evolution_attempt = request.evolution_attempt.as_deref().copied().flatten();
+    let resolved = context.adaptive_hints.resolve_tcp_hints_with_evolver(
         config,
-        context.runtime_context,
+        EvolutionHintContext { runtime_context: context.runtime_context, existing_attempt: bound_evolution_attempt },
         request.group_index,
         request.target,
         request.host,
         effective_group,
         request.payload,
     )?;
+    let adaptive_hints = resolved.hints;
     let morph_policy = crate::model::proxy_config::morph_policy(context.runtime_context);
     crate::model::proxy_config::emit_morph_hint_applied(
         context.telemetry,
@@ -213,6 +220,28 @@ pub fn send_tcp_desync_payload(
         context.ttl_unavailable,
         context.pcap_hook,
     );
+    if let Some(attempt) = resolved.evolution_attempt {
+        // A fresh attempt needs an applied tactic. A bound attempt can retain
+        // its original observation through plain continuation writes.
+        let attributable = result.as_ref().is_ok_and(|outcome| {
+            let receipt = &outcome.execution_receipt;
+            request.group_override.is_none()
+                && strategy_family_override.is_none()
+                && (receipt.disposition == TcpExecutionDisposition::Applied
+                    || (bound_evolution_attempt.is_some()
+                        && receipt.disposition == TcpExecutionDisposition::ActivationSkipped))
+                && receipt.payload_bytes_committed > 0
+                && receipt.real_writes_committed > 0
+                && receipt.fallback_reason.is_none()
+        });
+        if !attributable || request.evolution_attempt.is_none() {
+            context.adaptive_feedback.discard_evolver_attempt(attempt);
+        }
+        // Keep a dead identity too: a late response must never credit a replacement attempt.
+        if let Some(slot) = request.evolution_attempt {
+            *slot = Some(attempt);
+        }
+    }
     let used_ttl = match &result {
         Ok(outcome) => outcome.execution_receipt.adaptive_fake_ttl,
         Err(error) => error.execution_receipt().and_then(|receipt| receipt.adaptive_fake_ttl),

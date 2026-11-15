@@ -4,8 +4,9 @@ use std::net::SocketAddr;
 use crate::runtime::adaptive::{
     note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_direct_path_tcp_success, note_server_ttl_for_route,
 };
-use crate::runtime::desync::{FakeTtlAttempt, OutboundSendError};
+use crate::runtime::desync::OutboundSendError;
 use crate::runtime::failure::RuntimeClassifiedFailure;
+use crate::runtime::relay::session::AdaptiveFeedbackAttempts;
 use crate::runtime::retry::note_retry_success;
 use crate::runtime::routing::{note_route_success, preferred_targets_for_transport};
 use crate::runtime::state::RuntimeState;
@@ -35,9 +36,11 @@ pub(crate) fn record_stream_relay_success(
     success_payload: Option<&[u8]>,
     strategy_family: Option<&str>,
     primary_strategy_family: Option<&str>,
-    fake_ttl_attempt: Option<FakeTtlAttempt>,
+    attempts: AdaptiveFeedbackAttempts,
 ) -> io::Result<()> {
+    let AdaptiveFeedbackAttempts { fake_ttl: fake_ttl_attempt, evolution: evolution_attempt } = attempts;
     if !RuntimeState::should_track_strategy_target(target) {
+        state.discard_evolver_attempt(evolution_attempt);
         return Ok(());
     }
     if let Some(request) = success_payload {
@@ -54,7 +57,7 @@ pub(crate) fn record_stream_relay_success(
         note_direct_path_tcp_success(state, success_host, &targets, strategy_family.or(primary_strategy_family))?;
     }
     note_adaptive_fake_ttl_success(state, target, route.group_index, success_host, fake_ttl_attempt)?;
-    state.note_evolver_success();
+    state.note_evolver_success(evolution_attempt);
     note_route_success(state, target, route, success_host)?;
     Ok(())
 }

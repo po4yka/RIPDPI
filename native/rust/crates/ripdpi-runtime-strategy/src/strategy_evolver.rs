@@ -2,9 +2,10 @@
 //!
 //! This module implements a UCB1 multi-armed bandit that explores *combinations*
 //! across adaptive dimensions, fake-TTL, timing jitter, and OOB-byte placement
-//! using epsilon-greedy + UCB1 selection. It operates at the **session** level: a single [`StrategyEvolver`]
-//! instance picks one [`StrategyCombo`] at a time and holds it until feedback
-//! (success/failure) arrives.
+//! using epsilon-greedy + UCB1 selection. One [`StrategyEvolver`] shares bandit
+//! statistics. Each runtime flow owns a [`StrategyExperiment`] until its own
+//! feedback arrives. The serial hint API retains one pending slot for callers
+//! that do not use flow-owned experiments.
 //!
 //! # Time-driven semantics (2026-04-25)
 //!
@@ -40,7 +41,7 @@
 //!
 //! | System | Scope | Granularity |
 //! |--------|-------|-------------|
-//! | **Strategy Evolver** (this module) | Session-wide | One combo for all flows |
+//! | **Strategy Evolver** (this module) | Shared statistics | One owned combo per flow |
 //! | **Adaptive Tuning** (`adaptive_tuning`) | Per-flow | Per (host, group, flow-kind) |
 //!
 //! **Priority chain for hint resolution:**
@@ -61,8 +62,11 @@
 //! - Disable (the default) for stable networks where per-flow adaptive tuning
 //!   already performs well, or when you want fine-grained per-host adaptation.
 
+#[cfg(test)]
+mod attempt_tests;
 mod feedback;
 mod lifecycle;
+mod owned_experiment;
 mod probe_results;
 mod selection;
 mod shared_priors;
@@ -71,6 +75,7 @@ mod tests;
 mod thompson_sampling;
 mod types;
 
+pub use owned_experiment::StrategyExperiment;
 pub use thompson_sampling::BetaParams;
 
 // Re-exported so callers (including the JNI bridge) can verify and apply

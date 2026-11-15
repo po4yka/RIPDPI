@@ -1,4 +1,4 @@
-use crate::runtime::desync::FakeTtlAttempt;
+use crate::runtime::desync::{EvolutionAttempt, FakeTtlAttempt};
 use std::io;
 use std::net::SocketAddr;
 
@@ -18,16 +18,20 @@ pub(in crate::runtime) fn advance_route_for_failure(
     payload: Option<&[u8]>,
     failure: &RuntimeClassifiedFailure,
     fake_ttl_attempt: Option<FakeTtlAttempt>,
+    evolution_attempt: Option<EvolutionAttempt>,
 ) -> io::Result<Option<RuntimeConnectionRoute>> {
     if !RuntimeState::should_track_strategy_target(target) {
+        state.discard_evolver_attempt(evolution_attempt);
         return Ok(None);
     }
     let Some(trigger) = state.retry_trigger_for_failure(failure) else {
+        state.discard_evolver_attempt(evolution_attempt);
         return Ok(None);
     };
 
     let host_ref = host.as_deref();
-    let penalize = record_failure_feedback(state, target, route, host_ref, payload, failure, fake_ttl_attempt)?;
+    let penalize =
+        record_failure_feedback(state, target, route, host_ref, payload, failure, fake_ttl_attempt, evolution_attempt)?;
     let retry_penalties =
         build_retry_selection_penalties(state, target, host_ref, payload, RuntimeTransportProtocol::Tcp)?;
     let next = advance_cache_route(state, target, route, host.clone(), payload, trigger, penalize, &retry_penalties)?;

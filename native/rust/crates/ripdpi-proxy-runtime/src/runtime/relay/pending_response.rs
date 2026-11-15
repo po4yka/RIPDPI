@@ -1,3 +1,4 @@
+use crate::runtime::relay::session::AdaptiveFeedbackAttempts;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::atomic::AtomicBool;
@@ -51,6 +52,7 @@ impl PendingFirstResponse {
                     state.note_tls_handshake_completed(self.target, start.elapsed().as_millis() as u64);
                 }
                 let has_payload = session.observe_first_response_payload(&bytes)?;
+                session.finish_evolution_response(state, has_payload)?;
                 // A client can send its next request as soon as this response is visible.
                 session.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: false })?;
                 client.write_all(&bytes)?;
@@ -74,20 +76,25 @@ impl PendingFirstResponse {
                         Some(&self.original_request),
                         self.success_strategy_family,
                         self.primary_strategy_family,
-                        None,
+                        AdaptiveFeedbackAttempts { fake_ttl: None, evolution: None },
                     )?;
                 }
                 session.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: has_payload })
             }
             FirstResponse::Neutral(bytes) => {
                 session.finish_first_response(FirstResponseOutcome::Neutral)?;
+                session.finish_evolution_response(state, false)?;
                 session.observe_retry_response_payload(&bytes)?;
                 client.write_all(&bytes)?;
                 state.note_application_traffic(0, bytes.len() as u64);
                 Ok(())
             }
-            FirstResponse::NoData => session.finish_first_response(FirstResponseOutcome::Neutral),
+            FirstResponse::NoData => {
+                session.finish_first_response(FirstResponseOutcome::Neutral)?;
+                session.finish_evolution_response(state, false)
+            }
             FirstResponse::Failure { failure, response_bytes } => {
+                session.finish_evolution_response(state, false)?;
                 session.finish_first_response(FirstResponseOutcome::Rejected)?;
                 // read_first_response already noted this failure's block signal.
                 emit_failure_classified(state, self.target, &failure, self.host.as_deref());

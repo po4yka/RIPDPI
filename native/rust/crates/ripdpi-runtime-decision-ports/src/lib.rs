@@ -20,8 +20,8 @@ pub mod snapshots {
 
 pub mod adaptive_ports {
     pub use crate::adaptive::{
-        AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, FakeTtlAttempt, PreferredTargetSuppressionReason,
-        PreferredTargets, RetryPacingPort,
+        AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, EvolutionAttempt, EvolutionHintContext,
+        FakeTtlAttempt, PreferredTargetSuppressionReason, PreferredTargets, ResolvedAdaptiveHints, RetryPacingPort,
     };
 }
 

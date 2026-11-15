@@ -1,10 +1,10 @@
 pub(crate) use ripdpi_proxy_runtime_adapter::desync_platform::{
-    DesyncSendRequest, FakeTtlAttempt, OutboundSendError, OutboundSendOutcome, PcapHook, TcpDesyncExecutionContext,
-    TcpDesyncExecutor, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason, TcpOffsetMarkerBase,
-    TcpStrategyFamily, TcpTerminalReason, send_tcp_desync_payload,
+    DesyncSendRequest, EvolutionAttempt, FakeTtlAttempt, OutboundSendError, OutboundSendOutcome, PcapHook,
+    TcpDesyncExecutionContext, TcpDesyncExecutor, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
+    TcpOffsetMarkerBase, TcpStrategyFamily, TcpTerminalReason, send_tcp_desync_payload,
 };
 pub(crate) use ripdpi_proxy_runtime_adapter::udp_desync::{
-    UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest, UdpDesyncPlanner,
+    UdpActionExecContext, UdpDesyncAction, UdpDesyncPlan, UdpDesyncPlanContext, UdpDesyncPlanRequest, UdpDesyncPlanner,
     UdpExecutionError, UdpExecutionOutcome, execute_udp_actions, execute_udp_payload_plan,
     plan_udp_actions_for_runtime,
 };

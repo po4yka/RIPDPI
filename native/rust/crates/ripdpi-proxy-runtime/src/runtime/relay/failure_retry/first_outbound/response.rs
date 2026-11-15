@@ -1,3 +1,4 @@
+use crate::runtime::relay::session::AdaptiveFeedbackAttempts;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
@@ -84,12 +85,16 @@ pub(super) fn handle_first_response(
                 Some(context.original_request),
                 context.success_strategy_family,
                 context.primary_strategy_family,
-                session_state.fake_ttl_attempt,
+                AdaptiveFeedbackAttempts {
+                    fake_ttl: session_state.fake_ttl_attempt,
+                    evolution: session_state.evolution_attempt,
+                },
             )?;
             Ok(FirstResponseDecision::Complete { recorded_success: true })
         }
         FirstResponse::Neutral(bytes) => {
             session_state.neutral_first_response();
+            context.state.discard_evolver_attempt(session_state.evolution_attempt);
             session_state.observe_retry_response_payload(&bytes);
             client.write_all(&bytes)?;
             context.state.note_application_traffic(0, bytes.len() as u64);
@@ -97,6 +102,7 @@ pub(super) fn handle_first_response(
         }
         FirstResponse::NoData => {
             session_state.neutral_first_response();
+            context.state.discard_evolver_attempt(session_state.evolution_attempt);
             Ok(FirstResponseDecision::Complete { recorded_success: false })
         }
         FirstResponse::Failure { failure, response_bytes } => {
@@ -113,7 +119,9 @@ mod tests {
     use crate::runtime::relay::execution::{RelayResultContext, record_relay_result};
     use crate::runtime::routing::select_route;
     use crate::runtime::types::RuntimeTransportProtocol;
-    use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+    use ripdpi_proxy_runtime_adapter::desync_platform::EvolutionHintContext;
+    use ripdpi_proxy_runtime_adapter::model::config::{DETECT_TLS_ALERT, DesyncGroup};
+    use ripdpi_proxy_runtime_adapter::model::ports::AdaptiveHintPort;
     use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
     use std::io::Read;
     use std::net::{Ipv4Addr, TcpListener};
@@ -149,17 +157,45 @@ mod tests {
 
     #[test]
     fn dpi38_closure_alerts_do_not_reward_or_complete_handshake() {
-        for code in [0, 90] {
+        for code in [Some(0), Some(90), None] {
             let telemetry = std::sync::Arc::new(HandshakeCount::default());
-            let state = RuntimeState::test_with_telemetry(RuntimeConfig::default(), Some(telemetry.clone()));
+            let mut config = RuntimeConfig::default();
+            config.adaptive.strategy_evolution = true;
+            config.adaptive.evolution_epsilon_permil = 0;
+            config.groups[0].matches.detect = DETECT_TLS_ALERT;
+            let state = RuntimeState::test_with_telemetry(config.clone(), Some(telemetry.clone()));
             let (mut upstream, mut origin) = pair();
             let (mut client, mut app) = pair();
             let target = upstream.peer_addr().expect("target");
             let request = RUNTIME_DEFAULT_FAKE_TLS;
-            let response = [0x15, 3, 3, 0, 2, 1, code];
-            origin.write_all(&response).expect("closure record");
+            let response = code.map_or_default(|code| vec![0x15, 3, 3, 0, 2, 1, code]);
+            if code.is_some() {
+                origin.write_all(&response).expect("closure record");
+            }
+            // Without a response, the bounded fallback deadline produces NoData,
+            // because timeout failure reporting is disabled in this configuration.
             let mut session = FirstOutboundSession::new();
             session.observe_first_outbound_payload(request);
+            let resolve = |attempt| {
+                state
+                    .test_services()
+                    .resolve_tcp_hints_with_evolver(
+                        &config,
+                        EvolutionHintContext { runtime_context: None, existing_attempt: attempt },
+                        0,
+                        target,
+                        Some("example.test"),
+                        &config.groups[0],
+                        request,
+                    )
+                    .unwrap()
+            };
+            let selected = resolve(None);
+            let expected_hint = selected.hints.split_offset_base;
+            assert!(expected_hint.is_some(), "TLS attempt differs from group fallback");
+            let canceled = selected.evolution_attempt.unwrap();
+            let other = resolve(None).evolution_attempt.unwrap();
+            session.evolution_attempt = Some(canceled);
             let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
             let result = handle_first_response(
                 &mut client,
@@ -180,11 +216,17 @@ mod tests {
             assert_eq!(*telemetry.0.lock().expect("handshake count"), 0, "closure is not a ServerHello");
             assert!(
                 matches!(result, FirstResponseDecision::Complete { recorded_success: false }),
-                "code {code} is neutral"
+                "code {code:?} is neutral"
             );
-            let mut bytes = [0; 7];
+            let mut bytes = vec![0; response.len()];
             app.read_exact(&mut bytes).expect("forwarded closure");
             assert_eq!(bytes, response);
+            assert_eq!(resolve(Some(canceled)).hints.split_offset_base, None);
+            state.note_evolver_success(Some(canceled));
+            state.note_evolver_success(Some(canceled));
+            assert_eq!(resolve(Some(other)).hints.split_offset_base, expected_hint);
+            state.note_evolver_success(Some(other));
+            assert_eq!(resolve(Some(other)).hints.split_offset_base, None);
             assert!(!session.into_relay_session().permits_success(), "late relay completion must stay neutral");
         }
     }

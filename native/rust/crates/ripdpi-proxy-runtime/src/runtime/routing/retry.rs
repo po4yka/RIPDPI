@@ -134,7 +134,8 @@ fn connect_target_with_route_and_egress_mode(
                 }
                 note_block_signal_for_failure(state, host.as_deref(), &failure, err.tcp_total_retransmissions);
                 emit_failure_classified(state, target, &failure, host.as_deref());
-                let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure, None)?;
+                let next =
+                    advance_route_for_failure(state, target, &route, host.clone(), payload, &failure, None, None)?;
                 let Some(next) = next else {
                     note_direct_path_all_ips_failed(state, host.as_deref(), &attempt_targets)?;
                     return Err(err.into_io_error());
@@ -221,7 +222,8 @@ fn reconnect_target_with_tfo_mode(
                     }
                 }
                 emit_failure_classified(state, target, &failure, host.as_deref());
-                let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure, None)?;
+                let next =
+                    advance_route_for_failure(state, target, &route, host.clone(), payload, &failure, None, None)?;
                 let Some(next) = next else {
                     return Err(err.into_io_error());
                 };

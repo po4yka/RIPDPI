@@ -26,11 +26,12 @@ use super::config::{
 };
 use super::destination_routing::{DestinationEgress, DestinationRoutingEvaluator};
 use super::desync::{
-    DesyncSendRequest, OutboundSendError, OutboundSendOutcome, RuntimeDesyncProjection, TcpDesyncExecutionContext,
-    TcpDesyncExecutor, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason, TcpOffsetMarkerBase,
-    TcpStrategyFamily, TcpTerminalReason, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext,
-    UdpDesyncPlanRequest, UdpDesyncPlanner, UdpExecutionError, UdpExecutionOutcome, execute_udp_actions,
-    execute_udp_payload_plan, plan_udp_actions_for_runtime, runtime_desync_projection, send_tcp_desync_payload,
+    DesyncSendRequest, EvolutionAttempt, OutboundSendError, OutboundSendOutcome, RuntimeDesyncProjection,
+    TcpDesyncExecutionContext, TcpDesyncExecutor, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
+    TcpOffsetMarkerBase, TcpStrategyFamily, TcpTerminalReason, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlan,
+    UdpDesyncPlanContext, UdpDesyncPlanRequest, UdpDesyncPlanner, UdpExecutionError, UdpExecutionOutcome,
+    execute_udp_actions, execute_udp_payload_plan, plan_udp_actions_for_runtime, runtime_desync_projection,
+    send_tcp_desync_payload,
 };
 use super::failure::{
     RuntimeBlockSignal, RuntimeClassifiedFailure, RuntimeDnsTamperingEvidence, RuntimeFailureAction,

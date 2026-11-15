@@ -1,8 +1,9 @@
 use crate::ServicesStateHandle;
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
 use ripdpi_desync::AdaptivePlannerHints;
-use ripdpi_proxy_config::ProxyRuntimeContext;
-use ripdpi_runtime_adaptive::adaptive_port::{AdaptiveContextPort, AdaptiveHintPort, FakeTtlAttempt};
+use ripdpi_runtime_adaptive::adaptive_port::{
+    AdaptiveContextPort, AdaptiveHintPort, EvolutionHintContext, FakeTtlAttempt, ResolvedAdaptiveHints,
+};
 use ripdpi_runtime_adaptive::morph_policy;
 use ripdpi_runtime_adaptive::strategy_context;
 use ripdpi_runtime_adaptive::strategy_context::merge_udp_hints_with_capability;
@@ -59,39 +60,65 @@ impl AdaptiveHintPort for ServicesStateHandle {
     fn resolve_tcp_hints_with_evolver(
         &self,
         config: &RuntimeConfig,
-        context: Option<&ProxyRuntimeContext>,
+        evolution: EvolutionHintContext<'_>,
         group_index: usize,
         target: SocketAddr,
         host: Option<&str>,
         group: &DesyncGroup,
         payload: &[u8],
-    ) -> io::Result<AdaptivePlannerHints> {
+    ) -> io::Result<ResolvedAdaptiveHints> {
+        let EvolutionHintContext { runtime_context: context, existing_attempt } = evolution;
         if config.adaptive.strategy_evolution
             && let Ok(mut evolver) = self.0.adaptive.strategy_evolver.write()
-            && let Some(hints) = evolver.tcp_hints(config, context, target, host, payload)
+            && let Some((hints, attempt)) = evolver.tcp_hints(config, context, target, host, payload, existing_attempt)
         {
-            return Ok(morph_policy::apply_tcp_morph_policy_to_hints(self.morph_policy(), hints));
+            let effective = morph_policy::apply_tcp_morph_policy_to_hints(self.morph_policy(), hints);
+            if effective != hints {
+                evolver.discard(attempt);
+            }
+            return Ok(ResolvedAdaptiveHints { hints: effective, evolution_attempt: Some(attempt) });
         }
-        self.resolve_tcp_hints(self.network_scope_key(config).as_deref(), group_index, target, host, group, payload)
+        let hints = self.resolve_tcp_hints(
+            self.network_scope_key(config).as_deref(),
+            group_index,
+            target,
+            host,
+            group,
+            payload,
+        )?;
+        Ok(ResolvedAdaptiveHints { hints, evolution_attempt: existing_attempt })
     }
     fn resolve_udp_hints_with_evolver(
         &self,
         config: &RuntimeConfig,
-        context: Option<&ProxyRuntimeContext>,
+        evolution: EvolutionHintContext<'_>,
         group_index: usize,
         target: SocketAddr,
         host: Option<&str>,
         group: &DesyncGroup,
         payload: &[u8],
-    ) -> io::Result<AdaptivePlannerHints> {
+    ) -> io::Result<ResolvedAdaptiveHints> {
+        let EvolutionHintContext { runtime_context: context, existing_attempt } = evolution;
         if config.adaptive.strategy_evolution
             && let Ok(mut evolver) = self.0.adaptive.strategy_evolver.write()
-            && let Some(hints) = evolver.udp_hints(config, context, target, host, payload)
+            && let Some((hints, attempt)) = evolver.udp_hints(config, context, target, host, payload, existing_attempt)
         {
-            let hints = morph_policy::apply_udp_morph_policy_to_hints(self.morph_policy(), hints);
+            let morphed = morph_policy::apply_udp_morph_policy_to_hints(self.morph_policy(), hints);
             let capability = strategy_context::direct_path_capability_for_route(context, host, target);
-            return Ok(merge_udp_hints_with_capability(hints, capability));
+            let effective = merge_udp_hints_with_capability(morphed, capability);
+            if effective != hints {
+                evolver.discard(attempt);
+            }
+            return Ok(ResolvedAdaptiveHints { hints: effective, evolution_attempt: Some(attempt) });
         }
-        self.resolve_udp_hints(self.network_scope_key(config).as_deref(), group_index, target, host, group, payload)
+        let hints = self.resolve_udp_hints(
+            self.network_scope_key(config).as_deref(),
+            group_index,
+            target,
+            host,
+            group,
+            payload,
+        )?;
+        Ok(ResolvedAdaptiveHints { hints, evolution_attempt: existing_attempt })
     }
 }

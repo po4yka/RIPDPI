@@ -140,11 +140,12 @@ impl RuntimeState {
             runtime_context: self.runtime_context.as_ref(),
             telemetry: self.telemetry.as_deref(),
             adaptive_hints: &self.services,
+            adaptive_feedback: &self.services,
             ttl_unavailable: &self.ttl_unavailable,
             pcap_hook: self.pcap_hook.as_ref(),
         }
     }
-    fn plan_udp_desync_actions(&self, request: UdpDesyncPlanRequest<'_>) -> io::Result<Vec<UdpDesyncAction>> {
+    fn plan_udp_desync_actions(&self, request: UdpDesyncPlanRequest<'_>) -> io::Result<UdpDesyncPlan> {
         plan_udp_actions_for_runtime(self.udp_desync_plan_context(), request)
     }
     pub(in crate::runtime) fn plan_udp_flow_actions(
@@ -155,8 +156,10 @@ impl RuntimeState {
         host: Option<&str>,
         target: SocketAddr,
         default_ttl: u8,
-    ) -> io::Result<Vec<UdpDesyncAction>> {
+        evolution_attempt: Option<EvolutionAttempt>,
+    ) -> io::Result<UdpDesyncPlan> {
         self.plan_udp_desync_actions(UdpDesyncPlanRequest {
+            evolution_attempt,
             group_index,
             payload,
             progress: progress.into_adapter(),

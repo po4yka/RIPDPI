@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_session_limit::ExitIpSessionGuard;
 
-use crate::runtime::desync::{FakeTtlAttempt, OutboundSendError};
+use crate::runtime::desync::{EvolutionAttempt, FakeTtlAttempt, OutboundSendError};
 use crate::runtime::failure::{RuntimeClassifiedFailure, RuntimeFailureAction, RuntimeFailureClass};
 use crate::runtime::relay::failure_retry::retry_logic::{
     classify_bounded_first_write_failure, classify_first_write_failure, should_retry_syn_data_without_tfo,
@@ -47,14 +47,24 @@ pub(super) struct FirstWriteFailureContext<'a> {
     pub(super) upstream: &'a TcpStream,
     pub(super) err: OutboundSendError,
     pub(super) fake_ttl_attempt: Option<FakeTtlAttempt>,
+    pub(super) evolution_attempt: Option<EvolutionAttempt>,
 }
 
 pub(super) fn handle_first_write_failure(
     context: FirstWriteFailureContext<'_>,
     retry_state: &mut RouteRetryState,
 ) -> io::Result<ReconnectedRoute> {
-    let FirstWriteFailureContext { state, target, route, host, original_request, upstream, err, fake_ttl_attempt } =
-        context;
+    let FirstWriteFailureContext {
+        state,
+        target,
+        route,
+        host,
+        original_request,
+        upstream,
+        err,
+        fake_ttl_attempt,
+        evolution_attempt,
+    } = context;
     if state.shutdown_requested() {
         return Err(err.into_io_error());
     }
@@ -66,6 +76,7 @@ pub(super) fn handle_first_write_failure(
     let failure =
         if send_bounded { classify_bounded_first_write_failure(&err) } else { classify_first_write_failure(&err) };
     if should_retry_syn_data(socket_used_tfo, &failure, retry_state) {
+        state.discard_evolver_attempt(evolution_attempt);
         tracing::debug!(
             group_index = route.group_index,
             target = %target,
@@ -83,6 +94,7 @@ pub(super) fn handle_first_write_failure(
         Some(original_request),
         &failure,
         fake_ttl_attempt,
+        evolution_attempt,
     )?
     else {
         return Err(err.into_io_error());
@@ -97,6 +109,7 @@ pub(super) fn handle_first_response_failure(
     context: FirstResponseFailureContext<'_>,
 ) -> io::Result<Option<ReconnectedRoute>> {
     if should_retry_syn_data(context.socket_used_tfo, context.failure, retry_state) {
+        context.state.discard_evolver_attempt(session_state.evolution_attempt.take());
         tracing::debug!(
             group_index = context.route.group_index,
             target = %context.target,
@@ -123,6 +136,7 @@ pub(super) fn handle_first_response_failure(
         Some(context.original_request),
         context.failure,
         session_state.fake_ttl_attempt,
+        session_state.evolution_attempt,
     )? {
         return reconnect_route(context.state, context.target, next_route, context.host, context.original_request)
             .map(Some);
@@ -236,6 +250,7 @@ mod tests {
                 upstream: &upstream,
                 err: OutboundSendError::transport(io::Error::from(io::ErrorKind::ConnectionReset)),
                 fake_ttl_attempt: None,
+                evolution_attempt: None,
             },
             &mut retry,
         );

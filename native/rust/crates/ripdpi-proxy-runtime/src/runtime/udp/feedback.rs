@@ -38,7 +38,7 @@ pub(super) fn note_udp_first_response_success(
         entry.host.as_deref(),
         RuntimeTransportProtocol::Udp,
     )?;
-    state.note_evolver_success();
+    state.note_evolver_success(entry.evolution_attempt);
     entry.awaiting_response = false;
     Ok(())
 }
@@ -64,7 +64,7 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
         note_direct_path_udp_failure(state, entry.host.as_deref(), &entry.target_candidates)?;
     }
     note_adaptive_udp_failure(state, failed_target, entry.route.group_index, entry.host.as_deref(), payload)?;
-    state.note_evolver_failure(RuntimeState::silent_drop_failure_class());
+    state.note_evolver_failure(entry.evolution_attempt, RuntimeState::silent_drop_failure_class());
     let retry_penalties = build_retry_selection_penalties(
         state,
         failed_target,
@@ -134,6 +134,7 @@ mod tests {
             source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
             execution_family: None,
             attempt_token: None,
+            evolution_attempt: None,
             host: Some("example.com".to_string()),
             payload: b"quic-initial".to_vec(),
             awaiting_response,

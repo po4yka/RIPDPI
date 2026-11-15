@@ -40,6 +40,7 @@ pub(crate) fn advance_after_failure(
         Some(payload),
         failure,
         fake_ttl_attempt,
+        None,
     )?;
     Ok(advanced.is_some())
 }

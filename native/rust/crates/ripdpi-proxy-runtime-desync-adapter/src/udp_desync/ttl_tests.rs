@@ -57,6 +57,7 @@ fn check_udp_ttl(adaptive: bool, expected_ttl: u32, explicit_auto_ttl: Option<ri
                 adaptive_hints: &services,
             },
             UdpDesyncPlanRequest {
+                evolution_attempt: None,
                 group_index,
                 payload: &payload,
                 progress: ripdpi_session::OutboundProgress {
@@ -70,7 +71,8 @@ fn check_udp_ttl(adaptive: bool, expected_ttl: u32, explicit_auto_ttl: Option<ri
                 default_ttl: 64,
             },
         )
-        .expect("plan UDP TTL");
+        .expect("plan UDP TTL")
+        .actions;
         assert_eq!(actions.first(), Some(&DesyncAction::SetTtl(expected_ttl as u8)));
         let context = UdpActionExecContext {
             upstream: &sender,

@@ -58,6 +58,34 @@ pub struct FakeTtlAttempt {
     pub revision: u64,
 }
 
+/// Opaque identity for one flow-owned strategy observation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct EvolutionAttempt {
+    generation: u64,
+    sequence: u64,
+}
+
+impl EvolutionAttempt {
+    /// Construct an identity from a resolver's unique generation and sequence.
+    pub fn new(generation: u64, sequence: u64) -> Self {
+        Self { generation, sequence }
+    }
+}
+
+/// Runtime context and the existing observation for one hint request.
+#[derive(Clone, Copy)]
+pub struct EvolutionHintContext<'a> {
+    pub runtime_context: Option<&'a ProxyRuntimeContext>,
+    pub existing_attempt: Option<EvolutionAttempt>,
+}
+
+/// Hints and the observation which owns their strategy feedback.
+#[derive(Debug)]
+pub struct ResolvedAdaptiveHints {
+    pub hints: AdaptivePlannerHints,
+    pub evolution_attempt: Option<EvolutionAttempt>,
+}
+
 /// Feedback port for adaptive tuning, fake-TTL, and strategy evolution.
 pub trait AdaptiveFeedbackPort: Send + Sync {
     fn note_tcp_success(
@@ -117,8 +145,9 @@ pub trait AdaptiveFeedbackPort: Send + Sync {
         attempt: FakeTtlAttempt,
     ) -> io::Result<()>;
 
-    fn note_evolver_failure(&self, class: FailureClass);
-    fn note_evolver_success(&self);
+    fn note_evolver_failure(&self, attempt: EvolutionAttempt, class: FailureClass);
+    fn note_evolver_success(&self, attempt: EvolutionAttempt);
+    fn discard_evolver_attempt(&self, attempt: EvolutionAttempt);
     fn note_evolver_connect_failure(&self);
     fn reset_evolver(&self);
     fn clear_adaptive_tuning(&self);
@@ -159,24 +188,24 @@ pub trait AdaptiveHintPort: Send + Sync {
     fn resolve_tcp_hints_with_evolver(
         &self,
         config: &RuntimeConfig,
-        context: Option<&ProxyRuntimeContext>,
+        evolution: EvolutionHintContext<'_>,
         group_index: usize,
         target: SocketAddr,
         host: Option<&str>,
         group: &DesyncGroup,
         payload: &[u8],
-    ) -> io::Result<AdaptivePlannerHints>;
+    ) -> io::Result<ResolvedAdaptiveHints>;
 
     fn resolve_udp_hints_with_evolver(
         &self,
         config: &RuntimeConfig,
-        context: Option<&ProxyRuntimeContext>,
+        evolution: EvolutionHintContext<'_>,
         group_index: usize,
         target: SocketAddr,
         host: Option<&str>,
         group: &DesyncGroup,
         payload: &[u8],
-    ) -> io::Result<AdaptivePlannerHints>;
+    ) -> io::Result<ResolvedAdaptiveHints>;
 }
 
 /// Retry pacing port for reconnect backoff and retry-selection penalties.

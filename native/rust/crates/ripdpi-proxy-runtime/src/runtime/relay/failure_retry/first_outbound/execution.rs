@@ -16,12 +16,14 @@ pub(super) fn execute_first_write(
     session_state: &mut FirstOutboundSession,
     attempt_token: Option<&AttemptCorrelationId>,
 ) -> Result<Option<&'static str>, OutboundSendError> {
+    state.discard_evolver_attempt(session_state.evolution_attempt.take());
     session_state.lua_flow = state.new_lua_flow();
     let progress = session_state.observe_first_outbound_payload(original_request);
     let send_result = state.send_tcp_desync_payload(
         upstream,
         DesyncSendRequest {
             fake_ttl_attempt: Some(&mut session_state.fake_ttl_attempt),
+            evolution_attempt: Some(&mut session_state.evolution_attempt),
             lua_flow: session_state.lua_flow.as_deref(),
             group_index: route.group_index,
             group_override: None,

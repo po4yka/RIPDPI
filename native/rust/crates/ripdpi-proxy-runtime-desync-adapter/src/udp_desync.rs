@@ -4,6 +4,7 @@ use std::thread;
 use std::time::Duration;
 
 use ripdpi_desync::DesyncAction;
+use ripdpi_runtime_decision_ports::adaptive_ports::{EvolutionAttempt, EvolutionHintContext, ResolvedAdaptiveHints};
 
 use crate::platform;
 
@@ -108,6 +109,7 @@ pub struct UdpDesyncPlanContext<'a> {
 }
 
 pub struct UdpDesyncPlanRequest<'a> {
+    pub evolution_attempt: Option<EvolutionAttempt>,
     pub group_index: usize,
     pub payload: &'a [u8],
     pub progress: ripdpi_session::OutboundProgress,
@@ -125,10 +127,15 @@ pub fn plan_udp_actions(
     ripdpi_desync::plan_udp(group, payload, default_ttl, activation)
 }
 
+pub struct UdpDesyncPlan {
+    pub actions: Vec<UdpDesyncAction>,
+    pub evolution_attempt: Option<EvolutionAttempt>,
+}
+
 pub fn plan_udp_actions_for_runtime(
     context: UdpDesyncPlanContext<'_>,
     request: UdpDesyncPlanRequest<'_>,
-) -> io::Result<Vec<UdpDesyncAction>> {
+) -> io::Result<UdpDesyncPlan> {
     let config = &context.planner.config;
     let group = crate::model::config::selected_desync_group(config, request.group_index)
         .ok_or_else(|| io::Error::other("missing udp route group"))?;
@@ -140,7 +147,8 @@ pub fn plan_udp_actions_for_runtime(
         group,
     )?;
     let resolved_fake_ttl = resolved_fake_ttl.map(|attempt| attempt.ttl);
-    let adaptive_hints = resolve_udp_hints_for_runtime(&context, &request, group)?;
+    let resolved = resolve_udp_hints_for_runtime(&context, &request, group)?;
+    let adaptive_hints = resolved.hints;
     let morph_policy = crate::model::proxy_config::morph_policy(context.runtime_context);
     crate::model::proxy_config::emit_morph_hint_applied(
         context.telemetry,
@@ -157,19 +165,25 @@ pub fn plan_udp_actions_for_runtime(
         resolved_fake_ttl,
         adaptive_hints,
     );
-    Ok(plan_udp_actions(group, request.payload, request.default_ttl, activation))
+    Ok(UdpDesyncPlan {
+        actions: plan_udp_actions(group, request.payload, request.default_ttl, activation),
+        evolution_attempt: resolved.evolution_attempt,
+    })
 }
 
 fn resolve_udp_hints_for_runtime(
     context: &UdpDesyncPlanContext<'_>,
     request: &UdpDesyncPlanRequest<'_>,
     group: &ripdpi_config::DesyncGroup,
-) -> io::Result<ripdpi_desync::AdaptivePlannerHints> {
+) -> io::Result<ResolvedAdaptiveHints> {
     let config = &context.planner.config;
     if config.adaptive.strategy_evolution {
         return context.adaptive_hints.resolve_udp_hints_with_evolver(
             config,
-            context.runtime_context,
+            EvolutionHintContext {
+                runtime_context: context.runtime_context,
+                existing_attempt: request.evolution_attempt,
+            },
             request.group_index,
             request.target,
             request.host,
@@ -201,7 +215,7 @@ fn resolve_udp_hints_for_runtime(
             "direct_path_capability_downgrade",
         );
     }
-    Ok(merged)
+    Ok(ResolvedAdaptiveHints { hints: merged, evolution_attempt: request.evolution_attempt })
 }
 
 pub fn execute_udp_actions(
