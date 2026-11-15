@@ -197,10 +197,10 @@ class DetectionScreenSemanticsTest {
             }
         }
 
-        composeRule.onNodeWithText("Skipped").fetchSemanticsNode()
+        composeRule.onAllNodesWithText("Skipped").assertCountEquals(2)
         composeRule.onNodeWithText("Insufficient evidence").fetchSemanticsNode()
         composeRule.onNodeWithText("Error").fetchSemanticsNode()
-        composeRule.onAllNodesWithText("OK").assertCountEquals(5)
+        composeRule.onAllNodesWithText("OK").assertCountEquals(4)
         captureStatus("dia17-category-states")
     }
 
@@ -291,6 +291,7 @@ class DetectionScreenSemanticsTest {
             .onNodeWithText(vpnHint)
             .fetchSemanticsNode()
         composeRule.onNodeWithText("77/100").fetchSemanticsNode()
+        composeRule.onNodeWithText("Probe outcome: 1/4 signals exposed").fetchSemanticsNode()
         composeRule.onAllNodesWithText("100% detected").assertCountEquals(0)
         composeRule.onAllNodesWithText("Detected by 5/5 probes").assertCountEquals(0)
     }

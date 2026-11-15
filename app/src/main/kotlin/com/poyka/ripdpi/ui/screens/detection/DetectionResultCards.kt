@@ -256,7 +256,9 @@ private fun VerdictOutcomeHierarchy(
 private fun DetectionCheckResult.probeSummary(): DetectionProbeSummary {
     val probes =
         buildList {
-            add(bypassResult.detected)
+            if (bypassResult.executionStatus == CheckExecutionStatus.COMPLETED || bypassResult.detected) {
+                add(bypassResult.detected)
+            }
             add(geoIp.detected)
             if (directSigns.executionStatus == CheckExecutionStatus.COMPLETED || directSigns.detected) {
                 add(directSigns.detected)
