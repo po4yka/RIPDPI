@@ -8,7 +8,7 @@ use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, run_wit
 use crate::types::TcpTarget;
 use crate::util::{FAT_HEADER_REQUESTS, IO_TIMEOUT, fat_threshold_reached};
 
-use super::classification::classify_fat_io_error;
+use super::classification::classify_response_io_error;
 use super::request_io::{ResponseHead, effective_host_header, read_response_headers, write_padded_head_request};
 use super::status_types::{FatHeaderObservation, FatHeaderStatus};
 use super::timing::ProbeTiming;
@@ -90,15 +90,16 @@ fn padded_head_sequence(
             if scan_deadline_passed() {
                 return deadline_exceeded(counters, transport_open_ms);
             }
-            let status = classify_fat_io_error(err.kind(), counters.bytes_sent, counters.responses_seen);
-            return FatHeaderObservation::io_failed(
-                status,
+            let mut observation = FatHeaderObservation::io_failed(
+                FatHeaderStatus::Inconclusive,
                 err.to_string(),
                 transport_open_ms,
-                Some(timing.elapsed_since_success_ms()),
+                None,
                 counters.bytes_sent,
                 counters.responses_seen,
             );
+            observation.failure_stage = Some("request_write");
+            return observation;
         }
         timing.mark_io_success();
 
@@ -124,15 +125,18 @@ fn padded_head_sequence(
                 if scan_deadline_passed() {
                     return deadline_exceeded(counters, transport_open_ms);
                 }
-                let status = classify_fat_io_error(err.kind(), counters.bytes_sent, counters.responses_seen);
-                return FatHeaderObservation::io_failed(
+                let status = classify_response_io_error(err.kind());
+                let rst_timing_ms = (status == FatHeaderStatus::Reset).then(|| timing.elapsed_since_success_ms());
+                let mut observation = FatHeaderObservation::io_failed(
                     status,
                     err.to_string(),
                     transport_open_ms,
-                    Some(timing.elapsed_since_success_ms()),
+                    rst_timing_ms,
                     counters.bytes_sent,
                     counters.responses_seen,
                 );
+                observation.failure_stage = Some("response_read");
+                return observation;
             }
         }
     }
@@ -236,5 +240,7 @@ mod tests {
         assert_eq!(obs.bytes_sent, 0);
         assert_eq!(obs.responses_seen, 0);
         assert!(obs.error.is_some());
+        assert_eq!(obs.status, FatHeaderStatus::Inconclusive);
+        assert_eq!(obs.failure_stage, Some("request_write"));
     }
 }

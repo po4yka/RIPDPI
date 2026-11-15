@@ -112,7 +112,7 @@ pub fn run_tcp_probe_with_cancel(
         },
         ProbeDetail {
             key: "tcpAttentionReason".to_string(),
-            value: tcp_attention_reason(&final_observation.status, tcp_block_method),
+            value: final_observation.failure_stage.unwrap_or(tcp_block_method).to_string(),
         },
         ProbeDetail {
             key: "transportOpenMs".to_string(),
@@ -124,23 +124,14 @@ pub fn run_tcp_probe_with_cancel(
         },
     ];
     details.push(ProbeDetail { key: "port".to_string(), value: target.port.to_string() });
-    if final_observation.status == FatHeaderStatus::FreezeAfterThreshold {
-        details.push(ProbeDetail {
-            key: "freezeThresholdBytes".to_string(),
-            value: final_observation.bytes_sent.to_string(),
-        });
+    if let Some(stage) = final_observation.failure_stage {
+        details.push(ProbeDetail { key: "failureStage".to_string(), value: stage.to_string() });
     }
     // When the main port fails and an alternative port is configured, probe the
     // alt port to detect port-specific policing (e.g. middlebox targeting port 443).
     if let Some(alt_port) = target.alt_port
         && !cancelled()
-        && matches!(
-            final_observation.status,
-            FatHeaderStatus::ThresholdCutoff
-                | FatHeaderStatus::FreezeAfterThreshold
-                | FatHeaderStatus::Reset
-                | FatHeaderStatus::Timeout
-        )
+        && matches!(final_observation.status, FatHeaderStatus::Reset | FatHeaderStatus::Timeout)
     {
         let alt_target = TcpTarget { port: alt_port, alt_port: None, ..target.clone() };
         let alt_host = target.host_header.as_deref().or(target.sni.as_deref()).unwrap_or("localhost");
@@ -165,16 +156,11 @@ pub fn run_tcp_probe_with_cancel(
 }
 
 fn tcp_attention_confidence(status: &FatHeaderStatus) -> String {
-    if *status == FatHeaderStatus::Success { "none" } else { "medium" }.to_string()
-}
-
-fn tcp_attention_reason(status: &FatHeaderStatus, observation: &str) -> String {
     match status {
-        FatHeaderStatus::ThresholdCutoff | FatHeaderStatus::FreezeAfterThreshold => {
-            format!("large_header_cutoff:{observation}")
-        }
-        _ => observation.to_string(),
+        FatHeaderStatus::Reset | FatHeaderStatus::Timeout | FatHeaderStatus::HandshakeFailed => "low",
+        _ => "none",
     }
+    .to_string()
 }
 
 #[cfg(test)]

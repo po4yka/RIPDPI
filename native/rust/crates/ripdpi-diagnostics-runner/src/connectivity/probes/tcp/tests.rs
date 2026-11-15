@@ -1,20 +1,11 @@
-use super::{tcp_attention_confidence, tcp_attention_reason};
+use super::tcp_attention_confidence;
 use crate::connectivity::adapters::fat_header::FatHeaderStatus;
 
 #[test]
 fn tcp_attention_confidence_does_not_infer_an_origin() {
-    assert_eq!(tcp_attention_confidence(&FatHeaderStatus::Reset), "medium");
-    assert_eq!(tcp_attention_confidence(&FatHeaderStatus::ThresholdCutoff), "medium");
+    assert_eq!(tcp_attention_confidence(&FatHeaderStatus::Reset), "low");
+    assert_eq!(tcp_attention_confidence(&FatHeaderStatus::Inconclusive), "none");
     assert_eq!(tcp_attention_confidence(&FatHeaderStatus::Success), "none");
-}
-
-#[test]
-fn tcp_attention_reason_keeps_the_measured_failure() {
-    assert_eq!(
-        tcp_attention_reason(&FatHeaderStatus::ThresholdCutoff, "transfer_cutoff"),
-        "large_header_cutoff:transfer_cutoff"
-    );
-    assert_eq!(tcp_attention_reason(&FatHeaderStatus::Reset, "reset_or_close"), "reset_or_close");
 }
 
 fn tcp_target(port: u16, sni: Option<&str>) -> crate::types::TcpTarget {
@@ -70,7 +61,7 @@ fn evidence_whitelist_accepts_completed_transfer() {
 }
 
 #[test]
-fn evidence_tcp_cutoff_keeps_bytes_without_invented_window_or_origin() {
+fn evidence_clean_close_keeps_bytes_without_a_cutoff_claim() {
     use crate::test_fixtures::{FatServerMode, PlainFatHeaderServer};
     let server = PlainFatHeaderServer::start(FatServerMode::CutoffAtThreshold);
     let result = super::run_tcp_probe(
@@ -84,6 +75,8 @@ fn evidence_tcp_cutoff_keeps_bytes_without_invented_window_or_origin() {
     assert_eq!(tcp.responses_seen, Some(1));
     assert_eq!(tcp.observed_window_size, None);
     assert_eq!(tcp.rst_origin, None);
-    assert_eq!(tcp.tcp_block_method.as_deref(), Some("transfer_cutoff"));
-    assert!(result.details.iter().any(|d| d.key == "tcpAttentionConfidence" && d.value == "medium"));
+    assert_eq!(tcp.tcp_block_method, None);
+    assert_eq!(tcp.rst_timing_ms, None);
+    assert_eq!(result.outcome, "inconclusive");
+    assert!(result.details.iter().any(|d| d.key == "failureStage" && d.value == "response_read"));
 }

@@ -557,7 +557,7 @@ fn domain_probe_reports_http_blockpage() {
 }
 
 #[test]
-fn tcp_probe_reports_threshold_cutoff() {
+fn tcp_probe_reports_late_peer_close_as_inconclusive() {
     let _serial = lock_network_probes();
     let server = PlainFatHeaderServer::start(FatServerMode::CutoffAtThreshold);
     let target = TcpTarget {
@@ -573,11 +573,8 @@ fn tcp_probe_reports_threshold_cutoff() {
     };
 
     let result = run_tcp_probe(&target, &[], &direct_transport(), None);
-    assert!(
-        matches!(result.outcome.as_str(), "tcp_16kb_blocked" | "tcp_reset"),
-        "unexpected cutoff outcome: {}",
-        result.outcome
-    );
+    assert_eq!(result.outcome, "inconclusive", "{result:?}");
+    assert!(result.details.iter().any(|detail| detail.key == "failureStage" && detail.value == "response_read"));
 }
 
 #[test]

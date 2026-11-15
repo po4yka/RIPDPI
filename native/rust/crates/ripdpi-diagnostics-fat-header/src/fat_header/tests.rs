@@ -1,101 +1,21 @@
 use std::io::ErrorKind;
 
-use crate::util::FAT_HEADER_THRESHOLD_BYTES;
-
 use super::*;
 
 #[test]
-fn classify_fat_io_error_timeout() {
-    assert_eq!(classify_fat_io_error(ErrorKind::TimedOut, 0, 0), FatHeaderStatus::Timeout);
-    assert_eq!(classify_fat_io_error(ErrorKind::WouldBlock, 0, 0), FatHeaderStatus::Timeout);
-}
+fn response_io_classification_preserves_observed_kind() {
+    use super::classification::classify_response_io_error;
 
-#[test]
-fn classify_fat_io_error_timeout_before_threshold_unchanged() {
-    assert_eq!(classify_fat_io_error(ErrorKind::TimedOut, 100, 0), FatHeaderStatus::Timeout);
-}
-
-#[test]
-fn classify_fat_io_error_freeze_after_threshold_bytes() {
-    assert_eq!(
-        classify_fat_io_error(ErrorKind::TimedOut, FAT_HEADER_THRESHOLD_BYTES, 0),
-        FatHeaderStatus::FreezeAfterThreshold
-    );
-}
-
-#[test]
-fn classify_fat_io_error_freeze_after_threshold_with_responses() {
-    assert_eq!(classify_fat_io_error(ErrorKind::WouldBlock, 8 * 1024, 1), FatHeaderStatus::FreezeAfterThreshold);
-}
-
-#[test]
-fn classify_fat_io_error_reset_early() {
-    assert_eq!(classify_fat_io_error(ErrorKind::ConnectionReset, 100, 0), FatHeaderStatus::Reset);
-    assert_eq!(classify_fat_io_error(ErrorKind::BrokenPipe, 100, 0), FatHeaderStatus::Reset);
-}
-
-#[test]
-fn classify_fat_io_error_threshold_cutoff_late() {
-    assert_eq!(
-        classify_fat_io_error(ErrorKind::ConnectionReset, FAT_HEADER_THRESHOLD_BYTES, 0),
-        FatHeaderStatus::ThresholdCutoff
-    );
-}
-
-#[test]
-fn classify_fat_io_error_threshold_cutoff_with_responses() {
-    assert_eq!(classify_fat_io_error(ErrorKind::UnexpectedEof, 8 * 1024, 1), FatHeaderStatus::ThresholdCutoff);
-}
-
-#[test]
-fn classify_fat_io_error_unknown_is_connect_failed() {
-    assert_eq!(classify_fat_io_error(ErrorKind::Other, 0, 0), FatHeaderStatus::ConnectFailed);
-}
-
-#[test]
-fn classify_fat_header_outcome_all_variants() {
-    assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::Success), "tcp_fat_header_ok");
-    assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::ThresholdCutoff), "tcp_16kb_blocked");
-    assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::FreezeAfterThreshold), "tcp_freeze_after_threshold");
-    assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::Reset), "tcp_reset");
-    assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::Timeout), "tcp_timeout");
-    assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::ConnectFailed), "tcp_connect_failed");
-    assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::HandshakeFailed), "tls_handshake_failed");
-}
-
-#[test]
-fn classify_tcp_block_method_all_variants() {
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::Success), "none");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::Reset), "reset_or_close");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::ThresholdCutoff), "transfer_cutoff");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::FreezeAfterThreshold), "transfer_stall");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::Timeout), "timeout");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::ConnectFailed), "connect_failed");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::HandshakeFailed), "tls_handshake_failed");
-}
-
-#[test]
-fn evidence_tcp_failures_do_not_identify_network_mechanisms() {
-    for (status, expected) in [
-        (FatHeaderStatus::Reset, "reset_or_close"),
-        (FatHeaderStatus::ThresholdCutoff, "transfer_cutoff"),
-        (FatHeaderStatus::FreezeAfterThreshold, "transfer_stall"),
-        (FatHeaderStatus::ConnectFailed, "connect_failed"),
-        (FatHeaderStatus::HandshakeFailed, "tls_handshake_failed"),
+    for (kind, expected) in [
+        (ErrorKind::TimedOut, FatHeaderStatus::Timeout),
+        (ErrorKind::WouldBlock, FatHeaderStatus::Timeout),
+        (ErrorKind::ConnectionReset, FatHeaderStatus::Reset),
+        (ErrorKind::UnexpectedEof, FatHeaderStatus::Inconclusive),
+        (ErrorKind::BrokenPipe, FatHeaderStatus::Inconclusive),
+        (ErrorKind::InvalidData, FatHeaderStatus::Inconclusive),
     ] {
-        assert_eq!(classify_tcp_block_method(&status), expected);
+        assert_eq!(classify_response_io_error(kind), expected);
     }
-}
-
-#[test]
-fn fat_status_label_all_variants() {
-    assert_eq!(fat_status_label(&FatHeaderStatus::Success), "ok");
-    assert_eq!(fat_status_label(&FatHeaderStatus::ThresholdCutoff), "threshold_cutoff");
-    assert_eq!(fat_status_label(&FatHeaderStatus::FreezeAfterThreshold), "freeze_after_threshold");
-    assert_eq!(fat_status_label(&FatHeaderStatus::Reset), "reset");
-    assert_eq!(fat_status_label(&FatHeaderStatus::Timeout), "timeout");
-    assert_eq!(fat_status_label(&FatHeaderStatus::ConnectFailed), "connect_failed");
-    assert_eq!(fat_status_label(&FatHeaderStatus::HandshakeFailed), "tls_failed");
 }
 
 /// Serves one plaintext fat-header connection: answers request N with `responses[N]`, then closes
@@ -161,7 +81,6 @@ fn server_announced_close_is_not_reported_as_a_16kb_cutoff() {
 
     assert_eq!(server.join().expect("fixture thread"), vec!["127.0.0.1".to_string()]);
     assert_eq!(observation.responses_seen, 1);
-    assert_ne!(observation.status, FatHeaderStatus::ThresholdCutoff);
     assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
     let reason = observation.error.expect("the close reason reaches the probe detail");
     assert!(reason.contains("server closed") && reason.contains("HTTP 400"), "unexpected reason: {reason}");
@@ -210,7 +129,8 @@ fn unparsed_status_line_is_inconclusive() {
 
     server.join().expect("fixture thread");
     assert_eq!(observation.responses_seen, 0);
-    assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
+    assert_eq!(classify_fat_header_outcome(&observation.status), "inconclusive");
+    assert_eq!(observation.failure_stage, Some("response_read"));
     let reason = observation.error.expect("the reason reaches the probe detail");
     assert!(reason.contains("invalid_framing"), "unexpected reason: {reason}");
 }
@@ -256,7 +176,7 @@ fn malformed_host_authority_is_replaced_before_sending_a_head() {
 }
 
 #[test]
-fn silent_drop_after_the_first_response_is_a_freeze_after_threshold() {
+fn late_read_timeout_stays_a_timeout() {
     use std::io::{Read, Write};
 
     // Answers the first fat request, then keeps the connection open and never answers again:
@@ -282,8 +202,11 @@ fn silent_drop_after_the_first_response_is_a_freeze_after_threshold() {
     let observation = run_fat_header_attempt(&target, &transport, "", "127.0.0.1");
 
     assert_eq!(observation.responses_seen, 1, "{observation:?}");
-    assert_eq!(observation.status, FatHeaderStatus::FreezeAfterThreshold, "{observation:?}");
-    assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_freeze_after_threshold");
+    assert_eq!(observation.status, FatHeaderStatus::Timeout, "{observation:?}");
+    assert!(observation.bytes_sent >= 16 * 1024);
+    assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_timeout");
+    assert_eq!(observation.failure_stage, Some("response_read"));
+    assert_eq!(observation.rst_timing_ms, None);
     server.join().expect("fixture thread");
 }
 
@@ -352,7 +275,7 @@ fn malformed_head_framing_is_not_counted_as_a_response() {
         let observation = run_fat_header_attempt(&target, &transport, "", "fixture.test");
         server.join().expect("fixture thread");
         assert_eq!(observation.responses_seen, 0);
-        assert_eq!(observation.status, FatHeaderStatus::ConnectFailed);
+        assert_eq!(observation.status, FatHeaderStatus::Inconclusive);
         assert!(observation.error.expect("framing error").contains("invalid_framing"));
     }
 }

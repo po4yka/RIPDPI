@@ -104,21 +104,29 @@ fn outcome_scanner_covers_delegated_domain_classification() {
 }
 
 #[test]
-fn native_compatibility_contract_retains_retired_udp_timeout() {
+fn native_compatibility_contract_retains_retired_outcomes() {
     let emitted_tokens = emitted_native_outcome_tokens();
     let compatibility_only: BTreeSet<_> =
         compatible_native_outcome_tokens().difference(&emitted_tokens).cloned().collect();
 
-    assert_eq!(compatibility_only, BTreeSet::from(["udp_timeout_transient".to_string()]));
+    assert_eq!(
+        compatibility_only,
+        BTreeSet::from(["udp_timeout_transient", "tcp_16kb_blocked", "tcp_freeze_after_threshold"].map(str::to_string))
+    );
 }
 
 fn compatible_native_outcome_tokens() -> BTreeSet<String> {
-    // The public probe adapter retains historical report tokens. Exhausted UDP
-    // timeouts now emit dns_unavailable, but the old token remains supported.
-    quoted_outcome_tokens(&function_body(
-        &repo_root().join("native/rust/crates/ripdpi-diagnostics-probes/src/dns_integrity.rs"),
-        "pub fn scheduled_outcome",
-    ))
+    let repo = repo_root();
+    let mut tokens = BTreeSet::new();
+    for path in ["dns_integrity.rs", "tcp_fat_header.rs"] {
+        tokens.extend(quoted_outcome_tokens(&function_body(
+            &repo.join("native/rust/crates/ripdpi-diagnostics-probes/src").join(path),
+            "pub fn scheduled_outcome",
+        )));
+    }
+    // The former runner emitted this outcome. Report readers still classify it.
+    tokens.insert("whitelist_sni_failed".to_string());
+    tokens
 }
 
 fn emitted_native_outcome_tokens() -> BTreeSet<String> {
@@ -179,7 +187,12 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         ("native/rust/crates/ripdpi-diagnostics-telegram/src/telegram/report.rs", "pub fn run_telegram_probe"),
         ("native/rust/crates/ripdpi-diagnostics-fat-header/src/fat_header.rs", "pub fn classify_fat_header_outcome"),
     ] {
-        tokens.extend(quoted_outcome_tokens(&function_body(&repo.join(path), signature)));
+        let outcomes = quoted_outcome_tokens(&function_body(&repo.join(path), signature));
+        if signature == "pub fn run_tcp_probe_with_cancel" {
+            tokens.extend(outcomes.into_iter().filter(|token| token.starts_with("whitelist_sni_")));
+        } else {
+            tokens.extend(outcomes);
+        }
     }
     tokens.extend(quoted_outcome_tokens(&section(
         &repo.join("native/rust/crates/ripdpi-failure-classifier/src/types.rs"),
@@ -304,7 +317,15 @@ fn is_outcome_token(value: &str) -> bool {
     }
     if matches!(
         value,
-        "ok" | "slow" | "partial" | "blocked" | "cancelled" | "error" | "unknown" | "redirect" | "unreachable"
+        "ok" | "slow"
+            | "partial"
+            | "blocked"
+            | "cancelled"
+            | "error"
+            | "inconclusive"
+            | "unknown"
+            | "redirect"
+            | "unreachable"
     ) {
         return true;
     }
