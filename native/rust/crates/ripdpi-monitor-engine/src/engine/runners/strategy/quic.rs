@@ -45,7 +45,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
     }
 
     fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        plan.strategy.as_ref().map_or(0, |strategy| strategy.suite.quic_candidates.len())
+        plan.strategy_candidate_steps().1
     }
 
     fn run(

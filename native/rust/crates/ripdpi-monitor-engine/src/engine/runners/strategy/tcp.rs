@@ -44,7 +44,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
     }
 
     fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        plan.strategy.as_ref().map_or(0, |strategy| strategy.suite.tcp_candidates.len())
+        plan.strategy_candidate_steps().0
     }
 
     fn run(
@@ -84,7 +84,7 @@ impl StrategyTcpRunner {
         // Clone to avoid holding an immutable borrow on `runtime` across mutable calls.
         let domain_targets =
             runtime.strategy.dns_override_domain_targets.clone().unwrap_or_else(|| plan.request.domain_targets.clone());
-        let tcp_candidate_total = tcp_specs.len();
+        let tcp_candidate_total = self.total_steps(plan);
         let baseline_run = run_baseline_candidate(self, plan, runtime, &domain_targets, tcp_specs, tls_verifier);
         let Some(baseline_run) = baseline_run else {
             return RunnerOutcome::Cancelled;
@@ -93,7 +93,7 @@ impl StrategyTcpRunner {
         let baseline_results = baseline_run.execution.results;
         runtime.strategy.tcp_candidates.push(baseline_run.execution.summary);
 
-        if tcp_specs.len() > 1
+        if tcp_candidate_total > 1
             && !sleep_within_active_deadline(Duration::from_millis(candidate_pause_ms(
                 strategy_plan.probe_seed,
                 baseline_run.spec,
@@ -122,7 +122,7 @@ impl StrategyTcpRunner {
             tls_verifier,
         );
         let mut tcp_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
-        let planned_count = tcp_specs.len();
+        let planned_count = tcp_candidate_total;
         let mut executed_count = 1usize; // baseline already executed
 
         // Round 2: test up to 2 candidates concurrently to reduce wall-clock time.

@@ -32,7 +32,8 @@ pub(super) fn stage_budget_deadline(
         .skip_while(|stage| *stage != current_stage)
         .filter(|stage| runners.get(*stage).is_some_and(|runner| runner.total_steps(plan) > 0))
         .count();
-    let remaining = global_deadline.checked_duration_since(Instant::now())?;
+    let now = Instant::now();
+    let remaining = global_deadline.checked_duration_since(now)?;
     let stage_count = u32::try_from(remaining_stages.max(1)).unwrap_or(u32::MAX);
-    Some(Instant::now() + remaining / stage_count)
+    Some(now + remaining / stage_count)
 }

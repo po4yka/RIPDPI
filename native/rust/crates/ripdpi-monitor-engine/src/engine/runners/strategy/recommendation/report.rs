@@ -90,13 +90,14 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
             .results
             .iter()
             .any(|result| result.probe_type == "dns_integrity" && is_confirmed_dns_tampering_outcome(&result.outcome));
+    let (planned_tcp, planned_quic) = plan.strategy_candidate_steps();
     let audit_assessment = resolve_strategy_probe_audit_assessment(
         &strategy_plan.suite_id,
         &runtime.strategy.tcp_candidates,
         &runtime.strategy.quic_candidates,
         recommendation.as_ref(),
-        strategy_plan.suite.tcp_candidates.len(),
-        strategy_plan.suite.quic_candidates.len(),
+        planned_tcp,
+        planned_quic,
         is_dns_tampered,
     );
     let summary = recommendation.as_ref().map_or_else(
@@ -116,8 +117,8 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         .map(|target| pilot_bucket_label(&target))
         .collect();
     let active_path_observation = active_path_evidence(plan, runtime);
-    let is_partial = runtime.strategy.tcp_candidates.len() < strategy_plan.suite.tcp_candidates.len()
-        || runtime.strategy.quic_candidates.len() < strategy_plan.suite.quic_candidates.len();
+    let is_partial =
+        runtime.strategy.tcp_candidates.len() < planned_tcp || runtime.strategy.quic_candidates.len() < planned_quic;
     runtime.strategy.strategy_probe_report = Some(StrategyProbeReport {
         suite_id: strategy_plan.suite_id.clone(),
         methodology_version: STRATEGY_PROBE_METHODOLOGY_VERSION.to_string(),
@@ -125,9 +126,8 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         quic_candidates: runtime.strategy.quic_candidates.clone(),
         recommendation,
         completion_kind: match () {
-            _ if strategy_plan.is_exhaustive() && is_partial => StrategyProbeCompletionKind::PartialResults,
-            _ if is_dns_tampered => StrategyProbeCompletionKind::DnsTamperingWithFallback,
             _ if is_partial => StrategyProbeCompletionKind::PartialResults,
+            _ if is_dns_tampered => StrategyProbeCompletionKind::DnsTamperingWithFallback,
             _ => StrategyProbeCompletionKind::Normal,
         },
         audit_assessment,

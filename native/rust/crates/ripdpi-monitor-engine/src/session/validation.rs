@@ -223,6 +223,41 @@ mod tests {
     }
 
     #[test]
+    fn configured_only_probes_require_matching_task_and_config() {
+        use crate::types::{Http3ProbeConfig, IpFamilyProbeConfig, PmtuProbeConfig, ProbeTask, ProbeTaskFamily};
+
+        for (family, field) in [
+            (ProbeTaskFamily::Http3, "http3Probe"),
+            (ProbeTaskFamily::Pmtu, "pmtuProbe"),
+            (ProbeTaskFamily::IpFamily, "ipFamilyProbe"),
+        ] {
+            let mut wire = request();
+            wire.probe_tasks.push(ProbeTask {
+                family: family.clone(),
+                target_id: "target".into(),
+                label: "Test".into(),
+            });
+            assert!(validate_scan_request(&wire).unwrap_err().contains(field));
+            match family {
+                ProbeTaskFamily::Http3 => wire.http3_probe = Some(Http3ProbeConfig::default()),
+                ProbeTaskFamily::Pmtu => wire.pmtu_probe = Some(PmtuProbeConfig::default()),
+                ProbeTaskFamily::IpFamily => {
+                    wire.ip_family_probe = Some(IpFamilyProbeConfig {
+                        version: 1,
+                        ipv4_address: "192.0.2.1".into(),
+                        ipv6_address: "2001:db8::1".into(),
+                        port: 443,
+                        timeout_ms: 1500,
+                    });
+                }
+                _ => unreachable!("only configured probe families"),
+            }
+            wire.probe_tasks.clear();
+            assert!(validate_scan_request(&wire).unwrap_err().contains(field));
+        }
+    }
+
+    #[test]
     fn bounds_route_experiment_work() {
         let mut request = request();
         request.route_probe = Some(crate::types::RouteProbeConfig {

@@ -2,11 +2,8 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::set_progress;
-use crate::types::ScanProgress;
-
 use super::super::super::runtime::{
-    ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerOutcome,
+    ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
 };
 
 mod report;
@@ -34,24 +31,20 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
         runtime: &mut ExecutionRuntime,
         _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> RunnerOutcome {
-        if !prepare_strategy_probe_report(plan, runtime) {
-            return RunnerOutcome::Completed;
-        }
-        runtime.completed_steps += 1;
-        set_progress(
-            &runtime.shared,
-            ScanProgress {
-                session_id: plan.session_id.clone(),
-                phase: self.phase().to_string(),
-                completed_steps: runtime.completed_steps,
-                total_steps: plan.total_steps,
-                message: "Prepared strategy recommendation".to_string(),
-                is_finished: false,
-                latest_probe_target: None,
-                latest_probe_outcome: Some("ready".to_string()),
-                transfer_progress: None,
-                strategy_probe_progress: None,
-            },
+        let ready = prepare_strategy_probe_report(plan, runtime);
+        let (message, outcome) = if ready {
+            ("Prepared strategy report", "ready")
+        } else {
+            ("No candidate evidence for strategy report", "not_applicable")
+        };
+        runtime.record_step(
+            plan,
+            self.phase(),
+            message.to_string(),
+            None,
+            Some(outcome.to_string()),
+            None,
+            RunnerArtifacts::empty(),
         );
         RunnerOutcome::Completed
     }

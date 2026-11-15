@@ -4,7 +4,7 @@ use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime};
 use crate::types::QuicTarget;
 use crate::util::stable_probe_hash;
 
-use super::super::support::select_safe_or_baseline_candidate_index;
+use super::super::support::{capability_available, select_safe_or_baseline_candidate_index};
 
 pub(super) struct PreparedQuicCandidates {
     pub(super) pending_quic_specs: Vec<StrategyCandidateSpec>,
@@ -36,12 +36,17 @@ pub(super) fn prepare_quic_candidates(
             .unwrap_or_else(|_| strategy_plan.suite.quic_candidates.clone()),
         runtime.strategy.baseline_failure.as_ref().map(|value| value.class),
     );
-    let quic_candidate_total = quic_specs.len();
     let mut pending_quic_specs =
         interleave_candidate_families(quic_specs, stable_probe_hash(strategy_plan.probe_seed, "quic"));
     if let Some(max) = strategy_plan.max_candidates {
+        pending_quic_specs.sort_by_key(|spec| {
+            spec.requires_capabilities
+                .iter()
+                .any(|&capability| !capability_available(capability, fake_ttl_available, ipfrag_caps))
+        });
         pending_quic_specs.truncate(max);
     }
+    let quic_candidate_total = pending_quic_specs.len();
     let quic_targets =
         runtime.strategy.dns_override_quic_targets.clone().unwrap_or_else(|| plan.request.quic_targets.clone());
     Some(PreparedQuicCandidates { pending_quic_specs, quic_targets, quic_candidate_total })

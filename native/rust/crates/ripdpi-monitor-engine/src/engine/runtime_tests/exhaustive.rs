@@ -103,10 +103,10 @@ fn exhaustive_audit_keeps_failed_pilot_candidates_and_probes_every_target() {
 
 #[test]
 fn exhaustive_audit_stage_budget_remains_active_and_partial_precedes_dns_fallback() {
-    for (suite_id, cap, completion) in [
-        (STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, None, StrategyProbeCompletionKind::PartialResults),
-        ("quick_v1", None, StrategyProbeCompletionKind::DnsTamperingWithFallback),
-        (STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, Some(2), StrategyProbeCompletionKind::DnsTamperingWithFallback),
+    for (suite_id, cap) in [
+        (STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, None),
+        ("quick_v1", None),
+        (STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, Some(2)),
     ] {
         let mut plan = bounded_plan(suite_id, cap);
         plan.request.domain_targets = vec![target(9)];
@@ -134,7 +134,7 @@ fn exhaustive_audit_stage_budget_remains_active_and_partial_precedes_dns_fallbac
         assert_eq!(runtime.strategy.tcp_candidates.len(), 1);
         assert_eq!(
             runtime.strategy.strategy_probe_report.as_ref().expect("partial report").completion_kind,
-            completion
+            StrategyProbeCompletionKind::PartialResults
         );
     }
 }
@@ -148,7 +148,14 @@ fn capped_quick_and_full_suites_keep_the_candidate_limit() {
         plan.request.domain_targets = vec![target(server.port())];
         let mut runtime = runtime();
         let (coordinator, _) = execution_coordinator(Arc::new(DirectCandidateRuntimeLauncher));
+        plan.total_steps = coordinator.total_steps(&plan);
+        assert_eq!(plan.total_steps, 2);
         assert!(matches!(coordinator.run(&plan, &mut runtime, None), RunnerOutcome::Completed));
+        assert_eq!(runtime.completed_steps, 2);
+        let stages = runtime.stage_executions();
+        assert_eq!(stages.iter().map(|stage| stage.executed_steps).collect::<Vec<_>>(), [1, 1]);
+        let report = runtime.strategy.strategy_probe_report.as_ref().expect("strategy report");
+        assert_eq!(report.completion_kind, StrategyProbeCompletionKind::Normal);
         assert_eq!(runtime.strategy.tcp_candidates.len(), 1);
         assert_eq!(runtime.strategy.tcp_candidates[0].id, "baseline_plain_direct");
         assert!(!runtime.results.iter().any(|result| result.target.starts_with("Parser-only ·")));

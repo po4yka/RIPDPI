@@ -4,7 +4,7 @@ use std::net::IpAddr;
 use ripdpi_diagnostics_contracts::util::MAX_ROUTE_EXPERIMENT_ATTEMPTS;
 use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
-use crate::types::{ScanKind, ScanPathMode};
+use crate::types::{ProbeTaskFamily, ScanKind, ScanPathMode};
 use ripdpi_diagnostics_contracts::util::{
     FAT_HEADER_MAX_ALTERNATES, FAT_HEADER_MAX_REQUESTS, FAT_HEADER_REQUESTS, is_valid_fat_header_authority,
 };
@@ -58,10 +58,15 @@ pub fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), Stri
     if let Some(target) = &request.telegram_target {
         crate::telegram::validate_telegram_target(target)?;
     }
-    let matrix_selected =
-        request.probe_tasks.iter().any(|task| task.family == crate::types::ProbeTaskFamily::SelectiveAvailability);
-    if matrix_selected != request.selective_matrix.is_some() {
-        return Err("selectiveMatrix requires its explicit probe task".into());
+    for (family, configured, field) in [
+        (ProbeTaskFamily::SelectiveAvailability, request.selective_matrix.is_some(), "selectiveMatrix"),
+        (ProbeTaskFamily::Http3, request.http3_probe.is_some(), "http3Probe"),
+        (ProbeTaskFamily::Pmtu, request.pmtu_probe.is_some(), "pmtuProbe"),
+        (ProbeTaskFamily::IpFamily, request.ip_family_probe.is_some(), "ipFamilyProbe"),
+    ] {
+        if configured != request.probe_tasks.iter().any(|task| task.family == family) {
+            return Err(format!("{field} requires a matching configuration and explicit probe task"));
+        }
     }
     if let Some(config) = &request.selective_matrix {
         if request.kind != ScanKind::Connectivity {

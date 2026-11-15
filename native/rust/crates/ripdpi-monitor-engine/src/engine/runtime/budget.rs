@@ -1,5 +1,4 @@
 use super::artifacts::RunnerArtifacts;
-use super::cancellation::publish_partial_run_checkpoint;
 use super::plan::ExecutionPlan;
 use super::state::ExecutionRuntime;
 use crate::types::ProbeResult;
@@ -33,8 +32,6 @@ impl ExecutionRuntime {
                     "Stage budget exhausted; continuing with the next configured family".to_string(),
                 ),
             );
-            self.replace_last_executed_stage_step_with_budget_skip();
         }
-        publish_partial_run_checkpoint(plan, self);
     }
 }

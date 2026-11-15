@@ -59,7 +59,11 @@ impl ExecutionRuntime {
             );
         }
         self.completed_steps += 1;
-        self.record_stage_step(false);
+        match latest_probe_outcome.as_deref() {
+            Some("skipped_by_stage_budget") => self.record_stage_step(true),
+            Some("eliminated" | "not_applicable" | "skipped") if plan.strategy.is_some() => {}
+            _ => self.record_stage_step(false),
+        }
         self.publish_progress(
             plan,
             phase,

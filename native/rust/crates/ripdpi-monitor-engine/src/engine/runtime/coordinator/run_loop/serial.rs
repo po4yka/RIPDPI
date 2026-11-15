@@ -34,7 +34,8 @@ impl ExecutionCoordinator {
         runtime.begin_stage(stage.as_str(), planned_stage_steps);
         runtime.set_stage_deadline(stage_budget_deadline(plan, &self.runners, stage, runtime));
         let outcome = runner.run(plan, runtime, tls_verifier);
-        let stage_exhausted = runtime.is_past_stage_deadline() && !runtime.is_past_deadline();
+        let stage_exhausted =
+            !runtime.is_cancelled() && runtime.is_past_stage_deadline() && !runtime.is_past_deadline();
         runtime.set_stage_deadline(None);
         let outcome = match outcome {
             RunnerOutcome::Cancelled if stage_exhausted => {
