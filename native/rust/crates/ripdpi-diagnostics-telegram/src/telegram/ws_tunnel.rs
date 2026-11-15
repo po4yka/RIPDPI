@@ -8,6 +8,14 @@ use crate::transport::TransportConfig;
 const TELEGRAM_WS_HOST: &str = "kws2.web.telegram.org";
 const TELEGRAM_WS_PATH: &str = "/apiws";
 
+pub(crate) fn ws_open_failure_stage(status: &str) -> Option<&'static str> {
+    match status {
+        "subprotocol_not_negotiated" | "upgrade_rejected" | "upgrade_failed" => Some("upgrade"),
+        "open_timed_out" => Some("open"),
+        _ => None,
+    }
+}
+
 pub(crate) struct TelegramWsProbeResult {
     pub(crate) status: String,
     pub(crate) abort_reason: Option<&'static str>,

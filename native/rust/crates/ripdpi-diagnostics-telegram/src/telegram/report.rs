@@ -5,7 +5,7 @@ use crate::types::{ProbeDetail, ProbeResult, TelegramTarget};
 use super::dc::{TelegramDcResult, deadline_abort_reason, telegram_dc_probe_with_abort};
 use super::scoring::{classify_telegram_verdict, compute_telegram_quality_score};
 use super::transfer::{TelegramTransferResult, telegram_download_probe_with_abort, telegram_upload_probe_with_abort};
-use super::ws_tunnel::{TelegramWsProbeResult, telegram_ws_tunnel_probe_with_abort_callback};
+use super::ws_tunnel::{TelegramWsProbeResult, telegram_ws_tunnel_probe_with_abort_callback, ws_open_failure_stage};
 
 pub fn run_telegram_probe(
     target: &TelegramTarget,
@@ -75,8 +75,8 @@ fn build_telegram_details(
     if let Some(status) = ws.http_status {
         details.push(ProbeDetail { key: "wsTunnelHttpStatus".to_string(), value: status.to_string() });
     }
-    if matches!(ws.status.as_str(), "subprotocol_not_negotiated" | "upgrade_rejected" | "upgrade_failed") {
-        details.push(ProbeDetail { key: "wsTunnelFailureStage".to_string(), value: "upgrade".to_string() });
+    if let Some(stage) = ws_open_failure_stage(&ws.status) {
+        details.push(ProbeDetail { key: "wsTunnelFailureStage".to_string(), value: stage.to_string() });
     }
     details.extend([
         ProbeDetail { key: "downloadStatus".to_string(), value: dl.status },

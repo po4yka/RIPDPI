@@ -1,6 +1,6 @@
 use super::dc::TelegramDcResult;
 use super::transfer::TelegramTransferResult;
-use super::ws_tunnel::TelegramWsProbeResult;
+use super::ws_tunnel::{TelegramWsProbeResult, ws_open_failure_stage};
 
 pub(crate) fn classify_telegram_verdict(
     dl_status: &str,
@@ -21,10 +21,7 @@ pub(crate) fn classify_telegram_verdict(
         "partial"
     } else if dl_status == "ok" && ul_status == "ok" && ws_status == "ok" {
         "ok"
-    } else if dl_status == "ok"
-        && ul_status == "ok"
-        && matches!(ws_status, "open_timed_out" | "subprotocol_not_negotiated" | "upgrade_rejected" | "upgrade_failed")
-    {
+    } else if dl_status == "ok" && ul_status == "ok" && ws_open_failure_stage(ws_status).is_some() {
         "partial"
     } else {
         "error"
