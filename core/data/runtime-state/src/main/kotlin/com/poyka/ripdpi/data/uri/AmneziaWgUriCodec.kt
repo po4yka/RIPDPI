@@ -50,6 +50,7 @@ object AmneziaWgUriCodec {
     /** Encodes [profile] into an `amneziawg://` share URI. */
     fun encode(profile: AmneziaWgProfile): String {
         profile.awg.requireSupportedProfile()
+        require(profile.mtu == null || profile.mtu in ValidAmneziaWgMtu) { "AmneziaWG URI has invalid MTU" }
         val host = profile.host.removeSurrounding("[", "]")
         val query =
             (baseParams(profile) + awgParams(profile.awg))
@@ -225,7 +226,7 @@ object AmneziaWgUriCodec {
         val parsed =
             uri
                 .trim()
-                .takeIf { it.startsWith(SCHEME_PREFIX, ignoreCase = true) }
+                .takeIf { it.startsWith(SCHEME_PREFIX, ignoreCase = true) && it.hasValidUriEncoding() }
                 ?.let { runCatching { URI(it) }.getOrNull() }
                 ?: return null
 

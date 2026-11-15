@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.normalizeRelayVlessTransport
 import java.net.URI
 import java.net.URLDecoder
 import java.net.URLEncoder
+import java.nio.ByteBuffer
 import java.util.Base64
 import java.util.UUID
 
@@ -49,7 +50,7 @@ object ProxyUriCodec {
     @Suppress("ReturnCount")
     fun parse(uri: String): ProxyProfile? {
         val trimmed = escapeUnsafeQueryAndFragment(uri.trim())
-        if (trimmed.isEmpty()) return null
+        if (trimmed.isEmpty() || !trimmed.hasValidUriEncoding()) return null
         val schemeEnd = trimmed.indexOf("://")
         if (schemeEnd <= 0) return null
         val scheme = trimmed.substring(0, schemeEnd).lowercase()
@@ -652,7 +653,13 @@ object ProxyUriCodec {
             )
         val padded = padBase64(cleaned)
         for (decoder in candidates) {
-            val result = runCatching { String(decoder.decode(padded)) }.getOrNull()
+            val result =
+                runCatching {
+                    Charsets.UTF_8
+                        .newDecoder()
+                        .decode(ByteBuffer.wrap(decoder.decode(padded)))
+                        .toString()
+                }.getOrNull()
             if (result != null) return result
         }
         return null

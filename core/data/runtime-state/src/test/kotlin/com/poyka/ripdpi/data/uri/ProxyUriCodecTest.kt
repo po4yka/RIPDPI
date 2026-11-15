@@ -8,6 +8,16 @@ import org.junit.Test
 
 class ProxyUriCodecTest {
     @Test
+    fun `URI rejects malformed UTF-8 without discarding a valid replacement character`() {
+        val base = "trojan://%s@example.com:443"
+        assertNull(ProxyUriCodec.parse(base.format("a%FFb")))
+        assertNull(ProxyUriCodec.parse(base.format("a%C2b")))
+        val profile = ProxyUriCodec.parse(base.format("a%EF%BF%BDb")) as ProxyProfile.Trojan
+
+        assertEquals("a\uFFFDb", profile.password)
+    }
+
+    @Test
     fun `ssh userinfo preserves literal plus signs`() {
         val profile =
             ProxyUriCodec.parse("ssh://test+user:test+pass@example.com:22") as ProxyProfile.Ssh
