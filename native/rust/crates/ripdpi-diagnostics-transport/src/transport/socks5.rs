@@ -228,6 +228,9 @@ fn socks5_udp_associate_with_abort(
 }
 
 pub fn normalize_udp_relay_addr(relay_addr: SocketAddr, control: &TcpStream) -> Result<SocketAddr, TransportError> {
+    if relay_addr.port() == 0 {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid SOCKS5 relay port").into());
+    }
     if relay_addr.ip().is_unspecified() {
         let peer = control.peer_addr()?;
         Ok(SocketAddr::new(peer.ip(), relay_addr.port()))
@@ -277,6 +280,18 @@ pub fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u8>), Tr
             let address =
                 SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::from(raw)), u16::from_be_bytes([frame[20], frame[21]]));
             Ok((address, frame[22..].to_vec()))
+        }
+        // UDP probes select a numeric peer. Correlate numeric names without resolving
+        // arbitrary names supplied by a relay in an unauthenticated datagram header.
+        0x03 => {
+            let name_end = 5 + usize::from(frame[4]);
+            let full_header = frame.get(..name_end + 2).ok_or(TransportError::SocksUdpFrameTooShort)?;
+            let address = std::str::from_utf8(&full_header[5..name_end])
+                .ok()
+                .and_then(|host| host.parse::<IpAddr>().ok())
+                .ok_or(TransportError::SocksUdpAtypUnsupported(0x03))?;
+            let port = u16::from_be_bytes([full_header[name_end], full_header[name_end + 1]]);
+            Ok((SocketAddr::new(address, port), frame[name_end + 2..].to_vec()))
         }
         atyp => Err(TransportError::SocksUdpAtypUnsupported(atyp)),
     }

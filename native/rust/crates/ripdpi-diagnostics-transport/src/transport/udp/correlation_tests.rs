@@ -99,10 +99,24 @@ fn dpi24_socks_udp_filter_waits_for_matching_encapsulated_payload() {
         stream.write_all(&[5, 0, 0, 1, 127, 0, 0, 1, port[0], port[1]]).unwrap();
         let mut frame = [0; 256];
         let (size, peer) = relay.recv_from(&mut frame).unwrap();
+        // A fragment, wrong peer and wrong payload must leave the association waiting.
+        frame[2] = 1;
+        relay.send_to(&frame[..size], peer).unwrap();
+        frame[2] = 0;
+        frame[7] ^= 1;
+        relay.send_to(&frame[..size], peer).unwrap();
+        frame[7] ^= 1;
         frame[size - 5..size].copy_from_slice(b"stale");
         relay.send_to(&frame[..size], peer).unwrap();
-        frame[size - 5..size].copy_from_slice(b"valid");
-        relay.send_to(&frame[..size], peer).unwrap();
+
+        // The textual address is still the selected numeric peer.
+        let mut valid = vec![0, 0, 0, 3, 9];
+        valid.extend_from_slice(b"192.0.2.1");
+        valid.extend_from_slice(&443u16.to_be_bytes());
+        valid.extend_from_slice(b"valid");
+        relay.send_to(&valid, peer).unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        assert_eq!(stream.read(&mut [0]).unwrap(), 0);
     });
     let result = super::relay_udp_payload_matching_observed(
         &[TargetAddress::Ip("192.0.2.1".parse().unwrap())],
@@ -285,6 +299,45 @@ fn stable_route_attempts_do_not_accept_the_previous_context() {
     worker.join().unwrap();
     assert_eq!(context, b"other");
     assert_eq!(response.payload, b"other");
+}
+
+#[test]
+fn standard_socks_association_ends_when_control_closes() {
+    let relay = UdpSocket::bind("127.0.0.1:0").unwrap();
+    relay.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+    let relay_addr = relay.local_addr().unwrap();
+    let control = TcpListener::bind("127.0.0.1:0").unwrap();
+    let control_addr = control.local_addr().unwrap();
+    let worker = thread::spawn(move || {
+        let (mut stream, _) = control.accept().unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let mut greeting = [0; 3];
+        stream.read_exact(&mut greeting).unwrap();
+        assert_eq!(greeting, [5, 1, 0]);
+        stream.write_all(&[5, 0]).unwrap();
+        let mut association = [0; 10];
+        stream.read_exact(&mut association).unwrap();
+        let port = relay_addr.port().to_be_bytes();
+        stream.write_all(&[5, 0, 0, 1, 127, 0, 0, 1, port[0], port[1]]).unwrap();
+        relay.recv_from(&mut [0; 32]).unwrap();
+        drop(stream);
+        // Keep the UDP socket open. Only closure of the TCP association wakes the client.
+        thread::sleep(Duration::from_millis(450));
+        drop(relay);
+    });
+    let started = Instant::now();
+    let result = relay_udp_payload_observed(
+        &[TargetAddress::Ip("192.0.2.1".parse().unwrap())],
+        443,
+        &TransportConfig::Socks5 { host: "127.0.0.1".into(), port: control_addr.port(), credentials: None },
+        b"probe",
+    );
+    assert!(matches!(
+        result,
+        Err(super::TransportError::UdpRecvFailed { kind: std::io::ErrorKind::UnexpectedEof, .. })
+    ));
+    assert!(started.elapsed() < Duration::from_millis(400));
+    worker.join().unwrap();
 }
 
 #[test]

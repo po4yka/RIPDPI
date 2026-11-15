@@ -4,6 +4,7 @@ use std::io;
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
+use crate::transport::protect::protected_udp_bind;
 use crate::transport::udp::{
     cancellation_reason, matched_udp_result, poll_wait, send_udp_before, udp_exchange_deadline, udp_remaining,
 };
@@ -54,10 +55,13 @@ pub(crate) fn relay_udp_via_socks5_matching(
     };
     let udp = match prebound {
         Some(udp) => udp,
-        None => UdpSocket::bind(SocketAddr::new(
-            if relay.is_ipv4() { Ipv4Addr::UNSPECIFIED.into() } else { std::net::Ipv6Addr::UNSPECIFIED.into() },
-            0,
-        ))?,
+        None => protected_udp_bind(
+            SocketAddr::new(
+                if relay.is_ipv4() { Ipv4Addr::UNSPECIFIED.into() } else { std::net::Ipv6Addr::UNSPECIFIED.into() },
+                0,
+            ),
+            relay,
+        )?,
     };
     udp.connect(relay)?;
     let frame = encode_socks5_udp_frame(destination, payload);
@@ -65,19 +69,15 @@ pub(crate) fn relay_udp_via_socks5_matching(
         Some(nonce) => udp_feedback::encode_request(&nonce, 1, &frame)?,
         None => frame,
     };
-    if nonce.is_some() {
-        control.set_nonblocking(true)?;
-        check_control(&control)?;
-    }
+    control.set_nonblocking(true)?;
+    check_control(&control)?;
     send_udp_before(&udp, &frame, deadline, cancel)?;
     let mut bytes = [0; 65_535];
     let mut saw_unmatched = false;
     loop {
         let timeout = matched_udp_result(udp_remaining(deadline, cancel), saw_unmatched)?;
-        if nonce.is_some() {
-            check_control(&control)?;
-        }
-        udp.set_read_timeout(Some(poll_wait(timeout, nonce.is_some() || cancel.is_some())))?;
+        check_control(&control).map_err(TransportError::udp_recv_error)?;
+        udp.set_read_timeout(Some(poll_wait(timeout, true)))?;
         let size = match udp.recv(&mut bytes) {
             Ok(size) => size,
             Err(error)
@@ -91,16 +91,14 @@ pub(crate) fn relay_udp_via_socks5_matching(
             Err(error) => return Err(TransportError::udp_recv_error(error)),
         };
         matched_udp_result(udp_remaining(deadline, cancel), saw_unmatched)?;
+        check_control(&control).map_err(TransportError::udp_recv_error)?;
         let body = match nonce.as_ref().map(|nonce| udp_feedback::decode(&bytes[..size], nonce)) {
-            Some(Ok(Frame::Response { payload })) => {
-                check_control(&control)?;
-                payload
-            }
+            Some(Ok(Frame::Response { payload })) => payload,
             Some(Ok(Frame::Error { id: 1, error })) if error.target == destination => {
-                check_control(&control)?;
-                return Err(
-                    io::Error::new(io::ErrorKind::ConnectionRefused, "SOCKS5 UDP peer reported an error").into()
-                );
+                return Err(TransportError::udp_recv_error(io::Error::new(
+                    io::ErrorKind::ConnectionRefused,
+                    "SOCKS5 UDP peer reported an error",
+                )));
             }
             Some(_) => continue,
             None => &bytes[..size],
@@ -108,16 +106,13 @@ pub(crate) fn relay_udp_via_socks5_matching(
         match decode_socks5_udp_frame(body) {
             Ok((source, payload)) if source == destination => {
                 if accept_response(&payload) {
+                    udp_remaining(deadline, cancel)?;
                     return Ok((payload, udp.local_addr()?));
                 }
                 saw_unmatched = true;
                 continue;
             }
-            _ if nonce.is_some() => continue,
-            Ok(_) => {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5 UDP source mismatch").into());
-            }
-            Err(error) => return Err(error),
+            _ => continue,
         }
     }
 }
@@ -257,7 +252,8 @@ fn check_control(control: &TcpStream) -> io::Result<()> {
     match control.peek(&mut [0]) {
         Err(error) if error.kind() == io::ErrorKind::WouldBlock => Ok(()),
         Err(error) => Err(error),
-        Ok(_) => Err(io::Error::new(io::ErrorKind::ConnectionAborted, "SOCKS5 UDP control is not idle")),
+        Ok(0) => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "SOCKS5 UDP association closed")),
+        Ok(_) => Err(io::Error::new(io::ErrorKind::InvalidData, "unexpected SOCKS5 UDP control data")),
     }
 }
 

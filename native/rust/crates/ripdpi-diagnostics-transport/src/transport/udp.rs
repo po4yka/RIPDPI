@@ -442,6 +442,10 @@ mod tests {
                     frame[4..8].copy_from_slice(&[8, 8, 8, 8]);
                 }
                 relay.send_to(&frame[..size], peer).expect("echo UDP frame");
+                if !(wrong_source || fallback && attempt == 0) {
+                    stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                    assert_eq!(stream.read(&mut closed).expect("close completed control"), 0);
+                }
             }
         });
 

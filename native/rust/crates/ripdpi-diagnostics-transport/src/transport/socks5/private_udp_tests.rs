@@ -224,9 +224,10 @@ fn private_udp_error_matches_current_destination() {
         if wrong_target {
             assert_eq!(result.unwrap().0, b"answer");
         } else {
-            assert!(
-                matches!(result, Err(TransportError::Io(error)) if error.kind() == io::ErrorKind::ConnectionRefused)
-            );
+            assert!(matches!(
+                result,
+                Err(TransportError::UdpRecvFailed { kind: io::ErrorKind::ConnectionRefused, .. })
+            ));
         }
     }
 }
