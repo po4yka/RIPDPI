@@ -20,14 +20,17 @@ internal object DnsWireResponseParser {
         query: ByteArray,
     ): DnsProbeAnswer =
         try {
-            responseFacts(DnsMessages.response(bytes, query))
+            responseFacts(DnsMessages.response(bytes, query), query)
         } catch (_: IOException) {
             dnsFailure(DnsResponseOutcome.MALFORMED)
         } catch (_: IllegalArgumentException) {
             dnsFailure(DnsResponseOutcome.MALFORMED)
         }
 
-    private fun responseFacts(message: Message): DnsProbeAnswer {
+    private fun responseFacts(
+        message: Message,
+        query: ByteArray,
+    ): DnsProbeAnswer {
         val question = message.question
         require(question.type == Type.A || question.type == Type.AAAA)
         val header = message.header
@@ -69,6 +72,7 @@ internal object DnsWireResponseParser {
             } else {
                 dnsOutcome(message.rcode, ips.isNotEmpty())
             }
+        val observedOpt = message.opt?.takeIf { it.version == 0 && DnsMessages.parseQuery(query).opt?.version == 0 }
         val semantics =
             initial.copy(
                 outcome = outcome,
@@ -83,8 +87,9 @@ internal object DnsWireResponseParser {
                             it.minimum,
                         )
                     },
+                extendedDnsErrorsObserved = observedOpt != null,
                 extendedDnsErrorCodes =
-                    message.opt
+                    observedOpt
                         ?.options
                         .orEmpty()
                         .filterIsInstance<ExtendedErrorCodeOption>()

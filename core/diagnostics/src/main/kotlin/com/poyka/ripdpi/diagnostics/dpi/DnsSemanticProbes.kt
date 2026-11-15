@@ -50,7 +50,7 @@ class DatagramSocketDnsUdpProbe(
         domain: String,
         server: String,
     ): DnsProbeAnswer {
-        val query = DnsWireBuilder.buildQuery(domain)
+        val query = DnsWireBuilder.buildQuery(domain, edns = true)
         return exchangeDnsDatagram(server, query, timeoutMs).answer
     }
 
@@ -111,7 +111,7 @@ class DohWireAddressProbe(
         domain: String,
         endpoint: String,
     ): DnsProbeAnswer {
-        val query = DnsWireBuilder.buildQuery(domain)
+        val query = DnsWireBuilder.buildQuery(domain, edns = true)
         val post =
             Request
                 .Builder()

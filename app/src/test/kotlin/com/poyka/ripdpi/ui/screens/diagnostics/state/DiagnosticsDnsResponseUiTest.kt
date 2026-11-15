@@ -105,6 +105,21 @@ class DiagnosticsDnsResponseUiTest {
     }
 
     @Test
+    fun edeUnobservedDiffersFromAnObservedReplyWithNoCodes() {
+        val answer = DnsResponseSemantics(outcome = DnsResponseOutcome.ANSWER, rcode = 0)
+        val unknown = dnsResponseGroup(strings, R.string.diagnostics_dns_source_doh_json, answer)
+        val empty =
+            dnsResponseGroup(
+                strings,
+                R.string.diagnostics_dns_source_doh_wire,
+                answer.copy(extendedDnsErrorsObserved = true),
+            )
+
+        assertEquals(app.getString(R.string.diagnostics_dns_unknown), unknown.value(R.string.diagnostics_dns_ede))
+        assertEquals(app.getString(R.string.diagnostics_dns_none), empty.value(R.string.diagnostics_dns_ede))
+    }
+
+    @Test
     fun toolShowsSourceEvidenceWithoutTurningLegacyEmptyListsIntoTimeouts() {
         val result =
             DnsIntegrityResult(

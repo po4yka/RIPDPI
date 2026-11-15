@@ -63,6 +63,17 @@ class DnsMessagesTest {
     }
 
     @Test
+    fun `EDNS query advertises a version zero OPT with no sizing option`() {
+        val request = DnsMessages.query("example.com", transactionId = 0x1234, edns = true)
+        val expected = query.copyOf().also { it[11] = 1 } + hex("00002904d0000000000000")
+
+        assertTrue(request.contentEquals(expected))
+        val message = DnsMessages.parseQuery(request)
+        assertEquals(0, message.opt.version)
+        assertTrue(message.opt.options.isEmpty())
+    }
+
+    @Test
     fun `sized queries keep wire length without the cleartext padding option`() {
         for (size in listOf(128, 512, 1232, 4096)) {
             val wire = DnsMessages.query("probe.invalid", transactionId = 9, payloadSize = size)

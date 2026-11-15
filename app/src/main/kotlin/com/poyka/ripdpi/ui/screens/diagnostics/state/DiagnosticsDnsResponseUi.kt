@@ -72,9 +72,9 @@ private class DnsResponseFields(
             add(
                 field(
                     R.string.diagnostics_dns_ede,
-                    response.extendedDnsErrorCodes.joinToString().ifEmpty {
+                    response.observedExtendedDnsErrorCodes?.joinToString()?.ifEmpty {
                         strings.getString(R.string.diagnostics_dns_none)
-                    },
+                    } ?: unknown,
                 ),
             )
             add(field(R.string.diagnostics_dns_limits, strings.getString(R.string.diagnostics_dns_caution)))

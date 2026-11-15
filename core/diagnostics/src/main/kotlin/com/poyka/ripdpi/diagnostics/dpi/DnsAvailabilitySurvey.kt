@@ -219,7 +219,7 @@ class DatagramUdpAvailabilityProbe(
     ): DnsProbeSample =
         withContext(Dispatchers.IO) {
             val transactionId = DnsWireBuilder.randomTransactionId()
-            val query = DnsWireBuilder.buildQuery(domain, transactionId)
+            val query = DnsWireBuilder.buildQuery(domain, transactionId, edns = true)
             val reply = exchangeDnsDatagram(server.endpoint, query, timeoutMs.toInt())
             sample(reply.answer, reply.latencyMs)
         }
@@ -252,7 +252,7 @@ class OkHttpDohWireAvailabilityProbe(
                     callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                 }
             val transactionId = DnsWireBuilder.randomTransactionId()
-            val query = DnsWireBuilder.buildQuery(domain, transactionId)
+            val query = DnsWireBuilder.buildQuery(domain, transactionId, edns = true)
             val post = buildPostRequest(server.endpoint, query)
             val startNs = System.nanoTime()
             val postResult =

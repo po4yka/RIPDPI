@@ -11,7 +11,8 @@ object DnsWireBuilder {
     fun buildQuery(
         domain: String,
         transactionId: Int = randomTransactionId(),
-    ): ByteArray = DnsMessages.query(domain, transactionId = transactionId)
+        edns: Boolean = false,
+    ): ByteArray = DnsMessages.query(domain, transactionId = transactionId, edns = edns)
 
     fun parseResponse(
         bytes: ByteArray,

@@ -14,7 +14,8 @@ internal fun dnsSemanticsSummaryLines(results: List<ProbeResult>): List<String> 
                         "ttlMinSeconds=${evidence.ttlMinSeconds ?: "unknown"} " +
                         "ttlMaxSeconds=${evidence.ttlMaxSeconds ?: "unknown"} " +
                         "negativeTtlSeconds=${evidence.negativeTtlSeconds ?: "unknown"} " +
-                        "cnameCount=${evidence.cnameTargets.size} edeCodes=${evidence.extendedDnsErrorCodes} " +
+                        "cnameCount=${evidence.cnameTargets.size} " +
+                        "edeCodes=${evidence.observedExtendedDnsErrorCodes ?: "unknown"} " +
                         "authoritative=${evidence.authoritative ?: "unknown"} " +
                         "recursionAvailable=${evidence.recursionAvailable ?: "unknown"} " +
                         "authenticatedData=${evidence.authenticatedData ?: "unknown"} " +

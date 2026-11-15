@@ -44,6 +44,7 @@ object DnsMessages {
         type: Int = Type.A,
         transactionId: Int = randomTransactionId(),
         payloadSize: Int? = null,
+        edns: Boolean = false,
     ): ByteArray {
         val name = hostname.removeSuffix(".")
         require(name.length in 1..MaxNameLength && name.all { it.code < AsciiLimit })
@@ -56,14 +57,19 @@ object DnsMessages {
         require(transactionId in 0..MAX_MESSAGE_BYTES)
         val question = Record.newRecord(Name.fromString(name, Name.root), type, DClass.IN)
         val message = Message.newQuery(question).apply { header.id = transactionId }
-        val base = message.toWire()
-        if (payloadSize != null) {
-            require(payloadSize in 0..MAX_MESSAGE_BYTES)
-            if (payloadSize >= base.size + SizingOverhead) {
-                val filler = GenericEDNSOption(SizingOption, ByteArray(payloadSize - base.size - SizingOverhead))
-                message.addRecord(OPTRecord(AdvertisedUdpBytes, 0, 0, 0, filler), Section.ADDITIONAL)
+        val filler =
+            payloadSize?.let {
+                require(it in 0..MAX_MESSAGE_BYTES)
+                val fillerSize = it - message.toWire().size - SizingOverhead
+                if (fillerSize >= 0) GenericEDNSOption(SizingOption, ByteArray(fillerSize)) else null
             }
-        }
+        val opt =
+            when {
+                filler != null -> OPTRecord(AdvertisedUdpBytes, 0, 0, 0, filler)
+                edns -> OPTRecord(AdvertisedUdpBytes, 0, 0, 0)
+                else -> null
+            }
+        if (opt != null) message.addRecord(opt, Section.ADDITIONAL)
         return message.toWire()
     }
 

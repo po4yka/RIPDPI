@@ -34,7 +34,12 @@ data class DnsResponseSemantics(
     val hasSoa: Boolean? = null,
     val cnameTargets: List<String> = emptyList(),
     val extendedDnsErrorCodes: List<Int> = emptyList(),
-)
+    val extendedDnsErrorsObserved: Boolean = false,
+) {
+    /** Null means EDE availability was not observed. A measured reply can supply no codes. */
+    val observedExtendedDnsErrorCodes: List<Int>?
+        get() = extendedDnsErrorCodes.takeIf { extendedDnsErrorsObserved || it.isNotEmpty() }
+}
 
 /** Duplicate detail keys and malformed metadata are not usable observations. */
 fun parseDnsResponseSemantics(

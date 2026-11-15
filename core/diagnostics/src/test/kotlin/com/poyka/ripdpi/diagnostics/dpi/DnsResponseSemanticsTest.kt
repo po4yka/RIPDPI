@@ -68,13 +68,30 @@ class DnsResponseSemanticsTest {
                         record("", 41, short(15) + short(8) + short(17) + "secret".toByteArray(), recordClass = 1232),
                     ),
             )
-        val result = parse(bytes)
+        val request = DnsWireBuilder.buildQuery("example.com", 42, edns = true)
+        val result = DnsWireBuilder.parseResponse(bytes, request)
+        assertNull(parse(bytes).response?.observedExtendedDnsErrorCodes)
         assertEquals(listOf("1.2.3.4"), result.addresses)
         assertEquals(listOf("alias.example.com"), result.response?.cnameTargets)
         assertEquals(0L, result.response?.ttlMinSeconds)
         assertNull(result.response?.negativeTtlSeconds)
-        assertEquals(listOf(17), result.response?.extendedDnsErrorCodes)
+        assertEquals(listOf(17), result.response?.observedExtendedDnsErrorCodes)
         assertTrue(!result.toString().contains("secret"))
+    }
+
+    @Test
+    fun edeAbsenceIsKnownOnlyForACompleteEdnsZeroExchange() {
+        val request = DnsWireBuilder.buildQuery("example.com", 42, edns = true)
+        val opt = record("", 41, byteArrayOf(), ttl = 0, recordClass = 1232)
+        val complete = packet(additional = listOf(opt))
+
+        assertEquals(
+            emptyList<Int>(),
+            DnsWireBuilder.parseResponse(complete, request).response?.observedExtendedDnsErrorCodes,
+        )
+        assertNull(DnsWireBuilder.parseResponse(packet(), request).response?.observedExtendedDnsErrorCodes)
+        val truncated = packet(flags = 0x8380, additional = listOf(opt))
+        assertNull(DnsWireBuilder.parseResponse(truncated, request).response?.observedExtendedDnsErrorCodes)
     }
 
     @Test
