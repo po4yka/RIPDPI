@@ -33,7 +33,7 @@ Fix IMP-01 findings F1-F7. Add a usable TUIC v5 URI import path and pinned Mieru
 - Codec worker owns F1/F4/F5/F7 and TUIC typed profiles/callers. It is the first writer for ProxyGroupStores.kt, NativeRelayProfileValidation.kt and SelectorRelayProfileMapping.kt.
 - Persistence worker owns F2 transaction/import paths, F3 saved Mieru mapper slice, and F6 scanner privacy and tests. F3 owns RelayProfileShareMapper.kt before the TUIC writer uses it.
 - Mieru worker owns new advanced Kotlin leaf types and ripdpi-mieru Rust files. It receives the shared profile/mapping/share/config lanes only after the other writers finish those files.
-- Diagnostics lint worker owns DiagnosticsTransferUiModel.kt, DiagnosticsTelegramPresentation.kt and DiagnosticsTelegramCards.kt in a separate worktree. This scope only clears inherited lint failures and retains behavior, strings and visual content.
+- Diagnostics lint worker owns DiagnosticsTransferUiModel.kt, DiagnosticsTelegramPresentation.kt, DiagnosticsTelegramCards.kt and DiagnosticsDpiSuitePresentation.kt in a separate worktree. This scope only clears inherited lint failures and retains behavior, strings and visual content.
 - Workers use separate worktrees. Shared files have one active writer. No worker edits task artifacts, baselines, Cargo.lock or version catalogs.
 - Required reviewers: pr-reviewer for the combined behavior/contract change; async-cancel-safety for native async changes; JNI verifier only if an actual JNI signature changes.
 
