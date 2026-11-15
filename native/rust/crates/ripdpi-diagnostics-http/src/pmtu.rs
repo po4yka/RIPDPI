@@ -24,7 +24,8 @@ pub fn probe_pmtu(
     let started = Instant::now();
     let mut evidence = initial(config, ipv6);
     let own_deadline = started + Duration::from_millis(config.timeout_ms.min(15000));
-    let deadline = active_scan_io_deadline().map_or(own_deadline, |d| d.min(own_deadline));
+    let scan_deadline = active_scan_io_deadline();
+    let deadline = scan_deadline.map_or(own_deadline, |d| d.min(own_deadline));
     let result = if !raw_path || !matches!(transport, TransportConfig::Direct { .. }) {
         evidence.path_scope = "UNSUPPORTED_PROXY".into();
         Err(("UNSUPPORTED", "unsupported_path"))
@@ -48,6 +49,15 @@ pub fn probe_pmtu(
         }
     };
     if let Err((status, reason)) = result {
+        // Socket workers share this cutoff, so retain its owner for their timeouts too.
+        let reason = if status == "TIMEOUT"
+            && reason == "deadline_exceeded"
+            && scan_deadline.is_none_or(|scan| scan > own_deadline)
+        {
+            "timeout"
+        } else {
+            reason
+        };
         evidence.status = status.into();
         evidence.reason = Some(reason.into());
     }

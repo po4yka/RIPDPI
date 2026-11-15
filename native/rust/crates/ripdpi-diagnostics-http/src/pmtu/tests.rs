@@ -161,7 +161,12 @@ fn tls_or_alpn_failure_does_not_become_mtu_evidence() {
 }
 #[test]
 fn observation_deadline_and_cancellation_preserve_partial_facts() {
-    for cancel_test in [false, true] {
+    for (cancel_test, scan_budget_ms, status, reason) in [
+        (false, None, "TIMEOUT", "timeout"),
+        (true, None, "CANCELLED", "cancelled"),
+        (false, Some(250), "TIMEOUT", "deadline_exceeded"),
+        (false, Some(2000), "TIMEOUT", "timeout"),
+    ] {
         let server = Server::start(false, b"h3");
         let config = PmtuProbeConfig { timeout_ms: 500, observation_ms: 500, ..server.config() };
         let flag = Arc::new(AtomicBool::new(false));
@@ -173,16 +178,22 @@ fn observation_deadline_and_cancellation_preserve_partial_facts() {
             }
         });
         let started = Instant::now();
-        let facts = probe_pmtu(
-            &config,
-            false,
-            &TransportConfig::Direct { route_experiment: None },
-            true,
-            &flag,
-            Some(&server.verifier),
+        let facts = ripdpi_diagnostics_contracts::util::with_scan_io_deadline(
+            scan_budget_ms.map(|ms| Instant::now() + Duration::from_millis(ms)),
+            || {
+                probe_pmtu(
+                    &config,
+                    false,
+                    &TransportConfig::Direct { route_experiment: None },
+                    true,
+                    &flag,
+                    Some(&server.verifier),
+                )
+            },
         );
         worker.join().unwrap();
-        assert_eq!(facts.status, if cancel_test { "CANCELLED" } else { "TIMEOUT" }, "{facts:?}");
+        assert_eq!(facts.status, status, "{facts:?}");
+        assert_eq!(facts.reason.as_deref(), Some(reason), "{facts:?}");
         assert!(facts.tls_validated && facts.sent_probe_count > 0);
         assert!(!facts.observation_window_complete);
         assert!(started.elapsed() < Duration::from_secs(2));
@@ -252,6 +263,7 @@ fn scan_deadline_bounds_family_budget_before_io() {
         },
     );
     assert_eq!(result.status, "TIMEOUT");
+    assert_eq!(result.reason.as_deref(), Some("deadline_exceeded"));
     assert!(!result.fragmentation_prevented && !result.tls_validated);
     assert!(result.peer_address.is_none());
 }
