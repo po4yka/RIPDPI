@@ -5879,9 +5879,11 @@ dependencies = [
 name = "ripdpi-diagnostics-probes"
 version = "0.1.0"
 dependencies = [
+ "boring",
  "futures",
  "hickory-resolver",
  "libc",
+ "rcgen",
  "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-http",

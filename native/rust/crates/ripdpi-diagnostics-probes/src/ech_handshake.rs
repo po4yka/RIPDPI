@@ -42,9 +42,12 @@ pub enum EchHandshakeOutcome {
         /// (e.g. `"h2"`, `"http/1.1"`).
         selected_alpn: Option<String>,
     },
-    /// TLS handshake succeeded but the server did not accept ECH and returned
-    /// retry configs instead.
+    /// The authenticated outer handshake rejected ECH and supplied a usable
+    /// retry configuration.
     EchRejectedWithRetryConfig,
+    /// The authenticated outer handshake rejected ECH without a compatible
+    /// retry configuration. The list can be absent, empty or unsupported.
+    EchRejectedWithoutUsableRetryConfig,
     /// No HTTPS resource record was found for the target host, or the record
     /// contained no `ech=` parameter — ECH cannot be attempted.
     NoEchConfig,
@@ -110,7 +113,10 @@ impl Probe for EchHandshakeProbe {
         let verdict = match &self.outcome {
             EchHandshakeOutcome::EchAccepted { .. } => ProbeVerdict::Pass,
 
-            EchHandshakeOutcome::EchRejectedWithRetryConfig => ProbeVerdict::Fail { class: "ech-rejected".to_string() },
+            EchHandshakeOutcome::EchRejectedWithRetryConfig
+            | EchHandshakeOutcome::EchRejectedWithoutUsableRetryConfig => {
+                ProbeVerdict::Fail { class: "ech-rejected".to_string() }
+            }
 
             EchHandshakeOutcome::NoEchConfig => ProbeVerdict::Fail { class: "ech-config-unavailable".to_string() },
 

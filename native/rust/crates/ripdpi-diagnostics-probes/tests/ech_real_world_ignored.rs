@@ -53,7 +53,7 @@ fn real_world_cloudflare_lookup_resolves_or_documents_failure() {
     }
 }
 
-/// Verifies that the full `EchHandshakeRunner` produces one of the five documented outcome
+/// Verifies that the full `EchHandshakeRunner` produces one of the documented outcome
 /// variants when run against `cloudflare.com`. Any unrecognised variant fails the test,
 /// pinning the contract: a real-world run cannot produce an unknown verdict.
 #[test]
@@ -83,8 +83,8 @@ fn real_world_cloudflare_runner_attempt_produces_documented_outcome() {
         EchHandshakeOutcome::EchAccepted { .. } => {
             // Best-case: ECH negotiation succeeded end-to-end.
         }
-        EchHandshakeOutcome::EchRejectedWithRetryConfig => {
-            // Server signalled retry configs — still a known, documented outcome.
+        EchHandshakeOutcome::EchRejectedWithRetryConfig | EchHandshakeOutcome::EchRejectedWithoutUsableRetryConfig => {
+            // Authenticated rejection is distinct from a transport failure.
         }
         EchHandshakeOutcome::NoEchConfig => {
             // HTTPS RR present but no ech= param found — documented outcome.

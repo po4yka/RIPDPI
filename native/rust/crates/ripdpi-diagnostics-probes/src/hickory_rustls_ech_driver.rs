@@ -102,68 +102,96 @@ impl EchHandshakeDriver for HickoryRustlsEchHandshakeDriver {
         ech_config: &[u8],
         timeout: Duration,
     ) -> EchHandshakeOutcome {
-        let Some(deadline) = tokio::time::Instant::now().checked_add(timeout) else {
-            return EchHandshakeOutcome::SetupError { detail: "ech-timeout-out-of-range".into() };
+        handshake_with_config(host, port, ech_config, timeout, ech_client_config).await
+    }
+}
+
+/// # Cancel safety:
+/// cancel-safe: each attempt owns its TCP and TLS state. Dropping the future
+/// closes the connection and prevents any later retry.
+async fn handshake_with_config(
+    host: &str,
+    port: u16,
+    ech_config: &[u8],
+    timeout: Duration,
+    build_config: impl Fn(Vec<u8>) -> Result<Arc<rustls::ClientConfig>, String> + Send,
+) -> EchHandshakeOutcome {
+    let Some(deadline) = tokio::time::Instant::now().checked_add(timeout) else {
+        return EchHandshakeOutcome::SetupError { detail: "ech-timeout-out-of-range".into() };
+    };
+    let mut configs = ech_config.to_vec();
+    let mut peer = None;
+    for attempt in 0..2 {
+        let config = match build_config(configs) {
+            Ok(config) => config,
+            Err(detail) => return EchHandshakeOutcome::SetupError { detail },
         };
-        let mut configs = ech_config.to_vec();
-        let mut peer = None;
-        for attempt in 0..2 {
-            let config = match ech_client_config(configs) {
-                Ok(config) => config,
-                Err(detail) => return EchHandshakeOutcome::SetupError { detail },
-            };
-            let server_name = match ServerName::try_from(host.to_owned()) {
-                Ok(name) => name,
-                Err(error) => {
-                    return EchHandshakeOutcome::SetupError { detail: format!("server-name-parse-error: {error}") };
-                }
-            };
-            let connect = async {
-                match peer {
-                    Some(address) => tokio::net::TcpStream::connect(address).await,
-                    None => tokio::net::TcpStream::connect((host, port)).await,
-                }
-            };
-            let tcp = match tokio::time::timeout_at(deadline, connect).await {
-                Ok(Ok(tcp)) => tcp,
-                Ok(Err(error)) => {
-                    return EchHandshakeOutcome::HandshakeFailure { detail: format!("tcp-connect-error: {error}") };
-                }
-                Err(_) => return EchHandshakeOutcome::HandshakeFailure { detail: "tcp-connect-timeout".into() },
-            };
-            peer = tcp.peer_addr().ok();
-            let connector = TlsConnector::from(config);
-            match tokio::time::timeout_at(deadline, connector.connect(server_name, tcp)).await {
-                Err(_) => return EchHandshakeOutcome::HandshakeFailure { detail: "tls-handshake-timeout".into() },
-                Ok(Err(error)) => {
-                    let retry = error
-                        .get_ref()
-                        .and_then(|error| error.downcast_ref::<rustls::Error>())
-                        .and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
-                    if let Some(retry) = retry {
-                        if attempt == 0 && peer.is_some() {
-                            configs = retry;
-                            continue;
-                        }
-                        return EchHandshakeOutcome::EchRejectedWithRetryConfig;
+        let server_name = match ServerName::try_from(host.to_owned()) {
+            Ok(name) => name,
+            Err(error) => {
+                return EchHandshakeOutcome::SetupError { detail: format!("server-name-parse-error: {error}") };
+            }
+        };
+        let connect = async {
+            match peer {
+                Some(address) => tokio::net::TcpStream::connect(address).await,
+                None => tokio::net::TcpStream::connect((host, port)).await,
+            }
+        };
+        let tcp = match tokio::time::timeout_at(deadline, connect).await {
+            Ok(Ok(tcp)) => tcp,
+            Ok(Err(error)) => {
+                return EchHandshakeOutcome::HandshakeFailure { detail: format!("tcp-connect-error: {error}") };
+            }
+            Err(_) => return EchHandshakeOutcome::HandshakeFailure { detail: "tcp-connect-timeout".into() },
+        };
+        peer = tcp.peer_addr().ok();
+        let connector = TlsConnector::from(config);
+        match tokio::time::timeout_at(deadline, connector.connect(server_name, tcp)).await {
+            Err(_) => return EchHandshakeOutcome::HandshakeFailure { detail: "tls-handshake-timeout".into() },
+            Ok(Err(error)) => {
+                let retry = error
+                    .get_ref()
+                    .and_then(|error| error.downcast_ref::<rustls::Error>())
+                    .and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
+                if let Some(retry) = retry {
+                    if attempt == 0 && peer.is_some() {
+                        configs = retry;
+                        continue;
                     }
-                    return EchHandshakeOutcome::HandshakeFailure { detail: format!("tls-handshake-error: {error}") };
+                    return EchHandshakeOutcome::EchRejectedWithRetryConfig;
                 }
-                Ok(Ok(tls)) => {
-                    let conn = &tls.get_ref().1;
-                    return match conn.ech_status() {
-                        EchStatus::Accepted => EchHandshakeOutcome::EchAccepted {
-                            selected_alpn: conn
-                                .alpn_protocol()
-                                .and_then(|value| std::str::from_utf8(value).ok().map(str::to_owned)),
-                        },
-                        _ => EchHandshakeOutcome::HandshakeFailure { detail: "ech-not-negotiated".into() },
-                    };
-                }
+                return classify_handshake_error(error);
+            }
+            Ok(Ok(tls)) => {
+                let conn = &tls.get_ref().1;
+                return match conn.ech_status() {
+                    EchStatus::Accepted => EchHandshakeOutcome::EchAccepted {
+                        selected_alpn: conn
+                            .alpn_protocol()
+                            .and_then(|value| std::str::from_utf8(value).ok().map(str::to_owned)),
+                    },
+                    _ => EchHandshakeOutcome::HandshakeFailure { detail: "ech-not-negotiated".into() },
+                };
             }
         }
-        EchHandshakeOutcome::HandshakeFailure { detail: "ech-retry-exhausted".into() }
     }
+    EchHandshakeOutcome::HandshakeFailure { detail: "ech-retry-exhausted".into() }
+}
+
+fn classify_handshake_error(error: std::io::Error) -> EchHandshakeOutcome {
+    let tls_error = error.get_ref().and_then(|error| error.downcast_ref::<rustls::Error>());
+    if matches!(
+        tls_error,
+        Some(rustls::Error::PeerIncompatible(rustls::PeerIncompatible::ServerRejectedEncryptedClientHello(_)))
+    ) {
+        return if tls_error.and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs).is_some() {
+            EchHandshakeOutcome::EchRejectedWithRetryConfig
+        } else {
+            EchHandshakeOutcome::EchRejectedWithoutUsableRetryConfig
+        };
+    }
+    EchHandshakeOutcome::HandshakeFailure { detail: format!("tls-handshake-error: {error}") }
 }
 
 fn ech_client_config(configs: Vec<u8>) -> Result<Arc<rustls::ClientConfig>, String> {
@@ -182,3 +210,7 @@ fn ech_client_config(configs: Vec<u8>) -> Result<Arc<rustls::ClientConfig>, Stri
 #[cfg(test)]
 #[path = "hickory_rustls_ech_driver/dns_tests.rs"]
 mod dns_tests;
+
+#[cfg(test)]
+#[path = "hickory_rustls_ech_driver/tls_tests.rs"]
+mod tls_tests;

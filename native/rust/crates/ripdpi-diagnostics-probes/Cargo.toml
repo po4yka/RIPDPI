@@ -26,3 +26,7 @@ default = ["compat-facade"]
 # Default-on compatibility marker. The `compat` namespace is empty today;
 # root exports are unconditional.
 compat-facade = []
+
+[dev-dependencies]
+boring = { workspace = true }
+rcgen = { workspace = true }
