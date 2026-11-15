@@ -52,6 +52,12 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
         Self { primary, fallback, cache: Mutex::new(None), ttl }
     }
 
+    /// Return fresh cached bytes without fetching on the caller's network path.
+    pub fn cached_config(&self) -> Option<Vec<u8>> {
+        let guard = self.cache.lock().ok()?;
+        guard.as_ref().filter(|cached| cached.fetched_at.elapsed() < self.ttl).map(|cached| cached.config.clone())
+    }
+
     /// Return the current ECHConfigList bytes.
     pub fn current_config(&self) -> Vec<u8> {
         let mut guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
@@ -111,5 +117,22 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
             config: cached.config.clone(),
             fetched_at_unix_ms: cached.fetched_at_unix_ms,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cdn_ech::source::BundledEchConfigSource;
+
+    #[test]
+    fn cached_config_treats_a_poisoned_cache_as_unavailable() {
+        let updater = CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
+        let poisoned = std::panic::catch_unwind(|| {
+            let _guard = updater.cache.lock().unwrap();
+            panic!("test cache poisoning");
+        });
+        assert!(poisoned.is_err());
+        assert_eq!(updater.cached_config(), None);
     }
 }

@@ -10,7 +10,7 @@ use rustls::{ClientConfig, RootCertStore};
 use super::key_log::TlsKeyLogCallback;
 use super::types::{ApplicationProtocolPolicy, EchConfigSource, TlsClientProfile};
 use crate::transport::{TargetAddress, TransportConfig};
-use ripdpi_diagnostics_dns::cdn_ech::opportunistic_ech_config_for_ip;
+use ripdpi_diagnostics_dns::cdn_ech::{opportunistic_ech_config_for_ip, production_updater};
 use ripdpi_diagnostics_dns::dns::{
     EchResolutionOutcome, encrypted_dns_endpoint_for_resolver_id,
     resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort,
@@ -98,7 +98,9 @@ fn select_ech_config(
         EchResolutionOutcome::ResolutionFailed(error) => EchLookupFailure::ResolutionFailed(error),
     };
     let config = connected_addr.and_then(|peer| opportunistic_ech_config_for_ip(peer.ip())).ok_or(failure)?;
-    Ok((config.ech_config_list.to_vec(), EchConfigSource::CdnFallback(config.provider)))
+    // A fallback cache read must not start a direct lookup on an in-path scan.
+    let bytes = production_updater().cached_config().unwrap_or_else(|| config.ech_config_list.to_vec());
+    Ok((bytes, EchConfigSource::CdnFallback(config.provider)))
 }
 
 pub(super) fn build_ech_client_config_from_list(
@@ -197,5 +199,31 @@ mod tests {
             select_ech_config(EchResolutionOutcome::Available(vec![1]), cloudflare),
             Ok((vec![1], EchConfigSource::DnsHttps))
         );
+    }
+
+    #[test]
+    fn opportunistic_fallback_uses_the_restored_cdn_configuration() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let peer = "104.16.1.1:443".parse::<SocketAddr>().unwrap();
+        let bundled = opportunistic_ech_config_for_ip(peer.ip()).unwrap().ech_config_list.to_vec();
+        let mut restored = bundled.clone();
+        restored[6] ^= 1; // Change only the ECHConfig config_id.
+        let fetched_at = u64::try_from(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()).unwrap();
+        let updater = production_updater();
+        let previous = updater.snapshot_for_persistence();
+        updater.seed_from_persisted(restored.clone(), fetched_at).unwrap();
+
+        let selected = select_ech_config(EchResolutionOutcome::NotPublished, Some(peer)).map(|(bytes, _)| bytes);
+        if let Some(previous) = previous {
+            updater.seed_from_persisted(previous.config, previous.fetched_at_unix_ms).unwrap();
+        } else {
+            updater.seed_from_persisted(bundled, fetched_at).unwrap();
+        }
+
+        let selected = selected.expect("the known connected CDN peer has a fallback");
+        assert_eq!(selected, restored, "the consumer must use the restored bytes");
+        build_ech_client_config_from_list(selected, None, None, ApplicationProtocolPolicy::TemplateDefault, None)
+            .expect("the restored config must reach the real TLS config builder");
     }
 }

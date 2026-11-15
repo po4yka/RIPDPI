@@ -257,3 +257,20 @@ fn synthesized_instant_preserves_age_for_past_timestamps() {
     let drift = elapsed.abs_diff(expected);
     assert!(drift < Duration::from_millis(10), "synthesized age drifted by {drift:?}");
 }
+
+#[test]
+fn cached_config_never_fetches_a_missing_or_expired_entry() {
+    let updater = CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::ZERO);
+    assert_eq!(updater.cached_config(), None);
+    updater.seed_from_persisted(CLOUDFLARE_ECH_CONFIG_LIST.to_vec(), now_unix_ms()).unwrap();
+    assert_eq!(updater.cached_config(), None, "zero TTL must not admit a cached entry");
+}
+
+#[test]
+fn cached_config_returns_fresh_restored_bytes_without_fetching() {
+    let updater = CdnEchUpdater::new(FailingSource, FailingSource, Duration::from_secs(86_400));
+    let mut restored = CLOUDFLARE_ECH_CONFIG_LIST.to_vec();
+    restored[6] ^= 1;
+    updater.seed_from_persisted(restored.clone(), now_unix_ms()).unwrap();
+    assert_eq!(updater.cached_config(), Some(restored));
+}
