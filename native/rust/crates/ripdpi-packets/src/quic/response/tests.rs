@@ -120,6 +120,33 @@ fn diagnostic_response_validates_rfc_frames_in_the_full_datagram() {
 }
 
 #[test]
+fn diagnostic_response_walks_coalesced_boundaries_and_checks_the_whole_datagram_size() {
+    for (version, handshake_flags, initial) in [
+        (QUIC_V1_VERSION, 0xe0, include_bytes!("../../../tests/fixtures/quic/rfc9001-server-initial.bin").as_slice()),
+        (QUIC_V2_VERSION, 0xf0, include_bytes!("../../../tests/fixtures/quic/rfc9369-server-initial.bin").as_slice()),
+    ] {
+        let request = rfc_request(version);
+        // Use the independently protected RFC Initial after an opaque Handshake packet.
+        // The probe can read that packet's Length without Handshake keys.
+        let (_, _, _, length_offset) = long_header(initial).unwrap();
+        for (datagram_len, expected) in [(1199, None), (1200, Some(QuicProbeResponseKind::InitialCrypto))] {
+            let handshake_end = datagram_len - initial.len();
+            let length = u16::try_from(handshake_end - length_offset - 2).unwrap();
+            let mut datagram = initial[..length_offset].to_vec();
+            datagram[0] = handshake_flags;
+            datagram.extend_from_slice(&(0x4000 | length).to_be_bytes());
+            datagram.resize(handshake_end, 0);
+            datagram.extend_from_slice(initial);
+            assert_eq!(datagram.len(), datagram_len);
+            assert_eq!(validate_quic_probe_response(&request, &datagram), expected);
+
+            datagram[length_offset..length_offset + 2].copy_from_slice(&0x7fffu16.to_be_bytes());
+            assert_eq!(validate_quic_probe_response(&request, &datagram), None, "truncated Handshake");
+        }
+    }
+}
+
+#[test]
 fn diagnostic_initial_labels_transport_close_and_ack_without_crypto_progress() {
     // ACK_ECN for packet zero with no extra ranges, then two PADDING frames.
     let ack_and_padding = [0x03, 0, 0, 0, 0, 1, 2, 3, 0, 0];

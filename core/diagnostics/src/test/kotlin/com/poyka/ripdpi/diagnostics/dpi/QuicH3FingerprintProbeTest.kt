@@ -228,13 +228,47 @@ class QuicH3FingerprintProbeTest {
                     packetFactory = QuicFingerprintFactory::createSynthetic,
                     responseValidator =
                         QuicProbeResponseValidator { _, response, vn ->
-                            vn && response.contentEquals(SuccessfulReply)
+                            if (vn && response.contentEquals(SuccessfulReply)) {
+                                QuicProbeOutcome.VERSION_NEGOTIATION
+                            } else {
+                                QuicProbeOutcome.UNCORRELATED_RESPONSE
+                            }
                         },
                 ).check("example.com")
 
             assertFalse(result.chromeOk || result.firefoxOk || result.genericOk)
             assertTrue(result.vnOk)
             assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun retryAckAndCloseDoNotEstablishInitialCrypto() =
+        runTest {
+            val outcomes = listOf(QuicProbeOutcome.RETRY, QuicProbeOutcome.INITIAL_ACK, QuicProbeOutcome.INITIAL_CLOSE)
+            for (reply in outcomes) {
+                val probe =
+                    QuicH3FingerprintProbe(
+                        socket = RecordingQuicUdpProbe(successes = QuicFingerprint.entries.toSet()),
+                        packetFactory = QuicFingerprintFactory::createSynthetic,
+                        responseValidator =
+                            QuicProbeResponseValidator { _, _, vn ->
+                                if (vn) QuicProbeOutcome.VERSION_NEGOTIATION else reply
+                            },
+                        timeSource = testScheduler.timeSource,
+                    )
+                val result = probe.check("example.com")
+                assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
+                assertFalse(result.chromeOk || result.firefoxOk || result.genericOk)
+                assertTrue(result.udpReachable && result.vnOk)
+                assertEquals(
+                    reply,
+                    result.attempts
+                        .getValue(QuicFingerprint.CHROME_120)
+                        .single()
+                        .outcome,
+                )
+            }
         }
 
     @Test
@@ -253,8 +287,8 @@ class QuicH3FingerprintProbeTest {
                         fingerprint: QuicFingerprint,
                         packet: ByteArray,
                         deadline: TimeMark,
-                        accepts: (ByteArray) -> Boolean,
-                    ): QuicProbeSample = testedReply(packet, 5L, accepts)
+                        validate: (ByteArray) -> QuicProbeOutcome,
+                    ): QuicProbeSample = testedReply(packet, 5L, validate)
                 }
 
             val result = probe(reflector).check("echo.example")
@@ -294,10 +328,10 @@ class QuicH3FingerprintProbeTest {
                         fingerprint: QuicFingerprint,
                         packet: ByteArray,
                         deadline: TimeMark,
-                        accepts: (ByteArray) -> Boolean,
+                        validate: (ByteArray) -> QuicProbeOutcome,
                     ): QuicProbeSample {
                         if (fingerprint == QuicFingerprint.FIREFOX_121) throw IOException("fixture socket failure")
-                        return healthy.sendInitial(address, port, fingerprint, packet, deadline, accepts)
+                        return healthy.sendInitial(address, port, fingerprint, packet, deadline, validate)
                     }
                 }
 
@@ -365,7 +399,7 @@ class QuicH3FingerprintProbeTest {
                     assertEquals("127.0.0.1", result.peerAddress)
                     assertEquals(QuicProbeVerdict.QUIC_OK, result.verdict)
                     assertEquals(
-                        listOf(QuicProbeOutcome.NO_RESPONSE, QuicProbeOutcome.CORRELATED_RESPONSE),
+                        listOf(QuicProbeOutcome.NO_RESPONSE, QuicProbeOutcome.INITIAL_CRYPTO),
                         result.attempts.getValue(QuicFingerprint.CHROME_120).map { it.outcome },
                     )
                     responder.await()
@@ -410,7 +444,7 @@ private class RecordingQuicUdpProbe(
         fingerprint: QuicFingerprint,
         packet: ByteArray,
         deadline: TimeMark,
-        accepts: (ByteArray) -> Boolean,
+        validate: (ByteArray) -> QuicProbeOutcome,
     ): QuicProbeSample {
         val timeoutMs = (-deadline.elapsedNow()).inWholeMilliseconds.toInt().coerceAtLeast(0)
         probedFingerprints += fingerprint
@@ -422,12 +456,12 @@ private class RecordingQuicUdpProbe(
 
             fingerprint in successes -> {
                 delay(successfulReplyDelayMs)
-                testedReply(SuccessfulReply, if (fingerprint == QuicFingerprint.CHROME_120) 14L else 20L, accepts)
+                testedReply(SuccessfulReply, if (fingerprint == QuicFingerprint.CHROME_120) 14L else 20L, validate)
             }
 
             fingerprint in nonQuicResponses -> {
                 delay(timeoutMs.toLong())
-                testedReply(byteArrayOf(0x01, 0x02, 0x03), 25L, accepts)
+                testedReply(byteArrayOf(0x01, 0x02, 0x03), 25L, validate)
             }
 
             else -> {
@@ -447,21 +481,23 @@ private class RecordingQuicUdpProbe(
 private val LoopbackAddress = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
 private val SuccessfulReply = byteArrayOf(0x7f)
 private val AcceptSuccessfulReplies =
-    QuicProbeResponseValidator {
-        _,
-        response,
-        _,
-        ->
-        response.contentEquals(SuccessfulReply)
+    QuicProbeResponseValidator { _, response, vn ->
+        when {
+            !response.contentEquals(SuccessfulReply) -> QuicProbeOutcome.UNCORRELATED_RESPONSE
+            vn -> QuicProbeOutcome.VERSION_NEGOTIATION
+            else -> QuicProbeOutcome.INITIAL_CRYPTO
+        }
     }
 
 private fun testedReply(
     response: ByteArray,
     latencyMs: Long,
-    accepts: (ByteArray) -> Boolean,
-): QuicProbeSample =
-    if (accepts(response)) {
-        QuicProbeSample(QuicProbeOutcome.CORRELATED_RESPONSE, latencyMs = latencyMs)
-    } else {
-        QuicProbeSample(QuicProbeOutcome.UNCORRELATED_RESPONSE, invalidDatagrams = 1)
+    validate: (ByteArray) -> QuicProbeOutcome,
+): QuicProbeSample {
+    val outcome = validate(response)
+    return when (outcome) {
+        QuicProbeOutcome.UNCORRELATED_RESPONSE -> QuicProbeSample(outcome, invalidDatagrams = 1)
+        QuicProbeOutcome.VALIDATION_ERROR -> QuicProbeSample(outcome)
+        else -> QuicProbeSample(outcome, latencyMs = latencyMs)
     }
+}

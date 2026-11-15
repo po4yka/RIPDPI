@@ -81,7 +81,7 @@ class QuicFingerprintFactoryTest {
     }
 
     @Test
-    fun nativeResponseValidationUsesByteArraysAndBooleanMode() {
+    fun nativeResponseValidationUsesByteArraysBooleanModeAndIntegerStatus() {
         val method =
             NativeQuicInitialPacketBindings::class.java.getDeclaredMethod(
                 "jniValidate",
@@ -90,7 +90,7 @@ class QuicFingerprintFactoryTest {
                 Boolean::class.javaPrimitiveType,
             )
 
-        assertEquals(Boolean::class.javaPrimitiveType, method.returnType)
+        assertEquals(Int::class.javaPrimitiveType, method.returnType)
         assertTrue(Modifier.isNative(method.modifiers))
     }
 

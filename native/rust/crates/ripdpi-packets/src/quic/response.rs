@@ -8,6 +8,7 @@ pub use compatible::{
 use ring::aead::{AES_128_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
 
 use super::crypto::quic_derive_initial_secret;
+use super::datagram::protected_long_packet_len;
 use super::frames::{next_quic_varint, skip_quic_ack};
 use super::parse::{decrypt_quic_initial_with_secret, parse_quic_initial_response_header};
 use crate::types::{QUIC_V1_VERSION, QUIC_V2_VERSION};
@@ -30,35 +31,10 @@ pub enum QuicProbeResponseKind {
     VersionNegotiation,
 }
 
-enum CorrelatedResponse {
-    Initial(Vec<u8>),
-    Retry,
-    VersionNegotiation,
-}
-
 /// Check response correlation and packet integrity for one Initial probe.
 /// This proves a QUIC response, not a completed or authenticated TLS handshake.
 /// Initial and Retry keys are public; an observer of the request can forge them.
 pub fn validate_quic_response(request: &[u8], response: &[u8]) -> Option<QuicResponseKind> {
-    let kind = match correlate_response(request, response)? {
-        CorrelatedResponse::Initial(_) => QuicResponseKind::Initial,
-        CorrelatedResponse::Retry => QuicResponseKind::Retry,
-        CorrelatedResponse::VersionNegotiation => QuicResponseKind::VersionNegotiation,
-    };
-    Some(kind)
-}
-
-/// Check correlation, packet protection and permitted Initial frames in one UDP datagram.
-/// Treat the result as first-flight evidence: the public Initial and Retry keys do not authenticate the peer.
-pub fn validate_quic_probe_response(request: &[u8], response: &[u8]) -> Option<QuicProbeResponseKind> {
-    match correlate_response(request, response)? {
-        CorrelatedResponse::Initial(payload) => classify_probe_initial(&payload, response.len()),
-        CorrelatedResponse::Retry => Some(QuicProbeResponseKind::Retry),
-        CorrelatedResponse::VersionNegotiation => Some(QuicProbeResponseKind::VersionNegotiation),
-    }
-}
-
-fn correlate_response(request: &[u8], response: &[u8]) -> Option<CorrelatedResponse> {
     let sent = parse_quic_initial_response_header(request)?;
     let (version, dcid, scid, offset) = long_header(response)?;
     if dcid != sent.scid {
@@ -66,7 +42,7 @@ fn correlate_response(request: &[u8], response: &[u8]) -> Option<CorrelatedRespo
     }
     if version == 0 {
         return validate_quic_version_negotiation_response(request, response)
-            .then_some(CorrelatedResponse::VersionNegotiation);
+            .then_some(QuicResponseKind::VersionNegotiation);
     }
     if version != sent.version || response[0] & 0x40 == 0 {
         return None;
@@ -81,10 +57,72 @@ fn correlate_response(request: &[u8], response: &[u8]) -> Option<CorrelatedRespo
             return None;
         }
         validate_retry_tag(version, sent.dcid, response)?;
-        return Some(CorrelatedResponse::Retry);
+        return Some(QuicResponseKind::Retry);
     }
     let header = parse_quic_initial_response_header(response)?;
-    decrypt_server_initial(sent.dcid, response, header).map(CorrelatedResponse::Initial)
+    decrypt_server_initial(sent.dcid, response, header).map(|_| QuicResponseKind::Initial)
+}
+
+/// Check correlation, packet protection and permitted Initial frames in one UDP datagram.
+/// Keep the strongest Initial evidence in the datagram, including after length-delimited packets.
+/// Treat the result as first-flight evidence: the public Initial and Retry keys do not authenticate the peer.
+pub fn validate_quic_probe_response(request: &[u8], response: &[u8]) -> Option<QuicProbeResponseKind> {
+    use QuicProbeResponseKind::{InitialAck, InitialClose, InitialCrypto, InitialOther};
+
+    if response.len() > usize::from(u16::MAX) {
+        return None;
+    }
+    let sent = parse_quic_initial_response_header(request)?;
+    let (initial_type, retry_type) = if sent.version == QUIC_V2_VERSION { (0x10, 0x00) } else { (0x00, 0x30) };
+    let mut packet = response;
+    let mut best = None;
+    while let Some(&flags) = packet.first() {
+        let Some((version, dcid, _, _)) = long_header(packet) else {
+            break;
+        };
+        let first = packet.len() == response.len();
+        if first && dcid != sent.scid {
+            break;
+        }
+        let packet_type = flags & 0x30;
+        if version == 0 || packet_type == retry_type {
+            // Neither Retry nor VN has a Length field or appears in a coalesced datagram.
+            if !first {
+                break;
+            }
+            return match validate_quic_response(request, response)? {
+                QuicResponseKind::Retry => Some(QuicProbeResponseKind::Retry),
+                QuicResponseKind::VersionNegotiation => Some(QuicProbeResponseKind::VersionNegotiation),
+                QuicResponseKind::Initial => None,
+            };
+        }
+        if version != sent.version || flags & 0x40 == 0 {
+            break;
+        }
+        let packet_len = if packet_type == initial_type {
+            let Some(header) = parse_quic_initial_response_header(packet) else {
+                break;
+            };
+            if dcid == sent.scid
+                && let Some(kind) = decrypt_server_initial(sent.dcid, packet, header)
+                    .and_then(|payload| classify_probe_initial(&payload, response.len()))
+            {
+                best = match (best, kind) {
+                    (_, InitialClose) => return Some(kind),
+                    (_, InitialCrypto) | (None | Some(InitialOther), InitialAck) | (None, InitialOther) => Some(kind),
+                    _ => best,
+                };
+            }
+            header.pn_offset.checked_add(header.payload_len)
+        } else {
+            protected_long_packet_len(packet)
+        };
+        let Some(suffix) = packet_len.and_then(|len| packet.get(len..)) else {
+            break;
+        };
+        packet = suffix;
+    }
+    best
 }
 
 fn decrypt_server_initial(

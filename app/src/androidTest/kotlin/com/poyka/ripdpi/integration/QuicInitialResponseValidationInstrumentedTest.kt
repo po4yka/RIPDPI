@@ -28,20 +28,26 @@ class QuicInitialResponseValidationInstrumentedTest {
     private val bindings = NativeQuicInitialPacketBindings()
 
     @Test
-    fun nativeBindingValidatesIndependentV1AndV2InitialAndRetryPackets() {
+    fun nativeBindingClassifiesIndependentV1AndV2InitialAndRetryPackets() {
         // RFC 9001 and RFC 9369 Appendices A.2-A.4; shared with native validator tests.
         for (rfc in listOf("9001", "9369")) {
             val request = fixture("rfc$rfc-client-initial.bin")
-            for (name in listOf("server-initial", "retry")) {
+            val packet = fixture("rfc$rfc-server-initial.bin")
+            assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(request, packet, false))
+            for ((name, expected) in listOf(
+                "server-initial-3000" to QuicProbeOutcome.INITIAL_CRYPTO,
+                "retry" to QuicProbeOutcome.RETRY,
+            )) {
                 val response = fixture("rfc$rfc-$name.bin")
-                assertTrue("RFC $rfc $name", bindings.validate(request, response, false))
-                assertFalse(bindings.validate(request, response, true))
+                assertEquals("RFC $rfc $name", expected, bindings.validate(request, response, false))
+                assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(request, response, true))
                 val damaged = response.copyOf()
                 damaged[damaged.lastIndex] = (damaged.last().toInt() xor 1).toByte()
-                assertFalse(bindings.validate(request, damaged, false))
-                assertFalse(bindings.validate(request, response.copyOf(response.size - 1), false))
+                assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(request, damaged, false))
+                val truncated = response.copyOf(response.size - 1)
+                assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(request, truncated, false))
             }
-            assertFalse(bindings.validate(request, request, false))
+            assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(request, request, false))
         }
     }
 
@@ -49,21 +55,21 @@ class QuicInitialResponseValidationInstrumentedTest {
     fun nativeBindingSeparatesReservedVersionNegotiationAndRejectsMalformedLists() {
         val initial = fixture("rfc9001-client-initial.bin")
         val response = responseHeader(initial, 0) + byteArrayOf(0x6b, 0x33, 0x43, 0xcf.toByte())
-        assertFalse(bindings.validate(initial, response, false))
+        assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(initial, response, false))
 
         val reserved = initial.copyOf()
         val offered = byteArrayOf(0x1a, 0x2a, 0x3a, 0x4a)
         offered.copyInto(reserved, 1)
-        assertTrue(bindings.validate(reserved, response, true))
-        assertFalse(bindings.validate(reserved, response, false))
+        assertEquals(QuicProbeOutcome.VERSION_NEGOTIATION, bindings.validate(reserved, response, true))
+        assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(reserved, response, false))
         val header = responseHeader(reserved, 0)
         for (versions in listOf(byteArrayOf(), byteArrayOf(1), ByteArray(4), offered)) {
-            assertFalse(bindings.validate(reserved, header + versions, true))
+            assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(reserved, header + versions, true))
         }
         val wrongId = response.copyOf()
         wrongId[7] = (wrongId[7].toInt() xor 1).toByte()
-        assertFalse(bindings.validate(reserved, wrongId, true))
-        assertFalse(bindings.validate(byteArrayOf(), response, true))
+        assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(reserved, wrongId, true))
+        assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(byteArrayOf(), response, true))
     }
 
     @Test
@@ -72,8 +78,9 @@ class QuicInitialResponseValidationInstrumentedTest {
             for (rfc in listOf("9001", "9369")) {
                 val request = fixture("rfc$rfc-client-initial.bin")
                 val expected = fixture("rfc$rfc-server-initial-3000.bin")
-                assertTrue(bindings.validate(request, expected, false))
-                assertFalse(bindings.validate(request, expected.copyOf(2_048), false))
+                assertEquals(QuicProbeOutcome.INITIAL_CRYPTO, bindings.validate(request, expected, false))
+                val truncated = expected.copyOf(2_048)
+                assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, bindings.validate(request, truncated, false))
                 val loopback = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
                 DatagramSocket(0, loopback).use { server ->
                     server.soTimeout = 3_000
@@ -99,7 +106,7 @@ class QuicInitialResponseValidationInstrumentedTest {
                                 assertArrayEquals(expected, response)
                                 bindings.validate(request, response, false)
                             }
-                        assertEquals(QuicProbeOutcome.CORRELATED_RESPONSE, sample.outcome)
+                        assertEquals(QuicProbeOutcome.INITIAL_CRYPTO, sample.outcome)
                         responder.join(3_000)
                     } finally {
                         responder.join(3_000)

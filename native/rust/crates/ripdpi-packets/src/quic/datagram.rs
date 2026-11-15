@@ -71,7 +71,7 @@ pub(super) fn decode_quic_initial_datagram(buffer: &[u8]) -> Option<DecodedQuicI
     })
 }
 
-fn protected_long_packet_len(buffer: &[u8]) -> Option<usize> {
+pub(super) fn protected_long_packet_len(buffer: &[u8]) -> Option<usize> {
     let dcid_len = usize::from(*buffer.get(5)?);
     if dcid_len > QUIC_MAX_CID_LEN {
         return None;

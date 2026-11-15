@@ -51,11 +51,11 @@ class DatagramSocketQuicUdpProbeTest {
                                 QuicFingerprint.GENERIC_V1,
                                 byteArrayOf(1),
                                 TimeSource.Monotonic.markNow() + 3_000.milliseconds,
-                            ) { it.contentEquals(reply) }
+                            ) { classify(it, reply) }
                         responder.await()
                         assertEquals(
                             "single UDP response of $size bytes",
-                            QuicProbeOutcome.CORRELATED_RESPONSE,
+                            QuicProbeOutcome.INITIAL_CRYPTO,
                             sample.outcome,
                         )
                     } finally {
@@ -90,8 +90,8 @@ class DatagramSocketQuicUdpProbeTest {
                                 QuicFingerprint.GENERIC_V1,
                                 byteArrayOf(1),
                                 TimeSource.Monotonic.markNow() + 3_000.milliseconds,
-                            ) { it.contentEquals(expected) }
-                        assertEquals(QuicProbeOutcome.CORRELATED_RESPONSE, sample.outcome)
+                            ) { classify(it, expected) }
+                        assertEquals(QuicProbeOutcome.INITIAL_CRYPTO, sample.outcome)
                         assertEquals(1, sample.invalidDatagrams)
                         responder.await()
                     } finally {
@@ -116,7 +116,7 @@ class DatagramSocketQuicUdpProbeTest {
                                 fingerprint = QuicFingerprint.GENERIC_V1,
                                 packet = byteArrayOf(1),
                                 deadline = TimeSource.Monotonic.markNow() + 3_000.milliseconds,
-                            ) { true }
+                            ) { QuicProbeOutcome.INITIAL_CRYPTO }
                         }
                     val received = DatagramPacket(ByteArray(16), 16)
                     server.receive(received)
@@ -278,7 +278,7 @@ class DatagramSocketQuicUdpProbeTest {
                             QuicFingerprint.GENERIC_V1,
                             byteArrayOf(1),
                             TimeSource.Monotonic.markNow() + 350.milliseconds,
-                        ) { false }
+                        ) { QuicProbeOutcome.UNCORRELATED_RESPONSE }
                     val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
 
                     assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, result.outcome)
@@ -288,6 +288,19 @@ class DatagramSocketQuicUdpProbeTest {
                     responder.cancelAndJoin()
                 }
             }
+        }
+
+    private fun classify(
+        received: ByteArray,
+        expected: ByteArray,
+    ): QuicProbeOutcome =
+        if (received.contentEquals(
+                expected,
+            )
+        ) {
+            QuicProbeOutcome.INITIAL_CRYPTO
+        } else {
+            QuicProbeOutcome.UNCORRELATED_RESPONSE
         }
 
     private companion object {

@@ -55,12 +55,20 @@ enum class QuicProbeStartFailure {
     DNS_ERROR,
 }
 
-enum class QuicProbeOutcome {
-    CORRELATED_RESPONSE,
+enum class QuicProbeOutcome(
+    internal val nativeCode: Int? = null,
+) {
+    // Keep these wire values paired with the Rust JNI result codes.
+    INITIAL_CRYPTO(1),
+    INITIAL_ACK(2),
+    INITIAL_OTHER(3),
+    INITIAL_CLOSE(4),
+    RETRY(5),
+    VERSION_NEGOTIATION(6),
     NO_RESPONSE,
-    UNCORRELATED_RESPONSE,
+    UNCORRELATED_RESPONSE(0),
     TRANSPORT_ERROR,
-    VALIDATION_ERROR,
+    VALIDATION_ERROR(-1),
     PACKET_BUILD_ERROR,
     BUDGET_EXHAUSTED,
 }
@@ -83,7 +91,7 @@ interface QuicUdpProbe {
         fingerprint: QuicFingerprint,
         packet: ByteArray,
         deadline: TimeMark,
-        accepts: (ByteArray) -> Boolean,
+        validate: (ByteArray) -> QuicProbeOutcome,
     ): QuicProbeSample
 }
 
@@ -133,25 +141,31 @@ class QuicH3FingerprintProbe(
 
         val v1 = listOf(chrome, firefox, generic)
         val samples = attempts.values.flatten()
-        val udpReachable = samples.any { sample -> sample.isCorrelated || sample.invalidDatagrams > 0 }
+        val udpReachable =
+            samples.any { sample ->
+                sample.isCorrelated || sample.invalidDatagrams > 0 ||
+                    sample.outcome == QuicProbeOutcome.VALIDATION_ERROR
+            }
+        val initialCryptoForAll = v1.all { it.hasInitialCrypto }
+        val hasVn = vn.outcome == QuicProbeOutcome.VERSION_NEGOTIATION
         val allTimedOut = samples.all { sample -> sample.outcome == QuicProbeOutcome.NO_RESPONSE }
         val verdict =
             when {
-                v1.all { it.isCorrelated } && vn.isCorrelated -> QuicProbeVerdict.QUIC_OK
+                initialCryptoForAll && hasVn -> QuicProbeVerdict.QUIC_OK
                 allTimedOut -> QuicProbeVerdict.QUIC_TIMEOUT
                 samples.all { it.shouldRetry } -> QuicProbeVerdict.QUIC_DROPPED
-                v1.all { it.isCorrelated } && !vn.isCorrelated -> QuicProbeVerdict.QUIC_VN_REJECTED
+                initialCryptoForAll && !hasVn -> QuicProbeVerdict.QUIC_VN_REJECTED
                 else -> QuicProbeVerdict.QUIC_DEGRADED
             }
         return QuicProbeResult(
             target = target,
             verdict = verdict,
-            chromeOk = chrome.isCorrelated,
-            firefoxOk = firefox.isCorrelated,
-            genericOk = generic.isCorrelated,
-            vnOk = vn.isCorrelated,
+            chromeOk = chrome.hasInitialCrypto,
+            firefoxOk = firefox.hasInitialCrypto,
+            genericOk = generic.hasInitialCrypto,
+            vnOk = hasVn,
             udpReachable = udpReachable,
-            serverInitialLatencyMs = v1.firstOrNull { it.isCorrelated }?.latencyMs,
+            serverInitialLatencyMs = v1.firstOrNull { it.hasInitialCrypto }?.latencyMs,
             peerAddress = address.hostAddress,
             attempts = attempts,
         )
@@ -340,7 +354,7 @@ fun interface QuicProbeResponseValidator {
         request: ByteArray,
         response: ByteArray,
         versionNegotiation: Boolean,
-    ): Boolean
+    ): QuicProbeOutcome
 }
 
 class NativeQuicInitialPacketBindings :
@@ -355,14 +369,14 @@ class NativeQuicInitialPacketBindings :
         request: ByteArray,
         response: ByteArray,
         versionNegotiation: Boolean,
-    ): Boolean =
+    ): QuicProbeOutcome =
         try {
             System.loadLibrary("ripdpi")
-            jniValidate(request, response, versionNegotiation)
+            decodeQuicValidation(jniValidate(request, response, versionNegotiation))
         } catch (_: UnsatisfiedLinkError) {
-            false
+            QuicProbeOutcome.VALIDATION_ERROR
         } catch (_: SecurityException) {
-            false
+            QuicProbeOutcome.VALIDATION_ERROR
         }
 
     private external fun jniCreate(requestJson: String): String?
@@ -371,8 +385,11 @@ class NativeQuicInitialPacketBindings :
         request: ByteArray,
         response: ByteArray,
         versionNegotiation: Boolean,
-    ): Boolean
+    ): Int
 }
+
+private fun decodeQuicValidation(result: Int): QuicProbeOutcome =
+    QuicProbeOutcome.entries.firstOrNull { it.nativeCode == result } ?: QuicProbeOutcome.VALIDATION_ERROR
 
 internal class NativeQuicInitialPacketFactory(
     private val bindings: QuicInitialPacketNativeBindings = NativeQuicInitialPacketBindings(),
@@ -435,8 +452,22 @@ private data class NativeQuicInitialResponse(
     val error: String? = null,
 )
 
+private val QuicProbeSample.hasInitialCrypto: Boolean
+    get() = outcome == QuicProbeOutcome.INITIAL_CRYPTO
+
 private val QuicProbeSample.isCorrelated: Boolean
-    get() = outcome == QuicProbeOutcome.CORRELATED_RESPONSE
+    get() =
+        when (outcome) {
+            QuicProbeOutcome.INITIAL_CRYPTO,
+            QuicProbeOutcome.INITIAL_ACK,
+            QuicProbeOutcome.INITIAL_OTHER,
+            QuicProbeOutcome.INITIAL_CLOSE,
+            QuicProbeOutcome.RETRY,
+            QuicProbeOutcome.VERSION_NEGOTIATION,
+            -> true
+
+            else -> false
+        }
 
 private val QuicProbeSample.shouldRetry: Boolean
     get() = outcome == QuicProbeOutcome.NO_RESPONSE || outcome == QuicProbeOutcome.UNCORRELATED_RESPONSE

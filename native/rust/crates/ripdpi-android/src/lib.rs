@@ -103,13 +103,7 @@ mod tests {
             Java_com_poyka_ripdpi_diagnostics_dpi_NativeQuicInitialPacketBindings_jniCreate
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
             Java_com_poyka_ripdpi_diagnostics_dpi_NativeQuicInitialPacketBindings_jniValidate
-                as extern "system" fn(
-                    EnvUnowned<'_>,
-                    JObject<'_>,
-                    JByteArray<'_>,
-                    JByteArray<'_>,
-                    jboolean,
-                ) -> jboolean,
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JByteArray<'_>, JByteArray<'_>, jboolean) -> jint,
             Java_com_poyka_ripdpi_core_detection_checker_JniNativeSignsBridge_jniSnapshot
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jniSeqovlSupported as Bool,

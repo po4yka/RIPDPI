@@ -22,7 +22,14 @@
     public com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome getOutcome();
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses enum com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome {
-    public static final com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome CORRELATED_RESPONSE;
+    public static final com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome INITIAL_CRYPTO;
+    public static final com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome RETRY;
+    public static final com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome VERSION_NEGOTIATION;
+    public static final com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome UNCORRELATED_RESPONSE;
+}
+-keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.diagnostics.dpi.NativeQuicInitialPacketBindings {
+    public <init>();
+    public com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome validate(byte[],byte[],boolean);
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses enum com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint {
     public static final com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint GENERIC_V1;
