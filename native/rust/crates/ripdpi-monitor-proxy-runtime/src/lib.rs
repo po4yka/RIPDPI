@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
+use ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout;
 use ripdpi_diagnostics_transport::transport::wait_for_listener;
 use ripdpi_diagnostics_transport::transport::{Socks5Credentials, TransportConfig};
 use ripdpi_monitor_engine::{
@@ -128,12 +129,17 @@ impl CandidateProbeRuntime for TemporaryProxyRuntime {
 
     fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
         self.request_shutdown();
-        join_runtime_terminal(&mut self.handle, true, &self.control)
+        join_runtime_terminal(&mut self.handle, true, &self.control, None)
     }
 
     fn shutdown(mut self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
         self.request_shutdown();
-        join_runtime_terminal(&mut self.handle, false, &self.control)
+        join_runtime_terminal(&mut self.handle, false, &self.control, None)
+    }
+
+    fn shutdown_interruptibly(mut self: Box<Self>, should_stop: &dyn Fn() -> bool) -> CandidateRuntimeTerminalReceipt {
+        self.control.request_shutdown();
+        join_runtime_terminal(&mut self.handle, false, &self.control, Some(should_stop))
     }
 }
 
@@ -141,14 +147,15 @@ fn join_runtime_terminal(
     handle: &mut Option<JoinHandle<Result<ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt, String>>>,
     forced: bool,
     control: &EmbeddedProxyControl,
+    should_stop: Option<&dyn Fn() -> bool>,
 ) -> CandidateRuntimeTerminalReceipt {
     let Some(handle) = handle.take() else {
         return CandidateRuntimeTerminalReceipt::already_joined();
     };
-    if forced && !wait_for_forced_abort(&handle) {
-        // A deadline/cancel path may only wait for the runtime's bounded proxy
-        // drain. Dropping the unfinished handle detaches it; `joined=0`
-        // records that fact instead of claiming a completed OS join.
+    let deadline = forced.then(|| Instant::now() + FORCED_ABORT_JOIN_GRACE);
+    if (forced || should_stop.is_some()) && !wait_for_runtime_exit(&handle, deadline, should_stop) {
+        // Only a completed join owns the terminal worker evidence. The
+        // receipt explicitly records a worker still draining after the deadline.
         let CandidateExecutionEvidenceProjection { evidence, rejected } =
             candidate_execution_evidence_from_runtime(&control.desync_execution_evidence());
         let terminal = CandidateRuntimeTerminalReceipt::forced_abort(
@@ -245,15 +252,25 @@ fn join_runtime_terminal(
     }
 }
 
-fn wait_for_forced_abort(
+fn wait_for_runtime_exit(
     handle: &JoinHandle<Result<ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt, String>>,
+    deadline: Option<Instant>,
+    should_stop: Option<&dyn Fn() -> bool>,
 ) -> bool {
-    let deadline = Instant::now() + FORCED_ABORT_JOIN_GRACE;
     while !handle.is_finished() {
-        if Instant::now() >= deadline {
+        let remaining = deadline.map_or(Duration::from_millis(1), |end| end.saturating_duration_since(Instant::now()));
+        if remaining.is_zero() || should_stop.is_some_and(|check| check()) {
             return false;
         }
-        thread::sleep(Duration::from_millis(1));
+        let pause = remaining.min(Duration::from_millis(1));
+        if should_stop.is_some() {
+            let Ok(bounded_pause) = bounded_scan_io_timeout(pause) else {
+                return false;
+            };
+            thread::sleep(bounded_pause);
+        } else {
+            thread::sleep(pause);
+        }
     }
     true
 }
@@ -280,7 +297,9 @@ fn candidate_execution_evidence_from_runtime(
 
 impl Drop for TemporaryProxyRuntime {
     fn drop(&mut self) {
-        let _ = self.force_abort_and_join();
+        if self.handle.is_some() {
+            let _ = self.force_abort_and_join();
+        }
     }
 }
 
@@ -327,11 +346,36 @@ mod tests {
     }
 
     #[test]
+    fn interruptible_candidate_shutdown_respects_scan_deadline() {
+        let (release, blocked) = std::sync::mpsc::channel();
+        let (signal_exit, exited) = std::sync::mpsc::channel();
+        let mut handle = Some(thread::spawn(move || {
+            let _ = blocked.recv_timeout(Duration::from_secs(2));
+            let _ = signal_exit.send(());
+            Err("runtime closed".to_string())
+        }));
+        let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
+        let started = Instant::now();
+        let deadline = started + Duration::from_millis(30);
+
+        let receipt = ripdpi_diagnostics_contracts::util::with_scan_io_deadline(Some(deadline), || {
+            join_runtime_terminal(&mut handle, false, &control, Some(&|| Instant::now() >= deadline))
+        });
+        let elapsed = started.elapsed();
+        let _ = release.send(());
+        exited.recv_timeout(Duration::from_secs(1)).unwrap();
+
+        assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::ForcedAbort);
+        assert_eq!(receipt.cleanup().joined, 0);
+        assert!(elapsed < Duration::from_secs(1), "elapsed {elapsed:?}");
+    }
+
+    #[test]
     fn joined_runtime_error_is_preserved_as_runtime_failed_terminal_receipt() {
         let mut handle = Some(thread::spawn(|| Err("runtime failed".to_string())));
 
         let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
-        let receipt = join_runtime_terminal(&mut handle, false, &control);
+        let receipt = join_runtime_terminal(&mut handle, false, &control, None);
 
         assert_eq!(
             receipt.cleanup(),
@@ -395,7 +439,7 @@ mod tests {
         }));
         let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
 
-        let terminal = join_runtime_terminal(&mut handle, false, &control);
+        let terminal = join_runtime_terminal(&mut handle, false, &control, None);
 
         assert_eq!(terminal.terminal_status(), CandidateRuntimeTerminalStatus::CleanShutdown);
         assert_eq!(terminal.execution_evidence().len(), 1);
@@ -412,7 +456,7 @@ mod tests {
         }
 
         let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
-        let receipt = join_runtime_terminal(&mut handle, true, &control);
+        let receipt = join_runtime_terminal(&mut handle, true, &control, None);
 
         assert_eq!(
             receipt.cleanup(),
@@ -428,7 +472,7 @@ mod tests {
         }));
 
         let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
-        let receipt = join_runtime_terminal(&mut handle, false, &control);
+        let receipt = join_runtime_terminal(&mut handle, false, &control, None);
 
         assert_eq!(
             receipt.cleanup(),
@@ -456,7 +500,7 @@ mod tests {
             }
 
             let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
-            let receipt = join_runtime_terminal(&mut handle, forced, &control);
+            let receipt = join_runtime_terminal(&mut handle, forced, &control, None);
 
             assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::RuntimePanicked);
             assert_eq!(receipt.cleanup().forced_abort, usize::from(drain_forced_abort));

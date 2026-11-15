@@ -31,6 +31,12 @@ pub trait CandidateProbeRuntime: Send {
 
     /// Completes cooperative shutdown and joins every owned worker.
     fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt;
+
+    /// Shuts down within the probe budget and reports any worker still draining.
+    /// Implementations with a blocking join must check `should_stop`.
+    fn shutdown_interruptibly(self: Box<Self>, _should_stop: &dyn Fn() -> bool) -> CandidateRuntimeTerminalReceipt {
+        self.shutdown()
+    }
 }
 
 pub trait CandidateRuntimeLauncher: Send + Sync {

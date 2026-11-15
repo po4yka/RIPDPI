@@ -153,9 +153,20 @@ impl CandidateRuntimeLease<'_> {
         self.runtime.as_deref().expect("candidate runtime lease must be live")
     }
 
-    pub(crate) fn shutdown(mut self) -> CandidateRuntimeTerminalReceipt {
+    pub(crate) fn shutdown(self) -> CandidateRuntimeTerminalReceipt {
+        self.shutdown_with(CandidateProbeRuntime::shutdown)
+    }
+
+    pub(crate) fn shutdown_interruptibly(self, should_stop: &dyn Fn() -> bool) -> CandidateRuntimeTerminalReceipt {
+        self.shutdown_with(|runtime| runtime.shutdown_interruptibly(should_stop))
+    }
+
+    fn shutdown_with(
+        mut self,
+        shutdown: impl FnOnce(Box<dyn CandidateProbeRuntime>) -> CandidateRuntimeTerminalReceipt,
+    ) -> CandidateRuntimeTerminalReceipt {
         // Infallible: shutdown takes ownership of a still-live lease.
-        let receipt = self.runtime.take().expect("candidate runtime lease must be live").shutdown();
+        let receipt = shutdown(self.runtime.take().expect("candidate runtime lease must be live"));
         self.finish(receipt.clone());
         receipt
     }

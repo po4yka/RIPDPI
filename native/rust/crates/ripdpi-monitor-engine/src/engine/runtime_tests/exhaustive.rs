@@ -4,6 +4,9 @@ use crate::tests::{DirectCandidateRuntimeLauncher, lock_network_probes};
 use crate::types::{ConfirmGoodDpiEvidence, ConfirmGoodDpiEvidenceSource, DomainTarget};
 use crate::util::STRATEGY_PROBE_SUITE_FULL_MATRIX_V1;
 
+#[path = "quic_budget.rs"]
+mod quic_budget;
+
 fn bounded_plan(suite_id: &str, max_candidates: Option<usize>) -> ExecutionPlan {
     let mut plan = strategy_test_plan();
     let strategy = plan.strategy.as_mut().expect("strategy plan");

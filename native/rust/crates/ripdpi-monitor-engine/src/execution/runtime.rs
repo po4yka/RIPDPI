@@ -8,12 +8,28 @@ mod unavailable;
 mod warmup;
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 pub(in crate::execution) fn candidate_abort_reason(cancel: &AtomicBool) -> Option<&'static str> {
     cancel
         .load(Ordering::Acquire)
         .then_some("scan_cancelled")
         .or_else(|| crate::util::bounded_scan_io_timeout(crate::util::IO_TIMEOUT).err())
+}
+
+pub(crate) fn wait_candidate_pause(delay: Duration, cancel: &AtomicBool) -> bool {
+    let until = Instant::now() + delay;
+    while candidate_abort_reason(cancel).is_none() {
+        let remaining = until.saturating_duration_since(Instant::now());
+        let Ok(pause) = crate::util::bounded_scan_io_timeout(remaining.min(Duration::from_millis(25))) else {
+            return false;
+        };
+        if pause.is_zero() {
+            return true;
+        }
+        std::thread::sleep(pause);
+    }
+    false
 }
 
 #[cfg(test)]

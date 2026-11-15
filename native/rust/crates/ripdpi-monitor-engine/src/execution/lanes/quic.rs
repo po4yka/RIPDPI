@@ -1,15 +1,20 @@
 use std::sync::atomic::AtomicBool;
+use std::time::Duration;
 
 mod candidate_execution;
+mod outcome;
 
-use crate::candidates::StrategyCandidateSpec;
-use crate::execution::scoring::ProbeSample;
+use crate::candidates::{StrategyCandidateSpec, target_probe_pause_ms};
+use crate::execution::runtime::{CandidateProbeRuntime, candidate_abort_reason, wait_candidate_pause};
+use crate::execution::scoring::{CandidateScore, ProbeSample};
 use crate::transport::TransportConfig;
 use crate::types::QuicTarget;
+use crate::util::stable_probe_hash;
 
 use super::support::candidate_probe_details;
 
 pub use candidate_execution::execute_quic_candidate;
+use outcome::quic_sample_quality;
 
 pub(super) fn run_quic_strategy_probe(
     transport: &TransportConfig,
@@ -37,15 +42,7 @@ pub(super) fn run_quic_strategy_probe(
     result.probe_type = "strategy_quic".to_string();
     result.target = format!("{} · {}", candidate.label, target.host);
     result.details = details;
-    let quality = match result.outcome.as_str() {
-        "quic_initial_response" => 4,
-        "quic_initial_ack"
-        | "quic_initial_other"
-        | "quic_initial_close"
-        | "quic_retry"
-        | "quic_version_negotiation" => 3,
-        _ => 0,
-    };
+    let quality = quic_sample_quality(&result.outcome);
     ProbeSample {
         result,
         success: quality > 0,
@@ -56,6 +53,40 @@ pub(super) fn run_quic_strategy_probe(
         quality,
         latency_ms,
     }
+}
+
+fn collect_quic_samples(
+    runtime: &dyn CandidateProbeRuntime,
+    spec: &StrategyCandidateSpec,
+    targets: &[QuicTarget],
+    probe_seed: u64,
+    cancel: &AtomicBool,
+    score: &mut CandidateScore,
+) -> bool {
+    let generation = runtime.generation();
+    let mut ordered_targets = targets.to_vec();
+    ordered_targets.sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
+    for (index, target) in ordered_targets.iter().enumerate() {
+        if candidate_abort_reason(cancel).is_some()
+            || (index > 0
+                && !wait_candidate_pause(
+                    Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &target.host)),
+                    cancel,
+                ))
+        {
+            return false;
+        }
+        let attempt_token = crate::CandidateAttemptCorrelationId::evaluated(generation, index as u64 + 1);
+        let transport =
+            attempt_token.as_ref().map_or_else(|| runtime.transport(), |token| runtime.transport_for_attempt(token));
+        let mut sample = run_quic_strategy_probe(&transport, target, spec, cancel);
+        if matches!(sample.result.outcome.as_str(), "quic_cancelled" | "quic_deadline_exceeded") {
+            return false;
+        }
+        sample.attempt_token = attempt_token;
+        score.add(sample);
+    }
+    true
 }
 
 #[cfg(test)]

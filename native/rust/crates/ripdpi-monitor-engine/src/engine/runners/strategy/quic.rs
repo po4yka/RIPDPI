@@ -7,7 +7,7 @@ use crate::candidates::{candidate_pause_ms, probe_fake_ttl_capability, probe_ip_
 use crate::classification::next_candidate_index;
 use crate::execution::{
     CandidateRuntimeLauncher, CandidateRuntimeSupervisor, DefaultStrategyLaneExecutor, StrategyLaneExecutor,
-    skipped_candidate_summary,
+    skipped_candidate_summary, wait_candidate_pause,
 };
 use crate::types::StrategyProbeProgressLane;
 
@@ -18,7 +18,7 @@ use super::support::{
     FamilyFailureTracker, annotate_emitter_execution, capability_available, capability_suffix,
     missing_capability_rationale, strategy_probe_live_progress_with_targets,
 };
-use super::tcp::{deadline_truncated, execution_should_stop, sleep_within_active_deadline};
+use super::tcp::execution_should_stop;
 
 mod selection;
 
@@ -54,7 +54,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
         runtime: &mut ExecutionRuntime,
         _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> RunnerOutcome {
-        let deadline = runtime.stage_deadline().or_else(|| runtime.scan_deadline());
+        let deadline = [runtime.stage_deadline(), runtime.scan_deadline()].into_iter().flatten().min();
         ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
             let Some(strategy_plan) = plan.strategy.as_ref() else {
                 return RunnerOutcome::Completed;
@@ -73,13 +73,12 @@ impl ExecutionStageRunner for StrategyQuicRunner {
             let mut quic_family_succeeded = false;
             let mut quic_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
             while !pending_quic_specs.is_empty() {
+                if execution_should_stop(runtime) {
+                    return RunnerOutcome::Cancelled;
+                }
                 let candidate_index = runtime.strategy.quic_candidates.len() + 1;
                 let spec = pending_quic_specs
                     .remove(next_candidate_index(&pending_quic_specs, quic_failure_tracker.blocked_family()));
-                if execution_should_stop(runtime) {
-                    tracing::warn!("strategy probe: QUIC suite terminated early");
-                    break;
-                }
                 runtime.publish_strategy_probe_candidate_started(
                     plan,
                     self.phase(),
@@ -143,12 +142,9 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                     runtime.cancel_token(),
                 );
                 if execution.cancelled {
+                    runtime.observations.extend(crate::observations::observations_for_results(&execution.results));
+                    runtime.results.extend(execution.results);
                     return RunnerOutcome::Cancelled;
-                }
-                if deadline_truncated(runtime, &execution.summary) {
-                    // The deadline truncated this candidate's probes; do not record them as a failure.
-                    tracing::warn!("strategy probe: QUIC suite deadline-terminated");
-                    break;
                 }
                 let mut summary = execution.summary;
                 annotate_emitter_execution(&mut summary, &spec, fake_ttl_available, ipfrag_caps);
@@ -159,46 +155,40 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                     quic_family_succeeded = true;
                 }
                 let failed = summary.outcome == "failed";
-                // "QUIC disabled" is a baseline candidate: failure is the expected
-                // outcome (site unreachable without QUIC), so log at info, not warn.
                 let log_level = if failed && spec.id != "quic_disabled" { "warn" } else { "info" };
+                let outcome = summary.outcome.clone();
+                let progress = strategy_probe_live_progress_with_targets(
+                    StrategyProbeProgressLane::Quic,
+                    candidate_index,
+                    quic_candidate_total,
+                    spec.id,
+                    spec.label,
+                    summary.succeeded_targets,
+                    summary.total_targets,
+                );
+                runtime.strategy.quic_candidates.push(summary);
                 runtime.record_step(
                     plan,
                     self.phase(),
                     format!("Tested {}", spec.label),
                     Some(spec.label.to_string()),
-                    Some(summary.outcome.clone()),
-                    Some(strategy_probe_live_progress_with_targets(
-                        StrategyProbeProgressLane::Quic,
-                        candidate_index,
-                        quic_candidate_total,
-                        spec.id,
-                        spec.label,
-                        summary.succeeded_targets,
-                        summary.total_targets,
-                    )),
+                    Some(outcome),
+                    Some(progress),
                     RunnerArtifacts::from_results(
-                        execution.results.clone(),
+                        execution.results,
                         "strategy_probe",
                         log_level,
                         format!("Testing QUIC candidate {}", spec.label),
                     ),
                 );
-                runtime.strategy.quic_candidates.push(summary);
-                if execution_should_stop(runtime) {
-                    tracing::warn!("strategy probe: QUIC suite deadline-terminated");
-                    break;
-                }
                 quic_failure_tracker.record(spec.family, failed);
                 if !pending_quic_specs.is_empty()
-                    && !sleep_within_active_deadline(Duration::from_millis(candidate_pause_ms(
-                        strategy_plan.probe_seed,
-                        &spec,
-                        failed,
-                    )))
+                    && !wait_candidate_pause(
+                        Duration::from_millis(candidate_pause_ms(strategy_plan.probe_seed, &spec, failed)),
+                        runtime.cancel_token(),
+                    )
                 {
-                    tracing::warn!("strategy probe: QUIC suite deadline-terminated during inter-candidate pause");
-                    break;
+                    return RunnerOutcome::Cancelled;
                 }
             }
             RunnerOutcome::Completed
