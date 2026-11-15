@@ -94,7 +94,8 @@ class TransferArchiveEvidenceTest {
         assertTrue(transferEvidenceSummaryLines(listOf(result)).isEmpty())
         val measured = result.copy(details = details + evidence)
         assertEquals(
-            "transfer[0].plannedRuns=2 attemptedRuns=1 acceptedRuns=1 remainingRunStopReason=cancelled networkScope=scan_context",
+            "transfer[0].plannedRuns=2 attemptedRuns=1 acceptedRuns=1 " +
+                "remainingRunStopReason=cancelled networkScope=scan_context",
             transferEvidenceSummaryLines(listOf(measured)).first(),
         )
         assertEquals(

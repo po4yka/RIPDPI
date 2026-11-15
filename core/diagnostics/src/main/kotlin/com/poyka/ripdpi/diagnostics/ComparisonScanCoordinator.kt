@@ -500,7 +500,7 @@ private fun HttpProbeStatus.endpointBucket(
     val missingStatusInNonHealthyResult =
         status == null && nativeBucket != null && nativeBucket != DiagnosticsOutcomeBucket.Healthy
     return when {
-        code != null && code in 300..599 -> DiagnosticsOutcomeBucket.Attention
+        code != null && code in HttpAttentionStatusMin..HttpAttentionStatusMax -> DiagnosticsOutcomeBucket.Attention
         missingStatusInNonHealthyResult && this == HttpProbeStatus.OK -> DiagnosticsOutcomeBucket.Inconclusive
         else -> bucket()
     }
@@ -534,3 +534,6 @@ private fun EndpointProbeStatus.bucket(): DiagnosticsOutcomeBucket =
         EndpointProbeStatus.BLOCKED, EndpointProbeStatus.FAILED -> DiagnosticsOutcomeBucket.Failed
         EndpointProbeStatus.NOT_RUN -> DiagnosticsOutcomeBucket.Inconclusive
     }
+
+private const val HttpAttentionStatusMin = 300
+private const val HttpAttentionStatusMax = 599

@@ -54,39 +54,70 @@ class SnowflakeStunReachabilityProbe(
         val reply = DatagramPacket(buffer, buffer.size)
         var waitNanos = TimeUnit.MILLISECONDS.toNanos(InitialWaitMs)
         var invalidResponse = false
-        repeat(MaxTransmissions) {
-            if (deadline - System.nanoTime() <= 0) return result(invalidResponse)
+        var transmissions = 0
+        while (transmissions < MaxTransmissions && deadline - System.nanoTime() > 0) {
             socket.send(outbound)
             val attemptDeadline = minOf(deadline, System.nanoTime() + waitNanos)
             while (attemptDeadline - System.nanoTime() > 0) {
                 val waitMs = TimeUnit.NANOSECONDS.toMillis(attemptDeadline - System.nanoTime()).coerceAtLeast(1)
                 socket.soTimeout = waitMs.toInt()
                 reply.length = buffer.size
-                try {
-                    socket.receive(reply)
-                } catch (_: SocketTimeoutException) {
-                    continue
-                }
-                if (reply.socketAddress != destination || reply.length < HeaderBytes) continue
-
-                val message = ByteBuffer.wrap(reply.data, reply.offset, reply.length)
-                val type = message.unsignedShort()
-                val bodyLength = message.unsignedShort()
-                if (message.int != MagicCookie || !id.all { it == message.get() }) continue
-                if (reply.length > MaxResponseBytes ||
-                    type != BindingSuccess ||
-                    bodyLength != message.remaining() ||
-                    bodyLength % Alignment != 0 ||
-                    !message.hasMappedAddress()
-                ) {
-                    invalidResponse = true
-                } else {
-                    return PtProbeStatus.BINDING_RESPONSE
+                when (receiveReply(socket, reply, destination, id)) {
+                    PtProbeStatus.INVALID_RESPONSE -> invalidResponse = true
+                    PtProbeStatus.BINDING_RESPONSE -> return PtProbeStatus.BINDING_RESPONSE
+                    else -> Unit
                 }
             }
             waitNanos *= 2
+            transmissions += 1
         }
         return result(invalidResponse)
+    }
+
+    private fun receiveReply(
+        socket: DatagramSocket,
+        reply: DatagramPacket,
+        destination: InetSocketAddress,
+        id: ByteArray,
+    ): PtProbeStatus? {
+        try {
+            socket.receive(reply)
+        } catch (_: SocketTimeoutException) {
+            return null
+        }
+        return classifyReply(reply, destination, id)
+    }
+
+    private fun classifyReply(
+        reply: DatagramPacket,
+        destination: InetSocketAddress,
+        id: ByteArray,
+    ): PtProbeStatus? {
+        if (reply.socketAddress != destination || reply.length < HeaderBytes) return null
+        val message = ByteBuffer.wrap(reply.data, reply.offset, reply.length)
+        val type = message.unsignedShort()
+        val bodyLength = message.unsignedShort()
+        return when {
+            message.int != MagicCookie || !id.all { it == message.get() } -> {
+                null
+            }
+
+            reply.length > MaxResponseBytes -> {
+                PtProbeStatus.INVALID_RESPONSE
+            }
+
+            type != BindingSuccess || bodyLength != message.remaining() || bodyLength % Alignment != 0 -> {
+                PtProbeStatus.INVALID_RESPONSE
+            }
+
+            !message.hasMappedAddress() -> {
+                PtProbeStatus.INVALID_RESPONSE
+            }
+
+            else -> {
+                PtProbeStatus.BINDING_RESPONSE
+            }
+        }
     }
 
     private fun result(invalidResponse: Boolean): PtProbeStatus =
@@ -94,29 +125,38 @@ class SnowflakeStunReachabilityProbe(
 
     private fun ByteBuffer.hasMappedAddress(): Boolean {
         var found = false
-        while (hasRemaining()) {
-            if (remaining() < AttributeHeaderBytes) return false
-            val type = unsignedShort()
-            val length = unsignedShort()
-            val paddedLength = (length + Alignment - 1) and -Alignment
-            if (paddedLength > remaining()) return false
-            // The unauthenticated Binding check recognizes the two address attributes.
-            if (type < FirstOptionalAttribute && type != XorMappedAddress && type != MappedAddress) return false
-            if (type == XorMappedAddress && !found) {
-                if (length < AddressPrefixBytes) return false
-                val family = get(position() + FamilyOffset).toInt()
-                found =
-                    when (family) {
-                        Ipv4Family -> length == Ipv4ValueBytes
-                        Ipv6Family -> length == Ipv6ValueBytes
-                        else -> false
-                    }
-                if (!found) return false
+        var valid = true
+        while (valid && hasRemaining()) {
+            valid = remaining() >= AttributeHeaderBytes
+            if (valid) {
+                val type = unsignedShort()
+                val length = unsignedShort()
+                val paddedLength = (length + Alignment - 1) and -Alignment
+                valid = paddedLength <= remaining()
+                if (valid) {
+                    // The unauthenticated Binding check recognizes the two address attributes.
+                    valid = type >= FirstOptionalAttribute || type == XorMappedAddress || type == MappedAddress
+                }
+                if (valid && type == XorMappedAddress && !found) {
+                    found = hasValidXorMappedAddress(length)
+                    valid = found
+                }
+                if (valid) position(position() + paddedLength)
             }
-            position(position() + paddedLength)
         }
-        return found
+        return valid && found
     }
+
+    private fun ByteBuffer.hasValidXorMappedAddress(length: Int): Boolean =
+        if (length < AddressPrefixBytes) {
+            false
+        } else {
+            when (get(position() + FamilyOffset).toInt()) {
+                Ipv4Family -> length == Ipv4ValueBytes
+                Ipv6Family -> length == Ipv6ValueBytes
+                else -> false
+            }
+        }
 
     private fun ByteBuffer.unsignedShort(): Int = short.toInt() and UnsignedShortMask
 

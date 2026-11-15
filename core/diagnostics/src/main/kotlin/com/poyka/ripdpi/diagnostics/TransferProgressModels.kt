@@ -67,37 +67,74 @@ fun parseTransferWindowReadings(
     details: List<ProbeDetail>,
     runs: List<TransferMeasurement> = parseTransferEvidence(details)?.runs.orEmpty(),
 ): TransferWindowReadings? {
-    fun value(key: String): String? = details.singleOrNull { it.key == key }?.value
-    val planned = value("runs")?.toIntOrNull()?.takeIf { it in 1..TransferMaxRuns } ?: return null
-    val attempted = value("attemptedRuns")?.toIntOrNull()?.takeIf { it in 0..planned } ?: return null
-    if (attempted != runs.size || runs.any { it.runCount != planned }) return null
-    val accepted = value("acceptedRuns")?.toIntOrNull()?.takeIf { it in 0..attempted } ?: return null
+    val planned = details.transferValue("runs")?.toIntOrNull()?.takeIf { it in 1..TransferMaxRuns }
+    val attempted = planned?.let { details.transferValue("attemptedRuns")?.toIntOrNull()?.takeIf { it in 0..planned } }
+    val accepted =
+        when {
+            planned == null || attempted == null -> null
+            attempted != runs.size || runs.any { it.runCount != planned } -> null
+            else -> details.transferValue("acceptedRuns")?.toIntOrNull()?.takeIf { it in 0..attempted }
+        }
+    return if (planned != null && attempted != null && accepted != null) {
+        parseTransferWindowRates(details, planned, attempted, accepted)
+    } else {
+        null
+    }
+}
+
+private fun parseTransferWindowRates(
+    details: List<ProbeDetail>,
+    planned: Int,
+    attempted: Int,
+    accepted: Int,
+): TransferWindowReadings? {
     val stopReason =
-        when (val reason = value("remainingRunStopReason")) {
+        when (val reason = details.transferValue("remainingRunStopReason")) {
             "none" -> null
             "cancelled", "deadline" -> reason
             else -> return null
         }
-    if ((stopReason == null) != (attempted == planned)) return null
-    val requestRates = parseTransferRateReadings(value("bpsReadings"), attempted) ?: return null
-    val bodyRates = parseTransferRateReadings(value("bodyGoodputBpsReadings"), attempted) ?: return null
-    if (requestRates.count { it != null } != accepted ||
-        requestRates.indices.any { requestRates[it] == null && bodyRates[it] != null }
-    ) {
-        return null
+    val requestRates =
+        if ((stopReason == null) == (attempted == planned)) {
+            parseTransferRateReadings(details.transferValue("bpsReadings"), attempted)
+        } else {
+            null
+        }
+    val bodyRates =
+        requestRates?.let {
+            parseTransferRateReadings(details.transferValue("bodyGoodputBpsReadings"), attempted)
+        }
+    return when {
+        requestRates == null || bodyRates == null -> null
+
+        requestRates.count { it != null } != accepted ||
+            requestRates.indices.any { requestRates[it] == null && bodyRates[it] != null } -> null
+
+        else -> TransferWindowReadings(planned, attempted, accepted, stopReason, requestRates, bodyRates)
     }
-    return TransferWindowReadings(planned, attempted, accepted, stopReason, requestRates, bodyRates)
 }
+
+private fun List<ProbeDetail>.transferValue(key: String): String? = singleOrNull { it.key == key }?.value
 
 private fun parseTransferRateReadings(
     value: String?,
     runCount: Int,
 ): List<Long?>? {
-    if (value == null || value.length > TransferRateReadingsMaxCharacters) return null
-    val tokens = if (value.isEmpty()) emptyList() else value.split('|')
-    if (tokens.size != runCount) return null
-    return tokens.map { token ->
-        if (token == "none") null else token.toLongOrNull()?.takeIf { it >= 0 } ?: return null
+    return when {
+        value == null || value.length > TransferRateReadingsMaxCharacters -> {
+            null
+        }
+
+        else -> {
+            val tokens = if (value.isEmpty()) emptyList() else value.split('|')
+            if (tokens.size != runCount) {
+                null
+            } else {
+                tokens.map { token ->
+                    if (token == "none") null else token.toLongOrNull()?.takeIf { it >= 0 } ?: return null
+                }
+            }
+        }
     }
 }
 

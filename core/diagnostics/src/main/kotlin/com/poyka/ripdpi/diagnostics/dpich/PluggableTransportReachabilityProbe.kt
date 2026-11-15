@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import com.poyka.ripdpi.diagnostics.IpProbeMaxPort
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpi.resolveProbeAddress
 import kotlinx.coroutines.CancellationException
@@ -25,8 +26,6 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 enum class PtProbeStatus {
     CONNECTED,
@@ -104,9 +103,10 @@ class Obfs4ReachabilityProbe(
         for ((index, bridge) in usable.withIndex()) {
             currentCoroutineContext().ensureActive()
             val remainingMs = remainingMs(deadlineNanos)
-            if (remainingMs <= 0) break
-            last = bridge.tryTcpConnect((remainingMs / (usable.size - index)).coerceAtLeast(1))
-            if (last.status == PtProbeStatus.CONNECTED) break
+            if (remainingMs > 0) {
+                last = bridge.tryTcpConnect((remainingMs / (usable.size - index)).coerceAtLeast(1))
+            }
+            if (remainingMs <= 0 || last.status == PtProbeStatus.CONNECTED) break
         }
         return last
     }
@@ -142,10 +142,10 @@ fun DpiAssetLoader.loadMeekFrontUrls(): List<String> = loadMeekFronts()
 
 private fun String.toPtEndpoint(): PtEndpoint? {
     val authority = trim().substringBefore(' ')
-    val port = authority.substringAfterLast(':', "").toIntOrNull()?.takeIf { it in 1..65535 } ?: return null
+    val port = authority.substringAfterLast(':', "").toIntOrNull()?.takeIf { it in 1..IpProbeMaxPort } ?: return null
     val host =
-        authority.substringBeforeLast(':', "").removeSurrounding("[", "]").takeIf(String::isNotBlank) ?: return null
-    return PtEndpoint(host, port)
+        authority.substringBeforeLast(':', "").removeSurrounding("[", "]").takeIf(String::isNotBlank)
+    return host?.let { PtEndpoint(it, port) }
 }
 
 class SnowflakeBrokerReachabilityProbe(
@@ -179,10 +179,11 @@ class MeekReachabilityProbe(
         for ((index, front) in targets.withIndex()) {
             currentCoroutineContext().ensureActive()
             val remaining = remainingMs(deadline)
-            if (remaining <= 0) break
-            val attemptMs = (remaining / (targets.size - index)).coerceAtLeast(1)
-            last = probeHttpEndpoint(front, client, attemptMs) { head() }
-            if (last.status == PtProbeStatus.HTTP_RESPONSE) break
+            if (remaining > 0) {
+                val attemptMs = (remaining / (targets.size - index)).coerceAtLeast(1)
+                last = probeHttpEndpoint(front, client, attemptMs) { head() }
+            }
+            if (remaining <= 0 || last.status == PtProbeStatus.HTTP_RESPONSE) break
         }
         return last
     }
@@ -203,7 +204,19 @@ private suspend fun probeHttpEndpoint(
     configure: Request.Builder.() -> Unit,
 ): PtProbeTrace {
     val url = target.toHttpUrlOrNull() ?: return PtProbeTrace("", PtProbeStatus.INVALID_TARGET, 0)
-    if (url.username.isNotEmpty() || url.password.isNotEmpty()) return PtProbeTrace("", PtProbeStatus.INVALID_TARGET, 0)
+    return if (url.username.isNotEmpty() || url.password.isNotEmpty()) {
+        PtProbeTrace("", PtProbeStatus.INVALID_TARGET, 0)
+    } else {
+        probeHttpRequest(url, client, timeoutMs, configure)
+    }
+}
+
+private suspend fun probeHttpRequest(
+    url: okhttp3.HttpUrl,
+    client: OkHttpClient,
+    timeoutMs: Long,
+    configure: Request.Builder.() -> Unit,
+): PtProbeTrace {
     val endpoint =
         url
             .newBuilder()
@@ -243,11 +256,10 @@ internal suspend fun <T> Closeable.withCancellation(action: () -> T): T =
     suspendCancellableCoroutine { continuation ->
         continuation.invokeOnCancellation { runCatching { close() } }
         if (continuation.isActive) {
-            try {
-                continuation.resume(action())
-            } catch (error: Exception) {
-                continuation.resumeWithException(error)
-            }
+            val result = runCatching(action)
+            val failure = result.exceptionOrNull()
+            if (failure != null && failure !is Exception) throw failure
+            continuation.resumeWith(result)
         }
     }
 

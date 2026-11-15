@@ -83,22 +83,30 @@ private data class TransferComparisonScope(
     val addressFamily: String,
 )
 
-private fun ProbeResult.comparisonScope(windows: TransferWindowReadings?): TransferComparisonScope? {
-    if (probeType != "throughput_window" || outcome != "throughput_measured" ||
-        windows == null || windows.plannedRuns < 2 || windows.acceptedRuns != windows.plannedRuns ||
-        windows.bodyGoodputRatesBps.any { it == null } ||
-        details.any { it.key == "transferNetworkScope" && it.value == "unverified" }
-    ) {
-        return null
+private fun ProbeResult.comparisonScope(windows: TransferWindowReadings?): TransferComparisonScope? =
+    when {
+        probeType != "throughput_window" || outcome != "throughput_measured" -> null
+        windows == null -> null
+        windows.isIncompleteForComparison() -> null
+        details.any { it.key == "transferNetworkScope" && it.value == "unverified" } -> null
+        else -> comparisonScopeFields(windows)
     }
 
+private fun TransferWindowReadings.isIncompleteForComparison(): Boolean =
+    plannedRuns < 2 || acceptedRuns != plannedRuns || bodyGoodputRatesBps.any { it == null }
+
+private fun ProbeResult.comparisonScopeFields(windows: TransferWindowReadings): TransferComparisonScope? {
     fun value(key: String): String? = details.singleOrNull { it.key == key }?.value
-    val window = value("windowBytes")?.toLongOrNull()?.takeIf { it > 0 } ?: return null
-    val scheme = value("url")?.substringBefore("://", "")?.takeIf { it == "http" || it == "https" } ?: return null
-    val families = value("addressFamilyReadings")?.split('|').orEmpty()
-    val family = families.firstOrNull()?.takeIf { it == "ipv4" || it == "ipv6" } ?: return null
-    return TransferComparisonScope(window, scheme, family)
-        .takeIf { families.size == windows.plannedRuns && families.all { it == family } }
+    val window = value("windowBytes")?.toLongOrNull()?.takeIf { it > 0 }
+    val scheme = window?.let { value("url")?.substringBefore("://", "")?.takeIf { it == "http" || it == "https" } }
+    val families = if (scheme != null) value("addressFamilyReadings")?.split('|').orEmpty() else emptyList()
+    val family = families.firstOrNull()?.takeIf { it == "ipv4" || it == "ipv6" }
+    return if (window != null && scheme != null && family != null) {
+        TransferComparisonScope(window, scheme, family)
+            .takeIf { families.size == windows.plannedRuns && families.all { it == family } }
+    } else {
+        null
+    }
 }
 
 private fun TransferMeasurement.toTransferRunUiModel(): DiagnosticsTransferRunUiModel =
