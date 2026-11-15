@@ -2,7 +2,7 @@
 id: RST-1794722628748844
 title: Repair privileged operation error and integrity contracts
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Privileged operations integrator
