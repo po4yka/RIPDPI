@@ -2,7 +2,7 @@
 id: DGN-1794740137965522
 title: Correct Kotlin DNS diagnostic evidence and HTTPS lookups
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics repair team
