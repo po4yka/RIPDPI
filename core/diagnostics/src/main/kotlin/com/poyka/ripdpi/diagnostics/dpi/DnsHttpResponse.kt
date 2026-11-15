@@ -1,8 +1,14 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.diagnostics.DnsMessages
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.Response
+import java.io.IOException
 import java.nio.charset.CharacterCodingException
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 internal const val MaxDnsJsonBodyBytes = 128 * 1024
 
@@ -35,3 +41,36 @@ private fun Response.readDnsBody(
     }
     return source.readByteArray()
 }
+
+// Keep cancellation attached until the reader closes the body, including a blocked source read.
+internal suspend fun <T> Call.readDnsResponse(read: (Response) -> T): T =
+    suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation { cancel() }
+        if (!continuation.isActive) return@suspendCancellableCoroutine
+        enqueue(
+            object : Callback {
+                override fun onFailure(
+                    call: Call,
+                    e: IOException,
+                ) {
+                    continuation.resumeWithException(e)
+                }
+
+                override fun onResponse(
+                    call: Call,
+                    response: Response,
+                ) {
+                    try {
+                        val result =
+                            response.use {
+                                if (!continuation.isActive) return
+                                read(it)
+                            }
+                        continuation.resume(result)
+                    } catch (error: Exception) {
+                        continuation.resumeWithException(error)
+                    }
+                }
+            },
+        )
+    }

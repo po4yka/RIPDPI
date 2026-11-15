@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
-import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
@@ -17,11 +16,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import java.io.IOException
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
-import java.net.SocketTimeoutException
+import java.io.InterruptedIOException
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -49,24 +46,15 @@ class DatagramSocketDnsUdpProbe(
             last
         }
 
-    private fun queryServer(
+    private suspend fun queryServer(
         domain: String,
         server: String,
     ): DnsProbeAnswer {
         val query = DnsWireBuilder.buildQuery(domain)
-        DatagramSocket().use { socket ->
-            socket.soTimeout = timeoutMs
-            socket.connect(InetAddress.getByName(server), DnsPort)
-            socket.send(DatagramPacket(query, query.size))
-            val buffer = ByteArray(DnsMessages.MAX_MESSAGE_BYTES)
-            val response = DatagramPacket(buffer, buffer.size)
-            socket.receive(response)
-            return DnsWireBuilder.parseResponse(buffer.copyOf(response.length), query)
-        }
+        return exchangeDnsDatagram(server, query, timeoutMs).answer
     }
 
     private companion object {
-        private const val DnsPort = 53
         private const val DefaultUdpTimeoutMs = 3_000
         private const val DefaultUdpRetries = 2
         private const val DefaultRetryDelayMs = 500L
@@ -78,13 +66,14 @@ class DohJsonAddressProbe(
     private val endpoints: List<String> = DefaultDohJsonEndpoints,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val json: Json = RipDpiJson,
+    private val timeoutMs: Long = DefaultDohJsonTimeoutMs,
 ) : SemanticDnsAddressProbe {
     override suspend fun resolveResponse(
         domain: String,
         excludedDohHostnames: Set<String>,
     ): DnsProbeAnswer =
         withContext(dispatcher) {
-            queryDnsEndpoints(endpoints, excludedDohHostnames) { endpoint ->
+            queryDnsEndpoints(endpoints, excludedDohHostnames, timeoutMs) { endpoint ->
                 val encoded = URLEncoder.encode(domain, StandardCharsets.UTF_8.name())
                 val request =
                     Request
@@ -93,12 +82,8 @@ class DohJsonAddressProbe(
                         .get()
                         .header("Accept", "application/dns-json")
                         .build()
-                client.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        DnsJsonResponseParser.parse(response.readDnsJsonBody(), domain, json)
-                    } else {
-                        dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR)
-                    }
+                client.newCall(request).readDnsResponse { response ->
+                    response.dnsAnswer { DnsJsonResponseParser.parse(response.readDnsJsonBody(), domain, json) }
                 }
             }
         }
@@ -114,13 +99,15 @@ class DohWireAddressProbe(
         domain: String,
         excludedDohHostnames: Set<String>,
     ): DnsProbeAnswer =
-        withTimeoutOrNull(timeoutMs) {
-            withContext(dispatcher) {
-                queryDnsEndpoints(endpoints, excludedDohHostnames) { endpoint -> queryEndpoint(domain, endpoint) }
-            }
-        } ?: dnsFailure(DnsResponseOutcome.TIMEOUT)
+        withContext(dispatcher) {
+            queryDnsEndpoints(
+                endpoints,
+                excludedDohHostnames,
+                timeoutMs,
+            ) { endpoint -> queryEndpoint(domain, endpoint) }
+        }
 
-    private fun queryEndpoint(
+    private suspend fun queryEndpoint(
         domain: String,
         endpoint: String,
     ): DnsProbeAnswer {
@@ -133,11 +120,11 @@ class DohWireAddressProbe(
                 .header("Accept", DnsMessageContentType)
                 .build()
         val postResult =
-            client.newCall(post).execute().use { response ->
-                when {
-                    response.isSuccessful -> DnsWireBuilder.parseResponse(response.readDnsWireBody(), query)
-                    response.code == MethodNotAllowed -> null
-                    else -> dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR)
+            client.newCall(post).readDnsResponse { response ->
+                if (response.code == MethodNotAllowed) {
+                    null
+                } else {
+                    response.dnsAnswer { DnsWireBuilder.parseResponse(response.readDnsWireBody(), query) }
                 }
             }
         if (postResult != null) return postResult
@@ -149,12 +136,8 @@ class DohWireAddressProbe(
                 .get()
                 .header("Accept", DnsMessageContentType)
                 .build()
-        return client.newCall(get).execute().use { response ->
-            if (response.isSuccessful) {
-                DnsWireBuilder.parseResponse(response.readDnsWireBody(), query)
-            } else {
-                dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR)
-            }
+        return client.newCall(get).readDnsResponse { response ->
+            response.dnsAnswer { DnsWireBuilder.parseResponse(response.readDnsWireBody(), query) }
         }
     }
 
@@ -164,12 +147,17 @@ class DohWireAddressProbe(
     }
 }
 
+private inline fun Response.dnsAnswer(read: () -> DnsProbeAnswer): DnsProbeAnswer =
+    dnsAttempt {
+        if (isSuccessful) read() else dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR)
+    }.copy(resolver = request.url.host)
+
 internal inline fun dnsAttempt(block: () -> DnsProbeAnswer): DnsProbeAnswer =
     try {
         block()
     } catch (error: CancellationException) {
         throw error
-    } catch (_: SocketTimeoutException) {
+    } catch (_: InterruptedIOException) {
         dnsFailure(DnsResponseOutcome.TIMEOUT)
     } catch (_: IOException) {
         dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR)
@@ -182,17 +170,20 @@ internal inline fun dnsAttempt(block: () -> DnsProbeAnswer): DnsProbeAnswer =
 private suspend fun queryDnsEndpoints(
     endpoints: List<String>,
     excluded: Set<String>,
-    query: (String) -> DnsProbeAnswer,
+    timeoutMs: Long,
+    query: suspend (String) -> DnsProbeAnswer,
 ): DnsProbeAnswer {
     var observed: DnsProbeAnswer? = null
-    var last = dnsFailure(DnsResponseOutcome.NOT_OBSERVED)
-    for (endpoint in endpoints.filterNot { URI(it).host in excluded }) {
-        currentCoroutineContext().ensureActive()
-        last = dnsAttempt { query(endpoint) }
-        if (last.addresses.isNotEmpty()) return last
-        if (observed == null && last.response?.rcode != null) observed = last
-    }
-    return observed ?: last
+    return withTimeoutOrNull(timeoutMs) {
+        var last = dnsFailure(DnsResponseOutcome.NOT_OBSERVED)
+        for (endpoint in endpoints.filterNot { URI(it).host in excluded }) {
+            currentCoroutineContext().ensureActive()
+            last = dnsAttempt { query(endpoint) }
+            if (last.addresses.isNotEmpty()) return@withTimeoutOrNull last
+            if (observed == null && last.response?.rcode != null) observed = last
+        }
+        observed ?: last
+    } ?: (observed ?: dnsFailure(DnsResponseOutcome.TIMEOUT))
 }
 
 private val DefaultUdpDnsServers =
@@ -216,6 +207,7 @@ private fun defaultDnsHttpClient(): OkHttpClient =
         .callTimeout(DefaultCallTimeoutSeconds, TimeUnit.SECONDS)
         .build()
 
+private const val DefaultDohJsonTimeoutMs = 14_000L
 private const val DefaultConnectTimeoutSeconds = 5L
 private const val DefaultReadTimeoutSeconds = 5L
 private const val DefaultCallTimeoutSeconds = 7L

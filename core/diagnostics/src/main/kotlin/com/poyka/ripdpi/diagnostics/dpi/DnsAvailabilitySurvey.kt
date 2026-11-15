@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
-import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import kotlinx.coroutines.CancellationException
@@ -21,10 +20,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
-import java.net.SocketTimeoutException
+import java.io.InterruptedIOException
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 
@@ -152,7 +148,7 @@ class DnsAvailabilitySurvey(
         runCatching { block() }.getOrElse { error ->
             currentCoroutineContext().ensureActive()
             when (error) {
-                is TimeoutCancellationException, is SocketTimeoutException -> {
+                is TimeoutCancellationException, is InterruptedIOException -> {
                     DnsProbeSample(DnsProbeStatus.TIMEOUT, response = dnsFailure(DnsResponseOutcome.TIMEOUT).response)
                 }
 
@@ -224,28 +220,9 @@ class DatagramUdpAvailabilityProbe(
         withContext(Dispatchers.IO) {
             val transactionId = DnsWireBuilder.randomTransactionId()
             val query = DnsWireBuilder.buildQuery(domain, transactionId)
-            DatagramSocket().use { socket ->
-                socket.soTimeout = timeoutMs.toInt()
-                val address = InetAddress.getByName(server.endpoint)
-                socket.connect(address, DnsPort)
-                socket.send(DatagramPacket(query, query.size))
-                val buffer = ByteArray(DnsMessages.MAX_MESSAGE_BYTES)
-                val response = DatagramPacket(buffer, buffer.size)
-                val startNs = System.nanoTime()
-                socket.receive(response)
-                val latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs).coerceAtLeast(1)
-                val answer = DnsWireBuilder.parseResponse(buffer.copyOf(response.length), query)
-                DnsProbeSample(
-                    if (answer.addresses.isNotEmpty()) DnsProbeStatus.OK else DnsProbeStatus.ERROR,
-                    latencyMs.takeIf { answer.addresses.isNotEmpty() },
-                    answer.response,
-                )
-            }
+            val reply = exchangeDnsDatagram(server.endpoint, query, timeoutMs.toInt())
+            sample(reply.answer, reply.latencyMs)
         }
-
-    private companion object {
-        const val DnsPort = 53
-    }
 }
 
 class OkHttpDohWireAvailabilityProbe(
@@ -267,7 +244,7 @@ class OkHttpDohWireAvailabilityProbe(
         domain: String,
         timeoutMs: Long,
     ): DnsProbeSample =
-        withContext(Dispatchers.IO) {
+        withTimeoutOrNull(timeoutMs) {
             val client =
                 clientBuilder {
                     connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
@@ -278,28 +255,15 @@ class OkHttpDohWireAvailabilityProbe(
             val query = DnsWireBuilder.buildQuery(domain, transactionId)
             val post = buildPostRequest(server.endpoint, query)
             val startNs = System.nanoTime()
-            client.newCall(post).execute().use { response ->
-                if (response.code != MethodNotAllowed) {
-                    if (!response.isSuccessful) {
-                        return@withContext DnsProbeSample(
-                            DnsProbeStatus.ERROR,
-                            response = dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR).response,
-                        )
-                    }
-                    return@withContext decodeDohResponse(response, query, startNs)
+            val postResult =
+                client.newCall(post).readDnsResponse { response ->
+                    if (response.code == MethodNotAllowed) null else decodeDohResponse(response, query, startNs)
                 }
-            }
-            val get = buildGetRequest(server.endpoint, query)
-            client.newCall(get).execute().use { response ->
-                if (!response.isSuccessful) {
-                    return@withContext DnsProbeSample(
-                        DnsProbeStatus.ERROR,
-                        response = dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR).response,
-                    )
+            postResult
+                ?: client.newCall(buildGetRequest(server.endpoint, query)).readDnsResponse { response ->
+                    decodeDohResponse(response, query, startNs)
                 }
-                decodeDohResponse(response, query, startNs)
-            }
-        }
+        } ?: DnsProbeSample(DnsProbeStatus.TIMEOUT, response = dnsFailure(DnsResponseOutcome.TIMEOUT).response)
 
     private fun decodeDohResponse(
         response: Response,
@@ -307,20 +271,17 @@ class OkHttpDohWireAvailabilityProbe(
         startNs: Long,
     ): DnsProbeSample {
         val answer =
-            try {
-                DnsWireBuilder.parseResponse(response.readDnsWireBody(), query)
-            } catch (_: MalformedDnsHttpResponse) {
-                dnsFailure(DnsResponseOutcome.MALFORMED)
+            if (!response.isSuccessful) {
+                dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR)
+            } else {
+                try {
+                    DnsWireBuilder.parseResponse(response.readDnsWireBody(), query)
+                } catch (_: MalformedDnsHttpResponse) {
+                    dnsFailure(DnsResponseOutcome.MALFORMED)
+                }
             }
-        return if (answer.addresses.isNotEmpty()) {
-            DnsProbeSample(
-                status = DnsProbeStatus.OK,
-                latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs).coerceAtLeast(1),
-                response = answer.response,
-            )
-        } else {
-            DnsProbeSample(DnsProbeStatus.ERROR, response = answer.response)
-        }
+        val latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs).coerceAtLeast(1)
+        return sample(answer, latencyMs)
     }
 
     private fun buildPostRequest(
@@ -352,4 +313,16 @@ class OkHttpDohWireAvailabilityProbe(
         const val MethodNotAllowed = 405
         val DnsMessageMediaType = DnsMessageContentType.toMediaType()
     }
+}
+
+private fun sample(
+    answer: DnsProbeAnswer,
+    latencyMs: Long,
+): DnsProbeSample {
+    val resolved = answer.addresses.isNotEmpty()
+    return DnsProbeSample(
+        if (resolved) DnsProbeStatus.OK else DnsProbeStatus.ERROR,
+        latencyMs.takeIf { resolved },
+        answer.response,
+    )
 }

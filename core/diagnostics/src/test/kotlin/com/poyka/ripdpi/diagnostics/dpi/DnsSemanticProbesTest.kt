@@ -1,9 +1,17 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import okhttp3.Call
+import okhttp3.EventListener
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -13,15 +21,18 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Test
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.util.Base64
+import java.util.concurrent.TimeUnit
 
 class DnsSemanticProbesTest {
     @Test
     fun wireNegativePostResponseDoesNotTriggerGetOrBecomeTransportFailure() =
-        runTest {
+        runBlocking {
             val methods = mutableListOf<String>()
             val client =
                 client { request ->
@@ -32,7 +43,6 @@ class DnsSemanticProbesTest {
                 DohWireAddressProbe(
                     client,
                     listOf(Endpoint),
-                    StandardTestDispatcher(testScheduler),
                 ).resolveResponse("example.com")
             assertEquals(DnsResponseOutcome.NXDOMAIN, result.response?.outcome)
             assertEquals(listOf("POST"), methods)
@@ -41,7 +51,7 @@ class DnsSemanticProbesTest {
 
     @Test
     fun methodNotAllowedFallbackStillBindsResponseToQuery() =
-        runTest {
+        runBlocking {
             val methods = mutableListOf<String>()
             val client =
                 client { request ->
@@ -58,7 +68,6 @@ class DnsSemanticProbesTest {
                 DohWireAddressProbe(
                     client,
                     listOf(Endpoint),
-                    StandardTestDispatcher(testScheduler),
                 ).resolveResponse("example.com")
             assertEquals(DnsResponseOutcome.NXDOMAIN, result.response?.outcome)
             assertEquals(listOf("POST", "GET"), methods)
@@ -66,18 +75,16 @@ class DnsSemanticProbesTest {
 
     @Test
     fun httpErrorsAndSocketTimeoutRemainDifferent() =
-        runTest {
+        runBlocking {
             val error =
                 DohWireAddressProbe(
                     client { reply(it, byteArrayOf(), 503) },
                     listOf(Endpoint),
-                    StandardTestDispatcher(testScheduler),
                 )
             val timeout =
                 DohWireAddressProbe(
                     client { throw SocketTimeoutException() },
                     listOf(Endpoint),
-                    StandardTestDispatcher(testScheduler),
                 )
             assertEquals(DnsResponseOutcome.TRANSPORT_ERROR, error.resolveResponse("example.com").response?.outcome)
             assertEquals(DnsResponseOutcome.TIMEOUT, timeout.resolveResponse("example.com").response?.outcome)
@@ -85,26 +92,125 @@ class DnsSemanticProbesTest {
 
     @Test
     fun jsonNodataIsAResponseAndMissingQuestionIsMalformed() =
-        runTest {
-            val negative = """{"Status":0,"Question":[{"name":"example.com.","type":1}]}"""
-            val client = client { reply(it, negative.toByteArray(), mediaType = "application/dns-json") }
-            val probe = DohJsonAddressProbe(client, listOf(Endpoint), StandardTestDispatcher(testScheduler))
+        runBlocking {
+            val client = client { reply(it, JsonNegative.toByteArray(), mediaType = "application/dns-json") }
+            val probe = DohJsonAddressProbe(client, listOf(Endpoint))
             assertEquals(DnsResponseOutcome.NODATA, probe.resolveResponse("example.com").response?.outcome)
             assertEquals(DnsResponseOutcome.MALFORMED, probe.resolveResponse("other.example").response?.outcome)
         }
 
     @Test
-    fun cancellationIsNeverTranslatedToDnsFailure() =
-        runTest {
-            val client = client { throw CancellationException("cancel") }
-            val probe = DohJsonAddressProbe(client, listOf(Endpoint), StandardTestDispatcher(testScheduler))
-            try {
-                probe.resolveResponse("example.com")
-                fail("Cancellation must propagate")
-            } catch (_: CancellationException) {
-                // Expected.
+    fun cancellingDuringHttpBodyReadStopsTheExchangeAndDoesNotRetry() =
+        runBlocking {
+            MockWebServer().use { server ->
+                server.start()
+                server.enqueue(delayedJson())
+                val bodyStarted = CompletableDeferred<Unit>()
+                val client =
+                    OkHttpClient
+                        .Builder()
+                        .eventListener(
+                            object : EventListener() {
+                                override fun responseBodyStart(call: Call) {
+                                    bodyStarted.complete(Unit)
+                                }
+                            },
+                        ).build()
+                val probe =
+                    DohJsonAddressProbe(
+                        client = client,
+                        endpoints = listOf(server.url("/first").toString(), server.url("/next").toString()),
+                    )
+                val job = launch { probe.resolveResponse("example.com") }
+                withTimeout(3_000) { bodyStarted.await() }
+
+                withTimeout(1_500) { job.cancelAndJoin() }
+                assertTrue(job.isCancelled)
+                assertEquals(1, server.requestCount)
             }
         }
+
+    @Test
+    fun jsonTotalTimeoutDuringBodyReadDoesNotTryAnotherEndpoint() =
+        runBlocking {
+            MockWebServer().use { server ->
+                server.start()
+                server.enqueue(delayedJson())
+                val probe =
+                    DohJsonAddressProbe(
+                        endpoints = listOf(server.url("/first").toString(), server.url("/next").toString()),
+                        timeoutMs = 750,
+                    )
+                val answer = withTimeout(3_000) { probe.resolveResponse("example.com") }
+                assertEquals(DnsResponseOutcome.TIMEOUT, answer.response?.outcome)
+                assertEquals(1, server.requestCount)
+            }
+        }
+
+    @Test
+    fun jsonUsesTheResolverThatAnsweredAfterRedirect() =
+        runBlocking {
+            MockWebServer().use { redirect ->
+                redirect.start()
+                MockWebServer().use { destination ->
+                    destination.start()
+                    val actual =
+                        destination
+                            .url("/answer")
+                            .newBuilder()
+                            .host("127.0.0.1")
+                            .build()
+                    redirect.enqueue(
+                        MockResponse
+                            .Builder()
+                            .code(302)
+                            .addHeader("Location", actual.toString())
+                            .build(),
+                    )
+                    destination.enqueue(
+                        MockResponse
+                            .Builder()
+                            .addHeader("Content-Type", "application/dns-json")
+                            .body(JsonNegative)
+                            .build(),
+                    )
+                    val probe = DohJsonAddressProbe(endpoints = listOf(redirect.url("/resolve").toString()))
+                    val answer = probe.resolveResponse("example.com")
+                    assertEquals(DnsResponseOutcome.NODATA, answer.response?.outcome)
+                    assertEquals("127.0.0.1", answer.resolver)
+                }
+            }
+        }
+
+    @Test
+    fun cancellingDuringDatagramReceiveClosesTheSocket() =
+        runBlocking {
+            DatagramSocket(0, InetAddress.getByName("127.0.0.1")).use { server ->
+                val job =
+                    launch(Dispatchers.IO) {
+                        exchangeDnsDatagram(
+                            "127.0.0.1",
+                            DnsWireBuilder.buildQuery("example.com"),
+                            timeoutMs = 10_000,
+                            port = server.localPort,
+                        )
+                    }
+                withContext(Dispatchers.IO) {
+                    server.soTimeout = 2_000
+                    server.receive(DatagramPacket(ByteArray(512), 512))
+                }
+                withTimeout(1_500) { job.cancelAndJoin() }
+                assertTrue(job.isCancelled)
+            }
+        }
+
+    private fun delayedJson(): MockResponse =
+        MockResponse
+            .Builder()
+            .addHeader("Content-Type", "application/dns-json")
+            .body(JsonNegative)
+            .throttleBody(1, 5, TimeUnit.SECONDS)
+            .build()
 
     private fun client(respond: (Request) -> Response): OkHttpClient =
         OkHttpClient.Builder().addInterceptor { respond(it.request()) }.build()
@@ -139,5 +245,6 @@ class DnsSemanticProbesTest {
 
     private companion object {
         const val Endpoint = "https://resolver.example/dns-query"
+        const val JsonNegative = """{"Status":0,"Question":[{"name":"example.com.","type":1}]}"""
     }
 }
