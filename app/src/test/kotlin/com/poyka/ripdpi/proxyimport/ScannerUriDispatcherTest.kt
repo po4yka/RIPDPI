@@ -119,6 +119,39 @@ class ScannerUriDispatcherTest {
     }
 
     @Test
+    fun `amneziawg values that cannot be written to conf are rejected without throwing`() {
+        val profile =
+            AmneziaWgProfile(
+                name = "Home",
+                host = "vpn.example.com",
+                port = 51820,
+                privateKey = "private-key",
+                publicKey = "peer-key",
+                address = listOf("10.8.0.2/32"),
+            )
+
+        listOf('\n', '\r', '#', ';').forEach { forbidden ->
+            val value = "unsafe${forbidden}value"
+            listOf(
+                profile.copy(privateKey = value),
+                profile.copy(publicKey = value),
+                profile.copy(presharedKey = value),
+                profile.copy(address = listOf(value)),
+                profile.copy(allowedIps = listOf(value)),
+                profile.copy(dns = listOf(value)),
+            ).forEach { invalid ->
+                val uri = AmneziaWgUriCodec.encode(invalid)
+                assertNull(ImportPayloadClassifier.classify(uri))
+                assertTrue(ScannerUriDispatcher.dispatch(uri) is ScannerScanResult.Invalid)
+                assertEquals(
+                    ClipboardImportResult.UnknownContent("amneziawg"),
+                    ClipboardImportClassifier.classify(uri),
+                )
+            }
+        }
+    }
+
+    @Test
     fun `payloads never print their secrets`() {
         assertTrue("privkey" !in ImportPayload.WireGuardConf(AwgConf).toString())
         val profile = recognized("trojan://hunter2-secret@example.com:443#QR")
