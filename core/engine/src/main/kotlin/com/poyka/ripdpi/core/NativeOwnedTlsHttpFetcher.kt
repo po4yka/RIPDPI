@@ -42,6 +42,7 @@ data class NativeOwnedTlsHttpResult(
     val tlsTemplateEchOuterExtensionPolicy: String? = null,
     val clientHelloSizeHint: Int? = null,
     val clientHelloInvariantStatus: String? = null,
+    val contentType: String? = null,
 )
 
 data class NativeOwnedTlsHttpRequest(
@@ -139,6 +140,7 @@ class DefaultNativeOwnedTlsHttpFetcher
                     statusCode = statusCode,
                     body = body,
                     finalUrl = response.finalUrl,
+                    contentType = response.contentType,
                     tlsProfileId = response.tlsProfileId,
                     tlsProfileCatalogVersion = response.tlsProfileCatalogVersion,
                     tlsJa3ParityTarget = response.tlsJa3ParityTarget,
@@ -269,6 +271,7 @@ private data class NativeOwnedTlsHttpResponse(
     val clientHelloSizeHint: Int? = null,
     @SerialName("clientHelloInvariantStatus")
     val clientHelloInvariantStatus: String? = null,
+    val contentType: String? = null,
     val cancelled: Boolean = false,
     val error: String? = null,
 )

@@ -385,6 +385,51 @@ class OwnedStackBrowserServiceTest {
         }
 
     @Test
+    fun `native fallback preserves media type and decodes text with the declared charset`() =
+        runTest {
+            val cases =
+                listOf(
+                    Triple(
+                        "text/plain; charset=windows-1251",
+                        byteArrayOf(
+                            0xCF.toByte(),
+                            0xF0.toByte(),
+                            0xE8.toByte(),
+                            0xE2.toByte(),
+                            0xE5.toByte(),
+                            0xF2.toByte(),
+                        ),
+                        "Привет",
+                    ),
+                    Triple("text/plain; charset=UTF-8", "Привет".toByteArray(), "Привет"),
+                    Triple("application/octet-stream", byteArrayOf(0, 1, 2), "Binary response (3 bytes)."),
+                )
+            for ((contentType, body, expected) in cases) {
+                val client =
+                    DefaultSecureHttpClient(
+                        supportProvider = FixedOwnedStackBrowserSupportProvider(OwnedStackBrowserSupport(false, false)),
+                        platformExecutorProvider = providerOf(FakeOwnedStackPlatformBrowserExecutor()),
+                        nativeOwnedTlsHttpFetcher =
+                            FakeNativeOwnedTlsHttpFetcher(
+                                NativeOwnedTlsHttpResult(
+                                    statusCode = 200,
+                                    body = body,
+                                    finalUrl = "https://example.org/",
+                                    contentType = contentType,
+                                ),
+                            ),
+                        tlsClientFactory = FakeOwnedTlsClientFactory(),
+                        networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                        serverCapabilityStore = TestServerCapabilityStore(),
+                    )
+                val page = DefaultOwnedStackBrowserService(client).fetch("example.org/")
+                assertEquals(expected, page.bodyText)
+                assertEquals(contentType, page.contentType)
+                assertEquals(OwnedStackBrowserBackend.NATIVE_OWNED_TLS, page.backend)
+            }
+        }
+
+    @Test
     fun `launch helper normalizes authority to https url`() {
         assertEquals("https://example.org:443/", ownedStackBrowserLaunchUrl("example.org:443"))
     }

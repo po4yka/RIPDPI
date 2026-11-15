@@ -28,6 +28,7 @@ class NativeOwnedTlsHttpFetcherTest {
                                         statusCode = 200,
                                         bodyBase64 = Base64.getEncoder().encodeToString(expected),
                                         finalUrl = "https://cdn.example.test/catalog.json",
+                                        contentType = "text/plain; charset=windows-1251",
                                         tlsProfileId = "chrome_stable",
                                         tlsProfileCatalogVersion = "v1",
                                         tlsJa3ParityTarget = "chrome-stable",
@@ -60,6 +61,7 @@ class NativeOwnedTlsHttpFetcherTest {
                 )
 
             assertEquals(200, result.statusCode)
+            assertEquals("text/plain; charset=windows-1251", result.contentType)
             assertEquals("https://cdn.example.test/catalog.json", result.finalUrl)
             assertArrayEquals(expected, result.body)
             assertEquals("chrome_stable", result.tlsProfileId)
@@ -127,6 +129,7 @@ class NativeOwnedTlsHttpFetcherTest {
                 )
 
             assertEquals(204, result.statusCode)
+            assertNull(result.contentType)
             assertNull(result.tlsProfileId)
             assertNull(result.tlsProfileCatalogVersion)
             assertNull(result.tlsJa3ParityTarget)
@@ -167,6 +170,7 @@ class NativeOwnedTlsHttpFetcherTest {
         val statusCode: Int? = null,
         val bodyBase64: String? = null,
         val finalUrl: String? = null,
+        val contentType: String? = null,
         val tlsProfileId: String? = null,
         val tlsProfileCatalogVersion: String? = null,
         val tlsJa3ParityTarget: String? = null,

@@ -23,7 +23,11 @@ static PROTECT_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
 #[test]
 fn execute_fetches_plain_http_response() {
-    let server = spawn_http_server(vec![http_response("200 OK", &[], b"manifest")]);
+    let server = spawn_http_server(vec![http_response(
+        "200 OK",
+        &[("Content-Type", "text/plain; charset=windows-1251")],
+        b"manifest",
+    )]);
     let port = server.local_addr().expect("local addr").port();
     let request = serde_json::json!({
         "url": format!("http://127.0.0.1:{port}/manifest.json"),
@@ -35,6 +39,7 @@ fn execute_fetches_plain_http_response() {
     let response: Value = serde_json::from_str(&payload).expect("json response");
 
     assert_eq!(response["statusCode"], 200);
+    assert_eq!(response["contentType"], "text/plain; charset=windows-1251");
     assert_eq!(STANDARD.decode(response["bodyBase64"].as_str().expect("body")).expect("decode body"), b"manifest");
     assert_eq!(response["finalUrl"].as_str().expect("final url"), format!("http://127.0.0.1:{port}/manifest.json"));
     assert_eq!(response["tlsProfileCatalogVersion"], "v1");
@@ -99,6 +104,7 @@ fn execute_follows_redirects() {
     assert_eq!(response["statusCode"], 200);
     assert_eq!(STANDARD.decode(response["bodyBase64"].as_str().expect("body")).expect("decode body"), b"catalog");
     assert_eq!(response["finalUrl"].as_str().expect("final url"), format!("http://127.0.0.1:{port}/final.json"));
+    assert!(response["contentType"].is_null());
     // Plain http:// sends no ClientHello, so no TLS profile metadata is reported.
     assert!(response["tlsProfileId"].is_null());
     assert!(response["tlsJa3ParityTarget"].is_null());

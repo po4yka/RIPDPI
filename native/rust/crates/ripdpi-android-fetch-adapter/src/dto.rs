@@ -34,6 +34,8 @@ pub(crate) struct NativeOwnedTlsHttpResponse {
     pub(crate) body_base64: Option<String>,
     #[serde(rename = "finalUrl")]
     pub(crate) final_url: Option<String>,
+    #[serde(rename = "contentType")]
+    pub(crate) content_type: Option<String>,
     #[serde(rename = "tlsProfileId")]
     pub(crate) tls_profile_id: Option<String>,
     #[serde(rename = "tlsProfileCatalogVersion")]

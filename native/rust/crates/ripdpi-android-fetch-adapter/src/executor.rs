@@ -67,6 +67,11 @@ async fn execute_async(mut request: NativeOwnedTlsHttpRequest) -> io::Result<Nat
             status_code: Some(response.status_code.as_u16()),
             body_base64: Some(base64::engine::general_purpose::STANDARD.encode(response.body)),
             final_url: Some(current_url.into()),
+            content_type: response
+                .headers
+                .get(http::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_owned),
             tls_profile_catalog_version: Some(profile_catalog_version_string()),
             ..NativeOwnedTlsHttpResponse::default()
         };
