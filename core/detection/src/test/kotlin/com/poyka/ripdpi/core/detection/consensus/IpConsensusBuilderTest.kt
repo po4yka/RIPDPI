@@ -131,7 +131,7 @@ class IpConsensusBuilderTest {
     }
 
     @Test
-    fun warpIndicatorTrueWhenCloudflareAsnOnUnderlyingPath() {
+    fun cloudflareAsnDifferenceDoesNotAttestAnUnderlyingRoute() {
         val result =
             IpConsensusBuilder.build(
                 observations =
@@ -148,6 +148,11 @@ class IpConsensusBuilderTest {
 
         assertTrue(result.warpIndicator)
         assertFalse(result.toCategoryResult().detected)
+        val category = result.toCategoryResult()
+        assertTrue(category.findings.any { it.description.contains("default-route") })
+        assertTrue(category.findings.none { it.description.contains("underlying") || it.description.contains("Warp") })
+        assertEquals(EvidenceConfidence.LOW, category.findings.single { it.needsReview }.confidence)
+        assertEquals(EvidenceConfidence.LOW, category.evidence.single().confidence)
         val empty = CategoryResult(name = "empty", detected = false, findings = emptyList())
         val bypass =
             BypassResult(

@@ -126,7 +126,7 @@ object BypassChecker {
             var proxyIp: String? = null
 
             if (proxyEndpoint != null && options.networkRequestsEnabled) {
-                onProgress?.invoke(Progress("IP check", "Fetching direct IP and IP via proxy..."))
+                onProgress?.invoke(Progress("IP check", "Fetching default-route IP and IP via proxy..."))
 
                 val directDeferred =
                     async {
@@ -168,14 +168,14 @@ object BypassChecker {
                 val mtProtoReachable = mtProtoDeferred.await()
                 val stunReflexiveAddresses = listOfNotNull(stunDeferred.await()).distinct()
 
-                findings.add(Finding("Direct IP: ${directIp ?: "failed to fetch"}"))
+                findings.add(Finding("Default-route IP: ${directIp ?: "failed to fetch"}"))
                 findings.add(Finding("IP via proxy: ${proxyIp ?: "failed to fetch"}"))
                 reportProxyTransportProbes(mtProtoReachable, stunReflexiveAddresses, findings)
 
                 if (directIp != null && proxyIp != null && directIp != proxyIp) {
-                    findings.add(Finding("Direct and proxy IPs differ"))
+                    findings.add(Finding("Default-route and proxy IPs differ"))
                 } else if (directIp != null && proxyIp != null) {
-                    findings.add(Finding("Direct and proxy IPs match"))
+                    findings.add(Finding("Default-route and proxy IPs match"))
                 }
 
                 return@coroutineScope BypassResult(

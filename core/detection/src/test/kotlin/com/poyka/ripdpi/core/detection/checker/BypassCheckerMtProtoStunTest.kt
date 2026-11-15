@@ -126,7 +126,7 @@ class BypassCheckerMtProtoStunTest {
             assertFalse(result.detected)
             assertTrue(result.needsReview)
             assertFalse(result.evidence.any { it.source == EvidenceSource.SPLIT_TUNNEL_BYPASS })
-            assertTrue(result.findings.any { it.description == "Direct and proxy IPs differ" })
+            assertTrue(result.findings.any { it.description == "Default-route and proxy IPs differ" })
             val empty = CategoryResult(name = "empty", detected = false, findings = emptyList())
             assertEquals(
                 Verdict.NEEDS_REVIEW,

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -284,6 +285,31 @@ class VerdictEngineTest {
 
         assertEquals(Verdict.DETECTED, explanation.verdict)
         assertEquals("R3", explanation.ruleApplied)
+    }
+
+    @Test
+    fun `partial IP divergence remains review evidence`() {
+        val comparison =
+            IpComparisonResult(
+                category = emptyCategory("IP comparison").copy(status = DetectionCheckStatus.INCONCLUSIVE),
+                endpoints = emptyList(),
+                ruReflectedIps = setOf("1.2.3.4"),
+                nonRuReflectedIps = setOf("5.6.7.8"),
+            )
+
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+                ipComparison = comparison,
+                ipConsensus = crossChannelMismatchConsensus(),
+            )
+
+        assertEquals(Verdict.NEEDS_REVIEW, explanation.verdict)
+        assertEquals(EvidenceConfidence.LOW, explanation.decisionSignals.single().confidence)
     }
 
     @Test

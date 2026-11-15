@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.detection.DecisionSignal
 import com.poyka.ripdpi.core.detection.DecisionSignalCategory
 import com.poyka.ripdpi.core.detection.DecisionSignalSemantics
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -97,11 +98,18 @@ object VerdictEngine {
         }
 
         if (ipConsensus?.crossChannelMismatches?.isNotEmpty() == true) {
+            val complete = ipComparison?.category?.status?.let { it == DetectionCheckStatus.COMPLETE } ?: true
             return explanation(
-                Verdict.DETECTED,
+                if (complete) Verdict.DETECTED else Verdict.NEEDS_REVIEW,
                 "R3",
-                "IP consensus found cross-channel divergence",
-                EvidenceSummary.from(ipConsensusDecisionEvidence()),
+                if (complete) {
+                    "IP consensus found cross-channel divergence"
+                } else {
+                    "Incomplete IP comparison needs review"
+                },
+                EvidenceSummary.from(
+                    ipConsensusDecisionEvidence(if (complete) EvidenceConfidence.HIGH else EvidenceConfidence.LOW),
+                ),
             )
         }
         if (ipConsensus?.channelConflicts?.isNotEmpty() == true || ipConsensus?.warpIndicator == true) {
@@ -109,7 +117,15 @@ object VerdictEngine {
                 Verdict.NEEDS_REVIEW,
                 "R3",
                 "IP consensus observations need review",
-                EvidenceSummary.from(ipConsensusDecisionEvidence()),
+                EvidenceSummary.from(
+                    ipConsensusDecisionEvidence(
+                        if (ipConsensus.channelConflicts.isNotEmpty()) {
+                            EvidenceConfidence.HIGH
+                        } else {
+                            EvidenceConfidence.LOW
+                        },
+                    ),
+                ),
             )
         }
 
@@ -393,12 +409,12 @@ private fun EvidenceItem.logicalSignalKey(): String =
         }
     }
 
-private fun ipConsensusDecisionEvidence(): List<EvidenceItem> =
+private fun ipConsensusDecisionEvidence(confidence: EvidenceConfidence = EvidenceConfidence.HIGH): List<EvidenceItem> =
     listOf(
         EvidenceItem(
             source = EvidenceSource.IP_CONSENSUS,
             detected = true,
-            confidence = EvidenceConfidence.HIGH,
+            confidence = confidence,
             description = "IP consensus decision signal",
         ),
     )

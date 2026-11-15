@@ -307,6 +307,7 @@ data class VerdictExplanation(
 
 data class BypassResult(
     val proxyEndpoint: ProxyEndpoint?,
+    /** IP seen on the default connection path; this does not attest an underlay route. */
     val directIp: String?,
     val proxyIp: String?,
     val xrayApiScanResult: XrayApiScanResult?,

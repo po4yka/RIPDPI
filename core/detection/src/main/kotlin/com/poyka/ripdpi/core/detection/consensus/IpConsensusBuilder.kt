@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.detection.CallTransportResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CdnPullingEndpointStatus
 import com.poyka.ripdpi.core.detection.CdnPullingResult
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -78,6 +79,7 @@ data class IpConsensusResult(
     val channelConflicts: List<ChannelConflict>,
     val crossChannelMismatches: List<CrossChannelMismatch>,
     val foreignIps: List<String>,
+    /** Legacy name for an ASN difference. It does not prove WARP or an underlay route. */
     val warpIndicator: Boolean,
     val asnByIp: Map<String, IpAsnInfo> = emptyMap(),
 ) {
@@ -122,10 +124,10 @@ data class IpConsensusResult(
                 if (warpIndicator) {
                     add(
                         Finding(
-                            description = "Warp-like path indicator: Cloudflare ASN on underlying path",
+                            description = "Cloudflare ASN differs between default-route and proxy observations",
                             needsReview = true,
                             source = EvidenceSource.IP_CONSENSUS,
-                            confidence = EvidenceConfidence.HIGH,
+                            confidence = EvidenceConfidence.LOW,
                         ),
                     )
                 }
@@ -137,8 +139,13 @@ data class IpConsensusResult(
                     EvidenceItem(
                         source = EvidenceSource.IP_CONSENSUS,
                         detected = false,
-                        confidence = EvidenceConfidence.HIGH,
-                        description = "IP consensus found channel divergence or Warp-like path signals",
+                        confidence =
+                            if (channelConflicts.isNotEmpty() || crossChannelMismatches.isNotEmpty()) {
+                                EvidenceConfidence.HIGH
+                            } else {
+                                EvidenceConfidence.LOW
+                            },
+                        description = "IP consensus found channel divergence or an ASN difference",
                     ),
                 )
             } else {
@@ -150,6 +157,7 @@ data class IpConsensusResult(
             findings = findings,
             needsReview = needsReview,
             evidence = evidence,
+            status = if (observedIps.isEmpty()) DetectionCheckStatus.INCONCLUSIVE else DetectionCheckStatus.COMPLETE,
         )
     }
 }

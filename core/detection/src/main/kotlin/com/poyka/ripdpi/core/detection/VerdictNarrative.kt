@@ -95,7 +95,7 @@ object VerdictNarrativeBuilder {
                 add(row("VPN network IP", networkIp, ExposureStatus.PUBLIC_IP_ONLY))
             }
             result.bypassResult.directIp?.let { ip ->
-                add(row("Direct IP", ip, ExposureStatus.PUBLIC_IP_ONLY))
+                add(row("Default-route IP", ip, ExposureStatus.PUBLIC_IP_ONLY))
             }
             result.bypassResult.proxyIp?.let { ip ->
                 add(row("Proxy IP", ip, ExposureStatus.PUBLIC_IP_ONLY))
@@ -139,7 +139,7 @@ object VerdictNarrativeBuilder {
                     add(row("Split tunnel", "Direct and proxied network paths disagree.", exposureStatus))
                 }
                 if (result.bypassResult.directIp != null && result.bypassResult.proxyIp != null) {
-                    add(row("Network paths", "Direct and proxy IP observations were collected.", exposureStatus))
+                    add(row("Network paths", "Default-route and proxy IP observations were collected.", exposureStatus))
                 }
                 if (result.hasEvidence(EvidenceSource.NETWORK_CAPABILITIES)) {
                     add(row("VPN network binding", "Android network capabilities expose VPN routing.", exposureStatus))
