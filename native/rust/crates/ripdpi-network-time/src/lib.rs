@@ -94,6 +94,11 @@ pub trait Clock: Send + Sync + 'static {
     /// Monotonic nanoseconds since an arbitrary, fixed, process-stable epoch.
     /// Must never decrease across calls.
     fn monotonic_nanos(&self) -> u128;
+
+    /// A current tick for a new anchor, if the monotonic source can be read.
+    fn capture_nanos(&self) -> Option<u128> {
+        Some(self.monotonic_nanos())
+    }
 }
 
 /// The device wall clock and a process-stable monotonic source.
@@ -110,8 +115,11 @@ impl Clock for SystemClock {
     }
 
     fn monotonic_nanos(&self) -> u128 {
-        static CLOCK: OnceLock<MonotonicClock> = OnceLock::new();
-        CLOCK.get_or_init(MonotonicClock::new).now()
+        MonotonicClock::system().read().0
+    }
+
+    fn capture_nanos(&self) -> Option<u128> {
+        MonotonicClock::system().read().1
     }
 }
 
@@ -122,6 +130,11 @@ enum MonotonicClock {
 }
 
 impl MonotonicClock {
+    fn system() -> &'static Self {
+        static CLOCK: OnceLock<MonotonicClock> = OnceLock::new();
+        CLOCK.get_or_init(Self::new)
+    }
+
     fn new() -> Self {
         #[cfg(any(target_os = "linux", target_os = "android"))]
         if let Some(initial) = boot_time_nanos() {
@@ -130,11 +143,17 @@ impl MonotonicClock {
         Self::Instant(Instant::now())
     }
 
-    fn now(&self) -> u128 {
+    fn read(&self) -> (u128, Option<u128>) {
         match self {
-            Self::Instant(base) => base.elapsed().as_nanos(),
+            Self::Instant(base) => {
+                let tick = base.elapsed().as_nanos();
+                (tick, Some(tick))
+            }
             #[cfg(any(target_os = "linux", target_os = "android"))]
-            Self::BootTime(previous) => previous.keep_latest(boot_time_nanos()),
+            Self::BootTime(previous) => {
+                let sample = boot_time_nanos();
+                (previous.keep_latest(sample), sample)
+            }
         }
     }
 }
@@ -232,15 +251,17 @@ impl Anchor {
     }
 }
 
-fn sample_wall(clock: &dyn Clock) -> Anchor {
-    let before = clock.monotonic_nanos();
-    let net_unix = clock.wall_unix_secs();
-    let mono_nanos = clock.monotonic_nanos();
-    // Sample again if suspension or scheduling delayed the wall-to-monotonic pair.
-    if mono_nanos.saturating_sub(before) >= 1_000_000_000 {
-        return Anchor { net_unix: clock.wall_unix_secs(), mono_nanos: clock.monotonic_nanos() };
+fn sample_wall(clock: &dyn Clock) -> Option<Anchor> {
+    for _ in 0..2 {
+        let before = clock.capture_nanos()?;
+        let net_unix = clock.wall_unix_secs();
+        let mono_nanos = clock.capture_nanos()?;
+        // A suspend or long deschedule can separate the readings.
+        if mono_nanos.checked_sub(before).is_some_and(|elapsed| elapsed < 1_000_000_000) {
+            return Some(Anchor { net_unix, mono_nanos });
+        }
     }
-    Anchor { net_unix, mono_nanos }
+    None
 }
 
 /// Rejected observations that agree with the first one, from distinct sources.
@@ -351,12 +372,13 @@ impl NetworkTimeProvider {
         }
     }
 
-    /// Pin one timeline for a session that uses elapsed time and timestamp freshness together.
+    /// Pin one timeline for timestamp freshness and replay age. Returns `None`
+    /// if an uncalibrated clock cannot pair the wall time with a current tick.
     #[must_use]
-    pub fn snapshot(&self) -> NetworkTimeSnapshot {
+    pub fn snapshot(&self) -> Option<NetworkTimeSnapshot> {
         let guard = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        let anchor = guard.anchor.unwrap_or_else(|| sample_wall(self.clock.as_ref()));
-        NetworkTimeSnapshot { clock: Arc::clone(&self.clock), anchor }
+        let anchor = guard.anchor.or_else(|| sample_wall(self.clock.as_ref()))?;
+        Some(NetworkTimeSnapshot { clock: Arc::clone(&self.clock), anchor })
     }
 
     /// Network time as Unix seconds, clamped to a non-negative `u64` (the shape
@@ -392,7 +414,7 @@ impl NetworkTimeProvider {
         if !(MIN_PLAUSIBLE_UNIX_SECS..=MAX_PLAUSIBLE_UNIX_SECS).contains(&observed_network_unix) {
             return false;
         }
-        let mono = self.clock.monotonic_nanos();
+        let Some(mono) = self.clock.capture_nanos() else { return false };
         let observation = Anchor { net_unix: observed_network_unix, mono_nanos: mono };
         let mut guard = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         // Compute the current estimate under the same lock (calling `now_unix`
@@ -646,7 +668,7 @@ mod tests {
         let wall = T0 + 1_000;
         let clock = std::sync::Arc::new(TestClock::new(wall));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        let snapshot = provider.snapshot();
+        let snapshot = provider.snapshot().expect("current tick");
 
         clock.advance_secs(15);
         clock.set_wall(wall - 20);
@@ -702,6 +724,30 @@ mod tests {
         assert!(!provider.is_calibrated());
         assert!(provider.calibrate(T0, coarse));
         assert_eq!(provider.now_unix(), T0);
+    }
+
+    #[test]
+    fn a_frozen_tick_cannot_start_a_fresh_timeline() {
+        struct FrozenClock;
+        impl Clock for FrozenClock {
+            fn wall_unix_secs(&self) -> i64 {
+                T0 + 1_000
+            }
+
+            fn monotonic_nanos(&self) -> u128 {
+                42
+            }
+
+            fn capture_nanos(&self) -> Option<u128> {
+                None
+            }
+        }
+
+        let time = NetworkTimeProvider::with_clock(Box::new(FrozenClock));
+        assert_eq!(time.now_unix(), T0 + 1_000);
+        assert!(time.snapshot().is_none());
+        assert!(!time.calibrate(T0 + 1_000, source("relay")));
+        assert!(!time.is_calibrated());
     }
 
     #[test]

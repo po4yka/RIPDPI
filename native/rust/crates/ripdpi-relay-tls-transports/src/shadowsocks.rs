@@ -221,7 +221,10 @@ impl RelaySession for ShadowsocksSession {
         let socket = bind_udp(config.outbound_bind_ip, server_addr, config.socket_protection)?;
         socket.connect(server_addr).await?;
         // Keep packet freshness and replay-window retirement on the same stable timeline.
-        let clock = config.time.snapshot();
+        let clock = config
+            .time
+            .snapshot()
+            .ok_or_else(|| io::Error::other("cannot capture a current clock for Shadowsocks UDP"))?;
         let context = config.context.with_timestamp_provider(Arc::new(move || clock.now_unix_u64()));
         let socket = ProxySocket::from_socket(
             UdpSocketType::Client,
