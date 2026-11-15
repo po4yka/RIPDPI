@@ -45,7 +45,7 @@ pub enum MieruError {
     /// metadata). The inner string describes the violation, never payload bytes.
     #[error("Mieru protocol error: {0}")]
     Protocol(String),
-    /// The server sent no authenticated segment before the carrier closed,
+    /// The server sent no valid SOCKS5 reply before the carrier closed,
     /// failed, or timed out. Upstream drops a client with a wrong
     /// username/password or a clock more than about a minute off without any
     /// reply, so all of these look the same on the wire.

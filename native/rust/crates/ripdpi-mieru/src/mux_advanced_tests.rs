@@ -25,13 +25,13 @@ async fn no_wait_payload_case(reply_case: u8) {
     let config = config();
     let key = cipher::derive_key(config.password.as_bytes(), config.username.as_bytes(), NOW, 0);
     let (client, server) = tokio::io::duplex(65536);
-    let connection = MieruMuxConnection::connect_over(client, &config, Arc::new(NetworkTimeProvider::fixed(NOW)))
-        .await
-        .expect("carrier");
+    let time = Arc::new(NetworkTimeProvider::fixed(NOW));
+    let connection = MieruMuxConnection::connect_over(client, &config, Arc::clone(&time)).await.expect("carrier");
     let mut stream = timeout(Duration::from_secs(1), connection.open_stream("target.invalid:443"))
         .await
         .expect("no_wait returns without a server reply")
         .expect("stream");
+    assert!(!time.is_calibrated());
     stream.write_all(b"early payload").await.expect("queue early payload");
     let peer = tokio::spawn(async move {
         let (mut read, mut write) = tokio::io::split(server);
@@ -88,10 +88,31 @@ async fn no_wait_payload_case(reply_case: u8) {
             .expect("payload");
         assert_eq!(&received, b"early payload");
     }
+    assert_eq!(time.is_calibrated(), reply_case == 0);
     stream.close().await.expect("stream close");
     connection.close().await.expect("carrier close");
     timeout(Duration::from_secs(1), peer).await.expect("peer close").expect("peer task");
     assert!(connection.table.lock().expect("table").is_empty());
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: cancellation can consume part of the reply in the fixture.
+#[tokio::test]
+async fn buffered_success_after_registration_removal_does_not_calibrate() {
+    let time = Arc::new(NetworkTimeProvider::fixed(NOW));
+    let reply_clock = ReplyClock {
+        time: Arc::clone(&time),
+        source: config().time_source(),
+        authenticated: AtomicBool::new(false),
+        calibrated: AtomicBool::new(false),
+    };
+    let (tx, rx) = mpsc::channel(1);
+    let table: DemuxTable = Arc::default();
+    let mut reader = MuxReader::new(rx, Arc::default(), Arc::default());
+    assert!(tx.try_send(InboundChunk { bytes: vec![5, 0, 0, 1, 0, 0, 0, 0, 0, 0], timestamp: NOW }).is_ok());
+    reply_clock.receive_reply(&mut reader, &table, 1).await.expect("parse response");
+    assert!(!time.is_calibrated());
+    assert!(!reply_clock.authenticated.load(Ordering::Acquire));
 }
 
 /// # Cancel safety:

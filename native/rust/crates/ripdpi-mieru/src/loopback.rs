@@ -113,7 +113,7 @@ async fn client_round_trips_one_mib_through_spec_faithful_loopback() {
     let server = tokio::spawn(run_server(server_side, key, USERNAME.as_bytes().to_vec()));
 
     // A device-clock-independent provider pinned to NOW for the handshake; the
-    // reader calibrates this same instance from the server's segments.
+    // reader calibrates this same instance after the server's SOCKS5 reply.
     let time = Arc::new(NetworkTimeProvider::fixed(NOW));
     let probe = Arc::clone(&time);
 
@@ -134,9 +134,8 @@ async fn client_round_trips_one_mib_through_spec_faithful_loopback() {
     };
     tokio::join!(write, read);
 
-    // The session must have calibrated the shared replay clock from the server's
-    // (authenticated) segment timestamps — within the ±60 s minute-granularity.
-    assert!(probe.is_calibrated(), "reader must calibrate the network-time provider from server segments");
+    // A validated SOCKS5 reply carries the server's authenticated timestamp.
+    assert!(probe.is_calibrated(), "a successful SOCKS5 reply must calibrate the network-time provider");
     assert!((probe.now_unix() - NOW).abs() <= 60, "calibrated network time must track the server's wire timestamp");
 
     drop(server); // server task ends on client EOF

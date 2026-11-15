@@ -41,6 +41,9 @@ use crate::segment::{Decryptor, Encryptor};
 use crate::session::{encode_socks5_address, split_host_port};
 use crate::stream::end_inbound;
 
+#[path = "mux_reply.rs"]
+mod reply;
+
 /// In-process duplex bridging the caller to a sub-session's pumps.
 const BRIDGE_BUF: usize = 64 * 1024;
 /// Pump copy buffer (one application chunk; `<= MAX_PDU`).
@@ -83,7 +86,7 @@ impl Progress {
 
 /// One sub-session's route in the demux table.
 struct Mailbox {
-    tx: mpsc::Sender<Vec<u8>>,
+    tx: mpsc::Sender<InboundChunk>,
     /// When the consumer last took a chunk, or the mailbox last went from empty
     /// to holding data. The carrier reader closes a stream only when this is
     /// older than the stall limit.
@@ -91,6 +94,11 @@ struct Mailbox {
     /// Set when the server closed the session, before the route is removed,
     /// so the reader can tell a clean close from a dropped route.
     closed_by_server: Arc<AtomicBool>,
+}
+
+struct InboundChunk {
+    bytes: Vec<u8>,
+    timestamp: i64,
 }
 
 /// The single serialized outbound half of the carrier: one AEAD encryptor and
@@ -282,10 +290,10 @@ fn next(seq: &mut u32) -> u32 {
 /// Inbound side of one sub-session: an mpsc mailbox of decrypted fragments
 /// fed by the carrier reader task, with a leftover buffer for partial reads.
 struct MuxReader {
-    rx: mpsc::Receiver<Vec<u8>>,
+    rx: mpsc::Receiver<InboundChunk>,
     progress: Arc<Progress>,
     closed_by_server: Arc<AtomicBool>,
-    leftover: Vec<u8>,
+    leftover: InboundChunk,
     pos: usize,
 }
 
@@ -315,8 +323,8 @@ impl Drop for SessionRegistration {
 }
 
 impl MuxReader {
-    fn new(rx: mpsc::Receiver<Vec<u8>>, progress: Arc<Progress>, closed_by_server: Arc<AtomicBool>) -> Self {
-        Self { rx, progress, closed_by_server, leftover: Vec::new(), pos: 0 }
+    fn new(rx: mpsc::Receiver<InboundChunk>, progress: Arc<Progress>, closed_by_server: Arc<AtomicBool>) -> Self {
+        Self { rx, progress, closed_by_server, leftover: InboundChunk { bytes: Vec::new(), timestamp: 0 }, pos: 0 }
     }
 
     /// Whether a closed mailbox was closed by the server's close segment.
@@ -327,8 +335,10 @@ impl MuxReader {
 
     /// Read up to `out.len()` bytes; returns bytes read (0 = the carrier closed
     /// this sub-session's mailbox).
+    /// # Cancel safety:
+    /// cancel-safe: receiving from the mailbox is the only suspension point.
     async fn read(&mut self, out: &mut [u8]) -> usize {
-        while self.pos >= self.leftover.len() {
+        while self.pos >= self.leftover.bytes.len() {
             match self.rx.recv().await {
                 Some(chunk) => {
                     self.progress.touch();
@@ -338,19 +348,21 @@ impl MuxReader {
                 None => return 0,
             }
         }
-        let available = &self.leftover[self.pos..];
+        let available = &self.leftover.bytes[self.pos..];
         let n = available.len().min(out.len());
         out[..n].copy_from_slice(&available[..n]);
         self.pos += n;
         n
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: earlier reads may already have consumed bytes from the mailbox.
     async fn read_exact(&mut self, out: &mut [u8]) -> Result<()> {
         let mut filled = 0;
         while filled < out.len() {
             let n = self.read(&mut out[filled..]).await;
             if n == 0 {
-                return Err(MieruError::Socks5("unexpected EOF during SOCKS5 negotiation".to_owned()));
+                return Err(MieruError::Protocol("unexpected EOF during SOCKS5 negotiation".to_owned()));
             }
             filled += n;
         }
@@ -365,11 +377,18 @@ pub struct MieruMuxConnection {
     writer: MuxWriteQueue,
     table: DemuxTable,
     limit: Arc<Semaphore>,
-    authenticated: Arc<AtomicBool>,
+    reply_clock: Arc<ReplyClock>,
     rng: SystemRandom,
     carrier: Arc<OwnedTasks>,
     streams: StdMutex<StreamTasks>,
     handshake_no_wait: bool,
+}
+
+struct ReplyClock {
+    time: Arc<NetworkTimeProvider>,
+    source: TimeSource,
+    authenticated: AtomicBool,
+    calibrated: AtomicBool,
 }
 
 #[derive(Default)]
@@ -387,9 +406,8 @@ impl Drop for MieruMuxConnection {
 impl MieruMuxConnection {
     /// Establish a multiplexed Mieru carrier over an already-connected, protected
     /// transport. One AEAD direction is shared by all sub-sessions; a background
-    /// task reads and demultiplexes inbound segments. `time` is the shared
-    /// network-time source (never the device clock); it is calibrated once from
-    /// the server's first authenticated segment.
+    /// task reads and demultiplexes inbound segments. The clock can be calibrated
+    /// once per carrier after a successful SOCKS reply on a live request.
     /// # Cancel safety:
     /// cancel-safe: there is no await; both spawned tasks belong to the returned
     /// carrier before this future can yield.
@@ -427,15 +445,19 @@ impl MieruMuxConnection {
             Arc::clone(&table),
         );
         let limit = Arc::new(Semaphore::new(config.multiplexing.max_concurrent_streams()));
-        let authenticated = Arc::new(AtomicBool::new(false));
+        let reply_clock = Arc::new(ReplyClock {
+            time: Arc::clone(&time),
+            source: config.time_source(),
+            authenticated: AtomicBool::new(false),
+            calibrated: AtomicBool::new(false),
+        });
         let reader_task = run_reader(
             dec,
             Box::new(read_half),
             Arc::clone(&table),
             time,
-            config.time_source(),
             Arc::clone(&limit),
-            ReaderLink { timeout: stall, closer: writer_tx.clone(), authenticated: Arc::clone(&authenticated) },
+            ReaderLink { timeout: stall, closer: writer_tx.clone() },
         );
         // Carrier tasks do not retain the queue, so this shared owner has no cycle.
         let carrier = Arc::new(OwnedTasks::spawn(reader_task, writer_task));
@@ -449,7 +471,7 @@ impl MieruMuxConnection {
             writer,
             table,
             limit,
-            authenticated,
+            reply_clock,
             rng: SystemRandom::new(),
             carrier,
             streams: StdMutex::new(StreamTasks::default()),
@@ -469,10 +491,12 @@ impl MieruMuxConnection {
         // A bad target is the caller's error whatever the server does.
         let request = socks5_connect_request(target)?;
         match self.open_stream_inner(&request).await {
-            // Ordering: see `run_reader`. A server that never answered with an
-            // authenticated segment is far likelier to be rejecting the
-            // credentials or clock than to be broken in a way the raw error shows.
-            Err(_) if !self.authenticated.load(Ordering::Acquire) => Err(MieruError::NoAuthenticatedResponse),
+            // Report a validated refusal even when the peer immediately
+            // closed its logical session.
+            Err(error @ MieruError::Socks5(_)) => Err(error),
+            Err(_) if !self.reply_clock.authenticated.load(Ordering::Acquire) => {
+                Err(MieruError::NoAuthenticatedResponse)
+            }
             result => result,
         }
     }
@@ -486,7 +510,7 @@ impl MieruMuxConnection {
             .await
             .map_err(|_| MieruError::Protocol("mux carrier closed".to_owned()))?;
 
-        let (tx, rx) = mpsc::channel::<Vec<u8>>(MAILBOX_DEPTH);
+        let (tx, rx) = mpsc::channel(MAILBOX_DEPTH);
         let closed_by_server = Arc::new(AtomicBool::new(false));
         let progress = Arc::new(Progress::default());
         let session_id = self.register_session(Mailbox {
@@ -502,7 +526,11 @@ impl MieruMuxConnection {
         let handshake = match timeout(HANDSHAKE_TIMEOUT, async {
             self.writer.send_open(session_id).await?;
             self.writer.send_data(session_id, request).await?;
-            if self.handshake_no_wait { Ok(()) } else { mux_socks5_response(&mut reader).await }
+            if self.handshake_no_wait {
+                Ok(())
+            } else {
+                self.reply_clock.receive_reply(&mut reader, &self.table, session_id).await
+            }
         })
         .await
         {
@@ -559,10 +587,14 @@ impl MieruMuxConnection {
         let table_in = Arc::clone(&self.table);
         let pump_failed = Arc::clone(&inbound_failed);
         let pending_reply = self.handshake_no_wait;
+        let reply_clock = Arc::clone(&self.reply_clock);
         let writer_in = self.writer.clone();
         let inbound = async move {
             if pending_reply
-                && !matches!(timeout(HANDSHAKE_TIMEOUT, mux_socks5_response(&mut reader)).await, Ok(Ok(())))
+                && !matches!(
+                    timeout(HANDSHAKE_TIMEOUT, reply_clock.receive_reply(&mut reader, &table_in, session_id)).await,
+                    Ok(Ok(()))
+                )
             {
                 // Ordering: release publishes refusal/timeout before caller I/O observes shutdown.
                 pump_failed.store(true, Ordering::Release);
@@ -659,14 +691,10 @@ fn deregister(table: &DemuxTable, session_id: u32) {
     table.lock().unwrap_or_else(PoisonError::into_inner).remove(&session_id);
 }
 
-/// What the carrier reader shares with the rest of the carrier: the stall
-/// policy for a stream whose consumer stops reading, the queue that tells the
-/// server a stream is closed, and whether any authenticated segment arrived.
+/// The stream stall policy and the queue for peer close notifications.
 struct ReaderLink {
     timeout: Duration,
     closer: mpsc::Sender<WriterCommand>,
-    /// Set once a server segment passes AEAD verification.
-    authenticated: Arc<AtomicBool>,
 }
 
 impl ReaderLink {
@@ -695,29 +723,15 @@ async fn run_reader(
     mut reader: Box<dyn AsyncRead + Unpin + Send>,
     table: DemuxTable,
     time: Arc<NetworkTimeProvider>,
-    time_source: TimeSource,
     limit: Arc<Semaphore>,
     stall: ReaderLink,
 ) {
-    let mut calibrated = false;
     loop {
         let Ok((meta, payload)) = dec.read_segment(&mut reader).await else { break };
         // Upstream rejects metadata whose minute is off by more than one; this
-        // runs before calibration, which only refines the clock after a segment
-        // the server could legitimately have sent. A segment rejected here does
-        // not count as an authenticated response, so a clock-skewed first reply
-        // reaches the caller as `NoAuthenticatedResponse`, which names the clock.
+        // check also runs before a SOCKS reply can contribute its timestamp.
         if !timestamp_in_window(&meta, time.now_unix()) {
             break;
-        }
-        // Ordering: Release pairs with the Acquire load in `open_stream`.
-        stall.authenticated.store(true, Ordering::Release);
-        // Calibrate the shared replay clock once from the server's first
-        // (AEAD-verified) timestamp; minute granularity makes per-segment
-        // re-anchoring jitter backwards, so do it a single time.
-        if !calibrated {
-            time.calibrate(timestamp_estimate_unix(&meta), time_source);
-            calibrated = true;
         }
         let session_id = session_id_of(&meta);
         let Ok(protocol) = ProtocolType::from_u8(meta[0]) else { continue };
@@ -754,7 +768,7 @@ async fn run_reader(
                         let deadline = progress.last() + stall.timeout;
                         match tokio::time::timeout_at(deadline, sender.reserve()).await {
                             Ok(Ok(permit)) => {
-                                permit.send(data);
+                                permit.send(InboundChunk { bytes: data, timestamp: timestamp_estimate_unix(&meta) });
                                 break true;
                             }
                             // The consumer is gone; its registration cleans up.
@@ -807,36 +821,6 @@ fn socks5_connect_request(target: &str) -> Result<Vec<u8>> {
     let mut request = vec![0x05, 0x01, 0x00];
     encode_socks5_address(&mut request, host, port)?;
     Ok(request)
-}
-
-/// Consume the SOCKS5 reply before exposing any application data.
-/// # Cancel safety:
-/// NOT cancel-safe: a partial reply is consumed. The logical stream owner closes and removes the session on failure.
-async fn mux_socks5_response(reader: &mut MuxReader) -> Result<()> {
-    let mut head = [0u8; 4];
-    reader.read_exact(&mut head).await?;
-    if head[0] != 0x05 {
-        return Err(MieruError::Socks5(format!("bad SOCKS5 reply version {}", head[0])));
-    }
-    if head[2] != 0 {
-        return Err(MieruError::Socks5("nonzero SOCKS5 reply reserved byte".into()));
-    }
-    if head[1] != 0x00 {
-        return Err(MieruError::Socks5(format!("SOCKS5 CONNECT failed, reply code {}", head[1])));
-    }
-    let addr_len = match head[3] {
-        0x01 => 4,
-        0x04 => 16,
-        0x03 => {
-            let mut len = [0u8; 1];
-            reader.read_exact(&mut len).await?;
-            usize::from(len[0])
-        }
-        other => return Err(MieruError::Socks5(format!("unknown SOCKS5 reply atyp {other}"))),
-    };
-    let mut rest = vec![0u8; addr_len + 2];
-    reader.read_exact(&mut rest).await?;
-    Ok(())
 }
 
 #[cfg(test)]
@@ -1098,9 +1082,8 @@ mod tests {
             Box::new(reader_side),
             Arc::clone(&table),
             Arc::new(NetworkTimeProvider::fixed(NOW)),
-            ripdpi_network_time::TimeSource::new("mieru", "fixture", 1, 30),
             Arc::new(Semaphore::new(1)),
-            ReaderLink { timeout: Duration::from_millis(50), closer, authenticated: Arc::default() },
+            ReaderLink { timeout: Duration::from_millis(50), closer },
         ));
         let mut enc = Encryptor::new(key, USERNAME.as_bytes().to_vec());
         let mut seqs = HashMap::new();
@@ -1117,7 +1100,7 @@ mod tests {
         let close = closed.try_recv().expect("the server is told the stalled session is closed");
         assert_eq!(close.session_id, slow_id);
         assert!(matches!(close.kind, WriterCommandKind::Close));
-        assert_eq!(fast, b"fast");
+        assert_eq!(fast.bytes, b"fast");
         assert!(!table.lock().expect("demux table").contains_key(&slow_id), "saturated stream must be isolated");
 
         drop(writer_side);
@@ -1594,6 +1577,23 @@ mod tests {
         assert!(matches!(result, Ok(Err(MieruError::NoAuthenticatedResponse))), "got {result:?}");
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test owns both sides of the carrier and closes them on completion.
+    #[tokio::test]
+    async fn passive_refusal_keeps_socks_error_and_leaves_clock_uncalibrated() {
+        let (conn, mut server) = scripted_carrier().await;
+        let peer = async {
+            let (protocol, session_id) = server.next_client_segment().await;
+            assert_eq!(protocol, ProtocolType::OpenSessionRequest);
+            assert_eq!(server.next_client_segment().await, (ProtocolType::DataClientToServer, session_id));
+            server.data(session_id, &[5, 5, 0, 1, 0, 0, 0, 0, 0, 0]).await;
+        };
+        let (result, ()) = tokio::join!(conn.open_stream("refused.example:443"), peer);
+        assert!(matches!(result, Err(MieruError::Socks5(_))));
+        assert!(!conn.reply_clock.time.is_calibrated());
+        conn.close().await.expect("carrier close");
+    }
+
     /// Once the server has answered, a later failure is a real failure.
     #[tokio::test]
     async fn failure_after_an_authenticated_reply_keeps_its_own_error() {
@@ -1700,9 +1700,8 @@ mod tests {
             Box::new(reader_side),
             Arc::clone(&table),
             Arc::new(NetworkTimeProvider::fixed(NOW)),
-            ripdpi_network_time::TimeSource::new("mieru", "fixture", 1, 30),
             Arc::new(Semaphore::new(1)),
-            ReaderLink { timeout: Duration::from_millis(250), closer, authenticated: Arc::default() },
+            ReaderLink { timeout: Duration::from_millis(250), closer },
         ));
         // One segment per 400 ms: every gap is longer than the 250 ms limit.
         let progress = Arc::clone(&table.lock().expect("demux table").get(&slow_id).expect("slow route").progress);
@@ -1723,7 +1722,7 @@ mod tests {
             .await
             .expect("other streams resume once the stalled consumer is closed")
             .expect("fast mailbox remains open");
-        assert_eq!(fast, b"fast");
+        assert_eq!(fast.bytes, b"fast");
         assert!(!table.lock().expect("demux table").contains_key(&slow_id));
 
         drop(writer_side);
@@ -1766,9 +1765,8 @@ mod tests {
             Box::new(reader_side),
             Arc::clone(&table),
             Arc::new(NetworkTimeProvider::fixed(NOW)),
-            ripdpi_network_time::TimeSource::new("mieru", "fixture", 1, 30),
             Arc::new(Semaphore::new(1)),
-            ReaderLink { timeout: Duration::from_millis(100), closer, authenticated: Arc::default() },
+            ReaderLink { timeout: Duration::from_millis(100), closer },
         ));
         let total = MAILBOX_DEPTH + 300;
         let consumer = tokio::spawn(async move {
