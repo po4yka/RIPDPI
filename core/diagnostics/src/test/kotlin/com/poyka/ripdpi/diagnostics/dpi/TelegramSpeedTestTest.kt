@@ -4,9 +4,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Test
+import java.net.ConnectException
+import java.net.SocketTimeoutException
 
 class TelegramSpeedTestTest {
     @Test
@@ -63,6 +67,22 @@ class TelegramSpeedTestTest {
         }
 
     @Test
+    fun dcConnectRunsOutsideTheCallerThread() =
+        runBlocking {
+            val caller = Thread.currentThread()
+            val pinger =
+                TelegramDcPinger(
+                    socketConnector =
+                        FakeDcConnector { _, _, _ ->
+                            assertNotSame(caller, Thread.currentThread())
+                            42
+                        },
+                )
+
+            assertEquals(5, pinger.pingAll().count(DcReachability::reachable))
+        }
+
+    @Test
     fun dcPingAllFiveReachableReturnsFiveOfFive() =
         runTest {
             val test = telegramTest(dcConnector = FakeDcConnector { _, _, _ -> 42 })
@@ -74,19 +94,21 @@ class TelegramSpeedTestTest {
         }
 
     @Test
-    fun dcPingDc2OnlyBlockedReturnsFourOfFive() =
+    fun dcTimeoutPreservesOtherEndpointsAndItsOwnError() =
         runTest {
             val test =
                 telegramTest(
                     dcConnector =
                         FakeDcConnector { ip, _, _ ->
-                            if (ip == "149.154.167.51") null else 42
+                            if (ip == "149.154.167.51") throw SocketTimeoutException()
+                            42
                         },
                 )
 
             val result = test.run()
 
             assertEquals(4, result.dcResults.count { dc -> dc.reachable })
+            assertEquals(TelegramDcFailure.TIMEOUT, result.dcResults.single { it.label == "DC2" }.failure)
         }
 
     @Test
@@ -177,7 +199,7 @@ class TelegramSpeedTestTest {
         TelegramSpeedTest(
             downloadClient = TelegramTransferClient { download },
             uploadClient = TelegramTransferClient { upload },
-            dcPinger = TelegramDcPinger(socketConnector = dcConnector, clockMs = clock::current),
+            dcPinger = TelegramDcPinger(socketConnector = dcConnector),
             clockMs = clock::current,
         )
 
@@ -200,10 +222,10 @@ class TelegramSpeedTestTest {
     private class FakeDcConnector(
         private val handler: (String, Int, Int) -> Long?,
     ) : TelegramDcSocketConnector {
-        override fun connect(
+        override suspend fun connect(
             ip: String,
             port: Int,
             timeoutMs: Int,
-        ): Long? = handler(ip, port, timeoutMs)
+        ): Long = handler(ip, port, timeoutMs) ?: throw ConnectException()
     }
 }

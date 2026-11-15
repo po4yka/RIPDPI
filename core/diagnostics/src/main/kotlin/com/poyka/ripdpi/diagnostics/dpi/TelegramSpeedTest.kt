@@ -18,8 +18,6 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okio.BufferedSink
 import java.io.IOException
-import java.net.InetSocketAddress
-import java.net.Socket
 import java.util.concurrent.TimeUnit
 
 enum class TelegramTestVerdict {
@@ -45,13 +43,6 @@ data class ProbeStats(
     val avgBps: Long,
     val peakBps: Long,
     val dropAtSec: Int? = null,
-)
-
-data class DcReachability(
-    val label: String,
-    val ip: String,
-    val reachable: Boolean,
-    val rttMs: Long?,
 )
 
 data class TelegramTestResult(
@@ -297,70 +288,8 @@ private fun DcReachability.toDetailValue(): String =
     if (reachable) {
         "$label:ok:${rttMs ?: 0}ms"
     } else {
-        "$label:fail"
+        "$label:fail:${failure?.name?.lowercase() ?: "unknown"}"
     }
-
-class TelegramDcPinger(
-    private val socketConnector: TelegramDcSocketConnector = RealTelegramDcSocketConnector(),
-    private val clockMs: () -> Long = System::currentTimeMillis,
-) {
-    fun pingAll(): List<DcReachability> =
-        TelegramDcEndpoints.map { endpoint ->
-            val start = clockMs()
-            val rtt =
-                runCatching {
-                    socketConnector.connect(endpoint.ip, TelegramDcPort, DcPingTimeoutMs)
-                }.getOrNull()
-            DcReachability(
-                label = endpoint.label,
-                ip = endpoint.ip,
-                reachable = rtt != null,
-                rttMs = rtt ?: (clockMs() - start).takeIf { false },
-            )
-        }
-
-    private data class TelegramDcEndpoint(
-        val label: String,
-        val ip: String,
-    )
-
-    companion object {
-        private const val TelegramDcPort = 443
-        private const val DcPingTimeoutMs = 5_000
-        private val TelegramDcEndpoints =
-            listOf(
-                TelegramDcEndpoint("DC1", "149.154.175.53"),
-                TelegramDcEndpoint("DC2", "149.154.167.51"),
-                TelegramDcEndpoint("DC3", "149.154.175.100"),
-                TelegramDcEndpoint("DC4", "149.154.167.91"),
-                TelegramDcEndpoint("DC5", "91.108.56.130"),
-            )
-    }
-}
-
-fun interface TelegramDcSocketConnector {
-    fun connect(
-        ip: String,
-        port: Int,
-        timeoutMs: Int,
-    ): Long?
-}
-
-private class RealTelegramDcSocketConnector(
-    private val clockMs: () -> Long = System::currentTimeMillis,
-) : TelegramDcSocketConnector {
-    override fun connect(
-        ip: String,
-        port: Int,
-        timeoutMs: Int,
-    ): Long? {
-        val start = clockMs()
-        Socket().use { socket ->
-            socket.connect(InetSocketAddress(ip, port), timeoutMs)
-        }
-        return clockMs() - start
-    }
-}
 
 class OkHttpTelegramDownloadClient(
     private val client: OkHttpClient = defaultClient(),
