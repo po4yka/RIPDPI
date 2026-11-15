@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod geosite_regex;
 mod mapped_file;
 
 // prost-build emits enum name helpers with a borrowed receiver.
@@ -17,7 +18,7 @@ use arc_swap::ArcSwap;
 use maxminddb::{Reader, geoip2};
 use memmap2::Mmap;
 use prost::Message;
-use regex::{Regex, RegexBuilder};
+use regex::Regex;
 use thiserror::Error;
 
 pub use crate::mapped_file::MappedFileError;
@@ -261,6 +262,8 @@ pub enum GeoRuntimeError {
     GeoipParse { path: PathBuf, source: maxminddb::MaxMindDbError },
     #[error("failed to parse geosite database {path}: {source}")]
     GeositeParse { path: PathBuf, source: GeositeParseError },
+    #[error("failed to compile geosite expression {rule_index} in {category} from {path}: {source}")]
+    GeositeRegex { path: PathBuf, category: String, rule_index: usize, source: regex::Error },
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -315,17 +318,25 @@ fn load_geosite(
     let mapping = read_snapshot(path).map_err(|source| GeoRuntimeError::Map { path: path.to_path_buf(), source })?;
     let categories = parse_geosite_catalog(&mapping)
         .map_err(|source| GeoRuntimeError::GeositeParse { path: path.to_path_buf(), source })?;
-    let regexes = categories
-        .iter()
-        .filter_map(|(category, rules)| {
-            let compiled = rules
-                .iter()
-                .filter(|rule| rule.kind == GeositeDomainKind::Regex)
-                .filter_map(|rule| RegexBuilder::new(&rule.value).case_insensitive(true).build().ok())
-                .collect::<Vec<_>>();
-            (!compiled.is_empty()).then(|| (category.clone(), compiled))
-        })
-        .collect();
+    let mut regexes = HashMap::new();
+    for (category, rules) in &categories {
+        let compiled = rules
+            .iter()
+            .enumerate()
+            .filter(|(_, rule)| rule.kind == GeositeDomainKind::Regex)
+            .map(|(rule_index, rule)| {
+                geosite_regex::compile(&rule.value).map_err(|source| GeoRuntimeError::GeositeRegex {
+                    path: path.to_path_buf(),
+                    category: category.clone(),
+                    rule_index,
+                    source,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if !compiled.is_empty() {
+            regexes.insert(category.clone(), compiled);
+        }
+    }
     let version = mapped_version(path, mapping.len());
     Ok(Some(GeositeDatabase { version, categories, regexes }))
 }
@@ -452,6 +463,8 @@ mod protobuf_tests;
 
 #[cfg(test)]
 mod tests {
+    mod regex_tests;
+
     use std::fs;
     use std::net::IpAddr;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -506,10 +519,7 @@ mod tests {
         let dir = temp_dir();
         fs::write(
             dir.join("geosite.db"),
-            geosite_catalog(
-                "test",
-                &[domain(1, r"^([a-z0-9-]+\.)?example\.com$"), domain(1, "("), domain(3, "exact.test")],
-            ),
+            geosite_catalog("test", &[domain(1, r"^([a-z0-9-]+\.)?example\.com$"), domain(3, "exact.test")]),
         )
         .expect("write geosite fixture");
 
