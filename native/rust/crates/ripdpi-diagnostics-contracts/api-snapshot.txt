@@ -1082,6 +1082,8 @@ pub const ripdpi_diagnostics_contracts::util::DEFAULT_DOH_HOST: &str
 pub const ripdpi_diagnostics_contracts::util::DEFAULT_DOH_JSON_RESOLVERS: &[(&str, &str, &str)]
 pub const ripdpi_diagnostics_contracts::util::DEFAULT_DOH_PORT: u16
 pub const ripdpi_diagnostics_contracts::util::DEFAULT_DOH_URL: &str
+pub const ripdpi_diagnostics_contracts::util::FAT_HEADER_MAX_ALTERNATES: usize
+pub const ripdpi_diagnostics_contracts::util::FAT_HEADER_MAX_REQUESTS: usize
 pub const ripdpi_diagnostics_contracts::util::FAT_HEADER_REQUESTS: usize
 pub const ripdpi_diagnostics_contracts::util::FAT_HEADER_THRESHOLD_BYTES: usize
 pub const ripdpi_diagnostics_contracts::util::HTTP_FAKE_PROFILE_CLOUDFLARE_GET: &str
@@ -1121,6 +1123,7 @@ pub fn ripdpi_diagnostics_contracts::util::ip_set(&[alloc::string::String]) -> a
 pub fn ripdpi_diagnostics_contracts::util::ipv4_prefix_24(&str) -> core::option::Option<[u8; 3]>
 pub fn ripdpi_diagnostics_contracts::util::ipv6_prefix_48(&str) -> core::option::Option<[u16; 3]>
 pub fn ripdpi_diagnostics_contracts::util::is_suspected_dns_tampering_outcome(&str) -> bool
+pub fn ripdpi_diagnostics_contracts::util::is_valid_fat_header_authority(&str) -> bool
 pub fn ripdpi_diagnostics_contracts::util::late_stage_cutoff(usize, usize) -> bool
 pub fn ripdpi_diagnostics_contracts::util::looks_like_sinkhole(&str) -> bool
 pub fn ripdpi_diagnostics_contracts::util::now_ms() -> u64
