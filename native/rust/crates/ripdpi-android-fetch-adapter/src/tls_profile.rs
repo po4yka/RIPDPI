@@ -1,3 +1,5 @@
+mod tls_transport;
+
 use std::io;
 use std::time::Duration;
 
@@ -7,20 +9,24 @@ use tokio::time::timeout;
 
 use crate::dto::NativeOwnedTlsHttpResponse;
 
+pub(crate) use tls_transport::TlsTransport;
+
 const HTTP11_ALPN: &[u8] = b"\x08http/1.1";
 
+/// # Cancel safety:
+/// cancel-safe: dropping this future closes its TCP transport and unfinished TLS handshake.
 pub(crate) async fn connect_tls(
     host: &str,
     tcp: TcpStream,
     connect_timeout_ms: u64,
     tls_profile_id: &str,
-) -> io::Result<tokio_boring::SslStream<TcpStream>> {
+) -> io::Result<tokio_boring::SslStream<TlsTransport>> {
     let mut connector_builder =
         configure_builder(tls_profile_id).map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
     connector_builder.set_alpn_protos(HTTP11_ALPN).map_err(|error| io::Error::other(format!("TLS ALPN: {error}")))?;
     let ssl =
         connector_builder.build().configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
-    timeout(Duration::from_millis(connect_timeout_ms), tokio_boring::connect(ssl, host, tcp))
+    timeout(Duration::from_millis(connect_timeout_ms), tokio_boring::connect(ssl, host, TlsTransport::new(tcp)))
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, format!("TLS handshake to {host} timed out")))?
         .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("TLS handshake failed: {error}")))
@@ -29,10 +35,6 @@ pub(crate) async fn connect_tls(
 pub(crate) fn profile_catalog_version_string() -> String {
     profile_catalog_version().to_string()
 }
-
-/// ALPN template label for [`HTTP11_ALPN`], which this HTTP/1.1-only client
-/// sends in place of the profile's own ALPN list.
-const HTTP11_ALPN_TEMPLATE: &str = "http11";
 
 /// Report the TLS profile parts this client actually applies. The ALPN is
 /// overridden to HTTP/1.1 and no record choreography runs here, so the
@@ -51,7 +53,7 @@ pub(crate) fn apply_profile_metadata(response: &mut NativeOwnedTlsHttpResponse, 
 }
 
 fn apply_template_metadata(response: &mut NativeOwnedTlsHttpResponse, template: ProfileTemplateMetadata) {
-    response.tls_template_alpn = Some(HTTP11_ALPN_TEMPLATE.to_string());
+    response.tls_template_alpn = Some("http11".to_string());
     response.tls_template_extension_order_family = Some(template.extension_order_family.to_string());
     response.tls_template_grease_style = Some(template.grease_style.to_string());
     response.tls_template_supported_groups_profile = Some(template.supported_groups_profile.to_string());
