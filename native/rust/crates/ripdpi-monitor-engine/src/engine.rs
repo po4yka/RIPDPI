@@ -357,7 +357,10 @@ mod tests {
             http_port: Some(80),
             http_path: "/".to_string(),
             is_control: true,
-            concurrency_probe: None,
+            concurrency_probe: Some(crate::types::ConcurrencyProbeTargetMetadata {
+                cohort_id: "test".to_string(),
+                max_parallelism: 4,
+            }),
         });
 
         assert_eq!(
@@ -368,7 +371,6 @@ mod tests {
                 ExecutionStageId::StrategyDnsBaseline,
                 ExecutionStageId::StrategyTcpCandidates,
                 ExecutionStageId::StrategyQuicCandidates,
-                ExecutionStageId::StrategyConnectionConcurrency,
                 ExecutionStageId::StrategyRecommendation,
             ],
         );

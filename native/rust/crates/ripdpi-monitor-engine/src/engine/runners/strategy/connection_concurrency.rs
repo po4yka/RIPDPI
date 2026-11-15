@@ -18,9 +18,10 @@ use ripdpi_failure_classifier::{
     classify_connection_concurrency_matrix,
 };
 
+use crate::transport::TransportConfig;
 use crate::types::{
     ConnectionConcurrencyAssessment, ConnectionConcurrencyCellStatus, ConnectionConcurrencyObservationFact,
-    ConnectionConcurrencyVerdict, ObservationKind, ProbeDetail, ProbeObservation, ProbeResult,
+    ConnectionConcurrencyVerdict, ObservationKind, ProbeDetail, ProbeObservation, ProbeResult, ScanPathMode,
 };
 
 use super::super::super::runtime::{
@@ -54,6 +55,9 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
     }
 
     fn total_steps(&self, plan: &ExecutionPlan) -> usize {
+        if !uses_raw_path(plan) {
+            return 0;
+        }
         let levels = levels_for(plan);
         let post_checks = levels.iter().filter(|level| **level > 1).count();
         eligible_targets(plan).count() * ripdpi_tls_profiles::AVAILABLE_PROFILES.len() * (levels.len() + post_checks)
@@ -65,6 +69,9 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
         runtime: &mut ExecutionRuntime,
         _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> RunnerOutcome {
+        if !uses_raw_path(plan) {
+            return RunnerOutcome::Completed;
+        }
         let levels = levels_for(plan);
         let current_profile = current_profile(plan);
         let deadline = runtime.stage_deadline().or_else(|| runtime.scan_deadline());
@@ -264,6 +271,10 @@ fn current_profile(plan: &ExecutionPlan) -> String {
         })
         .and_then(|profile| ripdpi_tls_profiles::AVAILABLE_PROFILES.contains(&profile.as_str()).then_some(profile))
         .unwrap_or_else(|| "chrome_stable".to_string())
+}
+
+fn uses_raw_path(plan: &ExecutionPlan) -> bool {
+    plan.request.path_mode == ScanPathMode::RawPath && matches!(plan.transport, TransportConfig::Direct { .. })
 }
 
 fn eligible_targets(plan: &ExecutionPlan) -> impl Iterator<Item = &crate::types::DomainTarget> {
