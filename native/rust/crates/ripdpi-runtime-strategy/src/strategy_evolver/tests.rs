@@ -1561,3 +1561,24 @@ fn prior_weight_is_capped() {
     assert!((above - 0.375).abs() < 1e-9, "got {above}");
     assert!((SHARED_PRIOR_WEIGHT_CAP - 8.0).abs() < f64::EPSILON);
 }
+
+#[test]
+fn signed_extreme_prior_keeps_mean_and_local_weight_cap() {
+    use ripdpi_shared_priors::manifest::test_support::{generate_test_key, sign_manifest_bytes};
+
+    let (mut evolver, winner, candidate) = tls_evolver_with_local_winner(local_stats(3, 1));
+    let hash = canonical_combo_hash(&candidate);
+    let payload = format!("{{\"combo_hash\":{hash},\"alpha\":1e308,\"beta\":1e308}}\n");
+    let key = generate_test_key();
+    let manifest = sign_manifest_bytes(&key, payload.as_bytes(), 100, "https://example.invalid/priors.ndjson");
+    let applied = ripdpi_shared_priors::apply_priors(manifest.as_bytes(), payload.as_bytes(), &key.public_bytes)
+        .expect("signed finite prior");
+    let prior = applied.priors[&hash];
+    let _priors = ThreadPriors::set(&[(&candidate, prior.alpha, prior.beta)]);
+
+    assert_eq!(evolver.select_next_combo(), candidate, "a symmetric prior must beat one success in three attempts");
+
+    let context = evolver.current_learning_context.clone();
+    evolver.contexts.get_mut(&context).expect("context").combos.insert(candidate, local_stats(8, 0));
+    assert_eq!(evolver.select_next_combo(), winner, "eight local failures must outweigh the capped symmetric prior");
+}
