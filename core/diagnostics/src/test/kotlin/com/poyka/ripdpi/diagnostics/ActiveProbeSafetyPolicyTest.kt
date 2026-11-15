@@ -81,6 +81,28 @@ class ActiveProbeSafetyPolicyTest {
     }
 
     @Test
+    fun `background quick probe reserves a slot for a catalog control`() {
+        val intent =
+            strategyIntent(
+                domainHosts = listOf("a.example", "b.example", "c.example"),
+                quicHosts = emptyList(),
+            )
+        val capped =
+            policy.enforceTargetBudget(
+                intent =
+                    intent.copy(
+                        domainTargets =
+                            intent.domainTargets + DomainTarget(host = "control.example", isControl = true),
+                    ),
+                scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                isManual = false,
+            )
+
+        assertEquals(listOf("a.example", "b.example", "control.example"), capped.domainTargets.map(DomainTarget::host))
+        assertEquals(true, capped.domainTargets.last().isControl)
+    }
+
+    @Test
     fun `manual strategy probes keep a wider but bounded target set`() {
         val intent =
             strategyIntent(

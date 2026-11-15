@@ -32,7 +32,6 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyJson as RememberedPolicy
 @Suppress("detekt.TooManyFunctions")
 internal object DiagnosticsScanWorkflow {
     private const val MaxConnectionConcurrency = 8
-    private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
     private const val BackgroundAutoPersistMinMatrixCoveragePercent = 75
     private const val BackgroundAutoPersistMinWinnerCoveragePercent = 50
     private const val OutcomeDnsSystemResolutionFailed = "dns_system_resolution_failed"
@@ -210,7 +209,7 @@ internal object DiagnosticsScanWorkflow {
             report.strategyProbeReport == null ||
                 report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED ||
                 report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK ||
-                report.hasSystemDnsResolutionFailureRecommendation()
+                report.hasMeasuredDnsFailureRecommendation()
         ) &&
             serviceMode == Mode.VPN &&
             (
@@ -240,13 +239,17 @@ internal object DiagnosticsScanWorkflow {
             strategyProbe == null -> false
             strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> true
             strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK -> true
-            report.hasSystemDnsResolutionFailureRecommendation() -> true
+            report.hasMeasuredDnsFailureRecommendation() -> true
             else -> false
         }
     }
 
-    private fun ScanReport.hasSystemDnsResolutionFailureRecommendation(): Boolean =
-        resolverRecommendation?.triggerOutcome == OutcomeDnsSystemResolutionFailed
+    private fun ScanReport.hasMeasuredDnsFailureRecommendation(): Boolean =
+        when (resolverRecommendation?.triggerOutcome) {
+            OutcomeDnsSystemResolutionFailed -> true
+            "dns_nxdomain_mismatch", "dns_sinkhole_substitution" -> terminationReason == null
+            else -> false
+        }
 
     fun evaluateBackgroundAutoPersistEligibility(
         strategyProbe: StrategyProbeReport,
@@ -302,7 +305,7 @@ internal object DiagnosticsScanWorkflow {
     ): RememberedPolicy? =
         resolveValidatedStrategyProbeRecommendation(strategyProbe, settings)
             ?.takeIf { recommendation ->
-                strategyProbe.suiteId != StrategyProbeSuiteFullMatrixV1 &&
+                strategyProbe.suiteId == StrategyProbeSuiteQuickV1 &&
                     recommendation.isValid &&
                     evaluateBackgroundAutoPersistEligibility(strategyProbe) ==
                     BackgroundAutoPersistEligibility.Eligible &&

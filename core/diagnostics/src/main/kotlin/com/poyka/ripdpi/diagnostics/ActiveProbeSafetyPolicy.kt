@@ -18,6 +18,8 @@ private const val DefaultAutomaticAuditQuicTargets = 2
 private const val DefaultManualStrategyDomainTargets = 12
 private const val DefaultManualStrategyQuicTargets = 8
 
+internal const val StrategyProbeSuiteQuickV1 = "quick_v1"
+
 data class ActiveProbeSafetyPolicy(
     val automaticHandoverProbeDelayMs: Long = DefaultAutomaticHandoverProbeDelaySeconds * MillisPerSecond,
     val automaticHandoverProbeCooldownMs: Long =
@@ -82,7 +84,19 @@ data class ActiveProbeSafetyPolicy(
         }
         if (intent.strategyProbe == null) return intent
         val limits = targetLimits(scanOrigin, isManual)
-        val domainTargets = intent.domainTargets.distinctBy(DomainTarget::host).take(limits.domainTargets)
+        val distinctDomains = intent.domainTargets.distinctBy(DomainTarget::host)
+        val cappedDomains = distinctDomains.take(limits.domainTargets)
+        val control = distinctDomains.firstOrNull(DomainTarget::isControl)
+        val domainTargets =
+            if (scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND &&
+                intent.strategyProbe.suiteId == StrategyProbeSuiteQuickV1 &&
+                control != null &&
+                cappedDomains.none(DomainTarget::isControl)
+            ) {
+                cappedDomains.dropLast(1) + control
+            } else {
+                cappedDomains
+            }
         val quicTargets = intent.quicTargets.distinctBy(QuicTarget::host).take(limits.quicTargets)
         return intent.copy(
             domainTargets = domainTargets,

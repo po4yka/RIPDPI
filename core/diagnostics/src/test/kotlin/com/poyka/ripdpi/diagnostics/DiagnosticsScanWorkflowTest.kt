@@ -280,6 +280,7 @@ class DiagnosticsScanWorkflowTest {
                 proxyConfigJson = validRecommendedProxyConfigJson(),
                 tcpFamily = "hostfake",
                 quicFamily = "quic_realistic_burst",
+                auditAssessment = scanWorkflowAuditAssessment(),
             )
 
         val rememberedPolicy =
@@ -538,6 +539,36 @@ class DiagnosticsScanWorkflowTest {
                 resolverOverrideApplied = true,
             ),
         )
+    }
+
+    @Test
+    fun `confirmed DNS evidence survives strategy stage budget exhaustion`() {
+        for (outcome in listOf("dns_nxdomain_mismatch", "dns_sinkhole_substitution")) {
+            val report =
+                scanReportWithStrategyProbe(
+                    proxyConfigJson = validRecommendedProxyConfigJson(),
+                    tcpFamily = "hostfake",
+                    quicFamily = "quic_realistic_burst",
+                    completionKind = StrategyProbeCompletionKind.PARTIAL_RESULTS,
+                ).copy(resolverRecommendation = resolverRecommendation().copy(triggerOutcome = outcome))
+
+            assertTrue(
+                DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
+                    report = report,
+                    settings = settingsWithPlainUdpDns(),
+                    serviceStatus = AppStatus.Halted,
+                    serviceMode = Mode.VPN,
+                    pathMode = ScanPathMode.RAW_PATH,
+                ),
+            )
+            assertTrue(
+                DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                    report = report,
+                    pathMode = ScanPathMode.RAW_PATH,
+                    resolverOverrideApplied = true,
+                ),
+            )
+        }
     }
 
     @Test

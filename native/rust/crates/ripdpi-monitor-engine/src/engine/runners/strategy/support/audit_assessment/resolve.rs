@@ -2,7 +2,7 @@ use crate::types::{
     StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
     StrategyProbeCandidateSummary, StrategyProbeRecommendation,
 };
-use crate::util::STRATEGY_PROBE_SUITE_FULL_MATRIX_V1;
+use crate::util::{STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, STRATEGY_PROBE_SUITE_QUICK_V1};
 
 use super::super::audit_confidence::{AuditSignals, build_audit_confidence};
 use super::super::audit_counts::{build_audit_coverage, round_percent, strategy_audit_lane_counts};
@@ -17,7 +17,7 @@ pub(in crate::engine::runners::strategy) fn resolve_strategy_probe_audit_assessm
     quic_candidates_planned: usize,
     dns_tampered: bool,
 ) -> Option<StrategyProbeAuditAssessment> {
-    if suite_id != STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 {
+    if !matches!(suite_id, STRATEGY_PROBE_SUITE_QUICK_V1 | STRATEGY_PROBE_SUITE_FULL_MATRIX_V1) {
         return None;
     }
 

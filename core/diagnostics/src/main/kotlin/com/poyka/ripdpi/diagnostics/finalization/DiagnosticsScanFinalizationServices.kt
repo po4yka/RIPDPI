@@ -394,6 +394,7 @@ class ScanFinalizationService
             prepared: PreparedDiagnosticsScan,
             report: ScanReport,
         ) {
+            if (report.completionKind != ScanCompletionKind.NORMAL || report.terminationReason != null) return
             val strategyProbe = report.strategyProbeReport
             val persistencePolicy = prepared.intent.executionPolicy.probePersistencePolicy
             val shouldRemember =
