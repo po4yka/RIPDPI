@@ -18,8 +18,7 @@ pub(super) struct DnsProbeDetailInputs<'a> {
     pub(super) udp_retry_recovered: bool,
     pub(super) udp_cache_hit: bool,
     pub(super) encrypted_endpoint: &'a EncryptedDnsEndpoint,
-    pub(super) encrypted_bootstrap_ips: &'a [String],
-    pub(super) selected_bootstrap_ips: &'a [String],
+    pub(super) encrypted_response_role: &'static str,
     pub(super) encrypted_result: &'a Result<Vec<String>, String>,
     pub(super) encrypted_addresses: &'a str,
     pub(super) encrypted_latency_ms: &'a str,
@@ -30,6 +29,9 @@ pub(super) struct DnsProbeDetailInputs<'a> {
 
 pub(super) fn build_dns_probe_details(inputs: DnsProbeDetailInputs<'_>) -> Vec<ProbeDetail> {
     let analytics = dns_answer_analytics(inputs.udp_result, inputs.encrypted_result);
+    let endpoint =
+        inputs.oracle_assessment.selected.as_ref().map_or(inputs.encrypted_endpoint, |selected| &selected.endpoint);
+    let bootstrap_ips = endpoint.bootstrap_ips.iter().map(ToString::to_string).collect::<Vec<_>>();
     vec![
         ProbeDetail { key: "udpServer".to_string(), value: inputs.udp_server.to_string() },
         ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(inputs.udp_result) },
@@ -39,45 +41,32 @@ pub(super) fn build_dns_probe_details(inputs: DnsProbeDetailInputs<'_>) -> Vec<P
         ProbeDetail { key: "udpErrorKind".to_string(), value: inputs.udp_error_kind.unwrap_or("none").to_string() },
         ProbeDetail { key: "udpRetryRecovered".to_string(), value: inputs.udp_retry_recovered.to_string() },
         ProbeDetail { key: "udpCacheHit".to_string(), value: inputs.udp_cache_hit.to_string() },
-        ProbeDetail {
-            key: "encryptedResolverId".to_string(),
-            value: inputs.encrypted_endpoint.resolver_id.clone().unwrap_or_default(),
-        },
-        ProbeDetail {
-            key: "encryptedProtocol".to_string(),
-            value: inputs.encrypted_endpoint.protocol.as_str().to_string(),
-        },
+        ProbeDetail { key: "encryptedResolverId".to_string(), value: endpoint.resolver_id.clone().unwrap_or_default() },
+        ProbeDetail { key: "encryptedResponseRole".to_string(), value: inputs.encrypted_response_role.to_string() },
+        ProbeDetail { key: "encryptedProtocol".to_string(), value: endpoint.protocol.as_str().to_string() },
         ProbeDetail {
             key: "encryptedEndpoint".to_string(),
-            value: inputs
-                .encrypted_endpoint
-                .doh_url
-                .clone()
-                .unwrap_or_else(|| format!("{}:{}", inputs.encrypted_endpoint.host, inputs.encrypted_endpoint.port)),
+            value: endpoint.doh_url.clone().unwrap_or_else(|| format!("{}:{}", endpoint.host, endpoint.port)),
         },
-        ProbeDetail { key: "encryptedHost".to_string(), value: inputs.encrypted_endpoint.host.clone() },
-        ProbeDetail { key: "encryptedPort".to_string(), value: inputs.encrypted_endpoint.port.to_string() },
+        ProbeDetail { key: "encryptedHost".to_string(), value: endpoint.host.clone() },
+        ProbeDetail { key: "encryptedPort".to_string(), value: endpoint.port.to_string() },
         ProbeDetail {
             key: "encryptedTlsServerName".to_string(),
-            value: inputs.encrypted_endpoint.tls_server_name.clone().unwrap_or_default(),
+            value: endpoint.tls_server_name.clone().unwrap_or_default(),
         },
-        ProbeDetail { key: "encryptedBootstrapIps".to_string(), value: inputs.encrypted_bootstrap_ips.join("|") },
+        ProbeDetail { key: "encryptedBootstrapIps".to_string(), value: bootstrap_ips.join("|") },
         ProbeDetail {
             key: "encryptedBootstrapValidated".to_string(),
-            value: (inputs.oracle_assessment.selected.is_some() && !inputs.selected_bootstrap_ips.is_empty())
-                .to_string(),
+            value: (inputs.oracle_assessment.selected.is_some() && !bootstrap_ips.is_empty()).to_string(),
         },
-        ProbeDetail {
-            key: "encryptedDohUrl".to_string(),
-            value: inputs.encrypted_endpoint.doh_url.clone().unwrap_or_default(),
-        },
+        ProbeDetail { key: "encryptedDohUrl".to_string(), value: endpoint.doh_url.clone().unwrap_or_default() },
         ProbeDetail {
             key: "encryptedDnscryptProviderName".to_string(),
-            value: inputs.encrypted_endpoint.dnscrypt_provider_name.clone().unwrap_or_default(),
+            value: endpoint.dnscrypt_provider_name.clone().unwrap_or_default(),
         },
         ProbeDetail {
             key: "encryptedDnscryptPublicKey".to_string(),
-            value: inputs.encrypted_endpoint.dnscrypt_public_key.clone().unwrap_or_default(),
+            value: endpoint.dnscrypt_public_key.clone().unwrap_or_default(),
         },
         ProbeDetail { key: "encryptedAddresses".to_string(), value: inputs.encrypted_addresses.to_string() },
         ProbeDetail { key: "encryptedLatencyMs".to_string(), value: inputs.encrypted_latency_ms.to_string() },
@@ -170,7 +159,56 @@ pub(super) fn append_injection_profile_details(
 
 #[cfg(test)]
 mod tests {
-    use super::dns_answer_analytics;
+    use super::*;
+    use crate::connectivity::adapters::dns::build_fallback_encrypted_dns_endpoints;
+    use crate::connectivity::adapters::dns_oracle::DnsOracleTrust;
+
+    #[test]
+    fn selected_fallback_owns_its_reported_endpoint_metadata() {
+        let endpoints = build_fallback_encrypted_dns_endpoints(None);
+        let addresses = vec!["1.1.1.1".to_string()];
+        let candidate = ripdpi_diagnostics_dns::dns_oracle::DnsOracleCandidate {
+            endpoint: endpoints[1].clone(),
+            value: DnsOracleResponse { addresses: addresses.clone(), raw_response: None },
+            answers: addresses.clone(),
+            is_primary: false,
+            latency_ms: 17,
+        };
+        let assessment = DnsOracleAssessment {
+            trust: DnsOracleTrust::TrustedAgreement,
+            confidence_score: 100,
+            selected: Some(candidate),
+            agreement_resolver_ids: vec!["dnssb".to_string(), "google_ip".to_string()],
+            disagreement_resolver_ids: vec![],
+            attempts: vec![],
+            termination: ripdpi_diagnostics_dns::dns_oracle::DnsOracleTermination::QuorumReached,
+        };
+        let result = Ok(addresses);
+        let details = build_dns_probe_details(DnsProbeDetailInputs {
+            udp_server: "127.0.0.1:53",
+            udp_result: &result,
+            udp_latency_ms: "4",
+            udp_attempt_count: 1,
+            udp_success_count: 1,
+            udp_error_kind: None,
+            udp_retry_recovered: false,
+            udp_cache_hit: false,
+            encrypted_endpoint: &endpoints[0],
+            encrypted_response_role: "selected",
+            encrypted_result: &result,
+            encrypted_addresses: "1.1.1.1",
+            encrypted_latency_ms: "17",
+            injection_suspected: false,
+            expected: &BTreeSet::new(),
+            oracle_assessment: &assessment,
+        });
+        let value = |key: &str| details.iter().find(|detail| detail.key == key).unwrap().value.as_str();
+        assert_eq!(value("encryptedResolverId"), "dnssb");
+        assert_eq!(value("encryptedHost"), "doh.dns.sb");
+        assert_eq!(value("encryptedDohUrl"), "https://doh.dns.sb/dns-query");
+        assert_eq!(value("encryptedBootstrapIps"), "185.222.222.222|45.11.45.11");
+        assert_eq!(value("encryptedLatencyMs"), "17");
+    }
 
     #[test]
     fn dns_answer_analytics_counts_overlap_and_divergence() {

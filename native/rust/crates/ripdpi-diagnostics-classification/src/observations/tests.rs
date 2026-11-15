@@ -271,6 +271,45 @@ fn dns_observation_falls_back_to_doh_addresses() {
 }
 
 #[test]
+fn dns_unknown_results_do_not_become_typed_ip_addresses() {
+    for value in [
+        "dns_oracle_unavailable",
+        "dns_oracle_disagreement",
+        "[]",
+        "error:UDP DNS timed out",
+        "error:resolver failed|1.1.1.1",
+        "error:resolver failed,2606:4700::1111",
+    ] {
+        let result = probe(
+            "dns_integrity",
+            "example.com",
+            "dns_oracle_unavailable",
+            &[("udpAddresses", value), ("encryptedAddresses", value), ("dohAddresses", "8.8.8.8")],
+        );
+        let dns = observation_for_probe(&result).expect("observation").dns.expect("dns");
+        assert!(dns.udp_addresses.is_empty());
+        assert!(dns.encrypted_addresses.is_empty());
+        assert_eq!(dns.status, DnsObservationStatus::OracleUnavailable);
+    }
+}
+
+#[test]
+fn dns_typed_addresses_keep_ipv4_and_canonical_ipv6_only() {
+    let result = probe(
+        "dns_integrity",
+        "example.com",
+        "dns_match",
+        &[
+            ("udpAddresses", "1.1.1.1|2606:4700:0000:0000:0000:0000:0000:1111|not-an-ip"),
+            ("encryptedAddresses", "2606:4700::1111|1.1.1.1"),
+        ],
+    );
+    let dns = observation_for_probe(&result).expect("observation").dns.expect("dns");
+    assert_eq!(dns.udp_addresses, ["1.1.1.1", "2606:4700::1111"]);
+    assert_eq!(dns.encrypted_addresses, ["2606:4700::1111", "1.1.1.1"]);
+}
+
+#[test]
 fn domain_observation_builds_from_probe() {
     let result = probe(
         "domain_reachability",

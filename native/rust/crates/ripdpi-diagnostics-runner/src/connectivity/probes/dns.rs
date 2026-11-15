@@ -14,11 +14,13 @@ use super::super::trigger_fuzzing::append_dns_trigger_fuzzing_details;
 
 mod classification;
 mod details;
+mod evidence;
 mod response_analysis;
 
 pub(crate) use classification::classify_dns_probe_outcome;
 use classification::{append_dns_classifier_details, oracle_result_for_probe};
 use details::{DnsProbeDetailInputs, append_injection_profile_details, build_dns_probe_details};
+use evidence::encrypted_response_evidence;
 use response_analysis::{append_record_comparison_details, append_udp_response_analysis};
 
 /// Classify DNS latency into a human-readable quality tier.
@@ -94,20 +96,12 @@ pub fn run_dns_probe_with_context(
         },
         |answer| answer.addresses.clone(),
     );
-    let encrypted_response = oracle_assessment
-        .selected
-        .as_ref()
-        .and_then(|selected| {
-            response_evidence
-                .iter()
-                .find(|(endpoint, _, raw)| endpoint == &selected.endpoint && raw == &selected.value.raw_response)
-        })
-        .or_else(|| response_evidence.first())
-        .map(|(_, facts, _)| facts);
+    let encrypted_evidence = encrypted_response_evidence(&resolvers.primary, &oracle_assessment, &response_evidence);
+    let encrypted_response = encrypted_evidence.response;
     let encrypted_result = oracle_result_for_probe(&oracle_assessment);
     let raw_encrypted_response =
         oracle_assessment.selected.as_ref().and_then(|selected| selected.value.raw_response.clone());
-    let encrypted_latency_ms = oracle_assessment.preferred_latency_ms().to_string();
+    let encrypted_latency_ms = encrypted_evidence.latency_ms.to_string();
 
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
     let mut outcome = classify_dns_probe_outcome(
@@ -132,9 +126,7 @@ pub fn run_dns_probe_with_context(
         outcome = "dns_unavailable".to_string();
     }
     let injection_suspected = is_dns_injection_suspected(&udp_latency_ms, &outcome);
-    let selected_endpoint =
-        oracle_assessment.selected.as_ref().map_or(&resolvers.primary, |selected| &selected.endpoint);
-    let selected_bootstrap_ips = selected_endpoint.bootstrap_ips.iter().map(ToString::to_string).collect::<Vec<_>>();
+    let encrypted_endpoint = encrypted_evidence.endpoint;
     let encrypted_addresses = match &encrypted_result {
         Ok(addresses) if !addresses.is_empty() => addresses.join("|"),
         Ok(_) => "[]".to_string(),
@@ -154,9 +146,8 @@ pub fn run_dns_probe_with_context(
             udp_error_kind: udp_resolution.error_kind.as_deref(),
             udp_retry_recovered: udp_resolution.retry_recovered,
             udp_cache_hit: udp_resolution.cache_hit,
-            encrypted_endpoint: &resolvers.primary,
-            encrypted_bootstrap_ips: &resolvers.bootstrap_ips,
-            selected_bootstrap_ips: &selected_bootstrap_ips,
+            encrypted_endpoint,
+            encrypted_response_role: encrypted_evidence.role,
             encrypted_result: &encrypted_result,
             encrypted_addresses: &encrypted_addresses,
             encrypted_latency_ms: &encrypted_latency_ms,
@@ -174,6 +165,15 @@ pub fn run_dns_probe_with_context(
             result.details.push(ProbeDetail { key: key.to_string(), value });
         }
     }
+    for (index, (endpoint, facts, _)) in response_evidence.iter().enumerate() {
+        result.details.push(ProbeDetail {
+            key: format!("encryptedDnsAttempt{index}ResolverId"),
+            value: endpoint.resolver_id.as_deref().unwrap_or(&endpoint.host).to_string(),
+        });
+        if let Some(value) = facts.to_detail_json() {
+            result.details.push(ProbeDetail { key: format!("encryptedDnsAttempt{index}Response"), value });
+        }
+    }
     // After a user cancel only the observations already made are reported;
     // the HTTPS-RR lookup and the fuzz queries below are more network round trips.
     if cancel.load(Ordering::Acquire) {
@@ -184,7 +184,7 @@ pub fn run_dns_probe_with_context(
         &target.domain,
         &udp_resolution.result,
         &encrypted_result,
-        selected_endpoint,
+        encrypted_endpoint,
         context.transport(),
         &oracle_assessment,
     );

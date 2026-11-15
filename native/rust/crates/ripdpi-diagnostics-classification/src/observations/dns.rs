@@ -17,7 +17,7 @@ pub(crate) fn build_dns_observation(result: &ProbeResult) -> ProbeObservation {
             .and_then(ripdpi_diagnostics_contracts::types::DnsResponseSemantics::from_detail_json),
         encrypted_response: detail_value(result, "encryptedDnsResponse")
             .and_then(ripdpi_diagnostics_contracts::types::DnsResponseSemantics::from_detail_json),
-        udp_addresses: detail_list(result, "udpAddresses"),
+        udp_addresses: address_details(result, "udpAddresses"),
         encrypted_addresses: encrypted_addresses(result),
         udp_latency_ms: detail_value(result, "udpLatencyMs").and_then(|v| v.parse().ok()),
         encrypted_latency_ms: detail_value(result, "encryptedLatencyMs").and_then(|v| v.parse().ok()),
@@ -43,6 +43,21 @@ pub(crate) fn build_dns_observation(result: &ProbeResult) -> ProbeObservation {
 }
 
 fn encrypted_addresses(result: &ProbeResult) -> Vec<String> {
-    let encrypted = detail_list(result, "encryptedAddresses");
-    if encrypted.is_empty() { detail_list(result, "dohAddresses") } else { encrypted }
+    let key = if detail_value(result, "encryptedAddresses").is_some() { "encryptedAddresses" } else { "dohAddresses" };
+    address_details(result, key)
 }
+
+fn address_details(result: &ProbeResult, key: &str) -> Vec<String> {
+    if detail_value(result, key)
+        .and_then(|value| value.trim_start().get(..6))
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("error:"))
+    {
+        return Vec::new();
+    }
+    detail_list(result, key)
+        .into_iter()
+        .filter_map(|value| value.parse::<IpAddr>().ok())
+        .map(|ip| ip.to_string())
+        .collect()
+}
+use std::net::IpAddr;
