@@ -4,7 +4,6 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.validateTuicProfile
 import java.net.URI
-import java.net.URLEncoder
 import java.util.UUID
 
 /** TUIC v5 share links for the native verified-TLS, datagram-UDP capability set. */
@@ -19,7 +18,7 @@ internal object TuicUriCodec {
         val uuid = ProxyUriCodec.rfc3986PercentDecode(rawUserInfo.substring(0, separator)) ?: return null
         val password = ProxyUriCodec.rfc3986PercentDecode(rawUserInfo.substring(separator + 1)) ?: return null
         val host = parsed.host?.removeSurrounding("[", "]")?.takeIf { it.isNotBlank() } ?: return null
-        val port = if (parsed.port == -1) 443 else parsed.port
+        val port = if (parsed.port == -1) DefaultTuicPort else parsed.port
         val options = queryOptions(parsed.rawQuery) ?: return null
         if (options["udp_relay_mode"]?.lowercase() !in setOf(null, "native")) return null
         for (flag in listOf("allow_insecure", "disable_sni", "reduce_rtt", "zero_rtt_handshake", "zero_rtt")) {
@@ -55,15 +54,18 @@ internal object TuicUriCodec {
 
     private fun queryOptions(rawQuery: String?): Map<String, String>? {
         if (rawQuery.isNullOrEmpty()) return emptyMap()
-        return rawQuery.split('&').associate { part ->
-            val name = part.substringBefore('=')
-            if ('=' !in part || name !in SupportedOptions) return null
-            val value = ProxyUriCodec.rfc3986PercentDecode(part.substringAfter('=')) ?: return null
-            name to value
-        }
+        return runCatching {
+            rawQuery.split('&').associate { part ->
+                val name = part.substringBefore('=')
+                require('=' in part && name in SupportedOptions)
+                name to requireNotNull(ProxyUriCodec.rfc3986PercentDecode(part.substringAfter('=')))
+            }
+        }.getOrNull()
     }
 
-    private fun encodeComponent(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+    private fun encodeComponent(value: String): String = encodeUriComponent(value)
+
+    private const val DefaultTuicPort = 443
 
     private val SupportedOptions =
         setOf(
