@@ -103,18 +103,8 @@ object ProxyProber {
 
             try {
                 socket.getOutputStream().writeHttpConnectProbe()
-                val response =
-                    socket.readHttpStatusLine()
-                        ?: return PortProbeResult.UNKNOWN_TCP_SERVICE
-                val code =
-                    Regex("^HTTP/1\\.[01]\\s+(\\d{3})(?:[ \t]|\r\n)")
-                        .find(response)
-                        ?.groupValues
-                        ?.getOrNull(1)
-                        ?.toIntOrNull()
-                        ?: return PortProbeResult.UNKNOWN_TCP_SERVICE
-
-                if (code == 200) {
+                val code = HttpResponseHeadReader(socket).readFinalStatus()
+                if (code != null && code in 200..299) {
                     PortProbeResult.HTTP_CONNECT_PROXY
                 } else {
                     PortProbeResult.UNKNOWN_TCP_SERVICE
@@ -154,21 +144,53 @@ object ProxyProber {
         return buffer
     }
 
-    private fun Socket.readHttpStatusLine(limit: Int = 256): String? {
-        val input = getInputStream()
-        val response = StringBuilder()
-        val timeoutMs = soTimeout
-        val deadlineNanos = System.nanoTime() + timeoutMs.toLong() * 1_000_000L
-        while (response.length < limit && !response.endsWith("\r\n")) {
-            if (timeoutMs > 0) {
-                val remainingNanos = deadlineNanos - System.nanoTime()
-                if (remainingNanos <= 0L) return null
-                soTimeout = ((remainingNanos + 999_999L) / 1_000_000L).toInt().coerceAtLeast(1)
+    private class HttpResponseHeadReader(
+        private val socket: Socket,
+    ) {
+        private val input = socket.getInputStream().buffered()
+        private val deadlineNanos = System.nanoTime() + socket.soTimeout * 1_000_000L
+        private var remainingBytes = 4_096
+
+        fun readFinalStatus(): Int? {
+            repeat(9) {
+                val line = readLine(256) ?: return null
+                val match = HttpStatus.matchEntire(line) ?: return null
+                val code = match.groupValues[1].toInt()
+                if (!readFields()) return null
+                if (code >= 200) return code
+                if (code == 101) return null
             }
-            val byte = input.read()
-            if (byte < 0) break
-            response.append(byte.toChar())
+            return null
         }
-        return if (response.endsWith("\r\n")) response.toString() else null
+
+        private fun readFields(): Boolean {
+            while (true) {
+                val line = readLine(remainingBytes) ?: return false
+                if (line.isEmpty()) return true
+                if (!HttpField.matches(line)) return false
+            }
+        }
+
+        private fun readLine(limit: Int): String? {
+            val line = StringBuilder()
+            repeat(limit) {
+                if (remainingBytes-- <= 0) return null
+                val remainingNanos = deadlineNanos - System.nanoTime()
+                if (remainingNanos <= 0L) throw SocketTimeoutException()
+                socket.soTimeout = ((remainingNanos + 999_999L) / 1_000_000L).toInt().coerceAtLeast(1)
+                val byte = input.read()
+                if (byte < 0) return null
+                if (byte == '\n'.code) {
+                    return if (line.endsWith('\r')) line.dropLast(1).toString() else null
+                }
+                line.append(byte.toChar())
+            }
+            return null
+        }
+
+        companion object {
+            private val HttpStatus = Regex("""HTTP/1\.[01][ \t]+([1-5][0-9]{2})(?:[ \t][\t\x20-\x7e\x80-\xff]*)?""")
+            private val HttpField = Regex("""[!#$%&'*+.^_`|~0-9A-Za-z-]+:[\t\x20-\x7e\x80-\xff]*""")
+        }
     }
 }
