@@ -73,3 +73,7 @@ Earlier failures and interrupted runs remain in their evidence directories and G
 - Selector initial preferences persist without starting VPN or replacing an explicit choice. Failed imports preserve saved data. Parameters discarded by older versions cannot be reconstructed from the saved model; existing imports need comparison with their source before relying on lost routing or trust constraints.
 - Unsupported subsets remain explicit: arbitrary package predicates, detour runtime, unsupported TLS wrappers and full external-config round trip were not added. URL-test requires an explicit HTTP(S) URL.
 - Remaining acceptance is inherited DIA-15 quality, exact published-commit CI, separately authorized device/server checks and a defined H4 crash-recovery contract.
+
+## Publication rebase
+
+The first fast-forward attempt stopped safely because shared main advanced to 207d22f492583deb260a15641c33bf8c627bbc52 (DIA-13). Rebase was clean. A per-file edit-content comparison confirmed all owned non-generated changes identical; no subscription, proxy import, Xray, core:data or core:service input path changed. The detailed proof is in imp03-encoding-evidence/publication-rebase.json. Locale parity, translation export, architecture health with --check and locked Cargo metadata passed after this rebase. The generated task board was refreshed and task contracts were rechecked. No new JVM or native transport execution is claimed for this publication-only rebase; the exact tested snapshots above remain explicit.
