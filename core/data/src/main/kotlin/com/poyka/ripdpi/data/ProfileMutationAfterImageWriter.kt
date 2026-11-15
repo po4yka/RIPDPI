@@ -108,6 +108,7 @@ private data class CommittedMutation(
 internal fun ProfileMutationIntent.ownsProviderSelection(origin: ProfileMutationOrigin): Boolean =
     when (this) {
         is SelectorSelectIntent, is StandaloneAwgSelectIntent -> true
+        is RelayUpsertIntent -> importedGroup != null && origin == ProfileMutationOrigin.ExplicitActivation
         is WarpUpsertIntent -> activate && origin == ProfileMutationOrigin.ExplicitActivation
         else -> false
     }

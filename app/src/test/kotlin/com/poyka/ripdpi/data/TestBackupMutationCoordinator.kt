@@ -126,6 +126,7 @@ class TestBackupMutationCoordinator : ProfileMutationCoordinator {
         modeAfterImage: String?,
         xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
         expectedState: ExpectedRelayProfileState?,
+        importedGroup: com.poyka.ripdpi.data.ProxyGroup?,
     ): ProfileMutationOutcome = error("Persistence mutation is outside this test boundary")
 
     override suspend fun upsertWarp(

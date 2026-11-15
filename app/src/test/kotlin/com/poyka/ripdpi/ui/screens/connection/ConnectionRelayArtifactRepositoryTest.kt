@@ -795,6 +795,7 @@ private class RecordingRelayMutationCoordinator(
         modeAfterImage: String?,
         xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
         expectedState: ExpectedRelayProfileState?,
+        importedGroup: com.poyka.ripdpi.data.ProxyGroup?,
     ): com.poyka.ripdpi.data.ProfileMutationOutcome {
         if (expectedState != null) {
             require(

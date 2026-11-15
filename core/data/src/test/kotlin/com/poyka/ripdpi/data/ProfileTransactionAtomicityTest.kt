@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
@@ -87,6 +88,147 @@ class ProfileTransactionAtomicityTest : RoomProfileTest() {
         }
 
     @Test
+    fun `imported native records have one catalog entry and selector references remain`() =
+        runTest {
+            val fixture = fixture()
+            fixture.initialize()
+            AtomicProfileFamily.IMPORTED_RELAY.write(fixture)
+            val imported = fixture.groups.list().single()
+            for ((id, type) in listOf(
+                "subscription" to ProxyGroupType.SUBSCRIPTION,
+                "selector" to ProxyGroupType.BASIC,
+            )) {
+                fixture.groups.add(
+                    imported.copy(
+                        id = id,
+                        type = type,
+                        isSelector = true,
+                        members = listOf((imported.members.single() as ProxyProfile.Trojan).copy(groupId = id)),
+                        subscription =
+                            if (type ==
+                                ProxyGroupType.SUBSCRIPTION
+                            ) {
+                                Subscription(link = "https://sub.example")
+                            } else {
+                                null
+                            },
+                    ),
+                )
+            }
+            val catalog =
+                ProfileUtilityCatalogReader(
+                    fixture.coordinator(),
+                    fixture.stores,
+                    fixture.pauseAuthority,
+                    InlineDispatchers,
+                ).observe()
+                    .first()
+
+            assertEquals(
+                setOf(
+                    ProfileUtilityReference.NativeRelay("imported-relay"),
+                    ProfileUtilityReference.SelectorMember("subscription", "imported-relay"),
+                    ProfileUtilityReference.SelectorMember("selector", "imported-relay"),
+                ),
+                catalog.entries.map { it.reference }.toSet(),
+            )
+            assertEquals(
+                "Imported relay",
+                catalog.entries.single { it.reference is ProfileUtilityReference.NativeRelay }.label,
+            )
+        }
+
+    @Test
+    fun `newer stop rejects a stale import without changing database state`() =
+        runTest {
+            val fixture = fixture()
+            fixture.initialize()
+            AtomicProfileFamily.IMPORTED_RELAY.write(fixture)
+            val coordinator = fixture.coordinator()
+            val preparation = coordinator.captureMutation(ProfileMutationOrigin.ExplicitActivation)
+            fixture.pauseAuthority.reserveStop()
+            val before = fixture.snapshot()
+            val member =
+                ProxyProfile.Trojan(
+                    id = "stale-relay",
+                    displayName = "Stale relay",
+                    groupId = "stale-group",
+                    server = "stale.example",
+                    serverPort = 443,
+                    password = "fixture-stale-secret",
+                )
+
+            val outcome =
+                coordinator.upsertRelay(
+                    preparation,
+                    RelayProfileRecord("stale-relay", RelayKindTrojan, server = "stale.example"),
+                    RelayCredentialRecord("stale-relay", trojanPassword = "fixture-stale-secret"),
+                    enabled = true,
+                    select = true,
+                    importedGroup =
+                        ProxyGroup(
+                            id = "stale-group",
+                            name = "Stale relay",
+                            type = ProxyGroupType.BASIC,
+                            order = 0,
+                            isSelector = false,
+                            members = listOf(member),
+                        ),
+                )
+
+            assertEquals(ProfileMutationOutcome.Superseded, outcome)
+            assertEquals(before, fixture.snapshot())
+            fixture.reopen()
+            assertEquals(before, fixture.snapshot())
+        }
+
+    @Test
+    fun `import-only save after newer stop preserves settings provider and runtime authority`() =
+        runTest {
+            val fixture = fixture()
+            fixture.initialize()
+            fixture.settings.update {
+                setRelayProfileId("prior")
+                setRelayEnabled(true)
+            }
+            val provider = XrayProviderSelectionRecord("xray", "prior-xray")
+            fixture.xraySelection.update(provider)
+            val coordinator = fixture.coordinator()
+            val preparation = coordinator.captureMutation(ProfileMutationOrigin.ImportOnly)
+            fixture.pauseAuthority.reserveStop()
+            val settings = fixture.settings.snapshot()
+            val authority = fixture.pauseAuthority.snapshotAuthority()
+            val member = ProxyProfile.Trojan("saved", "Saved", "saved-group", "saved.example", 443, "fixture")
+            val mapped = requireNotNull(mapRelayProfile(member))
+
+            val outcome = coordinator.upsertRelay(
+                preparation,
+                mapped.profile,
+                mapped.credentials,
+                enabled = false,
+                select = false,
+                expectedState = ExpectedRelayProfileState(null, null),
+                importedGroup = ProxyGroup(
+                    id = member.groupId,
+                    name = member.displayName,
+                    type = ProxyGroupType.BASIC,
+                    order = 0,
+                    isSelector = false,
+                    members = listOf(member),
+                ),
+            )
+
+            assertEquals(ProfileMutationOutcome.NonSuperseding, outcome)
+            fixture.reopen()
+            assertEquals(settings, fixture.settings.snapshot())
+            assertEquals(provider, fixture.xraySelection.current())
+            assertEquals(authority, fixture.pauseAuthority.snapshotAuthority())
+            assertEquals(member, fixture.groups.list().single().members.single())
+            assertEquals(mapped.profile, fixture.relayProfiles.load(member.id))
+            assertEquals(mapped.credentials, fixture.relayCredentials.load(member.id))
+        }
+
+    @Test
     fun `generation is published after commit and failed selection never returns activation`() =
         runTest {
             val fixture = fixture()
@@ -115,6 +257,7 @@ private enum class AtomicProfileFamily(
     val namespace: String,
 ) {
     RELAY("relay_credentials"),
+    IMPORTED_RELAY("relay_credentials"),
     XRAY("xray_metadata"),
     WARP("warp_endpoints"),
     AWG("awg_credentials"),
@@ -122,7 +265,16 @@ private enum class AtomicProfileFamily(
 
     suspend fun write(fixture: ProfileMutationTestFixture) {
         val coordinator = fixture.coordinator()
-        val preparation = coordinator.captureMutation(ProfileMutationOrigin.SavedEdit)
+        val preparation =
+            coordinator.captureMutation(
+                if (this ==
+                    IMPORTED_RELAY
+                ) {
+                    ProfileMutationOrigin.ImportOnly
+                } else {
+                    ProfileMutationOrigin.SavedEdit
+                },
+            )
         when (this) {
             RELAY -> {
                 coordinator.upsertRelay(
@@ -133,6 +285,39 @@ private enum class AtomicProfileFamily(
                     true,
                     modeAfterImage = Mode.Proxy.preferenceValue,
                     xraySelectionAfterImage = XrayProviderSelectionRecord(),
+                )
+            }
+
+            IMPORTED_RELAY -> {
+                val member =
+                    ProxyProfile.Trojan(
+                        id = "imported-relay",
+                        displayName = "Imported relay",
+                        groupId = "imported-group",
+                        server = "imported.example",
+                        serverPort = 443,
+                        password = "fixture-imported-secret",
+                    )
+                coordinator.upsertRelay(
+                    preparation,
+                    RelayProfileRecord(
+                        "imported-relay",
+                        RelayKindTrojan,
+                        operatorName = "Imported relay",
+                        server = "imported.example",
+                    ),
+                    RelayCredentialRecord("imported-relay", trojanPassword = "fixture-imported-secret"),
+                    false,
+                    false,
+                    importedGroup =
+                        ProxyGroup(
+                            id = "imported-group",
+                            name = "Imported relay",
+                            type = ProxyGroupType.BASIC,
+                            order = 99,
+                            isSelector = false,
+                            members = listOf(member),
+                        ),
                 )
             }
 
@@ -182,6 +367,18 @@ private enum class AtomicProfileFamily(
                 assertEquals("relay", fixture.settings.snapshot().relayProfileId)
                 assertTrue(fixture.settings.snapshot().relayEnabled)
                 assertEquals(Mode.Proxy.preferenceValue, fixture.settings.snapshot().ripdpiMode)
+            }
+
+            IMPORTED_RELAY -> {
+                val group = fixture.groups.list().single()
+                assertEquals("Imported relay", group.name)
+                assertEquals(0, group.order)
+                val member = group.members.single() as ProxyProfile.Trojan
+                assertEquals("imported-group", member.groupId)
+                assertEquals("fixture-imported-secret", member.password)
+                assertEquals("imported.example", fixture.relayProfiles.load(member.id)?.server)
+                assertEquals("Imported relay", fixture.relayProfiles.load(member.id)?.operatorName)
+                assertEquals("fixture-imported-secret", fixture.relayCredentials.load(member.id)?.trojanPassword)
             }
 
             XRAY -> {

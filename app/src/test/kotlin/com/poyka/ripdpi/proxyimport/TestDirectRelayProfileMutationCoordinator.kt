@@ -14,6 +14,7 @@ class TestDirectRelayProfileMutationCoordinator(
     private val profiles: RelayProfileStore,
     private val credentials: RelayCredentialStore,
     private val settings: AppSettingsRepository,
+    private val groups: com.poyka.ripdpi.data.ProxyGroupRepository = FakeProxyGroupRepository(),
 ) : ProfileMutationCoordinator {
     override suspend fun restoreBackup(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
@@ -143,6 +144,7 @@ class TestDirectRelayProfileMutationCoordinator(
         modeAfterImage: String?,
         xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
         expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
+        importedGroup: com.poyka.ripdpi.data.ProxyGroup?,
     ): com.poyka.ripdpi.data.ProfileMutationOutcome {
         if (expectedState != null) {
             require(
@@ -151,10 +153,15 @@ class TestDirectRelayProfileMutationCoordinator(
             )
         }
         val outcome = commitMutationIntent(preparation)
+        if (importedGroup != null && outcome is com.poyka.ripdpi.data.ProfileMutationOutcome.Superseded) return outcome
+        val previousGroups = groups.list()
         val previousProfile = profiles.load(profile.id)
         val previousCredentials = loadReplaceableCredential { this.credentials.load(profile.id) }
         val previousSettings = settings.snapshot()
         try {
+            importedGroup?.let { group ->
+                groups.add(group)
+            }
             profiles.save(profile)
             this.credentials.save(credentials)
             check(xraySelectionAfterImage == null || xraySelectionAfterImage == XrayProviderSelectionRecord()) {
@@ -199,6 +206,7 @@ class TestDirectRelayProfileMutationCoordinator(
                     }
                 },
                 { settings.replace(previousSettings) },
+                { groups.compensateReplacement(previousGroups) },
             )
         }
 

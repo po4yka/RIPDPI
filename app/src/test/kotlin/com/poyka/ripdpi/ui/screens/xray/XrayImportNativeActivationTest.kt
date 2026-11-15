@@ -1058,6 +1058,7 @@ private class FakeXrayProfileMutationCoordinator(
         modeAfterImage: String?,
         xraySelectionAfterImage: XrayProviderSelectionRecord?,
         expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
+        importedGroup: com.poyka.ripdpi.data.ProxyGroup?,
     ): com.poyka.ripdpi.data.ProfileMutationOutcome {
         failure?.let { throw it }
         relayProfileStore?.save(profile)
@@ -1188,6 +1189,7 @@ class NativeRelayActivationFenceTest {
                     modeAfterImage: String?,
                     xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
                     expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
+                    importedGroup: com.poyka.ripdpi.data.ProxyGroup?,
                 ): com.poyka.ripdpi.data.ProfileMutationOutcome = throw failure
             }
         val activator = NativeRelayProfileActivator(repository, RelayProfileActivator(rejected))
@@ -1250,6 +1252,7 @@ class NativeRelayActivationFenceTest {
                         modeAfterImage: String?,
                         xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
                         expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
+                        importedGroup: com.poyka.ripdpi.data.ProxyGroup?,
                     ): com.poyka.ripdpi.data.ProfileMutationOutcome {
                         val metadata = repository.list().single()
                         assertFalse(metadata.isSelector)

@@ -22,6 +22,7 @@ internal class ProfileMutationIntentProjection {
         xraySelectionAfterImage: XrayProviderSelectionRecord?,
         clearSelectorOwnership: Boolean,
         settingsBaseImage: AppSettings? = null,
+        importedGroup: ProxyGroup? = null,
     ) = RelayUpsertIntent(
         profile = profile,
         credentials = credentials,
@@ -32,6 +33,7 @@ internal class ProfileMutationIntentProjection {
         modeAfterImage = modeAfterImage,
         xraySelectionAfterImage = xraySelectionAfterImage,
         clearSelectorOwnership = clearSelectorOwnership,
+        importedGroup = importedGroup,
     )
 
     fun measuredIntent(
@@ -242,6 +244,7 @@ internal class ProfileMutationRowWriter(
     }
 
     private fun saveRelay(intent: RelayUpsertIntent) {
+        intent.importedGroup?.let { rows.addImportedGroup(it, intent.profile.id) }
         rows.relayProfiles.save(intent.profile)
         rows.relayCredentials.save(intent.credentials)
         if (intent.clearSelectorOwnership) rows.selection.setActiveGroup(null)
@@ -361,6 +364,7 @@ internal data class RelayUpsertIntent(
     val modeAfterImage: String? = null,
     val xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
     val clearSelectorOwnership: Boolean = false,
+    val importedGroup: ProxyGroup? = null,
 ) : ProfileMutationIntent {
     override val family: ProfileMutationFamily = ProfileMutationFamily.Relay
 }

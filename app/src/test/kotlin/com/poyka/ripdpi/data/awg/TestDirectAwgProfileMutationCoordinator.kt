@@ -168,6 +168,7 @@ class TestDirectAwgProfileMutationCoordinator(
         modeAfterImage: String?,
         xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
         expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
+        importedGroup: com.poyka.ripdpi.data.ProxyGroup?,
     ) = unsupported()
 
     override suspend fun upsertWarp(

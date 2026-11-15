@@ -148,6 +148,7 @@ object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
         modeAfterImage: String?,
         xraySelectionAfterImage: XrayProviderSelectionRecord?,
         expectedState: ExpectedRelayProfileState?,
+        importedGroup: com.poyka.ripdpi.data.ProxyGroup?,
     ): com.poyka.ripdpi.data.ProfileMutationOutcome =
         com.poyka.ripdpi.data
             .testMutationOutcome(preparation.origin)

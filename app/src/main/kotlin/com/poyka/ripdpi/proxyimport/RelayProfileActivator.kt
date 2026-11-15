@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.mapRelayProfile
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,7 +40,9 @@ class RelayProfileActivator
 
         /** Saves a new share-link import without changing runtime selection. */
         suspend fun saveImport(profile: ProxyProfile): Boolean {
-            val mapped = mapRelayProfile(profile) ?: return false
+            val group = profile.importedGroup(UUID.randomUUID().toString())
+            val member = group.members.single()
+            val mapped = mapRelayProfile(member) ?: return false
             val preparation = profileMutations.captureMutation(ProfileMutationOrigin.ImportOnly)
             val outcome =
                 profileMutations.upsertRelay(
@@ -49,6 +52,7 @@ class RelayProfileActivator
                     enabled = false,
                     select = false,
                     expectedState = ExpectedRelayProfileState(profile = null, credentials = null),
+                    importedGroup = group,
                 )
             return outcome !is ProfileMutationOutcome.Superseded
         }

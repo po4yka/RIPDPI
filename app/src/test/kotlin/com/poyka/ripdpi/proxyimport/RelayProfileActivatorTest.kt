@@ -129,7 +129,11 @@ class RelayProfileActivatorTest {
                 assertEquals(second.password, restarted.relayCredentials.load(second.id)?.trojanPassword)
                 assertEquals(originalSettings, restarted.settings.snapshot())
                 assertEquals(selection, restarted.xraySelection.current())
-                assertTrue(restarted.groups.list().isEmpty())
+                val importedGroups = restarted.groups.list()
+                assertEquals(setOf(first.id, second.id), importedGroups.map { it.members.single().id }.toSet())
+                importedGroups.forEach { group ->
+                    assertEquals(group.id, group.members.single().groupId)
+                }
                 assertNull(restarted.relayProfiles.load(failed.id))
                 assertNull(restarted.relayCredentials.load(failed.id))
             }

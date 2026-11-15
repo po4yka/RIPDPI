@@ -538,6 +538,7 @@ interface RelayUpsertMutationCoordinator {
         modeAfterImage: String? = null,
         xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
         expectedState: ExpectedRelayProfileState? = null,
+        importedGroup: ProxyGroup? = null,
     ): ProfileMutationOutcome
 
     /**
@@ -570,6 +571,7 @@ private class RelayUpsertWriter(
         modeAfterImage: String?,
         xraySelectionAfterImage: XrayProviderSelectionRecord?,
         expectedState: ExpectedRelayProfileState?,
+        importedGroup: ProxyGroup?,
     ): ProfileMutationOutcome =
         runtime.writeRelayUpsert(
             preparation,
@@ -583,6 +585,7 @@ private class RelayUpsertWriter(
                 modeAfterImage = modeAfterImage,
                 xraySelectionAfterImage = xraySelectionAfterImage,
                 clearSelectorOwnership = preparation.origin == ProfileMutationOrigin.ExplicitActivation,
+                importedGroup = importedGroup,
             ),
         )
 

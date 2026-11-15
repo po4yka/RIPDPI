@@ -258,6 +258,7 @@ internal class TestProfileMutationCoordinator(
         modeAfterImage: String?,
         xraySelectionAfterImage: XrayProviderSelectionRecord?,
         expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
+        importedGroup: com.poyka.ripdpi.data.ProxyGroup?,
     ) = unsupported()
 
     override suspend fun replacePrivateBackup(
