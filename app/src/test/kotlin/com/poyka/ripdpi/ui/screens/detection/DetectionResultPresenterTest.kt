@@ -48,6 +48,7 @@ class DetectionResultPresenterTest {
             assertTrue(!it.includeRttTriangulationCheck)
             assertTrue(!it.includeCdnPullingCheck)
             assertTrue(!it.includeCallTransportCheck)
+            assertTrue(!it.includeWebRtcCheck)
         }
 
         val withNetwork =
@@ -62,6 +63,7 @@ class DetectionResultPresenterTest {
             assertTrue(it.includeRttTriangulationCheck)
             assertTrue(it.includeCdnPullingCheck)
             assertTrue(it.includeCallTransportCheck)
+            assertTrue(it.includeWebRtcCheck)
         }
 
         val networkOnly =
@@ -76,6 +78,7 @@ class DetectionResultPresenterTest {
             assertTrue(!it.includeRttTriangulationCheck)
             assertTrue(!it.includeCdnPullingCheck)
             assertTrue(!it.includeCallTransportCheck)
+            assertTrue(it.includeWebRtcCheck)
         }
     }
 

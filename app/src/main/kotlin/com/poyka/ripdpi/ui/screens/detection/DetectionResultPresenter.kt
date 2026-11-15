@@ -75,6 +75,7 @@ private fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionR
         ownPackageName = packageName,
         includeBypassCheck = detectionCheckIncludeBypass,
         includeTimingAnalysis = detectionCheckNetworkRequestsEnabled,
+        includeWebRtcCheck = detectionCheckNetworkRequestsEnabled,
         includeRttTriangulationCheck =
             detectionCheckNetworkRequestsEnabled && detectionCheckRttTriangulationEnabled,
         includeCdnPullingCheck =
