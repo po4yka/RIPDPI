@@ -19,7 +19,7 @@ pub fn run_telegram_probe_with_abort(
     target: &TelegramTarget,
     transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
-    should_abort: &dyn Fn() -> Option<&'static str>,
+    should_abort: &(dyn Fn() -> Option<&'static str> + Sync),
 ) -> ProbeResult {
     let dl = match should_abort() {
         Some(reason) => aborted_transfer(reason),

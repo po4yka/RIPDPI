@@ -12,7 +12,7 @@ use tungstenite::WebSocket;
 use tungstenite::client::IntoClientRequest;
 
 use crate::transport::{TargetAddress, TransportConfig, connect_transport_observed, direct_transport};
-use crate::transport::{resolve_addresses_with_timeout, run_with_socket_watchdog};
+use crate::transport::{resolve_addresses_with_timeout, run_with_socket_abort_watchdog};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 pub type WsOverTlsStream = WebSocket<StreamOwned<ClientConnection, TcpStream>>;
@@ -70,7 +70,7 @@ impl WsOverTlsConnector {
         &self,
         target: &WsOverTlsTarget,
         key_log: Option<WsTlsKeyLogCallback>,
-        should_abort: &dyn Fn() -> Option<&'static str>,
+        should_abort: &(dyn Fn() -> Option<&'static str> + Sync),
     ) -> io::Result<()> {
         let _stream = self.connect_with_key_log_and_abort(target, key_log, should_abort)?;
         Ok(())
@@ -92,7 +92,7 @@ impl WsOverTlsConnector {
         &self,
         target: &WsOverTlsTarget,
         key_log: Option<WsTlsKeyLogCallback>,
-        should_abort: &dyn Fn() -> Option<&'static str>,
+        should_abort: &(dyn Fn() -> Option<&'static str> + Sync),
     ) -> io::Result<WsOverTlsStream> {
         let control =
             WsOverTlsControl::new(should_abort).with_timeout_cap(target.connect_timeout.unwrap_or(IO_TIMEOUT));
@@ -101,12 +101,12 @@ impl WsOverTlsConnector {
 }
 
 struct WsOverTlsControl<'a> {
-    should_abort: &'a dyn Fn() -> Option<&'static str>,
+    should_abort: &'a (dyn Fn() -> Option<&'static str> + Sync),
     timeout_cap: Duration,
 }
 
 impl<'a> WsOverTlsControl<'a> {
-    pub fn new(should_abort: &'a dyn Fn() -> Option<&'static str>) -> Self {
+    pub fn new(should_abort: &'a (dyn Fn() -> Option<&'static str> + Sync)) -> Self {
         Self { should_abort, timeout_cap: IO_TIMEOUT }
     }
 
@@ -185,9 +185,11 @@ fn connect_with_steps<Steps: WsHandshakeSteps>(
     let tls = steps
         .connect_tls(tcp, target.host.as_str(), key_log, control.remaining_timeout()?, control)
         .map_err(|err| control.error_after_blocking_io(err))?;
-    steps
+    let ws = steps
         .websocket_handshake(target, tls, control.remaining_timeout()?, control)
-        .map_err(|err| control.error_after_blocking_io(err))
+        .map_err(|err| control.error_after_blocking_io(err))?;
+    control.remaining_timeout()?;
+    Ok(ws)
 }
 
 struct ProductionWsHandshakeSteps;
@@ -290,53 +292,17 @@ fn connect_tls(
     let connection = ClientConnection::new(default_tls_config(key_log), server_name)
         .map_err(|err| io::Error::new(io::ErrorKind::ConnectionRefused, format!("TLS setup: {err}")))?;
     let mut tls = StreamOwned::new(connection, tcp);
-    while tls.conn.is_handshaking() {
-        let timeout = control.remaining_timeout()?;
-        tls.sock.set_read_timeout(Some(timeout))?;
-        tls.sock.set_write_timeout(Some(timeout))?;
-        if let Err(err) = tls.conn.complete_io(&mut BoundedHandshakeSocket { socket: &mut tls.sock, control }) {
-            return Err(control.error_after_blocking_io(io::Error::new(err.kind(), format!("TLS handshake: {err}"))));
+    let socket = tls.sock.try_clone()?;
+    run_with_socket_abort_watchdog(socket, &|| (control.should_abort)().is_some(), || {
+        control.remaining_timeout()?;
+        while tls.conn.is_handshaking() {
+            tls.conn
+                .complete_io(&mut tls.sock)
+                .map_err(|err| io::Error::new(err.kind(), format!("TLS handshake: {err}")))?;
         }
-    }
-    Ok(tls)
-}
-
-/// Handshake socket I/O that checks cancellation and the scan deadline before every read and
-/// write. `complete_io` loops until the handshake ends and a socket timeout bounds only one read,
-/// so a peer that sends a few bytes within every timeout would otherwise outlive the deadline.
-struct BoundedHandshakeSocket<'a, 'b> {
-    socket: &'a mut TcpStream,
-    control: &'a WsOverTlsControl<'b>,
-}
-
-impl BoundedHandshakeSocket<'_, '_> {
-    fn before_io(&mut self) -> io::Result<()> {
-        // rustls retries an `Interrupted` read, so an abort must use another kind to end the loop.
-        let timeout = self.control.remaining_timeout().map_err(|err| match err.kind() {
-            io::ErrorKind::Interrupted => io::Error::other(err.to_string()),
-            _ => err,
-        })?;
-        self.socket.set_read_timeout(Some(timeout))?;
-        self.socket.set_write_timeout(Some(timeout))
-    }
-}
-
-impl io::Read for BoundedHandshakeSocket<'_, '_> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.before_io()?;
-        io::Read::read(self.socket, buf)
-    }
-}
-
-impl io::Write for BoundedHandshakeSocket<'_, '_> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.before_io()?;
-        io::Write::write(self.socket, buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        io::Write::flush(self.socket)
-    }
+        Ok(tls)
+    })
+    .map_err(|err| control.error_after_blocking_io(err))
 }
 
 fn websocket_handshake(
@@ -345,20 +311,28 @@ fn websocket_handshake(
     timeout: Duration,
     control: &WsOverTlsControl<'_>,
 ) -> io::Result<WsOverTlsStream> {
-    control.ensure_not_aborted()?;
+    control.remaining_timeout()?;
     tls.sock.set_read_timeout(Some(timeout))?;
     tls.sock.set_write_timeout(Some(timeout))?;
-    let request = build_ws_request(target)?;
-    // tungstenite reads the Upgrade response through rustls, which loops while a peer drips bytes.
     let socket = tls.sock.try_clone()?;
-    let (ws, _response) = run_with_socket_watchdog(socket, None, || {
-        tungstenite::client(request, tls).map_err(|err| {
-            control.error_after_blocking_io(io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("WS handshake: {err}"),
-            ))
-        })
-    })?;
+    upgrade_websocket(target, tls, socket, control)
+}
+
+fn upgrade_websocket<S: io::Read + io::Write>(
+    target: &WsOverTlsTarget,
+    stream: S,
+    socket: TcpStream,
+    control: &WsOverTlsControl<'_>,
+) -> io::Result<WebSocket<S>> {
+    let request = build_ws_request(target)?;
+    // rustls can keep reading while a peer sends part of the Upgrade response.
+    let (ws, _) = run_with_socket_abort_watchdog(socket, &|| (control.should_abort)().is_some(), || {
+        control.remaining_timeout()?;
+        tungstenite::client(request, stream)
+            .map_err(|err| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {err}")))
+    })
+    .map_err(|err| control.error_after_blocking_io(err))?;
+    control.remaining_timeout()?;
     Ok(ws)
 }
 
@@ -385,6 +359,10 @@ fn build_ws_request(target: &WsOverTlsTarget) -> io::Result<tungstenite::http::R
     request.headers_mut().insert("Sec-WebSocket-Protocol", tungstenite::http::HeaderValue::from_static("binary"));
     Ok(request)
 }
+
+#[cfg(test)]
+#[path = "ws_tls_control_tests.rs"]
+mod control_tests;
 
 #[cfg(test)]
 mod tests {

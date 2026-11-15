@@ -25,7 +25,7 @@ impl TelegramWsProbeResult {
 pub(crate) fn telegram_ws_tunnel_probe_with_abort_callback(
     transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
-    should_abort: &dyn Fn() -> Option<&'static str>,
+    should_abort: &(dyn Fn() -> Option<&'static str> + Sync),
 ) -> TelegramWsProbeResult {
     telegram_ws_tunnel_probe_with_target(
         transport,
@@ -78,7 +78,11 @@ where
             return TelegramWsProbeResult::aborted(reason);
         }
 
-        match probe_ws(target) {
+        let result = probe_ws(target);
+        if let Some(reason) = should_abort() {
+            return TelegramWsProbeResult::aborted(reason);
+        }
+        match result {
             Ok(()) => {
                 let rtt_ms = start.elapsed().as_millis() as u64;
                 TelegramWsProbeResult { status: "ok".to_string(), rtt_ms, error: None }

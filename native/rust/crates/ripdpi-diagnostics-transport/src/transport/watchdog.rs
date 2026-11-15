@@ -1,3 +1,4 @@
+use std::io;
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
@@ -21,14 +22,35 @@ pub fn run_with_socket_watchdog<T>(socket: TcpStream, cancel: Option<&AtomicBool
     if deadline.is_none() && cancel.is_none() {
         return operation();
     }
-    let (done_tx, done_rx) = mpsc::channel::<()>();
+    watch_socket(socket, deadline, &|| cancel.is_some_and(|flag| flag.load(Ordering::Acquire)), |_| operation())
+}
+
+/// Shut down the socket at cancellation or the scan deadline. Do not start the operation
+/// if the watchdog cannot start. The caller checks its control state after the operation.
+pub fn run_with_socket_abort_watchdog<T>(
+    socket: TcpStream,
+    should_abort: &(dyn Fn() -> bool + Sync),
+    operation: impl FnOnce() -> io::Result<T>,
+) -> io::Result<T> {
+    watch_socket(socket, active_scan_io_deadline(), should_abort, |started| {
+        started?;
+        operation()
+    })
+}
+
+fn watch_socket<T>(
+    socket: TcpStream,
+    deadline: Option<Instant>,
+    should_abort: &(dyn Fn() -> bool + Sync),
+    operation: impl FnOnce(io::Result<()>) -> T,
+) -> T {
     std::thread::scope(|scope| {
+        // Drop the sender before the scope joins, including when the operation panics.
+        let (done_tx, done_rx) = mpsc::channel::<()>();
         let watchdog =
             std::thread::Builder::new().name("ripdpi-socket-watchdog".to_string()).spawn_scoped(scope, move || {
                 loop {
-                    // Acquire observes the scan owner's published cancellation flag.
-                    let cancelled = cancel.is_some_and(|flag| flag.load(Ordering::Acquire));
-                    if cancelled || deadline.is_some_and(|value| Instant::now() >= value) {
+                    if should_abort() || deadline.is_some_and(|value| Instant::now() >= value) {
                         let _ = socket.shutdown(Shutdown::Both);
                         return;
                     }
@@ -41,12 +63,8 @@ pub fn run_with_socket_watchdog<T>(socket: TcpStream, cancel: Option<&AtomicBool
                     }
                 }
             });
-        if watchdog.is_err() {
-            // No thread left (EAGAIN): run unbounded rather than panic; socket timeouts still bound each read.
-            return operation();
-        }
-        let result = operation();
-        let _ = done_tx.send(());
+        let result = operation(watchdog.map(|_| ()));
+        drop(done_tx);
         result
     })
 }

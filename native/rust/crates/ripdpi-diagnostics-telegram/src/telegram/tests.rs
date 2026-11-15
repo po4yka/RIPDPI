@@ -175,3 +175,18 @@ fn telegram_ws_probe_stops_after_resolution_when_cancelled() {
     assert_eq!(result.error.as_deref(), Some("probe_aborted:cancelled"));
     assert!(!probe_called.get());
 }
+
+#[test]
+fn telegram_ws_probe_discards_success_after_cancellation() {
+    let cancelled = Cell::new(false);
+    let result = telegram_ws_tunnel_probe_with_abort(
+        |_| {
+            cancelled.set(true);
+            Ok(())
+        },
+        &|| cancelled.get().then_some("cancelled"),
+    );
+
+    assert_eq!(result.status, "cancelled");
+    assert_eq!(result.error.as_deref(), Some("probe_aborted:cancelled"));
+}
