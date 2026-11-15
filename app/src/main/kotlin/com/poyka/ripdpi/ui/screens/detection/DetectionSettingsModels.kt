@@ -2,22 +2,19 @@ package com.poyka.ripdpi.ui.screens.detection
 
 import androidx.annotation.StringRes
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.core.detection.BypassPortRange
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.BundledDnsProviderCatalog
 import com.poyka.ripdpi.data.DnsProviderCatalogEntry
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.proto.AppSettings
-import kotlin.math.max
 
 private const val DisabledControlAlpha = 0.38f
 private const val EnabledControlAlpha = 1f
 private const val ExtendedPortStart = 1024
 private const val ExtendedPortEnd = 49151
-private const val FullPortStart = 1
 private const val FullPortEnd = 65535
-private const val DefaultCustomPortStart = 1080
-private const val DefaultCustomPortEnd = 1090
 
 enum class DetectionTunProbeMode(
     val wireValue: String,
@@ -165,8 +162,8 @@ data class DetectionSettingsUiState(
     val customPortStart: Int = 1080,
     val customPortEnd: Int = 1090,
     // The port fields' text: blank or out of range while the user edits, unlike the parsed ports.
-    val customPortStartText: String = customPortStart.toString(),
-    val customPortEndText: String = customPortEnd.toString(),
+    val customPortStartText: String = customPortStart.portInputText(),
+    val customPortEndText: String = customPortEnd.portInputText(),
     val dnsResolverMode: DetectionDnsResolverMode = DetectionDnsResolverMode.SYSTEM,
     val dnsPreset: DetectionDnsPreset = DetectionDnsPreset.CUSTOM,
     val dnsDirectServers: String = "",
@@ -203,13 +200,14 @@ data class DetectionSettingsUiState(
         get() = tlsKeylogPath.takeUnless { !debugModeEnabled || privacyModeEnabled || it.isBlank() }
 
     val customPortRangeValid: Boolean
-        get() =
-            customPortStart in FullPortStart..FullPortEnd &&
-                customPortEnd in FullPortStart..FullPortEnd &&
-                customPortStart <= customPortEnd
+        get() = customPortCount > 0
 
     val customPortCount: Int
-        get() = if (customPortRangeValid) customPortEnd - customPortStart + 1 else 0
+        get() =
+            BypassPortRange
+                .Custom(customPortStart, customPortEnd)
+                .ports
+                ?.let { it.last - it.first + 1 } ?: 0
 
     val selectedPortCount: Int?
         get() =
@@ -251,8 +249,8 @@ data class DetectionSettingsUiState(
                 xrayApiScanEnabled = settings.detectionCheckXrayApiScanEnabled,
                 tunProbeMode = DetectionTunProbeMode.fromWire(settings.detectionCheckTunProbeMode),
                 portRangeMode = DetectionPortRangeMode.fromWire(settings.detectionCheckPortRangeMode),
-                customPortStart = settings.detectionCheckCustomPortStart.nonZeroOr(DefaultCustomPortStart),
-                customPortEnd = settings.detectionCheckCustomPortEnd.nonZeroOr(DefaultCustomPortEnd),
+                customPortStart = settings.detectionCheckCustomPortStart,
+                customPortEnd = settings.detectionCheckCustomPortEnd,
                 dnsResolverMode = DetectionDnsResolverMode.fromWire(settings.detectionCheckDnsResolverMode),
                 dnsPreset = preset,
                 dnsDirectServers = settings.detectionCheckDnsDirectServers,
@@ -273,6 +271,6 @@ data class DetectionSettingsUiState(
 private fun DetectionSettingsUiState.selectDnsPresetIfNeeded(preset: DetectionDnsPreset): DetectionSettingsUiState =
     if (preset.isCustom) this else selectDnsPreset(preset)
 
-private fun Int.nonZeroOr(defaultValue: Int): Int = if (this == 0) defaultValue else this
+private fun Int.portInputText(): String = takeUnless { it == 0 }?.toString().orEmpty()
 
-private fun String.toPortOrZero(): Int = max(0, toIntOrNull() ?: 0)
+internal fun String.toPortOrZero(): Int = toIntOrNull() ?: 0

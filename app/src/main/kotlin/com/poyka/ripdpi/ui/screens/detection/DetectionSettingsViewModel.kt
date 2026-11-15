@@ -11,9 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-private const val MinCustomPort = 0
-private const val MaxCustomPort = 65535
-
 @HiltViewModel
 internal class DetectionSettingsViewModel
     @Inject
@@ -126,8 +123,7 @@ internal class DetectionSettingsViewModel
             editDraft(DraftField.PortStart, value)
             viewModelScope.launch {
                 appSettingsRepository.update {
-                    detectionCheckCustomPortStart =
-                        value.toIntOrNull()?.coerceIn(MinCustomPort, MaxCustomPort) ?: MinCustomPort
+                    detectionCheckCustomPortStart = value.toPortOrZero()
                 }
             }
         }
@@ -136,8 +132,7 @@ internal class DetectionSettingsViewModel
             editDraft(DraftField.PortEnd, value)
             viewModelScope.launch {
                 appSettingsRepository.update {
-                    detectionCheckCustomPortEnd =
-                        value.toIntOrNull()?.coerceIn(MinCustomPort, MaxCustomPort) ?: MinCustomPort
+                    detectionCheckCustomPortEnd = value.toPortOrZero()
                 }
             }
         }

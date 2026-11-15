@@ -14,7 +14,6 @@ import com.poyka.ripdpi.core.detection.probe.KnownLocalServices
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.ProxyScanner
 import com.poyka.ripdpi.core.detection.probe.ProxyType
-import com.poyka.ripdpi.core.detection.probe.ScanMode
 import com.poyka.ripdpi.core.detection.probe.ScanPhase
 import com.poyka.ripdpi.core.detection.probe.XrayApiScanResult
 import com.poyka.ripdpi.core.detection.probe.XrayApiScanner
@@ -46,23 +45,19 @@ object BypassChecker {
             val findings = mutableListOf<Finding>()
             val evidence = mutableListOf<EvidenceItem>()
 
+            val scanRange = options.portRange.toScanRange()
+            val excluded = KnownLocalServices.excludedPorts + excludePorts
             val scanner =
                 ProxyScanner(
                     dispatchers = dispatchers,
-                    excludePorts = KnownLocalServices.excludedPorts + excludePorts,
-                    scanRange = options.portRange.toScanRange(),
+                    excludePorts = excluded,
+                    scanRange = scanRange,
                     fullRangeEnabled = options.portRange !is BypassPortRange.Popular,
                 )
             val xrayScanner =
                 XrayApiScanner(
                     dispatchers = dispatchers,
-                    scanRange = options.portRange.toScanRange(),
-                    scanPorts =
-                        if (options.portRange is BypassPortRange.Popular) {
-                            (VpnAppCatalog.localhostProxyPorts + listOf(1081, 7890, 7891, 10085)).distinct().sorted()
-                        } else {
-                            null
-                        },
+                    scanPorts = xrayScanPorts(options.portRange, scanRange, excluded),
                 )
 
             val proxyDeferred =
@@ -79,8 +74,6 @@ object BypassChecker {
                         else -> {
                             onProgress?.invoke(Progress("Port scanning", "Searching for open proxies on localhost..."))
                             scanner.findOpenProxyEndpoint(
-                                mode = ScanMode.AUTO,
-                                manualPort = null,
                                 onProgress = { progress ->
                                     val phaseText =
                                         when (progress.phase) {
@@ -212,10 +205,24 @@ object BypassChecker {
 
     private fun BypassPortRange.toScanRange(): IntRange =
         when (this) {
-            BypassPortRange.Popular -> 1024..65535
+            BypassPortRange.Popular -> 1..65535
             BypassPortRange.Extended -> 1024..49151
             BypassPortRange.Full -> 1..65535
-            is BypassPortRange.Custom -> minOf(start, end).coerceIn(1, 65535)..maxOf(start, end).coerceIn(1, 65535)
+            is BypassPortRange.Custom -> ports ?: IntRange.EMPTY
+        }
+
+    private fun xrayScanPorts(
+        range: BypassPortRange,
+        scanRange: IntRange,
+        excluded: Set<Int>,
+    ): List<Int> =
+        if (range == BypassPortRange.Popular) {
+            (VpnAppCatalog.localhostProxyPorts + listOf(1081, 7890, 7891, 10085))
+                .distinct()
+                .sorted()
+                .filterNot(excluded::contains)
+        } else {
+            scanRange.filterNot(excluded::contains)
         }
 
     private fun reportProxyTransportProbes(

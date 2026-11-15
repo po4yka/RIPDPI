@@ -1,10 +1,5 @@
 package com.poyka.ripdpi.core.detection.probe
 
-enum class ScanMode {
-    AUTO,
-    MANUAL,
-}
-
 enum class ScanPhase {
     POPULAR_PORTS,
     FULL_RANGE,

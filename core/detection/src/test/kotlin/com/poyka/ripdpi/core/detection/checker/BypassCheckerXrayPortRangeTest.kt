@@ -2,13 +2,17 @@ package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.BypassPortRange
 import com.poyka.ripdpi.core.detection.BypassScanOptions
-import com.poyka.ripdpi.core.detection.probe.XrayApiScanner
 import com.poyka.ripdpi.core.detection.vpn.VpnAppCatalog
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.SocketTimeoutException
 
 class BypassCheckerXrayPortRangeTest {
     private val dispatchers =
@@ -23,7 +27,10 @@ class BypassCheckerXrayPortRangeTest {
         runBlocking {
             assertEquals(1, firstXrayPort(BypassPortRange.Full))
             assertEquals(54321, firstXrayPort(BypassPortRange.Custom(54321, 54321)))
-            assertEquals(54320, firstXrayPort(BypassPortRange.Custom(54321, 54320)))
+            assertEquals(65535, firstXrayPort(BypassPortRange.Custom(65535, 65535)))
+            assertNull(firstXrayPort(BypassPortRange.Custom(54321, 54320)))
+            assertNull(firstXrayPort(BypassPortRange.Custom(0, 65536)))
+            assertNull(firstXrayPort(BypassPortRange.Custom(5555, 5555)))
             assertEquals(
                 (VpnAppCatalog.localhostProxyPorts + listOf(1081, 7890, 7891, 10085)).min(),
                 firstXrayPort(BypassPortRange.Popular),
@@ -31,23 +38,26 @@ class BypassCheckerXrayPortRangeTest {
         }
 
     @Test
-    fun xrayScannerAttemptsExplicitPorts() =
-        runBlocking {
-            val visited = mutableListOf<Int>()
-            XrayApiScanner(
-                dispatchers = dispatchers,
-                loopbackHosts = listOf("127.0.0.1"),
-                scanRange = 5000..5000,
-                scanPorts = listOf(-1),
-                maxConcurrency = 1,
-                progressUpdateEvery = 1,
-            ).findXrayApi { progress ->
-                if (progress.scanned == 1) visited += progress.currentPort
-            }
-            assertEquals(listOf(-1, -1), visited)
-        }
+    fun excludedPortIsNotOpenedByEitherScanner() {
+        ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { listener ->
+            val port = listener.localPort
+            val result =
+                runBlocking {
+                    BypassChecker.check(
+                        dispatchers = dispatchers,
+                        excludePorts = setOf(port),
+                        options = BypassScanOptions(portRange = BypassPortRange.Custom(port, port)),
+                    )
+                }
 
-    private suspend fun firstXrayPort(range: BypassPortRange): Int {
+            assertNull(result.proxyEndpoint)
+            assertNull(result.xrayApiScanResult)
+            listener.soTimeout = 100
+            assertThrows(SocketTimeoutException::class.java) { listener.accept().close() }
+        }
+    }
+
+    private suspend fun firstXrayPort(range: BypassPortRange): Int? {
         var firstPort: Int? = null
         try {
             BypassChecker.check(
@@ -72,7 +82,7 @@ class BypassCheckerXrayPortRangeTest {
         } catch (_: StopScan) {
             // Stop before opening sockets; only the scan plan is under test.
         }
-        return requireNotNull(firstPort)
+        return firstPort
     }
 
     private class StopScan : RuntimeException()

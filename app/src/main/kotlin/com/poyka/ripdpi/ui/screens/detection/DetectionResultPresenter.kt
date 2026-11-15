@@ -120,8 +120,8 @@ private fun AppSettings.toBypassPortRange(): BypassPortRange =
 
         DetectionPortRangeMode.CUSTOM -> {
             BypassPortRange.Custom(
-                start = detectionCheckCustomPortStart.takeIf { it > 0 } ?: 1080,
-                end = detectionCheckCustomPortEnd.takeIf { it > 0 } ?: 1090,
+                start = detectionCheckCustomPortStart,
+                end = detectionCheckCustomPortEnd,
             )
         }
     }

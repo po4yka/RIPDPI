@@ -30,42 +30,21 @@ class ProxyScanner(
     private val progressUpdateEvery: Int = 256,
     private val excludePorts: Set<Int> = KnownLocalServices.excludedPorts,
 ) {
-    suspend fun findOpenProxyEndpoint(
-        mode: ScanMode,
-        manualPort: Int?,
-        onProgress: suspend (ScanProgress) -> Unit,
-    ): ProxyEndpoint? =
-        when (mode) {
-            ScanMode.MANUAL -> {
-                val port = manualPort ?: return null
-                onProgress(
-                    ScanProgress(
-                        phase = ScanPhase.POPULAR_PORTS,
-                        scanned = 1,
-                        total = 1,
-                        currentPort = port,
-                    ),
-                )
-                tryPort(port)
-            }
-
-            ScanMode.AUTO -> {
-                val foundOnPopular = scanPopularPorts(onProgress)
-                if (foundOnPopular != null) return foundOnPopular
-                if (!fullRangeEnabled) return null
-                scanFullRange(onProgress)
-            }
-        }
+    suspend fun findOpenProxyEndpoint(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? {
+        val foundOnPopular = scanPopularPorts(onProgress)
+        if (foundOnPopular != null || !fullRangeEnabled) return foundOnPopular
+        return scanFullRange(onProgress)
+    }
 
     private suspend fun scanPopularPorts(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? {
-        for ((index, port) in popularPorts.withIndex()) {
+        val eligible = popularPorts.filter { it in scanRange && it !in excludePorts }
+        for ((index, port) in eligible.withIndex()) {
             coroutineContext.ensureActive()
-            if (port in excludePorts) continue
             onProgress(
                 ScanProgress(
                     phase = ScanPhase.POPULAR_PORTS,
                     scanned = index + 1,
-                    total = popularPorts.size,
+                    total = eligible.size,
                     currentPort = port,
                 ),
             )
@@ -81,6 +60,7 @@ class ProxyScanner(
             coroutineScope {
                 val popularSet = popularPorts.toHashSet()
                 val skipSet = popularSet + excludePorts
+                val firstPort = scanRange.firstOrNull { it !in skipSet } ?: return@coroutineScope null
                 val total = scanRange.count { it !in skipSet }
                 val scanned = AtomicInteger(0)
                 val found = AtomicReference<ProxyEndpoint?>(null)
@@ -92,7 +72,7 @@ class ProxyScanner(
                         phase = ScanPhase.FULL_RANGE,
                         scanned = 0,
                         total = total,
-                        currentPort = scanRange.first,
+                        currentPort = firstPort,
                     ),
                 )
 

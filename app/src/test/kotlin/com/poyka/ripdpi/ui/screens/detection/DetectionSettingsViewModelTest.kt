@@ -52,6 +52,22 @@ class DetectionSettingsViewModelTest {
         }
 
     @Test
+    fun `an out of range port stays invalid after persistence`() =
+        runTest {
+            val repository = GatedSettingsRepository()
+            val viewModel = DetectionSettingsViewModel(repository)
+            repository.release()
+
+            viewModel.setCustomPortStart("65535")
+            viewModel.setCustomPortEnd("65536")
+            advanceUntilIdle()
+
+            assertEquals(65536, repository.current.detectionCheckCustomPortEnd)
+            assertEquals(0, viewModel.uiState.value.customPortCount)
+            assertFalse(viewModel.uiState.value.customPortRangeValid)
+        }
+
+    @Test
     fun `a change from another source shows once the typed text was stored`() =
         runTest {
             val repository = GatedSettingsRepository()

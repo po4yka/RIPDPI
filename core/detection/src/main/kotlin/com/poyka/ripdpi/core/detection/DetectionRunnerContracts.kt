@@ -46,7 +46,10 @@ sealed interface BypassPortRange {
     data class Custom(
         val start: Int,
         val end: Int,
-    ) : BypassPortRange
+    ) : BypassPortRange {
+        val ports: IntRange?
+            get() = (start..end).takeIf { start >= 1 && start <= end && end <= 65535 }
+    }
 }
 
 enum class DetectionStage {

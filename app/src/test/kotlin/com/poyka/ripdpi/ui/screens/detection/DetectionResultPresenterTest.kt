@@ -143,7 +143,7 @@ class DetectionResultPresenterTest {
     }
 
     @Test
-    fun `runnerConfig custom port range uses configured then fallback values`() {
+    fun `runnerConfig sends configured custom ports without replacing invalid values`() {
         val configured =
             DetectionResultPresenter
                 .runnerConfig(
@@ -157,12 +157,12 @@ class DetectionResultPresenterTest {
                 .portRange
         assertEquals(BypassPortRange.Custom(start = 2000, end = 3000), configured)
 
-        val fallback =
+        val unset =
             DetectionResultPresenter
                 .runnerConfig(settings { detectionCheckPortRangeMode = "custom" }, "pkg")
                 .bypassScanOptions
                 .portRange
-        assertEquals(BypassPortRange.Custom(start = 1080, end = 1090), fallback)
+        assertEquals(BypassPortRange.Custom(start = 0, end = 0), unset)
     }
 
     @Test
