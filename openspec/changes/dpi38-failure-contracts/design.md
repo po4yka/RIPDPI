@@ -44,4 +44,6 @@ TLS 1.2 permits alert fragmentation and coalescing under [RFC 5246 section 6.2.1
 
 ## Migration Plan
 
-No stored-data migration is needed. Land nine reviewed fix commits, run affected crate tests, formatting, Clippy, workspace check, cargo metadata --locked and just ci-gates. Validate task/OpenSpec records. Rebase on origin/main and rerun affected gates if inputs changed. Fast-forward main and push as authorized. Rollback uses ordinary revert commits; no history rewrite is needed. Device and external-network acceptance remain explicitly unclaimed.
+No stored-data migration is needed. Land ten reviewed fix commits, run affected crate tests, formatting, Clippy, workspace check, cargo metadata --locked and just ci-gates. Validate task/OpenSpec records. Rebase on origin/main and rerun affected gates if inputs changed. Fast-forward main and push as authorized. Rollback uses ordinary revert commits; no history rewrite is needed. Device and external-network acceptance remain explicitly unclaimed.
+
+The scoped TLS alert rules were also checked against [RFC 9846 sections 5.1 and 6](https://datatracker.ietf.org/doc/html/rfc9846#section-5.1), which replaces RFC 8446. These sections retain the record framing and closure/error rules used here. This source repair does not claim full TLS conformance.
