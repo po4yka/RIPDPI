@@ -1614,7 +1614,8 @@ val detectedAmbientCargoOverrideKeys =
                     .environmentVariablesPrefixedBy(prefix)
                     .get()
                     .keys
-                    .filterNot { it == "CARGO_TARGET_DIR" },
+                    // Cargo jobs govern scheduling. The JNI tasks also pass their own --jobs.
+                    .filterNot { it == "CARGO_TARGET_DIR" || it == "CARGO_BUILD_JOBS" },
             )
         }
     }.sorted()
