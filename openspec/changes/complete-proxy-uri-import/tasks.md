@@ -30,3 +30,4 @@ Owning runtime-state/core-data/app/service/engine Kotlin tests, locked Mieru/rel
 - [ ] OUT-1794759937653382 Replace prior Mieru runtime JSON settings including absent values #bug !high @item:OUT-1794722656313653
 - [x] OUT-1794762829903513 Align inherited PCAP disclosure assertions with current copy #chore !high @item:OUT-1794722656313653
 - [ ] OUT-1794767434583482 Clear inherited PCAP viewer loop lint without behavior changes #chore !high @item:OUT-1794722656313653
+- [ ] OUT-1794769586637728 Keep inherited VPN runtime data holders within class lint limits #chore !high @item:OUT-1794722656313653

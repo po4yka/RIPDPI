@@ -39,6 +39,7 @@ Fix IMP-01 findings F1-F7. Add a usable TUIC v5 URI import path and pinned Mieru
 - Round-trip worker owns RelaySectionCodec.kt and its existing RelayNativeConfigTest.kt, RipDpiProxyPreferencesTest.kt and RipDpiProxyJsonCodecTest.kt suites. It also owns RipDpiProxyJsonCodec.kt for the bounded selected-profile merge check, and SubscriptionReserveRefreshTest.kt for the obsolete unsupported fixture. Its worktree is imp01-roundtrip; it does not edit task artifacts or backup policy.
 - Root owns wording-only updates to inherited RawPacketDisclosureContentTest.kt and DiagnosticsScreenTest.kt assertions after the full coverage gate found stale PCAP disclosure expectations. Production strings, behavior and baselines stay unchanged.
 - PCAP lint worker owns only PcapCaptureContent.kt in imp01-pcap-lint for the inherited single loop-jump lint failure; EOF, bounds, payload handling and reader lifetime must remain unchanged.
+- Runtime lint worker owns only VpnTunnelRuntime.kt in imp01-runtime-lint to relocate private data holders within the same file for inherited LargeClass lint. Runtime methods, lifecycle, authority, state, locks, callbacks and resource handling are not changed.
 - Workers use separate worktrees. Shared files have one active writer. No worker edits task artifacts, baselines, Cargo.lock or version catalogs.
 - Required reviewers: pr-reviewer for the combined behavior/contract change; async-cancel-safety for native async changes; JNI verifier only if an actual JNI signature changes.
 
