@@ -70,9 +70,10 @@ class ImportHandlerActivity : Activity() {
         }
         // `ripdpi://import?sub=…` / `ripdpi://import?url=…` takes priority over the
         // legacy SingBox-style `ripdpi://import-remote-profile` handler.
-        if (tryHandleRipDpiImport(data)) {
-            return
-        }
+        if (!tryHandleRipDpiImport(data)) handleLegacyViewLink(data)
+    }
+
+    private fun handleLegacyViewLink(data: String) {
         ImportPayloadClassifier.embeddedShareProfile(data)?.let { request ->
             forwardProfile(request)
             return

@@ -165,12 +165,23 @@ class AmneziaQrChunkAssembler {
             total = chunk.total
         }
         val accepted = chunks.putIfAbsent(chunk.index, chunk.data)
-        if (accepted != null && !accepted.contentEquals(chunk.data)) {
-            chunks.clear()
-            return Result.Conflict
-        }
-        if (chunks.size < total) return Result.Partial(Progress(chunks.size, total))
+        return when {
+            accepted != null && !accepted.contentEquals(chunk.data) -> {
+                chunks.clear()
+                Result.Conflict
+            }
 
+            chunks.size < total -> {
+                Result.Partial(Progress(chunks.size, total))
+            }
+
+            else -> {
+                finishSeries()
+            }
+        }
+    }
+
+    private fun finishSeries(): Result.Complete {
         val assembled = ByteArrayOutputStream()
         chunks.values.forEach(assembled::write)
         completedChunks = chunks.mapValues { (_, bytes) -> digest.digest(bytes) }
