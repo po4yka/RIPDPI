@@ -2,6 +2,7 @@ package com.poyka.ripdpi.hosts
 
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.services.readBoundedBytes
+import com.poyka.ripdpi.services.withBoundedBody
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -20,6 +21,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private interface HostPackCatalogDownloadApi {
+    @Streaming
     @GET("runetfreedom/russia-blocked-geosite/release/manifest.json")
     suspend fun downloadManifest(): Response<ResponseBody>
 
@@ -37,7 +39,7 @@ class DefaultHostPackCatalogDownloadService
         private val tlsClientFactory: OwnedTlsClientFactory,
     ) : HostPackCatalogDownloadService {
         override suspend fun downloadManifest(): String =
-            api(authority = hostPackCatalogBaseUrl.authorityFromUrl())
+            api(authority = hostPackCatalogBaseUrl.authorityFromUrl(), maxBytes = HostPackManifestMaxBytes)
                 .downloadManifest()
                 .requireBodyText()
 
@@ -45,12 +47,15 @@ class DefaultHostPackCatalogDownloadService
             url: String,
             target: File,
         ): String =
-            api(authority = url.authorityFromUrl())
+            api(authority = url.authorityFromUrl(), maxBytes = HostPackCatalogMaxBytes)
                 .downloadCatalog(url)
                 .requireSuccessfulBody()
                 .writeBoundedHostPackBody(target, HostPackCatalogMaxBytes)
 
-        private fun api(authority: String?): HostPackCatalogDownloadApi =
+        private fun api(
+            authority: String?,
+            maxBytes: Long,
+        ): HostPackCatalogDownloadApi =
             Retrofit
                 .Builder()
                 .baseUrl(hostPackCatalogBaseUrl)
@@ -60,13 +65,14 @@ class DefaultHostPackCatalogDownloadService
                         readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
                         callTimeout(callTimeoutSeconds, TimeUnit.SECONDS)
                         addInterceptor { chain ->
-                            chain.proceed(
-                                chain
-                                    .request()
-                                    .newBuilder()
-                                    .header("User-Agent", hostPackCatalogUserAgent)
-                                    .build(),
-                            )
+                            chain
+                                .proceed(
+                                    chain
+                                        .request()
+                                        .newBuilder()
+                                        .header("User-Agent", hostPackCatalogUserAgent)
+                                        .build(),
+                                ).withBoundedBody(chain.call(), maxBytes, "Host pack")
                         }
                     },
                 ).build()

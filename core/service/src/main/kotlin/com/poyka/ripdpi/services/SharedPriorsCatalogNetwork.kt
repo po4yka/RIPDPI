@@ -66,12 +66,13 @@ class DefaultSharedPriorsCatalogDownloadService
         private val tlsClientFactory: OwnedTlsClientFactory,
     ) : SharedPriorsCatalogDownloadService {
         override suspend fun headManifestLastModified(manifestUrl: String): String? {
-            val response = api(authority = manifestUrl.authorityFromUrl()).headManifest(manifestUrl)
+            val response =
+                api(manifestUrl.authorityFromUrl(), SharedPriorsManifestMaxBytes, "manifest").headManifest(manifestUrl)
             return if (response.isSuccessful) response.headers()["Last-Modified"] else null
         }
 
         override suspend fun downloadManifest(manifestUrl: String): String =
-            api(authority = manifestUrl.authorityFromUrl())
+            api(manifestUrl.authorityFromUrl(), SharedPriorsManifestMaxBytes, "manifest")
                 .downloadManifest(manifestUrl)
                 .requireBodyBytes(
                     limit = SharedPriorsManifestMaxBytes,
@@ -79,14 +80,18 @@ class DefaultSharedPriorsCatalogDownloadService
                 ).toString(Charsets.UTF_8)
 
         override suspend fun downloadPriors(priorsUrl: String): ByteArray =
-            api(authority = priorsUrl.authorityFromUrl())
+            api(priorsUrl.authorityFromUrl(), SharedPriorsPayloadMaxBytes, "payload")
                 .downloadPriors(priorsUrl)
                 .requireBodyBytes(
                     limit = SharedPriorsPayloadMaxBytes,
                     label = "payload",
                 )
 
-        private fun api(authority: String?): SharedPriorsCatalogDownloadApi =
+        private fun api(
+            authority: String?,
+            limit: Int,
+            label: String,
+        ): SharedPriorsCatalogDownloadApi =
             Retrofit
                 .Builder()
                 .baseUrl(sharedPriorsCatalogBaseUrl)
@@ -114,7 +119,13 @@ class DefaultSharedPriorsCatalogDownloadService
                                     "Remote request failed with HTTP ${response.code} for ${response.request.url}",
                                 )
                             } else {
-                                response.newBuilder().body(response.body.cancelOnEarlyClose(chain.call())).build()
+                                val bounded =
+                                    response.withBoundedBody(
+                                        chain.call(),
+                                        limit.toLong(),
+                                        "shared-priors $label",
+                                    )
+                                bounded.newBuilder().body(bounded.body.cancelOnEarlyClose(chain.call())).build()
                             }
                         }
                     },
