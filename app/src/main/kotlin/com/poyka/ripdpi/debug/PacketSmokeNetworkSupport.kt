@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.diagnostics.DnsMessages
+import com.poyka.ripdpi.data.diagnostics.ipv6Address
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -346,7 +347,7 @@ object DebugDnsPacketCodec {
                 .mapNotNull { record ->
                     when (record) {
                         is ARecord -> record.address.hostAddress
-                        is AAAARecord -> DnsMessages.ipv6Address(record).hostAddress
+                        is AAAARecord -> record.ipv6Address().hostAddress
                         is CNAMERecord -> record.target.toString(true)
                         is PTRRecord -> record.target.toString(true)
                         else -> null

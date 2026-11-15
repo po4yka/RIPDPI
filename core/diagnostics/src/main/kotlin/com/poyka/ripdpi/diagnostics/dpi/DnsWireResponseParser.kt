@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.diagnostics.DnsMessages
+import com.poyka.ripdpi.data.diagnostics.ipv6Address
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import org.xbill.DNS.AAAARecord
@@ -54,7 +55,7 @@ internal object DnsWireResponseParser {
                 .map { record ->
                     when (record) {
                         is ARecord -> record.address.hostAddress.orEmpty()
-                        is AAAARecord -> DnsMessages.ipv6Address(record).hostAddress.orEmpty()
+                        is AAAARecord -> record.ipv6Address().hostAddress.orEmpty()
                         else -> error("Unexpected address record")
                     }
                 }.distinct()

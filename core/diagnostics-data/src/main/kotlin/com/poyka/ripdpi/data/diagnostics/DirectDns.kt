@@ -82,7 +82,7 @@ internal class DirectDns(
             .mapNotNull { record ->
                 when (record) {
                     is ARecord -> record.address
-                    is AAAARecord -> DnsMessages.ipv6Address(record)
+                    is AAAARecord -> record.ipv6Address()
                     else -> null
                 }
             }.distinctBy { it.hostAddress }

@@ -40,11 +40,15 @@ internal object HttpsDnsWireParser {
     private fun records(message: Message): HttpsRrResponse {
         require(message.question.type == Type.HTTPS)
         val rcode = message.rcode
-        if (message.header.getFlag(Flags.TC.toInt())) return HttpsRrResponse(HttpsRrOutcome.TRUNCATED, rcode = rcode)
-        if (rcode != Rcode.NOERROR) {
-            val outcome = if (rcode == Rcode.NXDOMAIN) HttpsRrOutcome.NXDOMAIN else HttpsRrOutcome.DNS_ERROR
-            return HttpsRrResponse(outcome, rcode = rcode)
+        return when {
+            message.header.getFlag(Flags.TC.toInt()) -> HttpsRrResponse(HttpsRrOutcome.TRUNCATED, rcode = rcode)
+            rcode == Rcode.NXDOMAIN -> HttpsRrResponse(HttpsRrOutcome.NXDOMAIN, rcode = rcode)
+            rcode != Rcode.NOERROR -> HttpsRrResponse(HttpsRrOutcome.DNS_ERROR, rcode = rcode)
+            else -> answerRecords(message)
         }
+    }
+
+    private fun answerRecords(message: Message): HttpsRrResponse {
         val chain = DnsMessages.answerChain(message)
         val answers =
             message
@@ -53,14 +57,15 @@ internal object HttpsDnsWireParser {
                 .filter { it.dClass == DClass.IN }
         val records = answers.map { it.toHttpsRrRecord() ?: throw IOException("Invalid HTTPS record") }
         val authority = message.getSection(Section.AUTHORITY).filter { it.dClass == DClass.IN }
+        val aliasOrReferral = chain.size > 1 || authority.any { it.type == Type.NS }
+        val terminalSoa = authority.any { it.type == Type.SOA && chain.last().subdomain(it.name) }
         val outcome =
             when {
                 answers.isNotEmpty() -> {
                     HttpsRrOutcome.ANSWER
                 }
 
-                (chain.size > 1 || authority.any { it.type == Type.NS }) &&
-                    authority.none { it.type == Type.SOA && chain.last().subdomain(it.name) } -> {
+                aliasOrReferral && !terminalSoa -> {
                     HttpsRrOutcome.NOT_OBSERVED
                 }
 
@@ -68,7 +73,7 @@ internal object HttpsDnsWireParser {
                     HttpsRrOutcome.NODATA
                 }
             }
-        return HttpsRrResponse(outcome, records, rcode)
+        return HttpsRrResponse(outcome, records, rcode = Rcode.NOERROR)
     }
 }
 
@@ -93,8 +98,14 @@ private fun HTTPSRecord.hasCompatibleServiceParams(): Boolean {
 
 private fun HTTPSRecord.toHttpsRrRecord(): HttpsRrRecord? {
     val target = if (targetName == Name.root) "." else targetName.toString(true)
-    if (svcPriority == 0) return HttpsRrRecord(priority = 0, targetName = target, echConfig = null)
+    return if (svcPriority == 0) {
+        HttpsRrRecord(priority = 0, targetName = target, echConfig = null)
+    } else {
+        serviceModeRecord(target)
+    }
+}
 
+private fun HTTPSRecord.serviceModeRecord(target: String): HttpsRrRecord? {
     val ech = (getSvcParamValue(SVCBBase.ECH) as? SVCBBase.ParameterEch)?.data
     if (ech != null && !ech.isEchConfigList()) return null
     val owner = name.toString(true)
@@ -116,14 +127,17 @@ private fun ByteArray.isEchConfigList(): Boolean {
     // RFC 9849 section 4. Validate the list and every entry envelope before handing it to the TLS backend.
     if (size < Short.SIZE_BYTES + EchConfigHeaderBytes) return false
     val input = DNSInput(this)
-    if (input.readU16() != input.remaining()) return false
-    while (input.remaining() >= EchConfigHeaderBytes) {
-        input.readU16() // Version-specific contents are validated by the TLS backend.
-        val length = input.readU16()
-        if (length > input.remaining()) return false
-        input.readByteArray(length)
+    return input.readU16() == input.remaining() && input.hasCompleteEchConfigEntries()
+}
+
+private fun DNSInput.hasCompleteEchConfigEntries(): Boolean {
+    while (remaining() >= EchConfigHeaderBytes) {
+        readU16() // Version-specific contents are validated by the TLS backend.
+        val length = readU16()
+        if (length > remaining()) return false
+        readByteArray(length)
     }
-    return input.remaining() == 0
+    return remaining() == 0
 }
 
 private const val EchConfigHeaderBytes = 2 * Short.SIZE_BYTES

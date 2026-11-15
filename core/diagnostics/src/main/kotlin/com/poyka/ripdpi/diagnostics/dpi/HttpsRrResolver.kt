@@ -157,9 +157,10 @@ class HttpsRrResolver(
                 )
             }
             name = alias.targetName.trimEnd('.').lowercase(Locale.ROOT)
-            if (name.isEmpty()) return stopAliases(source, HttpsRrOutcome.SERVICE_UNAVAILABLE, attempts)
+            if (name.isEmpty()) break
         }
-        return stopAliases(source, HttpsRrOutcome.ALIAS_LIMIT, attempts)
+        val outcome = if (name.isEmpty()) HttpsRrOutcome.SERVICE_UNAVAILABLE else HttpsRrOutcome.ALIAS_LIMIT
+        return stopAliases(source, outcome, attempts)
     }
 
     private suspend fun HttpsRrQuery.attempt(host: String): HttpsRrResponse =

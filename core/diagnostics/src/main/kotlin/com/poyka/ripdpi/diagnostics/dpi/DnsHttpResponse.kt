@@ -7,7 +7,6 @@ import okhttp3.Callback
 import okhttp3.Response
 import java.io.IOException
 import java.nio.charset.CharacterCodingException
-import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 internal const val MaxDnsJsonBodyBytes = 128 * 1024
@@ -60,16 +59,20 @@ internal suspend fun <T> Call.readDnsResponse(read: (Response) -> T): T =
                     call: Call,
                     response: Response,
                 ) {
-                    try {
-                        val result =
+                    val result =
+                        try {
                             response.use {
                                 if (!continuation.isActive) return
-                                read(it)
+                                Result.success(read(it))
                             }
-                        continuation.resume(result)
-                    } catch (error: Exception) {
-                        continuation.resumeWithException(error)
-                    }
+                        } catch (error: IOException) {
+                            Result.failure(error)
+                        } catch (error: IllegalArgumentException) {
+                            Result.failure(error)
+                        } catch (error: IllegalStateException) {
+                            Result.failure(error)
+                        }
+                    continuation.resumeWith(result)
                 }
             },
         )

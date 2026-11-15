@@ -33,10 +33,6 @@ object DnsMessages {
             null
         }
 
-    /** Preserve the AAAA family when the RDATA contains an IPv4-mapped address. */
-    fun ipv6Address(record: AAAARecord): Inet6Address =
-        Inet6Address.getByAddress(record.name.toString(), record.rdataToWireCanonical(), -1)
-
     fun randomTransactionId(): Int = random.nextInt(MAX_MESSAGE_BYTES + 1)
 
     fun query(
@@ -191,6 +187,9 @@ object DnsMessages {
     private const val AdvertisedUdpBytes = 1232
     private const val MaxAliasNames = 16
 }
+
+/** Preserve the AAAA family when the RDATA contains an IPv4-mapped address. */
+fun AAAARecord.ipv6Address(): Inet6Address = Inet6Address.getByAddress(name.toString(), rdataToWireCanonical(), -1)
 
 private fun checkWire(
     valid: Boolean,

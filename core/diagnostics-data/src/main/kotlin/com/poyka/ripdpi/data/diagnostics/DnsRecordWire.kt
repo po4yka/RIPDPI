@@ -53,9 +53,9 @@ internal fun validateDnsRecordWire(
                 restoredOpt =
                     OPTRecord(
                         opt.payloadSize,
-                        (ttl shr 24).toInt(),
-                        (ttl shr 16).toInt() and 0xff,
-                        ttl.toInt() and 0xffff,
+                        (ttl shr OptExtendedRcodeShift).toInt(),
+                        (ttl shr OptVersionShift).toInt() and OptVersionMask,
+                        ttl.toInt() and OptFlagsMask,
                         opt.options,
                     )
             }
@@ -87,3 +87,7 @@ internal fun validateHttpsRdata(input: DNSInput) {
 }
 
 private const val HighTtlBit = 0x80000000L
+private const val OptExtendedRcodeShift = 24
+private const val OptVersionShift = 16
+private const val OptVersionMask = 0xff
+private const val OptFlagsMask = 0xffff

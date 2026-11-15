@@ -133,17 +133,7 @@ internal object DnsJsonResponseParser {
         return minOf(ttl(), numbers.last())
     }
 
-    private fun JsonObject.records(key: String): List<JsonObject>? =
-        get(key)?.jsonArray?.let { records ->
-            require(records.size <= MaxRecordsPerSection)
-            records.map { it.jsonObject }
-        }
-
     private fun JsonObject.name(): String = dnsName(text("name"))
-
-    private fun JsonObject.text(key: String): String = primitive(key).also { require(it.isString) }.content
-
-    private fun JsonObject.integer(key: String): Int = requireNotNull(number(key).intOrNull)
 
     private fun JsonObject.recordType(): Int = integer("type").also { require(it in 1..MaxRecordType) }
 
@@ -152,16 +142,6 @@ internal object DnsJsonResponseParser {
         requireNotNull(number("TTL").longOrNull)
             .also { require(it in 0..MaxUnsigned32) }
             .takeIf { it <= Int.MAX_VALUE } ?: 0L
-
-    private fun JsonObject.number(key: String): JsonPrimitive = primitive(key).also { require(!it.isString) }
-
-    private fun JsonObject.primitive(key: String): JsonPrimitive = requireNotNull(get(key)).jsonPrimitive
-
-    private fun JsonObject.flag(key: String): Boolean? =
-        get(key)?.jsonPrimitive?.let {
-            require(!it.isString)
-            requireNotNull(it.booleanOrNull)
-        }
 
     private fun dnsName(value: String): String {
         if (value == ".") return value
@@ -188,7 +168,6 @@ internal object DnsJsonResponseParser {
     }
 
     private const val MaxDepth = 32
-    private const val MaxRecordsPerSection = 512
     private const val AType = 1
     private const val NsType = 2
     private const val CnameType = 5
@@ -203,5 +182,27 @@ internal object DnsJsonResponseParser {
     private val HostLabel = Regex("[A-Za-z0-9_-]{1,63}")
     private val SoaSeparator = Regex("\\s+")
 }
+
+private fun JsonObject.records(key: String): List<JsonObject>? =
+    get(key)?.jsonArray?.let { records ->
+        require(records.size <= MaxRecordsPerSection)
+        records.map { it.jsonObject }
+    }
+
+private fun JsonObject.text(key: String): String = primitive(key).also { require(it.isString) }.content
+
+private fun JsonObject.integer(key: String): Int = requireNotNull(number(key).intOrNull)
+
+private fun JsonObject.number(key: String): JsonPrimitive = primitive(key).also { require(!it.isString) }
+
+private fun JsonObject.primitive(key: String): JsonPrimitive = requireNotNull(get(key)).jsonPrimitive
+
+private fun JsonObject.flag(key: String): Boolean? =
+    get(key)?.jsonPrimitive?.let {
+        require(!it.isString)
+        requireNotNull(it.booleanOrNull)
+    }
+
+private const val MaxRecordsPerSection = 512
 
 internal fun isDnsIpv4(value: String): Boolean = NumericIp.parseAddress(value)?.isIPv4 == true
