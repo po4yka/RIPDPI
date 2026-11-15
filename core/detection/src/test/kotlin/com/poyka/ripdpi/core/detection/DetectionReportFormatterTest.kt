@@ -5,6 +5,53 @@ import org.junit.Test
 
 class DetectionReportFormatterTest {
     @Test
+    fun `copied report preserves endpoint failures DNS evidence and consensus`() {
+        val comparison =
+            com.poyka.ripdpi.core.detection.checker.IpComparisonChecker.evaluate(
+                listOf(
+                    IpComparisonEndpointResult(
+                        IpComparisonEndpointDescriptor(
+                            "RU reflector",
+                            "https://example.invalid/ip",
+                            IpComparisonEndpointGroup.RU,
+                        ),
+                        IpComparisonDnsRecords(aRecords = listOf("203.0.113.10")),
+                        reflectedIp = null,
+                        status = IpComparisonEndpointStatus.ERROR,
+                        errorMessage = "HTTP 500",
+                    ),
+                ),
+            )
+        val consensus =
+            com.poyka.ripdpi.core.detection.consensus.IpConsensusBuilder.build(
+                emptyCategory("GeoIP"),
+                emptyBypass(),
+                comparison,
+                null,
+            )
+        val result =
+            DetectionCheckResult(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+                ipComparison = comparison,
+                ipConsensus = consensus,
+                verdict = Verdict.NOT_DETECTED,
+            )
+
+        val report = DetectionReportFormatter.format(result)
+
+        assertTrue(report.contains("--- IP comparison ---"))
+        assertTrue(report.contains("[ERROR] RU reflector"))
+        assertTrue(report.contains("A=203.0.113.10"))
+        assertTrue(report.contains("reason=HTTP 500"))
+        assertTrue(report.contains("--- IP consensus ---\nStatus: INCONCLUSIVE"))
+        assertTrue(DetectionReportFormatter.format(result, privacyModeEnabled = true).contains("A=203.0.*.*"))
+    }
+
+    @Test
     fun `unmeasured and failed checks are not reported as successful`() {
         val result =
             DetectionCheckResult(

@@ -27,6 +27,8 @@ object DetectionReportFormatter {
                 appendCategory(LocalTlsReportTitle, report.tlsFingerprintForReport())
                 report.timingAnalysis?.let { appendCategory("Timing Analysis", it) }
                 report.icmpSpoofing?.let { appendCategory("ICMP Spoofing", it.category) }
+                report.ipComparison?.let { appendCategory("IP comparison", it.category) }
+                report.ipConsensus?.let { appendCategory("IP consensus", it.toCategoryResult()) }
                 report.rttTriangulation?.let { appendCategory("RTT Triangulation", it.category) }
                 report.callTransport?.let { appendCategory("Call Transport", it.category) }
 
