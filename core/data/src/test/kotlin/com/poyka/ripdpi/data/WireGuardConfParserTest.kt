@@ -67,6 +67,19 @@ class WireGuardConfParserTest {
     }
 
     @Test
+    fun `repeated wg quick lists append entries in source order`() {
+        val conf =
+            vanillaConf
+                .replace("Address =", "Address = fd00::2/128\nAddress =")
+                .replace("DNS =", "DNS = 2001:db8::53\nDNS =")
+                .replace("AllowedIPs =", "AllowedIPs = 2001:db8::/32\nAllowedIPs =")
+        val parsed = WireGuardConfParser.parse(conf)
+        assertEquals(listOf("fd00::2/128", "10.0.0.2/32"), parsed.interfaceSection.address)
+        assertEquals(listOf("2001:db8::53", "1.1.1.1"), parsed.interfaceSection.dns)
+        assertEquals(listOf("2001:db8::/32", "0.0.0.0/0"), parsed.peers.single().allowedIps)
+    }
+
+    @Test
     fun `peer route policy distinguishes omitted and explicitly empty values`() {
         val omitted = WireGuardConfParser.parse(vanillaConf.replace("AllowedIPs = 0.0.0.0/0", "")).peers.single()
         val empty =

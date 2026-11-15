@@ -66,8 +66,8 @@ object WireGuardConfParser {
     /** Mutable accumulator for the `[Interface]` block while scanning lines. */
     private class InterfaceBuilder {
         var privateKey: String? = null
-        var address: List<String> = emptyList()
-        var dns: List<String> = emptyList()
+        val address = mutableListOf<String>()
+        val dns = mutableListOf<String>()
         var mtu: Int? = null
         var listenPort: Int? = null
         val awg = AmneziaWgBuilder()
@@ -75,8 +75,8 @@ object WireGuardConfParser {
         fun build(): WireGuardInterface =
             WireGuardInterface(
                 privateKey = requireNotNull(privateKey) { "WireGuard [Interface] is missing PrivateKey" },
-                address = address,
-                dns = dns,
+                address = address.toList(),
+                dns = dns.toList(),
                 mtu = mtu,
                 listenPort = listenPort,
             )
@@ -128,7 +128,7 @@ object WireGuardConfParser {
     private class PeerBuilder {
         var publicKey: String? = null
         var presharedKey: String? = null
-        var allowedIps: List<String> = emptyList()
+        val allowedIps = mutableListOf<String>()
         var allowedIpsSpecified = false
         var endpoint: String? = null
         var persistentKeepalive: Int? = null
@@ -138,7 +138,7 @@ object WireGuardConfParser {
             WireGuardPeer(
                 publicKey = requireNotNull(publicKey) { "WireGuard [Peer] is missing PublicKey" },
                 presharedKey = presharedKey,
-                allowedIps = allowedIps,
+                allowedIps = allowedIps.toList(),
                 allowedIpsSpecified = allowedIpsSpecified,
                 endpoint = endpoint,
                 persistentKeepalive = persistentKeepalive,
@@ -252,8 +252,8 @@ object WireGuardConfParser {
         // Lower-case the key before dispatch, mirroring amneziawg-android's Interface.parse switch.
         when (key.lowercase()) {
             "privatekey" -> builder.privateKey = value
-            "address" -> builder.address = splitList(value)
-            "dns" -> builder.dns = splitList(value)
+            "address" -> builder.address += splitList(value)
+            "dns" -> builder.dns += splitList(value)
             "mtu" -> builder.mtu = parseNonNegativeInt(key, value)
             "listenport" -> builder.listenPort = parseNonNegativeInt(key, value)
             "jc" -> builder.awg.jc = parseNonNegativeInt(key, value)
@@ -292,7 +292,7 @@ object WireGuardConfParser {
             }
 
             "allowedips" -> {
-                builder.allowedIps = splitList(value)
+                builder.allowedIps += splitList(value)
                 builder.allowedIpsSpecified = true
             }
 
