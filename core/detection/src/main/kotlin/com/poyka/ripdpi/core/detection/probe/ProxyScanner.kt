@@ -57,9 +57,8 @@ internal class ProxyScanner(
 
     private suspend fun scanPopularPorts(onProgress: suspend (ScanProgress) -> Unit): LocalScanResult<ProxyEndpoint> {
         val eligible = popularPorts.filter { it in scanRange && it !in excludePorts }
-        if (eligible.isEmpty()) return LocalScanResult(null, LocalScanStatus.SKIPPED)
-        var status = LocalScanStatus.NO_MATCH
-        onProgress(ScanProgress(ScanPhase.POPULAR_PORTS, 0, eligible.size, eligible.first()))
+        var status = LocalScanStatus.SKIPPED
+        eligible.firstOrNull()?.let { onProgress(ScanProgress(ScanPhase.POPULAR_PORTS, 0, eligible.size, it)) }
         for ((index, port) in eligible.withIndex()) {
             coroutineContext.ensureActive()
             val result = tryPort(port)
@@ -133,14 +132,21 @@ internal class ProxyScanner(
         var status = LocalScanStatus.NO_MATCH
         for (host in loopbackHosts) {
             coroutineContext.ensureActive()
+            val outcome = ProxyProber.probePort(host, port, connectTimeoutMs, readTimeoutMs)
             val next =
-                when (ProxyProber.probePort(host, port, connectTimeoutMs, readTimeoutMs)) {
-                    ProxyProber.PortProbeResult.SOCKS5_NO_AUTH -> {
-                        return LocalScanResult(ProxyEndpoint(host, port, ProxyType.SOCKS5), LocalScanStatus.MATCHED)
-                    }
-
-                    ProxyProber.PortProbeResult.HTTP_CONNECT_PROXY -> {
-                        return LocalScanResult(ProxyEndpoint(host, port, ProxyType.HTTP), LocalScanStatus.MATCHED)
+                when (outcome) {
+                    ProxyProber.PortProbeResult.SOCKS5_NO_AUTH,
+                    ProxyProber.PortProbeResult.HTTP_CONNECT_PROXY,
+                    -> {
+                        val type =
+                            if (outcome ==
+                                ProxyProber.PortProbeResult.SOCKS5_NO_AUTH
+                            ) {
+                                ProxyType.SOCKS5
+                            } else {
+                                ProxyType.HTTP
+                            }
+                        return LocalScanResult(ProxyEndpoint(host, port, type), LocalScanStatus.MATCHED)
                     }
 
                     ProxyProber.PortProbeResult.CLOSED,

@@ -60,7 +60,8 @@ object DetectionRecommendations {
                     Recommendation(
                         title = "Xray gRPC API exposed",
                         description =
-                            "An Xray-compatible HandlerService responded on localhost. Disable the API if you do not need it.",
+                            "An Xray-compatible HandlerService responded on localhost. " +
+                                "Disable the API if you do not need it.",
                     ),
                 )
             }

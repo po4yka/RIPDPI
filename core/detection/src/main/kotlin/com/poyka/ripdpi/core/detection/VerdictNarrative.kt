@@ -297,14 +297,19 @@ object VerdictNarrativeBuilder {
     private fun ProxyEndpoint.displayEndpoint(): String = "${type.name.lowercase()}://$host:$port"
 
     private fun XrayOutboundSummary.displayEndpoint(): String? {
-        val address = address?.takeIf(String::isNotBlank) ?: return null
-        val port = port?.takeIf { it in 1..MAX_PORT } ?: return null
+        val address = address?.takeIf(String::isNotBlank)
+        val port = port?.takeIf { it in 1..MAX_PORT }
+        if (address == null || port == null) return null
+
         val hostname = address.trimEnd('.').lowercase()
-        if (hostname == "localhost" || hostname.endsWith(".localhost")) return null
+        val isLocalName = hostname == "localhost" || hostname.endsWith(".localhost")
         val candidate = NumericIp.parseAddress(address)
         val numeric = candidate?.let { if (it.isIPv6 && it.toIPv6().isIPv4Mapped) it.toIPv4() else it }?.toInetAddress()
-        if (numeric?.isLoopbackAddress == true || numeric?.isAnyLocalAddress == true) return null
-        return if (':' in address) "[$address]:$port" else "$address:$port"
+        return when {
+            isLocalName || numeric?.isLoopbackAddress == true || numeric?.isAnyLocalAddress == true -> null
+            ':' in address -> "[$address]:$port"
+            else -> "$address:$port"
+        }
     }
 
     private fun row(
