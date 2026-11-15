@@ -125,6 +125,7 @@ pub struct DecryptedReader {
     method: CipherKind,
     salt: Option<Bytes>,
     request_salt: Option<Bytes>,
+    peer_timestamp: Option<u64>,
     data_chunk_count: u64,
     user_manager: Option<Arc<ServerUserManager>>,
     user_key: Option<Bytes>,
@@ -151,6 +152,7 @@ impl DecryptedReader {
                 method,
                 salt: None,
                 request_salt: None,
+                peer_timestamp: None,
                 data_chunk_count: 0,
                 user_manager,
                 user_key: None,
@@ -167,6 +169,7 @@ impl DecryptedReader {
                 method,
                 salt: None,
                 request_salt: None,
+                peer_timestamp: None,
                 data_chunk_count: 0,
                 user_manager,
                 user_key: None,
@@ -181,6 +184,10 @@ impl DecryptedReader {
 
     pub fn request_salt(&self) -> Option<&[u8]> {
         self.request_salt.as_deref().filter(|&n| !n.is_empty())
+    }
+
+    pub(crate) fn take_peer_timestamp(&mut self) -> Option<u64> {
+        self.peer_timestamp.take()
     }
 
     /// Attempt to read decrypted data from stream
@@ -369,6 +376,7 @@ impl DecryptedReader {
             request_salt.resize(salt_len, 0);
             header_reader.read_exact(&mut request_salt)?;
             self.request_salt = Some(request_salt.freeze());
+            self.peer_timestamp = Some(timestamp);
         }
 
         let data_length = header_reader.get_u16();

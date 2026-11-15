@@ -500,6 +500,14 @@ impl<S> CryptoStream<S> {
         self.dec.request_nonce()
     }
 
+    #[cfg(feature = "aead-cipher-2022")]
+    pub(crate) fn take_peer_timestamp(&mut self) -> Option<u64> {
+        match self.dec {
+            DecryptedReader::Aead2022(ref mut dec) => dec.take_peer_timestamp(),
+            _ => None,
+        }
+    }
+
     /// Set request nonce (for server stream of AEAD2022)
     #[inline]
     pub fn set_request_nonce(&mut self, request_nonce: &[u8]) {

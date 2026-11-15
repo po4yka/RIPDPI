@@ -18,6 +18,8 @@ use tokio::{
 };
 
 #[cfg(feature = "aead-cipher-2022")]
+use super::protocol::v2::SERVER_STREAM_TIMESTAMP_MAX_DIFF;
+#[cfg(feature = "aead-cipher-2022")]
 use crate::relay::get_aead_2022_padding_size;
 use crate::{
     config::ServerConfig,
@@ -163,6 +165,18 @@ where
         };
 
         Self { stream, writer_state: ProxyClientStreamWriteState::Connect(addr), reader_state, context }
+    }
+
+    /// Takes the fresh response time once the server's request salt has been verified.
+    #[cfg(feature = "aead-cipher-2022")]
+    pub fn take_authenticated_peer_timestamp(&mut self) -> Option<u64> {
+        if !matches!(self.reader_state, ProxyClientStreamReadState::Established) {
+            return None;
+        }
+        self.stream.take_peer_timestamp().filter(|timestamp| {
+            // The first authenticated payload can arrive later than the response header.
+            self.context.now_timestamp().abs_diff(*timestamp) <= SERVER_STREAM_TIMESTAMP_MAX_DIFF
+        })
     }
 
     /// Get reference to the underlying stream

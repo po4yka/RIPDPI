@@ -52,6 +52,7 @@ enum HeaderState {
 pub struct ShadowsocksStream {
     inner: ProxyClientStream<Box<dyn crate::trojan::AsyncIo>>,
     header: HeaderState,
+    config: Arc<ShadowsocksClientConfig>,
 }
 
 impl ShadowsocksStream {
@@ -85,6 +86,11 @@ impl AsyncRead for ShadowsocksStream {
     fn poll_read(self: Pin<&mut Self>, cx: &mut task::Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         let this = self.get_mut();
         if let Poll::Ready(result) = Pin::new(&mut this.inner).poll_read(cx, buf) {
+            if result.is_ok()
+                && let Some(timestamp) = this.inner.take_authenticated_peer_timestamp()
+            {
+                this.config.calibrate_peer_time(timestamp);
+            }
             return Poll::Ready(result);
         }
         match this.poll_header(cx, true) {
@@ -149,6 +155,15 @@ struct ShadowsocksClientConfig {
     context: SharedContext,
     outbound_bind_ip: Option<IpAddr>,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+}
+
+impl ShadowsocksClientConfig {
+    fn calibrate_peer_time(&self, timestamp: u64) {
+        if let Ok(timestamp) = i64::try_from(timestamp) {
+            let source = TimeSource::new("shadowsocks", &self.server_host, self.server_port, 1);
+            self.time.calibrate(timestamp, source);
+        }
+    }
 }
 
 impl ShadowsocksSessionFactory {
@@ -281,8 +296,7 @@ impl ShadowsocksUdpSession {
                 continue;
             };
             if !self.calibrated {
-                let source = TimeSource::new("shadowsocks", &self.config.server_host, self.config.server_port, 1);
-                self.config.time.calibrate(i64::try_from(timestamp).unwrap_or(i64::MAX), source);
+                self.config.calibrate_peer_time(timestamp);
                 self.calibrated = true;
             }
             return Ok((address.to_string(), self.receive_buffer[..read].to_vec()));
@@ -337,7 +351,7 @@ where
     let transport: Box<dyn crate::trojan::AsyncIo> = Box::new(transport);
     let inner =
         ProxyClientStream::from_stream(Arc::clone(&config.context), transport, &config.server, target_address(target)?);
-    Ok(ShadowsocksStream { inner, header: HeaderState::Deferred })
+    Ok(ShadowsocksStream { inner, header: HeaderState::Deferred, config })
 }
 
 fn target_address(target: &str) -> io::Result<Address> {

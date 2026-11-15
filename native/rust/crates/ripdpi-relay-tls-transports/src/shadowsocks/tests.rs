@@ -39,6 +39,47 @@ fn each_factory_has_its_own_time_even_when_endpoints_match() {
 }
 
 /// # Cancel safety:
+/// cancel-safe: the test owns both ends of each in-memory carrier.
+#[tokio::test]
+async fn tcp_calibrates_from_the_first_bound_ss2022_reply() {
+    for (method, key) in &METHODS[3..] {
+        let mut factory = factory("example.test", 443, method, key);
+        let config = Arc::get_mut(&mut factory.config).unwrap();
+        config.time = Arc::new(NetworkTimeProvider::fixed(1_700_000_000));
+        config.context = ripdpi_shadowsocks::client_context(Arc::clone(&config.time));
+        let server_context = Arc::new({
+            let mut context = Context::new(ServerType::Server);
+            context.set_timestamp_provider(Arc::new(|| 1_700_000_010));
+            context
+        });
+        let (transport, peer) = tokio::io::duplex(8192);
+        let mut server =
+            ProxyServerStream::from_stream(server_context, peer, config.server.method(), config.server.key());
+        let mut client = connect_shadowsocks_tcp_over(&factory, transport, "target.test:443").await.unwrap();
+        assert!(!factory.config.time.is_calibrated());
+
+        client.write_all(b"request").await.unwrap();
+        client.flush().await.unwrap();
+        assert_eq!(server.handshake().await.unwrap().to_string(), "target.test:443");
+        server.write_all(b"reply").await.unwrap();
+        server.flush().await.unwrap();
+
+        let mut reply = [0; 5];
+        client.read_exact(&mut reply).await.unwrap();
+        assert_eq!(&reply, b"reply");
+        assert_eq!(factory.config.time.now_unix(), 1_700_000_010);
+
+        let source = TimeSource::new("shadowsocks", "example.test", 443, 1);
+        assert!(factory.config.time.calibrate(1_700_000_020, source));
+        server.write_all(b"later").await.unwrap();
+        server.flush().await.unwrap();
+        client.read_exact(&mut reply).await.unwrap();
+        assert_eq!(&reply, b"later");
+        assert_eq!(factory.config.time.now_unix(), 1_700_000_020);
+    }
+}
+
+/// # Cancel safety:
 /// cancel-safe: the runtime owns the server tasks and both ends of every stream.
 #[tokio::test]
 async fn every_method_supports_server_first_data_and_half_close() {
