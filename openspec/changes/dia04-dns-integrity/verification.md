@@ -3,7 +3,7 @@ task_id: DGN-1794732408586377
 change: dia04-dns-integrity
 commit_sha: 38e5b6b63470a5a5dd90e571eb649ff4cf137dfe
 local: required
-local_evidence: Rebased source 38e5b6b634: 897 passed, 1 monitor report golden failed, 3 pre-existing ignored. Formatting, all-target Clippy, workspace check, locked metadata and just ci-gates passed. Integration waits for explicit approval to update the exact monitor report golden.
+local_evidence: Rebased source 38e5b6b634: 897 passed, 1 monitor report golden failed, 3 pre-existing ignored. Formatting, all-target Clippy, workspace check, locked metadata and just ci-gates passed. The user approved the monitor golden update; narrow bless and no-bless checks passed. Final combined verification after the latest ECH-contract rebase remains required.
 remote_ci: required
 remote_ci_evidence: No repair commit has been pushed. Main integration waits for the local compatibility gate.
 device: not_applicable
@@ -54,13 +54,24 @@ Logs and the complete invocation script are preserved outside the repository in 
 
 ## Compatibility gate
 
-The old monitor golden lacked intentional TLS detail fields introduced by incoming DIA-02. Numeric-only normalization for the three TLS failure-duration keys is committed as 38e5b6b634; its independent regression passed before rebase. It preserves field presence, detail order, stage, certificate verification, and the value none. No fixture has been changed or blessed.
+The user explicitly approved the Rust monitor-engine JSON family and its narrow owning test. The isolated golden specialist produced commit e6630f80d26d79a3fab5186e052b540068c1433f. Only native/rust/crates/ripdpi-monitor-engine/tests/golden/final_report.json changed (+74/-26). The specialist and the parent inspected the full diff. A strict expected JSON transformation check also passed.
 
-Fresh rebased expected/actual/diff artifacts were reviewed in full by the golden specialist. No extra DIA-09-visible change appears in this fixture. The intended semantic delta adds tlsReportedAttempt and per-attempt failure stage, certificate-verification, and ClientHello-capture facts; reorders HTTP/TLS details; and removes the synthetic tlsEchResolutionDetail value none. All three duration fields are normalized to 0. No semantic field is masked.
+The intended semantic delta adds tlsReportedAttempt and per-attempt failure stage, certificate-verification, and ClientHello-capture facts; reorders HTTP/TLS details; and removes synthetic tlsEchResolutionDetail: none. Only numeric values of the three duration keys are normalized to 0. No semantic field is masked.
 
-The exact requested approval concerns `native/rust/crates/ripdpi-monitor-engine/tests/golden/final_report.json`, in the Rust monitor-engine JSON family. The owning test is `tests::monitor_json_contracts_match_goldens`. Expected/actual/diff copies are in the log directory under `golden-review/final_report.json.{expected,actual,diff}`. The specialist confirmed that only final_report.json needs an intentional semantic update. The same test checks three other fixtures, which must be inspected after an authorized narrow run.
+From the isolated native/rust directory, through build-gate --lane ripdpi:
 
-The fixture remains protected by the explicit approval rule in .claude/rules/golden-bless-discipline.md and .agents/skills/golden-test-management/SKILL.md. No blessing was run. After approval, the isolated golden specialist must run only `RIPDPI_BLESS_GOLDENS=1 cargo +1.100.0 test --locked -p ripdpi-monitor-engine --lib tests::monitor_json_contracts_match_goldens -- --exact`, inspect the full fixture diff, and rerun without blessing. Then the parent can complete the compatibility gate, fetch and rebase if required, fast-forward main, push, and record the remote result.
+- RIPDPI_BLESS_GOLDENS=1 cargo +1.100.0 test --locked -p ripdpi-monitor-engine --lib tests::monitor_json_contracts_match_goldens -- --exact: 1 passed.
+- The same exact command with RIPDPI_BLESS_GOLDENS removed from the environment: 1 passed.
+
+All four fixtures checked by the owning test passed on the no-bless run. The other three fixtures did not change. Normal commit hooks passed. Logs are in /Users/npochaev/GitHub/RIPDPI-worktrees/dia04-golden-evidence/.
+
+Final combined gates remain required after integration of the newly fetched DIA-06 ECH contract changes at origin/main 07626efa72. No final green result is claimed before that run.
+
+## Large UDP input check
+
+A temporary standalone harness includes the actual compression.rs and wire_header.rs sources. dnspython 2.8.0 independently accepted a standard 65050-byte DNS response, including one A answer and an unknown EDNS option, and rejected an out-of-bounds pointer. The actual validator accepted the valid packet and rejected the malformed packet. The single valid validation took 2 microseconds in this observed host run; this is not a benchmark or a general complexity bound. The harness and its test-only Python dependency are outside the checkout at /Users/npochaev/GitHub/RIPDPI-worktrees/dia04-large-wire-check/.
+
+A worst-case complexity estimate for all shared compression chains remains an unmeasured hypothesis, not a confirmed defect. No algorithm change is justified by this ordinary large-input smoke alone.
 
 ## Evidence limits
 
