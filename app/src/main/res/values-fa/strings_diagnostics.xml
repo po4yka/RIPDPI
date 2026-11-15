@@ -1179,6 +1179,8 @@
     <string name="diagnostics_dns_encrypted_unavailable">مقایسهٔ رمزگذاری‌شده در دسترس نیست</string>
     <string name="diagnostics_dns_negative">پاسخ‌های منفی یکسان‌اند</string>
     <string name="diagnostics_dns_ok">پاسخ‌های DNS یکسان‌اند</string>
+    <string name="diagnostics_dns_partial_agreement">تطابق جزئی پاسخ‌های DNS</string>
+    <string name="diagnostics_dns_failure_agreement">حل‌کننده‌ها خطای DNS یکسانی برگرداندند</string>
     <string name="diagnostics_dns_caution">این داده‌ها از پاسخ حل‌کننده هستند. AD اعتبارسنجی محلی DNSSEC نیست؛ EDE ادعای حل‌کننده است. تفاوت پاسخ‌ها، مقادیر TTL یا پاسخ‌های منفی مسدودسازی توسط ارائه‌دهنده را اثبات نمی‌کنند.</string>
     <string name="diagnostics_dns_none">چیزی گزارش نشده</string>
     <string name="diagnostics_dns_show">نمایش داده‌های پاسخ DNS</string>

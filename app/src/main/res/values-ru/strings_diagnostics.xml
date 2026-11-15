@@ -1222,6 +1222,8 @@
     <string name="diagnostics_dns_encrypted_unavailable">Зашифрованное сравнение недоступно</string>
     <string name="diagnostics_dns_negative">Отрицательные ответы совпадают</string>
     <string name="diagnostics_dns_ok">Ответы DNS совпадают</string>
+    <string name="diagnostics_dns_partial_agreement">Ответы DNS совпали частично</string>
+    <string name="diagnostics_dns_failure_agreement">Резолверы вернули одинаковую ошибку DNS</string>
     <string name="diagnostics_dns_caution">Это факты из ответа резолвера. AD не означает локальную проверку DNSSEC; EDE — утверждение резолвера. Различия ответов, TTL или отрицательные ответы не доказывают блокировку провайдером.</string>
     <string name="diagnostics_dns_none">Не указано</string>
     <string name="diagnostics_dns_show">Показать факты ответов DNS</string>

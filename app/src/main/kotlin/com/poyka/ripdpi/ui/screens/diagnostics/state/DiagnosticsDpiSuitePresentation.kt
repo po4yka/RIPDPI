@@ -259,9 +259,23 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
     val resource =
         when (this) {
             is DpiSuiteProbeResult.DnsIntegrity -> {
-                flaggedStatusResource(
-                    result.domains.any { domain -> domain.verdict != DnsIntegrityVerdict.DNS_OK },
-                )
+                when {
+                    result.domains.isNotEmpty() && result.domains.all { it.verdict == DnsIntegrityVerdict.DNS_OK } -> {
+                        R.string.diagnostics_cidr_whitelist_status_ok
+                    }
+
+                    result.domains.any {
+                        it.verdict == DnsIntegrityVerdict.DNS_DISAGREEMENT ||
+                            it.verdict == DnsIntegrityVerdict.DNS_FAILURE_AGREEMENT ||
+                            it.verdict == DnsIntegrityVerdict.FAKE_IP
+                    } -> {
+                        R.string.diagnostics_dns_integrity_metric_flagged
+                    }
+
+                    else -> {
+                        R.string.diagnostics_dpi_suite_partial
+                    }
+                }
             }
 
             is DpiSuiteProbeResult.DnsAvailability -> {

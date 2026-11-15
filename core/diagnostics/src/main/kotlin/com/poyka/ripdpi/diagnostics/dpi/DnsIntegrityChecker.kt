@@ -25,6 +25,8 @@ enum class DnsIntegrityVerdict {
     UDP_UNAVAILABLE,
     ENCRYPTED_UNAVAILABLE,
     DNS_NEGATIVE,
+    DNS_PARTIAL_AGREEMENT,
+    DNS_FAILURE_AGREEMENT,
 }
 
 data class DnsIntegrityDomainResult(
@@ -37,6 +39,9 @@ data class DnsIntegrityDomainResult(
     val udpResponse: DnsResponseSemantics? = null,
     val dohJsonResponse: DnsResponseSemantics? = null,
     val dohWireResponse: DnsResponseSemantics? = null,
+    val udpResolver: String? = null,
+    val dohJsonResolver: String? = null,
+    val dohWireResolver: String? = null,
 ) {
     val udpIps: Set<String> = udpRecords.filter(::isDnsIpv4).toSet()
     val dohIps: Set<String> = dohJsonIps + dohWireIps
@@ -75,9 +80,10 @@ class DnsIntegrityChecker(
                     .awaitAll()
             }
         val doqResults = runDoqProbe(domains, results)
+        val encryptedIps = results.flatMapTo(hashSetOf()) { it.dohIps }
         val stubIps =
             results
-                .flatMap { result -> result.udpIps }
+                .flatMap { result -> result.udpIps - encryptedIps }
                 .groupingBy { ip -> ip }
                 .eachCount()
                 .filterValues { count -> count >= StubIpMinimumOccurrences }
@@ -133,56 +139,80 @@ class DnsIntegrityChecker(
         dohJson: DnsProbeAnswer,
         dohWire: DnsProbeAnswer,
     ): DnsIntegrityDomainResult {
-        val udpIps = udp.addresses.filter(::isDnsIpv4).toSet()
-        val dohIps = (dohJson.addresses + dohWire.addresses).filter(::isDnsIpv4).toSet()
-        val encrypted = listOfNotNull(dohJson.response, dohWire.response)
-        val verdict =
-            when {
-                encrypted.size == 2 &&
-                    encrypted.all {
-                        it.outcome == udp.response?.outcome && it.rcode == udp.response.rcode &&
-                            it.outcome in NegativeOutcomes
-                    } -> {
-                    DnsIntegrityVerdict.DNS_NEGATIVE
-                }
-
-                udpIps.isNotEmpty() && encrypted.any { it.outcome in NegativeOutcomes } -> {
-                    DnsIntegrityVerdict.DNS_DISAGREEMENT
-                }
-
-                dohIps.isEmpty() -> {
-                    DnsIntegrityVerdict.ENCRYPTED_UNAVAILABLE
-                }
-
-                udpIps.any(::isFakeIp) -> {
-                    DnsIntegrityVerdict.FAKE_IP
-                }
-
-                dnsAnswersOverlap(udpIps, dohIps) -> {
-                    DnsIntegrityVerdict.DNS_OK
-                }
-
-                udpIps.isNotEmpty() || udp.response?.outcome in NegativeOutcomes ||
-                    DnsWireBuilder.NXDOMAIN in udp.addresses -> {
-                    DnsIntegrityVerdict.DNS_DISAGREEMENT
-                }
-
-                else -> {
-                    DnsIntegrityVerdict.UDP_UNAVAILABLE
-                }
-            }
+        val jsonIps = dohJson.ipv4Addresses()
+        val wireIps = dohWire.ipv4Addresses()
+        val verdict = compareResponses(udp, listOf(dohJson.response, dohWire.response), listOf(jsonIps, wireIps))
         return DnsIntegrityDomainResult(
             domain = domain,
             verdict = verdict,
             udpRecords = udp.legacyRecords(),
-            dohJsonIps = dohJson.addresses.filter(::isDnsIpv4).toSet(),
-            dohWireIps = dohWire.addresses.filter(::isDnsIpv4).toSet(),
+            dohJsonIps = jsonIps,
+            dohWireIps = wireIps,
             notes = verdict.notes(),
             udpResponse = udp.response,
             dohJsonResponse = dohJson.response,
             dohWireResponse = dohWire.response,
+            udpResolver = udp.resolver,
+            dohJsonResolver = dohJson.resolver,
+            dohWireResolver = dohWire.resolver,
         )
     }
+
+    private fun compareResponses(
+        udp: DnsProbeAnswer,
+        encrypted: List<DnsResponseSemantics?>,
+        encryptedIps: List<Set<String>>,
+    ): DnsIntegrityVerdict {
+        val udpResponse = udp.response
+        val udpIps = udp.ipv4Addresses()
+        val udpNegative =
+            udpResponse?.outcome?.isNegativeDnsAnswer() == true || DnsWireBuilder.NXDOMAIN in udp.addresses
+        val encryptedNegatives = encrypted.filterNotNull().filter { it.outcome.isNegativeDnsAnswer() }
+        val positives = encryptedIps.filter { it.isNotEmpty() }
+        val sameResponse =
+            udpResponse
+                ?.takeIf { response ->
+                    response.rcode != null &&
+                        encrypted.all { it?.outcome == response.outcome && it.rcode == response.rcode }
+                }?.outcome
+        return when {
+            sameResponse?.isNegativeDnsAnswer() == true -> DnsIntegrityVerdict.DNS_NEGATIVE
+            sameResponse in DnsFailureOutcomes -> DnsIntegrityVerdict.DNS_FAILURE_AGREEMENT
+            udpIps.isNotEmpty() -> compareAddresses(udpIps, positives, encryptedNegatives.isNotEmpty())
+            udpNegative && positives.isNotEmpty() -> DnsIntegrityVerdict.DNS_DISAGREEMENT
+            udpNegative && encryptedNegatives.isNotEmpty() -> compareNegativeResponses(udp, encryptedNegatives)
+            positives.isNotEmpty() || encryptedNegatives.isNotEmpty() -> DnsIntegrityVerdict.UDP_UNAVAILABLE
+            else -> DnsIntegrityVerdict.ENCRYPTED_UNAVAILABLE
+        }
+    }
+
+    private fun compareAddresses(
+        udpIps: Set<String>,
+        positives: List<Set<String>>,
+        encryptedNegative: Boolean,
+    ): DnsIntegrityVerdict =
+        when {
+            encryptedNegative -> DnsIntegrityVerdict.DNS_DISAGREEMENT
+            positives.isEmpty() -> DnsIntegrityVerdict.ENCRYPTED_UNAVAILABLE
+            positives.all { it == udpIps } && positives.size == EncryptedLanes -> DnsIntegrityVerdict.DNS_OK
+            udpIps.any(::isFakeIp) && positives.all { it.intersect(udpIps).isEmpty() } -> DnsIntegrityVerdict.FAKE_IP
+            positives.any { !dnsAnswersOverlap(udpIps, it) } -> DnsIntegrityVerdict.DNS_DISAGREEMENT
+            else -> DnsIntegrityVerdict.DNS_PARTIAL_AGREEMENT
+        }
+
+    private fun compareNegativeResponses(
+        udp: DnsProbeAnswer,
+        encryptedNegatives: List<DnsResponseSemantics>,
+    ): DnsIntegrityVerdict {
+        val udpOutcome = udp.response?.outcome ?: DnsResponseOutcome.NXDOMAIN
+        return if (encryptedNegatives.all { it.outcome == udpOutcome }) {
+            DnsIntegrityVerdict.DNS_PARTIAL_AGREEMENT
+        } else {
+            DnsIntegrityVerdict.DNS_DISAGREEMENT
+        }
+    }
+
+    private fun DnsProbeAnswer.ipv4Addresses(): Set<String> = addresses.filter(::isDnsIpv4).toSet()
 
     private suspend fun DnsUdpProbe.response(domain: String): DnsProbeAnswer =
         if (this is SemanticDnsUdpProbe) resolveResponse(domain) else DnsProbeAnswer(resolveA(domain))
@@ -245,22 +275,29 @@ class DnsIntegrityChecker(
                 listOf("Resolvers returned the same negative DNS outcome")
             }
 
+            DnsIntegrityVerdict.DNS_PARTIAL_AGREEMENT -> {
+                listOf("DNS replies have partial coverage or overlap")
+            }
+
+            DnsIntegrityVerdict.DNS_FAILURE_AGREEMENT -> {
+                listOf("Resolvers returned the same DNS error")
+            }
+
             DnsIntegrityVerdict.UNKNOWN -> {
                 listOf("DNS comparison was inconclusive")
             }
         }
 
     private companion object {
+        private const val EncryptedLanes = 2
         private const val StubIpMinimumOccurrences = 2
         private const val DomainConcurrency = 8
         private const val UdpDomainBudgetMs = 10_000L
     }
 }
 
-private val NegativeOutcomes =
+private val DnsFailureOutcomes =
     setOf(
-        DnsResponseOutcome.NODATA,
-        DnsResponseOutcome.NXDOMAIN,
         DnsResponseOutcome.SERVFAIL,
         DnsResponseOutcome.REFUSED,
         DnsResponseOutcome.OTHER_RCODE,

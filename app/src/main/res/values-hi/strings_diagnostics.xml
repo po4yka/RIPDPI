@@ -1186,6 +1186,8 @@
     <string name="diagnostics_dns_encrypted_unavailable">एन्क्रिप्टेड तुलना उपलब्ध नहीं</string>
     <string name="diagnostics_dns_negative">नकारात्मक उत्तर मेल खाते हैं</string>
     <string name="diagnostics_dns_ok">DNS उत्तर मेल खाते हैं</string>
+    <string name="diagnostics_dns_partial_agreement">DNS उत्तरों में आंशिक समानता</string>
+    <string name="diagnostics_dns_failure_agreement">रिज़ॉल्वर ने एक ही DNS त्रुटि लौटाई</string>
     <string name="diagnostics_dns_caution">ये रिज़ॉल्वर के उत्तर के तथ्य हैं। AD स्थानीय DNSSEC सत्यापन नहीं है; EDE रिज़ॉल्वर का दावा है। अलग उत्तर, TTL मान या नकारात्मक उत्तर प्रदाता द्वारा अवरोध साबित नहीं करते।</string>
     <string name="diagnostics_dns_none">कुछ रिपोर्ट नहीं हुआ</string>
     <string name="diagnostics_dns_show">DNS उत्तर के तथ्य दिखाएँ</string>

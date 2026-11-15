@@ -1206,6 +1206,8 @@
     <string name="diagnostics_dns_encrypted_unavailable">Encrypted comparison unavailable</string>
     <string name="diagnostics_dns_negative">Matching negative responses</string>
     <string name="diagnostics_dns_ok">DNS answers agree</string>
+    <string name="diagnostics_dns_partial_agreement">Partial DNS agreement</string>
+    <string name="diagnostics_dns_failure_agreement">Resolvers returned the same DNS error</string>
     <string name="diagnostics_dns_caution">These are resolver response facts. AD is not local DNSSEC validation; EDE is a resolver claim. Different answers, TTL values, or negative replies do not prove provider blocking.</string>
     <string name="diagnostics_dns_none">None reported</string>
     <string name="diagnostics_dns_show">Show DNS response facts</string>

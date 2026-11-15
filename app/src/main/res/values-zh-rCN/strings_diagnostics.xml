@@ -1151,6 +1151,8 @@
     <string name="diagnostics_dns_encrypted_unavailable">加密比较不可用</string>
     <string name="diagnostics_dns_negative">否定响应一致</string>
     <string name="diagnostics_dns_ok">DNS 响应一致</string>
+    <string name="diagnostics_dns_partial_agreement">DNS 响应部分一致</string>
+    <string name="diagnostics_dns_failure_agreement">解析器返回了相同的 DNS 错误</string>
     <string name="diagnostics_dns_caution">这些信息来自解析器响应。AD 不代表本地 DNSSEC 验证；EDE 是解析器的声明。不同的答案、TTL 值或否定响应不能证明运营商进行了封锁。</string>
     <string name="diagnostics_dns_none">未报告</string>
     <string name="diagnostics_dns_show">显示 DNS 响应信息</string>

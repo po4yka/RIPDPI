@@ -1393,6 +1393,7 @@ app:diagnostics_dns_cname
 app:diagnostics_dns_disagreement
 app:diagnostics_dns_ede
 app:diagnostics_dns_encrypted_unavailable
+app:diagnostics_dns_failure_agreement
 app:diagnostics_dns_hide
 app:diagnostics_dns_integrity_complete_flagged
 app:diagnostics_dns_integrity_doh_bootstrap_label
@@ -1418,6 +1419,7 @@ app:diagnostics_dns_none
 app:diagnostics_dns_nxdomain
 app:diagnostics_dns_ok
 app:diagnostics_dns_other_rcode
+app:diagnostics_dns_partial_agreement
 app:diagnostics_dns_query
 app:diagnostics_dns_ra
 app:diagnostics_dns_rcode

@@ -28,14 +28,29 @@ class DnsSemanticCheckerTest {
         }
 
     @Test
-    fun udpAnswerAndEncryptedNegativeAreDisagreement() =
+    fun udpAnswerAndEncryptedNodataAreDisagreement() =
         runTest {
             val result =
                 checker(
                     DnsProbeAnswer(listOf("1.2.3.4")),
-                    DnsProbeAnswer(response = DnsResponseSemantics(outcome = DnsResponseOutcome.REFUSED, rcode = 5)),
+                    DnsProbeAnswer(response = DnsResponseSemantics(outcome = DnsResponseOutcome.NODATA, rcode = 0)),
                 ).check(listOf("example.com"))
             assertEquals(DnsIntegrityVerdict.DNS_DISAGREEMENT, result.domains.single().verdict)
+        }
+
+    @Test
+    fun agreeingResolverFailuresRemainFailures() =
+        runTest {
+            val failure =
+                DnsProbeAnswer(
+                    response = DnsResponseSemantics(outcome = DnsResponseOutcome.SERVFAIL, rcode = 2),
+                    resolver = "resolver.example",
+                )
+            val result = checker(failure, failure).check(listOf("audit.example")).domains.single()
+
+            assertEquals(DnsIntegrityVerdict.DNS_FAILURE_AGREEMENT, result.verdict)
+            assertEquals(DnsResponseOutcome.SERVFAIL, result.udpResponse?.outcome)
+            assertEquals("resolver.example", result.dohWireResolver)
         }
 
     @Test

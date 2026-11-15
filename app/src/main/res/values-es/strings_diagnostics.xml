@@ -1180,6 +1180,8 @@
     <string name="diagnostics_dns_encrypted_unavailable">Comparación cifrada no disponible</string>
     <string name="diagnostics_dns_negative">Respuestas negativas coincidentes</string>
     <string name="diagnostics_dns_ok">Las respuestas DNS coinciden</string>
+    <string name="diagnostics_dns_partial_agreement">Coincidencia parcial de DNS</string>
+    <string name="diagnostics_dns_failure_agreement">Los resolutores devolvieron el mismo error de DNS</string>
     <string name="diagnostics_dns_caution">Son datos de la respuesta del resolutor. AD no es una validación DNSSEC local; EDE es una afirmación del resolutor. Las diferencias, los TTL o las respuestas negativas no demuestran un bloqueo del proveedor.</string>
     <string name="diagnostics_dns_none">Ninguno indicado</string>
     <string name="diagnostics_dns_show">Mostrar datos de respuestas DNS</string>

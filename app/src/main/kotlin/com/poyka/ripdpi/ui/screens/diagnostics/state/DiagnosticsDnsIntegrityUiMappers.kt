@@ -65,11 +65,22 @@ private fun DnsIntegrityDomainResult.toDomainUiModel(strings: StringResolver): D
         tone = verdict.tone(),
         dnsResponses =
             listOf(
-                dnsResponseGroup(strings, R.string.diagnostics_dns_source_udp, udpResponse),
-                dnsResponseGroup(strings, R.string.diagnostics_dns_source_doh_json, dohJsonResponse),
-                dnsResponseGroup(strings, R.string.diagnostics_dns_source_doh_wire, dohWireResponse),
+                dnsResponseGroup(strings, R.string.diagnostics_dns_source_udp, udpResponse).withResolver(udpResolver),
+                dnsResponseGroup(
+                    strings,
+                    R.string.diagnostics_dns_source_doh_json,
+                    dohJsonResponse,
+                ).withResolver(dohJsonResolver),
+                dnsResponseGroup(
+                    strings,
+                    R.string.diagnostics_dns_source_doh_wire,
+                    dohWireResponse,
+                ).withResolver(dohWireResolver),
             ).toPersistentList(),
     )
+
+private fun DiagnosticsContextGroupUiModel.withResolver(resolver: String?): DiagnosticsContextGroupUiModel =
+    resolver?.let { copy(title = "$title · $it") } ?: this
 
 private fun DnsIntegrityResult.buildDnsIntegrityMetrics(
     stringResolver: StringResolver,
@@ -172,6 +183,10 @@ private fun DnsIntegrityVerdict.dnsVerdictLabel(): Int =
 
         DnsIntegrityVerdict.DNS_NEGATIVE -> R.string.diagnostics_dns_negative
 
+        DnsIntegrityVerdict.DNS_PARTIAL_AGREEMENT -> R.string.diagnostics_dns_partial_agreement
+
+        DnsIntegrityVerdict.DNS_FAILURE_AGREEMENT -> R.string.diagnostics_dns_failure_agreement
+
         DnsIntegrityVerdict.UDP_UNAVAILABLE -> R.string.diagnostics_dns_udp_unavailable
 
         DnsIntegrityVerdict.ENCRYPTED_UNAVAILABLE,
@@ -219,7 +234,9 @@ private fun DnsIntegrityVerdict.tone(): DiagnosticsTone =
     when (this) {
         DnsIntegrityVerdict.DNS_OK -> DiagnosticsTone.Positive
 
-        DnsIntegrityVerdict.DNS_NEGATIVE -> DiagnosticsTone.Neutral
+        DnsIntegrityVerdict.DNS_NEGATIVE,
+        DnsIntegrityVerdict.DNS_PARTIAL_AGREEMENT,
+        -> DiagnosticsTone.Neutral
 
         DnsIntegrityVerdict.DNS_DISAGREEMENT,
         DnsIntegrityVerdict.UDP_UNAVAILABLE,
@@ -229,6 +246,7 @@ private fun DnsIntegrityVerdict.tone(): DiagnosticsTone =
         DnsIntegrityVerdict.DNS_INTERCEPTION,
         DnsIntegrityVerdict.FAKE_NXDOMAIN,
         DnsIntegrityVerdict.FAKE_IP,
+        DnsIntegrityVerdict.DNS_FAILURE_AGREEMENT,
         -> DiagnosticsTone.Warning
 
         DnsIntegrityVerdict.UNKNOWN -> DiagnosticsTone.Neutral

@@ -1179,6 +1179,8 @@
     <string name="diagnostics_dns_encrypted_unavailable">Verschlüsselter Vergleich nicht verfügbar</string>
     <string name="diagnostics_dns_negative">Übereinstimmende negative Antworten</string>
     <string name="diagnostics_dns_ok">DNS-Antworten stimmen überein</string>
+    <string name="diagnostics_dns_partial_agreement">Teilweise DNS-Übereinstimmung</string>
+    <string name="diagnostics_dns_failure_agreement">Die Resolver meldeten denselben DNS-Fehler</string>
     <string name="diagnostics_dns_caution">Dies sind Angaben des Resolvers. AD ist keine lokale DNSSEC-Prüfung; EDE ist eine Aussage des Resolvers. Unterschiede, TTL-Werte oder negative Antworten beweisen keine Sperre durch den Anbieter.</string>
     <string name="diagnostics_dns_none">Keine gemeldet</string>
     <string name="diagnostics_dns_show">DNS-Antwortdaten anzeigen</string>

@@ -87,7 +87,25 @@ class DomainReachabilityScannerTest {
         }
 
     @Test
-    fun stubIpShortCircuitsToIspPage() =
+    fun stubIpInRedirectQueryDoesNotIdentifyTheDestination() =
+        runTest {
+            val result =
+                scanner(
+                    attempts = {
+                        AttemptResult(
+                            status = AttemptStatus.REDIR_SUSPICIOUS,
+                            statusCode = 302,
+                            detail = "https://example.net/redirect?target=100.64.0.5",
+                        )
+                    },
+                ).scan(listOf("example.com"), stubIps = setOf("100.64.0.5")).single()
+
+            assertEquals(AttemptStatus.REDIR_SUSPICIOUS, result.http.status)
+            assertEquals(DomainVerdict.BLOCKED, result.verdict)
+        }
+
+    @Test
+    fun sharedAddressAloneDoesNotCountAsIspPage() =
         runTest {
             var attempts = 0
             val result =
@@ -99,9 +117,9 @@ class DomainReachabilityScannerTest {
                     },
                 ).scan(listOf("example.com"), stubIps = setOf("100.64.0.5")).single()
 
-            assertEquals(DomainVerdict.ISP_PAGE, result.verdict)
-            assertEquals(0, attempts)
-            assertEquals(AttemptStatus.ISP_PAGE, result.tls13.status)
+            assertEquals(DomainVerdict.OK, result.verdict)
+            assertEquals(3, attempts)
+            assertEquals(AttemptStatus.OK, result.tls13.status)
         }
 
     @Test

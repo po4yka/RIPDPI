@@ -136,7 +136,7 @@ class DomainReachabilityScanner(
         randomHostname: Boolean,
     ): DomainReachabilityResult {
         val resolvedIps = resolveDomainIps(domain)
-        return preflightShortCircuit(domain, resolvedIps, stubIps)
+        return preflightShortCircuit(domain, resolvedIps)
             ?: runFullScan(domain, resolvedIps.orEmpty(), stubIps, randomHostname)
     }
 
@@ -154,15 +154,10 @@ class DomainReachabilityScanner(
     private fun preflightShortCircuit(
         domain: String,
         resolvedIps: List<String>?,
-        stubIps: Set<String>,
     ): DomainReachabilityResult? =
         when {
             resolvedIps == null -> {
                 shortCircuit(domain, emptyList(), AttemptStatus.ERROR, DomainVerdict.DNS_FAIL)
-            }
-
-            resolvedIps.any { ip -> ip in stubIps } -> {
-                shortCircuit(domain, resolvedIps, AttemptStatus.ISP_PAGE, DomainVerdict.ISP_PAGE)
             }
 
             resolvedIps.any { ip -> IpAddressClassifier.classify(ip) == IpAddressType.FAKE_IP } -> {
@@ -222,7 +217,7 @@ class DomainReachabilityScanner(
             return this
         }
         val redirectedHost = runCatching { detail.toHttpUrl().host }.getOrNull()
-        return if (redirectedHost in stubIps || stubIps.any { ip -> detail.contains(ip) }) {
+        return if (redirectedHost in stubIps) {
             copy(status = AttemptStatus.ISP_PAGE)
         } else {
             this

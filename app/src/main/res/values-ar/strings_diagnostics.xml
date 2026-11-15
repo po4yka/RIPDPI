@@ -1290,6 +1290,8 @@
     <string name="diagnostics_dns_encrypted_unavailable">المقارنة المشفرة غير متاحة</string>
     <string name="diagnostics_dns_negative">الاستجابات السلبية متطابقة</string>
     <string name="diagnostics_dns_ok">استجابات DNS متطابقة</string>
+    <string name="diagnostics_dns_partial_agreement">توافق جزئي في ردود DNS</string>
+    <string name="diagnostics_dns_failure_agreement">أعادت أدوات تحليل الأسماء خطأ DNS نفسه</string>
     <string name="diagnostics_dns_caution">هذه بيانات من استجابة المحلل. لا تعني AD تحقق DNSSEC محليًا؛ وEDE ادعاء من المحلل. لا تثبت اختلافات الإجابات أو قيم TTL أو الردود السلبية وجود حظر من مزود الخدمة.</string>
     <string name="diagnostics_dns_none">لم يُبلغ عن شيء</string>
     <string name="diagnostics_dns_show">عرض بيانات استجابات DNS</string>

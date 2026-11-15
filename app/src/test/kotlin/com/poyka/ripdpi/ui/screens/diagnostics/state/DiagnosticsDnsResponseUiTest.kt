@@ -142,6 +142,31 @@ class DiagnosticsDnsResponseUiTest {
     }
 
     @Test
+    fun partialComparisonShowsSelectedResolver() {
+        val result =
+            DnsIntegrityResult(
+                listOf(
+                    DnsIntegrityDomainResult(
+                        domain = "example.test",
+                        verdict = DnsIntegrityVerdict.DNS_PARTIAL_AGREEMENT,
+                        udpRecords = listOf("192.0.2.10"),
+                        dohJsonIps = setOf("192.0.2.11"),
+                        dohWireIps = emptySet(),
+                        dohJsonResolver = "resolver.example",
+                    ),
+                ),
+                emptySet(),
+                0,
+            ).toUiModel(strings)
+        val row = result.rows.single()
+        assertEquals(app.getString(R.string.diagnostics_dns_partial_agreement), row.verdict)
+        assertEquals(
+            "${app.getString(R.string.diagnostics_dns_source_doh_json)} · resolver.example",
+            row.dnsResponses[1].title,
+        )
+    }
+
+    @Test
     fun availabilityKeepsNegativeResponseFactsSeparateFromAddressAvailability() {
         val result =
             listOf(

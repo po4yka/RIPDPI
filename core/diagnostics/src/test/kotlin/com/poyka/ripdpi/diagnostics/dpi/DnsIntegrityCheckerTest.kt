@@ -34,7 +34,7 @@ class DnsIntegrityCheckerTest {
         }
 
     @Test
-    fun answersFromTheSameSlash24AreTreatedAsAgreement() =
+    fun answersFromTheSameSlash24DoNotEstablishFullAgreement() =
         runTest {
             val result =
                 checker(
@@ -44,8 +44,50 @@ class DnsIntegrityCheckerTest {
                     doqProbe = probeWithResponse("104.16.132.99"),
                 ).check(listOf("blocked.example"))
 
-            assertEquals(DnsIntegrityVerdict.DNS_OK, result.domains.single().verdict)
+            assertEquals(DnsIntegrityVerdict.DNS_PARTIAL_AGREEMENT, result.domains.single().verdict)
             assertEquals(DoqVerdict.DOQ_OK, result.doqResults.single().verdict)
+        }
+
+    @Test
+    fun oneOverlappingReplyAndOneTimeoutDoNotEstablishFullAgreement() =
+        runTest {
+            val result =
+                checker(
+                    udp = { listOf("192.0.2.10") },
+                    dohJson = { setOf("192.0.2.11") },
+                    dohWire = { throw SocketTimeoutException() },
+                ).check(listOf("audit.example"))
+
+            assertEquals(DnsIntegrityVerdict.DNS_PARTIAL_AGREEMENT, result.domains.single().verdict)
+            val aggregate = DpiSuiteVerdictAggregator.aggregate(listOf(DpiSuiteProbeResult.DnsIntegrity(result)))
+            assertEquals(SuiteVerdict.INCONCLUSIVE, aggregate.verdict)
+        }
+
+    @Test
+    fun conflictingEncryptedReplyIsNotHiddenByExactOverlapInTheOtherLane() =
+        runTest {
+            val result =
+                checker(
+                    udp = { listOf("192.0.2.10") },
+                    dohJson = { setOf("192.0.2.10") },
+                    dohWire = { setOf("198.51.100.1") },
+                ).check(listOf("audit.example"))
+
+            assertEquals(DnsIntegrityVerdict.DNS_DISAGREEMENT, result.domains.single().verdict)
+        }
+
+    @Test
+    fun sharedAddressConfirmedByDnsIsNotAStubCandidate() =
+        runTest {
+            val result =
+                checker(
+                    udp = { listOf("192.0.2.10") },
+                    dohJson = { setOf("192.0.2.10") },
+                    dohWire = { setOf("192.0.2.10") },
+                ).check(listOf("one.example", "two.example"))
+
+            assertTrue(result.domains.all { it.verdict == DnsIntegrityVerdict.DNS_OK })
+            assertTrue(result.stubIps.isEmpty())
         }
 
     @Test
