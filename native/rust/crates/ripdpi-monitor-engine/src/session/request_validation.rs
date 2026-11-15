@@ -1,9 +1,14 @@
 use std::io::{self, Write};
+use std::net::IpAddr;
 
 use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
 use crate::types::{ScanKind, ScanPathMode};
+use ripdpi_diagnostics_contracts::util::{
+    FAT_HEADER_MAX_ALTERNATES, FAT_HEADER_MAX_REQUESTS, FAT_HEADER_REQUESTS, is_valid_fat_header_authority,
+};
 use ripdpi_diagnostics_contracts::{DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineScanRequestWire};
+use ripdpi_tls_profiles::normalize_server_name;
 
 pub const MAX_REQUEST_WIRE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_PROFILE_ID_BYTES: usize = 256;
@@ -14,7 +19,7 @@ const MAX_PROBE_TASKS: usize = 1024;
 const MAX_THROUGHPUT_RUNS: usize = 8;
 const MAX_THROUGHPUT_WINDOW_BYTES: usize = 64 * 1024 * 1024;
 const MAX_TOTAL_THROUGHPUT_BYTES: usize = 512 * 1024 * 1024;
-const MAX_FAT_HEADER_REQUESTS: usize = 64;
+const MAX_FAT_HEADER_WHITELIST_SNI: usize = 256;
 const MAX_TOTAL_FAT_HEADER_REQUESTS: usize = 4096;
 const MAX_STRATEGY_CANDIDATES: usize = 128;
 const MIN_SCAN_DEADLINE_MS: u64 = 1_000;
@@ -158,19 +163,7 @@ fn validate_resource_limits(request: &EngineScanRequestWire) -> Result<(), Strin
         return Err(format!("total throughput work exceeds {MAX_TOTAL_THROUGHPUT_BYTES} bytes"));
     }
 
-    let mut total_fat_header_requests = 0usize;
-    for target in &request.tcp_targets {
-        let requests = target.fat_header_requests.unwrap_or(1);
-        if !(1..=MAX_FAT_HEADER_REQUESTS).contains(&requests) {
-            return Err(format!("fatHeaderRequests must be between 1 and {MAX_FAT_HEADER_REQUESTS}"));
-        }
-        total_fat_header_requests = total_fat_header_requests
-            .checked_add(requests)
-            .ok_or_else(|| "total fatHeaderRequests overflow".to_string())?;
-    }
-    if total_fat_header_requests > MAX_TOTAL_FAT_HEADER_REQUESTS {
-        return Err(format!("total fatHeaderRequests exceeds {MAX_TOTAL_FAT_HEADER_REQUESTS}"));
-    }
+    validate_fat_header_work(request)?;
 
     if let Some(strategy_probe) = &request.strategy_probe {
         if let Some(max_candidates) = strategy_probe.max_candidates
@@ -205,6 +198,43 @@ fn validate_count(label: &str, count: usize, max: usize) -> Result<(), String> {
 fn validate_text(label: &str, value: &str, max_bytes: usize) -> Result<(), String> {
     if value.len() > max_bytes {
         return Err(format!("{label} size {} exceeds {max_bytes} bytes", value.len()));
+    }
+    Ok(())
+}
+
+fn validate_fat_header_work(request: &EngineScanRequestWire) -> Result<(), String> {
+    validate_count("whitelistSni", request.whitelist_sni.len(), MAX_FAT_HEADER_WHITELIST_SNI)?;
+    for candidate in &request.whitelist_sni {
+        if !normalize_server_name(candidate).is_ok_and(|name| name.parse::<IpAddr>().is_err()) {
+            return Err("whitelistSni requires DNS names".to_string());
+        }
+    }
+
+    let alternate_attempts = request.whitelist_sni.len().min(FAT_HEADER_MAX_ALTERNATES);
+    let mut total_requests = 0;
+    for target in &request.tcp_targets {
+        if target.ip.parse::<IpAddr>().is_err() || target.port == 0 || target.alt_port == Some(0) {
+            return Err("tcpTargets require a numeric IP address and nonzero ports".to_string());
+        }
+        if target.sni.as_deref().is_some_and(|name| normalize_server_name(name).is_err()) {
+            return Err("tcpTargets.sni requires a valid TLS/DNS name or IP address".to_string());
+        }
+        if target.host_header.as_deref().is_some_and(|host| !is_valid_fat_header_authority(host)) {
+            return Err("tcpTargets.hostHeader requires a valid HTTP authority".to_string());
+        }
+
+        let requests = target.fat_header_requests.unwrap_or(FAT_HEADER_REQUESTS);
+        if !(1..=FAT_HEADER_MAX_REQUESTS).contains(&requests) {
+            return Err(format!("fatHeaderRequests must be between 1 and {FAT_HEADER_MAX_REQUESTS}"));
+        }
+
+        // Only a failed TCP connect can repeat. It sends no HEAD requests.
+        let attempts =
+            1 + usize::from(target.alt_port.is_some()) + if target.sni.is_some() { alternate_attempts } else { 0 };
+        total_requests += requests * attempts;
+    }
+    if total_requests > MAX_TOTAL_FAT_HEADER_REQUESTS {
+        return Err(format!("total fatHeaderRequests exceeds {MAX_TOTAL_FAT_HEADER_REQUESTS}"));
     }
     Ok(())
 }

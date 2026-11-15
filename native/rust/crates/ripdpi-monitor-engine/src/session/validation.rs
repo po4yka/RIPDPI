@@ -130,10 +130,8 @@ mod tests {
         assert!(error.contains("throughput"), "unexpected validation error: {error}");
     }
 
-    #[test]
-    fn rejects_unbounded_fat_header_work() {
-        let mut request = request();
-        request.tcp_targets.push(TcpTarget {
+    fn tcp_target(fat_header_requests: Option<usize>) -> TcpTarget {
+        TcpTarget {
             id: "tcp".to_string(),
             provider: "provider".to_string(),
             ip: "192.0.2.1".to_string(),
@@ -141,12 +139,67 @@ mod tests {
             sni: Some("example.com".to_string()),
             asn: None,
             host_header: None,
-            fat_header_requests: Some(usize::MAX),
+            fat_header_requests,
             alt_port: None,
-        });
+        }
+    }
 
+    #[test]
+    fn rejects_unbounded_fat_header_work() {
+        let mut request = request();
+        request.tcp_targets.push(tcp_target(Some(usize::MAX)));
         let error = validate_scan_request(&request).expect_err("unbounded fat-header requests must fail");
         assert!(error.contains("fatHeaderRequests"), "unexpected validation error: {error}");
+    }
+
+    #[test]
+    fn counts_default_fat_header_series_in_the_work_budget() {
+        let mut request = request();
+        request.tcp_targets = vec![tcp_target(None); 256];
+        assert!(validate_scan_request(&request).is_ok(), "256 default 16-request series fit the budget");
+
+        request.tcp_targets[0].fat_header_requests = Some(64);
+        let error = validate_scan_request(&request).expect_err("the longer series exceeds the aggregate budget");
+        assert!(error.contains("total fatHeaderRequests"), "{error}");
+    }
+
+    #[test]
+    fn reserves_fat_header_work_for_alternate_sni_and_port() {
+        let mut request = request();
+        request.whitelist_sni = (0..5).map(|index| format!("candidate{index}.test")).collect();
+        let target = TcpTarget { alt_port: Some(8443), ..tcp_target(Some(64)) };
+        // Ten targets with one baseline, four SNI alternates and one alternate port use 3840 requests.
+        request.tcp_targets = vec![target.clone(); 10];
+        assert!(validate_scan_request(&request).is_ok(), "the fifth SNI candidate is outside the runtime cap");
+        request.tcp_targets.push(target);
+        let error = validate_scan_request(&request).expect_err("11 such targets require up to 4224 requests");
+        assert!(error.contains("total fatHeaderRequests"), "{error}");
+    }
+
+    #[test]
+    fn rejects_invalid_tcp_target_and_alternate_configuration() {
+        let mut request = request();
+        for (target, field) in [
+            (TcpTarget { ip: "example.test".into(), ..tcp_target(None) }, "numeric IP"),
+            (TcpTarget { port: 0, ..tcp_target(None) }, "nonzero ports"),
+            (TcpTarget { alt_port: Some(0), ..tcp_target(None) }, "nonzero ports"),
+            (TcpTarget { sni: Some(String::new()), ..tcp_target(None) }, "tcpTargets.sni"),
+            (TcpTarget { host_header: Some("bad:abc".into()), ..tcp_target(None) }, "tcpTargets.hostHeader"),
+            (TcpTarget { host_header: Some("x".repeat(260)), ..tcp_target(None) }, "tcpTargets.hostHeader"),
+        ] {
+            request.tcp_targets = vec![target];
+            let error = validate_scan_request(&request).expect_err("invalid TCP target");
+            assert!(error.contains(field), "{error}");
+        }
+
+        request.tcp_targets = vec![TcpTarget { sni: Some("192.0.2.1".into()), ..tcp_target(None) }];
+        assert!(validate_scan_request(&request).is_ok(), "TLS accepts an IP identity without wire SNI");
+        request.whitelist_sni = vec!["192.0.2.1".into()];
+        let error = validate_scan_request(&request).expect_err("alternate SNI must be a DNS name");
+        assert!(error.contains("whitelistSni requires DNS names"), "{error}");
+        request.whitelist_sni = vec!["candidate.test".into(); 257];
+        let error = validate_scan_request(&request).expect_err("the input list has a separate size cap");
+        assert!(error.contains("whitelistSni count"), "{error}");
     }
 
     #[test]
