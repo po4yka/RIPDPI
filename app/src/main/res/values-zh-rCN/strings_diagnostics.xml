@@ -622,6 +622,9 @@
     <string name="diagnostics_share_no_session">请选择一个诊断会话以生成摘要。</string>
     <string name="diagnostics_sparkline_errors">错误</string>
     <string name="diagnostics_telegram_data_centers">数据中心</string>
+    <string name="diagnostics_telegram_tcp_endpoints">TCP 端点</string>
+    <string name="diagnostics_telegram_ws_handshake">WebSocket 握手</string>
+    <string name="diagnostics_telegram_unmeasured_format">未测量：%1$d</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s 可达</string>
     <string name="diagnostics_warn_power_restriction">电源或后台限制可能干扰稳定的诊断。</string>
     <!-- Share link preview card -->

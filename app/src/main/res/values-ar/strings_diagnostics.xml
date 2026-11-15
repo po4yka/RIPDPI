@@ -507,6 +507,9 @@
     <string name="diagnostics_telegram_download">تنزيل</string>
     <string name="diagnostics_telegram_upload">رفع</string>
     <string name="diagnostics_telegram_data_centers">مراكز البيانات</string>
+    <string name="diagnostics_telegram_tcp_endpoints">نقاط اتصال TCP</string>
+    <string name="diagnostics_telegram_ws_handshake">مصافحة WebSocket</string>
+    <string name="diagnostics_telegram_unmeasured_format">لم يُقَس: %1$d</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s قابل للوصول</string>
     <string name="diagnostics_telegram_avg_speed">متوسط السرعة</string>
     <string name="diagnostics_telegram_peak_speed">الذروة القصوى</string>

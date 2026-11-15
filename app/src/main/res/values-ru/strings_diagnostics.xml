@@ -416,6 +416,9 @@
     <string name="diagnostics_telegram_download">Загрузка</string>
     <string name="diagnostics_telegram_upload">Отдача</string>
     <string name="diagnostics_telegram_data_centers">Дата-центры</string>
+    <string name="diagnostics_telegram_tcp_endpoints">Точки подключения TCP</string>
+    <string name="diagnostics_telegram_ws_handshake">Рукопожатие WebSocket</string>
+    <string name="diagnostics_telegram_unmeasured_format">Без измерения: %1$d</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s доступно</string>
     <string name="diagnostics_telegram_avg_speed">Средняя скорость</string>
     <string name="diagnostics_telegram_peak_speed">Пиковая скорость</string>

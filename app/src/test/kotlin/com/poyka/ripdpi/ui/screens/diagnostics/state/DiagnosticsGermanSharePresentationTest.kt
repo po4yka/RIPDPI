@@ -37,6 +37,14 @@ class DiagnosticsGermanSharePresentationTest {
                 ProbeDetail("uploadBytes", "999"),
                 ProbeDetail("dcReachable", "2"),
                 ProbeDetail("dcTotal", "3"),
+                ProbeDetail("dcPlanned", "5"),
+                ProbeDetail(
+                    "dcResults",
+                    "DC1:ok:42ms:address=192.0.2.10:443;family=ipv4;path=direct|" +
+                        "DC1:fail::address=192.0.2.10:80;family=ipv4;path=direct",
+                ),
+                ProbeDetail("wsTunnelStatus", "cancelled"),
+                ProbeDetail("wsTunnelOpenMs", "123"),
             )
         val report =
             DiagnosticsSessionProjection(
@@ -51,6 +59,12 @@ class DiagnosticsGermanSharePresentationTest {
         assertTrue(body.contains("1,5 MB"))
         assertTrue(body.contains("1,0 Kbps"))
         assertTrue(body.contains("1,00 kB"))
+        assertTrue(body.contains("WebSocket-Handshake"))
+        assertTrue(body.contains("123 ms"))
+        assertTrue(body.contains("Nicht gemessen: 2"))
+        assertTrue(body.contains("TCP-Endpunkte"))
+        assertTrue(body.contains("DC1 · 192.0.2.10:443"))
+        assertTrue(body.contains("DC1 · 192.0.2.10:80"))
         assertTrue(body.contains("Raw_Engine_V1"))
         assertTrue(body.contains("Raw_Classifier_V2"))
         assertTrue(body.contains("Raw_Pack@23"))

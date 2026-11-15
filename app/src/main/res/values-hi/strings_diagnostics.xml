@@ -544,6 +544,9 @@
     <string name="diagnostics_telegram_download">डाउनलोड</string>
     <string name="diagnostics_telegram_upload">अपलोड</string>
     <string name="diagnostics_telegram_data_centers">डेटा सेंटर</string>
+    <string name="diagnostics_telegram_tcp_endpoints">TCP एंडपॉइंट</string>
+    <string name="diagnostics_telegram_ws_handshake">WebSocket हैंडशेक</string>
+    <string name="diagnostics_telegram_unmeasured_format">माप नहीं हुआ: %1$d</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s पहुँच योग्य</string>
     <string name="diagnostics_telegram_avg_speed">औसत गति</string>
     <string name="diagnostics_telegram_peak_speed">शिखर गति</string>

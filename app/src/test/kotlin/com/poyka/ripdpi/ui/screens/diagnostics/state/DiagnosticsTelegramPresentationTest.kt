@@ -37,6 +37,24 @@ class DiagnosticsTelegramPresentationTest {
     }
 
     @Test
+    fun `DC details represent each port and historical reachability without truncating IPv6`() {
+        assertEquals(
+            TelegramDcPresentation("DC1", "ok", 42, "[2001:db8::1]:443"),
+            parseTelegramDcResult("DC1:ok:42ms:address=[2001:db8::1]:443;family=ipv6;path=direct"),
+        )
+        assertEquals(
+            TelegramDcPresentation("DC1", "fail", null, "[2001:db8::1]:80"),
+            parseTelegramDcResult("DC1:fail::address=[2001:db8::1]:80;family=ipv6;path=direct;stage=tcp_connect"),
+        )
+        assertEquals(
+            TelegramDcPresentation("dc1", "ok", 45, "443:fail,80:ok:45ms"),
+            parseTelegramDcResult("dc1:reachable=true:medianRttMs=45:ports=443:fail,80:ok:45ms"),
+        )
+        assertEquals(TelegramDcPresentation("DC1", "ok", 42, null), parseTelegramDcResult("DC1:ok:42ms"))
+        assertNull(parseTelegramDcResult("dc_probe_aborted:cancelled"))
+    }
+
+    @Test
     fun `all native status and verdict codes are localized and unknown evidence has no mapping`() {
         val statuses =
             listOf(
@@ -49,6 +67,7 @@ class DiagnosticsTelegramPresentationTest {
                 "cancelled",
                 "deadline_exceeded",
                 "unknown",
+                "not_run",
                 "unreachable",
             )
         assertEquals(

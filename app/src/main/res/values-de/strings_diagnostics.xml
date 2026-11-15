@@ -623,6 +623,9 @@
     <string name="diagnostics_source_strategy_probe_manual">Strategie-Probe (manuell)</string>
     <string name="diagnostics_status_observed">Beobachtet</string>
     <string name="diagnostics_telegram_data_centers">Rechenzentren</string>
+    <string name="diagnostics_telegram_tcp_endpoints">TCP-Endpunkte</string>
+    <string name="diagnostics_telegram_ws_handshake">WebSocket-Handshake</string>
+    <string name="diagnostics_telegram_unmeasured_format">Nicht gemessen: %1$d</string>
     <string name="diagnostics_telegram_transferred">Übertragen</string>
     <string name="diagnostics_warn_notification_permission">Die Benachrichtigungsberechtigung ist deaktiviert, daher sind Service-Probleme möglicherweise schwerer zu bemerken.</string>
     <!-- Share link preview card -->

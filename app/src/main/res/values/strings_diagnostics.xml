@@ -534,6 +534,9 @@
     <string name="diagnostics_telegram_download">Download</string>
     <string name="diagnostics_telegram_upload">Upload</string>
     <string name="diagnostics_telegram_data_centers">Data centers</string>
+    <string name="diagnostics_telegram_tcp_endpoints">TCP endpoints</string>
+    <string name="diagnostics_telegram_ws_handshake">WebSocket handshake</string>
+    <string name="diagnostics_telegram_unmeasured_format">Not measured: %1$d</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s reachable</string>
     <string name="diagnostics_telegram_avg_speed">Avg speed</string>
     <string name="diagnostics_telegram_peak_speed">Peak speed</string>

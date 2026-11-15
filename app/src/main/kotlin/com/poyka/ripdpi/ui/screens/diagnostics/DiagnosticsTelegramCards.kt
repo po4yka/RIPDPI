@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
@@ -20,6 +19,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.formatTelegramThroughput
+import com.poyka.ripdpi.ui.screens.diagnostics.state.parseTelegramDcResult
 import com.poyka.ripdpi.ui.screens.diagnostics.state.telegramStatusLabelRes
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -30,7 +30,6 @@ internal fun TelegramResultCard(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
     val details = remember(probe.details) { probe.details.associate { it.label to it.value } }
     val verdict = details["verdict"] ?: probe.outcome
     val verdictTone = statusTone(probe.tone)
@@ -54,7 +53,7 @@ internal fun TelegramResultCard(
 
         TelegramTransferSection(
             label = stringResource(R.string.diagnostics_telegram_download),
-            status = details["downloadStatus"] ?: "unknown",
+            status = details["downloadStatus"] ?: "not_run",
             avgBps = details["downloadAvgBps"],
             peakBps = details["downloadPeakBps"],
             bytes = details["downloadBytes"],
@@ -63,46 +62,64 @@ internal fun TelegramResultCard(
 
         TelegramTransferSection(
             label = stringResource(R.string.diagnostics_telegram_upload),
-            status = details["uploadStatus"] ?: "unknown",
+            status = details["uploadStatus"] ?: "not_run",
             avgBps = details["uploadAvgBps"],
             peakBps = details["uploadPeakBps"],
             bytes = details["uploadBytes"],
             error = details["uploadError"],
         )
 
-        val dcReachable = details["dcReachable"] ?: "0"
-        val dcTotal = details["dcTotal"] ?: "0"
-        val dcResults = details["dcResults"]?.split("|")?.filter { it.isNotEmpty() } ?: emptyList()
-
-        SettingsRow(
-            title = stringResource(R.string.diagnostics_telegram_data_centers),
-            value = stringResource(R.string.diagnostics_telegram_reachable_format, dcReachable, dcTotal),
-        )
-        if (dcResults.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                dcResults.forEach { dc ->
-                    val parts = dc.split(":")
-                    val label = parts.getOrNull(0) ?: "?"
-                    val ok = parts.getOrNull(1) == "ok"
-                    val rtt = parts.getOrNull(2) ?: ""
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        StatusIndicator(
-                            label = label,
-                            tone = if (ok) StatusIndicatorTone.Active else StatusIndicatorTone.Error,
-                        )
-                        if (rtt.isNotEmpty()) {
-                            Text(
-                                text = rtt,
-                                style = RipDpiThemeTokens.type.monoSmall,
-                                color = colors.mutedForeground,
-                            )
-                        }
-                    }
-                }
+        val dcReachable = details["dcReachable"]?.toIntOrNull()
+        val dcAttempted = details["dcTotal"]?.toIntOrNull()
+        val dcPlanned = details["dcPlanned"]?.toIntOrNull()
+        val dcSummary =
+            if (dcReachable != null && dcAttempted != null && dcAttempted > 0) {
+                stringResource(
+                    R.string.diagnostics_telegram_reachable_format,
+                    dcReachable.toString(),
+                    dcAttempted.toString(),
+                )
+            } else {
+                stringResource(R.string.diagnostics_matrix_stage_not_run)
             }
+        SettingsRow(
+            title =
+                stringResource(
+                    if (dcPlanned !=
+                        null
+                    ) {
+                        R.string.diagnostics_telegram_tcp_endpoints
+                    } else {
+                        R.string.diagnostics_telegram_data_centers
+                    },
+                ),
+            subtitle =
+                if (dcAttempted != null && dcPlanned != null && dcPlanned > dcAttempted && dcAttempted > 0) {
+                    stringResource(R.string.diagnostics_telegram_unmeasured_format, dcPlanned - dcAttempted)
+                } else {
+                    null
+                },
+            value = dcSummary,
+        )
+        details["dcResults"]?.split('|')?.mapNotNull(::parseTelegramDcResult)?.forEach { dc ->
+            val detail = dc.connectMs?.let { stringResource(R.string.diagnostics_metric_dns_latency_format, it) }
+            TelegramStatusRow(
+                label = dc.label,
+                status = dc.status,
+                detail = listOfNotNull(dc.endpointOrPorts, detail).joinToString(" · ").ifEmpty { null },
+            )
+        }
+        val wsOpenTime =
+            details["wsTunnelOpenMs"]?.toLongOrNull()?.let {
+                stringResource(R.string.diagnostics_metric_dns_latency_format, it)
+            }
+        TelegramStatusRow(
+            label = stringResource(R.string.diagnostics_telegram_ws_handshake),
+            status = details["wsTunnelStatus"] ?: "not_run",
+            detail = wsOpenTime,
+        )
+        details["wsTunnelError"]?.takeUnless { it.isEmpty() || it == "none" }?.let { error ->
+            SettingsRow(title = stringResource(R.string.diagnostics_telegram_error), value = error)
         }
     }
 }
@@ -116,18 +133,45 @@ private fun TelegramTransferSection(
     bytes: String?,
     error: String?,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val locale = LocalConfiguration.current.locales[0]
-    val avgSpeed = formatTelegramThroughput(avgBps?.toLongOrNull() ?: 0, locale)
-    val peakSpeed = formatTelegramThroughput(peakBps?.toLongOrNull() ?: 0, locale)
-    val totalBytes = Formatter.formatShortFileSize(LocalContext.current, bytes?.toLongOrNull() ?: 0)
+    TelegramStatusRow(label, status)
+    avgBps?.toLongOrNull()?.let {
+        SettingsRow(
+            title = stringResource(R.string.diagnostics_telegram_avg_speed),
+            value = formatTelegramThroughput(it, locale),
+        )
+    }
+    peakBps?.toLongOrNull()?.let {
+        SettingsRow(
+            title = stringResource(R.string.diagnostics_telegram_peak_speed),
+            value = formatTelegramThroughput(it, locale),
+        )
+    }
+    bytes?.toLongOrNull()?.let {
+        SettingsRow(
+            title = stringResource(R.string.diagnostics_telegram_transferred),
+            value = Formatter.formatShortFileSize(LocalContext.current, it),
+        )
+    }
+    if (error != null && error != "none") {
+        SettingsRow(title = stringResource(R.string.diagnostics_telegram_error), value = error)
+    }
+}
+
+@Composable
+private fun TelegramStatusRow(
+    label: String,
+    status: String,
+    detail: String? = null,
+) {
+    val colors = RipDpiThemeTokens.colors
     val tone =
         when (status) {
             "ok" -> StatusIndicatorTone.Active
-            "slow", "stalled" -> StatusIndicatorTone.Warning
+            "slow", "stalled", "partial" -> StatusIndicatorTone.Warning
+            "unknown", "not_run", "capability_skipped", "cancelled", "deadline_exceeded" -> StatusIndicatorTone.Idle
             else -> StatusIndicatorTone.Error
         }
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -135,16 +179,18 @@ private fun TelegramTransferSection(
     ) {
         Text(
             text = label,
+            modifier = Modifier.weight(1f),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
         StatusIndicator(label = telegramStatusCaption(status), tone = tone)
     }
-    SettingsRow(title = stringResource(R.string.diagnostics_telegram_avg_speed), value = avgSpeed)
-    SettingsRow(title = stringResource(R.string.diagnostics_telegram_peak_speed), value = peakSpeed)
-    SettingsRow(title = stringResource(R.string.diagnostics_telegram_transferred), value = totalBytes)
-    if (error != null && error != "none") {
-        SettingsRow(title = stringResource(R.string.diagnostics_telegram_error), value = error)
+    if (detail != null) {
+        Text(
+            text = detail,
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = colors.mutedForeground,
+        )
     }
 }
 

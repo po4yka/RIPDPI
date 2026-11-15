@@ -623,6 +623,9 @@
     <string name="diagnostics_source_strategy_probe_manual">Sondeo de estrategia (manual)</string>
     <string name="diagnostics_status_observed">Observado</string>
     <string name="diagnostics_telegram_data_centers">Centros de datos</string>
+    <string name="diagnostics_telegram_tcp_endpoints">Puntos de conexión TCP</string>
+    <string name="diagnostics_telegram_ws_handshake">Negociación de WebSocket</string>
+    <string name="diagnostics_telegram_unmeasured_format">Sin medir: %1$d</string>
     <string name="diagnostics_telegram_transferred">Transferido</string>
     <string name="diagnostics_warn_notification_permission">El permiso de notificaciones está deshabilitado, por lo que los problemas del servicio pueden ser más difíciles de detectar.</string>
     <!-- Share link preview card -->

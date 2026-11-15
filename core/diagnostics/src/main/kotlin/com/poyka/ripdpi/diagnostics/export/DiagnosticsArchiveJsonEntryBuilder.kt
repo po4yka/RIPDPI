@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryDocument
 import com.poyka.ripdpi.diagnostics.toRedactedSummary
 import com.poyka.ripdpi.diagnostics.toSessionProjection
 import com.poyka.ripdpi.diagnostics.withConnectionStageEvidence
+import com.poyka.ripdpi.diagnostics.withTelegramEvidence
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -612,6 +613,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                                 event.level.equals("error", ignoreCase = true)
                         }.map(redactor::redact),
             ).withConnectionStageEvidence(selection.primaryReport)
+            .withTelegramEvidence(selection.primaryReport)
 
     private fun <T> jsonEntry(
         name: String,

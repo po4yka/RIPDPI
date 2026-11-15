@@ -622,6 +622,9 @@
     <string name="diagnostics_share_telemetry_line">همچنین دورسنجی زندهٔ تازه، رویدادهای عمومی زمان اجرا، یادداشت‌های کامل‌بودن، و هش‌های یکپارچگی را اضافه می‌کند. ضبط‌های بسته به‌صورت آثار خام محلی جداگانه باقی می‌مانند.</string>
     <string name="diagnostics_sparkline_rx_bytes">بایت‌های RX</string>
     <string name="diagnostics_telegram_data_centers">مراکز داده</string>
+    <string name="diagnostics_telegram_tcp_endpoints">نقاط اتصال TCP</string>
+    <string name="diagnostics_telegram_ws_handshake">دست‌دهی WebSocket</string>
+    <string name="diagnostics_telegram_unmeasured_format">اندازه‌گیری‌نشده: %1$d</string>
     <string name="diagnostics_telegram_peak_speed">حداکثر سرعت</string>
     <string name="diagnostics_telegram_upload">آپلود</string>
     <string name="diagnostics_warn_vpn_permission">مجوز VPN در حال حاضر اعطا نشده است.</string>

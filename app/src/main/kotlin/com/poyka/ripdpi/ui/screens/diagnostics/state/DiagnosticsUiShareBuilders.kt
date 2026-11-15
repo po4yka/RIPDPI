@@ -7,7 +7,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryTextRenderer
-import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
@@ -291,39 +290,6 @@ private fun DiagnosticsUiFactorySupport.shareTargetSelectionLines(
             selection.quicHosts.joinToString(" · "),
         ),
     )
-
-private fun DiagnosticsUiFactorySupport.telegramShareLines(result: ProbeResult): List<String> =
-    buildList {
-        val details = result.details.associate { it.key to it.value }
-        val verdict = details["verdict"] ?: result.outcome
-        val label = telegramStatusLabelRes(verdict)?.let { context.getString(it) } ?: verdict
-        add(context.getString(R.string.diagnostics_share_telegram_format, label))
-        details["downloadAvgBps"]?.toLongOrNull()?.let { bps ->
-            add(
-                context.getString(
-                    R.string.diagnostics_share_download_format,
-                    formatTelegramThroughput(bps, core.formatter.locale),
-                    formatBytes(details["downloadBytes"]?.toLongOrNull() ?: 0),
-                ),
-            )
-        }
-        details["uploadAvgBps"]?.toLongOrNull()?.let { bps ->
-            add(
-                context.getString(
-                    R.string.diagnostics_share_upload_format,
-                    formatTelegramThroughput(bps, core.formatter.locale),
-                    formatBytes(details["uploadBytes"]?.toLongOrNull() ?: 0),
-                ),
-            )
-        }
-        add(
-            context.getString(
-                R.string.diagnostics_share_data_centers_format,
-                details["dcReachable"] ?: "?",
-                details["dcTotal"] ?: "?",
-            ),
-        )
-    }
 
 private fun DiagnosticsUiFactorySupport.appendShareWarning(
     builder: StringBuilder,
