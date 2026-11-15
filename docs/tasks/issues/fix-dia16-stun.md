@@ -2,7 +2,7 @@
 id: DGN-1794747967332880
 title: Fix DIA-16 STUN observations and path contracts
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: STUN repair team
@@ -33,6 +33,10 @@ Fix findings F1–F7 from the DIA-16 STUN audit. Network consent, path labels, w
 - Root: integration worktree; CallTransportLeakChecker result/classification and path selection (F2/F5), CallTransportPath enum, consensus provenance, planning and evidence.
 - wire_integrity: isolated wire worktree; StunBindingResponseDecoder, WebRTC validation delegation and decoder tests (F3).
 - transport_lifecycle: isolated transport worktree; ByPassProxyProbes, WebRTC network methods, DefaultCallTransport network implementations and transport tests (F4/F7).
-- controls_outcomes: isolated controls worktree; presenter, CategoryResult evaluation contract, WebRTC result evaluation, UI/report/export and tests (F1/F6).
+- controls_outcomes: isolated controls worktree; presenter, shared CategoryResult execution status contract, WebRTC result evaluation, UI/report/export and tests (F1/F6).
 - Shared files are serialized during integration: DetectionModels (controls owns CategoryResult; root owns path enum), WebRtcLeakChecker (wire validation, transport network, controls result), CallTransportLeakChecker (root upper checker; transport lower clients). Root resolves combined-tree changes and runs final gates. No locale or golden writer is authorized; existing strings are reused.
 - Audit and review agents read only. Each finding gets a separate reviewed implementation commit. Root alone merges main and pushes.
+
+## Rebase integration
+
+The current main branch supplies CheckExecutionStatus. F6 reuses that owner instead of adding a second category state. During conflict resolution the controls writer had exclusive ownership of the integration worktree; other agents read only. Existing DIA-17 status consumers and master-switch behavior were preserved.

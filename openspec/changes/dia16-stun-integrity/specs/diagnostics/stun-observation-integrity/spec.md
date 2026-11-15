@@ -56,7 +56,7 @@ The implementation MUST NOT classify address differences alone as a high-confide
 
 ### Requirement: REQ-DIA16-OUTCOME — Report incomplete evaluation explicitly
 
-The implementation MUST distinguish complete evaluation from disabled, unsupported, unavailable, and not-evaluated results. UI and reports MUST NOT show an incomplete result as OK.
+The implementation MUST distinguish complete evaluation from disabled, unsupported, unavailable, and not-evaluated results. UI and reports MUST NOT show an incomplete result as OK. The result MUST use the shared execution status and retain the specific cause in findings. Incomplete STUN measurements MUST participate in the shared completeness and completed-probe count.
 
 #### Scenario: Report incomplete evaluation explicitly
 
@@ -73,4 +73,3 @@ The implementation MUST close probe sockets on cancellation and bound the DNS an
 - **GIVEN** a probe is waiting for a UDP response
 - **WHEN** the caller cancels it
 - **THEN** the probe completes cancellation promptly and closes its socket
-

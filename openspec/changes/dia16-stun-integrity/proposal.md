@@ -28,5 +28,5 @@ The DIA-16 audit found seven defects. Network consent does not cover WebRTC STUN
 ## Impact
 
 - Kotlin detection and app presentation modules, their tests, and detection export fields.
-- Additive path and category evaluation values. No JNI, protobuf, database, Rust, dependency, credential, release, or deployment changes.
+- Additive path values. Reuse the shared category execution status from the current main branch. No JNI, protobuf, database, Rust, dependency, credential, release, or deployment changes.
 - No public or physical-device probes. Use local fixtures and host or emulator tests.

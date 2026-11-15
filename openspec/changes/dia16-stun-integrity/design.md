@@ -10,7 +10,7 @@ Task ID: `DGN-1794747967332880`. The seven DIA-16 findings affect Kotlin detecti
 ## Decisions
 
 - Add APP_DEFAULT to CallTransportPath. The default client and default MTProto prober use that path. Keep VPN and UNDERLYING only for clients that actually own them. Preserve empty supportedPaths.
-- Add CategoryEvaluation with COMPLETE default, DISABLED, UNSUPPORTED, UNAVAILABLE, and NOT_EVALUATED. Append the field to CategoryResult. Reuse translated neutral status labels. Non-complete JSON categories carry evaluation; existing complete outputs stay compatible.
+- Reuse the upstream CheckExecutionStatus owner and CategoryResult.executionStatus. Disabled or unsupported STUN is SKIPPED. Missing responses and unproven call-path observations are INCONCLUSIVE. Findings retain the specific cause. Shared UI/report/export consumers, completeness, history and probe counts use this one contract.
 - Validate a whole STUN message before extraction. Preserve legacy MAPPED extraction. Recognize known unexpected integrity attributes without treating them as authenticated evidence. WebRTC still requires XOR and delegates shared validation.
 - Connect UDP sockets to the selected endpoint. Validate SOCKS5 envelope and expected port/domain. Numeric origins are checked for valid non-wildcard framing; domain resolution remains owned by the connected SOCKS relay.
 - Address divergence is neutral evidence. Preserve path provenance in IP consensus and normalize numeric addresses. An absent comparable path is not evaluated.
@@ -31,4 +31,4 @@ Task ID: `DGN-1794747967332880`. The seven DIA-16 findings affect Kotlin detecti
 
 ## Migration Plan
 
-No persistent schema migration is needed. Complete category defaults preserve current callers. Rollback uses ordinary revert commits. Run targeted regression tests first, core/detection unit tests, app relevant tests, staticAnalysis, just ci-gates, architecture health, and cargo metadata --locked before integration. Use the machine build gate and at most four workers. Record native-skip limits explicitly. Fast-forward main and push only after review and required gates; the user authorized both actions.
+No persistent schema migration is needed. The existing COMPLETED default preserves current callers. Rollback uses ordinary revert commits. Run targeted regression tests first, core/detection unit tests, app relevant tests, staticAnalysis, just ci-gates, architecture health, and cargo metadata --locked before integration. Use the machine build gate and at most four workers. Record native-skip limits explicitly. Fast-forward main and push only after review and required gates; the user authorized both actions.
