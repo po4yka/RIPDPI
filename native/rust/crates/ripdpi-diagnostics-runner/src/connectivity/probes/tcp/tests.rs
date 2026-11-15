@@ -80,3 +80,39 @@ fn evidence_clean_close_keeps_bytes_without_a_cutoff_claim() {
     assert_eq!(result.outcome, "inconclusive");
     assert!(result.details.iter().any(|d| d.key == "failureStage" && d.value == "response_read"));
 }
+
+#[test]
+fn connection_refusal_with_tls_selected_retries_before_handshake() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+    let result = super::run_tcp_probe(
+        &tcp_target(port, Some("control.test")),
+        &[],
+        &super::TransportConfig::Direct { route_experiment: None },
+        None,
+    );
+
+    assert_eq!(result.outcome, "tcp_connect_failed", "{result:?}");
+    assert!(result.details.iter().any(|detail| detail.key == "failureStage" && detail.value == "tcp_connect"));
+    assert!(result.details.iter().any(|detail| detail.key == "probeRetryCount" && detail.value == "1"));
+}
+
+#[test]
+fn http_refusal_does_not_retry_connect() {
+    use crate::test_fixtures::{FatServerMode, PlainFatHeaderServer};
+    let server = PlainFatHeaderServer::start(FatServerMode::HttpResponse(
+        b"HTTP/1.1 431 Request Header Fields Too Large\r\nConnection: close\r\n\r\n",
+    ));
+    let result = super::run_tcp_probe(
+        &tcp_target(server.port(), None),
+        &[],
+        &super::TransportConfig::Direct { route_experiment: None },
+        None,
+    );
+
+    assert_eq!(result.outcome, "inconclusive");
+    assert!(result.details.iter().any(|detail| detail.key == "failureStage" && detail.value == "http_response"));
+    assert!(result.details.iter().any(|detail| detail.key == "probeRetryCount" && detail.value == "0"));
+    assert!(result.details.iter().any(|detail| detail.key == "responsesSeen" && detail.value == "1"));
+}

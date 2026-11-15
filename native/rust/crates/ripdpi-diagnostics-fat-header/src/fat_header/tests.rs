@@ -81,7 +81,8 @@ fn server_announced_close_is_not_reported_as_a_16kb_cutoff() {
 
     assert_eq!(server.join().expect("fixture thread"), vec!["127.0.0.1".to_string()]);
     assert_eq!(observation.responses_seen, 1);
-    assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
+    assert_eq!(classify_fat_header_outcome(&observation.status), "inconclusive");
+    assert_eq!(observation.failure_stage, Some("http_response"));
     let reason = observation.error.expect("the close reason reaches the probe detail");
     assert!(reason.contains("server closed") && reason.contains("HTTP 400"), "unexpected reason: {reason}");
 }
@@ -98,7 +99,8 @@ fn error_status_with_close_past_the_threshold_stays_inconclusive() {
     server.join().expect("fixture thread");
     assert_eq!(observation.responses_seen, 3);
     assert!(crate::util::fat_threshold_reached(observation.bytes_sent), "fixture must pass the threshold");
-    assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
+    assert_eq!(classify_fat_header_outcome(&observation.status), "inconclusive");
+    assert_eq!(observation.failure_stage, Some("http_response"));
     let reason = observation.error.expect("the close reason reaches the probe detail");
     assert!(reason.contains("HTTP 403"), "unexpected reason: {reason}");
 }
@@ -114,7 +116,8 @@ fn error_status_without_close_is_inconclusive() {
 
     server.join().expect("fixture thread");
     assert_eq!(observation.responses_seen, 1);
-    assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
+    assert_eq!(classify_fat_header_outcome(&observation.status), "inconclusive");
+    assert_eq!(observation.failure_stage, Some("http_response"));
     let reason = observation.error.expect("the status reaches the probe detail");
     assert!(reason.contains("HTTP 451") && !reason.contains("closed"), "unexpected reason: {reason}");
 }
@@ -257,7 +260,8 @@ fn informational_response_does_not_hide_next_request_error() {
     let observation = run_fat_header_attempt(&target, &transport, "", "fixture.test");
     server.join().expect("fixture thread");
     assert_eq!(observation.responses_seen, 2);
-    assert_eq!(observation.status, FatHeaderStatus::ConnectFailed);
+    assert_eq!(observation.status, FatHeaderStatus::Inconclusive);
+    assert_eq!(observation.failure_stage, Some("http_response"));
     assert!(observation.error.expect("second response error").contains("HTTP 403"));
 }
 
@@ -322,6 +326,7 @@ fn std01_tls_name_on_a_custom_port_sends_client_hello_before_http() {
     assert_eq!(&first_bytes[..2], &[0x16, 0x03], "first flight must be a TLS handshake record");
     assert_eq!(first_bytes[5], 0x01, "first handshake message must be ClientHello");
     assert_eq!(observation.status, FatHeaderStatus::HandshakeFailed);
+    assert_eq!(observation.failure_stage, Some("tls_handshake"));
     assert_eq!(observation.responses_seen, 0);
     assert_eq!(observation.bytes_sent, 0, "no HTTP payload may be sent before TLS");
 }

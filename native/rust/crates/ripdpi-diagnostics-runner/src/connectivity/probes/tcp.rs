@@ -42,7 +42,11 @@ pub fn run_tcp_probe_with_cancel(
 
     // Single retry on connect failure to distinguish transient from consistent unreachability.
     let mut probe_retry_count: usize = 0;
-    let effective_initial = if initial.status == FatHeaderStatus::ConnectFailed && !cancelled() {
+    let effective_initial = if initial.status == FatHeaderStatus::ConnectFailed
+        && initial.failure_stage == Some("tcp_connect")
+        && ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(std::time::Duration::from_secs(1)).is_ok()
+        && !cancelled()
+    {
         probe_retry_count = 1;
         let retry =
             run_fat_header_attempt_with_key_log(target, transport, &initial_candidate, &base_host_header, key_log);

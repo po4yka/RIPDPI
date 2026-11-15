@@ -22,10 +22,6 @@ pub struct FatHeaderObservation {
 }
 
 impl FatHeaderObservation {
-    pub(super) fn connect_failed(error: String) -> Self {
-        Self::failed(FatHeaderStatus::ConnectFailed, error, None, None, 0, 0)
-    }
-
     pub(super) fn open_failed(status: FatHeaderStatus, error: String) -> Self {
         Self::failed(status, error, None, None, 0, 0)
     }

@@ -2,8 +2,7 @@ use std::net::{IpAddr, TcpStream};
 
 use ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout;
 
-use crate::tls::ProbeStreamResult;
-use crate::tls::TlsKeyLogCallback;
+use crate::tls::{ProbeStreamFailureStage, ProbeStreamResult, TlsKeyLogCallback};
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, run_with_socket_watchdog};
 use crate::types::TcpTarget;
 use crate::util::{FAT_HEADER_REQUESTS, IO_TIMEOUT, fat_threshold_reached};
@@ -32,16 +31,26 @@ pub fn run_fat_header_attempt_with_key_log(
 ) -> FatHeaderObservation {
     let connect_target = match parse_connect_target(target) {
         Ok(target) => target,
-        Err(err) => return FatHeaderObservation::connect_failed(err),
+        Err(err) => {
+            let mut observation = FatHeaderObservation::open_failed(FatHeaderStatus::Inconclusive, err);
+            observation.failure_stage = Some("target_address");
+            return observation;
+        }
     };
 
     let tls_sni = if !sni.is_empty() { Some(sni) } else { None };
-    let uses_tls = tls_sni.is_some();
     let probe_result = match open_fat_header_probe_stream(&connect_target, target.port, transport, tls_sni, key_log) {
         Ok(result) => result,
         Err(err) => {
-            let status = if uses_tls { FatHeaderStatus::HandshakeFailed } else { FatHeaderStatus::ConnectFailed };
-            return FatHeaderObservation::open_failed(status, err);
+            let status = match err.stage {
+                ProbeStreamFailureStage::TcpConnect => FatHeaderStatus::ConnectFailed,
+                ProbeStreamFailureStage::TlsHandshake => FatHeaderStatus::HandshakeFailed,
+                _ => FatHeaderStatus::Inconclusive,
+            };
+            let mut observation = FatHeaderObservation::open_failed(status, err.message);
+            observation.failure_stage = Some(err.stage.as_str());
+            observation.transport_open_ms = err.transport_open_ms;
+            return observation;
         }
     };
 
@@ -64,7 +73,12 @@ fn run_padded_head_sequence(
         Ok(socket) => run_with_socket_watchdog(socket, None, || {
             padded_head_sequence(stream, target, host_header, transport_open_ms)
         }),
-        Err(err) => FatHeaderObservation::open_failed(FatHeaderStatus::ConnectFailed, err.to_string()),
+        Err(err) => {
+            let mut observation = FatHeaderObservation::open_failed(FatHeaderStatus::Inconclusive, err.to_string());
+            observation.failure_stage = Some("stream_setup");
+            observation.transport_open_ms = transport_open_ms;
+            observation
+        }
     };
     probe_result.stream.shutdown();
     observation
@@ -178,10 +192,7 @@ fn deadline_exceeded(counters: FatHeaderCounters, transport_open_ms: Option<u64>
 }
 
 /// A response that ends the sequence without saying anything about a middlebox cutoff: a
-/// 4xx/5xx (which may be an injected block page), or a
-/// server-announced close before the threshold. It is inconclusive, which `ConnectFailed`
-/// (`tcp_connect_failed`) reports. The error text carries the status and the reason into the
-/// probe's `lastError` detail.
+/// 4xx/5xx or a server-announced close before the sequence completes.
 fn inconclusive_response(
     counters: FatHeaderCounters,
     head: ResponseHead,
@@ -189,14 +200,16 @@ fn inconclusive_response(
 ) -> FatHeaderObservation {
     let answer = format!("HTTP {} answer", head.status);
     let close = if head.closes { ", server closed the connection," } else { "" };
-    FatHeaderObservation::io_failed(
-        FatHeaderStatus::ConnectFailed,
+    let mut observation = FatHeaderObservation::io_failed(
+        FatHeaderStatus::Inconclusive,
         format!("{answer}{close} after response {} and {} bytes sent", counters.responses_seen, counters.bytes_sent),
         transport_open_ms,
         None,
         counters.bytes_sent,
         counters.responses_seen,
-    )
+    );
+    observation.failure_stage = Some("http_response");
+    observation
 }
 
 #[derive(Default)]

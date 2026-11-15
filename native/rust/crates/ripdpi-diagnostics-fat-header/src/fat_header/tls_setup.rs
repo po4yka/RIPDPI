@@ -1,6 +1,6 @@
 use crate::tls::{
-    ApplicationProtocolPolicy, ProbeCertificatePolicy, ProbeStreamOptions, ProbeStreamResult, TlsClientProfile,
-    TlsKeyLogCallback, open_probe_stream_targets_with_options,
+    ApplicationProtocolPolicy, ProbeCertificatePolicy, ProbeStreamError, ProbeStreamOptions, ProbeStreamResult,
+    TlsClientProfile, TlsKeyLogCallback, open_probe_stream_targets_with_options,
 };
 use crate::transport::{TargetAddress, TransportConfig};
 
@@ -10,7 +10,7 @@ pub(super) fn open_fat_header_probe_stream(
     transport: &TransportConfig,
     tls_sni: Option<&str>,
     key_log: Option<&TlsKeyLogCallback>,
-) -> Result<ProbeStreamResult, String> {
+) -> Result<ProbeStreamResult, ProbeStreamError> {
     // Diagnostic probe: explicitly skip certificate verification to detect
     // censorship-induced TLS interception (MITM middleboxes).
     let options = ProbeStreamOptions {
@@ -20,5 +20,4 @@ pub(super) fn open_fat_header_probe_stream(
         key_log,
     };
     open_probe_stream_targets_with_options(std::slice::from_ref(connect_target), port, transport, tls_sni, &options)
-        .map_err(|err| err.to_string())
 }
