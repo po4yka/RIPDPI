@@ -1,4 +1,5 @@
 use crate::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
+use ripdpi_packets::tls_alert_record_len;
 
 /// TLS alert description code for `close_notify`.
 ///
@@ -19,19 +20,16 @@ pub(crate) fn is_closure_alert(code: u8) -> bool {
 const TLS_RECORD_HANDSHAKE: u8 = 0x16;
 
 /// Classify a raw TLS alert record as a [`FailureClass::TlsAlert`]
-/// failure. Returns `None` for non-alert records, truncated records, the
+/// failure. Returns `None` for non-alert records, incomplete or invalid records, the
 /// closure alerts `close_notify` and `user_canceled`, and a warning-level
 /// alert followed by a handshake record (RFC 6066 s3 lets a server send a
 /// warning `unrecognized_name` and continue with its ServerHello).
 pub fn classify_tls_alert(response: &[u8]) -> Option<ClassifiedFailure> {
-    if !looks_like_tls_alert(response) {
-        return None;
-    }
+    let record_end = tls_alert_record_len(response)?;
     let alert_code = response.get(6).copied()?;
     if is_closure_alert(alert_code) {
         return None;
     }
-    let record_end = 5 + usize::from(u16::from_be_bytes([response[3], response[4]]));
     if response[5] == TLS_ALERT_LEVEL_WARNING && response.get(record_end) == Some(&TLS_RECORD_HANDSHAKE) {
         return None;
     }
@@ -64,10 +62,6 @@ pub fn classify_redirect_failure(summary: impl Into<String>) -> ClassifiedFailur
         FailureAction::RetryWithMatchingGroup,
         summary,
     )
-}
-
-fn looks_like_tls_alert(response: &[u8]) -> bool {
-    response.len() >= 7 && response[0] == 0x15 && response[1] == 0x03 && (0x00..=0x04).contains(&response[2])
 }
 
 /// Canonical TLS alert-code description table shared by the raw-record
@@ -133,6 +127,25 @@ mod tests {
     fn tls_alert_returns_none_for_short_input() {
         assert!(classify_tls_alert(&[0x15, 0x03, 0x03, 0x00, 0x02, 0x02]).is_none());
         assert!(classify_tls_alert(&[]).is_none());
+    }
+
+    #[test]
+    fn tls_alert_requires_complete_record_and_valid_level() {
+        for record in [
+            vec![0x15, 0x03, 0x03, 0x00, 0x00, 0x02, 0x28],
+            vec![0x15, 0x03, 0x03, 0x00, 0x01, 0x02, 0x28],
+            vec![0x15, 0x03, 0x03, 0x00, 0x08, 0x02, 0x28],
+            vec![0x15, 0x03, 0x03, 0xff, 0xff, 0x02, 0x28],
+            vec![0x15, 0x03, 0x03, 0x00, 0x02, 0x00, 0x28],
+            vec![0x15, 0x03, 0x03, 0x00, 0x02, 0x03, 0x28],
+        ] {
+            assert!(classify_tls_alert(&record).is_none(), "not a complete valid alert: {record:02x?}");
+        }
+        let coalesced = [0x15, 0x03, 0x03, 0x00, 0x04, 0x02, 0x28, 0x01, 0x00];
+        assert!(classify_tls_alert(&coalesced).is_some(), "TLS 1.2 may coalesce alerts");
+        let with_following_record = [0x15, 0x03, 0x03, 0x00, 0x02, 0x02, 0x28, 0x16, 0x03, 0x03, 0x00, 0x01, 0x02];
+        let failure = classify_tls_alert(&with_following_record).expect("first complete fatal alert");
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "alert=handshake_failure"));
     }
 
     #[test]

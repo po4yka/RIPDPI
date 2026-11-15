@@ -256,6 +256,7 @@ pub fn ripdpi_packets::second_level_domain_span(&[u8]) -> core::option::Option<(
 pub fn ripdpi_packets::tamper_quic_initial_split_crypto(&[u8], usize) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::tamper_quic_initial_split_sni(&[u8], usize) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::tamper_quic_version(&[u8], u32) -> core::option::Option<alloc::vec::Vec<u8>>
+pub fn ripdpi_packets::tls_alert_record_len(&[u8]) -> core::option::Option<usize>
 pub fn ripdpi_packets::tls_fake_profile_bytes(ripdpi_packets::TlsFakeProfile) -> &'static [u8]
 pub fn ripdpi_packets::tls_marker_info(&[u8]) -> core::option::Option<ripdpi_packets::TlsMarkerInfo>
 pub fn ripdpi_packets::tls_session_id_mismatch(&[u8], &[u8]) -> bool

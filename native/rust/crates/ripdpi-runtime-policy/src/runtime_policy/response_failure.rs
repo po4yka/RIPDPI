@@ -2,7 +2,7 @@ use ripdpi_failure_classifier::{
     ClassifiedFailure, classify_http_response_block, classify_tls_alert, classify_tls_handshake_failure,
     confirm_dns_tampering,
 };
-use ripdpi_packets::is_http;
+use ripdpi_packets::{is_http, tls_alert_record_len};
 use ripdpi_runtime_decision_ports::policy_ports::DnsTamperingEvidence;
 use ripdpi_session::{TriggerEvent, detect_response_trigger};
 
@@ -52,10 +52,7 @@ pub fn classify_response_failure(
 /// alert, or a warning alert before a handshake record. The records after it are classified
 /// instead, so a warning `unrecognized_name` before a ServerHello is not "no ServerHello".
 fn after_accepted_tls_alert(response: &[u8]) -> Option<&[u8]> {
-    let [0x15, 0x03, 0x00..=0x04, len_hi, len_lo, _, _, ..] = *response else {
-        return None;
-    };
-    response.get(5 + usize::from(u16::from_be_bytes([len_hi, len_lo]))..)
+    response.get(tls_alert_record_len(response)?..)
 }
 
 /// A Location host-label match is only a heuristic. For a plain HTTP request it counts only when
@@ -109,6 +106,21 @@ mod tests {
         for response in [alert(2, 40), alert(1, 112), [alert(1, 112), alert(2, 40)].concat()] {
             let failure = classify_response_failure(client_hello, &response, None).expect("alert failure");
             assert_eq!(failure.class, ripdpi_failure_classifier::FailureClass::TlsAlert, "{response:?}");
+        }
+    }
+
+    #[test]
+    fn malformed_alert_records_are_not_accepted_as_closure() {
+        for response in [
+            vec![0x15, 3, 3, 0, 2, 0, 40],
+            vec![0x15, 3, 3, 0, 2, 3, 40],
+            vec![0x15, 3, 3, 0, 0, 2, 40],
+            vec![0x15, 3, 3, 0, 1, 2, 40],
+            vec![0x15, 3, 3, 0, 8, 2, 40],
+        ] {
+            let failure = classify_response_failure(ripdpi_packets::DEFAULT_FAKE_TLS, &response, None)
+                .expect("malformed alert cannot become an accepted TLS response");
+            assert_ne!(failure.class, ripdpi_failure_classifier::FailureClass::TlsAlert, "{response:02x?}");
         }
     }
 

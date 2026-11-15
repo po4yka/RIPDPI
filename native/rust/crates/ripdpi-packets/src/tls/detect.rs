@@ -16,6 +16,16 @@ pub fn is_tls_server_hello(buffer: &[u8]) -> bool {
     buffer.len() > 5 && read_u16(buffer, 0) == Some(0x1603) && buffer[5] == 0x02
 }
 
+/// Length of a complete plaintext alert record with a valid first alert message.
+/// TLS 1.2 permits multiple messages in one record; later bytes are not a second record.
+pub fn tls_alert_record_len(buffer: &[u8]) -> Option<usize> {
+    let [0x15, 0x03, 0x00..=0x04, hi, lo, 1 | 2, _, ..] = *buffer else {
+        return None;
+    };
+    let payload_len = usize::from(u16::from_be_bytes([hi, lo]));
+    ((2..=16_384).contains(&payload_len) && buffer.len() >= 5 + payload_len).then_some(5 + payload_len)
+}
+
 pub(crate) fn tls_client_hello_marker_info_in_handshake(buffer: &[u8]) -> Option<TlsMarkerInfo> {
     let parsed = crate::tls_nom::parse_client_hello_handshake(buffer)?;
     crate::tls_nom::to_marker_info(&parsed, buffer.len())
