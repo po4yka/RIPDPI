@@ -221,7 +221,7 @@ object XrayConfigImportParser {
             }
 
             "shadowsocks" -> {
-                stream.unsupportedTcpOnlyTransport()?.let {
+                unsupportedNativeShadowsocksOptions(obj)?.let {
                     OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, it)
                 } ?: mapShadowsocks(settings, tag, groupId)
             }
