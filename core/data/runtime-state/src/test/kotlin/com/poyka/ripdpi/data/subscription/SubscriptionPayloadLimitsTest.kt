@@ -25,11 +25,13 @@ class SubscriptionPayloadLimitsTest {
                 .readBoundedSubscriptionPayload()
         payload.requireMigrationUtf8()
         assertEquals(migrationSha256(bytes), payload.sha256)
-        val invalid =
-            byteArrayOf(0xC3.toByte(), 0x28)
-                .toResponseBody("application/json".toMediaType())
-                .readBoundedSubscriptionPayload()
-        assertTrue(runCatching { invalid.requireMigrationUtf8() }.exceptionOrNull() is IllegalArgumentException)
+        assertTrue(
+            runCatching {
+                byteArrayOf(0xC3.toByte(), 0x28)
+                    .toResponseBody("application/json".toMediaType())
+                    .readBoundedSubscriptionPayload()
+            }.exceptionOrNull() is SubscriptionPayloadEncodingException,
+        )
         val differentCharset =
             bytes
                 .toResponseBody("application/json; charset=iso-8859-1".toMediaType())

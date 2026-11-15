@@ -3,6 +3,9 @@ package com.poyka.ripdpi.data.subscription
 import com.poyka.ripdpi.data.ProxyProfile
 import okhttp3.ResponseBody
 import okio.Buffer
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 
 /** Maximum decoded subscription response accepted from a remote endpoint. */
@@ -15,6 +18,18 @@ const val MaxSubscriptionProfiles: Int = 2_048
 const val MaxSubscriptionRawConfigBytes: Int = 64 * 1024
 
 class SubscriptionPayloadTooLargeException : IllegalArgumentException("subscription payload exceeds limit")
+
+class SubscriptionPayloadEncodingException : IllegalArgumentException("subscription payload has invalid text encoding")
+
+internal fun decodeSubscriptionText(
+    bytes: ByteArray,
+    charset: Charset = StandardCharsets.UTF_8,
+): String =
+    try {
+        charset.newDecoder().decode(ByteBuffer.wrap(bytes)).toString()
+    } catch (_: CharacterCodingException) {
+        throw SubscriptionPayloadEncodingException()
+    }
 
 /** Reads at most [MaxSubscriptionPayloadBytes], including responses without a Content-Length header. */
 fun ResponseBody.readBoundedSubscriptionPayload(): SubscriptionPayload {
@@ -38,9 +53,9 @@ fun ResponseBody.readBoundedSubscriptionPayload(): SubscriptionPayload {
 /** Keeps original entity bytes for a receipt digest; text decoding never defines payload identity. */
 class SubscriptionPayload internal constructor(
     private val bytes: ByteArray,
-    charset: java.nio.charset.Charset,
+    charset: Charset,
 ) {
-    val text: String = bytes.toString(charset)
+    val text: String = decodeSubscriptionText(bytes, charset)
     val sha256: String get() = migrationSha256(bytes)
 
     fun requireMigrationUtf8() {

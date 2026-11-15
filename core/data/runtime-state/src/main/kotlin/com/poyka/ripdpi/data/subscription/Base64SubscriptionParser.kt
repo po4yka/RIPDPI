@@ -86,8 +86,7 @@ object Base64SubscriptionParser {
         val padded = padBase64(condensed)
         val decoders = listOf(Base64.getUrlDecoder(), Base64.getMimeDecoder(), Base64.getDecoder())
         for (decoder in decoders) {
-            val decoded = runCatching { decoder.decode(padded) }.getOrNull() ?: continue
-            val asText = String(decoded)
+            val asText = runCatching { decodeSubscriptionText(decoder.decode(padded)) }.getOrNull() ?: continue
             if (looksLikeUriList(asText)) return asText.replace("\r\n", "\n").replace('\r', '\n')
         }
         return payload.replace("\r\n", "\n").replace('\r', '\n')

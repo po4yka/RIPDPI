@@ -700,7 +700,7 @@ private fun decodeBase64Text(input: String): String? {
     if (condensed.isEmpty()) return null
     val padded = condensed.replace('-', '+').replace('_', '/').let { padBase64(it) }
     return listOf(Base64.getMimeDecoder(), Base64.getDecoder())
-        .firstNotNullOfOrNull { decoder -> runCatching { String(decoder.decode(padded)) }.getOrNull() }
+        .firstNotNullOfOrNull { decoder -> runCatching { decodeSubscriptionText(decoder.decode(padded)) }.getOrNull() }
 }
 
 private fun padBase64(value: String): String {
