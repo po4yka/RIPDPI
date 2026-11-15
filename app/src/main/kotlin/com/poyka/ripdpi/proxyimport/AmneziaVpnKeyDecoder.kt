@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.proxyimport
 
+import com.poyka.ripdpi.data.awg.isAwgNumericAddress
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -38,19 +39,39 @@ internal object AmneziaVpnKeyDecoder {
             // AmneziaVPN also accepts an uncompressed JSON key in the explicit vpn:// form.
             ?.let { confFromJson(qUncompress(it) ?: it) }
 
-    fun confFromCompressed(compressed: ByteArray): String? = qUncompress(compressed)?.let(::confFromJson)
+    fun confFromCompressed(compressed: ByteArray): String? =
+        compressed.takeIf { it.size <= MaxDecompressedBytes }?.let(::qUncompress)?.let(::confFromJson)
 
     private fun confFromJson(bytes: ByteArray): String? {
         val root =
-            decodeUtf8OrNull(bytes)
+            bytes.takeIf { it.size <= MaxDecompressedBytes }
+                ?.let(::decodeUtf8OrNull)
                 ?.let { json -> runCatching { Json.parseToJsonElement(json) as? JsonObject }.getOrNull() }
                 ?: return null
-        return nativeConfOf(root)
-            ?.replace("\$PRIMARY_DNS", root.string("dns1").orEmpty())
-            ?.replace("\$SECONDARY_DNS", root.string("dns2").orEmpty())
-            ?.lineSequence()
-            ?.mapNotNull(::withoutEmptyDnsEntries)
-            ?.joinToString("\n")
+        return nativeConfOf(root)?.takeIf(::isWithinImportTextLimit)?.let { conf -> root.expandDns(conf) }
+    }
+
+    private fun JsonObject.expandDns(conf: String): String? {
+        val primary = dnsReplacement(conf, PrimaryDns, "dns1")
+        val secondary = dnsReplacement(conf, SecondaryDns, "dns2")
+        if (primary == null || secondary == null) return null
+        return conf
+            .replace(PrimaryDns, primary)
+            .replace(SecondaryDns, secondary)
+            .lineSequence()
+            .mapNotNull(::withoutEmptyDnsEntries)
+            .joinToString("\n")
+            .takeIf(::isWithinImportTextLimit)
+    }
+
+    private fun JsonObject.dnsReplacement(
+        conf: String,
+        placeholder: String,
+        key: String,
+    ): String? {
+        if (placeholder !in conf) return ""
+        val value = string(key)?.trim().orEmpty()
+        return value.takeIf { it.isEmpty() || (it.length <= MaxDnsLiteralChars && isAwgNumericAddress(it)) }
     }
 
     /** An unset DNS placeholder leaves an empty entry (`DNS = 1.1.1.1, `) or an empty line behind. */
@@ -112,6 +133,9 @@ internal object AmneziaVpnKeyDecoder {
 
     private val ContainerProtocolKeys =
         mapOf("amnezia-awg" to "awg", "amnezia-awg2" to "awg", "amnezia-wireguard" to "wireguard")
+    private const val PrimaryDns = "\$PRIMARY_DNS"
+    private const val SecondaryDns = "\$SECONDARY_DNS"
+    private const val MaxDnsLiteralChars = 45
     private const val QtLengthPrefixBytes = 4
     private const val MaxDecompressedBytes = 256 * 1024
     private const val InflateChunkBytes = 8 * 1024

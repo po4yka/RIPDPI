@@ -46,6 +46,21 @@ class AmneziaVpnKeyDecoderTest {
     }
 
     @Test
+    fun `only numeric DNS addresses can fill config placeholders`() {
+        assertNull(AmneziaVpnKeyDecoder.confFromKey(AmneziaVpnKeyFixtures.vpnKey(conf, dns1 = "resolver.example")))
+    }
+
+    @Test
+    fun `decoded conf text uses the same byte limit as the editor`() {
+        val oversized = conf + "\n#" + "a".repeat(MaxImportFileBytes)
+        val wrapped = AmneziaVpnKeyFixtures.vpnKey(oversized)
+        val compressed = AmneziaVpnKeyFixtures.qCompress(AmneziaVpnKeyFixtures.keyJson(oversized).toByteArray())
+
+        assertNull(AmneziaVpnKeyDecoder.confFromKey(wrapped))
+        assertNull(AmneziaVpnKeyDecoder.confFromCompressed(compressed))
+    }
+
+    @Test
     fun `wireguard container is accepted too`() {
         val json = AmneziaVpnKeyFixtures.keyJson("[Interface]\nPrivateKey = k==", "amnezia-wireguard", "wireguard")
         val compressed = AmneziaVpnKeyFixtures.qCompress(json.toByteArray())
