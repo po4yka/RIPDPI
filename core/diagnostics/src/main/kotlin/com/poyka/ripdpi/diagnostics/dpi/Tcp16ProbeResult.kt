@@ -40,7 +40,15 @@ data class Tcp16ProbeResult(
     val completedPaddingBytes: Int = 0,
     val httpStatus: Int? = null,
     val failedStage: Tcp16Stage? = null,
-)
+    val transport: Tcp16Transport? = Tcp16Transport.forDefaultPort(port),
+    val tlsServerName: String? = null,
+    val httpAuthority: String? = null,
+) {
+    val canCompareSni: Boolean
+        get() =
+            verdict == Tcp16Verdict.PADDED_TRAIN_INTERRUPTED &&
+                transport == Tcp16Transport.HTTPS && connectionCount == 1 && httpAuthority != null
+}
 
 data class Tcp16AsnSummary(
     val asn: String,

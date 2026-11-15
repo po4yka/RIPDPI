@@ -110,6 +110,9 @@ class Tcp16FatHeaderProbe(
         val requestedHosts = mutableListOf<String>()
         // Keep the authority constant for the entire connection.
         val requestedHost = if (randomHostname) RandomHostHeaderGenerator.next() else target.sni ?: target.ip
+        val url = target.url(requestedHost)
+        val authority = target.httpAuthority ?: url.toUri().rawAuthority
+        val tlsServerName = url.host.takeIf { url.isHttps && it.isTcp16ServerName() }
         var completedPaddingBytes = 0
         var httpStatus: Int? = null
         var end = Tcp16TrainEnd(Tcp16Verdict.OK)
@@ -122,7 +125,8 @@ class Tcp16FatHeaderProbe(
                     requestIndex = requestIndex,
                     padding = padding,
                     timeoutMs = timeoutFor(responseTimeHintMs ?: samples.averageMillis()),
-                    hostHeader = requestedHost,
+                    url = url,
+                    httpAuthority = authority,
                 )
             tracker.beginRequest()
             val response =
@@ -150,6 +154,8 @@ class Tcp16FatHeaderProbe(
             httpStatus = httpStatus,
             connectionCount = tracker.connectionCount,
             requestedHosts = requestedHosts.takeIf { randomHostname },
+            tlsServerName = tlsServerName,
+            httpAuthority = authority,
         )
     }
 
@@ -207,6 +213,8 @@ class Tcp16FatHeaderProbe(
         httpStatus: Int? = null,
         connectionCount: Int = 0,
         requestedHosts: List<String>? = null,
+        tlsServerName: String? = null,
+        httpAuthority: String? = null,
     ): Tcp16ProbeResult =
         Tcp16ProbeResult(
             targetId = id,
@@ -224,6 +232,9 @@ class Tcp16FatHeaderProbe(
             connectionCount = connectionCount,
             tlsClientState = tlsClientStateProvider(),
             requestedHosts = requestedHosts,
+            transport = transport,
+            tlsServerName = tlsServerName,
+            httpAuthority = httpAuthority,
         )
 
     companion object {

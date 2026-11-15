@@ -25,7 +25,8 @@ data class Tcp16FatHeaderRequest(
     val requestIndex: Int,
     val padding: String?,
     val timeoutMs: Long,
-    val hostHeader: String,
+    val url: HttpUrl,
+    val httpAuthority: String,
 )
 
 data class Tcp16FatHeaderResponse(
@@ -143,10 +144,12 @@ class OkHttpTcp16RequestRunner(
         request: Tcp16FatHeaderRequest,
         tracker: Tcp16ConnectionTracker,
     ): Tcp16FatHeaderResponse {
-        val url = target.url(request.hostHeader)
+        val url = request.url
+        if (!hasDirectRoute(url)) throw Tcp16RouteUnavailable()
         val client =
             baseClient
                 .newBuilder()
+                .proxy(Proxy.NO_PROXY)
                 .dns(TargetDns(ip = target.ip, host = url.host))
                 .connectionPool(tracker.connectionPool)
                 .eventListenerFactory { tracker.eventListener() }
@@ -157,7 +160,7 @@ class OkHttpTcp16RequestRunner(
                     .Builder()
                     .url(url)
                     .head()
-                    .header("Host", url.toUri().rawAuthority)
+                    .header("Host", request.httpAuthority)
                     .header("Connection", "keep-alive")
                     .apply {
                         request.padding?.let { padding -> header("X-Pad", padding) }
@@ -183,13 +186,11 @@ class OkHttpTcp16RequestRunner(
         }
     }
 
-    private fun Tcp16Target.url(host: String): HttpUrl =
-        HttpUrl
-            .Builder()
-            .scheme(requireNotNull(transport).scheme)
-            .host(host)
-            .port(port)
-            .build()
+    // An HTTP or SOCKS proxy would choose the peer for the URL authority, invalidating the pin.
+    private fun hasDirectRoute(url: HttpUrl): Boolean {
+        val proxy = baseClient.proxy ?: baseClient.proxySelector.select(url.toUri())?.firstOrNull()
+        return proxy == null || proxy.type() == Proxy.Type.DIRECT
+    }
 
     companion object {
         private const val NanosPerMillis = 1_000_000L
@@ -203,12 +204,15 @@ class OkHttpTcp16RequestRunner(
                 retryOnConnectionFailure(false)
                 followRedirects(false)
                 followSslRedirects(false)
+                // The synthetic TLS name controls this probe. Keep certificate chain checks.
                 hostnameVerifier { _, _ -> true }
             }
             return clientBuilder?.invoke(configure) ?: OkHttpClient.Builder().apply(configure).build()
         }
     }
 }
+
+internal class Tcp16RouteUnavailable : IOException("TCP16 requires a direct route to the target")
 
 private data class TargetDns(
     private val ip: String,

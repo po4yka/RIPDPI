@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.NumericIp
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 enum class Tcp16Transport(
     val scheme: String,
@@ -25,6 +27,7 @@ data class Tcp16Target(
     val port: Int,
     val sni: String?,
     val transport: Tcp16Transport? = Tcp16Transport.forDefaultPort(port),
+    internal val httpAuthority: String? = null,
 ) {
     internal fun invalidReason(): String? =
         when {
@@ -40,8 +43,24 @@ data class Tcp16Target(
 
             sni != null && !sni.isTcp16ServerName() -> "Invalid TCP16 TLS server name"
 
+            httpAuthority != null && !isValidAuthority(httpAuthority) -> "Invalid TCP16 HTTP authority"
+
             else -> null
         }
+
+    internal fun url(host: String): HttpUrl =
+        HttpUrl
+            .Builder()
+            .scheme(requireNotNull(transport).scheme)
+            .host(host)
+            .port(port)
+            .build()
+
+    private fun isValidAuthority(authority: String): Boolean {
+        val scheme = transport?.scheme ?: return false
+        val url = "$scheme://$authority".toHttpUrlOrNull() ?: return false
+        return url.toUri().rawAuthority == authority && url.port == port && url.encodedUsername.isEmpty()
+    }
 
     private companion object {
         private const val MaxMetadataLength = 128

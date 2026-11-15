@@ -20,6 +20,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.Proxy
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -54,6 +55,22 @@ class Tcp16FatHeaderProbeTest {
 
                 assertEquals(Tcp16Verdict.INVALID_TARGET, invalid.verdict)
                 assertEquals(Tcp16Verdict.UNSUPPORTED, unsupported.verdict)
+                assertEquals(0, server.requestCount)
+            }
+        }
+
+    @Test
+    fun proxyRouteCannotChooseAnotherPeerForAFixedTarget() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start()
+                val client = OkHttpClient.Builder().proxy(Proxy(Proxy.Type.HTTP, server.socketAddress)).build()
+                val probe = Tcp16FatHeaderProbe(requestRunner = OkHttpTcp16RequestRunner(client))
+
+                val result = probe.runTarget(mockTarget(server))
+
+                assertEquals(Tcp16Verdict.UNSUPPORTED, result.verdict)
+                assertEquals(Tcp16Stage.SETUP, result.failedStage)
                 assertEquals(0, server.requestCount)
             }
         }

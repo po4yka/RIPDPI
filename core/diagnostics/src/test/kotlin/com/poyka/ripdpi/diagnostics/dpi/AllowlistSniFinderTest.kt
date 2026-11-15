@@ -2,12 +2,23 @@ package com.poyka.ripdpi.diagnostics.dpi
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
+import mockwebserver3.SocketEffect
+import okhttp3.OkHttpClient
+import okhttp3.tls.HandshakeCertificates
+import okhttp3.tls.HeldCertificate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.net.InetAddress
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 class AllowlistSniFinderTest {
@@ -63,7 +74,7 @@ class AllowlistSniFinderTest {
         }
 
     @Test
-    fun baselineRttMeasuredOncePerAsn() =
+    fun baselineAndCandidatesUseTheSameResponseTimeHint() =
         runTest {
             val probe = RecordingTcp16Probe(compatibleSnis = setOf("sni-1.test"))
             val finder = AllowlistSniFinder(probe = probe, sniList = namedSnis(4))
@@ -71,7 +82,7 @@ class AllowlistSniFinderTest {
             finder.find(listOf(detectedResult()))
 
             assertEquals(1, probe.baselineCalls.get())
-            assertEquals(listOf(42L, 42L, 42L, 42L), probe.hintsUsed)
+            assertEquals(listOf(30L, 30L, 30L, 30L, 30L), probe.hintsUsed)
         }
 
     @Test
@@ -88,6 +99,104 @@ class AllowlistSniFinderTest {
             }
         }
 
+    @Test
+    fun candidateChangesTlsNameWhileKeepingHttpAuthorityAndPeer() =
+        runTest {
+            val certificate = HeldCertificate.Builder().commonName("control.test").build()
+            val serverTls = HandshakeCertificates.Builder().heldCertificate(certificate).build()
+            val clientTls = HandshakeCertificates.Builder().addTrustedCertificate(certificate.certificate).build()
+            MockWebServer().use { server ->
+                server.useHttps(serverTls.sslSocketFactory())
+                server.dispatcher =
+                    object : Dispatcher() {
+                        override fun dispatch(request: RecordedRequest): MockResponse =
+                            if (request.handshakeServerNames == listOf("control.test") && request.exchangeIndex == 5) {
+                                MockResponse.Builder().onResponseStart(SocketEffect.CloseSocket()).build()
+                            } else {
+                                MockResponse.Builder().code(200).build()
+                            }
+                    }
+                server.start(InetAddress.getByName("127.0.0.1"), 0)
+                val probe =
+                    Tcp16FatHeaderProbe(
+                        requestRunner =
+                            OkHttpTcp16RequestRunner.withClientBuilder { configure ->
+                                OkHttpClient
+                                    .Builder()
+                                    .sslSocketFactory(clientTls.sslSocketFactory(), clientTls.trustManager)
+                                    .apply(configure)
+                                    .build()
+                            },
+                    )
+                val target =
+                    Tcp16Target(
+                        id = "test",
+                        asn = "AS64500",
+                        provider = "test",
+                        ip = "127.0.0.1",
+                        port = server.port,
+                        sni = "control.test",
+                        transport = Tcp16Transport.HTTPS,
+                    )
+
+                val original = probe.runTarget(target)
+                val result =
+                    AllowlistSniFinder(
+                        probe,
+                        listOf("alternate.test"),
+                    ).find(listOf(original)).getValue(target.asn)
+
+                assertEquals(Tcp16Verdict.PADDED_TRAIN_INTERRUPTED, original.verdict)
+                assertEquals(listOf(CompatibleSni("alternate.test", 1)), result.compatibleSnis)
+                assertEquals(server.port, result.port)
+                val requests = List(server.requestCount) { requireNotNull(server.takeRequest(1, TimeUnit.SECONDS)) }
+                assertEquals(28, requests.size)
+                assertEquals(3, requests.map { it.connectionIndex }.toSet().size)
+                assertEquals(listOf("control.test:${server.port}"), requests.map { it.headers["Host"] }.distinct())
+                assertEquals(
+                    List(12) { listOf("control.test") } + List(16) { listOf("alternate.test") },
+                    requests.map { it.handshakeServerNames },
+                )
+            }
+        }
+
+    @Test
+    fun successfulRerunDoesNotValidateAnyCandidates() =
+        runTest {
+            val probe = RecordingTcp16Probe(setOf("sni-1.test"), baselineVerdict = Tcp16Verdict.OK)
+
+            val result = AllowlistSniFinder(probe, namedSnis(4)).find(listOf(detectedResult())).getValue("AS64500")
+
+            assertEquals(AllowlistSniFailure.BASELINE_NOT_REPRODUCED, result.failure)
+            assertEquals(0, result.triedCount)
+            assertTrue(probe.probedSnis.isEmpty())
+        }
+
+    @Test
+    fun cleartextInterruptionDoesNotProbeAnyNames() =
+        runTest {
+            val probe = RecordingTcp16Probe(setOf("sni-1.test"))
+            val original = detectedResult().copy(transport = Tcp16Transport.HTTP)
+
+            val result = AllowlistSniFinder(probe, namedSnis(4)).find(listOf(original)).getValue("AS64500")
+
+            assertEquals(AllowlistSniFailure.NO_TLS_BASELINE, result.failure)
+            assertEquals(0, result.triedCount)
+            assertEquals(0, probe.baselineCalls.get())
+        }
+
+    @Test
+    fun timedOutSearchPreservesItsInconclusiveReason() =
+        runTest {
+            val probe = RecordingTcp16Probe(setOf("sni-1.test"), delayMs = 61_000)
+            val finder = AllowlistSniFinder(probe, namedSnis(4), dispatcher = StandardTestDispatcher(testScheduler))
+
+            val result = finder.find(listOf(detectedResult())).getValue("AS64500")
+
+            assertEquals(AllowlistSniFailure.SEARCH_TIMED_OUT, result.failure)
+            assertEquals(emptyList<CompatibleSni>(), result.compatibleSnis)
+        }
+
     private fun detectedResult(): Tcp16ProbeResult =
         Tcp16ProbeResult(
             targetId = "target-1",
@@ -101,6 +210,7 @@ class AllowlistSniFinderTest {
             meanResponseMs = 30,
             errorDetail = null,
             connectionCount = 1,
+            httpAuthority = "203.0.113.10",
         )
 
     private fun namedSnis(count: Int): List<String> = (1..count).map { index -> "sni-$index.test" }
@@ -109,6 +219,7 @@ class AllowlistSniFinderTest {
         private val compatibleSnis: Set<String>,
         private val delayMs: Long = 0,
         private val cancelOnSni: String? = null,
+        private val baselineVerdict: Tcp16Verdict = Tcp16Verdict.PADDED_TRAIN_INTERRUPTED,
     ) : Tcp16Probe {
         val baselineCalls = AtomicInteger()
         val maxConcurrentCalls = AtomicInteger()
@@ -120,11 +231,11 @@ class AllowlistSniFinderTest {
             target: Tcp16Target,
             responseTimeHintMs: Long?,
         ): Tcp16ProbeResult {
+            responseTimeHintMs?.let { hint -> hintsUsed += hint }
             if (target.sni == null) {
                 baselineCalls.incrementAndGet()
-                return resultFor(target, Tcp16Verdict.PADDED_TRAIN_INTERRUPTED, meanResponseMs = 42)
+                return resultFor(target, baselineVerdict, meanResponseMs = 42)
             }
-            responseTimeHintMs?.let { hint -> hintsUsed += hint }
             probedSnis += target.sni
             if (target.sni == cancelOnSni) {
                 throw CancellationException("cancelled")
@@ -166,6 +277,7 @@ class AllowlistSniFinderTest {
                 meanResponseMs = meanResponseMs,
                 errorDetail = null,
                 connectionCount = 1,
+                httpAuthority = target.httpAuthority,
             )
     }
 }
