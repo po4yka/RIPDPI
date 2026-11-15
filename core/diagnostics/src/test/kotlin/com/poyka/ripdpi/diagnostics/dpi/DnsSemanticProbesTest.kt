@@ -20,6 +20,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.DatagramPacket
@@ -97,6 +98,28 @@ class DnsSemanticProbesTest {
             val probe = DohJsonAddressProbe(client, listOf(Endpoint))
             assertEquals(DnsResponseOutcome.NODATA, probe.resolveResponse("example.com").response?.outcome)
             assertEquals(DnsResponseOutcome.MALFORMED, probe.resolveResponse("other.example").response?.outcome)
+        }
+
+    @Test
+    fun onlyKnownUnchangedDohEndpointsSupplyAComparableProfile() =
+        runBlocking {
+            val known = "https://dns.google/resolve"
+            val client = client { reply(it, JsonNegative.toByteArray(), mediaType = "application/dns-json") }
+            val knownAnswer = DohJsonAddressProbe(client, listOf(known)).resolveResponse("example.com")
+            assertEquals(DohResolverProfile.GOOGLE_PUBLIC, knownAnswer.dohProfile)
+
+            val alternate = DohJsonAddressProbe(client, listOf("$known?policy=other")).resolveResponse("example.com")
+            assertEquals("dns.google", alternate.resolver)
+            assertNull(alternate.dohProfile)
+
+            val redirectedClient =
+                client { original ->
+                    val final = original.newBuilder().url("https://dns.google/another-policy").build()
+                    reply(final, JsonNegative.toByteArray(), mediaType = "application/dns-json")
+                }
+            val redirected = DohJsonAddressProbe(redirectedClient, listOf(known)).resolveResponse("example.com")
+            assertEquals("dns.google", redirected.resolver)
+            assertNull(redirected.dohProfile)
         }
 
     @Test

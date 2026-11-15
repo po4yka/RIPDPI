@@ -42,6 +42,8 @@ data class DnsIntegrityDomainResult(
     val udpResolver: String? = null,
     val dohJsonResolver: String? = null,
     val dohWireResolver: String? = null,
+    val dohJsonProfile: DohResolverProfile? = null,
+    val dohWireProfile: DohResolverProfile? = null,
 ) {
     val udpIps: Set<String> = udpRecords.filter(::isDnsIpv4).toSet()
     val dohIps: Set<String> = dohJsonIps + dohWireIps
@@ -119,7 +121,28 @@ class DnsIntegrityChecker(
         results: List<DnsIntegrityDomainResult>,
     ): List<DoqProbeResult> {
         val probe = doqProbe ?: return emptyList()
-        val dohResults = results.associate { result -> result.domain to result.dohIps.toList() }
+        val dohResults =
+            results.associate { result ->
+                val json =
+                    DnsProbeAnswer(
+                        result.dohJsonIps.toList(),
+                        result.dohJsonResponse,
+                        result.dohJsonResolver,
+                        result.dohJsonProfile,
+                    )
+                val wire =
+                    DnsProbeAnswer(
+                        result.dohWireIps.toList(),
+                        result.dohWireResponse,
+                        result.dohWireResolver,
+                        result.dohWireProfile,
+                    )
+                result.domain to
+                    listOf(
+                        DoqBaselineObservation(DoqBaselineLane.JSON, json),
+                        DoqBaselineObservation(DoqBaselineLane.WIRE, wire),
+                    )
+            }
         return probe.run(domains, dohResults)
     }
 
@@ -160,6 +183,8 @@ class DnsIntegrityChecker(
             udpResolver = udp.resolver,
             dohJsonResolver = dohJson.resolver,
             dohWireResolver = dohWire.resolver,
+            dohJsonProfile = dohJson.dohProfile,
+            dohWireProfile = dohWire.dohProfile,
         )
     }
 

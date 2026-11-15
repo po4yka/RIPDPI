@@ -20,6 +20,7 @@ data class DnsProbeAnswer(
     val addresses: List<String> = emptyList(),
     val response: com.poyka.ripdpi.diagnostics.DnsResponseSemantics? = null,
     val resolver: String? = null,
+    val dohProfile: DohResolverProfile? = null,
 ) {
     internal fun legacyRecords(): List<String> =
         when (response?.outcome) {

@@ -61,6 +61,17 @@ class DatagramSocketDnsUdpProbe(
     }
 }
 
+/** Known public DoH policies with an explicit endpoint for each supported encoding. */
+enum class DohResolverProfile(
+    internal val wireEndpoint: String,
+    internal val jsonEndpoint: String? = null,
+) {
+    CLOUDFLARE_STANDARD("https://cloudflare-dns.com/dns-query", "https://cloudflare-dns.com/dns-query"),
+    GOOGLE_PUBLIC("https://dns.google/dns-query", "https://dns.google/resolve"),
+    ADGUARD_DEFAULT("https://dns.adguard-dns.com/dns-query"),
+    QUAD9_DEFAULT("https://dns.quad9.net/dns-query"),
+}
+
 class DohJsonAddressProbe(
     private val client: OkHttpClient = defaultDnsHttpClient(),
     private val endpoints: List<String> = DefaultDohJsonEndpoints,
@@ -82,8 +93,12 @@ class DohJsonAddressProbe(
                         .get()
                         .header("Accept", "application/dns-json")
                         .build()
+                val profile = DohResolverProfile.entries.firstOrNull { it.jsonEndpoint == endpoint }
                 client.newCall(request).readDnsResponse { response ->
-                    response.dnsAnswer { DnsJsonResponseParser.parse(response.readDnsJsonBody(), domain, json) }
+                    response.dnsAnswer(
+                        request,
+                        profile,
+                    ) { DnsJsonResponseParser.parse(response.readDnsJsonBody(), domain, json) }
                 }
             }
         }
@@ -111,6 +126,7 @@ class DohWireAddressProbe(
         domain: String,
         endpoint: String,
     ): DnsProbeAnswer {
+        val profile = DohResolverProfile.entries.firstOrNull { it.wireEndpoint == endpoint }
         val query = DnsWireBuilder.buildQuery(domain, transactionId = DohTransactionId, edns = true)
         val post =
             Request
@@ -124,7 +140,10 @@ class DohWireAddressProbe(
                 if (response.code == MethodNotAllowed) {
                     null
                 } else {
-                    response.dnsAnswer { DnsWireBuilder.parseResponse(response.readDnsWireBody(), query) }
+                    response.dnsAnswer(
+                        post,
+                        profile,
+                    ) { DnsWireBuilder.parseResponse(response.readDnsWireBody(), query) }
                 }
             }
         if (postResult != null) return postResult
@@ -137,7 +156,7 @@ class DohWireAddressProbe(
                 .header("Accept", DnsMessageContentType)
                 .build()
         return client.newCall(get).readDnsResponse { response ->
-            response.dnsAnswer { DnsWireBuilder.parseResponse(response.readDnsWireBody(), query) }
+            response.dnsAnswer(get, profile) { DnsWireBuilder.parseResponse(response.readDnsWireBody(), query) }
         }
     }
 
@@ -147,10 +166,17 @@ class DohWireAddressProbe(
     }
 }
 
-private inline fun Response.dnsAnswer(read: () -> DnsProbeAnswer): DnsProbeAnswer =
+private inline fun Response.dnsAnswer(
+    sent: Request,
+    profile: DohResolverProfile?,
+    read: () -> DnsProbeAnswer,
+): DnsProbeAnswer =
     dnsAttempt {
         if (isSuccessful) read() else dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR)
-    }.copy(resolver = request.url.host)
+    }.copy(
+        resolver = request.url.host,
+        dohProfile = profile.takeIf { request.url == sent.url },
+    )
 
 internal inline fun dnsAttempt(block: () -> DnsProbeAnswer): DnsProbeAnswer =
     try {
@@ -188,14 +214,8 @@ private suspend fun queryDnsEndpoints(
 
 private val DefaultUdpDnsServers =
     listOf("8.8.8.8", "1.1.1.1", "9.9.9.9", "94.140.14.14", "77.88.8.8", "208.67.222.222")
-private val DefaultDohJsonEndpoints = listOf("https://cloudflare-dns.com/dns-query", "https://dns.google/resolve")
-private val DefaultDohWireEndpoints =
-    listOf(
-        "https://cloudflare-dns.com/dns-query",
-        "https://dns.google/dns-query",
-        "https://dns.adguard-dns.com/dns-query",
-        "https://dns.quad9.net/dns-query",
-    )
+private val DefaultDohJsonEndpoints = DohResolverProfile.entries.mapNotNull(DohResolverProfile::jsonEndpoint)
+private val DefaultDohWireEndpoints = DohResolverProfile.entries.map(DohResolverProfile::wireEndpoint)
 private const val DnsMessageContentType = "application/dns-message"
 private val DnsMessageMediaType = DnsMessageContentType.toMediaType()
 

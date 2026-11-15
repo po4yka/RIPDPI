@@ -4,6 +4,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityDomainResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
+import com.poyka.ripdpi.diagnostics.dpi.DoqBaselineLane
 import com.poyka.ripdpi.diagnostics.dpi.DoqProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.DoqVerdict
 import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
@@ -173,12 +174,24 @@ private fun DoqProbeResult.toUiModel(stringResolver: StringResolver): Diagnostic
                     response?.let { dnsOutcomeLabel(it.outcome) } ?: R.string.diagnostics_value_unavailable,
                 )
             },
-        detail =
-            errorDetail
-                ?: latencyMs?.let { stringResolver.getString(R.string.unit_milliseconds_format, it) }
-                ?: stringResolver.getString(R.string.diagnostics_value_complete),
+        detail = errorDetail ?: observationDetail(stringResolver),
         tone = verdict.tone(),
     )
+
+private fun DoqProbeResult.observationDetail(strings: StringResolver): String =
+    buildList {
+        latencyMs?.let { add(strings.getString(R.string.unit_milliseconds_format, it)) }
+        for (observation in baseline) {
+            if (!observation.isUsableForComparison) continue
+            val resolver = observation.answer.resolver ?: continue
+            val label =
+                when (observation.lane) {
+                    DoqBaselineLane.JSON -> R.string.diagnostics_dns_source_doh_json
+                    DoqBaselineLane.WIRE -> R.string.diagnostics_dns_source_doh_wire
+                }
+            add("${strings.getString(label)} · $resolver")
+        }
+    }.joinToString(" · ").ifBlank { strings.getString(R.string.diagnostics_value_complete) }
 
 private fun DnsIntegrityVerdict.dnsVerdictLabel(): Int =
     when (this) {
@@ -215,6 +228,8 @@ internal fun DoqVerdict.displayLabel(strings: StringResolver): String =
             DoqVerdict.DOQ_DPI_REJECT -> R.string.diagnostics_doq_dpi_reject
             DoqVerdict.DOQ_INTEGRITY_DIVERGENT -> R.string.diagnostics_doq_integrity_divergent
             DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE -> R.string.diagnostics_dns_unknown
+            DoqVerdict.DOQ_INTEGRITY_PARTIAL -> R.string.diagnostics_dns_partial_agreement
+            DoqVerdict.DOQ_BASELINE_CONFLICT -> R.string.diagnostics_dns_disagreement
         },
     )
 
@@ -262,11 +277,13 @@ internal fun DoqVerdict.tone(): DiagnosticsTone =
 
         DoqVerdict.DOQ_TIMEOUT,
         DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE,
+        DoqVerdict.DOQ_INTEGRITY_PARTIAL,
         -> DiagnosticsTone.Neutral
 
         DoqVerdict.DOQ_BLOCKED_QUIC,
         DoqVerdict.DOQ_DPI_REJECT,
         DoqVerdict.DOQ_INTEGRITY_DIVERGENT,
+        DoqVerdict.DOQ_BASELINE_CONFLICT,
         -> DiagnosticsTone.Warning
     }
 

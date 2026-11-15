@@ -9,6 +9,9 @@ import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniResult
 import com.poyka.ripdpi.diagnostics.dpi.CompatibleSni
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
+import com.poyka.ripdpi.diagnostics.dpi.DnsProbeAnswer
+import com.poyka.ripdpi.diagnostics.dpi.DoqBaselineLane
+import com.poyka.ripdpi.diagnostics.dpi.DoqBaselineObservation
 import com.poyka.ripdpi.diagnostics.dpi.DoqProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.DoqVerdict
 import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
@@ -44,6 +47,8 @@ class DiagnosticsSpanishPresentationTest {
                 "Respuestas de DoQ divergentes",
                 "Tiempo de espera de DoQ agotado",
                 "Desconocido",
+                "Coincidencia parcial de DNS",
+                "Las respuestas DNS difieren",
             ),
             model.doqRows.map { it.verdict },
         )
@@ -87,6 +92,38 @@ class DiagnosticsSpanishPresentationTest {
     }
 
     @Test
+    fun `DoQ shows the resolver and lane used for comparison`() {
+        val result = dnsResult()
+        val usable =
+            DoqBaselineObservation(
+                lane = DoqBaselineLane.WIRE,
+                answer =
+                    DnsProbeAnswer(
+                        addresses = listOf("198.51.100.7"),
+                        response = DnsResponseSemantics(outcome = DnsResponseOutcome.ANSWER, rcode = 0),
+                        resolver = "cloudflare-dns.com",
+                    ),
+                sameResolverPolicy = true,
+            )
+        val otherPolicy =
+            usable.copy(
+                lane = DoqBaselineLane.JSON,
+                answer = usable.answer.copy(resolver = "dns.google"),
+                sameResolverPolicy = false,
+            )
+        val doq =
+            result.doqResults.first().copy(
+                latencyMs = null,
+                errorDetail = null,
+                baseline = listOf(usable, otherPolicy),
+            )
+
+        val model = result.copy(doqResults = listOf(doq)).toUiModel(strings(Locale.forLanguageTag("es")))
+
+        assertEquals("DNS · DoH wire · cloudflare-dns.com", model.doqRows.single().detail)
+    }
+
+    @Test
     fun `English DoQ and bootstrap retain their previous labels`() {
         val model = dnsResult().toUiModel(strings(Locale.ENGLISH))
         assertEquals(
@@ -97,6 +134,8 @@ class DiagnosticsSpanishPresentationTest {
                 "doq integrity divergent",
                 "doq timeout",
                 "Unknown",
+                "Partial DNS agreement",
+                "DNS responses differ",
             ),
             model.doqRows.map { it.verdict },
         )

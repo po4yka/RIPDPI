@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
+import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
 import com.poyka.ripdpi.diagnostics.dpich.DohProviderFilter
@@ -41,11 +43,9 @@ class DnsIntegrityCheckerTest {
                     udp = { listOf("104.16.132.229") },
                     dohJson = { setOf("104.16.132.10") },
                     dohWire = { setOf("104.16.132.10") },
-                    doqProbe = probeWithResponse("104.16.132.99"),
                 ).check(listOf("blocked.example"))
 
             assertEquals(DnsIntegrityVerdict.DNS_PARTIAL_AGREEMENT, result.domains.single().verdict)
-            assertEquals(DoqVerdict.DOQ_OK, result.doqResults.single().verdict)
         }
 
     @Test
@@ -178,14 +178,36 @@ class DnsIntegrityCheckerTest {
     fun doqProbeReceivesDohCrossCheckResults() =
         runTest {
             val result =
-                checker(
-                    udp = { listOf("1.2.3.4") },
-                    dohJson = { setOf("5.6.7.8") },
-                    dohWire = { setOf("5.6.7.8") },
+                DnsIntegrityChecker(
+                    udpProbe = DnsUdpProbe { listOf("1.2.3.4") },
+                    dohJsonProbe = cloudflareObservation("5.6.7.8"),
+                    dohWireProbe = cloudflareObservation("5.6.7.8"),
                     doqProbe = probeWithResponse("9.9.9.9"),
                 ).check(listOf("blocked.example"))
 
-            assertEquals(DoqVerdict.DOQ_INTEGRITY_DIVERGENT, result.doqResults.single().verdict)
+            val doq = result.doqResults.single()
+            assertEquals(DoqVerdict.DOQ_INTEGRITY_DIVERGENT, doq.verdict)
+            assertEquals(listOf(DoqBaselineLane.JSON, DoqBaselineLane.WIRE), doq.baseline.map { it.lane })
+            assertEquals(listOf("cloudflare-dns.com", "cloudflare-dns.com"), doq.baseline.map { it.answer.resolver })
+        }
+
+    @Test
+    fun conflictingDohLanesDoNotBecomeAgreementWithDoq() =
+        runTest {
+            val result =
+                DnsIntegrityChecker(
+                    udpProbe = DnsUdpProbe { listOf("192.0.2.10") },
+                    dohJsonProbe = cloudflareObservation("192.0.2.10"),
+                    dohWireProbe = cloudflareObservation("198.51.100.1"),
+                    doqProbe = probeWithResponse("192.0.2.10"),
+                ).check(listOf("blocked.example"))
+
+            val doq = result.doqResults.single()
+            assertEquals(DoqVerdict.DOQ_BASELINE_CONFLICT, doq.verdict)
+            assertEquals(
+                listOf(listOf("192.0.2.10"), listOf("198.51.100.1")),
+                doq.baseline.map { it.answer.addresses },
+            )
         }
 
     @Test
@@ -231,7 +253,6 @@ class DnsIntegrityCheckerTest {
         udp: suspend (String) -> List<String>,
         dohJson: suspend (String) -> Set<String>,
         dohWire: suspend (String) -> Set<String>,
-        doqProbe: DoqIntegrityProbe? = null,
         dohBootstrapDetector: DohBootstrapSpoofingDetector? = null,
     ): DnsIntegrityChecker =
         DnsIntegrityChecker(
@@ -247,9 +268,22 @@ class DnsIntegrityCheckerTest {
                 object : DnsAddressProbe {
                     override suspend fun resolveA(domain: String): Set<String> = dohWire(domain)
                 },
-            doqProbe = doqProbe,
             dohBootstrapDetector = dohBootstrapDetector,
         )
+
+    private fun cloudflareObservation(ip: String): SemanticDnsAddressProbe =
+        object : SemanticDnsAddressProbe {
+            override suspend fun resolveResponse(
+                domain: String,
+                excludedDohHostnames: Set<String>,
+            ): DnsProbeAnswer =
+                DnsProbeAnswer(
+                    addresses = listOf(ip),
+                    response = DnsResponseSemantics(outcome = DnsResponseOutcome.ANSWER, rcode = 0),
+                    resolver = "cloudflare-dns.com",
+                    dohProfile = DohResolverProfile.CLOUDFLARE_STANDARD,
+                )
+        }
 
     private fun probeWithResponse(ip: String): DoqIntegrityProbe =
         DoqIntegrityProbe(
@@ -263,7 +297,10 @@ class DnsIntegrityCheckerTest {
                         timeoutMs: Long,
                     ): ByteArray = dnsResponse(query.transactionId(), ip)
                 },
-            providers = listOf(DoqProvider("test", "doq.test")),
+            providers =
+                listOf(
+                    DoqProvider("test", "cloudflare-dns.com", dohProfile = DohResolverProfile.CLOUDFLARE_STANDARD),
+                ),
             timeoutMs = 1_000,
         )
 

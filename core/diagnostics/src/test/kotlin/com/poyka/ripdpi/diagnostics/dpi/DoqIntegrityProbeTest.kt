@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
+import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -15,7 +16,7 @@ class DoqIntegrityProbeTest {
         runTest {
             val probe = probeWithResponse("1.2.3.4")
 
-            val result = probe.run(listOf(TestDomain), mapOf(TestDomain to listOf("1.2.3.4"))).single()
+            val result = probe.run(listOf(TestDomain), positiveBaseline("1.2.3.4")).single()
 
             assertEquals(DoqVerdict.DOQ_OK, result.verdict)
             assertEquals(listOf("1.2.3.4"), result.resolvedIps)
@@ -46,10 +47,15 @@ class DoqIntegrityProbeTest {
             outcomes.forEach { (rcode, outcome) ->
                 val result =
                     probeWithResponse(ip = null, rcode = rcode)
-                        .run(listOf(TestDomain), mapOf(TestDomain to listOf("1.2.3.4")))
+                        .run(listOf(TestDomain), positiveBaseline("1.2.3.4"))
                         .single()
 
-                assertEquals(DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE, result.verdict)
+                val expected =
+                    when (rcode) {
+                        0, 3 -> DoqVerdict.DOQ_INTEGRITY_DIVERGENT
+                        else -> DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE
+                    }
+                assertEquals(expected, result.verdict)
                 assertEquals(outcome, result.response?.outcome)
                 assertEquals(rcode, result.response?.rcode)
                 assertEquals(emptyList<String>(), result.resolvedIps)
@@ -61,7 +67,7 @@ class DoqIntegrityProbeTest {
         runTest {
             val probe = probeWithResponse("1.2.3.4")
 
-            val results = probe.run(listOf("x.com/i/api/1.1", TestDomain), mapOf(TestDomain to listOf("1.2.3.4")))
+            val results = probe.run(listOf("x.com/i/api/1.1", TestDomain), positiveBaseline("1.2.3.4"))
 
             assertEquals(listOf(TestDomain), results.map { it.domain })
             assertEquals(DoqVerdict.DOQ_OK, results.single().verdict)
@@ -100,9 +106,62 @@ class DoqIntegrityProbeTest {
         runTest {
             val probe = probeWithResponse("1.2.3.4")
 
-            val result = probe.run(listOf(TestDomain), mapOf(TestDomain to listOf("5.6.7.8"))).single()
+            val result = probe.run(listOf(TestDomain), positiveBaseline("5.6.7.8")).single()
 
             assertEquals(DoqVerdict.DOQ_INTEGRITY_DIVERGENT, result.verdict)
+        }
+
+    @Test
+    fun exactAddressOrSubnetOverlapDoesNotEstablishFullAgreement() =
+        runTest {
+            val probe = probeWithResponse("1.2.3.4")
+
+            for (baseline in listOf(positiveBaseline("1.2.3.4", "5.6.7.8"), positiveBaseline("1.2.3.254"))) {
+                val result = probe.run(listOf(TestDomain), baseline).single()
+                assertEquals(DoqVerdict.DOQ_INTEGRITY_PARTIAL, result.verdict)
+            }
+        }
+
+    @Test
+    fun aMatchingAddressRequiresTheSameResolverAndPolicy() =
+        runTest {
+            val probe = probeWithResponse("1.2.3.4")
+            val known = positiveBaseline("1.2.3.4").getValue(TestDomain).single()
+            val alternatives =
+                listOf(
+                    known.answer.copy(resolver = "other.test"),
+                    known.answer.copy(dohProfile = null),
+                    known.answer.copy(dohProfile = DohResolverProfile.GOOGLE_PUBLIC),
+                )
+
+            for (answer in alternatives) {
+                val observation = known.copy(answer = answer)
+                val result = probe.run(listOf(TestDomain), mapOf(TestDomain to listOf(observation))).single()
+                assertEquals(DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE, result.verdict)
+                assertEquals(listOf(observation), result.baseline)
+            }
+        }
+
+    @Test
+    fun anotherPolicyDoesNotVetoAnExactAttributedAgreement() =
+        runTest {
+            val probe = probeWithResponse("1.2.3.4")
+            val known = positiveBaseline("1.2.3.4").getValue(TestDomain).single()
+            val other =
+                DoqBaselineObservation(
+                    lane = DoqBaselineLane.JSON,
+                    answer =
+                        known.answer.copy(
+                            addresses = listOf("5.6.7.8"),
+                            resolver = "dns.google",
+                            dohProfile = DohResolverProfile.GOOGLE_PUBLIC,
+                        ),
+                )
+
+            val result = probe.run(listOf(TestDomain), mapOf(TestDomain to listOf(known, other))).single()
+
+            assertEquals(DoqVerdict.DOQ_OK, result.verdict)
+            assertEquals(listOf(known.copy(sameResolverPolicy = true), other), result.baseline)
         }
 
     @Test
@@ -163,7 +222,7 @@ class DoqIntegrityProbeTest {
                     providers = (1..12).map { index -> DoqProvider("p$index", "p$index.test") },
                 )
 
-            probe.run(listOf(TestDomain), mapOf(TestDomain to listOf("1.2.3.4")))
+            probe.run(listOf(TestDomain), positiveBaseline("1.2.3.4"))
 
             assertEquals(8, maxInFlight)
         }
@@ -201,7 +260,7 @@ class DoqIntegrityProbeTest {
                         },
                 )
 
-            probe.run(listOf(TestDomain), mapOf(TestDomain to listOf("1.2.3.4")))
+            probe.run(listOf(TestDomain), positiveBaseline("1.2.3.4"))
 
             assertEquals("cloudflare-dns.com", observedTlsServerName)
         }
@@ -292,6 +351,23 @@ class DoqIntegrityProbeTest {
             timeoutMs = timeoutMs,
         )
 
+    private fun positiveBaseline(vararg ips: String): Map<String, List<DoqBaselineObservation>> =
+        mapOf(
+            TestDomain to
+                listOf(
+                    DoqBaselineObservation(
+                        lane = DoqBaselineLane.WIRE,
+                        answer =
+                            DnsProbeAnswer(
+                                addresses = ips.toList(),
+                                response = DnsResponseSemantics(outcome = DnsResponseOutcome.ANSWER, rcode = 0),
+                                resolver = TestResolver,
+                                dohProfile = DohResolverProfile.CLOUDFLARE_STANDARD,
+                            ),
+                    ),
+                ),
+        )
+
     private class ThrowingDoqClient(
         private val error: Exception,
     ) : DoqQuicClient {
@@ -314,5 +390,6 @@ class DoqIntegrityProbeTest {
 
     private companion object {
         private const val TestDomain = "example.com"
+        private const val TestResolver = "cloudflare-dns.com"
     }
 }

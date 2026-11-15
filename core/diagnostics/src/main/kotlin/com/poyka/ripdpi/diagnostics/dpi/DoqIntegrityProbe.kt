@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
-import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import kotlinx.coroutines.CancellationException
@@ -21,6 +20,8 @@ enum class DoqVerdict {
     DOQ_INTEGRITY_DIVERGENT,
     DOQ_TIMEOUT,
     DOQ_INTEGRITY_INCONCLUSIVE,
+    DOQ_INTEGRITY_PARTIAL,
+    DOQ_BASELINE_CONFLICT,
 }
 
 data class DoqProvider(
@@ -28,6 +29,7 @@ data class DoqProvider(
     val endpoint: String,
     val port: Int = DoqDefaultPort,
     val tlsServerName: String = endpoint,
+    val dohProfile: DohResolverProfile? = null,
 )
 
 data class DoqProbeResult(
@@ -39,6 +41,7 @@ data class DoqProbeResult(
     val latencyMs: Long?,
     val errorDetail: String? = null,
     val response: DnsResponseSemantics? = null,
+    val baseline: List<DoqBaselineObservation> = emptyList(),
 )
 
 interface DoqQuicClient {
@@ -109,7 +112,7 @@ class DoqIntegrityProbe(
 
     suspend fun run(
         domains: List<String>,
-        dohResults: Map<String, List<String>>,
+        dohResults: Map<String, List<DoqBaselineObservation>>,
     ): List<DoqProbeResult> =
         coroutineScope {
             val semaphore = Semaphore(concurrency.coerceAtLeast(1))
@@ -118,7 +121,7 @@ class DoqIntegrityProbe(
                 .map { (provider, domain) ->
                     async {
                         semaphore.withPermit {
-                            probe(provider, domain, dohResults[domain].orEmpty().toSet())
+                            probe(provider, domain, dohResults[domain].orEmpty())
                         }
                     }
                 }.awaitAll()
@@ -129,7 +132,7 @@ class DoqIntegrityProbe(
     private suspend fun probe(
         provider: DoqProvider,
         domain: String,
-        dohIps: Set<String>,
+        baseline: List<DoqBaselineObservation>,
     ): DoqProbeResult? {
         val startedAt = System.currentTimeMillis()
         val (_, query) =
@@ -155,14 +158,10 @@ class DoqIntegrityProbe(
             if (response?.outcome == DnsResponseOutcome.MALFORMED || response?.truncated == true) {
                 throw IOException("Malformed DoQ response")
             }
-            val ips = answer.addresses.filter(::isDoqIpv4Literal)
-            val verdict =
-                when {
-                    ips.isEmpty() || dohIps.isEmpty() -> DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE
-                    !dnsAnswersOverlap(ips.toSet(), dohIps) -> DoqVerdict.DOQ_INTEGRITY_DIVERGENT
-                    else -> DoqVerdict.DOQ_OK
-                }
-            provider.result(domain, verdict, ips, startedAt, response = response)
+            val ips = answer.addresses.filter(::isDnsIpv4)
+            val evidence = baseline.map { it.forProvider(provider) }
+            val verdict = compareDoqAnswer(answer, evidence)
+            provider.result(domain, verdict, ips, startedAt, response = response, baseline = evidence)
         } catch (error: TimeoutCancellationException) {
             provider.result(domain, DoqVerdict.DOQ_TIMEOUT, emptyList(), startedAt, error.message ?: "timeout")
         } catch (error: DoqTimeoutException) {
@@ -189,6 +188,7 @@ class DoqIntegrityProbe(
         startedAt: Long,
         errorDetail: String? = null,
         response: DnsResponseSemantics? = null,
+        baseline: List<DoqBaselineObservation> = emptyList(),
     ): DoqProbeResult =
         DoqProbeResult(
             provider = name,
@@ -199,6 +199,7 @@ class DoqIntegrityProbe(
             latencyMs = System.currentTimeMillis() - startedAt,
             errorDetail = errorDetail,
             response = response,
+            baseline = baseline,
         )
 
     companion object {
@@ -207,14 +208,17 @@ class DoqIntegrityProbe(
         const val DefaultDoqConcurrency = 8
         val DefaultDoqProviders =
             listOf(
-                DoqProvider("AdGuard", "dns.adguard-dns.com"),
-                DoqProvider("Cloudflare", "1.1.1.1", tlsServerName = "cloudflare-dns.com"),
-                DoqProvider("Google", "dns.google"),
+                DoqProvider("AdGuard", "dns.adguard-dns.com", dohProfile = DohResolverProfile.ADGUARD_DEFAULT),
+                DoqProvider(
+                    "Cloudflare",
+                    "1.1.1.1",
+                    tlsServerName = "cloudflare-dns.com",
+                    dohProfile = DohResolverProfile.CLOUDFLARE_STANDARD,
+                ),
+                DoqProvider("Google", "dns.google", dohProfile = DohResolverProfile.GOOGLE_PUBLIC),
                 DoqProvider("NextDNS", "dns.nextdns.io"),
             )
     }
 }
-
-private fun isDoqIpv4Literal(value: String): Boolean = NumericIp.parseAddress(value)?.isIPv4 == true
 
 private const val DoqDefaultPort = 853
