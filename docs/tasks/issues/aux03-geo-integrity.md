@@ -2,7 +2,7 @@
 id: ENG-1794755247754263
 title: Fix AUX-03 geo database validation and matching
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: aux03-integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: aux03-geo-integrity
 created: 2026-11-15
 updated: 2026-11-15
+status_detail: Geo fixes and owning checks are complete. Global lint has one base issue; minified APK and device acceptance are blocked by public Go source access.
 ---
 
 ## Goal
@@ -26,8 +27,8 @@ Fix confirmed AUX-03 findings F1-F6. Preserve working geo databases when validat
 
 ## Ownership
 
-- aux03-native: ripdpi-geo sources/tests; F1, F2, F4, F5. This is one serialized writer lane.
-- aux03-assets: Kotlin geo asset delivery/metadata and existing native metadata-admission adapter if needed; F3, F6. Do not edit ripdpi-geo.
+- aux03-native: ripdpi-geo sources/tests and the narrow proxy-runtime Geo matcher change; F1, F2, F4, F5. This is one serialized writer lane.
+- aux03-assets: Kotlin geo delivery/provenance and the additive native admission bridge; F3, F6. Do not edit ripdpi-geo.
 - aux03-integration: portfolio/OpenSpec, API snapshots, combined tests, review, and main integration.
-- Cargo.lock, manifests, protobuf, locale resources, baselines, and golden files stay in the integration lane; no new production dependency is planned.
+- Integration approved and serialized the existing serde workspace dependency and lockfile edge; native applied it. No package version was added or changed. Native verification generated the JNI export inventory for the F3 commit. Other manifests, schemas, locales, baselines and golden files stay in the integration lane.
 - Each worker uses a separate worktree. Review agents are read-only.

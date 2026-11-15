@@ -22,6 +22,11 @@ The implementation MUST reject malformed search trees and referenced data record
 - **WHEN** a replacement MMDB has a valid metadata section and an invalid data pointer
 - **THEN** load or reload reports an error and preserves the working database.
 
+#### Scenario: Non-string key in an unknown map
+
+- **WHEN** a referenced MMDB record contains a non-string key in an unknown nested map
+- **THEN** admission, load and reload reject the record, while a valid UTF-8 string-key control remains accepted and a failed reload preserves the working pair.
+
 ### Requirement: REQ-GEO-ADMISSION — Validate complete assets before installation
 
 The implementation MUST validate the complete selected format before either local import or download replaces a target. File names and format markers MUST NOT serve as proof of validity. Failure or cancellation before commit MUST preserve the target and remove temporary files.
