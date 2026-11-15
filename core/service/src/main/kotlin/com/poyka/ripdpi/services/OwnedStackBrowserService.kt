@@ -271,7 +271,7 @@ class DefaultSecureHttpClient
                 finalUrl = response.finalUrl ?: requestedUrl,
                 statusCode = response.statusCode,
                 body = response.body,
-                contentType = null,
+                contentType = response.contentType,
                 backend = OwnedStackBrowserBackend.NATIVE_OWNED_TLS,
                 android17EchEligible = support.android17EchEligible,
                 tlsProfileId = selection.profileId,

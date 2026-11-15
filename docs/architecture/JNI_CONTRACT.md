@@ -98,6 +98,24 @@ delegates real work to an adapter crate — `ripdpi-android-proxy-adapter`,
 
 ---
 
+### Owned HTTP request commands
+
+`NativeOwnedTlsHttpFetcherNativeBindings.jniExecute(String)` retains its JNI
+symbol and signature. Its JSON entry point accepts `operation` values `create`,
+`execute`, `cancel`, and `release`. Execute carries `requestHandle` and
+`requestJson`; cancel and release carry `requestHandle`. Create returns
+`requestHandle`, with zero when the 64-request reservation limit is reached.
+Requests without `operation` retain the legacy one-shot fetch behavior.
+
+Kotlin reserves a handle before execution and registers cancellation before the
+blocking native call. Cancellation signals the request; it does not release the
+reservation while execution uses it. The caller releases after execution returns,
+or if the reserved operation never starts. Native cancellation reports
+`cancelled: true`, which Kotlin maps to `CancellationException`. Dropping the
+per-call runtime closes pending transport work; it cannot roll back remote effects.
+Unknown cancel and release handles are harmless. No JNI environment crosses an
+async boundary.
+
 ## 4. Handle lifecycle rules
 
 Native sessions are passed across the boundary as an opaque `jlong` **handle**,

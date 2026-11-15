@@ -2,6 +2,7 @@ package com.poyka.ripdpi.assets
 
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.services.readBoundedBytes
+import com.poyka.ripdpi.services.withBoundedBody
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -35,6 +36,7 @@ interface GeoAssetDownloadService {
 }
 
 private interface GeoAssetDownloadApi {
+    @Streaming
     @GET
     suspend fun fetchJson(
         @Url url: String,
@@ -55,16 +57,19 @@ class DefaultGeoAssetDownloadService
         private val tlsClientFactory: OwnedTlsClientFactory,
     ) : GeoAssetDownloadService {
         override suspend fun fetchLatestReleaseJson(apiUrl: String): String =
-            api(apiUrl)
+            api(apiUrl, GeoAssetMetadataMaxBytes)
                 .fetchJson(apiUrl, githubApiAcceptHeader)
                 .requireBodyText()
 
         override suspend fun downloadAsset(downloadUrl: String): ByteArray =
-            api(downloadUrl)
+            api(downloadUrl, GeoAssetMaxLocalImportBytes)
                 .downloadBytes(downloadUrl)
                 .requireBodyBytes()
 
-        private fun api(url: String): GeoAssetDownloadApi =
+        private fun api(
+            url: String,
+            maxBytes: Long,
+        ): GeoAssetDownloadApi =
             Retrofit
                 .Builder()
                 .baseUrl(geoAssetBaseUrl)
@@ -74,13 +79,14 @@ class DefaultGeoAssetDownloadService
                         readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
                         callTimeout(callTimeoutSeconds, TimeUnit.SECONDS)
                         addInterceptor { chain ->
-                            chain.proceed(
-                                chain
-                                    .request()
-                                    .newBuilder()
-                                    .header("User-Agent", geoAssetUserAgent)
-                                    .build(),
-                            )
+                            chain
+                                .proceed(
+                                    chain
+                                        .request()
+                                        .newBuilder()
+                                        .header("User-Agent", geoAssetUserAgent)
+                                        .build(),
+                                ).withBoundedBody(chain.call(), maxBytes, "Geo asset")
                         }
                     },
                 ).build()
@@ -102,6 +108,7 @@ private const val callTimeoutSeconds = 120L
 private const val geoAssetBaseUrl = "https://github.com/"
 private const val geoAssetUserAgent = "RIPDPI geo-asset updater"
 private const val githubApiAcceptHeader = "application/vnd.github+json"
+internal const val GeoAssetMetadataMaxBytes = 1024L * 1024L
 
 private fun String.authorityFromUrl(): String? = runCatching { URI(this).host }.getOrNull()
 

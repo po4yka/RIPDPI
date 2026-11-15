@@ -175,3 +175,6 @@ mod body_limit_tests {
         assert!(error.to_string().contains("exceeds 4 bytes"));
     }
 }
+
+#[cfg(test)]
+mod tls_closure_tests;

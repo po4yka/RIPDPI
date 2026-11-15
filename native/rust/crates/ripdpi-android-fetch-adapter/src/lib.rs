@@ -7,6 +7,8 @@ mod dto;
 mod entry;
 mod entry_dispatch;
 mod executor;
+mod http_cancellation;
+mod http_command;
 mod native_ech;
 mod native_ech_cancellation;
 mod native_ech_endpoint;
@@ -28,7 +30,39 @@ mod url_endpoint;
 use std::io;
 
 pub fn execute(request_json: &str) -> io::Result<String> {
-    executor::execute(request_json)
+    http_command::execute(request_json)
+}
+
+/// A non-owning identifier for an owned HTTP request cancellation reservation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct HttpRequestId(u64);
+
+impl HttpRequestId {
+    pub(crate) const fn from_jni(value: i64) -> Self {
+        Self(value as u64)
+    }
+
+    pub(crate) const fn as_jni(self) -> i64 {
+        self.0 as i64
+    }
+}
+
+/// Reserve a request before exposing cancellation. Zero means the active limit was reached.
+pub(crate) fn create_http_request() -> HttpRequestId {
+    http_cancellation::create()
+}
+
+pub(crate) fn cancel_http_request(handle: HttpRequestId) {
+    http_cancellation::cancel(handle);
+}
+
+/// Release only after execution returns, or when the reserved request never started.
+pub(crate) fn release_http_request(handle: HttpRequestId) {
+    http_cancellation::release(handle);
+}
+
+pub(crate) fn execute_http_request(handle: HttpRequestId, request_json: &str) -> io::Result<String> {
+    executor::execute_cancellable(request_json, http_cancellation::subscribe(handle)?)
 }
 
 pub fn connect_ech(request_json: &str) -> io::Result<String> {

@@ -4,6 +4,7 @@ use std::time::Duration;
 use base64::Engine;
 use http::Method;
 use ripdpi_tls_profiles::selected_profile_metadata;
+use tokio::sync::watch;
 use tokio::time::timeout;
 use url::Url;
 
@@ -14,13 +15,27 @@ use crate::request::execute_once;
 use crate::tls_profile::{apply_profile_metadata, profile_catalog_version_string};
 
 pub(crate) fn execute(request_json: &str) -> io::Result<String> {
+    execute_inner(request_json, None)
+}
+
+pub(crate) fn execute_cancellable(request_json: &str, cancelled: watch::Receiver<bool>) -> io::Result<String> {
+    execute_inner(request_json, Some(cancelled))
+}
+
+fn execute_inner(request_json: &str, cancelled: Option<watch::Receiver<bool>>) -> io::Result<String> {
     let request: NativeOwnedTlsHttpRequest =
         serde_json::from_str(request_json).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(io::Error::other)?;
     let response = runtime.block_on(async {
-        timeout(Duration::from_millis(request.call_timeout_ms), execute_async(request))
-            .await
-            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "native TLS fetch timed out"))?
+        let operation = async {
+            timeout(Duration::from_millis(request.call_timeout_ms), execute_async(request))
+                .await
+                .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "native TLS fetch timed out"))?
+        };
+        match cancelled {
+            Some(cancelled) => crate::http_cancellation::run(cancelled, operation).await,
+            None => operation.await,
+        }
     });
     let payload = match response {
         Ok(response) => response,
@@ -29,6 +44,8 @@ pub(crate) fn execute(request_json: &str) -> io::Result<String> {
     serde_json::to_string(&payload).map_err(io::Error::other)
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: a peer can apply the request before cancellation; owned transports are closed.
 async fn execute_async(mut request: NativeOwnedTlsHttpRequest) -> io::Result<NativeOwnedTlsHttpResponse> {
     let profile_metadata = selected_profile_metadata(&request.tls_profile_id);
     let mut method = Method::from_bytes(request.method.as_bytes())
@@ -50,25 +67,13 @@ async fn execute_async(mut request: NativeOwnedTlsHttpRequest) -> io::Result<Nat
             status_code: Some(response.status_code.as_u16()),
             body_base64: Some(base64::engine::general_purpose::STANDARD.encode(response.body)),
             final_url: Some(current_url.into()),
-            tls_profile_id: None,
+            content_type: response
+                .headers
+                .get(http::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_owned),
             tls_profile_catalog_version: Some(profile_catalog_version_string()),
-            tls_ja3_parity_target: None,
-            tls_ja4_parity_target: None,
-            tls_browser_family: None,
-            tls_browser_track: None,
-            tls_template_alpn: None,
-            tls_template_extension_order_family: None,
-            tls_template_grease_style: None,
-            tls_template_supported_groups_profile: None,
-            tls_template_key_share_profile: None,
-            tls_template_record_choreography: None,
-            tls_template_ech_capable: None,
-            tls_template_ech_bootstrap_policy: None,
-            tls_template_ech_bootstrap_resolver_id: None,
-            tls_template_ech_outer_extension_policy: None,
-            client_hello_size_hint: None,
-            client_hello_invariant_status: None,
-            error: None,
+            ..NativeOwnedTlsHttpResponse::default()
         };
         apply_profile_metadata(&mut response_payload, profile_metadata);
         return Ok(response_payload);

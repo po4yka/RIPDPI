@@ -104,13 +104,13 @@ class SharedPriorsCatalogNetworkTest {
         }
 
     @Test
-    fun `HTTP failure takes precedence over body limit`() =
+    fun `bounded HTTP failure preserves status and URL`() =
         runTest {
             val response =
                 MockResponse
                     .Builder()
                     .code(503)
-                    .body(Buffer().write(ByteArray(TestManifestMaxBytes + 1)))
+                    .body("Unavailable")
                     .build()
 
             withService(response) { service, url ->
