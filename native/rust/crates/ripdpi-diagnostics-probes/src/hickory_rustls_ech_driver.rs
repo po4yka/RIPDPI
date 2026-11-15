@@ -11,16 +11,13 @@
 //!   ECH status is read from [`rustls::client::EchStatus`] after the
 //!   handshake completes and mapped to [`EchHandshakeOutcome`].
 
+#[path = "hickory_rustls_ech_driver/dns.rs"]
+mod dns;
+
 use std::sync::Arc;
 use std::time::Duration;
 
-use hickory_resolver::{
-    TokioResolver,
-    config::{CLOUDFLARE, ResolverConfig, ResolverOpts},
-    net::runtime::TokioRuntimeProvider,
-    proto::rr::rdata::svcb::{SvcParamKey, SvcParamValue},
-    proto::rr::{RData, RecordType},
-};
+use hickory_resolver::config::{CLOUDFLARE, ResolverConfig};
 use rustls::RootCertStore;
 use rustls::client::{EchConfig, EchMode, EchStatus};
 use rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES;
@@ -52,7 +49,7 @@ pub struct HickoryRustlsEchHandshakeDriver {
     /// Maximum wall-clock time allowed for each HTTPS RR lookup.
     ///
     /// Defaults to 5 seconds. The hickory resolver respects this via
-    /// [`ResolverOpts::timeout`]; DNS retries are bounded accordingly.
+    /// [`hickory_resolver::config::ResolverOpts::timeout`]; DNS retries are bounded accordingly.
     pub lookup_timeout: Duration,
 }
 
@@ -81,42 +78,15 @@ impl EchHandshakeDriver for HickoryRustlsEchHandshakeDriver {
     /// - `Ok(Some(bytes))` — ECH config bytes extracted from the first matching
     ///   HTTPS RR.
     /// - `Ok(None)` — HTTPS RR(s) present but none carried an `EchConfigList`
-    ///   param; also returned when no HTTPS RR exists at all.
-    /// - `Err(detail)` — Lookup failed (timeout, network unreachable, malformed
-    ///   response). `detail` is a short string safe to embed in a verdict reason.
+    ///   param; also returned for a clean NOERROR/NODATA answer.
+    /// - `Err(detail)` — Lookup failed (NXDOMAIN, timeout, network unreachable,
+    ///   malformed response). NXDOMAIN remains distinct from missing HTTPS data.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: the lookup owns its resolver state; dropping it prevents
+    /// further attempts by this operation.
     async fn lookup_ech_config(&self, host: &str) -> Result<Option<Vec<u8>>, String> {
-        let mut opts = ResolverOpts::default();
-        opts.timeout = self.lookup_timeout;
-
-        let resolver = TokioResolver::builder_with_config(
-            ResolverConfig::udp_and_tcp(&CLOUDFLARE),
-            TokioRuntimeProvider::default(),
-        )
-        .with_options(opts)
-        .build()
-        .map_err(|e| format!("hickory-build-error: {e}"))?;
-
-        let lookup: hickory_resolver::lookup::Lookup =
-            resolver.lookup(host, RecordType::HTTPS).await.map_err(|e| format!("hickory-lookup-error: {e}"))?;
-
-        for record in lookup.answers() {
-            let rdata: &RData = &record.data;
-            let svc_params = match rdata {
-                RData::HTTPS(https) => &https.0.svc_params,
-                RData::SVCB(svcb) => &svcb.svc_params,
-                _ => continue,
-            };
-
-            for (key, value) in svc_params {
-                if *key == SvcParamKey::EchConfigList
-                    && let SvcParamValue::EchConfigList(ech) = value
-                {
-                    return Ok(Some(ech.0.clone()));
-                }
-            }
-        }
-
-        Ok(None)
+        dns::lookup(host, self.lookup_timeout, ResolverConfig::udp_and_tcp(&CLOUDFLARE)).await
     }
 
     /// Perform an ECH handshake and retry authenticated key rotation once.
@@ -207,3 +177,7 @@ fn ech_client_config(configs: Vec<u8>) -> Result<Arc<rustls::ClientConfig>, Stri
         .map_err(|error| format!("verifier-build-error: {error}"))?;
     Ok(Arc::new(builder.with_no_client_auth()))
 }
+
+#[cfg(test)]
+#[path = "hickory_rustls_ech_driver/dns_tests.rs"]
+mod dns_tests;
