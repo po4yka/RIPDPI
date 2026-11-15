@@ -21,10 +21,13 @@ import java.net.DatagramSocket
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
+import java.net.Proxy
 import java.net.Socket
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import javax.net.SocketFactory
+
+private const val DefaultDetectionResponseBytes = 64 * 1024L
 
 enum class DetectionResolverMode {
     SYSTEM,
@@ -249,6 +252,14 @@ class DetectionResolverNetworkStack(
             throw CombinedTransportIOException(okHttpError, nativeError)
         }
     }
+
+    /** Keeps OkHttp cancellation active through the bounded body read. This path does not use native fallback. */
+    suspend fun executeCancellable(
+        request: Request,
+        config: DetectionResolverConfig = DetectionResolverConfig(),
+        maxResponseBytes: Long = DefaultDetectionResponseBytes,
+        proxy: Proxy? = null,
+    ): DetectionTransportResponse = executeBufferedCall(clientFor(config), request, maxResponseBytes, proxy)
 
     internal fun buildClient(config: DetectionResolverConfig): OkHttpClient {
         val dispatcher = Dispatcher()
