@@ -141,7 +141,7 @@ fn classify_verdict(results: &[DcReachabilityResult]) -> ProbeVerdict {
 pub struct DcEndpoint {
     /// Telegram DC number (1 through 5).
     pub dc_id: u8,
-    /// IP address or hostname to connect to.
+    /// Numeric IPv4 or IPv6 address to connect to.
     pub host: String,
     /// TCP port to connect to.
     pub port: u16,
@@ -220,8 +220,10 @@ impl MtprotoReachabilityRunner {
 }
 
 fn endpoint_ip(ep: &DcEndpoint) -> Option<IpAddr> {
-    let host = ep.host.strip_prefix('[').and_then(|host| host.strip_suffix(']')).unwrap_or(&ep.host);
-    host.parse().ok()
+    if let Some(host) = ep.host.strip_prefix('[').and_then(|host| host.strip_suffix(']')) {
+        return host.parse().ok().map(IpAddr::V6);
+    }
+    ep.host.parse().ok()
 }
 
 fn endpoint_label(ep: &DcEndpoint) -> String {
@@ -240,14 +242,14 @@ async fn probe_endpoint(ep: &DcEndpoint, timeout: Duration) -> DcReachabilityRes
         status: DcReachabilityStatus::ConnectTimeout,
         connect_elapsed_ms: None,
     };
-    let start = Instant::now();
-    let connect = async {
-        match endpoint_ip(ep) {
-            Some(ip) => tokio::net::TcpStream::connect(SocketAddr::new(ip, ep.port)).await,
-            None => tokio::net::TcpStream::connect((ep.host.as_str(), ep.port)).await,
-        }
+    let Some(ip) = endpoint_ip(ep).filter(|_| ep.port != 0) else {
+        result.status =
+            DcReachabilityStatus::SetupError { detail: "a numeric DC address and nonzero port are required".into() };
+        return result;
     };
-    match tokio::time::timeout(timeout, connect).await {
+    result.family = if ip.is_ipv4() { DcEndpointFamily::Ipv4 } else { DcEndpointFamily::Ipv6 };
+    let start = Instant::now();
+    match tokio::time::timeout(timeout, tokio::net::TcpStream::connect(SocketAddr::new(ip, ep.port))).await {
         Ok(Ok(stream)) => {
             result.status = DcReachabilityStatus::Reachable;
             result.connect_elapsed_ms = Some(start.elapsed().as_millis() as u64);
@@ -433,6 +435,22 @@ mod tests {
         let (mut stream, _) = listener.accept().unwrap();
         stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
         assert_eq!(stream.read(&mut [0]).unwrap(), 0);
+    }
+
+    #[test]
+    fn invalid_endpoints_stop_before_connect() {
+        let runner = MtprotoReachabilityRunner {
+            timeout: Duration::from_secs(1),
+            endpoints: vec![
+                DcEndpoint { dc_id: 1, host: "localhost".into(), port: 443, family: DcEndpointFamily::Ipv4 },
+                DcEndpoint { dc_id: 1, host: "127.0.0.1".into(), port: 0, family: DcEndpointFamily::Ipv4 },
+            ],
+        };
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let probe = runtime.block_on(runner.probe(&ProbeContext::empty()));
+        assert_eq!(probe.results().len(), 2);
+        assert!(probe.results().iter().all(|result| matches!(result.status, DcReachabilityStatus::SetupError { .. })));
+        assert!(matches!(probe.run(&ProbeContext::empty()).verdict, ProbeVerdict::Inconclusive { .. }));
     }
 
     #[test]
