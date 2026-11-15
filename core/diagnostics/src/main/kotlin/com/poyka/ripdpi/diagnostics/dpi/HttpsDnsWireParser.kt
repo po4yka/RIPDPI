@@ -82,13 +82,11 @@ private val TcpServiceAlpns = setOf("h2", "http/1.1")
 
 private fun HTTPSRecord.hasCompatibleServiceParams(): Boolean {
     val mandatory = getSvcParamValue(SVCBBase.MANDATORY) as? SVCBBase.ParameterMandatory
-    if (mandatory != null &&
-        (
-            mandatory.values.isEmpty() || mandatory.values.distinct().size != mandatory.values.size ||
-                mandatory.values.any { it !in TcpServiceKeys || getSvcParamValue(it) == null }
-        )
-    ) {
-        return false
+    if (mandatory != null) {
+        val keys = mandatory.values
+        val uniqueNonemptyKeys = keys.isNotEmpty() && keys.distinct().size == keys.size
+        val supportedKeys = keys.all { it in TcpServiceKeys && getSvcParamValue(it) != null }
+        if (!uniqueNonemptyKeys || !supportedKeys) return false
     }
     // RFC 9460 sections 7.1.2 and 9.2 select a transport by ALPN overlap; TLS then offers its full TCP ALPN list.
     val useDefaultAlpn = getSvcParamValue(SVCBBase.NO_DEFAULT_ALPN) == null
