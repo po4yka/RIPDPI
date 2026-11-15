@@ -1,5 +1,5 @@
 use crate::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
-use ripdpi_packets::tls_alert_record_len;
+use ripdpi_packets::{TlsAlertPrefixStatus, parse_tls_alert_prefix, tls_server_hello_version};
 
 /// TLS alert description code for `close_notify`.
 ///
@@ -20,24 +20,77 @@ pub(crate) fn is_closure_alert(code: u8) -> bool {
 
 /// A complete closure alert gives no evidence of a successful handshake.
 pub fn is_tls_closure_response(response: &[u8]) -> bool {
-    tls_alert_record_len(response).is_some() && is_closure_alert(response[6])
+    matches!(tls_alert_disposition(response), TlsAlertDisposition::Closure)
 }
-const TLS_RECORD_HANDSHAKE: u8 = 0x16;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TlsAlertDisposition {
+    NotAlert,
+    Invalid,
+    Incomplete,
+    /// A complete nonfatal warning whose negotiated version is not yet known.
+    WarningPending(u8),
+    Failure(u8),
+    Closure,
+    Continued {
+        alert_bytes: usize,
+    },
+}
+
+/// Interpret complete alert messages in wire order. Record versions do not prove negotiation.
+pub fn tls_alert_disposition(response: &[u8]) -> TlsAlertDisposition {
+    let Some(prefix) = parse_tls_alert_prefix(response) else { return TlsAlertDisposition::NotAlert };
+    let mut warning = None;
+    let mut canceled = false;
+    for [level, code] in prefix.messages {
+        if !matches!(level, 1 | 2) {
+            return TlsAlertDisposition::Invalid;
+        }
+        if code == CLOSE_NOTIFY_ALERT {
+            return TlsAlertDisposition::Closure;
+        }
+        if code == USER_CANCELED_ALERT {
+            canceled = true;
+            continue;
+        }
+        if level != TLS_ALERT_LEVEL_WARNING {
+            return TlsAlertDisposition::Failure(code);
+        }
+        warning.get_or_insert(code);
+    }
+    if canceled {
+        return TlsAlertDisposition::Closure;
+    }
+    if prefix.status == TlsAlertPrefixStatus::Invalid {
+        return TlsAlertDisposition::Invalid;
+    }
+    let Some(code) = warning else {
+        return if prefix.status == TlsAlertPrefixStatus::Incomplete {
+            TlsAlertDisposition::Incomplete
+        } else {
+            TlsAlertDisposition::NotAlert
+        };
+    };
+    match tls_server_hello_version(&response[prefix.record_bytes..]) {
+        Some(version) if version <= 0x0303 => TlsAlertDisposition::Continued { alert_bytes: prefix.record_bytes },
+        Some(_) => TlsAlertDisposition::Failure(code),
+        None => TlsAlertDisposition::WarningPending(code),
+    }
+}
 
 /// Classify a raw TLS alert record as a [`FailureClass::TlsAlert`]
 /// failure. Returns `None` for non-alert records, incomplete or invalid records, the
 /// closure alerts `close_notify` and `user_canceled`, and a warning-level
-/// alert followed by a handshake record (RFC 6066 s3 lets a server send a
+/// alert followed by a complete TLS 1.2 ServerHello (RFC 6066 s3 lets a server send a
 /// warning `unrecognized_name` and continue with its ServerHello).
+/// For a byte stream, use [`tls_alert_disposition`] first: `WarningPending` needs a bounded
+/// continuation window. This function retains the standalone-buffer warning failure fallback.
 pub fn classify_tls_alert(response: &[u8]) -> Option<ClassifiedFailure> {
-    let record_end = tls_alert_record_len(response)?;
-    let alert_code = response.get(6).copied()?;
-    if is_closure_alert(alert_code) {
+    let (TlsAlertDisposition::Failure(alert_code) | TlsAlertDisposition::WarningPending(alert_code)) =
+        tls_alert_disposition(response)
+    else {
         return None;
-    }
-    if response[5] == TLS_ALERT_LEVEL_WARNING && response.get(record_end) == Some(&TLS_RECORD_HANDSHAKE) {
-        return None;
-    }
+    };
     let alert_desc = tls_alert_description(Some(alert_code));
     Some(
         ClassifiedFailure::new(
@@ -46,7 +99,7 @@ pub fn classify_tls_alert(response: &[u8]) -> Option<ClassifiedFailure> {
             FailureAction::RetryWithMatchingGroup,
             format!("TLS alert received: {alert_desc}"),
         )
-        .with_tag("recordType", response[0].to_string())
+        .with_tag("recordType", "21")
         .with_tag("alert", alert_desc),
     )
 }
@@ -209,9 +262,12 @@ mod tests {
 
     #[test]
     fn warning_alert_followed_by_server_hello_is_not_a_failure() {
-        // warning unrecognized_name, then the start of a ServerHello record.
-        let response = [0x15, 0x03, 0x03, 0x00, 0x02, 0x01, 112, 0x16, 0x03, 0x03, 0x00, 0x31, 0x02];
+        // RFC 5246 ServerHello: version, random, empty session id, cipher, compression.
+        let mut response = vec![0x15, 3, 3, 0, 2, 1, 112, 0x16, 3, 3, 0, 42, 2, 0, 0, 38, 3, 3];
+        response.extend([0; 32]);
+        response.extend([0, 0, 0x2f, 0]);
         assert!(classify_tls_alert(&response).is_none());
+        assert!(classify_tls_alert(&response[..13]).is_some(), "a record prefix does not prove negotiation");
     }
 
     #[test]

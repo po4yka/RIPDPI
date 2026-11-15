@@ -1,6 +1,6 @@
 use crate::failure::FailureClass;
 use crate::model::config::{DesyncGroup, FirstResponseSettings, RotationPolicy};
-use crate::protocol_payload::TlsRecordBoundaryTracker;
+use crate::protocol_payload::FirstResponseBoundaryTracker;
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -33,8 +33,17 @@ pub struct RoundObservation {
     pub stream_start: usize,
     pub request_bytes: Vec<u8>,
     pub response_bytes: Vec<u8>,
-    pub tls_tracker: TlsRecordBoundaryTracker,
+    pub tls_tracker: FirstResponseBoundaryTracker,
     pub retrans_baseline: Option<u32>,
+    pub inspection_started: Instant,
+}
+
+impl RoundObservation {
+    /// The content window does not revoke ownership of an independent transport failure.
+    pub fn response_is_inconclusive(&self) -> bool {
+        self.tls_tracker.inspection_exhausted(&self.response_bytes)
+            || self.tls_tracker.inspection_timeout().is_some_and(|timeout| self.inspection_started.elapsed() >= timeout)
+    }
 }
 
 pub struct CircularTcpRotationController {
@@ -159,8 +168,9 @@ impl CircularTcpRotationController {
             stream_start,
             request_bytes: request_chunk.to_vec(),
             response_bytes: Vec::new(),
-            tls_tracker: TlsRecordBoundaryTracker::for_first_response(request_chunk, first_response),
+            tls_tracker: FirstResponseBoundaryTracker::for_request(request_chunk, first_response),
             retrans_baseline,
+            inspection_started: Instant::now(),
         });
     }
 
@@ -181,17 +191,20 @@ impl CircularTcpRotationController {
             return;
         }
         observation.request_bytes.extend_from_slice(&request_chunk[..request_chunk.len().min(room)]);
-        observation.tls_tracker =
-            TlsRecordBoundaryTracker::for_first_response(&observation.request_bytes, first_response);
+        observation.tls_tracker = FirstResponseBoundaryTracker::for_request(&observation.request_bytes, first_response);
     }
 
     pub fn observe_response_chunk(&mut self, chunk: &[u8]) -> bool {
         let Some(observation) = self.observed_round.as_mut() else {
             return false;
         };
-        observation.response_bytes.extend_from_slice(chunk);
-        observation.tls_tracker.observe(chunk);
-        !observation.tls_tracker.waiting_for_tls_record()
+        let available =
+            observation.tls_tracker.inspection_bytes_limit().saturating_sub(observation.response_bytes.len());
+        let bytes = &chunk[..chunk.len().min(available)];
+        observation.response_bytes.extend_from_slice(bytes);
+        observation.tls_tracker.observe(bytes);
+        !observation.tls_tracker.waiting_for_response(&observation.response_bytes)
+            || observation.response_is_inconclusive()
     }
 
     pub fn observed_round(&self) -> Option<&RoundObservation> {

@@ -16,6 +16,11 @@ pub fn is_tls_server_hello(buffer: &[u8]) -> bool {
     buffer.len() > 5 && read_u16(buffer, 0) == Some(0x1603) && buffer[5] == 0x02
 }
 
+/// The selected version in a complete ServerHello, including its contributing TLS records.
+pub fn tls_server_hello_version(buffer: &[u8]) -> Option<u16> {
+    super::records::server_hello_version(buffer)
+}
+
 /// Length of a complete plaintext alert record with a valid first alert message.
 /// TLS 1.2 permits multiple messages in one record; later bytes are not a second record.
 pub fn tls_alert_record_len(buffer: &[u8]) -> Option<usize> {

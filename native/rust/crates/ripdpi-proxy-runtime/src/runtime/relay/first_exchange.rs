@@ -19,6 +19,8 @@ use crate::sync::Arc;
 mod readiness;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tls_alert_tests;
 
 use readiness::{Readiness, wait_for_readiness};
 
@@ -43,7 +45,11 @@ pub(super) struct FirstResponseReader {
 impl FirstResponseReader {
     pub(super) fn new(state: &RuntimeState, request: &[u8]) -> Self {
         let tls_partial = state.relay_first_response_boundary_tracker(request);
-        let deadline = state.relay_first_response_timeout(&tls_partial).map(|timeout| Instant::now() + timeout);
+        let timeout = [state.relay_first_response_timeout(&tls_partial), tls_partial.inspection_timeout()]
+            .into_iter()
+            .flatten()
+            .min();
+        let deadline = timeout.map(|timeout| Instant::now() + timeout);
         Self {
             collected: Vec::new(),
             chunk: vec![0u8; state.relay_first_response_buffer_size()],
@@ -86,18 +92,34 @@ pub(super) fn read_first_response(
             // The outbound copy remains the only owner of continuation bytes.
             return Ok(FirstResponse::Continuation(Box::new(reader)));
         }
+        let inspection_timeout = readiness == Readiness::Timeout
+            && reader.tls_partial.inspecting_alert(&reader.collected)
+            && reader.tls_partial.waiting_for_response(&reader.collected);
+        let capacity = if reader.tls_partial.inspection_timeout().is_some()
+            && (reader.collected.is_empty() || reader.tls_partial.inspecting_alert(&reader.collected))
+        {
+            reader
+                .chunk
+                .len()
+                .min(reader.tls_partial.inspection_bytes_limit().saturating_sub(reader.collected.len()).max(1))
+        } else {
+            reader.chunk.len()
+        };
         let read_result = if readiness == Readiness::Timeout {
             Err(io::Error::new(io::ErrorKind::TimedOut, "first response deadline"))
         } else if reader.collected.is_empty() {
-            relay_platform::read_chunk_with_ttl(upstream, &mut reader.chunk).map(|(n, ttl)| {
+            relay_platform::read_chunk_with_ttl(upstream, &mut reader.chunk[..capacity]).map(|(n, ttl)| {
                 if ttl.is_some() {
                     reader.observed_server_ttl = ttl;
                 }
                 n
             })
         } else {
-            upstream.read(&mut reader.chunk)
+            upstream.read(&mut reader.chunk[..capacity])
         };
+        if state.shutdown_requested() {
+            return Err(io::Error::new(io::ErrorKind::Interrupted, "proxy stopped during first response"));
+        }
         // Ordering: Acquire -- pairs with the Release store made before the relay shuts this socket down.
         let client_gone = reader.client_gone.as_ref().is_some_and(|gone| gone.load(Ordering::Acquire));
         let result = match read_result {
@@ -109,21 +131,41 @@ pub(super) fn read_first_response(
                 reader.collected.extend_from_slice(&reader.chunk[..n]);
                 reader.tls_partial.observe(&reader.chunk[..n]);
 
-                if reader.tls_partial.waiting_for_tls_record() {
-                    reader.restart_deadline(state);
+                if reader.tls_partial.inspecting_alert(&reader.collected)
+                    && reader.deadline.is_some_and(|deadline| Instant::now() >= deadline)
+                {
+                    return Ok(FirstResponse::Neutral(reader.collected));
+                }
+
+                if reader.tls_partial.waiting_for_response(&reader.collected) {
+                    if reader.tls_partial.inspection_exhausted(&reader.collected) {
+                        return Ok(FirstResponse::Neutral(reader.collected));
+                    }
+                    if !reader.tls_partial.inspecting_alert(&reader.collected) {
+                        reader.restart_deadline(state);
+                    }
                     continue;
                 }
 
+                // A recognized request keeps its generic malformed-response failure before neutral fallback.
                 if let Some(failure) = classify_response_failure(state, target, request, &reader.collected, host) {
                     Ok(FirstResponse::Failure { failure, response_bytes: Some(reader.collected) })
-                } else if ripdpi_proxy_runtime_adapter::failure::is_tls_closure_response(&reader.collected) {
+                } else if ripdpi_proxy_runtime_adapter::failure::is_tls_closure_response(&reader.collected)
+                    || reader.tls_partial.invalid_alert(&reader.collected)
+                {
                     Ok(FirstResponse::Neutral(reader.collected))
                 } else {
                     Ok(FirstResponse::Forward(reader.collected, reader.observed_server_ttl))
                 }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
-                if reader.tls_partial.waiting_for_tls_record() {
+                if inspection_timeout {
+                    Ok(FirstResponse::Neutral(reader.collected))
+                } else if reader.tls_partial.inspecting_alert(&reader.collected) {
+                    // A socket I/O timeout is a transport source, not an inspection deadline.
+                    let failure = RuntimeState::classify_first_response_transport_error(&err);
+                    Ok(FirstResponse::Failure { failure, response_bytes: None })
+                } else if reader.tls_partial.waiting_for_tls_record() {
                     reader.timeout_count += 1;
                     if reader.timeout_count >= state.relay_first_response_timeout_count_limit() {
                         Ok(FirstResponse::Failure {

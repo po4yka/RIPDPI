@@ -1,4 +1,4 @@
-//! ClientHello parsing across TLS records.
+//! Handshake parsing across TLS records.
 //!
 //! A ClientHello may be split over several consecutive handshake records. This
 //! module flattens the record payloads, parses the flattened handshake with
@@ -65,6 +65,64 @@ impl<'a> RecordPayloads<'a> {
             cursor += len;
         }
         (out.iter().map(|span| span.end - span.start).sum::<usize>() == flat.len()).then_some(out)
+    }
+}
+
+pub(super) fn server_hello_version(buffer: &[u8]) -> Option<u16> {
+    let buffer = &buffer[..buffer.len().min(super::MAX_CLASSIFIER_TLS_BYTES)];
+    let [0x16, 3, 0..=4, ..] = *buffer else { return None };
+    let payloads = RecordPayloads::collect(buffer)?;
+    if payloads.flat.first() != Some(&2) {
+        return None;
+    }
+    let handshake_end = read_u24(&payloads.flat, 1)?.checked_add(4)?;
+    let handshake = payloads.flat.get(..handshake_end)?;
+    let mut complete = 0;
+    for span in &payloads.spans {
+        let length = read_u16(buffer, span.start.checked_sub(2)?)?;
+        if !(1..=16_384).contains(&length) || span.len() != length {
+            return None;
+        }
+        complete += length;
+        if complete >= handshake_end {
+            break;
+        }
+    }
+    let legacy_version = u16::try_from(read_u16(handshake, 4)?).ok()?;
+    let session_len = usize::from(*handshake.get(38)?);
+    if session_len > 32 || !(0x0301..=0x0303).contains(&legacy_version) {
+        return None;
+    }
+    let mut cursor = 39 + session_len;
+    let compression = *handshake.get(cursor + 2)?;
+    cursor += 3;
+    if cursor == handshake_end {
+        return Some(legacy_version);
+    }
+    let extension_len = read_u16(handshake, cursor)?;
+    cursor += 2;
+    if cursor + extension_len != handshake_end {
+        return None;
+    }
+    let mut selected_version = None;
+    while cursor < handshake_end {
+        let kind = read_u16(handshake, cursor)?;
+        let length = read_u16(handshake, cursor + 2)?;
+        cursor += 4;
+        let end = cursor.checked_add(length)?;
+        handshake.get(cursor..end)?;
+        if kind == 43 {
+            if length != 2 || selected_version.is_some() {
+                return None;
+            }
+            selected_version = Some(u16::try_from(read_u16(handshake, cursor)?).ok()?);
+        }
+        cursor = end;
+    }
+    match selected_version {
+        Some(version) if version >= 0x0304 && legacy_version == 0x0303 && compression == 0 => Some(version),
+        Some(_) => None,
+        None => Some(legacy_version),
     }
 }
 

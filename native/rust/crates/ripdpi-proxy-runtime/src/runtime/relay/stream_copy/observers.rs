@@ -30,20 +30,29 @@ pub(super) fn observe_rotation_inbound_chunk(
     if !ready {
         return;
     }
-    let (request_bytes, response_bytes, retrans_baseline, stream_start) = match rotation.lock() {
-        Ok(rotation) => {
-            let Some(observed) = rotation.observed_round() else {
-                return;
-            };
-            (
-                observed.request_bytes.clone(),
-                observed.response_bytes.clone(),
-                observed.retrans_baseline,
-                observed.stream_start,
-            )
+    let (request_bytes, response_bytes, retrans_baseline, stream_start, inconclusive, invalid_alert) =
+        match rotation.lock() {
+            Ok(rotation) => {
+                let Some(observed) = rotation.observed_round() else {
+                    return;
+                };
+                (
+                    observed.request_bytes.clone(),
+                    observed.response_bytes.clone(),
+                    observed.retrans_baseline,
+                    observed.stream_start,
+                    observed.response_is_inconclusive(),
+                    observed.tls_tracker.invalid_alert(&observed.response_bytes),
+                )
+            }
+            Err(_) => return,
+        };
+    if inconclusive {
+        if let Ok(mut rotation) = rotation.lock() {
+            rotation.observe_round_inconclusive();
         }
-        Err(_) => return,
-    };
+        return;
+    }
     if let Some(target) = target
         && let Some(failure) =
             classify_response_failure(state, target, &request_bytes, &response_bytes, host.as_deref())
@@ -59,7 +68,7 @@ pub(super) fn observe_rotation_inbound_chunk(
         }
         return;
     }
-    if ripdpi_proxy_runtime_adapter::failure::is_tls_closure_response(&response_bytes) {
+    if ripdpi_proxy_runtime_adapter::failure::is_tls_closure_response(&response_bytes) || invalid_alert {
         if let Ok(mut rotation) = rotation.lock() {
             rotation.observe_round_inconclusive();
         }
@@ -102,6 +111,8 @@ pub(super) fn observe_rotation_transport_failure(
         ),
         Err(_) => return,
     };
+    // Content inspection limits do not hide EOF/RST/I/O errors of a still-owned round.
+    // A content-neutral round already removed its observation and cannot be revived here.
     if !has_observation {
         return;
     }
@@ -237,6 +248,100 @@ mod tests {
             TcpChainStepKind::Fake,
             "two failures still meet the threshold across a neutral closure"
         );
+    }
+
+    #[test]
+    fn dpi38_owned_eof_after_window_stays_typed_and_neutral_round_cannot_revive() {
+        use crate::runtime::relay::session::{FirstOutboundSession, FirstResponseOutcome};
+        use std::io::{Read, Write};
+        use std::net::Shutdown;
+        use std::sync::atomic::AtomicBool;
+        use std::time::{Duration, Instant};
+
+        for neutral_before_eof in [false, true] {
+            let mut config = RuntimeConfig::default();
+            config.timeouts.timeout_ms = 50;
+            let state = RuntimeState::test(config.clone());
+            let mut group = DesyncGroup::new(0);
+            group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(1))];
+            let mut controller = CircularTcpRotationController::new(
+                group,
+                RotationPolicy {
+                    candidates: vec![RotationCandidate {
+                        tcp_chain: vec![TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(1))],
+                    }],
+                    fails: 1,
+                    rst: u32::MAX,
+                    retrans: u32::MAX,
+                    ..RotationPolicy::default()
+                },
+            )
+            .expect("one-failure policy");
+            let (mut upstream, mut origin) = connected_pair();
+            let (mut writer, mut app) = connected_pair();
+            app.set_read_timeout(Some(Duration::from_secs(2))).expect("bounded client fixture");
+            controller.start_round(
+                first_response_settings(&config),
+                1,
+                0,
+                crate::runtime::payload::RUNTIME_DEFAULT_FAKE_TLS,
+                None,
+                None,
+                None,
+            );
+            let rotation = Arc::new(Mutex::new(controller));
+            let peer_rotation = rotation.clone();
+            let closure = [0x15, 3, 3, 0, 2, 1, 90];
+            let origin_worker = std::thread::spawn(move || {
+                if neutral_before_eof {
+                    origin.write_all(&closure).expect("actual closure bytes");
+                    let limit = Instant::now() + Duration::from_secs(1);
+                    while peer_rotation.lock().expect("rotation lock").observed_round().is_some()
+                        && Instant::now() < limit
+                    {
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                    assert!(
+                        peer_rotation.lock().expect("rotation lock").observed_round().is_none(),
+                        "neutral content ends ownership before EOF"
+                    );
+                }
+                std::thread::sleep(Duration::from_millis(75));
+                if !neutral_before_eof {
+                    let guard = peer_rotation.lock().expect("rotation lock");
+                    let observation = guard.observed_round().expect("expired content still owns its transport round");
+                    assert!(observation.response_is_inconclusive(), "the content window expired before the real EOF");
+                }
+                origin.shutdown(Shutdown::Write).expect("real upstream EOF");
+            });
+            let session = FirstOutboundSession::new().into_relay_session().into_shared();
+            session
+                .finish_first_response(FirstResponseOutcome::Accepted { success_recorded: true })
+                .expect("previous accepted exchange");
+            super::super::copy_halves::copy_inbound_half(
+                &mut upstream,
+                &mut writer,
+                &state,
+                session,
+                Arc::new(Mutex::new(None)),
+                Some(rotation.clone()),
+                Arc::new(AtomicBool::new(false)),
+                super::super::freeze::FreezeDetector::new(0, 0, 0),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .expect("real inbound EOF path");
+            origin_worker.join().expect("owned origin worker");
+            let mut forwarded = Vec::new();
+            app.read_to_end(&mut forwarded).expect("exact forwarded bytes and FIN");
+            assert_eq!(forwarded, if neutral_before_eof { closure.as_slice() } else { &[] });
+            let mut rotation = rotation.lock().expect("rotation lock");
+            rotation.start_round(first_response_settings(&config), 2, 0, b"GET / HTTP/1.1\r\n\r\n", None, None, None);
+            assert_eq!(
+                rotation.current_send_group().actions.tcp_chain[0].kind(),
+                if neutral_before_eof { TcpChainStepKind::Split } else { TcpChainStepKind::Fake },
+                "only a still-owned transport EOF can advance the policy"
+            );
+        }
     }
 
     #[test]

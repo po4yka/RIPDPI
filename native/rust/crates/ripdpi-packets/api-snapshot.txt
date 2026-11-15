@@ -99,6 +99,10 @@ pub enum ripdpi_packets::QuicResponseKind
 pub ripdpi_packets::QuicResponseKind::Initial
 pub ripdpi_packets::QuicResponseKind::Retry
 pub ripdpi_packets::QuicResponseKind::VersionNegotiation
+pub enum ripdpi_packets::TlsAlertPrefixStatus
+pub ripdpi_packets::TlsAlertPrefixStatus::Complete
+pub ripdpi_packets::TlsAlertPrefixStatus::Incomplete
+pub ripdpi_packets::TlsAlertPrefixStatus::Invalid
 pub enum ripdpi_packets::TlsFakeProfile
 pub ripdpi_packets::TlsFakeProfile::BigsizeIana
 pub ripdpi_packets::TlsFakeProfile::CompatDefault
@@ -171,6 +175,10 @@ pub ripdpi_packets::ReassembledTlsSni::ext_len_start: usize
 pub ripdpi_packets::ReassembledTlsSni::host: alloc::vec::Vec<u8>
 pub ripdpi_packets::ReassembledTlsSni::host_offsets: alloc::vec::Vec<usize>
 pub ripdpi_packets::ReassembledTlsSni::sni_ext_start: usize
+pub struct ripdpi_packets::TlsAlertPrefix
+pub ripdpi_packets::TlsAlertPrefix::messages: alloc::vec::Vec<[u8; 2]>
+pub ripdpi_packets::TlsAlertPrefix::record_bytes: usize
+pub ripdpi_packets::TlsAlertPrefix::status: ripdpi_packets::TlsAlertPrefixStatus
 pub struct ripdpi_packets::TlsClientHelloLayout
 pub ripdpi_packets::TlsClientHelloLayout::extensions: alloc::vec::Vec<ripdpi_packets::TlsExtensionInfo>
 pub ripdpi_packets::TlsClientHelloLayout::handshake_payload_len: usize
@@ -246,6 +254,7 @@ pub fn ripdpi_packets::parse_quic_initial_layout(&[u8]) -> core::option::Option<
 pub fn ripdpi_packets::parse_quic_initial_response_context(&[u8]) -> core::option::Option<ripdpi_packets::QuicInitialResponseContext>
 pub fn ripdpi_packets::parse_quic_initial_seed(&[u8]) -> core::option::Option<ripdpi_packets::QuicInitialSeed>
 pub fn ripdpi_packets::parse_tls(&[u8]) -> core::option::Option<&[u8]>
+pub fn ripdpi_packets::parse_tls_alert_prefix(&[u8]) -> core::option::Option<ripdpi_packets::TlsAlertPrefix>
 pub fn ripdpi_packets::parse_tls_client_hello_handshake_layout(&[u8]) -> core::option::Option<ripdpi_packets::TlsClientHelloLayout>
 pub fn ripdpi_packets::parse_tls_client_hello_layout(&[u8]) -> core::option::Option<ripdpi_packets::TlsClientHelloLayout>
 pub fn ripdpi_packets::randomize_tls_seeded_inplace(&mut [u8], u32) -> isize
@@ -259,6 +268,7 @@ pub fn ripdpi_packets::tamper_quic_version(&[u8], u32) -> core::option::Option<a
 pub fn ripdpi_packets::tls_alert_record_len(&[u8]) -> core::option::Option<usize>
 pub fn ripdpi_packets::tls_fake_profile_bytes(ripdpi_packets::TlsFakeProfile) -> &'static [u8]
 pub fn ripdpi_packets::tls_marker_info(&[u8]) -> core::option::Option<ripdpi_packets::TlsMarkerInfo>
+pub fn ripdpi_packets::tls_server_hello_version(&[u8]) -> core::option::Option<u16>
 pub fn ripdpi_packets::tls_session_id_mismatch(&[u8], &[u8]) -> bool
 pub fn ripdpi_packets::tune_tls_padding_size_into(&mut alloc::vec::Vec<u8>, usize) -> isize
 pub fn ripdpi_packets::tune_tls_padding_size_like_c(&[u8], usize) -> ripdpi_packets::PacketMutation

@@ -8,7 +8,7 @@ use crate::runtime::config::RuntimeConfig;
 use crate::runtime::payload::RUNTIME_DEFAULT_FAKE_TLS;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 
-fn pair() -> (TcpStream, TcpStream) {
+pub(super) fn pair() -> (TcpStream, TcpStream) {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind owned pair");
     let first = TcpStream::connect(listener.local_addr().expect("address")).expect("connect");
     let second = listener.accept().expect("accept").0;

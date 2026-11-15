@@ -135,6 +135,15 @@ pub enum ripdpi_failure_classifier::PatternType
 pub ripdpi_failure_classifier::PatternType::Contains
 pub ripdpi_failure_classifier::PatternType::Full
 pub ripdpi_failure_classifier::PatternType::Prefix
+pub enum ripdpi_failure_classifier::TlsAlertDisposition
+pub ripdpi_failure_classifier::TlsAlertDisposition::Closure
+pub ripdpi_failure_classifier::TlsAlertDisposition::Continued
+pub ripdpi_failure_classifier::TlsAlertDisposition::Continued::alert_bytes: usize
+pub ripdpi_failure_classifier::TlsAlertDisposition::Failure(u8)
+pub ripdpi_failure_classifier::TlsAlertDisposition::Incomplete
+pub ripdpi_failure_classifier::TlsAlertDisposition::Invalid
+pub ripdpi_failure_classifier::TlsAlertDisposition::NotAlert
+pub ripdpi_failure_classifier::TlsAlertDisposition::WarningPending(u8)
 pub struct ripdpi_failure_classifier::BlockSignalObservation
 pub ripdpi_failure_classifier::BlockSignalObservation::context: ripdpi_failure_classifier::FailureEvidenceContext
 pub ripdpi_failure_classifier::BlockSignalObservation::provider: core::option::Option<alloc::string::String>
@@ -239,3 +248,4 @@ pub fn ripdpi_failure_classifier::confirm_dns_tampering(&str, core::net::ip_addr
 pub fn ripdpi_failure_classifier::is_tls_closure_response(&[u8]) -> bool
 pub fn ripdpi_failure_classifier::load_blockpage_fingerprints() -> alloc::vec::Vec<ripdpi_failure_classifier::BlockpageFingerprint>
 pub fn ripdpi_failure_classifier::match_blockpage_response(&[(alloc::string::String, alloc::string::String)], &[u8], &[ripdpi_failure_classifier::BlockpageFingerprint]) -> core::option::Option<alloc::string::String>
+pub fn ripdpi_failure_classifier::tls_alert_disposition(&[u8]) -> ripdpi_failure_classifier::TlsAlertDisposition

@@ -1,8 +1,8 @@
 use ripdpi_failure_classifier::{
-    ClassifiedFailure, classify_http_response_block, classify_tls_alert, classify_tls_handshake_failure,
-    confirm_dns_tampering,
+    ClassifiedFailure, TlsAlertDisposition, classify_http_response_block, classify_tls_alert,
+    classify_tls_handshake_failure, confirm_dns_tampering, tls_alert_disposition,
 };
-use ripdpi_packets::{is_http, tls_alert_record_len};
+use ripdpi_packets::is_http;
 use ripdpi_runtime_decision_ports::policy_ports::DnsTamperingEvidence;
 use ripdpi_session::{TriggerEvent, detect_response_trigger};
 
@@ -24,17 +24,16 @@ pub fn classify_response_failure(
         return Some(dns_tampering);
     }
 
-    let mut response = response;
-    loop {
-        if let Some(alert) = classify_tls_alert(response) {
-            return Some(alert);
+    let response = match tls_alert_disposition(response) {
+        TlsAlertDisposition::Closure => return None,
+        TlsAlertDisposition::Continued { alert_bytes } => &response[alert_bytes..],
+        _ => {
+            if let Some(alert) = classify_tls_alert(response) {
+                return Some(alert);
+            }
+            response
         }
-        match after_accepted_tls_alert(response) {
-            Some([]) => return None,
-            Some(rest) => response = rest,
-            None => break,
-        }
-    }
+    };
     let trigger = detect_response_trigger(request, response);
     if let Some(http_block) = classify_http_response_block(response)
         && !block_stub_redirect_stays_on_site(request, &http_block, trigger)
@@ -45,14 +44,6 @@ pub fn classify_response_failure(
         return Some(classify_tls_handshake_failure("TLS handshake failed before ServerHello"));
     }
     None
-}
-
-/// The bytes after a leading TLS alert record, or `None` when the response does not start with one.
-/// Called after `classify_tls_alert` returned `None`, so the alert is one it accepts: a closure
-/// alert, or a warning alert before a handshake record. The records after it are classified
-/// instead, so a warning `unrecognized_name` before a ServerHello is not "no ServerHello".
-fn after_accepted_tls_alert(response: &[u8]) -> Option<&[u8]> {
-    response.get(tls_alert_record_len(response)?..)
 }
 
 /// A Location host-label match is only a heuristic. For a plain HTTP request it counts only when
@@ -85,7 +76,12 @@ mod tests {
         assert!(failure.is_some());
     }
 
-    const SERVER_HELLO: &[u8] = &[0x16, 0x03, 0x03, 0x00, 0x04, 0x02, 0x00, 0x00, 0x00];
+    fn server_hello() -> Vec<u8> {
+        let mut response = vec![0x16, 3, 3, 0, 42, 2, 0, 0, 38, 3, 3];
+        response.extend([0; 32]);
+        response.extend([0, 0, 0x2f, 0]);
+        response
+    }
 
     fn alert(level: u8, code: u8) -> Vec<u8> {
         vec![0x15, 0x03, 0x03, 0x00, 0x02, level, code]
@@ -96,7 +92,7 @@ mod tests {
         let client_hello = ripdpi_packets::DEFAULT_FAKE_TLS;
         let user_canceled = alert(1, 90);
         assert!(classify_response_failure(client_hello, &user_canceled, None).is_none());
-        let warning_then_server_hello = [alert(1, 112).as_slice(), SERVER_HELLO].concat();
+        let warning_then_server_hello = [alert(1, 112), server_hello()].concat();
         assert!(classify_response_failure(client_hello, &warning_then_server_hello, None).is_none());
     }
 
@@ -120,7 +116,8 @@ mod tests {
         ] {
             let failure = classify_response_failure(ripdpi_packets::DEFAULT_FAKE_TLS, &response, None)
                 .expect("malformed alert cannot become an accepted TLS response");
-            assert_ne!(failure.class, ripdpi_failure_classifier::FailureClass::TlsAlert, "{response:02x?}");
+            assert_eq!(failure.class, ripdpi_failure_classifier::FailureClass::TlsHandshakeFailure, "{response:02x?}");
+            assert!(!failure.evidence.tags.iter().any(|tag| tag.starts_with("alert=")));
         }
     }
 

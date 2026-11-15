@@ -1,6 +1,8 @@
 mod request;
+mod response;
 
 pub use request::OutboundRequestAssembler;
+pub use response::FirstResponseBoundaryTracker;
 
 use ripdpi_packets::{TlsFakeProfile, tls_fake_profile_bytes, tune_tls_padding_size_into};
 use std::time::{Duration, Instant};
@@ -53,32 +55,9 @@ pub struct TlsRecordBoundaryTracker {
     bytes_limit: usize,
 }
 
-#[derive(Default)]
-pub struct FirstResponseBoundaryTracker {
-    tracker: TlsRecordBoundaryTracker,
-}
-
-impl FirstResponseBoundaryTracker {
-    pub fn for_request(request: &[u8], settings: crate::model::config::FirstResponseSettings) -> Self {
-        Self { tracker: TlsRecordBoundaryTracker::for_first_response(request, settings) }
-    }
-
-    pub fn active(&self) -> bool {
-        self.tracker.active()
-    }
-
-    pub fn waiting_for_tls_record(&self) -> bool {
-        self.tracker.waiting_for_tls_record()
-    }
-
-    pub fn observe(&mut self, bytes: &[u8]) {
-        self.tracker.observe(bytes);
-    }
-}
-
 impl TlsRecordBoundaryTracker {
     pub fn for_first_response(request: &[u8], settings: crate::model::config::FirstResponseSettings) -> Self {
-        if !crate::model::session::is_tls_client_hello_payload(request) || settings.partial_timeout_ms == 0 {
+        if !is_tls_client_hello_candidate(request) || settings.partial_timeout_ms == 0 {
             return Self::default();
         }
         Self::enabled(crate::model::config::first_response_bytes_limit(settings, FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT))
@@ -147,6 +126,11 @@ impl TlsRecordBoundaryTracker {
             pos += take;
         }
     }
+}
+
+fn is_tls_client_hello_candidate(request: &[u8]) -> bool {
+    ripdpi_packets::is_tls_client_hello(request)
+        || (request.len() < 6 && TlsRecordBoundaryTracker::looks_like_client_hello_prefix(request))
 }
 
 pub fn valid_tls_record_header(header: [u8; 5]) -> bool {
