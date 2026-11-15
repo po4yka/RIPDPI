@@ -30,7 +30,8 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-IMP01-TUIC | OUT-1794723329887849 | Typed URI, real Room persistence, explicit selection, native config and lossless share tests pass. No live TUIC peer acceptance is claimed. | passed |
 | REQ-IMP01-MIERU | OUT-1794723333000951 | Presence-aware protobuf and saved share tests pass. Pinned Go vectors and two real Go 1.27.4 loopback cases verify advanced TCP and Off shutdown; 381 native tests and Clippy passed on retained native inputs. | passed |
 | REQ-IMP01-BACKUP | OUT-1794756875357718 | Backup policy commit 6735f72b86: 7 regression tests passed after 4 observed failures; FULL/SHARE literal outputs and raw presence are verified. Core-data ktlint and detekt passed; independent review approved. | passed |
-| REQ-IMP01-ROUNDTRIP | OUT-1794758046683376 | Hosted engine tests found null changed to standard for three relay kinds. Raw codec correction and selected-profile merge checks are in progress. | required |
+| REQ-IMP01-ROUNDTRIP | OUT-1794758046683376 | Engine commit 05690df45a preserves raw optional values. Fresh RED: 53 tests and 5 assertion failures; GREEN: 53 passed, independent review and hooks passed. Actual runtime normalization remains separate. | passed |
+| REQ-IMP01-SELECTION | OUT-1794759937653382 | Actual runtime-selection RED returned old no_wait for selected null; bounded replacement of the two Mieru keys is in progress. | required |
 
 ## Verified candidate and publication
 
@@ -75,3 +76,5 @@ C means inspected implementation/reachability; V means the named observed execut
 ## Hosted follow-up corrections
 
 The first published candidate failed the full Kotlin coverage, linked-engine and Simple test jobs. Three source failures were traced to the new feature; this is not a remote CI pass. Backup policy was corrected in 6735f72b86 after a local RED-to-GREEN regression run. The engine round-trip and old unsupported TUIC fixture corrections remain in progress. All retained local and native evidence above applies only to its named inputs.
+
+The stale unsupported subscription fixture was corrected separately in eeee4f964d. The actual Simple reserve refresh suite passed 9 tests. Its unchanged embedded-bundle validation used the repository public CI asset as an ignored local test input; this does not establish a production bundle, packaged application or peer compatibility. The selected-profile overlay was then reproduced independently: 19 tests, one assertion failure, selected null read back as old no_wait. The overlay correction remains pending.

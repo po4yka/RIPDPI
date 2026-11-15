@@ -102,3 +102,12 @@ The preference JSON codec MUST preserve absent, default, standard and no-wait Mi
 
 - **WHEN** a Mieru or other relay preference model is encoded and decoded
 - **THEN** its raw optional Mieru values remain unchanged and resolved runtime configuration still receives effective settings
+
+### Requirement: REQ-IMP01-SELECTION — Replace selected Mieru JSON settings
+
+Runtime selection MUST replace the previous Mieru handshake and traffic-pattern fields with the selected profile values, including absence. The patch MUST preserve unrelated JSON fields.
+
+#### Scenario: Select a sparse profile after an advanced profile
+
+- **WHEN** a Mieru profile with absent handshake or traffic-pattern fields replaces prior advanced settings
+- **THEN** the selected profile uses its own values and defaults instead of the previous profile settings; unrelated JSON remains unchanged

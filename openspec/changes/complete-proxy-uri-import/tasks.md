@@ -25,5 +25,6 @@ Owning runtime-state/core-data/app/service/engine Kotlin tests, locked Mieru/rel
 - [x] OUT-1794723336494326 Review combined changes run gates integrate main and push #chore !high @item:OUT-1794722656313653
 - [x] OUT-1794749897872895 Remove inherited diagnostics lint blockers without behavior changes #chore !high @item:OUT-1794722656313653
 - [x] OUT-1794756875357718 Complete TUIC and advanced Mieru backup field policies #bug !high @item:OUT-1794722656313653
-- [ ] OUT-1794758046683376 Preserve raw Mieru fields through preferences codec round trips #bug !high @item:OUT-1794722656313653
-- [ ] OUT-1794758047865305 Use a genuinely unsupported subscription refresh fixture #chore !high @item:OUT-1794722656313653
+- [x] OUT-1794758046683376 Preserve raw Mieru fields through preferences codec round trips #bug !high @item:OUT-1794722656313653
+- [x] OUT-1794758047865305 Use a genuinely unsupported subscription refresh fixture #chore !high @item:OUT-1794722656313653
+- [ ] OUT-1794759937653382 Replace prior Mieru runtime JSON settings including absent values #bug !high @item:OUT-1794722656313653
