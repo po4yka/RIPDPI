@@ -115,3 +115,39 @@ fn dpi24_socks_udp_filter_waits_for_matching_encapsulated_payload() {
     server.join().unwrap();
     assert_eq!(result.payload, b"valid");
 }
+
+#[test]
+fn direct_and_route_udp_receive_the_complete_datagram() {
+    use crate::transport::RouteExperimentConfig;
+
+    for host in ["127.0.0.1", "::1"] {
+        for route_experiment in [false, true] {
+            let server = UdpSocket::bind((host, 0)).unwrap();
+            server.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            let address = server.local_addr().unwrap();
+            let worker = thread::spawn(move || {
+                let mut query = [0; 5];
+                for size in [2048, 2049, 3000] {
+                    let (read, peer) = server.recv_from(&mut query).unwrap();
+                    assert_eq!(&query[..read], b"probe");
+                    server.send_to(&vec![42; size], peer).unwrap();
+                }
+            });
+            let config = TransportConfig::Direct {
+                route_experiment: route_experiment.then_some(RouteExperimentConfig {
+                    stable_flow_attempts: 1,
+                    diversity_buckets: 1,
+                    diversity_on_failure_only: true,
+                    session_seed: u64::from(address.port()),
+                }),
+            };
+            for size in [2048, 2049, 3000] {
+                let result =
+                    relay_udp_payload_observed(&[TargetAddress::Ip(address.ip())], address.port(), &config, b"probe")
+                        .unwrap();
+                assert_eq!(result.payload, vec![42; size]);
+            }
+            worker.join().unwrap();
+        }
+    }
+}

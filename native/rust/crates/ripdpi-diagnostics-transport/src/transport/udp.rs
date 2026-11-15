@@ -133,7 +133,8 @@ pub(super) fn recv_udp_matching(
     deadline: Instant,
     accept_response: &dyn Fn(&[u8]) -> bool,
 ) -> io::Result<Vec<u8>> {
-    let mut bytes = [0; 2048];
+    // A valid UDP datagram can exceed the path MTU after IP reassembly.
+    let mut bytes = [0; u16::MAX as usize];
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
