@@ -216,8 +216,14 @@ object SingBoxSubscriptionParser {
                 val skipped = mutableListOf<SingBoxSkippedNode>()
                 val baseProfiles =
                     extracted.entries.mapIndexedNotNull { index, element ->
-                        val obj = element as? JsonObject ?: return@mapIndexedNotNull null
-                        val type = obj.string("type") ?: return@mapIndexedNotNull null
+                        val obj = requireNotNull(element as? JsonObject) { "outbound $index must be an object" }
+                        val type =
+                            requireNotNull(
+                                (obj["type"] as? JsonPrimitive)
+                                    ?.takeIf { it.isString }
+                                    ?.contentOrNull
+                                    ?.takeIf { it.isNotBlank() },
+                            ) { "outbound $index requires a type string" }
                         if (type.lowercase() in NON_PROFILE_OUTBOUND_TYPES) return@mapIndexedNotNull null
                         unsupportedNode(obj, type, index)?.let {
                             skipped += it
