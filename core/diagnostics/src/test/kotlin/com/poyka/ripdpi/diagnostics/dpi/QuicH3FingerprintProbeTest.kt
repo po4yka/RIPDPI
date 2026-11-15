@@ -101,23 +101,18 @@ class QuicH3FingerprintProbeTest {
         }
 
     @Test
-    fun chromeFailsOthersSucceedReturnsFingerprintBlock() =
+    fun anySingleV1TemplateLossReportsDegraded() =
         runTest {
-            val result =
-                probe(
-                    successes =
-                        setOf(
-                            QuicFingerprint.FIREFOX_121,
-                            QuicFingerprint.GENERIC_V1,
-                            QuicFingerprint.VN_PROBE,
-                        ),
-                ).check("example.com")
+            val v1Templates = QuicFingerprint.entries.filterNot { it == QuicFingerprint.VN_PROBE }
+            for (lost in v1Templates) {
+                val result = probe(QuicFingerprint.entries.toSet() - lost).check("example.com")
 
-            assertEquals(QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK, result.verdict)
-            assertFalse(result.chromeOk)
-            assertTrue(result.firefoxOk)
-            assertTrue(result.genericOk)
-            assertTrue(result.vnOk)
+                assertEquals("Lost template: $lost", QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
+                assertEquals(lost != QuicFingerprint.CHROME_120, result.chromeOk)
+                assertEquals(lost != QuicFingerprint.FIREFOX_121, result.firefoxOk)
+                assertEquals(lost != QuicFingerprint.GENERIC_V1, result.genericOk)
+                assertTrue(result.vnOk)
+            }
         }
 
     @Test

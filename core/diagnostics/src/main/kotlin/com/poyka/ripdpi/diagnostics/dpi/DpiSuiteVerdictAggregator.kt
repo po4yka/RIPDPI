@@ -90,12 +90,6 @@ object DpiSuiteVerdictAggregator {
                 result.results.any { tcp -> tcp.verdict == Tcp16Verdict.DETECTED_AT_KB }
             }
 
-            is DpiSuiteProbeResult.QuicH3 -> {
-                result.results.any { quic ->
-                    quic.verdict == QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK
-                }
-            }
-
             else -> {
                 false
             }

@@ -28,7 +28,6 @@ enum class QuicProbeVerdict {
     QUIC_OK,
     QUIC_DROPPED,
     QUIC_VN_REJECTED,
-    QUIC_DPI_FINGERPRINT_BLOCK,
     QUIC_DEGRADED,
     QUIC_TIMEOUT,
 }
@@ -129,7 +128,6 @@ class QuicH3FingerprintProbe(
                 allTimedOut -> QuicProbeVerdict.QUIC_TIMEOUT
                 v1OkCount == 0 && !vnOk -> QuicProbeVerdict.QUIC_DROPPED
                 chromeOk && firefoxOk && genericOk && !vnOk -> QuicProbeVerdict.QUIC_VN_REJECTED
-                !chromeOk && (firefoxOk || genericOk) -> QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK
                 else -> QuicProbeVerdict.QUIC_DEGRADED
             }
         return QuicProbeResult(

@@ -93,7 +93,7 @@ class DiagnosticsDpiSuiteUiMapperTest {
                     listOf(
                         QuicProbeResult(
                             target = "cloudflare.com",
-                            verdict = QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK,
+                            verdict = QuicProbeVerdict.QUIC_DEGRADED,
                             chromeOk = false,
                             firefoxOk = true,
                             genericOk = true,

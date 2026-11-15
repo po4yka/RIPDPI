@@ -35,13 +35,13 @@ class DpiSuiteVerdictAggregatorTest {
     }
 
     @Test
-    fun dpiDetectedWhenQuicFingerprintIsBlocked() {
+    fun inconclusiveWhenQuicTemplatesHaveDifferentResponses() {
         val aggregate =
             DpiSuiteVerdictAggregator.aggregate(
-                results = listOf(quicH3(verdict = QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK)),
+                results = listOf(quicH3(verdict = QuicProbeVerdict.QUIC_DEGRADED)),
             )
 
-        assertEquals(SuiteVerdict.DPI_DETECTED, aggregate.verdict)
+        assertEquals(SuiteVerdict.INCONCLUSIVE, aggregate.verdict)
     }
 
     @Test
