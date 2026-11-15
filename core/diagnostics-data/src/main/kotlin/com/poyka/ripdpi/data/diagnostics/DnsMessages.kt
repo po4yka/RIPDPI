@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data.diagnostics
 import org.xbill.DNS.AAAARecord
 import org.xbill.DNS.CNAMERecord
 import org.xbill.DNS.DClass
+import org.xbill.DNS.DNSInput
 import org.xbill.DNS.Flags
 import org.xbill.DNS.GenericEDNSOption
 import org.xbill.DNS.HTTPSRecord
@@ -24,16 +25,13 @@ object DnsMessages {
 
     private val random = SecureRandom()
 
-    init {
-        Type.register(Type.HTTPS, "HTTPS", ::StrictHttpsRecord)
-        Type.register(Type.A, "A", ::EvidenceARecord)
-        Type.register(Type.AAAA, "AAAA", ::EvidenceAaaaRecord)
-        Type.register(Type.SOA, "SOA", ::EvidenceSoaRecord)
-        Type.register(Type.OPT, "OPT", ::EvidenceOptRecord)
-    }
-
     fun httpsRecord(rdata: ByteArray): HTTPSRecord? =
-        Record.newRecord(Name.root, Type.HTTPS, DClass.IN, 0, rdata) as? HTTPSRecord
+        try {
+            validateHttpsRdata(DNSInput(rdata))
+            Record.newRecord(Name.root, Type.HTTPS, DClass.IN, 0, rdata) as? HTTPSRecord
+        } catch (_: IOException) {
+            null
+        }
 
     /** Preserve the AAAA family when the RDATA contains an IPv4-mapped address. */
     fun ipv6Address(record: AAAARecord): Inet6Address =
@@ -173,6 +171,7 @@ object DnsMessages {
                 "Invalid DNS OPT record",
             )
         }
+        validateDnsRecordWire(bytes, message)
         return message
     }
 

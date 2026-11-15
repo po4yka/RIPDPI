@@ -5,10 +5,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.xbill.DNS.DClass
+import org.xbill.DNS.ARecord
 import org.xbill.DNS.Flags
-import org.xbill.DNS.Name
-import org.xbill.DNS.Record
+import org.xbill.DNS.Message
 import org.xbill.DNS.Section
 import org.xbill.DNS.Type
 import java.io.IOException
@@ -82,20 +81,31 @@ class DnsMessagesTest {
     }
 
     @Test
-    fun `registered records support standalone library RDATA decoding`() {
-        DnsMessages.parseQuery(query)
-        val cases =
-            mapOf(
-                Type.A to hex("c0000201"),
-                Type.AAAA to hex("20010db8000000000000000000000001"),
-                Type.SOA to hex("00000000000100000002000000030000000400000005"),
-                Type.OPT to byteArrayOf(),
-            )
-        for ((type, rdata) in cases) {
-            val record = requireNotNull(Record.newRecord(Name.root, type, DClass.IN, 42, rdata))
-            assertEquals(type, record.type)
-            assertEquals(42L, record.ttl)
-        }
+    fun `ordinary TTL clamping remains local to dnsjava`() {
+        val highBitTtl = response.copyOf().also { it[query.size + 6] = 0x80.toByte() }
+
+        val parsedRecord =
+            DnsMessages
+                .response(highBitTtl, query)
+                .getSection(Section.ANSWER)
+                .single()
+        assertEquals(0L, parsedRecord.ttl)
+        val libraryRecord = Message(highBitTtl).getSection(Section.ANSWER).single()
+        assertEquals(0L, libraryRecord.ttl)
+        assertEquals(ARecord::class.java, libraryRecord.javaClass)
+    }
+
+    @Test
+    fun `extended OPT control word survives ordinary TTL clamping`() {
+        val adjusted = response.copyOf().also { it[11] = 2 }
+        val opt = hex("00002904d0820180000000")
+        val a = hex("c00c000100010000003c0004c0000201")
+        val message = DnsMessages.response(adjusted + opt + a, query)
+
+        assertEquals(0x820, message.rcode)
+        assertEquals(1, message.opt.version)
+        assertEquals(0x8000, message.opt.flags)
+        assertEquals(listOf(Type.OPT, Type.A), message.getSection(Section.ADDITIONAL).map { it.type })
     }
 
     private fun hex(value: String): ByteArray = value.chunked(2).map { it.toInt(16).toByte() }.toByteArray()

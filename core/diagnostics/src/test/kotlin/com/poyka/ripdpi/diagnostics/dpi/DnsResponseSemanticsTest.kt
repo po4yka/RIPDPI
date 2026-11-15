@@ -70,7 +70,7 @@ class DnsResponseSemanticsTest {
         val result = parse(bytes)
         assertEquals(listOf("1.2.3.4"), result.addresses)
         assertEquals(listOf("alias.example.com"), result.response?.cnameTargets)
-        assertEquals(4294967295L, result.response?.ttlMinSeconds)
+        assertEquals(0L, result.response?.ttlMinSeconds)
         assertNull(result.response?.negativeTtlSeconds)
         assertEquals(listOf(17), result.response?.extendedDnsErrorCodes)
         assertTrue(!result.toString().contains("secret"))
@@ -118,6 +118,20 @@ class DnsResponseSemanticsTest {
             assertEquals(false, result.response?.hasSoa)
             assertNull(result.response?.negativeTtlSeconds)
         }
+    }
+
+    @Test
+    fun negativeTtlUsesTheEffectiveSoaTtl() {
+        val authority =
+            record(
+                "example.com",
+                6,
+                name("ns.example.com") + name("hostmaster.example.com") + numbers(1, 2, 3, 4, 30),
+                ttl = 0x80000000L,
+            )
+        val result = parse(packet(rcode = 3, authorities = listOf(authority)))
+        assertEquals(DnsResponseOutcome.NXDOMAIN, result.response?.outcome)
+        assertEquals(0L, result.response?.negativeTtlSeconds)
     }
 
     @Test
