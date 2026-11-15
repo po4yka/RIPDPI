@@ -14,7 +14,7 @@ import com.poyka.ripdpi.core.detection.IpComparisonEndpointGroup
 import com.poyka.ripdpi.core.detection.IpComparisonEndpointResult
 import com.poyka.ripdpi.core.detection.IpComparisonEndpointStatus
 import com.poyka.ripdpi.core.detection.IpComparisonResult
-import com.poyka.ripdpi.core.detection.probe.canonicalIpOrNull
+import com.poyka.ripdpi.core.detection.probe.publicIpOrNull
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.diagnostics.DetectionAddressFamily
@@ -25,6 +25,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -267,7 +271,7 @@ object IpComparisonChecker {
     ): Map<IpComparisonAddressFamily, Set<String>> =
         filter { it.descriptor.group == group }
             .mapNotNull { result ->
-                val ip = result.reflectedIp?.let(::canonicalIpOrNull) ?: return@mapNotNull null
+                val ip = result.reflectedIp?.let(::publicIpOrNull) ?: return@mapNotNull null
                 val family = addressFamilyOf(ip) ?: return@mapNotNull null
                 family to ip
             }.groupBy({ it.first }, { it.second })
@@ -291,7 +295,7 @@ object IpComparisonChecker {
             .ifBlank { "none" }
 
     private fun normalizeIp(value: String): String =
-        canonicalIpOrNull(value) ?: throw IOException("Invalid reflected IP")
+        publicIpOrNull(value) ?: throw IOException("Invalid public reflected IP")
 
     private fun addressFamilyOf(value: String): IpComparisonAddressFamily? =
         NumericIp.parseAddress(value)?.let {
@@ -345,9 +349,31 @@ class DefaultIpComparisonEndpointClient(
     }
 
     private fun extractIp(body: String): String? {
-        val candidates = body.split(IP_TOKEN_DELIMITER)
-        return candidates.firstOrNull { NumericIp.parseAddress(it)?.isIPv4 == true }
-            ?: candidates.firstOrNull { NumericIp.parseAddress(it)?.isIPv6 == true }
+        publicIpOrNull(body)?.let { return it }
+        val json =
+            try {
+                Json.parseToJsonElement(body)
+            } catch (_: SerializationException) {
+                return null
+            }
+        val values =
+            when (json) {
+                is JsonPrimitive -> listOf(json)
+                is JsonObject -> listOfNotNull(json["ip"], json["query"])
+                else -> emptyList()
+            }
+        val addresses =
+            values.map { value ->
+                (value as? JsonPrimitive)
+                    ?.takeIf { it.isString }
+                    ?.content
+                    ?.let(::publicIpOrNull)
+            }
+        return addresses
+            .takeIf { it.isNotEmpty() && it.none { address -> address == null } }
+            ?.filterNotNull()
+            ?.distinct()
+            ?.singleOrNull()
     }
 
     private fun IpComparisonAddressFamily?.toDetectionAddressFamily(): DetectionAddressFamily =
@@ -359,7 +385,6 @@ class DefaultIpComparisonEndpointClient(
 
     private companion object {
         private const val TIMEOUT_MS = 5_000
-        private val IP_TOKEN_DELIMITER = Regex("""[\s,"'<>()\[\]{}=]+""")
     }
 }
 

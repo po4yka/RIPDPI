@@ -244,6 +244,54 @@ class IpComparisonCheckerTest {
         }
 
     @Test
+    fun `client reads explicit JSON IP instead of an example address`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start()
+                server.enqueue(MockResponse(body = """{"example":"127.0.0.1","ip":"8.8.8.8"}"""))
+                val endpoint =
+                    IpComparisonEndpointDescriptor(
+                        label = "local reflector",
+                        url = server.url("/ip").toString(),
+                        group = IpComparisonEndpointGroup.RU,
+                    )
+
+                assertEquals("8.8.8.8", DefaultIpComparisonEndpointClient().fetchReflectedIp(endpoint))
+            }
+        }
+
+    @Test
+    fun `client rejects ambiguous malformed and non public reflected payloads`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start()
+                val endpoint =
+                    IpComparisonEndpointDescriptor(
+                        label = "local reflector",
+                        url = server.url("/ip").toString(),
+                        group = IpComparisonEndpointGroup.RU,
+                    )
+                val client = DefaultIpComparisonEndpointClient()
+                val rejected =
+                    listOf(
+                        "<p>Example 127.0.0.1</p><p>Your IP 8.8.8.8</p>",
+                        "Your IP is 8.8.8.8",
+                        """{"example":"8.8.8.8"}""",
+                        """{"ip":"8.8.8.8","query":"1.1.1.1"}""",
+                        """{"ip":"8.8.8.8""",
+                        """{"ip":"127.0.0.1"}""",
+                        "224.0.0.1",
+                        "fd12::1",
+                    )
+                rejected.forEach { body ->
+                    server.enqueue(MockResponse(body = body))
+                    val failure = runCatching { client.fetchReflectedIp(endpoint) }.exceptionOrNull()
+                    assertTrue(body, failure is IOException)
+                }
+            }
+        }
+
+    @Test
     fun `default endpoint client sends no app identifying user agent`() =
         runTest {
             MockWebServer().use { server ->
