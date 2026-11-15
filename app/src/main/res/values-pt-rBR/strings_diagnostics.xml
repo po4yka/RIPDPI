@@ -274,12 +274,12 @@
     <string name="diagnostics_save_logs_title">Salvar logs locais</string>
     <string name="diagnostics_save_logs_body">Exporte o mesmo instantâneo do logcat com escopo do app como arquivo de texto simples quando precisar apenas do trace local do app; o arquivo é criado somente depois que você escolhe onde salvá-lo.</string>
     <string name="diagnostics_pcap_card_title">Captura de pacotes</string>
-    <string name="diagnostics_pcap_card_body_idle">Grava bytes brutos de pacotes IP em um arquivo PCAP local. Retenção: 24 h / 3 arquivos mais recentes. O PCAP não é criado a menos que você inicie a gravação, e nenhum compartilhamento automático ocorre.</string>
-    <string name="diagnostics_pcap_card_body_recording">Gravando bytes brutos de pacotes. Os arquivos ficam guardados por 24 h (os 3 mais recentes) como artefatos PCAP locais separados e não são embutidos em arquivos de diagnóstico com dados sensíveis removidos.</string>
+    <string name="diagnostics_pcap_card_body_idle">Grava pacotes IP brutos em um arquivo PCAP local. A limpeza mantém até três arquivos e remove os arquivos inativos com mais de 24 horas.</string>
+    <string name="diagnostics_pcap_card_body_recording">Gravando pacotes IP brutos em arquivos PCAP locais. Os arquivos de diagnóstico com dados ocultados não incluem PCAP.</string>
     <string name="diagnostics_pcap_card_start">Iniciar gravação</string>
     <string name="diagnostics_pcap_card_stop">Parar gravação</string>
     <string name="diagnostics_pcap_disclosure_title">Aviso sobre captura de pacotes brutos</string>
-    <string name="diagnostics_pcap_disclosure_body">A gravação escreve bytes brutos de pacotes IP em um arquivo local e pode incluir payloads dos pacotes. A retenção é de 24 h ou 3 arquivos mais recentes, o que for menor; depois disso a limpeza exclui capturas antigas. Arquivos PCAP são artefatos brutos separados; arquivos de diagnóstico com dados sensíveis removidos não os embutem.</string>
+    <string name="diagnostics_pcap_disclosure_body">Arquivos PCAP podem conter cargas úteis de pacotes. A limpeza mantém até três arquivos e remove os arquivos inativos com mais de 24 horas. Os arquivos PCAP ficam separados dos arquivos de diagnóstico com dados ocultados.</string>
     <string name="blockcheck_section_title">Sonda de estratégia</string>
     <string name="blockcheck_entry_title">Sonda de estratégia</string>
     <string name="blockcheck_domains_label">Domínios de teste</string>

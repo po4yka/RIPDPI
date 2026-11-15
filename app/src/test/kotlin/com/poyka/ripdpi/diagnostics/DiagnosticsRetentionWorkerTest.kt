@@ -21,22 +21,24 @@ class DiagnosticsRetentionWorkerTest {
         }
 
     @Test
-    fun `periodic retention cleans expired pcap captures`() =
+    fun `periodic retention invokes capture cleanup with its configured storage`() =
         runTest {
-            val now = 1_700_000_000_000L
             val cacheDir = Files.createTempDirectory("pcap-periodic-retention").toFile()
-            val pcap =
-                cacheDir.resolve("files/pcap/0000000000000001-1-00.pcap").apply {
-                    parentFile?.mkdirs()
-                    writeText("expired")
-                    setLastModified(now - 24L * 60L * 60L * 1_000L - 1L)
-                }
-            val fileStore =
-                DiagnosticsArchiveFileStore(cacheDir, DiagnosticsArchiveClock { now }, cacheDir.resolve("files/pcap"))
+            try {
+                val capture = cacheDir.resolve("expired.pcap").apply { writeText("expired") }
+                val fileStore =
+                    DiagnosticsArchiveFileStore(
+                        cacheDir,
+                        DiagnosticsArchiveClock { 1_700_000_000_000L },
+                        cleanupCaptureStorage = { check(capture.delete()) },
+                    )
 
-            cleanupDiagnosticsPcapFiles(fileStore)
+                cleanupDiagnosticsPcapFiles(fileStore)
 
-            assertFalse(pcap.exists())
+                assertFalse(capture.exists())
+            } finally {
+                cacheDir.deleteRecursively()
+            }
         }
 
     private class RecordingRetentionStore : DiagnosticsHistoryRetentionStore {

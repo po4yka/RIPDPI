@@ -5,11 +5,14 @@ import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -20,38 +23,185 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class PcapCaptureRuntimeControllerTest {
     @Test
-    fun `capture cleanup waits for native start and observes its published lease`() =
+    fun `both start paths require consent`() =
         runTest {
-            val nativeStarted = CompletableDeferred<Unit>()
-            val finishStart = CompletableDeferred<Unit>()
             val controller =
                 PcapCaptureRuntimeController(
-                    startCapture = {
-                        nativeStarted.complete(Unit)
-                        finishStart.await()
-                        7L
-                    },
-                    stopCapture = { PcapStopResult(true, emptyList()) },
+                    startCapture = { error("Capture started without permission") },
+                    stopCapture = { error("No capture is active") },
                 )
-            controller.bindTunnel(FakeTunnelBridge(41L))
-            val start = launch { controller.start() }
-            nativeStarted.await()
-            var cleanupEntered = false
-            var activeSetId: Long? = null
-            val cleanup =
-                launch {
-                    controller.withCaptureStorageLock {
-                        cleanupEntered = true
-                        activeSetId = it
-                    }
-                }
+            controller.bindTunnel(FakeTunnelBridge(41L), MutableStateFlow(false))
+
+            val denied = PcapCaptureRuntimeState.Failed(code = "capture_disabled")
+
+            assertEquals(denied, controller.start())
+            assertEquals(PcapCaptureLeaseAcquisition.Failed(denied), controller.startIfIdle())
+        }
+
+    @Test
+    fun `unavailable consent cannot keep the tunnel lease locked`() =
+        runTest {
+            val bridge = FakeTunnelBridge(41L)
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { error("Capture started without permission") },
+                    stopCapture = { error("No capture is active") },
+                )
+            controller.bindTunnel(bridge, flow { awaitCancellation() })
+
+            assertEquals(PcapCaptureRuntimeState.Failed(code = "capture_consent_unavailable"), controller.start())
+            controller.retireTunnel(bridge)
+            assertEquals(PcapCaptureRuntimeState.Failed(code = "tunnel_unavailable"), controller.start())
+        }
+
+    @Test
+    fun `revoking consent completes the active lease without a manual stop`() =
+        runTest {
+            val permission = MutableStateFlow(true)
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { 7L },
+                    stopCapture = { PcapStopResult(true, emptyList(), totalDrops = 3L) },
+                    pollCompletion = { null },
+                    monitorScope = backgroundScope,
+                )
+            controller.bindTunnel(FakeTunnelBridge(41L), permission)
+            assertEquals(PcapCaptureRuntimeState.Idle, controller.state.value)
+            assertEquals(
+                PcapCaptureLeaseAcquisition.Acquired(PcapCaptureRuntimeState.Recording(7L)),
+                controller.startIfIdle(),
+            )
             runCurrent()
-            assertTrue(!cleanupEntered)
-            finishStart.complete(Unit)
-            start.join()
-            cleanup.join()
-            assertEquals(7L, activeSetId)
-            controller.stop()
+
+            permission.value = false
+            runCurrent()
+
+            val completed =
+                PcapCaptureRuntimeState.Completed(
+                    PcapCaptureCompletionReceipt(7L, 3L, PcapCaptureOutcome.CapturedSeparate),
+                )
+            assertEquals(completed, controller.state.value)
+            assertEquals(completed, controller.stopIfOwned(7L))
+            assertEquals(PcapCaptureRuntimeState.Failed(code = "capture_disabled"), controller.start())
+        }
+
+    private suspend fun PcapCaptureRuntimeController.bindAllowed(bridge: Tun2SocksBridge) =
+        bindTunnel(bridge, MutableStateFlow(true))
+
+    @Test
+    fun `capacity publishes the capture receipt without a user stop`() =
+        runTest {
+            var terminalReady = false
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { 7L },
+                    stopCapture = { error("Poll must not stop an active writer") },
+                    pollCompletion = {
+                        if (terminalReady) {
+                            PcapStopResult(
+                                true,
+                                emptyList(),
+                                totalDrops = 2L,
+                                limitReached = true,
+                            )
+                        } else {
+                            null
+                        }
+                    },
+                    monitorScope = backgroundScope,
+                )
+            controller.bindAllowed(FakeTunnelBridge(41L))
+            controller.start()
+            advanceTimeBy(300L)
+            assertEquals(PcapCaptureRuntimeState.Recording(7L), controller.state.value)
+
+            terminalReady = true
+            advanceTimeBy(300L)
+            val expected =
+                PcapCaptureRuntimeState.Completed(
+                    PcapCaptureCompletionReceipt(7L, 2L, PcapCaptureOutcome.CapturedSeparate, limitReached = true),
+                )
+            assertEquals(expected, controller.state.value)
+            assertEquals(expected, controller.stopIfOwned(7L))
+        }
+
+    @Test
+    fun `owner settles an automatic completion after manual recording starts`() =
+        runTest {
+            var nextId = 7L
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { nextId++ },
+                    stopCapture = { PcapStopResult(true, emptyList()) },
+                    pollCompletion = { PcapStopResult(true, emptyList(), totalDrops = 2L, limitReached = true) },
+                    monitorScope = backgroundScope,
+                )
+            controller.bindAllowed(FakeTunnelBridge(41L))
+            assertEquals(
+                PcapCaptureLeaseAcquisition.Acquired(PcapCaptureRuntimeState.Recording(7L)),
+                controller.startIfIdle(),
+            )
+            advanceTimeBy(300L)
+            assertEquals(PcapCaptureRuntimeState.Recording(8L), controller.start())
+
+            assertEquals(
+                PcapCaptureRuntimeState.Completed(
+                    PcapCaptureCompletionReceipt(7L, 2L, PcapCaptureOutcome.CapturedSeparate, limitReached = true),
+                ),
+                controller.stopIfOwned(7L),
+            )
+            assertEquals(PcapCaptureRuntimeState.Recording(8L), controller.state.value)
+            assertEquals(null, controller.stopIfOwned(7L))
+        }
+
+    @Test
+    fun `monitor finishes with failure after its native handle retires`() =
+        runTest {
+            val bridge = FakeTunnelBridge(41L)
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { 7L },
+                    stopCapture = { error("The retired handle cannot be stopped") },
+                    pollCompletion = { error("The retired handle cannot be polled") },
+                    monitorScope = backgroundScope,
+                )
+            controller.bindAllowed(bridge)
+            controller.start()
+            bridge.handle = null
+            advanceTimeBy(300L)
+
+            assertEquals(
+                PcapCaptureRuntimeState.Failed(
+                    PcapCaptureCompletionReceipt(7L, null, PcapCaptureOutcome.Failed),
+                    "session_unavailable",
+                ),
+                controller.state.value,
+            )
+        }
+
+    @Test
+    fun `native timeout leaves stop retryable until completion is collected`() =
+        runTest {
+            var terminalReady = false
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { 7L },
+                    stopCapture = { PcapStopResult(true, emptyList(), failure = "timeout") },
+                    pollCompletion = { if (terminalReady) PcapStopResult(true, emptyList()) else null },
+                    monitorScope = backgroundScope,
+                )
+            controller.bindAllowed(FakeTunnelBridge(41L))
+            controller.start()
+            assertEquals(PcapCaptureRuntimeState.StopFailed(7L, "timeout"), controller.stop())
+
+            terminalReady = true
+            advanceTimeBy(300L)
+            assertEquals(
+                PcapCaptureRuntimeState.Completed(
+                    PcapCaptureCompletionReceipt(7L, 0L, PcapCaptureOutcome.CapturedSeparate),
+                ),
+                controller.state.value,
+            )
         }
 
     @Test
@@ -73,7 +223,7 @@ class PcapCaptureRuntimeControllerTest {
                             PcapStopResult(true, emptyList())
                         },
                     )
-                controller.bindTunnel(FakeTunnelBridge(41L))
+                controller.bindAllowed(FakeTunnelBridge(41L))
                 startJob =
                     launch {
                         if (acquireLease) controller.startIfIdle() else controller.start()
@@ -104,7 +254,7 @@ class PcapCaptureRuntimeControllerTest {
                     },
                 )
 
-            controller.bindTunnel(bridge)
+            controller.bindAllowed(bridge)
             assertEquals(PcapCaptureRuntimeState.Recording(7L), controller.start())
             assertEquals(
                 PcapCaptureRuntimeState.Completed(
@@ -129,7 +279,7 @@ class PcapCaptureRuntimeControllerTest {
                     },
                 )
 
-            controller.bindTunnel(bridge)
+            controller.bindAllowed(bridge)
             controller.start()
             val result = controller.stop()
 
@@ -152,11 +302,11 @@ class PcapCaptureRuntimeControllerTest {
                     startCapture = { 7L },
                     stopCapture = { throw IllegalStateException("native panic in pcap stop") },
                 )
-            controller.bindTunnel(retired)
+            controller.bindAllowed(retired)
             controller.start()
 
             controller.retireTunnel(retired)
-            controller.bindTunnel(FakeTunnelBridge(handle = 42L))
+            controller.bindAllowed(FakeTunnelBridge(handle = 42L))
 
             assertEquals(
                 PcapCaptureRuntimeState.Failed(
@@ -175,7 +325,7 @@ class PcapCaptureRuntimeControllerTest {
                     startCapture = { 12L },
                     stopCapture = { error("transient stop") },
                 )
-            controller.bindTunnel(FakeTunnelBridge(44L))
+            controller.bindAllowed(FakeTunnelBridge(44L))
             controller.start()
 
             assertEquals(PcapCaptureRuntimeState.StopFailed(12L, "stop_failed"), controller.stop())
@@ -186,7 +336,7 @@ class PcapCaptureRuntimeControllerTest {
     fun `idle acquisition never claims an existing capture`() =
         runTest {
             val controller = PcapCaptureRuntimeController({ 16L }, { PcapStopResult(true, emptyList()) })
-            controller.bindTunnel(FakeTunnelBridge(45L))
+            controller.bindAllowed(FakeTunnelBridge(45L))
             assertEquals(
                 PcapCaptureLeaseAcquisition.Acquired(PcapCaptureRuntimeState.Recording(16L)),
                 controller.startIfIdle(),
@@ -202,7 +352,7 @@ class PcapCaptureRuntimeControllerTest {
         runTest {
             val controller =
                 PcapCaptureRuntimeController({ 17L }, { PcapStopResult(true, emptyList(), totalDrops = 1L) })
-            controller.bindTunnel(FakeTunnelBridge(46L))
+            controller.bindAllowed(FakeTunnelBridge(46L))
             controller.startIfIdle()
 
             val terminal = controller.stopIfOwned(17L)
@@ -217,7 +367,7 @@ class PcapCaptureRuntimeControllerTest {
             val bridge = FakeTunnelBridge(47L)
             val controller =
                 PcapCaptureRuntimeController({ 18L }, { PcapStopResult(true, emptyList(), totalDrops = 2L) })
-            controller.bindTunnel(bridge)
+            controller.bindAllowed(bridge)
             controller.startIfIdle()
 
             controller.retireTunnel(bridge)
@@ -231,7 +381,7 @@ class PcapCaptureRuntimeControllerTest {
         }
 
     private class FakeTunnelBridge(
-        private val handle: Long?,
+        var handle: Long?,
     ) : Tun2SocksBridge {
         override suspend fun start(
             config: Tun2SocksConfig,
@@ -247,7 +397,6 @@ class PcapCaptureRuntimeControllerTest {
 
         override suspend fun forwardingEvidence(): TunForwardingEvidence = TunForwardingEvidence()
 
-        override suspend fun <T> withSessionHandle(block: suspend (Long) -> T): T? =
-            if (handle == null) null else block(handle)
+        override suspend fun <T> withSessionHandle(block: suspend (Long) -> T): T? = handle?.let { block(it) }
     }
 }

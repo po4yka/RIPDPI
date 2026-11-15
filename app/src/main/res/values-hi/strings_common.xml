@@ -235,14 +235,21 @@
     <string name="vpn_pcap_capture_list_empty">उन्नत सेटिंग्स में पैकेट कैप्चर चालू करें।</string>
     <string name="vpn_pcap_loading">पैकेट कैप्चर लोड हो रहे हैं…</string>
     <string name="vpn_pcap_read_failed">PCAP डेटा पढ़ा नहीं जा सका।</string>
-    <string name="vpn_pcap_truncated">पहले 2,000 पैकेट दिखाए जा रहे हैं।</string>
+    <string name="vpn_pcap_truncated">इस कैप्चर का कुछ हिस्सा दिखाया जा रहा है।</string>
     <string name="vpn_pcap_no_packets">इस कैप्चर में कोई पैकेट नहीं है।</string>
+    <string name="vpn_pcap_capture_limit_reached">कैप्चर की आकार सीमा तक पहुँचने पर रिकॉर्डिंग रुक गई।</string>
+    <string name="vpn_pcap_export_redacted">संशोधित PCAP निर्यात करें</string>
+    <string name="vpn_pcap_export_details">IP पते और पैकेट की सामग्री हटा दी जाती है। समय और पोर्ट रखे जाते हैं।</string>
+    <string name="vpn_pcap_export_saved">संशोधित PCAP सहेजा गया।</string>
+    <string name="vpn_pcap_export_incomplete">यह कैप्चर अधूरा है। कोई फ़ाइल नहीं बनाई गई।</string>
+    <string name="vpn_pcap_export_failed">PCAP निर्यात नहीं हो सका।</string>
+    <string name="vpn_pcap_export_cleanup_failed">निर्यात विफल रहा। चुने गए स्थान से अधूरी फ़ाइल हटाएँ।</string>
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">डेवलपर</string>
     <string name="vpn_dev_pcap_toggle_label">पैकेट कैप्चर (डायग्नोस्टिक्स)</string>
     <string name="vpn_dev_pcap_toggle_desc">निरीक्षण के लिए VPN पैकेट स्थानीय रूप से कैप्चर करें. डिफ़ॉल्ट रूप से अक्षम.</string>
     <string name="vpn_dev_pcap_consent_title">पैकेट कैप्चर सक्षम करें?</string>
-    <string name="vpn_dev_pcap_consent_warning">सक्षम होने पर, अगले VPN सत्र के पैकेट हेडर, TLS SNI होस्टनाम, एंडपॉइंट IP और रणनीति फ़िंगरप्रिंट एक घूर्णनशील 64 MiB ऑन-डिस्क कैप्चर में लिखे जाते हैं. कैप्चर तब तक ऐप-निजी रहते हैं जब तक आप उन्हें स्पष्ट रूप से निर्यात नहीं करते.</string>
+    <string name="vpn_dev_pcap_consent_warning">यह सेटिंग आपको रिकॉर्डिंग शुरू करने देती है। रिकॉर्डिंग इस डिवाइस पर कच्चे VPN पैकेट, उनके IP पते और पेलोड सहित, सहेजती है। सेटिंग बंद करने से रिकॉर्डिंग रुक जाती है।</string>
     <!-- OOM recovery surface -->
     <string name="oom_recovery_action_reconnect">पुनः कनेक्ट करें</string>
     <!-- Domain bypass list (routing) -->

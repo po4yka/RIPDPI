@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.poyka.ripdpi.pcap.PcapCaptureMetadata
 import com.poyka.ripdpi.pcap.PcapController
 import com.poyka.ripdpi.pcap.PcapReader
+import com.poyka.ripdpi.pcap.resolvePcapCapture
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -38,7 +39,7 @@ fun PcapCaptureListRoute(
                     val valid =
                         listed.mapNotNull { capture ->
                             runCatching {
-                                val file = captureFile(controller.captureDirectory, File(capture.path).name)
+                                val file = resolvePcapCapture(controller.captureDirectory, File(capture.path).name)
                                 require(file.canonicalPath == File(capture.path).canonicalPath) {
                                     "Capture outside private directory"
                                 }

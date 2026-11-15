@@ -48,11 +48,14 @@ pub(crate) fn tunnel_pcap_start_entry(
     }
 }
 
-pub(crate) fn tunnel_pcap_stop_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jni::sys::jstring {
+pub(crate) fn tunnel_pcap_stop_entry(mut env: EnvUnowned<'_>, handle: jlong, finished_only: bool) -> jni::sys::jstring {
     android_support::init_android_logging("ripdpi-tunnel-native");
     match env
         .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
-            Ok(env.new_string(pcap::pcap_stop_entry(handle))?.into_raw())
+            match pcap::pcap_stop_entry(handle, finished_only) {
+                Some(json) => Ok(env.new_string(json)?.into_raw()),
+                None => Ok(std::ptr::null_mut()),
+            }
         })
         .into_outcome()
     {
@@ -70,13 +73,20 @@ pub(crate) fn tunnel_pcap_stop_entry(mut env: EnvUnowned<'_>, handle: jlong) -> 
     }
 }
 
-pub(crate) fn tunnel_pcap_list_captures_entry(mut env: EnvUnowned<'_>, capture_dir: JString) -> jni::sys::jstring {
+pub(crate) fn tunnel_pcap_list_captures_entry(
+    mut env: EnvUnowned<'_>,
+    capture_dir: JString,
+    cleanup_only: bool,
+) -> jni::sys::jstring {
     android_support::init_android_logging("ripdpi-tunnel-native");
     match env
         .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
             let dir =
                 capture_dir.try_to_string(env).map(PathBuf::from).map_err(|_| jni::errors::Error::JavaException)?;
-            Ok(env.new_string(pcap::pcap_list_captures_entry(dir))?.into_raw())
+            match pcap::pcap_list_captures_entry(dir, cleanup_only) {
+                Some(json) => Ok(env.new_string(json)?.into_raw()),
+                None => Ok(std::ptr::null_mut()),
+            }
         })
         .into_outcome()
     {
@@ -103,7 +113,7 @@ pub(crate) fn tunnel_pcap_redact_entry(mut env: EnvUnowned<'_>, source_path: JSt
         .with_env(move |env| -> jni::errors::Result<jlong> {
             let path =
                 source_path.try_to_string(env).map(PathBuf::from).map_err(|_| jni::errors::Error::JavaException)?;
-            Ok(pcap::pcap_redact_entry(path, dest_fd) as jlong)
+            Ok(pcap::pcap_redact_entry(path, dest_fd))
         })
         .into_outcome()
     {

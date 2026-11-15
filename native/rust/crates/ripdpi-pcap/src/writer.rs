@@ -1,6 +1,9 @@
 use std::io::{self, Write};
 
-use crate::constants::{LINKTYPE_RAW, MAGIC};
+use crate::constants::{
+    LINKTYPE_RAW, MAGIC, MAX_CAPTURED_BYTES, MICROS_PER_SECOND, PCAP_GLOBAL_HEADER_LEN, PCAP_PACKET_HEADER_LEN,
+    PCAP_VERSION,
+};
 
 /// Writes classic-libpcap records to any `Write` sink.
 ///
@@ -16,9 +19,11 @@ pub struct PcapWriter<W: Write> {
 
 impl<W: Write> PcapWriter<W> {
     /// Create a writer and emit the 24-byte global header immediately.
-    /// `snaplen` is the maximum bytes captured per packet; pass
-    /// [`crate::SNAPLEN_DEFAULT`] unless you have a reason to truncate.
+    /// Pass a nonzero `snaplen`. Use [`crate::SNAPLEN_DEFAULT`] for TUN captures.
     pub fn new(mut inner: W, snaplen: u32) -> io::Result<Self> {
+        if snaplen == 0 {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "pcap snaplen must be nonzero"));
+        }
         // Global header layout (LE):
         //  0..4   magic
         //  4..6   version_major = 2
@@ -27,15 +32,14 @@ impl<W: Write> PcapWriter<W> {
         // 12..16  sigfigs = 0
         // 16..20  snaplen
         // 20..24  network = LINKTYPE_RAW
-        let mut header = [0u8; 24];
+        let mut header = [0u8; PCAP_GLOBAL_HEADER_LEN];
         header[0..4].copy_from_slice(&MAGIC.to_le_bytes());
-        header[4..6].copy_from_slice(&2u16.to_le_bytes());
-        header[6..8].copy_from_slice(&4u16.to_le_bytes());
+        header[4..8].copy_from_slice(&PCAP_VERSION);
         // bytes 8..16 stay zero
         header[16..20].copy_from_slice(&snaplen.to_le_bytes());
         header[20..24].copy_from_slice(&LINKTYPE_RAW.to_le_bytes());
         inner.write_all(&header)?;
-        Ok(Self { inner, snaplen, bytes_written: 24 })
+        Ok(Self { inner, snaplen, bytes_written: PCAP_GLOBAL_HEADER_LEN as u64 })
     }
 
     /// Append one packet record. `ts_micros` is the wall-clock timestamp
@@ -43,20 +47,33 @@ impl<W: Write> PcapWriter<W> {
     /// (IPv4 or IPv6 header + payload).
     ///
     /// Packets longer than `snaplen` are truncated in the file but the
-    /// `orig_len` field records the original length.
+    /// `orig_len` field records the original length. Records that would
+    /// store more than 262144 bytes are rejected.
     pub fn write_packet(&mut self, ts_micros: u64, bytes: &[u8]) -> io::Result<()> {
-        let ts_sec = (ts_micros / 1_000_000) as u32;
-        let ts_usec = (ts_micros % 1_000_000) as u32;
-        let orig_len = bytes.len() as u32;
+        let orig_len = u32::try_from(bytes.len())
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "pcap original length exceeds u32"))?;
         let incl_len = orig_len.min(self.snaplen);
-        let mut header = [0u8; 16];
+        self.write_captured_record(ts_micros, orig_len, &bytes[..incl_len as usize])
+    }
+
+    pub(crate) fn write_captured_record(&mut self, ts_micros: u64, orig_len: u32, bytes: &[u8]) -> io::Result<()> {
+        let micros_per_second = u64::from(MICROS_PER_SECOND);
+        let ts_sec = u32::try_from(ts_micros / micros_per_second)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "pcap timestamp exceeds u32 seconds"))?;
+        let ts_usec = (ts_micros % micros_per_second) as u32;
+        let incl_len = u32::try_from(bytes.len())
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "pcap captured length exceeds u32"))?;
+        if incl_len > orig_len.min(self.snaplen).min(MAX_CAPTURED_BYTES) {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid pcap captured length"));
+        }
+        let mut header = [0u8; PCAP_PACKET_HEADER_LEN];
         header[0..4].copy_from_slice(&ts_sec.to_le_bytes());
         header[4..8].copy_from_slice(&ts_usec.to_le_bytes());
         header[8..12].copy_from_slice(&incl_len.to_le_bytes());
         header[12..16].copy_from_slice(&orig_len.to_le_bytes());
         self.inner.write_all(&header)?;
-        self.inner.write_all(&bytes[..incl_len as usize])?;
-        self.bytes_written = self.bytes_written.saturating_add(16 + incl_len as u64);
+        self.inner.write_all(bytes)?;
+        self.bytes_written = self.bytes_written.saturating_add(PCAP_PACKET_HEADER_LEN as u64 + u64::from(incl_len));
         Ok(())
     }
 

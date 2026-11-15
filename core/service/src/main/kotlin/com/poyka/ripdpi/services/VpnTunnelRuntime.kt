@@ -502,7 +502,10 @@ internal class VpnTunnelRuntime(
         tunnelBridge: Tun2SocksBridge,
     ) {
         tun2SocksBridge = tunnelBridge
-        pcapCaptureRuntimeController?.bindTunnel(tunnelBridge)
+        pcapCaptureRuntimeController?.bindTunnel(
+            tunnelBridge,
+            appSettingsRepository.settings.map { it.rootModeEnabled && it.pcapCaptureEnabled }.distinctUntilChanged(),
+        )
         forwardingLease.set(TunnelForwardingLease(tunnelBridge))
         retiringBridge = null
         tunSession = pendingTunnel.session

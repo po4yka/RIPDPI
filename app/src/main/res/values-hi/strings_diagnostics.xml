@@ -274,12 +274,12 @@
     <string name="diagnostics_save_logs_title">स्थानीय लॉग सहेजें</string>
     <string name="diagnostics_save_logs_body">जब आपको सिर्फ़ स्थानीय ऐप ट्रेस चाहिए हो तो उसी ऐप-स्कोप वाले logcat स्नैपशॉट को एक सादा-पाठ फ़ाइल के रूप में निर्यात करें; यह फ़ाइल आपके सहेजने का स्थान चुनने के बाद ही बनती है।</string>
     <string name="diagnostics_pcap_card_title">पैकेट कैप्चर</string>
-    <string name="diagnostics_pcap_card_body_idle">कच्चे IP पैकेट बाइट को स्थानीय PCAP फ़ाइल में रिकॉर्ड करता है. प्रतिधारण: 24 h / 3 सबसे हाल की फ़ाइलें. जब तक आप रिकॉर्डिंग शुरू नहीं करते तब तक PCAP नहीं बनता, और कोई स्वचालित साझाकरण नहीं होता.</string>
-    <string name="diagnostics_pcap_card_body_recording">कच्चे पैकेट बाइट रिकॉर्ड किए जा रहे हैं। फ़ाइलें 24 घंटे तक रखी जाती हैं और केवल 3 सबसे हाल की फ़ाइलें रखी जाती हैं। वे अलग स्थानीय PCAP आर्टिफ़ैक्ट हैं और रिडैक्ट किए गए डायग्नोस्टिक्स संग्रहों में एम्बेड नहीं किए जाते।</string>
+    <string name="diagnostics_pcap_card_body_idle">कच्चे IP पैकेट स्थानीय PCAP फ़ाइल में रिकॉर्ड करें। सफ़ाई के दौरान अधिकतम तीन फ़ाइलें रखी जाती हैं और 24 घंटे से पुरानी निष्क्रिय फ़ाइलें हटा दी जाती हैं।</string>
+    <string name="diagnostics_pcap_card_body_recording">कच्चे IP पैकेट स्थानीय PCAP फ़ाइलों में रिकॉर्ड हो रहे हैं। संवेदनशील जानकारी हटाए गए निदान संग्रहों में PCAP फ़ाइलें शामिल नहीं होतीं।</string>
     <string name="diagnostics_pcap_card_start">रिकॉर्डिंग शुरू करें</string>
     <string name="diagnostics_pcap_card_stop">रिकॉर्डिंग रोकें</string>
     <string name="diagnostics_pcap_disclosure_title">कच्चे-पैकेट कैप्चर का प्रकटीकरण</string>
-    <string name="diagnostics_pcap_disclosure_body">रिकॉर्डिंग कच्चे IP पैकेट बाइट एक स्थानीय फ़ाइल में लिखती है और उसमें पैकेट पेलोड शामिल हो सकते हैं। फ़ाइलें 24 घंटे या 3 सबसे हाल की फ़ाइलों की सीमा तक—जो सीमा पहले लागू हो—रखी जाती हैं; इसके बाद सफ़ाई पुराने कैप्चर हटा देती है। PCAP फ़ाइलें अलग अपरिष्कृत आर्टिफ़ैक्ट हैं; रिडैक्ट किए गए डायग्नोस्टिक्स संग्रह उन्हें एम्बेड नहीं करते।</string>
+    <string name="diagnostics_pcap_disclosure_body">PCAP फ़ाइलों में पैकेट पेलोड हो सकते हैं। सफ़ाई के दौरान अधिकतम तीन फ़ाइलें रखी जाती हैं और 24 घंटे से पुरानी निष्क्रिय फ़ाइलें हटा दी जाती हैं। PCAP फ़ाइलें संवेदनशील जानकारी हटाए गए निदान संग्रहों से अलग रहती हैं।</string>
     <string name="blockcheck_section_title">रणनीति जाँच</string>
     <string name="blockcheck_entry_title">रणनीति जाँच</string>
     <string name="blockcheck_domains_label">परीक्षण डोमेन</string>

@@ -1,15 +1,17 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import com.poyka.ripdpi.pcap.PcapController
 import com.poyka.ripdpi.pcap.PcapReader
 import com.poyka.ripdpi.pcap.PcapReaderRecord
+import com.poyka.ripdpi.pcap.resolvePcapCapture
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toPersistentList
 import java.io.File
-import java.io.FileNotFoundException
 import java.net.InetAddress
 import java.util.Locale
 
 private const val MaxVisiblePackets = 2_000
+private const val MaxVisibleBytes = PcapController.DEFAULT_MAX_FILE_BYTES
 private const val MicrosPerSecond = 1_000_000L
 private const val HexByteMask = 0xff
 private const val HexNibbleMask = 0x0f
@@ -37,33 +39,26 @@ internal data class CapturePackets(
     val hasMore: Boolean,
 )
 
-internal fun captureFile(
-    directory: File,
-    fileName: String,
-): File {
-    if (fileName.isBlank() || fileName != File(fileName).name || !fileName.endsWith(".pcap")) {
-        throw FileNotFoundException("Invalid capture name")
-    }
-    val file = File(directory, fileName).canonicalFile
-    if (file.parentFile != directory.canonicalFile || !file.isFile) {
-        throw FileNotFoundException("Capture unavailable")
-    }
-    return file
-}
-
 internal fun readCapturePackets(
     directory: File,
     fileName: String,
 ): CapturePackets =
-    PcapReader.open(captureFile(directory, fileName)).use { reader ->
+    PcapReader.open(resolvePcapCapture(directory, fileName)).use { reader ->
         val packets = ArrayList<PcapPacket>()
         var firstTimestamp = 0L
-        while (packets.size < MaxVisiblePackets) {
+        var visibleBytes = 0L
+        var hasMore = false
+        while (true) {
             val record = reader.readOne() ?: break
+            if (packets.size == MaxVisiblePackets || visibleBytes + record.bytes.size > MaxVisibleBytes) {
+                hasMore = true
+                break
+            }
             if (packets.isEmpty()) firstTimestamp = record.tsMicros
             packets += record.toPacket(firstTimestamp)
+            visibleBytes += record.bytes.size
         }
-        CapturePackets(packets.toPersistentList(), packets.size == MaxVisiblePackets && reader.readOne() != null)
+        CapturePackets(packets.toPersistentList(), hasMore)
     }
 
 private fun PcapReaderRecord.toPacket(firstTimestamp: Long): PcapPacket {
