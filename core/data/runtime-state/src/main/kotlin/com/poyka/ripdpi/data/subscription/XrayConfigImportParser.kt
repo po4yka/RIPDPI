@@ -303,12 +303,16 @@ object XrayConfigImportParser {
         tag: String?,
         groupId: String,
     ): OutboundMapping {
-        val creds = firstServerCredentials(settings) ?: return OutboundMapping.Skip(XraySkipReason.MALFORMED)
+        val creds = serverCredentials(settings) ?: return OutboundMapping.Skip(XraySkipReason.MALFORMED)
         val tls = stream?.get("tlsSettings") as? JsonObject
         // The native trojan client is TLS-only with certificate verification always on.
         // Xray defaults `security` to none, which is plaintext.
         val security = stream?.string("security")?.lowercase()
         return when {
+            creds.flow != null && creds.flow != JsonPrimitive("") -> {
+                OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "Trojan flow")
+            }
+
             security != "tls" -> {
                 OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "security-${security ?: "none"}")
             }
@@ -338,8 +342,8 @@ object XrayConfigImportParser {
         tag: String?,
         groupId: String,
     ): OutboundMapping {
-        val creds = firstServerCredentials(settings)
-        val method = (settings?.get("servers") as? JsonArray)?.firstObject()?.string("method").orEmpty()
+        val creds = serverCredentials(settings)
+        val method = creds?.method.orEmpty()
         if (creds == null || !isValidShadowsocksCredentials(method, creds.password)) {
             return OutboundMapping.Skip(XraySkipReason.MALFORMED)
         }
@@ -498,6 +502,7 @@ private fun nativeVlessLinkSkip(
 
 /** Base64 encodes input in groups of four characters; the unit used to pad. */
 private const val Base64GroupSize = 4
+private const val MaxServerPort = 65_535
 
 // ---------------------------------------------------------------------
 // File-private helpers (the sister parsers keep their own copies; these are
@@ -505,23 +510,35 @@ private const val Base64GroupSize = 4
 // stays under detekt's per-object function threshold.
 // ---------------------------------------------------------------------
 
-/**
- * The address/port/password common to a `trojan` / `shadowsocks` `servers[0]`
- * entry, or null when any of the three required fields is absent.
- */
+/** The selected Xray password endpoint; flat credentials override legacy servers. */
 private data class ServerCredentials(
     val address: String,
     val port: Int,
     val password: String,
+    val method: String?,
+    val flow: JsonElement?,
 )
 
-private fun firstServerCredentials(settings: JsonObject?): ServerCredentials? {
-    val server = (settings?.get("servers") as? JsonArray)?.firstObject()
-    val address = server?.string("address")
-    val port = server?.int("port")
-    val password = server?.string("password")
+private fun serverCredentials(settings: JsonObject?): ServerCredentials? {
+    val server =
+        if (settings?.containsKey("address") == true) {
+            settings
+        } else {
+            (settings?.get("servers") as? JsonArray)?.singleOrNull() as? JsonObject
+        }
+    val address =
+        (server?.get("address") as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it.isNotBlank() }
+    val port =
+        (
+            server?.get(
+                "port",
+            ) as? JsonPrimitive
+        )?.takeUnless { it.isString }?.intOrNull?.takeIf { it in 1..MaxServerPort }
+    val password =
+        (server?.get("password") as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it.isNotBlank() }
+    val method = (server?.get("method") as? JsonPrimitive)?.takeIf { it.isString }?.content
     return if (address != null && port != null && password != null) {
-        ServerCredentials(address, port, password)
+        ServerCredentials(address, port, password, method, server["flow"])
     } else {
         null
     }
@@ -695,8 +712,6 @@ private fun newId(): String =
     java.util.UUID
         .randomUUID()
         .toString()
-
-private fun JsonArray.firstObject(): JsonObject? = firstOrNull() as? JsonObject
 
 private fun JsonObject.string(key: String): String? =
     (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
