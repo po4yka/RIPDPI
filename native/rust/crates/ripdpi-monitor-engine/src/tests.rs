@@ -661,7 +661,9 @@ fn cancelled_tcp_probe_skips_the_whitelist_candidates() {
         "no whitelist candidate may run after cancel: {}",
         attempts.value
     );
-    assert!(!result.outcome.starts_with("whitelist_sni_"), "untested candidates are not a failure: {}", result.outcome);
+    assert_eq!(result.outcome, "inconclusive", "a canceled run has no network outcome");
+    assert!(result.details.iter().any(|detail| detail.key == "lastError" && detail.value == "scan_cancelled"));
+    assert!(result.details.iter().any(|detail| detail.key == "bytesSent" && detail.value == "0"));
 }
 
 #[test]

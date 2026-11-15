@@ -1,9 +1,10 @@
 use std::net::{IpAddr, TcpStream};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout;
 
 use crate::tls::{ProbeStreamFailureStage, ProbeStreamResult, TlsKeyLogCallback};
-use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, run_with_socket_watchdog};
+use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, run_with_socket_abort_watchdog};
 use crate::types::TcpTarget;
 use crate::util::{FAT_HEADER_REQUESTS, IO_TIMEOUT, fat_threshold_reached};
 
@@ -19,7 +20,7 @@ pub fn run_fat_header_attempt(
     sni: &str,
     host_header: &str,
 ) -> FatHeaderObservation {
-    run_fat_header_attempt_with_key_log(target, transport, sni, host_header, None)
+    run_fat_header_attempt_with_key_log(target, transport, sni, host_header, None, None)
 }
 
 pub fn run_fat_header_attempt_with_key_log(
@@ -28,7 +29,12 @@ pub fn run_fat_header_attempt_with_key_log(
     sni: &str,
     host_header: &str,
     key_log: Option<&TlsKeyLogCallback>,
+    cancel: Option<&AtomicBool>,
 ) -> FatHeaderObservation {
+    if let Some(reason) = stop_reason(cancel) {
+        return stopped(FatHeaderCounters::default(), None, reason);
+    }
+
     let connect_target = match parse_connect_target(target) {
         Ok(target) => target,
         Err(err) => {
@@ -39,22 +45,28 @@ pub fn run_fat_header_attempt_with_key_log(
     };
 
     let tls_sni = if !sni.is_empty() { Some(sni) } else { None };
-    let probe_result = match open_fat_header_probe_stream(&connect_target, target.port, transport, tls_sni, key_log) {
-        Ok(result) => result,
-        Err(err) => {
-            let status = match err.stage {
-                ProbeStreamFailureStage::TcpConnect => FatHeaderStatus::ConnectFailed,
-                ProbeStreamFailureStage::TlsHandshake => FatHeaderStatus::HandshakeFailed,
-                _ => FatHeaderStatus::Inconclusive,
-            };
-            let mut observation = FatHeaderObservation::open_failed(status, err.message);
-            observation.failure_stage = Some(err.stage.as_str());
-            observation.transport_open_ms = err.transport_open_ms;
-            return observation;
-        }
-    };
+    let probe_result =
+        match open_fat_header_probe_stream(&connect_target, target.port, transport, tls_sni, key_log, &|| {
+            stop_reason(cancel)
+        }) {
+            Ok(result) => result,
+            Err(err) => {
+                if let Some(reason) = stop_reason(cancel) {
+                    return stopped(FatHeaderCounters::default(), err.transport_open_ms, reason);
+                }
+                let status = match err.stage {
+                    ProbeStreamFailureStage::TcpConnect => FatHeaderStatus::ConnectFailed,
+                    ProbeStreamFailureStage::TlsHandshake => FatHeaderStatus::HandshakeFailed,
+                    _ => FatHeaderStatus::Inconclusive,
+                };
+                let mut observation = FatHeaderObservation::open_failed(status, err.message);
+                observation.failure_stage = Some(err.stage.as_str());
+                observation.transport_open_ms = err.transport_open_ms;
+                return observation;
+            }
+        };
 
-    run_padded_head_sequence(probe_result, target, host_header)
+    run_padded_head_sequence(probe_result, target, host_header, cancel)
 }
 
 fn parse_connect_target(target: &TcpTarget) -> Result<TargetAddress, String> {
@@ -65,14 +77,18 @@ fn run_padded_head_sequence(
     mut probe_result: ProbeStreamResult,
     target: &TcpTarget,
     host_header: &str,
+    cancel: Option<&AtomicBool>,
 ) -> FatHeaderObservation {
     let transport_open_ms = Some(probe_result.transport_open_ms);
     let stream = &mut probe_result.stream;
     // Socket timeouts bound one read; the watchdog bounds a peer that drips bytes within each.
-    let observation = match probe_socket(stream).try_clone() {
-        Ok(socket) => run_with_socket_watchdog(socket, None, || {
-            padded_head_sequence(stream, target, host_header, transport_open_ms)
-        }),
+    let result = probe_socket(stream).try_clone().and_then(|socket| {
+        run_with_socket_abort_watchdog(socket, &|| cancelled(cancel), || {
+            Ok(padded_head_sequence(stream, target, host_header, transport_open_ms, cancel))
+        })
+    });
+    let observation = match result {
+        Ok(observation) => observation,
         Err(err) => {
             let mut observation = FatHeaderObservation::open_failed(FatHeaderStatus::Inconclusive, err.to_string());
             observation.failure_stage = Some("stream_setup");
@@ -89,6 +105,7 @@ fn padded_head_sequence(
     target: &TcpTarget,
     host_header: &str,
     transport_open_ms: Option<u64>,
+    cancel: Option<&AtomicBool>,
 ) -> FatHeaderObservation {
     let requests = target.fat_header_requests.unwrap_or(FAT_HEADER_REQUESTS).max(1);
     let mut counters = FatHeaderCounters::default();
@@ -97,18 +114,39 @@ fn padded_head_sequence(
     let host_header = host_header.as_str();
 
     for index in 0..requests {
-        if arm_socket_timeouts(stream).is_err() {
-            return deadline_exceeded(counters, transport_open_ms);
+        if let Some(reason) = stop_reason(cancel) {
+            return stopped(counters, transport_open_ms, reason);
         }
-        if let Err(err) = write_padded_head_request(stream, index, host_header, &mut counters.bytes_sent) {
-            if scan_deadline_passed() {
-                return deadline_exceeded(counters, transport_open_ms);
+        if let Err(err) = arm_socket_timeouts(stream) {
+            if let Some(reason) = stop_reason(cancel) {
+                return stopped(counters, transport_open_ms, reason);
             }
             let mut observation = FatHeaderObservation::io_failed(
                 FatHeaderStatus::Inconclusive,
                 err.to_string(),
                 transport_open_ms,
                 None,
+                counters.bytes_sent,
+                counters.responses_seen,
+            );
+            observation.failure_stage = Some("stream_setup");
+            return observation;
+        }
+        if let Err(err) = write_padded_head_request(stream, index, host_header, &mut counters.bytes_sent) {
+            if let Some(reason) = stop_reason(cancel) {
+                return stopped(counters, transport_open_ms, reason);
+            }
+            let status = if err.kind() == std::io::ErrorKind::ConnectionReset {
+                FatHeaderStatus::Reset
+            } else {
+                FatHeaderStatus::Inconclusive
+            };
+            let rst_timing_ms = (status == FatHeaderStatus::Reset).then(|| timing.elapsed_since_success_ms());
+            let mut observation = FatHeaderObservation::io_failed(
+                status,
+                err.to_string(),
+                transport_open_ms,
+                rst_timing_ms,
                 counters.bytes_sent,
                 counters.responses_seen,
             );
@@ -121,6 +159,9 @@ fn padded_head_sequence(
             Ok(head) => {
                 counters.responses_seen += 1;
                 timing.mark_io_success();
+                if let Some(reason) = stop_reason(cancel) {
+                    return stopped(counters, transport_open_ms, reason);
+                }
                 if !head.is_success_class() {
                     return inconclusive_response(counters, head, transport_open_ms);
                 }
@@ -136,8 +177,8 @@ fn padded_head_sequence(
                 }
             }
             Err(err) => {
-                if scan_deadline_passed() {
-                    return deadline_exceeded(counters, transport_open_ms);
+                if let Some(reason) = stop_reason(cancel) {
+                    return stopped(counters, transport_open_ms, reason);
                 }
                 let status = classify_response_io_error(err.kind());
                 let rst_timing_ms = (status == FatHeaderStatus::Reset).then(|| timing.elapsed_since_success_ms());
@@ -174,21 +215,25 @@ fn arm_socket_timeouts(stream: &ConnectionStream) -> std::io::Result<()> {
     socket.set_write_timeout(Some(timeout))
 }
 
-fn scan_deadline_passed() -> bool {
-    bounded_scan_io_timeout(IO_TIMEOUT).is_err()
+fn cancelled(cancel: Option<&AtomicBool>) -> bool {
+    cancel.is_some_and(|flag| flag.load(Ordering::Acquire))
 }
 
-/// The scan deadline ended the sequence, which says nothing about a middlebox cutoff. It is
-/// inconclusive like a deadline during stream setup.
-fn deadline_exceeded(counters: FatHeaderCounters, transport_open_ms: Option<u64>) -> FatHeaderObservation {
-    FatHeaderObservation::io_failed(
-        FatHeaderStatus::ConnectFailed,
-        "scan_deadline_exceeded".to_string(),
+fn stop_reason(cancel: Option<&AtomicBool>) -> Option<&'static str> {
+    if cancelled(cancel) { Some("scan_cancelled") } else { bounded_scan_io_timeout(IO_TIMEOUT).err() }
+}
+
+fn stopped(counters: FatHeaderCounters, transport_open_ms: Option<u64>, reason: &'static str) -> FatHeaderObservation {
+    let mut observation = FatHeaderObservation::io_failed(
+        FatHeaderStatus::Inconclusive,
+        reason.to_string(),
         transport_open_ms,
         None,
         counters.bytes_sent,
         counters.responses_seen,
-    )
+    );
+    observation.failure_stage = Some("administrative_stop");
+    observation
 }
 
 /// A response that ends the sequence without saying anything about a middlebox cutoff: a
@@ -246,7 +291,7 @@ mod tests {
             alt_port: None,
         };
 
-        let obs = padded_head_sequence(&mut ConnectionStream::Plain(socket), &target, host, None);
+        let obs = padded_head_sequence(&mut ConnectionStream::Plain(socket), &target, host, None, None);
         let mut received = Vec::new();
         peer.read_to_end(&mut received).unwrap();
         assert!(received.is_empty());

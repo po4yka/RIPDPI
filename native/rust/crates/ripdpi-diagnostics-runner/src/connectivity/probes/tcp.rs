@@ -26,14 +26,24 @@ pub fn run_tcp_probe_with_cancel(
     key_log: Option<&TlsKeyLogCallback>,
     cancel: &AtomicBool,
 ) -> ProbeResult {
-    let cancelled = || cancel.load(Ordering::Acquire);
+    let stopped = || {
+        cancel.load(Ordering::Acquire)
+            || ripdpi_diagnostics_contracts::util::active_scan_io_deadline()
+                .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+    };
     let base_host_header =
         target.host_header.clone().or_else(|| target.sni.clone()).unwrap_or_else(|| target.provider.clone());
     let mut attempted_candidates = Vec::new();
 
     let initial_candidate = target.sni.clone().unwrap_or_default();
-    let initial =
-        run_fat_header_attempt_with_key_log(target, transport, &initial_candidate, &base_host_header, key_log);
+    let initial = run_fat_header_attempt_with_key_log(
+        target,
+        transport,
+        &initial_candidate,
+        &base_host_header,
+        key_log,
+        Some(cancel),
+    );
     attempted_candidates.push(format!(
         "{}:{}",
         if initial_candidate.is_empty() { "<empty>" } else { initial_candidate.as_str() },
@@ -44,12 +54,17 @@ pub fn run_tcp_probe_with_cancel(
     let mut probe_retry_count: usize = 0;
     let effective_initial = if initial.status == FatHeaderStatus::ConnectFailed
         && initial.failure_stage == Some("tcp_connect")
-        && ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(std::time::Duration::from_secs(1)).is_ok()
-        && !cancelled()
+        && !stopped()
     {
         probe_retry_count = 1;
-        let retry =
-            run_fat_header_attempt_with_key_log(target, transport, &initial_candidate, &base_host_header, key_log);
+        let retry = run_fat_header_attempt_with_key_log(
+            target,
+            transport,
+            &initial_candidate,
+            &base_host_header,
+            key_log,
+            Some(cancel),
+        );
         attempted_candidates.push(format!(
             "{}:retry:{}",
             if initial_candidate.is_empty() { "<empty>" } else { initial_candidate.as_str() },
@@ -67,16 +82,16 @@ pub fn run_tcp_probe_with_cancel(
     let tried_whitelist_candidates = effective_initial.status != FatHeaderStatus::Success
         && target.sni.is_some()
         && !whitelist_sni.is_empty()
-        && !cancelled();
+        && !stopped();
     if tried_whitelist_candidates {
         let mut whitelist_cancelled = false;
         for candidate in whitelist_sni {
-            if cancelled() {
+            if stopped() {
                 whitelist_cancelled = true;
                 break;
             }
             let candidate_result =
-                run_fat_header_attempt_with_key_log(target, transport, candidate, candidate, key_log);
+                run_fat_header_attempt_with_key_log(target, transport, candidate, candidate, key_log, Some(cancel));
             attempted_candidates.push(format!("{}:{}", candidate, fat_status_label(&candidate_result.status)));
             final_observation = candidate_result.clone();
             if candidate_result.status == FatHeaderStatus::Success {
@@ -134,13 +149,14 @@ pub fn run_tcp_probe_with_cancel(
     // When the main port fails and an alternative port is configured, probe the
     // alt port to detect port-specific policing (e.g. middlebox targeting port 443).
     if let Some(alt_port) = target.alt_port
-        && !cancelled()
+        && !stopped()
         && matches!(final_observation.status, FatHeaderStatus::Reset | FatHeaderStatus::Timeout)
     {
         let alt_target = TcpTarget { port: alt_port, alt_port: None, ..target.clone() };
         let alt_host = target.host_header.as_deref().or(target.sni.as_deref()).unwrap_or("localhost");
         let alt_sni = target.sni.as_deref().unwrap_or("");
-        let alt_obs = run_fat_header_attempt_with_key_log(&alt_target, transport, alt_sni, alt_host, key_log);
+        let alt_obs =
+            run_fat_header_attempt_with_key_log(&alt_target, transport, alt_sni, alt_host, key_log, Some(cancel));
         details.push(ProbeDetail { key: "altPort".to_string(), value: alt_port.to_string() });
         details.push(ProbeDetail {
             key: "altPortStatus".to_string(),

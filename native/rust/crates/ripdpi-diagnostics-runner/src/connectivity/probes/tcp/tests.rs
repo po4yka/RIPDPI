@@ -116,3 +116,46 @@ fn http_refusal_does_not_retry_connect() {
     assert!(result.details.iter().any(|detail| detail.key == "probeRetryCount" && detail.value == "0"));
     assert!(result.details.iter().any(|detail| detail.key == "responsesSeen" && detail.value == "1"));
 }
+
+#[test]
+fn cancel_during_second_response_preserves_the_first_response() {
+    use std::io::{Read, Write};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let cancel = AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        let cancel = &cancel;
+        let peer = scope.spawn(move || {
+            let (mut peer, _) = listener.accept().unwrap();
+            peer.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            let first = crate::test_fixtures::read_until_marker(&mut peer, b"\r\n\r\n");
+            assert!(first.starts_with(b"HEAD / HTTP/1.1\r\n"));
+            peer.write_all(b"HTTP/1.1 200 OK\r\n\r\n").unwrap();
+            let second = crate::test_fixtures::read_until_marker(&mut peer, b"\r\n\r\n");
+            assert!(second.starts_with(b"HEAD / HTTP/1.1\r\n"));
+            let cancelled_at = Instant::now();
+            cancel.store(true, Ordering::Release);
+            assert_eq!(peer.read(&mut [0]).unwrap(), 0, "an additional request was sent");
+            (cancelled_at, first.len() + second.len())
+        });
+        let result = super::run_tcp_probe_with_cancel(
+            &tcp_target(port, None),
+            &[],
+            &super::TransportConfig::Direct { route_experiment: None },
+            None,
+            cancel,
+        );
+        let finished_at = Instant::now();
+        let (cancelled_at, bytes_read) = peer.join().unwrap();
+        assert!(finished_at.duration_since(cancelled_at) < Duration::from_millis(900));
+        assert_eq!(result.outcome, "inconclusive");
+        let detail = |key| result.details.iter().find(|detail| detail.key == key).unwrap().value.as_str();
+        assert_eq!(detail("lastError"), "scan_cancelled");
+        assert_eq!(detail("bytesSent"), bytes_read.to_string());
+        assert_eq!(detail("responsesSeen"), "1");
+        assert_eq!(detail("probeRetryCount"), "0");
+    });
+}

@@ -243,7 +243,8 @@ fn slow_drip_response_stops_at_the_scan_deadline() {
 
     let elapsed = started.elapsed();
     assert_eq!(observation.error.as_deref(), Some("scan_deadline_exceeded"), "{observation:?}");
-    assert_eq!(observation.status, FatHeaderStatus::ConnectFailed);
+    assert_eq!(observation.status, FatHeaderStatus::Inconclusive);
+    assert_eq!(observation.failure_stage, Some("administrative_stop"));
     assert!(elapsed < Duration::from_secs(2), "probe ran for {elapsed:?}");
     server.join().expect("fixture thread");
 }
