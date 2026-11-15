@@ -7,6 +7,9 @@ use crate::types::QuicTarget;
 
 fn blackhole_plan(port: u16, following_stage: bool) -> ExecutionPlan {
     let mut plan = bounded_plan("quick_v1", Some(1));
+    let strategy = plan.strategy.as_mut().unwrap();
+    strategy.suite.quic_candidates =
+        build_strategy_probe_suite(&strategy.suite_id, &ProxyUiConfig::default()).unwrap().quic_candidates;
     plan.request.quic_targets = vec![
         QuicTarget {
             host: "127.0.0.1".to_string(),

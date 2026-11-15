@@ -601,11 +601,18 @@ fn strategy_https_observation_includes_tls_error() {
 }
 
 #[test]
-fn strategy_quic_observation_builds_from_probe() {
-    let result = probe("strategy_quic", "example.com", "quic_response", &[]);
-    let strat = observation_for_probe(&result).expect("obs").strategy.expect("strategy");
-    assert_eq!(strat.protocol, StrategyProbeProtocol::Quic);
-    assert_eq!(strat.status, StrategyProbeStatus::Success);
+fn strategy_quic_observation_distinguishes_initial_evidence_from_partial_replies() {
+    for (outcome, expected) in [
+        ("quic_initial_response", StrategyProbeStatus::Success),
+        ("quic_retry", StrategyProbeStatus::Partial),
+        ("quic_version_negotiation", StrategyProbeStatus::Partial),
+        ("quic_response", StrategyProbeStatus::Partial),
+    ] {
+        let result = probe("strategy_quic", "example.com", outcome, &[]);
+        let strat = observation_for_probe(&result).expect("obs").strategy.expect("strategy");
+        assert_eq!(strat.protocol, StrategyProbeProtocol::Quic);
+        assert_eq!(strat.status, expected, "{outcome}");
+    }
 }
 
 #[test]
