@@ -59,6 +59,9 @@ impl Header {
     pub fn into_request_parts(
         self,
     ) -> Result<(Method, Uri, Option<Protocol>, HeaderMap), HeaderError> {
+        if self.pseudo.status.is_some() {
+            return Err(HeaderError::invalid_name(b":status"));
+        }
         let mut uri = Uri::builder();
 
         if let Some(path) = self.pseudo.path {
@@ -111,14 +114,26 @@ impl Header {
         //# carries the HTTP status code; see Section 15 of [HTTP].  This pseudo-
         //# header field MUST be included in all responses; otherwise, the
         //# response is malformed (see Section 4.1.2).
-        Ok((
-            self.pseudo.status.ok_or(HeaderError::MissingStatus)?,
-            self.fields,
-        ))
+        let status = self.pseudo.status.ok_or(HeaderError::MissingStatus)?;
+        if self.pseudo.len != 1 || self.fields.contains_key(header::TE) {
+            return Err(HeaderError::InvalidHeaderName(
+                "invalid response fields".into(),
+            ));
+        }
+        Ok((status, self.fields))
     }
 
     pub fn into_fields(self) -> HeaderMap {
         self.fields
+    }
+
+    pub(crate) fn into_trailer_fields(self) -> Result<HeaderMap, HeaderError> {
+        if self.pseudo.len != 0 || self.fields.contains_key(header::TE) {
+            return Err(HeaderError::InvalidHeaderName(
+                "invalid trailer fields".into(),
+            ));
+        }
+        Ok(self.into_fields())
     }
 
     pub fn len(&self) -> usize {
@@ -209,32 +224,48 @@ impl TryFrom<Vec<HeaderField>> for Header {
 
         for field in headers.into_iter() {
             let (name, value) = field.into_inner();
-            match Field::parse(name, value)? {
+            let parsed = Field::parse(&name, &value)?;
+            if !matches!(parsed, Field::Header(_)) && !fields.is_empty() {
+                return Err(HeaderError::invalid_name(name));
+            }
+            match parsed {
                 Field::Method(m) => {
-                    pseudo.method = Some(m);
+                    if pseudo.method.replace(m).is_some() {
+                        return Err(HeaderError::invalid_name(name));
+                    }
                     pseudo.len += 1;
                 }
                 Field::Scheme(s) => {
-                    pseudo.scheme = Some(s);
+                    if pseudo.scheme.replace(s).is_some() {
+                        return Err(HeaderError::invalid_name(name));
+                    }
                     pseudo.len += 1;
                 }
                 Field::Authority(a) => {
-                    pseudo.authority = Some(a);
+                    if pseudo.authority.replace(a).is_some() {
+                        return Err(HeaderError::invalid_name(name));
+                    }
                     pseudo.len += 1;
                 }
                 Field::Path(p) => {
-                    pseudo.path = Some(p);
+                    if pseudo.path.replace(p).is_some() {
+                        return Err(HeaderError::invalid_name(name));
+                    }
                     pseudo.len += 1;
                 }
                 Field::Status(s) => {
-                    pseudo.status = Some(s);
+                    if pseudo.status.replace(s).is_some() {
+                        return Err(HeaderError::invalid_name(name));
+                    }
                     pseudo.len += 1;
                 }
                 Field::Header((n, v)) => {
                     fields.append(n, v);
                 }
                 Field::Protocol(p) => {
-                    pseudo.protocol = Some(p);
+                    if pseudo.protocol.replace(p).is_some() {
+                        return Err(HeaderError::invalid_name(name));
+                    }
                     pseudo.len += 1;
                 }
             }
@@ -281,6 +312,19 @@ impl Field {
         //# treated as malformed.
 
         if name[0] != b':' {
+            if matches!(
+                name,
+                b"connection"
+                    | b"keep-alive"
+                    | b"proxy-connection"
+                    | b"transfer-encoding"
+                    | b"upgrade"
+            ) {
+                return Err(HeaderError::invalid_name(name));
+            }
+            if name == b"te" && !value.as_ref().eq_ignore_ascii_case(b"trailers") {
+                return Err(HeaderError::invalid_value(name, value));
+            }
             return Ok(Field::Header((
                 HeaderName::from_lowercase(name).map_err(|_| HeaderError::invalid_name(name))?,
                 HeaderValue::from_bytes(value.as_ref())

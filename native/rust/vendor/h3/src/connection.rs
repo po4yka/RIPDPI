@@ -1014,14 +1014,14 @@ where
 
         Poll::Ready(Ok(Some(
             Header::try_from(fields)
+                .and_then(Header::into_trailer_fields)
                 .map_err(|_e| {
                     self.stop_sending(Code::H3_MESSAGE_ERROR);
                     StreamError::StreamError {
                         code: Code::H3_MESSAGE_ERROR,
                         reason: "malformed request".to_string(),
                     }
-                })?
-                .into_fields(),
+                })?,
         )))
     }
 

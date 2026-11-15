@@ -9,6 +9,9 @@ enum Reply {
     EarlyHints(usize),
     HeaderStall,
     BodyStall,
+    ForbiddenField(&'static str),
+    ForbiddenTrailer(&'static str),
+    Raw(&'static [u8]),
 }
 struct Server {
     address: SocketAddr,
@@ -68,9 +71,8 @@ impl Server {
     }
 }
 /// # Cancel safety:
-/// conditionally cancel-safe: accept, handshake, H3 accept/resolve, read/write,
-/// finish and closed awaits discard local partial frames on cancellation. The
-/// test owner closes the endpoint and drops the dedicated runtime.
+/// cancel-safe: stream and connection waits own local handles. The fixture owner
+/// closes the endpoint and drops its dedicated runtime on cancellation.
 async fn serve(endpoint: &quinn::Endpoint, reply: Reply) {
     let Some(incoming) = endpoint.accept().await else {
         return;
@@ -78,6 +80,10 @@ async fn serve(endpoint: &quinn::Endpoint, reply: Reply) {
     let Ok(connection) = incoming.await else {
         return;
     };
+    if let Reply::Raw(bytes) = reply {
+        serve_raw(&connection, bytes).await;
+        return;
+    }
     let mut server = h3::server::Connection::new(h3_quinn::Connection::new(connection.clone())).await.unwrap();
     let Some(resolver) = server.accept().await.unwrap() else {
         return;
@@ -102,6 +108,9 @@ async fn serve(endpoint: &quinn::Endpoint, reply: Reply) {
         _ => 200,
     };
     let mut response = http::Response::builder().status(status);
+    if let Reply::ForbiddenField(name) = reply {
+        response = response.header(name, if name == "te" { "trailers" } else { "close" });
+    }
     if matches!(reply, Reply::LengthMismatch) {
         response = response.header(http::header::CONTENT_LENGTH, "100");
     }
@@ -111,12 +120,24 @@ async fn serve(endpoint: &quinn::Endpoint, reply: Reply) {
         _ => 5,
     };
     if size > 0 {
-        stream.send_data(Bytes::from(vec![b'x'; size])).await.unwrap();
+        let sent = stream.send_data(Bytes::from(vec![b'x'; size])).await;
+        if matches!(reply, Reply::ForbiddenField(_)) && sent.is_err() {
+            return;
+        }
+        sent.unwrap();
     }
     if matches!(reply, Reply::BodyStall) {
         std::future::pending::<()>().await;
     }
-    stream.finish().await.unwrap();
+    if let Reply::ForbiddenTrailer(name) = reply {
+        let mut trailers = http::HeaderMap::new();
+        trailers.insert(name, http::HeaderValue::from_static(if name == "te" { "trailers" } else { "close" }));
+        let _ = stream.send_trailers(trailers).await;
+    }
+    let finished = stream.finish().await;
+    if !matches!(reply, Reply::ForbiddenField(_) | Reply::ForbiddenTrailer(_)) {
+        finished.unwrap();
+    }
     connection.closed().await;
 }
 fn run(server: &Server, config: &Http3ProbeConfig) -> Http3Evidence {
@@ -353,3 +374,19 @@ fn only_the_last_attempt_gets_the_whole_deadline() {
     let short = Instant::now() + Duration::from_secs(1);
     assert_eq!(handshake_deadline(short, 3), short);
 }
+
+/// # Cancel safety:
+/// cancel-safe: all stream handles are local and the test owner drops the runtime.
+async fn serve_raw(connection: &quinn::Connection, response: &[u8]) {
+    let mut control = connection.open_uni().await.unwrap();
+    // Control stream type, followed by an empty SETTINGS frame (RFC 9114).
+    control.write_all(&[0, 4, 0]).await.unwrap();
+    let (mut send, mut recv) = connection.accept_bi().await.unwrap();
+    recv.read_to_end(4096).await.unwrap();
+    let _ = send.write_all(response).await;
+    let _ = send.finish();
+    connection.closed().await;
+}
+
+#[path = "validation_tests.rs"]
+mod validation;

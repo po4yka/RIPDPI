@@ -95,6 +95,10 @@ where
     /// This should be called before trying to receive any data with [`recv_data()`].
     ///
     /// [`recv_data()`]: #method.recv_data
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: pending frame input stays in the stream. Once a frame arrives,
+    /// decoding and validation finish without another await.
     #[cfg_attr(feature = "tracing", instrument(skip_all, level = "trace"))]
     pub async fn recv_response(&mut self) -> Result<Response<()>, StreamError> {
         let mut frame = future::poll_fn(|cx| self.inner.stream.poll_next(cx))
@@ -162,7 +166,7 @@ where
 
         let (status, headers) = Header::try_from(fields)
             .map_err(|_e| {
-                self.inner.stream.stop_sending(Code::H3_REQUEST_CANCELLED);
+                self.inner.stream.stop_sending(Code::H3_MESSAGE_ERROR);
                 StreamError::StreamError {
                     code: Code::H3_MESSAGE_ERROR,
                     reason: "Received malformed header".to_string(),
@@ -170,7 +174,7 @@ where
             })?
             .into_response_parts()
             .map_err(|_e| {
-                self.inner.stream.stop_sending(Code::H3_REQUEST_CANCELLED);
+                self.inner.stream.stop_sending(Code::H3_MESSAGE_ERROR);
                 StreamError::StreamError {
                     code: Code::H3_MESSAGE_ERROR,
                     reason: "Received malformed header".to_string(),
@@ -200,6 +204,10 @@ where
     }
 
     /// Receive an optional set of trailers for the response.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: pending frame input and trailers stay in the stream.
+    /// Validation finishes in the same poll that returns the trailers.
     #[cfg_attr(feature = "tracing", instrument(skip_all, level = "trace"))]
     pub async fn recv_trailers(&mut self) -> Result<Option<HeaderMap>, StreamError> {
         future::poll_fn(|cx| self.poll_recv_trailers(cx)).await

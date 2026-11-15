@@ -6,3 +6,5 @@ Published crate SHA-256: `10872b55cfb02a821b69dc7cf8dc6a71d6af25eb9a79662bec4a9d
 Source: https://github.com/hyperium/h3/tree/22c1aa3f44d1463cd7644c8f654fffc9a6da305c/h3
 
 This copy preserves the published package and LICENSE. Local patches expose received peer settings and reject invalid boolean settings before storing them. They support the existing MASQUE client's capability checks. No package version changes.
+
+The receive path also rejects connection-specific fields, duplicate or late pseudo-fields, and pseudo-fields in the wrong message section. Malformed responses use H3_MESSAGE_ERROR. These checks apply to response headers and trailers.
