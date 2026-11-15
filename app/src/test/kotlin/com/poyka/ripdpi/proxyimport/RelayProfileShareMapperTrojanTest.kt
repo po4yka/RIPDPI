@@ -17,6 +17,7 @@ class RelayProfileShareMapperTrojanTest {
                 server = "203.0.113.5",
                 serverName = "cdn.example",
                 serverPort = 443,
+                udpEnabled = true,
             )
         val passwordFixture = "test-value"
         val credentials = RelayCredentialRecord(profileId = record.id, trojanPassword = passwordFixture)

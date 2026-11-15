@@ -2,6 +2,7 @@ package com.poyka.ripdpi.proxyimport
 
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMieru
@@ -14,7 +15,10 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelaySecurityLayerReality
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.nativeVlessProfileRejection
+import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import java.util.UUID
 
@@ -31,12 +35,28 @@ object RelayProfileShareMapper {
     fun toShareable(
         record: RelayProfileRecord,
         credentials: RelayCredentialRecord?,
-    ): ShareableRelayProfile? =
-        record.toProxyProfile(credentials)?.let { profile ->
-            ProxyUriCodec.encodeOrNull(profile)?.let { shareUri ->
-                ShareableRelayProfile(profile = profile, shareUri = shareUri)
-            }
+    ): ShareableRelayProfile? {
+        if (!record.canRepresentConnection(credentials)) return null
+        val profile = record.toProxyProfile(credentials) ?: return null
+        if (nativeVlessProfileRejection(profile) != null) return null
+        val shareUri = ProxyUriCodec.encodeOrNull(profile) ?: return null
+        return ShareableRelayProfile(profile, shareUri).takeIf { ProxyUriCodec.parse(shareUri) != null }
+    }
+
+    private fun RelayProfileRecord.canRepresentConnection(credentials: RelayCredentialRecord?): Boolean {
+        // Local listener settings belong to the receiving device. These settings affect the remote connection.
+        if (outboundBindIp.isNotBlank() || finalmaskType !in setOf("", RelayFinalmaskTypeOff)) return false
+        val uriEnablesUdp =
+            relayProfileSupportsUdpAssociation(kind, true, vlessTransport, vlessFlow, credentials?.shadowsocksMethod)
+        if (uriEnablesUdp && !udpEnabled) return false
+        return when (kind) {
+            RelayKindTrojan -> trojanRootCertificatePem.isBlank()
+            RelayKindNaiveProxy -> naivePath.isBlank() && (serverName.isBlank() || serverName == server)
+            RelayKindVless -> vlessTransport == RelayVlessTransportXhttp
+            RelayKindVlessReality -> vlessTransport in setOf(RelayVlessTransportRealityTcp, RelayVlessTransportXhttp)
+            else -> true
         }
+    }
 
     private fun RelayProfileRecord.toProxyProfile(credentials: RelayCredentialRecord?): ProxyProfile? =
         when (kind) {
@@ -217,6 +237,9 @@ object RelayProfileShareMapper {
                             serverPort = serverPort,
                             username = username,
                             password = password,
+                            protocol = mieruProtocol,
+                            multiplexing = mieruMultiplexing,
+                            mtu = mieruMtu,
                         ).takeIf { server.isNotBlank() && serverPort > 0 }
                 }
             }

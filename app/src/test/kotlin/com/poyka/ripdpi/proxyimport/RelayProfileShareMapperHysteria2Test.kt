@@ -22,6 +22,7 @@ class RelayProfileShareMapperHysteria2Test {
                 server = "203.0.113.9",
                 serverName = "hy.example",
                 serverPort = 443,
+                udpEnabled = true,
                 hysteriaPortHopping = Hysteria2PortHopping("20000-21000", 5000, 15000),
             )
         val credentials =
