@@ -88,9 +88,172 @@ pub(super) fn handle_first_response(
             )?;
             Ok(FirstResponseDecision::Complete { recorded_success: true })
         }
-        FirstResponse::NoData => Ok(FirstResponseDecision::Complete { recorded_success: false }),
+        FirstResponse::Neutral(bytes) => {
+            session_state.neutral_first_response();
+            session_state.observe_retry_response_payload(&bytes);
+            client.write_all(&bytes)?;
+            context.state.note_application_traffic(0, bytes.len() as u64);
+            Ok(FirstResponseDecision::Complete { recorded_success: false })
+        }
+        FirstResponse::NoData => {
+            session_state.neutral_first_response();
+            Ok(FirstResponseDecision::Complete { recorded_success: false })
+        }
         FirstResponse::Failure { failure, response_bytes } => {
             Ok(FirstResponseDecision::Retry { failure, response_bytes })
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::config::RuntimeConfig;
+    use crate::runtime::payload::RUNTIME_DEFAULT_FAKE_TLS;
+    use crate::runtime::relay::execution::{RelayResultContext, record_relay_result};
+    use crate::runtime::routing::select_route;
+    use crate::runtime::types::RuntimeTransportProtocol;
+    use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+    use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
+    use std::io::Read;
+    use std::net::{Ipv4Addr, TcpListener};
+
+    #[derive(Default)]
+    struct HandshakeCount(std::sync::Mutex<usize>);
+
+    impl RuntimeTelemetrySink for HandshakeCount {
+        fn on_listener_started(&self, _: SocketAddr, _: usize, _: usize) {}
+        fn on_listener_stopped(&self) {}
+        fn on_client_accepted(&self) {}
+        fn on_client_finished(&self) {}
+        fn on_client_error(&self, _: &io::Error) {}
+        fn on_route_selected(&self, _: SocketAddr, _: usize, _: Option<&str>, _: &'static str) {}
+        fn on_failure_classified(&self, _: SocketAddr, _: &RuntimeClassifiedFailure, _: Option<&str>) {}
+        fn on_route_advanced(&self, _: SocketAddr, _: usize, _: usize, _: u32, _: Option<&str>) {}
+        fn on_host_autolearn_state(&self, _: bool, _: usize, _: usize, _: usize, _: Option<&str>, _: Option<&str>) {}
+        fn on_host_autolearn_event(&self, _: &'static str, _: Option<&str>, _: Option<usize>) {}
+        fn on_tls_handshake_completed(&self, _: SocketAddr, _: u64) {
+            *self.0.lock().expect("handshake count") += 1;
+        }
+    }
+
+    fn pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("owned listener");
+        let client = TcpStream::connect(listener.local_addr().expect("address")).expect("connect");
+        let server = listener.accept().expect("accept").0;
+        for stream in [&client, &server] {
+            stream.set_read_timeout(Some(std::time::Duration::from_secs(2))).expect("bounded fixture read");
+        }
+        (client, server)
+    }
+
+    #[test]
+    fn dpi38_closure_alerts_do_not_reward_or_complete_handshake() {
+        for code in [0, 90] {
+            let telemetry = std::sync::Arc::new(HandshakeCount::default());
+            let state = RuntimeState::test_with_telemetry(RuntimeConfig::default(), Some(telemetry.clone()));
+            let (mut upstream, mut origin) = pair();
+            let (mut client, mut app) = pair();
+            let target = upstream.peer_addr().expect("target");
+            let request = RUNTIME_DEFAULT_FAKE_TLS;
+            let response = [0x15, 3, 3, 0, 2, 1, code];
+            origin.write_all(&response).expect("closure record");
+            let mut session = FirstOutboundSession::new();
+            session.observe_first_outbound_payload(request);
+            let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
+            let result = handle_first_response(
+                &mut client,
+                &mut upstream,
+                &mut session,
+                FirstResponseContext {
+                    state: &state,
+                    target,
+                    route: &route,
+                    host: Some("example.test"),
+                    original_request: request,
+                    success_strategy_family: None,
+                    primary_strategy_family: None,
+                    tls_send_start: Some(Instant::now()),
+                },
+            )
+            .expect("closure is forwarded without a failure");
+            assert_eq!(*telemetry.0.lock().expect("handshake count"), 0, "closure is not a ServerHello");
+            assert!(
+                matches!(result, FirstResponseDecision::Complete { recorded_success: false }),
+                "code {code} is neutral"
+            );
+            let mut bytes = [0; 7];
+            app.read_exact(&mut bytes).expect("forwarded closure");
+            assert_eq!(bytes, response);
+            assert!(!session.into_relay_session().permits_success(), "late relay completion must stay neutral");
+        }
+    }
+
+    #[test]
+    fn dpi38_closure_cannot_train_terminal_route_cache() {
+        for code in [0, 90] {
+            let mut config = RuntimeConfig::default();
+            config.groups.push(DesyncGroup::new(1));
+            config.adaptive.cache_ttl = 60;
+            let state = RuntimeState::test(config);
+            let (mut upstream, mut origin) = pair();
+            let (mut client, mut app) = pair();
+            let target = upstream.peer_addr().expect("target");
+            let request = RUNTIME_DEFAULT_FAKE_TLS;
+            let response = [0x15, 3, 3, 0, 2, 1, code];
+            origin.write_all(&response).expect("closure record");
+            let route = RuntimeConnectionRoute { group_index: 1, attempted_mask: 1, route_advances: 0 };
+            let mut session = FirstOutboundSession::new();
+            session.observe_first_outbound_payload(request);
+            handle_first_response(
+                &mut client,
+                &mut upstream,
+                &mut session,
+                FirstResponseContext {
+                    state: &state,
+                    target,
+                    route: &route,
+                    host: None,
+                    original_request: request,
+                    success_strategy_family: None,
+                    primary_strategy_family: None,
+                    tls_send_start: None,
+                },
+            )
+            .expect("observe actual closure");
+            let mut forwarded = [0; 7];
+            app.read_exact(&mut forwarded).expect("forwarded closure");
+            assert_eq!(forwarded, response);
+            let relay_session = session.into_relay_session();
+            assert!(relay_session.has_inbound_payload(), "neutrality must retain inbound accounting");
+            record_relay_result(
+                &Ok(relay_session),
+                &state,
+                RelayResultContext {
+                    relay_timeouts: state.relay_timeouts(1).expect("timeouts"),
+                    target,
+                    route: &route,
+                    success_recorded: false,
+                    success_host: None,
+                    success_payload: Some(request),
+                    success_strategy_family: None,
+                    primary_strategy_family: None,
+                },
+            )
+            .expect("terminal accounting remains neutral");
+            assert_eq!(
+                select_route(&state, target, None, None, true).expect("initial route").group_index,
+                0,
+                "closure cannot pin a successful destination route"
+            );
+            state
+                .note_route_success(target, &route, None, RuntimeTransportProtocol::Tcp)
+                .expect("oracle positive control");
+            assert_eq!(
+                select_route(&state, target, None, None, true).expect("learned route").group_index,
+                1,
+                "the real policy cache does retain an explicit success"
+            );
         }
     }
 }

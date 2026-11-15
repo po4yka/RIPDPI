@@ -76,6 +76,10 @@ impl FakeTtlFeedbackLedger {
         }
     }
 
+    pub(super) fn discard_response(&mut self) {
+        self.response = FirstResponseFeedback::Completed;
+    }
+
     fn claim_or_complete(&mut self, server_ttl: Option<u8>) -> Option<FakeTtlFeedback> {
         if let Some(attempt) = self.bound_attempt {
             self.response = FirstResponseFeedback::Claimed;

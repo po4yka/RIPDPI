@@ -206,6 +206,10 @@ impl CircularTcpRotationController {
         self.desync_suppressed = false;
     }
 
+    pub fn observe_round_inconclusive(&mut self) {
+        self.observed_round = None;
+    }
+
     pub fn observe_round_failure(
         &mut self,
         host: Option<&str>,

@@ -236,5 +236,6 @@ pub fn ripdpi_failure_classifier::classify_tls_alert(&[u8]) -> core::option::Opt
 pub fn ripdpi_failure_classifier::classify_tls_handshake_failure(impl core::convert::Into<alloc::string::String>) -> ripdpi_failure_classifier::ClassifiedFailure
 pub fn ripdpi_failure_classifier::classify_transport_error(ripdpi_failure_classifier::FailureStage, &std::io::error::Error) -> ripdpi_failure_classifier::ClassifiedFailure
 pub fn ripdpi_failure_classifier::confirm_dns_tampering(&str, core::net::ip_addr::IpAddr, &[core::net::ip_addr::IpAddr], &str) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
+pub fn ripdpi_failure_classifier::is_tls_closure_response(&[u8]) -> bool
 pub fn ripdpi_failure_classifier::load_blockpage_fingerprints() -> alloc::vec::Vec<ripdpi_failure_classifier::BlockpageFingerprint>
 pub fn ripdpi_failure_classifier::match_blockpage_response(&[(alloc::string::String, alloc::string::String)], &[u8], &[ripdpi_failure_classifier::BlockpageFingerprint]) -> core::option::Option<alloc::string::String>

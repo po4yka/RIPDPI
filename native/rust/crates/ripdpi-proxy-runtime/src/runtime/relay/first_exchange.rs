@@ -24,6 +24,7 @@ use readiness::{Readiness, wait_for_readiness};
 
 pub(super) enum FirstResponse {
     Forward(Vec<u8>, Option<u8>),
+    Neutral(Vec<u8>),
     Failure { failure: RuntimeClassifiedFailure, response_bytes: Option<Vec<u8>> },
     NoData,
     Continuation(Box<FirstResponseReader>),
@@ -115,6 +116,8 @@ pub(super) fn read_first_response(
 
                 if let Some(failure) = classify_response_failure(state, target, request, &reader.collected, host) {
                     Ok(FirstResponse::Failure { failure, response_bytes: Some(reader.collected) })
+                } else if ripdpi_proxy_runtime_adapter::failure::is_tls_closure_response(&reader.collected) {
+                    Ok(FirstResponse::Neutral(reader.collected))
                 } else {
                     Ok(FirstResponse::Forward(reader.collected, reader.observed_server_ttl))
                 }

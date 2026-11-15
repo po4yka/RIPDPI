@@ -21,7 +21,7 @@ pub use block_detection::{
 pub use http::classify_http_blockpage;
 pub use quic::classify_quic_probe;
 pub use strategy_execution::classify_strategy_execution_failure;
-pub use tls::{classify_redirect_failure, classify_tls_alert, classify_tls_handshake_failure};
+pub use tls::{classify_redirect_failure, classify_tls_alert, classify_tls_handshake_failure, is_tls_closure_response};
 pub use transport::classify_transport_error;
 pub use types::{
     ArmGate, ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, FailureStage, IpBlockSuspectVerdict,

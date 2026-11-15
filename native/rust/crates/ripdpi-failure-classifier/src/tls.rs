@@ -17,6 +17,11 @@ const TLS_ALERT_LEVEL_WARNING: u8 = 1;
 pub(crate) fn is_closure_alert(code: u8) -> bool {
     matches!(code, CLOSE_NOTIFY_ALERT | USER_CANCELED_ALERT)
 }
+
+/// A complete closure alert gives no evidence of a successful handshake.
+pub fn is_tls_closure_response(response: &[u8]) -> bool {
+    tls_alert_record_len(response).is_some() && is_closure_alert(response[6])
+}
 const TLS_RECORD_HANDSHAKE: u8 = 0x16;
 
 /// Classify a raw TLS alert record as a [`FailureClass::TlsAlert`]

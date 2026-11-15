@@ -59,6 +59,12 @@ pub(super) fn observe_rotation_inbound_chunk(
         }
         return;
     }
+    if ripdpi_proxy_runtime_adapter::failure::is_tls_closure_response(&response_bytes) {
+        if let Ok(mut rotation) = rotation.lock() {
+            rotation.observe_round_inconclusive();
+        }
+        return;
+    }
     let retrans_delta = relay_platform::relay_tcp_total_retransmissions(reader)
         .ok()
         .flatten()
@@ -164,6 +170,73 @@ mod tests {
             None,
         );
         assert!(rotation.lock().expect("rotation lock").observed_round().is_some());
+    }
+
+    #[test]
+    fn dpi38_rotation_closure_preserves_prior_failure_budget() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(1))];
+        let mut controller = CircularTcpRotationController::new(
+            group,
+            RotationPolicy {
+                candidates: vec![RotationCandidate {
+                    tcp_chain: vec![TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(1))],
+                }],
+                fails: 2,
+                rst: u32::MAX,
+                retrans: u32::MAX,
+                ..RotationPolicy::default()
+            },
+        )
+        .expect("rotation policy");
+        controller.observe_round_failure(
+            None,
+            None,
+            RotationFailureReason::ResponseClassified(crate::runtime::failure::RuntimeFailureClass::TlsAlert),
+            0,
+        );
+        let config = RuntimeConfig::default();
+        controller.start_round(
+            first_response_settings(&config),
+            2,
+            0,
+            crate::runtime::payload::RUNTIME_DEFAULT_FAKE_TLS,
+            None,
+            None,
+            None,
+        );
+        let rotation = Arc::new(Mutex::new(controller));
+        let state = RuntimeState::test(config.clone());
+        let (mut reader, mut origin) = connected_pair();
+        use std::io::{Read, Write};
+        let closure = [0x15, 3, 3, 0, 2, 1, 90];
+        origin.write_all(&closure).expect("actual closure record");
+        let mut received = [0; 7];
+        reader.read_exact(&mut received).expect("loopback alert bytes");
+        assert_eq!(received, closure);
+        observe_rotation_inbound_chunk(
+            &state,
+            Some(reader.peer_addr().expect("target")),
+            &Arc::new(Mutex::new(None)),
+            Some(&rotation),
+            &reader,
+            &received,
+        );
+        let mut rotation = rotation.lock().expect("rotation lock");
+        assert!(rotation.observed_round().is_none(), "closure ends an inconclusive observation");
+        rotation.start_round(first_response_settings(&config), 3, 0, b"GET / HTTP/1.1\r\n\r\n", None, None, None);
+        rotation.observe_round_failure(
+            None,
+            None,
+            RotationFailureReason::ResponseClassified(crate::runtime::failure::RuntimeFailureClass::TlsAlert),
+            0,
+        );
+        rotation.start_round(first_response_settings(&config), 4, 0, b"GET / HTTP/1.1\r\n\r\n", None, None, None);
+        assert_eq!(
+            rotation.current_send_group().actions.tcp_chain[0].kind(),
+            TcpChainStepKind::Fake,
+            "two failures still meet the threshold across a neutral closure"
+        );
     }
 
     #[test]

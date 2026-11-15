@@ -79,9 +79,14 @@ impl PendingFirstResponse {
                 }
                 session.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: has_payload })
             }
-            FirstResponse::NoData => {
-                session.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: false })
+            FirstResponse::Neutral(bytes) => {
+                session.finish_first_response(FirstResponseOutcome::Neutral)?;
+                session.observe_retry_response_payload(&bytes)?;
+                client.write_all(&bytes)?;
+                state.note_application_traffic(0, bytes.len() as u64);
+                Ok(())
             }
+            FirstResponse::NoData => session.finish_first_response(FirstResponseOutcome::Neutral),
             FirstResponse::Failure { failure, response_bytes } => {
                 session.finish_first_response(FirstResponseOutcome::Rejected)?;
                 // read_first_response already noted this failure's block signal.
@@ -107,3 +112,6 @@ impl PendingFirstResponse {
 
 #[cfg(all(test, not(any(target_os = "linux", target_os = "android"))))]
 mod tests;
+
+#[cfg(test)]
+mod neutral_tests;

@@ -10,6 +10,22 @@ fn first_outbound_attempt_survives_duplex_handoff() {
 }
 
 #[test]
+fn neutral_response_cannot_reward_a_delayed_send_or_become_accepted() {
+    let shared = FirstOutboundSession::new().into_relay_session().into_shared();
+    shared.observe_inbound_payload(b"received closure");
+    shared.begin_fake_ttl_send().expect("begin overlapping send");
+    shared.finish_first_response(FirstResponseOutcome::Neutral).expect("neutral first response");
+    let attempt = FakeTtlAttempt { ttl: 7, generation: 12, revision: 3 };
+    assert!(shared.finish_fake_ttl_send(Some(attempt)).expect("publish delayed send").is_none());
+    assert!(shared.accept_fake_ttl_response(Some(56)).expect("late response cannot reward").is_none());
+    shared
+        .finish_first_response(FirstResponseOutcome::Accepted { success_recorded: false })
+        .expect("late completion cannot replace neutrality");
+    assert!(!shared.rotation_eligible());
+    assert!(!shared.snapshot().expect("final state").permits_success());
+}
+
+#[test]
 fn server_first_session_keeps_the_first_outbound_attempt() {
     let first = FakeTtlAttempt { ttl: 8, generation: 12, revision: 3 };
     let later = FakeTtlAttempt { ttl: 7, generation: 12, revision: 4 };

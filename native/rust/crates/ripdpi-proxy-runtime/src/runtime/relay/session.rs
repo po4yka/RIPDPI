@@ -27,6 +27,7 @@ pub(super) enum FirstResponseOutcome {
         success_recorded: bool,
     },
     Rejected,
+    Neutral,
 }
 
 impl FirstResponseOutcome {
@@ -85,6 +86,10 @@ impl FirstOutboundSession {
         self.first_response = FirstResponseOutcome::Rejected;
     }
 
+    pub(super) fn neutral_first_response(&mut self) {
+        self.first_response = FirstResponseOutcome::Neutral;
+    }
+
     pub(super) fn observe_first_outbound_payload(&mut self, original_request: &[u8]) -> RuntimeOutboundProgress {
         RuntimeState::observe_session_outbound_payload(&mut self.state, original_request)
     }
@@ -114,7 +119,9 @@ impl RelaySession {
                 self.fake_ttl_attempt,
                 matches!(
                     self.first_response,
-                    FirstResponseOutcome::Accepted { success_recorded: true } | FirstResponseOutcome::Rejected
+                    FirstResponseOutcome::Accepted { success_recorded: true }
+                        | FirstResponseOutcome::Rejected
+                        | FirstResponseOutcome::Neutral
                 ),
             ))),
             first_response: Arc::new(Mutex::new(self.first_response)),
@@ -190,7 +197,18 @@ impl RelaySharedSession {
     }
 
     pub(super) fn finish_first_response(&self, outcome: FirstResponseOutcome) -> io::Result<()> {
-        *self.first_response.lock().map_err(|_| io::Error::other("response mutex poisoned"))? = outcome;
+        {
+            let mut current = self.first_response.lock().map_err(|_| io::Error::other("response mutex poisoned"))?;
+            if !matches!(*current, FirstResponseOutcome::Neutral) {
+                *current = outcome;
+            }
+        }
+        if matches!(outcome, FirstResponseOutcome::Neutral) {
+            self.fake_ttl_feedback
+                .lock()
+                .map_err(|_| io::Error::other("fake TTL feedback mutex poisoned"))?
+                .discard_response();
+        }
         Ok(())
     }
 
