@@ -2,7 +2,6 @@ package com.poyka.ripdpi.diagnostics.dpi
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -25,17 +24,19 @@ class TelegramSpeedTestTest {
         }
 
     @Test
-    fun downloadStallsAfterFiveSecondsReturnsStalled() =
+    fun downloadTimeoutKeepsItsBytesAndLastPayloadTime() =
         runTest {
             val clock = FakeClock()
             val test =
                 telegramTest(
                     clock = clock,
                     download =
-                        flow {
+                        TelegramTransferClient {
+                            it.responseHeaders(200)
+                            it.payloadStarted()
                             clock.now = 5_000
-                            emit(1_000_000)
-                            delay(TelegramSpeedTest.StallTimeoutMs + 1)
+                            it.transferred(1_000_000)
+                            throw SocketTimeoutException()
                         },
                 )
 
@@ -43,16 +44,18 @@ class TelegramSpeedTestTest {
 
             assertEquals(TelegramProbeStatus.STALLED, result.download.status)
             assertEquals(5, result.download.dropAtSec)
+            assertEquals(1_000_000L, result.download.bytesTotal)
+            assertEquals(TelegramTransferFailure.TIMEOUT, result.download.failure)
         }
 
     @Test
-    fun downloadZeroBytesReturnsBlocked() =
+    fun successfulDownloadWithNoBodyHasIncompleteSample() =
         runTest {
-            val test = telegramTest(download = flow { })
+            val test = telegramTest(download = TelegramTransferClient { it.responseHeaders(200) })
 
             val result = test.run()
 
-            assertEquals(TelegramProbeStatus.BLOCKED, result.download.status)
+            assertEquals(TelegramProbeStatus.INCOMPLETE, result.download.status)
         }
 
     @Test
@@ -112,34 +115,38 @@ class TelegramSpeedTestTest {
         }
 
     @Test
-    fun verdictBlockedWhenDcZeroAndDownloadBlocked() =
+    fun verdictPartialWhenUploadCompletesAndOtherPathsFail() =
         runTest {
             val test =
                 telegramTest(
-                    download = flow { },
+                    download = TelegramTransferClient { it.responseHeaders(403) },
                     dcConnector = FakeDcConnector { _, _, _ -> null },
                 )
 
             val result = test.run()
 
-            assertEquals(TelegramTestVerdict.BLOCKED, result.verdict)
+            assertEquals(TelegramTestVerdict.PARTIAL, result.verdict)
         }
 
     @Test
-    fun verdictSlowWhenDownloadStalled() =
+    fun verdictPartialWhenDownloadTimesOut() =
         runTest {
             val test =
                 telegramTest(
                     download =
-                        flow {
-                            emit(1_000_000)
-                            delay(TelegramSpeedTest.StallTimeoutMs + 1)
+                        TelegramTransferClient {
+                            it.responseHeaders(200)
+                            it.payloadStarted()
+                            it.transferred(1_000_000)
+                            delay(TelegramSpeedTest.TotalTimeoutMs + 1)
                         },
                 )
 
             val result = test.run()
 
-            assertEquals(TelegramTestVerdict.SLOW, result.verdict)
+            assertEquals(TelegramTestVerdict.PARTIAL, result.verdict)
+            assertEquals(TelegramProbeStatus.STALLED, result.download.status)
+            assertEquals(200, result.download.httpStatus)
         }
 
     @Test
@@ -192,25 +199,27 @@ class TelegramSpeedTestTest {
 
     private fun telegramTest(
         clock: FakeClock = FakeClock(),
-        download: kotlinx.coroutines.flow.Flow<Int> = transferChunks(TelegramSpeedTest.DownloadBytes),
-        upload: kotlinx.coroutines.flow.Flow<Int> = transferChunks(TelegramSpeedTest.UploadBytes),
+        download: TelegramTransferClient = transferChunks(TelegramSpeedTest.DownloadBytes),
+        upload: TelegramTransferClient = transferChunks(TelegramSpeedTest.UploadBytes),
         dcConnector: TelegramDcSocketConnector = FakeDcConnector { _, _, _ -> 42 },
     ): TelegramSpeedTest =
         TelegramSpeedTest(
-            downloadClient = TelegramTransferClient { download },
-            uploadClient = TelegramTransferClient { upload },
+            downloadClient = download,
+            uploadClient = upload,
             dcPinger = TelegramDcPinger(socketConnector = dcConnector),
             clockMs = clock::current,
         )
 
     private fun transferChunks(totalBytes: Long) =
-        flow {
+        TelegramTransferClient { observer ->
+            observer.payloadStarted()
             var remaining = totalBytes
             while (remaining > 0) {
                 val chunk = minOf(64 * 1024L, remaining).toInt()
-                emit(chunk)
+                observer.transferred(chunk)
                 remaining -= chunk
             }
+            observer.responseHeaders(200)
         }
 
     private class FakeClock {

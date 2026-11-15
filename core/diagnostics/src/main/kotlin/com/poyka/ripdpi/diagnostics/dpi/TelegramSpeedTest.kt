@@ -2,23 +2,16 @@ package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ProbeResult
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody
-import okio.BufferedSink
 import java.io.IOException
-import java.util.concurrent.TimeUnit
+import java.io.InterruptedIOException
+import java.net.ProtocolException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
 
 enum class TelegramTestVerdict {
     OK,
@@ -31,9 +24,18 @@ enum class TelegramTestVerdict {
 enum class TelegramProbeStatus {
     OK,
     STALLED,
-    SLOW,
-    BLOCKED,
+    INCOMPLETE,
     ERROR,
+}
+
+enum class TelegramTransferFailure {
+    HTTP_REJECTED,
+    TIMEOUT,
+    DNS,
+    TLS,
+    PROTOCOL,
+    IO,
+    LOCAL_POLICY,
 }
 
 data class ProbeStats(
@@ -43,6 +45,8 @@ data class ProbeStats(
     val avgBps: Long,
     val peakBps: Long,
     val dropAtSec: Int? = null,
+    val httpStatus: Int? = null,
+    val failure: TelegramTransferFailure? = null,
 )
 
 data class TelegramTestResult(
@@ -57,28 +61,28 @@ data class TelegramTestResult(
             target = target,
             outcome = verdict.name.lowercase(),
             details =
-                listOf(
-                    ProbeDetail("verdict", verdict.name.lowercase()),
-                    ProbeDetail("downloadStatus", download.status.name.lowercase()),
-                    ProbeDetail("downloadBytes", download.bytesTotal.toString()),
-                    ProbeDetail("downloadDurationMs", download.durationMs.toString()),
-                    ProbeDetail("downloadAvgBps", download.avgBps.toString()),
-                    ProbeDetail("downloadPeakBps", download.peakBps.toString()),
-                    ProbeDetail("downloadDropAtSec", download.dropAtSec?.toString() ?: "none"),
-                    ProbeDetail("downloadError", "none"),
-                    ProbeDetail("uploadStatus", upload.status.name.lowercase()),
-                    ProbeDetail("uploadBytes", upload.bytesTotal.toString()),
-                    ProbeDetail("uploadDurationMs", upload.durationMs.toString()),
-                    ProbeDetail("uploadAvgBps", upload.avgBps.toString()),
-                    ProbeDetail("uploadPeakBps", upload.peakBps.toString()),
-                    ProbeDetail("uploadDropAtSec", upload.dropAtSec?.toString() ?: "none"),
-                    ProbeDetail("uploadError", "none"),
-                    ProbeDetail("dcReachable", dcResults.count { dc -> dc.reachable }.toString()),
-                    ProbeDetail("dcTotal", dcResults.size.toString()),
-                    ProbeDetail("dcResults", dcResults.joinToString("|") { dc -> dc.toDetailValue() }),
-                ),
+                listOf(ProbeDetail("verdict", verdict.name.lowercase())) +
+                    download.toDetails("download") +
+                    upload.toDetails("upload") +
+                    listOf(
+                        ProbeDetail("dcReachable", dcResults.count { dc -> dc.reachable }.toString()),
+                        ProbeDetail("dcTotal", dcResults.size.toString()),
+                        ProbeDetail("dcResults", dcResults.joinToString("|") { dc -> dc.toDetailValue() }),
+                    ),
         )
 }
+
+private fun ProbeStats.toDetails(prefix: String): List<ProbeDetail> =
+    listOf(
+        ProbeDetail("${prefix}Status", status.name.lowercase()),
+        ProbeDetail("${prefix}Bytes", bytesTotal.toString()),
+        ProbeDetail("${prefix}DurationMs", durationMs.toString()),
+        ProbeDetail("${prefix}AvgBps", avgBps.toString()),
+        ProbeDetail("${prefix}PeakBps", peakBps.toString()),
+        ProbeDetail("${prefix}DropAtSec", dropAtSec?.toString() ?: "none"),
+        ProbeDetail("${prefix}HttpStatus", httpStatus?.toString() ?: "none"),
+        ProbeDetail("${prefix}Error", failure?.name?.lowercase() ?: "none"),
+    )
 
 enum class TelegramTransferKind {
     DOWNLOAD,
@@ -99,7 +103,15 @@ sealed interface TelegramTestProgress {
 }
 
 fun interface TelegramTransferClient {
-    fun transfer(): Flow<Int>
+    suspend fun transfer(observer: TelegramTransferObserver)
+}
+
+interface TelegramTransferObserver {
+    fun payloadStarted()
+
+    fun transferred(byteCount: Int)
+
+    fun responseHeaders(status: Int)
 }
 
 class TelegramSpeedTest(
@@ -112,160 +124,61 @@ class TelegramSpeedTest(
 
     private suspend fun runInternal(onProgress: ((TelegramTestProgress.Transfer) -> Unit)?): TelegramTestResult =
         coroutineScope {
-            val results =
-                awaitAll(
-                    async {
-                        measureTransfer(
-                            kind = TelegramTransferKind.DOWNLOAD,
-                            expectedBytes = DownloadBytes,
-                            chunks = downloadClient.transfer(),
-                            onProgress = onProgress,
-                        )
-                    },
-                    async {
-                        measureTransfer(
-                            kind = TelegramTransferKind.UPLOAD,
-                            expectedBytes = UploadBytes,
-                            chunks = uploadClient.transfer(),
-                            onProgress = onProgress,
-                        )
-                    },
-                    async { dcPinger.pingAll() },
-                )
-            val download = results[0] as ProbeStats
-            val upload = results[1] as ProbeStats
-
-            @Suppress("UNCHECKED_CAST")
-            val dcResults = results[2] as List<DcReachability>
+            val download =
+                async { measureTransfer(TelegramTransferKind.DOWNLOAD, DownloadBytes, downloadClient, onProgress) }
+            val upload =
+                async { measureTransfer(TelegramTransferKind.UPLOAD, UploadBytes, uploadClient, onProgress) }
+            val peers = async { dcPinger.pingAll() }
+            val downloadStats = download.await()
+            val uploadStats = upload.await()
+            val dcResults = peers.await()
             TelegramTestResult(
-                verdict = classifyVerdict(download, upload, dcResults),
-                download = download,
-                upload = upload,
-                dcResults = dcResults,
+                classifyVerdict(downloadStats, uploadStats, dcResults),
+                downloadStats,
+                uploadStats,
+                dcResults,
             )
         }
 
     fun runWithProgress(): Flow<TelegramTestProgress> =
         channelFlow {
-            val result =
-                runInternal { progress ->
-                    trySend(progress)
-                }
+            val result = runInternal { progress -> trySend(progress) }
             send(TelegramTestProgress.Completed(result))
         }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     private suspend fun measureTransfer(
         kind: TelegramTransferKind,
         expectedBytes: Long,
-        chunks: Flow<Int>,
+        client: TelegramTransferClient,
         onProgress: ((TelegramTestProgress.Transfer) -> Unit)?,
-    ): ProbeStats =
-        coroutineScope {
-            val startMs = clockMs()
-            var lastDataMs = startMs
-            var bytesTotal = 0L
-            var peakChunk = 0L
-            val channel =
-                produce {
-                    chunks.collect { bytes -> send(bytes) }
-                }
-            val completed =
-                withTimeoutOrNull(TotalTimeoutMs) {
-                    while (true) {
-                        val next =
-                            withTimeoutOrNull(StallTimeoutMs) { channel.receiveCatching() }
-                                ?: return@withTimeoutOrNull buildStats(
-                                    status = TelegramProbeStatus.STALLED,
-                                    bytesTotal = bytesTotal,
-                                    startMs = startMs,
-                                    peakBps = peakChunk,
-                                    dropAtSec = ((lastDataMs - startMs) / 1_000).toInt(),
-                                )
-                        val chunk = next.getOrNull() ?: break
-                        if (chunk > 0) {
-                            bytesTotal += chunk
-                            peakChunk = maxOf(peakChunk, chunk.toLong())
-                            lastDataMs = clockMs()
-                            onProgress?.invoke(
-                                TelegramTestProgress.Transfer(
-                                    kind = kind,
-                                    bytesTotal = bytesTotal,
-                                    elapsedMs = maxOf(1, lastDataMs - startMs),
-                                    avgBps = bytesTotal * 1_000 / maxOf(1, lastDataMs - startMs),
-                                ),
-                            )
-                        }
-                    }
-                    buildStats(
-                        status = classifyTransfer(bytesTotal, expectedBytes),
-                        bytesTotal = bytesTotal,
-                        startMs = startMs,
-                        peakBps = peakChunk,
-                    )
-                }
-            channel.cancel()
-            completed ?: buildStats(
-                status = TelegramProbeStatus.STALLED,
-                bytesTotal = bytesTotal,
-                startMs = startMs,
-                peakBps = peakChunk,
-                dropAtSec = ((lastDataMs - startMs) / 1_000).toInt(),
-            )
-        }
-
-    private fun buildStats(
-        status: TelegramProbeStatus,
-        bytesTotal: Long,
-        startMs: Long,
-        peakBps: Long,
-        dropAtSec: Int? = null,
     ): ProbeStats {
-        val durationMs = maxOf(1, clockMs() - startMs)
-        return ProbeStats(
-            status = status,
-            bytesTotal = bytesTotal,
-            durationMs = durationMs,
-            avgBps = bytesTotal * 1_000 / durationMs,
-            peakBps = peakBps,
-            dropAtSec = dropAtSec,
-        )
+        val sample = TelegramTransferSample(kind, clockMs, onProgress)
+        val failure =
+            try {
+                val completed = withTimeoutOrNull(TotalTimeoutMs) { client.transfer(sample) } != null
+                if (completed) sample.responseFailure() else TelegramTransferFailure.TIMEOUT
+            } catch (error: IOException) {
+                error.transferFailure()
+            } catch (_: SecurityException) {
+                TelegramTransferFailure.LOCAL_POLICY
+            }
+        return sample.stats(expectedBytes, failure)
     }
-
-    private fun classifyTransfer(
-        bytesTotal: Long,
-        expectedBytes: Long,
-    ): TelegramProbeStatus =
-        when {
-            bytesTotal == 0L -> TelegramProbeStatus.BLOCKED
-            bytesTotal >= (expectedBytes * CompleteThreshold) -> TelegramProbeStatus.OK
-            else -> TelegramProbeStatus.SLOW
-        }
 
     private fun classifyVerdict(
         download: ProbeStats,
         upload: ProbeStats,
         dcResults: List<DcReachability>,
     ): TelegramTestVerdict {
-        val reachable = dcResults.count { result -> result.reachable }
+        val complete = download.status == TelegramProbeStatus.OK && upload.status == TelegramProbeStatus.OK
+        val reachable = dcResults.count { it.reachable }
         return when {
-            reachable == 0 &&
-                (download.status == TelegramProbeStatus.BLOCKED || upload.status == TelegramProbeStatus.BLOCKED) -> {
-                TelegramTestVerdict.BLOCKED
-            }
-
-            download.status in SlowStatuses || upload.status in SlowStatuses -> {
-                TelegramTestVerdict.SLOW
-            }
-
-            reachable in 1 until dcResults.size -> {
-                TelegramTestVerdict.PARTIAL
-            }
-
-            download.status == TelegramProbeStatus.OK &&
-                upload.status == TelegramProbeStatus.OK &&
-                reachable == dcResults.size -> {
+            complete && reachable > 0 && reachable == dcResults.size -> {
                 TelegramTestVerdict.OK
+            }
+
+            download.httpStatus.isAccepted() || upload.httpStatus.isAccepted() || reachable > 0 -> {
+                TelegramTestVerdict.PARTIAL
             }
 
             else -> {
@@ -279,10 +192,86 @@ class TelegramSpeedTest(
         const val UploadBytes = 10L * 1024L * 1024L
         const val StallTimeoutMs = 10_000L
         const val TotalTimeoutMs = 60_000L
-        private const val CompleteThreshold = 0.98
-        private val SlowStatuses = setOf(TelegramProbeStatus.STALLED, TelegramProbeStatus.SLOW)
     }
 }
+
+private class TelegramTransferSample(
+    private val kind: TelegramTransferKind,
+    private val clockMs: () -> Long,
+    private val onProgress: ((TelegramTestProgress.Transfer) -> Unit)?,
+) : TelegramTransferObserver {
+    private val startMs = clockMs()
+    private var payloadStartMs = startMs
+    private var lastDataMs: Long? = null
+    private var bytesTotal = 0L
+    private var peakChunk = 0L
+
+    var httpStatus: Int? = null
+        private set
+
+    override fun payloadStarted() {
+        payloadStartMs = clockMs()
+    }
+
+    override fun transferred(byteCount: Int) {
+        bytesTotal += byteCount
+        peakChunk = maxOf(peakChunk, byteCount.toLong())
+        val now = clockMs()
+        lastDataMs = now
+        val elapsedMs = (now - payloadStartMs).coerceAtLeast(1)
+        onProgress?.invoke(TelegramTestProgress.Transfer(kind, bytesTotal, elapsedMs, bytesTotal * 1_000 / elapsedMs))
+    }
+
+    override fun responseHeaders(status: Int) {
+        httpStatus = status
+    }
+
+    fun responseFailure(): TelegramTransferFailure? =
+        when {
+            httpStatus == null -> TelegramTransferFailure.PROTOCOL
+            !httpStatus.isAccepted() -> TelegramTransferFailure.HTTP_REJECTED
+            else -> null
+        }
+
+    fun stats(
+        expectedBytes: Long,
+        failure: TelegramTransferFailure?,
+    ): ProbeStats {
+        val durationMs = ((lastDataMs ?: payloadStartMs) - payloadStartMs).coerceAtLeast(0)
+        val status =
+            when {
+                failure == TelegramTransferFailure.TIMEOUT -> TelegramProbeStatus.STALLED
+                failure != null -> TelegramProbeStatus.ERROR
+                bytesTotal < expectedBytes -> TelegramProbeStatus.INCOMPLETE
+                else -> TelegramProbeStatus.OK
+            }
+        return ProbeStats(
+            status = status,
+            bytesTotal = bytesTotal,
+            durationMs = durationMs,
+            avgBps = if (durationMs > 0) bytesTotal * 1_000 / durationMs else 0,
+            peakBps = peakChunk,
+            dropAtSec =
+                lastDataMs?.takeIf { status == TelegramProbeStatus.STALLED }?.let {
+                    ((it - startMs) / 1_000)
+                        .toInt()
+                },
+            httpStatus = httpStatus,
+            failure = failure,
+        )
+    }
+}
+
+private fun Int?.isAccepted(): Boolean = this != null && this in 200..299
+
+private fun IOException.transferFailure(): TelegramTransferFailure =
+    when (this) {
+        is InterruptedIOException -> TelegramTransferFailure.TIMEOUT
+        is UnknownHostException -> TelegramTransferFailure.DNS
+        is SSLException -> TelegramTransferFailure.TLS
+        is ProtocolException -> TelegramTransferFailure.PROTOCOL
+        else -> TelegramTransferFailure.IO
+    }
 
 private fun DcReachability.toDetailValue(): String =
     if (reachable) {
@@ -290,90 +279,3 @@ private fun DcReachability.toDetailValue(): String =
     } else {
         "$label:fail:${failure?.name?.lowercase() ?: "unknown"}"
     }
-
-class OkHttpTelegramDownloadClient(
-    private val client: OkHttpClient = defaultClient(),
-    private val url: String = "https://telegram.org/img/Telegram200million.png",
-) : TelegramTransferClient {
-    override fun transfer(): Flow<Int> =
-        channelFlow {
-            withContext(Dispatchers.IO) {
-                val request =
-                    Request
-                        .Builder()
-                        .url(url)
-                        .get()
-                        .build()
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) throw IOException("download http ${response.code}")
-                    val buffer = ByteArray(DownloadBufferBytes)
-                    response.body.byteStream().use { input ->
-                        while (true) {
-                            val read = input.read(buffer)
-                            if (read < 0) break
-                            trySend(read)
-                        }
-                    }
-                }
-            }
-        }
-}
-
-class OkHttpTelegramUploadClient(
-    private val client: OkHttpClient = defaultClient(),
-    private val url: String = "https://149.154.167.220:443/upload",
-) : TelegramTransferClient {
-    override fun transfer(): Flow<Int> =
-        channelFlow {
-            withContext(Dispatchers.IO) {
-                val body =
-                    CountingZeroRequestBody(
-                        totalBytes = TelegramSpeedTest.UploadBytes,
-                        chunkBytes = UploadChunkBytes,
-                        onChunk = { bytes -> trySend(bytes) },
-                    )
-                val request =
-                    Request
-                        .Builder()
-                        .url(url)
-                        .post(body)
-                        .build()
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) throw IOException("upload http ${response.code}")
-                }
-            }
-        }
-}
-
-private class CountingZeroRequestBody(
-    private val totalBytes: Long,
-    private val chunkBytes: Int,
-    private val onChunk: (Int) -> Unit,
-) : RequestBody() {
-    override fun contentType() = "application/octet-stream".toMediaType()
-
-    override fun contentLength(): Long = totalBytes
-
-    override fun writeTo(sink: BufferedSink) {
-        val chunk = ByteArray(chunkBytes)
-        var remaining = totalBytes
-        while (remaining > 0) {
-            val toWrite = minOf(chunk.size.toLong(), remaining).toInt()
-            sink.write(chunk, 0, toWrite)
-            onChunk(toWrite)
-            remaining -= toWrite
-        }
-    }
-}
-
-private const val DownloadBufferBytes = 64 * 1_024
-private const val UploadChunkBytes = 16 * 1_024
-
-private fun defaultClient(): OkHttpClient =
-    OkHttpClient
-        .Builder()
-        .connectTimeout(TelegramSpeedTest.TotalTimeoutMs, TimeUnit.MILLISECONDS)
-        .readTimeout(TelegramSpeedTest.StallTimeoutMs, TimeUnit.MILLISECONDS)
-        .writeTimeout(TelegramSpeedTest.StallTimeoutMs, TimeUnit.MILLISECONDS)
-        .callTimeout(TelegramSpeedTest.TotalTimeoutMs, TimeUnit.MILLISECONDS)
-        .build()
