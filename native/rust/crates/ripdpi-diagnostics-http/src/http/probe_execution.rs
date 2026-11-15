@@ -296,7 +296,9 @@ fn request_head(host: &str, port: u16, path: &str, secure: bool, accept: &str) -
     if port != if secure { 443 } else { 80 } {
         authority.push_str(&format!(":{port}"));
     }
-    format!("GET {path} HTTP/1.1\r\nHost: {authority}\r\nAccept: {accept}\r\nConnection: close\r\n\r\n")
+    format!(
+        "GET {path} HTTP/1.1\r\nHost: {authority}\r\nAccept: {accept}\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n"
+    )
 }
 
 #[cfg(test)]
@@ -436,3 +438,7 @@ mod tests {
         assert_eq!(result.unwrap_err().to_string(), "scan_cancelled");
     }
 }
+
+#[cfg(test)]
+#[path = "content_coding_tests.rs"]
+mod content_coding_tests;

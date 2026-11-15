@@ -26,6 +26,17 @@ pub(super) fn read_http_response_io(stream: &mut ConnectionStream, max_bytes: us
                 if matches!(framing, HttpBodyFraming::Length(length) if length > max_bytes as u64) {
                     return Err(invalid_response("response_too_large"));
                 }
+                if !matches!(head.status_code, 204 | 205 | 304)
+                    && head.headers.get("content-encoding").is_some_and(|coding| {
+                        coding
+                            .split(',')
+                            .map(|value| value.trim_matches([' ', '\t']))
+                            .filter(|value| !value.is_empty())
+                            .any(|value| !value.eq_ignore_ascii_case("identity"))
+                    })
+                {
+                    return Err("unsupported_content_encoding".to_string());
+                }
                 response = Some(head);
             }
             HttpResponseEvent::Data(data) => {
