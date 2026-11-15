@@ -2,7 +2,7 @@
 id: RST-1794723522152914
 title: Repair DPI-34 UDP socket and raw packet contracts
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Root
