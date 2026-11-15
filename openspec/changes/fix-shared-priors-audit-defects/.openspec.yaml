@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-15
+goal: SVC-1794755208139697 Fix signed shared-priors audit defects
