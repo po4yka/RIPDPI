@@ -2,7 +2,7 @@
 id: DGN-1794755305945452
 title: Correct DIA-20 local detection evidence
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: medium
 owner: Diagnostics integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: correct-dia20-local-detection
 created: 2026-11-15
 updated: 2026-11-15
+status_detail: DIA-20 owning tests, Android lint, Detekt, source gates and independent review passed. See verification for unchanged ping fixture failures and pending main CI.
 ---
 
 ## Goal
