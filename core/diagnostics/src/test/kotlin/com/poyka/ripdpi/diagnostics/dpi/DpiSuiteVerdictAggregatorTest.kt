@@ -55,13 +55,13 @@ class DpiSuiteVerdictAggregatorTest {
     }
 
     @Test
-    fun throttlingWhenTelegramStalled() {
+    fun incompleteTelegramTransferDoesNotEstablishThrottling() {
         val aggregate =
             DpiSuiteVerdictAggregator.aggregate(
-                results = listOf(telegram(verdict = TelegramTestVerdict.SLOW)),
+                results = listOf(telegram(verdict = TelegramTestVerdict.PARTIAL)),
             )
 
-        assertEquals(SuiteVerdict.THROTTLING, aggregate.verdict)
+        assertEquals(SuiteVerdict.INCONCLUSIVE, aggregate.verdict)
     }
 
     @Test

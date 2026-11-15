@@ -654,12 +654,6 @@ internal fun SuiteVerdict.summary(stringResolver: StringResolver): String =
             )
         }
 
-        SuiteVerdict.THROTTLING -> {
-            stringResolver.getString(
-                R.string.diagnostics_dpi_suite_telegram_transfer_probes_reported_throughput_degradation,
-            )
-        }
-
         SuiteVerdict.MIXED -> {
             stringResolver.getString(
                 R.string.diagnostics_dpi_suite_multiple_interference_categories_were_reported,
@@ -693,7 +687,6 @@ internal fun SuiteVerdict.label(stringResolver: StringResolver): String =
             SuiteVerdict.CLEAN -> R.string.diagnostics_dpi_suite_verdict_clean
             SuiteVerdict.DPI_DETECTED -> R.string.diagnostics_dpi_suite_verdict_dpi_detected
             SuiteVerdict.DNS_INTERFERENCE -> R.string.diagnostics_dpi_suite_verdict_dns_interference
-            SuiteVerdict.THROTTLING -> R.string.diagnostics_family_throttling
             SuiteVerdict.MIXED -> R.string.diagnostics_dpi_suite_verdict_mixed
             SuiteVerdict.INCONCLUSIVE -> R.string.diagnostics_pmtu_inconclusive
         },

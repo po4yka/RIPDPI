@@ -6,7 +6,6 @@ object DpiSuiteVerdictAggregator {
             buildSet {
                 if (results.any(::hasDnsInterference)) add(SuiteVerdict.DNS_INTERFERENCE)
                 if (results.any(::hasDpiDetection)) add(SuiteVerdict.DPI_DETECTED)
-                if (results.any(::hasTelegramThrottling)) add(SuiteVerdict.THROTTLING)
             }
         val verdict =
             when {
@@ -94,10 +93,6 @@ object DpiSuiteVerdictAggregator {
                 false
             }
         }
-
-    private fun hasTelegramThrottling(result: DpiSuiteProbeResult): Boolean =
-        result is DpiSuiteProbeResult.Telegram &&
-            result.result.verdict == TelegramTestVerdict.SLOW
 
     private fun summaryLine(result: DpiSuiteProbeResult): String =
         when (result) {

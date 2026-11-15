@@ -127,7 +127,6 @@ enum class SuiteVerdict {
     CLEAN,
     DPI_DETECTED,
     DNS_INTERFERENCE,
-    THROTTLING,
     MIXED,
     INCONCLUSIVE,
 }
