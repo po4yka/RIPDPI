@@ -458,13 +458,15 @@ fn change_tls_sni_rewrites_every_builtin_fake_profile() {
     ];
     for profile in profiles {
         let input = tls_fake_profile_bytes(profile);
+        let original_sni_len = parse_tls(input).expect("profile SNI").len();
         for host in [&b"a.io"[..], b"www.iana.org", b"a-much-longer-decoy.example.net"] {
             for capacity in [input.len(), input.len() + 64] {
                 let out = change_tls_sni_seeded_like_c(input, host, capacity, 3);
                 let ctx = format!("{profile:?} host={} cap={capacity}", String::from_utf8_lossy(host));
                 if out.rc != 0 {
-                    // Only a longer host with no spare bytes may be refused.
-                    assert!(host.len() > 17 && capacity == input.len(), "{ctx}: rc={}", out.rc);
+                    // Only a host that outgrows the original SNI plus the spare capacity may be refused.
+                    let spare = capacity - input.len();
+                    assert!(host.len() > original_sni_len + spare, "{ctx}: rc={}", out.rc);
                     assert_eq!(out.bytes, input, "{ctx}: failure must keep input");
                     continue;
                 }
@@ -475,12 +477,80 @@ fn change_tls_sni_rewrites_every_builtin_fake_profile() {
                 assert!(out.bytes.len() <= capacity, "{ctx}");
                 // A shorter host frees bytes; a padding extension absorbs them so the length
                 // is kept. Profiles without padding may end up shorter than the capacity.
-                if capacity == input.len() && host.len() < 8 && kinds.contains(&0x0015) {
+                // A cut padding extension is dropped, so cut fakes are exempt.
+                let fits_record = read_u16(input, 3) == Some(input.len() - 5);
+                if fits_record && capacity == input.len() && host.len() < 8 && kinds.contains(&0x0015) {
                     assert_eq!(out.bytes.len(), capacity, "{ctx}");
                 }
             }
         }
     }
+}
+
+/// Extension spans `(type, start, end)` of a well-formed ClientHello record.
+fn strict_ext_spans(bytes: &[u8]) -> Option<Vec<(usize, usize, usize)>> {
+    let u16_at = |at: usize| Some(usize::from(*bytes.get(at)?) << 8 | usize::from(*bytes.get(at + 1)?));
+    if bytes.len() < 9 || u16_at(3)? != bytes.len() - 5 || read_u24(bytes, 6)? + 4 != bytes.len() - 5 {
+        return None;
+    }
+    let mut at = 43 + *bytes.get(43)? as usize + 1;
+    at += 2 + u16_at(at)?;
+    at += 1 + *bytes.get(at)? as usize;
+    let list_len = u16_at(at)?;
+    at += 2;
+    if at + list_len != bytes.len() {
+        return None;
+    }
+    let mut spans = Vec::new();
+    while at < bytes.len() {
+        let end = at + 4 + u16_at(at + 2)?;
+        if end > bytes.len() {
+            return None;
+        }
+        spans.push((u16_at(at)?, at, end));
+        at = end;
+    }
+    Some(spans)
+}
+
+#[test]
+fn change_tls_sni_drops_a_cut_extension_instead_of_shortening_it() {
+    use crate::fake_profiles::{TlsFakeProfile::GoogleChrome, tls_fake_profile_bytes};
+    let base = tls_fake_profile_bytes(GoogleChrome);
+    let original_sni_len = parse_tls(base).expect("profile SNI").len();
+    let host = vec![b'x'; original_sni_len];
+    let spans = strict_ext_spans(base).expect("profile is well-formed");
+    let sni_index = spans.iter().position(|span| span.0 == 0).expect("SNI extension");
+    let padding = spans.iter().position(|span| span.0 == 0x0015 && span.2 - span.1 > 6);
+    let body_index = spans
+        .iter()
+        .rposition(|span| span.0 != 0x0015 && span.2 - span.1 > 6)
+        .filter(|index| *index > sni_index)
+        .expect("extension after SNI");
+    let mut cases = Vec::new();
+    for into_header in 1..=3 {
+        cases.push((body_index, spans[body_index].1 + into_header));
+    }
+    cases.push((body_index, spans[body_index].1 + 6));
+    if let Some(index) = padding.filter(|index| *index > sni_index) {
+        cases.push((index, spans[index].1 + 6));
+    }
+    for (cut_index, cut_at) in cases {
+        // Drop the bytes after the cut, keep every declared length.
+        let cut = &base[..cut_at];
+        let ctx = format!("cut ext {:#06x} at {cut_at}", spans[cut_index].0);
+        let out = change_tls_sni_seeded_like_c(cut, &host, cut.len(), 3);
+        assert_eq!(out.rc, 0, "{ctx}");
+        let out_spans = strict_ext_spans(&out.bytes).unwrap_or_else(|| panic!("{ctx}: output not well-formed"));
+        assert_eq!(out.bytes.len(), spans[cut_index].1, "{ctx}: output ends where the cut extension began");
+        assert!(out_spans.iter().all(|span| span.0 != spans[cut_index].0), "{ctx}: cut extension kept");
+        assert_eq!(parse_tls(&out.bytes), Some(&host[..]), "{ctx}");
+    }
+    let mut no_sni = base[..spans[sni_index].1 + 6].to_vec();
+    let len = no_sni.len();
+    assert_eq!(change_tls_sni_seeded_like_c(&no_sni, &host, len, 3).rc, -1);
+    no_sni.truncate(spans[sni_index].1);
+    assert_eq!(change_tls_sni_seeded_like_c(&no_sni, &host, len, 3).bytes, no_sni);
 }
 
 #[test]

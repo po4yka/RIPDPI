@@ -7,40 +7,61 @@ use super::super::edit::{
 use super::padding::grow_padding;
 
 pub fn change_tls_sni_seeded_like_c(input: &[u8], host: &[u8], capacity: usize, seed: u32) -> PacketMutation {
-    let Some(normalized) = normalize_declared_lengths(input) else {
-        return change_tls_sni_normalized(input, host, capacity, seed);
+    if capacity < input.len() {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    }
+    let normalized = match normalize_declared_lengths(input) {
+        Ok(Some(bytes)) => bytes,
+        Ok(None) => return change_tls_sni_normalized(input, host, capacity, seed),
+        Err(()) => return PacketMutation { rc: -1, bytes: input.to_vec() },
     };
+    // Bytes dropped from the input are not given back as spare room.
+    let capacity = capacity - (input.len() - normalized.len());
     let mutation = change_tls_sni_normalized(&normalized, host, capacity, seed);
     if mutation.rc == 0 { mutation } else { PacketMutation { rc: -1, bytes: input.to_vec() } }
 }
 
 /// Built-in fakes may declare more bytes than they carry: a template cut inside
-/// its padding, or oversized record/handshake lengths. The rewrite sizes its
-/// output from the declared record length, so make the lengths match the bytes
-/// first. Returns `None` when the input already fits its record.
-fn normalize_declared_lengths(input: &[u8]) -> Option<Vec<u8>> {
-    let record_len = read_u16(input, 3)?;
+/// its padding, or oversized record/handshake lengths. The same holds for a real
+/// hello cut short by a partial read. The rewrite sizes its output from the
+/// declared record length, so keep only the complete extensions inside the
+/// declared extension list and set every length from what remains. A cut
+/// extension and any dangling bytes are dropped. `Ok(None)` means the input
+/// already fits its record; `Err` means it cannot be normalized (no complete
+/// SNI extension).
+fn normalize_declared_lengths(input: &[u8]) -> Result<Option<Vec<u8>>, ()> {
+    let Some(record_len) = read_u16(input, 3) else { return Ok(None) };
     if record_len + 5 <= input.len() || input.len() < 9 {
-        return None;
+        return Ok(None);
     }
     let mut fixed = input.to_vec();
     write_u16(&mut fixed, 3, input.len() - 5);
     write_u16(&mut fixed, 7, input.len() - 9);
     fixed[6] = 0;
-    let (ext_len_offset, last_ext) = {
-        let parsed = crate::tls_nom::parse_client_hello_record(&fixed)?;
-        (parsed.ext_len_offset, parsed.extensions.last().map(|ext| (ext.type_offset, ext.declared_len)))
+    let (ext_len_offset, end) = {
+        let parsed = crate::tls_nom::parse_client_hello_record(&fixed).ok_or(())?;
+        let ext_len_offset = parsed.ext_len_offset;
+        let list_end = (ext_len_offset + 2 + read_u16(&fixed, ext_len_offset).ok_or(())?).min(fixed.len());
+        let mut end = ext_len_offset + 2;
+        let mut has_sni = false;
+        for ext in &parsed.extensions {
+            let ext_end = ext.type_offset + 4 + ext.declared_len;
+            if ext_end > list_end {
+                break;
+            }
+            has_sni |= ext.ext_type == 0x0000;
+            end = ext_end;
+        }
+        if !has_sni {
+            return Err(());
+        }
+        (ext_len_offset, end)
     };
-    let total = fixed.len();
-    if read_u16(&fixed, ext_len_offset)? + ext_len_offset + 2 > total {
-        write_u16(&mut fixed, ext_len_offset, total - ext_len_offset - 2);
-    }
-    if let Some((type_offset, declared_len)) = last_ext
-        && type_offset + 4 + declared_len > total
-    {
-        write_u16(&mut fixed, type_offset + 2, total - type_offset - 4);
-    }
-    Some(fixed)
+    fixed.truncate(end);
+    write_u16(&mut fixed, ext_len_offset, end - ext_len_offset - 2);
+    write_u16(&mut fixed, 7, end - 9);
+    write_u16(&mut fixed, 3, end - 5);
+    Ok(Some(fixed))
 }
 
 fn change_tls_sni_normalized(input: &[u8], host: &[u8], capacity: usize, seed: u32) -> PacketMutation {
