@@ -12,10 +12,9 @@ import com.poyka.ripdpi.data.SelectorFailover
  *
  * The refreshed [members] replace the group's previous member set wholesale —
  * the subscription URL is the source of truth, so a member dropped upstream is
- * dropped locally. [failover] is carried through only when the refresh produced a
- * selector/urltest policy; a refresh that produced none leaves the group's
- * existing [ProxyGroup.failover] untouched (a plain base64 refresh must not erase
- * a previously-imported urltest policy).
+ * dropped locally. A declared selector replaces its imported [failover] policy,
+ * including an explicit manual selector. An unstructured node list keeps the
+ * existing policy because it carries no selector policy declaration.
  *
  * No-network, no-I/O: the worker passes the parsed result in and writes the
  * returned group back through [com.poyka.ripdpi.data.ProxyGroupRepository.update].
@@ -56,7 +55,7 @@ object SubscriptionMemberPersistence {
             }
         return group.copy(
             members = remapped,
-            failover = failover ?: group.failover,
+            failover = if (isSelector) failover else failover ?: group.failover,
             isSelector = isSelector || group.isSelector,
             initialMemberId =
                 if (isSelector) {
