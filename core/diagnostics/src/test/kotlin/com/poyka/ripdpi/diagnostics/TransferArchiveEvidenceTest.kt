@@ -63,6 +63,54 @@ class TransferArchiveEvidenceTest {
     }
 
     @Test
+    fun `text export retains missing attempts and rejects unaligned transfer readings`() {
+        val run =
+            TransferMeasurement(
+                1,
+                2,
+                16,
+                elapsedMs = 100,
+                firstBodyByteMs = 24,
+                lastBodyProgressMs = 24,
+                terminationReason = "window_limit",
+                windowComplete = true,
+                samples = listOf(TransferProgressSample(24, 16)),
+            )
+        val evidence =
+            ProbeDetail(
+                "transferEvidence",
+                Json.encodeToString(TransferEvidence.serializer(), TransferEvidence(runs = listOf(run))),
+            )
+        val details =
+            listOf(
+                ProbeDetail("runs", "2"),
+                ProbeDetail("attemptedRuns", "1"),
+                ProbeDetail("acceptedRuns", "1"),
+                ProbeDetail("remainingRunStopReason", "cancelled"),
+                ProbeDetail("bpsReadings", "1000"),
+                ProbeDetail("bodyGoodputBpsReadings", "none"),
+            )
+        val result = ProbeResult("throughput_window", "private.example", "throughput_inconclusive", details)
+        assertTrue(transferEvidenceSummaryLines(listOf(result)).isEmpty())
+        val measured = result.copy(details = details + evidence)
+        assertEquals(
+            "transfer[0].plannedRuns=2 attemptedRuns=1 acceptedRuns=1 remainingRunStopReason=cancelled networkScope=scan_context",
+            transferEvidenceSummaryLines(listOf(measured)).first(),
+        )
+        assertEquals(
+            1,
+            transferEvidenceSummaryLines(
+                listOf(
+                    measured.copy(
+                        details =
+                            measured.details + ProbeDetail("attemptedRuns", "2"),
+                    ),
+                ),
+            ).size,
+        )
+    }
+
+    @Test
     fun `archive discards unvalidated nested transfer evidence`() {
         val details = listOf(ProbeDetail("transferEvidence", """{"version":1,"runs":[],"unexpected":"private-text"}"""))
         val entity =

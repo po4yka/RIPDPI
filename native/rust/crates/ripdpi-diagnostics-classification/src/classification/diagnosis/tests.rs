@@ -384,33 +384,31 @@ fn responses_that_prove_the_server_was_reached_are_not_blocked_diagnoses() {
     }
 }
 
+fn throughput_probe(target: &str, is_control: bool, median_body_goodput_bps: &str, window_bytes: &str) -> ProbeResult {
+    connectivity_probe(
+        "throughput_window",
+        target,
+        "throughput_measured",
+        &[
+            ("isControl", if is_control { "true" } else { "false" }),
+            ("medianBodyGoodputBps", median_body_goodput_bps),
+            ("windowBytes", window_bytes),
+            ("url", "https://localhost/fixture"),
+            ("runs", "2"),
+            ("acceptedRuns", "2"),
+            ("attemptedRuns", "2"),
+            ("addressFamilyReadings", "ipv4|ipv4"),
+        ],
+    )
+}
+
 #[test]
 fn evidence_throughput_comparison_does_not_depend_on_target_label() {
     let diagnoses = classify_connectivity_diagnoses(
         &connectivity_request(),
         &[
-            connectivity_probe(
-                "throughput_window",
-                "Arbitrary transfer target",
-                "throughput_measured",
-                &[
-                    ("isControl", "false"),
-                    ("medianBps", "1000000"),
-                    ("bpsReadings", "900000|1000000"),
-                    ("windowBytes", "8388608"),
-                ],
-            ),
-            connectivity_probe(
-                "throughput_window",
-                "Cloudflare Control",
-                "throughput_measured",
-                &[
-                    ("isControl", "true"),
-                    ("medianBps", "8000000"),
-                    ("bpsReadings", "7800000|8000000"),
-                    ("windowBytes", "8388608"),
-                ],
-            ),
+            throughput_probe("Arbitrary transfer target", false, "1000000", "8388608"),
+            throughput_probe("Cloudflare Control", true, "8000000", "8388608"),
         ],
     );
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "throughput_degradation"));
@@ -462,18 +460,8 @@ fn evidence_unrelated_domain_failure_keeps_measured_throughput_comparison() {
         &connectivity_request(),
         &[
             connectivity_probe("domain_reachability", "unrelated.example", "tls_cert_invalid", &[]),
-            connectivity_probe(
-                "throughput_window",
-                "YouTube Web",
-                "throughput_measured",
-                &[("medianBps", "1000000"), ("windowBytes", "8388608")],
-            ),
-            connectivity_probe(
-                "throughput_window",
-                "Control",
-                "throughput_measured",
-                &[("isControl", "true"), ("medianBps", "8000000"), ("windowBytes", "8388608")],
-            ),
+            throughput_probe("YouTube Web", false, "1000000", "8388608"),
+            throughput_probe("Control", true, "8000000", "8388608"),
         ],
     );
     assert!(diagnoses.iter().any(|d| d.code == "tls_cert_invalid"));
@@ -518,18 +506,8 @@ fn evidence_throughput_requires_comparable_windows() {
     let diagnoses = classify_connectivity_diagnoses(
         &connectivity_request(),
         &[
-            connectivity_probe(
-                "throughput_window",
-                "YouTube Web",
-                "throughput_measured",
-                &[("medianBps", "100000"), ("windowBytes", "65536")],
-            ),
-            connectivity_probe(
-                "throughput_window",
-                "Control",
-                "throughput_measured",
-                &[("medianBps", "8000000"), ("isControl", "true"), ("windowBytes", "8388608")],
-            ),
+            throughput_probe("YouTube Web", false, "100000", "65536"),
+            throughput_probe("Control", true, "8000000", "8388608"),
         ],
     );
     assert!(!diagnoses.iter().any(|d| matches!(d.code.as_str(), "youtube_throttled" | "throughput_degradation")));
@@ -540,25 +518,28 @@ fn evidence_throughput_uses_the_median_of_two_controls() {
     let diagnoses = classify_connectivity_diagnoses(
         &connectivity_request(),
         &[
-            connectivity_probe(
-                "throughput_window",
-                "Transfer",
-                "throughput_measured",
-                &[("medianBps", "3500000"), ("windowBytes", "8388608")],
-            ),
-            connectivity_probe(
-                "throughput_window",
-                "First control",
-                "throughput_measured",
-                &[("medianBps", "8000000"), ("isControl", "true"), ("windowBytes", "8388608")],
-            ),
-            connectivity_probe(
-                "throughput_window",
-                "Second control",
-                "throughput_measured",
-                &[("medianBps", "16000000"), ("isControl", "true"), ("windowBytes", "8388608")],
-            ),
+            throughput_probe("Transfer", false, "3500000", "8388608"),
+            throughput_probe("First control", true, "8000000", "8388608"),
+            throughput_probe("Second control", true, "16000000", "8388608"),
         ],
     );
     assert!(!diagnoses.iter().any(|d| d.code == "throughput_degradation"));
+}
+
+#[test]
+fn evidence_throughput_rejects_partial_or_mismatched_controls() {
+    for (key, value) in [
+        ("acceptedRuns", "1"),
+        ("attemptedRuns", "1"),
+        ("medianBodyGoodputBps", "none"),
+        ("addressFamilyReadings", "ipv6|ipv6"),
+        ("addressFamilyReadings", "ipv4|ipv6|ipv4"),
+        ("url", "http://localhost/fixture"),
+    ] {
+        let mut control = throughput_probe("Control", true, "8000000", "8388608");
+        control.details.iter_mut().find(|detail| detail.key == key).unwrap().value = value.into();
+        let target = throughput_probe("Transfer", false, "100000", "8388608");
+        let diagnoses = classify_connectivity_diagnoses(&connectivity_request(), &[target, control]);
+        assert!(!diagnoses.iter().any(|d| d.code == "throughput_degradation"), "{key}={value}");
+    }
 }

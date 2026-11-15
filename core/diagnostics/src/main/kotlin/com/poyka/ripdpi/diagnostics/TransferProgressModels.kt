@@ -54,6 +54,53 @@ fun parseTransferEvidence(value: String?): TransferEvidence? =
             }
     }
 
+data class TransferWindowReadings(
+    val plannedRuns: Int,
+    val attemptedRuns: Int,
+    val acceptedRuns: Int,
+    val remainingRunStopReason: String?,
+    val fullRequestRatesBps: List<Long?>,
+    val bodyGoodputRatesBps: List<Long?>,
+)
+
+fun parseTransferWindowReadings(
+    details: List<ProbeDetail>,
+    runs: List<TransferMeasurement> = parseTransferEvidence(details)?.runs.orEmpty(),
+): TransferWindowReadings? {
+    fun value(key: String): String? = details.singleOrNull { it.key == key }?.value
+    val planned = value("runs")?.toIntOrNull()?.takeIf { it in 1..TransferMaxRuns } ?: return null
+    val attempted = value("attemptedRuns")?.toIntOrNull()?.takeIf { it in 0..planned } ?: return null
+    if (attempted != runs.size || runs.any { it.runCount != planned }) return null
+    val accepted = value("acceptedRuns")?.toIntOrNull()?.takeIf { it in 0..attempted } ?: return null
+    val stopReason =
+        when (val reason = value("remainingRunStopReason")) {
+            "none" -> null
+            "cancelled", "deadline" -> reason
+            else -> return null
+        }
+    if ((stopReason == null) != (attempted == planned)) return null
+    val requestRates = parseTransferRateReadings(value("bpsReadings"), attempted) ?: return null
+    val bodyRates = parseTransferRateReadings(value("bodyGoodputBpsReadings"), attempted) ?: return null
+    if (requestRates.count { it != null } != accepted ||
+        requestRates.indices.any { requestRates[it] == null && bodyRates[it] != null }
+    ) {
+        return null
+    }
+    return TransferWindowReadings(planned, attempted, accepted, stopReason, requestRates, bodyRates)
+}
+
+private fun parseTransferRateReadings(
+    value: String?,
+    runCount: Int,
+): List<Long?>? {
+    if (value == null || value.length > TransferRateReadingsMaxCharacters) return null
+    val tokens = if (value.isEmpty()) emptyList() else value.split('|')
+    if (tokens.size != runCount) return null
+    return tokens.map { token ->
+        if (token == "none") null else token.toLongOrNull()?.takeIf { it >= 0 } ?: return null
+    }
+}
+
 internal fun TransferProgress.validatedTransferProgress(): TransferProgress? =
     takeIf {
         target.isNotBlank() && target.length <= TransferTargetMaxCharacters &&
@@ -95,6 +142,7 @@ private const val TransferEvidenceMaxCharacters = 65_536
 private const val TransferTargetMaxCharacters = 2_048
 private const val TransferMaxRuns = 10
 private const val TransferMaxSamples = 64
+private const val TransferRateReadingsMaxCharacters = 200
 private val TransferEvidenceJson = RipDpiEncodeDefaultsJson
 private val TransferCompleteReasons = setOf("content_length_complete", "chunked_complete", "eof_complete")
 private val TransferTerminationReasons =

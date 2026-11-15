@@ -1621,6 +1621,9 @@
     <string name="diagnostics_transfer_run">Попытка %1$d из %2$d</string>
     <string name="diagnostics_transfer_bytes_known">Получено %1$d из %2$d байт</string>
     <string name="diagnostics_transfer_bytes_unknown">Получено %1$d байт · ожидаемый размер неизвестен</string>
+    <string name="diagnostics_transfer_window_coverage">Завершено окон: %1$d из %2$d. Попыток: %3$d.</string>
+    <string name="diagnostics_transfer_request_rate">Скорость за весь запрос: %1$d бит/с</string>
+    <string name="diagnostics_transfer_body_rate">Скорость передачи тела ответа: %1$d бит/с</string>
     <string name="diagnostics_transfer_elapsed">Прошло: %1$d мс</string>
     <string name="diagnostics_transfer_first">Первый байт тела: %1$s</string>
     <string name="diagnostics_transfer_last">Последнее поступление данных: %1$s</string>

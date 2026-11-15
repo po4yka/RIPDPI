@@ -47,6 +47,61 @@ fn throughput_window_keeps_plain_http_targets_plain() {
 }
 
 #[test]
+fn throughput_body_goodput_counts_only_bytes_after_first_read() {
+    use std::sync::atomic::AtomicBool;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fixture");
+    let address = listener.local_addr().expect("fixture addr");
+    let (first_seen, first_observed) = mpsc::channel();
+    let peer = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept fixture connection");
+        let mut request = [0u8; 1024];
+        assert!(stream.read(&mut request).expect("request") > 0);
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 8\r\n\r\n1234").expect("first body read");
+        first_observed.recv_timeout(Duration::from_secs(2)).expect("first body observation");
+        stream.write_all(b"5678").expect("last body read");
+    });
+    let target = ThroughputTarget {
+        id: "timed-body".into(),
+        label: "Timed body".into(),
+        url: format!("http://{address}/"),
+        connect_ip: None,
+        connect_ips: Vec::new(),
+        port: None,
+        is_control: true,
+        window_bytes: 8,
+        runs: 1,
+    };
+
+    let mut first_seen = Some(first_seen);
+    let sample = super::measure_throughput_run(
+        &target,
+        &TransportConfig::Direct { route_experiment: None },
+        None,
+        None,
+        &AtomicBool::new(false),
+        1,
+        &mut |progress| {
+            if progress.received_body_byte_count == 4
+                && let Some(first_seen) = first_seen.take()
+            {
+                first_seen.send(()).expect("peer waits for first body sample");
+            }
+        },
+    );
+    peer.join().expect("fixture thread");
+
+    assert!(sample.accepted_window());
+    let measurement = sample.measurement.unwrap();
+    let body_interval_ms = measurement.last_body_progress_ms.unwrap() - measurement.first_body_byte_ms.unwrap();
+    assert!(body_interval_ms > 0);
+    assert_eq!(sample.body_goodput_bps, Some(32_000 / body_interval_ms));
+    assert_eq!(sample.bps, 64_000 / measurement.elapsed_ms);
+}
+
+#[test]
 fn throughput_window_uses_http11_alpn_with_h2_capable_peer() {
     let server = H2PreferringHttp1Server::spawn();
     let target = ThroughputTarget {

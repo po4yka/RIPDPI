@@ -2649,6 +2649,7 @@ app:diagnostics_tool_tcp16_run
 app:diagnostics_tool_tcp16_title
 app:diagnostics_tool_zstd_codec_label
 app:diagnostics_tools_section
+app:diagnostics_transfer_body_rate
 app:diagnostics_transfer_bytes_known
 app:diagnostics_transfer_bytes_unknown
 app:diagnostics_transfer_comparison_unavailable
@@ -2660,6 +2661,7 @@ app:diagnostics_transfer_last
 app:diagnostics_transfer_ms
 app:diagnostics_transfer_observation
 app:diagnostics_transfer_partial
+app:diagnostics_transfer_request_rate
 app:diagnostics_transfer_run
 app:diagnostics_transfer_running
 app:diagnostics_transfer_sample
@@ -2682,6 +2684,7 @@ app:diagnostics_transfer_timeline_explanation
 app:diagnostics_transfer_title
 app:diagnostics_transfer_unobserved
 app:diagnostics_transfer_window_complete
+app:diagnostics_transfer_window_coverage
 app:diagnostics_trends_section
 app:diagnostics_value_complete
 app:diagnostics_value_enabled

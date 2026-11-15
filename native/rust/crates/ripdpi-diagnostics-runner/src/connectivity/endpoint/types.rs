@@ -6,6 +6,7 @@ pub(crate) struct ThroughputSample {
     pub(crate) status: String,
     pub(crate) bytes_read: usize,
     pub(crate) bps: u64,
+    pub(crate) body_goodput_bps: Option<u64>,
     pub(crate) error: String,
     pub(crate) failure_stage: String,
     pub(crate) failure_class: String,
@@ -20,8 +21,13 @@ pub(crate) struct ThroughputSample {
 }
 
 impl ThroughputSample {
-    pub(crate) fn completed_window(&self) -> bool {
-        self.read_completion == "window_complete"
+    pub(crate) fn accepted_response(&self) -> bool {
+        self.http_status_code.is_some_and(|code| (200..300).contains(&code) && code != 206)
+            && self.status != "http_blockpage"
+    }
+
+    pub(crate) fn accepted_window(&self) -> bool {
+        self.accepted_response() && self.read_completion == "window_complete"
     }
 }
 

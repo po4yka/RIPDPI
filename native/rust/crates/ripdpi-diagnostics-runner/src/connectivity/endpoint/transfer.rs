@@ -15,6 +15,7 @@ pub(super) struct TransferTracker<'a> {
     // Transient classifier prefix. It never enters TransferMeasurement or evidence.
     pub(super) body_prefix: Vec<u8>,
     last_publish_ms: u64,
+    first_body_read_bytes: u64,
     progress: &'a mut dyn FnMut(&TransferMeasurement),
 }
 
@@ -34,7 +35,14 @@ impl<'a> TransferTracker<'a> {
             samples: vec![TransferSample { elapsed_ms: 0, body_byte_count: 0 }],
         };
         progress(&measurement);
-        Self { measurement, started: Instant::now(), last_publish_ms: 0, progress, body_prefix: Vec::new() }
+        Self {
+            measurement,
+            started: Instant::now(),
+            last_publish_ms: 0,
+            first_body_read_bytes: 0,
+            progress,
+            body_prefix: Vec::new(),
+        }
     }
 
     fn elapsed_ms(&self) -> u64 {
@@ -82,11 +90,22 @@ impl<'a> TransferTracker<'a> {
     fn received(&mut self, count: usize) {
         if count > 0 {
             let now = self.elapsed_ms();
+            if self.measurement.first_body_byte_ms.is_none() {
+                self.first_body_read_bytes = count as u64;
+            }
             self.measurement.received_body_byte_count += count as u64;
             self.measurement.first_body_byte_ms.get_or_insert(now);
             self.measurement.last_body_progress_ms = Some(now);
             self.publish(false);
         }
+    }
+
+    pub(super) fn body_goodput_bps(&self) -> Option<u64> {
+        // Count only bytes observed between the first and last body reads.
+        let first = self.measurement.first_body_byte_ms?;
+        let last = self.measurement.last_body_progress_ms?;
+        let bytes = self.measurement.received_body_byte_count - self.first_body_read_bytes;
+        bytes.saturating_mul(8_000).checked_div(last - first)
     }
 
     pub(super) fn finish(&mut self, reason: &str, window: usize) {

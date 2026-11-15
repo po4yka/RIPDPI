@@ -1574,6 +1574,9 @@
     <string name="diagnostics_transfer_run">تلاش %1$d از %2$d</string>
     <string name="diagnostics_transfer_bytes_known">%1$d از %2$d بایت دریافت شد</string>
     <string name="diagnostics_transfer_bytes_unknown">%1$d بایت دریافت شد · اندازه مورد انتظار نامشخص</string>
+    <string name="diagnostics_transfer_window_coverage">بازه‌های کامل‌شده: %1$d از %2$d. تلاش‌ها: %3$d.</string>
+    <string name="diagnostics_transfer_request_rate">نرخ کل درخواست: %1$d بیت/ثانیه</string>
+    <string name="diagnostics_transfer_body_rate">نرخ انتقال بدنه: %1$d بیت/ثانیه</string>
     <string name="diagnostics_transfer_elapsed">زمان سپری‌شده: %1$d میلی‌ثانیه</string>
     <string name="diagnostics_transfer_first">اولین بایت بدنه: %1$s</string>
     <string name="diagnostics_transfer_last">آخرین دریافت داده: %1$s</string>

@@ -1577,6 +1577,9 @@
     <string name="diagnostics_transfer_run">Essai %1$d sur %2$d</string>
     <string name="diagnostics_transfer_bytes_known">%1$d octets reçus sur %2$d</string>
     <string name="diagnostics_transfer_bytes_unknown">%1$d octets reçus · taille attendue inconnue</string>
+    <string name="diagnostics_transfer_window_coverage">Fenêtres terminées : %1$d sur %2$d. Tentatives : %3$d.</string>
+    <string name="diagnostics_transfer_request_rate">Débit pour la requête complète : %1$d bit/s</string>
+    <string name="diagnostics_transfer_body_rate">Débit de transfert du corps : %1$d bit/s</string>
     <string name="diagnostics_transfer_elapsed">Durée : %1$d ms</string>
     <string name="diagnostics_transfer_first">Premier octet du corps : %1$s</string>
     <string name="diagnostics_transfer_last">Dernières données reçues : %1$s</string>

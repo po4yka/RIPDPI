@@ -1577,6 +1577,9 @@
     <string name="diagnostics_transfer_run">Intento %1$d de %2$d</string>
     <string name="diagnostics_transfer_bytes_known">Recibidos %1$d de %2$d bytes</string>
     <string name="diagnostics_transfer_bytes_unknown">Recibidos %1$d bytes · tamaño esperado desconocido</string>
+    <string name="diagnostics_transfer_window_coverage">Ventanas completadas: %1$d de %2$d. Intentos: %3$d.</string>
+    <string name="diagnostics_transfer_request_rate">Velocidad de la solicitud completa: %1$d bit/s</string>
+    <string name="diagnostics_transfer_body_rate">Velocidad de transferencia del cuerpo: %1$d bit/s</string>
     <string name="diagnostics_transfer_elapsed">Tiempo: %1$d ms</string>
     <string name="diagnostics_transfer_first">Primer byte del cuerpo: %1$s</string>
     <string name="diagnostics_transfer_last">Últimos datos recibidos: %1$s</string>

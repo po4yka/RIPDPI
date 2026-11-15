@@ -1581,6 +1581,9 @@
     <string name="diagnostics_transfer_run">प्रयास %1$d / %2$d</string>
     <string name="diagnostics_transfer_bytes_known">%2$d में से %1$d बाइट प्राप्त</string>
     <string name="diagnostics_transfer_bytes_unknown">%1$d बाइट प्राप्त · अपेक्षित आकार अज्ञात</string>
+    <string name="diagnostics_transfer_window_coverage">पूरी हुई मापन विंडो: %2$d में से %1$d। प्रयास: %3$d।</string>
+    <string name="diagnostics_transfer_request_rate">पूरे अनुरोध की दर: %1$d बिट/सेकंड</string>
+    <string name="diagnostics_transfer_body_rate">बॉडी डेटा की दर: %1$d बिट/सेकंड</string>
     <string name="diagnostics_transfer_elapsed">बीता समय: %1$d मिलीसेकंड</string>
     <string name="diagnostics_transfer_first">बॉडी की पहली बाइट: %1$s</string>
     <string name="diagnostics_transfer_last">अंतिम डेटा प्राप्ति: %1$s</string>

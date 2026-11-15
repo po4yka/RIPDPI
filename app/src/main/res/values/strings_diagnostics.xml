@@ -1601,6 +1601,9 @@
     <string name="diagnostics_transfer_run">Run %1$d of %2$d</string>
     <string name="diagnostics_transfer_bytes_known">Received %1$d of %2$d bytes</string>
     <string name="diagnostics_transfer_bytes_unknown">Received %1$d bytes · expected size unknown</string>
+    <string name="diagnostics_transfer_window_coverage">Completed windows: %1$d of %2$d. Attempts: %3$d.</string>
+    <string name="diagnostics_transfer_request_rate">Full request rate: %1$d bit/s</string>
+    <string name="diagnostics_transfer_body_rate">Body transfer rate: %1$d bit/s</string>
     <string name="diagnostics_transfer_elapsed">Elapsed: %1$d ms</string>
     <string name="diagnostics_transfer_first">First body byte: %1$s</string>
     <string name="diagnostics_transfer_last">Last body progress: %1$s</string>

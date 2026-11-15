@@ -53,12 +53,35 @@ internal fun DiagnosticsTransferCard(
             TransferText(stringResource(R.string.diagnostics_transfer_scope_unverified))
         }
         transfer.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
-        transfer.runs.forEach { run -> TransferRun(run) }
+        transfer.windowReadings?.let { readings ->
+            TransferText(
+                stringResource(
+                    R.string.diagnostics_transfer_window_coverage,
+                    readings.acceptedRuns,
+                    readings.plannedRuns,
+                    readings.attemptedRuns,
+                ),
+            )
+            readings.remainingRunStopReason?.let { reason ->
+                TransferText(stringResource(transferReasonResource(reason)))
+            }
+        }
+        transfer.runs.forEachIndexed { index, run ->
+            TransferRun(
+                run = run,
+                requestRateBps = transfer.windowReadings?.fullRequestRatesBps?.getOrNull(index),
+                bodyGoodputBps = transfer.windowReadings?.bodyGoodputRatesBps?.getOrNull(index),
+            )
+        }
     }
 }
 
 @Composable
-private fun TransferRun(run: DiagnosticsTransferRunUiModel) {
+private fun TransferRun(
+    run: DiagnosticsTransferRunUiModel,
+    requestRateBps: Long?,
+    bodyGoodputBps: Long?,
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
@@ -70,6 +93,8 @@ private fun TransferRun(run: DiagnosticsTransferRunUiModel) {
             } ?: stringResource(R.string.diagnostics_transfer_bytes_unknown, run.receivedBodyByteCount),
         )
         TransferText(stringResource(R.string.diagnostics_transfer_elapsed, run.elapsedMs))
+        requestRateBps?.let { TransferText(stringResource(R.string.diagnostics_transfer_request_rate, it)) }
+        bodyGoodputBps?.let { TransferText(stringResource(R.string.diagnostics_transfer_body_rate, it)) }
         TransferText(stringResource(R.string.diagnostics_transfer_first, transferTime(run.firstBodyByteMs)))
         TransferText(stringResource(R.string.diagnostics_transfer_last, transferTime(run.lastBodyProgressMs)))
         TransferText(stringResource(transferReasonResource(run.terminationReason)))

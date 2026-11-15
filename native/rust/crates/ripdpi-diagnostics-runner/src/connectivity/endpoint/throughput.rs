@@ -60,6 +60,7 @@ pub(in crate::connectivity) fn measure_throughput_run(
     sample.bytes_read = tracker.measurement.received_body_byte_count as usize;
     sample.bps =
         tracker.measurement.received_body_byte_count.saturating_mul(8).saturating_mul(1000) / sample.duration_ms;
+    sample.body_goodput_bps = tracker.body_goodput_bps();
     sample.measurement = Some(tracker.measurement);
     sample
 }
@@ -173,7 +174,7 @@ fn read_response(
     };
     sample.status = classify_http_response(&response);
     sample.http_status_code = Some(response.status_code);
-    if !(200..300).contains(&response.status_code) {
+    if !sample.accepted_response() {
         sample.failure_stage = "response_status".to_string();
         sample.failure_class = "http_status".to_string();
         sample.error = format!("http_status_{}", response.status_code);
@@ -277,6 +278,7 @@ fn failed_stream_sample(error: ProbeStreamError, transport: &TransportConfig) ->
         status: "http_unreachable".to_string(),
         bytes_read: 0,
         bps: 0,
+        body_goodput_bps: None,
         error: error.message,
         failure_stage: error.stage.as_str().to_string(),
         failure_class: error.stage.as_str().to_string(),
@@ -298,6 +300,7 @@ fn failed_sample(started: std::time::Instant, failure_stage: &str, error: String
         status: if failure_stage == "target_parse" { "invalid_target" } else { "http_unreachable" }.to_string(),
         bytes_read: 0,
         bps: 0,
+        body_goodput_bps: None,
         error,
         failure_stage: failure_stage.to_string(),
         failure_class,

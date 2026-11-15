@@ -26,36 +26,44 @@ pub fn run_throughput_probe_with_progress(
     cancel: &AtomicBool,
     progress: &mut dyn FnMut(&TransferMeasurement),
 ) -> ProbeResult {
+    let planned_runs = target.runs.clamp(1, 10);
     let mut samples = Vec::new();
-    for run_index in 1..=target.runs.clamp(1, 10) {
-        if cancel.load(Ordering::Acquire)
-            || ripdpi_diagnostics_contracts::util::active_scan_io_deadline()
-                .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+    let mut stop_reason = "none";
+    for run_index in 1..=planned_runs {
+        if cancel.load(Ordering::Acquire) {
+            stop_reason = "cancelled";
+            break;
+        }
+        if ripdpi_diagnostics_contracts::util::active_scan_io_deadline()
+            .is_some_and(|deadline| std::time::Instant::now() >= deadline)
         {
+            stop_reason = "deadline";
             break;
         }
         samples.push(measure_throughput_run(target, transport, key_log, tls_verifier, cancel, run_index, progress));
     }
-    let mut bps_values = samples
-        .iter()
-        .filter(|sample| sample.completed_window())
-        .map(|sample| sample.bps)
-        .filter(|bps| *bps > 0)
-        .collect::<Vec<_>>();
+    let windows = samples.iter().map(|sample| sample.accepted_window().then_some(sample)).collect::<Vec<_>>();
+    let mut bps_values = windows.iter().flatten().map(|sample| sample.bps).collect::<Vec<_>>();
+    let mut body_rates = windows.iter().flatten().filter_map(|sample| sample.body_goodput_bps).collect::<Vec<_>>();
     bps_values.sort_unstable();
-    let median_bps = median(&bps_values);
-    let outcome =
-        if samples.iter().any(|sample| sample.status == "http_ok" && sample.bps > 0 && sample.completed_window()) {
-            "throughput_measured"
-        } else if !samples.is_empty()
-            && samples
-                .iter()
-                .all(|sample| sample.status == "http_ok" && sample.read_completion == "body_complete_before_window")
-        {
-            "throughput_inconclusive"
-        } else {
-            "throughput_failed"
-        };
+    body_rates.sort_unstable();
+    let accepted_runs = bps_values.len();
+    let interrupted_or_short = samples.iter().any(|sample| {
+        (sample.accepted_response() && sample.read_completion == "body_complete_before_window")
+            || sample
+                .measurement
+                .as_ref()
+                .and_then(|run| run.termination_reason.as_deref())
+                .is_some_and(|reason| matches!(reason, "deadline" | "cancelled"))
+    });
+    let outcome = if accepted_runs == planned_runs {
+        "throughput_measured"
+    } else if accepted_runs > 0 || samples.len() < planned_runs || interrupted_or_short {
+        "throughput_inconclusive"
+    } else {
+        "throughput_failed"
+    };
+    let body_median = if body_rates.len() == planned_runs { median(&body_rates).to_string() } else { "none".into() };
     let mut result = ProbeResult {
         probe_type: "throughput_window".to_string(),
         target: target.label.clone(),
@@ -65,11 +73,26 @@ pub fn run_throughput_probe_with_progress(
             ProbeDetail { key: "url".to_string(), value: target.url.clone() },
             ProbeDetail { key: "isControl".to_string(), value: target.is_control.to_string() },
             ProbeDetail { key: "windowBytes".to_string(), value: target.window_bytes.to_string() },
-            ProbeDetail { key: "runs".to_string(), value: target.runs.to_string() },
+            ProbeDetail { key: "runs".to_string(), value: planned_runs.to_string() },
             ProbeDetail {
                 key: "bpsReadings".to_string(),
-                value: samples.iter().map(|sample| sample.bps.to_string()).collect::<Vec<_>>().join("|"),
+                value: windows
+                    .iter()
+                    .map(|sample| reading(sample.map(|sample| sample.bps)))
+                    .collect::<Vec<_>>()
+                    .join("|"),
             },
+            ProbeDetail {
+                key: "bodyGoodputBpsReadings".into(),
+                value: windows
+                    .iter()
+                    .map(|sample| reading(sample.and_then(|sample| sample.body_goodput_bps)))
+                    .collect::<Vec<_>>()
+                    .join("|"),
+            },
+            ProbeDetail { key: "attemptedRuns".into(), value: samples.len().to_string() },
+            ProbeDetail { key: "acceptedRuns".into(), value: accepted_runs.to_string() },
+            ProbeDetail { key: "remainingRunStopReason".into(), value: stop_reason.into() },
             ProbeDetail {
                 key: "statusReadings".to_string(),
                 value: samples.iter().map(|sample| sample.status.clone()).collect::<Vec<_>>().join("|"),
@@ -142,7 +165,8 @@ pub fn run_throughput_probe_with_progress(
                 key: "retryAttemptReadings".to_string(),
                 value: samples.iter().map(|sample| sample.retry_attempt.to_string()).collect::<Vec<_>>().join("|"),
             },
-            ProbeDetail { key: "medianBps".to_string(), value: median_bps.to_string() },
+            ProbeDetail { key: "medianBps".into(), value: median(&bps_values).to_string() },
+            ProbeDetail { key: "medianBodyGoodputBps".into(), value: body_median },
         ],
     };
     let evidence =
@@ -151,6 +175,10 @@ pub fn run_throughput_probe_with_progress(
         result.details.push(ProbeDetail { key: "transferEvidence".to_string(), value });
     }
     result
+}
+
+fn reading(value: Option<u64>) -> String {
+    value.map_or_else(|| "none".to_string(), |bps| bps.to_string())
 }
 
 /// Median of sorted readings; the mean of the two middle values for an even
@@ -221,24 +249,88 @@ mod tests {
             ("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok", "throughput_inconclusive"),
             ("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nok", "throughput_failed"),
             ("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nfull", "throughput_measured"),
+            ("HTTP/1.1 203 Non-Authoritative Information\r\nContent-Length: 4\r\n\r\nfull", "throughput_measured"),
+            ("HTTP/1.1 204 No Content\r\n\r\n", "throughput_inconclusive"),
+            (
+                "HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 0-3/8\r\nContent-Length: 4\r\n\r\nfull",
+                "throughput_failed",
+            ),
         ] {
             let server = HttpTextServer::start(move |_| response.as_bytes().to_vec());
-            let target = ThroughputTarget {
-                id: "body-completion".into(),
-                label: "Body completion".into(),
-                url: format!("http://127.0.0.1:{}/", server.port()),
-                connect_ip: None,
-                connect_ips: vec![],
-                port: None,
-                is_control: false,
-                window_bytes: 4,
-                runs: 1,
-            };
+            let target = local_target(server.port(), 4, 1);
             let result = run_throughput_probe(&target, &TransportConfig::Direct { route_experiment: None }, None);
             assert_eq!(result.outcome, expected);
             if expected != "throughput_measured" {
                 assert_eq!(detail_value(&result, "medianBps"), "0");
             }
+        }
+    }
+    #[test]
+    fn blockpage_window_does_not_enter_full_request_or_body_goodput_aggregate() {
+        use crate::test_fixtures::HttpTextServer;
+        use std::sync::atomic::AtomicUsize;
+
+        let attempts = AtomicUsize::new(0);
+        let server = HttpTextServer::start(move |_| {
+            let body = if attempts.fetch_add(1, Ordering::Relaxed) == 0 {
+                "This is a normal payload"
+            } else {
+                "blocked by your provider"
+            };
+            format!("HTTP/1.1 203 Non-Authoritative Information\r\nContent-Length: 24\r\n\r\n{body}").into_bytes()
+        });
+        let target = local_target(server.port(), 24, 2);
+        let result = run_throughput_probe(&target, &TransportConfig::Direct { route_experiment: None }, None);
+        let (eligible_reading, rejected_reading) = detail_value(&result, "bpsReadings").split_once('|').unwrap();
+
+        assert_eq!(result.outcome, "throughput_inconclusive");
+        assert_eq!(detail_value(&result, "attemptedRuns"), "2");
+        assert_eq!(detail_value(&result, "acceptedRuns"), "1");
+        assert_eq!(detail_value(&result, "statusReadings"), "http_status_203|http_blockpage");
+        assert_eq!(rejected_reading, "none");
+        assert_eq!(detail_value(&result, "medianBps"), eligible_reading);
+        assert_eq!(detail_value(&result, "medianBodyGoodputBps"), "none");
+    }
+
+    #[test]
+    fn cancellation_between_runs_preserves_one_accepted_window_and_missing_coverage() {
+        use crate::test_fixtures::HttpTextServer;
+
+        let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "full");
+        let target = local_target(server.port(), 4, 2);
+        let cancel = AtomicBool::new(false);
+        let result = run_throughput_probe_with_progress(
+            &target,
+            &TransportConfig::Direct { route_experiment: None },
+            None,
+            None,
+            &cancel,
+            &mut |run| {
+                if run.termination_reason.is_some() {
+                    cancel.store(true, Ordering::Release);
+                }
+            },
+        );
+
+        assert_eq!(result.outcome, "throughput_inconclusive");
+        assert_eq!(detail_value(&result, "runs"), "2");
+        assert_eq!(detail_value(&result, "attemptedRuns"), "1");
+        assert_eq!(detail_value(&result, "acceptedRuns"), "1");
+        assert_eq!(detail_value(&result, "remainingRunStopReason"), "cancelled");
+        assert_ne!(detail_value(&result, "medianBps"), "0");
+    }
+
+    fn local_target(port: u16, window_bytes: usize, runs: usize) -> ThroughputTarget {
+        ThroughputTarget {
+            id: "body-completion".into(),
+            label: "Body completion".into(),
+            url: format!("http://127.0.0.1:{port}/"),
+            connect_ip: None,
+            connect_ips: vec![],
+            port: None,
+            is_control: false,
+            window_bytes,
+            runs,
         }
     }
 }

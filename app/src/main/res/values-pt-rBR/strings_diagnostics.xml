@@ -1575,6 +1575,9 @@
     <string name="diagnostics_transfer_run">Tentativa %1$d de %2$d</string>
     <string name="diagnostics_transfer_bytes_known">Recebidos %1$d de %2$d bytes</string>
     <string name="diagnostics_transfer_bytes_unknown">Recebidos %1$d bytes · tamanho esperado desconhecido</string>
+    <string name="diagnostics_transfer_window_coverage">Janelas concluídas: %1$d de %2$d. Tentativas: %3$d.</string>
+    <string name="diagnostics_transfer_request_rate">Taxa da solicitação completa: %1$d bit/s</string>
+    <string name="diagnostics_transfer_body_rate">Taxa de transferência do corpo: %1$d bit/s</string>
     <string name="diagnostics_transfer_elapsed">Tempo: %1$d ms</string>
     <string name="diagnostics_transfer_first">Primeiro byte do corpo: %1$s</string>
     <string name="diagnostics_transfer_last">Último recebimento de dados: %1$s</string>

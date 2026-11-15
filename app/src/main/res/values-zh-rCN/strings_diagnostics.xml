@@ -1544,6 +1544,9 @@
     <string name="diagnostics_transfer_run">第 %1$d 次，共 %2$d 次</string>
     <string name="diagnostics_transfer_bytes_known">已接收 %1$d 字节，共 %2$d 字节</string>
     <string name="diagnostics_transfer_bytes_unknown">已接收 %1$d 字节 · 预期大小未知</string>
+    <string name="diagnostics_transfer_window_coverage">已完成 %1$d 个测量窗口，共 %2$d 个。尝试次数：%3$d。</string>
+    <string name="diagnostics_transfer_request_rate">整个请求的速率：%1$d 比特/秒</string>
+    <string name="diagnostics_transfer_body_rate">响应体传输速率：%1$d 比特/秒</string>
     <string name="diagnostics_transfer_elapsed">已用时：%1$d 毫秒</string>
     <string name="diagnostics_transfer_first">首个正文数据字节：%1$s</string>
     <string name="diagnostics_transfer_last">最后一次收到数据：%1$s</string>

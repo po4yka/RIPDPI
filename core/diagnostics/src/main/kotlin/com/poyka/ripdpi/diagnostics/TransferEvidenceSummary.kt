@@ -7,21 +7,42 @@ internal fun transferEvidenceSummaryLines(results: List<ProbeResult>): List<Stri
         .filter { it.value.probeType == "throughput_window" }
         .take(TransferSummaryTargetLimit)
         .flatMap { (index, result) ->
-            parseTransferEvidence(result.details)?.runs.orEmpty().map { run ->
-                val scope =
-                    if (result.details.any { it.key == "transferNetworkScope" && it.value == "unverified" }) {
-                        "unverified"
-                    } else {
-                        "scan_context"
-                    }
-                "transfer[$index].run=${run.runIndex}/${run.runCount} " +
-                    "receivedBodyByteCount=${run.receivedBodyByteCount} " +
-                    "expectedBodyByteCount=${run.expectedBodyByteCount ?: "unknown"} elapsedMs=${run.elapsedMs} " +
-                    "firstBodyByteMs=${run.firstBodyByteMs ?: "unknown"} " +
-                    "lastBodyProgressMs=${run.lastBodyProgressMs ?: "unknown"} " +
-                    "terminationReason=${run.terminationReason} responseComplete=${run.responseComplete} " +
-                    "windowComplete=${run.windowComplete} networkScope=$scope " +
-                    "samplesMsBytes=${run.samples.joinToString(";") { "${it.elapsedMs}:${it.bodyByteCount}" }}"
+            val runs = parseTransferEvidence(result.details)?.runs.orEmpty()
+            val windows = parseTransferWindowReadings(result.details, runs)
+            val scope =
+                if (result.details.any { it.key == "transferNetworkScope" && it.value == "unverified" }) {
+                    "unverified"
+                } else {
+                    "scan_context"
+                }
+            buildList {
+                windows?.let {
+                    val stopReason = it.remainingRunStopReason ?: "none"
+                    add(
+                        "transfer[$index].plannedRuns=${it.plannedRuns} attemptedRuns=${it.attemptedRuns} " +
+                            "acceptedRuns=${it.acceptedRuns} remainingRunStopReason=$stopReason " +
+                            "networkScope=$scope",
+                    )
+                }
+                runs.forEachIndexed { runIndex, run ->
+                    val expected = run.expectedBodyByteCount ?: "unknown"
+                    val samples = run.samples.joinToString(";") { "${it.elapsedMs}:${it.bodyByteCount}" }
+                    add(
+                        "transfer[$index].run=${run.runIndex}/${run.runCount} " +
+                            "receivedBodyByteCount=${run.receivedBodyByteCount} " +
+                            "expectedBodyByteCount=$expected elapsedMs=${run.elapsedMs} " +
+                            "firstBodyByteMs=${run.firstBodyByteMs ?: "unknown"} " +
+                            "lastBodyProgressMs=${run.lastBodyProgressMs ?: "unknown"} " +
+                            "terminationReason=${run.terminationReason} responseComplete=${run.responseComplete} " +
+                            "windowComplete=${run.windowComplete} networkScope=$scope " +
+                            "samplesMsBytes=$samples" +
+                            windows
+                                ?.let {
+                                    " fullRequestRateBps=${it.fullRequestRatesBps.getOrNull(runIndex) ?: "unknown"} " +
+                                        "bodyGoodputBps=${it.bodyGoodputRatesBps.getOrNull(runIndex) ?: "unknown"}"
+                                }.orEmpty(),
+                    )
+                }
             }
         }
 

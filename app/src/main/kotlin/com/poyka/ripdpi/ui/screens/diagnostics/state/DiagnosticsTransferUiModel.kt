@@ -4,7 +4,9 @@ import androidx.compose.runtime.Immutable
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.TransferMeasurement
 import com.poyka.ripdpi.diagnostics.TransferProgress
+import com.poyka.ripdpi.diagnostics.TransferWindowReadings
 import com.poyka.ripdpi.diagnostics.parseTransferEvidence
+import com.poyka.ripdpi.diagnostics.parseTransferWindowReadings
 import com.poyka.ripdpi.diagnostics.toConnectionStageScale
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -17,6 +19,7 @@ data class DiagnosticsTransferUiModel(
     val networkScopeUnverified: Boolean = false,
     val connectionStages: DiagnosticsConnectionStageUiModel? = null,
     val comparisonUnavailable: Boolean = false,
+    val windowReadings: TransferWindowReadings? = null,
 )
 
 @Immutable
@@ -49,20 +52,54 @@ internal fun TransferProgress.toTransferUiModel(): DiagnosticsTransferUiModel =
 
 internal fun ProbeResult.toTransferUiModel(
     reportResults: List<ProbeResult> = emptyList(),
-): DiagnosticsTransferUiModel? =
-    parseTransferEvidence(details)?.let { evidence ->
-        DiagnosticsTransferUiModel(
-            target = target,
-            runs = evidence.runs.map { it.toTransferRunUiModel() }.toImmutableList(),
-            networkScopeUnverified = details.any { it.key == "transferNetworkScope" && it.value == "unverified" },
-            comparisonUnavailable =
-                details.any { it.key == "isControl" && it.value == "true" } &&
-                    reportResults.none { candidate ->
-                        candidate.probeType == "throughput_window" && candidate.outcome == "throughput_measured" &&
-                            candidate.details.any { it.key == "isControl" && it.value == "false" }
-                    },
-        )
+    reportScopeUnverified: Boolean = false,
+): DiagnosticsTransferUiModel? {
+    val evidence = parseTransferEvidence(details)
+    val runs = evidence?.runs.orEmpty()
+    val windows = parseTransferWindowReadings(details, runs)
+    if (evidence == null && windows == null) return null
+    val scope = comparisonScope(windows).takeUnless { reportScopeUnverified }
+    return DiagnosticsTransferUiModel(
+        target = target,
+        runs = runs.map { it.toTransferRunUiModel() }.toImmutableList(),
+        networkScopeUnverified =
+            reportScopeUnverified || details.any { it.key == "transferNetworkScope" && it.value == "unverified" },
+        comparisonUnavailable =
+            details.any { it.key == "isControl" && it.value == "true" } &&
+                (
+                    scope == null ||
+                        reportResults.none {
+                            it.details.any { detail -> detail.key == "isControl" && detail.value == "false" } &&
+                                scope == it.comparisonScope(parseTransferWindowReadings(it.details))
+                        }
+                ),
+        windowReadings = windows,
+    )
+}
+
+private data class TransferComparisonScope(
+    val windowBytes: Long,
+    val scheme: String,
+    val addressFamily: String,
+)
+
+private fun ProbeResult.comparisonScope(windows: TransferWindowReadings?): TransferComparisonScope? {
+    if (probeType != "throughput_window" || outcome != "throughput_measured" ||
+        windows == null || windows.plannedRuns < 2 || windows.acceptedRuns != windows.plannedRuns ||
+        windows.bodyGoodputRatesBps.any { it == null } ||
+        details.any { it.key == "transferNetworkScope" && it.value == "unverified" }
+    ) {
+        return null
     }
+
+    fun value(key: String): String? = details.singleOrNull { it.key == key }?.value
+    val window = value("windowBytes")?.toLongOrNull()?.takeIf { it > 0 } ?: return null
+    val scheme = value("url")?.substringBefore("://", "")?.takeIf { it == "http" || it == "https" } ?: return null
+    val families = value("addressFamilyReadings")?.split('|').orEmpty()
+    val family = families.firstOrNull()?.takeIf { it == "ipv4" || it == "ipv6" } ?: return null
+    return TransferComparisonScope(window, scheme, family)
+        .takeIf { families.size == windows.plannedRuns && families.all { it == family } }
+}
 
 private fun TransferMeasurement.toTransferRunUiModel(): DiagnosticsTransferRunUiModel =
     DiagnosticsTransferRunUiModel(

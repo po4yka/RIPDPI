@@ -3,37 +3,62 @@ use crate::types::{Diagnosis, ProbeResult};
 use super::common::{DiagnosisSink, diagnosis_evidence};
 use super::failure_detail_value;
 
-pub(crate) fn classify_throughput_diagnosis(results: &[ProbeResult], sink: &mut DiagnosisSink) {
-    let throughput_results = results
-        .iter()
-        .filter(|result| result.probe_type == "throughput_window" && result.outcome == "throughput_measured");
-    let measured = throughput_results
-        .filter_map(|result| {
-            let median_bps = failure_detail_value(result, "medianBps")?.parse::<u64>().ok()?;
-            let window_bytes = failure_detail_value(result, "windowBytes")?.parse::<usize>().ok()?;
-            (median_bps > 0 && window_bytes > 0).then_some((result, median_bps, window_bytes))
-        })
-        .collect::<Vec<_>>();
+#[derive(PartialEq, Eq)]
+struct TransferScope<'a> {
+    window_bytes: usize,
+    scheme: &'a str,
+    address_family: &'a str,
+}
 
-    for (result, target_median, window_bytes) in &measured {
-        if failure_detail_value(result, "isControl") == Some("true") {
+fn comparison_sample(result: &ProbeResult) -> Option<(&ProbeResult, bool, u64, TransferScope<'_>)> {
+    let detail = |key| failure_detail_value(result, key);
+    if result.probe_type != "throughput_window"
+        || result.outcome != "throughput_measured"
+        || detail("transferNetworkScope") == Some("unverified")
+    {
+        return None;
+    }
+    let runs = detail("runs")?.parse::<usize>().ok().filter(|runs| (2..=10).contains(runs))?;
+    if detail("acceptedRuns")?.parse::<usize>().ok() != Some(runs)
+        || detail("attemptedRuns")?.parse::<usize>().ok() != Some(runs)
+    {
+        return None;
+    }
+    let bps = detail("medianBodyGoodputBps")?.parse().ok()?;
+    let window_bytes = detail("windowBytes")?.parse().ok().filter(|bytes| *bytes > 0)?;
+    let (scheme, _) = detail("url")?.split_once("://")?;
+    if !matches!(scheme, "http" | "https") {
+        return None;
+    }
+    let mut families = detail("addressFamilyReadings")?.split('|');
+    let address_family = families.next().filter(|value| matches!(*value, "ipv4" | "ipv6"))?;
+    if families.clone().count() != runs - 1 || !families.all(|family| family == address_family) {
+        return None;
+    }
+    let is_control = detail("isControl")?.parse().ok()?;
+    Some((result, is_control, bps, TransferScope { window_bytes, scheme, address_family }))
+}
+
+pub(crate) fn classify_throughput_diagnosis(results: &[ProbeResult], sink: &mut DiagnosisSink) {
+    let measured = results.iter().filter_map(comparison_sample).collect::<Vec<_>>();
+
+    for (result, is_control, target_median, scope) in &measured {
+        if *is_control {
             continue;
         }
         let mut controls = measured
             .iter()
-            .filter_map(|(control, bps, control_window)| {
-                (control_window == window_bytes && failure_detail_value(control, "isControl") == Some("true"))
-                    .then_some(*bps)
-            })
+            .filter_map(|(_, is_control, bps, control_scope)| (*is_control && control_scope == scope).then_some(*bps))
             .collect::<Vec<_>>();
         let control_median = median(&mut controls);
         if control_median >= 5_000_000 && target_median.saturating_mul(4) < control_median {
-            let mut evidence = diagnosis_evidence(result, &["medianBps", "bpsReadings", "windowBytes"]);
-            evidence.push(format!("controlMedianBps={control_median}"));
+            let mut evidence =
+                diagnosis_evidence(result, &["medianBodyGoodputBps", "bodyGoodputBpsReadings", "windowBytes"]);
+            evidence.push(format!("controlMedianBodyGoodputBps={control_median}"));
             sink.push(Diagnosis {
                 code: "throughput_degradation".to_string(),
                 summary: format!(
-                    "{} measured throughput is far below the controls for the same transfer window",
+                    "{} measured body rate is far below the controls for the same transfer window",
                     result.target
                 ),
                 severity: "warning".to_string(),

@@ -1574,6 +1574,9 @@
     <string name="diagnostics_transfer_run">Versuch %1$d von %2$d</string>
     <string name="diagnostics_transfer_bytes_known">%1$d von %2$d Bytes empfangen</string>
     <string name="diagnostics_transfer_bytes_unknown">%1$d Bytes empfangen · erwartete Größe unbekannt</string>
+    <string name="diagnostics_transfer_window_coverage">Abgeschlossene Messfenster: %1$d von %2$d. Versuche: %3$d.</string>
+    <string name="diagnostics_transfer_request_rate">Rate für die gesamte Anfrage: %1$d Bit/s</string>
+    <string name="diagnostics_transfer_body_rate">Rate für die Nutzdaten: %1$d Bit/s</string>
     <string name="diagnostics_transfer_elapsed">Dauer: %1$d ms</string>
     <string name="diagnostics_transfer_first">Erstes Byte des Inhalts: %1$s</string>
     <string name="diagnostics_transfer_last">Letzter Datenempfang: %1$s</string>
