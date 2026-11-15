@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteEvent
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteSkipReason
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
@@ -107,18 +108,19 @@ class RussianDiagnosticsPresentationTest {
     }
 
     @Test
-    fun `known skip reason is localized and custom reason remains verbatim`() {
-        val known =
-            DpiSuiteProbeResult
-                .Skipped(DpiProbeKind.WHITELIST_SNI, "TCP16 detected zero blocked ASNs")
-                .toDpiSuiteProbeRowUiModel(strings)
-        assertEquals("TCP16 не выявил заблокированных ASN", known.detail)
-        assertRussian(known.status)
-        val custom =
-            DpiSuiteProbeResult
-                .Skipped(DpiProbeKind.WHITELIST_SNI, "custom_reason")
-                .toDpiSuiteProbeRowUiModel(strings)
-        assertEquals("custom_reason", custom.detail)
+    fun `SNI skip reasons distinguish missing evidence from inapplicable work`() {
+        val details =
+            mapOf(
+                DpiSuiteSkipReason.PREREQUISITE_NOT_SELECTED to
+                    "Запустите после того, как TCP16 найдёт помеченные ASN.",
+                DpiSuiteSkipReason.PREREQUISITE_UNAVAILABLE to "Недостаточно данных",
+                DpiSuiteSkipReason.NOT_APPLICABLE to "Не применима",
+            )
+        details.forEach { (reason, expected) ->
+            val row = DpiSuiteProbeResult.Skipped(DpiProbeKind.WHITELIST_SNI, reason).toDpiSuiteProbeRowUiModel(strings)
+            assertEquals(expected, row.detail)
+            assertRussian(row.status)
+        }
     }
 
     @Test

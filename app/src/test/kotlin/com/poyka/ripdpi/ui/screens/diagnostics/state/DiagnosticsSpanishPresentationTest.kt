@@ -114,7 +114,7 @@ class DiagnosticsSpanishPresentationTest {
             val row = model.rows.single()
             assertEquals(input.asn, row.asn)
             assertEquals(input.provider, row.provider)
-            assertEquals(input.ip, row.ip)
+            assertEquals("192.0.2.1:8443", row.ip)
             assertEquals("9", row.triedCount)
             assertEquals(input.compatibleSnis.map { it.sni }, row.compatibleSnis.map { it.value })
             assertEquals(
@@ -214,7 +214,7 @@ class DiagnosticsSpanishPresentationTest {
             ip = "192.0.2.1",
             compatibleSnis = (1..count).map { CompatibleSni("MiHost$it.test", it) },
             triedCount = 9,
-            aborted = false,
+            port = 8443,
         )
 
     private fun strings(locale: Locale): StringResolver = ContextStrings(context(locale))
