@@ -15,7 +15,8 @@ import java.net.ServerSocket
 import java.net.SocketTimeoutException
 
 class ProxyScannerTest {
-    private val loopback = InetAddress.getByName("127.0.0.1")
+    private val loopbackHost = "127.0.0.1"
+    private val loopback = InetAddress.getByName(loopbackHost)
     private val dispatchers =
         AppCoroutineDispatchers(
             io = Dispatchers.IO,
@@ -47,7 +48,7 @@ class ProxyScannerTest {
                     runBlocking {
                         ProxyScanner(
                             dispatchers = dispatchers,
-                            loopbackHosts = listOf(loopback.hostAddress),
+                            loopbackHosts = listOf(loopbackHost),
                             popularPorts = listOf(popular.localPort),
                             scanRange = selected.localPort..selected.localPort,
                             readTimeoutMs = 30,
@@ -69,7 +70,7 @@ class ProxyScannerTest {
                 runBlocking {
                     ProxyScanner(
                         dispatchers = dispatchers,
-                        loopbackHosts = listOf(loopback.hostAddress),
+                        loopbackHosts = listOf(loopbackHost),
                         popularPorts = emptyList(),
                         scanRange = listener.localPort..listener.localPort,
                         scanDeadlineMs = 100,
@@ -102,7 +103,7 @@ class ProxyScannerTest {
                 val result =
                     ProxyScanner(
                         dispatchers = dispatchers,
-                        loopbackHosts = listOf(loopback.hostAddress),
+                        loopbackHosts = listOf(loopbackHost),
                         popularPorts = emptyList(),
                         scanRange = port..65535,
                         readTimeoutMs = 500,
@@ -112,7 +113,7 @@ class ProxyScannerTest {
 
                 assertEquals(
                     LocalScanResult(
-                        ProxyEndpoint(loopback.hostAddress, port, ProxyType.SOCKS5),
+                        ProxyEndpoint(loopbackHost, port, ProxyType.SOCKS5),
                         LocalScanStatus.MATCHED,
                     ),
                     result,

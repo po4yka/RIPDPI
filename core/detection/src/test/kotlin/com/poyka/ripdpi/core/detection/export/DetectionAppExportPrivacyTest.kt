@@ -68,6 +68,28 @@ class DetectionAppExportPrivacyTest {
         )
     }
 
+    @Test
+    fun `private reports hide proc owner candidates for shared UIDs`() {
+        val fixture = detectionExportFixture()
+        val proc =
+            Finding(
+                "Listening on known port, UID 10304 (package candidates: net.test.first, net.test.second)",
+                needsReview = true,
+                source = EvidenceSource.LOCAL_PROXY,
+            )
+        val result = fixture.copy(indirectSigns = fixture.indirectSigns.copy(findings = listOf(proc)))
+
+        for (report in reports(result, privacyMode = true)) {
+            assertFalse(report.contains("10304"))
+            assertFalse(report.contains("net.test.first"))
+            assertFalse(report.contains("net.test.second"))
+        }
+        for (report in reports(result, privacyMode = false)) {
+            assertTrue(report.contains("net.test.first"))
+            assertTrue(report.contains("net.test.second"))
+        }
+    }
+
     private fun reports(
         result: DetectionCheckResult,
         privacyMode: Boolean,

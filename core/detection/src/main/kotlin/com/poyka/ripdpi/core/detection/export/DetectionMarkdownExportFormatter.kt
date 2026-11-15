@@ -53,7 +53,6 @@ object DetectionMarkdownExportFormatter {
             },
             enabled = metadata.privacyMode,
         )
-
     }
 
     private fun StringBuilder.appendSummary(

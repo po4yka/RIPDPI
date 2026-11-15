@@ -15,6 +15,7 @@ import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -88,12 +89,12 @@ class IfconfigClientTest {
                     MockResponse
                         .Builder()
                         .body("192.0.2.1")
-                        .bodyDelay(8, TimeUnit.SECONDS)
+                        .throttleBody(1, 8, TimeUnit.SECONDS)
                         .build(),
                 )
                 server.start(loopback, 0)
                 val bodyStarted = CompletableDeferred<Unit>()
-                val callCancelled = CompletableDeferred<Unit>()
+                val cancelledRead = CompletableDeferred<Boolean>()
                 val client =
                     OkHttpClient
                         .Builder()
@@ -103,8 +104,11 @@ class IfconfigClientTest {
                                     bodyStarted.complete(Unit)
                                 }
 
-                                override fun canceled(call: Call) {
-                                    callCancelled.complete(Unit)
+                                override fun callFailed(
+                                    call: Call,
+                                    ioe: IOException,
+                                ) {
+                                    cancelledRead.complete(call.isCanceled())
                                 }
                             },
                         ).build()
@@ -117,7 +121,7 @@ class IfconfigClientTest {
                 withTimeout(3_000) { bodyStarted.await() }
                 withTimeout(2_000) {
                     request.cancelAndJoin()
-                    callCancelled.await()
+                    assertTrue(cancelledRead.await())
                 }
                 assertTrue(request.isCancelled)
             }
