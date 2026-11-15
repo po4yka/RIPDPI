@@ -2,14 +2,14 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 
 use super::{HttpRequestOptions, execute_http_request_targets_with_accept, try_http_request};
-use crate::http::HttpResponse;
+use crate::http::{HttpRequestError, HttpResponse};
 use crate::transport::{TargetAddress, direct_transport};
 
 const BLOCKPAGE: &[u8] = b"<html>This website has been blocked by your internet service provider</html>";
 // Python's gzip.compress(BLOCKPAGE, mtime=0), decoded independently for this fixture.
 const GZIP_BLOCKPAGE: &[u8] = b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\x13\x1d\xcc\x81\x09\x80\x30\x0c\x04\xc0\x55\x7e\x03\x17\x10\xa7\x70\x01\xd3\x3e\x34\x58\x5b\x49\x62\xa5\xdb\x0b\xde\x00\xb7\x96\xb8\xea\xb6\x17\x75\xbc\x14\xd7\x20\xca\xe1\x10\xb2\x41\x6a\x4f\x27\x33\x64\x62\xf6\xc7\xa0\x2d\x68\x8d\x01\xa7\x0d\x4d\xc4\x6d\x7d\x68\xa6\xad\xcb\xbf\x7c\x8e\x5b\x67\x09\x4c\x00\x00\x00";
 
-fn request(reply: Vec<u8>, accept: &str) -> (Result<HttpResponse, String>, String) {
+fn request(reply: Vec<u8>, accept: &str) -> (Result<HttpResponse, HttpRequestError>, String) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let server = std::thread::spawn(move || {
@@ -91,7 +91,13 @@ fn unsupported_coding_is_rejected_from_the_head() {
     {
         let reply = format!("HTTP/1.1 200 OK\r\nContent-Length: 20\r\nContent-Encoding: {coding}\r\n\r\n").into_bytes();
         let (result, _) = request(reply, "*/*");
-        assert_eq!(result.unwrap_err(), "unsupported_content_encoding", "{coding}");
+        let error = result.unwrap_err();
+        assert_eq!(error.status(), "invalid_response", "{coding}");
+        let HttpRequestError::ResponseRead(source) = error else {
+            panic!("expected a response-read failure for {coding}, got {error:?}");
+        };
+        assert_eq!(source.kind(), std::io::ErrorKind::InvalidData, "{coding}");
+        assert_eq!(source.to_string(), "unsupported_content_encoding", "{coding}");
     }
 }
 
@@ -110,8 +116,8 @@ fn identity_and_bodyless_metadata_preserve_framing_and_size_limits() {
         b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nContent-Encoding: identity\r\n\r\nx".to_vec(),
         "application/dns-json",
     );
-    assert_eq!(result.unwrap_err(), "response_truncated");
+    assert_eq!(result.unwrap_err().to_string(), "response_truncated");
     let (result, _) =
         request(b"HTTP/1.1 200 OK\r\nContent-Length: 65537\r\nContent-Encoding: identity\r\n\r\n".to_vec(), "*/*");
-    assert_eq!(result.unwrap_err(), "response_too_large");
+    assert_eq!(result.unwrap_err().to_string(), "response_too_large");
 }

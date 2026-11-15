@@ -35,7 +35,7 @@ pub(super) fn read_http_response_io(stream: &mut ConnectionStream, max_bytes: us
                             .any(|value| !value.eq_ignore_ascii_case("identity"))
                     })
                 {
-                    return Err("unsupported_content_encoding".to_string());
+                    return Err(invalid_response("unsupported_content_encoding"));
                 }
                 response = Some(head);
             }
