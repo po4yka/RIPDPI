@@ -1,12 +1,11 @@
-use super::wire_header::parse_header;
+use std::collections::BTreeSet;
 
-/// Maximum number of compression pointer jumps before declaring a loop.
-const MAX_JUMPS: usize = 3;
+use super::wire_header::parse_header;
 
 /// Check if any DNS name compression pointer in the packet is malformed.
 ///
 /// Walks name fields in answer/authority/additional sections, following
-/// compression pointers with a jump limit. Returns `true` if any pointer
+/// compression pointers with bounded cycle detection. Returns `true` if any pointer
 /// target is out of bounds or creates a loop.
 pub fn has_malformed_compression_pointers(packet: &[u8]) -> bool {
     let Some(header) = parse_header(packet) else {
@@ -46,11 +45,11 @@ pub fn has_malformed_compression_pointers(packet: &[u8]) -> bool {
 }
 
 fn validate_name(packet: &[u8], mut offset: usize) -> Option<usize> {
-    let mut jumps = 0usize;
+    let mut visited = BTreeSet::new();
     let mut end_offset = None;
 
     loop {
-        if offset >= packet.len() {
+        if offset >= packet.len() || !visited.insert(offset) {
             return None;
         }
         let byte = packet[offset];
@@ -61,10 +60,6 @@ fn validate_name(packet: &[u8], mut offset: usize) -> Option<usize> {
             }
             let target = ((byte as usize & 0x3F) << 8) | packet[offset + 1] as usize;
             if target >= packet.len() {
-                return None;
-            }
-            jumps += 1;
-            if jumps > MAX_JUMPS {
                 return None;
             }
             if end_offset.is_none() {
@@ -80,5 +75,30 @@ fn validate_name(packet: &[u8], mut offset: usize) -> Option<usize> {
 
         let label_len = byte as usize;
         offset += 1 + label_len;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::has_malformed_compression_pointers;
+
+    // Independently decoded as four www.example.test A records by dnspython 2.8.0.
+    const BACKWARD_CHAIN: &[u8] = &[
+        0x04, 0xd2, 0x81, 0x80, 0, 1, 0, 4, 0, 0, 0, 0, 3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l',
+        b'e', 4, b't', b'e', b's', b't', 0, 0, 1, 0, 1, 0xc0, 12, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 192, 0, 2, 1, 0xc0,
+        34, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 192, 0, 2, 2, 0xc0, 50, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 192, 0, 2, 3, 0xc0,
+        66, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 192, 0, 2, 4,
+    ];
+
+    #[test]
+    fn four_backward_pointer_hops_are_valid() {
+        assert!(!has_malformed_compression_pointers(BACKWARD_CHAIN));
+    }
+
+    #[test]
+    fn repeated_pointer_offset_is_a_real_cycle() {
+        let mut packet = BACKWARD_CHAIN.to_vec();
+        packet[35] = 34;
+        assert!(has_malformed_compression_pointers(&packet));
     }
 }
