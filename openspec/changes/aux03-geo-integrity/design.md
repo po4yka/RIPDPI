@@ -10,15 +10,15 @@ The supported formats are MMDB Country/ASN and sing-geoip String records, sing-b
 ## Decisions
 
 - Native matching owns Go literal quoting, explicit regex errors, candidate case normalization, and subdomain-only suffixes.
-- MMDB admission checks the referenced tree, separator and every supported Country/ASN/String field within input-derived limits. Use strict Reader.verify when optional description permits it; use bounded supported-schema validation for an empty description, as required for sing-geoip. Ignored unknown fields do not gain an arbitrary-schema guarantee.
-- Add a single-kind native validation API and a narrow JNI binding on the existing bindings class. Kotlin validates the complete real temporary file before rename. Do not use a fake metadata query as admission.
+- MMDB admission checks the referenced tree, separator, complete referenced value graph, and supported Country/ASN/String fields within input-derived limits. Use Reader.verify when optional description permits it. The value visitor also checks unknown fields when description is empty, as required for sing-geoip. Arbitrary MMDB schemas remain outside the supported profile.
+- Add a single-kind native validation API and a separate NativeGeoDatabaseValidator JNI class. The private native method returns Boolean, with false as the panic/error sentinel. The public Kotlin wrapper requires success. Kotlin validates the complete temporary file and checks cancellation before rename.
 - Store per-kind source/tag/content provenance in private sidecars. Missing or stale provenance forces a download. Local import clears remote provenance and its tag. Serialize repository publication.
 - Use installed dependencies only. Keep protobuf/settings schemas and restart-to-apply behavior. Preserve last-good files and cleanup on validation failure or cancellation.
 
 ## Contracts and ownership
 
 - Task ENG-1794755247754263 records isolated writers: native owns ripdpi-geo; assets owns delivery and the additive bridge; integration owns planning, generated API snapshots, combined validation and main integration.
-- Only integration can change manifests, lockfiles, schemas, locales, baselines or generated snapshots. No new dependency or schema is planned.
+- The native writer owns the approved direct serde workspace dependency edge and its lockfile edge. No new package or version is added. The native verifier generates the JNI export inventory from the actual Android ELF; assets includes that inventory in the admission commit. Other manifests, schemas, locales, baselines and snapshots remain serialized under integration.
 - Validation accepts a path and explicit kind, rejects missing/malformed input, and does not activate a live matcher.
 - Existing supported lookups retain results. Invalid supported data is rejected before it can become a decisive negative match.
 
