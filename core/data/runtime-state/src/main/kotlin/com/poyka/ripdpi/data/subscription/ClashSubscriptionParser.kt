@@ -131,8 +131,8 @@ object ClashSubscriptionParser {
             "trojan" -> {
                 requireTcpNetwork(node.string("network"), index, "trojan")
                 // The native trojan client is TLS-only with certificate verification always on.
-                require(node.nestedString("reality-opts", "public-key") == null) {
-                    "node $index trojan uses unsupported REALITY"
+                require(node.entries.keys.none { it.content in unsupportedTrojanOptions }) {
+                    "node $index trojan uses unsupported connection options"
                 }
                 require(!node.string("skip-cert-verify").equals("true", ignoreCase = true)) {
                     "node $index trojan skips certificate verification"
@@ -310,6 +310,9 @@ object ClashSubscriptionParser {
 
     private fun newId(): String = UUID.randomUUID().toString()
 }
+
+private val unsupportedTrojanOptions =
+    setOf("fingerprint", "alpn", "ss-opts", "client-fingerprint", "dialer-proxy", "reality-opts")
 
 private fun failure(reason: String): ClashSubscriptionResult =
     ClashSubscriptionResult(
