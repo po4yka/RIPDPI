@@ -504,12 +504,12 @@
     <string name="diagnostics_sensitive_profile_consent_dismiss">Не сейчас</string>
     <string name="diagnostics_sensitive_profile_consent_title">Проверка чувствительной диагностики</string>
     <string name="diagnostics_pcap_card_title">Захват пакетов</string>
-    <string name="diagnostics_pcap_card_body_idle">Записывает raw IP-байты пакетов в локальный PCAP-файл. Хранение: 24 ч / 3 последних файла. PCAP не создаётся, пока вы не начнёте запись, и автоматическая отправка не выполняется.</string>
-    <string name="diagnostics_pcap_card_body_recording">Идёт запись необработанных байтов пакетов. Файлы хранятся 24 ч, не более 3 последних, как отдельные локальные артефакты PCAP и не встраиваются в обезличенные диагностические архивы.</string>
+    <string name="diagnostics_pcap_card_body_idle">Запись сохраняет необработанные IP-пакеты в локальный файл PCAP. При очистке сохраняется до трёх файлов и удаляются файлы завершённых захватов старше 24 часов.</string>
+    <string name="diagnostics_pcap_card_body_recording">Идёт запись необработанных IP-пакетов в локальные файлы PCAP. Архивы диагностики с редактированием не содержат PCAP.</string>
     <string name="diagnostics_pcap_card_start">Начать запись</string>
     <string name="diagnostics_pcap_card_stop">Остановить запись</string>
     <string name="diagnostics_pcap_disclosure_title">Раскрытие информации о захвате пакетов</string>
-    <string name="diagnostics_pcap_disclosure_body">При записи необработанные байты IP-пакетов сохраняются в локальный файл и могут включать полезную нагрузку пакетов. Хранение ограничено 24 ч и 3 последними файлами, после чего старые захваты удаляются. Файлы PCAP являются отдельными необработанными артефактами; они не встраиваются в обезличенные диагностические архивы.</string>
+    <string name="diagnostics_pcap_disclosure_body">Файлы PCAP могут содержать полезную нагрузку пакетов. При очистке сохраняется до трёх файлов и удаляются файлы завершённых захватов старше 24 часов. PCAP хранится отдельно от архивов диагностики с редактированием.</string>
     <string name="diagnostics_pcap_captures_label">Пакетные захваты</string>
     <string name="diagnostics_pcap_captures_description">Просмотр и экспорт записанных PCAP-файлов</string>
     <string name="diagnostics_past_replays_label">Прошлые воспроизведения</string>

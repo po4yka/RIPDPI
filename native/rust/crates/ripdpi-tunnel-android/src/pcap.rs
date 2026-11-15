@@ -8,9 +8,8 @@
 //! Live packets reach the queue through [`PcapPacketObserver`], which the
 //! session installs on the tunnel `Stats`.
 
-use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::{self, BufWriter, Read, Write};
+use std::io::{self, BufWriter};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 #[cfg(test)]
@@ -24,10 +23,10 @@ use ripdpi_pcap::{PCAP_GLOBAL_HEADER_LEN, PCAP_PACKET_HEADER_LEN, PcapWriter, SN
 use ripdpi_tunnel_core::PacketObserver;
 
 const MIN_FILE_BYTES: u64 = (PCAP_GLOBAL_HEADER_LEN + PCAP_PACKET_HEADER_LEN) as u64;
-const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
-const MAX_FILES: u32 = 16;
-pub(crate) const GLOBAL_MAX_CAPTURE_BYTES: u64 = 64 * 1024 * 1024;
-pub(crate) const GLOBAL_MAX_CAPTURE_FILES: u32 = 4;
+mod storage;
+
+use storage::{GLOBAL_MAX_CAPTURE_BYTES, GLOBAL_MAX_CAPTURE_FILES, lock_storage, persist_drops, reserve_segment};
+pub(crate) use storage::{cleanup_captures, list_captures};
 
 #[cfg(test)]
 pub(crate) static LIVE_WRITER_THREADS: AtomicU64 = AtomicU64::new(0);
@@ -165,12 +164,15 @@ impl PcapCaptureSet {
     ///
     /// `dir` must already exist and be writable. `max_file_bytes` and
     /// `max_files` together cap the on-disk footprint (default per
-    /// design: 16 MiB x 4 = 64 MiB).
+    /// design: up to three 16 MiB segments).
     pub fn start(set_id: u64, dir: PathBuf, max_file_bytes: u64, max_files: u32) -> std::io::Result<Self> {
-        if !(MIN_FILE_BYTES..=MAX_FILE_BYTES).contains(&max_file_bytes) || !(1..=MAX_FILES).contains(&max_files) {
+        if !(MIN_FILE_BYTES..=GLOBAL_MAX_CAPTURE_BYTES).contains(&max_file_bytes)
+            || !(1..=GLOBAL_MAX_CAPTURE_FILES).contains(&max_files)
+            || max_file_bytes * u64::from(max_files) > GLOBAL_MAX_CAPTURE_BYTES
+        {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("pcap limits must be fileBytes={MIN_FILE_BYTES}..={MAX_FILE_BYTES}, files=1..={MAX_FILES}"),
+                "pcap limits exceed the capture storage bounds",
             ));
         }
         if !dir.is_dir() {
@@ -179,7 +181,7 @@ impl PcapCaptureSet {
                 format!("pcap dir does not exist: {}", dir.display()),
             ));
         }
-        let first = OpenCapture::create(&dir, set_id, 0)?;
+        let first = OpenCapture::create(&dir, set_id, 0, max_file_bytes)?;
         // 1024 records ~ 1.5 MiB at MTU 1500 ~ 6 s at 200 pkt/s.
         let queue = Arc::new(ArrayQueue::new(1024));
         let drops = Arc::new(AtomicU64::new(0));
@@ -364,7 +366,13 @@ struct OpenCapture {
 }
 
 impl OpenCapture {
-    fn create(dir: &Path, set_id: u64, idx: u32) -> io::Result<(Self, PcapWriter<BufWriter<File>>)> {
+    fn create(
+        dir: &Path,
+        set_id: u64,
+        idx: u32,
+        max_file_bytes: u64,
+    ) -> io::Result<(Self, PcapWriter<BufWriter<File>>)> {
+        reserve_segment(dir, set_id, max_file_bytes)?;
         let started_at_ms = now_ms();
         let completed_path = dir.join(format!("{set_id:016x}-{started_at_ms}-{idx:02}.pcap"));
         let active_path = completed_path.with_extension("pcap.active");
@@ -379,6 +387,7 @@ impl OpenCapture {
         let byte_size = writer.bytes_written();
         let file = writer.into_inner().into_inner().map_err(std::io::IntoInnerError::into_error)?;
         file.sync_all()?;
+        let _guard = lock_storage();
         fs::rename(&self.active_path, &self.completed_path)?;
         self.active_path.clear();
         Ok(PcapCaptureMetadata {
@@ -426,16 +435,19 @@ impl CaptureWriter {
         let mut first = Some(first);
         let mut progress = CaptureProgress::default();
         for index in 0..self.max_files {
-            let (segment, mut writer) =
-                match first.take().map_or_else(|| OpenCapture::create(&self.dir, self.set_id, index), Ok) {
-                    Ok(segment) => segment,
-                    Err(error) => {
-                        tracing::warn!(%error, "pcap writer could not open a new segment");
-                        result.failure = Some(PcapWriterFailure::Open);
-                        break;
-                    }
-                };
-            let packets = match self.drain_segment(&mut writer, &mut progress) {
+            let (segment, mut writer) = match first
+                .take()
+                .map_or_else(|| OpenCapture::create(&self.dir, self.set_id, index, self.max_file_bytes), Ok)
+            {
+                Ok(segment) => segment,
+                Err(error) => {
+                    tracing::warn!(%error, "pcap writer could not open a new segment");
+                    result.failure = Some(PcapWriterFailure::Open);
+                    break;
+                }
+            };
+            let last_segment = index + 1 == self.max_files;
+            let packets = match self.drain_segment(&mut writer, &mut progress, last_segment) {
                 Ok(packets) => packets,
                 Err(error) => {
                     self.admission.0.close_and_wait();
@@ -445,7 +457,7 @@ impl CaptureWriter {
                 }
             };
             let rotates = progress.pending.is_some() || writer.bytes_written() == self.max_file_bytes;
-            if rotates && index + 1 == self.max_files {
+            if rotates && last_segment {
                 result.limit_reached = true;
                 self.admission.0.close_and_wait();
             }
@@ -483,6 +495,7 @@ impl CaptureWriter {
         &self,
         writer: &mut PcapWriter<BufWriter<File>>,
         progress: &mut CaptureProgress,
+        last_segment: bool,
     ) -> io::Result<u64> {
         let mut packets = 0;
         let mut last_flush = Instant::now();
@@ -504,7 +517,7 @@ impl CaptureWriter {
                         writer.write_packet(record.ts_micros, &record.bytes)?;
                         packets += 1;
                     }
-                    if writer.bytes_written() == self.max_file_bytes {
+                    if last_segment && writer.bytes_written() == self.max_file_bytes {
                         break;
                     }
                 }
@@ -526,115 +539,8 @@ impl CaptureWriter {
     }
 }
 
-fn persist_drops(capture: &Path, drops: u64) -> io::Result<()> {
-    let path = capture.with_extension("pcap.drops");
-    let temporary = capture.with_extension("pcap.drops.tmp");
-    let mut file = File::create_new(&temporary)?;
-    let result = file.write_all(&drops.to_le_bytes()).and_then(|()| file.sync_all());
-    drop(file);
-    let result = result.and_then(|()| fs::rename(&temporary, path));
-    if result.is_err() {
-        let _ = fs::remove_file(temporary);
-    }
-    result
-}
-
-fn read_drops(capture: &Path) -> io::Result<u64> {
-    let mut bytes = [0; 8];
-    match File::open(capture.with_extension("pcap.drops")) {
-        Ok(mut file) => {
-            file.read_exact(&mut bytes)?;
-            Ok(u64::from_le_bytes(bytes))
-        }
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(0),
-        Err(error) => Err(error),
-    }
-}
-
 fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
-}
-
-/// List finalized regular captures. A missing directory is an empty store.
-pub fn list_captures(dir: &Path) -> io::Result<Vec<PcapCaptureMetadata>> {
-    let entries = match fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(error) => return Err(error),
-    };
-    let mut files = Vec::new();
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path();
-        if !is_completed_capture(&path) || !entry.file_type()?.is_file() {
-            continue;
-        }
-        files.push(PcapCaptureMetadata {
-            path: path.display().to_string(),
-            byte_size: entry.metadata()?.len(),
-            packet_count: 0, // The packet reader computes this when the file is opened.
-            started_at_ms: 0,
-            ended_at_ms: 0,
-            drops: read_drops(&path)?,
-        });
-    }
-    Ok(files)
-}
-
-/// Prune completed captures for one storage directory to a single global
-/// budget. Active capture sets are deliberately exempt: both the current
-/// `.pcap.active` file and already-rotated `.pcap` files with an active set id
-/// remain available until that set stops.
-pub(crate) fn enforce_global_retention(dir: &Path, active_set_ids: &HashSet<u64>) {
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-    let mut completed = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if is_active_capture(&path) {
-            if !capture_set_id(&path).is_some_and(|set_id| active_set_ids.contains(&set_id)) {
-                let _ = fs::remove_file(path);
-            }
-            continue;
-        }
-        if !is_completed_capture(&path) || capture_set_id(&path).is_some_and(|set_id| active_set_ids.contains(&set_id))
-        {
-            continue;
-        }
-        let Ok(metadata) = entry.metadata() else {
-            continue;
-        };
-        completed.push((path, metadata.len(), metadata.modified().ok()));
-    }
-    completed.sort_by_key(|(_, _, modified)| *modified);
-
-    let mut retained_count = completed.len() as u32;
-    let mut retained_bytes: u64 = completed.iter().map(|(_, bytes, _)| *bytes).sum();
-    for (path, bytes, _) in completed {
-        if retained_count <= GLOBAL_MAX_CAPTURE_FILES && retained_bytes <= GLOBAL_MAX_CAPTURE_BYTES {
-            break;
-        }
-        if fs::remove_file(path).is_ok() {
-            retained_count -= 1;
-            retained_bytes = retained_bytes.saturating_sub(bytes);
-        }
-    }
-}
-
-fn is_completed_capture(path: &Path) -> bool {
-    path.extension().and_then(|extension| extension.to_str()) == Some("pcap")
-}
-
-fn is_active_capture(path: &Path) -> bool {
-    path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.ends_with(".pcap.active"))
-}
-
-fn capture_set_id(path: &Path) -> Option<u64> {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .and_then(|name| name.split_once('-').map(|(set_id, _)| set_id))
-        .and_then(|set_id| u64::from_str_radix(set_id, 16).ok())
 }
 
 #[cfg(test)]
@@ -669,7 +575,7 @@ mod tests {
     fn start_then_stop_roundtrips_zero_packets() {
         let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
-        let capture = PcapCaptureSet::start(1, dir.path().to_path_buf(), 1024, 4).unwrap();
+        let capture = PcapCaptureSet::start(1, dir.path().to_path_buf(), 1024, 3).unwrap();
         let result = capture.stop();
         assert_eq!(result.total_drops, 0);
         // At least one (empty-ish) file should exist, OR none if writer
@@ -784,7 +690,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let capture = PcapCaptureSet::start(44, dir.path().to_path_buf(), 1024, 1).unwrap();
         let marker = fs::read_dir(dir.path()).unwrap().next().unwrap().unwrap().path();
-        assert!(is_active_capture(&marker));
+        assert!(marker.to_string_lossy().ends_with(".pcap.active"));
         assert_eq!(fs::read(marker).unwrap()[..8], [0xd4, 0xc3, 0xb2, 0xa1, 2, 0, 4, 0]);
         assert_eq!(capture.stop().failure, None);
     }
@@ -808,7 +714,7 @@ mod tests {
             max_file_bytes: 100,
             max_files: 1,
         };
-        let first = OpenCapture::create(dir.path(), 45, 0).unwrap();
+        let first = OpenCapture::create(dir.path(), 45, 0, 100).unwrap();
         let result = writer.run(first);
         assert!(result.limit_reached);
         assert_eq!(result.failure, None);
@@ -837,7 +743,7 @@ mod tests {
     fn submit_then_stop_records_packet_count() {
         let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
-        let capture = PcapCaptureSet::start(2, dir.path().to_path_buf(), 1024 * 1024, 4).unwrap();
+        let capture = PcapCaptureSet::start(2, dir.path().to_path_buf(), 1024 * 1024, 3).unwrap();
         for i in 0..10u8 {
             assert!(capture.submit(fake_packet(i)));
         }
@@ -846,6 +752,37 @@ mod tests {
         let result = capture.stop();
         let total_packets: u64 = result.files.iter().map(|f| f.packet_count).sum();
         assert!(total_packets >= 1, "expected >=1 packet written, got files={:?}", result.files);
+    }
+
+    #[test]
+    fn exact_filled_segment_leaves_previous_captures_until_another_record_needs_space() {
+        let _serial = serial_pcap_test();
+        let dir = TempDir::new().unwrap();
+        let previous = [dir.path().join("previous-a.pcap"), dir.path().join("previous-b.pcap")];
+        for path in &previous {
+            fs::write(path, b"previous").unwrap();
+        }
+        let capture = PcapCaptureSet::start(19, dir.path().to_path_buf(), 68, 3).unwrap();
+        let current = fs::read_dir(dir.path())
+            .unwrap()
+            .map(Result::unwrap)
+            .map(|entry| entry.path())
+            .find(|path| path.to_string_lossy().ends_with(".pcap.active"))
+            .unwrap();
+        assert!(capture.submit(fake_packet(1)));
+        // A non-final segment stays in place awaiting a new record, long enough
+        // for the normal periodic flush to expose the exact-filled segment.
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while fs::metadata(&current).unwrap().len() < 68 {
+            assert!(Instant::now() < deadline, "writer did not flush the filled segment");
+            thread::sleep(Duration::from_millis(20));
+        }
+
+        let result = capture.stop();
+        assert_eq!(result.failure, None);
+        assert!(!result.limit_reached);
+        assert_eq!(result.files.len(), 1);
+        assert!(previous.iter().all(|path| path.exists()));
     }
 
     #[test]
@@ -892,32 +829,6 @@ mod tests {
     }
 
     #[test]
-    fn global_retention_bounds_completed_files_without_deleting_active_set() {
-        let dir = TempDir::new().unwrap();
-        let active_set_id = 2u64;
-        for set_id in 10..=14u64 {
-            std::fs::write(dir.path().join(format!("{set_id:016x}-1-00.pcap")), b"old").unwrap();
-        }
-        let active_finished = dir.path().join(format!("{active_set_id:016x}-1-00.pcap"));
-        let active_current = dir.path().join(format!("{active_set_id:016x}-2-01.pcap.active"));
-        std::fs::write(&active_finished, b"active-completed-rotation").unwrap();
-        std::fs::write(&active_current, b"active-current-write").unwrap();
-
-        enforce_global_retention(dir.path(), &std::collections::HashSet::from([active_set_id]));
-
-        assert!(active_finished.exists(), "completed rotations of active captures must be preserved");
-        assert!(active_current.exists(), "currently written capture must be preserved");
-        let completed_non_active = fs::read_dir(dir.path())
-            .unwrap()
-            .flatten()
-            .map(|entry| entry.path())
-            .filter(|path| is_completed_capture(path))
-            .filter(|path| capture_set_id(path) != Some(active_set_id))
-            .count();
-        assert!(completed_non_active <= GLOBAL_MAX_CAPTURE_FILES as usize);
-    }
-
-    #[test]
     fn submit_returns_false_when_queue_full() {
         let _serial = serial_pcap_test();
         // Best-effort: on fast hardware we may not actually hit full
@@ -947,7 +858,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let zero_files =
             PcapCaptureSet::start(100, dir.path().to_path_buf(), 1024, 0).err().expect("zero files must fail");
-        let oversized_file = PcapCaptureSet::start(101, dir.path().to_path_buf(), MAX_FILE_BYTES + 1, 1)
+        let oversized_file = PcapCaptureSet::start(101, dir.path().to_path_buf(), GLOBAL_MAX_CAPTURE_BYTES + 1, 1)
             .err()
             .expect("oversized file must fail");
 

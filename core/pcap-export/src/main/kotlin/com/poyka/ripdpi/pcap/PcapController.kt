@@ -73,8 +73,15 @@ class PcapController
 
         suspend fun listCaptures(captureDir: File): List<PcapCaptureMetadata> =
             withContext(Dispatchers.IO) {
-                val json = PcapBridge.jniPcapListCaptures(captureDir.absolutePath)
+                val json = PcapBridge.jniPcapListCaptures(captureDir.absolutePath, cleanupOnly = false)
                 decodeMetadataList(json)
+            }
+
+        suspend fun cleanupCaptures(captureDir: File = captureDirectory): Unit =
+            withContext(Dispatchers.IO) {
+                if (PcapBridge.jniPcapListCaptures(captureDir.absolutePath, cleanupOnly = true) == null) {
+                    throw IOException("Native capture storage cleanup failed")
+                }
             }
 
         /**
@@ -102,9 +109,9 @@ class PcapController
             }
 
         companion object {
-            /** 16 MiB per file, 4-file retention for bounded local captures. */
+            /** The requested segment size for local captures. Native code owns the storage cap. */
             const val DEFAULT_MAX_FILE_BYTES: Long = 16L * 1024L * 1024L
-            const val DEFAULT_MAX_FILES: Int = 4
+            const val DEFAULT_MAX_FILES: Int = 3
 
             private val JSON = RipDpiJson
 

@@ -214,8 +214,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapListCaptures(
     env: EnvUnowned<'_>,
     _class: JObject,
     capture_dir: JString,
+    cleanup_only: jni::sys::jboolean,
 ) -> jni::sys::jstring {
-    ffi_boundary(core::ptr::null_mut(), move || tunnel_pcap_list_captures_entry(env, capture_dir))
+    ffi_boundary(core::ptr::null_mut(), move || tunnel_pcap_list_captures_entry(env, capture_dir, cleanup_only))
 }
 
 #[unsafe(no_mangle)]

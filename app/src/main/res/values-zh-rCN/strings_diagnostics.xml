@@ -354,12 +354,12 @@
     <string name="diagnostics_telegram_transferred">已传输</string>
     <string name="diagnostics_warn_vpn_permission">VPN 权限当前尚未授予。</string>
     <string name="diagnostics_pcap_card_title">数据包捕获</string>
-    <string name="diagnostics_pcap_card_body_idle">将原始 IP 数据包字节记录到本地 PCAP 文件。保留期限：24 小时，最多保留最近的 3 个文件。只有在你启动录制后才会创建 PCAP，不会自动分享。</string>
-    <string name="diagnostics_pcap_card_body_recording">正在记录原始数据包字节。文件保留 24 小时，并且只保留最近 3 个。它们是独立的本地 PCAP 工件，不会嵌入已脱敏的诊断归档。</string>
+    <string name="diagnostics_pcap_card_body_idle">将原始 IP 数据包录制到本地 PCAP 文件。清理时最多保留三个文件，并删除超过 24 小时的非活动文件。</string>
+    <string name="diagnostics_pcap_card_body_recording">正在将原始 IP 数据包录制到本地 PCAP 文件。已脱敏的诊断归档不包含 PCAP 文件。</string>
     <string name="diagnostics_pcap_card_start">开始录制</string>
     <string name="diagnostics_pcap_card_stop">停止录制</string>
     <string name="diagnostics_pcap_disclosure_title">原始数据包捕获说明</string>
-    <string name="diagnostics_pcap_disclosure_body">录制会将原始 IP 数据包字节写入本地文件，其中可能包含数据包有效载荷。文件保留 24 小时或最近 3 个，以限制更严格者为准；之后清理程序会删除旧的捕获文件。PCAP 文件是独立的原始工件；已脱敏的诊断归档不会嵌入这些文件。</string>
+    <string name="diagnostics_pcap_disclosure_body">PCAP 文件可能包含数据包的有效载荷。清理时最多保留三个文件，并删除超过 24 小时的非活动文件。PCAP 文件与已脱敏的诊断归档分开存放。</string>
     <string name="detection_dns_provider_label">DNS 提供商</string>
     <string name="detection_dns_provider_flag_no_log">不记录日志</string>
     <string name="detection_dns_provider_flag_no_filter">不过滤</string>

@@ -15,7 +15,9 @@ import com.poyka.ripdpi.core.Tun2SocksNativeLoader
  *    A null response means the JNI call failed.
  *  - jniPcapListCaptures returns finalized files and saved drop counts.
  *    Packet count is computed by the packet reader. A missing store
- *    returns an empty array. Null means listing failed.
+ *    returns an empty array. With cleanupOnly, the call performs
+ *    retention and returns an empty array instead of listing files.
+ *    A null response means the storage operation failed.
  *  - jniPcapRedactToFile takes a SAF-provided fd that has had
  *    ParcelFileDescriptor.detachFd() called - NOT .fd() (which peeks).
  *    The fd is closed by Rust on completion. Returns bytes-written.
@@ -46,7 +48,10 @@ internal object PcapBridge {
         finishedOnly: Boolean,
     ): String?
 
-    external fun jniPcapListCaptures(captureDir: String): String?
+    external fun jniPcapListCaptures(
+        captureDir: String,
+        cleanupOnly: Boolean,
+    ): String?
 
     /**
      * source  - absolute filesystem path to the .pcap to redact

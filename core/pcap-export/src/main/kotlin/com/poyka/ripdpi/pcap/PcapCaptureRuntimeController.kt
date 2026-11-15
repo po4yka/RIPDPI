@@ -240,18 +240,6 @@ class PcapCaptureRuntimeController
                 }
             }
 
-        /**
-         * Runs capture-file maintenance against the current native lease.
-         * The callback must not call this controller. It holds the lifecycle
-         * mutex so cleanup cannot race native start, publication or stop.
-         *
-         * # Cancel safety:
-         * The lock wait can be cancelled. The callback does not suspend.
-         */
-        suspend fun withCaptureStorageLock(block: (activeCaptureSetId: Long?) -> Unit) {
-            mutex.withLock { block(activeCaptureSetId) }
-        }
-
         suspend fun stop(): PcapCaptureRuntimeState =
             withContext(NonCancellable) {
                 mutex.withLock {

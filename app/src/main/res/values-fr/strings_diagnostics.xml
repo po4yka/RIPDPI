@@ -486,12 +486,12 @@
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s joignables</string>
     <string name="diagnostics_trends_section">Tendances récentes</string>
     <string name="diagnostics_pcap_card_title">Capture de paquets</string>
-    <string name="diagnostics_pcap_card_body_idle">Enregistre les octets bruts des paquets IP dans un fichier PCAP local. Conservation : 24 h / les 3 fichiers les plus récents. Aucun fichier PCAP n’est créé avant le démarrage de l’enregistrement et aucun partage automatique n’a lieu.</string>
-    <string name="diagnostics_pcap_card_body_recording">Enregistrement des octets bruts des paquets en cours. Les fichiers sont conservés pendant 24 h (les 3 plus récents) comme artefacts PCAP locaux distincts et ne sont pas intégrés aux archives de diagnostic expurgées.</string>
+    <string name="diagnostics_pcap_card_body_idle">Enregistre les paquets IP bruts dans un fichier PCAP local. Le nettoyage conserve jusqu’à trois fichiers et supprime les fichiers inactifs de plus de 24 heures.</string>
+    <string name="diagnostics_pcap_card_body_recording">Les paquets IP bruts sont enregistrés dans des fichiers PCAP locaux. Les archives de diagnostic expurgées excluent les fichiers PCAP.</string>
     <string name="diagnostics_pcap_card_start">Démarrer l\'enregistrement</string>
     <string name="diagnostics_pcap_card_stop">Arrêter l\'enregistrement</string>
     <string name="diagnostics_pcap_disclosure_title">Avis de capture de paquets bruts</string>
-    <string name="diagnostics_pcap_disclosure_body">L’enregistrement écrit les octets bruts des paquets IP dans un fichier local et peut inclure leur contenu. La conservation est limitée à 24 h ou aux 3 fichiers les plus récents, selon la limite atteinte en premier ; le nettoyage supprime ensuite les anciennes captures. Les fichiers PCAP sont des artefacts bruts distincts ; les archives de diagnostic expurgées ne les intègrent pas.</string>
+    <string name="diagnostics_pcap_disclosure_body">Les fichiers PCAP peuvent contenir les données utiles des paquets. Le nettoyage conserve jusqu’à trois fichiers et supprime les fichiers inactifs de plus de 24 heures. Les fichiers PCAP restent séparés des archives de diagnostic expurgées.</string>
     <string name="diagnostics_open_logs_body">Ouvre le flux en direct des journaux avec des filtres pour le service, le proxy, le tunnel et les diagnostics.</string>
     <string name="blockcheck_dns_warning">La comparaison DNS a signalé un signe d\'altération pour au moins un domaine.</string>
     <string name="blockcheck_diagnosis_title">Pourquoi ce site est bloqué</string>

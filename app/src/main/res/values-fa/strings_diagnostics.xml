@@ -274,12 +274,12 @@
     <string name="diagnostics_save_logs_title">ذخیرهٔ گزارش‌های محلی</string>
     <string name="diagnostics_save_logs_body">اگر فقط به ردگیری محلی برنامه نیاز دارید، همان تصویر لحظه‌ای logcat محدود به برنامه را به‌صورت فایل متن ساده برون‌بری کنید؛ این فایل تنها پس از انتخاب محل ذخیره ایجاد می‌شود.</string>
     <string name="diagnostics_pcap_card_title">ضبط بسته</string>
-    <string name="diagnostics_pcap_card_body_idle">بایت‌های خام بسته‌های IP را در یک فایل PCAP محلی ثبت می‌کند. مدت نگهداری: ۲۴ ساعت / ۳ فایل اخیر. تا ضبط را شروع نکنید، فایل PCAP ایجاد نمی‌شود و هیچ اشتراک‌گذاری خودکاری انجام نمی‌شود.</string>
-    <string name="diagnostics_pcap_card_body_recording">در حال ضبط بایت‌های خام بسته. فایل‌ها به‌مدت 24 ساعت (3 مورد تازه‌تر) به‌عنوان آثار PCAP محلی جداگانه نگهداری می‌شوند و داخل آرشیوهای تشخیصی ویرایش‌شده قرار نمی‌گیرند.</string>
+    <string name="diagnostics_pcap_card_body_idle">بسته‌های خام IP را در یک فایل محلی PCAP ضبط می‌کند. پاک‌سازی تا سه فایل را نگه می‌دارد و فایل‌های غیرفعال قدیمی‌تر از ۲۴ ساعت را حذف می‌کند.</string>
+    <string name="diagnostics_pcap_card_body_recording">بسته‌های خام IP در فایل‌های محلی PCAP ضبط می‌شوند. بایگانی‌های تشخیصی با اطلاعات پوشانده‌شده شامل فایل PCAP نیستند.</string>
     <string name="diagnostics_pcap_card_start">شروع ضبط</string>
     <string name="diagnostics_pcap_card_stop">توقف ضبط</string>
     <string name="diagnostics_pcap_disclosure_title">اطلاعیه ضبط بسته خام</string>
-    <string name="diagnostics_pcap_disclosure_body">ضبط، بایت‌های خام بسته‌های IP را در یک فایل محلی می‌نویسد و می‌تواند شامل payload بسته‌ها باشد. نگهداری 24 ساعت یا 3 فایل تازه‌تر است، هرکدام کوچک‌تر باشد، سپس پاک‌سازی ضبط‌های قدیمی را حذف می‌کند. فایل‌های PCAP آثار خام جداگانه‌اند؛ آرشیوهای تشخیصی ویرایش‌شده آن‌ها را در خود قرار نمی‌دهند.</string>
+    <string name="diagnostics_pcap_disclosure_body">فایل‌های PCAP ممکن است حاوی بار مفید بسته‌ها باشند. پاک‌سازی تا سه فایل را نگه می‌دارد و فایل‌های غیرفعال قدیمی‌تر از ۲۴ ساعت را حذف می‌کند. فایل‌های PCAP جدا از بایگانی‌های تشخیصی با اطلاعات پوشانده‌شده نگهداری می‌شوند.</string>
     <string name="blockcheck_section_title">کاوش راهبرد</string>
     <string name="blockcheck_entry_title">کاوش راهبرد</string>
     <string name="blockcheck_domains_label">دامنه‌های آزمایش</string>
