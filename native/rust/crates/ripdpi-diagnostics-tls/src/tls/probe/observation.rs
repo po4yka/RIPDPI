@@ -51,6 +51,7 @@ pub(crate) fn from_probe_stream_result(result: ProbeStreamResult, profile: TlsCl
         cert_issuer,
         local_socket_ttl,
         ja3_fingerprint,
+        client_hello_capture: result.client_hello_capture,
         tls_alert_code: None,
         tls_alert_description: None,
         tls_server_hello_received: Some(true),
@@ -61,9 +62,10 @@ pub(crate) fn from_probe_stream_result(result: ProbeStreamResult, profile: TlsCl
     }
 }
 
-pub(crate) fn from_probe_error(err: ProbeStreamError, profile: TlsClientProfile) -> TlsObservation {
+pub(crate) fn from_probe_error(mut err: ProbeStreamError, profile: TlsClientProfile) -> TlsObservation {
     let failure_stage = err.stage;
     let failure_duration_ms = err.duration_ms;
+    let client_hello = err.client_hello.take().map_or_else(Default::default, |evidence| *evidence);
     if let Some(outcome) = ech::from_resolution_error(&err.message, profile) {
         return TlsObservation {
             status: outcome.status,
@@ -82,7 +84,8 @@ pub(crate) fn from_probe_error(err: ProbeStreamError, profile: TlsClientProfile)
             cert_chain_length: None,
             cert_issuer: None,
             local_socket_ttl: None,
-            ja3_fingerprint: None,
+            ja3_fingerprint: client_hello.ja3_fingerprint,
+            client_hello_capture: client_hello.capture,
             tls_alert_code: None,
             tls_alert_description: None,
             tls_server_hello_received: None,
@@ -112,7 +115,8 @@ pub(crate) fn from_probe_error(err: ProbeStreamError, profile: TlsClientProfile)
         cert_chain_length: None,
         cert_issuer: None,
         local_socket_ttl: None,
-        ja3_fingerprint: None,
+        ja3_fingerprint: client_hello.ja3_fingerprint,
+        client_hello_capture: client_hello.capture,
         tls_alert_code: err.tls_alert.map(u8::from),
         tls_alert_description: err.tls_alert.and_then(|alert| alert.as_str()).map(str::to_string),
         tls_server_hello_received: err.tls_server_hello_received,

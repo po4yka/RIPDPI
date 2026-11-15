@@ -17,7 +17,7 @@ use super::super::config::{
     make_server_name, planned_tls_template_profile,
 };
 use super::super::key_log::TlsKeyLogCallback;
-use super::super::types::{ApplicationProtocolPolicy, TlsClientProfile};
+use super::super::types::{ApplicationProtocolPolicy, ClientHelloCapture, ClientHelloEvidence, TlsClientProfile};
 
 pub(crate) struct CapturedTlsHandshake {
     pub(crate) stream: ConnectionStream,
@@ -28,6 +28,7 @@ pub(crate) struct CapturedTlsHandshake {
     pub(crate) cert_chain_length: Option<usize>,
     pub(crate) cert_issuer: Option<String>,
     pub(crate) ja3_fingerprint: Option<String>,
+    pub(super) client_hello_capture: ClientHelloCapture,
 }
 
 pub(crate) struct ReconnectedTransport {
@@ -42,6 +43,7 @@ pub(crate) struct CaptureTlsError {
     pub(crate) alert: Option<rustls::AlertDescription>,
     pub(crate) certificate_anomaly: bool,
     pub(crate) handshake_ms: Option<u64>,
+    pub(super) client_hello: Option<Box<ClientHelloEvidence>>,
     pub(crate) reconnect_open_ms: Option<u64>,
     pub(crate) ech_retry_configs: Option<Vec<u8>>,
 }
@@ -54,6 +56,7 @@ impl From<String> for CaptureTlsError {
             alert: None,
             certificate_anomaly: false,
             handshake_ms: None,
+            client_hello: None,
             reconnect_open_ms: None,
             ech_retry_configs: None,
         }
@@ -118,9 +121,6 @@ pub(crate) fn capture_tls_handshake(
 
     let tls_start = Instant::now();
     while connection.is_handshaking() {
-        if let Some(reason) = should_abort() {
-            return Err(format!("probe_aborted:{reason}").into());
-        }
         let mut io = BoundedHandshakeIo { recording: &mut recording, should_abort };
         if let Err(err) = connection.complete_io(&mut io) {
             // rustls sets the version and suite during HelloRetryRequest too. After a retry
@@ -129,8 +129,9 @@ pub(crate) fn capture_tls_handshake(
                 != Some(rustls::HandshakeKind::FullWithHelloRetryRequest))
             .then(|| connection.negotiated_cipher_suite().is_some());
             let handshake_ms = Some(tls_start.elapsed().as_millis() as u64);
+            let client_hello = Some(Box::new(capture_client_hello(recording.recorded_writes())));
             if let Some(message) = administrative_error_after_io(should_abort) {
-                return Err(CaptureTlsError { server_hello_received, handshake_ms, ..message.into() });
+                return Err(CaptureTlsError { server_hello_received, handshake_ms, client_hello, ..message.into() });
             }
             let tls_error = err.get_ref().and_then(|error| error.downcast_ref::<rustls::Error>());
             let alert = match tls_error {
@@ -148,18 +149,25 @@ pub(crate) fn capture_tls_handshake(
                 alert,
                 certificate_anomaly,
                 handshake_ms,
+                client_hello,
                 reconnect_open_ms: None,
                 ech_retry_configs,
             });
         }
     }
-    if let Some(message) = administrative_error_after_io(should_abort) {
-        return Err(message.into());
-    }
-    refresh_tls_handshake_timeout(&mut recording)?;
+    let client_hello = capture_client_hello(recording.recorded_writes());
     let tls_handshake_ms = tls_start.elapsed().as_millis() as u64;
+    let setup_error =
+        administrative_error_after_io(should_abort).or_else(|| refresh_tls_handshake_timeout(&mut recording).err());
+    if let Some(message) = setup_error {
+        return Err(CaptureTlsError {
+            server_hello_received: Some(true),
+            handshake_ms: Some(tls_handshake_ms),
+            client_hello: Some(Box::new(client_hello)),
+            ..message.into()
+        });
+    }
 
-    let ja3_fingerprint = ja3::compute_ja3(recording.recorded_writes());
     let tls_template_first_flight_plan = first_tls_record(recording.recorded_writes())
         .and_then(|client_hello| plan_first_flight(template_profile, client_hello));
     let (socket, _recorded) = recording.into_parts();
@@ -176,8 +184,21 @@ pub(crate) fn capture_tls_handshake(
         negotiated_alpn,
         cert_chain_length,
         cert_issuer,
-        ja3_fingerprint,
+        ja3_fingerprint: client_hello.ja3_fingerprint,
+        client_hello_capture: client_hello.capture,
     })
+}
+
+fn capture_client_hello(recorded: &[u8]) -> ClientHelloEvidence {
+    let ja3_fingerprint = ja3::compute_ja3(recorded);
+    let capture = if ja3_fingerprint.is_some() {
+        ClientHelloCapture::Complete
+    } else if recorded.is_empty() {
+        ClientHelloCapture::NotSent
+    } else {
+        ClientHelloCapture::IncompleteOrInvalid
+    };
+    ClientHelloEvidence { ja3_fingerprint, capture }
 }
 
 fn first_tls_record(recorded: &[u8]) -> Option<&[u8]> {
@@ -269,7 +290,7 @@ mod tests {
     use rustls::client::danger::ServerCertVerifier;
     use rustls::{RootCertStore, ServerConfig, ServerConnection};
 
-    use crate::tls::{TlsClientProfile, open_probe_stream, try_tls_handshake};
+    use crate::tls::{ClientHelloCapture, TlsClientProfile, open_probe_stream, try_tls_handshake};
     use crate::transport::{ConnectionStream, TargetAddress, direct_transport};
 
     #[test]
@@ -368,9 +389,13 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
         let server = std::thread::spawn(move || {
             let (mut socket, _) = listener.accept().unwrap();
-            let mut hello = vec![0u8; 16 * 1024];
-            let read = socket.read(&mut hello).unwrap();
-            let _ = socket.write_all(&reply(&hello[..read]));
+            let mut header = [0u8; 5];
+            socket.read_exact(&mut header).unwrap();
+            let payload_len = u16::from_be_bytes([header[3], header[4]]);
+            let mut hello = header.to_vec();
+            hello.resize(5 + usize::from(payload_len), 0);
+            socket.read_exact(&mut hello[5..]).unwrap();
+            let _ = socket.write_all(&reply(&hello));
             let _ = socket.read(&mut [0u8; 64]);
         });
         (port, server)
@@ -448,6 +473,8 @@ mod tests {
             server.join().unwrap();
 
             assert_eq!(observation.tls_alert_code, Some(code), "{observation:?}");
+            assert_eq!(observation.client_hello_capture, ClientHelloCapture::Complete);
+            assert!(observation.ja3_fingerprint.is_some());
             assert_eq!(observation.tls_alert_description.as_deref(), description);
             assert_eq!(observation.tls_server_hello_received, Some(false));
             assert_eq!(observation.status, "tls_handshake_failed");
@@ -465,6 +492,8 @@ mod tests {
 
         assert_ne!(observation.failure_stage, Some(crate::tls::ProbeStreamFailureStage::TlsHandshake));
         assert_eq!(observation.tls_server_hello_received, None);
+        assert_eq!(observation.client_hello_capture, ClientHelloCapture::NotSent);
+        assert_eq!(observation.ja3_fingerprint, None);
     }
 
     #[test]

@@ -23,6 +23,7 @@ pub struct TlsObservation {
     pub cert_issuer: Option<String>,
     pub local_socket_ttl: Option<u8>,
     pub ja3_fingerprint: Option<String>,
+    pub client_hello_capture: ClientHelloCapture,
     /// Numeric TLS alert code when the handshake fails with AlertReceived.
     pub tls_alert_code: Option<u8>,
     /// Human-readable alert description (e.g. "HandshakeFailure").
@@ -33,6 +34,30 @@ pub struct TlsObservation {
     pub local_addr: Option<std::net::SocketAddr>,
     pub cdn_provider: Option<String>,
     pub route_report: Option<RouteExperimentReport>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ClientHelloCapture {
+    #[default]
+    NotSent,
+    IncompleteOrInvalid,
+    Complete,
+}
+
+impl ClientHelloCapture {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NotSent => "not_sent",
+            Self::IncompleteOrInvalid => "incomplete_or_invalid",
+            Self::Complete => "complete",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(super) struct ClientHelloEvidence {
+    pub(super) ja3_fingerprint: Option<String>,
+    pub(super) capture: ClientHelloCapture,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -78,6 +103,7 @@ pub struct ProbeStreamResult {
     pub cert_issuer: Option<String>,
     pub local_socket_ttl: Option<u8>,
     pub ja3_fingerprint: Option<String>,
+    pub client_hello_capture: ClientHelloCapture,
     pub connected_addr: Option<std::net::SocketAddr>,
     pub local_addr: Option<std::net::SocketAddr>,
     pub cdn_provider: Option<String>,
@@ -128,6 +154,7 @@ pub struct ProbeStreamError {
     pub(crate) tls_alert: Option<rustls::AlertDescription>,
     pub(crate) certificate_anomaly: bool,
     pub(crate) tls_handshake_ms: Option<u64>,
+    pub(super) client_hello: Option<Box<ClientHelloEvidence>>,
 }
 
 impl ProbeStreamError {

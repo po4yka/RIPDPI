@@ -427,6 +427,7 @@ fn tls_signal_reports_version_split_low_confidence() {
         cert_issuer: None,
         local_socket_ttl: None,
         ja3_fingerprint: None,
+        client_hello_capture: crate::tls::ClientHelloCapture::NotSent,
         tls_alert_code: None,
         tls_alert_description: None,
         tls_server_hello_received: None,
@@ -453,6 +454,7 @@ fn tls_signal_reports_version_split_low_confidence() {
         cert_issuer: None,
         local_socket_ttl: None,
         ja3_fingerprint: None,
+        client_hello_capture: crate::tls::ClientHelloCapture::NotSent,
         tls_alert_code: None,
         tls_alert_description: None,
         tls_server_hello_received: None,
@@ -474,6 +476,7 @@ fn try_tls_handshake_uses_explicit_verifier_on_non_default_https_port() {
         try_tls_handshake(&target, server.port(), &direct_transport(), "localhost", TlsClientProfile::Tls13Only, None);
     assert_eq!(verified.status, "tls_cert_invalid");
     assert!(verified.certificate_anomaly);
+    assert!(verified.ja3_fingerprint.is_some());
 
     let no_verify: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(NoCertificateVerification);
     let mut tls = try_tls_handshake(

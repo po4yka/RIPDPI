@@ -1,4 +1,6 @@
-use super::super::types::{ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult};
+use super::super::types::{
+    ClientHelloCapture, ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult,
+};
 use super::capture::CaptureTlsHandshakeOptions;
 use super::retry::capture_with_ech_retry;
 use crate::platform_ttl;
@@ -83,6 +85,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 tls_alert: err.alert,
                 certificate_anomaly: err.certificate_anomaly,
                 tls_handshake_ms: err.handshake_ms,
+                client_hello: err.client_hello,
             })?;
             let local_addr = match &captured.stream {
                 ConnectionStream::Tls(stream) => stream.sock.local_addr().ok(),
@@ -107,6 +110,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 cert_issuer: captured.cert_issuer,
                 local_socket_ttl,
                 ja3_fingerprint: captured.ja3_fingerprint,
+                client_hello_capture: captured.client_hello_capture,
                 connected_addr: opened.connected_addr,
                 local_addr,
                 cdn_provider: opened.cdn_provider,
@@ -146,6 +150,7 @@ fn open_transport_stream(
                 tls_alert: None,
                 certificate_anomaly: false,
                 tls_handshake_ms: None,
+                client_hello: None,
             }
         })?;
     let transport_open_ms = transport_start.elapsed().as_millis() as u64;
@@ -175,6 +180,7 @@ fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult
         cert_issuer: None,
         local_socket_ttl,
         ja3_fingerprint: None,
+        client_hello_capture: ClientHelloCapture::NotSent,
         connected_addr: opened.connected_addr,
         local_addr: opened.local_addr,
         cdn_provider: opened.cdn_provider,
@@ -198,6 +204,7 @@ fn stream_error(
         tls_alert: None,
         certificate_anomaly: false,
         tls_handshake_ms: None,
+        client_hello: None,
     }
 }
 

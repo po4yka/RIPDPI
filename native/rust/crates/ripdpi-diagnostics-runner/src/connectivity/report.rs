@@ -36,6 +36,7 @@ pub fn append_tls_attempt_details(
         ("LocalSocketTtl", attempt.local_socket_ttl.map(|ttl| ttl.to_string())),
         ("LocalSocketTtlLeg", attempt.local_socket_ttl.map(|_| socket_leg.to_string())),
         ("Ja3Fingerprint", attempt.ja3_fingerprint.clone()),
+        ("ClientHelloCapture", Some(attempt.client_hello_capture.as_str().to_string())),
         ("AlertCode", attempt.tls_alert_code.map(|code| code.to_string())),
         ("AlertSource", attempt.tls_alert_code.map(|_| "unknown".to_string())),
         ("AlertDescription", attempt.tls_alert_description.clone()),

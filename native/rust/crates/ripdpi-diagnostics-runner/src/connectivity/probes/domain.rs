@@ -280,6 +280,7 @@ mod tests {
             cert_issuer: None,
             local_socket_ttl: None,
             ja3_fingerprint: None,
+            client_hello_capture: ripdpi_diagnostics_tls::tls::ClientHelloCapture::NotSent,
             tls_alert_code: None,
             tls_alert_description: None,
             tls_server_hello_received: None,
