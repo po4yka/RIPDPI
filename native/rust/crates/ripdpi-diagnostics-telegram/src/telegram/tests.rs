@@ -67,7 +67,7 @@ fn make_dc(reachable: usize, total: usize) -> TelegramDcResult {
 }
 
 fn make_ws(status: &str, rtt_ms: u64) -> TelegramWsProbeResult {
-    TelegramWsProbeResult { status: status.to_string(), rtt_ms, error: None }
+    TelegramWsProbeResult { status: status.to_string(), abort_reason: None, rtt_ms, error: None }
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn telegram_ws_tunnel_probe_leaves_resolution_to_the_scan_transport() {
 }
 
 #[test]
-fn telegram_ws_probe_stops_after_resolution_when_cancelled() {
+fn telegram_ws_probe_is_not_run_when_cancelled_before_start() {
     let probe_called = Cell::new(false);
 
     let result = telegram_ws_tunnel_probe_with_abort(
@@ -171,7 +171,7 @@ fn telegram_ws_probe_stops_after_resolution_when_cancelled() {
         &|| Some("cancelled"),
     );
 
-    assert_eq!(result.status, "cancelled");
+    assert_eq!(result.status, "not_run");
     assert_eq!(result.error.as_deref(), Some("probe_aborted:cancelled"));
     assert!(!probe_called.get());
 }
@@ -189,4 +189,35 @@ fn telegram_ws_probe_discards_success_after_cancellation() {
 
     assert_eq!(result.status, "cancelled");
     assert_eq!(result.error.as_deref(), Some("probe_aborted:cancelled"));
+}
+
+#[test]
+fn telegram_ws_deadline_during_upgrade_is_not_a_network_failure() {
+    use ripdpi_diagnostics_transport::ws_tls::WsProbeFailure;
+
+    let result = telegram_ws_tunnel_probe_with(&direct_transport(), |_| {
+        Err(std::io::Error::new(std::io::ErrorKind::TimedOut, WsProbeFailure::DeadlineExceeded))
+    });
+
+    assert_eq!(result.status, "deadline_exceeded");
+    assert_eq!(result.abort_reason, Some("deadline_exceeded"));
+}
+
+#[test]
+fn telegram_report_does_not_score_a_deadline_before_wss_starts() {
+    let target = crate::types::TelegramTarget {
+        media_url: String::new(),
+        upload_ip: String::new(),
+        upload_port: 443,
+        dc_endpoints: Vec::new(),
+        stall_timeout_ms: 10,
+        total_timeout_ms: 10,
+        upload_size_bytes: 1,
+    };
+    let evidence =
+        super::run_telegram_probe_with_abort(&target, &direct_transport(), None, &|| Some("deadline_exceeded"));
+
+    assert_eq!(evidence.outcome, "deadline_exceeded");
+    assert!(evidence.details.iter().any(|item| item.key == "wsTunnelStatus" && item.value == "not_run"));
+    assert!(evidence.details.iter().all(|item| item.key != "qualityScore"));
 }

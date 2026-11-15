@@ -313,6 +313,19 @@ enum class TelegramWsTunnelStatus {
 }
 
 @Serializable
+enum class TelegramProbeStopReason {
+    CANCELLED,
+    DEADLINE_EXCEEDED,
+}
+
+@Serializable
+enum class TelegramWsProbeOutcome {
+    CANCELLED,
+    DEADLINE_EXCEEDED,
+    NOT_RUN,
+}
+
+@Serializable
 enum class ThroughputProbeStatus {
     MEASURED,
     INCONCLUSIVE,
@@ -385,7 +398,8 @@ data class CircumventionObservationFact(
 @Serializable
 data class TelegramObservationFact(
     val verdict: TelegramVerdict,
-    val qualityScore: Int = 0,
+    val stopReason: TelegramProbeStopReason? = null,
+    val qualityScore: Int? = null,
     val downloadStatus: TelegramTransferStatus = TelegramTransferStatus.ERROR,
     val uploadStatus: TelegramTransferStatus = TelegramTransferStatus.ERROR,
     val dcReachable: Int = 0,
@@ -396,6 +410,7 @@ data class TelegramObservationFact(
     val uploadPeakBps: Long = 0,
     val dcResults: List<String> = emptyList(),
     val wsTunnelStatus: TelegramWsTunnelStatus = TelegramWsTunnelStatus.UNKNOWN,
+    val wsTunnelOutcome: TelegramWsProbeOutcome? = null,
     val wsTunnelRttMs: Long = 0,
     val wsTunnelError: String? = null,
 )

@@ -18,6 +18,23 @@ use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 pub type WsOverTlsStream = WebSocket<StreamOwned<ClientConnection, TcpStream>>;
 pub type WsTlsKeyLogCallback = Arc<dyn KeyLog>;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WsProbeFailure {
+    Cancelled,
+    DeadlineExceeded,
+}
+
+impl std::fmt::Display for WsProbeFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::Cancelled => "probe_aborted:cancelled",
+            Self::DeadlineExceeded => "scan_deadline_exceeded",
+        })
+    }
+}
+
+impl std::error::Error for WsProbeFailure {}
+
 #[derive(Clone, Debug)]
 pub struct WsOverTlsTarget {
     pub host: String,
@@ -115,26 +132,23 @@ impl<'a> WsOverTlsControl<'a> {
         self
     }
 
-    fn ensure_not_aborted(&self) -> io::Result<()> {
-        if let Some(reason) = (self.should_abort)() {
-            return Err(io::Error::new(io::ErrorKind::Interrupted, format!("probe_aborted:{reason}")));
-        }
-        Ok(())
-    }
-
     fn remaining_timeout(&self) -> io::Result<Duration> {
-        self.ensure_not_aborted()?;
-        bounded_scan_io_timeout(self.timeout_cap).map_err(|err| io::Error::new(io::ErrorKind::TimedOut, err))
+        match (self.should_abort)() {
+            Some("cancelled") => return Err(io::Error::new(io::ErrorKind::Interrupted, WsProbeFailure::Cancelled)),
+            Some("deadline_exceeded") => {
+                return Err(io::Error::new(io::ErrorKind::TimedOut, WsProbeFailure::DeadlineExceeded));
+            }
+            Some(reason) => {
+                return Err(io::Error::new(io::ErrorKind::Interrupted, format!("probe_aborted:{reason}")));
+            }
+            None => {}
+        }
+        bounded_scan_io_timeout(self.timeout_cap)
+            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, WsProbeFailure::DeadlineExceeded))
     }
 
     fn error_after_blocking_io(&self, original: io::Error) -> io::Error {
-        if let Some(reason) = (self.should_abort)() {
-            io::Error::new(io::ErrorKind::Interrupted, format!("probe_aborted:{reason}"))
-        } else if bounded_scan_io_timeout(self.timeout_cap).is_err() {
-            io::Error::new(io::ErrorKind::TimedOut, "scan_deadline_exceeded")
-        } else {
-            original
-        }
+        self.remaining_timeout().err().unwrap_or(original)
     }
 }
 

@@ -31,12 +31,19 @@ pub fn run_telegram_probe_with_abort(
     };
     let dc = telegram_dc_probe_with_abort(target, transport, should_abort);
     let ws = match should_abort() {
-        Some(reason) => aborted_ws_probe(reason),
+        Some(reason) => TelegramWsProbeResult::aborted(reason, None),
         None => telegram_ws_tunnel_probe_with_abort_callback(transport, key_log, should_abort),
     };
 
-    let verdict = classify_telegram_verdict(&dl.status, &ul.status, dc.reachable, dc.total, &ws.status);
-    let quality_score = compute_telegram_quality_score(&dl, &ul, &dc, &ws);
+    let verdict = classify_telegram_verdict(
+        &dl.status,
+        &ul.status,
+        dc.reachable,
+        dc.total,
+        ws.abort_reason.unwrap_or(&ws.status),
+    );
+    let quality_score = (!matches!(verdict, "cancelled" | "deadline_exceeded"))
+        .then(|| compute_telegram_quality_score(&dl, &ul, &dc, &ws));
 
     ProbeResult {
         probe_type: "telegram_availability".to_string(),
@@ -50,21 +57,19 @@ fn aborted_transfer(reason: &str) -> TelegramTransferResult {
     TelegramTransferResult::aborted(reason)
 }
 
-fn aborted_ws_probe(reason: &str) -> TelegramWsProbeResult {
-    TelegramWsProbeResult::aborted(reason)
-}
-
 fn build_telegram_details(
     verdict: &str,
-    quality_score: u64,
+    quality_score: Option<u64>,
     dl: TelegramTransferResult,
     ul: TelegramTransferResult,
     dc: TelegramDcResult,
     ws: TelegramWsProbeResult,
 ) -> Vec<ProbeDetail> {
-    vec![
-        ProbeDetail { key: "verdict".to_string(), value: verdict.to_string() },
-        ProbeDetail { key: "qualityScore".to_string(), value: quality_score.to_string() },
+    let mut details = vec![ProbeDetail { key: "verdict".to_string(), value: verdict.to_string() }];
+    if let Some(score) = quality_score {
+        details.push(ProbeDetail { key: "qualityScore".to_string(), value: score.to_string() });
+    }
+    details.extend([
         ProbeDetail { key: "downloadStatus".to_string(), value: dl.status },
         ProbeDetail { key: "downloadAvgBps".to_string(), value: dl.avg_bps.to_string() },
         ProbeDetail { key: "downloadPeakBps".to_string(), value: dl.peak_bps.to_string() },
@@ -83,5 +88,6 @@ fn build_telegram_details(
         ProbeDetail { key: "wsTunnelStatus".to_string(), value: ws.status },
         ProbeDetail { key: "wsTunnelRttMs".to_string(), value: ws.rtt_ms.to_string() },
         ProbeDetail { key: "wsTunnelError".to_string(), value: ws.error.unwrap_or_else(|| "none".to_string()) },
-    ]
+    ]);
+    details
 }

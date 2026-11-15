@@ -31,11 +31,28 @@ pub enum TelegramWsTunnelStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TelegramProbeStopReason {
+    Cancelled,
+    DeadlineExceeded,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TelegramWsProbeOutcome {
+    Cancelled,
+    DeadlineExceeded,
+    NotRun,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TelegramObservationFact {
     pub verdict: TelegramVerdict,
-    #[serde(default)]
-    pub quality_score: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_reason: Option<TelegramProbeStopReason>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quality_score: Option<i32>,
     #[serde(default = "telegram_transfer_status_error")]
     pub download_status: TelegramTransferStatus,
     #[serde(default = "telegram_transfer_status_error")]
@@ -56,6 +73,8 @@ pub struct TelegramObservationFact {
     pub dc_results: Vec<String>,
     #[serde(default = "telegram_ws_tunnel_status_unknown")]
     pub ws_tunnel_status: TelegramWsTunnelStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ws_tunnel_outcome: Option<TelegramWsProbeOutcome>,
     #[serde(default)]
     pub ws_tunnel_rtt_ms: u64,
     #[serde(default)]

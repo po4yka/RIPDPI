@@ -1,4 +1,7 @@
-use crate::types::{ObservationKind, ProbeObservation, ProbeResult, TelegramObservationFact};
+use crate::types::{
+    ObservationKind, ProbeObservation, ProbeResult, TelegramObservationFact, TelegramProbeStopReason,
+    TelegramWsProbeOutcome,
+};
 
 use super::common::{base_observation, detail_list, detail_value, telegram_transfer_status, telegram_verdict};
 
@@ -10,11 +13,16 @@ pub(crate) fn build_observation(result: &ProbeResult) -> Option<ProbeObservation
 
 pub(crate) fn build_telegram_observation(result: &ProbeResult) -> ProbeObservation {
     let mut observation = base_observation(result, ObservationKind::Telegram);
+    let outcome = detail_value(result, "verdict").unwrap_or(&result.outcome);
+    let ws_status = detail_value(result, "wsTunnelStatus").unwrap_or("unknown");
     observation.telegram = Some(TelegramObservationFact {
-        verdict: telegram_verdict(detail_value(result, "verdict").unwrap_or(result.outcome.as_str())),
-        quality_score: detail_value(result, "qualityScore")
-            .and_then(|value| value.parse::<i32>().ok())
-            .unwrap_or_default(),
+        verdict: telegram_verdict(outcome),
+        stop_reason: match outcome {
+            "cancelled" => Some(TelegramProbeStopReason::Cancelled),
+            "deadline_exceeded" => Some(TelegramProbeStopReason::DeadlineExceeded),
+            _ => None,
+        },
+        quality_score: detail_value(result, "qualityScore").and_then(|value| value.parse().ok()),
         download_status: telegram_transfer_status(detail_value(result, "downloadStatus").unwrap_or("error")),
         upload_status: telegram_transfer_status(detail_value(result, "uploadStatus").unwrap_or("error")),
         dc_reachable: detail_value(result, "dcReachable").and_then(|value| value.parse::<usize>().ok()).unwrap_or(0),
@@ -24,9 +32,13 @@ pub(crate) fn build_telegram_observation(result: &ProbeResult) -> ProbeObservati
         upload_avg_bps: detail_u64(result, "uploadAvgBps"),
         upload_peak_bps: detail_u64(result, "uploadPeakBps"),
         dc_results: detail_list(result, "dcResults"),
-        ws_tunnel_status: super::common::telegram_ws_tunnel_status(
-            detail_value(result, "wsTunnelStatus").unwrap_or("unknown"),
-        ),
+        ws_tunnel_status: super::common::telegram_ws_tunnel_status(ws_status),
+        ws_tunnel_outcome: match ws_status {
+            "cancelled" => Some(TelegramWsProbeOutcome::Cancelled),
+            "deadline_exceeded" => Some(TelegramWsProbeOutcome::DeadlineExceeded),
+            "not_run" => Some(TelegramWsProbeOutcome::NotRun),
+            _ => None,
+        },
         ws_tunnel_rtt_ms: detail_u64(result, "wsTunnelRttMs"),
         ws_tunnel_error: optional_detail(result, "wsTunnelError"),
     });

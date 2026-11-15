@@ -433,7 +433,7 @@ fn telegram_observation_builds_from_probe() {
     assert_eq!(obs.kind, ObservationKind::Telegram);
     let tg = obs.telegram.expect("telegram payload");
     assert_eq!(tg.verdict, TelegramVerdict::Ok);
-    assert_eq!(tg.quality_score, 85);
+    assert_eq!(tg.quality_score, Some(85));
     assert_eq!(tg.download_status, TelegramTransferStatus::Ok);
     assert_eq!(tg.upload_status, TelegramTransferStatus::Slow);
     assert_eq!(tg.dc_reachable, 3);
@@ -446,6 +446,17 @@ fn telegram_observation_builds_from_probe() {
     assert_eq!(tg.ws_tunnel_status, TelegramWsTunnelStatus::Unreachable);
     assert_eq!(tg.ws_tunnel_rtt_ms, 250);
     assert_eq!(tg.ws_tunnel_error.as_deref(), Some("tls handshake failed"));
+}
+
+#[test]
+fn telegram_observation_preserves_an_unscored_deadline() {
+    let result = probe("telegram_availability", "Telegram", "deadline_exceeded", &[("wsTunnelStatus", "not_run")]);
+    let telegram = observation_for_probe(&result).unwrap().telegram.unwrap();
+
+    assert_eq!(telegram.stop_reason, Some(crate::types::TelegramProbeStopReason::DeadlineExceeded));
+    assert_eq!(telegram.ws_tunnel_status, TelegramWsTunnelStatus::Unknown);
+    assert_eq!(telegram.ws_tunnel_outcome, Some(crate::types::TelegramWsProbeOutcome::NotRun));
+    assert_eq!(telegram.quality_score, None);
 }
 
 #[test]

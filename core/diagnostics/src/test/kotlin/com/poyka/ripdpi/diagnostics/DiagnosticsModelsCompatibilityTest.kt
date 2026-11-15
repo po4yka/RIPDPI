@@ -11,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind as WireScanCompletionKind
@@ -312,6 +313,22 @@ class DiagnosticsModelsCompatibilityTest {
         assertEquals("tlsrec_split", decoded.strategyRecommendation?.recommendedFamily)
         assertEquals("sni_tls_suspect", decoded.strategyRecommendation?.blockingPattern)
         assertEquals("Escalate to TLS record split families", decoded.strategyRecommendation?.rationale)
+    }
+
+    @Test
+    fun `telegram observation decodes an unscored deadline`() {
+        val telegram =
+            json.decodeFromString(
+                TelegramObservationFact.serializer(),
+                """{"verdict":"ERROR","stopReason":"DEADLINE_EXCEEDED","wsTunnelStatus":"UNKNOWN","wsTunnelOutcome":"NOT_RUN"}""",
+            )
+
+        assertEquals(TelegramProbeStopReason.DEADLINE_EXCEEDED, telegram.stopReason)
+        assertEquals(TelegramWsTunnelStatus.UNKNOWN, telegram.wsTunnelStatus)
+        assertEquals(TelegramWsProbeOutcome.NOT_RUN, telegram.wsTunnelOutcome)
+        assertNull(telegram.qualityScore)
+        val encoded = json.encodeToString(TelegramObservationFact.serializer(), telegram)
+        assertTrue("" qualityScore "" !in encoded)
     }
 
     @Test

@@ -1,6 +1,6 @@
 use std::io;
 
-use ripdpi_diagnostics_transport::ws_tls::{WsOverTlsConnector, WsOverTlsTarget};
+use ripdpi_diagnostics_transport::ws_tls::{WsOverTlsConnector, WsOverTlsTarget, WsProbeFailure};
 
 use crate::tls::TlsKeyLogCallback;
 use crate::transport::TransportConfig;
@@ -10,13 +10,19 @@ const TELEGRAM_WS_PATH: &str = "/apiws";
 
 pub(crate) struct TelegramWsProbeResult {
     pub(crate) status: String,
+    pub(crate) abort_reason: Option<&'static str>,
     pub(crate) rtt_ms: u64,
     pub(crate) error: Option<String>,
 }
 
 impl TelegramWsProbeResult {
-    pub(crate) fn aborted(reason: &str) -> Self {
-        Self { status: reason.to_string(), rtt_ms: 0, error: Some(format!("probe_aborted:{reason}")) }
+    pub(crate) fn aborted(reason: &'static str, duration_ms: Option<u64>) -> Self {
+        Self {
+            status: if duration_ms.is_some() { reason } else { "not_run" }.into(),
+            abort_reason: Some(reason),
+            rtt_ms: duration_ms.unwrap_or_default(),
+            error: Some(format!("probe_aborted:{reason}")),
+        }
     }
 }
 
@@ -69,23 +75,23 @@ where
     ProbeWs: FnOnce(WsOverTlsTarget) -> io::Result<()>,
 {
     if let Some(reason) = should_abort() {
-        return TelegramWsProbeResult::aborted(reason);
+        return TelegramWsProbeResult::aborted(reason, None);
     }
     let start = std::time::Instant::now();
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let target = telegram_ws_target(transport);
         if let Some(reason) = should_abort() {
-            return TelegramWsProbeResult::aborted(reason);
+            return TelegramWsProbeResult::aborted(reason, None);
         }
 
         let result = probe_ws(target);
         if let Some(reason) = should_abort() {
-            return TelegramWsProbeResult::aborted(reason);
+            return TelegramWsProbeResult::aborted(reason, Some(start.elapsed().as_millis() as u64));
         }
         match result {
             Ok(()) => {
                 let rtt_ms = start.elapsed().as_millis() as u64;
-                TelegramWsProbeResult { status: "ok".to_string(), rtt_ms, error: None }
+                TelegramWsProbeResult { status: "ok".to_string(), abort_reason: None, rtt_ms, error: None }
             }
             Err(e) => ws_error_result(e, start),
         }
@@ -103,6 +109,7 @@ where
             tracing::error!("Telegram WS tunnel probe panicked: {message}");
             TelegramWsProbeResult {
                 status: "unreachable".to_string(),
+                abort_reason: None,
                 rtt_ms,
                 error: Some(format!("panic during Telegram WS tunnel probe: {message}")),
             }
@@ -112,25 +119,15 @@ where
 
 fn ws_error_result(error: io::Error, start: std::time::Instant) -> TelegramWsProbeResult {
     let rtt_ms = start.elapsed().as_millis() as u64;
-    if let Some(reason) = typed_abort_reason(&error) {
-        return TelegramWsProbeResult {
-            status: reason.to_string(),
+    let failure = error.get_ref().and_then(|cause| cause.downcast_ref::<WsProbeFailure>());
+    match failure {
+        Some(WsProbeFailure::Cancelled) => TelegramWsProbeResult::aborted("cancelled", Some(rtt_ms)),
+        Some(WsProbeFailure::DeadlineExceeded) => TelegramWsProbeResult::aborted("deadline_exceeded", Some(rtt_ms)),
+        None => TelegramWsProbeResult {
+            status: "unreachable".to_string(),
+            abort_reason: None,
             rtt_ms,
-            error: Some(format!("probe_aborted:{reason}")),
-        };
-    }
-    TelegramWsProbeResult { status: "unreachable".to_string(), rtt_ms, error: Some(error.to_string()) }
-}
-
-fn typed_abort_reason(error: &io::Error) -> Option<&'static str> {
-    let message = error.to_string();
-    if error.kind() == io::ErrorKind::Interrupted && message == "probe_aborted:cancelled" {
-        Some("cancelled")
-    } else if error.kind() == io::ErrorKind::TimedOut
-        && matches!(message.as_str(), "scan_deadline_exceeded" | "deadline_exceeded")
-    {
-        Some("deadline_exceeded")
-    } else {
-        None
+            error: Some(error.to_string()),
+        },
     }
 }
