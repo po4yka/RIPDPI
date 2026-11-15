@@ -204,6 +204,8 @@
     <string name="import_profile_confirm_empty_body">इस लिंक में उपयोग योग्य प्रॉक्सी प्रोफ़ाइल नहीं है।</string>
     <string name="import_confirm_add_action">जोड़ें</string>
     <string name="import_profile_confirm_error">यह प्रोफ़ाइल आयात नहीं की जा सकी। जाँचें कि लिंक पूर्ण और मान्य है।</string>
+    <string name="import_profile_confirm_tls_pin">TLS प्रमाणपत्र का फ़िंगरप्रिंट: %1$s</string>
+    <string name="import_profile_confirm_tls_unverified">यह प्रोफ़ाइल सर्वर के TLS प्रमाणपत्र की पुष्टि नहीं करती।</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">आयात किया गया कॉन्फ़िगरेशन</string>
     <string name="import_subscription_confirm_title">सदस्यता जोड़ें</string>

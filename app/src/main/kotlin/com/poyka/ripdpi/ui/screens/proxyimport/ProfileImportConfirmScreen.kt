@@ -25,11 +25,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 /**
  * Single-profile import-confirmation destination.
  *
- * Minimal by design — the import-confirmation surface, not a full profile editor. It
- * shows the parsed [ProxyProfile] and an "Add" action that persists it through
- * [ProfileImportConfirmViewModel]. Reached from [com.poyka.ripdpi.proxyimport.ImportHandlerActivity]
- * after a `vless://` / `ss://` / `trojan://` style share link is parsed, and from the QR
- * scanner.
+ * Shows the parsed [ProxyProfile], its trust policy, and whether Add can save it.
  */
 @Composable
 fun ProfileImportConfirmRoute(
@@ -95,18 +91,25 @@ internal fun ProfileImportConfirmScreen(
                 supporting = profileSummary(profile),
             )
         }
-        uiState.errorRes?.let { errorRes ->
+        profileTrustSummary(profile)?.let { summary ->
+            RipDpiCard {
+                RipDpiPanelHeader(title = summary)
+            }
+        }
+        (uiState.admissionErrorRes ?: uiState.errorRes)?.let { errorRes ->
             RipDpiCard {
                 RipDpiPanelHeader(title = stringResource(errorRes))
             }
         }
-        RipDpiButton(
-            text = stringResource(R.string.import_confirm_add_action),
-            onClick = onConfirm,
-            enabled = !uiState.importing,
-            loading = uiState.importing,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (uiState.admissionErrorRes == null) {
+            RipDpiButton(
+                text = stringResource(R.string.import_confirm_add_action),
+                onClick = onConfirm,
+                enabled = !uiState.importing,
+                loading = uiState.importing,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
@@ -181,5 +184,38 @@ private fun profileSummary(profile: ProxyProfile): String =
 
         is ProxyProfile.RawConfig -> {
             stringResource(R.string.import_profile_summary_raw)
+        }
+    }
+
+@Composable
+private fun profileTrustSummary(profile: ProxyProfile): String? =
+    when (profile) {
+        is ProxyProfile.Hysteria2 -> {
+            val pin = profile.pinSha256
+            when {
+                !pin.isNullOrBlank() -> stringResource(R.string.import_profile_confirm_tls_pin, pin)
+                profile.insecure == true -> stringResource(R.string.import_profile_confirm_tls_unverified)
+                else -> null
+            }
+        }
+
+        is ProxyProfile.AnyTls -> {
+            profile.pinSha256?.let { stringResource(R.string.import_profile_confirm_tls_pin, it) }
+        }
+
+        is ProxyProfile.Naive -> {
+            profile.serverPinSha256.takeIf { it.isNotEmpty() }?.let {
+                stringResource(R.string.import_profile_confirm_tls_pin, it)
+            }
+        }
+
+        is ProxyProfile.Ssh -> {
+            profile.hostKeyFingerprint?.let {
+                "${stringResource(R.string.ssh_field_host_key_fingerprint)}\n$it"
+            }
+        }
+
+        else -> {
+            null
         }
     }

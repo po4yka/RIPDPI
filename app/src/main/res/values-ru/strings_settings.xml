@@ -193,6 +193,8 @@
     <string name="import_profile_confirm_empty_body">Эта ссылка не содержит пригодного профиля прокси.</string>
     <string name="import_confirm_add_action">Добавить</string>
     <string name="import_profile_confirm_error">Не удалось импортировать профиль. Проверьте, что ссылка полная и корректная.</string>
+    <string name="import_profile_confirm_tls_pin">Отпечаток TLS-сертификата: %1$s</string>
+    <string name="import_profile_confirm_tls_unverified">Этот профиль не проверяет TLS-сертификат сервера.</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Импортированная конфигурация</string>
     <string name="import_subscription_confirm_title">Добавить подписку</string>

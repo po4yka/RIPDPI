@@ -182,6 +182,8 @@
     <string name="import_profile_confirm_empty_body">هذا الرابط لا يحتوي على ملف بروكسي صالح للاستخدام.</string>
     <string name="import_confirm_add_action">إضافة</string>
     <string name="import_profile_confirm_error">تعذّر استيراد هذا الملف الشخصي. تأكد من أن الرابط كامل وصالح.</string>
+    <string name="import_profile_confirm_tls_pin">بصمة شهادة TLS: %1$s</string>
+    <string name="import_profile_confirm_tls_unverified">لا يتحقق هذا الملف الشخصي من شهادة TLS للخادم.</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">إعداد مستورَد</string>
     <string name="import_subscription_confirm_title">إضافة اشتراك</string>

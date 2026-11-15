@@ -56,7 +56,7 @@ class ImportConfirmViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun `confirming a plain vless import that activates no relay surfaces an error and persists nothing`() =
+    fun `preview refuses plain VLESS before saving`() =
         runTest {
             val profiles = FakeRelayProfileStore()
             val profile =
@@ -80,18 +80,20 @@ class ImportConfirmViewModelTest {
                         ),
                 )
 
-            viewModel.setProfile(profile)
+            val pending = PendingProxyImportStore()
+            assertTrue(viewModel.loadProfile(pending.stage(profile), pending))
+            assertEquals(R.string.import_error_unsupported, viewModel.uiState.value.admissionErrorRes)
             viewModel.confirm()
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
             assertFalse(state.importing)
-            assertEquals(R.string.import_profile_confirm_error, state.errorRes)
+            assertNull(state.errorRes)
             assertTrue(profiles.list().isEmpty())
         }
 
     @Test
-    fun `confirming a tuic raw-config import that activates no relay surfaces an error and persists nothing`() =
+    fun `preview refuses TUIC raw config before saving`() =
         runTest {
             val profiles = FakeRelayProfileStore()
             val profile =
@@ -113,17 +115,19 @@ class ImportConfirmViewModelTest {
                         ),
                 )
 
-            viewModel.setProfile(profile)
+            val pending = PendingProxyImportStore()
+            assertTrue(viewModel.loadProfile(pending.stage(profile), pending))
+            assertEquals(R.string.import_error_unsupported, viewModel.uiState.value.admissionErrorRes)
             viewModel.confirm()
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertEquals(R.string.import_profile_confirm_error, state.errorRes)
+            assertNull(state.errorRes)
             assertTrue(profiles.list().isEmpty())
         }
 
     @Test
-    fun `confirming an invalid vless-reality profile surfaces an error instead of importing`() =
+    fun `preview reports invalid REALITY material before saving`() =
         runTest {
             val profiles = FakeRelayProfileStore()
             val profile =
@@ -152,12 +156,13 @@ class ImportConfirmViewModelTest {
                 )
 
             viewModel.setProfile(profile)
+            assertEquals(R.string.import_profile_confirm_error, viewModel.uiState.value.admissionErrorRes)
             viewModel.confirm()
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
             assertFalse(state.importing)
-            assertEquals(R.string.import_profile_confirm_error, state.errorRes)
+            assertNull(state.errorRes)
             assertTrue(profiles.list().isEmpty())
         }
 
@@ -190,6 +195,7 @@ class ImportConfirmViewModelTest {
                 )
 
             viewModel.setProfile(profile)
+            assertNull(viewModel.uiState.value.admissionErrorRes)
             viewModel.importedEvents.test {
                 viewModel.confirm()
                 advanceUntilIdle()

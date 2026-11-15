@@ -196,6 +196,8 @@
     <string name="import_profile_confirm_empty_body">此链接不包含可用的代理配置文件。</string>
     <string name="import_confirm_add_action">添加</string>
     <string name="import_profile_confirm_error">无法导入此配置文件。请检查链接是否完整且有效。</string>
+    <string name="import_profile_confirm_tls_pin">TLS 证书指纹：%1$s</string>
+    <string name="import_profile_confirm_tls_unverified">此配置文件不会验证服务器的 TLS 证书。</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">已导入的配置</string>
     <string name="import_subscription_confirm_title">添加订阅</string>

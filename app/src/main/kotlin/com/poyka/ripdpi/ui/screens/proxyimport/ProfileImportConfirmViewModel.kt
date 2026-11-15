@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.nativeVlessProfileRejection
+import com.poyka.ripdpi.data.validateNativeRelayProfileResult
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,7 +25,7 @@ import javax.inject.Inject
 data class ProfileImportConfirmUiState(
     val profile: ProxyProfile? = null,
     val importing: Boolean = false,
-    /** String resource to show when validation or save failed; `null` when there is no error. */
+    @StringRes val admissionErrorRes: Int? = null,
     @StringRes val errorRes: Int? = null,
 )
 
@@ -48,20 +50,35 @@ class ProfileImportConfirmViewModel
         ): Boolean {
             if (loadedImportToken == importToken) return _uiState.value.profile != null
             loadedImportToken = importToken
-            completed = false
-            _uiState.value = ProfileImportConfirmUiState(profile = pendingImports.claim(importToken))
+            setProfile(pendingImports.claim(importToken))
             return _uiState.value.profile != null
         }
 
         /** Seeds the screen with the [profile] parsed from the inbound share link. */
-        fun setProfile(profile: ProxyProfile) {
+        internal fun setProfile(profile: ProxyProfile?) {
             completed = false
-            _uiState.update { it.copy(profile = profile) }
+            _uiState.value =
+                ProfileImportConfirmUiState(
+                    profile = profile,
+                    admissionErrorRes = profile?.let(::admissionError),
+                )
         }
 
+        @StringRes
+        private fun admissionError(profile: ProxyProfile): Int? =
+            if (nativeVlessProfileRejection(profile) != null) {
+                R.string.import_error_unsupported
+            } else {
+                validateNativeRelayProfileResult(profile).fold(
+                    onSuccess = { supported -> R.string.import_error_unsupported.takeUnless { supported } },
+                    onFailure = { R.string.import_profile_confirm_error },
+                )
+            }
+
         fun confirm() {
-            val profile = _uiState.value.profile ?: return
-            if (_uiState.value.importing || completed) return
+            val state = _uiState.value
+            val profile = state.profile ?: return
+            if (state.admissionErrorRes != null || state.importing || completed) return
             _uiState.update { it.copy(importing = true, errorRes = null) }
             viewModelScope.launch {
                 val saved =

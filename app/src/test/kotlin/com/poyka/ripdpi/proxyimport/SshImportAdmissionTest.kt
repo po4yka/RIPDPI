@@ -69,7 +69,7 @@ class SshImportAdmissionTest {
                 viewModel.confirm()
                 advanceUntilIdle()
 
-                assertEquals(R.string.import_profile_confirm_error, viewModel.uiState.value.errorRes)
+                assertEquals(R.string.import_profile_confirm_error, viewModel.uiState.value.admissionErrorRes)
                 assertEquals(before, settings.snapshot())
                 assertEquals(listOf(previous), profiles.list())
                 assertEquals(previous, profiles.load(DefaultRelayProfileId))

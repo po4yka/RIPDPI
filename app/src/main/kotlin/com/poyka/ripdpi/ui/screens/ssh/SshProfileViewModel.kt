@@ -254,10 +254,10 @@ class SshProfileViewModel
                 return
             }
             _uiState.update { it.copy(saving = true) }
+            val importId = importedProfileId
             saveFlow.save(
                 block = {
                     val original = editingDraft
-                    val importId = importedProfileId
                     if (importId != null) {
                         relayActivator.saveImport(profile.copy(id = importId))
                     } else if (original == null) {
@@ -295,8 +295,13 @@ class SshProfileViewModel
                         true
                     }
                 },
-            ) { activated ->
-                val error = R.string.relay_editor_activation_failed.takeUnless { activated }
+            ) { saved ->
+                val error =
+                    when {
+                        saved -> null
+                        importId != null -> R.string.import_profile_confirm_error
+                        else -> R.string.relay_editor_activation_failed
+                    }
                 _uiState.update { it.copy(saving = false, errorMessage = error) }
             }
         }

@@ -193,6 +193,8 @@
     <string name="import_profile_confirm_empty_body">Este link não contém um perfil de proxy utilizável.</string>
     <string name="import_confirm_add_action">Adicionar</string>
     <string name="import_profile_confirm_error">Não foi possível importar este perfil. Verifique se o link está completo e válido.</string>
+    <string name="import_profile_confirm_tls_pin">Impressão digital do certificado TLS: %1$s</string>
+    <string name="import_profile_confirm_tls_unverified">Este perfil não verifica o certificado TLS do servidor.</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Configuração importada</string>
     <string name="import_subscription_confirm_title">Adicionar assinatura</string>
