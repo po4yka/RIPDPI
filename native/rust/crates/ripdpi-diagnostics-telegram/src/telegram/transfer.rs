@@ -92,13 +92,6 @@ fn update_peak_bps(peak_bps: &mut u64, sample_bytes: usize, sample_ms: u64) {
     }
 }
 
-fn certificate_policy_for_target(target: &TargetAddress, tls_name: &str) -> ProbeCertificatePolicy<'static> {
-    match target {
-        TargetAddress::Ip(_) if !tls_name.is_empty() => ProbeCertificatePolicy::Skip,
-        TargetAddress::Ip(_) | TargetAddress::Host(_) => ProbeCertificatePolicy::WebPki,
-    }
-}
-
 fn upload_target_address(upload_target: &str) -> TargetAddress {
     upload_target.parse::<IpAddr>().map_or_else(|_| TargetAddress::Host(upload_target.to_string()), TargetAddress::Ip)
 }
@@ -131,7 +124,7 @@ pub(crate) fn telegram_download_probe_with_abort(
     let options = ProbeStreamOptions {
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
-        certificate_policy: certificate_policy_for_target(&target_address, &host),
+        certificate_policy: ProbeCertificatePolicy::WebPki,
         key_log,
     };
     let stream_result = open_probe_stream_targets_with_options_and_abort(
@@ -302,12 +295,15 @@ pub(crate) fn telegram_upload_probe_with_abort(
     if let Some(reason) = should_abort() {
         return TelegramTransferResult::aborted(reason);
     }
+    if target.upload_size_bytes == 0 {
+        return TelegramTransferResult::blocked("empty_upload".to_string());
+    }
     let target_address = upload_target_address(&target.upload_ip);
     let upload_host = upload_tls_host(&target_address);
     let options = ProbeStreamOptions {
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
-        certificate_policy: certificate_policy_for_target(&target_address, &upload_host),
+        certificate_policy: ProbeCertificatePolicy::WebPki,
         key_log,
     };
     let stream_result = open_probe_stream_targets_with_options_and_abort(
@@ -586,22 +582,69 @@ mod tests {
     }
 
     #[test]
-    fn upload_host_target_uses_default_tls_verification() {
-        let target = upload_target_address("api.telegram.org");
+    fn upload_with_no_data_does_not_open_a_connection() {
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("test listener");
+        listener.set_nonblocking(true).expect("nonblocking test listener");
+        let mut target = upload_target(&listener);
+        target.upload_size_bytes = 0;
 
-        assert_eq!(target, TargetAddress::Host("api.telegram.org".to_string()));
-        assert_eq!(upload_tls_host(&target), "api.telegram.org");
-        let mode = certificate_policy_for_target(&target, &upload_tls_host(&target));
-        assert!(matches!(mode, ProbeCertificatePolicy::WebPki));
+        let result = telegram_upload_probe_with_abort(&target, &crate::transport::direct_transport(), None, &|| None);
+
+        assert_eq!(result.error.as_deref(), Some("empty_upload"));
+        assert_eq!(listener.accept().unwrap_err().kind(), ErrorKind::WouldBlock);
     }
 
     #[test]
-    fn upload_ip_target_is_explicit_domain_fronting_no_verify() {
-        let target = upload_target_address("149.154.167.99");
+    fn upload_pinned_ip_does_not_send_http_data_to_an_untrusted_server() {
+        use std::sync::Arc;
 
-        assert_eq!(target, TargetAddress::Ip("149.154.167.99".parse().unwrap()));
-        assert_eq!(upload_tls_host(&target), TELEGRAM_UPLOAD_HOST);
-        let mode = certificate_policy_for_target(&target, &upload_tls_host(&target));
-        assert!(matches!(mode, ProbeCertificatePolicy::Skip));
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("test listener");
+        let target = upload_target(&listener);
+        let server = std::thread::spawn(move || {
+            // This self-signed certificate names telegram.org but is outside the trusted roots.
+            let cert = rustls::pki_types::CertificateDer::from(
+                include_bytes!("transfer/fixtures/untrusted-cert.der").as_slice(),
+            );
+            let key = rustls::pki_types::PrivatePkcs8KeyDer::from(
+                include_bytes!("transfer/fixtures/untrusted-key.der").as_slice(),
+            );
+            let config =
+                rustls::ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+                    .with_safe_default_protocol_versions()
+                    .expect("test TLS versions")
+                    .with_no_client_auth()
+                    .with_single_cert(vec![cert], key.into())
+                    .expect("test certificate and key");
+            let (socket, _) = listener.accept().expect("test client");
+            socket.set_read_timeout(Some(Duration::from_secs(3))).expect("test read timeout");
+            let conn = rustls::ServerConnection::new(Arc::new(config)).expect("test TLS server");
+            let mut stream = rustls::StreamOwned::new(conn, socket);
+            let mut bytes = [0; 1024];
+            let read = stream.read(&mut bytes);
+            if read.as_ref().is_ok_and(|count| *count > 0) {
+                let _ = stream.write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n");
+                let _ = stream.flush();
+            }
+            assert_eq!(stream.conn.server_name(), Some("telegram.org"));
+            read
+        });
+
+        let result = telegram_upload_probe_with_abort(&target, &crate::transport::direct_transport(), None, &|| None);
+
+        assert_eq!(result.bytes_total, 0);
+        assert_ne!(result.status, "ok");
+        assert!(server.join().expect("test server").is_err());
+    }
+
+    fn upload_target(listener: &std::net::TcpListener) -> TelegramTarget {
+        TelegramTarget {
+            media_url: "https://telegram.org/".to_string(),
+            upload_ip: "127.0.0.1".to_string(),
+            upload_port: listener.local_addr().expect("test address").port(),
+            dc_endpoints: Vec::new(),
+            stall_timeout_ms: 1000,
+            total_timeout_ms: 2000,
+            upload_size_bytes: 32,
+        }
     }
 }
