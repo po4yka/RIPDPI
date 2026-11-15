@@ -159,10 +159,10 @@ fn guard_control<T>(
     control.set_write_timeout(Some(wait))?;
     let clone = control.try_clone()?;
     let result = with_scan_io_deadline(Some(deadline), || {
-        run_with_socket_abort_watchdog(clone, &|| cancellation_reason(cancel).is_some(), || operation(control))
+        run_with_socket_abort_watchdog(clone, &|| cancellation_reason(cancel).is_some(), || Ok(operation(control)))
     });
     control_remaining(deadline, cancel)?;
-    result
+    result?
 }
 
 fn control_remaining(deadline: Instant, cancel: Option<&AtomicBool>) -> Result<Duration, TransportError> {
