@@ -2,7 +2,7 @@
 id: DGN-1794748905877489
 title: Repair DIA-18 DNS and public IP evidence
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics repair team

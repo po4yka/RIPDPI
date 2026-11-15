@@ -87,7 +87,7 @@ The implementation MUST accept only the documented numeric IP field or a complet
 
 ### Requirement: REQ-DIA18-F10 — Cancel and bound HTTP reads
 
-The implementation MUST cancel active HTTP body reads with the owning coroutine and enforce a decoded response size limit.
+The implementation MUST cancel active HTTP body reads and managed DIRECT/DoH resolver calls with the owning coroutine, and enforce a decoded response size limit. Cancellation MUST stop owned DoH transport calls even when the upstream DNS cache retains its query.
 
 #### Scenario: Cancel and bound HTTP reads
 

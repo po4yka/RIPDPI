@@ -3,7 +3,7 @@
 ## Execution
 
 - [x] DGN-1794749137226855 F8 Add explicit observation and failure states #bug !high @item:DGN-1794748905877489
-- [ ] DGN-1794749138551266 F10 Cancel and bound diagnostics HTTP reads #bug !high @item:DGN-1794748905877489
+- [x] DGN-1794749138551266 F10 Cancel and bound diagnostics HTTP reads #bug !high @item:DGN-1794748905877489
 - [x] DGN-1794749139470251 F3 Canonicalize numeric IP identity #bug !high @item:DGN-1794748905877489
 - [x] DGN-1794749140269235 F2 Keep IP families separate through verdicts #bug !high @item:DGN-1794748905877489
 - [x] DGN-1794749140969277 F4 Validate GeoIP identity and provider capabilities #bug !high @item:DGN-1794748905877489

@@ -9,10 +9,11 @@ See proposal.md and the twelve DIA-18 audit findings. Implementation and regress
 
 ## Decisions
 
-- Add CategoryResult.status with DetectionCheckStatus COMPLETE, OBSERVATION_ONLY, INCONCLUSIVE, SKIPPED, ERROR; the default is COMPLETE for existing producers.
+- Extend the existing CategoryResult.executionStatus and CheckExecutionStatus with OBSERVATION_ONLY. Use one hasIncompleteChecks() owner for UI, reports, score, history and community output. Existing producers default to COMPLETED. A skipped GeoIP baseline remains incomplete; optional skipped probes remain optional.
 - Keep the public IP result shape compatible. Canonicalize numeric addresses and compare by family in both comparison layers.
 - Use nullable internal GeoIP traits, provider-specific admission, requested-IP identity, field-specific quorum, and strict country majority.
 - Add executeCancellable to the existing DetectionResolverNetworkStack. Its cancellation hook remains active through the bounded body read; it returns a buffered DetectionTransportResponse.
+- Use one dispatcher and upstream DoH instance per managed DNS call. Share the existing executor and connection pool. Cancel both the DNS subscriber and its owned HTTP calls, and reject late child calls after cancellation. The pinned upstream cache otherwise keeps transport requests running after subscriber cancellation. Preserve upstream wire parsing, TLS, bootstrap and host guards.
 - Pass one run resolver context to endpoint resolution and ASN enrichment. A master flag suppresses all active network work.
 - Remove unproven underlay claims; do not add physical bypass measurement.
 - Reuse existing status labels when their meaning fits. New strings require all locales and the translation export. Golden blessing needs separate explicit family authorization if a changed golden is required.
@@ -32,7 +33,9 @@ See proposal.md and the twelve DIA-18 audit findings. Implementation and regress
 - Rejecting undocumented HTML payloads reduces reflection coverage; it prevents false IP attribution.
 - Partial results remain visible and must not gain hard confidence through downstream classification.
 - Body cancellation must cover response consumption, not only response headers.
+- Managed DoH calls do not reuse earlier-call DNS cache entries. Network handover attribution still needs separate device acceptance.
+- SYSTEM lookup cancellation cannot stop work already owned by the operating system.
 
 ## Migration Plan
 
-No stored, wire, JNI or protobuf migration. New status is additive in memory and exports. Existing producers default to COMPLETE. Revert the corresponding fix commit to roll back; do not weaken gates. Validate owning tests, app unit tests, static analysis, locale lint, offline ci-gates, architecture health, locked Cargo metadata, and applicable visual tests. Record live-device and external interoperability gaps separately.
+No stored, wire, JNI or protobuf migration. The OBSERVATION_ONLY enum value is additive. Exports keep executionStatus and NOT_RUN for an absent category. Existing producers default to COMPLETED. Revert the corresponding fix commit to roll back; do not weaken gates. Validate owning tests, app unit tests, static analysis, locale lint, offline ci-gates, architecture health, locked Cargo metadata, and applicable visual tests. Record live-device and external interoperability gaps separately.
