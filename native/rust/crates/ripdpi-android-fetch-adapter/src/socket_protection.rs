@@ -1,5 +1,6 @@
+use std::future::Future;
 use std::io;
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::os::fd::AsRawFd;
 use std::time::Duration;
 
@@ -15,67 +16,22 @@ const MIN_CONNECT_ATTEMPT: Duration = Duration::from_secs(2);
 /// # Cancel safety:
 /// cancel-safe: dropping it closes active resolution and the connecting socket.
 pub(crate) async fn connect_transport(host: &str, port: u16, connect_timeout_ms: u64) -> io::Result<TcpStream> {
-    connect_transport_filtered(host, port, connect_timeout_ms, |_| true).await
-}
-
-/// Make alternate service bindings ineligible for local or special-purpose peers.
-///
-/// # Cancel safety:
-/// cancel-safe: dropping it closes active resolution and the connecting socket.
-pub(crate) async fn connect_public_transport(host: &str, port: u16, connect_timeout_ms: u64) -> io::Result<TcpStream> {
-    connect_transport_filtered(host, port, connect_timeout_ms, public_binding_destination).await
+    connect_transport_with(host, port, connect_timeout_ms, resolve_connect_targets(host, port)).await
 }
 
 /// # Cancel safety:
-/// cancel-safe: dropping it closes active resolution and any socket being connected.
-async fn connect_transport_filtered(
+/// Cancel-safe when the supplied resolution future is cancel-safe. Dropping it
+/// drops resolution and closes any socket being connected.
+pub(super) async fn connect_transport_with(
     host: &str,
     port: u16,
     connect_timeout_ms: u64,
-    permitted: impl Fn(IpAddr) -> bool,
+    resolution: impl Future<Output = io::Result<Vec<SocketAddr>>>,
 ) -> io::Result<TcpStream> {
     let budget = Duration::from_millis(connect_timeout_ms);
-    timeout(budget, async {
-        let mut targets = resolve_connect_targets(host, port).await?;
-        targets.retain(|target| permitted(target.ip()));
-        if targets.is_empty() {
-            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no permitted ECH binding address"));
-        }
-        connect_candidates(host, port, &targets, budget).await
-    })
-    .await
-    .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, format!("connect to {host}:{port} timed out")))?
-}
-
-fn public_binding_destination(address: IpAddr) -> bool {
-    match address {
-        IpAddr::V4(ip) => {
-            let [a, b, c, _] = ip.octets();
-            let reserved = matches!(a, 0 | 10 | 127 | 224..=255)
-                || (a == 100 && (64..=127).contains(&b))
-                || (a == 169 && b == 254)
-                || (a == 172 && (16..=31).contains(&b))
-                || (a == 192 && (b == 168 || (b == 0 && (c == 0 || c == 2)) || (b == 88 && c == 99)))
-                || (a == 198 && (b == 18 || b == 19 || (b == 51 && c == 100)))
-                || (a == 203 && b == 0 && c == 113);
-            !reserved
-        }
-        IpAddr::V6(ip) => {
-            let s = ip.segments();
-            // Admit translated public IPv4 peers, but never allow translation to bypass the IPv4 policy.
-            let translated = ip.to_ipv4_mapped().or_else(|| match s {
-                [0x64, 0xff9b, 0, 0, 0, 0, hi, lo] => Some(((u32::from(hi) << 16) | u32::from(lo)).into()),
-                _ => None,
-            });
-            if let Some(v4) = translated {
-                return public_binding_destination(IpAddr::V4(v4));
-            }
-            (s[0] & 0xe000) == 0x2000
-                && !(s[0] == 0x2001 && (s[1] < 0x200 || s[1] == 0xdb8))
-                && s[0] != 0x2002
-                && !(s[0] == 0x3fff && s[1] < 0x1000)
-        }
-    }
+    timeout(budget, async { connect_candidates(host, port, &resolution.await?, budget).await })
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, format!("connect to {host}:{port} timed out")))?
 }
 
 /// Try `targets` in order. Each candidate but the last gets an equal share of
@@ -129,28 +85,6 @@ fn protect_socket_if_available(socket: &TcpSocket) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// # Cancel safety:
-    /// cancel-safe: the future owns its transport attempt and test listener.
-    #[tokio::test]
-    async fn alternate_tls_binding_cannot_connect_to_a_local_peer() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind");
-        let address = listener.local_addr().expect("address");
-        let error = connect_public_transport("127.0.0.1", address.port(), 1000)
-            .await
-            .expect_err("must refuse before connecting");
-        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
-    }
-
-    #[test]
-    fn alternate_destination_policy_checks_embedded_ipv4() {
-        for address in ["::ffff:127.0.0.1", "64:ff9b::a00:1", "100.64.0.1", "fc00::1", "2001:db8::1"] {
-            assert!(!public_binding_destination(address.parse().unwrap()), "{address}");
-        }
-        for address in ["1.1.1.1", "2606:4700::1111", "64:ff9b::101:101"] {
-            assert!(public_binding_destination(address.parse().unwrap()), "{address}");
-        }
-    }
 
     // A SYN-dropped first candidate must not use the whole connect budget.
     #[tokio::test]

@@ -59,7 +59,7 @@ async fn attempts(
                 crate::socket_protection::connect_transport(&address.ip().to_string(), address.port(), connect_ms).await
             }
             None if endpoint.require_public_address => {
-                crate::socket_protection::connect_public_transport(endpoint.host, endpoint.port, connect_ms).await
+                crate::native_ech_endpoint::connect_public_transport(endpoint.host, endpoint.port, connect_ms).await
             }
             None => crate::socket_protection::connect_transport(endpoint.host, endpoint.port, connect_ms).await,
         }
