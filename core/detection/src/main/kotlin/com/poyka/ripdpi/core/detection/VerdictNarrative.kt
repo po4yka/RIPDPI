@@ -79,8 +79,8 @@ object VerdictNarrativeBuilder {
             result.bypassResult.proxyEndpoint?.let { endpoint ->
                 add(row("Local proxy", endpoint.displayEndpoint(), ExposureStatus.LOCAL_PROXY_OR_API_ONLY))
             }
-            result.ownerAppLabel()?.let { app ->
-                add(row("Owner app", app, ExposureStatus.TECHNICAL_SIGNAL_ONLY))
+            result.activeVpnPackage()?.let { packageName ->
+                add(row("Active VPN app", packageName, ExposureStatus.TECHNICAL_SIGNAL_ONLY))
             }
             result.networkInterfaceLabel()?.let { networkIp ->
                 add(row("VPN network IP", networkIp, ExposureStatus.PUBLIC_IP_ONLY))
@@ -240,17 +240,12 @@ object VerdictNarrativeBuilder {
             nativeSigns?.category?.evidence?.let(::addAll)
         }
 
-    private fun DetectionCheckResult.ownerAppLabel(): String? =
-        (directSigns.matchedApps + indirectSigns.matchedApps)
-            .firstOrNull()
-            ?.let { app ->
-                listOfNotNull(app.appName, app.packageName).joinToString(" / ")
-            }
-            ?: (directSigns.activeApps + indirectSigns.activeApps)
-                .firstOrNull()
-                ?.let { app ->
-                    listOfNotNull(app.family, app.packageName, app.serviceName).joinToString(" / ")
-                }
+    private fun DetectionCheckResult.activeVpnPackage(): String? =
+        (directSigns.activeApps + indirectSigns.activeApps)
+            .filter { it.source == EvidenceSource.ACTIVE_VPN && it.confidence != EvidenceConfidence.LOW }
+            .mapNotNull { it.packageName?.takeIf(String::isNotBlank) }
+            .distinct()
+            .singleOrNull()
 
     private fun DetectionCheckResult.networkInterfaceLabel(): String? =
         (directSigns.findings + indirectSigns.findings)

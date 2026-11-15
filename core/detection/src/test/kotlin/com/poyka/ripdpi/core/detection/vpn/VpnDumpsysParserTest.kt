@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.core.detection.vpn
 
+import com.poyka.ripdpi.core.detection.EvidenceConfidence
+import com.poyka.ripdpi.core.detection.EvidenceSource
+import com.poyka.ripdpi.core.detection.checker.IndirectDumpsysSignals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -26,6 +30,22 @@ class VpnDumpsysParserTest {
         val records = VpnDumpsysParser.parseVpnManagement(output)
         assertEquals(1, records.size)
         assertEquals("com.v2ray.ang", records[0].packageName)
+    }
+
+    @Test
+    fun `prepared VPN package is a low confidence local finding`() {
+        val records =
+            VpnDumpsysParser.parseVpnManagement(
+                "0: User VPN state\n  Active package name: org.example.prepared\n  Active vpn type: -1",
+            )
+        val finding = IndirectDumpsysSignals.reportedPackages(records).single()
+
+        assertEquals("org.example.prepared", finding.packageName)
+        assertEquals("VPN package reported by dumpsys: org.example.prepared", finding.description)
+        assertEquals(EvidenceSource.DUMPSYS, finding.source)
+        assertEquals(EvidenceConfidence.LOW, finding.confidence)
+        assertTrue(finding.needsReview)
+        assertFalse(finding.detected)
     }
 
     @Test

@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import android.content.Context
-import com.poyka.ripdpi.core.detection.ActiveVpnApp
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.Finding
@@ -24,7 +23,6 @@ object IndirectSignsChecker {
     fun check(context: Context): CategoryResult {
         val findings = mutableListOf<Finding>()
         val evidence = mutableListOf<EvidenceItem>()
-        val activeApps = mutableListOf<ActiveVpnApp>()
         var detected = false
         var needsReview = false
 
@@ -39,13 +37,7 @@ object IndirectSignsChecker {
         detected = detected || dnsOutcome.detected
         needsReview = needsReview || dnsOutcome.needsReview
 
-        val dumpsysVpnOutcome = IndirectDumpsysSignals.checkDumpsysVpn(findings, evidence, activeApps)
-        detected = detected || dumpsysVpnOutcome.detected
-        needsReview = needsReview || dumpsysVpnOutcome.needsReview
-
-        val dumpsysServiceOutcome = IndirectDumpsysSignals.checkDumpsysVpnService(findings, evidence, activeApps)
-        detected = detected || dumpsysServiceOutcome.detected
-        needsReview = needsReview || dumpsysServiceOutcome.needsReview
+        IndirectDumpsysSignals.check(findings)
 
         val proxySocketScan = ProcNetTcpProxyScanner.scan(context)
         findings.addAll(proxySocketScan.findings)
@@ -59,7 +51,6 @@ object IndirectSignsChecker {
             findings = findings,
             needsReview = needsReview,
             evidence = evidence,
-            activeApps = activeApps.distinctBy { Triple(it.packageName, it.serviceName, it.source) },
         )
     }
 

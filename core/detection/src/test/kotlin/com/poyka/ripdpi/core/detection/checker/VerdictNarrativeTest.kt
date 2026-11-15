@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection.checker
 
+import com.poyka.ripdpi.core.detection.ActiveVpnApp
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
@@ -8,13 +9,16 @@ import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.ExposureStatus
 import com.poyka.ripdpi.core.detection.Finding
+import com.poyka.ripdpi.core.detection.MatchedVpnApp
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VerdictExplanation
+import com.poyka.ripdpi.core.detection.VpnAppKind
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.ProxyType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -77,6 +81,52 @@ class VerdictNarrativeTest {
             )
 
         assertEquals(ExposureStatus.TECHNICAL_SIGNAL_ONLY, narrative.exposureStatus)
+    }
+
+    @Test
+    fun `active package is independent of installed candidates`() {
+        val installed =
+            MatchedVpnApp(
+                packageName = "org.example.installed",
+                appName = "Installed VPN",
+                family = null,
+                kind = VpnAppKind.GENERIC_VPN,
+                source = EvidenceSource.INSTALLED_APP,
+                active = false,
+                confidence = EvidenceConfidence.LOW,
+            )
+        val active =
+            ActiveVpnApp(
+                packageName = "org.example.active",
+                serviceName = null,
+                family = null,
+                kind = null,
+                source = EvidenceSource.ACTIVE_VPN,
+                confidence = EvidenceConfidence.MEDIUM,
+            )
+        val result = cleanResult().copy(directSigns = category("Direct").copy(matchedApps = listOf(installed)))
+
+        assertFalse(VerdictEngine.narrative(result).discoveredRows.any { it.value.contains(installed.packageName) })
+        assertFalse(VerdictEngine.narrative(result).discoveredRows.any { it.label == "Active VPN app" })
+
+        val observed = result.copy(indirectSigns = category("Indirect").copy(activeApps = listOf(active, active)))
+        assertEquals(
+            active.packageName,
+            VerdictEngine
+                .narrative(observed)
+                .discoveredRows
+                .single { it.label == "Active VPN app" }
+                .value,
+        )
+
+        val ambiguous =
+            observed.copy(
+                indirectSigns =
+                    observed.indirectSigns.copy(
+                        activeApps = listOf(active, active.copy(packageName = "org.example.other")),
+                    ),
+            )
+        assertFalse(VerdictEngine.narrative(ambiguous).discoveredRows.any { it.label == "Active VPN app" })
     }
 
     @Test
