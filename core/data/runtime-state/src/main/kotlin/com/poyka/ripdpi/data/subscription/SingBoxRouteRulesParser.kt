@@ -44,6 +44,7 @@ sealed interface SingBoxRouteRulesParseResult {
  * portable. The `outbound` field maps to a [PackageRoutingAction]:
  * - `"direct"` → [PackageRoutingAction.BYPASS]
  * - `"select"` → [PackageRoutingAction.VIA_TUN]
+ * Extra match conditions on package rules are rejected rather than widened to whole-app rules.
  * Any missing or named outbound is rejected because the Android VPN layer can
  * only enforce whole-app bypass or whole-app tunnel membership. Accepting a
  * named outbound would silently widen it to the default tunnel path.
@@ -188,6 +189,13 @@ object SingBoxRouteRulesParser {
     ): SingBoxRouteRulesParseResult.Error? {
         val outbound = (obj["outbound"] as? JsonPrimitive)?.contentOrNull
         return when {
+            !obj.isWholeAppPackageRule() -> {
+                SingBoxRouteRulesParseResult.Error(
+                    message = "route.rules[$index] has unsupported package routing conditions",
+                    ruleIndex = index,
+                )
+            }
+
             packageNames.isEmpty() -> {
                 null
             }
@@ -313,3 +321,9 @@ object SingBoxRouteRulesParser {
         return pair == setOf(PackageRoutingAction.BYPASS, PackageRoutingAction.VIA_TUN)
     }
 }
+
+private fun JsonObject.isWholeAppPackageRule(): Boolean =
+    keys.all { it in setOf("package_name", "outbound", "type", "action", "invert") } &&
+        this["type"] in setOf(null, JsonPrimitive("default")) &&
+        this["action"] in setOf(null, JsonPrimitive("route")) &&
+        this["invert"] in setOf(null, JsonPrimitive(false))
