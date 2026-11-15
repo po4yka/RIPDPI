@@ -24,6 +24,20 @@ class StrategyRecommendationEngineTest {
     }
 
     @Test
+    fun `an ambiguous QUIC Initial outcome does not recommend strategy changes`() {
+        val report =
+            strategyReport(
+                listOf(
+                    ProbeResult("tcp_fat_header", "203.0.113.10:443", "tcp_reset"),
+                    ProbeResult("tcp_fat_header", "203.0.113.11:443", "tcp_reset"),
+                    ProbeResult("quic_reachability", "other.example", "quic_error"),
+                ),
+            )
+
+        assertNull(StrategyRecommendationEngine.compute(report, currentTcpFamily = "split"))
+    }
+
+    @Test
     fun `raw path real reachability failure can recommend strategy changes`() {
         val report =
             strategyReport(

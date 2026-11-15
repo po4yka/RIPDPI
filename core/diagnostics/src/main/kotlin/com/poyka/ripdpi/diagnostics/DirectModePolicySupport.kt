@@ -77,7 +77,7 @@ internal fun enrichDirectPathCapabilityObservation(
 private fun ScanReport.hasDefinitiveDirectModeEvidence(): Boolean =
     completionKind == ScanCompletionKind.NORMAL &&
         terminationReason == null &&
-        results.none(ProbeResult::invalidatesDirectModeEvidence) &&
+        results.none { it.probeType != ProbeTypeQuicReachability && it.invalidatesDirectModeEvidence() } &&
         (
             strategyProbeReport?.let { strategyProbe ->
                 strategyProbe.completionKind == StrategyProbeCompletionKind.NORMAL &&
@@ -118,10 +118,7 @@ private data class DirectModeTransportSignals(
 private fun deriveTransportSignals(results: List<ProbeResult>): DirectModeTransportSignals {
     val hasTransparentSuccess = results.any(ProbeResult::edgeSuccess)
     val hasQuicBlocked =
-        results.any { result ->
-            (result.probeType == "strategy_quic" || result.probeType == "quic_reachability") &&
-                result.outcome == "quic_error"
-        }
+        results.any { it.probeType == "strategy_quic" && it.outcome == "quic_error" }
     val hasTlsFailureWithoutResponse = results.any { it.hasTlsHandshakeFailureEvidence(peerResponseReceived = false) }
     val hasTlsPostClientHelloFailure =
         results.any { it.hasTlsHandshakeFailureEvidence(peerResponseReceived = true) }

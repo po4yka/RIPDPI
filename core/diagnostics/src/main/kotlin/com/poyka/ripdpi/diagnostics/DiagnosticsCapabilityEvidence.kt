@@ -45,7 +45,8 @@ internal fun summarizeCapabilityEvidence(
 
 internal fun collectDirectPathCapabilityObservations(report: ScanReport): Map<String, ServerCapabilityObservation> {
     val aggregated = linkedMapOf<String, ServerCapabilityObservation>()
-    report.results.forEach { result ->
+    val capabilityResults = report.results.filterNot { it.probeType == ProbeTypeQuicReachability }
+    capabilityResults.forEach { result ->
         val authority = result.directPathCapabilityAuthority() ?: return@forEach
         val observation = result.directPathCapabilityObservation()
         if (observation.isEmpty()) {
@@ -61,7 +62,7 @@ internal fun collectDirectPathCapabilityObservations(report: ScanReport): Map<St
         }
         aggregated[authority] = mergeObservation(aggregated[authority], derived)
     }
-    report.results
+    capabilityResults
         .mapNotNull(ProbeResult::directPathCapabilityAuthority)
         .forEach { authority ->
             if (authority !in aggregated) {
@@ -223,7 +224,7 @@ private fun ProbeResult.directPathCapabilityAuthority(): String? =
 
 private fun ProbeResult.directPathCapabilityObservation(): ServerCapabilityObservation =
     when (probeType) {
-        "strategy_quic", "quic_reachability" -> {
+        "strategy_quic" -> {
             val success = edgeSuccess()
             ServerCapabilityObservation(
                 quicUsable = success,
@@ -265,29 +266,11 @@ private fun ObservationFact.directPathCapabilityAuthority(): String? =
         .takeIf { it.isNotEmpty() }
 
 private fun ObservationFact.directPathCapabilityObservation(): ServerCapabilityObservation =
-    when {
-        quic != null -> {
-            val usable = quic.status == QuicProbeStatus.INITIAL_RESPONSE || quic.status == QuicProbeStatus.RESPONSE
-            ServerCapabilityObservation(
-                quicUsable = usable,
-                udpUsable = usable,
-            )
-        }
-
-        strategy != null &&
-            strategy.protocol == StrategyProbeProtocol.QUIC &&
-            strategy.status != StrategyProbeStatus.NOT_APPLICABLE
-        -> {
-            val usable = strategy.status == StrategyProbeStatus.SUCCESS
-            ServerCapabilityObservation(
-                quicUsable = usable,
-                udpUsable = usable,
-            )
-        }
-
-        else -> {
-            ServerCapabilityObservation()
-        }
+    if (strategy?.protocol == StrategyProbeProtocol.QUIC && strategy.status != StrategyProbeStatus.NOT_APPLICABLE) {
+        val usable = strategy.status == StrategyProbeStatus.SUCCESS
+        ServerCapabilityObservation(quicUsable = usable, udpUsable = usable)
+    } else {
+        ServerCapabilityObservation()
     }
 
 private fun List<ServerCapabilityRecord>.reduceCapabilityFlag(

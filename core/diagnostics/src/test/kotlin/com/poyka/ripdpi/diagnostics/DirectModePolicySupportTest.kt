@@ -393,11 +393,8 @@ class DirectModePolicySupportTest {
                 ),
             ).copy(completionKind = ScanCompletionKind.PARTIAL_RESULTS)
 
-        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
-
         assertNull(deriveDirectModeVerdict(report))
-        assertNull(observation.transportPolicy)
-        assertNull(observation.cooldownUntil)
+        assertTrue(collectDirectPathCapabilityObservations(report).isEmpty())
     }
 
     @Test
@@ -477,11 +474,8 @@ class DirectModePolicySupportTest {
                 terminationReason = ScanTerminationReason.DEADLINE_EXCEEDED,
             )
 
-        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
-
         assertNull(deriveDirectModeVerdict(report))
-        assertNull(observation.transportPolicy)
-        assertNull(observation.cooldownUntil)
+        assertTrue(collectDirectPathCapabilityObservations(report).isEmpty())
     }
 
     @Test

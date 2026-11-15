@@ -7,7 +7,6 @@ private const val ProbeTypeDomainReachability = "domain_reachability"
 private const val ProbeTypeServiceReachability = "service_reachability"
 private const val ProbeTypeCircumventionReachability = "circumvention_reachability"
 private const val ProbeTypeThroughputWindow = "throughput_window"
-private const val ProbeTypeQuicReachability = "quic_reachability"
 
 private const val OutcomeTcpReset = "tcp_reset"
 private const val OutcomeTcpTimeout = "tcp_timeout"
@@ -18,7 +17,6 @@ private const val OutcomeUnreachable = "unreachable"
 private const val OutcomeServiceBlocked = "service_blocked"
 private const val OutcomeCircumventionBlocked = "circumvention_blocked"
 private const val OutcomeThroughputFailed = "throughput_failed"
-private const val OutcomeQuicError = "quic_error"
 
 private const val PatternRstInjection = "rst_injection"
 private const val PatternThresholdBlocking = "threshold_blocking"
@@ -49,7 +47,6 @@ internal object StrategyRecommendationEngine {
             (ProbeTypeServiceReachability to OutcomeServiceBlocked) to SignalCategory.SERVICE_BLOCKED,
             (ProbeTypeCircumventionReachability to OutcomeCircumventionBlocked) to SignalCategory.CIRCUMVENTION_BLOCKED,
             (ProbeTypeThroughputWindow to OutcomeThroughputFailed) to SignalCategory.THROUGHPUT_BLOCKED,
-            (ProbeTypeQuicReachability to OutcomeQuicError) to SignalCategory.QUIC_BLOCKED,
         )
 
     fun compute(
@@ -267,7 +264,6 @@ internal object StrategyRecommendationEngine {
         SERVICE_BLOCKED("Service blocked"),
         CIRCUMVENTION_BLOCKED("Circumvention tool blocked"),
         THROUGHPUT_BLOCKED("Throughput throttled"),
-        QUIC_BLOCKED("QUIC blocked"),
     }
 
     private fun ScanReport.hasActionableStrategyEvidence(signals: List<BlockingSignal>): Boolean =
@@ -293,7 +289,6 @@ internal object StrategyRecommendationEngine {
                 SignalCategory.SERVICE_BLOCKED,
                 SignalCategory.CIRCUMVENTION_BLOCKED,
                 SignalCategory.THROUGHPUT_BLOCKED,
-                SignalCategory.QUIC_BLOCKED,
             )
 
     private fun BlockingSignal.recommendationStrength(): Int =

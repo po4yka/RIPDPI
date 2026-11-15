@@ -4,9 +4,9 @@ use super::common::{DiagnosisSink, diagnosis_evidence};
 
 pub(crate) fn classify_quic_diagnoses(results: &[ProbeResult], sink: &mut DiagnosisSink) {
     for result in results.iter().filter(|result| result.probe_type == "quic_reachability") {
-        if !matches!(result.outcome.as_str(), "quic_initial_response" | "quic_response") {
+        if matches!(result.outcome.as_str(), "quic_timeout" | "quic_invalid_response") {
             sink.push(Diagnosis {
-                code: "quic_blocked".to_string(),
+                code: "quic_initial_unobserved".to_string(),
                 summary: format!("QUIC Initial probe did not receive a valid response from {}", result.target),
                 severity: "warning".to_string(),
                 target: Some(result.target.clone()),

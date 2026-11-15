@@ -238,15 +238,15 @@ fn classify_connectivity_diagnoses_detects_http_quic_whitelist_and_tcp_cutoff() 
             connectivity_probe(
                 "quic_reachability",
                 "youtube.com",
-                "quic_error",
-                &[("status", "quic_error"), ("error", "timeout"), ("latencyMs", "800")],
+                "quic_timeout",
+                &[("status", "quic_timeout"), ("error", "timeout"), ("latencyMs", "800")],
             ),
         ],
     );
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "tcp_16kb_cutoff"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "whitelist_sni_bypassable"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "sni_triggered_tls_interference"));
-    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "quic_blocked"));
+    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "quic_initial_unobserved"));
 }
 
 #[test]
@@ -422,7 +422,10 @@ fn diagnoses_describe_ech_and_quic_observations_without_blocking_attribution() {
         &connectivity_request(),
         &[
             connectivity_probe("domain_reachability", "target.example", "tls_ech_only", &[]),
-            connectivity_probe("quic_reachability", "target.example", "quic_error", &[]),
+            connectivity_probe("quic_reachability", "target.example", "quic_invalid_response", &[]),
+            connectivity_probe("quic_reachability", "skipped.example", "capability_skipped", &[]),
+            connectivity_probe("quic_reachability", "setup.example", "quic_setup_error", &[]),
+            connectivity_probe("quic_reachability", "retry.example", "quic_retry", &[]),
         ],
     );
     assert_eq!(
@@ -430,9 +433,10 @@ fn diagnoses_describe_ech_and_quic_observations_without_blocking_attribution() {
         "Plain TLS attempts failed for target.example, but ECH succeeded"
     );
     assert_eq!(
-        diagnoses.iter().find(|diagnosis| diagnosis.code == "quic_blocked").unwrap().summary,
+        diagnoses.iter().find(|diagnosis| diagnosis.code == "quic_initial_unobserved").unwrap().summary,
         "QUIC Initial probe did not receive a valid response from target.example"
     );
+    assert_eq!(diagnoses.len(), 2);
 }
 
 #[test]

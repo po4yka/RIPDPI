@@ -5,7 +5,7 @@ private const val ProbeTypeDomainReachability = "domain_reachability"
 private const val ProbeTypeServiceReachability = "service_reachability"
 private const val ProbeTypeCircumventionReachability = "circumvention_reachability"
 private const val ProbeTypeThroughputWindow = "throughput_window"
-private const val ProbeTypeQuicReachability = "quic_reachability"
+internal const val ProbeTypeQuicReachability = "quic_reachability"
 
 private const val OutcomeTlsOk = "tls_ok"
 private const val OutcomeTcpReset = "tcp_reset"
@@ -19,7 +19,6 @@ private const val OutcomeHttpBlockpage = "http_blockpage"
 private const val OutcomeServiceBlocked = "service_blocked"
 private const val OutcomeCircumventionBlocked = "circumvention_blocked"
 private const val OutcomeThroughputFailed = "throughput_failed"
-private const val OutcomeQuicError = "quic_error"
 
 private const val MinimumHealthyDirectTlsProbesForSyntheticBlocking = 3
 
@@ -48,7 +47,6 @@ private val realReachabilityBlockingOutcomes =
         ProbeTypeServiceReachability to OutcomeServiceBlocked,
         ProbeTypeCircumventionReachability to OutcomeCircumventionBlocked,
         ProbeTypeThroughputWindow to OutcomeThroughputFailed,
-        ProbeTypeQuicReachability to OutcomeQuicError,
     )
 
 internal fun ScanReport.hasFatHeaderOnlySyntheticBlocking(): Boolean {
@@ -96,7 +94,8 @@ internal fun ScanReport.resultsForDirectModePolicy(): List<ProbeResult> =
         }
 
 internal fun ProbeResult.isDirectModePolicyEvidence(): Boolean =
-    outcome != "tls_ech_only" &&
+    probeType != ProbeTypeQuicReachability &&
+        outcome != "tls_ech_only" &&
         (!probeType.startsWith("strategy_") || detailValue("candidateId")?.trim() == "baseline_plain_direct")
 
 private fun ProbeResult.isTcpFatHeaderProbe(): Boolean = probeType == ProbeTypeTcpFatHeader

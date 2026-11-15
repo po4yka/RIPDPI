@@ -1,13 +1,6 @@
-//! QUIC-probe outcome classifier wrapped as a Probe.
-//!
-//! Adapts `ripdpi_failure_classifier::classify_quic_probe` to the
-//! [`Probe`] trait. The upstream classifier takes a string outcome
-//! tag (matching the diagnostics runner's QUIC-probe contract) and
-//! an optional error string; healthy outcomes return None, anything
-//! else becomes a [`ripdpi_failure_classifier::ClassifiedFailure`] with class QuicBreakage.
+//! Classifies recorded QUIC Initial probe outcomes without attributing network failures.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
-use ripdpi_failure_classifier::classify_quic_probe;
 
 use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
 
@@ -41,13 +34,11 @@ impl Probe for QuicProbeOfflineProbe {
     }
 
     fn run(&self, _ctx: &ProbeContext) -> ProbeOutcome {
-        let verdict = match classify_quic_probe(&self.outcome, self.error.as_deref()) {
-            None => ProbeVerdict::Pass,
-            Some(failure) => {
-                let outcome_tag =
-                    failure.evidence.tags.iter().find_map(|t| t.strip_prefix("outcome=")).unwrap_or("unknown");
-                ProbeVerdict::Fail { class: format!("quic-breakage::{outcome_tag}") }
-            }
+        let verdict = if self.outcome == "quic_initial_response" {
+            ProbeVerdict::Pass
+        } else {
+            let reason = self.error.as_deref().filter(|error| !error.is_empty()).unwrap_or(&self.outcome);
+            ProbeVerdict::Inconclusive { reason: reason.to_string() }
         };
         ProbeOutcome { probe_id: self.id(), family: self.family(), verdict }
     }
@@ -66,16 +57,10 @@ mod tests {
     }
 
     #[test]
-    fn healthy_response_yields_pass() {
-        let outcome = QuicProbeOfflineProbe::new("quic_response", None).run(&ProbeContext::empty());
-        assert_eq!(outcome.verdict, ProbeVerdict::Pass);
-    }
-
-    #[test]
-    fn timeout_outcome_carries_outcome_in_class() {
-        match QuicProbeOfflineProbe::new("timeout", Some("deadline".to_string())).run(&ProbeContext::empty()).verdict {
-            ProbeVerdict::Fail { class } => assert_eq!(class, "quic-breakage::timeout"),
-            other => panic!("expected Fail, got {other:?}"),
+    fn outcomes_without_known_initial_crypto_are_inconclusive() {
+        for status in ["quic_response", "quic_retry", "quic_timeout", "capability_skipped", "unknown"] {
+            let outcome = QuicProbeOfflineProbe::new(status, None).run(&ProbeContext::empty());
+            assert_eq!(outcome.verdict, ProbeVerdict::Inconclusive { reason: status.to_string() });
         }
     }
 }
