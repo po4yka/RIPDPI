@@ -123,6 +123,34 @@ class DirectModePolicySupportTest {
     }
 
     @Test
+    fun `unknown origin tls alert does not select a tls remediation policy`() {
+        val report =
+            reportWithResults(
+                ProbeResult(
+                    probeType = "strategy_https",
+                    target = "example.org",
+                    outcome = "tls_handshake_failed",
+                    details =
+                        listOf(
+                            ProbeDetail("candidateId", "baseline_plain_direct"),
+                            ProbeDetail("targetHost", "example.org"),
+                            ProbeDetail("tlsAlertCode", "70"),
+                            ProbeDetail("tlsAlertSource", "unknown"),
+                            ProbeDetail("tlsServerHelloReceived", "false"),
+                        ),
+                ),
+            )
+
+        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
+        val verdict = deriveDirectModeVerdict(report)
+
+        assertNull(observation.transportClass)
+        assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, observation.reasonCode)
+        assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
+        assertNull(verdict?.transportClass)
+    }
+
+    @Test
     fun `non baseline strategy success cannot override baseline failure`() {
         val report =
             reportWithResults(

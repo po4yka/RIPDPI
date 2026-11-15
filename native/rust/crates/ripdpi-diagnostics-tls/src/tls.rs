@@ -7,8 +7,7 @@ mod types;
 mod verifier;
 
 pub use classification::{
-    classify_tls_signal, ech_status_label, is_certificate_error, is_server_tls_version_rejection,
-    preferred_tls_observation, tls_version_label,
+    append_tls_comparison_details, classify_tls_signal, ech_status_label, preferred_tls_observation, tls_version_label,
 };
 pub use config::{default_root_store, make_server_name, planned_tls_template_metadata, planned_tls_template_profile};
 pub use key_log::{TlsKeyLogCallback, TlsKeyLogFile, tls_key_log_callback_for_path};
@@ -26,7 +25,7 @@ pub use verifier::NoCertificateVerification;
 
 #[cfg(test)]
 mod tests {
-    use super::classification::{classify_tls_dpi_signature, first_flight_plan_label, parse_alert_from_error};
+    use super::classification::first_flight_plan_label;
     use super::config::build_standard_client_config_with_key_log;
     use super::*;
     use crate::transport::TargetAddress;
@@ -57,7 +56,6 @@ mod tests {
             tls_alert_code: None,
             tls_alert_description: None,
             tls_server_hello_received: None,
-            tls_dpi_signature: None,
             connected_addr: None,
             local_addr: None,
             cdn_provider: None,
@@ -107,32 +105,6 @@ mod tests {
         let unknown = rustls::ProtocolVersion::Unknown(0x0200);
         let result = tls_version_label(Some(unknown));
         assert!(result.is_some());
-    }
-
-    #[test]
-    fn is_certificate_error_detects_certificate_keyword() {
-        assert!(is_certificate_error("invalid certificate chain"));
-    }
-
-    #[test]
-    fn is_certificate_error_detects_unknown_issuer() {
-        assert!(is_certificate_error("unknown issuer"));
-    }
-
-    #[test]
-    fn is_certificate_error_detects_bad_certificate() {
-        assert!(is_certificate_error("received fatal alert: bad certificate"));
-    }
-
-    #[test]
-    fn is_certificate_error_detects_not_valid() {
-        assert!(is_certificate_error("hostname not valid for this cert"));
-    }
-
-    #[test]
-    fn is_certificate_error_rejects_unrelated() {
-        assert!(!is_certificate_error("connection reset by peer"));
-        assert!(!is_certificate_error("timeout"));
     }
 
     #[test]
@@ -289,112 +261,5 @@ mod tests {
             ApplicationProtocolPolicy::Http11Only,
         );
         assert_eq!(config.alpn_protocols, vec![b"http/1.1".to_vec()]);
-    }
-
-    #[test]
-    fn is_server_tls_version_rejection_detects_alert() {
-        let ok = obs("tls_ok", false);
-        let mut failed = obs("tls_handshake_failed", false);
-        failed.error = Some(rustls_alert_error_text(rustls::AlertDescription::ProtocolVersion));
-        assert!(is_server_tls_version_rejection(&failed, &ok));
-        assert!(is_server_tls_version_rejection(&ok, &failed));
-    }
-
-    #[test]
-    fn is_server_tls_version_rejection_reads_real_rustls_alert_text() {
-        let ok = obs("tls_ok", false);
-        for alert in [rustls::AlertDescription::ProtocolVersion, rustls::AlertDescription::InappropriateFallback] {
-            let mut failed = obs("tls_handshake_failed", false);
-            failed.error = Some(rustls_alert_error_text(alert));
-            assert!(is_server_tls_version_rejection(&failed, &ok), "{alert:?}");
-        }
-        // handshake_failure is not version-specific: a middlebox can inject it on one version only.
-        for alert in [rustls::AlertDescription::HandshakeFailure, rustls::AlertDescription::UnrecognisedName] {
-            let mut failed = obs("tls_handshake_failed", false);
-            failed.error = Some(rustls_alert_error_text(alert));
-            assert!(!is_server_tls_version_rejection(&failed, &ok), "{alert:?}");
-        }
-    }
-
-    /// The text a failed handshake stores: `capture_tls_handshake` keeps the `Display` of the
-    /// `io::Error` that wraps the rustls error.
-    fn rustls_alert_error_text(alert: rustls::AlertDescription) -> String {
-        std::io::Error::new(std::io::ErrorKind::InvalidData, rustls::Error::AlertReceived(alert)).to_string()
-    }
-
-    #[test]
-    fn is_server_tls_version_rejection_false_for_timeout() {
-        let ok = obs("tls_ok", false);
-        let mut failed = obs("tls_handshake_failed", false);
-        failed.error = Some("connection timed out".to_string());
-        assert!(!is_server_tls_version_rejection(&failed, &ok));
-    }
-
-    #[test]
-    fn is_server_tls_version_rejection_false_for_reset() {
-        let ok = obs("tls_ok", false);
-        let mut failed = obs("tls_handshake_failed", false);
-        failed.error = Some("Connection reset by peer".to_string());
-        assert!(!is_server_tls_version_rejection(&failed, &ok));
-    }
-
-    #[test]
-    fn parse_alert_handshake_failure() {
-        let (code, desc) = parse_alert_from_error("received fatal alert: HandshakeFailure");
-        assert_eq!(code, Some(0x28));
-        assert_eq!(desc.as_deref(), Some("HandshakeFailure"));
-    }
-
-    #[test]
-    fn parse_alert_protocol_version() {
-        let (code, desc) = parse_alert_from_error("received fatal alert: ProtocolVersion");
-        assert_eq!(code, Some(0x46));
-        assert_eq!(desc.as_deref(), Some("ProtocolVersion"));
-    }
-
-    #[test]
-    fn parse_alert_unrecognised_name() {
-        let (code, desc) = parse_alert_from_error("received fatal alert: UnrecognisedName");
-        assert_eq!(code, Some(0x70));
-        assert_eq!(desc.as_deref(), Some("UnrecognisedName"));
-    }
-
-    #[test]
-    fn parse_alert_returns_none_for_non_alert_error() {
-        let (code, desc) = parse_alert_from_error("connection timed out");
-        assert_eq!(code, None);
-        assert_eq!(desc, None);
-    }
-
-    #[test]
-    fn parse_alert_unknown_variant_returns_description_only() {
-        let (code, desc) = parse_alert_from_error("received fatal alert: SomeFutureAlert");
-        assert_eq!(code, None);
-        assert_eq!(desc.as_deref(), Some("SomeFutureAlert"));
-    }
-
-    #[test]
-    fn classify_dpi_signature_handshake_failure_fast() {
-        assert_eq!(classify_tls_dpi_signature(0x28, Some(50)), Some("tspu_generic_block".to_string()));
-    }
-
-    #[test]
-    fn classify_dpi_signature_handshake_failure_slow() {
-        assert_eq!(classify_tls_dpi_signature(0x28, Some(500)), Some("handshake_failure_slow".to_string()));
-    }
-
-    #[test]
-    fn classify_dpi_signature_protocol_version() {
-        assert_eq!(classify_tls_dpi_signature(0x46, None), Some("tspu_version_downgrade".to_string()));
-    }
-
-    #[test]
-    fn classify_dpi_signature_sni_block() {
-        assert_eq!(classify_tls_dpi_signature(0x70, None), Some("sni_based_block".to_string()));
-    }
-
-    #[test]
-    fn classify_dpi_signature_unknown_code() {
-        assert_eq!(classify_tls_dpi_signature(0x32, None), None);
     }
 }

@@ -79,7 +79,10 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 duration_ms: started.elapsed().as_millis().max(1) as u64,
                 tcp_connect_ms: Some(tcp_connect_ms),
                 connected_addr,
-                tls_server_hello_received: Some(err.server_hello_received),
+                tls_server_hello_received: err.server_hello_received,
+                tls_alert: err.alert,
+                certificate_anomaly: err.certificate_anomaly,
+                tls_handshake_ms: err.handshake_ms,
             })?;
             let local_addr = match &captured.stream {
                 ConnectionStream::Tls(stream) => stream.sock.local_addr().ok(),
@@ -133,6 +136,9 @@ fn open_transport_stream(
         tcp_connect_ms: None,
         connected_addr: None,
         tls_server_hello_received: None,
+        tls_alert: None,
+        certificate_anomaly: false,
+        tls_handshake_ms: None,
     })?;
     let tcp_connect_ms = tcp_start.elapsed().as_millis() as u64;
     let connected_addr = transport_result.connected_addr;
@@ -181,5 +187,8 @@ fn stream_error(
         tcp_connect_ms: opened.map(|value| value.tcp_connect_ms),
         connected_addr: opened.and_then(|value| value.connected_addr),
         tls_server_hello_received: None,
+        tls_alert: None,
+        certificate_anomaly: false,
+        tls_handshake_ms: None,
     }
 }

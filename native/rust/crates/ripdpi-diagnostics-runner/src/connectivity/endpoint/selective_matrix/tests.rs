@@ -117,29 +117,31 @@ fn socks_uses_pinned_ip_and_verified_tls_original_hostname() {
     server.join();
 }
 #[test]
-fn verified_direct_tls_rejects_untrusted_certificate() {
-    let server = Fixture::start(false, false);
+fn verified_direct_tls_rejects_untrusted_certificate_or_wrong_name() {
     let config = config();
-    let mut parsed = parse_http_target("https://example.com/", None, &[], None).unwrap();
-    parsed.port = server.port;
-    let mut result = base_result(&config, &config.targets[0], 1);
-    with_scan_io_deadline(Some(Instant::now() + Duration::from_secs(2)), || {
-        execute_https(
-            &parsed,
-            &[TargetAddress::Ip(Ipv4Addr::LOCALHOST.into())],
-            1024,
-            &TransportConfig::Direct { route_experiment: None },
-            &AttemptControl {
-                cancel: &AtomicBool::new(false),
-                deadline: Instant::now() + Duration::from_secs(2),
-                scan_deadline: None,
-            },
-            None,
-            &mut result,
-        );
-    });
-    assert_eq!(result.outcome, "matrix_target_tls_error");
-    server.join();
+    for (url, trusted) in [("https://example.com/", false), ("https://wrong.example/", true)] {
+        let server = Fixture::start(false, false);
+        let mut parsed = parse_http_target(url, None, &[], None).unwrap();
+        parsed.port = server.port;
+        let mut result = base_result(&config, &config.targets[0], 1);
+        with_scan_io_deadline(Some(Instant::now() + Duration::from_secs(2)), || {
+            execute_https(
+                &parsed,
+                &[TargetAddress::Ip(Ipv4Addr::LOCALHOST.into())],
+                1024,
+                &TransportConfig::Direct { route_experiment: None },
+                &AttemptControl {
+                    cancel: &AtomicBool::new(false),
+                    deadline: Instant::now() + Duration::from_secs(2),
+                    scan_deadline: None,
+                },
+                trusted.then_some(&server.verifier),
+                &mut result,
+            );
+        });
+        assert_eq!(result.outcome, "matrix_target_tls_error", "{:?}", result.details);
+        server.join();
+    }
 }
 #[test]
 fn verified_direct_tls_completes_body() {

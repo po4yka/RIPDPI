@@ -381,11 +381,15 @@ private fun ProbeResult.isDirectModeFailure(): Boolean =
     }
 
 private fun ProbeResult.hasTlsHandshakeFailureEvidence(): Boolean =
-    outcome == "tls_handshake_failed" ||
-        detailValue("failureClass")
-            ?.trim()
-            ?.lowercase(Locale.US)
-            ?.contains("tls") == true
+    // The scan cannot use an alert of unknown origin to select a transport policy.
+    detailValue("tlsAlertCode") == null &&
+        (
+            outcome == "tls_handshake_failed" ||
+                detailValue("failureClass")
+                    ?.trim()
+                    ?.lowercase(Locale.US)
+                    ?.contains("tls") == true
+        )
 
 private fun deriveIpSetDigest(results: List<ProbeResult>): String {
     val connectedIps =

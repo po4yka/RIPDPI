@@ -5,7 +5,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::adapters::http::{describe_http_observation, is_blockpage, try_http_request_targets};
 use crate::connectivity::adapters::tls::{
-    TlsClientProfile, classify_tls_signal, is_server_tls_version_rejection, preferred_tls_observation,
+    TlsClientProfile, append_tls_comparison_details, classify_tls_signal, preferred_tls_observation,
     tls_key_log_callback_for_path, try_tls_handshake_targets_with_key_log,
 };
 use crate::connectivity::adapters::transport::{
@@ -71,11 +71,7 @@ fn run_domain_probe_with_tls_probe(
     } else if tls13.status == "tls_ok" && tls12.status == "tls_ok" {
         "tls_ok".to_string()
     } else if tls13.status == "tls_ok" || tls12.status == "tls_ok" {
-        if is_server_tls_version_rejection(&tls13, &tls12) {
-            "tls_ok".to_string()
-        } else {
-            "tls_version_split".to_string()
-        }
+        "tls_version_split".to_string()
     } else if tls_ech.status == "tls_ok" {
         "tls_ech_only".to_string()
     } else if is_blockpage(&http) {
@@ -174,6 +170,7 @@ fn run_domain_probe_with_tls_probe(
             ProbeDetail { key: "probeRetryCount".to_string(), value: probe_retry_count.to_string() },
         ],
     };
+    append_tls_comparison_details(&mut result.details, &result.outcome, &tls13, &tls12, &tls_ech);
     if let Some(addr) = connected_addr {
         result.details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
     }
@@ -209,14 +206,12 @@ fn http_status_class(status: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{http_status_class, http_status_code};
+    use crate::types::{DomainTarget, TransportFailureKind};
+    use ripdpi_diagnostics_classification::observations::observation_for_probe;
+    use ripdpi_diagnostics_tls::tls::{ProbeStreamFailureStage, TlsClientProfile, TlsObservation};
 
-    #[test]
-    fn successful_retry_replaces_tls_failure_evidence() {
-        use crate::types::{DomainTarget, TransportFailureKind};
-        use ripdpi_diagnostics_classification::observations::observation_for_probe;
-        use ripdpi_diagnostics_tls::tls::{ProbeStreamFailureStage, TlsObservation};
-
-        let failure = TlsObservation {
+    fn failed_probe() -> TlsObservation {
+        TlsObservation {
             status: "tls_handshake_failed".into(),
             version: None,
             error: Some("connection timed out".into()),
@@ -237,12 +232,16 @@ mod tests {
             tls_alert_code: None,
             tls_alert_description: None,
             tls_server_hello_received: None,
-            tls_dpi_signature: None,
             connected_addr: None,
             local_addr: None,
             cdn_provider: None,
             route_report: None,
-        };
+        }
+    }
+
+    #[test]
+    fn successful_retry_replaces_tls_failure_evidence() {
+        let failure = failed_probe();
         let success = TlsObservation {
             status: "tls_ok".into(),
             version: Some("TLS1.3".into()),
@@ -286,6 +285,59 @@ mod tests {
         let domain = observation_for_probe(&result).unwrap().domain.unwrap();
         assert_eq!(domain.transport_failure, TransportFailureKind::None);
         assert_eq!(domain.tls_error, None);
+    }
+
+    #[test]
+    fn protocol_version_alert_does_not_convert_a_split_to_tls_ok() {
+        let connected_addr = Some("127.0.0.1:443".parse().unwrap());
+        let tls13 = TlsObservation {
+            status: "tls_ok".into(),
+            version: Some("TLS1.3".into()),
+            error: None,
+            failure_stage: None,
+            failure_duration_ms: None,
+            connected_addr,
+            ..failed_probe()
+        };
+        let tls12 = TlsObservation {
+            error: Some("received fatal alert: ProtocolVersion".into()),
+            failure_stage: Some(ProbeStreamFailureStage::TlsHandshake),
+            tls_alert_code: Some(70),
+            tls_server_hello_received: Some(false),
+            tls_handshake_ms: Some(2),
+            connected_addr,
+            ..failed_probe()
+        };
+        let http_server = crate::test_fixtures::HttpTextServer::start_text("HTTP/1.1 200 OK", "ok");
+        let target = DomainTarget {
+            host: "localhost".into(),
+            connect_ip: Some("127.0.0.1".into()),
+            connect_ips: vec![],
+            https_port: Some(9),
+            http_port: Some(http_server.port()),
+            http_path: "/".into(),
+            is_control: false,
+            concurrency_probe: None,
+        };
+        let result = super::run_domain_probe_with_tls_probe(
+            &target,
+            &super::TransportConfig::Direct { route_experiment: None },
+            |_, _, profile| match profile {
+                TlsClientProfile::Tls13Only => tls13.clone(),
+                TlsClientProfile::Tls12Only => tls12.clone(),
+                _ => failed_probe(),
+            },
+        );
+
+        assert_eq!(result.outcome, "tls_version_split");
+        assert!(
+            result
+                .details
+                .iter()
+                .any(|detail| { detail.key == "tlsVersionComparisonScope" && detail.value == "same_peer" })
+        );
+        assert!(result.details.iter().any(|detail| detail.key == "tlsAlertCode" && detail.value == "70"));
+        assert!(result.details.iter().any(|detail| detail.key == "tlsAlertSource" && detail.value == "unknown"));
     }
 
     #[test]

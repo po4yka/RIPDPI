@@ -2,9 +2,7 @@ use ripdpi_tls_profiles::TlsTemplateFirstFlightPlan;
 
 use crate::transport::ConnectionStream;
 
-use super::super::classification::{
-    classify_tls_dpi_signature, is_certificate_error, parse_alert_from_error, tls_version_label,
-};
+use super::super::classification::tls_version_label;
 use super::super::types::{ProbeStreamError, ProbeStreamResult, TlsClientProfile, TlsObservation};
 use super::ech;
 
@@ -56,7 +54,6 @@ pub(crate) fn from_probe_stream_result(result: ProbeStreamResult, profile: TlsCl
         tls_alert_code: None,
         tls_alert_description: None,
         tls_server_hello_received: Some(true),
-        tls_dpi_signature: None,
         connected_addr,
         local_addr,
         cdn_provider,
@@ -89,7 +86,6 @@ pub(crate) fn from_probe_error(err: ProbeStreamError, profile: TlsClientProfile)
             tls_alert_code: None,
             tls_alert_description: None,
             tls_server_hello_received: None,
-            tls_dpi_signature: None,
             connected_addr: err.connected_addr,
             local_addr: None,
             cdn_provider: None,
@@ -97,13 +93,7 @@ pub(crate) fn from_probe_error(err: ProbeStreamError, profile: TlsClientProfile)
         };
     }
 
-    let certificate_anomaly = is_certificate_error(&err.message);
-    let (tls_alert_code, tls_alert_description) = parse_alert_from_error(&err.message);
-    // An alert in reply to the ClientHello (from the server or an injecting middlebox) is the
-    // post-ClientHello failure evidence the direct-mode policy reads from this flag.
-    let tls_server_hello_received =
-        err.tls_server_hello_received.map(|server_hello| server_hello || tls_alert_code.is_some());
-    let tls_dpi_signature = tls_alert_code.and_then(|code| classify_tls_dpi_signature(code, None));
+    let certificate_anomaly = err.rejected_server_certificate();
 
     TlsObservation {
         status: if certificate_anomaly { "tls_cert_invalid" } else { "tls_handshake_failed" }.to_string(),
@@ -118,15 +108,14 @@ pub(crate) fn from_probe_error(err: ProbeStreamError, profile: TlsClientProfile)
         ech_outer_extension_policy: None,
         ech_first_flight_plan: None,
         tcp_connect_ms: err.tcp_connect_ms,
-        tls_handshake_ms: None,
+        tls_handshake_ms: err.tls_handshake_ms,
         cert_chain_length: None,
         cert_issuer: None,
         local_socket_ttl: None,
         ja3_fingerprint: None,
-        tls_alert_code,
-        tls_alert_description,
-        tls_server_hello_received,
-        tls_dpi_signature,
+        tls_alert_code: err.tls_alert.map(u8::from),
+        tls_alert_description: err.tls_alert.and_then(|alert| alert.as_str()).map(str::to_string),
+        tls_server_hello_received: err.tls_server_hello_received,
         connected_addr: err.connected_addr,
         local_addr: None,
         cdn_provider: None,

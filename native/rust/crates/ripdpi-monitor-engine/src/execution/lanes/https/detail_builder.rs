@@ -1,5 +1,8 @@
 use crate::candidates::StrategyCandidateSpec;
-use crate::tls::{TlsClientProfile, TlsObservation, planned_tls_template_metadata, planned_tls_template_profile};
+use crate::tls::{
+    TlsClientProfile, TlsObservation, append_tls_comparison_details, planned_tls_template_metadata,
+    planned_tls_template_profile,
+};
 use crate::types::ProbeDetail;
 
 use super::super::support::candidate_probe_details;
@@ -89,6 +92,7 @@ pub(super) fn build_https_probe_details(
     push_selected_endpoint_details(&mut details, &selected);
     push_ech_capability_details(&mut details, observations, outcome, tls_ech_template.template.ech_capable);
     push_selected_tls_details(&mut details, &selected);
+    append_tls_comparison_details(&mut details, outcome, tls13, tls12, tls_ech);
     details
 }
 
@@ -101,26 +105,23 @@ fn failure_duration_label(observation: &TlsObservation) -> String {
 }
 
 fn select_tls_fields(tls13: &TlsObservation, tls12: &TlsObservation, tls_ech: &TlsObservation) -> SelectedTlsFields {
-    let preferred = if tls13.tcp_connect_ms.is_some() { tls13 } else { tls12 };
+    let attempts = [tls13, tls12, tls_ech];
+    let preferred = attempts
+        .into_iter()
+        .find(|attempt| attempt.status == "tls_ok")
+        .or_else(|| attempts.into_iter().find(|attempt| attempt.tcp_connect_ms.is_some()))
+        .unwrap_or(tls13);
 
     SelectedTlsFields {
         tcp_connect_ms: preferred.tcp_connect_ms,
         tls_handshake_ms: preferred.tls_handshake_ms,
-        cert_chain_length: preferred.cert_chain_length.or(tls12.cert_chain_length),
-        cert_issuer: preferred.cert_issuer.clone().or_else(|| tls12.cert_issuer.clone()),
+        cert_chain_length: preferred.cert_chain_length,
+        cert_issuer: preferred.cert_issuer.clone(),
         local_socket_ttl: preferred.local_socket_ttl,
-        ja3_fingerprint: preferred.ja3_fingerprint.clone().or_else(|| tls12.ja3_fingerprint.clone()),
-        tls_alert_code: tls13.tls_alert_code.or(tls12.tls_alert_code),
-        tls_alert_description: tls13.tls_alert_description.clone().or_else(|| tls12.tls_alert_description.clone()),
-        tls_server_hello_received: tls13.tls_server_hello_received.or(tls12.tls_server_hello_received),
-        tls_dpi_signature: tls13.tls_dpi_signature.clone().or_else(|| tls12.tls_dpi_signature.clone()),
-        tls_negotiated_version: tls13.version.clone().or_else(|| tls12.version.clone()),
-        connected_addr: tls13.connected_addr.or(tls12.connected_addr).or(tls_ech.connected_addr),
-        cdn_provider: tls13
-            .cdn_provider
-            .clone()
-            .or_else(|| tls12.cdn_provider.clone())
-            .or_else(|| tls_ech.cdn_provider.clone()),
+        ja3_fingerprint: preferred.ja3_fingerprint.clone(),
+        tls_negotiated_version: preferred.version.clone(),
+        connected_addr: preferred.connected_addr,
+        cdn_provider: preferred.cdn_provider.clone(),
     }
 }
 
@@ -182,20 +183,8 @@ fn push_selected_tls_details(details: &mut Vec<ProbeDetail>, selected: &Selected
     if let Some(ja3) = selected.ja3_fingerprint.clone() {
         details.push(ProbeDetail { key: "ja3Fingerprint".to_string(), value: ja3 });
     }
-    if let Some(code) = selected.tls_alert_code {
-        details.push(ProbeDetail { key: "tlsAlertCode".to_string(), value: code.to_string() });
-    }
-    if let Some(desc) = selected.tls_alert_description.clone() {
-        details.push(ProbeDetail { key: "tlsAlertDescription".to_string(), value: desc });
-    }
     if let Some(version) = selected.tls_negotiated_version.clone() {
         details.push(ProbeDetail { key: "tlsNegotiatedVersion".to_string(), value: version });
-    }
-    if let Some(server_hello) = selected.tls_server_hello_received {
-        details.push(ProbeDetail { key: "tlsServerHelloReceived".to_string(), value: server_hello.to_string() });
-    }
-    if let Some(sig) = selected.tls_dpi_signature.clone() {
-        details.push(ProbeDetail { key: "tlsDpiSignature".to_string(), value: sig });
     }
 }
 
@@ -212,10 +201,6 @@ mod tests {
             cert_issuer: None,
             local_socket_ttl: Some(64),
             ja3_fingerprint: None,
-            tls_alert_code: None,
-            tls_alert_description: None,
-            tls_server_hello_received: None,
-            tls_dpi_signature: None,
             tls_negotiated_version: None,
             connected_addr: None,
             cdn_provider: None,

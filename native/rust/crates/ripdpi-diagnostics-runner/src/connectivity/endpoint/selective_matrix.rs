@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, bounded_scan_io_timeout, with_scan_io_deadline};
 use ripdpi_diagnostics_contracts::{ProbeDetail, ProbeResult, SelectiveMatrixConfig, SelectiveMatrixTarget};
 use ripdpi_diagnostics_tls::tls::{
-    ApplicationProtocolPolicy, ProbeStreamFailureStage, ProbeStreamOptions, is_certificate_error,
+    ApplicationProtocolPolicy, ProbeStreamFailureStage, ProbeStreamOptions,
     open_probe_stream_targets_with_options_and_abort,
 };
 use ripdpi_diagnostics_transport::transport::{ConnectionStream, TargetAddress, TransportConfig, resolve_addresses};
@@ -120,7 +120,7 @@ fn execute_https(
                 stage,
                 if control.cancelled() {
                     "matrix_target_cancelled"
-                } else if is_certificate_error(&error.message) {
+                } else if error.rejected_server_certificate() {
                     "matrix_target_tls_error"
                 } else {
                     "matrix_target_transport_failed"

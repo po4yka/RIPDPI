@@ -32,13 +32,23 @@ pub(crate) struct CapturedTlsHandshake {
 /// A failed handshake and whether the server's ServerHello was processed before it failed.
 pub(crate) struct CaptureTlsError {
     pub(crate) message: String,
-    pub(crate) server_hello_received: bool,
+    pub(crate) server_hello_received: Option<bool>,
+    pub(crate) alert: Option<rustls::AlertDescription>,
+    pub(crate) certificate_anomaly: bool,
+    pub(crate) handshake_ms: Option<u64>,
     pub(crate) ech_retry_configs: Option<Vec<u8>>,
 }
 
 impl From<String> for CaptureTlsError {
     fn from(message: String) -> Self {
-        Self { message, server_hello_received: false, ech_retry_configs: None }
+        Self {
+            message,
+            server_hello_received: None,
+            alert: None,
+            certificate_anomaly: false,
+            handshake_ms: None,
+            ech_retry_configs: None,
+        }
     }
 }
 
@@ -106,14 +116,33 @@ pub(crate) fn capture_tls_handshake(
         refresh_tls_handshake_timeout(&mut recording)?;
         let mut io = BoundedHandshakeIo { recording: &mut recording, should_abort };
         if let Err(err) = connection.complete_io(&mut io) {
-            // rustls records the negotiated version when it processes the ServerHello.
-            let server_hello_received = connection.protocol_version().is_some();
-            let message = administrative_error_after_io(should_abort).unwrap_or_else(|| err.to_string());
-            let ech_retry_configs = err
-                .get_ref()
-                .and_then(|error| error.downcast_ref::<rustls::Error>())
-                .and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
-            return Err(CaptureTlsError { message, server_hello_received, ech_retry_configs });
+            // rustls sets the version and suite during HelloRetryRequest too. After a retry
+            // request, these fields cannot tell whether the final ServerHello arrived.
+            let server_hello_received = (connection.handshake_kind()
+                != Some(rustls::HandshakeKind::FullWithHelloRetryRequest))
+            .then(|| connection.negotiated_cipher_suite().is_some());
+            let handshake_ms = Some(tls_start.elapsed().as_millis() as u64);
+            if let Some(message) = administrative_error_after_io(should_abort) {
+                return Err(CaptureTlsError { server_hello_received, handshake_ms, ..message.into() });
+            }
+            let tls_error = err.get_ref().and_then(|error| error.downcast_ref::<rustls::Error>());
+            let alert = match tls_error {
+                Some(rustls::Error::AlertReceived(alert)) => Some(*alert),
+                _ => None,
+            };
+            let certificate_anomaly = matches!(
+                tls_error,
+                Some(rustls::Error::InvalidCertificate(_) | rustls::Error::NoCertificatesPresented)
+            );
+            let ech_retry_configs = tls_error.and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
+            return Err(CaptureTlsError {
+                message: err.to_string(),
+                server_hello_received,
+                alert,
+                certificate_anomaly,
+                handshake_ms,
+                ech_retry_configs,
+            });
         }
     }
     let tls_handshake_ms = tls_start.elapsed().as_millis() as u64;
@@ -303,7 +332,7 @@ mod tests {
     }
 
     /// Answers the ClientHello with `reply(client_hello)` and closes.
-    fn scripted_server(reply: fn(&[u8]) -> Vec<u8>) -> (u16, std::thread::JoinHandle<()>) {
+    fn scripted_server(reply: impl FnOnce(&[u8]) -> Vec<u8> + Send + 'static) -> (u16, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
         let server = std::thread::spawn(move || {
@@ -358,12 +387,9 @@ mod tests {
     }
 
     #[test]
-    fn server_hello_flag_reports_a_tls_answer_to_the_client_hello() {
+    fn handshake_observation_distinguishes_wire_alert_from_server_hello() {
         let (port, server) = scripted_server(server_hello_then_alert);
         let after_server_hello = probe_tls12(port);
-        server.join().unwrap();
-        let (port, server) = scripted_server(|_| HANDSHAKE_FAILURE_ALERT.to_vec());
-        let injected_alert = probe_tls12(port);
         server.join().unwrap();
         let (port, server) = scripted_server(|_| Vec::new());
         let silent_close = probe_tls12(port);
@@ -371,12 +397,32 @@ mod tests {
 
         assert_eq!(after_server_hello.tls_alert_code, Some(0x28), "{after_server_hello:?}");
         assert_eq!(after_server_hello.tls_server_hello_received, Some(true));
-        // An alert right after the ClientHello (what an injecting DPI sends) still answers it.
-        assert_eq!(injected_alert.tls_alert_code, Some(0x28), "{injected_alert:?}");
-        assert_eq!(injected_alert.tls_server_hello_received, Some(true));
         assert_eq!(silent_close.failure_stage, Some(crate::tls::ProbeStreamFailureStage::TlsHandshake));
         assert_eq!(silent_close.tls_alert_code, None, "{silent_close:?}");
         assert_eq!(silent_close.tls_server_hello_received, Some(false));
+
+        for (code, description) in [
+            (0x28, Some("HandshakeFailure")),
+            (0x46, Some("ProtocolVersion")),
+            (0x70, Some("UnrecognisedName")),
+            (0x74, Some("CertificateRequired")),
+            (0xfa, None),
+        ] {
+            let (port, server) = scripted_server(move |_| {
+                let mut alert = HANDSHAKE_FAILURE_ALERT;
+                alert[6] = code;
+                alert.to_vec()
+            });
+            let observation = probe_tls12(port);
+            server.join().unwrap();
+
+            assert_eq!(observation.tls_alert_code, Some(code), "{observation:?}");
+            assert_eq!(observation.tls_alert_description.as_deref(), description);
+            assert_eq!(observation.tls_server_hello_received, Some(false));
+            assert_eq!(observation.status, "tls_handshake_failed");
+            assert!(!observation.certificate_anomaly);
+            assert!(observation.tls_handshake_ms.is_some());
+        }
     }
 
     #[test]

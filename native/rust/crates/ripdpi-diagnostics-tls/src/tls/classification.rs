@@ -1,3 +1,4 @@
+use ripdpi_diagnostics_contracts::types::ProbeDetail;
 use ripdpi_tls_profiles::TlsTemplateFirstFlightPlan;
 use rustls::client::EchStatus;
 
@@ -20,83 +21,6 @@ pub fn ech_status_label(status: EchStatus) -> String {
         EchStatus::Rejected => "rejected".to_string(),
     }
 }
-/// Parse the TLS alert code and description from a stringified rustls error.
-/// Rustls formats `AlertReceived` as `"received fatal alert: {alert:?}"` where
-/// the alert Debug repr is the variant name (e.g. "HandshakeFailure").
-pub(super) fn parse_alert_from_error(error: &str) -> (Option<u8>, Option<String>) {
-    const PREFIX: &str = "received fatal alert: ";
-    let Some(alert_name) = error.strip_prefix(PREFIX) else {
-        return (None, None);
-    };
-    let alert_name = alert_name.trim();
-    let code = match alert_name {
-        "CloseNotify" => 0x00,
-        "UnexpectedMessage" => 0x0a,
-        "BadRecordMac" => 0x14,
-        "DecryptionFailed" => 0x15,
-        "RecordOverflow" => 0x16,
-        "DecompressionFailure" => 0x1e,
-        "HandshakeFailure" => 0x28,
-        "NoCertificate" => 0x29,
-        "BadCertificate" => 0x2a,
-        "UnsupportedCertificate" => 0x2b,
-        "CertificateRevoked" => 0x2c,
-        "CertificateExpired" => 0x2d,
-        "CertificateUnknown" => 0x2e,
-        "IllegalParameter" => 0x2f,
-        "UnknownCA" => 0x30,
-        "AccessDenied" => 0x31,
-        "DecodeError" => 0x32,
-        "DecryptError" => 0x33,
-        "ExportRestriction" => 0x3c,
-        "ProtocolVersion" => 0x46,
-        "InsufficientSecurity" => 0x47,
-        "InternalError" => 0x50,
-        "InappropriateFallback" => 0x56,
-        "UserCanceled" => 0x5a,
-        "NoRenegotiation" => 0x64,
-        "MissingExtension" => 0x6d,
-        "UnsupportedExtension" => 0x6e,
-        "UnrecognisedName" => 0x70,
-        "BadCertificateStatusResponse" => 0x71,
-        "UnknownPSKIdentity" => 0x73,
-        "CertificateRequired" => 0x74,
-        "NoApplicationProtocol" => 0x78,
-        "EncryptedClientHelloRequired" => 0x79,
-        _ => return (None, Some(alert_name.to_string())),
-    };
-    (Some(code), Some(alert_name.to_string()))
-}
-
-/// Map a TLS alert code (with optional timing) to a DPI firmware signature.
-///
-/// Common patterns observed in Russian middlebox equipment:
-/// - Alert 0x28 (`HandshakeFailure`) with fast timing (<200ms) indicates a
-///   generic middlebox block injecting a TLS alert before the real server responds.
-/// - Alert 0x46 (`ProtocolVersion`) suggests the middlebox is performing a version
-///   downgrade attack, rejecting modern TLS versions.
-/// - Alert 0x70 (`UnrecognisedName`) indicates SNI-based blocking where the
-///   DPI device inspects the SNI extension and rejects blacklisted hostnames.
-pub(super) fn classify_tls_dpi_signature(alert_code: u8, tls_handshake_ms: Option<u64>) -> Option<String> {
-    let fast_timing = tls_handshake_ms.is_some_and(|ms| ms < 200);
-    match alert_code {
-        0x28 if fast_timing => Some("tspu_generic_block".to_string()),
-        0x28 => Some("handshake_failure_slow".to_string()),
-        0x46 => Some("tspu_version_downgrade".to_string()),
-        0x70 => Some("sni_based_block".to_string()),
-        0x56 => Some("middlebox_fallback_reject".to_string()),
-        _ => None,
-    }
-}
-
-pub fn is_certificate_error(error: &str) -> bool {
-    let lower = error.to_ascii_lowercase();
-    lower.contains("certificate")
-        || lower.contains("unknown issuer")
-        || lower.contains("not valid")
-        || lower.contains("bad certificate")
-}
-
 pub fn classify_tls_signal(tls13: &TlsObservation, tls12: &TlsObservation) -> &'static str {
     if tls13.certificate_anomaly || tls12.certificate_anomaly {
         "tls_cert_invalid"
@@ -123,20 +47,53 @@ pub fn preferred_tls_observation<'a>(tls13: &'a TlsObservation, tls12: &'a TlsOb
     }
 }
 
-/// Returns true if a TLS version split is caused by the server rejecting
-/// one TLS version (protocol alert), not by network interference (timeout/reset).
-/// Server-side rejections indicate the server simply doesn't support that version,
-/// not that an ISP is selectively blocking it.
-///
-/// The observation error is the rustls `Display` text (`received fatal alert: ProtocolVersion`),
-/// so the alert is read with [`parse_alert_from_error`]: protocol_version (70) or
-/// inappropriate_fallback (86). handshake_failure (40) is the generic alert that injecting
-/// middleboxes also send, so it stays a `tls_version_split`.
-pub fn is_server_tls_version_rejection(tls13: &TlsObservation, tls12: &TlsObservation) -> bool {
-    let failed = if tls13.status != "tls_ok" { tls13 } else { tls12 };
-    let error = failed.error.as_deref().unwrap_or("");
-    matches!(parse_alert_from_error(error).0, Some(0x46 | 0x56))
+/// Record the comparison scope and first measured handshake failure without mixing attempts.
+pub fn append_tls_comparison_details(
+    details: &mut Vec<ProbeDetail>,
+    outcome: &str,
+    tls13: &TlsObservation,
+    tls12: &TlsObservation,
+    tls_ech: &TlsObservation,
+) {
+    if outcome == "tls_version_split" {
+        details.push(ProbeDetail {
+            key: "tlsVersionComparisonScope".to_string(),
+            value: tls_version_comparison_scope(tls13, tls12).to_string(),
+        });
+    }
+
+    let attempts = [("tls13", tls13), ("tls12", tls12), ("tls_ech", tls_ech)];
+    let Some((profile, failed)) =
+        attempts.into_iter().find(|(_, attempt)| attempt.failure_stage.is_some() && attempt.tls_handshake_ms.is_some())
+    else {
+        return;
+    };
+
+    details.push(ProbeDetail { key: "tlsFailureProfile".to_string(), value: profile.to_string() });
+    if let Some(server_hello) = failed.tls_server_hello_received {
+        details.push(ProbeDetail { key: "tlsServerHelloReceived".to_string(), value: server_hello.to_string() });
+    }
+    if let Some(code) = failed.tls_alert_code {
+        details.push(ProbeDetail { key: "tlsAlertCode".to_string(), value: code.to_string() });
+        details.push(ProbeDetail { key: "tlsAlertSource".to_string(), value: "unknown".to_string() });
+    }
+    if let Some(description) = &failed.tls_alert_description {
+        details.push(ProbeDetail { key: "tlsAlertDescription".to_string(), value: description.clone() });
+    }
+    if let Some(ms) = failed.tls_handshake_ms {
+        details.push(ProbeDetail { key: "tlsFailureHandshakeMs".to_string(), value: ms.to_string() });
+    }
 }
+
+/// Whether the TLS versions were probed at the same known destination.
+fn tls_version_comparison_scope(tls13: &TlsObservation, tls12: &TlsObservation) -> &'static str {
+    match (tls13.connected_addr, tls12.connected_addr) {
+        (Some(tls13_addr), Some(tls12_addr)) if tls13_addr == tls12_addr => "same_peer",
+        (Some(_), Some(_)) => "mixed_peers",
+        _ => "unknown_peer",
+    }
+}
+
 pub(super) fn first_flight_plan_label(plan: &TlsTemplateFirstFlightPlan) -> String {
     format!(
         "{}|{}|resolver={}|outer={}|ech_present={}",

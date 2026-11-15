@@ -31,24 +31,12 @@ pub(super) fn capture_with_ech_retry(
             return Err(failure);
         };
         if let Some(reason) = (options.should_abort)() {
-            return Err(CaptureTlsError {
-                message: format!("probe_aborted:{reason}"),
-                server_hello_received: failure.server_hello_received,
-                ech_retry_configs: None,
-            });
+            return Err(format!("probe_aborted:{reason}").into());
         }
-        bounded_scan_io_timeout(IO_TIMEOUT).map_err(|reason| CaptureTlsError {
-            message: reason.into(),
-            server_hello_received: failure.server_hello_received,
-            ech_retry_configs: None,
-        })?;
+        bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
         let target = [TargetAddress::Ip(peer.ip())];
         let reconnect =
-            connect_transport_observed(&target, peer.port(), options.transport).map_err(|error| CaptureTlsError {
-                message: error.message,
-                server_hello_received: failure.server_hello_received,
-                ech_retry_configs: None,
-            })?;
+            connect_transport_observed(&target, peer.port(), options.transport).map_err(|error| error.message)?;
         let retry_options = CaptureTlsHandshakeOptions {
             targets: options.targets,
             ech_retry_configs: Some(configs),
@@ -60,10 +48,7 @@ pub(super) fn capture_with_ech_retry(
             application_protocol: options.application_protocol,
             should_abort: options.should_abort,
         };
-        let mut handshake = capture_tls_handshake(reconnect.stream, &retry_options).map_err(|mut retry_error| {
-            retry_error.server_hello_received |= failure.server_hello_received;
-            retry_error
-        })?;
+        let mut handshake = capture_tls_handshake(reconnect.stream, &retry_options)?;
         handshake.tls_handshake_ms = started.elapsed().as_millis() as u64;
         Ok(handshake)
     })

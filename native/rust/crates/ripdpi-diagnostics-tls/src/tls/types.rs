@@ -27,12 +27,8 @@ pub struct TlsObservation {
     pub tls_alert_code: Option<u8>,
     /// Human-readable alert description (e.g. "HandshakeFailure").
     pub tls_alert_description: Option<String>,
-    /// Whether the TLS peer answered the ClientHello before the error: a processed ServerHello or a
-    /// received TLS alert (exported as `tlsServerHelloReceived`, which selects the Kotlin
-    /// `TCP_POST_CLIENT_HELLO_FAILURE` reason). `None` when the failure came before TLS.
+    /// Whether rustls processed a ServerHello. `None` when TLS evidence is unavailable.
     pub tls_server_hello_received: Option<bool>,
-    /// DPI firmware signature inferred from the alert code and timing.
-    pub tls_dpi_signature: Option<String>,
     pub connected_addr: Option<std::net::SocketAddr>,
     pub local_addr: Option<std::net::SocketAddr>,
     pub cdn_provider: Option<String>,
@@ -126,9 +122,18 @@ pub struct ProbeStreamError {
     pub duration_ms: u64,
     pub tcp_connect_ms: Option<u64>,
     pub connected_addr: Option<std::net::SocketAddr>,
-    /// For a TLS handshake failure, whether the ServerHello was processed first; `None` when
-    /// the failure came before the handshake.
+    /// For a TLS handshake failure, whether the ServerHello was processed first.
+    /// `None` when TLS evidence is unavailable.
     pub tls_server_hello_received: Option<bool>,
+    pub(crate) tls_alert: Option<rustls::AlertDescription>,
+    pub(crate) certificate_anomaly: bool,
+    pub(crate) tls_handshake_ms: Option<u64>,
+}
+
+impl ProbeStreamError {
+    pub fn rejected_server_certificate(&self) -> bool {
+        self.certificate_anomaly
+    }
 }
 
 impl std::fmt::Display for ProbeStreamError {
