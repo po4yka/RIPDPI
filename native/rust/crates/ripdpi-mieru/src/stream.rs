@@ -93,6 +93,9 @@ where
 
 impl AsyncWrite for MieruStream {
     fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, bytes: &[u8]) -> Poll<io::Result<usize>> {
+        if self.inbound_failed.load(Ordering::Acquire) {
+            return Poll::Ready(Err(io::Error::new(io::ErrorKind::ConnectionReset, "Mieru stream failed")));
+        }
         Pin::new(&mut self.io).poll_write(cx, bytes)
     }
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {

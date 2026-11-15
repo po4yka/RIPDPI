@@ -21,7 +21,7 @@ pub use chain::{CHAIN_RELAY_MAX_HOPS, CHAIN_RELAY_MIN_HOPS, ChainRelayConfig, Re
 pub use cloudflare::CloudflareTunnelRelayConfig;
 pub use hysteria2::Hysteria2RelayConfig;
 pub use masque::MasqueRelayConfig;
-pub use mieru::MieruRelayConfig;
+pub use mieru::{MieruRelayConfig, MieruTrafficPatternConfig};
 pub use naive::NaiveProxyRelayConfig;
 pub use shadowsocks::ShadowsocksRelayConfig;
 pub use shadowtls::ShadowTlsRelayConfig;

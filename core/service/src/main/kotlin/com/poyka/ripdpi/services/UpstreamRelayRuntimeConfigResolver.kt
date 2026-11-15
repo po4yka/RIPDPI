@@ -492,6 +492,8 @@ private class ResolvedRelayConfigBuilder(
             mieruProtocol = effectiveConfig.mieruProtocol,
             mieruMultiplexing = effectiveConfig.mieruMultiplexing,
             mieruMtu = effectiveConfig.mieruMtu,
+            mieruHandshakeMode = effectiveConfig.mieruHandshakeMode,
+            mieruTrafficPattern = effectiveConfig.mieruTrafficPattern,
         )
 
     // SSH reuses the common server/serverPort as its endpoint (the native

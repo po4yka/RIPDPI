@@ -1,6 +1,11 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
+import com.poyka.ripdpi.data.MieruLowEntropyPattern
+import com.poyka.ripdpi.data.MieruNoncePattern
+import com.poyka.ripdpi.data.MieruPaddingPattern
+import com.poyka.ripdpi.data.MieruTcpFragment
+import com.poyka.ripdpi.data.MieruTrafficPattern
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindSsh
@@ -95,6 +100,8 @@ class TransientRelayRuntimeConfigResolverTest : UpstreamRelayRuntimeConfigResolv
                     mieruProtocol = RelayMieruProtocolUdp,
                     mieruMultiplexing = RelayMieruMultiplexingHigh,
                     mieruMtu = 1300,
+                    mieruHandshakeMode = com.poyka.ripdpi.data.MieruHandshakeNoWait,
+                    mieruTrafficPattern = MieruTrafficPattern(seed = 42),
                 )
             val resolved =
                 resolver(TestRelayProfileStore(), TestRelayCredentialStore()).resolveTransient(
@@ -111,6 +118,20 @@ class TransientRelayRuntimeConfigResolverTest : UpstreamRelayRuntimeConfigResolv
             assertEquals(RelayMieruProtocolUdp, resolved.mieruProtocol)
             assertEquals(RelayMieruMultiplexingHigh, resolved.mieruMultiplexing)
             assertEquals(1300, resolved.mieruMtu)
+            assertEquals(profile.mieruHandshakeMode, resolved.mieruHandshakeMode)
+            assertEquals(MieruTrafficPattern(seed = 42), profile.mieruTrafficPattern)
+            // Effective defaults from pinned enfein/mieru 155ebbd60, seed 42 Go vector.
+            assertEquals(
+                MieruTrafficPattern(
+                    seed = 42,
+                    unlockAll = false,
+                    tcpFragment = MieruTcpFragment(false, 0),
+                    nonce = MieruNoncePattern(1, false, 12, 12),
+                    padding = MieruPaddingPattern(82, 255),
+                    lowEntropy = MieruLowEntropyPattern(0, 240),
+                ),
+                resolved.mieruTrafficPattern,
+            )
         }
 
     @Test

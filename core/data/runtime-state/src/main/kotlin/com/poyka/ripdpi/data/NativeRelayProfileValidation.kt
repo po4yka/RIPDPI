@@ -120,6 +120,7 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
 
         is ProxyProfile.Mieru -> {
             validateMieruProfileFields(profile)
+            validateMieruAdvancedSettings(profile.handshakeMode, profile.trafficPattern)
             true
         }
 

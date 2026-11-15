@@ -35,6 +35,13 @@ fn default_mieru_multiplexing() -> String {
     "middle".to_string()
 }
 
+fn default_mieru_handshake() -> String {
+    "standard".to_owned()
+}
+fn is_standard_mieru_handshake(value: &str) -> bool {
+    value == "standard"
+}
+
 const fn default_mieru_mtu() -> i32 {
     1400
 }
@@ -324,6 +331,10 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     pub mieru_multiplexing: String,
     #[serde(default = "default_mieru_mtu", skip_serializing_if = "is_zero_i32")]
     pub mieru_mtu: i32,
+    #[serde(default = "default_mieru_handshake", skip_serializing_if = "is_standard_mieru_handshake")]
+    pub mieru_handshake_mode: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mieru_traffic_pattern: Option<MieruTrafficPatternConfig>,
     #[serde(default)]
     pub ssh_host: String,
     #[serde(default)]
@@ -620,6 +631,59 @@ mod tests {
         assert_eq!(mieru["mieruMultiplexing"], json!("middle"));
         assert_eq!(mieru["mieruMtu"], json!(1400));
         assert_eq!(round_trip_kind("ssh")["sshAuthType"], json!("password"));
+    }
+
+    fn advanced_mieru_payload() -> Value {
+        let mut object = relay_config_json_object();
+        object.insert("kind".into(), json!("mieru"));
+        object.insert("mieruHandshakeMode".into(), json!("no_wait"));
+        object.insert("mieruTrafficPattern".into(), json!({
+            "seed": 42, "unlockAll": false,
+            "tcpFragment": {"enable": true, "maxSleepMs": 1},
+            "nonce": {"type": 3, "applyToAllUDPPacket": false, "minLen": 6, "maxLen": 12, "customHexStrings": ["00010203"]},
+            "padding": {"maxMiddlePaddingLen": 3, "maxEndPaddingLen": 4},
+            "lowEntropy": {"mode": 4, "maskRotation": 48}
+        }));
+        Value::Object(object)
+    }
+
+    #[test]
+    fn advanced_mieru_fields_survive_actual_native_decoder() {
+        let original = advanced_mieru_payload();
+        let config: ResolvedRelayRuntimeConfig =
+            serde_json::from_value(original.clone()).expect("advanced native config");
+        let RelayBackendConfig::Mieru(ref mieru) = config.backend else {
+            panic!("Mieru backend");
+        };
+        let native = mieru.traffic_pattern.as_ref().expect("advanced pattern").to_native().expect("native settings");
+        assert_eq!(mieru.handshake_mode, "no_wait");
+        assert!(native.fragment);
+        assert_eq!(native.nonce_prefixes, [vec![0, 1, 2, 3]]);
+        assert_eq!(native.low_entropy_mode, 4);
+        assert_eq!(native.low_entropy_rotation, 48);
+        let encoded = serde_json::to_value(config).expect("encode native settings");
+        assert_eq!(encoded["mieruTrafficPattern"], original["mieruTrafficPattern"]);
+    }
+
+    #[test]
+    fn advanced_mieru_rejects_unknown_nested_fields_and_invalid_bounds() {
+        for (field, value) in [("unknown", json!(1)), ("maxSleepMs", json!(101))] {
+            let mut payload = advanced_mieru_payload();
+            payload["mieruTrafficPattern"]["tcpFragment"][field] = value;
+            assert!(serde_json::from_value::<ResolvedRelayRuntimeConfig>(payload).is_err());
+        }
+        for (field, value) in [("mode", 5), ("maskRotation", 17)] {
+            let mut payload = advanced_mieru_payload();
+            payload["mieruTrafficPattern"]["lowEntropy"][field] = json!(value);
+            assert!(serde_json::from_value::<ResolvedRelayRuntimeConfig>(payload).is_err());
+        }
+        let mut invalid_range = advanced_mieru_payload();
+        invalid_range["mieruTrafficPattern"]["nonce"]["minLen"] = json!(12);
+        invalid_range["mieruTrafficPattern"]["nonce"]["maxLen"] = json!(0);
+        assert!(serde_json::from_value::<ResolvedRelayRuntimeConfig>(invalid_range).is_err());
+        let mut payload = advanced_mieru_payload();
+        payload["mieruTrafficPattern"]["nonce"]["customHexStrings"] = json!(["zz"]);
+        assert!(serde_json::from_value::<ResolvedRelayRuntimeConfig>(payload).is_err());
     }
 
     #[test]

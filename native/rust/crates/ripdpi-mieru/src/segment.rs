@@ -10,12 +10,14 @@
 //! not framed) — the prefix/suffix padding already supplies the entropy.
 
 use ring::rand::{SecureRandom, SystemRandom};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 
 use crate::cipher::{self, KEY_LEN, NONCE_LEN, Nonce, TAG_LEN};
 use crate::error::{MieruError, Result};
 use crate::metadata::{DataAckMeta, METADATA_LEN, ProtocolType, SessionMeta};
-use crate::padding::{SessionPadding, data_padding_len};
+use crate::padding::{SessionPadding, data_padding_len, data_padding_len_max};
+use crate::traffic_pattern::random_below;
+use crate::{MieruTrafficPattern, low_entropy};
 /// Largest plaintext fragment carried in one data segment (upstream `maxPDU`).
 pub(crate) const MAX_PDU: usize = 32 * 1024;
 
@@ -31,10 +33,17 @@ pub(crate) struct Encryptor {
     /// Shaped suffix chosen by [`Self::next_session_padding`] for the next
     /// session segment.
     pending_session_suffix: Option<Vec<u8>>,
+    pattern: Option<MieruTrafficPattern>,
+    padding_bit: bool,
 }
 
 impl Encryptor {
+    #[cfg(test)]
     pub(crate) fn new(key: [u8; KEY_LEN], username: Vec<u8>) -> Self {
+        Self::with_pattern(key, username, None)
+    }
+
+    pub(crate) fn with_pattern(key: [u8; KEY_LEN], username: Vec<u8>, pattern: Option<MieruTrafficPattern>) -> Self {
         let session_padding = SessionPadding::for_user(&username);
         Self {
             key,
@@ -43,6 +52,8 @@ impl Encryptor {
             send_nonce: None,
             session_padding,
             pending_session_suffix: None,
+            pattern,
+            padding_bit: false,
         }
     }
 
@@ -58,6 +69,8 @@ impl Encryptor {
     /// 32-byte metadata with the chosen padding lengths already encoded, so the
     /// on-wire padding matches the sealed metadata. `payload` is the plaintext
     /// to seal (raw TCP bytes for data segments), or `None`.
+    /// # Cancel safety:
+    /// NOT cancel-safe: partial writes advance nonce state. The owned writer must discard the carrier on cancellation.
     pub(crate) async fn write_segment<W, F>(
         &mut self,
         writer: &mut W,
@@ -72,9 +85,11 @@ impl Encryptor {
     {
         let first = self.send_nonce.is_none();
         if first {
-            self.send_nonce = Some(Nonce::random(&self.username, &self.rng)?);
+            self.send_nonce = Some(Nonce::with_pattern(&self.username, &self.rng, self.pattern.as_ref())?);
+            self.padding_bit = random_below(&self.rng, 2)? == 1;
         }
-        let meta = build_meta(prefix_len, suffix_len);
+        let mut meta = build_meta(prefix_len, suffix_len);
+        low_entropy::prepare_metadata(&mut meta, payload.map_or(0, <[u8]>::len), self.pattern.as_ref(), &self.rng)?;
 
         // Seal metadata (and payload) under the send nonce in a scoped borrow so
         // the immutable `self` accesses below (padding RNG) don't conflict.
@@ -94,6 +109,8 @@ impl Encryptor {
             (seed, sealed_meta, sealed_payload)
         };
 
+        let sealed_payload =
+            sealed_payload.map(|sealed| low_entropy::encode_encrypted(sealed, &meta, self.padding_bit)).transpose()?;
         let prefix_pad = self.random_bytes(usize::from(prefix_len))?;
         let suffix_pad = match self.pending_session_suffix.take() {
             Some(shaped) if shaped.len() == usize::from(suffix_len) => shaped,
@@ -118,21 +135,35 @@ impl Encryptor {
             segment.extend_from_slice(sealed);
         }
         segment.extend_from_slice(&suffix_pad);
-        writer.write_all(&segment).await?;
-        writer.flush().await?;
+        crate::traffic_pattern::write_frame(writer, &segment, self.pattern.as_ref(), &self.rng).await?;
         Ok(())
+    }
+
+    pub(crate) fn maximum_payload(&self) -> usize {
+        if self.pattern.as_ref().is_some_and(|pattern| pattern.low_entropy_mode == 1) { MAX_PDU - 4 } else { MAX_PDU }
     }
 
     /// Choose the prefix and suffix padding lengths for the next data segment.
     pub(crate) fn next_padding(&self) -> Result<(u8, u8)> {
-        Ok((data_padding_len(&self.rng)?, data_padding_len(&self.rng)?))
+        match &self.pattern {
+            Some(pattern) => Ok((
+                data_padding_len_max(&self.rng, pattern.max_middle_padding)?,
+                data_padding_len_max(&self.rng, pattern.max_end_padding)?,
+            )),
+            None => Ok((data_padding_len(&self.rng)?, data_padding_len(&self.rng)?)),
+        }
     }
 
     /// Choose the suffix padding for the next session segment (no payload)
     /// and return its length; the next `write_segment` with that suffix
     /// length writes it. See `padding.rs` for the upstream shaping.
     pub(crate) fn next_session_padding(&mut self) -> Result<u8> {
-        let suffix = self.session_padding.suffix(&self.rng, 0)?;
+        let suffix = match &self.pattern {
+            Some(pattern) => {
+                self.session_padding.suffix_with_max(&self.rng, 0, usize::from(pattern.max_end_padding))?
+            }
+            None => self.session_padding.suffix(&self.rng, 0)?,
+        };
         let len = u8::try_from(suffix.len()).map_err(|_| MieruError::Protocol("padding too long".to_owned()))?;
         self.pending_session_suffix = Some(suffix);
         Ok(len)
@@ -153,6 +184,8 @@ impl Decryptor {
 
     /// Read one segment, returning its decrypted 32-byte metadata and the
     /// decrypted payload plaintext (if the segment carried one).
+    /// # Cancel safety:
+    /// NOT cancel-safe: partial reads consume framing and nonce state. The owner discards this carrier on cancellation.
     pub(crate) async fn read_segment<R>(&mut self, reader: &mut R) -> Result<([u8; METADATA_LEN], Option<Vec<u8>>)>
     where
         R: AsyncRead + Unpin,
@@ -178,6 +211,7 @@ impl Decryptor {
         let payload = if payload_len > 0 {
             let mut sealed_payload = vec![0u8; usize::from(payload_len) + TAG_LEN];
             reader.read_exact(&mut sealed_payload).await?;
+            let sealed_payload = low_entropy::decode_encrypted(sealed_payload, &meta)?;
             let plain = cipher::open(&self.key, nonce, &sealed_payload)?;
             nonce.increment();
             Some(plain)
@@ -199,6 +233,7 @@ fn parse_lengths(meta: &[u8; METADATA_LEN]) -> Result<(u8, u16, u8)> {
         Ok((0, parsed.payload_len, parsed.suffix_len))
     } else {
         let parsed = DataAckMeta::unmarshal(meta)?;
+        low_entropy::metadata(meta)?;
         Ok((parsed.prefix_len, parsed.payload_len, parsed.suffix_len))
     }
 }
@@ -221,6 +256,39 @@ async fn skip_exact<R: AsyncRead + Unpin>(reader: &mut R, len: usize) -> Result<
 mod tests {
     use super::*;
     use crate::metadata::DataAckMeta;
+    use tokio::io::AsyncWriteExt;
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: each case owns its disposable pipe and drops it after rejecting the header.
+    #[tokio::test]
+    async fn malformed_low_entropy_header_is_rejected_before_waiting_for_a_body() {
+        let key = [7; KEY_LEN];
+        for case in 0..4 {
+            let mut meta = [0; METADATA_LEN];
+            meta[0] = 11;
+            meta[1] = 1;
+            meta[22..24].copy_from_slice(&8u16.to_be_bytes());
+            meta[25..29].copy_from_slice(&0xffffu32.to_be_bytes());
+            meta[29..31].copy_from_slice(&4u16.to_be_bytes());
+            match case {
+                0 => meta[25..29].fill(0),
+                1 => meta[23] = 7,
+                2 => meta[29..31].copy_from_slice(&32769u16.to_be_bytes()),
+                _ => meta[31] = 17,
+            }
+            let seed = [3; NONCE_LEN];
+            let nonce = Nonce::from_bytes(seed);
+            let sealed = cipher::seal(&key, &nonce, &meta).expect("authenticated malicious header");
+            let (mut sender, mut reader) = tokio::io::duplex(128);
+            sender.write_all(&seed).await.expect("seed");
+            sender.write_all(&sealed).await.expect("header");
+            let result =
+                tokio::time::timeout(std::time::Duration::from_secs(1), Decryptor::new(key).read_segment(&mut reader))
+                    .await
+                    .expect("must reject without any body bytes");
+            assert!(matches!(result, Err(MieruError::Protocol(_))), "case {case}");
+        }
+    }
 
     #[tokio::test]
     async fn segment_round_trips_through_a_pipe() {

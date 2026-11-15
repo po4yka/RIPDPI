@@ -16,6 +16,12 @@ impl<'de> Deserialize<'de> for ResolvedRelayRuntimeConfig {
         // `from_reader`) because they all funnel through this impl.
         validate_schema_version(flat.schema_version).map_err(serde::de::Error::custom)?;
         validate_required_relay_identity(&flat).map_err(serde::de::Error::custom)?;
+        if !matches!(flat.mieru_handshake_mode.as_str(), "standard" | "no_wait") {
+            return Err(serde::de::Error::custom("unsupported Mieru handshake mode"));
+        }
+        if let Some(pattern) = &flat.mieru_traffic_pattern {
+            pattern.to_native().map_err(serde::de::Error::custom)?;
+        }
         Ok(flat.into())
     }
 }

@@ -90,6 +90,15 @@ func run() error {
 		},
 		StreamListenerFactory: &loopbackListener{observed},
 	}
+	if os.Getenv("RIPDPI_MIERU_ADVANCED_PEER") == "1" {
+		config.Config.TrafficPattern = &appctlpb.TrafficPattern{
+			Seed: proto.Int32(42), UnlockAll: proto.Bool(false),
+			TcpFragment: &appctlpb.TCPFragment{Enable: proto.Bool(true), MaxSleepMs: proto.Int32(1)},
+			Nonce: &appctlpb.NoncePattern{Type: appctlpb.NonceType_NONCE_TYPE_FIXED.Enum(), CustomHexStrings: []string{"000102030405"}},
+			Padding: &appctlpb.PaddingPattern{MaxMiddlePaddingLen: proto.Int32(3), MaxEndPaddingLen: proto.Int32(4)},
+			LowEntropy: &appctlpb.LowEntropyPattern{Mode: appctlpb.LowEntropyMode(4).Enum(), MaskRotation: appctlpb.LowEntropyMaskRotation(48).Enum()},
+		}
+	}
 	if err := peer.Store(config); err != nil {
 		return err
 	}

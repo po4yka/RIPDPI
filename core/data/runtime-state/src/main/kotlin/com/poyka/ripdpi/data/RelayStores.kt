@@ -36,6 +36,8 @@ data class RelayProfileRecord(
     val mieruProtocol: String = "tcp",
     val mieruMultiplexing: String = "middle",
     val mieruMtu: Int = 1400,
+    val mieruHandshakeMode: String? = null,
+    val mieruTrafficPattern: com.poyka.ripdpi.data.MieruTrafficPattern? = null,
     val cloudflareTunnelMode: String = RelayCloudflareTunnelModeConsumeExisting,
     val cloudflarePublishLocalOriginUrl: String = "",
     val cloudflareCredentialsRef: String = "",

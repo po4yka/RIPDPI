@@ -3,6 +3,8 @@ package com.poyka.ripdpi.core.codec
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFinalmaskConfig
 import com.poyka.ripdpi.core.localSocksCredentialsOrNull
+import com.poyka.ripdpi.data.effective
+import com.poyka.ripdpi.data.nativeMieruHandshakeMode
 import com.poyka.ripdpi.data.normalizeTuicCongestionControl
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
@@ -73,6 +75,10 @@ internal data class NativeRelayConfig(
     val mieruProtocol: String = com.poyka.ripdpi.data.RelayMieruProtocolTcp,
     val mieruMultiplexing: String = com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle,
     val mieruMtu: Int = com.poyka.ripdpi.data.RelayMieruMtuDefault,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val mieruHandshakeMode: String = com.poyka.ripdpi.data.MieruHandshakeStandard,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val mieruTrafficPattern: com.poyka.ripdpi.data.MieruTrafficPattern? = null,
     val sshAuthType: String = com.poyka.ripdpi.data.RelaySshAuthTypePassword,
     val sshHostKeyFingerprint: String = "",
     val sshStrictHostKey: Boolean = false,
@@ -146,6 +152,8 @@ internal object RelaySectionCodec {
             mieruProtocol = value.mieruProtocol,
             mieruMultiplexing = value.mieruMultiplexing,
             mieruMtu = value.mieruMtu,
+            mieruHandshakeMode = value.mieruHandshakeMode,
+            mieruTrafficPattern = value.mieruTrafficPattern,
             sshAuthType = value.sshAuthType,
             sshHostKeyFingerprint = value.sshHostKeyFingerprint,
             sshStrictHostKey = value.sshStrictHostKey,
@@ -222,6 +230,8 @@ internal object RelaySectionCodec {
             mieruProtocol = value.mieruProtocol,
             mieruMultiplexing = value.mieruMultiplexing,
             mieruMtu = value.mieruMtu,
+            mieruHandshakeMode = nativeMieruHandshakeMode(value.mieruHandshakeMode),
+            mieruTrafficPattern = value.mieruTrafficPattern?.effective(),
             sshAuthType = value.sshAuthType,
             sshHostKeyFingerprint = value.sshHostKeyFingerprint,
             sshStrictHostKey = value.sshStrictHostKey,

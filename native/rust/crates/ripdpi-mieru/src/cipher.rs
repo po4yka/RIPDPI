@@ -79,9 +79,16 @@ impl Nonce {
     /// A fresh random nonce whose last 4 bytes are stamped with the user-lookup
     /// hash `SHA256(username || nonce[0..16])[0..4]` (upstream user-lookup
     /// acceleration).
-    pub(crate) fn random(username: &[u8], rng: &SystemRandom) -> Result<Self> {
+    pub(crate) fn with_pattern(
+        username: &[u8],
+        rng: &SystemRandom,
+        pattern: Option<&crate::MieruTrafficPattern>,
+    ) -> Result<Self> {
         let mut bytes = [0u8; NONCE_LEN];
         rng.fill(&mut bytes).map_err(|_| MieruError::Crypto("nonce rng"))?;
+        if let Some(pattern) = pattern {
+            pattern.shape_nonce(&mut bytes, rng)?;
+        }
         Self::stamp_user(&mut bytes, username);
         Ok(Self { bytes })
     }

@@ -56,9 +56,13 @@ impl SessionPadding {
 
     /// Suffix padding for a session segment carrying `payload_len` bytes.
     pub(crate) fn suffix(self, rng: &dyn SecureRandom, payload_len: usize) -> Result<Vec<u8>> {
+        self.suffix_with_max(rng, payload_len, MAX_PADDING)
+    }
+
+    pub(crate) fn suffix_with_max(self, rng: &dyn SecureRandom, payload_len: usize, maximum: usize) -> Result<Vec<u8>> {
         match self {
-            Self::Ascii(run) => ascii_padding(rng, run),
-            Self::Entropy => entropy_padding(rng, STREAM_OVERHEAD + payload_len),
+            Self::Ascii(run) => ascii_padding(rng, run.min(maximum), maximum),
+            Self::Entropy => entropy_padding(rng, STREAM_OVERHEAD + payload_len, maximum),
         }
     }
 }
@@ -66,11 +70,15 @@ impl SessionPadding {
 /// Length of one data-segment padding (prefix or suffix), as upstream.
 pub(crate) fn data_padding_len(rng: &dyn SecureRandom) -> Result<u8> {
     // Infallible: `skewed_up_to(255) <= 255`.
-    Ok(skewed_up_to(rng, MAX_PADDING)? as u8)
+    data_padding_len_max(rng, MAX_PADDING as u8)
 }
 
-fn ascii_padding(rng: &dyn SecureRandom, run: usize) -> Result<Vec<u8>> {
-    let len = run + skewed_up_to(rng, MAX_PADDING - run)?;
+pub(crate) fn data_padding_len_max(rng: &dyn SecureRandom, maximum: u8) -> Result<u8> {
+    Ok(skewed_up_to(rng, usize::from(maximum))? as u8)
+}
+
+fn ascii_padding(rng: &dyn SecureRandom, run: usize, maximum: usize) -> Result<Vec<u8>> {
+    let len = run + skewed_up_to(rng, maximum - run)?;
     let mut padding = random_bytes(rng, len)?;
     let begin = if len > run { below(rng, len - run)? } else { 0 };
     for byte in &mut padding[begin..begin + run] {
@@ -79,7 +87,7 @@ fn ascii_padding(rng: &dyn SecureRandom, run: usize) -> Result<Vec<u8>> {
     Ok(padding)
 }
 
-fn entropy_padding(rng: &dyn SecureRandom, existing_len: usize) -> Result<Vec<u8>> {
+fn entropy_padding(rng: &dyn SecureRandom, existing_len: usize, maximum: usize) -> Result<Vec<u8>> {
     // As upstream, the segment's own ciphertext is modelled by random bytes.
     let existing = random_bytes(rng, existing_len)?;
     let ones: usize = existing.iter().map(|byte| byte.count_ones() as usize).sum();
@@ -90,8 +98,7 @@ fn entropy_padding(rng: &dyn SecureRandom, existing_len: usize) -> Result<Vec<u8
     // Solve lower_count = target * (existing_bits + padding_bits).
     let min_bits = ((lower_count as f64 / TARGET_PROBABILITY) - existing_bits as f64).max(0.0) as usize;
     let min_bytes = min_bits.div_ceil(8);
-    let len =
-        if min_bytes >= MAX_PADDING { MAX_PADDING } else { min_bytes + skewed_up_to(rng, MAX_PADDING - min_bytes)? };
+    let len = if min_bytes >= maximum { maximum } else { min_bytes + skewed_up_to(rng, maximum - min_bytes)? };
     let target_lower = ((existing_len + len) * 8) as f64 * TARGET_PROBABILITY;
     let flips = (target_lower as usize).saturating_sub(lower_count).min(len * 8);
 
@@ -163,6 +170,22 @@ mod tests {
             longest = longest.max(current);
         }
         longest
+    }
+
+    #[test]
+    fn explicit_padding_caps_apply_to_data_and_control_segments() {
+        let rng = SystemRandom::new();
+        for maximum in [0, 1, 4, 23, 255] {
+            for strategy in [SessionPadding::Ascii(40), SessionPadding::Entropy] {
+                for _ in 0..32 {
+                    assert!(strategy.suffix_with_max(&rng, 0, maximum).expect("bounded suffix").len() <= maximum);
+                    assert!(
+                        usize::from(data_padding_len_max(&rng, maximum as u8).expect("bounded data padding"))
+                            <= maximum
+                    );
+                }
+            }
+        }
     }
 
     #[test]

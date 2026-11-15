@@ -40,7 +40,8 @@ All integers are **big-endian** unless stated.
 `protocolType` (1 byte, byte 0):
 `closeConnRequest=0, closeConnResponse=1, openSessionRequest=2, openSessionResponse=3,
 closeSessionRequest=4, closeSessionResponse=5, dataClientToServer=6, dataServerToClient=7,
-ackClientToServer=8, ackServerToClient=9`.
+ackClientToServer=8, ackServerToClient=9,
+lowEntropyDataClientToServer=10, lowEntropyDataServerToClient=11`.
 
 `timestamp` (bytes 2..6, u32) = `unixSeconds / 60` (minute granularity); peer
 accepts within ±1 minute.
@@ -223,3 +224,48 @@ non-reusable relay-pool entry.
   active while the Rust runtime object and peer process remain alive.
 - Android routing/protection, UDP carrier operation, and external-server
   acceptance require separate evidence; these host tests do not establish them.
+
+## 9. Optional v3.36.0 TCP traffic settings
+
+A share profile retains the presence of `handshakeMode` and `trafficPattern`
+protobuf fields. Native activation resolves optional traffic scalars before it
+writes JSON. Schema 10 accepts these additive optional fields; the default
+payload omits both fields. An older strict decoder rejects an advanced payload.
+
+- `HANDSHAKE_DEFAULT`, absence and `HANDSHAKE_STANDARD` wait for CONNECT success.
+  `HANDSHAKE_NO_WAIT` sends CONNECT before publishing the stream and permits early
+  payload. The owned inbound pump checks and removes the reply before it forwards
+  server data. Refusal, malformed reply or a 10 second timeout fails subsequent
+  stream I/O. Cancellation removes the registration and joins the owned work.
+- Explicit `seed` and `unlockAll` use the pinned `trafficpattern.NewConfig`
+  selection rules. If seed is absent, RIPDPI uses SHA-256 of `RIPDPI 3.36.0` with
+  the same first-four-byte selection as upstream. It does not use a host name.
+  Presence remains unchanged in storage and export. An implicit nonce minimum is
+  clamped to an explicit smaller maximum, as upstream `nonceRewriteLen` does.
+- The first TCP nonce supports random, printable, Common64 and fixed hex-prefix
+  strategies. Prefixes are at most 12 bytes; the user lookup stamp is applied
+  after shaping. TCP increments the nonce after each authenticated operation.
+  `applyToAllUDPPacket` is retained for export and has no effect on a TCP carrier.
+- Middle and end padding caps apply when lengths are selected, including control
+  segments. An enabled fragment pattern splits each authenticated frame into
+  upstream's bounded random lengths and sleeps at most `maxSleepMs` (0 to 100)
+  after each fragment. The single owned writer completes a committed frame even
+  if its caller stops waiting; carrier cancellation discards the transport.
+- Low entropy modes 32, 40, 48 and 56 expand 4, 5, 6 or 7 ciphertext bytes into
+  each 8 byte chunk. The AEAD tag is not expanded. Types 10 and 11 use metadata
+  byte 1 for mode, bytes 25..29 for the half mask, bytes 29..31 for extracted
+  length and byte 31 for rotation. Payload length is the expanded body length.
+  Each chunk uses the repeated 32 bit mask with the selected rotation. Decoding
+  validates canonical uniform padding before AEAD authentication. The extracted
+  bound is 32 KiB; mode 32 sends at most 32764 bytes per frame so the expanded
+  body fits the 16 bit wire length. The padding polarity is random per carrier,
+  rather than a stable host identifier.
+
+The UDP carrier and ClientProfile `dialer` are outside this contour. URI import
+rejects an unsupported profile field, unknown query option, repeated scalar,
+invalid enum, malformed UTF-8, invalid traffic bound or unknown nested field.
+URI input is limited to 2 MiB and 4096 query/protobuf fields per message.
+A traffic-pattern message is limited to 64 KiB and 256 nonce prefixes. These
+local resource limits reject oversized input before native activation.
+The two upstream share forms and the earlier RIPDPI authority form retain
+supported advanced settings across import, storage, activation and export.

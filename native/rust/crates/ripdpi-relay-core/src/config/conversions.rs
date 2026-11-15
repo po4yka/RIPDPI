@@ -71,6 +71,8 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 protocol: flat.mieru_protocol,
                 multiplexing: flat.mieru_multiplexing,
                 mtu: flat.mieru_mtu,
+                handshake_mode: flat.mieru_handshake_mode,
+                traffic_pattern: flat.mieru_traffic_pattern,
             }),
             "ssh" => RelayBackendConfig::Ssh(SshRelayConfig {
                 host: flat.ssh_host,
@@ -278,6 +280,8 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             mieru_protocol: String::new(),
             mieru_multiplexing: String::new(),
             mieru_mtu: 0,
+            mieru_handshake_mode: "standard".into(),
+            mieru_traffic_pattern: None,
             ssh_host: String::new(),
             ssh_port: 0,
             ssh_username: None,
@@ -336,6 +340,9 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.mieru_protocol = config.protocol.clone();
                 flat.mieru_multiplexing = config.multiplexing.clone();
                 flat.mieru_mtu = config.mtu;
+                flat.mieru_handshake_mode =
+                    if config.handshake_mode.is_empty() { "standard".into() } else { config.handshake_mode.clone() };
+                flat.mieru_traffic_pattern = config.traffic_pattern.clone();
             }
             RelayBackendConfig::Ssh(config) => {
                 flat.ssh_host = config.host.clone();

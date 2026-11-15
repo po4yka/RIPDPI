@@ -28,6 +28,8 @@ pub(crate) enum ProtocolType {
     DataServerToClient = 7,
     AckClientToServer = 8,
     AckServerToClient = 9,
+    DataClientToServerLowEntropy = 10,
+    DataServerToClientLowEntropy = 11,
 }
 
 impl ProtocolType {
@@ -47,6 +49,8 @@ impl ProtocolType {
             7 => Self::DataServerToClient,
             8 => Self::AckClientToServer,
             9 => Self::AckServerToClient,
+            10 => Self::DataClientToServerLowEntropy,
+            11 => Self::DataServerToClientLowEntropy,
             other => return Err(MieruError::Protocol(format!("unknown protocol type {other}"))),
         })
     }
@@ -97,6 +101,7 @@ pub(crate) fn is_server_to_client(protocol: ProtocolType) -> bool {
         protocol,
         ProtocolType::OpenSessionResponse
             | ProtocolType::DataServerToClient
+            | ProtocolType::DataServerToClientLowEntropy
             | ProtocolType::AckServerToClient
             | ProtocolType::CloseSessionRequest
             | ProtocolType::CloseSessionResponse
@@ -213,10 +218,10 @@ mod tests {
 
     #[test]
     fn protocol_type_round_trips_all_values() {
-        for v in 0u8..=9 {
+        for v in 0u8..=11 {
             assert_eq!(ProtocolType::from_u8(v).unwrap().as_u8(), v);
         }
-        assert!(ProtocolType::from_u8(10).is_err());
+        assert!(ProtocolType::from_u8(12).is_err());
     }
 
     #[test]

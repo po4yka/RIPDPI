@@ -148,7 +148,7 @@ class ProxyUriCodecTest {
         assertNull("reversed range", ProxyUriCodec.parse("$base&port=9-8&protocol=TCP"))
         assertNull("bad mtu", ProxyUriCodec.parse("$base&port=1&protocol=TCP&mtu=100"))
         assertNull("bad multiplexing", ProxyUriCodec.parse("$base&port=1&protocol=TCP&multiplexing=HIGH"))
-        assertNull("no password", ProxyUriCodec.parse("mierus://u@h.example?port=1&protocol=TCP"))
+        assertNull("no password", ProxyUriCodec.parse("mierus://u@h.example?profile=default&port=1&protocol=TCP"))
     }
 
     @Test
@@ -199,17 +199,23 @@ class ProxyUriCodecTest {
     fun `mieru import rejects a user name over 64 UTF-8 bytes`() {
         val limit = "a".repeat(64)
         val tooLong = "a".repeat(65)
-        val atLimit = ProxyUriCodec.parse("mierus://$limit:p@h.example?port=1&protocol=TCP") as ProxyProfile.Mieru
+        val atLimit =
+            ProxyUriCodec.parse("mierus://$limit:p@h.example?profile=default&port=1&protocol=TCP") as ProxyProfile.Mieru
         assertEquals(limit, atLimit.username)
-        assertNull(ProxyUriCodec.parse("mierus://$tooLong:p@h.example?port=1&protocol=TCP"))
+        assertNull(ProxyUriCodec.parse("mierus://$tooLong:p@h.example?profile=default&port=1&protocol=TCP"))
         assertNull(ProxyUriCodec.parse("mieru://$tooLong:p@h.example:443"))
         // 33 two-byte characters are 66 bytes.
-        assertNull(ProxyUriCodec.parse("mierus://${"\u00e9".repeat(33)}:p@h.example?port=1&protocol=TCP"))
+        assertNull(
+            ProxyUriCodec.parse("mierus://${"\u00e9".repeat(33)}:p@h.example?profile=default&port=1&protocol=TCP"),
+        )
     }
 
     @Test
     fun `mieru links accept lowercase multiplexing tokens and reject legacy UDP`() {
-        val low = ProxyUriCodec.parse("mierus://u:p@h.example?port=1&protocol=tcp&multiplexing=multiplexing_low")
+        val low =
+            ProxyUriCodec.parse(
+                "mierus://u:p@h.example?profile=default&port=1&protocol=tcp&multiplexing=multiplexing_low",
+            )
         assertEquals("low", (low as ProxyProfile.Mieru).multiplexing)
         assertNull(ProxyUriCodec.parse("mieru://u:p@h.example:443?protocol=udp"))
     }

@@ -3,7 +3,7 @@ use std::io;
 use crate::backend::builder::BuildContext;
 use crate::backend::builder::builders::common::to_io_error;
 use crate::backend::{PooledRelayBackend, RelayBackend};
-use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
+use crate::config::{MieruTrafficPatternConfig, RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::MieruSessionFactory;
 
 /// Build the Mieru relay backend.
@@ -43,6 +43,12 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         protocol,
         multiplexing,
         mtu,
+        handshake_no_wait: match mieru.handshake_mode.as_str() {
+            "" | "standard" => false,
+            "no_wait" => true,
+            _ => return Err(io::Error::new(io::ErrorKind::InvalidInput, "unsupported Mieru handshake mode")),
+        },
+        traffic_pattern: mieru.traffic_pattern.as_ref().map(MieruTrafficPatternConfig::to_native).transpose()?,
     };
     client_config.validate().map_err(to_io_error)?;
 

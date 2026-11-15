@@ -25,8 +25,8 @@ mod shadowtls_inner;
 
 pub use backend::{
     AnyTlsRelayConfig, CHAIN_RELAY_MAX_HOPS, CHAIN_RELAY_MIN_HOPS, ChainRelayConfig, CloudflareTunnelRelayConfig,
-    Hysteria2RelayConfig, MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig,
-    ResolvedChainRelayHopConfig, ShadowTlsRelayConfig, ShadowsocksRelayConfig, SshRelayConfig,
+    Hysteria2RelayConfig, MasqueRelayConfig, MieruRelayConfig, MieruTrafficPatternConfig, NaiveProxyRelayConfig,
+    RelayBackendConfig, ResolvedChainRelayHopConfig, ShadowTlsRelayConfig, ShadowsocksRelayConfig, SshRelayConfig,
     TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig, TuicRelayConfig, UnsupportedRelayConfig,
     VlessRealityRelayConfig, VlessRelayConfig,
 };

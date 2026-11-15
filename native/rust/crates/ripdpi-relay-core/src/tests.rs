@@ -32,12 +32,11 @@ use crate::config::{
     ShadowsocksRelayConfig, SshRelayConfig, TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig,
     TuicRelayConfig, VlessRealityRelayConfig, VlessRelayConfig,
 };
-use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
     describe_upstream, planned_backend_capabilities, pool_config_for_backend, validate_finalmask_config,
     validate_runtime_config,
 };
-use crate::socks::RelayTargetAddr;
+use crate::{runtime::RelayRuntime, socks::RelayTargetAddr};
 use backend_fixture_tests::relay_backend_kind_id;
 
 pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
@@ -105,6 +104,8 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             protocol: "tcp".to_string(),
             multiplexing: "middle".to_string(),
             mtu: 1400,
+            handshake_mode: "standard".into(),
+            traffic_pattern: None,
         }),
         "ssh" => RelayBackendConfig::Ssh(SshRelayConfig {
             host: "relay.example".to_string(),

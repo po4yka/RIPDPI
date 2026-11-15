@@ -28,6 +28,18 @@ class ProxyUriCodecExportTest {
     }
 
     @Test
+    fun `mieru refuses malformed credential and name Unicode when sharing`() {
+        val profile =
+            ProxyUriCodec.parse("mierus://fixture:fixture@h.example?profile=Fixture&port=443&protocol=TCP")
+                as ProxyProfile.Mieru
+
+        for (malformed in listOf("fixture\uD800", "fixture\uDC00")) {
+            assertNull(ProxyUriCodec.encodeOrNull(profile.copy(password = malformed)))
+            assertNull(ProxyUriCodec.encodeOrNull(profile.copy(displayName = malformed)))
+        }
+    }
+
+    @Test
     fun `shadowsocks 2022 exports SIP002 plain escaped userinfo`() {
         val key = "/////////////////////w=="
         val profile =

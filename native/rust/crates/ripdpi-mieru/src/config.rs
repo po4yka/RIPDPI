@@ -124,6 +124,8 @@ pub struct MieruConfig {
     pub protocol: MieruProtocol,
     pub multiplexing: MieruMux,
     pub mtu: u16,
+    pub handshake_no_wait: bool,
+    pub traffic_pattern: Option<crate::MieruTrafficPattern>,
 }
 
 impl MieruConfig {
@@ -158,6 +160,9 @@ impl MieruConfig {
         if !(MIN_MTU..=MAX_MTU).contains(&self.mtu) {
             return Err(MieruError::InvalidMtu);
         }
+        if let Some(pattern) = &self.traffic_pattern {
+            pattern.validate()?;
+        }
         Ok(())
     }
 }
@@ -173,6 +178,8 @@ impl fmt::Debug for MieruConfig {
             .field("protocol", &self.protocol)
             .field("multiplexing", &self.multiplexing)
             .field("mtu", &self.mtu)
+            .field("handshake_no_wait", &self.handshake_no_wait)
+            .field("traffic_pattern", &self.traffic_pattern)
             .finish()
     }
 }
@@ -190,6 +197,8 @@ mod tests {
             protocol: MieruProtocol::Tcp,
             multiplexing: MieruMux::Middle,
             mtu: 1400,
+            handshake_no_wait: false,
+            traffic_pattern: None,
         }
     }
 

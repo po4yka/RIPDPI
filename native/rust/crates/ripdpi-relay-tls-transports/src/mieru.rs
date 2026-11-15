@@ -7,7 +7,7 @@ use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 
 use crate::util::to_io_error;
 
-pub use ripdpi_mieru::{MieruConfig, MieruMux, MieruProtocol};
+pub use ripdpi_mieru::{MieruConfig, MieruMux, MieruProtocol, MieruTrafficPattern};
 
 #[derive(Clone)]
 pub struct MieruSessionFactory {
@@ -228,6 +228,8 @@ mod tests {
                 protocol: MieruProtocol::Udp,
                 multiplexing: MieruMux::Off,
                 mtu: 1400,
+                handshake_no_wait: false,
+                traffic_pattern: None,
             },
             ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         );

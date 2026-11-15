@@ -35,6 +35,7 @@
 mod cipher;
 mod config;
 mod error;
+mod low_entropy;
 mod metadata;
 mod mux;
 mod owned_tasks;
@@ -42,11 +43,13 @@ mod padding;
 mod segment;
 mod session;
 mod stream;
+mod traffic_pattern;
 
 pub use config::*;
 pub use error::*;
 pub use mux::MieruMuxConnection;
 pub use stream::MieruStream;
+pub use traffic_pattern::MieruTrafficPattern;
 
 #[cfg(test)]
 mod loopback;

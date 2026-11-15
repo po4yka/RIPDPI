@@ -353,6 +353,8 @@ sealed interface ProxyProfile {
         val protocol: String = "tcp",
         val multiplexing: String = "middle",
         val mtu: Int = 1400,
+        val handshakeMode: String? = null,
+        val trafficPattern: MieruTrafficPattern? = null,
     ) : ProxyProfile {
         override fun toString(): String =
             "Mieru(id=$id, displayName=$displayName, groupId=$groupId, server=$server, " +

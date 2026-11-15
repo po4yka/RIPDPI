@@ -2,6 +2,8 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.effective
+import com.poyka.ripdpi.data.nativeMieruHandshakeMode
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
@@ -215,6 +217,10 @@ data class ResolvedRipDpiRelayConfig(
     val mieruProtocol: String = com.poyka.ripdpi.data.RelayMieruProtocolTcp,
     val mieruMultiplexing: String = com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle,
     val mieruMtu: Int = com.poyka.ripdpi.data.RelayMieruMtuDefault,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val mieruHandshakeMode: String = com.poyka.ripdpi.data.MieruHandshakeStandard,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val mieruTrafficPattern: com.poyka.ripdpi.data.MieruTrafficPattern? = null,
     val sshHost: String = "",
     val sshPort: Int = 0,
     val sshUsername: String? = null,
@@ -507,6 +513,8 @@ private fun ResolvedRipDpiRelayConfig.mieruSection(): RelayMieruSection =
         mieruProtocol = mieruProtocol,
         mieruMultiplexing = mieruMultiplexing,
         mieruMtu = mieruMtu,
+        mieruHandshakeMode = mieruHandshakeMode,
+        mieruTrafficPattern = mieruTrafficPattern,
     )
 
 private fun ResolvedRipDpiRelayConfig.sshSection(): RelaySshSection =
@@ -716,6 +724,8 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         mieruProtocol = mieru.mieruProtocol,
         mieruMultiplexing = mieru.mieruMultiplexing,
         mieruMtu = mieru.mieruMtu,
+        mieruHandshakeMode = nativeMieruHandshakeMode(mieru.mieruHandshakeMode),
+        mieruTrafficPattern = mieru.mieruTrafficPattern?.effective(),
         sshHost = ssh.sshHost,
         sshPort = ssh.sshPort,
         sshUsername = ssh.sshUsername,

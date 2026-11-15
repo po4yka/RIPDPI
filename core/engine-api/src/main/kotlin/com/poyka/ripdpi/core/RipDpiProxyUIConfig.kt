@@ -289,6 +289,8 @@ data class RipDpiRelayConfig(
     val mieruProtocol: String = com.poyka.ripdpi.data.RelayMieruProtocolTcp,
     val mieruMultiplexing: String = com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle,
     val mieruMtu: Int = com.poyka.ripdpi.data.RelayMieruMtuDefault,
+    val mieruHandshakeMode: String? = null,
+    val mieruTrafficPattern: com.poyka.ripdpi.data.MieruTrafficPattern? = null,
     val sshAuthType: String = com.poyka.ripdpi.data.RelaySshAuthTypePassword,
     val sshHostKeyFingerprint: String = "",
     val sshStrictHostKey: Boolean = false,

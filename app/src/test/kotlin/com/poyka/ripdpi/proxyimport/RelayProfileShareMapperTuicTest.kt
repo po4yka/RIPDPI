@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -21,6 +22,7 @@ class RelayProfileShareMapperTuicTest {
                 serverName = "tls.example",
                 tuicAlpn = "tuic,h3",
                 tuicCongestionControl = "new_reno",
+                udpEnabled = true,
             )
         val credentials = credentials(record.id)
         val share = requireNotNull(RelayProfileShareMapper.toShareable(record, credentials))
@@ -38,8 +40,16 @@ class RelayProfileShareMapperTuicTest {
 
     @Test
     fun `saved TUIC refuses unsupported or unrepresentable settings`() {
-        val record = RelayProfileRecord(kind = RelayKindTuicV5, server = "h.example", serverName = "h.example")
+        val record =
+            RelayProfileRecord(
+                kind = RelayKindTuicV5,
+                server = "h.example",
+                serverName = "h.example",
+                udpEnabled = true,
+            )
         val credentials = credentials(record.id)
+        assertNotNull(RelayProfileShareMapper.toShareable(record, credentials))
+        assertNull(RelayProfileShareMapper.toShareable(record.copy(udpEnabled = false), credentials))
         assertNull(
             RelayProfileShareMapper.toShareable(record.copy(tuicRootCertificatePem = "fixture PEM"), credentials),
         )

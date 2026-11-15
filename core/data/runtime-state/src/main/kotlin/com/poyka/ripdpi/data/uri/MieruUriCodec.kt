@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.data.uri
 
+import com.poyka.ripdpi.data.MieruHandshakeDefault
+import com.poyka.ripdpi.data.MieruHandshakeNoWait
+import com.poyka.ripdpi.data.MieruHandshakeStandard
+import com.poyka.ripdpi.data.MieruTrafficPattern
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelayMieruMtuMax
@@ -10,49 +14,12 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
 import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.isValidRelayMieruUsername
+import com.poyka.ripdpi.data.validateMieruAdvancedSettings
+import com.poyka.ripdpi.data.validateNativeRelayProfile
 import java.net.URI
+import java.security.MessageDigest
 import java.util.Base64
 import java.util.UUID
-
-private const val MaxPort = 65535
-private const val ProtoVarintBits = 7
-private const val ProtoVarintPayloadMask = 0x7f
-private const val ProtoVarintContinuation = 0x80
-private const val ProtoTagTypeMask = 7
-private const val ProtoTagTypeBits = 3
-
-// Field numbers from upstream pkg/appctl/proto (clientcfg.proto, base.proto).
-private const val FieldConfigProfiles = 1
-private const val FieldConfigActiveProfile = 2
-private const val FieldProfileName = 1
-private const val FieldProfileUser = 2
-private const val FieldProfileServers = 3
-private const val FieldProfileMtu = 4
-private const val FieldProfileMultiplexing = 5
-private const val FieldUserName = 1
-private const val FieldUserPassword = 2
-private const val FieldServerIp = 1
-private const val FieldServerDomain = 2
-private const val FieldServerBindings = 3
-private const val FieldBindingPort = 1
-private const val FieldBindingProtocol = 2
-private const val FieldBindingRange = 3
-private const val FieldMultiplexingLevel = 1
-
-// Upstream MultiplexingLevel enum values.
-private const val LevelDefault = 0L
-private const val LevelOff = 1L
-private const val LevelLow = 2L
-private const val LevelMiddle = 3L
-private const val LevelHigh = 4L
-
-private const val Base64GroupSize = 4
-private const val ProtoVarintMaxBytes = 10
-private const val ProtoWireVarint = 0
-private const val ProtoWireFixed64 = 1
-private const val ProtoWireLen = 2
-private const val ProtoWireFixed32 = 5
-private const val ProtoTransportTcp = 2L
 
 /**
  * Mieru share links, as the upstream client defines them (`docs/client-install.md`, "Sharing
@@ -70,6 +37,7 @@ private const val ProtoTransportTcp = 2L
 @Suppress("TooManyFunctions")
 internal object MieruUriCodec {
     fun parse(uri: String): ProxyProfile? {
+        if (uri.length > MieruMaximumUriBytes) return null
         val scheme = uri.substringBefore("://").lowercase()
         val body = uri.substringAfter("://")
         return when {
@@ -79,14 +47,36 @@ internal object MieruUriCodec {
         }
     }
 
-    fun encode(profile: ProxyProfile.Mieru): String {
+    fun encode(profile: ProxyProfile.Mieru): String? {
+        if (runCatching { validateNativeRelayProfile(profile) }.isFailure ||
+            profile.mtu !in RelayMieruMtuMin..RelayMieruMtuMax ||
+            profile.multiplexing !in
+            setOf(
+                RelayMieruMultiplexingOff,
+                RelayMieruMultiplexingLow,
+                RelayMieruMultiplexingMiddle,
+                RelayMieruMultiplexingHigh,
+            )
+        ) {
+            return null
+        }
         val params =
-            listOf(
-                "profile=default",
-                "mtu=${profile.mtu}",
-                "multiplexing=${multiplexingToken(profile.multiplexing)}",
-                "port=${profile.serverPort}",
-                "protocol=${profile.protocol.uppercase()}",
+            (
+                listOf(
+                    "profile=default",
+                    "mtu=${profile.mtu}",
+                    "multiplexing=${multiplexingToken(profile.multiplexing)}",
+                    "port=${profile.serverPort}",
+                    "protocol=${profile.protocol.uppercase()}",
+                ) +
+                    listOfNotNull(
+                        profile.handshakeMode?.let { "handshake-mode=HANDSHAKE_${it.uppercase()}" },
+                        profile.trafficPattern?.let {
+                            "traffic-pattern=${encodeComponent(
+                                MieruTrafficPatternCodec.encodeBase64(it),
+                            )}"
+                        },
+                    )
             ).joinToString("&")
         return "mierus://${encodeComponent(profile.username)}:${encodeComponent(profile.password)}" +
             "@${bracket(profile.server)}?$params#${encodeComponent(profile.displayName)}"
@@ -98,6 +88,15 @@ internal object MieruUriCodec {
         val (username, password) = userInfo(parsed.rawUserInfo) ?: return null
         val host = parsed.host?.takeIf { it.isNotBlank() }?.removeSurrounding("[", "]") ?: return null
         val query = queryPairs(parsed.rawQuery) ?: return null
+        if (!validKeys(
+                query,
+                setOf("profile", "mtu", "multiplexing", "port", "protocol", "handshake-mode", "traffic-pattern"),
+            )
+        ) {
+            return null
+        }
+        if (query.firstValue("profile").isNullOrBlank()) return null
+        val (handshake, traffic) = advanced(query) ?: return null
         val ports = query.filter { it.first == "port" }.map { it.second }
         val protocols = query.filter { it.first == "protocol" }.map { it.second }
         if (ports.isEmpty() || ports.size != protocols.size) return null
@@ -108,8 +107,19 @@ internal object MieruUriCodec {
         val port = firstTcpPort(bindings) ?: return null
         val mtu = mtu(query.firstValue("mtu")) ?: return null
         val multiplexing = multiplexingFromToken(query.firstValue("multiplexing")) ?: return null
-        val name = parsed.rawFragment?.let(::decode)?.takeIf { it.isNotBlank() } ?: host
-        return profile(name, host, port, username, password, RelayMieruProtocolTcp, multiplexing, mtu)
+        val name = parsed.rawFragment?.let(::decode)?.takeIf { it.isNotBlank() } ?: query.firstValue("profile") ?: host
+        return profile(
+            name,
+            host,
+            port,
+            username,
+            password,
+            RelayMieruProtocolTcp,
+            multiplexing,
+            mtu,
+            handshake,
+            traffic,
+        )
     }
 
     @Suppress("ReturnCount", "CyclomaticComplexMethod", "LongMethod")
@@ -117,8 +127,10 @@ internal object MieruUriCodec {
         val parsed = URI(uri)
         val (username, password) = userInfo(parsed.rawUserInfo) ?: return null
         val host = parsed.host?.takeIf { it.isNotBlank() }?.removeSurrounding("[", "]") ?: return null
-        val port = parsed.port.takeIf { it in 1..MaxPort } ?: return null
+        val port = parsed.port.takeIf { it in 1..MieruMaxPort } ?: return null
         val query = queryPairs(parsed.rawQuery) ?: return null
+        if (!validKeys(query, setOf("protocol", "mux", "mtu", "handshake-mode", "traffic-pattern"))) return null
+        val (handshake, traffic) = advanced(query) ?: return null
         // RIPDPI's Mieru is TCP-only; a UDP or unknown protocol is not importable.
         if (query.firstValue("protocol")?.lowercase().let { it != null && it != RelayMieruProtocolTcp }) return null
         val multiplexing =
@@ -135,11 +147,25 @@ internal object MieruUriCodec {
             }
         val mtu = mtu(query.firstValue("mtu")) ?: return null
         val name = parsed.rawFragment?.let(::decode)?.takeIf { it.isNotBlank() } ?: host
-        return profile(name, host, port, username, password, RelayMieruProtocolTcp, multiplexing, mtu)
+        return profile(
+            name,
+            host,
+            port,
+            username,
+            password,
+            RelayMieruProtocolTcp,
+            multiplexing,
+            mtu,
+            handshake,
+            traffic,
+        )
     }
 
     @Suppress("ReturnCount", "CyclomaticComplexMethod", "LongMethod")
     private fun parseStandard(body: String): ProxyProfile? {
+        val content = body.trim()
+        val paddingCount = content.length - content.trimEnd('=').length
+        if (paddingCount > 2 || (paddingCount != 0 && content.length % Base64GroupSize != 0)) return null
         val normalized =
             body
                 .trim()
@@ -148,8 +174,17 @@ internal object MieruUriCodec {
                 .trimEnd('=')
         val padding = "=".repeat((Base64GroupSize - normalized.length % Base64GroupSize) % Base64GroupSize)
         val config = Base64.getDecoder().decode(normalized + padding)
-        val top = readFields(config)
-        val profiles = top.filter { it.number == FieldConfigProfiles }.mapNotNull { it.bytes }.map(::readFields)
+        val top = readMieruProtobufFields(config)
+        requireFields(
+            top,
+            MieruConfigVarints,
+            MieruConfigBytes,
+            setOf(FieldConfigProfiles, FieldConfigSocks5Authentication),
+        )
+        val profiles =
+            top.filter { it.id == FieldConfigProfiles }.mapNotNull { it.bytes }.map(
+                ::readMieruProtobufFields,
+            )
         val active = top.text(FieldConfigActiveProfile)
         val selected =
             (
@@ -162,48 +197,110 @@ internal object MieruUriCodec {
                 }
             )
                 ?: return null
-        val user = selected.firstOrNull { it.number == FieldProfileUser }?.bytes?.let(::readFields) ?: return null
+        requireFields(
+            selected,
+            setOf(FieldProfileMtu, FieldProfileHandshake),
+            setOf(
+                FieldProfileName,
+                FieldProfileUser,
+                FieldProfileServers,
+                FieldProfileMultiplexing,
+                FieldProfileTrafficPattern,
+            ),
+            setOf(FieldProfileServers),
+        )
+        val user =
+            selected.firstOrNull { it.id == FieldProfileUser }?.bytes?.let(::readMieruProtobufFields) ?: return null
+        requireFields(
+            user,
+            setOf(FieldUserAllowPrivateIp, FieldUserAllowLoopbackIp),
+            setOf(FieldUserName, FieldUserPassword, FieldUserHashedPassword, FieldUserQuotas),
+            setOf(FieldUserQuotas),
+        )
         val username = user.text(FieldUserName)?.takeIf(::isValidRelayMieruUsername) ?: return null
         val password = user.text(FieldUserPassword)?.takeIf { it.isNotBlank() } ?: return null
+        if (!matchingPasswordHash(user.text(FieldUserHashedPassword), username, password)) return null
         val (host, port) =
             selected
-                .filter { it.number == FieldProfileServers }
+                .filter { it.id == FieldProfileServers }
                 .mapNotNull { it.bytes }
-                .map(::readFields)
+                .map(::readMieruProtobufFields)
                 .firstNotNullOfOrNull(::tcpEndpoint) ?: return null
-        val mtuValue = selected.firstOrNull { it.number == FieldProfileMtu }?.varint?.takeIf { it != 0L }
+        val mtuValue = selected.firstOrNull { it.id == FieldProfileMtu }?.number?.takeIf { it != 0L }
         val mtu = mtuValue?.let { if (it in RelayMieruMtuMin..RelayMieruMtuMax) it.toInt() else return null }
         val level =
             selected
-                .firstOrNull { it.number == FieldProfileMultiplexing }
+                .firstOrNull { it.id == FieldProfileMultiplexing }
                 ?.bytes
-                ?.let(::readFields)
-                ?.firstOrNull { it.number == FieldMultiplexingLevel }
+                ?.let(::readMieruProtobufFields)
+                ?.also { requireFields(it, setOf(1), emptySet()) }
+                ?.firstOrNull { it.id == FieldMultiplexingLevel }
         val multiplexing =
-            when (level?.varint ?: LevelDefault) {
+            when (level?.number ?: LevelDefault) {
                 LevelDefault, LevelMiddle -> RelayMieruMultiplexingMiddle
                 LevelOff -> RelayMieruMultiplexingOff
                 LevelLow -> RelayMieruMultiplexingLow
                 LevelHigh -> RelayMieruMultiplexingHigh
                 else -> return null
             }
+        val handshake =
+            selected.firstOrNull { it.id == FieldProfileHandshake }?.let {
+                val number = it.number?.takeIf { value -> value in HandshakeDefaultNumber..HandshakeNoWaitNumber }
+                handshake(number?.toInt() ?: return null) ?: return null
+            }
+        val traffic =
+            selected.firstOrNull { it.id == FieldProfileTrafficPattern }?.let {
+                MieruTrafficPatternCodec.decode(it.bytes ?: return null)
+            }
+        if (selected.count { it.id == FieldProfileHandshake } > 1 ||
+            selected.count { it.id == FieldProfileTrafficPattern } > 1
+        ) {
+            return null
+        }
         val finalMtu = mtu ?: RelayMieruMtuDefault
         val name = selected.text(FieldProfileName)?.takeIf { it.isNotBlank() } ?: host
-        return profile(name, host, port, username, password, RelayMieruProtocolTcp, multiplexing, finalMtu)
+        return profile(
+            name,
+            host,
+            port,
+            username,
+            password,
+            RelayMieruProtocolTcp,
+            multiplexing,
+            finalMtu,
+            handshake,
+            traffic,
+        )
     }
 
     /** Host and first TCP port of one upstream ServerEndpoint, or null when it has no usable TCP binding. */
-    private fun tcpEndpoint(server: List<Field>): Pair<String, Int>? {
+    private fun tcpEndpoint(server: List<MieruProtoField>): Pair<String, Int>? {
+        requireFields(
+            server,
+            emptySet(),
+            setOf(FieldServerIp, FieldServerDomain, FieldServerBindings),
+            setOf(FieldServerBindings),
+        )
         val host =
             listOf(FieldServerDomain, FieldServerIp)
                 .firstNotNullOfOrNull { server.text(it)?.takeIf(String::isNotBlank) } ?: return null
         val bindings =
-            server.filter { it.number == FieldServerBindings }.mapNotNull { it.bytes }.map { raw ->
-                val fields = readFields(raw)
-                val single = fields.firstOrNull { it.number == FieldBindingPort }?.varint
+            server.filter { it.id == FieldServerBindings }.mapNotNull { it.bytes }.map { raw ->
+                val fields = readMieruProtobufFields(raw)
+                requireFields(fields, setOf(FieldBindingPort, FieldBindingProtocol), setOf(FieldBindingRange))
+                require(
+                    fields.count {
+                        it.id == FieldBindingPort || it.id == FieldBindingRange
+                    } == 1,
+                ) { "Invalid Mieru port binding" }
+                require(
+                    fields.firstOrNull { it.id == FieldBindingProtocol }?.number in
+                        setOf(ProtoTransportUdp, ProtoTransportTcp),
+                ) { "Invalid Mieru transport" }
+                val single = fields.firstOrNull { it.id == FieldBindingPort }?.number
                 Binding(
                     port = fields.text(FieldBindingRange) ?: single?.toString().orEmpty(),
-                    tcp = fields.firstOrNull { it.number == FieldBindingProtocol }?.varint == ProtoTransportTcp,
+                    tcp = fields.firstOrNull { it.id == FieldBindingProtocol }?.number == ProtoTransportTcp,
                 )
             }
         return firstTcpPort(bindings)?.let { host to it }
@@ -229,7 +326,7 @@ internal object MieruUriCodec {
         val end = first.substringAfter('-', start)
         val low = start.toIntOrNull() ?: return null
         val high = end.toIntOrNull() ?: return null
-        return low.takeIf { low in 1..MaxPort && high in low..MaxPort }
+        return low.takeIf { low in 1..MieruMaxPort && high in low..MieruMaxPort }
     }
 
     private fun mtu(value: String?): Int? =
@@ -261,16 +358,58 @@ internal object MieruUriCodec {
     }
 
     /** Decoded query pairs in order, or null on a malformed escape. */
-    private fun queryPairs(rawQuery: String?): List<Pair<String, String>>? =
-        rawQuery
-            ?.split('&')
-            ?.filter { it.isNotEmpty() }
-            ?.map { part ->
-                val key = part.substringBefore('=')
-                key to (decode(part.substringAfter('=', "")) ?: return null)
-            }.orEmpty()
+    private fun queryPairs(rawQuery: String?): List<Pair<String, String>>? {
+        if (rawQuery != null && rawQuery.count { it == '&' } >= MieruMaximumFields) return null
+        val pairs =
+            rawQuery
+                ?.split('&')
+                ?.filter { it.isNotEmpty() }
+                ?.map { part ->
+                    queryDecode(part.substringBefore('=')) to queryDecode(part.substringAfter('=', ""))
+                }.orEmpty()
+        return if (pairs.any { it.first == null || it.second == null }) {
+            null
+        } else {
+            pairs.map { requireNotNull(it.first) to requireNotNull(it.second) }
+        }
+    }
+
+    private fun validKeys(
+        query: List<Pair<String, String>>,
+        allowed: Set<String>,
+    ): Boolean =
+        query.all { it.first in allowed } &&
+            query.groupingBy { it.first }.eachCount().all { (key, count) ->
+                key in setOf("port", "protocol") || count == 1
+            }
+
+    private fun advanced(query: List<Pair<String, String>>): Pair<String?, MieruTrafficPattern?>? {
+        val raw = query.firstValue("handshake-mode")
+        val handshake =
+            raw?.let {
+                when (it) {
+                    "HANDSHAKE_DEFAULT" -> MieruHandshakeDefault
+                    "HANDSHAKE_STANDARD" -> MieruHandshakeStandard
+                    "HANDSHAKE_NO_WAIT" -> MieruHandshakeNoWait
+                    else -> return null
+                }
+            }
+        val traffic = query.firstValue("traffic-pattern")?.let(MieruTrafficPatternCodec::decodeBase64)
+        validateMieruAdvancedSettings(handshake, traffic)
+        return handshake to traffic
+    }
+
+    private fun handshake(value: Int): String? =
+        when (value) {
+            HandshakeDefaultNumber -> MieruHandshakeDefault
+            HandshakeStandardNumber -> MieruHandshakeStandard
+            HandshakeNoWaitNumber -> MieruHandshakeNoWait
+            else -> null
+        }
 
     private fun List<Pair<String, String>>.firstValue(key: String): String? = firstOrNull { it.first == key }?.second
+
+    private fun queryDecode(value: String): String? = decode(value.replace("+", "%20"))
 
     private fun decode(value: String): String? = ProxyUriCodec.rfc3986PercentDecode(value)
 
@@ -287,6 +426,8 @@ internal object MieruUriCodec {
         protocol: String,
         multiplexing: String,
         mtu: Int,
+        handshakeMode: String?,
+        trafficPattern: MieruTrafficPattern?,
     ): ProxyProfile.Mieru =
         ProxyProfile.Mieru(
             id = UUID.randomUUID().toString(),
@@ -299,61 +440,48 @@ internal object MieruUriCodec {
             protocol = protocol,
             multiplexing = multiplexing,
             mtu = mtu,
+            handshakeMode = handshakeMode,
+            trafficPattern = trafficPattern,
         )
 
-    private class Field(
-        val number: Int,
-        val varint: Long?,
-        val bytes: ByteArray?,
-    )
-
-    private fun List<Field>.text(number: Int): String? =
-        firstOrNull { it.number == number }?.bytes?.toString(Charsets.UTF_8)
-
-    /** Minimal protobuf wire reader: varint and length-delimited fields are kept, fixed-width ones skipped. */
-    private fun readFields(data: ByteArray): List<Field> {
-        val fields = mutableListOf<Field>()
-        var pos = 0
-
-        fun varint(): Long {
-            var result = 0L
-            for (i in 0 until ProtoVarintMaxBytes) {
-                require(pos < data.size) { "truncated varint" }
-                val b = data[pos++].toInt()
-                result = result or ((b and ProtoVarintPayloadMask).toLong() shl (ProtoVarintBits * i))
-                if ((b and ProtoVarintContinuation) == 0) return result
-            }
-            throw IllegalArgumentException("varint too long")
+    private fun matchingPasswordHash(
+        hash: String?,
+        username: String,
+        password: String,
+    ): Boolean {
+        if (hash.isNullOrEmpty()) return true
+        return if (hash.length == MieruPasswordHashBytes * MieruHexCharsPerByte &&
+            hash.all { it in "0123456789abcdefABCDEF" }
+        ) {
+            val supplied =
+                ByteArray(MieruPasswordHashBytes) {
+                    val start = it * MieruHexCharsPerByte
+                    hash.substring(start, start + MieruHexCharsPerByte).toInt(MieruHexRadix).toByte()
+                }
+            val derived = MessageDigest.getInstance("SHA-256").digest((password + '\u0000' + username).toByteArray())
+            MessageDigest.isEqual(supplied, derived)
+        } else {
+            false
         }
-        while (pos < data.size) {
-            val tag = varint()
-            val number = (tag ushr ProtoTagTypeBits).toInt()
-            when ((tag and ProtoTagTypeMask.toLong()).toInt()) {
-                ProtoWireVarint -> {
-                    fields += Field(number, varint(), null)
-                }
+    }
 
-                ProtoWireLen -> {
-                    val length = varint()
-                    require(length in 0..(data.size - pos).toLong()) { "bad length" }
-                    fields += Field(number, null, data.copyOfRange(pos, pos + length.toInt()))
-                    pos += length.toInt()
-                }
-
-                ProtoWireFixed64 -> {
-                    pos += Long.SIZE_BYTES
-                }
-
-                ProtoWireFixed32 -> {
-                    pos += Int.SIZE_BYTES
-                }
-
-                else -> {
-                    throw IllegalArgumentException("unsupported wire type")
-                }
-            }
-            require(pos <= data.size) { "truncated field" }
+    private fun requireFields(
+        fields: List<MieruProtoField>,
+        varints: Set<Int>,
+        bytes: Set<Int>,
+        repeated: Set<Int> = emptySet(),
+    ) {
+        require(
+            fields.all { (it.id in varints && it.number != null) || (it.id in bytes && it.bytes != null) },
+        ) {
+            "Unsupported Mieru protobuf field"
         }
-        return fields
+        require(
+            fields.groupingBy { it.id }.eachCount().all { (number, count) ->
+                number in repeated || count == 1
+            },
+        ) {
+            "Repeated Mieru scalar"
+        }
     }
 }

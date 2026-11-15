@@ -24,7 +24,7 @@ use std::time::Duration;
 use ring::rand::{SecureRandom, SystemRandom};
 use ripdpi_network_time::{NetworkTimeProvider, TimeSource};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::sync::{Semaphore, mpsc, oneshot};
+use tokio::sync::{Notify, Semaphore, mpsc, oneshot};
 use tokio::time::timeout;
 
 use crate::MieruStream;
@@ -35,7 +35,9 @@ use crate::metadata::{
     timestamp_in_window,
 };
 use crate::owned_tasks::OwnedTasks;
-use crate::segment::{Decryptor, Encryptor, MAX_PDU};
+#[cfg(test)]
+use crate::segment::MAX_PDU;
+use crate::segment::{Decryptor, Encryptor};
 use crate::session::{encode_socks5_address, split_host_port};
 use crate::stream::end_inbound;
 
@@ -148,10 +150,10 @@ impl MuxWriter {
     }
 
     /// # Cancel safety:
-    /// Not cancel-safe: partial writes advance AEAD and sequence state. The
+    /// NOT cancel-safe: partial writes advance AEAD and sequence state. The
     /// owning writer may be aborted only while discarding the whole carrier.
     async fn send_data(&mut self, session_id: u32, seq: &mut u32, bytes: &[u8]) -> Result<()> {
-        for chunk in bytes.chunks(MAX_PDU) {
+        for chunk in bytes.chunks(self.enc.maximum_payload()) {
             let (prefix, suffix) = self.enc.next_padding()?;
             let now = self.time.now_unix();
             let this_seq = next(seq);
@@ -367,6 +369,7 @@ pub struct MieruMuxConnection {
     rng: SystemRandom,
     carrier: Arc<OwnedTasks>,
     streams: StdMutex<StreamTasks>,
+    handshake_no_wait: bool,
 }
 
 #[derive(Default)]
@@ -388,7 +391,7 @@ impl MieruMuxConnection {
     /// network-time source (never the device clock); it is calibrated once from
     /// the server's first authenticated segment.
     /// # Cancel safety:
-    /// Cancel-safe: there is no await; both spawned tasks belong to the returned
+    /// cancel-safe: there is no await; both spawned tasks belong to the returned
     /// carrier before this future can yield.
     pub async fn connect_over<T>(transport: T, config: &MieruConfig, time: Arc<NetworkTimeProvider>) -> Result<Self>
     where
@@ -398,7 +401,7 @@ impl MieruMuxConnection {
     }
 
     /// # Cancel safety:
-    /// Cancel-safe: see [`Self::connect_over`].
+    /// cancel-safe: see [`Self::connect_over`].
     fn connect_with_stall<T>(
         transport: T,
         config: &MieruConfig,
@@ -414,7 +417,7 @@ impl MieruMuxConnection {
         }
         let key = crate::cipher::derive_key(config.password.as_bytes(), config.username.as_bytes(), time.now_unix(), 0);
         let (read_half, write_half) = tokio::io::split(transport);
-        let enc = Encryptor::new(key, config.username.as_bytes().to_vec());
+        let enc = Encryptor::with_pattern(key, config.username.as_bytes().to_vec(), config.traffic_pattern.clone());
         let dec = Decryptor::new(key);
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
         let (writer_tx, writer_rx) = mpsc::channel(WRITER_QUEUE_DEPTH);
@@ -450,6 +453,7 @@ impl MieruMuxConnection {
             rng: SystemRandom::new(),
             carrier,
             streams: StdMutex::new(StreamTasks::default()),
+            handshake_no_wait: config.handshake_no_wait,
         })
     }
 
@@ -457,9 +461,10 @@ impl MieruMuxConnection {
     /// sub-session multiplexed onto the shared carrier. Applies backpressure once
     /// the per-carrier concurrent-stream ceiling is reached.
     /// # Cancel safety:
-    /// Cancel-safe: the registration guard removes the route and queues Close,
+    /// cancel-safe: the registration guard removes the route and queues Close,
     /// or aborts an overloaded carrier. Committed commands remain writer-owned;
     /// pump registration and stream publication have no intervening await.
+    /// This operation is cancel-safe except for fairness: cancellation loses its semaphore queue position.
     pub async fn open_stream(&self, target: &str) -> Result<MieruStream> {
         // A bad target is the caller's error whatever the server does.
         let request = socks5_connect_request(target)?;
@@ -472,6 +477,9 @@ impl MieruMuxConnection {
         }
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: registration removes the session, and committed commands remain owned by the carrier writer.
+    /// This operation is cancel-safe except for fairness: cancellation loses its semaphore queue position.
     async fn open_stream_inner(&self, request: &[u8]) -> Result<MieruStream> {
         let permit = Arc::clone(&self.limit)
             .acquire_owned()
@@ -493,7 +501,8 @@ impl MieruMuxConnection {
         // wedged or half-broken carrier cannot hang the caller indefinitely.
         let handshake = match timeout(HANDSHAKE_TIMEOUT, async {
             self.writer.send_open(session_id).await?;
-            mux_socks5_connect(&self.writer, &mut reader, session_id, request).await
+            self.writer.send_data(session_id, request).await?;
+            if self.handshake_no_wait { Ok(()) } else { mux_socks5_response(&mut reader).await }
         })
         .await
         {
@@ -513,17 +522,33 @@ impl MieruMuxConnection {
         // The logical stream owns its registration and permit. A write
         // half-close must not tear down the read direction or release its slot.
         let writer_out = self.writer.clone();
+        let inbound_failed = Arc::new(AtomicBool::new(false));
+        let outbound_failed = Arc::clone(&inbound_failed);
+        let outbound_stop = Arc::new(Notify::new());
+        let signal_outbound_stop = Arc::clone(&outbound_stop);
         let outbound = async move {
-            let mut buf = vec![0u8; PUMP_BUF];
-            loop {
-                match engine_read.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        if writer_out.send_data(session_id, &buf[..n]).await.is_err() {
-                            break;
+            let copy = async {
+                let mut buf = vec![0u8; PUMP_BUF];
+                loop {
+                    match engine_read.read(&mut buf).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => {
+                            if outbound_failed.load(Ordering::Acquire) {
+                                break;
+                            }
+                            if writer_out.send_data(session_id, &buf[..n]).await.is_err() {
+                                break;
+                            }
                         }
                     }
                 }
+            };
+            // A failed handshake must also wake a caller blocked on a full bridge.
+            // Cancelling this queue waiter leaves any committed frame writer-owned.
+            tokio::select! {
+                biased;
+                () = outbound_stop.notified() => {},
+                () = copy => {},
             }
         };
 
@@ -532,9 +557,21 @@ impl MieruMuxConnection {
         // or `Drop` clearing the table) or a caller-side write error;
         // deregisters on exit, then ends the caller's read direction.
         let table_in = Arc::clone(&self.table);
-        let inbound_failed = Arc::new(AtomicBool::new(false));
         let pump_failed = Arc::clone(&inbound_failed);
+        let pending_reply = self.handshake_no_wait;
+        let writer_in = self.writer.clone();
         let inbound = async move {
+            if pending_reply
+                && !matches!(timeout(HANDSHAKE_TIMEOUT, mux_socks5_response(&mut reader)).await, Ok(Ok(())))
+            {
+                // Ordering: release publishes refusal/timeout before caller I/O observes shutdown.
+                pump_failed.store(true, Ordering::Release);
+                signal_outbound_stop.notify_one();
+                writer_in.try_close(session_id);
+                deregister(&table_in, session_id);
+                end_inbound(&mut engine_write, false, &pump_failed).await;
+                return;
+            }
             let mut buf = vec![0u8; PUMP_BUF];
             loop {
                 let n = reader.read(&mut buf).await;
@@ -578,8 +615,8 @@ impl MieruMuxConnection {
         self.table.lock().unwrap_or_else(PoisonError::into_inner).clear();
     }
 
-    /// # Cancel safety
-    /// Cancel-safe: groups stay registered until all joins finish. Cancellation
+    /// # Cancel safety:
+    /// cancel-safe: groups stay registered until all joins finish. Cancellation
     /// leaves the connection closed, with handles available for another close.
     pub async fn close(&self) -> Result<()> {
         self.cancel();
@@ -651,7 +688,7 @@ impl ReaderLink {
 /// segment ends a sub-session cleanly), and close admission so `open_stream`
 /// fails at once on the dead carrier.
 /// # Cancel safety:
-/// Conditional: a partial frame cannot be resumed after cancellation. The owner
+/// NOT cancel-safe: a partial frame cannot be resumed after cancellation. The owner
 /// must discard the carrier and clear the demux table, as cancel/close do.
 async fn run_reader(
     mut dec: Decryptor,
@@ -690,7 +727,7 @@ async fn run_reader(
             break;
         }
         match protocol {
-            ProtocolType::DataServerToClient => {
+            ProtocolType::DataServerToClient | ProtocolType::DataServerToClientLowEntropy => {
                 let Some(data) = payload else { continue };
                 if data.is_empty() {
                     continue;
@@ -772,24 +809,17 @@ fn socks5_connect_request(target: &str) -> Result<Vec<u8>> {
     Ok(request)
 }
 
-/// In-tunnel SOCKS5 client handshake + CONNECT over a multiplexed sub-session,
-/// writing through the shared serialized writer and reading from the sub-
-/// session's mailbox.
+/// Consume the SOCKS5 reply before exposing any application data.
 /// # Cancel safety:
-/// Conditional: queued commands can finish and partial replies can be consumed.
-/// The caller's registration guard must remove and close the logical session.
-async fn mux_socks5_connect(
-    writer: &MuxWriteQueue,
-    reader: &mut MuxReader,
-    session_id: u32,
-    request: &[u8],
-) -> Result<()> {
-    writer.send_data(session_id, request).await?;
-
+/// NOT cancel-safe: a partial reply is consumed. The logical stream owner closes and removes the session on failure.
+async fn mux_socks5_response(reader: &mut MuxReader) -> Result<()> {
     let mut head = [0u8; 4];
     reader.read_exact(&mut head).await?;
     if head[0] != 0x05 {
         return Err(MieruError::Socks5(format!("bad SOCKS5 reply version {}", head[0])));
+    }
+    if head[2] != 0 {
+        return Err(MieruError::Socks5("nonzero SOCKS5 reply reserved byte".into()));
     }
     if head[1] != 0x00 {
         return Err(MieruError::Socks5(format!("SOCKS5 CONNECT failed, reply code {}", head[1])));
@@ -826,7 +856,7 @@ mod tests {
     const PASSWORD: &str = "correct-horse-battery";
 
     /// # Cancel safety:
-    /// Not cancel-safe: the test joins the carrier after observing peer EOF.
+    /// NOT cancel-safe: the test joins the carrier after observing peer EOF.
     #[tokio::test]
     async fn cancelled_opens_close_carrier_when_teardown_queue_is_full() {
         let (client, mut peer) = tokio::io::duplex(8);
@@ -906,6 +936,8 @@ mod tests {
             protocol: MieruProtocol::Tcp,
             multiplexing: mux,
             mtu: 1400,
+            handshake_no_wait: false,
+            traffic_pattern: None,
         }
     }
 
@@ -1128,8 +1160,8 @@ mod tests {
         let _ = server.await;
     }
 
-    /// # Cancel safety
-    /// Not cancel-safe: the complete test joins its owned peer after the observation.
+    /// # Cancel safety:
+    /// NOT cancel-safe: the complete test joins its owned peer after the observation.
     #[tokio::test]
     async fn dropping_idle_stream_releases_mailbox_and_permit() {
         let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
@@ -1165,8 +1197,8 @@ mod tests {
         released.expect("idle stream drop must release mailbox and concurrency permit");
     }
 
-    /// # Cancel safety
-    /// Not cancel-safe: the test explicitly joins the active writer and peer.
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test explicitly joins the active writer and peer.
     #[tokio::test]
     async fn close_joins_active_pumps_and_carrier_before_return() {
         let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
@@ -1272,6 +1304,8 @@ mod tests {
         let _ = server.await;
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test joins the carrier after exercising a cancelled frame waiter.
     #[tokio::test]
     async fn cancelling_frame_waiter_does_not_cancel_partial_carrier_write() {
         let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
@@ -1280,9 +1314,12 @@ mod tests {
         let transport = BlockingTransport { state: Arc::clone(&state), blocked: Arc::clone(&blocked) };
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
         let (tx, rx) = mpsc::channel(WRITER_QUEUE_DEPTH);
+        let mut pattern = crate::traffic_pattern::tests::pattern();
+        pattern.fragment = true;
+        pattern.fragment_max_sleep_ms = 1;
         let writer = run_writer(
             MuxWriter {
-                enc: Encryptor::new(key, USERNAME.as_bytes().to_vec()),
+                enc: Encryptor::with_pattern(key, USERNAME.as_bytes().to_vec(), Some(pattern)),
                 writer: Box::new(transport),
                 time: Arc::new(NetworkTimeProvider::fixed(NOW)),
             },
@@ -1311,6 +1348,15 @@ mod tests {
             .expect("writer must finish the abandoned frame and accept the next one")
             .expect("second frame write");
         assert_eq!(state.lock().expect("blocking writer state").flushes, 2);
+        let written = state.lock().expect("blocking writer state").bytes.clone();
+        let mut remaining = written.as_slice();
+        let mut decoder = Decryptor::new(key);
+        for expected in [1, 2] {
+            let (meta, payload) = decoder.read_segment(&mut remaining).await.expect("complete authenticated frame");
+            assert_eq!(session_id_of(&meta), expected);
+            assert!(payload.is_none());
+        }
+        assert!(remaining.is_empty());
 
         drop(handle);
         carrier.close().await.expect("writer task");
@@ -1746,3 +1792,7 @@ mod tests {
         reader.await.expect("reader task");
     }
 }
+
+#[cfg(test)]
+#[path = "mux_advanced_tests.rs"]
+mod advanced_tests;

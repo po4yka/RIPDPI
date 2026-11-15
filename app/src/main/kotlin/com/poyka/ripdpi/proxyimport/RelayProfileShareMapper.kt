@@ -229,28 +229,11 @@ object RelayProfileShareMapper {
                             protocol = mieruProtocol,
                             multiplexing = mieruMultiplexing,
                             mtu = mieruMtu,
+                            handshakeMode = mieruHandshakeMode,
+                            trafficPattern = mieruTrafficPattern,
                         ).takeIf { server.isNotBlank() && serverPort > 0 }
                 }
             }
-
-    private fun RelayProfileRecord.toTuic(credentials: RelayCredentialRecord?): ProxyProfile? {
-        if (tuicZeroRtt || tuicRootCertificatePem.isNotBlank()) return null
-        val uuid = credentials?.tuicUuid ?: return null
-        val password = credentials.tuicPassword ?: return null
-        return ProxyProfile
-            .Tuic(
-                id = UUID.randomUUID().toString(),
-                displayName = shareName(),
-                groupId = "",
-                server = server,
-                serverPort = serverPort,
-                uuid = uuid,
-                password = password,
-                serverName = serverName.ifBlank { server },
-                congestionControl = tuicCongestionControl,
-                alpn = tuicAlpn,
-            ).takeIf { validateNativeRelayProfileResult(it).getOrDefault(false) }
-    }
 
     private fun RelayProfileRecord.toSsh(credentials: RelayCredentialRecord?): ProxyProfile? {
         val username = credentials?.sshUsername?.takeIf { it.isNotBlank() } ?: return null
@@ -275,6 +258,29 @@ object RelayProfileShareMapper {
                 hostKeyFingerprint = sshHostKeyFingerprint.ifBlank { null },
                 strictHostKey = sshStrictHostKey,
             ).takeIf { hasAuthSecret && server.isNotBlank() && serverPort > 0 }
+    }
+}
+
+private fun RelayProfileRecord.toTuic(credentials: RelayCredentialRecord?): ProxyProfile? {
+    if (tuicZeroRtt || tuicRootCertificatePem.isNotBlank()) return null
+    val uuid = credentials?.tuicUuid
+    val password = credentials?.tuicPassword
+    return if (uuid == null || password == null) {
+        null
+    } else {
+        ProxyProfile
+            .Tuic(
+                id = UUID.randomUUID().toString(),
+                displayName = shareName(),
+                groupId = "",
+                server = server,
+                serverPort = serverPort,
+                uuid = uuid,
+                password = password,
+                serverName = serverName.ifBlank { server },
+                congestionControl = tuicCongestionControl,
+                alpn = tuicAlpn,
+            ).takeIf { validateNativeRelayProfileResult(it).getOrDefault(false) }
     }
 }
 

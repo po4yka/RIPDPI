@@ -77,6 +77,26 @@ class RelayNativeWireExportTest {
             } +
                 listOf(
                     relayNativeThreeHopChainFixture(),
+                    relayNativeBaseFixture("mieru").copy(
+                        mieruHandshakeMode = com.poyka.ripdpi.data.MieruHandshakeNoWait,
+                        mieruTrafficPattern =
+                            com.poyka.ripdpi.data.MieruTrafficPattern(
+                                seed = 42,
+                                unlockAll = false,
+                                tcpFragment =
+                                    com.poyka.ripdpi.data
+                                        .MieruTcpFragment(true, 1),
+                                nonce =
+                                    com.poyka.ripdpi.data
+                                        .MieruNoncePattern(3, false, 0, 12, listOf("00010203")),
+                                padding =
+                                    com.poyka.ripdpi.data
+                                        .MieruPaddingPattern(3, 4),
+                                lowEntropy =
+                                    com.poyka.ripdpi.data
+                                        .MieruLowEntropyPattern(4, 48),
+                            ),
+                    ),
                     relayNativeBaseFixture("shadowtls_v3").copy(
                         shadowTlsInner =
                             ResolvedShadowTlsInnerRelayConfig(

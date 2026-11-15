@@ -101,6 +101,8 @@ fn test_config() -> MieruConfig {
         protocol: MieruProtocol::Tcp,
         multiplexing: MieruMux::Off,
         mtu: 1400,
+        handshake_no_wait: false,
+        traffic_pattern: None,
     }
 }
 

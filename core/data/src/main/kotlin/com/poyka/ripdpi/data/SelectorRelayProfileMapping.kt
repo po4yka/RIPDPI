@@ -62,6 +62,8 @@ fun mapRelayProfile(
             mieruMtu = if (profile is ProxyProfile.Mieru) profile.mtu else 1400,
             tuicCongestionControl = (profile as? ProxyProfile.Tuic)?.congestionControl ?: RelayCongestionControlBbr,
             tuicAlpn = (profile as? ProxyProfile.Tuic)?.alpn.orEmpty(),
+            mieruHandshakeMode = (profile as? ProxyProfile.Mieru)?.handshakeMode,
+            mieruTrafficPattern = (profile as? ProxyProfile.Mieru)?.trafficPattern,
             sshAuthType = if (profile is ProxyProfile.Ssh) profile.authType else RelaySshAuthTypePassword,
             sshHostKeyFingerprint =
                 if (profile is ProxyProfile.Ssh) profile.hostKeyFingerprint.orEmpty() else "",

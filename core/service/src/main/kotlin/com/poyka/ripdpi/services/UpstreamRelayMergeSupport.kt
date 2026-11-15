@@ -60,6 +60,8 @@ internal fun mergeRelayConfig(
         mieruProtocol = profile.mieruProtocol.ifBlank { config.mieruProtocol },
         mieruMultiplexing = profile.mieruMultiplexing.ifBlank { config.mieruMultiplexing },
         mieruMtu = profile.mieruMtu,
+        mieruHandshakeMode = profile.mieruHandshakeMode,
+        mieruTrafficPattern = profile.mieruTrafficPattern,
         sshAuthType = profile.sshAuthType.ifBlank { config.sshAuthType },
         sshHostKeyFingerprint = profile.sshHostKeyFingerprint,
         sshStrictHostKey = profile.sshStrictHostKey,

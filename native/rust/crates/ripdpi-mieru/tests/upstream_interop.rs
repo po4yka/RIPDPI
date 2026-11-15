@@ -9,8 +9,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
-/// # Cancel safety
-/// Cancel-safe: the test owns and drops the transport and relayed stream.
+/// # Cancel safety:
+/// cancel-safe: the test owns and drops the transport and relayed stream.
 #[tokio::test]
 #[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
 async fn tcp_stream_exchanges_payload_with_upstream() {
@@ -27,6 +27,8 @@ async fn tcp_stream_exchanges_payload_with_upstream() {
         protocol: MieruProtocol::Tcp,
         multiplexing: MieruMux::Off,
         mtu: 1400,
+        handshake_no_wait: false,
+        traffic_pattern: None,
     };
     timeout(Duration::from_secs(12), async {
         let transport = TcpStream::connect(endpoint).await.expect("connect upstream loopback listener");
@@ -46,8 +48,8 @@ async fn tcp_stream_exchanges_payload_with_upstream() {
     .expect("upstream TCP exchange deadline");
 }
 
-/// # Cancel safety
-/// Cancel-safe: the connection owns the carrier; the test drops all streams on timeout.
+/// # Cancel safety:
+/// cancel-safe: the connection owns the carrier; the test drops all streams on timeout.
 #[tokio::test]
 #[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
 async fn multiplexed_tcp_streams_exchange_without_cross_contamination() {
@@ -65,6 +67,8 @@ async fn multiplexed_tcp_streams_exchange_without_cross_contamination() {
             protocol: MieruProtocol::Tcp,
             multiplexing: level,
             mtu: 1400,
+            handshake_no_wait: false,
+            traffic_pattern: None,
         };
         timeout(Duration::from_secs(12), async {
             let transport = TcpStream::connect(endpoint).await.expect("connect upstream loopback listener");
@@ -100,8 +104,8 @@ async fn multiplexed_tcp_streams_exchange_without_cross_contamination() {
     }
 }
 
-/// # Cancel safety
-/// Cancel-safe: the connection owns the carrier; the test drops the stream on timeout.
+/// # Cancel safety:
+/// cancel-safe: the connection owns the carrier; the test drops the stream on timeout.
 #[tokio::test]
 #[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
 async fn slow_reader_receives_every_byte_with_upstream() {
@@ -119,6 +123,8 @@ async fn slow_reader_receives_every_byte_with_upstream() {
             protocol: MieruProtocol::Tcp,
             multiplexing: level,
             mtu: 1400,
+            handshake_no_wait: false,
+            traffic_pattern: None,
         };
         timeout(Duration::from_secs(40), async {
             let transport = TcpStream::connect(endpoint).await.expect("connect upstream loopback listener");
@@ -145,5 +151,59 @@ async fn slow_reader_receives_every_byte_with_upstream() {
         })
         .await
         .expect("slow reader deadline");
+    }
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: the test closes each owned stream and carrier after its byte-exact exchange.
+#[tokio::test]
+#[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
+async fn advanced_tcp_settings_exchange_with_upstream() {
+    let endpoint: SocketAddr = std::env::var("RIPDPI_OUTBOUND_INTEROP_ENDPOINT")
+        .expect("run through the pinned peer script")
+        .parse()
+        .expect("loopback endpoint");
+    assert!(endpoint.ip().is_loopback() && endpoint.port() != 0);
+    for mode in 1u8..=4 {
+        let config = MieruConfig {
+            server: endpoint.ip().to_string(),
+            port: endpoint.port(),
+            username: "outbound-interop".into(),
+            password: "loopback-test-password".into(),
+            protocol: MieruProtocol::Tcp,
+            multiplexing: MieruMux::High,
+            mtu: 1400,
+            handshake_no_wait: mode.is_multiple_of(2),
+            traffic_pattern: Some(ripdpi_mieru::MieruTrafficPattern {
+                fragment: true,
+                fragment_max_sleep_ms: 1,
+                nonce_type: mode - 1,
+                nonce_min_len: 6,
+                nonce_max_len: 12,
+                nonce_prefixes: vec![vec![0, 1, 2, 3, 4, 5]],
+                max_middle_padding: 3,
+                max_end_padding: 4,
+                low_entropy_mode: mode,
+                low_entropy_rotation: 3,
+            }),
+        };
+        timeout(Duration::from_secs(20), async {
+            let transport = TcpStream::connect(endpoint).await.expect("upstream connect");
+            let carrier = MieruMuxConnection::connect_over(transport, &config, NetworkTimeProvider::shared())
+                .await
+                .expect("advanced carrier");
+            let mut stream = carrier.open_stream("interop.invalid:443").await.expect("advanced CONNECT");
+            let payload: Vec<u8> = (0..98304).map(|index| (index % 251) as u8).collect();
+            let (mut read, mut write) = tokio::io::split(&mut stream);
+            let mut response = vec![0; payload.len()];
+            let (written, received) = tokio::join!(write.write_all(&payload), read.read_exact(&mut response));
+            written.expect("advanced upstream write");
+            received.expect("advanced upstream read");
+            assert_eq!(response, payload, "mode {mode} preserves payload against actual Go peer");
+            stream.close().await.expect("advanced stream close");
+            carrier.close().await.expect("advanced carrier close");
+        })
+        .await
+        .expect("advanced upstream deadline");
     }
 }

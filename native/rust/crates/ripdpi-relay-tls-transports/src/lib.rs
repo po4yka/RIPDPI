@@ -15,7 +15,7 @@ pub use anytls::{
     AnyTlsChainHop, AnyTlsClientConfig, AnyTlsSession, AnyTlsSessionFactory, AnyTlsUdpSession, anytls_proxy_target,
     connect_anytls_tcp, connect_anytls_tcp_over, parse_certificate_pin_sha256,
 };
-pub use mieru::{MieruConfig, MieruMux, MieruProtocol, MieruSession, MieruSessionFactory};
+pub use mieru::{MieruConfig, MieruMux, MieruProtocol, MieruSession, MieruSessionFactory, MieruTrafficPattern};
 /// Shared explicit policy re-exported through the relay transport facade so
 /// relay-core does not depend on Android callback registry implementation details.
 pub use ripdpi_native_protect::SocketProtectionPolicy;
