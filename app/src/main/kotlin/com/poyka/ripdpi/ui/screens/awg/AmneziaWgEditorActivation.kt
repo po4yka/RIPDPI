@@ -17,18 +17,8 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
  * An untouched manual route field selects routes for the configured address families.
  */
 fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRequest {
-    val addresses = rawText(AwgEditorField.ADDRESS).split(',').map(String::trim).filter(String::isNotEmpty)
-    val (ipv6, ipv4) = addresses.partition { ':' in it }
-    if (ipv4.size != 1 || ipv6.size > 1) {
-        throw AwgActivationInputException(AwgActivationField.Address)
-    }
-    val mtu =
-        rawText(AwgEditorField.MTU)
-            .trim()
-            .ifEmpty { AwgActivationRequest.DEFAULT_MTU.toString() }
-            .toIntOrNull()
-            ?.takeIf(::isValidAwgMtu)
-            ?: throw AwgActivationInputException(AwgActivationField.Mtu)
+    val (ipv4, ipv6) = activationAddresses()
+    val mtu = activationMtu()
     require(obfuscationConsistent()) { "AmneziaWG obfuscation parameters are invalid" }
     val keepaliveText = rawText(AwgEditorField.PERSISTENT_KEEPALIVE).trim().ifEmpty { "0" }
     val (keepalive, keepaliveMax) =
@@ -41,8 +31,8 @@ fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRe
         } ?: form.serverPort
     return form.copy(serverPort = port).toActivationRequest(
         profileId = profileId,
-        interfaceAddressV4 = ipv4.single(),
-        interfaceAddressV6 = ipv6.singleOrNull().orEmpty(),
+        interfaceAddressV4 = ipv4,
+        interfaceAddressV6 = ipv6,
         dnsServers = rawText(AwgEditorField.DNS).commaSeparatedValues(),
         allowedIps = rawTextByField[AwgEditorField.ALLOWED_IPS]?.commaSeparatedValues(),
         mtu = mtu,
@@ -50,6 +40,23 @@ fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRe
         persistentKeepaliveMax = keepaliveMax ?: 0,
     )
 }
+
+private fun AmneziaWgEditorState.activationAddresses(): Pair<String, String> {
+    val addresses = rawText(AwgEditorField.ADDRESS).split(',').map(String::trim).filter(String::isNotEmpty)
+    val (ipv6, ipv4) = addresses.partition { ':' in it }
+    if (ipv4.size != 1 || ipv6.size > 1) {
+        throw AwgActivationInputException(AwgActivationField.Address)
+    }
+    return ipv4.single() to ipv6.singleOrNull().orEmpty()
+}
+
+private fun AmneziaWgEditorState.activationMtu(): Int =
+    rawText(AwgEditorField.MTU)
+        .trim()
+        .ifEmpty { AwgActivationRequest.DEFAULT_MTU.toString() }
+        .toIntOrNull()
+        ?.takeIf(::isValidAwgMtu)
+        ?: throw AwgActivationInputException(AwgActivationField.Mtu)
 
 private fun String.commaSeparatedValues(): List<String> = if (isBlank()) emptyList() else split(',').map(String::trim)
 
