@@ -239,7 +239,9 @@ impl<C: DohHttpClient> DohJsonSurveyRunner<C> {
                     let round_trip_ms = Some(start.elapsed().as_millis() as u64);
 
                     let status = match raw {
-                        Ok((code, body)) if (200..300).contains(&code) => parse_doh_json_answer(&body),
+                        Ok((code, body)) if (200..300).contains(&code) => {
+                            parse_doh_json_answer(&body, &self.query_host)
+                        }
                         Ok((code, _)) if is_timeout_code(code) => DohJsonResolverStatus::Timeout,
                         Ok((code, _)) => DohJsonResolverStatus::HttpError { status: code },
                         Err(e) if is_tls_error(&e) => DohJsonResolverStatus::TlsError { detail: e },
@@ -260,8 +262,8 @@ impl<C: DohHttpClient> DohJsonSurveyRunner<C> {
 // ── private helpers ───────────────────────────────────────────────────────────
 
 /// Parse a DoH-JSON response body into a [`DohJsonResolverStatus`].
-fn parse_doh_json_answer(body: &[u8]) -> DohJsonResolverStatus {
-    match parse_doh_json_ip_answer(body) {
+fn parse_doh_json_answer(body: &[u8], query_host: &str) -> DohJsonResolverStatus {
+    match parse_doh_json_ip_answer(body, query_host, 1) {
         Ok(Some(ip)) => DohJsonResolverStatus::Ok { answered_ip: ip.to_string() },
         Ok(None) => DohJsonResolverStatus::NxDomain,
         Err(detail) => DohJsonResolverStatus::MalformedJson { detail: detail.to_string() },
@@ -284,6 +286,10 @@ fn is_tls_error(e: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn parse_doh_json_answer(body: &[u8]) -> DohJsonResolverStatus {
+        super::parse_doh_json_answer(body, "example.com")
+    }
 
     fn ok_result(label: &str, ip: &str) -> DohJsonResolverResult {
         DohJsonResolverResult {
@@ -369,7 +375,7 @@ mod tests {
     #[test]
     fn parse_google_answer_extracts_ip() {
         let body =
-            br#"{"Status":0,"TC":false,"Answer":[{"name":"example.com.","type":1,"TTL":300,"data":"93.184.216.34"}]}"#;
+            br#"{"Status":0,"TC":false,"Answer":[{"name":"example.com.","type":1,"TTL":300,"data":"93.184.216.34"}],"Question":[{"name":"example.com.","type":1}]}"#;
         match parse_doh_json_answer(body) {
             DohJsonResolverStatus::Ok { answered_ip } => assert_eq!(answered_ip, "93.184.216.34"),
             other => panic!("expected Ok, got {other:?}"),
@@ -379,7 +385,7 @@ mod tests {
     #[test]
     fn parse_cloudflare_identical_schema_extracts_ip() {
         // Cloudflare's JSON schema is byte-for-byte the same shape as Google's.
-        let body = br#"{"Status":0,"Answer":[{"name":"cloudflare.com","type":1,"data":"104.16.132.229"}]}"#;
+        let body = br#"{"Status":0,"Answer":[{"name":"example.com.","type":1,"data":"104.16.132.229"}],"Question":[{"name":"example.com.","type":1}]}"#;
         match parse_doh_json_answer(body) {
             DohJsonResolverStatus::Ok { answered_ip } => assert_eq!(answered_ip, "104.16.132.229"),
             other => panic!("expected Ok, got {other:?}"),
@@ -388,7 +394,7 @@ mod tests {
 
     #[test]
     fn parse_skips_cname_data_and_finds_ip() {
-        let body = br#"{"Status":0,"Answer":[{"type":5,"data":"alias.example.net."},{"type":1,"data":"203.0.113.7"}]}"#;
+        let body = br#"{"Status":0,"Answer":[{"type":5,"data":"alias.example.net.","name":"example.com."},{"type":1,"data":"203.0.113.7","name":"alias.example.net."}],"Question":[{"name":"example.com.","type":1}]}"#;
         match parse_doh_json_answer(body) {
             DohJsonResolverStatus::Ok { answered_ip } => assert_eq!(answered_ip, "203.0.113.7"),
             other => panic!("expected Ok, got {other:?}"),
@@ -399,7 +405,7 @@ mod tests {
     fn parse_rejects_nested_status_and_truncated_json() {
         assert_eq!(
             parse_doh_json_answer(
-                br#"{"Status":0,"Metadata":{"Status":3,"data":"192.0.2.1"},"Answer":[{"type":1,"data":"203.0.113.7"}]}"#
+                br#"{"Status":0,"Metadata":{"Status":3,"data":"192.0.2.1"},"Answer":[{"type":1,"data":"203.0.113.7","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#
             ),
             DohJsonResolverStatus::Ok { answered_ip: "203.0.113.7".to_string() }
         );
@@ -408,23 +414,28 @@ mod tests {
             DohJsonResolverStatus::MalformedJson { .. }
         ));
         assert!(matches!(
-            parse_doh_json_answer(br#"{"Metadata":{"Status":0},"Answer":[]}"#),
+            parse_doh_json_answer(
+                br#"{"Metadata":{"Status":0},"Answer":[],"Question":[{"name":"example.com.","type":1}]}"#
+            ),
             DohJsonResolverStatus::MalformedJson { .. }
         ));
         assert!(matches!(
-            parse_doh_json_answer(br#"{"Status":2,"Answer":[{"type":1,"data":"192.0.2.1"}]}"#),
+            parse_doh_json_answer(br#"{"Status":2,"Answer":[{"type":1,"data":"192.0.2.1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#),
             DohJsonResolverStatus::MalformedJson { .. }
         ));
     }
 
     #[test]
     fn parse_status_3_is_nxdomain() {
-        assert_eq!(parse_doh_json_answer(br#"{"Status":3,"Authority":[]}"#), DohJsonResolverStatus::NxDomain);
+        assert_eq!(
+            parse_doh_json_answer(br#"{"Status":3,"Authority":[],"Question":[{"name":"example.com.","type":1}]}"#),
+            DohJsonResolverStatus::NxDomain
+        );
     }
 
     #[test]
     fn parse_cname_only_envelope_is_nxdomain() {
-        let body = br#"{"Status":0,"Answer":[{"type":5,"data":"alias.example.net."}]}"#;
+        let body = br#"{"Status":0,"Answer":[{"type":5,"data":"alias.example.net.","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#;
         assert_eq!(parse_doh_json_answer(body), DohJsonResolverStatus::NxDomain);
     }
 

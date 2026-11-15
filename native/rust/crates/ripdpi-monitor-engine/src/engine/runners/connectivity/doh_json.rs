@@ -80,7 +80,7 @@ fn survey(
         let elapsed_ms = started.elapsed().as_millis();
         let (status, address) = match response {
             Ok(response) if (200..300).contains(&response.status_code) => {
-                match parse_doh_json_ip_answer(&response.body) {
+                match parse_doh_json_ip_answer(&response.body, domain, 1) {
                     Ok(Some(ip)) => {
                         answered = true;
                         ("answered".to_string(), Some(ip.to_string()))
@@ -170,7 +170,7 @@ mod tests {
         let result = survey("selected&extra.example", &AtomicBool::new(false), |host, path| {
             requests.push((host.to_string(), path.to_string()));
             if host == "dns.google" {
-                Ok(response(200, br#"{"Status":0,"Answer":[{"type":1,"data":"203.0.113.7"}]}"#))
+                Ok(response(200, br#"{"Status":0,"Answer":[{"type":1,"data":"203.0.113.7","name":"selected&extra.example."}],"Question":[{"name":"selected&extra.example.","type":1}]}"#))
             } else {
                 Ok(response(503, b"unavailable"))
             }
@@ -187,7 +187,9 @@ mod tests {
     #[test]
     fn invalid_or_empty_responses_do_not_count_as_answers() {
         let result = survey("selected.example", &AtomicBool::new(false), |host, _| match host {
-            "dns.google" => Ok(response(200, br#"{"Status":0,"Answer":[]}"#)),
+            "dns.google" => {
+                Ok(response(200, br#"{"Status":0,"Answer":[],"Question":[{"name":"selected.example.","type":1}]}"#))
+            }
             "cloudflare-dns.com" => Ok(response(200, b"not json")),
             _ => {
                 let mut source = crate::tls::open_probe_stream_targets_with_options_and_abort(
@@ -215,7 +217,9 @@ mod tests {
 
     #[test]
     fn no_address_from_all_resolvers_is_inconclusive() {
-        let result = survey("selected.example", &AtomicBool::new(false), |_, _| Ok(response(200, br#"{"Status":3}"#)));
+        let result = survey("selected.example", &AtomicBool::new(false), |_, _| {
+            Ok(response(200, br#"{"Status":3,"Question":[{"name":"selected.example.","type":1}]}"#))
+        });
         assert_eq!(result.outcome, "inconclusive");
         assert!(result.details.iter().any(|detail| detail.key == "surveyStatus" && detail.value == "no_address"));
     }
@@ -227,7 +231,7 @@ mod tests {
         let result = survey("selected.example", &cancel, |_, _| {
             count += 1;
             cancel.store(true, Ordering::Release);
-            Ok(response(200, br#"{"Status":0,"Answer":[{"type":1,"data":"203.0.113.7"}]}"#))
+            Ok(response(200, br#"{"Status":0,"Answer":[{"type":1,"data":"203.0.113.7","name":"selected.example."}],"Question":[{"name":"selected.example.","type":1}]}"#))
         });
         assert_eq!(count, 1);
         assert_eq!(result.outcome, "inconclusive");

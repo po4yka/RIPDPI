@@ -33,11 +33,12 @@ const WARMUP_CATALOG_DOMAINS: &[&str] = &["youtube.com", "discord.com", "telegra
 /// survey runner exercises its full request-building path.
 struct RecordingClient {
     urls: Mutex<Vec<String>>,
+    query_host: String,
 }
 
 impl RecordingClient {
-    fn new() -> Self {
-        Self { urls: Mutex::new(Vec::new()) }
+    fn new(query_host: &str) -> Self {
+        Self { urls: Mutex::new(Vec::new()), query_host: query_host.to_string() }
     }
 
     fn recorded(&self) -> Vec<String> {
@@ -48,7 +49,13 @@ impl RecordingClient {
 impl DohHttpClient for RecordingClient {
     fn get<'a>(&'a self, url: &'a str, _timeout: Duration) -> DohHttpFuture<'a> {
         self.urls.lock().expect("recording mutex is never poisoned in tests").push(url.to_string());
-        Box::pin(async move { Ok((200u16, br#"{"Status":0,"Answer":[{"type":1,"data":"203.0.113.1"}]}"#.to_vec())) })
+        Box::pin(async move {
+            let body = format!(
+                r#"{{"Status":0,"Question":[{{"name":"{}.","type":1}}],"Answer":[{{"name":"{}.","type":1,"data":"203.0.113.1"}}]}}"#,
+                self.query_host, self.query_host
+            );
+            Ok((200u16, body.into_bytes()))
+        })
     }
 }
 
@@ -77,7 +84,7 @@ fn doh_json_survey_only_measures_the_supplied_target() {
         query_host: target.to_string(),
         timeout: Duration::from_secs(2),
         resolvers: resolvers.clone(),
-        client: RecordingClient::new(),
+        client: RecordingClient::new(target),
     };
 
     let _probe = block_on(runner.survey(&ProbeContext::empty()));
@@ -103,7 +110,7 @@ fn doh_json_get_survey_only_measures_the_supplied_target() {
         query_host: target.to_string(),
         timeout: Duration::from_secs(2),
         resolvers: resolvers.clone(),
-        client: RecordingClient::new(),
+        client: RecordingClient::new(target),
     };
 
     // Empty context: no user-active resolver hint, so only the configured

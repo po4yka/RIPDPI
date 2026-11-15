@@ -256,7 +256,7 @@ impl<C: DohHttpClient> DohSurveyRunner<C> {
                         Ok((code, body)) if (200..300).contains(&code) => {
                             // Parse the JSON response body for an A/AAAA answer.
                             // JSON resolver format: {"Answer":[{"data":"<ip>"},...]}
-                            parse_doh_answer(&body)
+                            parse_doh_answer(&body, &self.query_host)
                         }
                         Ok((code, _)) if is_timeout_code(code) => DohResolverStatus::Timeout,
                         Ok((code, _)) => DohResolverStatus::HttpError { status: code },
@@ -278,8 +278,8 @@ impl<C: DohHttpClient> DohSurveyRunner<C> {
 // ── private helpers ───────────────────────────────────────────────────────────
 
 /// Parse a DoH JSON response body and return the appropriate status.
-fn parse_doh_answer(body: &[u8]) -> DohResolverStatus {
-    match parse_doh_json_ip_answer(body) {
+fn parse_doh_answer(body: &[u8], query_host: &str) -> DohResolverStatus {
+    match parse_doh_json_ip_answer(body, query_host, 1) {
         Ok(Some(ip)) => DohResolverStatus::Ok { answered_ip: ip.to_string() },
         Ok(None) => DohResolverStatus::NxDomain,
         Err(detail) => DohResolverStatus::NetworkError { detail: format!("DoH response error: {detail}") },
@@ -302,6 +302,10 @@ fn is_tls_error(e: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn parse_doh_answer(body: &[u8]) -> DohResolverStatus {
+        super::parse_doh_answer(body, "example.com")
+    }
 
     fn ok_result(label: &str, ip: &str) -> DohResolverResult {
         DohResolverResult {
@@ -425,7 +429,7 @@ mod tests {
     #[test]
     fn parse_doh_answer_ok_extracts_ip() {
         let body =
-            br#"{"Status":0,"TC":false,"Answer":[{"name":"example.com.","type":1,"TTL":300,"data":"93.184.216.34"}]}"#;
+            br#"{"Status":0,"TC":false,"Answer":[{"name":"example.com.","type":1,"TTL":300,"data":"93.184.216.34"}],"Question":[{"name":"example.com.","type":1}]}"#;
         match parse_doh_answer(body) {
             DohResolverStatus::Ok { answered_ip } => assert_eq!(answered_ip, "93.184.216.34"),
             other => panic!("expected Ok, got {other:?}"),
@@ -436,29 +440,29 @@ mod tests {
     fn parse_doh_answer_rejects_nested_status_and_malformed_json() {
         assert_eq!(
             parse_doh_answer(
-                br#"{"Status":0,"Metadata":{"Status":3,"data":"192.0.2.1"},"Answer":[{"type":1,"data":"203.0.113.7"}]}"#
+                br#"{"Status":0,"Metadata":{"Status":3,"data":"192.0.2.1"},"Answer":[{"type":1,"data":"203.0.113.7","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#
             ),
             DohResolverStatus::Ok { answered_ip: "203.0.113.7".to_string() }
         );
         for body in [
-            br#"{"Metadata":{"Status":0},"Answer":[{"data":"192.0.2.1"}]}"#.as_slice(),
+            br#"{"Metadata":{"Status":0},"Answer":[{"data":"192.0.2.1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#.as_slice(),
             br#"{"Status":0,"Answer":[{"data":"192.0.2.1"}"#.as_slice(),
         ] {
             assert!(matches!(parse_doh_answer(body), DohResolverStatus::NetworkError { .. }));
         }
         assert_eq!(
-            parse_doh_answer(br#"{"Status":0,"Answer":[{"type":5,"data":"alias.example"}]}"#),
+            parse_doh_answer(br#"{"Status":0,"Answer":[{"type":5,"data":"alias.example","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#),
             DohResolverStatus::NxDomain
         );
         assert!(matches!(
-            parse_doh_answer(br#"{"Status":2,"Answer":[{"type":1,"data":"192.0.2.1"}]}"#),
+            parse_doh_answer(br#"{"Status":2,"Answer":[{"type":1,"data":"192.0.2.1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#),
             DohResolverStatus::NetworkError { .. }
         ));
     }
 
     #[test]
     fn parse_doh_answer_nxdomain_status_3() {
-        let body = br#"{"Status":3,"Authority":[]}"#;
+        let body = br#"{"Status":3,"Authority":[],"Question":[{"name":"example.com.","type":1}]}"#;
         assert_eq!(parse_doh_answer(body), DohResolverStatus::NxDomain);
     }
 }
