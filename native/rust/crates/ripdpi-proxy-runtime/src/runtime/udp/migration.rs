@@ -43,7 +43,16 @@ pub(super) fn maybe_rebind_udp_source_port(
     // application.  Packets already in flight on the old socket are
     // not replayed on the new socket; the QUIC stack in the client
     // application is responsible for retransmission.
-    match build_udp_upstream_socket(entry.current_target, protect_path, entry.socket_settings.bind_low_port) {
+    let replacement =
+        build_udp_upstream_socket(entry.current_target, protect_path, entry.socket_settings.bind_low_port).and_then(
+            |socket| {
+                if socket.local_addr()? == entry.upstream.local_addr()? {
+                    return Err(io::Error::new(io::ErrorKind::AddrInUse, "replacement UDP source tuple is unchanged"));
+                }
+                Ok(socket)
+            },
+        );
+    match replacement {
         Ok(new_socket) => {
             entry.remote_feedback.reset_socket();
             entry.upstream = new_socket;

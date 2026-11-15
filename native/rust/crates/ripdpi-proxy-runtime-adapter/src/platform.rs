@@ -366,8 +366,8 @@ pub mod udp {
             SocketAddr::V4(_) => Domain::IPV4,
             SocketAddr::V6(_) => Domain::IPV6,
         };
+        // Reusing a live UDP tuple can deliver another flow's replies to this socket.
         let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
-        socket.set_reuse_address(true)?;
         if let Some(path) = protect_path {
             protect_socket(&socket, path)?;
         }

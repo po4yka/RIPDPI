@@ -956,6 +956,31 @@ fn flow_entry_for(upstream: UdpSocket, target: SocketAddr) -> UdpFlowActivationS
 }
 
 #[test]
+fn source_rebind_changes_the_live_upstream_tuple() {
+    let peer = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("upstream peer");
+    peer.set_read_timeout(Some(Duration::from_secs(1))).expect("peer timeout");
+    let target = peer.local_addr().expect("peer address");
+    let upstream = sockets::build_udp_upstream_socket(target, None, false).expect("upstream socket");
+    let original_source = upstream.local_addr().expect("original source");
+    let mut entry = flow_entry_for(upstream, target);
+    entry.source_rebind_policy = RuntimeUdpSourceRebindPolicy::after_handshake(true);
+    entry.session.observe_datagram_outbound(b"first");
+    entry.session.observe_datagram_outbound(b"second");
+    let state = test_runtime_state(RuntimeConfig::default());
+
+    super::migration::maybe_rebind_udp_source_port(&state, &mut entry, b"\x40reply", None).expect("rebind");
+
+    let replacement_source = entry.upstream.local_addr().expect("replacement source");
+    assert!(entry.quic_migrated);
+    assert_ne!(replacement_source, original_source);
+    entry.upstream.send(b"new-source").expect("send on replacement");
+    let mut bytes = [0; 32];
+    let (size, sender) = peer.recv_from(&mut bytes).expect("receive replacement payload");
+    assert_eq!(sender, replacement_source);
+    assert_eq!(&bytes[..size], b"new-source");
+}
+
+#[test]
 fn one_flow_send_error_retires_only_that_flow() {
     let closed = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind closed port");
     let closed_target = closed.local_addr().expect("closed addr");
