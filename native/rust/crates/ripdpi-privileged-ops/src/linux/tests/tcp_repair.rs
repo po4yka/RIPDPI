@@ -302,3 +302,62 @@ fn snapshot_window_is_shifted_by_the_receive_window_scale() {
     let expected = (snapshot.repair_window.rcv_wnd >> shift).min(u32::from(u16::MAX));
     assert_eq!(u32::from(snapshot.window_size), expected, "rcv_wnd {}", snapshot.repair_window.rcv_wnd);
 }
+
+fn assert_raw_tcp_restoration_error(use_fake_sender: bool) {
+    use std::io::{Read, Write};
+    use std::time::Duration;
+
+    for restoration_fails in [false, true] {
+        let (client, mut peer) = super::connected_pair();
+        client.set_read_timeout(Some(Duration::from_secs(1))).expect("bound inbound queue wait");
+        peer.write_all(b"pending").expect("queue inbound bytes");
+        assert_eq!(client.peek(&mut [0; 7]).expect("wait for inbound bytes"), 7);
+        let _fault = crate::linux::tcp_repair::repair_fault(&client, restoration_fails);
+        let result = if use_fake_sender {
+            crate::send_fake_tcp(
+                &client,
+                b"original",
+                b"fake",
+                8,
+                false,
+                64,
+                crate::FakeTcpOptions { require_raw_path: true, ..Default::default() },
+                (false, Duration::ZERO),
+            )
+        } else {
+            crate::send_flagged_tcp_payload(
+                &client,
+                b"original",
+                64,
+                None,
+                false,
+                crate::TcpFlagOverrides { set: 8, unset: 0 },
+                None,
+            )
+        };
+        let error = result.expect_err("pending inbound bytes refuse the actual send before emission");
+        if restoration_fails {
+            assert_eq!(error.kind(), std::io::ErrorKind::Other);
+            assert!(error.to_string().contains("injected repair restoration failure"));
+            assert!(error.to_string().contains("empty inbound queue"));
+            assert_eq!(
+                std::error::Error::source(&error).expect("original operation error").to_string(),
+                "packet-owned TCP desync requires an empty inbound queue before raw injection"
+            );
+        } else {
+            assert_eq!(error.kind(), std::io::ErrorKind::WouldBlock);
+        }
+        peer.set_nonblocking(true).expect("check no real payload was emitted");
+        assert_eq!(peer.read(&mut [0; 8]).expect_err("no outbound bytes").kind(), std::io::ErrorKind::WouldBlock);
+    }
+}
+
+#[test]
+fn raw_fake_error_exit_preserves_failed_repair_restoration() {
+    assert_raw_tcp_restoration_error(true);
+}
+
+#[test]
+fn flagged_payload_error_exit_preserves_failed_repair_restoration() {
+    assert_raw_tcp_restoration_error(false);
+}

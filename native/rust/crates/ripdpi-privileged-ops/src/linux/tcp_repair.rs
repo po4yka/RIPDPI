@@ -20,6 +20,8 @@ pub(crate) use options::TcpTimestampSnapshot;
 pub(crate) use options::{TcpRepairOptionsSnapshot, TcpWindowScaleSnapshot, decode_tcp_repair_options};
 pub(crate) use send_queue::{queue_payload_as_sent, sequence_after_payload};
 pub(crate) use snapshot::{TcpRepairSnapshot, snapshot_tcp_repair_state};
+#[cfg(test)]
+pub(crate) use sockopt::test_support::repair_fault;
 pub(crate) use sockopt::{TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue};
 #[cfg(test)]
 pub(crate) use sockopt::{TcpRepairWindow, read_tcp_timestamp};

@@ -34,10 +34,18 @@ const _: () = {
 };
 
 pub(crate) fn set_tcp_repair(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
+    #[cfg(test)]
+    if let Some(result) = test_support::repair_result(fd, value) {
+        return result;
+    }
     set_c_int_sockopt(fd, libc::IPPROTO_TCP, TCP_REPAIR, value)
 }
 
 pub(crate) fn set_tcp_repair_queue(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
+    #[cfg(test)]
+    if test_support::contains(fd) {
+        return Ok(());
+    }
     set_c_int_sockopt(fd, libc::IPPROTO_TCP, TCP_REPAIR_QUEUE, value)
 }
 
@@ -59,4 +67,53 @@ pub(crate) fn get_tcp_repair_window(fd: libc::c_int) -> io::Result<TcpRepairWind
 
 pub(crate) fn disable_tcp_repair(fd: libc::c_int) -> io::Result<()> {
     set_tcp_repair(fd, TCP_REPAIR_OFF_NO_WP).or_else(|_| set_tcp_repair(fd, TCP_REPAIR_OFF))
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::cell::Cell;
+    use std::io;
+    use std::marker::PhantomData;
+    use std::net::TcpStream;
+    use std::os::fd::{AsRawFd, RawFd};
+    use std::rc::Rc;
+
+    thread_local! {
+        static REPAIR_RESULT: Cell<Option<(RawFd, bool)>> = const { Cell::new(None) };
+    }
+
+    pub(crate) struct RepairFault<'a> {
+        _stream: &'a TcpStream,
+        previous: Option<(RawFd, bool)>,
+        _same_thread: PhantomData<Rc<()>>,
+    }
+
+    impl Drop for RepairFault<'_> {
+        fn drop(&mut self) {
+            REPAIR_RESULT.with(|fault| fault.set(self.previous));
+        }
+    }
+
+    pub(crate) fn repair_fault(stream: &TcpStream, restoration_fails: bool) -> RepairFault<'_> {
+        let previous = REPAIR_RESULT.with(|fault| fault.replace(Some((stream.as_raw_fd(), restoration_fails))));
+        RepairFault { _stream: stream, previous, _same_thread: PhantomData }
+    }
+
+    pub(super) fn contains(fd: RawFd) -> bool {
+        REPAIR_RESULT.with(|fault| fault.get().is_some_and(|(target, _)| target == fd))
+    }
+
+    pub(super) fn repair_result(fd: RawFd, value: libc::c_int) -> Option<io::Result<()>> {
+        REPAIR_RESULT.with(|fault| {
+            let (target, restoration_fails) = fault.get()?;
+            if target != fd {
+                return None;
+            }
+            Some(if value == super::TCP_REPAIR_ON || !restoration_fails {
+                Ok(())
+            } else {
+                Err(io::Error::new(io::ErrorKind::PermissionDenied, "injected repair restoration failure"))
+            })
+        })
+    }
 }

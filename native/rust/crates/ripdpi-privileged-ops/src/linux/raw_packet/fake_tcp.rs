@@ -15,8 +15,8 @@ use crate::linux::raw_packet::raw_socket::send_raw_packets;
 use crate::linux::socket_options::{get_stream_ttl, set_stream_ttl, set_tcp_md5sig, try_set_stream_ttl_with_outcome};
 use crate::linux::tcp_info::wait_tcp_stage_fd;
 use crate::linux::tcp_repair::{
-    TCP_NO_QUEUE, TCP_REPAIR_ON, TcpTimestampSnapshot, disable_tcp_repair, queue_payload_as_sent, set_tcp_repair,
-    set_tcp_repair_queue, snapshot_tcp_repair_state,
+    TCP_NO_QUEUE, TCP_REPAIR_ON, TcpTimestampSnapshot, disable_tcp_repair, finish_tcp_repair, queue_payload_as_sent,
+    set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
 };
 use crate::{FakeTcpOptions, TcpSendProgressError, TcpStageWait};
 
@@ -219,8 +219,7 @@ fn send_fake_tcp_via_raw_packets(
         wait_tcp_stage_fd(fd, wait.0, wait.1)
     })();
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
+    finish_tcp_repair(result, disable_tcp_repair(fd))
 }
 
 pub(crate) fn mutate_fake_timestamp(

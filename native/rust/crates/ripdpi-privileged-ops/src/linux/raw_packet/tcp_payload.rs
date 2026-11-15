@@ -234,8 +234,7 @@ pub fn send_flagged_tcp_payload(
     })();
 
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
+    finish_tcp_repair(result, disable_tcp_repair(fd))
 }
 
 pub fn send_seqovl_tcp(
