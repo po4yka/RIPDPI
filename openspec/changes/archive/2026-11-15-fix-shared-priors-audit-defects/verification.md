@@ -55,3 +55,11 @@ The original acceptance SHA in the frontmatter remains the first verified checkp
 `just ci-gates` passed again. Full `staticAnalysis`, generated BuildConfig and all 24 shared-priors/cache service tests passed again, with zero failures/errors/skips. The Rust strategy and build-logic inputs remain unchanged; their 143 and 4 passing tests and clean Clippy results still apply. Task validation passed after rebase and the generated board count was refreshed.
 
 Final run logs: `/tmp/ripdpi-aux05-integration-ci-gates.log` and `/tmp/ripdpi-aux05-integration-gradle.log`. No release key, APK, device, external publisher, or hosted CI result is implied by this local evidence.
+
+## Persistent worktree recovery checkpoint
+
+The temporary worktree directories became unavailable after their commits completed. Recovery used the saved Git branch in `/Users/npochaev/GitHub/RIPDPI-worktrees/aux05-integrated-20261115`; no fix was lost. The verified checkpoint is `f048781602b91de4154dcab9d6d33bdc60d85f32`, based on `44c5b4bcbddb8d7fb61313e37395c9cf380c2afd`. The three fix patch IDs match their original reviewed commits. Upstream DPI-38 edits in the strategy tests are preserved.
+
+On this checkpoint, `just ci-gates`, full `staticAnalysis`, generated BuildConfig and all 24 service tests passed again. Rust strategy tests and all-target Clippy were rerun successfully because the upstream strategy inputs changed. No concrete released APK or publisher compatibility is claimed.
+
+Final logs: `/tmp/ripdpi-aux05-persistent-ci-gates.log`, `/tmp/ripdpi-aux05-persistent-gradle.log`, `/tmp/ripdpi-aux05-persistent-rust.log`.
