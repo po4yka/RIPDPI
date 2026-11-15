@@ -62,3 +62,7 @@ A fresh source build after synchronization with incoming main found five detekt 
 ## Fresh combined checkpoint at ec4c9ac1
 
 The final source-fresh Gradle run at ec4c9ac1f91e86eafb8b0770986694916509d118 passed 1804 selected JVM tests with zero failures, errors or skips. It executed 1752 tests in runtime-state (171), core:data (1015), diagnostics (65), service (25) and app (476); catalog (52) was unchanged and UP-TO-DATE. App compilation, app detekt and app lintGithubFullDebug passed. Full staticAnalysis stopped on ten core:diagnostics detekt issues. The entire diagnostics module was byte-identical to incoming main at 07626efa72fdab91f062f3acfaea27ef8e558a7a. The source gates after Gradle were not reached. A separate mechanical integration quality repair owns these ten blockers; no full diagnostics audit is included. Archived reports: imp03-combined-evidence/final-fresh-quality.
+
+## Post-rebase checkpoint at 419ea5fc
+
+Rebase onto incoming 0218a6b688d94ddad256f2e2f47e9e3afc30d1bd preserved the exact owned patch content. The six JVM suites passed 1832 tests, zero failures/errors/skips: 594 fresh and 1238 unchanged UP-TO-DATE. App Full lint and diagnostics ktlint passed. App detekt found two and diagnostics detekt found fifteen issues in six files byte-identical to incoming main, outside the prior owned patch. Source checks after Gradle were not reached. A separate scoped integration repair owns these seventeen blockers. Reports remain under imp03-combined-evidence/post-0218-rebase; the earlier complete staticAnalysis PASS remains tied to e99dcb03.
