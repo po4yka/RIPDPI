@@ -364,7 +364,13 @@ object BackupGroupRedactor {
         // exposes delivery or node credentials. FULL exports keep them verbatim
         // (they bypass this redactor in [BackupExporter.export]).
         // Control URLs can also contain arbitrary signed query/path credentials.
-        val base = group.copy(members = emptyList(), packageRoutingRules = emptyList(), failover = null)
+        val base =
+            group.copy(
+                members = emptyList(),
+                packageRoutingRules = emptyList(),
+                failover = null,
+                initialMemberId = null,
+            )
         val sub = base.subscription ?: return base
         return base.copy(
             subscription =

@@ -33,6 +33,7 @@ object SubscriptionMemberPersistence {
         failover: SelectorFailover? = null,
         cloudflareMemberIds: Set<String>? = null,
         isSelector: Boolean = false,
+        initialMemberId: String? = null,
     ): ProxyGroup {
         // Drop non-activatable nodes (RawConfig: tuic/vmess/wireguard, or a
         // blank-credential node mapped to RawConfig upstream) so the user never
@@ -57,6 +58,16 @@ object SubscriptionMemberPersistence {
             members = remapped,
             failover = failover ?: group.failover,
             isSelector = isSelector || group.isSelector,
+            initialMemberId =
+                if (isSelector) {
+                    activatable
+                        .zip(remapped)
+                        .firstOrNull { it.first.id == initialMemberId }
+                        ?.second
+                        ?.id
+                } else {
+                    group.initialMemberId?.takeIf { id -> remapped.any { it.id == id } }
+                },
             cloudflareMemberIds =
                 if (cloudflareMemberIds == null) {
                     group.cloudflareMemberIds.intersect(remapped.map { it.id }.toSet())

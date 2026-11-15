@@ -33,6 +33,7 @@ class BootstrapSelectorMembershipTest {
                 result as BootstrapConsumeResult.Consumed
                 assertEquals(listOf("b"), result.profiles.map { it.displayName })
                 assertEquals(setOf(result.profiles.single().id), result.cloudflareMemberIds)
+                assertEquals(result.profiles.single().id, result.initialMemberId)
                 val receipt =
                     receivedMigration(result.migration, result.payloadSha256, 7L, result.profiles, emptyList())
                 assertEquals(result.profiles.single().id, receipt?.targets?.single()?.profileId)

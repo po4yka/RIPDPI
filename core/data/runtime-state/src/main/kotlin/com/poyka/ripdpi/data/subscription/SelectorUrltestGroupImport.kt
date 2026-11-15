@@ -199,7 +199,14 @@ object SelectorUrltestGroupImport {
             return SelectorUrltestImportResult.Error("selector has no supported candidate for its selection")
         }
 
-        return importedSelector(parsed, groupId, selectorEntry, memberProfiles, failoverPolicy)
+        return importedSelector(
+            parsed,
+            groupId,
+            selectorEntry,
+            memberProfiles,
+            failoverPolicy,
+            topology.defaultTags.firstOrNull { it in supportedTags },
+        )
     }
 
     private fun isDeviceOnlyAwg(
@@ -215,12 +222,14 @@ object SelectorUrltestGroupImport {
         selectorEntry: JsonObject,
         memberProfiles: List<ProxyProfile>,
         failoverPolicy: FailoverPolicy,
+        initialMemberTag: String?,
     ): SelectorUrltestImportResult.Success =
         SelectorUrltestImportResult.Success(
             profiles = parsed.profiles,
             group =
                 selectorGroup(groupId, selectorEntry, memberProfiles, failoverPolicy, parsed.packageRoutingRules)
                     .copy(
+                        initialMemberId = memberProfiles.firstOrNull { it.displayName == initialMemberTag }?.id,
                         cloudflareMemberIds =
                             parsed.cloudflareMemberIds.orEmpty().intersect(
                                 memberProfiles.map { it.id }.toSet(),

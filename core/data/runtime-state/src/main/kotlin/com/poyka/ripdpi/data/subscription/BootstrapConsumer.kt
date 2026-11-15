@@ -43,6 +43,7 @@ sealed interface BootstrapConsumeResult {
         val failover: SelectorFailover? = null,
         val migration: MigrationMetadata? = null,
         val payloadSha256: String = "",
+        val initialMemberId: String? = null,
     ) : BootstrapConsumeResult
 
     /**
@@ -313,6 +314,7 @@ class BootstrapConsumer(
                 payloadSha256 = payload.sha256,
                 cloudflareMemberIds = selector.group?.cloudflareMemberIds ?: selector.cloudflareMemberIds.orEmpty(),
                 isSelector = selector.group != null,
+                initialMemberId = selector.group?.initialMemberId,
                 failover = selector.failoverPolicy.toSelectorFailover(),
             )
         }

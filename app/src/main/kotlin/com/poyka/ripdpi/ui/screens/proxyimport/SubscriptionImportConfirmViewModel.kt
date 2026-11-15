@@ -293,6 +293,7 @@ class SubscriptionImportConfirmViewModel
                                     packageRoutingRules = result.packageRoutingRules,
                                     cloudflareMemberIds = result.cloudflareMemberIds,
                                     isSelector = result.isSelector,
+                                    initialMemberId = result.initialMemberId,
                                     failover = result.failover,
                                 ),
                             )
@@ -369,6 +370,7 @@ class SubscriptionImportConfirmViewModel
             cloudflareMemberIds: Set<String> = existing?.cloudflareMemberIds.orEmpty(),
             isSelector: Boolean = existing?.isSelector ?: false,
             failover: SelectorFailover? = existing?.failover,
+            initialMemberId: String? = existing?.initialMemberId,
         ): ProxyGroup =
             ProxyGroup(
                 id = groupId,
@@ -379,6 +381,7 @@ class SubscriptionImportConfirmViewModel
                 subscription = subscription,
                 members = members,
                 failover = failover,
+                initialMemberId = initialMemberId,
                 cloudflareMemberIds = cloudflareMemberIds,
                 packageRoutingRules = packageRoutingRules,
             )

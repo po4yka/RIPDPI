@@ -241,7 +241,7 @@ class SubscriptionRefreshCoordinator private constructor(
         val subscription = checkNotNull(expected.subscription)
         val withMembers =
             if (outcome.clearRelayMembers) {
-                expected.copy(members = emptyList(), cloudflareMemberIds = emptySet())
+                expected.copy(members = emptyList(), cloudflareMemberIds = emptySet(), initialMemberId = null)
             } else {
                 SubscriptionMemberPersistence.apply(
                     group = expected,
@@ -249,6 +249,7 @@ class SubscriptionRefreshCoordinator private constructor(
                     failover = outcome.failover,
                     cloudflareMemberIds = outcome.cloudflareMemberIds,
                     isSelector = outcome.isSelector,
+                    initialMemberId = outcome.initialMemberId,
                 )
             }
         // A server-given title replaces only the host fallback name, never a name the user chose.
@@ -494,6 +495,7 @@ class SubscriptionRefreshCoordinator private constructor(
                     selector.failoverPolicy.toSelectorFailover(),
                     cloudflareMemberIds = selector.cloudflareMemberIds,
                     isSelector = selector.group != null,
+                    initialMemberId = selector.group?.initialMemberId,
                     tokenExpiresAtEpochMillis = singBox?.tokenExpiresAtEpochMillis,
                     packageRoutingRules = singBox?.packageRoutingRules.orEmpty(),
                 )
@@ -592,6 +594,7 @@ class SubscriptionRefreshCoordinator private constructor(
             val subscriptionMirrors: SubscriptionMirrorSet? = null,
             val cloudflareMemberIds: Set<String>? = null,
             val isSelector: Boolean = false,
+            val initialMemberId: String? = null,
             val migration: MigrationMetadata? = null,
             val payloadSha256: String = "",
         ) : RefreshOutcome

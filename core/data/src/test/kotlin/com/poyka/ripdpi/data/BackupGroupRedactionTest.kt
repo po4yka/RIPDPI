@@ -163,13 +163,15 @@ class BackupGroupRedactionTest {
                 serverPort = 443,
                 password = "fixture-member-pw",
             )
-        val group = subscriptionGroup.copy(members = listOf(member))
+        val group = subscriptionGroup.copy(members = listOf(member), initialMemberId = member.id)
 
         val share = export(BackupVariant.SHARE, listOf(group)).groups.single()
         assertTrue("SHARE must drop the member node list", share.members.isEmpty())
+        assertNull(share.initialMemberId)
 
         val full = export(BackupVariant.FULL, listOf(group)).groups.single()
         assertEquals("FULL must preserve members verbatim", listOf(member), full.members)
+        assertEquals(member.id, full.initialMemberId)
     }
 
     @Test

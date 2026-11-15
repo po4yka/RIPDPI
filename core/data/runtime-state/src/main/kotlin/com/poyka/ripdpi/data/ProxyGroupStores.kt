@@ -124,6 +124,8 @@ data class ProxyGroup(
     val cloudflareMemberIds: Set<String> = emptySet(),
     /** Local persisted ownership; only the catalogue assigns a new generation. */
     val ownershipGeneration: String = "",
+    /** Imported preference used only until a local choice is stored; it never starts a connection. */
+    val initialMemberId: String? = null,
 )
 
 /**

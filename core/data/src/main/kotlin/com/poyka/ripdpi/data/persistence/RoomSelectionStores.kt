@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.selector.SelectorPersistence
 import com.poyka.ripdpi.data.selector.SelectorRecords
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -51,9 +52,10 @@ internal class RoomSelectorPersistence
         ): T = database.withAuthority(authority, afterCommit) { block(it.selection) }
 
         override fun observeChoice(groupId: String) =
-            database
-                .observe(ProfileSelectionRows.ChoiceNamespace)
-                .map { database.read { rows -> rows.selection.choice(groupId) } }
+            combine(
+                database.observe(ProfileSelectionRows.ChoiceNamespace),
+                database.observe(ProxyGroupRows.Namespace),
+            ) { _, _ -> database.read { rows -> rows.selection.choice(groupId) } }
                 .distinctUntilChanged()
 
         override fun observeActiveGroup() =

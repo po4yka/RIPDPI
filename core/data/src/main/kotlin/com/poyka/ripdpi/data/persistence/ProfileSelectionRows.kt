@@ -39,8 +39,20 @@ internal class ProfileSelectionRows(
     override fun setActiveGroup(groupId: String?) = setString(ActiveGroupKey, groupId)
 
     override fun choice(groupId: String): SelectorSelectionSnapshot {
-        val stored = decodeChoice(records.read(ChoiceNamespace, groupId))
-        return stored.copy(revision = Math.addExact(stored.revision, choiceEpoch()))
+        val bytes = records.read(ChoiceNamespace, groupId)
+        val stored = decodeChoice(bytes)
+        val initial =
+            if (bytes == null) {
+                ProxyGroupRows(records).list().singleOrNull { it.id == groupId && it.isSelector }?.let { group ->
+                    group.initialMemberId?.takeIf { id -> group.members.any { it.id == id && it.groupId == groupId } }
+                }
+            } else {
+                null
+            }
+        return stored.copy(
+            profileId = stored.profileId ?: initial,
+            revision = Math.addExact(stored.revision, choiceEpoch()),
+        )
     }
 
     override fun setChoice(
@@ -60,7 +72,8 @@ internal class ProfileSelectionRows(
     }
 
     override fun clearSelections() {
-        records.keys(ChoiceNamespace).forEach { setChoice(it, null, false) }
+        val groupsWithPreference = ProxyGroupRows(records).list().filter { it.initialMemberId != null }.map { it.id }
+        (records.keys(ChoiceNamespace) + groupsWithPreference).distinct().forEach { setChoice(it, null, false) }
         records.write(Namespace, ChoiceEpochKey, Math.addExact(choiceEpoch(), 1L).toString().encodeToByteArray())
         setActiveGroup(null)
     }
