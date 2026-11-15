@@ -6,6 +6,8 @@ Task ID: `ENG-1794722736729815`
 
 The DPI-38 audit reproduced nine defects. Cross-flow feedback can train the wrong strategy. Retry limits do not cover response failures. Response parsing can misclassify valid or incomplete traffic. Closure alerts can count as successful handshakes. Network reprobes can mistake their own TLS incompatibility for network failure.
 
+Focused review also found a reachable local-cancellation path: a client read error causes local upstream shutdown, whose induced EOF can count as a remote reset for an active rotation round. This path requires a real loopback regression and a separate fix.
+
 ## What Changes
 
 - Bind each evolution result to one emitted attempt and expire abandoned attempts.

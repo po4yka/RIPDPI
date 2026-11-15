@@ -19,6 +19,16 @@ Task ENG-1794722736729815 corrects audit F1-F9 on the existing synchronous Rust 
 
 ## Contracts and ownership
 
+HTTP observation covers the first response message. Unsupported transfer or content encoding, an informational response, or an unconfirmed request method gives a header-only neutral result unless the headers provide a failure signal. A partial method sent after the outbound assembly window cannot establish HEAD or CONNECT body framing. The proxy still forwards all bytes. Full transaction parsing and decompression are outside this change.
+
+TLS observation uses at most 16 KiB, or a lower caller limit. The absolute deadline starts before the first response read. The configured deadline takes precedence; a 250 ms fallback bounds an otherwise unbounded observation. New chunks do not extend this deadline. Exhausted observation is neutral; transport errors and cancellation keep their existing error paths.
+
+A complete malformed response after a recognized complete TLS request keeps the existing generic handshake-failure policy. Invalid bytes must not supply a specific peer alert code. Malformed evidence after an unconfirmed partial TLS request is neutral. The inspection window bounds content evidence. A genuine EOF, reset or I/O timeout remains independent transport evidence for a rotation round that still owns an observation, even after that content window. A round already closed as neutral cannot receive feedback from a later event.
+
+The pending first-response reader observes the shared first-response owner. Neutral means that this ownership has ended; F10 publishes that state before a local cancellation closes upstream. The reader must not use the general outbound `peer_done` flag as cancellation evidence, since ordinary client FIN also sets it. A normal write-half close can still receive a complete close-delimited response.
+
+TLS 1.2 permits alert fragmentation and coalescing under [RFC 5246 section 6.2.1](https://www.rfc-editor.org/rfc/rfc5246.html#section-6.2.1). TLS 1.3 forbids both under [RFC 8446 section 5.1](https://www.rfc-editor.org/rfc/rfc8446.html#section-5.1). Process messages in order: an earlier fatal alert remains a failure, while close_notify ends observation and later data is ignored under [RFC 5246 section 7.2.1](https://www.rfc-editor.org/rfc/rfc5246.html#section-7.2.1). Pinned rustls rejects some valid TLS 1.2 record layouts, so these cases must keep specification evidence separate from positive interoperability evidence.
+
 - No Kotlin, JNI, protobuf, storage, native JSON or dependency schema changes are planned. Internal Rust adaptive ports and route/outcome models may change; update all callers and generated API snapshots through their owning exporter.
 - The portfolio record owns the parallel path lanes. Writers use isolated worktrees and separate commits. Integration resolves shared session fields and re-exports after reading each diff.
 - The integration owner alone owns Cargo.lock, manifests, API snapshots, planning files, verification and combined gates. No baseline changes or golden blessing is authorized by this change.
