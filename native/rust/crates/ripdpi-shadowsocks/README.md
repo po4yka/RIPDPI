@@ -15,10 +15,18 @@ chains; ChaCha SS2022 accepts one key. Stream ciphers and unencrypted methods
 are rejected before network access.
 
 The transport adapter in `ripdpi-relay-tls-transports` creates and protects
-sockets before upstream use. Each factory shares the TCP salt-replay context.
-UDP validates the client session and upstream packet window before delivery or
-clock calibration. At most two server sessions are retained; a third is rejected
-until the previous session has been inactive for more than 61 seconds.
+sockets before upstream use. Each factory shares its own relay clock and TCP
+salt-replay context. A fresh SS2022 TCP reply can calibrate that clock after
+request-salt verification. UDP validates the client session and packet window
+before delivery or calibration. Each UDP association pins one timeline for
+both timestamp freshness and replay-window retention. It retains at most two
+server sessions. With both slots occupied, a new session is rejected
+until the previous session has been inactive for more than 60 whole seconds
+on that timeline. An accepted UDP observation can update the factory clock
+for future associations.
+
+When the clock error exceeds the wire tolerance, correct the device time and
+restart the relay. The new factory begins with the corrected wall clock.
 
 The former public cipher, TCP, UDP, and URI codec APIs have been removed.
 Android URI import remains owned by the Kotlin data layer. No stored profile or

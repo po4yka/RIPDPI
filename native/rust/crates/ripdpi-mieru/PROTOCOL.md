@@ -127,16 +127,13 @@ TCP stream data.
   owns the protected dial** (`VpnService.protect()` invariant) and hands the
   engine an already-protected `TcpStream`. The engine never opens a raw socket
   itself (keeps `#![forbid(unsafe_code)]` and the protect invariant intact).
-- **Replay clock = network time, not the device clock.** The handshake key
-  (`timeSalt`) and segment timestamps come from a shared
-  `ripdpi_network_time::NetworkTimeProvider`, never a direct `SystemTime::now()`.
-  The engine calibrates that provider once per session from the server's first
-  AEAD-verified segment timestamp (`metadata[2..6]`, minute granularity, so the
-  estimate is `minutes*60 + 30`). Residual risk: before any calibration the first
-  handshake derives its key from the device wall clock; Mieru's ±1-window probing
-  (~3 min) tolerates a moderately-wrong clock, and once any session calibrates the
-  shared provider (Mieru *or* Shadowsocks SIP022), subsequent handshakes use
-  network time. No SNTP is used (offline/no-backend rule).
+- The relay factory supplies a profile-local network clock to its carriers.
+  Until calibration, this clock reads the device wall clock. A complete,
+  successful in-tunnel SOCKS reply on a live request supplies a minute
+  midpoint from the authenticated segment. A carrier calibrates at most
+  once. A valid reply from a different profile cannot change this clock.
+  If the error exceeds either wire window, correct the device time and
+  restart the relay to start again from the wall clock.
 
 ## 7. Multiplexing (`low` / `middle` / `high`)
 
