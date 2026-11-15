@@ -87,9 +87,11 @@ data class ActiveProbeSafetyPolicy(
         val distinctDomains = intent.domainTargets.distinctBy(DomainTarget::host)
         val cappedDomains = distinctDomains.take(limits.domainTargets)
         val control = distinctDomains.firstOrNull(DomainTarget::isControl)
+        val isBackgroundQuickProbe =
+            scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND &&
+                intent.strategyProbe.suiteId == StrategyProbeSuiteQuickV1
         val domainTargets =
-            if (scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND &&
-                intent.strategyProbe.suiteId == StrategyProbeSuiteQuickV1 &&
+            if (isBackgroundQuickProbe &&
                 control != null &&
                 cappedDomains.none(DomainTarget::isControl)
             ) {
