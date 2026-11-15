@@ -140,8 +140,7 @@ object AmneziaWgUriCodec {
                     "i5",
                 ) + AmneziaWgUriAwg3Keys
             if (params.keys.any { it !in allowed }) return@let null
-            val allowedIps = splitList(params["allowed_ips"])
-            if ("allowed_ips" in params && allowedIps.isEmpty()) return@let null
+            val allowedIps = parseAllowedIps(params) ?: return@let null
             if (listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4").any { key ->
                     key in params && params[key]?.toIntOrNull()?.let { it >= 0 } != true
                 }
@@ -252,6 +251,9 @@ object AmneziaWgUriCodec {
                 }.orEmpty()
         return pairs.toMap().takeIf { it.size == pairs.size }
     }
+
+    private fun parseAllowedIps(params: Map<String, String>): List<String>? =
+        splitList(params["allowed_ips"]).takeUnless { "allowed_ips" in params && it.isEmpty() }
 
     private fun splitList(raw: String?): List<String> =
         raw
