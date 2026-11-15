@@ -108,7 +108,13 @@ async fn buffered_success_after_registration_removal_does_not_calibrate() {
     let (tx, rx) = mpsc::channel(1);
     let table: DemuxTable = Arc::default();
     let mut reader = MuxReader::new(rx, Arc::default(), Arc::default());
-    assert!(tx.try_send(InboundChunk { bytes: vec![5, 0, 0, 1, 0, 0, 0, 0, 0, 0], timestamp: NOW }).is_ok());
+    assert!(
+        tx.try_send(InboundChunk {
+            bytes: vec![5, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+            observation: Some((NOW, time.sample()))
+        })
+        .is_ok()
+    );
     reply_clock.receive_reply(&mut reader, &table, 1).await.expect("parse response");
     assert!(!time.is_calibrated());
     assert!(!reply_clock.authenticated.load(Ordering::Acquire));

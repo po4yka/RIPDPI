@@ -22,7 +22,7 @@ use std::sync::{Arc, Mutex as StdMutex, PoisonError};
 use std::time::Duration;
 
 use ring::rand::{SecureRandom, SystemRandom};
-use ripdpi_network_time::NetworkTimeProvider;
+use ripdpi_network_time::{NetworkTimeProvider, NetworkTimeSample};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{Notify, Semaphore, mpsc, oneshot};
 use tokio::time::timeout;
@@ -96,9 +96,10 @@ struct Mailbox {
     closed_by_server: Arc<AtomicBool>,
 }
 
+#[derive(Default)]
 struct InboundChunk {
     bytes: Vec<u8>,
-    timestamp: i64,
+    observation: Option<(i64, NetworkTimeSample)>,
 }
 
 /// The single serialized outbound half of the carrier: one AEAD encryptor and
@@ -324,7 +325,7 @@ impl Drop for SessionRegistration {
 
 impl MuxReader {
     fn new(rx: mpsc::Receiver<InboundChunk>, progress: Arc<Progress>, closed_by_server: Arc<AtomicBool>) -> Self {
-        Self { rx, progress, closed_by_server, leftover: InboundChunk { bytes: Vec::new(), timestamp: 0 }, pos: 0 }
+        Self { rx, progress, closed_by_server, leftover: InboundChunk::default(), pos: 0 }
     }
 
     /// Whether a closed mailbox was closed by the server's close segment.
@@ -728,7 +729,8 @@ async fn run_reader(
         let Ok((meta, payload)) = dec.read_segment(&mut reader).await else { break };
         // Upstream rejects metadata whose minute is off by more than one; this
         // check also runs before a SOCKS reply can contribute its timestamp.
-        if !timestamp_in_window(&meta, time.now_unix()) {
+        let received = time.sample();
+        if !timestamp_in_window(&meta, received.unix_secs()) {
             break;
         }
         let session_id = session_id_of(&meta);
@@ -766,7 +768,10 @@ async fn run_reader(
                         let deadline = progress.last() + stall.timeout;
                         match tokio::time::timeout_at(deadline, sender.reserve()).await {
                             Ok(Ok(permit)) => {
-                                permit.send(InboundChunk { bytes: data, timestamp: timestamp_estimate_unix(&meta) });
+                                permit.send(InboundChunk {
+                                    bytes: data,
+                                    observation: Some((timestamp_estimate_unix(&meta), received)),
+                                });
                                 break true;
                             }
                             // The consumer is gone; its registration cleans up.

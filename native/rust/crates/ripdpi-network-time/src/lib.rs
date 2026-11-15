@@ -172,6 +172,8 @@ struct ClockState {
     anchor: Option<Anchor>,
     /// Corrections cannot move time more than the drift bound from the first anchor.
     reference: Option<Anchor>,
+    capture_order: u64,
+    accepted_order: u64,
 }
 
 /// A calibratable, monotonic-from-anchor network-time source. Cheap to share
@@ -179,6 +181,22 @@ struct ClockState {
 pub struct NetworkTimeProvider {
     clock: Arc<dyn Clock>,
     state: Mutex<ClockState>,
+}
+
+/// The relay's time and monotonic tick captured for an incoming message.
+#[derive(Clone, Copy)]
+pub struct NetworkTimeSample {
+    unix_secs: i64,
+    mono_nanos: Option<u128>,
+    order: u64,
+}
+
+impl NetworkTimeSample {
+    /// Unix seconds to use when checking message freshness.
+    #[must_use]
+    pub fn unix_secs(self) -> i64 {
+        self.unix_secs
+    }
 }
 
 /// A monotonic time source fixed to the provider's estimate at capture.
@@ -217,7 +235,7 @@ impl NetworkTimeProvider {
     }
 
     /// A provider pinned to a fixed Unix time (deterministic tests). Returns
-    /// `fixed` until/unless [`calibrate`](Self::calibrate) re-anchors it.
+    /// `fixed` until/unless [`calibrate_at`](Self::calibrate_at) re-anchors it.
     #[must_use]
     pub fn fixed(unix_secs: i64) -> Self {
         Self::with_clock(Box::new(FixedClock(unix_secs)))
@@ -232,6 +250,26 @@ impl NetworkTimeProvider {
             Some(anchor) => anchor.estimate(self.clock.monotonic_nanos()),
             None => self.clock.wall_unix_secs(),
         }
+    }
+
+    /// Capture time for a freshness check and subsequent calibration.
+    #[must_use]
+    pub fn sample(&self) -> NetworkTimeSample {
+        let mut guard = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        let (unix_secs, mono_nanos) = match guard.anchor {
+            Some(anchor) => {
+                let tick = self.clock.capture_nanos();
+                let now = anchor.estimate(tick.unwrap_or_else(|| self.clock.monotonic_nanos()));
+                (now, tick)
+            }
+            None => sample_wall(self.clock.as_ref()).map_or_else(
+                || (self.clock.wall_unix_secs(), None),
+                |anchor| (anchor.net_unix, Some(anchor.mono_nanos)),
+            ),
+        };
+        // The order disambiguates captures made at the same clock tick.
+        guard.capture_order = guard.capture_order.saturating_add(1);
+        NetworkTimeSample { unix_secs, mono_nanos, order: guard.capture_order }
     }
 
     /// Pin one timeline for timestamp freshness and replay age. Returns `None`
@@ -251,14 +289,18 @@ impl NetworkTimeProvider {
     }
 
     /// Calibrate from a validated observation for this relay. The uncertainty
-    /// describes the timestamp's quantization. Returns whether it was accepted.
-    pub fn calibrate(&self, observed_network_unix: i64, uncertainty_secs: u64) -> bool {
+    /// describes the timestamp's quantization. Use a sample captured by this
+    /// provider. Returns whether the observation was accepted.
+    pub fn calibrate_at(&self, observed_network_unix: i64, uncertainty_secs: u64, received: NetworkTimeSample) -> bool {
         if !(MIN_PLAUSIBLE_UNIX_SECS..=MAX_PLAUSIBLE_UNIX_SECS).contains(&observed_network_unix) {
             return false;
         }
-        let Some(mono) = self.clock.capture_nanos() else { return false };
+        let Some(mono) = received.mono_nanos else { return false };
         let observation = Anchor { net_unix: observed_network_unix, mono_nanos: mono };
         let mut guard = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        if received.order <= guard.accepted_order {
+            return false;
+        }
         // Compute the current estimate under the same lock (calling `now_unix`
         // here would re-lock the non-reentrant mutex and deadlock).
         if let Some(anchor) = guard.anchor {
@@ -271,12 +313,13 @@ impl NetworkTimeProvider {
             {
                 return false;
             } else if offset.unsigned_abs() <= uncertainty_secs {
+                guard.accepted_order = received.order;
                 return true;
             }
         } else {
             // Bootstrap. A device clock inside the observation's error bound is an
             // equally valid estimate and is finer than a coarse stamp, so keep it.
-            let wall = self.clock.wall_unix_secs();
+            let wall = received.unix_secs();
             let observation = if (MIN_PLAUSIBLE_UNIX_SECS..=MAX_PLAUSIBLE_UNIX_SECS).contains(&wall)
                 && wall.abs_diff(observed_network_unix) <= uncertainty_secs
             {
@@ -286,10 +329,17 @@ impl NetworkTimeProvider {
             };
             guard.reference = Some(observation);
             guard.anchor = Some(observation);
+            guard.accepted_order = received.order;
             return true;
         }
         guard.anchor = Some(observation);
+        guard.accepted_order = received.order;
         true
+    }
+
+    #[cfg(test)]
+    fn calibrate(&self, observed_network_unix: i64, uncertainty_secs: u64) -> bool {
+        self.calibrate_at(observed_network_unix, uncertainty_secs, self.sample())
     }
 
     /// Whether an anchor has been set (the replay clock is network-derived).
@@ -566,6 +616,27 @@ mod tests {
         assert_eq!(boot.keep_latest(None), 1_000_000_000);
         assert_eq!(boot.keep_latest(Some(500_000_000)), 1_000_000_000);
         assert_eq!(boot.keep_latest(Some(2_000_000_000)), 2_000_000_000);
+    }
+
+    #[test]
+    fn delayed_observation_cannot_replace_the_newer_anchor() {
+        let wall = T0 + 1_000;
+        let clock = std::sync::Arc::new(TestClock::new(wall));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
+        let older = provider.sample();
+
+        clock.advance_secs(10);
+        let newer = provider.sample();
+        assert!(provider.calibrate_at(wall + 10, 0, newer));
+
+        assert!(!provider.calibrate_at(wall - 30, 0, older));
+        assert_eq!(provider.now_unix(), wall + 10);
+
+        let first_at_same_tick = provider.sample();
+        let second_at_same_tick = provider.sample();
+        assert!(provider.calibrate_at(wall + 12, 0, second_at_same_tick));
+        assert!(!provider.calibrate_at(wall - 20, 0, first_at_same_tick));
+        assert_eq!(provider.now_unix(), wall + 12);
     }
 
     #[test]

@@ -158,10 +158,17 @@ struct ShadowsocksClientConfig {
 }
 
 impl ShadowsocksClientConfig {
-    fn calibrate_peer_time(&self, timestamp: u64) {
-        if let Ok(timestamp) = i64::try_from(timestamp) {
-            self.time.calibrate(timestamp, 1);
+    fn calibrate_peer_time(&self, timestamp: u64) -> bool {
+        use shadowsocks::relay::tcprelay::proxy_stream::protocol::v2::SERVER_STREAM_TIMESTAMP_MAX_DIFF;
+
+        let Ok(timestamp) = i64::try_from(timestamp) else { return false };
+        let received = self.time.sample();
+        // Apply the SIP022 tolerance against the same profile sample used to calibrate.
+        // UDP may have validated against a separate association snapshot.
+        if received.unix_secs().abs_diff(timestamp) > SERVER_STREAM_TIMESTAMP_MAX_DIFF {
+            return false;
         }
+        self.time.calibrate_at(timestamp, 1, received)
     }
 }
 
@@ -298,8 +305,7 @@ impl ShadowsocksUdpSession {
                 continue;
             };
             if !self.calibrated {
-                self.config.calibrate_peer_time(timestamp);
-                self.calibrated = true;
+                self.calibrated = self.config.calibrate_peer_time(timestamp);
             }
             return Ok((address.to_string(), self.receive_buffer[..read].to_vec()));
         }

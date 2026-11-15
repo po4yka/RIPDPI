@@ -228,7 +228,7 @@ mod tests {
         let policy = ripdpi_native_protect::SocketProtectionPolicy::Inactive;
         let initial = MieruSessionFactory::new(config.clone(), policy);
         let old_anchor = SystemClock.wall_unix_secs() + 3_600;
-        assert!(initial.time.calibrate(old_anchor, 30));
+        assert!(initial.time.calibrate_at(old_anchor, 30, initial.time.sample()));
         assert!(initial.clone().time.is_calibrated());
         initial.shutdown().await.expect("stop the original relay");
 
