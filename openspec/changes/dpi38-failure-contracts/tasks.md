@@ -11,5 +11,5 @@
 - [x] ENG-1794722971027950 Fix F7 runtime experiment expiry and verify stale attempts with controlled time #bug !high @item:ENG-1794722736729815
 - [x] ENG-1794722972628499 Fix F8 bounded blocking probe timeout classification and verify WouldBlock #bug !high @item:ENG-1794722736729815
 - [x] ENG-1794722974631962 Fix F9 neutral closure feedback and verify unchanged bytes without handshake reward #bug !high @item:ENG-1794722736729815
-- [ ] ENG-1794722976807450 Run independent review affected Rust gates and ci-gates then integrate and push validated commits #bug !high @item:ENG-1794722736729815
+- [x] ENG-1794722976807450 Run independent review affected Rust gates and ci-gates then integrate and push validated commits #bug !high @item:ENG-1794722736729815
 - [x] ENG-1794741735765085 Fix local client cancellation before induced upstream EOF and verify rotation feedback #bug !high @item:ENG-1794722736729815
