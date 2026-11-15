@@ -20,7 +20,6 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
@@ -54,21 +53,35 @@ const CONNECT_STOP_POLL_INTERVAL: Duration = Duration::from_millis(25);
 pub(crate) fn protected_tcp_connect_until(
     target: SocketAddr,
     timeout: Duration,
-    stop: &AtomicBool,
+    stopped: impl Fn() -> bool,
 ) -> io::Result<TcpStream> {
-    // Acquire pairs with the race owner's Release store when it has a result.
-    let stopped = || stop.load(Ordering::Acquire);
     let stop_error = || io::Error::new(io::ErrorKind::Interrupted, "connect attempt stopped");
     if stopped() {
         return Err(stop_error());
     }
+    let deadline = Instant::now() + timeout;
     let socket = Socket::new(domain_for(target), Type::STREAM, Some(Protocol::TCP))?;
     protect_for_target(&socket, target)?;
+    connect_socket_until(socket, target, deadline, stopped)
+}
+
+pub(crate) fn connect_socket_until(
+    socket: Socket,
+    target: SocketAddr,
+    deadline: Instant,
+    stopped: impl Fn() -> bool,
+) -> io::Result<TcpStream> {
+    let stop_error = || io::Error::new(io::ErrorKind::Interrupted, "connect attempt stopped");
+    if stopped() {
+        return Err(stop_error());
+    }
+    if Instant::now() >= deadline {
+        return Err(io::Error::from(io::ErrorKind::TimedOut));
+    }
     socket.set_nonblocking(true)?;
     match socket.connect(&SockAddr::from(target)) {
         Ok(()) => {}
         Err(error) if error.kind() == io::ErrorKind::WouldBlock || error.raw_os_error() == Some(libc::EINPROGRESS) => {
-            let deadline = Instant::now() + timeout;
             loop {
                 if stopped() {
                     return Err(stop_error());
@@ -88,6 +101,12 @@ pub(crate) fn protected_tcp_connect_until(
             socket.peer_addr()?;
         }
         Err(error) => return Err(error),
+    }
+    if stopped() {
+        return Err(stop_error());
+    }
+    if Instant::now() >= deadline {
+        return Err(io::Error::from(io::ErrorKind::TimedOut));
     }
     socket.set_nonblocking(false)?;
     Ok(socket.into())
@@ -126,7 +145,7 @@ mod tests {
     use std::io::Read;
     use std::net::{Ipv4Addr, UdpSocket};
     use std::os::fd::RawFd;
-    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
     use std::sync::{Arc, Mutex};
 
     use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
@@ -139,8 +158,10 @@ mod tests {
         listener.set_nonblocking(true).unwrap();
         let stop = AtomicBool::new(true);
 
-        let error = protected_tcp_connect_until(listener.local_addr().unwrap(), Duration::from_secs(1), &stop)
-            .expect_err("a stopped attempt does not connect");
+        let error = protected_tcp_connect_until(listener.local_addr().unwrap(), Duration::from_secs(1), || {
+            stop.load(Ordering::Acquire)
+        })
+        .expect_err("a stopped attempt does not connect");
 
         assert_eq!(error.kind(), io::ErrorKind::Interrupted);
         assert_eq!(listener.accept().map(|_| ()).unwrap_err().kind(), io::ErrorKind::WouldBlock);
@@ -164,7 +185,7 @@ mod tests {
         };
 
         let started = Instant::now();
-        let error = protected_tcp_connect_until(target, Duration::from_secs(10), &stop)
+        let error = protected_tcp_connect_until(target, Duration::from_secs(10), || stop.load(Ordering::Acquire))
             .expect_err("a stopped pending attempt does not connect");
         let elapsed = started.elapsed();
         stopper.join().unwrap();
@@ -183,8 +204,10 @@ mod tests {
         let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let stop = AtomicBool::new(false);
 
-        let stream = protected_tcp_connect_until(listener.local_addr().unwrap(), Duration::from_secs(1), &stop)
-            .expect("connect to the local listener");
+        let stream = protected_tcp_connect_until(listener.local_addr().unwrap(), Duration::from_secs(1), || {
+            stop.load(Ordering::Acquire)
+        })
+        .expect("connect to the local listener");
         let (_peer, peer_address) = listener.accept().unwrap();
 
         assert_eq!(stream.local_addr().unwrap(), peer_address);
@@ -201,8 +224,9 @@ mod tests {
         let port = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap().local_addr().unwrap().port();
         let stop = AtomicBool::new(false);
 
-        let error = protected_tcp_connect_until(loopback(port), Duration::from_secs(1), &stop)
-            .expect_err("nothing listens on the port");
+        let error =
+            protected_tcp_connect_until(loopback(port), Duration::from_secs(1), || stop.load(Ordering::Acquire))
+                .expect_err("nothing listens on the port");
 
         assert_eq!(error.kind(), io::ErrorKind::ConnectionRefused);
     }

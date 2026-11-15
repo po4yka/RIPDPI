@@ -28,6 +28,19 @@ fn expired_scan_deadline_rejects_new_io() {
 }
 
 #[test]
+fn nested_probe_deadline_is_restored_after_unwind() {
+    let previous = Instant::now() + Duration::from_millis(500);
+    with_scan_io_deadline(Some(previous), || {
+        let result = std::panic::catch_unwind(|| {
+            with_scan_io_deadline(Some(Instant::now()), || panic!("probe unwind"));
+        });
+        assert!(result.is_err());
+        assert_eq!(active_scan_io_deadline(), Some(previous));
+    });
+    assert_eq!(active_scan_io_deadline(), None);
+}
+
+#[test]
 fn stable_probe_hash_is_deterministic() {
     let a = stable_probe_hash(42, "hello");
     let b = stable_probe_hash(42, "hello");

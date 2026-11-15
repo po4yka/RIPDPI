@@ -4,6 +4,8 @@ use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use super::abort::{AbortCheck, receive_until};
+use super::address::resolve_addresses_with_timeout_and_abort;
 use super::route_experiment::{connect_addresses_with_route_experiment, route_identity};
 use super::socks5::connect_via_socks5_observed;
 use super::types::{
@@ -21,12 +23,30 @@ pub fn connect_transport_observed(
     port: u16,
     transport: &TransportConfig,
 ) -> Result<TransportConnectResult, TransportConnectError> {
+    connect_transport(targets, port, transport, None)
+}
+
+pub fn connect_transport_observed_with_abort(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> Result<TransportConnectResult, TransportConnectError> {
+    connect_transport(targets, port, transport, Some(should_abort))
+}
+
+fn connect_transport(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    should_abort: Option<AbortCheck<'_>>,
+) -> Result<TransportConnectResult, TransportConnectError> {
     match transport {
         TransportConfig::Direct { route_experiment } => {
-            connect_direct_observed(targets, port, route_experiment.as_ref())
+            connect_direct_observed(targets, port, route_experiment.as_ref(), should_abort)
         }
         TransportConfig::Socks5 { host, port: proxy_port, credentials } => {
-            connect_via_socks5_observed(targets, port, host, *proxy_port, credentials.as_ref())
+            connect_via_socks5_observed(targets, port, host, *proxy_port, credentials.as_ref(), should_abort)
         }
     }
 }
@@ -40,29 +60,44 @@ pub fn connect_direct_address(address: SocketAddr) -> std::io::Result<TcpStream>
 }
 
 pub fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, TransportError> {
-    connect_direct_observed(std::slice::from_ref(target), port, None)
+    connect_direct_observed(std::slice::from_ref(target), port, None, None)
         .map(|result| result.stream)
         .map_err(|err| TransportError::ConnectFailed { stage: err.stage, message: err.message })
+}
+
+/// Open a protected numeric peer, retaining the address scope and socket error kind.
+pub fn connect_direct_address_with_abort(
+    address: SocketAddr,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> std::io::Result<TcpStream> {
+    let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT)
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "scan deadline exceeded"))?;
+    super::protect::protected_tcp_connect_until(address, timeout, || should_abort().is_some())
 }
 
 pub(super) fn connect_direct_observed(
     targets: &[TargetAddress],
     port: u16,
     route_experiment: Option<&RouteExperimentConfig>,
+    should_abort: Option<AbortCheck<'_>>,
 ) -> Result<TransportConnectResult, TransportConnectError> {
-    connect_direct_candidates(
-        candidate_address_groups(targets, port, super::resolve_addresses_with_timeout),
-        route_experiment,
-    )
+    let groups = candidate_address_groups(targets, port, |target, port, timeout| {
+        resolve_addresses_with_timeout_and_abort(target, port, timeout, should_abort)
+    });
+    connect_direct_candidates(groups, route_experiment, should_abort)
 }
 
 fn connect_direct_candidates(
     groups: impl Iterator<Item = Result<Vec<SocketAddr>, TransportError>>,
     route_experiment: Option<&RouteExperimentConfig>,
+    should_abort: Option<AbortCheck<'_>>,
 ) -> Result<TransportConnectResult, TransportConnectError> {
     let mut last_error = TransportConnectError::new(TransportFailureStage::DnsResolution, "no_socket_addrs");
     let mut attempted = false;
     for group in groups {
+        if let Some(reason) = should_abort.and_then(|check| check()) {
+            return Err(connect_aborted(TransportFailureStage::DnsResolution, reason));
+        }
         let addresses = match group {
             Ok(addresses) => addresses,
             Err(error) => {
@@ -75,7 +110,7 @@ fn connect_direct_candidates(
         attempted = true;
         let result = if let Some(config) = route_experiment {
             let identity = route_identity(&addresses);
-            connect_addresses_with_route_experiment(&addresses, config, &identity).map(
+            connect_addresses_with_route_experiment(&addresses, config, &identity, should_abort).map(
                 |((stream, connected_addr, local_addr), route_report)| TransportConnectResult {
                     stream,
                     connected_addr: Some(connected_addr),
@@ -84,7 +119,7 @@ fn connect_direct_candidates(
                 },
             )
         } else {
-            connect_addresses_with_race(&addresses)
+            connect_addresses_with_race(&addresses, should_abort)
                 .map(|(stream, connected_addr)| {
                     let local_addr = stream.local_addr().ok();
                     TransportConnectResult {
@@ -96,12 +131,19 @@ fn connect_direct_candidates(
                 })
                 .map_err(|error| error.to_string())
         };
+        if let Some(reason) = should_abort.and_then(|check| check()) {
+            return Err(connect_aborted(TransportFailureStage::TcpConnect, reason));
+        }
         match result {
             Ok(result) => return Ok(result),
             Err(error) => last_error = TransportConnectError::new(TransportFailureStage::TcpConnect, error),
         }
     }
     Err(last_error)
+}
+
+pub(super) fn connect_aborted(stage: TransportFailureStage, reason: &'static str) -> TransportConnectError {
+    TransportConnectError::new(stage, TransportError::ProbeAborted(reason).to_string())
 }
 
 pub(super) fn candidate_address_groups<'a>(
@@ -168,13 +210,18 @@ pub(super) fn interleave_address_families(addresses: &[SocketAddr]) -> Vec<Socke
     result
 }
 
-fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, SocketAddr), TransportError> {
-    race_addresses(
+fn connect_addresses_with_race(
+    addresses: &[SocketAddr],
+    should_abort: Option<AbortCheck<'_>>,
+) -> Result<(TcpStream, SocketAddr), TransportError> {
+    race_addresses_with_abort(
         interleave_address_families(addresses),
         Arc::new(move |address, stop| {
             let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-            Ok(super::protect::protected_tcp_connect_until(address, timeout, stop)?)
+            // Acquire pairs with the race owner's Release store when it has a result.
+            Ok(super::protect::protected_tcp_connect_until(address, timeout, || stop.load(Ordering::Acquire))?)
         }),
+        should_abort,
     )
 }
 
@@ -212,9 +259,10 @@ impl<T> Drop for AttemptReport<T> {
 /// running; the first success wins. At most `MAX_IN_FLIGHT_ATTEMPTS` attempts run at the same time.
 ///
 /// # Cancel safety: NOT cancel-safe: blocking call; dropping the race flags `decided` so started attempts stop.
-fn race_addresses<T>(
+fn race_addresses_with_abort<T>(
     addresses: Vec<SocketAddr>,
     connect: Arc<RaceConnect<T>>,
+    should_abort: Option<AbortCheck<'_>>,
 ) -> Result<(T, SocketAddr), TransportError>
 where
     T: Send + 'static,
@@ -231,6 +279,9 @@ where
     let mut next_start = Instant::now();
     let mut last_error = None;
     loop {
+        if let Some(reason) = should_abort.and_then(|check| check()) {
+            return Err(TransportError::ProbeAborted(reason));
+        }
         if scan_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
             return Err(TransportError::ScanDeadlineExceeded);
         }
@@ -264,10 +315,7 @@ where
             (Some(wake), Some(deadline)) => Some(wake.min(deadline)),
             (wake, deadline) => wake.or(deadline),
         };
-        let received = match wait_until {
-            Some(until) => result_rx.recv_timeout(until.saturating_duration_since(Instant::now())),
-            None => result_rx.recv().map_err(|_| mpsc::RecvTimeoutError::Disconnected),
-        };
+        let received = receive_until(&result_rx, wait_until, should_abort).map_err(TransportError::ProbeAborted)?;
         match received {
             Ok((address, Ok(value))) => return Ok((value, address)),
             Ok((_, Err(error))) => {
@@ -284,6 +332,14 @@ where
             Err(mpsc::RecvTimeoutError::Disconnected) => return Err(TransportError::ConnectRacePanicked),
         }
     }
+}
+
+#[cfg(test)]
+fn race_addresses<T: Send + 'static>(
+    addresses: Vec<SocketAddr>,
+    connect: Arc<RaceConnect<T>>,
+) -> Result<(T, SocketAddr), TransportError> {
+    race_addresses_with_abort(addresses, connect, None)
 }
 
 pub fn wait_for_listener(addr: SocketAddr) -> Result<(), TransportError> {
@@ -552,7 +608,7 @@ mod tests {
     fn direct_tcp_rejects_connect_after_scan_deadline() {
         let loopback = "127.0.0.1:9".parse().expect("loopback socket address");
         let result = with_scan_io_deadline(Some(Instant::now() - Duration::from_millis(1)), || {
-            connect_addresses_with_race(&[loopback])
+            connect_addresses_with_race(&[loopback], None)
         });
 
         assert!(matches!(result, Err(error) if error.to_string() == "scan_deadline_exceeded"));
@@ -649,7 +705,7 @@ mod pinned_first_regression {
                         Err(super::super::DnsResolveError::Timeout)
                     }
                 });
-                connect_direct_candidates(groups, experiment.as_ref())
+                connect_direct_candidates(groups, experiment.as_ref(), None)
             });
             assert!(result.is_ok(), "{result:?}");
             assert_eq!(calls.get(), 0);
@@ -676,7 +732,7 @@ mod pinned_first_regression {
                 calls.set(calls.get() + 1);
                 Ok(vec![address])
             });
-            let result = connect_direct_candidates(groups, experiment.as_ref()).unwrap();
+            let result = connect_direct_candidates(groups, experiment.as_ref(), None).unwrap();
             assert_eq!(result.connected_addr, Some(address));
             assert_eq!(calls.get(), 1);
         }
@@ -688,7 +744,7 @@ mod pinned_first_regression {
         let address = listener.local_addr().unwrap();
         let targets = [TargetAddress::Host("fallback.invalid".into())];
         let groups = candidate_address_groups(&targets, address.port(), |_, _, _| Ok(vec![address, address]));
-        assert_eq!(connect_direct_candidates(groups, None).unwrap().connected_addr, Some(address));
+        assert_eq!(connect_direct_candidates(groups, None, None).unwrap().connected_addr, Some(address));
         let targets = [
             TargetAddress::Ip(address.ip()),
             TargetAddress::Ip(address.ip()),
@@ -703,7 +759,7 @@ mod pinned_first_regression {
         let targets = [TargetAddress::Host("fallback.invalid".into())];
         let result = with_scan_io_deadline(Some(Instant::now() - Duration::from_millis(1)), || {
             let groups = candidate_address_groups(&targets, 443, |_, _, _| panic!("expired scan must not resolve"));
-            connect_direct_candidates(groups, None)
+            connect_direct_candidates(groups, None, None)
         });
         assert_eq!(result.unwrap_err().message, "scan_deadline_exceeded");
     }
@@ -718,7 +774,7 @@ mod pinned_first_regression {
                 thread::sleep(timeout + Duration::from_millis(1));
                 Err(super::super::DnsResolveError::Timeout)
             });
-            connect_direct_candidates(groups, None)
+            connect_direct_candidates(groups, None, None)
         });
         assert_eq!(result.unwrap_err().message, "scan_deadline_exceeded");
     }
@@ -727,7 +783,7 @@ mod pinned_first_regression {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         let targets = [TargetAddress::Ip("127.0.0.2".parse().unwrap()), TargetAddress::Host("invalid\0host".into())];
-        let error = connect_direct_observed(&targets, port, None).unwrap_err();
+        let error = connect_direct_observed(&targets, port, None, None).unwrap_err();
         assert_eq!(error.stage, TransportFailureStage::TcpConnect);
     }
 }

@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use crate::types::{DomainTarget, QuicTarget};
 
+use super::abort::{AbortCheck, receive_until};
 use super::types::{TargetAddress, TransportError};
 
 pub fn domain_connect_target(target: &DomainTarget) -> TargetAddress {
@@ -68,6 +69,7 @@ const DNS_SUPERVISOR_POLL_INTERVAL: Duration = Duration::from_millis(25);
 pub enum DnsResolveError {
     Nxdomain,
     Timeout,
+    Aborted(&'static str),
     Busy,
     Unavailable,
     Failure,
@@ -78,6 +80,7 @@ impl DnsResolveError {
         match self {
             Self::Nxdomain => "dns_nxdomain",
             Self::Timeout => "dns_resolve_timeout",
+            Self::Aborted(reason) => reason,
             Self::Busy => "dns_resolver_busy",
             Self::Unavailable => "dns_resolver_unavailable",
             Self::Failure => "dns_resolution_error",
@@ -348,6 +351,7 @@ impl ResolverExecutor {
         port: u16,
         timeout: Duration,
         lookup: &Arc<FamilyLookupFn>,
+        should_abort: Option<AbortCheck<'_>>,
     ) -> Result<Vec<SocketAddr>, DnsResolveError> {
         let started = Instant::now();
         let submit = |family: LookupFamily| {
@@ -356,15 +360,19 @@ impl ResolverExecutor {
             self.submit_with(host.to_string(), port, timeout, Some(resolver))
         };
         let pending = [submit(LookupFamily::V6), submit(LookupFamily::V4)];
-        let results = pending.map(|pending| {
+        let deadline = started + timeout;
+        let wait = |pending: Result<_, _>| {
             let receiver = pending?;
-            match receiver.recv_timeout(timeout.saturating_sub(started.elapsed())) {
+            match receive_until(&receiver, Some(deadline), should_abort).map_err(DnsResolveError::Aborted)? {
                 Ok(result) => result,
                 Err(mpsc::RecvTimeoutError::Timeout) => Err(DnsResolveError::Timeout),
                 Err(mpsc::RecvTimeoutError::Disconnected) => Err(DnsResolveError::Unavailable),
             }
-        });
-        let [v6, v4] = results;
+        };
+        let [v6, v4] = pending.map(wait);
+        if let Some(reason) = should_abort.and_then(|check| check()) {
+            return Err(DnsResolveError::Aborted(reason));
+        }
         merge_family_results(v6, v4)
     }
 }
@@ -495,17 +503,33 @@ pub(crate) fn resolve_addresses_with_timeout(
     port: u16,
     timeout: Duration,
 ) -> Result<Vec<SocketAddr>, DnsResolveError> {
-    match target {
-        TargetAddress::Ip(ip) => Ok(vec![SocketAddr::new(*ip, port)]),
-        TargetAddress::Host(host) => {
-            let resolver = DNS_RESOLVER.as_ref().map_err(Clone::clone)?;
-            if host.parse::<IpAddr>().is_ok() {
-                resolver.resolve(host.clone(), port, timeout)
-            } else {
-                resolver.resolve_split(host, port, timeout, &(Arc::new(system_lookup_by_family) as Arc<FamilyLookupFn>))
-            }
-        }
+    resolve_addresses_with_timeout_and_abort(target, port, timeout, None)
+}
+
+pub(super) fn resolve_addresses_with_timeout_and_abort(
+    target: &TargetAddress,
+    port: u16,
+    timeout: Duration,
+    should_abort: Option<AbortCheck<'_>>,
+) -> Result<Vec<SocketAddr>, DnsResolveError> {
+    if let Some(reason) = should_abort.and_then(|check| check()) {
+        return Err(DnsResolveError::Aborted(reason));
     }
+    let host = match target {
+        TargetAddress::Ip(ip) => return Ok(vec![SocketAddr::new(*ip, port)]),
+        TargetAddress::Host(host) => host,
+    };
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return Ok(vec![SocketAddr::new(ip, port)]);
+    }
+    let resolver = DNS_RESOLVER.as_ref().map_err(Clone::clone)?;
+    resolver.resolve_split(
+        host,
+        port,
+        timeout,
+        &(Arc::new(system_lookup_by_family) as Arc<FamilyLookupFn>),
+        should_abort,
+    )
 }
 
 pub fn resolve_first_socket_addr(value: &str) -> Result<SocketAddr, TransportError> {
@@ -572,7 +596,7 @@ mod tests {
         let lookup = split_lookup(Ok(vec![v6]), Ok(vec![v4]), std::time::Duration::from_secs(2));
 
         let result =
-            split_executor().resolve_split("example.test", 443, std::time::Duration::from_millis(200), &lookup);
+            split_executor().resolve_split("example.test", 443, std::time::Duration::from_millis(200), &lookup, None);
 
         assert_eq!(result, Ok(vec![v4]));
     }
@@ -585,8 +609,8 @@ mod tests {
         let one = split_lookup(Err(super::DnsResolveError::Nxdomain), Ok(vec![v4]), std::time::Duration::ZERO);
         let timeout = std::time::Duration::from_secs(1);
 
-        assert_eq!(split_executor().resolve_split("example.test", 443, timeout, &both), Ok(vec![v6, v4]));
-        assert_eq!(split_executor().resolve_split("example.test", 443, timeout, &one), Ok(vec![v4]));
+        assert_eq!(split_executor().resolve_split("example.test", 443, timeout, &both, None), Ok(vec![v6, v4]));
+        assert_eq!(split_executor().resolve_split("example.test", 443, timeout, &one, None), Ok(vec![v4]));
     }
 
     #[test]
@@ -595,7 +619,7 @@ mod tests {
         let timeout = std::time::Duration::from_secs(1);
         for v6 in [Err(super::DnsResolveError::Failure), Ok(Vec::new())] {
             let lookup = split_lookup(v6, Ok(vec![v4]), std::time::Duration::ZERO);
-            let result = split_executor().resolve_split("example.test", 443, timeout, &lookup);
+            let result = split_executor().resolve_split("example.test", 443, timeout, &lookup, None);
             assert_eq!(result.expect("ipv4 answers").first(), Some(&v4));
         }
     }
@@ -633,7 +657,7 @@ mod tests {
                 let executor = std::sync::Arc::clone(&executor);
                 let lookup = std::sync::Arc::clone(&lookup);
                 std::thread::spawn(move || {
-                    executor.resolve_split("example.test", 443, std::time::Duration::from_millis(400), &lookup)
+                    executor.resolve_split("example.test", 443, std::time::Duration::from_millis(400), &lookup, None)
                 })
             })
             .collect();
@@ -658,11 +682,11 @@ mod tests {
         );
 
         assert_eq!(
-            split_executor().resolve_split("example.test", 443, timeout, &nx),
+            split_executor().resolve_split("example.test", 443, timeout, &nx, None),
             Err(super::DnsResolveError::Nxdomain)
         );
         assert_eq!(
-            split_executor().resolve_split("example.test", 443, timeout, &mixed),
+            split_executor().resolve_split("example.test", 443, timeout, &mixed, None),
             Err(super::DnsResolveError::Nxdomain)
         );
     }

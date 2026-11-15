@@ -12,11 +12,20 @@ thread_local! {
 /// spawned by a runner must enter this scope themselves.
 pub fn with_scan_io_deadline<T>(deadline: Option<Instant>, operation: impl FnOnce() -> T) -> T {
     ACTIVE_SCAN_DEADLINE.with(|slot| {
-        let previous = slot.replace(deadline);
-        let result = operation();
-        slot.set(previous);
-        result
+        let _scope = RestoreDeadline { slot, previous: slot.replace(deadline) };
+        operation()
     })
+}
+
+struct RestoreDeadline<'a> {
+    slot: &'a Cell<Option<Instant>>,
+    previous: Option<Instant>,
+}
+
+impl Drop for RestoreDeadline<'_> {
+    fn drop(&mut self) {
+        self.slot.set(self.previous);
+    }
 }
 
 /// Return the deadline inherited by the current synchronous probe thread.

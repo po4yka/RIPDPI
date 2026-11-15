@@ -126,6 +126,7 @@ pub enum TransportError {
     Socks(SocksError),
     SocksUdpHeader(UdpHeaderError),
     ScanDeadlineExceeded,
+    ProbeAborted(&'static str),
     NoSocketAddrs,
     NoTargetCandidates,
     NoAddresses,
@@ -169,6 +170,7 @@ impl std::fmt::Display for TransportError {
             Self::Socks(error) => write!(formatter, "{error}"),
             Self::SocksUdpHeader(error) => write!(formatter, "SOCKS5 UDP: {error}"),
             Self::ScanDeadlineExceeded => formatter.write_str("scan_deadline_exceeded"),
+            Self::ProbeAborted(reason) => write!(formatter, "probe_aborted:{reason}"),
             Self::NoSocketAddrs => formatter.write_str("no_socket_addrs"),
             Self::NoTargetCandidates => formatter.write_str("no_target_candidates"),
             Self::NoAddresses => formatter.write_str("no_addresses"),
@@ -223,7 +225,10 @@ impl From<io::Error> for TransportError {
 
 impl From<DnsResolveError> for TransportError {
     fn from(value: DnsResolveError) -> Self {
-        Self::Dns(value)
+        match value {
+            DnsResolveError::Aborted(reason) => Self::ProbeAborted(reason),
+            error => Self::Dns(error),
+        }
     }
 }
 

@@ -1,4 +1,5 @@
 use std::net::{SocketAddr, TcpStream};
+use std::time::Instant;
 
 use socket2::{Protocol, SockAddr, Socket, Type};
 
@@ -6,6 +7,8 @@ use crate::util::{CONNECT_TIMEOUT, bounded_scan_io_timeout, stable_probe_hash};
 
 use super::RouteAttemptTracker;
 use super::common::{route_bind_addr, route_bucket_port, socket_domain_for};
+use crate::transport::abort::AbortCheck;
+use crate::transport::protect::{connect_socket_until, protect_for_target};
 use crate::transport::tcp::interleave_address_families;
 use crate::transport::types::{RouteExperimentConfig, RouteExperimentReport};
 
@@ -14,11 +17,13 @@ pub(crate) fn connect_addresses_with_route_experiment(
     addresses: &[SocketAddr],
     config: &RouteExperimentConfig,
     route_identity: &str,
+    should_abort: Option<AbortCheck<'_>>,
 ) -> Result<((TcpStream, SocketAddr, SocketAddr), RouteExperimentReport), String> {
     let mut tracker = RouteAttemptTracker::new(config, "no_addresses");
 
     for attempt_index in 0..tracker.stable_attempts() {
-        match connect_addresses_with_bucket(addresses, config, route_identity, 0) {
+        check_abort(should_abort)?;
+        match connect_addresses_with_bucket(addresses, config, route_identity, 0, should_abort) {
             Ok(result) => return Ok((result, tracker.stable_success(attempt_index, 0))),
             Err(err) => tracker.stable_failure(attempt_index, err),
         }
@@ -26,7 +31,8 @@ pub(crate) fn connect_addresses_with_route_experiment(
 
     if config.diversity_on_failure_only {
         for bucket in 1..config.diversity_buckets.max(1) {
-            match connect_addresses_with_bucket(addresses, config, route_identity, bucket) {
+            check_abort(should_abort)?;
+            match connect_addresses_with_bucket(addresses, config, route_identity, bucket, should_abort) {
                 Ok(result) => return Ok((result, tracker.diversity_success(bucket))),
                 Err(err) => tracker.diversity_failure(bucket, err),
             }
@@ -41,11 +47,13 @@ fn connect_addresses_with_bucket(
     config: &RouteExperimentConfig,
     route_identity: &str,
     bucket: usize,
+    should_abort: Option<AbortCheck<'_>>,
 ) -> Result<(TcpStream, SocketAddr, SocketAddr), String> {
     let mut last_error = None;
     for address in interleave_address_families(addresses) {
+        check_abort(should_abort)?;
         bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
-        match connect_bound_tcp(address, config, route_identity, bucket) {
+        match connect_bound_tcp(address, config, route_identity, bucket, should_abort) {
             Ok(result) => return Ok(result),
             Err(err) => last_error = Some(err),
         }
@@ -53,24 +61,33 @@ fn connect_addresses_with_bucket(
     Err(last_error.unwrap_or_else(|| "no_addresses".to_string()))
 }
 
+fn check_abort(should_abort: Option<AbortCheck<'_>>) -> Result<(), String> {
+    match should_abort.and_then(|check| check()) {
+        Some(reason) => Err(format!("probe_aborted:{reason}")),
+        None => Ok(()),
+    }
+}
+
 fn connect_bound_tcp(
     address: SocketAddr,
     config: &RouteExperimentConfig,
     route_identity: &str,
     bucket: usize,
+    should_abort: Option<AbortCheck<'_>>,
 ) -> Result<(TcpStream, SocketAddr, SocketAddr), String> {
     let domain = socket_domain_for(address);
     let seed = stable_probe_hash(config.session_seed, route_identity);
     let port = route_bucket_port(seed, bucket);
-    let remote = SockAddr::from(address);
     let bind_addr = route_bind_addr(address, port);
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP)).map_err(|err| err.to_string())?;
-    crate::transport::protect::protect_for_target(&socket, address).map_err(|err| err.to_string())?;
+    protect_for_target(&socket, address).map_err(|err| err.to_string())?;
     let _ = socket.set_reuse_address(true);
     socket.bind(&SockAddr::from(bind_addr)).map_err(|err| err.to_string())?;
     let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
-    socket.connect_timeout(&remote, timeout).map_err(|err| err.to_string())?;
-    let stream: TcpStream = socket.into();
+    let stream = connect_socket_until(socket, address, Instant::now() + timeout, || {
+        should_abort.and_then(|check| check()).is_some()
+    })
+    .map_err(|err| err.to_string())?;
     let local_addr = stream.local_addr().map_err(|err| err.to_string())?;
     Ok((stream, address, local_addr))
 }

@@ -7,7 +7,8 @@ use ripdpi_socks5_core::{AuthenticationMethod, Socks5Command, SocksError, valida
 
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
-use super::tcp::{connect_direct, connect_direct_observed};
+use super::abort::{ABORT_POLL_INTERVAL, AbortCheck};
+use super::tcp::{connect_aborted, connect_direct, connect_direct_observed};
 use super::types::{
     Socks5Credentials, TargetAddress, TransportConnectError, TransportConnectResult, TransportError,
     TransportFailureStage,
@@ -28,11 +29,18 @@ pub(super) fn connect_via_socks5_observed(
     proxy_host: &str,
     proxy_port: u16,
     credentials: Option<&Socks5Credentials>,
+    should_abort: Option<AbortCheck<'_>>,
 ) -> Result<TransportConnectResult, TransportConnectError> {
     let mut last_error = None;
     for target in targets {
-        let proxy = connect_direct_observed(&[TargetAddress::Host(proxy_host.to_string())], proxy_port, None)?.stream;
-        match negotiate_socks5_with_credentials(proxy, target, port, credentials) {
+        let proxy =
+            connect_direct_observed(&[TargetAddress::Host(proxy_host.to_string())], proxy_port, None, should_abort)?
+                .stream;
+        let result = negotiate_socks5_with_credentials(proxy, target, port, credentials, should_abort);
+        if let Some(reason) = should_abort.and_then(|check| check()) {
+            return Err(connect_aborted(TransportFailureStage::Socks5Negotiation, reason));
+        }
+        match result {
             Ok(stream) => {
                 let connected_addr = match target {
                     TargetAddress::Ip(ip) => Some(SocketAddr::new(*ip, port)),
@@ -53,7 +61,7 @@ pub(super) fn connect_via_socks5_observed(
 }
 
 pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, TransportError> {
-    negotiate_socks5_with_credentials(proxy, target, port, None)
+    negotiate_socks5_with_credentials(proxy, target, port, None, None)
 }
 
 fn negotiate_socks5_with_credentials(
@@ -61,8 +69,10 @@ fn negotiate_socks5_with_credentials(
     target: &TargetAddress,
     port: u16,
     credentials: Option<&Socks5Credentials>,
+    should_abort: Option<AbortCheck<'_>>,
 ) -> Result<TcpStream, TransportError> {
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
+    let deadline = std::time::Instant::now() + timeout;
     proxy.set_nonblocking(true)?;
     let target = socks5_target(target, port);
     debug_assert!(
@@ -81,13 +91,26 @@ fn negotiate_socks5_with_credentials(
             socks.request(Socks5Command::TCPConnect, target).await?;
             Ok::<_, SocksError>(socks.get_socket())
         };
-        // Cancel safety: `operation` exclusively owns the just-created socket.
-        // A timeout drops that socket after any partial RFC 1929/request bytes;
-        // no caller can observe or reuse the half-negotiated connection.
-        match tokio::time::timeout(timeout, operation).await {
-            Ok(Ok(proxy)) => Ok(proxy),
-            Ok(Err(error)) => Err(TransportError::Socks(error)),
-            Err(_) => Err(TransportError::SocksNegotiationTimedOut),
+        // Cancel safety: short waits retain the same future and its partial frame state.
+        // On abort or timeout, drop the future and its exclusively owned socket.
+        let mut operation = std::pin::pin!(operation);
+        let deadline = tokio::time::Instant::from_std(deadline);
+        loop {
+            if let Some(reason) = should_abort.and_then(|check| check()) {
+                break Err(TransportError::ProbeAborted(reason));
+            }
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if remaining.is_zero() {
+                break Err(TransportError::SocksNegotiationTimedOut);
+            }
+            let wait = should_abort.map_or(remaining, |_| remaining.min(ABORT_POLL_INTERVAL));
+            if let Ok(outcome) = tokio::time::timeout(wait, operation.as_mut()).await {
+                break if tokio::time::Instant::now() >= deadline {
+                    Err(TransportError::SocksNegotiationTimedOut)
+                } else {
+                    outcome.map_err(TransportError::Socks)
+                };
+            }
         }
     })?;
     let proxy = proxy.into_std()?;

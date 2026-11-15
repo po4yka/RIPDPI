@@ -49,3 +49,39 @@ fn socks5_associate_rejects_invalid_domain_relay() {
         server.join().unwrap();
     }
 }
+
+#[test]
+fn cancelled_tcp_negotiation_closes_the_proxy_socket() {
+    use crate::transport::{TransportConfig, connect_transport_observed_with_abort};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let proxy = listener.local_addr().unwrap();
+    let cancelled = AtomicBool::new(false);
+    thread::scope(|scope| {
+        let server = scope.spawn(|| {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            let mut greeting = [0; 3];
+            stream.read_exact(&mut greeting).unwrap();
+            assert_eq!(greeting, [5, 1, 0]);
+            let cancel_started = Instant::now();
+            cancelled.store(true, Ordering::Release);
+            // Do not send a method reply. Only cancellation can make the client close now.
+            assert_eq!(stream.read(&mut greeting).unwrap(), 0);
+            assert!(cancel_started.elapsed() < Duration::from_millis(300));
+        });
+
+        let result = connect_transport_observed_with_abort(
+            &[TargetAddress::Host("loopback.invalid".into())],
+            443,
+            &TransportConfig::Socks5 { host: proxy.ip().to_string(), port: proxy.port(), credentials: None },
+            &|| cancelled.load(Ordering::Acquire).then_some("cancelled"),
+        )
+        .unwrap_err();
+        assert_eq!(result.stage, TransportFailureStage::Socks5Negotiation);
+        assert_eq!(result.message, "probe_aborted:cancelled");
+        server.join().unwrap();
+    });
+}
