@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.isValidNaiveCredentials
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import java.net.URI
-import java.net.URLEncoder
 import java.util.UUID
 
 private const val DefaultNaivePort = 443
@@ -99,7 +98,7 @@ internal object NaiveUriCodec {
             "@$host:${profile.serverPort}/$query#${encode(profile.displayName)}"
     }
 
-    private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+    private fun encode(value: String): String = encodeUriComponent(value)
 
     /** RFC 3986 percent-decoding: `+` stays literal; null for a malformed escape. */
     private fun decode(value: String): String? = ProxyUriCodec.rfc3986PercentDecode(value)

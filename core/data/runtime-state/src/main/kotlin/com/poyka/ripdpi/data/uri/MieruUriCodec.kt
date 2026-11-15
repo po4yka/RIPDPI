@@ -11,7 +11,6 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.isValidRelayMieruUsername
 import java.net.URI
-import java.net.URLEncoder
 import java.util.Base64
 import java.util.UUID
 
@@ -275,7 +274,7 @@ internal object MieruUriCodec {
 
     private fun decode(value: String): String? = ProxyUriCodec.rfc3986PercentDecode(value)
 
-    private fun encodeComponent(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+    private fun encodeComponent(value: String): String = encodeUriComponent(value)
 
     private fun bracket(host: String): String = if (host.contains(':') && !host.startsWith("[")) "[$host]" else host
 

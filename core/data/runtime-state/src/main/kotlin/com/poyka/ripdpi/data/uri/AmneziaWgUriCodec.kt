@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgProfile
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import java.net.URI
 import java.net.URLDecoder
-import java.net.URLEncoder
 
 /**
  * Codec for the locally-defined `amneziawg://` single-profile share URI.
@@ -269,7 +268,7 @@ object AmneziaWgUriCodec {
             ?.filter { it.isNotEmpty() }
             .orEmpty()
 
-    private fun urlEncode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name()).replace("+", "%20")
+    private fun urlEncode(value: String): String = encodeUriComponent(value)
 
     private fun urlDecode(value: String): String =
         runCatching { URLDecoder.decode(value, Charsets.UTF_8.name()) }.getOrDefault(value)

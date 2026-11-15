@@ -15,6 +15,13 @@ import org.junit.Test
  */
 class ScannerUriDispatcherTest {
     @Test
+    fun `nested profile links reject malformed UTF-8 before decoding`() {
+        val wrapper = "v2rayng://install-config?url=trojan%3A%2F%2Ffixture%FF%40example.com%3A443"
+
+        assertTrue(ScannerUriDispatcher.dispatch(wrapper) is ScannerScanResult.Invalid)
+    }
+
+    @Test
     fun `vless qr payload resolves to a profile import request`() {
         val payload = recognized("vless://11111111-2222-3333-4444-555555555555@example.com:443#QR")
 

@@ -12,6 +12,22 @@ import org.junit.Test
  */
 class ProxyUriCodecExportTest {
     @Test
+    fun `malformed credential Unicode has no share link representation`() {
+        val profile =
+            ProxyProfile.Trojan(
+                id = "id",
+                displayName = "Fixture",
+                groupId = "",
+                server = "example.com",
+                serverPort = 443,
+                password = "fixture\uD800",
+                serverName = null,
+            )
+
+        assertNull(ProxyUriCodec.encodeOrNull(profile))
+    }
+
+    @Test
     fun `shadowsocks 2022 exports SIP002 plain escaped userinfo`() {
         val key = "/////////////////////w=="
         val profile =

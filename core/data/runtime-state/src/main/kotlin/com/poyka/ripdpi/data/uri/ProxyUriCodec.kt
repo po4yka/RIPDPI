@@ -11,7 +11,6 @@ import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
 import java.net.URI
 import java.net.URLDecoder
-import java.net.URLEncoder
 import java.nio.ByteBuffer
 import java.util.Base64
 import java.util.UUID
@@ -80,49 +79,53 @@ object ProxyUriCodec {
 
     /**
      * Encodes [profile] into a canonical share URI accepted by [parse], or returns
-     * `null` for opaque raw configs that are not already URI-shaped.
+     * `null` when the profile has no lossless URI representation.
      */
     fun encodeOrNull(profile: ProxyProfile): String? =
-        when (profile) {
-            is ProxyProfile.Vless -> {
-                if (profile.xhttpMaxConnections == null) encodeVless(profile) else null
-            }
+        try {
+            when (profile) {
+                is ProxyProfile.Vless -> {
+                    if (profile.xhttpMaxConnections == null) encodeVless(profile) else null
+                }
 
-            is ProxyProfile.VlessReality -> {
-                if (profile.xhttpMaxConnections == null) encodeVlessReality(profile) else null
-            }
+                is ProxyProfile.VlessReality -> {
+                    if (profile.xhttpMaxConnections == null) encodeVlessReality(profile) else null
+                }
 
-            is ProxyProfile.Trojan -> {
-                encodeTrojan(profile)
-            }
+                is ProxyProfile.Trojan -> {
+                    encodeTrojan(profile)
+                }
 
-            is ProxyProfile.Hysteria2 -> {
-                encodeHysteria2(profile)
-            }
+                is ProxyProfile.Hysteria2 -> {
+                    encodeHysteria2(profile)
+                }
 
-            is ProxyProfile.AnyTls -> {
-                encodeAnyTls(profile)
-            }
+                is ProxyProfile.AnyTls -> {
+                    encodeAnyTls(profile)
+                }
 
-            is ProxyProfile.Mieru -> {
-                MieruUriCodec.encode(profile)
-            }
+                is ProxyProfile.Mieru -> {
+                    MieruUriCodec.encode(profile)
+                }
 
-            is ProxyProfile.Naive -> {
-                NaiveUriCodec.encode(profile)
-            }
+                is ProxyProfile.Naive -> {
+                    NaiveUriCodec.encode(profile)
+                }
 
-            is ProxyProfile.Ssh -> {
-                encodeSsh(profile)
-            }
+                is ProxyProfile.Ssh -> {
+                    encodeSsh(profile)
+                }
 
-            is ProxyProfile.Shadowsocks -> {
-                encodeShadowsocks(profile)
-            }
+                is ProxyProfile.Shadowsocks -> {
+                    encodeShadowsocks(profile)
+                }
 
-            is ProxyProfile.RawConfig -> {
-                profile.config.takeIf { it.contains("://") }
-            }
+                is ProxyProfile.RawConfig -> {
+                    profile.config.takeIf { it.contains("://") }
+                }
+            }?.takeIf(String::hasValidUriEncoding)
+        } catch (_: IllegalArgumentException) {
+            null
         }
 
     private fun userInfoUri(
@@ -251,19 +254,18 @@ object ProxyUriCodec {
             if (isShadowsocks2022Method(profile.method)) {
                 "${encodeQueryValue(profile.method)}:${encodeQueryValue(profile.password)}"
             } else {
-                Base64
-                    .getUrlEncoder()
-                    .withoutPadding()
-                    .encodeToString("${profile.method}:${profile.password}".toByteArray(Charsets.UTF_8))
+                val userInfo = "${profile.method}:${profile.password}"
+                require(Charsets.UTF_8.newEncoder().canEncode(userInfo)) { "URI field contains invalid Unicode" }
+                Base64.getUrlEncoder().withoutPadding().encodeToString(userInfo.toByteArray(Charsets.UTF_8))
             }
         return "ss://$encoded@${bracketIpv6(
             profile.server,
         )}:${profile.serverPort}#${encodeFragment(profile.displayName)}"
     }
 
-    private fun encodeQueryValue(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+    private fun encodeQueryValue(value: String): String = encodeUriComponent(value)
 
-    private fun encodeFragment(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+    private fun encodeFragment(value: String): String = encodeUriComponent(value)
 
     @Suppress("ReturnCount")
     private fun parseVless(uri: String): ProxyProfile? {

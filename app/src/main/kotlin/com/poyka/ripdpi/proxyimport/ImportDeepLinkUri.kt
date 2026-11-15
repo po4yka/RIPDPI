@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.proxyimport
 
+import com.poyka.ripdpi.data.uri.hasValidUriEncoding
 import java.net.URI
 import java.net.URLDecoder
 
 /** Keep client remarks lenient while URI validates the query and percent escapes. */
 internal fun parseImportDeepLinkUri(value: String): URI? =
     runCatching {
+        require(value.hasValidUriEncoding())
         val fragmentIndex = value.indexOf('#')
         val body = value.substringBefore('#').replace(" ", "%20")
         val fragment =
