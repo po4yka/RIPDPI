@@ -214,3 +214,103 @@ fn socks_udp_control_shares_scan_deadline_across_fragmented_reads() {
     assert!(started.elapsed() < Duration::from_millis(450));
     worker.join().unwrap();
 }
+
+#[test]
+fn direct_udp_repeats_with_the_new_datagram_and_same_context() {
+    use std::sync::atomic::AtomicBool;
+
+    let server = UdpSocket::bind("127.0.0.1:0").unwrap();
+    server.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+    let address = server.local_addr().unwrap();
+    let worker = thread::spawn(move || {
+        let mut bytes = [0; 5];
+        let (size, first_peer) = server.recv_from(&mut bytes).unwrap();
+        assert_eq!(&bytes[..size], b"first");
+        let (size, repeat_peer) = server.recv_from(&mut bytes).unwrap();
+        assert_eq!(repeat_peer, first_peer);
+        assert_eq!(&bytes[..size], b"next");
+        server.send_to(b"answer", repeat_peer).unwrap();
+    });
+    let cancel = AtomicBool::new(false);
+    let (response, context) = super::relay_quic_probe_observed(
+        &[TargetAddress::Ip(address.ip())],
+        address.port(),
+        &TransportConfig::Direct { route_experiment: None },
+        &cancel,
+        &mut || Some((b"first".to_vec(), b"next".to_vec())),
+        &|request, answer| request == b"first" && answer == b"answer",
+    )
+    .unwrap();
+    worker.join().unwrap();
+    assert_eq!(context, b"first");
+    assert_eq!(response.payload, b"answer");
+}
+
+#[test]
+fn stable_route_attempts_do_not_accept_the_previous_context() {
+    use crate::transport::RouteExperimentConfig;
+    use std::sync::atomic::AtomicBool;
+
+    let server = UdpSocket::bind("127.0.0.1:0").unwrap();
+    server.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+    let address = server.local_addr().unwrap();
+    let worker = thread::spawn(move || {
+        let mut bytes = [0; 5];
+        let (size, first_peer) = server.recv_from(&mut bytes).unwrap();
+        assert_eq!(&bytes[..size], b"first");
+        let (size, other_peer) = server.recv_from(&mut bytes).unwrap();
+        assert_eq!(other_peer, first_peer);
+        assert_eq!(&bytes[..size], b"other");
+        server.send_to(b"first", other_peer).unwrap();
+        server.send_to(b"other", other_peer).unwrap();
+    });
+    let cancel = AtomicBool::new(false);
+    let mut contexts = [b"first", b"other"].into_iter();
+    let (response, context) = super::relay_quic_probe_observed(
+        &[TargetAddress::Ip(address.ip())],
+        address.port(),
+        &TransportConfig::Direct {
+            route_experiment: Some(RouteExperimentConfig {
+                stable_flow_attempts: 2,
+                diversity_buckets: 1,
+                diversity_on_failure_only: true,
+                session_seed: u64::from(address.port()),
+            }),
+        },
+        &cancel,
+        &mut || contexts.next().map(|bytes| (bytes.to_vec(), b"repeat".to_vec())),
+        &|request, answer| request == answer,
+    )
+    .unwrap();
+    worker.join().unwrap();
+    assert_eq!(context, b"other");
+    assert_eq!(response.payload, b"other");
+}
+
+#[test]
+fn candidate_fallback_preserves_the_matching_peer_failure() {
+    use std::sync::atomic::AtomicBool;
+
+    let first = UdpSocket::bind("127.0.0.1:0").unwrap();
+    first.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+    let peer = first.local_addr().unwrap();
+    let worker = thread::spawn(move || {
+        let mut request = [0; 5];
+        let (size, client) = first.recv_from(&mut request).unwrap();
+        assert_eq!(&request[..size], b"probe");
+        first.send_to(b"invalid", client).unwrap();
+        // Keep the first receiver open until the exchange has genuinely waited for a reply.
+        first.recv_from(&mut request).unwrap();
+        thread::sleep(Duration::from_millis(700));
+    });
+    let cancel = AtomicBool::new(false);
+    let mut probe = super::UdpProbe {
+        cancel: Some(&cancel),
+        prepare: &mut || Some(super::UdpDatagrams::fixed(b"probe")),
+        matcher: &|_, response| response == b"valid",
+    };
+    let groups = [Ok(vec![peer, "127.0.0.1:0".parse().unwrap()])].into_iter();
+    let result = super::relay_udp_probe(groups, &TransportConfig::Direct { route_experiment: None }, &mut probe);
+    assert!(matches!(result, Err(super::TransportError::UdpRecvUnmatched)));
+    worker.join().unwrap();
+}
