@@ -183,6 +183,10 @@ class Tcp16FatHeaderProbe(
     ): Tcp16TrainEnd {
         val verdict =
             when {
+                error is Tcp16RouteUnavailable -> {
+                    Tcp16Verdict.UNSUPPORTED
+                }
+
                 connectionCount > 1 -> {
                     Tcp16Verdict.INVALID_RECONNECTED
                 }

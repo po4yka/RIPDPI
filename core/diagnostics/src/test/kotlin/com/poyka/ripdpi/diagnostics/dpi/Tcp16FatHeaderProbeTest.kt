@@ -214,20 +214,31 @@ class Tcp16FatHeaderProbeTest {
     fun reconnectingDuringTrainReturnsInvalidReconnected() =
         runTest {
             MockWebServer().use { server ->
-                server.enqueue(
-                    MockResponse
-                        .Builder()
-                        .code(200)
-                        .onResponseEnd(SocketEffect.CloseSocket())
-                        .build(),
-                )
+                server.enqueue(okHeadResponse())
                 server.enqueue(okHeadResponse())
                 server.start()
+                val delegate = OkHttpTcp16RequestRunner()
+                val runner =
+                    object : Tcp16RequestRunner {
+                        override fun execute(
+                            target: Tcp16Target,
+                            request: Tcp16FatHeaderRequest,
+                            tracker: Tcp16ConnectionTracker,
+                        ): Tcp16FatHeaderResponse =
+                            delegate.execute(target, request, tracker).also {
+                                if (request.requestIndex == 0) tracker.connectionPool.evictAll()
+                            }
+                    }
 
-                val result = probe().runTarget(mockTarget(server), responseTimeHintMs = 25)
+                val result =
+                    Tcp16FatHeaderProbe(
+                        requestRunner = runner,
+                    ).runTarget(mockTarget(server), responseTimeHintMs = 25)
 
                 assertEquals(Tcp16Verdict.INVALID_RECONNECTED, result.verdict)
                 assertEquals(2, result.connectionCount)
+                val requests = List(2) { requireNotNull(server.takeRequest(1, TimeUnit.SECONDS)) }
+                assertEquals(2, requests.map { it.connectionIndex }.toSet().size)
             }
         }
 
