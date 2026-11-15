@@ -37,6 +37,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.Base64
 import java.util.UUID
 
 /**
@@ -135,6 +136,39 @@ class AmneziaWgProfileViewModelTest {
 
                 assertEquals(1, activator.activationCount)
                 assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
+            }
+        }
+
+    @Test
+    fun `consent for an edited draft cannot save the obsolete request`() =
+        runTest {
+            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.vpnConsentRequests.test {
+                viewModel.onConnect()
+                advanceUntilIdle()
+                val consent = awaitItem()
+
+                viewModel.onFieldChanged(AwgEditorField.SERVER, "replacement.example.com")
+                permissionBridge.vpnPermissionIntent = null
+                viewModel.onVpnConsentResult(consent.id, granted = true)
+                advanceUntilIdle()
+
+                assertTrue(repository.observeProfiles().first().isEmpty())
+                assertEquals(0, activator.activationCount)
+                assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
+
+                viewModel.onConnect()
+                advanceUntilIdle()
+                val saved =
+                    repository
+                        .observeProfiles()
+                        .first()
+                        .single()
+                        .request
+                assertEquals("replacement.example.com", saved.endpointHost)
+                assertEquals(1, activator.activationCount)
             }
         }
 
@@ -441,10 +475,10 @@ class AmneziaWgProfileViewModelTest {
         runTest {
             val vm = viewModel()
             vm.onConfPasted(
-                "[Interface]\nPrivateKey = k==\nAddress = 10.8.0.2/32\n" +
+                "[Interface]\nPrivateKey = $AwgPrivateTestKey\nAddress = 10.8.0.2/32\n" +
                     "HeaderProtectionKey = AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=\n" +
                     "S1 = 12\nS2 = 12\nS3 = 12\nS4 = 12\n" +
-                    "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0",
+                    "[Peer]\nPublicKey = $AwgPeerTestKey\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0",
             )
             assertTrue(vm.uiState.value.canActivate)
             vm.onFieldChanged(AwgEditorField.S3, "11")
@@ -574,7 +608,8 @@ class AmneziaWgProfileViewModelTest {
         runTest {
             val viewModel = viewModel()
             fillRequiredIdentity(viewModel)
-            viewModel.onFieldChanged(AwgEditorField.PRESHARED_KEY, "psk-material==")
+            val psk = Base64.getEncoder().encodeToString(ByteArray(32) { 3 })
+            viewModel.onFieldChanged(AwgEditorField.PRESHARED_KEY, psk)
             viewModel.onFieldChanged(AwgEditorField.PERSISTENT_KEEPALIVE, "37")
             viewModel.onFieldChanged(AwgEditorField.MTU, "1280")
 
@@ -585,9 +620,9 @@ class AmneziaWgProfileViewModelTest {
                 requireNotNull(activator.lastActivated) { "expected the service to be activated" }
             assertEquals("vpn.example.com", request.endpointHost)
             assertEquals(51820, request.endpointPort)
-            assertEquals("privkey==", request.privateKey)
-            assertEquals("peerpub==", request.peerPublicKey)
-            assertEquals("psk-material==", request.presharedKey)
+            assertEquals(AwgPrivateTestKey, request.privateKey)
+            assertEquals(AwgPeerTestKey, request.peerPublicKey)
+            assertEquals(psk, request.presharedKey)
             assertEquals(37, request.persistentKeepalive)
             assertEquals(1280, request.mtu)
             assertEquals("10.8.0.2/32", request.interfaceAddressV4)
@@ -626,6 +661,43 @@ class AmneziaWgProfileViewModelTest {
             assertFalse(profileId.contains("vpn.example.com"))
             assertFalse(profileId.contains("51820"))
             assertTrue(profileId.startsWith("awg-"))
+        }
+
+    @Test
+    fun `a malformed imported draft cannot replace saved settings or credentials`() =
+        runTest {
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.onConnect()
+            advanceUntilIdle()
+            val saved =
+                repository
+                    .observeProfiles()
+                    .first()
+                    .single()
+                    .request
+            val rows = dao.allProfiles()
+            val secrets = credentialStore.load(saved.profileId)
+
+            viewModel.onConfPasted(
+                """
+                [Interface]
+                PrivateKey = malformed-key
+                Address = 10.8.0.3/32
+                [Peer]
+                PublicKey = $AwgPeerTestKey
+                Endpoint = replacement.example.com:51820
+                AllowedIPs = 0.0.0.0/0
+                """.trimIndent(),
+            )
+
+            assertFalse(viewModel.uiState.value.canActivate)
+            viewModel.onConnect()
+            advanceUntilIdle()
+            assertEquals(rows, dao.allProfiles())
+            assertEquals(secrets, credentialStore.load(saved.profileId))
+            assertEquals(saved, repository.load(saved.profileId)?.request)
+            assertEquals(1, activator.activationCount)
         }
 
     @Test
@@ -711,8 +783,8 @@ class AmneziaWgProfileViewModelTest {
     private fun fillRequiredIdentity(viewModel: AmneziaWgProfileViewModel) {
         viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn.example.com")
         viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "51820")
-        viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, "privkey==")
-        viewModel.onFieldChanged(AwgEditorField.PEER_PUBLIC_KEY, "peerpub==")
+        viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
+        viewModel.onFieldChanged(AwgEditorField.PEER_PUBLIC_KEY, AwgPeerTestKey)
         viewModel.onFieldChanged(AwgEditorField.ADDRESS, "10.8.0.2/32")
     }
 }

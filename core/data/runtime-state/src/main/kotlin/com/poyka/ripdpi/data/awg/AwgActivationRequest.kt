@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import java.net.URI
+import java.net.URISyntaxException
 import java.util.Base64
 
 /**
@@ -84,45 +86,84 @@ data class AwgActivationRequest(
     }
 }
 
+/** A field the editor can highlight without rendering an exception message. */
+enum class AwgActivationField(
+    internal val error: String,
+) {
+    PrivateKey("AmneziaWG interface private key is invalid"),
+    PeerPublicKey("AmneziaWG peer public key is invalid"),
+    PresharedKey("AmneziaWG preshared key is invalid"),
+    EndpointHost("AmneziaWG endpoint host invalid"),
+    EndpointPort("AmneziaWG endpoint port invalid"),
+    Address("AmneziaWG requires one IPv4 CIDR and at most one IPv6 CIDR"),
+    Dns("AmneziaWG DNS servers must be numeric addresses of a configured interface family"),
+    AllowedIps("AmneziaWG allowed IPs must contain valid CIDRs with a route for a configured interface family"),
+    Mtu("AmneziaWG MTU must be between 1280 and 1420"),
+    PersistentKeepalive("AmneziaWG persistent keepalive must be zero or an ordered positive range in 1..65535"),
+    Carrier("Unsupported AmneziaWG carrier"),
+    CarrierWsUrl("AmneziaWG WS carrier requires a valid WSS URL without userinfo or a fragment"),
+}
+
+class AwgActivationInputException(
+    val field: AwgActivationField,
+) : IllegalArgumentException(field.error)
+
 /** Rejects requests that cannot reach the owned AmneziaWG runtime. */
 fun AwgActivationRequest.requireRuntimeReady() {
     obfuscation.requireSupportedProfile()
-    require(privateKey.isWireGuardKey()) { "AmneziaWG interface private key is invalid" }
-    require(peerPublicKey.isWireGuardKey()) { "AmneziaWG peer public key is invalid" }
-    require(presharedKey.isEmpty() || presharedKey.isWireGuardKey()) { "AmneziaWG preshared key is invalid" }
-    require(endpointHost.isNotBlank()) { "AmneziaWG endpoint host missing" }
-    require(endpointPort in ValidEndpointPorts) { "AmneziaWG endpoint port invalid" }
-    require(mtu in ValidAmneziaWgMtu) { "AmneziaWG MTU must be between 1280 and 1420" }
-    require(persistentKeepalive in ValidKeepalive && persistentKeepaliveMax in ValidKeepalive) {
-        "AmneziaWG persistent keepalive must be in 0..65535"
-    }
-    require(persistentKeepaliveMax == 0 || persistentKeepaliveMax >= persistentKeepalive) {
-        "AmneziaWG persistent keepalive range is inverted"
-    }
-    require(persistentKeepaliveMax == 0 || persistentKeepalive > 0) {
-        "AmneziaWG persistent keepalive range must start at 1 or more"
-    }
-    require(interfaceAddressV4.isIpv4Cidr()) { "AmneziaWG interface address must be an IPv4 CIDR" }
-    require(interfaceAddressV6.isEmpty() || interfaceAddressV6.isIpv6Cidr()) {
-        "AmneziaWG IPv6 interface address must be an IPv6 CIDR"
-    }
+    AwgActivationField.PrivateKey.requireValid(privateKey.isWireGuardKey())
+    AwgActivationField.PeerPublicKey.requireValid(peerPublicKey.isWireGuardKey())
+    AwgActivationField.PresharedKey.requireValid(presharedKey.isEmpty() || presharedKey.isWireGuardKey())
+    AwgActivationField.EndpointHost.requireValid(endpointHost.isAwgEndpointHost())
+    AwgActivationField.EndpointPort.requireValid(endpointPort in ValidEndpointPorts)
+    AwgActivationField.Mtu.requireValid(mtu in ValidAmneziaWgMtu)
+    AwgActivationField.PersistentKeepalive.requireValid(
+        persistentKeepalive in ValidKeepalive && persistentKeepaliveMax in ValidKeepalive &&
+            (persistentKeepaliveMax == 0 || (persistentKeepalive > 0 && persistentKeepaliveMax >= persistentKeepalive)),
+    )
     val ipv6Enabled = interfaceAddressV6.isNotEmpty()
-    require(dnsServers.all { it.isIpv4Address() || (ipv6Enabled && it.isIpv6Address()) }) {
-        "AmneziaWG DNS servers must be numeric addresses of a configured interface family"
-    }
-    require(allowedIps.all { it.isIpv4Cidr() || it.isIpv6Cidr() }) {
-        "AmneziaWG allowed IPs must be valid CIDRs"
-    }
-    require(allowedIps.any { it.isIpv4Cidr() || (ipv6Enabled && it.isIpv6Cidr()) }) {
-        "AmneziaWG allowed IPs must contain a route for a configured interface family"
-    }
-    require(carrier == AwgActivationRequest.CARRIER_UDP || carrier == AwgActivationRequest.CARRIER_WS) {
-        "Unsupported AmneziaWG carrier"
-    }
-    require(carrier != AwgActivationRequest.CARRIER_WS || isValidAwgWssUrl(carrierWsUrl)) {
-        "AmneziaWG WS carrier requires a valid WSS URL without userinfo or a fragment"
-    }
+    AwgActivationField.Address.requireValid(
+        interfaceAddressV4.isIpv4Cidr() && (!ipv6Enabled || interfaceAddressV6.isIpv6Cidr()),
+    )
+    AwgActivationField.Dns.requireValid(dnsServers.all { it.isIpv4Address() || (ipv6Enabled && it.isIpv6Address()) })
+    AwgActivationField.AllowedIps.requireValid(
+        allowedIps.all { it.isIpv4Cidr() || it.isIpv6Cidr() } &&
+            allowedIps.any { it.isIpv4Cidr() || (ipv6Enabled && it.isIpv6Cidr()) },
+    )
+    AwgActivationField.Carrier.requireValid(
+        carrier == AwgActivationRequest.CARRIER_UDP || carrier == AwgActivationRequest.CARRIER_WS,
+    )
+    AwgActivationField.CarrierWsUrl.requireValid(
+        carrier != AwgActivationRequest.CARRIER_WS || isValidAwgWssUrl(carrierWsUrl),
+    )
 }
+
+private fun AwgActivationField.requireValid(valid: Boolean) {
+    if (!valid) throw AwgActivationInputException(this)
+}
+
+private fun String.isAwgEndpointHost(): Boolean =
+    when {
+        length !in 1..MaxEndpointHostLength -> {
+            false
+        }
+
+        NumericIp.parseAddress(this) != null -> {
+            true
+        }
+
+        all { it in '0'..'9' || it == '.' } -> {
+            false
+        }
+
+        else -> {
+            try {
+                URI("https://$this").host == this && '[' !in this
+            } catch (_: URISyntaxException) {
+                false
+            }
+        }
+    }
 
 /** Validates the WSS authority and request target without DNS or network access. */
 fun isValidAwgWssUrl(value: String): Boolean {
@@ -133,9 +174,10 @@ fun isValidAwgWssUrl(value: String): Boolean {
 }
 
 private fun String.isWireGuardKey(): Boolean =
-    runCatching { Base64.getDecoder().decode(this) }.getOrNull()?.let { decoded ->
-        decoded.size == WireGuardKeyBytes && Base64.getEncoder().encodeToString(decoded) == this
-    } == true
+    length == WireGuardBase64KeyLength &&
+        runCatching { Base64.getDecoder().decode(this) }.getOrNull()?.let { decoded ->
+            decoded.size == WireGuardKeyBytes && Base64.getEncoder().encodeToString(decoded) == this
+        } == true
 
 internal fun String.isIpv4Cidr(): Boolean = NumericIp.parseCidr(this)?.address?.isIPv4 == true
 
@@ -153,6 +195,8 @@ internal val ValidAmneziaWgMtu = 1280..1420
 private val ValidKeepalive = 0..AmneziaWgV3Parameters.MaximumRange
 
 private const val WireGuardKeyBytes = 32
+private const val WireGuardBase64KeyLength = 44
+private const val MaxEndpointHostLength = 254
 
 /**
  * AmneziaWG obfuscation knobs in activation-request form. Mirrors the

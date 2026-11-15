@@ -1,10 +1,11 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import com.poyka.ripdpi.data.awg.AwgActivationInputException
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.applyCohortPreset
-import com.poyka.ripdpi.data.awg.isValidAwgWssUrl
+import com.poyka.ripdpi.data.awg.requireRuntimeReady
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
@@ -150,7 +151,14 @@ data class AmneziaWgEditorState(
     fun hasFieldError(field: AwgEditorField): Boolean {
         val raw = rawTextByField[field] ?: return hasHeaderProtectionPrefixError(field)
         val emptyRoutes = field == AwgEditorField.ALLOWED_IPS && raw.isBlank()
-        return emptyRoutes || (raw.isNotEmpty() && field.validate(raw) == null) || hasHeaderProtectionPrefixError(field)
+        val badRuntimeInput =
+            !field.isObfuscation && (activationError as? AwgActivationInputException)?.field?.editorField() == field
+        return emptyRoutes || (
+            raw.isNotEmpty() && field.validate(
+                raw,
+            ) == null
+        ) || hasHeaderProtectionPrefixError(field) ||
+            badRuntimeInput
     }
 
     fun hasHeaderProtectionPrefixError(field: AwgEditorField): Boolean {
@@ -218,24 +226,17 @@ data class AmneziaWgEditorState(
      */
     fun selectCarrier(carrier: String): AmneziaWgEditorState = copy(form = form.copy(carrier = carrier))
 
-    /**
-     * `true` when the identity fields required to open a tunnel are all present:
-     * server host + port, interface private key, peer public key, and an
-     * interface address. Obfuscation fields are optional (an empty set is a
-     * vanilla WireGuard peer). When [AwgProfileForm.carrier] is
-     * [AwgActivationRequest.CARRIER_WS], [AwgProfileForm.carrierWsUrl] must also
-     * be a valid WSS endpoint without userinfo or a fragment.
-     */
-    fun isActivatable(): Boolean =
-        form.server.isNotBlank() &&
-            form.serverPort > 0 &&
-            form.interfacePrivateKey.isNotBlank() &&
-            form.peerPublicKey.isNotBlank() &&
-            rawText(AwgEditorField.ADDRESS).isNotBlank() &&
-            obfuscationConsistent() &&
-            !hasFieldError(AwgEditorField.PERSISTENT_KEEPALIVE) &&
-            !hasFieldError(AwgEditorField.ALLOWED_IPS) &&
-            (form.carrier != AwgActivationRequest.CARRIER_WS || isValidAwgWssUrl(form.carrierWsUrl))
+    private val activationError: IllegalArgumentException? by lazy {
+        try {
+            toActivationRequest(profileId = "").requireRuntimeReady()
+            null
+        } catch (error: IllegalArgumentException) {
+            error
+        }
+    }
+
+    /** Whether the current draft can pass the runtime's local input checks. */
+    fun isActivatable(): Boolean = activationError == null
 
     /**
      * `true` when the obfuscation knobs are mutually consistent and fit the
@@ -267,7 +268,7 @@ data class AmneziaWgEditorState(
         return junkRangeOk && junkSizeFitsMtu && paddingFitsMtu && wireProfileValid && fieldsValid
     }
 
-    /** Effective tunnel MTU, mirroring [toActivationRequest]'s fallback. */
+    /** The runtime input check reports invalid explicit MTU values separately. */
     private fun effectiveMtu(): Int =
         rawText(AwgEditorField.MTU).trim().toIntOrNull()?.takeIf { it > 0 } ?: AwgActivationRequest.DEFAULT_MTU
 

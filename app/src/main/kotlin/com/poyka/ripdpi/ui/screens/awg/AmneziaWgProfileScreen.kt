@@ -267,6 +267,15 @@ private fun InterfaceSection(
             revealed = uiState.privateKeyRevealed,
             onValueChange = { onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, it) },
             onReveal = onRevealPrivateKey,
+            errorText =
+                if (editor.hasFieldError(
+                        AwgEditorField.INTERFACE_PRIVATE_KEY,
+                    )
+                ) {
+                    stringResource(R.string.awg_field_invalid)
+                } else {
+                    null
+                },
         )
         PlainField(AwgEditorField.SERVER, R.string.awg_field_server, editor, onFieldChanged)
         PlainField(
@@ -327,6 +336,15 @@ private fun PeerSection(
             revealed = uiState.presharedKeyRevealed,
             onValueChange = { onFieldChanged(AwgEditorField.PRESHARED_KEY, it) },
             onReveal = onRevealPresharedKey,
+            errorText =
+                if (editor.hasFieldError(
+                        AwgEditorField.PRESHARED_KEY,
+                    )
+                ) {
+                    stringResource(R.string.awg_field_invalid)
+                } else {
+                    null
+                },
         )
         PlainField(
             AwgEditorField.PERSISTENT_KEEPALIVE,

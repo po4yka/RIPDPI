@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.requireRuntimeReady
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.proxyimport.ClipboardReader
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
@@ -71,8 +72,8 @@ data class AmneziaWgProfileUiState(
     val headerProtectionKeyRevealed: Boolean = false,
     val pendingCohortId: String? = null,
     /**
-     * `true` exactly when the editor carries the identity fields required to
-     * open a tunnel. Drives the Connect action's enabled state.
+     * `true` when the projected request passes the runtime's local input checks.
+     * Drives the Connect action's enabled state.
      */
     val canActivate: Boolean = false,
     /**
@@ -292,7 +293,13 @@ class AmneziaWgProfileViewModel
         }
 
         private suspend fun persistAndActivate(editor: AmneziaWgEditorState) {
+            val state = _uiState.value
+            if (state.editor !== editor || state.pendingCohortId != null) {
+                _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
+                return
+            }
             val draft = editor.toActivationRequest(profileId = "")
+            draft.requireRuntimeReady()
             val stableId = profileRepository.save(profileName(editor), draft, existingId = savedProfileId)
             savedProfileId = stableId
             amneziaWgActivator.activate(draft.copy(profileId = stableId))

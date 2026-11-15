@@ -52,6 +52,21 @@ class AwgActivationRequestTest {
     }
 
     @Test
+    fun `runtime validates endpoints locally without disclosing the host`() {
+        for (host in listOf("vpn.example.com", "192.0.2.1", "2001:db8::1", "localhost")) {
+            runtimeRequest().copy(endpointHost = host).requireRuntimeReady()
+        }
+        for (host in listOf("vpn.example.com/path", "192.0.2.256", "vpn.example.com:51820", "2001:db8:::1")) {
+            val error =
+                assertThrows(AwgActivationInputException::class.java) {
+                    runtimeRequest().copy(endpointHost = host).requireRuntimeReady()
+                }
+            assertEquals(AwgActivationField.EndpointHost, error.field)
+            assertTrue(host !in error.message.orEmpty())
+        }
+    }
+
+    @Test
     fun `runtime readiness accepts numeric dual stack policy without resolving an endpoint`() {
         runtimeRequest()
             .copy(

@@ -97,9 +97,15 @@ private fun AmneziaWgEditorState.buildFormFromConf(
 ): AwgProfileForm {
     val peer = parsed.peers.firstOrNull()
     val endpoint = peer?.endpoint.orEmpty()
-    // `[2001:db8::1]:51820` keeps its brackets only around the port separator.
-    val host = endpoint.substringBeforeLast(':', endpoint).removeSurrounding("[", "]")
-    val port = endpoint.substringAfterLast(':', "").toIntOrNull() ?: 0
+    val authority = endpoint.substringBeforeLast(':', endpoint)
+    val host = authority.removeSurrounding("[", "]")
+    // A file Endpoint uses brackets exactly when its host is IPv6.
+    val port =
+        if ((':' in host) == (host != authority)) {
+            endpoint.substringAfterLast(':', "").toIntOrNull() ?: 0
+        } else {
+            0
+        }
     return form.copy(
         wireProfile = awg.wireProfile,
         interfacePrivateKey = parsed.interfaceSection.privateKey,

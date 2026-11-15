@@ -80,8 +80,8 @@ class AmneziaWgEditorStateTest {
         for (previous in listOf("0-1", "25-35")) {
             for (line in listOf("", "PersistentKeepalive = off")) {
                 val conf =
-                    "[Interface]\nPrivateKey = k==\nAddress = 10.8.0.2/32\n" +
-                        "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0\n$line"
+                    "[Interface]\nPrivateKey = $AwgPrivateTestKey\nAddress = 10.8.0.2/32\n" +
+                        "[Peer]\nPublicKey = $AwgPeerTestKey\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0\n$line"
                 val edited = activatableState().updateField(AwgEditorField.PERSISTENT_KEEPALIVE, previous)
                 val imported = (edited.importConf(conf, catalog) as AwgConfImport.Imported).editor
                 assertEquals("", imported.rawText(AwgEditorField.PERSISTENT_KEEPALIVE))
@@ -545,7 +545,7 @@ class AmneziaWgEditorStateTest {
         val padded =
             """
             [Interface]
-            PrivateKey = privkey==
+            PrivateKey = $AwgPrivateTestKey
             Address = 10.8.1.2/32
             S1 = 12
             S2 = 12
@@ -553,7 +553,7 @@ class AmneziaWgEditorStateTest {
             S4 = 12
 
             [Peer]
-            PublicKey = peerpub==
+            PublicKey = $AwgPeerTestKey
             Endpoint = host.example.com:443
             AllowedIPs = 0.0.0.0/0
             """.trimIndent()
@@ -611,6 +611,48 @@ class AmneziaWgEditorStateTest {
         assertEquals("10-100", editor.form.v3.contentPaddingAddition)
         assertEquals(25, request.persistentKeepalive)
         assertEquals(35, request.persistentKeepaliveMax)
+    }
+
+    @Test
+    fun `invalid activation input marks the field and disables Connect`() {
+        val cases =
+            listOf(
+                AwgEditorField.INTERFACE_PRIVATE_KEY to "invalid-private-key",
+                AwgEditorField.PEER_PUBLIC_KEY to "invalid-public-key",
+                AwgEditorField.PRESHARED_KEY to "invalid-preshared-key",
+                AwgEditorField.SERVER to "vpn.example.com/path",
+                AwgEditorField.SERVER_PORT to "65536",
+                AwgEditorField.SERVER_PORT to "invalid-port",
+                AwgEditorField.ADDRESS to "10.8.0.2",
+                AwgEditorField.DNS to "vpn.example.com",
+                AwgEditorField.MTU to "0",
+                AwgEditorField.MTU to "invalid-mtu",
+                AwgEditorField.ALLOWED_IPS to "10.8.0.0/99",
+            )
+        for ((field, value) in cases) {
+            val editor = activatableState().updateField(field, value)
+            assertTrue(field.name, editor.hasFieldError(field))
+            assertFalse(field.name, editor.isActivatable())
+        }
+    }
+
+    @Test
+    fun `the conf Endpoint requires IPv6 brackets and rejects bracketed hostnames`() {
+        for (endpoint in listOf("2001:db8::1:51820", "[vpn.example.com]:51820")) {
+            val conf =
+                """
+                [Interface]
+                PrivateKey = $AwgPrivateTestKey
+                Address = 10.8.0.2/32
+                [Peer]
+                PublicKey = $AwgPeerTestKey
+                Endpoint = $endpoint
+                AllowedIPs = 0.0.0.0/0
+                """.trimIndent()
+            val editor = (AmneziaWgEditorState.initial().importConf(conf, catalog) as AwgConfImport.Imported).editor
+
+            assertFalse(editor.isActivatable())
+        }
     }
 
     @Test
@@ -700,7 +742,10 @@ class AmneziaWgEditorStateTest {
             .initial()
             .updateField(AwgEditorField.SERVER, "vpn.example.com")
             .updateField(AwgEditorField.SERVER_PORT, "51820")
-            .updateField(AwgEditorField.INTERFACE_PRIVATE_KEY, "privkey==")
-            .updateField(AwgEditorField.PEER_PUBLIC_KEY, "peerpub==")
+            .updateField(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
+            .updateField(AwgEditorField.PEER_PUBLIC_KEY, AwgPeerTestKey)
             .updateField(AwgEditorField.ADDRESS, "10.8.0.2/32")
 }
+
+internal val AwgPrivateTestKey = Base64.getEncoder().encodeToString(ByteArray(32) { 1 })
+internal val AwgPeerTestKey = Base64.getEncoder().encodeToString(ByteArray(32) { 2 })
