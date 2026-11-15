@@ -10,11 +10,11 @@ use ripdpi_failure_classifier::ClassifiedFailure;
 use crate::sync::{Arc, AtomicUsize, Ordering};
 #[cfg(not(feature = "loom"))]
 use crate::{
-    AttemptCorrelationId, DesyncExecutionDisposition, DesyncExecutionEvidence, DesyncExecutionReceipt,
-    DesyncExecutionTransport, DesyncOffsetMarkerBase, DesyncStrategyFamily, DesyncTlsPreludeEvidence,
-    DesyncTlsPreludeKind, EmbeddedProxyControl, RuntimeTelemetrySink, clear_runtime_telemetry,
-    current_runtime_telemetry, install_runtime_telemetry,
+    AttemptCorrelationId, DesyncExecutionEvidence, DesyncOffsetMarkerBase, DesyncStrategyFamily,
+    DesyncTlsPreludeEvidence, DesyncTlsPreludeKind, EmbeddedProxyControl, RuntimeTelemetrySink,
+    clear_runtime_telemetry, current_runtime_telemetry, install_runtime_telemetry,
 };
+use crate::{DesyncExecutionDisposition, DesyncExecutionReceipt, DesyncExecutionTransport};
 
 #[cfg(not(feature = "loom"))]
 #[allow(dead_code)]
