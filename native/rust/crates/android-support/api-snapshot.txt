@@ -30,6 +30,7 @@ pub fn android_support::HandleRegistry<T>::get(&self, u64) -> core::option::Opti
 pub fn android_support::HandleRegistry<T>::insert(&self, T) -> u64
 pub fn android_support::HandleRegistry<T>::new() -> Self
 pub fn android_support::HandleRegistry<T>::remove(&self, u64) -> core::option::Option<alloc::sync::Arc<T>>
+pub fn android_support::HandleRegistry<T>::try_insert_bounded(&self, T, usize) -> core::option::Option<u64>
 impl<T> core::default::Default for android_support::HandleRegistry<T>
 pub fn android_support::HandleRegistry<T>::default() -> Self
 pub struct android_support::NativeEventRecord

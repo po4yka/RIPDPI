@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -203,39 +204,36 @@ class DoqIntegrityProbeTest {
         }
 
     @Test
-    fun concurrencyCappedAtEight() =
+    fun separateRunsShareTheEightActiveExchangeSlots() =
         runTest {
             val mutex = Mutex()
             var inFlight = 0
             var maxInFlight = 0
-            val probe =
-                probe(
-                    client =
-                        object : DoqQuicClient {
-                            override suspend fun exchange(
-                                endpoint: String,
-                                port: Int,
-                                tlsServerName: String,
-                                query: ByteArray,
-                                timeoutMs: Long,
-                            ): ByteArray {
-                                val transactionId = query.transactionId()
-                                mutex.withLock {
-                                    inFlight += 1
-                                    maxInFlight = maxOf(maxInFlight, inFlight)
-                                }
-                                delay(25)
-                                mutex.withLock {
-                                    inFlight -= 1
-                                }
-                                return dnsResponse(transactionId, "1.2.3.4")
-                            }
-                        },
-                    providers = (1..12).map { index -> DoqProvider("p$index", "p$index.test") },
-                )
+            val client =
+                object : DoqQuicClient {
+                    override suspend fun exchange(
+                        endpoint: String,
+                        port: Int,
+                        tlsServerName: String,
+                        query: ByteArray,
+                        timeoutMs: Long,
+                    ): ByteArray {
+                        mutex.withLock {
+                            inFlight += 1
+                            maxInFlight = maxOf(maxInFlight, inFlight)
+                        }
+                        delay(25)
+                        mutex.withLock { inFlight -= 1 }
+                        return dnsResponse(query.transactionId(), "1.2.3.4")
+                    }
+                }
+            val providers = (1..12).map { index -> DoqProvider("p$index", "p$index.test") }
+            val baseline = positiveBaseline("1.2.3.4")
+            val first = async { probe(client, providers).run(listOf(TestDomain), baseline) }
+            val second = async { probe(client, providers).run(listOf(TestDomain), baseline) }
 
-            probe.run(listOf(TestDomain), positiveBaseline("1.2.3.4"))
-
+            assertEquals(12, first.await().size)
+            assertEquals(12, second.await().size)
             assertEquals(8, maxInFlight)
         }
 

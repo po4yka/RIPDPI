@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -10,9 +13,39 @@ import org.junit.Test
 import java.io.IOException
 import java.net.UnknownHostException
 import java.util.Collections
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class DohBootstrapSpoofingDetectorTest {
+    @Test
+    fun cancellationReturnsWhileAPlatformLookupStillOwnsItsWorker() =
+        runTest {
+            val started = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            val finished = CountDownLatch(1)
+            val job =
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    resolveBlockingDohBootstrap {
+                        started.countDown()
+                        try {
+                            check(release.await(5, TimeUnit.SECONDS))
+                            listOf("192.0.2.1")
+                        } finally {
+                            finished.countDown()
+                        }
+                    }
+                }
+            try {
+                assertTrue(started.await(5, TimeUnit.SECONDS))
+                job.cancelAndJoin()
+                assertEquals(1L, finished.count)
+            } finally {
+                release.countDown()
+            }
+            assertTrue(finished.await(5, TimeUnit.SECONDS))
+        }
+
     @Test
     fun resolveAndMetadataLookupRunOnTheIoDispatcher() =
         runTest {

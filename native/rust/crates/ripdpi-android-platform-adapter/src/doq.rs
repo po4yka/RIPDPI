@@ -1,6 +1,9 @@
+use std::future::Future;
 use std::io;
-use std::net::IpAddr;
+use std::net::{IpAddr, ToSocketAddrs};
 use std::os::fd::AsRawFd;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use base64::Engine;
@@ -15,14 +18,29 @@ use ripdpi_dns_resolver::{
 use ripdpi_runtime_platform::protect::{has_protect_callback, protect_socket_via_callback};
 use serde::{Deserialize, Serialize};
 use socket2::{Domain, Protocol, Socket, Type};
-use tokio::time::timeout_at;
+use tokio::sync::Semaphore;
+use tokio::time::{sleep, timeout};
 
 const DNS_HEADER_BYTES: usize = 12;
 const MAX_DNS_MESSAGE_BYTES: usize = u16::MAX as usize;
 const MAX_QUERY_BASE64_BYTES: usize = MAX_DNS_MESSAGE_BYTES.div_ceil(3) * 4;
 const MAX_REQUEST_BYTES: usize = MAX_QUERY_BASE64_BYTES + 1024;
 
-pub fn exchange_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jstring {
+const CANCELLATION_POLL: Duration = Duration::from_millis(25);
+const STREAM_CLEANUP_GRACE: Duration = Duration::from_millis(25);
+const MAX_BOOTSTRAP_ADDRESSES: usize = 8;
+static BOOTSTRAP_LOOKUPS: Semaphore = Semaphore::const_new(8);
+static ACTIVE_EXCHANGES: Semaphore = Semaphore::const_new(8);
+
+/// The facade owns request lifetimes alongside other JNI handles.
+pub struct DoqRequestControls {
+    pub reserve: fn() -> Option<u64>,
+    pub cancel: fn(u64),
+    pub release: fn(u64),
+    pub cancellation: fn(u64) -> Option<Arc<AtomicBool>>,
+}
+
+pub fn exchange_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>, controls: &DoqRequestControls) -> jstring {
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> {
             let request_json = {
@@ -33,8 +51,14 @@ pub fn exchange_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jst
                 }
                 chars.to_str().into_owned()
             };
-            let payload = exchange(&request_json);
-            Ok(env.new_string(payload)?.into_raw())
+            let (payload, reserved) = exchange(&request_json, controls);
+            let reply = env.new_string(payload);
+            if reply.is_err()
+                && let Some(handle) = reserved
+            {
+                (controls.release)(handle);
+            }
+            Ok(reply?.into_raw())
         })
         .into_outcome()
     {
@@ -43,18 +67,55 @@ pub fn exchange_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jst
     }
 }
 
-fn exchange(request_json: &str) -> String {
+// Return a new reservation separately so JNI can release it if the reply cannot be delivered.
+fn exchange(request_json: &str, controls: &DoqRequestControls) -> (String, Option<u64>) {
     if request_json.len() > MAX_REQUEST_BYTES {
-        return response_error(NativeDoqErrorKind::InvalidRequest, "native DoQ request is too large");
+        return (response_error(NativeDoqErrorKind::InvalidRequest, "native DoQ request is too large"), None);
     }
-    let request = match serde_json::from_str::<NativeDoqExchangeRequest>(request_json) {
-        Ok(request) => request,
+    let request = match serde_json::from_str::<NativeDoqRequest>(request_json) {
+        Ok(NativeDoqRequest::Control(control)) => return control_reply(control, controls),
+        Ok(NativeDoqRequest::Exchange(request)) => request,
         Err(error) => {
-            return response_error(NativeDoqErrorKind::InvalidRequest, format!("invalid native DoQ request: {error}"));
+            return (
+                response_error(NativeDoqErrorKind::InvalidRequest, format!("invalid native DoQ request: {error}")),
+                None,
+            );
         }
     };
+    let Some(cancelled) = (controls.cancellation)(request.request_handle) else {
+        return (response_error(NativeDoqErrorKind::InvalidRequest, "native DoQ request is not reserved"), None);
+    };
+    (exchange_reserved(request, &cancelled), None)
+}
+
+fn control_reply(control: NativeDoqControl, controls: &DoqRequestControls) -> (String, Option<u64>) {
+    const OK: &str = r#"{"controlOk":true}"#;
+    match control {
+        NativeDoqControl::Reserve => (controls.reserve)().map_or_else(
+            || (response_error(NativeDoqErrorKind::Setup, "native DoQ request capacity exhausted"), None),
+            |handle| (serde_json::json!({"requestHandle": handle}).to_string(), Some(handle)),
+        ),
+        NativeDoqControl::Cancel { request_handle } if valid_handle(request_handle) => {
+            (controls.cancel)(request_handle);
+            (OK.to_owned(), None)
+        }
+        NativeDoqControl::Release { request_handle } if valid_handle(request_handle) => {
+            (controls.release)(request_handle);
+            (OK.to_owned(), None)
+        }
+        _ => (response_error(NativeDoqErrorKind::InvalidRequest, "invalid native DoQ request handle"), None),
+    }
+}
+
+fn valid_handle(handle: u64) -> bool {
+    (1..=i64::MAX as u64).contains(&handle)
+}
+
+fn exchange_reserved(request: NativeDoqExchangeRequest, cancelled: &AtomicBool) -> String {
     if request.endpoint.trim().is_empty()
+        || request.endpoint.len() > 253
         || request.tls_server_name.trim().is_empty()
+        || request.tls_server_name.len() > 253
         || matches!(request.port, 0 | 53)
         || request.timeout_ms == 0
     {
@@ -68,10 +129,13 @@ fn exchange(request_json: &str) -> String {
     let Some(deadline) = Instant::now().checked_add(limit) else {
         return response_error(NativeDoqErrorKind::InvalidRequest, "invalid DoQ timeout");
     };
-    match run_bounded(deadline, exchange_async(request, query, limit, deadline)) {
-        Ok(Some(Ok(response))) => response_ok(response),
-        Ok(Some(Err(error))) => response_error(error.kind, error.message),
-        Ok(None) => response_error(NativeDoqErrorKind::Timeout, "native DoQ exchange timed out"),
+    // A released or repeated handle cannot free an in-flight exchange's slot.
+    let Ok(_active) = ACTIVE_EXCHANGES.try_acquire() else {
+        return response_error(NativeDoqErrorKind::Setup, "native DoQ exchange capacity exhausted");
+    };
+    match run_on_current_thread(exchange_async(request, query, limit, deadline, cancelled)) {
+        Ok(Ok(response)) => response_ok(response),
+        Ok(Err(error)) => response_error(error.kind, error.message),
         Err(error) => response_error(NativeDoqErrorKind::Setup, format!("build native DoQ runtime: {error}")),
     }
 }
@@ -87,16 +151,39 @@ fn decode_query(encoded: &str) -> Result<Vec<u8>, &'static str> {
     Ok(query)
 }
 
-/// Run `future` on a fresh current-thread runtime until `deadline`;
-/// `Ok(None)` means it timed out. The runtime shuts down in the background:
-/// dropping it would wait for in-flight blocking tasks such as the
-/// uncancellable `getaddrinfo` behind `lookup_host`, holding the JNI caller far
-/// past the deadline.
-fn run_bounded<F: std::future::Future>(deadline: Instant, future: F) -> io::Result<Option<F::Output>> {
+// A timed-out platform lookup can still be in libc. Do not join that blocking
+// worker on the JNI caller. Its lookup permit stays with it until it returns.
+fn run_on_current_thread<T>(future: impl Future<Output = T>) -> io::Result<T> {
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
-    let result = runtime.block_on(async { timeout_at(deadline.into(), future).await }).ok();
+    let result = runtime.block_on(future);
     runtime.shutdown_background();
     Ok(result)
+}
+
+/// # Cancel safety:
+/// conditionally cancel-safe: dropping the operation must be safe. A polling tick drops only a borrow.
+async fn run_cancellable<T>(
+    deadline: Instant,
+    cancelled: &AtomicBool,
+    future: impl Future<Output = Result<T, NativeDoqError>>,
+) -> Result<T, NativeDoqError> {
+    let mut future = std::pin::pin!(future);
+    let mut completed = None;
+    loop {
+        // The flag does not publish any other state.
+        if cancelled.load(Ordering::Relaxed) {
+            return Err(NativeDoqError::new(NativeDoqErrorKind::Cancelled, "native DoQ request cancelled"));
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(NativeDoqError::new(NativeDoqErrorKind::Timeout, "native DoQ exchange timed out"));
+        }
+        if let Some(result) = completed {
+            return result;
+        }
+        // Timeout polls the child first. Check the flag and deadline again before returning its value.
+        completed = timeout(remaining.min(CANCELLATION_POLL), future.as_mut()).await.ok();
+    }
 }
 
 /// # Cancel safety:
@@ -106,8 +193,9 @@ async fn exchange_async(
     query: Vec<u8>,
     timeout_duration: Duration,
     deadline: Instant,
+    cancelled: &AtomicBool,
 ) -> Result<Vec<u8>, NativeDoqError> {
-    let bootstrap_ips = bootstrap_ips(&request.endpoint, request.port).await?;
+    let bootstrap_ips = run_cancellable(deadline, cancelled, bootstrap_ips(&request.endpoint, request.port)).await?;
     let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(
         EncryptedDnsEndpoint {
             protocol: EncryptedDnsProtocol::Doq,
@@ -126,7 +214,21 @@ async fn exchange_async(
         doq_connect_hooks(),
     )
     .map_err(NativeDoqError::from)?;
-    resolver.exchange_doq_until(&query, deadline).await.map_err(NativeDoqError::from)
+    let result = run_cancellable(deadline, cancelled, async {
+        resolver.exchange_doq_until(&query, deadline).await.map_err(NativeDoqError::from)
+    })
+    .await;
+    if matches!(
+        result,
+        Err(NativeDoqError {
+            kind: NativeDoqErrorKind::Cancelled | NativeDoqErrorKind::Timeout | NativeDoqErrorKind::Wire,
+            ..
+        })
+    ) {
+        // Keep the resolver alive while Quinn sends STOP_SENDING or CONNECTION_CLOSE.
+        sleep(STREAM_CLEANUP_GRACE).await;
+    }
+    result
 }
 
 /// # Cancel safety:
@@ -135,21 +237,45 @@ async fn bootstrap_ips(endpoint: &str, port: u16) -> Result<Vec<IpAddr>, NativeD
     if let Ok(ip) = endpoint.parse::<IpAddr>() {
         return Ok(vec![ip]);
     }
-    // Async DNS via tokio's blocking pool — avoids blocking the current_thread
-    // runtime worker (which is the only worker on this JNI-spawned runtime, so
-    // a sync `to_socket_addrs` would defeat the outer `tokio::time::timeout`
-    // because the timer cannot fire while the worker is parked in libc resolve).
-    let addresses = tokio::net::lookup_host((endpoint, port)).await.map_err(|error| {
-        NativeDoqError::new(NativeDoqErrorKind::Bootstrap, format!("resolve DoQ bootstrap {endpoint}: {error}"))
-    })?;
-    let ips: Vec<IpAddr> = addresses.map(|addr| addr.ip()).collect();
+    let endpoint = endpoint.to_owned();
+    let ips = bounded_platform_lookup(&BOOTSTRAP_LOOKUPS, move || {
+        let mut ips = Vec::new();
+        for address in (endpoint.as_str(), port).to_socket_addrs()? {
+            let ip = address.ip();
+            if !ips.contains(&ip) {
+                ips.push(ip);
+            }
+            if ips.len() == MAX_BOOTSTRAP_ADDRESSES {
+                break;
+            }
+        }
+        Ok(ips)
+    })
+    .await?;
     if ips.is_empty() {
-        return Err(NativeDoqError::new(
-            NativeDoqErrorKind::Bootstrap,
-            format!("resolve DoQ bootstrap {endpoint}: no addresses"),
-        ));
+        return Err(NativeDoqError::new(NativeDoqErrorKind::Bootstrap, "DoQ bootstrap returned no addresses"));
     }
     Ok(ips)
+}
+
+/// # Cancel safety:
+/// cancel-safe except for fairness: a cancelled acquisition loses its place in the queue.
+/// After a lookup starts, its permit stays with the worker until that worker returns.
+async fn bounded_platform_lookup<T: Send + 'static>(
+    lookups: &'static Semaphore,
+    lookup: impl FnOnce() -> io::Result<T> + Send + 'static,
+) -> Result<T, NativeDoqError> {
+    let permit = lookups
+        .acquire()
+        .await
+        .map_err(|_| NativeDoqError::new(NativeDoqErrorKind::Setup, "native DoQ bootstrap queue closed"))?;
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        lookup()
+    })
+    .await
+    .map_err(|_| NativeDoqError::new(NativeDoqErrorKind::Setup, "native DoQ bootstrap worker failed"))?
+    .map_err(|error| NativeDoqError::new(NativeDoqErrorKind::Bootstrap, format!("resolve DoQ bootstrap: {error}")))
 }
 
 fn doq_connect_hooks() -> EncryptedDnsConnectHooks {
@@ -159,6 +285,7 @@ fn doq_connect_hooks() -> EncryptedDnsConnectHooks {
             socket.set_only_v6(false)?;
         }
         if has_protect_callback() {
+            // Android protection is synchronous. The deadline is checked after setup.
             protect_socket_via_callback(socket.as_raw_fd())
                 .map_err(|error| io::Error::new(error.kind(), format!("protect native DoQ socket: {error}")))?;
         }
@@ -191,8 +318,31 @@ fn response_error(error_kind: NativeDoqErrorKind, error: impl Into<String>) -> S
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum NativeDoqRequest {
+    Control(NativeDoqControl),
+    Exchange(NativeDoqExchangeRequest),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
+enum NativeDoqControl {
+    Reserve,
+    Cancel {
+        #[serde(rename = "requestHandle")]
+        request_handle: u64,
+    },
+    Release {
+        #[serde(rename = "requestHandle")]
+        request_handle: u64,
+    },
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NativeDoqExchangeRequest {
+    #[serde(rename = "requestHandle")]
+    request_handle: u64,
     endpoint: String,
     port: u16,
     #[serde(rename = "tlsServerName")]
@@ -223,16 +373,18 @@ enum NativeDoqErrorKind {
     Quic,
     Wire,
     Timeout,
+    Cancelled,
 }
 
+#[derive(Debug)]
 struct NativeDoqError {
     kind: NativeDoqErrorKind,
     message: String,
 }
 
 impl NativeDoqError {
-    fn new(kind: NativeDoqErrorKind, message: String) -> Self {
-        Self { kind, message }
+    fn new(kind: NativeDoqErrorKind, message: impl Into<String>) -> Self {
+        Self { kind, message: message.into() }
     }
 }
 
@@ -258,135 +410,5 @@ impl From<EncryptedDnsError> for NativeDoqError {
 }
 
 #[cfg(test)]
-mod tests {
-    use serde_json::Value;
-
-    use super::*;
-
-    #[test]
-    fn doq_bridge_preserves_native_error_kinds() {
-        let native_errors = [
-            (DoqErrorKind::Setup, "setup"),
-            (DoqErrorKind::Connect, "quic"),
-            (DoqErrorKind::Exchange, "quic"),
-            (DoqErrorKind::Tls, "tls"),
-            (DoqErrorKind::Alpn, "alpn"),
-            (DoqErrorKind::ConnectTimeout, "timeout"),
-            (DoqErrorKind::QueryTimeout, "timeout"),
-        ];
-        for (kind, expected) in native_errors {
-            let error = NativeDoqError::from(EncryptedDnsError::Doq { kind, message: "failure".into() });
-            let result: Value = serde_json::from_str(&response_error(error.kind, error.message)).unwrap();
-            assert_eq!(result["errorKind"], expected);
-        }
-        let wire_error = NativeDoqError::from(EncryptedDnsError::DnsParse("short response".into()));
-        let result: Value = serde_json::from_str(&response_error(wire_error.kind, wire_error.message)).unwrap();
-        assert_eq!(result["errorKind"], "wire");
-    }
-
-    #[test]
-    fn doq_checks_query_size_before_resolution() {
-        for bytes in [0, 11, 65_536] {
-            let request = serde_json::json!({
-                "endpoint": "invalid.example",
-                "port": 853,
-                "tlsServerName": "invalid.example",
-                "queryBase64": STANDARD.encode(vec![0; bytes]),
-                "timeoutMs": 6_000,
-            });
-            let result: Value = serde_json::from_str(&exchange(&request.to_string())).unwrap();
-            assert_eq!(result["errorKind"], "invalid_request");
-        }
-        for bytes in [12, 65_535] {
-            assert_eq!(decode_query(&STANDARD.encode(vec![0; bytes])).unwrap().len(), bytes);
-        }
-        assert!(decode_query("b64*").is_err());
-    }
-
-    #[test]
-    fn doq_udp_is_protected_before_bind() {
-        struct UnboundSocketRequired;
-        impl ripdpi_runtime_platform::protect::ProtectCallback for UnboundSocketRequired {
-            fn protect(&self, fd: std::os::fd::RawFd) -> io::Result<()> {
-                let local =
-                    nix::sys::socket::getsockname::<nix::sys::socket::SockaddrStorage>(fd).map_err(io::Error::from)?;
-                let port = local
-                    .as_sockaddr_in()
-                    .map(nix::sys::socket::SockaddrIn::port)
-                    .or_else(|| local.as_sockaddr_in6().map(nix::sys::socket::SockaddrIn6::port))
-                    .expect("IP socket");
-                if port != 0 {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "protect received an already bound socket",
-                    ));
-                }
-                Ok(())
-            }
-        }
-        ripdpi_runtime_platform::protect::register_protect_callback(std::sync::Arc::new(UnboundSocketRequired));
-        let hooks = doq_connect_hooks();
-        let binder = hooks.direct_udp_binder.as_ref().expect("DoQ binder");
-        let results = ["0.0.0.0:0", "[::]:0"].map(|address| binder(address.parse().expect("bind address")));
-        ripdpi_runtime_platform::protect::unregister_protect_callback();
-        for result in results {
-            assert_ne!(result.expect("protect before bind").local_addr().expect("bound").port(), 0);
-        }
-    }
-
-    #[test]
-    fn cloudflare_doq_exchange_is_available_when_network_tests_enabled() {
-        if std::env::var("RIPDPI_RUN_NETWORK_TESTS").as_deref() != Ok("1") {
-            return;
-        }
-        let query = build_dns_query("example.com", 0x1234);
-        let request = serde_json::json!({
-            "endpoint": "1.1.1.1",
-            "port": 853,
-            "tlsServerName": "cloudflare-dns.com",
-            "queryBase64": STANDARD.encode(query),
-            "timeoutMs": 6_000,
-        });
-
-        let payload = exchange(&request.to_string());
-        let response: Value = serde_json::from_str(&payload).expect("native DoQ response JSON");
-
-        assert_eq!(response.get("error").and_then(Value::as_str), None);
-        let response_bytes = STANDARD
-            .decode(response.get("responseBase64").and_then(Value::as_str).expect("DoQ response body"))
-            .expect("base64 response");
-        assert_eq!(response_bytes[0], 0x12);
-        assert_eq!(response_bytes[1], 0x34);
-    }
-
-    #[test]
-    fn bounded_run_returns_at_the_deadline_while_a_blocking_lookup_runs() {
-        let started = std::time::Instant::now();
-        let result = run_bounded(started + Duration::from_millis(50), async {
-            // Stands in for getaddrinfo on a blackholed resolver.
-            tokio::task::spawn_blocking(|| std::thread::sleep(Duration::from_secs(3))).await
-        })
-        .expect("runtime");
-
-        assert!(result.is_none(), "the future must time out");
-        assert!(started.elapsed() < Duration::from_secs(1), "returned after {:?}", started.elapsed());
-    }
-
-    fn build_dns_query(domain: &str, query_id: u16) -> Vec<u8> {
-        let mut packet = Vec::with_capacity(512);
-        packet.extend(query_id.to_be_bytes());
-        packet.extend(0x0100u16.to_be_bytes());
-        packet.extend(1u16.to_be_bytes());
-        packet.extend(0u16.to_be_bytes());
-        packet.extend(0u16.to_be_bytes());
-        packet.extend(0u16.to_be_bytes());
-        for label in domain.trim_end_matches('.').split('.') {
-            packet.push(label.len() as u8);
-            packet.extend(label.as_bytes());
-        }
-        packet.push(0);
-        packet.extend(1u16.to_be_bytes());
-        packet.extend(1u16.to_be_bytes());
-        packet
-    }
-}
+#[path = "doq_tests.rs"]
+mod tests;

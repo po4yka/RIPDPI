@@ -9,11 +9,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
+import kotlin.coroutines.EmptyCoroutineContext
 
 enum class BootstrapVerdict {
     OK,
@@ -43,9 +46,27 @@ fun interface DohBootstrapResolver {
 
 object SystemOnlyDohBootstrapResolver : DohBootstrapResolver {
     override suspend fun resolve(hostname: String): List<String> =
-        InetAddress
-            .getAllByName(hostname)
-            .mapNotNull { address -> address.hostAddress }
+        resolveBlockingDohBootstrap {
+            InetAddress.getAllByName(hostname).mapNotNull { address -> address.hostAddress }
+        }
+}
+
+private val PlatformLookupSlots = Semaphore(4)
+
+internal suspend fun resolveBlockingDohBootstrap(lookup: () -> List<String>): List<String> {
+    PlatformLookupSlots.acquire()
+    return suspendCancellableCoroutine { continuation ->
+        Dispatchers.IO.dispatch(EmptyCoroutineContext) {
+            try {
+                if (continuation.isActive) {
+                    // The system lookup can outlive its caller. The worker owns the slot until it returns.
+                    continuation.resumeWith(runCatching(lookup))
+                }
+            } finally {
+                PlatformLookupSlots.release()
+            }
+        }
+    }
 }
 
 class DohBootstrapSpoofingDetector(

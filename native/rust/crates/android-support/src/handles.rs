@@ -23,7 +23,16 @@ impl<T> HandleRegistry<T> {
 
     pub fn insert(&self, value: T) -> u64 {
         let mut inner = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
-        let handle = self.next_free_handle(&inner);
+        self.insert_locked(&mut inner, value)
+    }
+
+    pub fn try_insert_bounded(&self, value: T, limit: usize) -> Option<u64> {
+        let mut inner = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+        (inner.len() < limit).then(|| self.insert_locked(&mut inner, value))
+    }
+
+    fn insert_locked(&self, inner: &mut HashMap<u64, Arc<T>>, value: T) -> u64 {
+        let handle = self.next_free_handle(inner);
         inner.insert(handle, Arc::new(value));
         handle
     }
@@ -61,6 +70,16 @@ fn next_handle_after(handle: u64) -> u64 {
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bounded_insert_keeps_reserved_values_until_removed() {
+        let registry = HandleRegistry::new();
+        let handle = registry.try_insert_bounded("first", 1).unwrap();
+        assert!(registry.try_insert_bounded("rejected", 1).is_none());
+        assert_eq!(registry.get(handle).as_deref(), Some(&"first"));
+        registry.remove(handle).unwrap();
+        assert!(registry.try_insert_bounded("next", 1).is_some());
+    }
 
     #[test]
     fn insert_wraps_without_colliding_with_live_handle() {

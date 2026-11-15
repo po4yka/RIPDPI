@@ -73,7 +73,14 @@ class DnsIntegrityChecker(
     private val doqProbe: DoqIntegrityProbe? = null,
     private val dohBootstrapDetector: DohBootstrapSpoofingDetector? = null,
 ) {
-    suspend fun check(domains: List<String>): DnsIntegrityResult {
+    suspend fun check(domains: List<String>): DnsIntegrityResult = check(domains, doqProbe)
+
+    suspend fun collectStubIps(domains: List<String>): Set<String> = check(domains, probe = null).stubIps
+
+    private suspend fun check(
+        domains: List<String>,
+        probe: DoqIntegrityProbe?,
+    ): DnsIntegrityResult {
         val dohBootstrapResults = runDohBootstrapDetector()
         val excludedDohHostnames = dohBootstrapResults.excludedDohHostnames()
         // Domains run in parallel and each UDP leg has a budget: on a network that drops UDP/53 the
@@ -85,7 +92,7 @@ class DnsIntegrityChecker(
                     .map { domain -> async { permits.withPermit { checkDomain(domain, excludedDohHostnames) } } }
                     .awaitAll()
             }
-        val doqResults = runDoqProbe(domains, results)
+        val doqResults = runDoqProbe(probe, domains, results)
         val encryptedIps = results.flatMapTo(hashSetOf()) { it.dohIps }
         val stubIps =
             results
@@ -101,7 +108,7 @@ class DnsIntegrityChecker(
             dohBlocked = results.count { result -> result.verdict == DnsIntegrityVerdict.DOH_BLOCKED },
             doqResults = doqResults,
             dohBootstrapResults = dohBootstrapResults,
-            doqExpectedChecks = doqProbe?.expectedChecks(domains),
+            doqExpectedChecks = probe?.expectedChecks(domains),
         )
     }
 
@@ -117,10 +124,11 @@ class DnsIntegrityChecker(
             .mapTo(linkedSetOf()) { result -> result.dohHostname }
 
     private suspend fun runDoqProbe(
+        probe: DoqIntegrityProbe?,
         domains: List<String>,
         results: List<DnsIntegrityDomainResult>,
     ): List<DoqProbeResult> {
-        val probe = doqProbe ?: return emptyList()
+        if (probe == null) return emptyList()
         val dohResults =
             results.associate { result ->
                 val json =

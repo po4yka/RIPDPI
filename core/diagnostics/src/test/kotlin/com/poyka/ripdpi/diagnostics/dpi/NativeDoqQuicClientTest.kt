@@ -39,6 +39,7 @@ class NativeDoqQuicClientTest {
             val request = Json.parseToJsonElement(bindings.lastRequestJson).jsonObject
             assertEquals("1.1.1.1", request.getValue("endpoint").jsonPrimitive.content)
             assertEquals("853", request.getValue("port").jsonPrimitive.content)
+            assertEquals("1", request.getValue("requestHandle").jsonPrimitive.content)
             assertEquals("cloudflare-dns.com", request.getValue("tlsServerName").jsonPrimitive.content)
             assertArrayEquals(
                 framedQuery.copyOfRange(DoqLengthPrefixBytes, framedQuery.size),
@@ -175,8 +176,21 @@ class NativeDoqQuicClientTest {
         lateinit var lastRequestJson: String
 
         override fun exchange(requestJson: String): String? {
-            lastRequestJson = requestJson
-            return response()
+            val request = Json.parseToJsonElement(requestJson).jsonObject
+            return when (request["operation"]?.jsonPrimitive?.content) {
+                "reserve" -> {
+                    """{"requestHandle":1}"""
+                }
+
+                "release" -> {
+                    """{"controlOk":true}"""
+                }
+
+                else -> {
+                    lastRequestJson = requestJson
+                    response()
+                }
+            }
         }
     }
 

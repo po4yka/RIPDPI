@@ -10,6 +10,8 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 
 enum class DoqVerdict {
     DOQ_OK,
@@ -83,17 +85,24 @@ class DoqIntegrityProbe(
         dohResults: Map<String, List<DoqBaselineObservation>>,
     ): List<DoqProbeResult> =
         coroutineScope {
-            val semaphore = Semaphore(concurrency.coerceAtLeast(1))
-            providers
-                .flatMap { provider -> domains.map { domain -> provider to domain } }
-                .map { (provider, domain) ->
-                    async {
-                        semaphore.withPermit {
-                            probe(provider, domain, dohResults[domain].orEmpty())
-                        }
-                    }
-                }.awaitAll()
-                .filterNotNull()
+            val work =
+                providers
+                    .asSequence()
+                    .flatMap { provider -> domains.asSequence().map { domain -> provider to domain } }
+            val results = mutableListOf<DoqProbeResult>()
+            for (batch in work.chunked(concurrency.coerceIn(1, DefaultDoqConcurrency))) {
+                results +=
+                    batch
+                        .map { (provider, domain) ->
+                            async {
+                                activeExchanges.withPermit {
+                                    probe(provider, domain, dohResults[domain].orEmpty())
+                                }
+                            }
+                        }.awaitAll()
+                        .filterNotNull()
+            }
+            results
         }
 
     /** Returns null when [domain] is not a DNS name, so it has no DoQ query to send. */
@@ -102,7 +111,7 @@ class DoqIntegrityProbe(
         domain: String,
         baseline: List<DoqBaselineObservation>,
     ): DoqProbeResult? {
-        val startedAt = System.currentTimeMillis()
+        val startedAt = TimeSource.Monotonic.markNow()
         val (_, query) =
             try {
                 DoqWireCodec.buildQuery(domain)
@@ -138,7 +147,7 @@ class DoqIntegrityProbe(
                     emptyList(),
                     startedAt,
                     errorDetail =
-                        if (response?.truncated ==
+                        if (response.truncated ==
                             true
                         ) {
                             "Truncated DoQ response"
@@ -187,7 +196,7 @@ class DoqIntegrityProbe(
         domain: String,
         verdict: DoqVerdict,
         resolvedIps: List<String>,
-        startedAt: Long,
+        startedAt: TimeMark,
         errorDetail: String? = null,
         response: DnsResponseSemantics? = null,
         failureKind: DoqFailureKind? = null,
@@ -199,7 +208,7 @@ class DoqIntegrityProbe(
             domain = domain,
             verdict = verdict,
             resolvedIps = resolvedIps,
-            latencyMs = System.currentTimeMillis() - startedAt,
+            latencyMs = startedAt.elapsedNow().inWholeMilliseconds,
             errorDetail = errorDetail,
             response = response,
             failureKind = failureKind,
@@ -210,6 +219,7 @@ class DoqIntegrityProbe(
         const val DefaultDoqPort = 853
         const val DefaultDoqTimeoutMs = 6_000L
         const val DefaultDoqConcurrency = 8
+        private val activeExchanges = Semaphore(DefaultDoqConcurrency)
         val DefaultDoqProviders =
             listOf(
                 DoqProvider("AdGuard", "dns.adguard-dns.com", dohProfile = DohResolverProfile.ADGUARD_DEFAULT),

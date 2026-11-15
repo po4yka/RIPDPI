@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics.dpi
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -11,6 +12,8 @@ import kotlinx.serialization.encodeToString
 import java.io.IOException
 import java.util.Base64
 import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 interface NativeDoqQuicClientBindings {
     fun exchange(requestJson: String): String?
@@ -47,16 +50,57 @@ class NativeDoqQuicClient
                 val wireQuery =
                     query.unframeDoqMessage()
                         ?: throw DoqExchangeException(DoqFailureKind.INVALID_REQUEST, "invalid DoQ query frame")
-                val request =
-                    NativeDoqExchangeRequest(
-                        endpoint = endpoint,
-                        port = port,
-                        tlsServerName = tlsServerName,
-                        queryBase64 = Base64.getEncoder().encodeToString(wireQuery),
-                        timeoutMs = timeoutMs,
-                    )
-                exchangeNative(json.encodeToString(request)).decodeBody()
+                val requestHandle = reserveRequest()
+                AutoCloseable { controlRequest("release", requestHandle) }.use {
+                    val request =
+                        NativeDoqExchangeRequest(
+                            endpoint = endpoint,
+                            port = port,
+                            tlsServerName = tlsServerName,
+                            queryBase64 = Base64.getEncoder().encodeToString(wireQuery),
+                            timeoutMs = timeoutMs,
+                            requestHandle = requestHandle,
+                        )
+                    exchangeCancellable(request)
+                }
             }
+
+        private suspend fun exchangeCancellable(request: NativeDoqExchangeRequest): ByteArray =
+            suspendCancellableCoroutine { continuation ->
+                continuation.invokeOnCancellation { cause ->
+                    try {
+                        controlRequest("cancel", request.requestHandle)
+                    } catch (error: Exception) {
+                        cause?.addSuppressed(error)
+                    }
+                }
+                if (continuation.isActive) {
+                    try {
+                        continuation.resume(exchangeNative(json.encodeToString(request)).decodeBody())
+                    } catch (error: Exception) {
+                        continuation.resumeWithException(error)
+                    }
+                }
+            }
+
+        private fun reserveRequest(): Long {
+            val response = exchangeNative(json.encodeToString(NativeDoqControlRequest("reserve")))
+            if (response.responseBase64 != null || response.controlOk != null) {
+                throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an invalid reservation")
+            }
+            return response.requestHandle?.takeIf { it > 0 }
+                ?: throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge missing request handle")
+        }
+
+        private fun controlRequest(
+            operation: String,
+            requestHandle: Long,
+        ) {
+            val response = exchangeNative(json.encodeToString(NativeDoqControlRequest(operation, requestHandle)))
+            if (response.controlOk != true || response.responseBase64 != null || response.requestHandle != null) {
+                throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge did not confirm $operation")
+            }
+        }
 
         private fun exchangeNative(requestJson: String): NativeDoqExchangeResponse {
             val payload =
@@ -104,6 +148,13 @@ private data class NativeDoqExchangeRequest(
     val queryBase64: String,
     @SerialName("timeoutMs")
     val timeoutMs: Long,
+    val requestHandle: Long,
+)
+
+@Serializable
+private data class NativeDoqControlRequest(
+    val operation: String,
+    val requestHandle: Long? = null,
 )
 
 @Serializable
@@ -113,11 +164,13 @@ private data class NativeDoqExchangeResponse(
     @SerialName("errorKind")
     val errorKind: String? = null,
     val error: String? = null,
+    val requestHandle: Long? = null,
+    val controlOk: Boolean? = null,
 )
 
 private fun NativeDoqExchangeResponse.checkForFailure() {
     if (errorKind == null && error == null) return
-    if (responseBase64 != null || error.isNullOrBlank()) {
+    if (responseBase64 != null || requestHandle != null || controlOk != null || error.isNullOrBlank()) {
         throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an invalid failure")
     }
     if (errorKind == "cancelled") throw CancellationException(error)
@@ -137,6 +190,9 @@ private fun NativeDoqExchangeResponse.checkForFailure() {
 }
 
 private fun NativeDoqExchangeResponse.decodeBody(): ByteArray {
+    if (requestHandle != null || controlOk != null) {
+        throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge expected a DNS response")
+    }
     val encoded =
         responseBase64 ?: throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge missing response body")
     if (encoded.length > MaxDoqBase64Length) {

@@ -57,7 +57,7 @@ internal class DiagnosticsDpiSuiteRunnerFactory(
                 dnsIntegrityChecker.check(domains)
 
             override suspend fun collectStubIps(domains: List<String>): Set<String> =
-                dnsIntegrityChecker.check(domains.take(SuiteDnsIntegrityPreviewDomainLimit)).stubIps
+                dnsIntegrityChecker.collectStubIps(domains.take(SuiteDnsIntegrityPreviewDomainLimit))
 
             override suspend fun runDnsAvailability(): List<DnsServerResult> = dnsAvailabilitySurvey.run()
 

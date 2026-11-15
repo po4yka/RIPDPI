@@ -175,6 +175,32 @@ class DnsIntegrityCheckerTest {
         }
 
     @Test
+    fun stubIpPreflightUsesDnsEvidenceWithoutDoq() =
+        runTest {
+            val checks =
+                DnsIntegrityChecker(
+                    udpProbe = DnsUdpProbe { listOf("198.18.0.2") },
+                    dohJsonProbe = DnsAddressProbe { setOf("1.1.1.1") },
+                    dohWireProbe = DnsAddressProbe { setOf("1.1.1.1") },
+                    doqProbe =
+                        DoqIntegrityProbe(
+                            client =
+                                object : DoqQuicClient {
+                                    override suspend fun exchange(
+                                        endpoint: String,
+                                        port: Int,
+                                        tlsServerName: String,
+                                        query: ByteArray,
+                                        timeoutMs: Long,
+                                    ): ByteArray = error("Stub IP preflight does not need DoQ")
+                                },
+                        ),
+                )
+
+            assertEquals(setOf("198.18.0.2"), checks.collectStubIps(listOf("one.test", "two.test")))
+        }
+
+    @Test
     fun doqProbeReceivesDohCrossCheckResults() =
         runTest {
             val result =

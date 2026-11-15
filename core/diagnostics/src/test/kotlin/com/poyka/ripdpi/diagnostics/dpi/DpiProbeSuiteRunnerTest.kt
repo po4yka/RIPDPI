@@ -95,6 +95,7 @@ class DpiProbeSuiteRunnerTest {
                     .toList()
 
             assertTrue(results.single().result is DpiSuiteProbeResult.DomainReachability)
+            assertEquals(5_000L, testScheduler.currentTime)
         }
 
     @Test
