@@ -1,5 +1,6 @@
 mod classifier;
 mod probe_execution;
+mod request_error;
 mod response_decoder;
 mod response_parser;
 #[cfg(test)]
@@ -16,6 +17,7 @@ pub use probe_execution::{
     try_http_request_targets, try_http_request_targets_with_cancel, try_http_request_targets_with_key_log,
     try_http_request_with_key_log,
 };
+pub use request_error::HttpRequestError;
 pub use response_decoder::{HttpBodyFraming, HttpResponseDecoder, HttpResponseEvent};
 pub use response_parser::{
     parse_http_response, parse_http_response_head, read_http_headers, read_http_headers_io, read_http_response,

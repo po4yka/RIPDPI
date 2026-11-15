@@ -5,35 +5,43 @@ use super::{HttpBodyFraming, HttpResponse, HttpResponseDecoder, HttpResponseEven
 use crate::transport::ConnectionStream;
 
 pub fn read_http_response(stream: &mut ConnectionStream, max_bytes: usize) -> Result<HttpResponse, String> {
-    let mut decoder = HttpResponseDecoder::new("GET", max_bytes).map_err(str::to_string)?;
+    read_http_response_io(stream, max_bytes).map_err(|error| error.to_string())
+}
+
+pub(super) fn read_http_response_io(stream: &mut ConnectionStream, max_bytes: usize) -> io::Result<HttpResponse> {
+    let mut decoder = HttpResponseDecoder::new("GET", max_bytes).map_err(invalid_response)?;
     let mut response = None;
     let mut input = [0u8; 8192];
     loop {
-        match decoder.next_event().map_err(str::to_string)? {
+        match decoder.next_event().map_err(invalid_response)? {
             HttpResponseEvent::NeedInput => {
-                let count = stream.read(&mut input[..decoder.input_capacity()]).map_err(|error| error.to_string())?;
+                let count = stream.read(&mut input[..decoder.input_capacity()])?;
                 if count == 0 {
                     decoder.finish_input();
                 } else {
-                    decoder.feed(&input[..count]).map_err(str::to_string)?;
+                    decoder.feed(&input[..count]).map_err(invalid_response)?;
                 }
             }
             HttpResponseEvent::Head(head, framing) => {
                 if matches!(framing, HttpBodyFraming::Length(length) if length > max_bytes as u64) {
-                    return Err("response_too_large".to_string());
+                    return Err(invalid_response("response_too_large"));
                 }
                 response = Some(head);
             }
             HttpResponseEvent::Data(data) => {
-                let response = response.as_mut().ok_or("response_missing_headers")?;
+                let response = response.as_mut().ok_or_else(|| invalid_response("response_missing_headers"))?;
                 if data.len() > max_bytes.saturating_sub(response.body.len()) {
-                    return Err("response_too_large".to_string());
+                    return Err(invalid_response("response_too_large"));
                 }
                 response.body.extend_from_slice(&data);
             }
-            HttpResponseEvent::Complete => return response.ok_or_else(|| "response_missing_headers".to_string()),
+            HttpResponseEvent::Complete => return response.ok_or_else(|| invalid_response("response_missing_headers")),
         }
     }
+}
+
+fn invalid_response(message: &'static str) -> io::Error {
+    io::Error::new(ErrorKind::InvalidData, message)
 }
 
 pub fn read_http_headers(stream: &mut ConnectionStream, max_bytes: usize) -> Result<Vec<u8>, String> {

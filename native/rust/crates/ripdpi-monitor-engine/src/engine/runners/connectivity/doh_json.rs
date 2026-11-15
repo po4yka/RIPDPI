@@ -7,7 +7,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::ProbeExecutionContext;
 use crate::engine::runtime::ExecutionPlan;
-use crate::http::{HttpResponse, execute_doh_json_request};
+use crate::http::{HttpRequestError, HttpResponse, execute_doh_json_request};
 use crate::transport::TargetAddress;
 use crate::types::{DnsTarget, ProbeDetail, ProbeResult};
 use crate::util::{DEFAULT_DOH_JSON_RESOLVERS, encode_doh_json_query_name, parse_doh_json_ip_answer};
@@ -55,7 +55,7 @@ fn unique_targets(targets: &[DnsTarget]) -> Vec<DnsTarget> {
 fn survey(
     domain: &str,
     cancel: &AtomicBool,
-    mut fetch: impl FnMut(&str, &str) -> Result<HttpResponse, String>,
+    mut fetch: impl FnMut(&str, &str) -> Result<HttpResponse, HttpRequestError>,
 ) -> ProbeResult {
     let mut result = ProbeResult {
         probe_type: "doh_json_survey".to_string(),
@@ -93,7 +93,7 @@ fn survey(
                 }
             }
             Ok(response) => (format!("http_{}", response.status_code), None),
-            Err(error) => (transport_status(&error).to_string(), None),
+            Err(error) => (error.status().to_string(), None),
         };
         result.details.push(ProbeDetail { key: format!("{label}.status"), value: status });
         result.details.push(ProbeDetail { key: format!("{label}.roundTripMs"), value: elapsed_ms.to_string() });
@@ -115,17 +115,6 @@ fn survey(
     result
 }
 
-fn transport_status(error: &str) -> &'static str {
-    let lower = error.to_ascii_lowercase();
-    if lower.contains("timeout") || lower.contains("timed out") || lower.contains("deadline") {
-        "timeout"
-    } else if lower.contains("tls") || lower.contains("certificate") {
-        "tls_error"
-    } else {
-        "network_error"
-    }
-}
-
 impl_connectivity_runner!(DohJsonSurveyRunner, DohJsonSurveyFamily, DohJsonSurvey);
 
 #[cfg(test)]
@@ -134,7 +123,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::{Duration, Instant};
 
-    use crate::http::HttpResponse;
+    use crate::http::{HttpRequestError, HttpResponse};
     use crate::util::{DEFAULT_DOH_JSON_RESOLVERS, encode_doh_json_query_name, with_scan_io_deadline};
 
     use super::{DohJsonSurveyRunner, survey, unique_targets};
@@ -200,7 +189,21 @@ mod tests {
         let result = survey("selected.example", &AtomicBool::new(false), |host, _| match host {
             "dns.google" => Ok(response(200, br#"{"Status":0,"Answer":[]}"#)),
             "cloudflare-dns.com" => Ok(response(200, b"not json")),
-            _ => Err("certificate invalid".to_string()),
+            _ => {
+                let mut source = crate::tls::open_probe_stream_targets_with_options_and_abort(
+                    &[],
+                    443,
+                    &crate::transport::direct_transport(),
+                    None,
+                    &crate::tls::ProbeStreamOptions::default(),
+                    &|| Some("test_cancelled"),
+                )
+                .err()
+                .expect("abort before any network I/O");
+                source.stage = crate::tls::ProbeStreamFailureStage::TlsHandshake;
+                source.message = "certificate invalid".to_string();
+                Err(HttpRequestError::Stream(source))
+            }
         });
         assert_eq!(result.outcome, "inconclusive");
         assert!(result.details.iter().any(|detail| detail.key == "surveyStatus" && detail.value == "unavailable"));
