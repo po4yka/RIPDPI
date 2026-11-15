@@ -18,7 +18,7 @@ class AllowlistSniFinder(
         withContext(dispatcher) {
             val flaggedByAsn =
                 results
-                    .filter { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
+                    .filter { result -> result.verdict == Tcp16Verdict.PADDED_TRAIN_INTERRUPTED }
                     .groupBy { result -> result.asn }
             flaggedByAsn
                 .mapValues { (_, asnResults) ->
@@ -28,8 +28,8 @@ class AllowlistSniFinder(
 
     private suspend fun findForRepresentative(result: Tcp16ProbeResult): AllowlistSniResult {
         val baseTarget = result.toTarget(sni = null)
-        val baseline = probe.runWithRttHint(baseTarget, hintRttMs = null)
-        val hintRttMs = baseline.measuredRttMs ?: result.measuredRttMs
+        val baseline = probe.runTarget(baseTarget, responseTimeHintMs = null)
+        val responseTimeHintMs = baseline.meanResponseMs ?: result.meanResponseMs
         val compatible = mutableListOf<CompatibleSni>()
         var triedCount = 0
         for (batch in sniList.withIndex().chunked(batchSize)) {
@@ -40,12 +40,12 @@ class AllowlistSniFinder(
                             async {
                                 val sni = indexed.value
                                 val probeResult =
-                                    probe.runWithRttHint(
+                                    probe.runTarget(
                                         baseTarget.copy(
                                             id = "${baseTarget.id}:sni:${indexed.index + 1}",
                                             sni = sni,
                                         ),
-                                        hintRttMs = hintRttMs,
+                                        responseTimeHintMs = responseTimeHintMs,
                                     )
                                 indexed to probeResult
                             }

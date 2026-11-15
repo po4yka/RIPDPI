@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
-import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpich.RandomHostHeaderGenerator
 import kotlinx.coroutines.CoroutineDispatcher
@@ -16,26 +15,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import okhttp3.Call
-import okhttp3.ConnectionPool
-import okhttp3.Dns
-import okhttp3.EventListener
-import okhttp3.HttpUrl
-import okhttp3.OkHttpClient
-import okhttp3.Protocol
-import okhttp3.Request
 import java.io.EOFException
 import java.io.IOException
-import java.net.InetAddress
-import java.net.InetSocketAddress
-import java.net.Proxy
+import java.io.InterruptedIOException
 import java.net.SocketException
 import java.net.SocketTimeoutException
-import java.net.UnknownHostException
-import java.util.Locale
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.SSLHandshakeException
 import kotlin.math.roundToLong
 
@@ -57,7 +41,7 @@ class Tcp16FatHeaderProbe(
 
     suspend fun run(
         targets: List<Tcp16Target>,
-        rttHints: Map<String, Long> = emptyMap(),
+        responseTimeHints: Map<String, Long> = emptyMap(),
         randomHostname: Boolean = false,
     ): List<Tcp16ProbeResult> =
         coroutineScope {
@@ -66,22 +50,22 @@ class Tcp16FatHeaderProbe(
                 .map { target ->
                     async {
                         semaphore.withPermit {
-                            runWithRttHint(target, rttHints[target.id], randomHostname = randomHostname)
+                            runTarget(target, responseTimeHints[target.id], randomHostname = randomHostname)
                         }
                     }
                 }.awaitAll()
         }
 
-    suspend fun runWithRttHint(target: Tcp16Target): Tcp16ProbeResult = runWithRttHint(target, hintRttMs = null)
+    suspend fun runTarget(target: Tcp16Target): Tcp16ProbeResult = runTarget(target, responseTimeHintMs = null)
 
-    override suspend fun runWithRttHint(
+    override suspend fun runTarget(
         target: Tcp16Target,
-        hintRttMs: Long?,
-    ): Tcp16ProbeResult = runWithRttHint(target, hintRttMs, randomHostname = false)
+        responseTimeHintMs: Long?,
+    ): Tcp16ProbeResult = runTarget(target, responseTimeHintMs, randomHostname = false)
 
-    suspend fun runWithRttHint(
+    suspend fun runTarget(
         target: Tcp16Target,
-        hintRttMs: Long?,
+        responseTimeHintMs: Long?,
         randomHostname: Boolean = false,
     ): Tcp16ProbeResult =
         withContext(dispatcher) {
@@ -89,19 +73,13 @@ class Tcp16FatHeaderProbe(
             if (invalidReason != null) {
                 return@withContext target.result(
                     alive = false,
-                    verdict = Tcp16Verdict.INVALID_TARGET,
-                    measuredRttMs = null,
-                    errorDetail = invalidReason,
-                    connectionCount = 0,
+                    end = Tcp16TrainEnd(Tcp16Verdict.INVALID_TARGET, invalidReason),
                 )
             }
             if (target.transport == null || !requestRunner.supports(target)) {
                 return@withContext target.result(
                     alive = false,
-                    verdict = Tcp16Verdict.UNSUPPORTED,
-                    measuredRttMs = null,
-                    errorDetail = "TCP16 transport is unavailable for this endpoint",
-                    connectionCount = 0,
+                    end = Tcp16TrainEnd(Tcp16Verdict.UNSUPPORTED, "TCP16 transport is unavailable for this endpoint"),
                 )
             }
             val tracker = Tcp16ConnectionTracker()
@@ -115,7 +93,7 @@ class Tcp16FatHeaderProbe(
                     }
                 }
             try {
-                runRequestTrain(target, hintRttMs, randomHostname, tracker)
+                runRequestTrain(target, responseTimeHintMs, randomHostname, tracker)
             } finally {
                 canceller.cancel()
                 tracker.close()
@@ -124,124 +102,110 @@ class Tcp16FatHeaderProbe(
 
     private suspend fun runRequestTrain(
         target: Tcp16Target,
-        hintRttMs: Long?,
+        responseTimeHintMs: Long?,
         randomHostname: Boolean,
         tracker: Tcp16ConnectionTracker,
     ): Tcp16ProbeResult {
-        val rttSamples = mutableListOf<Long>()
+        val samples = mutableListOf<Long>()
         val requestedHosts = mutableListOf<String>()
-        // One host for the whole train: a new host per request makes OkHttp open a new connection each time.
+        // Keep the authority constant for the entire connection.
         val requestedHost = if (randomHostname) RandomHostHeaderGenerator.next() else target.sni ?: target.ip
+        var completedPaddingBytes = 0
+        var httpStatus: Int? = null
+        var end = Tcp16TrainEnd(Tcp16Verdict.OK)
         for (requestIndex in 0 until RequestCount) {
             currentCoroutineContext().ensureActive()
             requestedHosts += requestedHost
+            val padding = if (requestIndex == 0) null else paddingPool.slice(PaddingBytes).trim()
             val request =
                 Tcp16FatHeaderRequest(
                     requestIndex = requestIndex,
-                    padding = if (requestIndex == 0) null else paddingPool.slice(PaddingBytes),
-                    timeoutMs = timeoutFor(hintRttMs ?: rttSamples.averageMillis()),
+                    padding = padding,
+                    timeoutMs = timeoutFor(responseTimeHintMs ?: samples.averageMillis()),
                     hostHeader = requestedHost,
                 )
-            val outcome =
-                runCatching {
+            tracker.beginRequest()
+            val response =
+                try {
                     requestRunner.execute(target, request, tracker)
+                } catch (error: IOException) {
+                    currentCoroutineContext().ensureActive()
+                    end = tracker.failure(error, completedPaddingBytes)
+                    break
                 }
             currentCoroutineContext().ensureActive()
-            val failure = outcome.exceptionOrNull()
-            val stop =
-                when {
-                    tracker.connectionCount > 1 -> {
-                        target.result(
-                            alive = true,
-                            verdict = Tcp16Verdict.INVALID_RECONNECTED,
-                            measuredRttMs = rttSamples.averageMillis(),
-                            errorDetail = "probe opened more than one socket",
-                            connectionCount = tracker.connectionCount,
-                            requestedHosts = requestedHosts.takeIf { randomHostname },
-                        )
-                    }
-
-                    failure != null -> {
-                        target.failureResult(
-                            requestIndex = requestIndex,
-                            error = failure,
-                            measuredRttMs = rttSamples.averageMillis(),
-                            connectionCount = tracker.connectionCount,
-                            requestedHosts = requestedHosts.takeIf { randomHostname },
-                        )
-                    }
-
-                    else -> {
-                        rttSamples += outcome.getOrThrow().elapsedMs
-                        null
-                    }
-                }
-            if (stop != null) return stop
+            httpStatus = response.statusCode
+            end = response.trainEnd(tracker.connectionCount, requestIndex)
+            if (response.statusCode in 200..299 && tracker.connectionCount <= 1) {
+                samples += response.elapsedMs
+                completedPaddingBytes += padding?.length ?: 0
+            }
+            if (end.verdict != Tcp16Verdict.OK) break
         }
         return target.result(
-            alive = true,
-            verdict = Tcp16Verdict.OK,
-            measuredRttMs = rttSamples.averageMillis(),
+            alive = tracker.connectionCount > 0 || httpStatus != null,
+            end = end,
+            completedPaddingBytes = completedPaddingBytes,
+            meanResponseMs = samples.averageMillis(),
+            httpStatus = httpStatus,
             connectionCount = tracker.connectionCount,
             requestedHosts = requestedHosts.takeIf { randomHostname },
         )
     }
 
-    private fun timeoutFor(rttMs: Long?): Long {
-        val baseRtt = rttMs?.coerceAtLeast(MinimumRttHintMs) ?: DefaultTimeoutBaseMs
-        return (baseRtt * TimeoutRttMultiplier + TimeoutSafetyMarginMs)
-            .coerceIn(MinTimeoutMs, MaxTimeoutMs)
+    private fun Tcp16FatHeaderResponse.trainEnd(
+        connectionCount: Int,
+        requestIndex: Int,
+    ): Tcp16TrainEnd =
+        when {
+            connectionCount > 1 -> Tcp16TrainEnd(Tcp16Verdict.INVALID_RECONNECTED)
+            statusCode !in 200..299 -> Tcp16TrainEnd(Tcp16Verdict.HTTP_REJECTED, "HTTP $statusCode")
+            connectionClose && requestIndex < RequestCount - 1 -> Tcp16TrainEnd(Tcp16Verdict.SERVER_CLOSED)
+            else -> Tcp16TrainEnd(Tcp16Verdict.OK)
+        }
+
+    private fun timeoutFor(responseTimeMs: Long?): Long {
+        val bounded = (responseTimeMs ?: DefaultTimeoutBaseMs).coerceIn(MinimumResponseHintMs, MaxTimeoutMs)
+        return (bounded * TimeoutMultiplier + TimeoutSafetyMarginMs).coerceIn(MinTimeoutMs, MaxTimeoutMs)
     }
 
-    private fun Tcp16Target.failureResult(
-        requestIndex: Int,
-        error: Throwable,
-        measuredRttMs: Long?,
-        connectionCount: Int,
-        requestedHosts: List<String>?,
-    ): Tcp16ProbeResult {
-        val errorLabel = error.tcp16ErrorLabel()
-        if (requestIndex == 0) {
-            return result(
-                alive = false,
-                verdict = Tcp16Verdict.DEAD,
-                measuredRttMs = measuredRttMs,
-                errorDetail = errorLabel,
-                connectionCount = connectionCount,
-                requestedHosts = requestedHosts,
-            )
-        }
-        // Native late_stage_cutoff: every earlier request got a response, so the cut needs at least 8 KB sent.
-        val lateStage = requestIndex * PaddingKilobytes >= LateStageCutoffKilobytes
-        return if (lateStage && error.isTcp16ResetLike()) {
-            result(
-                alive = true,
-                verdict = Tcp16Verdict.DETECTED_AT_KB,
-                detectedAtKb = requestIndex * PaddingKilobytes,
-                measuredRttMs = measuredRttMs,
-                errorDetail = "connection closed during padded header train",
-                connectionCount = connectionCount,
-                requestedHosts = requestedHosts,
-            )
-        } else {
-            result(
-                alive = true,
-                verdict = Tcp16Verdict.ERROR,
-                measuredRttMs = measuredRttMs,
-                errorDetail = errorLabel,
-                connectionCount = connectionCount,
-                requestedHosts = requestedHosts,
-            )
-        }
+    private fun Tcp16ConnectionTracker.failure(
+        error: IOException,
+        completedPaddingBytes: Int,
+    ): Tcp16TrainEnd {
+        val verdict =
+            when {
+                connectionCount > 1 -> {
+                    Tcp16Verdict.INVALID_RECONNECTED
+                }
+
+                error is SocketTimeoutException || (error is InterruptedIOException && error.message == "timeout") -> {
+                    Tcp16Verdict.TIMED_OUT
+                }
+
+                stage == Tcp16Stage.CONNECT && connectStarts > 0 -> {
+                    Tcp16Verdict.DEAD
+                }
+
+                stage == Tcp16Stage.READ_RESPONSE && completedPaddingBytes >= LateStageCutoffBytes &&
+                    error.isPeerClose() -> {
+                    Tcp16Verdict.PADDED_TRAIN_INTERRUPTED
+                }
+
+                else -> {
+                    Tcp16Verdict.ERROR
+                }
+            }
+        return Tcp16TrainEnd(verdict, error.tcp16ErrorLabel(), stage)
     }
 
     private fun Tcp16Target.result(
         alive: Boolean,
-        verdict: Tcp16Verdict,
-        detectedAtKb: Int? = null,
-        measuredRttMs: Long?,
-        errorDetail: String? = null,
-        connectionCount: Int,
+        end: Tcp16TrainEnd,
+        completedPaddingBytes: Int = 0,
+        meanResponseMs: Long? = null,
+        httpStatus: Int? = null,
+        connectionCount: Int = 0,
         requestedHosts: List<String>? = null,
     ): Tcp16ProbeResult =
         Tcp16ProbeResult(
@@ -251,10 +215,12 @@ class Tcp16FatHeaderProbe(
             ip = ip,
             port = port,
             alive = alive,
-            verdict = verdict,
-            detectedAtKb = detectedAtKb,
-            measuredRttMs = measuredRttMs,
-            errorDetail = errorDetail,
+            verdict = end.verdict,
+            completedPaddingBytes = completedPaddingBytes,
+            meanResponseMs = meanResponseMs,
+            errorDetail = end.detail,
+            httpStatus = httpStatus,
+            failedStage = end.stage,
             connectionCount = connectionCount,
             tlsClientState = tlsClientStateProvider(),
             requestedHosts = requestedHosts,
@@ -263,12 +229,11 @@ class Tcp16FatHeaderProbe(
     companion object {
         private const val RequestCount = 16
         private const val PaddingBytes = 4 * 1024
-        private const val PaddingKilobytes = 4
-        private const val LateStageCutoffKilobytes = 8
+        private const val LateStageCutoffBytes = 8 * 1_024
         private const val DefaultConcurrency = 15
-        private const val MinimumRttHintMs = 25L
+        private const val MinimumResponseHintMs = 25L
         private const val DefaultTimeoutBaseMs = 500L
-        private const val TimeoutRttMultiplier = 4L
+        private const val TimeoutMultiplier = 4L
         private const val TimeoutSafetyMarginMs = 1_000L
         private const val MinTimeoutMs = 1_500L
         private const val MaxTimeoutMs = 10_000L
@@ -276,171 +241,17 @@ class Tcp16FatHeaderProbe(
 }
 
 interface Tcp16Probe {
-    suspend fun runWithRttHint(
+    suspend fun runTarget(
         target: Tcp16Target,
-        hintRttMs: Long?,
+        responseTimeHintMs: Long?,
     ): Tcp16ProbeResult
 }
 
-data class Tcp16FatHeaderRequest(
-    val requestIndex: Int,
-    val padding: String?,
-    val timeoutMs: Long,
-    val hostHeader: String,
+private data class Tcp16TrainEnd(
+    val verdict: Tcp16Verdict,
+    val detail: String? = null,
+    val stage: Tcp16Stage? = null,
 )
-
-data class Tcp16FatHeaderResponse(
-    val statusCode: Int,
-    val elapsedMs: Long,
-)
-
-interface Tcp16RequestRunner {
-    fun supports(target: Tcp16Target): Boolean = true
-
-    fun execute(
-        target: Tcp16Target,
-        request: Tcp16FatHeaderRequest,
-        tracker: Tcp16ConnectionTracker,
-    ): Tcp16FatHeaderResponse
-}
-
-typealias Tcp16OkHttpClientBuilder = (OkHttpClient.Builder.() -> Unit) -> OkHttpClient
-
-class Tcp16ConnectionTracker {
-    private val connectStarts = AtomicInteger()
-
-    /** One pool per target run: a pool shared by concurrent targets evicted their keep-alive sockets. */
-    val connectionPool: ConnectionPool = ConnectionPool(1, Long.MAX_VALUE, TimeUnit.NANOSECONDS)
-
-    val connectionCount: Int
-        get() = connectStarts.get()
-
-    fun recordConnectStart() {
-        connectStarts.incrementAndGet()
-    }
-
-    private val activeCall = AtomicReference<Call?>()
-
-    @Volatile
-    private var cancelled = false
-
-    /** Registers the in-flight call so [cancelActiveCall] can stop it; cancels it at once after a cancel. */
-    fun track(call: Call) {
-        activeCall.set(call)
-        if (cancelled) call.cancel()
-    }
-
-    fun untrack(call: Call) {
-        activeCall.compareAndSet(call, null)
-    }
-
-    fun cancelActiveCall() {
-        cancelled = true
-        activeCall.get()?.cancel()
-    }
-
-    /** Closes the idle keep-alive socket so it does not outlive the target run. */
-    fun close() {
-        connectionPool.evictAll()
-    }
-
-    fun eventListener(): EventListener =
-        object : EventListener() {
-            override fun connectStart(
-                call: Call,
-                inetSocketAddress: InetSocketAddress,
-                proxy: Proxy,
-            ) {
-                recordConnectStart()
-            }
-        }
-}
-
-class OkHttpTcp16RequestRunner(
-    private val baseClient: OkHttpClient = defaultBaseClient(),
-) : Tcp16RequestRunner {
-    override fun supports(target: Tcp16Target): Boolean =
-        baseClient.connectionSpecs.any { spec -> spec.isTls == (target.transport == Tcp16Transport.HTTPS) }
-
-    override fun execute(
-        target: Tcp16Target,
-        request: Tcp16FatHeaderRequest,
-        tracker: Tcp16ConnectionTracker,
-    ): Tcp16FatHeaderResponse {
-        val url = target.url(request.hostHeader)
-        val client =
-            baseClient
-                .newBuilder()
-                .dns(TargetDns(ip = target.ip, host = url.host))
-                .connectionPool(tracker.connectionPool)
-                .eventListenerFactory { tracker.eventListener() }
-                .build()
-        val call =
-            client.newCall(
-                Request
-                    .Builder()
-                    .url(url)
-                    .head()
-                    .header("Host", url.toUri().rawAuthority)
-                    .header("Connection", "keep-alive")
-                    .apply {
-                        request.padding?.let { padding -> header("X-Pad", padding) }
-                    }.build(),
-            )
-        call.timeout().timeout(request.timeoutMs, TimeUnit.MILLISECONDS)
-        val startedNanos = System.nanoTime()
-        tracker.track(call)
-        try {
-            call.execute().use { response ->
-                val elapsedMs = ((System.nanoTime() - startedNanos) / NanosPerMillis).coerceAtLeast(1)
-                return Tcp16FatHeaderResponse(
-                    statusCode = response.code,
-                    elapsedMs = elapsedMs,
-                )
-            }
-        } finally {
-            tracker.untrack(call)
-        }
-    }
-
-    private fun Tcp16Target.url(host: String): HttpUrl =
-        HttpUrl
-            .Builder()
-            .scheme(requireNotNull(transport).scheme)
-            .host(host)
-            .port(port)
-            .build()
-
-    companion object {
-        private const val NanosPerMillis = 1_000_000L
-
-        fun withClientBuilder(clientBuilder: Tcp16OkHttpClientBuilder): OkHttpTcp16RequestRunner =
-            OkHttpTcp16RequestRunner(baseClient = defaultBaseClient(clientBuilder))
-
-        private fun defaultBaseClient(clientBuilder: Tcp16OkHttpClientBuilder? = null): OkHttpClient {
-            val configure: OkHttpClient.Builder.() -> Unit = {
-                protocols(listOf(Protocol.HTTP_1_1))
-                retryOnConnectionFailure(false)
-                followRedirects(false)
-                followSslRedirects(false)
-                hostnameVerifier { _, _ -> true }
-            }
-            return clientBuilder?.invoke(configure) ?: OkHttpClient.Builder().apply(configure).build()
-        }
-    }
-}
-
-private data class TargetDns(
-    private val ip: String,
-    private val host: String,
-) : Dns {
-    override fun lookup(hostname: String): List<InetAddress> =
-        if (hostname.equals(host, ignoreCase = true)) {
-            listOf(requireNotNull(NumericIp.parseAddress(ip)).toInetAddress())
-        } else {
-            throw UnknownHostException("Unexpected TCP16 route host")
-        }
-}
 
 private fun List<Long>.averageMillis(): Long? =
     if (isEmpty()) {
@@ -449,20 +260,14 @@ private fun List<Long>.averageMillis(): Long? =
         average().roundToLong()
     }
 
-private fun Throwable.isTcp16ResetLike(): Boolean =
-    this is EOFException ||
-        this is SocketException ||
-        this is SocketTimeoutException ||
-        message.orEmpty().lowercase(Locale.US).let { message ->
-            "closed" in message || "reset" in message || "unexpected end" in message
-        }
+private fun IOException.isPeerClose(): Boolean =
+    this is EOFException || this is SocketException || cause is EOFException
 
-private fun Throwable.tcp16ErrorLabel(): String =
+private fun IOException.tcp16ErrorLabel(): String =
     when (this) {
         is SocketTimeoutException -> "timeout"
         is SSLHandshakeException -> "tls handshake failed"
         is SocketException -> message ?: "socket error"
         is EOFException -> "unexpected eof"
-        is IOException -> message ?: "i/o error"
-        else -> message ?: javaClass.simpleName
+        else -> message ?: "i/o error"
     }

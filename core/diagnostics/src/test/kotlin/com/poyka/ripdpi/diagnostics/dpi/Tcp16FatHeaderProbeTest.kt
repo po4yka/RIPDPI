@@ -34,7 +34,7 @@ class Tcp16FatHeaderProbeTest {
                 val client = OkHttpClient.Builder().connectionSpecs(listOf(ConnectionSpec.MODERN_TLS)).build()
                 val probe = Tcp16FatHeaderProbe(requestRunner = OkHttpTcp16RequestRunner(client))
 
-                val result = probe.runWithRttHint(mockTarget(server))
+                val result = probe.runTarget(mockTarget(server))
 
                 assertEquals(Tcp16Verdict.UNSUPPORTED, result.verdict)
                 assertEquals(0, result.connectionCount)
@@ -49,8 +49,8 @@ class Tcp16FatHeaderProbeTest {
                 server.start()
                 val target = mockTarget(server)
 
-                val invalid = probe().runWithRttHint(target.copy(ip = "example.test"))
-                val unsupported = probe().runWithRttHint(target.copy(transport = null))
+                val invalid = probe().runTarget(target.copy(ip = "example.test"))
+                val unsupported = probe().runTarget(target.copy(transport = null))
 
                 assertEquals(Tcp16Verdict.INVALID_TARGET, invalid.verdict)
                 assertEquals(Tcp16Verdict.UNSUPPORTED, unsupported.verdict)
@@ -67,11 +67,10 @@ class Tcp16FatHeaderProbeTest {
                 }
                 server.start()
 
-                val result = probe().runWithRttHint(mockTarget(server), hintRttMs = 25)
+                val result = probe().runTarget(mockTarget(server), responseTimeHintMs = 25)
 
                 assertEquals(Tcp16Verdict.OK, result.verdict)
                 assertTrue(result.alive)
-                assertNull(result.detectedAtKb)
                 assertEquals(1, result.connectionCount)
                 assertEquals(16, server.requestCount)
 
@@ -80,13 +79,17 @@ class Tcp16FatHeaderProbeTest {
                 assertTrue(requests.all { request -> request?.headers?.get("Host") == "example.test:${server.port}" })
                 assertNull(requests.first()?.headers?.get("X-Pad"))
                 requests.drop(1).forEach { request ->
-                    assertEquals(4096, request?.headers?.get("X-Pad")?.length)
+                    assertTrue(requireNotNull(request?.headers?.get("X-Pad")).length in 1..4096)
                 }
+                assertEquals(
+                    requests.drop(1).sumOf { requireNotNull(it?.headers?.get("X-Pad")).length },
+                    result.completedPaddingBytes,
+                )
             }
         }
 
     @Test
-    fun resetOnFifthPaddedRequestReturnsDetectedAtTwentyKilobytes() =
+    fun peerClosePreservesCompletedPaddingAndReadStage() =
         runTest {
             MockWebServer().use { server ->
                 val seen = AtomicInteger()
@@ -106,12 +109,17 @@ class Tcp16FatHeaderProbeTest {
                     }
                 server.start()
 
-                val result = probe().runWithRttHint(mockTarget(server), hintRttMs = 25)
+                val result = probe().runTarget(mockTarget(server), responseTimeHintMs = 25)
 
-                assertEquals(Tcp16Verdict.DETECTED_AT_KB, result.verdict)
+                assertEquals(Tcp16Verdict.PADDED_TRAIN_INTERRUPTED, result.verdict)
                 assertTrue(result.alive)
-                assertEquals(20, result.detectedAtKb)
-                assertEquals("connection closed during padded header train", result.errorDetail)
+                assertEquals(Tcp16Stage.READ_RESPONSE, result.failedStage)
+                assertEquals(
+                    List(5) { server.takeRequest(1, TimeUnit.SECONDS) }
+                        .drop(1)
+                        .sumOf { requireNotNull(it?.headers?.get("X-Pad")).length },
+                    result.completedPaddingBytes,
+                )
             }
         }
 
@@ -134,10 +142,10 @@ class Tcp16FatHeaderProbeTest {
                     }
                 server.start()
 
-                val result = probe().runWithRttHint(mockTarget(server), hintRttMs = 25)
+                val result = probe().runTarget(mockTarget(server), responseTimeHintMs = 25)
 
                 assertEquals(Tcp16Verdict.ERROR, result.verdict)
-                assertNull(result.detectedAtKb)
+                assertEquals(0, result.completedPaddingBytes)
             }
         }
 
@@ -158,7 +166,8 @@ class Tcp16FatHeaderProbeTest {
                             }
                     }
                 server.start()
-                val run = launch(Dispatchers.Default) { probe().runWithRttHint(mockTarget(server), hintRttMs = 10_000) }
+                val run =
+                    launch(Dispatchers.Default) { probe().runTarget(mockTarget(server), responseTimeHintMs = 10_000) }
                 assertTrue(stalled.await(5, TimeUnit.SECONDS))
 
                 val cancelMs = measureTimeMillis { run.cancelAndJoin() }
@@ -176,7 +185,7 @@ class Tcp16FatHeaderProbeTest {
             val target = mockTarget(server)
             server.close()
 
-            val result = probe().runWithRttHint(target, hintRttMs = 25)
+            val result = probe().runTarget(target, responseTimeHintMs = 25)
 
             assertEquals(Tcp16Verdict.DEAD, result.verdict)
             assertTrue(!result.alive)
@@ -186,28 +195,77 @@ class Tcp16FatHeaderProbeTest {
     @Test
     fun reconnectingDuringTrainReturnsInvalidReconnected() =
         runTest {
-            val runner =
-                object : Tcp16RequestRunner {
-                    override fun execute(
-                        target: Tcp16Target,
-                        request: Tcp16FatHeaderRequest,
-                        tracker: Tcp16ConnectionTracker,
-                    ): Tcp16FatHeaderResponse {
-                        if (request.requestIndex == 0) {
-                            tracker.recordConnectStart()
-                        }
-                        if (request.requestIndex == 3) {
-                            tracker.recordConnectStart()
-                        }
-                        return Tcp16FatHeaderResponse(statusCode = 200, elapsedMs = 12)
-                    }
-                }
-            val probe = Tcp16FatHeaderProbe(requestRunner = runner)
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .onResponseEnd(SocketEffect.CloseSocket())
+                        .build(),
+                )
+                server.enqueue(okHeadResponse())
+                server.start()
 
-            val result = probe.runWithRttHint(mockTarget(port = 443), hintRttMs = 25)
+                val result = probe().runTarget(mockTarget(server), responseTimeHintMs = 25)
 
-            assertEquals(Tcp16Verdict.INVALID_RECONNECTED, result.verdict)
-            assertEquals(2, result.connectionCount)
+                assertEquals(Tcp16Verdict.INVALID_RECONNECTED, result.verdict)
+                assertEquals(2, result.connectionCount)
+            }
+        }
+
+    @Test
+    fun rejectingPaddedRequestRetainsHttpStatus() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(okHeadResponse())
+                server.enqueue(MockResponse.Builder().code(431).build())
+                server.start()
+
+                val result = probe().runTarget(mockTarget(server))
+
+                assertEquals(Tcp16Verdict.HTTP_REJECTED, result.verdict)
+                assertEquals(431, result.httpStatus)
+                assertEquals(1, result.connectionCount)
+                assertEquals(2, server.requestCount)
+                assertEquals(0, result.completedPaddingBytes)
+            }
+        }
+
+    @Test
+    fun connectionCloseHeaderIsASeparateServerOutcome() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .addHeader("Connection", "close")
+                        .build(),
+                )
+                server.start()
+
+                val result = probe().runTarget(mockTarget(server))
+
+                assertEquals(Tcp16Verdict.SERVER_CLOSED, result.verdict)
+                assertEquals(200, result.httpStatus)
+                assertEquals(1, server.requestCount)
+            }
+        }
+
+    @Test(timeout = 10_000)
+    fun silentPeerHasATimeoutOutcome() =
+        runBlocking {
+            MockWebServer().use { server ->
+                repeat(5) { server.enqueue(okHeadResponse()) }
+                server.enqueue(MockResponse.Builder().onResponseStart(SocketEffect.Stall).build())
+                server.start()
+
+                val result = probe().runTarget(mockTarget(server), responseTimeHintMs = 25)
+
+                assertEquals(Tcp16Verdict.TIMED_OUT, result.verdict)
+                assertEquals(Tcp16Stage.READ_RESPONSE, result.failedStage)
+                assertEquals(6, server.requestCount)
+            }
         }
 
     @Test
@@ -237,7 +295,7 @@ class Tcp16FatHeaderProbeTest {
                         requestRunner = OkHttpTcp16RequestRunner(baseClient = baseClient),
                     )
 
-                val result = probe.runWithRttHint(mockTarget(server), hintRttMs = 25)
+                val result = probe.runTarget(mockTarget(server), responseTimeHintMs = 25)
 
                 assertEquals(Tcp16Verdict.OK, result.verdict)
                 assertEquals("diagnostics", server.takeRequest(1, TimeUnit.SECONDS)?.headers?.get("X-Owned-Tls-Client"))
@@ -270,7 +328,7 @@ class Tcp16FatHeaderProbeTest {
                 val result =
                     Tcp16FatHeaderProbe(
                         requestRunner = runner,
-                    ).runWithRttHint(mockTarget(server), hintRttMs = 25)
+                    ).runTarget(mockTarget(server), responseTimeHintMs = 25)
 
                 assertEquals(Tcp16Verdict.OK, result.verdict)
                 assertEquals(1, result.connectionCount)
@@ -288,7 +346,7 @@ class Tcp16FatHeaderProbeTest {
                 }
                 server.start()
 
-                val result = probe().runWithRttHint(mockTarget(server), hintRttMs = 25, randomHostname = true)
+                val result = probe().runTarget(mockTarget(server), responseTimeHintMs = 25, randomHostname = true)
 
                 val hostHeaders =
                     (0 until 16).mapNotNull {
@@ -322,17 +380,12 @@ class Tcp16FatHeaderProbeTest {
                                 target: Tcp16Target,
                                 request: Tcp16FatHeaderRequest,
                                 tracker: Tcp16ConnectionTracker,
-                            ): Tcp16FatHeaderResponse {
-                                if (request.requestIndex == 0) {
-                                    tracker.recordConnectStart()
-                                }
-                                return Tcp16FatHeaderResponse(statusCode = 200, elapsedMs = 10)
-                            }
+                            ): Tcp16FatHeaderResponse = Tcp16FatHeaderResponse(statusCode = 200, elapsedMs = 10)
                         },
                     tlsClientStateProvider = { tlsState },
                 )
 
-            val result = probe.runWithRttHint(mockTarget(port = 443), hintRttMs = 25)
+            val result = probe.runTarget(mockTarget(port = 443), responseTimeHintMs = 25)
 
             assertEquals(tlsState, result.tlsClientState)
         }
@@ -355,17 +408,12 @@ class Tcp16FatHeaderProbeTest {
                                 target: Tcp16Target,
                                 request: Tcp16FatHeaderRequest,
                                 tracker: Tcp16ConnectionTracker,
-                            ): Tcp16FatHeaderResponse {
-                                if (request.requestIndex == 0) {
-                                    tracker.recordConnectStart()
-                                }
-                                return Tcp16FatHeaderResponse(statusCode = 200, elapsedMs = 10)
-                            }
+                            ): Tcp16FatHeaderResponse = Tcp16FatHeaderResponse(statusCode = 200, elapsedMs = 10)
                         },
                     tlsClientStateProvider = { tlsState },
                 ).withConcurrency(2)
 
-            val result = probe.runWithRttHint(mockTarget(port = 443), hintRttMs = 25)
+            val result = probe.runTarget(mockTarget(port = 443), responseTimeHintMs = 25)
 
             assertEquals(tlsState, result.tlsClientState)
         }
@@ -375,7 +423,7 @@ class Tcp16FatHeaderProbeTest {
         val results =
             listOf(
                 result(asn = "AS1", provider = "Alpha", verdict = Tcp16Verdict.OK),
-                result(asn = "AS1", provider = "Alpha", verdict = Tcp16Verdict.DETECTED_AT_KB),
+                result(asn = "AS1", provider = "Alpha", verdict = Tcp16Verdict.PADDED_TRAIN_INTERRUPTED),
                 result(asn = "AS2", provider = "Beta", verdict = Tcp16Verdict.DEAD),
             )
 
@@ -424,8 +472,8 @@ class Tcp16FatHeaderProbeTest {
             port = 443,
             alive = verdict != Tcp16Verdict.DEAD,
             verdict = verdict,
-            detectedAtKb = if (verdict == Tcp16Verdict.DETECTED_AT_KB) 20 else null,
-            measuredRttMs = null,
+            completedPaddingBytes = if (verdict == Tcp16Verdict.PADDED_TRAIN_INTERRUPTED) 20 * 1_024 else 0,
+            meanResponseMs = null,
             errorDetail = null,
             connectionCount = 1,
         )

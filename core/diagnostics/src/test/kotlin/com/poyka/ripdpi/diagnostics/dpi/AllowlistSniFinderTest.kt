@@ -96,9 +96,9 @@ class AllowlistSniFinderTest {
             ip = "203.0.113.10",
             port = 443,
             alive = true,
-            verdict = Tcp16Verdict.DETECTED_AT_KB,
-            detectedAtKb = 20,
-            measuredRttMs = 30,
+            verdict = Tcp16Verdict.PADDED_TRAIN_INTERRUPTED,
+            completedPaddingBytes = 20 * 1_024,
+            meanResponseMs = 30,
             errorDetail = null,
             connectionCount = 1,
         )
@@ -116,15 +116,15 @@ class AllowlistSniFinderTest {
         val hintsUsed = CopyOnWriteArrayList<Long>()
         private val activeCalls = AtomicInteger()
 
-        override suspend fun runWithRttHint(
+        override suspend fun runTarget(
             target: Tcp16Target,
-            hintRttMs: Long?,
+            responseTimeHintMs: Long?,
         ): Tcp16ProbeResult {
             if (target.sni == null) {
                 baselineCalls.incrementAndGet()
-                return resultFor(target, Tcp16Verdict.DETECTED_AT_KB, measuredRttMs = 42)
+                return resultFor(target, Tcp16Verdict.PADDED_TRAIN_INTERRUPTED, meanResponseMs = 42)
             }
-            hintRttMs?.let { hint -> hintsUsed += hint }
+            responseTimeHintMs?.let { hint -> hintsUsed += hint }
             probedSnis += target.sni
             if (target.sni == cancelOnSni) {
                 throw CancellationException("cancelled")
@@ -135,7 +135,14 @@ class AllowlistSniFinderTest {
                 if (delayMs > 0) delay(delayMs)
                 return resultFor(
                     target = target,
-                    verdict = if (target.sni in compatibleSnis) Tcp16Verdict.OK else Tcp16Verdict.DETECTED_AT_KB,
+                    verdict =
+                        if (target.sni in
+                            compatibleSnis
+                        ) {
+                            Tcp16Verdict.OK
+                        } else {
+                            Tcp16Verdict.PADDED_TRAIN_INTERRUPTED
+                        },
                 )
             } finally {
                 activeCalls.decrementAndGet()
@@ -145,7 +152,7 @@ class AllowlistSniFinderTest {
         private fun resultFor(
             target: Tcp16Target,
             verdict: Tcp16Verdict,
-            measuredRttMs: Long? = null,
+            meanResponseMs: Long? = null,
         ): Tcp16ProbeResult =
             Tcp16ProbeResult(
                 targetId = target.id,
@@ -155,8 +162,8 @@ class AllowlistSniFinderTest {
                 port = target.port,
                 alive = true,
                 verdict = verdict,
-                detectedAtKb = if (verdict == Tcp16Verdict.DETECTED_AT_KB) 20 else null,
-                measuredRttMs = measuredRttMs,
+                completedPaddingBytes = if (verdict == Tcp16Verdict.PADDED_TRAIN_INTERRUPTED) 20 * 1_024 else 0,
+                meanResponseMs = meanResponseMs,
                 errorDetail = null,
                 connectionCount = 1,
             )

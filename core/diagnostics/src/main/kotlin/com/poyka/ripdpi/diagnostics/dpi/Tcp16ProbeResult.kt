@@ -4,12 +4,23 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 
 enum class Tcp16Verdict {
     OK,
-    DETECTED_AT_KB,
+    PADDED_TRAIN_INTERRUPTED,
     DEAD,
     ERROR,
     INVALID_RECONNECTED,
     UNSUPPORTED,
     INVALID_TARGET,
+    HTTP_REJECTED,
+    SERVER_CLOSED,
+    TIMED_OUT,
+}
+
+enum class Tcp16Stage {
+    SETUP,
+    CONNECT,
+    TLS_HANDSHAKE,
+    WRITE_REQUEST,
+    READ_RESPONSE,
 }
 
 data class Tcp16ProbeResult(
@@ -20,12 +31,15 @@ data class Tcp16ProbeResult(
     val port: Int,
     val alive: Boolean,
     val verdict: Tcp16Verdict,
-    val detectedAtKb: Int?,
-    val measuredRttMs: Long?,
+    val meanResponseMs: Long?,
     val errorDetail: String?,
     val connectionCount: Int,
     val tlsClientState: DiagnosticsTlsClientState? = null,
     val requestedHosts: List<String>? = null,
+    // X-Pad value bytes from successful requests on one connection, excluding the failed request.
+    val completedPaddingBytes: Int = 0,
+    val httpStatus: Int? = null,
+    val failedStage: Tcp16Stage? = null,
 )
 
 data class Tcp16AsnSummary(
@@ -37,6 +51,7 @@ data class Tcp16AsnSummary(
     val dead: Int,
     val errors: Int,
     val invalidReconnected: Int,
+    val unsupported: Int,
 )
 
 fun Iterable<Tcp16ProbeResult>.byAsn(): Map<String, Tcp16AsnSummary> =
@@ -47,9 +62,22 @@ fun Iterable<Tcp16ProbeResult>.byAsn(): Map<String, Tcp16AsnSummary> =
                 providers = results.map { result -> result.provider }.toSet(),
                 checked = results.size,
                 ok = results.count { result -> result.verdict == Tcp16Verdict.OK },
-                detected = results.count { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB },
+                detected = results.count { result -> result.verdict == Tcp16Verdict.PADDED_TRAIN_INTERRUPTED },
                 dead = results.count { result -> result.verdict == Tcp16Verdict.DEAD },
-                errors = results.count { result -> result.verdict == Tcp16Verdict.ERROR },
+                errors =
+                    results.count { result ->
+                        result.verdict in Tcp16ErrorVerdicts
+                    },
                 invalidReconnected = results.count { result -> result.verdict == Tcp16Verdict.INVALID_RECONNECTED },
+                unsupported = results.count { result -> result.verdict == Tcp16Verdict.UNSUPPORTED },
             )
         }
+
+private val Tcp16ErrorVerdicts =
+    setOf(
+        Tcp16Verdict.ERROR,
+        Tcp16Verdict.INVALID_TARGET,
+        Tcp16Verdict.HTTP_REJECTED,
+        Tcp16Verdict.SERVER_CLOSED,
+        Tcp16Verdict.TIMED_OUT,
+    )
