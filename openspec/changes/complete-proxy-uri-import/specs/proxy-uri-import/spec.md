@@ -15,7 +15,7 @@ The importer MUST decode query names once or reject their encoded form before cr
 
 ### Requirement: REQ-IMP01-F2 — Retain atomic imported profiles
 
-The app MUST store the imported profile, encrypted secrets, group membership, name and selected state in one Room transaction. Later imports MUST retain earlier profiles for selection and export.
+The app MUST store the imported profile, encrypted secrets, group membership and name in one Room transaction. Confirmation MUST retain the current runtime selection and settings. Later imports MUST retain earlier profiles for separate explicit selection and export.
 
 #### Scenario: Retain atomic imported profiles
 

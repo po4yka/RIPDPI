@@ -135,6 +135,15 @@ class ProfileImportPersistenceTest {
             assertEquals("new_reno", record.tuicCongestionControl)
             assertEquals(uuid, credentials.tuicUuid)
             assertEquals("fixture+password", credentials.tuicPassword)
+            storage.coordinator.upsertRelay(
+                storage.coordinator.captureMutation(ProfileMutationOrigin.ExplicitActivation),
+                record,
+                credentials,
+                enabled = true,
+                select = true,
+            )
+            assertEquals(profile.id, storage.settings.snapshot().relayProfileId)
+            assertTrue(storage.settings.snapshot().relayEnabled)
             val share = requireNotNull(RelayProfileShareMapper.toShareable(record, credentials))
             val reimported = ProxyUriCodec.parse(share.shareUri) as ProxyProfile.Tuic
             assertEquals("TUIC fixture", reimported.displayName)
