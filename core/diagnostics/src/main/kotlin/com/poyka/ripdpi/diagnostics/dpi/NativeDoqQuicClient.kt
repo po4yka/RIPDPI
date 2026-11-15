@@ -8,7 +8,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
-import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.Base64
 import javax.inject.Inject
@@ -45,7 +44,9 @@ class NativeDoqQuicClient
             timeoutMs: Long,
         ): ByteArray =
             withContext(Dispatchers.IO) {
-                val wireQuery = query.unframeDoqMessage()
+                val wireQuery =
+                    query.unframeDoqMessage()
+                        ?: throw DoqExchangeException(DoqFailureKind.INVALID_REQUEST, "invalid DoQ query frame")
                 val request =
                     NativeDoqExchangeRequest(
                         endpoint = endpoint,
@@ -138,6 +139,9 @@ private fun NativeDoqExchangeResponse.checkForFailure() {
 private fun NativeDoqExchangeResponse.decodeBody(): ByteArray {
     val encoded =
         responseBase64 ?: throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge missing response body")
+    if (encoded.length > MaxDoqBase64Length) {
+        throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an oversized response")
+    }
     val body =
         try {
             Base64.getDecoder().decode(encoded)
@@ -149,26 +153,5 @@ private fun NativeDoqExchangeResponse.decodeBody(): ByteArray {
             )
         }
     return body.frameDoqMessage()
+        ?: throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an invalid DNS message length")
 }
-
-private fun ByteArray.unframeDoqMessage(): ByteArray {
-    if (size < DoqLengthPrefixBytes) {
-        throw DoqExchangeException(DoqFailureKind.INVALID_REQUEST, "DoQ query missing length prefix")
-    }
-    val length = ((this[0].toInt() and ByteMask) shl Byte.SIZE_BITS) or (this[1].toInt() and ByteMask)
-    if (length <= 0 || size < DoqLengthPrefixBytes + length) {
-        throw DoqExchangeException(DoqFailureKind.INVALID_REQUEST, "DoQ query length prefix is invalid")
-    }
-    return copyOfRange(DoqLengthPrefixBytes, DoqLengthPrefixBytes + length)
-}
-
-private fun ByteArray.frameDoqMessage(): ByteArray =
-    ByteArrayOutputStream(size + DoqLengthPrefixBytes)
-        .apply {
-            write((size shr Byte.SIZE_BITS) and ByteMask)
-            write(size and ByteMask)
-            write(this@frameDoqMessage)
-        }.toByteArray()
-
-private const val DoqLengthPrefixBytes = 2
-private const val ByteMask = 0xFF

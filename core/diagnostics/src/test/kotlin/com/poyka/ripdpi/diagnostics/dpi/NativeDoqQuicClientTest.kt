@@ -48,6 +48,64 @@ class NativeDoqQuicClientTest {
         }
 
     @Test
+    fun malformedQueryFramesFailBeforeTheNativeExchange() =
+        runTest {
+            val client = NativeDoqQuicClient(CapturingBindings { error("invalid frame reached JNI") })
+            val malformedFrames =
+                listOf(
+                    byteArrayOf(),
+                    byteArrayOf(0, 0),
+                    byteArrayOf(0, 11) + ByteArray(11),
+                    byteArrayOf(0, 12) + ByteArray(11),
+                    byteArrayOf(0, 12) + ByteArray(13),
+                    byteArrayOf(-1, -1) + ByteArray(65_536),
+                )
+
+            for (frame in malformedFrames) {
+                val error = runCatching { client.exchange(frame) }.exceptionOrNull()
+                assertEquals(DoqFailureKind.INVALID_REQUEST, (error as? DoqExchangeException)?.kind)
+                assertEquals("invalid DoQ query frame", error?.message)
+            }
+        }
+
+    @Test
+    fun minimumAndMaximumDnsPayloadsFitOneFrameInBothDirections() =
+        runTest {
+            val boundaries = listOf(12 to byteArrayOf(0, 12), 65_535 to byteArrayOf(-1, -1))
+            for ((length, prefix) in boundaries) {
+                val payload = ByteArray(length) { 42 }
+                val bindings =
+                    CapturingBindings {
+                        """{"responseBase64":"${Base64.getEncoder().encodeToString(payload)}"}"""
+                    }
+                val frame = prefix + payload
+
+                assertArrayEquals(frame, NativeDoqQuicClient(bindings).exchange(frame))
+                val request = Json.parseToJsonElement(bindings.lastRequestJson).jsonObject
+                val encodedQuery = request.getValue("queryBase64").jsonPrimitive.content
+                assertArrayEquals(payload, Base64.getDecoder().decode(encodedQuery))
+            }
+        }
+
+    @Test
+    fun invalidResponseEncodingOrLengthFailsBeforeFraming() =
+        runTest {
+            val query = byteArrayOf(0, 12) + ByteArray(12)
+            val invalidPayloads =
+                listOf(
+                    "?",
+                    Base64.getEncoder().encodeToString(ByteArray(11)),
+                    Base64.getEncoder().encodeToString(ByteArray(65_536)),
+                )
+
+            for (payload in invalidPayloads) {
+                val client = NativeDoqQuicClient(CapturingBindings { """{"responseBase64":"$payload"}""" })
+                val error = runCatching { client.exchange(query) }.exceptionOrNull()
+                assertEquals(DoqFailureKind.JNI, (error as? DoqExchangeException)?.kind)
+            }
+        }
+
+    @Test
     fun nativeFailureKindsArePreserved() =
         runTest {
             val (_, framedQuery) = DoqWireCodec.buildQuery(TestDomain)

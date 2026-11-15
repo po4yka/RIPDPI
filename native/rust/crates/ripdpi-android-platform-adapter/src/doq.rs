@@ -17,10 +17,22 @@ use serde::{Deserialize, Serialize};
 use socket2::{Domain, Protocol, Socket, Type};
 use tokio::time::timeout_at;
 
+const DNS_HEADER_BYTES: usize = 12;
+const MAX_DNS_MESSAGE_BYTES: usize = u16::MAX as usize;
+const MAX_QUERY_BASE64_BYTES: usize = MAX_DNS_MESSAGE_BYTES.div_ceil(3) * 4;
+const MAX_REQUEST_BYTES: usize = MAX_QUERY_BASE64_BYTES + 1024;
+
 pub fn exchange_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jstring {
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> {
-            let request_json: String = request_json.mutf8_chars(env)?.to_str().into_owned();
+            let request_json = {
+                let chars = request_json.mutf8_chars(env)?;
+                if chars.to_bytes().len() > MAX_REQUEST_BYTES {
+                    let payload = response_error(NativeDoqErrorKind::InvalidRequest, "native DoQ request is too large");
+                    return Ok(env.new_string(payload)?.into_raw());
+                }
+                chars.to_str().into_owned()
+            };
             let payload = exchange(&request_json);
             Ok(env.new_string(payload)?.into_raw())
         })
@@ -32,19 +44,27 @@ pub fn exchange_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jst
 }
 
 fn exchange(request_json: &str) -> String {
+    if request_json.len() > MAX_REQUEST_BYTES {
+        return response_error(NativeDoqErrorKind::InvalidRequest, "native DoQ request is too large");
+    }
     let request = match serde_json::from_str::<NativeDoqExchangeRequest>(request_json) {
         Ok(request) => request,
         Err(error) => {
             return response_error(NativeDoqErrorKind::InvalidRequest, format!("invalid native DoQ request: {error}"));
         }
     };
-    let query = match STANDARD.decode(request.query_base64.trim()) {
+    if request.endpoint.trim().is_empty()
+        || request.tls_server_name.trim().is_empty()
+        || matches!(request.port, 0 | 53)
+        || request.timeout_ms == 0
+    {
+        return response_error(NativeDoqErrorKind::InvalidRequest, "invalid DoQ endpoint or timeout");
+    }
+    let query = match decode_query(&request.query_base64) {
         Ok(query) => query,
-        Err(error) => {
-            return response_error(NativeDoqErrorKind::InvalidRequest, format!("invalid DoQ query encoding: {error}"));
-        }
+        Err(error) => return response_error(NativeDoqErrorKind::InvalidRequest, error),
     };
-    let limit = Duration::from_millis(request.timeout_ms.max(1));
+    let limit = Duration::from_millis(request.timeout_ms);
     let Some(deadline) = Instant::now().checked_add(limit) else {
         return response_error(NativeDoqErrorKind::InvalidRequest, "invalid DoQ timeout");
     };
@@ -56,11 +76,22 @@ fn exchange(request_json: &str) -> String {
     }
 }
 
+fn decode_query(encoded: &str) -> Result<Vec<u8>, &'static str> {
+    if encoded.len() > MAX_QUERY_BASE64_BYTES {
+        return Err("encoded DoQ query is too large");
+    }
+    let query = STANDARD.decode(encoded).map_err(|_| "invalid DoQ query encoding")?;
+    if !(DNS_HEADER_BYTES..=MAX_DNS_MESSAGE_BYTES).contains(&query.len()) {
+        return Err("invalid DoQ query size");
+    }
+    Ok(query)
+}
+
 /// Run `future` on a fresh current-thread runtime until `deadline`;
 /// `Ok(None)` means it timed out. The runtime shuts down in the background:
 /// dropping it would wait for in-flight blocking tasks such as the
 /// uncancellable `getaddrinfo` behind `lookup_host`, holding the JNI caller far
-/// past `limit`.
+/// past the deadline.
 fn run_bounded<F: std::future::Future>(deadline: Instant, future: F) -> io::Result<Option<F::Output>> {
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let result = runtime.block_on(async { timeout_at(deadline.into(), future).await }).ok();
@@ -137,6 +168,9 @@ fn doq_connect_hooks() -> EncryptedDnsConnectHooks {
 }
 
 fn response_ok(response: Vec<u8>) -> String {
+    if !(DNS_HEADER_BYTES..=MAX_DNS_MESSAGE_BYTES).contains(&response.len()) {
+        return response_error(NativeDoqErrorKind::Wire, "invalid DoQ response size");
+    }
     serde_json::to_string(&NativeDoqExchangeResponse {
         response_base64: Some(STANDARD.encode(response)),
         error_kind: None,
@@ -157,6 +191,7 @@ fn response_error(error_kind: NativeDoqErrorKind, error: impl Into<String>) -> S
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct NativeDoqExchangeRequest {
     endpoint: String,
     port: u16,
@@ -247,6 +282,25 @@ mod tests {
         let wire_error = NativeDoqError::from(EncryptedDnsError::DnsParse("short response".into()));
         let result: Value = serde_json::from_str(&response_error(wire_error.kind, wire_error.message)).unwrap();
         assert_eq!(result["errorKind"], "wire");
+    }
+
+    #[test]
+    fn doq_checks_query_size_before_resolution() {
+        for bytes in [0, 11, 65_536] {
+            let request = serde_json::json!({
+                "endpoint": "invalid.example",
+                "port": 853,
+                "tlsServerName": "invalid.example",
+                "queryBase64": STANDARD.encode(vec![0; bytes]),
+                "timeoutMs": 6_000,
+            });
+            let result: Value = serde_json::from_str(&exchange(&request.to_string())).unwrap();
+            assert_eq!(result["errorKind"], "invalid_request");
+        }
+        for bytes in [12, 65_535] {
+            assert_eq!(decode_query(&STANDARD.encode(vec![0; bytes])).unwrap().len(), bytes);
+        }
+        assert!(decode_query("b64*").is_err());
     }
 
     #[test]

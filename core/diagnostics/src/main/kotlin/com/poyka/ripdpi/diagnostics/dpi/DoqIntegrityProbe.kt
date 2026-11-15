@@ -9,7 +9,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.ByteArrayOutputStream
 import java.io.IOException
 
 enum class DoqVerdict {
@@ -58,39 +57,17 @@ object DoqWireCodec {
     fun buildQuery(domain: String): Pair<Int, ByteArray> {
         val transactionId = DnsWireBuilder.randomTransactionId()
         val query = DnsWireBuilder.buildQuery(domain, transactionId)
-        val framed =
-            ByteArrayOutputStream(query.size + DoqLengthPrefixBytes)
-                .apply {
-                    write((query.size shr Byte.SIZE_BITS) and ByteMask)
-                    write(query.size and ByteMask)
-                    write(query)
-                }.toByteArray()
-        return transactionId to framed
+        return transactionId to requireNotNull(query.frameDoqMessage())
     }
 
     fun parseResponse(
         response: ByteArray,
         query: ByteArray,
     ): DnsProbeAnswer {
-        val length = response.doqPayloadLengthOrNull()
-        if (length == null || query.doqPayloadLengthOrNull() == null) {
-            return dnsFailure(DnsResponseOutcome.MALFORMED)
-        }
-        return DnsWireResponseParser.parse(
-            response.copyOfRange(DoqLengthPrefixBytes, DoqLengthPrefixBytes + length),
-            query.copyOfRange(DoqLengthPrefixBytes, query.size),
-            allowQuestionlessError = true,
-        )
+        val wireQuery = query.unframeDoqMessage() ?: return dnsFailure(DnsResponseOutcome.MALFORMED)
+        val wireResponse = response.unframeDoqMessage() ?: return dnsFailure(DnsResponseOutcome.MALFORMED)
+        return DnsWireResponseParser.parse(wireResponse, wireQuery, allowQuestionlessError = true)
     }
-
-    private fun ByteArray.doqPayloadLengthOrNull(): Int? {
-        if (size < DoqLengthPrefixBytes) return null
-        val length = ((this[0].toInt() and ByteMask) shl Byte.SIZE_BITS) or (this[1].toInt() and ByteMask)
-        return length.takeIf { it > 0 && size == DoqLengthPrefixBytes + it }
-    }
-
-    private const val DoqLengthPrefixBytes = 2
-    private const val ByteMask = 0xFF
 }
 
 class DoqIntegrityProbe(
