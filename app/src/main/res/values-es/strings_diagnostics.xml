@@ -816,7 +816,7 @@
     <string name="diagnostics_domain_reachability_metric_flagged">marcados</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">IPs stub</string>
     <string name="diagnostics_dpi_probe_kind_ech">Preparación de ECH</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">Huella QUIC Initial</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial/VN</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">Encabezado gordo TCP16</string>
     <string name="diagnostics_dpi_suite_cancel">Cancelar conjunto</string>
     <string name="diagnostics_dpi_suite_concurrency">Concurrencia %1$d</string>
@@ -1417,8 +1417,8 @@
     <string name="diagnostics_dpi_suite_telegram_transfer_probes_reported_throughput_degradation">Las pruebas de transferencia Telegram notificaron una caída de velocidad.</string>
     <string name="diagnostics_dpi_suite_multiple_interference_categories_were_reported">Se notificaron varios tipos de interferencia.</string>
     <string name="diagnostics_dpi_suite_too_many_selected_probes_failed_to_classify_the_path">Demasiadas pruebas seleccionadas no pudieron clasificar la ruta.</string>
-    <string name="diagnostics_dpi_suite_chrome_format">Chrome: %1$s</string>
-    <string name="diagnostics_dpi_suite_firefox_format">Firefox: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_a_format">Plantilla A: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_b_format">Plantilla B: %1$s</string>
     <string name="diagnostics_dpi_suite_generic_format">Perfil general: %1$s</string>
     <string name="diagnostics_dpi_suite_vn_format">VN: %1$s</string>
     <string name="diagnostics_dpi_suite_https_rr_format">HTTPS RR: %1$s</string>
@@ -1428,7 +1428,7 @@
     <string name="diagnostics_dpi_suite_domains_format">Dominios accesibles: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_tcp16_format">Destinos con cierre típico TCP16: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">Grupos ASN comprobados: %1$d</string>
-    <string name="diagnostics_dpi_suite_quic_format">Destinos con huella QUIC Initial válida: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_format">Destinos con respuestas Initial/VN completas: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_format">Destinos que aceptaron ECH: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">Vinculación HTTPS no disponible para esta prueba</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">No hay una configuración ECH utilizable</string>

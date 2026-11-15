@@ -814,7 +814,7 @@
     <string name="diagnostics_domain_reachability_metric_flagged">sinalizados</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">IPs stub</string>
     <string name="diagnostics_dpi_probe_kind_ech">Prontidão de ECH</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">Impressão digital QUIC Initial</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial/VN</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">Cabeçalho grande TCP16</string>
     <string name="diagnostics_dpi_suite_cancel">Cancelar suíte</string>
     <string name="diagnostics_dpi_suite_concurrency">Concorrência %1$d</string>
@@ -1415,8 +1415,8 @@
     <string name="diagnostics_dpi_suite_telegram_transfer_probes_reported_throughput_degradation">Os testes de transferência Telegram relataram queda de velocidade.</string>
     <string name="diagnostics_dpi_suite_multiple_interference_categories_were_reported">Foram relatados vários tipos de interferência.</string>
     <string name="diagnostics_dpi_suite_too_many_selected_probes_failed_to_classify_the_path">Muitos testes selecionados não conseguiram classificar o caminho.</string>
-    <string name="diagnostics_dpi_suite_chrome_format">Chrome: %1$s</string>
-    <string name="diagnostics_dpi_suite_firefox_format">Firefox: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_a_format">Modelo A: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_b_format">Modelo B: %1$s</string>
     <string name="diagnostics_dpi_suite_generic_format">Perfil genérico: %1$s</string>
     <string name="diagnostics_dpi_suite_vn_format">VN: %1$s</string>
     <string name="diagnostics_dpi_suite_https_rr_format">HTTPS RR: %1$s</string>
@@ -1426,7 +1426,7 @@
     <string name="diagnostics_dpi_suite_domains_format">Domínios acessíveis: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_tcp16_format">Destinos com padrão de fechamento TCP16: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">Grupos ASN verificados: %1$d</string>
-    <string name="diagnostics_dpi_suite_quic_format">Destinos aprovados na verificação de impressão QUIC Initial: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_format">Destinos com respostas Initial/VN completas: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_format">Destinos que aceitaram ECH: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">Vínculo HTTPS indisponível para este teste</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">Nenhuma configuração ECH utilizável</string>

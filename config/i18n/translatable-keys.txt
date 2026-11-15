@@ -1467,7 +1467,6 @@ app:diagnostics_dpi_suite_asn_format
 app:diagnostics_dpi_suite_blocked
 app:diagnostics_dpi_suite_cancel
 app:diagnostics_dpi_suite_cancelled
-app:diagnostics_dpi_suite_chrome_format
 app:diagnostics_dpi_suite_concurrency
 app:diagnostics_dpi_suite_custom_domains_label
 app:diagnostics_dpi_suite_dns_availability_format
@@ -1481,7 +1480,6 @@ app:diagnostics_dpi_suite_ech_ok
 app:diagnostics_dpi_suite_ech_rejected
 app:diagnostics_dpi_suite_error
 app:diagnostics_dpi_suite_failed_summary
-app:diagnostics_dpi_suite_firefox_format
 app:diagnostics_dpi_suite_generic_format
 app:diagnostics_dpi_suite_https_rr_format
 app:diagnostics_dpi_suite_idle_summary
@@ -1497,6 +1495,8 @@ app:diagnostics_dpi_suite_partial
 app:diagnostics_dpi_suite_probe_running
 app:diagnostics_dpi_suite_progress_format
 app:diagnostics_dpi_suite_quic_format
+app:diagnostics_dpi_suite_quic_template_a_format
+app:diagnostics_dpi_suite_quic_template_b_format
 app:diagnostics_dpi_suite_run
 app:diagnostics_dpi_suite_running_format
 app:diagnostics_dpi_suite_skipped

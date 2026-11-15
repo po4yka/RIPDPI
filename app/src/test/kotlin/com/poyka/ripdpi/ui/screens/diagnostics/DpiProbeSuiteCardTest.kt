@@ -53,15 +53,15 @@ class DpiProbeSuiteCardTest {
                                 persistentListOf(
                                     DiagnosticsDpiSuiteProbeRowUiModel(
                                         kind = DpiProbeKind.QUIC_H3,
-                                        label = "QUIC Initial fingerprint",
+                                        label = "QUIC Initial/VN",
                                         status = "flagged",
-                                        detail = "0/1 targets passed QUIC Initial fingerprint checks",
+                                        detail = "Targets with complete Initial/VN replies: 0/1",
                                         tone = DiagnosticsTone.Warning,
                                         detailRows =
                                             persistentListOf(
                                                 DiagnosticsDpiSuiteProbeDetailUiModel(
                                                     label = "cloudflare.com",
-                                                    detail = "Chrome blocked | Firefox ok | Generic ok | VN ok | 42 ms",
+                                                    detail = QuicTargetDetail,
                                                     tone = DiagnosticsTone.Warning,
                                                 ),
                                             ),
@@ -78,6 +78,11 @@ class DpiProbeSuiteCardTest {
         }
 
         composeRule.onNodeWithText("cloudflare.com").assertIsDisplayed()
-        composeRule.onNodeWithText("Chrome blocked | Firefox ok | Generic ok | VN ok | 42 ms").assertIsDisplayed()
+        composeRule
+            .onNodeWithText(
+                QuicTargetDetail,
+            ).assertIsDisplayed()
     }
 }
+
+private const val QuicTargetDetail = "Template A blocked | Template B ok | Generic ok | VN ok | 42 ms"

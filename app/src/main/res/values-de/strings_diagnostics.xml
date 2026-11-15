@@ -816,7 +816,7 @@
     <string name="diagnostics_domain_reachability_metric_flagged">markiert</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">Stub-IPs</string>
     <string name="diagnostics_dpi_probe_kind_ech">ECH-Bereitschaft</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC-Initial-Fingerprint</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial/VN</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">TCP16-Fat-Header</string>
     <string name="diagnostics_dpi_suite_cancel">Suite abbrechen</string>
     <string name="diagnostics_dpi_suite_concurrency">Parallelität %1$d</string>
@@ -1416,8 +1416,8 @@
     <string name="diagnostics_dpi_suite_telegram_transfer_probes_reported_throughput_degradation">Telegram-Übertragungsprüfungen meldeten geringeren Durchsatz.</string>
     <string name="diagnostics_dpi_suite_multiple_interference_categories_were_reported">Mehrere Arten von Eingriffen wurden gemeldet.</string>
     <string name="diagnostics_dpi_suite_too_many_selected_probes_failed_to_classify_the_path">Zu viele ausgewählte Prüfungen konnten den Pfad nicht einordnen.</string>
-    <string name="diagnostics_dpi_suite_chrome_format">Chrome: %1$s</string>
-    <string name="diagnostics_dpi_suite_firefox_format">Firefox: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_a_format">Vorlage A: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_b_format">Vorlage B: %1$s</string>
     <string name="diagnostics_dpi_suite_generic_format">Allgemeines Profil: %1$s</string>
     <string name="diagnostics_dpi_suite_vn_format">VN: %1$s</string>
     <string name="diagnostics_dpi_suite_https_rr_format">HTTPS RR: %1$s</string>
@@ -1427,7 +1427,7 @@
     <string name="diagnostics_dpi_suite_domains_format">Erreichbare Domains: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_tcp16_format">Ziele mit TCP16-Schließmuster: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">Geprüfte ASN-Gruppen: %1$d</string>
-    <string name="diagnostics_dpi_suite_quic_format">Ziele mit bestandener QUIC-Initial-Fingerabdruckprüfung: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_format">Ziele mit vollständigen Initial/VN-Antworten: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_format">Ziele mit akzeptiertem ECH: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">HTTPS-Dienstbindung für diese Prüfung nicht verfügbar</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">Keine verwendbare ECH-Konfiguration</string>

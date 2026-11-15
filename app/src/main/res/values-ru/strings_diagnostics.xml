@@ -620,7 +620,7 @@
     <string name="diagnostics_domain_reachability_metric_flagged">помечено</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">stub-IP</string>
     <string name="diagnostics_dpi_probe_kind_ech">Готовность ECH</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">Отпечаток QUIC Initial</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial/VN</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">Толстый заголовок TCP16</string>
     <string name="diagnostics_dpi_suite_cancel">Отменить набор</string>
     <string name="diagnostics_dpi_suite_concurrency">Параллелизм %1$d</string>
@@ -1459,8 +1459,8 @@
     <string name="diagnostics_dpi_suite_telegram_transfer_probes_reported_throughput_degradation">Проверки передачи данных Telegram выявили снижение скорости.</string>
     <string name="diagnostics_dpi_suite_multiple_interference_categories_were_reported">Выявлено несколько видов вмешательства.</string>
     <string name="diagnostics_dpi_suite_too_many_selected_probes_failed_to_classify_the_path">Слишком много выбранных проверок не смогли определить состояние сетевого пути.</string>
-    <string name="diagnostics_dpi_suite_chrome_format">Chrome: %1$s</string>
-    <string name="diagnostics_dpi_suite_firefox_format">Firefox: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_a_format">Шаблон A: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_b_format">Шаблон B: %1$s</string>
     <string name="diagnostics_dpi_suite_generic_format">Общий профиль: %1$s</string>
     <string name="diagnostics_dpi_suite_vn_format">VN: %1$s</string>
     <string name="diagnostics_dpi_suite_https_rr_format">HTTPS RR: %1$s</string>
@@ -1470,7 +1470,7 @@
     <string name="diagnostics_dpi_suite_domains_format">Доступно доменов: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_tcp16_format">Целей с характерным для TCP16 закрытием: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">Проверено групп ASN: %1$d</string>
-    <string name="diagnostics_dpi_suite_quic_format">Целей, прошедших проверку отпечатка QUIC Initial: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_format">Целей с полными ответами Initial/VN: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_format">Целей, принявших ECH: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">Привязка HTTPS недоступна для этой пробы</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">Нет подходящей конфигурации ECH</string>

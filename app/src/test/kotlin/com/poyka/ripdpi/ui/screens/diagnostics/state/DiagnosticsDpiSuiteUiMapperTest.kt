@@ -105,11 +105,11 @@ class DiagnosticsDpiSuiteUiMapperTest {
                 ).toDpiSuiteProbeRowUiModel(stringResolver)
 
         assertEquals(DpiProbeKind.QUIC_H3, row.kind)
-        assertEquals("QUIC Initial fingerprint", row.label)
+        assertEquals("QUIC Initial/VN", row.label)
         assertEquals("flagged", row.status)
         assertEquals(1, row.detailRows.size)
         assertEquals("cloudflare.com", row.detailRows.single().label)
-        assertEquals("Chrome blocked | Firefox ok | Generic ok | VN ok | 42 ms", row.detailRows.single().detail)
+        assertEquals("Template A blocked | Template B ok | Generic ok | VN ok | 42 ms", row.detailRows.single().detail)
         assertEquals(DiagnosticsTone.Warning, row.detailRows.single().tone)
     }
 

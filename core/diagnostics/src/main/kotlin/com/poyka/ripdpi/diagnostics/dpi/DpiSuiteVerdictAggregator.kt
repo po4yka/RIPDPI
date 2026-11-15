@@ -135,7 +135,7 @@ object DpiSuiteVerdictAggregator {
             is DpiSuiteProbeResult.QuicH3 -> {
                 val ok = result.results.count { quic -> quic.verdict == QuicProbeVerdict.QUIC_OK }
                 val flagged = result.results.count { quic -> quic.verdict != QuicProbeVerdict.QUIC_OK }
-                "QUIC/H3: $ok/${result.results.size} OK, $flagged flagged"
+                "QUIC Initial/VN: $ok/${result.results.size} OK, $flagged flagged"
             }
 
             is DpiSuiteProbeResult.EchReadiness -> {

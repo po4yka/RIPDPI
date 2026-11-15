@@ -850,7 +850,7 @@
     <string name="diagnostics_domain_reachability_metric_flagged">फ़्लैग किया गया</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">stub IP</string>
     <string name="diagnostics_dpi_probe_kind_ech">ECH तैयारी</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial फ़िंगरप्रिंट</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial/VN</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">TCP16 फैट हेडर</string>
     <string name="diagnostics_dpi_suite_cancel">सूट रद्द करें</string>
     <string name="diagnostics_dpi_suite_concurrency">समवर्तीता %1$d</string>
@@ -1423,8 +1423,8 @@
     <string name="diagnostics_dpi_suite_telegram_transfer_probes_reported_throughput_degradation">Telegram ट्रांसफ़र जाँचों ने गति में कमी की सूचना दी।</string>
     <string name="diagnostics_dpi_suite_multiple_interference_categories_were_reported">कई प्रकार के हस्तक्षेप की सूचना मिली।</string>
     <string name="diagnostics_dpi_suite_too_many_selected_probes_failed_to_classify_the_path">बहुत अधिक चुनी गई जाँचें पथ की स्थिति नहीं बता सकीं।</string>
-    <string name="diagnostics_dpi_suite_chrome_format">Chrome: %1$s</string>
-    <string name="diagnostics_dpi_suite_firefox_format">Firefox: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_a_format">टेम्पलेट A: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_b_format">टेम्पलेट B: %1$s</string>
     <string name="diagnostics_dpi_suite_generic_format">सामान्य प्रोफ़ाइल: %1$s</string>
     <string name="diagnostics_dpi_suite_vn_format">VN: %1$s</string>
     <string name="diagnostics_dpi_suite_https_rr_format">HTTPS RR: %1$s</string>
@@ -1434,7 +1434,7 @@
     <string name="diagnostics_dpi_suite_domains_format">उपलब्ध डोमेन: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_tcp16_format">TCP16 बंद होने के पैटर्न वाले लक्ष्य: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">जाँचे गए ASN समूह: %1$d</string>
-    <string name="diagnostics_dpi_suite_quic_format">QUIC Initial फ़िंगरप्रिंट जाँच पास करने वाले लक्ष्य: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_format">पूर्ण Initial/VN जवाब वाले लक्ष्य: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_format">ECH स्वीकार करने वाले लक्ष्य: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">इस जाँच के लिए HTTPS बाइंडिंग उपलब्ध नहीं है</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">उपयोग योग्य ECH कॉन्फ़िगरेशन नहीं है</string>

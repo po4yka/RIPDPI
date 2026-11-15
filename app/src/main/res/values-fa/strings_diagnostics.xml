@@ -816,7 +816,7 @@
     <string name="diagnostics_domain_reachability_metric_flagged">نشانه‌گذاری‌شده</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">IPهای stub</string>
     <string name="diagnostics_dpi_probe_kind_ech">آمادگی ECH</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">اثرانگشت QUIC Initial</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial/VN</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">سرآیند چاق TCP16</string>
     <string name="diagnostics_dpi_suite_cancel">لغو مجموعه</string>
     <string name="diagnostics_dpi_suite_concurrency">هم‌زمانی %1$d</string>
@@ -1416,8 +1416,8 @@
     <string name="diagnostics_dpi_suite_telegram_transfer_probes_reported_throughput_degradation">بررسی‌های انتقال Telegram کاهش سرعت گزارش کردند.</string>
     <string name="diagnostics_dpi_suite_multiple_interference_categories_were_reported">چند نوع دخالت گزارش شد.</string>
     <string name="diagnostics_dpi_suite_too_many_selected_probes_failed_to_classify_the_path">تعداد زیادی از بررسی‌های انتخاب‌شده نتوانستند مسیر را طبقه‌بندی کنند.</string>
-    <string name="diagnostics_dpi_suite_chrome_format">Chrome: %1$s</string>
-    <string name="diagnostics_dpi_suite_firefox_format">Firefox: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_a_format">الگوی A: %1$s</string>
+    <string name="diagnostics_dpi_suite_quic_template_b_format">الگوی B: %1$s</string>
     <string name="diagnostics_dpi_suite_generic_format">نمایه عمومی: %1$s</string>
     <string name="diagnostics_dpi_suite_vn_format">VN: %1$s</string>
     <string name="diagnostics_dpi_suite_https_rr_format">HTTPS RR: %1$s</string>
@@ -1427,7 +1427,7 @@
     <string name="diagnostics_dpi_suite_domains_format">دامنه‌های در دسترس: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_tcp16_format">هدف‌های دارای الگوی بسته‌شدن ⁨TCP16⁩: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">گروه‌های ASN بررسی‌شده: %1$d</string>
-    <string name="diagnostics_dpi_suite_quic_format">هدف‌های پذیرفته‌شده در بررسی اثر انگشت ⁨QUIC Initial⁩: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_quic_format">هدف‌های دارای پاسخ کامل Initial/VN: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_format">هدف‌های پذیرفته‌شده با ⁨ECH⁩: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">پیوند HTTPS برای این آزمون در دسترس نیست</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">پیکربندی ECH قابل استفاده‌ای وجود ندارد</string>

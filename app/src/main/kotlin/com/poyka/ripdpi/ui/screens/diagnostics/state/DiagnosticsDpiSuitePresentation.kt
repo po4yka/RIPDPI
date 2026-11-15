@@ -105,11 +105,11 @@ private fun QuicProbeResult.toQuicDetailRow(stringResolver: StringResolver): Dia
         detail =
             listOf(
                 stringResolver.getString(
-                    R.string.diagnostics_dpi_suite_chrome_format,
+                    R.string.diagnostics_dpi_suite_quic_template_a_format,
                     chromeOk.okBlockedLabel(stringResolver),
                 ),
                 stringResolver.getString(
-                    R.string.diagnostics_dpi_suite_firefox_format,
+                    R.string.diagnostics_dpi_suite_quic_template_b_format,
                     firefoxOk.okBlockedLabel(stringResolver),
                 ),
                 stringResolver.getString(
