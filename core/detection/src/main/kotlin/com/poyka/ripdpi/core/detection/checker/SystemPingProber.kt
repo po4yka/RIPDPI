@@ -69,6 +69,8 @@ class SystemPingProber internal constructor(
         ProcessBuilder(command).redirectErrorStream(true).start()
     })
 
+    private val commandProfile by lazy { detectCommandProfile() }
+
     init {
         require(sampleCount in 1..MAX_PING_SAMPLES)
         require(timeoutSeconds in 1..MAX_PING_TIMEOUT_SECONDS)
@@ -97,9 +99,16 @@ class SystemPingProber internal constructor(
         host: String,
         address: String,
     ): PingProbeResult {
+        val profile =
+            commandProfile
+                ?: return PingProbeResult.unreachable(host, address, "Unsupported ping numeric-output profile")
+        val command =
+            listOf("ping") +
+                (if (profile == PingCommandProfile.IPUTILS) listOf("-n") else emptyList()) +
+                listOf("-c", sampleCount.toString(), "-W", timeoutSeconds.toString(), address)
         val process =
             try {
-                processStarter(listOf("ping", "-c", sampleCount.toString(), "-W", timeoutSeconds.toString(), address))
+                processStarter(command)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (interrupted: InterruptedException) {
@@ -124,6 +133,36 @@ class SystemPingProber internal constructor(
             throw interrupted
         } catch (_: Exception) {
             PingProbeResult.unreachable(host, address)
+        } finally {
+            terminateAndReap(process)
+        }
+    }
+
+    private fun detectCommandProfile(): PingCommandProfile? {
+        val version = readCapabilities(listOf("ping", "-V"))
+        if (version?.contains("iputils", ignoreCase = true) == true) return PingCommandProfile.IPUTILS
+        val help = readCapabilities(listOf("ping", "--help"))
+        return if (help?.contains("toybox", ignoreCase = true) == true) PingCommandProfile.TOYBOX else null
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun readCapabilities(command: List<String>): String? {
+        val process =
+            try {
+                processStarter(command)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (interrupted: InterruptedException) {
+                throw interrupted
+            } catch (_: Exception) {
+                return null
+            }
+        return try {
+            if (process.waitFor(CAPABILITY_TIMEOUT_MS, TimeUnit.MILLISECONDS)) readOutput(process) else null
+        } catch (interrupted: InterruptedException) {
+            throw interrupted
+        } catch (_: IOException) {
+            null
         } finally {
             terminateAndReap(process)
         }
@@ -186,8 +225,14 @@ class SystemPingProber internal constructor(
     private fun replyRttsMs(output: String): List<Double> =
         singleReplyRttRegex.findAll(output).mapNotNull { it.groupValues[1].toDoubleOrNull() }.toList()
 
+    private enum class PingCommandProfile {
+        IPUTILS,
+        TOYBOX,
+    }
+
     private companion object {
         private const val PING_TIMEOUT_SECONDS = 3
+        private const val CAPABILITY_TIMEOUT_MS = 500L
         private const val MAX_PING_TIMEOUT_SECONDS = 30
         private const val MAX_PING_SAMPLES = 32
         private const val PROCESS_CLEANUP_TIMEOUT_MS = 1_000L

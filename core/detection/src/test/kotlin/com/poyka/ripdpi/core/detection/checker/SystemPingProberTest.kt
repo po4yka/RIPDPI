@@ -22,10 +22,11 @@ class SystemPingProberTest {
             withFixture("exec sleep 30") { script ->
                 val started = CompletableDeferred<Process>()
                 val prober =
-                    SystemPingProber(dispatchers, 4, 3) { _ ->
-                        ProcessBuilder(
-                            script.absolutePath,
-                        ).redirectErrorStream(true).start().also { started.complete(it) }
+                    SystemPingProber(dispatchers, 4, 3) { command ->
+                        ProcessBuilder(listOf(script.absolutePath) + command.drop(1))
+                            .redirectErrorStream(true)
+                            .start()
+                            .also { if ("-c" in command) started.complete(it) }
                     }
                 val pending = async(Dispatchers.Default) { prober.ping("127.0.0.1") }
                 val process = withTimeout(5_000L) { started.await() }
@@ -42,8 +43,11 @@ class SystemPingProberTest {
             withFixture("exec sleep 30") { script ->
                 lateinit var process: Process
                 val prober =
-                    SystemPingProber(dispatchers, 1, 1) { _ ->
-                        ProcessBuilder(script.absolutePath).redirectErrorStream(true).start().also { process = it }
+                    SystemPingProber(dispatchers, 1, 1) { command ->
+                        ProcessBuilder(listOf(script.absolutePath) + command.drop(1))
+                            .redirectErrorStream(true)
+                            .start()
+                            .also { process = it }
                     }
 
                 val result = withTimeout(3_000L) { prober.ping("127.0.0.1") }
@@ -56,11 +60,14 @@ class SystemPingProberTest {
     @Test(timeout = TestTimeoutMillis)
     fun `successful process returns its measurement and exits`() =
         runBlocking {
-            withFixture("printf '%s\n' 'rtt min/avg/max/mdev = 1.0/2.0/3.0/1.0 ms'") { script ->
+            withFixture("printf '%s\\n' 'rtt min/avg/max/mdev = 1.0/2.0/3.0/1.0 ms'") { script ->
                 lateinit var process: Process
                 val prober =
-                    SystemPingProber(dispatchers, 1, 1) { _ ->
-                        ProcessBuilder(script.absolutePath).redirectErrorStream(true).start().also { process = it }
+                    SystemPingProber(dispatchers, 1, 1) { command ->
+                        ProcessBuilder(listOf(script.absolutePath) + command.drop(1))
+                            .redirectErrorStream(true)
+                            .start()
+                            .also { process = it }
                     }
 
                 val result = prober.ping("127.0.0.1")
@@ -78,7 +85,16 @@ class SystemPingProberTest {
     ) {
         val script = File.createTempFile("detection-ping-", ".sh")
         try {
-            script.writeText("#!/bin/sh\n$command\n")
+            script.writeText(
+                """
+                |#!/bin/sh
+                |if [ "${'$'}1" = "-V" ]; then
+                |  printf '%s\n' 'ping utility, iputils-s20121221'
+                |  exit 0
+                |fi
+                |$command
+                """.trimMargin() + "\n",
+            )
             check(script.setExecutable(true))
             block(script)
         } finally {
