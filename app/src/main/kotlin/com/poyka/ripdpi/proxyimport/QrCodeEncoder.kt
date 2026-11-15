@@ -19,7 +19,6 @@ object QrCodeEncoder {
     private val hints =
         mapOf(
             EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
-            EncodeHintType.MARGIN to 1,
             EncodeHintType.CHARACTER_SET to "UTF-8",
         )
 

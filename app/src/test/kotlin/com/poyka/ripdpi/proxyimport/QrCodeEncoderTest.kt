@@ -14,6 +14,19 @@ import org.junit.Test
  */
 class QrCodeEncoderTest {
     @Test
+    fun `rendered QR has at least four quiet modules on every side`() {
+        val matrix = QrCodeEncoder.encodeMatrix("HELLO", size = 512)
+        val (left, top, width, height) = matrix.enclosingRectangle
+        val module = width / 21 // Version 1 has a 21-module symbol.
+
+        assertEquals(21 * module, width)
+        assertTrue(left >= 4 * module)
+        assertTrue(top >= 4 * module)
+        assertTrue(matrix.width - left - width >= 4 * module)
+        assertTrue(matrix.height - top - height >= 4 * module)
+    }
+
+    @Test
     fun `encoding a uri produces a square matrix at the requested size`() {
         val matrix = QrCodeEncoder.encodeMatrix("vless://uuid@example.com:443#Node", size = 256)
 
