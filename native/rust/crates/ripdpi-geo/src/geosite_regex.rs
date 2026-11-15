@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
-use regex::{Regex, RegexBuilder};
+use regex::Regex;
 
 pub(super) fn compile(pattern: &str) -> Result<Regex, regex::Error> {
-    RegexBuilder::new(&unquote(pattern)).case_insensitive(true).build()
+    Regex::new(&unquote(pattern))
 }
 
 fn unquote(pattern: &str) -> Cow<'_, str> {

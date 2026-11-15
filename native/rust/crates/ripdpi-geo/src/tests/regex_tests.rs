@@ -35,3 +35,30 @@ fn invalid_regex_rejects_load_and_preserves_reload_snapshot() {
     assert!(GeoRuntime::load(paths(&dir)).is_err());
     fs::remove_dir_all(dir).expect("remove fixture");
 }
+
+#[test]
+fn regex_preserves_pattern_flags_and_normalizes_candidate_case() {
+    for catalog in [
+        [
+            geosite_catalog("sensitive", &[domain(1, r"^API\.example$")]),
+            geosite_catalog("insensitive", &[domain(1, r"(?i)^API\.example$")]),
+            geosite_catalog("lower", &[domain(1, r"^api\.example$")]),
+        ]
+        .concat(),
+        sing_geosite_catalog(&[
+            ("sensitive", &[(3, r"^API\.example$")]),
+            ("insensitive", &[(3, r"(?i)^API\.example$")]),
+            ("lower", &[(3, r"^api\.example$")]),
+        ]),
+    ] {
+        let dir = temp_dir();
+        fs::write(dir.join("geosite.db"), catalog).expect("write regex case database");
+        let runtime = GeoRuntime::load(paths(&dir)).expect("load regex case database").runtime;
+        for host in ["api.example", "API.EXAMPLE."] {
+            assert_eq!(Some(false), runtime.geosite_match("sensitive", host));
+            assert_eq!(Some(true), runtime.geosite_match("insensitive", host));
+            assert_eq!(Some(true), runtime.geosite_match("lower", host));
+        }
+        fs::remove_dir_all(dir).expect("remove fixture");
+    }
+}

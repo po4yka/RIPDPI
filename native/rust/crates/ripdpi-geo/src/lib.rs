@@ -9,6 +9,7 @@ mod proto {
     include!(concat!(env!("OUT_DIR"), "/geosite.rs"));
 }
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
@@ -198,7 +199,14 @@ impl GeositeDatabase {
         let Some(rules) = self.categories.get(&key) else { return false };
         let domain = domain.trim_end_matches('.');
         rules.iter().any(|rule| rule.kind != GeositeDomainKind::Regex && rule.matches(domain))
-            || self.regexes.get(&key).is_some_and(|regexes| regexes.iter().any(|regex| regex.is_match(domain)))
+            || self.regexes.get(&key).is_some_and(|regexes| {
+                let candidate = if domain.is_ascii() && !domain.bytes().any(|byte| byte.is_ascii_uppercase()) {
+                    Cow::Borrowed(domain)
+                } else {
+                    Cow::Owned(domain.to_lowercase())
+                };
+                regexes.iter().any(|regex| regex.is_match(&candidate))
+            })
     }
 
     fn category(&self, category: &str) -> Option<&[GeositeDomainRule]> {
