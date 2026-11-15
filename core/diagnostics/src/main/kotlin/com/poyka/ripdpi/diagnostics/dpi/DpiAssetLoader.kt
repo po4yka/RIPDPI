@@ -13,11 +13,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okio.buffer
+import okio.source
 import java.io.File
 import java.io.InputStream
 import javax.inject.Singleton
@@ -38,6 +41,8 @@ private const val RknWhitelistControlPath = "rkn/rkn_whitelist_control.txt"
 private const val RknBlacklistTestPath = "rkn/rkn_blacklist_test.txt"
 private const val LegacyTypoPortField = ",port"
 private const val CommentPrefix = "#"
+private const val Tcp16CatalogMaxBytes = 256L * 1_024
+private const val Tcp16CatalogMaxEntries = 512
 
 interface DpiAssetFileProvider {
     fun overrideFile(relativePath: String): File
@@ -75,7 +80,7 @@ class DpiAssetLoader(
     private var cachedRknBlacklistTest: List<RknTarget>? = null
 
     fun loadTcp16Targets(): List<Tcp16Target> =
-        cachedTcp16Targets ?: loadText(Tcp16TargetsPath)
+        cachedTcp16Targets ?: loadTcp16Catalog(Tcp16TargetsPath)
             .let(json::parseTcp16Targets)
             .also { cachedTcp16Targets = it }
 
@@ -92,8 +97,9 @@ class DpiAssetLoader(
             .also { cachedEchTargets = it }
 
     fun loadWhitelistSni(): List<String> =
-        cachedWhitelistSni ?: loadText(WhitelistSniPath)
+        cachedWhitelistSni ?: loadTcp16Catalog(WhitelistSniPath)
             .parseLineList()
+            .also { entries -> require(entries.size <= Tcp16CatalogMaxEntries) { "Too many TCP16 SNI entries" } }
             .also { cachedWhitelistSni = it }
 
     fun loadByohSyntheticDomains(): List<String> =
@@ -145,11 +151,19 @@ class DpiAssetLoader(
             .let(RknTargetListParser::parse)
             .also { cachedRknBlacklistTest = it }
 
-    private fun loadText(relativePath: String): String {
+    private fun loadText(relativePath: String): String =
+        open(relativePath).bufferedReader().use { reader -> reader.readText() }
+
+    private fun open(relativePath: String): InputStream {
         val override = fileProvider.overrideFile(relativePath)
-        if (override.isFile) return override.readText()
-        return fileProvider.openAsset(relativePath).bufferedReader().use { reader -> reader.readText() }
+        return if (override.isFile) override.inputStream() else fileProvider.openAsset(relativePath)
     }
+
+    private fun loadTcp16Catalog(relativePath: String): String =
+        open(relativePath).source().buffer().use { source ->
+            require(!source.request(Tcp16CatalogMaxBytes + 1L)) { "TCP16 catalog exceeds the size limit" }
+            source.readUtf8()
+        }
 
     private fun String.parseLineList(): List<String> =
         lineSequence()
@@ -161,7 +175,14 @@ class DpiAssetLoader(
 private fun Json.parseTcp16Targets(payload: String): List<Tcp16Target> =
     parseToJsonElement(payload)
         .jsonArray
-        .map { element -> element.jsonObject.toTcp16Target() }
+        .also { entries -> require(entries.size <= Tcp16CatalogMaxEntries) { "Too many TCP16 targets" } }
+        .mapIndexed { index, element ->
+            try {
+                element.jsonObject.toTcp16Target()
+            } catch (_: IllegalArgumentException) {
+                Tcp16Target(id = "entry ${index + 1}", asn = "", provider = "", ip = "", port = 0, sni = null)
+            }
+        }
 
 private fun Json.parseIpv4WhitelistAsns(payload: String): List<WhitelistAsn> =
     parseToJsonElement(payload)
@@ -193,15 +214,30 @@ private fun Json.parseDohBootstrapSubnetMetadata(payload: String): List<SubnetMe
             )
         }
 
-private fun JsonObject.toTcp16Target(): Tcp16Target =
-    Tcp16Target(
-        id = requireString("id"),
-        asn = requireString("asn"),
-        provider = requireString("provider"),
-        ip = requireString("ip"),
-        port = requirePort(),
-        sni = this["sni"]?.jsonPrimitive?.contentOrNull,
+private fun JsonObject.toTcp16Target(): Tcp16Target {
+    val port = requirePort()
+    val scheme = optionalTcp16String("scheme")
+    return Tcp16Target(
+        id = requireTcp16String("id"),
+        asn = requireTcp16String("asn"),
+        provider = requireTcp16String("provider"),
+        ip = requireTcp16String("ip"),
+        port = port,
+        sni = optionalTcp16String("sni"),
+        transport = if (scheme == null) Tcp16Transport.forDefaultPort(port) else Tcp16Transport.fromScheme(scheme),
     )
+}
+
+private fun JsonObject.optionalTcp16String(name: String): String? =
+    this[name]?.let { value ->
+        val primitive = value.jsonPrimitive
+        if (primitive.contentOrNull == null) return@let null
+        require(primitive.isString) { "Invalid TCP16 field '$name'" }
+        primitive.content
+    }
+
+private fun JsonObject.requireTcp16String(name: String): String =
+    requireNotNull(optionalTcp16String(name)) { "Missing TCP16 field '$name'" }
 
 private fun JsonObject.requireString(name: String): String =
     requireNotNull(this[name]?.jsonPrimitive?.contentOrNull) {
@@ -210,9 +246,9 @@ private fun JsonObject.requireString(name: String): String =
 
 private fun JsonObject.requirePort(): Int {
     val portElement = this["port"] ?: this[LegacyTypoPortField]
-    return requireNotNull(portElement) {
-        "Missing required tcp16 target field 'port'"
-    }.jsonPrimitive.int
+    val port = portElement as? JsonPrimitive
+    require(port != null && !port.isString) { "Invalid TCP16 port" }
+    return port.int
 }
 
 @Module

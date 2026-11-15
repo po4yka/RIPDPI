@@ -43,6 +43,22 @@ class Tcp16FatHeaderProbeTest {
         }
 
     @Test
+    fun invalidIpAndUnspecifiedNonstandardTransportNeverConnect() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start()
+                val target = mockTarget(server)
+
+                val invalid = probe().runWithRttHint(target.copy(ip = "example.test"))
+                val unsupported = probe().runWithRttHint(target.copy(transport = null))
+
+                assertEquals(Tcp16Verdict.INVALID_TARGET, invalid.verdict)
+                assertEquals(Tcp16Verdict.UNSUPPORTED, unsupported.verdict)
+                assertEquals(0, server.requestCount)
+            }
+        }
+
+    @Test
     fun allOkUsesSixteenHeadRequestsOnOneConnection() =
         runTest {
             MockWebServer().use { server ->
@@ -61,6 +77,7 @@ class Tcp16FatHeaderProbeTest {
 
                 val requests = (0 until 16).map { server.takeRequest(1, TimeUnit.SECONDS) }
                 assertTrue(requests.all { request -> request?.method == "HEAD" })
+                assertTrue(requests.all { request -> request?.headers?.get("Host") == "example.test:${server.port}" })
                 assertNull(requests.first()?.headers?.get("X-Pad"))
                 requests.drop(1).forEach { request ->
                     assertEquals(4096, request?.headers?.get("X-Pad")?.length)
@@ -385,6 +402,7 @@ class Tcp16FatHeaderProbeTest {
             ip = "127.0.0.1",
             port = port,
             sni = "example.test",
+            transport = if (port == 443) Tcp16Transport.HTTPS else Tcp16Transport.HTTP,
         )
 
     private fun okHeadResponse(): MockResponse =

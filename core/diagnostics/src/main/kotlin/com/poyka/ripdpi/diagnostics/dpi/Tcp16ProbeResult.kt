@@ -9,6 +9,7 @@ enum class Tcp16Verdict {
     ERROR,
     INVALID_RECONNECTED,
     UNSUPPORTED,
+    INVALID_TARGET,
 }
 
 data class Tcp16ProbeResult(

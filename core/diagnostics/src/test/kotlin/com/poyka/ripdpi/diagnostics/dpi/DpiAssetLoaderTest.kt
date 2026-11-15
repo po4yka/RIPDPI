@@ -80,6 +80,33 @@ class DpiAssetLoaderTest {
     }
 
     @Test
+    fun malformedTcp16EntryDoesNotHideOtherTargets() {
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        assets =
+                            mapOf(
+                                "dpi/tcp16.json" to
+                                    """
+                                    [
+                                      {"id":"invalid","asn":"64500","provider":"First","ip":"::1","port":"8443"},
+                                      {"id":"valid","asn":"64500","provider":"Second","ip":"::1","port":8443,"scheme":"https"}
+                                    ]
+                                    """.trimIndent(),
+                            ),
+                    ),
+            )
+
+        val (invalid, valid) = loader.loadTcp16Targets()
+
+        assertTrue(invalid.invalidReason() != null)
+        assertEquals(null, valid.invalidReason())
+        assertEquals(Tcp16Transport.HTTPS, valid.transport)
+        assertEquals(8443, valid.port)
+    }
+
+    @Test
     fun domainsCommentLinesSkipped() {
         val loader =
             DpiAssetLoader(

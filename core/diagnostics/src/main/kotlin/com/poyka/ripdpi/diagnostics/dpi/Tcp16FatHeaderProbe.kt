@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpich.RandomHostHeaderGenerator
 import kotlinx.coroutines.CoroutineDispatcher
@@ -19,6 +20,7 @@ import okhttp3.Call
 import okhttp3.ConnectionPool
 import okhttp3.Dns
 import okhttp3.EventListener
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
@@ -29,6 +31,7 @@ import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.SocketException
 import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -82,12 +85,22 @@ class Tcp16FatHeaderProbe(
         randomHostname: Boolean = false,
     ): Tcp16ProbeResult =
         withContext(dispatcher) {
-            if (!requestRunner.supports(target)) {
+            val invalidReason = target.invalidReason()
+            if (invalidReason != null) {
+                return@withContext target.result(
+                    alive = false,
+                    verdict = Tcp16Verdict.INVALID_TARGET,
+                    measuredRttMs = null,
+                    errorDetail = invalidReason,
+                    connectionCount = 0,
+                )
+            }
+            if (target.transport == null || !requestRunner.supports(target)) {
                 return@withContext target.result(
                     alive = false,
                     verdict = Tcp16Verdict.UNSUPPORTED,
                     measuredRttMs = null,
-                    errorDetail = "HTTP is unavailable for this TCP16 client",
+                    errorDetail = "TCP16 transport is unavailable for this endpoint",
                     connectionCount = 0,
                 )
             }
@@ -347,17 +360,18 @@ class OkHttpTcp16RequestRunner(
     private val baseClient: OkHttpClient = defaultBaseClient(),
 ) : Tcp16RequestRunner {
     override fun supports(target: Tcp16Target): Boolean =
-        baseClient.connectionSpecs.any { spec -> spec.isTls == (target.port == HttpsPort) }
+        baseClient.connectionSpecs.any { spec -> spec.isTls == (target.transport == Tcp16Transport.HTTPS) }
 
     override fun execute(
         target: Tcp16Target,
         request: Tcp16FatHeaderRequest,
         tracker: Tcp16ConnectionTracker,
     ): Tcp16FatHeaderResponse {
+        val url = target.url(request.hostHeader)
         val client =
             baseClient
                 .newBuilder()
-                .dns(target.dns(request.hostHeader))
+                .dns(TargetDns(ip = target.ip, host = url.host))
                 .connectionPool(tracker.connectionPool)
                 .eventListenerFactory { tracker.eventListener() }
                 .build()
@@ -365,9 +379,9 @@ class OkHttpTcp16RequestRunner(
             client.newCall(
                 Request
                     .Builder()
-                    .url(target.url(request.hostHeader))
+                    .url(url)
                     .head()
-                    .header("Host", request.hostHeader)
+                    .header("Host", url.toUri().rawAuthority)
                     .header("Connection", "keep-alive")
                     .apply {
                         request.padding?.let { padding -> header("X-Pad", padding) }
@@ -389,15 +403,15 @@ class OkHttpTcp16RequestRunner(
         }
     }
 
-    private fun Tcp16Target.url(hostHeader: String): String {
-        val scheme = if (port == HttpsPort) "https" else "http"
-        return "$scheme://$hostHeader:$port/"
-    }
-
-    private fun Tcp16Target.dns(hostHeader: String): Dns = TargetDns(ip = ip, hostHeader = hostHeader)
+    private fun Tcp16Target.url(host: String): HttpUrl =
+        HttpUrl
+            .Builder()
+            .scheme(requireNotNull(transport).scheme)
+            .host(host)
+            .port(port)
+            .build()
 
     companion object {
-        private const val HttpsPort = 443
         private const val NanosPerMillis = 1_000_000L
 
         fun withClientBuilder(clientBuilder: Tcp16OkHttpClientBuilder): OkHttpTcp16RequestRunner =
@@ -418,13 +432,13 @@ class OkHttpTcp16RequestRunner(
 
 private data class TargetDns(
     private val ip: String,
-    private val hostHeader: String,
+    private val host: String,
 ) : Dns {
     override fun lookup(hostname: String): List<InetAddress> =
-        if (hostname.equals(hostHeader, ignoreCase = true)) {
-            listOf(InetAddress.getByName(ip))
+        if (hostname.equals(host, ignoreCase = true)) {
+            listOf(requireNotNull(NumericIp.parseAddress(ip)).toInetAddress())
         } else {
-            Dns.SYSTEM.lookup(hostname)
+            throw UnknownHostException("Unexpected TCP16 route host")
         }
 }
 
