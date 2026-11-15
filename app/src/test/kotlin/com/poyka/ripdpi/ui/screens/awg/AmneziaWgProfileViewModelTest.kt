@@ -1,244 +1,35 @@
 package com.poyka.ripdpi.ui.screens.awg
 
-import android.content.Intent
-import app.cash.turbine.test
-import com.poyka.ripdpi.activities.FakePermissionPlatformBridge
-import com.poyka.ripdpi.data.awg.AwgActivationRequest
-import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
-import com.poyka.ripdpi.data.awg.AwgCohortPreset
-import com.poyka.ripdpi.data.awg.AwgCredentialStore
-import com.poyka.ripdpi.data.awg.AwgProfileDao
-import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileForm
-import com.poyka.ripdpi.data.awg.AwgProfileRepository
-import com.poyka.ripdpi.data.awg.AwgSecrets
-import com.poyka.ripdpi.data.awg.testAwgProfileRepository
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
-import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestRule
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import java.util.Base64
 import java.util.UUID
 
-/**
- * Tests for [AmneziaWgProfileViewModel]: the AmneziaWG profile-editor backing ViewModel.
- *
- * The editor surfaces every obfuscation field inline. A cohort preset fills and locks the
- * obfuscation group; "Custom" frees it. These tests inject a fake catalog so they stay
- * pure-JVM (no Android asset loading) and a fake activator that records the dispatched
- * [AwgActivationRequest] without touching the native runtime.
- */
+/** Tests for editor state, import, cohort selection, and secret reveal. */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class AmneziaWgProfileViewModelTest {
-    private val mainDispatcher = StandardTestDispatcher()
+    private val fixture = AwgProfileViewModelFixture()
 
-    @Before
-    fun setUp() {
-        Dispatchers.setMain(mainDispatcher)
-    }
-
-    @After
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    private val rtkSouth =
-        AwgCohortPreset(
-            id = "rtk_south",
-            displayNameKey = "awg_cohort_rtk_south_name",
-            descriptionKey = "awg_cohort_rtk_south_desc",
-            jc = 4,
-            jmin = 40,
-            jmax = 70,
-            s1 = 50,
-            s2 = 100,
-            h1 = "1000000001",
-            h2 = "1000000002",
-            h3 = "1000000003",
-            h4 = "1000000004",
-            randomizeHeaders = false,
-        )
-    private val catalog = AwgCohortCatalogData(presets = listOf(rtkSouth))
-    private val activator = RecordingStandaloneAmneziaWgActivator()
-    private val dao = InMemoryAwgProfileDao()
-    private val credentialStore = InMemoryAwgCredentialStore()
-    private val repository =
-        testAwgProfileRepository(
-            dao,
-            credentialStore,
-            com.poyka.ripdpi.data.awg
-                .TestDirectAwgProfileMutationCoordinator(dao, credentialStore),
-        )
-    private val permissionBridge = FakePermissionPlatformBridge(vpnPermissionIntent = null)
-
-    private fun viewModel() =
-        AmneziaWgProfileViewModel(
-            FakeCatalogProvider(catalog),
-            activator,
-            repository,
-            permissionBridge,
-            FakeAwgClipboardReader(),
-        )
-
-    @Test
-    fun `connect waits for VPN consent before persisting or activating`() =
-        runTest {
-            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-
-            viewModel.onConnect()
-            advanceUntilIdle()
-
-            assertNull(activator.lastActivated)
-            assertTrue(repository.observeProfiles().first().isEmpty())
-        }
-
-    @Test
-    fun `confirmed consent activates once despite duplicate callbacks and taps`() =
-        runTest {
-            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-            viewModel.vpnConsentRequests.test {
-                viewModel.onConnect()
-                viewModel.onConnect()
-                advanceUntilIdle()
-                val request = awaitItem()
-                expectNoEvents()
-                permissionBridge.vpnPermissionIntent = null
-
-                viewModel.onVpnConsentResult(request.id, granted = true)
-                viewModel.onVpnConsentResult(request.id, granted = true)
-                advanceUntilIdle()
-
-                assertEquals(1, activator.activationCount)
-                assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
-            }
-        }
-
-    @Test
-    fun `consent for an edited draft cannot save the obsolete request`() =
-        runTest {
-            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-            viewModel.vpnConsentRequests.test {
-                viewModel.onConnect()
-                advanceUntilIdle()
-                val consent = awaitItem()
-
-                viewModel.onFieldChanged(AwgEditorField.SERVER, "replacement.example.com")
-                permissionBridge.vpnPermissionIntent = null
-                viewModel.onVpnConsentResult(consent.id, granted = true)
-                advanceUntilIdle()
-
-                assertTrue(repository.observeProfiles().first().isEmpty())
-                assertEquals(0, activator.activationCount)
-                assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
-
-                viewModel.onConnect()
-                advanceUntilIdle()
-                val saved =
-                    repository
-                        .observeProfiles()
-                        .first()
-                        .single()
-                        .request
-                assertEquals("replacement.example.com", saved.endpointHost)
-                assertEquals(1, activator.activationCount)
-            }
-        }
-
-    @Test
-    fun `denied consent does not save a profile or activate the service`() =
-        runTest {
-            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-            viewModel.vpnConsentRequests.test {
-                viewModel.onConnect()
-                advanceUntilIdle()
-                val request = awaitItem()
-
-                viewModel.onVpnConsentResult(request.id, granted = false)
-                advanceUntilIdle()
-
-                assertEquals(0, activator.activationCount)
-                assertTrue(repository.observeProfiles().first().isEmpty())
-                assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
-            }
-        }
-
-    @Test
-    fun `successful activity result without platform consent cannot activate`() =
-        runTest {
-            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-            viewModel.vpnConsentRequests.test {
-                viewModel.onConnect()
-                advanceUntilIdle()
-
-                viewModel.onVpnConsentResult(awaitItem().id, granted = true)
-                advanceUntilIdle()
-
-                assertEquals(0, activator.activationCount)
-                assertTrue(repository.observeProfiles().first().isEmpty())
-            }
-        }
-
-    @Test
-    fun `stale permission result cannot consume a newer connect attempt`() =
-        runTest {
-            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-            viewModel.vpnConsentRequests.test {
-                viewModel.onConnect()
-                advanceUntilIdle()
-                val previousRequest = awaitItem()
-                viewModel.onVpnConsentResult(previousRequest.id, granted = false)
-                viewModel.onConnect()
-                advanceUntilIdle()
-                val currentRequest = awaitItem()
-                permissionBridge.vpnPermissionIntent = null
-
-                viewModel.onVpnConsentResult(previousRequest.id, granted = true)
-                advanceUntilIdle()
-                assertEquals(0, activator.activationCount)
-                viewModel.onVpnConsentResult(currentRequest.id, granted = true)
-                advanceUntilIdle()
-
-                assertEquals(1, activator.activationCount)
-            }
-        }
+    @get:Rule
+    val dispatcherRule: TestRule = fixture
 
     @Test
     fun `initial state is a custom, unlocked editor`() {
-        val state = viewModel().uiState.value
+        val state = fixture.viewModel().uiState.value
 
         assertEquals(AwgProfileForm.CUSTOM_COHORT_ID, state.editor.form.cohortId)
         assertFalse(state.editor.obfuscationLocked)
@@ -246,7 +37,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `the cohort picker exposes every catalog preset plus the custom sentinel`() {
-        val state = viewModel().uiState.value
+        val state = fixture.viewModel().uiState.value
 
         val ids = state.cohortOptions.map { it.id }
         assertTrue(ids.contains("rtk_south"))
@@ -255,7 +46,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `selecting a cohort preset fills and locks the obfuscation fields`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
 
         viewModel.onCohortSelected("rtk_south")
 
@@ -268,7 +59,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `selecting the custom sentinel frees the obfuscation fields`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
         viewModel.onCohortSelected("rtk_south")
 
         viewModel.onCohortSelected(AwgProfileForm.CUSTOM_COHORT_ID)
@@ -278,7 +69,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `editing an identity field updates the form`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
 
         viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn.example.com")
 
@@ -287,7 +78,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `editing an obfuscation field while a preset is locked is a no-op`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
         viewModel.onCohortSelected("rtk_south")
 
         viewModel.onFieldChanged(AwgEditorField.JC, "999")
@@ -297,7 +88,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `invalid obfuscation input is flagged but does not corrupt the form`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
 
         viewModel.onFieldChanged(AwgEditorField.JC, "not-a-number")
 
@@ -308,7 +99,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `pasting an awg conf populates the editor and detects the cohort`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
         val conf =
             """
             [Interface]
@@ -339,7 +130,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `pasting a non-conf leaves the editor untouched`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
         viewModel.onFieldChanged(AwgEditorField.SERVER, "keep.me")
 
         viewModel.onConfPasted("definitely not a wireguard config")
@@ -356,7 +147,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `a staged conf token prefills the editor once`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
         val store = PendingProxyImportStore()
         val conf = "[Interface]\nPrivateKey = k==\nJc = 4\n\n[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820"
         val token = checkNotNull(store.stageAmneziaWgConf(conf))
@@ -372,7 +163,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `a conf token lost with the process leaves the editor without a parse error`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
 
         viewModel.onImportToken(UUID.randomUUID().toString(), PendingProxyImportStore())
 
@@ -381,7 +172,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `a plain wireguard conf imports as an unobfuscated profile`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
 
         viewModel.onConfPasted(
             "[Interface]\nPrivateKey = k==\nAddress = 10.0.0.2/32\n\n[Peer]\nPublicKey = p==\n" +
@@ -420,7 +211,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `extra peers are reported and only the first peer is used`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
 
         viewModel.onConfPasted(
             "[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = first==\nEndpoint = a.example:1\n\n" +
@@ -433,7 +224,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `an unreadable file is reported apart from an invalid config`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
 
         viewModel.onConfPasted("")
 
@@ -446,7 +237,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `private and preshared keys start hidden behind the reveal gate`() {
-        val state = viewModel().uiState.value
+        val state = fixture.viewModel().uiState.value
 
         assertFalse(state.privateKeyRevealed)
         assertFalse(state.presharedKeyRevealed)
@@ -454,7 +245,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `the biometric reveal gate flips the private-key visibility`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
 
         viewModel.onPrivateKeyRevealAuthorized()
 
@@ -463,7 +254,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `the biometric reveal gate flips the preshared-key visibility`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
 
         viewModel.onPresharedKeyRevealAuthorized()
 
@@ -473,7 +264,7 @@ class AmneziaWgProfileViewModelTest {
     @Test
     fun `invalid header nonce prefix blocks saving and activation until corrected`() =
         runTest {
-            val vm = viewModel()
+            val vm = fixture.viewModel()
             vm.onConfPasted(
                 "[Interface]\nPrivateKey = $AwgPrivateTestKey\nAddress = 10.8.0.2/32\n" +
                     "HeaderProtectionKey = AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=\n" +
@@ -485,15 +276,15 @@ class AmneziaWgProfileViewModelTest {
             assertFalse(vm.uiState.value.canActivate)
             vm.onConnect()
             advanceUntilIdle()
-            assertTrue(dao.allProfiles().isEmpty())
-            assertNull(activator.lastActivated)
+            assertTrue(fixture.dao.allProfiles().isEmpty())
+            assertNull(fixture.activator.lastActivated)
             vm.onFieldChanged(AwgEditorField.S3, "12")
             assertTrue(vm.uiState.value.canActivate)
         }
 
     @Test
     fun `selecting a legacy preset preserves v3 settings until replacement is confirmed`() {
-        val vm = viewModel()
+        val vm = fixture.viewModel()
         vm.onConfPasted(
             "[Interface]\nPrivateKey = k==\nAddress = 10.8.0.2/32\nRandomTrailers = on\n" +
                 "S1 = 12\nS2 = 12\nS3 = 12\nS4 = 12\n" +
@@ -521,8 +312,8 @@ class AmneziaWgProfileViewModelTest {
     @Test
     fun `v3 edits persist through save reload and activation with the key relocked on import`() =
         runTest {
-            val vm = viewModel()
-            fillRequiredIdentity(vm)
+            val vm = fixture.viewModel()
+            fixture.fillRequiredIdentity(vm)
             listOf(AwgEditorField.S1, AwgEditorField.S2, AwgEditorField.S3, AwgEditorField.S4).forEach {
                 vm.onFieldChanged(it, "12")
             }
@@ -543,15 +334,15 @@ class AmneziaWgProfileViewModelTest {
             val expected = vm.uiState.value.editor.form.v3
             vm.onConnect()
             advanceUntilIdle()
-            val activated = requireNotNull(activator.lastActivated)
+            val activated = requireNotNull(fixture.activator.lastActivated)
             assertEquals(expected, activated.obfuscation.v3)
             assertEquals(
                 expected,
-                repository
+                fixture.repository
                     .load(activated.profileId)!!
                     .request.obfuscation.v3,
             )
-            assertTrue(dao.allProfiles().none { it.requestJson.contains(key) })
+            assertTrue(fixture.dao.allProfiles().none { it.requestJson.contains(key) })
             vm.onHeaderProtectionKeyRevealAuthorized()
             assertTrue(vm.uiState.value.headerProtectionKeyRevealed)
             vm.onSecretsRelocked()
@@ -568,299 +359,4 @@ class AmneziaWgProfileViewModelTest {
                     .rawText(AwgEditorField.HEADER_PROTECTION_KEY),
             )
         }
-
-    @Test
-    fun `a fresh editor cannot activate and connect is a no-op`() =
-        runTest {
-            val viewModel = viewModel()
-
-            assertFalse(viewModel.uiState.value.canActivate)
-            viewModel.onConnect()
-            advanceUntilIdle()
-
-            assertNull(activator.lastActivated)
-        }
-
-    @Test
-    fun `filling the required identity fields makes the editor activatable`() {
-        val viewModel = viewModel()
-
-        fillRequiredIdentity(viewModel)
-
-        assertTrue(viewModel.uiState.value.canActivate)
-    }
-
-    @Test
-    fun `repeated connect taps dispatch only one in-flight activation`() =
-        runTest {
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-
-            viewModel.onConnect()
-            viewModel.onConnect()
-            advanceUntilIdle()
-
-            assertEquals(1, activator.activationCount)
-        }
-
-    @Test
-    fun `connect dispatches an activation request carrying PSK and keepalive to the service`() =
-        runTest {
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-            val psk = Base64.getEncoder().encodeToString(ByteArray(32) { 3 })
-            viewModel.onFieldChanged(AwgEditorField.PRESHARED_KEY, psk)
-            viewModel.onFieldChanged(AwgEditorField.PERSISTENT_KEEPALIVE, "37")
-            viewModel.onFieldChanged(AwgEditorField.MTU, "1280")
-
-            viewModel.onConnect()
-            advanceUntilIdle()
-
-            val request =
-                requireNotNull(activator.lastActivated) { "expected the service to be activated" }
-            assertEquals("vpn.example.com", request.endpointHost)
-            assertEquals(51820, request.endpointPort)
-            assertEquals(AwgPrivateTestKey, request.privateKey)
-            assertEquals(AwgPeerTestKey, request.peerPublicKey)
-            assertEquals(psk, request.presharedKey)
-            assertEquals(37, request.persistentKeepalive)
-            assertEquals(1280, request.mtu)
-            assertEquals("10.8.0.2/32", request.interfaceAddressV4)
-        }
-
-    @Test
-    fun `connect carries the locked cohort obfuscation including special junk to the service`() =
-        runTest {
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-            viewModel.onCohortSelected("rtk_south")
-
-            viewModel.onConnect()
-            advanceUntilIdle()
-
-            val obf =
-                requireNotNull(activator.lastActivated) { "expected the service to be activated" }
-                    .obfuscation
-            assertEquals(4, obf.jc)
-            assertEquals(70, obf.jmax)
-            assertEquals("1000000001", obf.h1)
-        }
-
-    @Test
-    fun `the activation profile id is an opaque uuid, not derived from the endpoint`() =
-        runTest {
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-
-            viewModel.onConnect()
-            advanceUntilIdle()
-
-            val profileId =
-                requireNotNull(activator.lastActivated) { "expected the service to be activated" }.profileId
-            // Must NOT leak the peer host/port (network-fingerprint-privacy.md hard rule).
-            assertFalse(profileId.contains("vpn.example.com"))
-            assertFalse(profileId.contains("51820"))
-            assertTrue(profileId.startsWith("awg-"))
-        }
-
-    @Test
-    fun `a malformed imported draft cannot replace saved settings or credentials`() =
-        runTest {
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-            viewModel.onConnect()
-            advanceUntilIdle()
-            val saved =
-                repository
-                    .observeProfiles()
-                    .first()
-                    .single()
-                    .request
-            val rows = dao.allProfiles()
-            val secrets = credentialStore.load(saved.profileId)
-
-            viewModel.onConfPasted(
-                """
-                [Interface]
-                PrivateKey = malformed-key
-                Address = 10.8.0.3/32
-                [Peer]
-                PublicKey = $AwgPeerTestKey
-                Endpoint = replacement.example.com:51820
-                AllowedIPs = 0.0.0.0/0
-                """.trimIndent(),
-            )
-
-            assertFalse(viewModel.uiState.value.canActivate)
-            viewModel.onConnect()
-            advanceUntilIdle()
-            assertEquals(rows, dao.allProfiles())
-            assertEquals(secrets, credentialStore.load(saved.profileId))
-            assertEquals(saved, repository.load(saved.profileId)?.request)
-            assertEquals(1, activator.activationCount)
-        }
-
-    @Test
-    fun `re-connecting reuses the same persisted profile id`() =
-        runTest {
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-
-            viewModel.onConnect()
-            advanceUntilIdle()
-            val firstId =
-                requireNotNull(activator.lastActivated) { "expected the first activation" }.profileId
-
-            // Edit the profile and re-connect: the stable id must be reused, not re-minted.
-            viewModel.onFieldChanged(AwgEditorField.PERSISTENT_KEEPALIVE, "42")
-            viewModel.onConnect()
-            advanceUntilIdle()
-            val secondId =
-                requireNotNull(activator.lastActivated) { "expected the second activation" }.profileId
-
-            assertEquals("re-connect must reuse the persisted stable id", firstId, secondId)
-            // And the store holds exactly one row -- re-save updated it in place.
-            assertEquals(1, repository.observeProfiles().first().size)
-        }
-
-    @Test
-    fun `connect persists the profile so it survives across editor instances`() =
-        runTest {
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-            viewModel.onConnect()
-            advanceUntilIdle()
-            val id =
-                requireNotNull(activator.lastActivated) { "expected the activation" }.profileId
-
-            // The persisted row carries the same stable id and re-hydrates the endpoint config.
-            val saved = repository.load(id)!!
-            assertEquals(id, saved.request.profileId)
-            assertEquals("vpn.example.com", saved.request.endpointHost)
-        }
-
-    @Test
-    fun `cancelled activation releases the in-flight Connect guard`() =
-        runTest {
-            activator.failure = CancellationException("activation superseded")
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-
-            viewModel.onConnect()
-            advanceUntilIdle()
-
-            assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
-        }
-
-    @Test
-    fun `a failed activation surfaces an error status instead of being dropped`() =
-        runTest {
-            activator.failure = IllegalStateException("runtime failed to reach readiness")
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-
-            viewModel.onConnect()
-            advanceUntilIdle()
-
-            assertEquals(AwgActivationStatus.Failed, viewModel.uiState.value.activationStatus)
-        }
-
-    @Test
-    fun `editing after a failed activation clears the error status`() =
-        runTest {
-            activator.failure = IllegalStateException("runtime failed to reach readiness")
-            val viewModel = viewModel()
-            fillRequiredIdentity(viewModel)
-            viewModel.onConnect()
-            advanceUntilIdle()
-            assertEquals(AwgActivationStatus.Failed, viewModel.uiState.value.activationStatus)
-
-            viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn2.example.com")
-
-            assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
-        }
-
-    private fun fillRequiredIdentity(viewModel: AmneziaWgProfileViewModel) {
-        viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn.example.com")
-        viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "51820")
-        viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
-        viewModel.onFieldChanged(AwgEditorField.PEER_PUBLIC_KEY, AwgPeerTestKey)
-        viewModel.onFieldChanged(AwgEditorField.ADDRESS, "10.8.0.2/32")
-    }
-}
-
-/** Test double that returns a fixed catalog without touching Android assets. */
-private class FakeCatalogProvider(
-    private val catalog: AwgCohortCatalogData,
-) : AwgCohortCatalogProvider {
-    override fun catalog(): AwgCohortCatalogData = catalog
-}
-
-/** Records the dispatched activation request without driving the native runtime. */
-private class RecordingStandaloneAmneziaWgActivator : StandaloneAmneziaWgActivator {
-    var activationCount: Int = 0
-        private set
-
-    var lastActivated: AwgActivationRequest? = null
-        private set
-
-    /** When non-null, [activate] throws it (simulating a startup failure from the service). */
-    var failure: Throwable? = null
-
-    override suspend fun activate(request: AwgActivationRequest) {
-        activationCount += 1
-        failure?.let { throw it }
-        lastActivated = request
-    }
-
-    override suspend fun deactivate() {
-        lastActivated = null
-    }
-}
-
-/**
- * In-memory [AwgProfileDao] so the test drives the REAL [AwgProfileRepository]
- * (and therefore the real stable-id discipline) without a Room dependency.
- */
-private class InMemoryAwgProfileDao : AwgProfileDao {
-    private val rows = MutableStateFlow<List<AwgProfileEntity>>(emptyList())
-
-    override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows.asStateFlow()
-
-    override fun allProfiles(): List<AwgProfileEntity> = rows.value
-
-    override fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
-
-    override fun upsertProfile(profile: AwgProfileEntity) {
-        rows.value = rows.value.filterNot { it.id == profile.id } + profile
-    }
-
-    override fun deleteProfile(profile: AwgProfileEntity) {
-        rows.value = rows.value.filterNot { it.id == profile.id }
-    }
-
-    override fun deleteAll() {
-        rows.value = emptyList()
-    }
-}
-
-/**
- * In-memory [AwgCredentialStore] so the ViewModel test drives the REAL
- * [AwgProfileRepository] secret-split without an AndroidKeyStore dependency.
- */
-private class InMemoryAwgCredentialStore : AwgCredentialStore {
-    private val secrets = mutableMapOf<String, AwgSecrets>()
-
-    override suspend fun load(profileId: String): AwgSecrets? = secrets[profileId]
-
-    override suspend fun save(
-        profileId: String,
-        secrets: AwgSecrets,
-    ) {
-        this.secrets[profileId] = secrets
-    }
-
-    override suspend fun clear(profileId: String) {
-        secrets.remove(profileId)
-    }
 }
