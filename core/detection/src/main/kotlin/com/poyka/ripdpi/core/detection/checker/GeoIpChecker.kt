@@ -129,7 +129,7 @@ object GeoIpChecker {
                 .filterNotNull()
         }
 
-    private fun fetchJson(
+    internal suspend fun fetchJson(
         url: String,
         resolverConfig: DetectionResolverConfig,
     ): JSONObject {
@@ -140,7 +140,7 @@ object GeoIpChecker {
                 .header("Accept", "application/json")
                 .build()
         val response =
-            DEFAULT_NETWORK_STACK.execute(
+            DEFAULT_NETWORK_STACK.executeCancellable(
                 request = request,
                 config =
                     resolverConfig.copy(
