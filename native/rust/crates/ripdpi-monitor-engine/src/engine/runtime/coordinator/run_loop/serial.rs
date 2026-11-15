@@ -39,6 +39,7 @@ impl ExecutionCoordinator {
         runtime.set_stage_deadline(None);
         let outcome = match outcome {
             RunnerOutcome::Cancelled if stage_exhausted => {
+                runtime.strategy.stage_interrupted = true;
                 runtime.record_stage_budget_skips(
                     plan,
                     runner.phase(),

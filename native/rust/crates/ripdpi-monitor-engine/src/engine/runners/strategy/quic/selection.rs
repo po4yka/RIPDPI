@@ -40,9 +40,11 @@ pub(super) fn prepare_quic_candidates(
         interleave_candidate_families(quic_specs, stable_probe_hash(strategy_plan.probe_seed, "quic"));
     if let Some(max) = strategy_plan.max_candidates {
         pending_quic_specs.sort_by_key(|spec| {
-            spec.requires_capabilities
+            let unavailable = spec
+                .requires_capabilities
                 .iter()
-                .any(|&capability| !capability_available(capability, fake_ttl_available, ipfrag_caps))
+                .any(|&capability| !capability_available(capability, fake_ttl_available, ipfrag_caps));
+            (unavailable, spec.id != "quic_disabled")
         });
         pending_quic_specs.truncate(max);
     }

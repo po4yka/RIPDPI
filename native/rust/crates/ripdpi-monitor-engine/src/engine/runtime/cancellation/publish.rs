@@ -27,7 +27,10 @@ pub(in crate::engine) fn publish_cancelled_run(
     if runtime.strategy.strategy_probe_report.is_none() {
         prepare_strategy_probe_report(plan, &mut runtime);
     }
-    let strategy_probe_report = runtime.strategy.strategy_probe_report.take();
+    let strategy_probe_report = runtime.strategy.strategy_probe_report.take().map(|mut report| {
+        report.completion_kind = crate::types::StrategyProbeCompletionKind::PartialResults;
+        report
+    });
     let has_partial_results =
         !runtime.results.is_empty() || !runtime.observations.is_empty() || strategy_probe_report.is_some();
     let summary = cancelled_run_summary(has_partial_results).to_string();

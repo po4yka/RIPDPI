@@ -58,9 +58,7 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
         if !uses_raw_path(plan) {
             return 0;
         }
-        let levels = levels_for(plan);
-        let post_checks = levels.iter().filter(|level| **level > 1).count();
-        eligible_targets(plan).count() * ripdpi_tls_profiles::AVAILABLE_PROFILES.len() * (levels.len() + post_checks)
+        eligible_targets(plan).count() * ripdpi_tls_profiles::AVAILABLE_PROFILES.len() * levels_for(plan).len()
     }
 
     fn run(
@@ -83,21 +81,21 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
             }) {
                 Ok(address) => address,
                 Err(error) => {
+                    let interrupted = error.kind() == io::ErrorKind::Interrupted
+                        || runtime.is_cancelled()
+                        || runtime.is_past_deadline()
+                        || runtime.is_past_stage_deadline();
                     for cell in skipped_target_cells(
                         target,
                         metadata.cohort_id.as_str(),
                         levels,
                         format!("target resolution failed: {error}"),
                     ) {
-                        let measurement = MatrixMeasurement::primary(cell);
+                        let measurement = MatrixMeasurement { interrupted, ..MatrixMeasurement::primary(cell) };
                         record_cell(plan, runtime, &measurement);
                         cells.push(measurement);
                     }
-                    if error.kind() == io::ErrorKind::Interrupted
-                        || runtime.is_cancelled()
-                        || runtime.is_past_deadline()
-                        || runtime.is_past_stage_deadline()
-                    {
+                    if interrupted {
                         finalize_assessment(runtime, cells, &current_profile);
                         return RunnerOutcome::Cancelled;
                     }
@@ -141,11 +139,16 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
 struct MatrixMeasurement {
     cell: ClassifierCell,
     post_check_for: Option<u16>,
+    interrupted: bool,
 }
 
 impl MatrixMeasurement {
     fn primary(cell: ClassifierCell) -> Self {
-        Self { cell, post_check_for: None }
+        Self { cell, post_check_for: None, interrupted: false }
+    }
+
+    fn counts_as_step(&self) -> bool {
+        self.post_check_for.is_none() && !self.interrupted
     }
 }
 
@@ -186,7 +189,20 @@ where
                 baseline_healthy = healthy_control(&cell);
             }
             if level == 1 || cell.contaminated || cell.status == ClassifierStatus::Skipped {
-                cells.push(MatrixMeasurement::primary(cell));
+                let interrupted = cell.status == ClassifierStatus::Skipped && should_stop();
+                cells.push(MatrixMeasurement { interrupted, ..MatrixMeasurement::primary(cell) });
+                if interrupted {
+                    skip_remaining_cells(
+                        &mut cells,
+                        target,
+                        metadata,
+                        levels,
+                        profiles,
+                        profile_index,
+                        level_index + 1,
+                    );
+                    return TargetMatrixOutcome { cells, cancelled: true };
+                }
                 continue;
             }
 
@@ -211,8 +227,9 @@ where
                 cell.skip_reason = Some("same-profile concurrency-1 pre-check was not healthy".to_string());
             }
 
+            // Attach the contingent control before the primary step publishes its checkpoint.
+            cells.push(MatrixMeasurement { cell: post_check, post_check_for: Some(level), interrupted: false });
             cells.push(MatrixMeasurement::primary(cell));
-            cells.push(MatrixMeasurement { cell: post_check, post_check_for: Some(level) });
             if stopped_before_post_check || should_stop() {
                 skip_remaining_cells(&mut cells, target, metadata, levels, profiles, profile_index, level_index + 1);
                 return TargetMatrixOutcome { cells, cancelled: true };
@@ -237,8 +254,9 @@ fn skip_remaining_cells(
 ) {
     for (remaining_profile_index, &remaining_profile) in profiles.iter().enumerate().skip(profile_index) {
         let first_level = if remaining_profile_index == profile_index { level_index } else { 0 };
-        cells.extend(levels.iter().skip(first_level).map(|remaining_level| {
-            MatrixMeasurement::primary(skipped_cell(
+        cells.extend(levels.iter().skip(first_level).map(|remaining_level| MatrixMeasurement {
+            interrupted: true,
+            ..MatrixMeasurement::primary(skipped_cell(
                 target,
                 &metadata.cohort_id,
                 remaining_profile,
@@ -757,6 +775,11 @@ fn record_cell(plan: &ExecutionPlan, runtime: &mut ExecutionRuntime, measurement
         (None, _) => "burst",
     };
     result.details.push(ProbeDetail { key: "measurement_role".to_string(), value: role.to_string() });
+    if !measurement.counts_as_step() {
+        runtime.results.push(result);
+        runtime.observations.push(observation);
+        return;
+    }
     runtime.record_step(
         plan,
         "connection_concurrency",
@@ -1176,6 +1199,7 @@ mod tests {
         assert!(outcome.cancelled);
         assert_eq!(outcome.cells.iter().filter(|measurement| healthy_control(&measurement.cell)).count(), 1);
         assert!(outcome.cells.iter().any(|measurement| measurement.cell.status == ClassifierStatus::Skipped));
+        assert_eq!(outcome.cells.iter().filter(|row| row.counts_as_step()).count(), 1);
         let assessment = assess_measurements(outcome.cells, "chrome_stable");
         assert_eq!(assessment.verdict, ClassifierVerdict::Inconclusive);
     }
@@ -1226,6 +1250,7 @@ mod tests {
         assert!(outcome.cells.iter().any(|measurement| {
             measurement.post_check_for == Some(4) && measurement.cell.status == ClassifierStatus::Skipped
         }));
+        assert_eq!(outcome.cells.iter().filter(|row| row.counts_as_step()).count(), 2);
     }
 
     #[test]

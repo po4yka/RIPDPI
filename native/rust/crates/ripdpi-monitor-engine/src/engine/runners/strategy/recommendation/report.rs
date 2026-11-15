@@ -23,7 +23,14 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
     if runtime.strategy.strategy_probe_report.is_some() {
         return true;
     }
-    if runtime.strategy.tcp_candidates.is_empty() && runtime.strategy.quic_candidates.is_empty() {
+    let (planned_tcp, planned_quic) = plan.strategy_candidate_steps();
+    let is_partial = runtime.strategy.stage_interrupted
+        || runtime.strategy.tcp_candidates.len() < planned_tcp
+        || runtime.strategy.quic_candidates.len() < planned_quic;
+    if runtime.strategy.tcp_candidates.is_empty()
+        && runtime.strategy.quic_candidates.is_empty()
+        && !runtime.strategy.stage_interrupted
+    {
         runtime.strategy.summary = Some("Automatic probing finished".to_string());
         return false;
     }
@@ -90,7 +97,6 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
             .results
             .iter()
             .any(|result| result.probe_type == "dns_integrity" && is_confirmed_dns_tampering_outcome(&result.outcome));
-    let (planned_tcp, planned_quic) = plan.strategy_candidate_steps();
     let audit_assessment = resolve_strategy_probe_audit_assessment(
         &strategy_plan.suite_id,
         &runtime.strategy.tcp_candidates,
@@ -117,8 +123,6 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         .map(|target| pilot_bucket_label(&target))
         .collect();
     let active_path_observation = active_path_evidence(plan, runtime);
-    let is_partial =
-        runtime.strategy.tcp_candidates.len() < planned_tcp || runtime.strategy.quic_candidates.len() < planned_quic;
     runtime.strategy.strategy_probe_report = Some(StrategyProbeReport {
         suite_id: strategy_plan.suite_id.clone(),
         methodology_version: STRATEGY_PROBE_METHODOLOGY_VERSION.to_string(),

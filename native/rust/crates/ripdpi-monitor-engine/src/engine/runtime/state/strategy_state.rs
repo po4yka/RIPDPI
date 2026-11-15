@@ -6,6 +6,7 @@ use crate::types::{
 
 #[derive(Default)]
 pub(in crate::engine) struct StrategyExecutionState {
+    pub(in crate::engine) stage_interrupted: bool,
     pub(in crate::engine) baseline_failure: Option<ClassifiedFailure>,
     pub(in crate::engine) tcp_candidates: Vec<StrategyProbeCandidateSummary>,
     pub(in crate::engine) quic_candidates: Vec<StrategyProbeCandidateSummary>,
