@@ -111,4 +111,3 @@ The implementation MUST include IP comparison and consensus evidence in the copi
 
 - **WHEN** the user copies a result with failed or mismatched endpoints
 - **THEN** endpoint statuses, DNS answers, reflected addresses, and reasons remain available.
-

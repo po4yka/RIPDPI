@@ -126,6 +126,7 @@ class IfconfigClientTest {
                 assertTrue(request.isCancelled)
             }
         }
+
     @Test
     fun `unbounded and negative timeouts are rejected before a request`() =
         runBlocking<Unit> {
