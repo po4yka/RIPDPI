@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.NativeSignsResult
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.core.detection.privacy.redactAppIdentities
+import com.poyka.ripdpi.core.detection.tlsFingerprintForReport
 
 data class DetectionDebugSettings(
     val cdnPullingEnabled: Boolean = false,
@@ -76,6 +77,7 @@ object DetectionDebugFormatter {
                 )
             },
         )
+        appendCategory("tlsFingerprint", result.tlsFingerprintForReport())
         result.timingAnalysis?.let { appendCategory("timingAnalysis", it) }
         result.icmpSpoofing?.category?.let { appendCategory("icmpSpoofing", it) }
         result.rttTriangulation?.category?.let { appendCategory("rttTriangulation", it) }

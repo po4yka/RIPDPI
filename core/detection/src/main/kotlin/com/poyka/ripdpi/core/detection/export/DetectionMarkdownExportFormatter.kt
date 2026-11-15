@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.ExposureStatus
 import com.poyka.ripdpi.core.detection.Finding
+import com.poyka.ripdpi.core.detection.LocalTlsReportTitle
 import com.poyka.ripdpi.core.detection.VerdictNarrative
 import com.poyka.ripdpi.core.detection.VerdictNarrativeBuilder
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
@@ -15,6 +16,7 @@ import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.core.detection.privacy.redactAppIdentities
 import com.poyka.ripdpi.core.detection.privacy.xrayHostNames
 import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
+import com.poyka.ripdpi.core.detection.tlsFingerprintForReport
 
 object DetectionMarkdownExportFormatter {
     fun format(
@@ -37,6 +39,7 @@ object DetectionMarkdownExportFormatter {
                     appendCategory("DirectSigns", report.directSigns)
                     appendCategory("IndirectSigns", report.indirectSigns)
                     appendCategory("NativeSigns", report.nativeSigns?.category)
+                    appendCategory(LocalTlsReportTitle, report.tlsFingerprintForReport())
                     appendCategory("TimingAnalysis", report.timingAnalysis)
                     appendCategory("IcmpSpoofing", report.icmpSpoofing?.category)
                     appendCategory("RttTriangulation", report.rttTriangulation?.category)
@@ -240,6 +243,7 @@ object DetectionMarkdownExportFormatter {
             SectionRow("CdnPulling", result.cdnPulling?.category.statusTag(), result.cdnPulling?.category.summary()),
             SectionRow("DirectSigns", result.directSigns.statusTag(), result.directSigns.summary()),
             SectionRow("IndirectSigns", result.indirectSigns.statusTag(), result.indirectSigns.summary()),
+            result.tlsFingerprintForReport().let { SectionRow(LocalTlsReportTitle, it.statusTag(), it.summary()) },
             SectionRow("TimingAnalysis", result.timingAnalysis.statusTag(), result.timingAnalysis.summary()),
             SectionRow("NativeSigns", result.nativeSigns?.category.statusTag(), result.nativeSigns?.category.summary()),
             SectionRow(

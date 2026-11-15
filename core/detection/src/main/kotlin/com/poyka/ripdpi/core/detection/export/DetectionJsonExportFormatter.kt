@@ -16,6 +16,7 @@ import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.core.detection.privacy.redactAppIdentities
 import com.poyka.ripdpi.core.detection.privacy.xrayHostNames
 import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
+import com.poyka.ripdpi.core.detection.tlsFingerprintForReport
 import com.poyka.ripdpi.serialization.RipDpiPrettyJson
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -109,7 +110,7 @@ object DetectionJsonExportFormatter {
                 "locationSignals" to category(result.locationSignals, context),
                 "dnsLeak" to category(result.dnsLeak, context),
                 "webRtcLeak" to category(result.webRtcLeak, context),
-                "tlsFingerprint" to category(result.tlsFingerprint, context),
+                "tlsFingerprint" to category(result.tlsFingerprintForReport(), context),
                 "timingAnalysis" to category(result.timingAnalysis, context),
                 "bypass" to bypass(result.bypassResult, context),
             ),

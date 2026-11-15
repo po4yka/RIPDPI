@@ -24,7 +24,7 @@ object DetectionReportFormatter {
                 appendBypass(report.bypassResult)
                 report.dnsLeak?.let { appendCategory("DNS Leak", it) }
                 report.webRtcLeak?.let { appendCategory("WebRTC Leak", it) }
-                report.tlsFingerprint?.let { appendCategory("TLS Fingerprint", it) }
+                appendCategory(LocalTlsReportTitle, report.tlsFingerprintForReport())
                 report.timingAnalysis?.let { appendCategory("Timing Analysis", it) }
                 report.icmpSpoofing?.let { appendCategory("ICMP Spoofing", it.category) }
                 report.rttTriangulation?.let { appendCategory("RTT Triangulation", it.category) }
@@ -120,3 +120,15 @@ object DetectionReportFormatter {
             ExposureStatus.INSUFFICIENT_DATA -> "Insufficient data"
         }
 }
+
+internal fun DetectionCheckResult.tlsFingerprintForReport(): CategoryResult = tlsFingerprint ?: SkippedTlsFingerprint
+
+internal const val LocalTlsReportTitle = "Local TLS settings"
+
+private val SkippedTlsFingerprint =
+    CategoryResult(
+        name = LocalTlsReportTitle,
+        detected = false,
+        findings = emptyList(),
+        executionStatus = CheckExecutionStatus.SKIPPED,
+    )
