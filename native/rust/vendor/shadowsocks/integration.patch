@@ -737,6 +737,9 @@
 @@ -95 +86 @@
 -    #[error("invalid client user identity {:?}", ByteStr::new(.0))]
 +    #[error("invalid client user identity")]
+@@ -105 +96 @@
+-    #[error("invalid timestamp {0} - now {1} = {ts_diff}", ts_diff = *.0 as i64 - *.1 as i64)]
++    #[error("invalid timestamp {0} - now {1} = {ts_diff}", ts_diff = i128::from(*.0) - i128::from(*.1))]
 @@ -157,3 +148 @@
 -                state: DecryptReadState::ReadHeader {
 -                    key: Bytes::copy_from_slice(key),
@@ -835,7 +838,7 @@
 +                    // later write must not acknowledge a different caller's slice.
 +                    if let Poll::Ready(Err(error)) = self.poll_flush_encrypted(cx, stream) {
 +                        return Poll::Ready(Err(error));
-@@ -735,6 +713 @@
+@@ -735,6 +713,15 @@
 -
 -                    // Reset state
 -                    self.state = EncryptWriteState::AssemblePacket;
@@ -843,7 +846,10 @@
 -
 -                    return Ok(buf.len()).into();
 +                    return Poll::Ready(Ok(buf.len()));
-@@ -744,0 +718,18 @@
++                }
++            }
++        }
++    }
 +    /// Drains ciphertext already accepted by poll_write_encrypted.
 +    pub fn poll_flush_encrypted<S>(&mut self, cx: &mut task::Context<'_>, stream: &mut S) -> Poll<io::Result<()>>
 +    where
@@ -854,14 +860,30 @@
 +                let n = ready!(Pin::new(&mut *stream).poll_write(cx, &self.buffer[*pos..]))?;
 +                if n == 0 {
 +                    return Poll::Ready(Err(ErrorKind::WriteZero.into()));
-+                }
+@@ -741,0 +729 @@
 +                *pos += n;
-+            }
+@@ -742,0 +731,2 @@
 +            self.buffer.clear();
 +            self.state = EncryptWriteState::AssemblePacket;
-+        }
+@@ -743,0 +734,18 @@
 +        Poll::Ready(Ok(()))
 +    }
++}
++
++#[cfg(test)]
++mod integration_patch_tests {
++    use super::*;
++
++    #[test]
++    fn invalid_timestamp_formats_full_unsigned_range() {
++        assert_eq!(
++            ProtocolError::InvalidTimestamp(0, u64::MAX).to_string(),
++            "invalid timestamp 0 - now 18446744073709551615 = -18446744073709551615"
++        );
++        assert_eq!(
++            ProtocolError::InvalidTimestamp(u64::MAX, 0).to_string(),
++            "invalid timestamp 18446744073709551615 - now 0 = 18446744073709551615"
++        );
 --- a/src/relay/tcprelay/crypto_io.rs
 +++ b/src/relay/tcprelay/crypto_io.rs
 @@ -115,6 +115,3 @@
@@ -1119,6 +1141,9 @@
 @@ -98 +95 @@
 -    #[error("invalid client user identity {:?}", ByteStr::new(.0))]
 +    #[error("invalid client user identity")]
+@@ -102 +99 @@
+-    #[error("invalid timestamp {0} - now {1} = {ts_diff}", ts_diff = *.0 as i64 - *.1 as i64)]
++    #[error("invalid timestamp {0} - now {1} = {ts_diff}", ts_diff = i128::from(*.0) - i128::from(*.1))]
 @@ -114 +111 @@
 -    key: usize,
 +    key: [u8; 32],
@@ -1153,19 +1178,20 @@
 +        CipherKind::AEAD2022_BLAKE3_CHACHA8_POLY1305 => 0,
 +        _ => session_id,
 +    };
-@@ -161,6 +146 @@
+@@ -161,11 +146,3 @@
 -        let cache_key = CipherKey {
 -            method,
 -            // The key is stored in ServerConfig structure, so the address of it won't change.
 -            key: key.as_ptr() as usize,
 -            session_id,
 -        };
-+        let cache_key = CipherKey { method, key: *blake3::hash(key).as_bytes(), session_id };
-@@ -168,4 +148 @@
+-
 -        cache
 -            .entry(cache_key)
 -            .or_insert_with(|| Rc::new(UdpCipher::new(method, key, session_id)))
 -            .clone()
++        let cache_key = CipherKey { method, key: *blake3::hash(key).as_bytes(), session_id };
++
 +        cache.entry(cache_key).or_insert_with(|| Rc::new(UdpCipher::new(method, key, session_id))).clone()
 @@ -184,3 +161 @@
 -    unsafe {
@@ -1246,12 +1272,24 @@
 +    let now = context.now_timestamp();
 @@ -682,0 +646 @@
 +        authenticated_timestamp: Some(timestamp),
-@@ -700,0 +665,106 @@
+@@ -700,0 +665,118 @@
 +
 +#[cfg(test)]
 +mod integration_patch_tests {
 +    use super::*;
 +    use crate::config::ServerType;
++
++    #[test]
++    fn invalid_timestamp_formats_full_unsigned_range() {
++        assert_eq!(
++            ProtocolError::InvalidTimestamp(0, u64::MAX).to_string(),
++            "invalid timestamp 0 - now 18446744073709551615 = -18446744073709551615"
++        );
++        assert_eq!(
++            ProtocolError::InvalidTimestamp(u64::MAX, 0).to_string(),
++            "invalid timestamp 18446744073709551615 - now 0 = 18446744073709551615"
++        );
++    }
 +
 +    fn fixed_context(timestamp: u64) -> Context {
 +        let mut context = Context::new(ServerType::Local);

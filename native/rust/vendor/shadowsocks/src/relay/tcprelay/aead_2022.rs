@@ -93,7 +93,7 @@ pub enum ProtocolError {
     DecryptLengthError,
     #[error("invalid stream type, expecting {0:#x}, but found {1:#x}")]
     InvalidStreamType(u8, u8),
-    #[error("invalid timestamp {0} - now {1} = {ts_diff}", ts_diff = *.0 as i64 - *.1 as i64)]
+    #[error("invalid timestamp {0} - now {1} = {ts_diff}", ts_diff = i128::from(*.0) - i128::from(*.1))]
     InvalidTimestamp(u64, u64),
 }
 
@@ -732,5 +732,22 @@ impl EncryptedWriter {
             self.state = EncryptWriteState::AssemblePacket;
         }
         Poll::Ready(Ok(()))
+    }
+}
+
+#[cfg(test)]
+mod integration_patch_tests {
+    use super::*;
+
+    #[test]
+    fn invalid_timestamp_formats_full_unsigned_range() {
+        assert_eq!(
+            ProtocolError::InvalidTimestamp(0, u64::MAX).to_string(),
+            "invalid timestamp 0 - now 18446744073709551615 = -18446744073709551615"
+        );
+        assert_eq!(
+            ProtocolError::InvalidTimestamp(u64::MAX, 0).to_string(),
+            "invalid timestamp 18446744073709551615 - now 0 = 18446744073709551615"
+        );
     }
 }
