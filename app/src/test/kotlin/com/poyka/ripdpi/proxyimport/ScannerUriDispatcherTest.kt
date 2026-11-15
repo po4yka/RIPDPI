@@ -10,8 +10,8 @@ import org.junit.Test
 
 /**
  * Pure-logic tests for [ScannerUriDispatcher] and the shared [ImportPayloadClassifier]
- * behind it. Invalid content produces a redacted error (first 16 chars only) so the full
- * payload is never surfaced or logged.
+ * behind it. Invalid content produces a fixed redacted error so input text and credentials
+ * are never surfaced or logged.
  */
 class ScannerUriDispatcherTest {
     @Test
@@ -35,14 +35,32 @@ class ScannerUriDispatcherTest {
                 "http://malicious.example.com/very/long/path/that/should/be/redacted",
             )
 
-        assertEquals(ScannerScanResult.Invalid("http://malicious"), result)
+        assertEquals(ScannerScanResult.Invalid("<redacted>"), result)
     }
 
     @Test
-    fun `short invalid payload is previewed in full and blank payload is invalid`() {
-        assertEquals(ScannerScanResult.Invalid("nope"), ScannerUriDispatcher.dispatch("nope"))
+    fun `short invalid payload and blank input use a fixed redacted marker`() {
+        assertEquals(ScannerScanResult.Invalid("<redacted>"), ScannerUriDispatcher.dispatch("nope"))
         assertTrue(ScannerUriDispatcher.dispatch("   ") is ScannerScanResult.Invalid)
         assertTrue(ScannerUriDispatcher.dispatch("vless://") is ScannerScanResult.Invalid)
+    }
+
+    @Test
+    fun `invalid credential links and arbitrary text never expose their prefixes`() {
+        val secret =
+            java.util.Base64
+                .getEncoder()
+                .encodeToString(ByteArray(32) { it.toByte() })
+        listOf(
+            "amneziawg://$secret@vpn.example.com:51820?public_key=peer-key",
+            "AMNEZIAWG://$secret@vpn.example.com:51820?public_key=peer-key&wire_profile=unknown",
+            "$secret is not a supported import",
+        ).forEach { input ->
+            val result = ScannerUriDispatcher.dispatch(input) as ScannerScanResult.Invalid
+
+            assertEquals("<redacted>", result.redactedPreview)
+            assertTrue(secret.take(4) !in result.toString())
+        }
     }
 
     @Test

@@ -84,8 +84,7 @@ sealed interface ScannerScanResult {
     /**
      * The payload is not importable.
      *
-     * @property redactedPreview at most the first 16 characters of the payload — the full
-     *   QR content is never surfaced or logged, since it may carry credentials.
+     * @property redactedPreview a fixed marker that never contains input text or credentials.
      */
     data class Invalid(
         val redactedPreview: String,
@@ -97,13 +96,8 @@ sealed interface ScannerScanResult {
  * CameraX path and the image-file fallback so both behave identically.
  */
 object ScannerUriDispatcher {
-    private const val REDACTION_LIMIT = 16
-
     /** Never throws; an unknown payload yields [ScannerScanResult.Invalid] with a redacted preview. */
     fun dispatch(payload: String): ScannerScanResult =
         ImportPayloadClassifier.classify(payload)?.let(ScannerScanResult::Recognized)
-            ?: ScannerScanResult.Invalid(redact(payload.trim()))
-
-    /** Returns at most the first [REDACTION_LIMIT] characters of [value]. */
-    internal fun redact(value: String): String = value.take(REDACTION_LIMIT)
+            ?: ScannerScanResult.Invalid("<redacted>")
 }

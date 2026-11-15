@@ -64,9 +64,23 @@ class QrScannerViewModelTest {
 
         viewModel.onQrDecoded("http://malicious.example.com/long/redacted/path")
 
-        // The error preview is capped at the first 16 characters of the payload.
-        assertEquals("http://malicious", viewModel.uiState.value.decodeError)
+        assertEquals("<redacted>", viewModel.uiState.value.decodeError)
         assertNull(viewModel.uiState.value.scanResult)
+    }
+
+    @Test
+    fun `invalid amneziawg link keeps private key material out of the error state`() {
+        val viewModel = QrScannerViewModel()
+        val privateKey =
+            java.util.Base64
+                .getEncoder()
+                .encodeToString(ByteArray(32) { it.toByte() })
+
+        viewModel.onQrDecoded("amneziawg://$privateKey@vpn.example.com:51820?public_key=peer-key")
+
+        assertEquals("<redacted>", viewModel.uiState.value.decodeError)
+        assertNull(viewModel.uiState.value.scanResult)
+        assertTrue(privateKey.take(4) !in viewModel.uiState.value.toString())
     }
 
     @Test
