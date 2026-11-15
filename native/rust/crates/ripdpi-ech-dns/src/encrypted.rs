@@ -9,7 +9,7 @@ use ripdpi_dns_resolver::{
 use crate::transport::TransportConfig;
 use crate::util::{bounded_scan_io_timeout, now_ms};
 
-use super::wire::{DNS_RECORD_TYPE_A, DNS_RECORD_TYPE_HTTPS, build_dns_query_with_type};
+use super::wire::{DNS_RECORD_TYPE_A, DNS_RECORD_TYPE_HTTPS, build_dns_query_with_type, with_diagnostic_edns};
 
 #[derive(Clone, Debug)]
 pub enum EchResolutionOutcome {
@@ -312,11 +312,11 @@ fn exchange_encrypted_dns_query_with_hooks(
     transport: &TransportConfig,
     connect_hooks: EncryptedDnsConnectHooks,
 ) -> Result<Vec<u8>, String> {
-    exchange_encrypted_dns_query_with_request(domain, record_type, endpoint, transport, connect_hooks)
-        .map(|(_, response)| response)
+    let (resolver, packet) = prepare_exchange(domain, record_type, endpoint, transport, connect_hooks)?;
+    resolver.exchange_blocking(&packet).map_err(|err| err.to_string())
 }
 
-/// Return the exact transmitted query so diagnostic parsing can bind negative replies.
+/// Return the diagnostic query and preserve requested EDNS metadata in the reply.
 ///
 /// Blocking: it must not run on a thread inside a Tokio runtime, where the
 /// blocking exchange fails at once.
@@ -328,6 +328,7 @@ pub fn exchange_encrypted_dns_query_with_request(
     connect_hooks: EncryptedDnsConnectHooks,
 ) -> Result<(Vec<u8>, Vec<u8>), String> {
     let (resolver, packet) = prepare_exchange(domain, record_type, endpoint, transport, connect_hooks)?;
+    let packet = with_diagnostic_edns(packet)?;
     let response = resolver.exchange_blocking(&packet).map_err(|err| err.to_string())?;
     Ok((packet, response))
 }

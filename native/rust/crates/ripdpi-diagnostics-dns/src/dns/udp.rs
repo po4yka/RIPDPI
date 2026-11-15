@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use crate::transport::{TransportConfig, relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr};
 use crate::util::{now_ms, ranged_probe_delay};
 
-use ripdpi_ech_dns::{DNS_RECORD_TYPE_A, build_dns_query_with_type};
+use ripdpi_ech_dns::{DNS_RECORD_TYPE_A, build_diagnostic_dns_query};
 
 use super::semantics::{parse_dns_response_semantics, semantic_address_result, transport_semantics};
 use ripdpi_diagnostics_contracts::types::{DnsResponseOutcome, DnsResponseSemantics};
@@ -46,7 +46,7 @@ pub fn resolve_via_udp_with_observations(domain: &str, server: &str, transport: 
     for attempt in 1..=UDP_DNS_ATTEMPTS {
         attempt_count = attempt;
         let query_id = ((now_ms() & 0xffff) as u16).max(1);
-        let packet = match build_dns_query_with_type(domain, query_id, DNS_RECORD_TYPE_A) {
+        let packet = match build_diagnostic_dns_query(domain, query_id, DNS_RECORD_TYPE_A) {
             Ok(pkt) => pkt,
             Err(err) => {
                 let resolution = UdpDnsResolution {
@@ -221,10 +221,12 @@ mod measurement_regression {
                 let Ok((len, peer)) = socket.recv_from(&mut query) else {
                     return;
                 };
-                let mut response = query[..len].to_vec();
+                let question_end = ripdpi_ech_dns::skip_dns_name(&query[..len], 12).unwrap() + 4;
+                let mut response = query[..question_end].to_vec();
                 response[2..4].copy_from_slice(&0x8180u16.to_be_bytes());
                 response[6..8].copy_from_slice(&1u16.to_be_bytes());
                 response.extend_from_slice(&[0xc0, 0x0c, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 192, 0, 2, last]);
+                response.extend_from_slice(&query[question_end..len]);
                 socket.send_to(&response, peer).unwrap();
             }
         });

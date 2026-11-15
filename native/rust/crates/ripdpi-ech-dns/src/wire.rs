@@ -1,4 +1,4 @@
-use hickory_proto::op::{Header, Message, MessageType, OpCode, Query, ResponseCode};
+use hickory_proto::op::{Edns, Header, Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::{Name, RData, RecordType};
 use hickory_proto::serialize::binary::{BinDecodable, BinDecoder, DecodeError};
 
@@ -18,6 +18,19 @@ pub fn build_dns_query_with_type(domain: &str, query_id: u16, record_type: u16) 
     let mut message = Message::new(query_id, MessageType::Query, OpCode::Query);
     message.metadata.recursion_desired = true;
     message.add_query(Query::new(name, RecordType::from(record_type)));
+    message.to_vec().map_err(|_| "invalid_dns_name".to_string())
+}
+
+/// Request response metadata without enabling DNSSEC or exceeding a bounded UDP payload.
+pub fn build_diagnostic_dns_query(domain: &str, query_id: u16, record_type: u16) -> Result<Vec<u8>, String> {
+    with_diagnostic_edns(build_dns_query_with_type(domain, query_id, record_type)?)
+}
+
+pub(crate) fn with_diagnostic_edns(packet: Vec<u8>) -> Result<Vec<u8>, String> {
+    let mut message = Message::from_vec(&packet).map_err(|_| "invalid_dns_name".to_string())?;
+    let mut edns = Edns::new();
+    edns.set_max_payload(1232);
+    message.edns = Some(edns);
     message.to_vec().map_err(|_| "invalid_dns_name".to_string())
 }
 

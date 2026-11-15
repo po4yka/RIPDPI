@@ -157,7 +157,7 @@ fn forged_response_scores_high() {
 
 #[test]
 fn ordinary_answer_to_an_opt_less_query_stays_below_the_anomaly_threshold() {
-    // A compliant resolver answers the probe's OPT-less query without OPT (RFC 6891 section 7).
+    // A compliant resolver can answer an OPT-less client without OPT (RFC 6891 section 7).
     let packet = build_dns_response(&ResponseConfig {
         ra: true,
         answer_count: 1,
