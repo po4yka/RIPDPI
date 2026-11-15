@@ -22,27 +22,12 @@ pub(super) fn maybe_rebind_udp_source_port(
         return Ok(());
     }
 
-    // UDP source-port rebind on post-handshake detection.
-    //
-    // NOTE: True RFC 9000 connection migration (section 9) requires sending a
-    // PATH_CHALLENGE frame (type 0x1a) inside an encrypted short-header
-    // packet on the new path, then validating the server's PATH_RESPONSE
-    // (type 0x1b) containing the same 8-byte echo data before migrating
-    // traffic.  Short-header packets are encrypted with 1-RTT keys
-    // derived during the handshake; this proxy has no access to those
-    // keys and operates on opaque UDP datagrams.  Injecting or parsing
-    // QUIC frames is therefore not feasible at this layer without a full
-    // QUIC stack implementation.
-    //
-    // What the rebind below actually achieves: changing the UDP
-    // source port/address forces ISP-level DPI to lose the 5-tuple
-    // flow record, which is the intended desync effect.  It is NOT a
-    // QUIC-layer migration: the server continues to associate traffic
-    // with the original connection ID and will not acknowledge the new
-    // path until it receives a valid PATH_CHALLENGE from the client
-    // application.  Packets already in flight on the old socket are
-    // not replayed on the new socket; the QUIC stack in the client
-    // application is responsible for retransmission.
+    // RFC 9000 sections 9.2-9.3 permit migration to start with a non-probing
+    // packet; the peer can then validate the new path. This opaque proxy has
+    // no 1-RTT keys and cannot send or verify PATH_CHALLENGE/PATH_RESPONSE.
+    // This is only a source-port rebind, not proof of path validation.
+    // In-flight packets on the old socket are not replayed; the client QUIC
+    // stack must retransmit them.
     let replacement =
         build_udp_upstream_socket(entry.current_target, protect_path, entry.socket_settings.bind_low_port).and_then(
             |socket| {
