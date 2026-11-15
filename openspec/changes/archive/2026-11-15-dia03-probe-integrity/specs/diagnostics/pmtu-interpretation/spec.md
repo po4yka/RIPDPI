@@ -1,7 +1,3 @@
-## Purpose
-
-Preserve the cause of an incomplete authenticated PMTU measurement without raising its authority.
-
 ## ADDED Requirements
 
 ### Requirement: REQ-DIA03-TIMEOUT — Preserve PMTU budget source

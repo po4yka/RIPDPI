@@ -2,7 +2,7 @@
 id: DGN-1794732416004558
 title: Repair DIA-03 HTTP, H3, and PMTU evidence
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: DIA-03 repair team
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dia03-probe-integrity
 created: 2026-11-15
 updated: 2026-11-15
+closed_at: "2026-11-15T11:45:13Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "DIA-03 repairs verified at d02db803: 774 tests passed, 2 pre-existing ignored; independent review, fmt, clippy, locked metadata and just ci-gates passed. Historical TLS golden drift reproduced on clean upstream and resolved by imported upstream changes; external and device acceptance not claimed."
 ---
 
 ## Goal

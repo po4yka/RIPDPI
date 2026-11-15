@@ -1,0 +1,11 @@
+{
+  "change": "dia03-probe-integrity",
+  "evidence_summary": "DIA-03 repairs verified at d02db803: 774 tests passed, 2 pre-existing ignored; independent review, fmt, clippy, locked metadata and just ci-gates passed. Historical TLS golden drift reproduced on clean upstream and resolved by imported upstream changes; external and device acceptance not claimed.",
+  "execution_sha256": "3c3cb1db41e7bda7070687d8853f5d33d5cf1c0e5a77a843a622aca80efa57fe",
+  "issue_sha256": "1b4652b4ff99fc108de958e3474c869429d5aa656491446c38d4a857643fe0ae",
+  "outcome": "done",
+  "prepared_at": "2026-11-15T11:45:13Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1794732416004558"
+}
