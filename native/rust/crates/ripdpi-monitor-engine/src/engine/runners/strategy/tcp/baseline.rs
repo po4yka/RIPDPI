@@ -33,7 +33,7 @@ pub(super) fn run_baseline_candidate<'a>(
         runner.phase(),
         StrategyProbeProgressLane::Tcp,
         1,
-        tcp_specs.len(),
+        plan.strategy_candidate_steps().0,
         baseline_spec.id,
         baseline_spec.label,
         format!("Testing TCP candidate {}", baseline_spec.label),
@@ -73,7 +73,7 @@ pub(super) fn run_baseline_candidate<'a>(
     let progress = strategy_probe_live_progress_with_targets(
         StrategyProbeProgressLane::Tcp,
         1,
-        tcp_specs.len(),
+        plan.strategy_candidate_steps().0,
         baseline_spec.id,
         baseline_spec.label,
         summary.succeeded_targets,

@@ -12,13 +12,14 @@ pub(in crate::engine) fn checkpoint_strategy_probe_report(
     if strategy.tcp_candidates.is_empty() && strategy.quic_candidates.is_empty() {
         return None;
     }
+    let (planned_tcp, planned_quic) = plan.strategy_candidate_steps();
     let audit_assessment = resolve_strategy_probe_audit_assessment(
         &strategy_plan.suite_id,
         &strategy.tcp_candidates,
         &strategy.quic_candidates,
         None,
-        strategy_plan.suite.tcp_candidates.len(),
-        strategy_plan.suite.quic_candidates.len(),
+        planned_tcp,
+        planned_quic,
         false,
     );
     Some(StrategyProbeReport {
