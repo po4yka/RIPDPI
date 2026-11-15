@@ -18,6 +18,7 @@ pub struct MieruSessionFactory {
 }
 
 impl MieruSessionFactory {
+    /// A new relay runtime reads the wall clock until a valid reply confirms time.
     pub fn new(config: MieruConfig, socket_protection: ripdpi_native_protect::SocketProtectionPolicy) -> Self {
         Self { config, socket_protection, sessions: Arc::default(), time: Arc::default() }
     }
@@ -207,6 +208,34 @@ mod tests {
         .expect("the second address must still be tried");
         assert_eq!(reached, live);
         assert!(started.elapsed() < budget, "the first attempt takes at most its share");
+    }
+
+    #[tokio::test]
+    async fn restarting_a_relay_starts_from_device_time() {
+        use ripdpi_network_time::{Clock, SystemClock, TimeSource};
+
+        let config = MieruConfig {
+            server: "localhost".into(),
+            port: 443,
+            username: "fixture-user".into(),
+            password: String::from("fixture-credential"),
+            protocol: MieruProtocol::Tcp,
+            multiplexing: MieruMux::Off,
+            mtu: 1400,
+            handshake_no_wait: false,
+            traffic_pattern: None,
+        };
+        let policy = ripdpi_native_protect::SocketProtectionPolicy::Inactive;
+        let initial = MieruSessionFactory::new(config.clone(), policy);
+        let old_anchor = SystemClock.wall_unix_secs() + 3_600;
+        assert!(initial.time.calibrate(old_anchor, TimeSource::new("mieru", "localhost", 443, 30)));
+        assert!(initial.clone().time.is_calibrated());
+        initial.shutdown().await.expect("stop the original relay");
+
+        let restarted = MieruSessionFactory::new(config, policy);
+        assert!(!restarted.time.is_calibrated());
+        assert!(restarted.time.now_unix().abs_diff(SystemClock.wall_unix_secs()) <= 1);
+        assert!(initial.time.is_calibrated());
     }
 
     #[tokio::test]
