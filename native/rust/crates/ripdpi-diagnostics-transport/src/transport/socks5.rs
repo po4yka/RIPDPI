@@ -73,6 +73,7 @@ fn negotiate_socks5_with_credentials(
 ) -> Result<TcpStream, TransportError> {
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
     let deadline = std::time::Instant::now() + timeout;
+    let deadline = crate::util::active_scan_io_deadline().map_or(deadline, |scan| scan.min(deadline));
     proxy.set_nonblocking(true)?;
     let target = socks5_target(target, port);
     debug_assert!(

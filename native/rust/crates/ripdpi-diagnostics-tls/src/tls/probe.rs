@@ -72,9 +72,27 @@ pub fn try_tls_handshake_targets_with_key_log(
         tls_verifier,
         key_log,
     };
-    match open_probe_stream_targets_with_options(targets, port, transport, Some(server_name), &options) {
-        Ok(result) => observation::from_probe_stream_result(result, profile),
-        Err(err) => observation::from_probe_error(err, profile),
+    try_tls_handshake_targets_with_options_and_abort(targets, port, transport, server_name, &options, &|| None)
+}
+
+pub fn try_tls_handshake_targets_with_options_and_abort(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    server_name: &str,
+    options: &ProbeStreamOptions<'_>,
+    should_abort: &(dyn Fn() -> Option<&'static str> + Sync),
+) -> TlsObservation {
+    match open_probe_stream_targets_with_options_and_abort(
+        targets,
+        port,
+        transport,
+        Some(server_name),
+        options,
+        should_abort,
+    ) {
+        Ok(result) => observation::from_probe_stream_result(result, options.profile),
+        Err(err) => observation::from_probe_error(err, options.profile),
     }
 }
 

@@ -8,7 +8,7 @@ use crate::tls::{
     ApplicationProtocolPolicy, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
     open_probe_stream_targets_with_options_and_abort,
 };
-use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, run_with_socket_watchdog};
+use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, run_with_socket_abort_watchdog};
 use crate::util::MAX_HTTP_BYTES;
 
 use super::classifier::classify_http_response_with_fingerprints;
@@ -35,14 +35,15 @@ pub fn try_http_request_with_key_log(
     secure: bool,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> HttpObservation {
-    match execute_http_request_with_key_log(target, port, transport, host_header, path, secure, key_log) {
-        Ok(response) => HttpObservation {
-            status: classify_with_bundled_fingerprints(&response),
-            response: Some(response),
-            error: None,
-        },
-        Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
-    }
+    try_http_request_targets_with_key_log(
+        std::slice::from_ref(target),
+        port,
+        transport,
+        host_header,
+        path,
+        secure,
+        key_log,
+    )
 }
 
 pub fn try_http_request_targets(
@@ -65,7 +66,39 @@ pub fn try_http_request_targets_with_key_log(
     secure: bool,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> HttpObservation {
-    match execute_http_request_targets_with_key_log(targets, port, transport, host_header, path, secure, key_log) {
+    observe_http_result(execute_http_request_targets_with_key_log(
+        targets,
+        port,
+        transport,
+        host_header,
+        path,
+        secure,
+        key_log,
+    ))
+}
+
+pub fn try_http_request_targets_with_cancel(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    host_header: &str,
+    path: &str,
+    cancel: Option<&AtomicBool>,
+) -> HttpObservation {
+    observe_http_result(execute_http_request_targets_with_accept(
+        targets,
+        port,
+        transport,
+        host_header,
+        path,
+        false,
+        None,
+        HttpRequestOptions { accept: "*/*", cancel },
+    ))
+}
+
+fn observe_http_result(result: Result<HttpResponse, String>) -> HttpObservation {
+    match result {
         Ok(response) => HttpObservation {
             status: classify_with_bundled_fingerprints(&response),
             response: Some(response),
@@ -220,13 +253,21 @@ fn run_with_abort<T>(
     if let Some(reason) = abort_reason(cancel) {
         return Err(reason.to_string());
     }
+    if cancel.is_none() && active_scan_io_deadline().is_none() {
+        return operation(stream);
+    }
     let socket = match stream {
         ConnectionStream::Plain(socket) => socket.try_clone(),
         ConnectionStream::Tls(tls) => tls.sock.try_clone(),
     }
     .map_err(|err| err.to_string())?;
-    run_with_socket_watchdog(socket, cancel, || operation(stream))
-        .map_err(|err| abort_reason(cancel).map_or(err, str::to_string))
+    let cancelled = || cancel.is_some_and(|flag| flag.load(Ordering::Acquire));
+    let result =
+        run_with_socket_abort_watchdog(socket, &cancelled, || operation(stream).map_err(std::io::Error::other));
+    if let Some(reason) = abort_reason(cancel) {
+        return Err(reason.to_string());
+    }
+    result.map_err(|err| err.to_string())
 }
 
 fn abort_reason(cancel: Option<&AtomicBool>) -> Option<&'static str> {

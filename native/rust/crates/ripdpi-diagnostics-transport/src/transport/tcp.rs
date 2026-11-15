@@ -317,7 +317,12 @@ where
         };
         let received = receive_until(&result_rx, wait_until, should_abort).map_err(TransportError::ProbeAborted)?;
         match received {
-            Ok((address, Ok(value))) => return Ok((value, address)),
+            Ok((address, Ok(value))) => {
+                if scan_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+                    return Err(TransportError::ScanDeadlineExceeded);
+                }
+                return Ok((value, address));
+            }
             Ok((_, Err(error))) => {
                 in_flight -= 1;
                 last_error = Some(error);

@@ -2,7 +2,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
 use super::capture::{CaptureTlsError, CaptureTlsHandshakeOptions, CapturedTlsHandshake, capture_tls_handshake};
-use crate::transport::{TargetAddress, connect_transport_observed};
+use crate::transport::{TargetAddress, connect_transport_observed_with_abort};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, with_scan_io_deadline};
 
@@ -36,7 +36,8 @@ pub(super) fn capture_with_ech_retry(
         bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
         let target = [TargetAddress::Ip(peer.ip())];
         let reconnect =
-            connect_transport_observed(&target, peer.port(), options.transport).map_err(|error| error.message)?;
+            connect_transport_observed_with_abort(&target, peer.port(), options.transport, options.should_abort)
+                .map_err(|error| error.message)?;
         let retry_options = CaptureTlsHandshakeOptions {
             targets: options.targets,
             ech_retry_configs: Some(configs),

@@ -1,7 +1,7 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use ripdpi_tls_profiles::{TlsTemplateFirstFlightPlan, plan_first_flight};
 use rustls::client::danger::ServerCertVerifier;
@@ -113,7 +113,6 @@ pub(crate) fn capture_tls_handshake(
         if let Some(reason) = should_abort() {
             return Err(format!("probe_aborted:{reason}").into());
         }
-        refresh_tls_handshake_timeout(&mut recording)?;
         let mut io = BoundedHandshakeIo { recording: &mut recording, should_abort };
         if let Err(err) = connection.complete_io(&mut io) {
             // rustls sets the version and suite during HelloRetryRequest too. After a retry
@@ -145,6 +144,10 @@ pub(crate) fn capture_tls_handshake(
             });
         }
     }
+    if let Some(message) = administrative_error_after_io(should_abort) {
+        return Err(message.into());
+    }
+    refresh_tls_handshake_timeout(&mut recording)?;
     let tls_handshake_ms = tls_start.elapsed().as_millis() as u64;
 
     let ja3_fingerprint = ja3::compute_ja3(recording.recorded_writes());
@@ -193,26 +196,44 @@ struct BoundedHandshakeIo<'a> {
 }
 
 impl BoundedHandshakeIo<'_> {
-    fn before_io(&mut self) -> io::Result<()> {
-        // Not `Interrupted`: rustls retries an interrupted read instead of returning.
-        if let Some(reason) = (self.should_abort)() {
-            return Err(io::Error::other(format!("probe_aborted:{reason}")));
+    fn poll_io<T>(
+        &mut self,
+        set_timeout: impl Fn(&TcpStream, Option<Duration>) -> io::Result<()>,
+        mut operation: impl FnMut(&mut RecordingStream<TcpStream>) -> io::Result<T>,
+    ) -> io::Result<T> {
+        // A short socket wait observes cancellation on a silent peer. Retry the same
+        // read or write up to its original idle budget, also limited by the scan deadline.
+        const CANCEL_POLL: Duration = Duration::from_millis(50);
+        let timeout =
+            bounded_scan_io_timeout(IO_TIMEOUT).map_err(|err| io::Error::new(io::ErrorKind::TimedOut, err))?;
+        let deadline = Instant::now() + timeout;
+        loop {
+            // Avoid Interrupted because rustls retries it internally.
+            if let Some(reason) = (self.should_abort)() {
+                return Err(io::Error::other(format!("probe_aborted:{reason}")));
+            }
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(io::Error::from(io::ErrorKind::TimedOut));
+            }
+            set_timeout(self.recording.inner_mut(), Some(remaining.min(CANCEL_POLL)))?;
+            match operation(self.recording) {
+                Err(error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
+                result => return result,
+            }
         }
-        refresh_tls_handshake_timeout(self.recording).map_err(|err| io::Error::new(io::ErrorKind::TimedOut, err))
     }
 }
 
 impl Read for BoundedHandshakeIo<'_> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.before_io()?;
-        self.recording.read(buf)
+        self.poll_io(TcpStream::set_read_timeout, |recording| recording.read(buf))
     }
 }
 
 impl Write for BoundedHandshakeIo<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.before_io()?;
-        self.recording.write(buf)
+        self.poll_io(TcpStream::set_write_timeout, |recording| recording.write(buf))
     }
 
     fn flush(&mut self) -> io::Result<()> {

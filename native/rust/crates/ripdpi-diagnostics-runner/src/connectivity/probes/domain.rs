@@ -1,12 +1,18 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
+use ripdpi_diagnostics_contracts::util::active_scan_io_deadline;
 use ripdpi_diagnostics_tls::tls::TlsObservation;
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::adapters::http::{describe_http_observation, is_blockpage, try_http_request_targets};
+use crate::connectivity::adapters::http::{
+    describe_http_observation, is_blockpage, try_http_request_targets_with_cancel,
+};
 use crate::connectivity::adapters::tls::{
-    TlsClientProfile, append_tls_comparison_details, classify_tls_signal, preferred_tls_observation,
-    tls_key_log_callback_for_path, try_tls_handshake_targets_with_key_log,
+    ApplicationProtocolPolicy, ProbeStreamOptions, TlsClientProfile, append_tls_comparison_details,
+    classify_tls_signal, preferred_tls_observation, tls_key_log_callback_for_path,
+    try_tls_handshake_targets_with_options_and_abort,
 };
 use crate::connectivity::adapters::transport::{TargetAddress, TransportConfig, domain_connect_targets};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
@@ -19,7 +25,7 @@ pub fn run_domain_probe(
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> ProbeResult {
-    run_domain_probe_with_key_log(target, transport, tls_verifier, None)
+    run_domain_probe_with_key_log(target, transport, tls_verifier, None, None)
 }
 
 pub fn run_domain_probe_with_key_log(
@@ -27,33 +33,74 @@ pub fn run_domain_probe_with_key_log(
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     keylog_path: Option<&str>,
+    cancel: Option<&AtomicBool>,
 ) -> ProbeResult {
     let key_log = keylog_path.map(tls_key_log_callback_for_path);
-    run_domain_probe_with_tls_probe(target, transport, |connect_targets, port, profile| {
-        try_tls_handshake_targets_with_key_log(
+    let should_abort = || abort_reason(cancel);
+    run_domain_probe_with_tls_probe(target, transport, cancel, |connect_targets, port, profile| {
+        let options = ProbeStreamOptions {
+            profile,
+            application_protocol: ApplicationProtocolPolicy::TemplateDefault,
+            tls_verifier,
+            key_log: key_log.as_ref(),
+        };
+        try_tls_handshake_targets_with_options_and_abort(
             connect_targets,
             port,
             transport,
             &target.host,
-            profile,
-            tls_verifier,
-            key_log.as_ref(),
+            &options,
+            &should_abort,
         )
     })
+    .unwrap_or_else(|reason| ProbeResult {
+        probe_type: "domain_reachability".to_string(),
+        target: target.host.clone(),
+        outcome: reason.to_string(),
+        details: Vec::new(),
+    })
+}
+
+fn abort_reason(cancel: Option<&AtomicBool>) -> Option<&'static str> {
+    // Acquire observes cancellation published by the scan owner.
+    if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+        Some("scan_cancelled")
+    } else if active_scan_io_deadline().is_some_and(|deadline| Instant::now() >= deadline) {
+        Some("scan_deadline_exceeded")
+    } else {
+        None
+    }
 }
 
 fn run_domain_probe_with_tls_probe(
     target: &DomainTarget,
     transport: &TransportConfig,
+    cancel: Option<&AtomicBool>,
     mut probe_tls: impl FnMut(&[TargetAddress], u16, TlsClientProfile) -> TlsObservation,
-) -> ProbeResult {
+) -> Result<ProbeResult, &'static str> {
+    let check_abort = || abort_reason(cancel).map_or(Ok(()), Err);
+    check_abort()?;
     let https_port = target.https_port.unwrap_or(443);
     let http_port = target.http_port.unwrap_or(80);
     let connect_targets = domain_connect_targets(target);
-    let mut tls13 = probe_tls(&connect_targets, https_port, TlsClientProfile::Tls13Only);
-    let tls12 = probe_tls(&connect_targets, https_port, TlsClientProfile::Tls12Only);
-    let tls_ech = probe_tls(&connect_targets, https_port, TlsClientProfile::Tls13WithEch);
-    let http = try_http_request_targets(&connect_targets, http_port, transport, &target.host, &target.http_path, false);
+    let mut probe_profile = |profile| -> Result<_, &'static str> {
+        check_abort()?;
+        let observation = probe_tls(&connect_targets, https_port, profile);
+        check_abort()?;
+        Ok(observation)
+    };
+    let mut tls13 = probe_profile(TlsClientProfile::Tls13Only)?;
+    let tls12 = probe_profile(TlsClientProfile::Tls12Only)?;
+    let tls_ech = probe_profile(TlsClientProfile::Tls13WithEch)?;
+    let http = try_http_request_targets_with_cancel(
+        &connect_targets,
+        http_port,
+        transport,
+        &target.host,
+        &target.http_path,
+        cancel,
+    );
+    check_abort()?;
     let alt_svc_value = http.response.as_ref().and_then(|r| r.headers.get("alt-svc")).cloned();
     let h3_advertised = alt_svc_value.as_ref().is_some_and(|v| v.contains("h3"));
 
@@ -75,7 +122,7 @@ fn run_domain_probe_with_tls_probe(
 
     // Single retry on total failure to distinguish transient from consistent blocking
     let (outcome, probe_retry_count) = if outcome == "unreachable" {
-        let retry = probe_tls(&connect_targets, https_port, TlsClientProfile::Tls13Only);
+        let retry = probe_profile(TlsClientProfile::Tls13Only)?;
         if retry.status == "tls_ok" {
             tls13 = retry;
             ("tls_ok".to_string(), 1usize)
@@ -176,13 +223,16 @@ fn run_domain_probe_with_tls_probe(
         }
     }
     append_route_details(&mut result.details, "", route_local_addr, route_report);
+    check_abort()?;
     if http.status != "http_ok" {
         append_http_trigger_fuzzing_details(&mut result.details, target, transport, http.status.as_str());
     }
+    check_abort()?;
     if preferred_tls.status != "tls_ok" {
         append_tls_trigger_fuzzing_details(&mut result.details, target, transport, preferred_tls.status.as_str());
     }
-    result
+    check_abort()?;
+    Ok(result)
 }
 
 fn http_status_code(status: &str) -> String {
@@ -267,11 +317,13 @@ mod tests {
         let result = super::run_domain_probe_with_tls_probe(
             &target,
             &super::TransportConfig::Direct { route_experiment: None },
+            None,
             |_, _, _| {
                 attempts += 1;
                 if attempts == 4 { success.clone() } else { failure.clone() }
             },
-        );
+        )
+        .unwrap();
         assert_eq!(attempts, 4);
         assert_eq!(result.outcome, "tls_ok");
         let detail = |key: &str| result.details.iter().find(|detail| detail.key == key).unwrap().value.as_str();
@@ -323,12 +375,14 @@ mod tests {
         let result = super::run_domain_probe_with_tls_probe(
             &target,
             &super::TransportConfig::Direct { route_experiment: None },
+            None,
             |_, _, profile| match profile {
                 TlsClientProfile::Tls13Only => tls13.clone(),
                 TlsClientProfile::Tls12Only => tls12.clone(),
                 _ => failed_probe(),
             },
-        );
+        )
+        .unwrap();
 
         assert_eq!(result.outcome, "tls_version_split");
         assert!(
@@ -400,12 +454,13 @@ mod tests {
                 assert!(request.starts_with(b"GET / HTTP/1.1\r\nHost: localhost\r\n"));
                 stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok").unwrap();
             });
-            let result = super::run_domain_probe_with_tls_probe(&target, &transport, |_, _, _| TlsObservation {
+            let result = super::run_domain_probe_with_tls_probe(&target, &transport, None, |_, _, _| TlsObservation {
                 status: "tls_ok".into(),
                 error: None,
                 failure_stage: None,
                 ..failed_probe()
-            });
+            })
+            .unwrap();
             assert!(result.details.iter().any(|detail| detail.key == "httpStatus" && detail.value == "http_ok"));
             assert!(!result.details.iter().any(|detail| detail.key == "resolved"));
         });

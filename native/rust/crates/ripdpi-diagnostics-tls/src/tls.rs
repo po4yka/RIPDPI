@@ -15,7 +15,8 @@ pub use probe::{
     open_probe_stream, open_probe_stream_targets_with_key_log_and_abort, open_probe_stream_targets_with_options,
     open_probe_stream_targets_with_options_and_abort, open_probe_stream_with_abort, open_probe_stream_with_key_log,
     open_probe_stream_with_key_log_and_abort, try_tls_handshake, try_tls_handshake_targets,
-    try_tls_handshake_targets_with_key_log, try_tls_handshake_with_key_log,
+    try_tls_handshake_targets_with_key_log, try_tls_handshake_targets_with_options_and_abort,
+    try_tls_handshake_with_key_log,
 };
 pub use types::{
     ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult,

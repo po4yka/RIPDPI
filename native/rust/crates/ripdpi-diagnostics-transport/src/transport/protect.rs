@@ -72,6 +72,7 @@ pub(crate) fn connect_socket_until(
     stopped: impl Fn() -> bool,
 ) -> io::Result<TcpStream> {
     let stop_error = || io::Error::new(io::ErrorKind::Interrupted, "connect attempt stopped");
+    let deadline = crate::util::active_scan_io_deadline().map_or(deadline, |scan| scan.min(deadline));
     if stopped() {
         return Err(stop_error());
     }

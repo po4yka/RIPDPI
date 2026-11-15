@@ -27,7 +27,7 @@ pub(crate) mod fat_header {
 pub(crate) mod http {
     pub use ripdpi_diagnostics_http::http::{
         HttpObservation, classify_http_response, describe_http_observation, is_blockpage, parse_http_response,
-        read_http_response, try_http_request_targets, try_http_request_targets_with_key_log,
+        read_http_response, try_http_request_targets_with_cancel, try_http_request_targets_with_key_log,
     };
 }
 
@@ -36,7 +36,7 @@ pub(crate) mod tls {
         ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
         append_tls_comparison_details, classify_tls_signal, open_probe_stream_targets_with_options,
         preferred_tls_observation, tls_key_log_callback_for_path, try_tls_handshake,
-        try_tls_handshake_targets_with_key_log, try_tls_handshake_with_key_log,
+        try_tls_handshake_targets_with_options_and_abort, try_tls_handshake_with_key_log,
     };
 }
 

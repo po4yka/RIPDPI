@@ -2,7 +2,7 @@ use super::super::types::{ProbeStreamError, ProbeStreamFailureStage, ProbeStream
 use super::capture::CaptureTlsHandshakeOptions;
 use super::retry::capture_with_ech_retry;
 use crate::platform_ttl;
-use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, connect_transport_observed};
+use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, connect_transport_observed_with_abort};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 use ripdpi_diagnostics_dns::cdn_ech::opportunistic_ech_provider_for_ip;
 use std::time::Instant;
@@ -34,7 +34,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
             None,
         ));
     }
-    let opened = open_transport_stream(targets, port, transport, started)?;
+    let opened = open_transport_stream(targets, port, transport, started, should_abort)?;
     if let Some(reason) = should_abort() {
         return Err(stream_error(
             ProbeStreamFailureStage::StreamSetup,
@@ -127,19 +127,23 @@ fn open_transport_stream(
     port: u16,
     transport: &TransportConfig,
     started: Instant,
+    should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> Result<OpenedTransportStream, ProbeStreamError> {
     let tcp_start = Instant::now();
-    let transport_result = connect_transport_observed(targets, port, transport).map_err(|err| ProbeStreamError {
-        stage: err.stage.into(),
-        message: err.message,
-        duration_ms: started.elapsed().as_millis().max(1) as u64,
-        tcp_connect_ms: None,
-        connected_addr: None,
-        tls_server_hello_received: None,
-        tls_alert: None,
-        certificate_anomaly: false,
-        tls_handshake_ms: None,
-    })?;
+    let transport_result =
+        connect_transport_observed_with_abort(targets, port, transport, should_abort).map_err(|err| {
+            ProbeStreamError {
+                stage: err.stage.into(),
+                message: err.message,
+                duration_ms: started.elapsed().as_millis().max(1) as u64,
+                tcp_connect_ms: None,
+                connected_addr: None,
+                tls_server_hello_received: None,
+                tls_alert: None,
+                certificate_anomaly: false,
+                tls_handshake_ms: None,
+            }
+        })?;
     let tcp_connect_ms = tcp_start.elapsed().as_millis() as u64;
     let connected_addr = transport_result.connected_addr;
     let cdn_provider = connected_addr.and_then(|addr| opportunistic_ech_provider_for_ip(addr.ip()).map(str::to_string));

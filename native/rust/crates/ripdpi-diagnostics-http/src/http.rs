@@ -13,7 +13,8 @@ pub use classifier::{
 pub use probe_execution::{
     execute_doh_json_request, execute_http_request, execute_http_request_targets,
     execute_http_request_targets_with_key_log, execute_http_request_with_key_log, try_http_request,
-    try_http_request_targets, try_http_request_targets_with_key_log, try_http_request_with_key_log,
+    try_http_request_targets, try_http_request_targets_with_cancel, try_http_request_targets_with_key_log,
+    try_http_request_with_key_log,
 };
 pub use response_decoder::{HttpBodyFraming, HttpResponseDecoder, HttpResponseEvent};
 pub use response_parser::{
