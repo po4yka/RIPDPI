@@ -92,7 +92,8 @@ internal class ProxyScanner(
                                 coroutineContext.ensureActive()
                                 if (found.isCompleted) return@worker
                                 val port = ports[index]
-                                val candidate = tryPort(port)
+                                val result = tryPort(port)
+                                status.updateAndGet { it.merge(result.status) }
                                 val progress =
                                     completed.updateAndGet {
                                         it.copy(
@@ -100,8 +101,8 @@ internal class ProxyScanner(
                                             currentPort = port,
                                         )
                                     }
-                                if (candidate != null) {
-                                    found.complete(candidate)
+                                result.match?.let { match ->
+                                    found.complete(match)
                                     return@worker
                                 }
                                 if (progress.scanned % progressUpdateEvery == 0) {

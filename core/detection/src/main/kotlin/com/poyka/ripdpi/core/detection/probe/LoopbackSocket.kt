@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection.probe
 
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.Closeable
 import java.io.IOException
 import java.net.InetAddress
@@ -8,6 +9,7 @@ import java.net.Proxy
 import java.net.Socket
 import java.net.SocketException
 import javax.net.SocketFactory
+import kotlin.coroutines.resume
 
 internal val DetectionLoopbackHosts = listOf("127.0.0.1", "::1")
 
@@ -15,6 +17,14 @@ internal fun detectionLoopbackAddress(host: String): InetAddress {
     require(host in DetectionLoopbackHosts) { "Local probes require a numeric loopback address" }
     return InetAddress.getByName(host)
 }
+
+internal suspend fun <T> withCancellableLoopbackSocket(block: (Socket) -> T): T =
+    Socket(Proxy.NO_PROXY).use { socket ->
+        suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { runCatching { socket.close() } }
+            if (continuation.isActive) continuation.resume(block(socket))
+        }
+    }
 
 /** Owns the socket of one gRPC channel, including a connect still in progress. */
 internal class LoopbackSocketFactory(

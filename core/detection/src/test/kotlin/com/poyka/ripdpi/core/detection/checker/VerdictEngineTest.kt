@@ -38,6 +38,38 @@ private fun emptyBypass() =
 
 class VerdictEngineTest {
     @Test
+    fun `local proxy response and proc listener hint do not prove a bypass`() {
+        val assessment =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns =
+                    emptyCategory("Indirect").copy(
+                        needsReview = true,
+                        findings =
+                            listOf(
+                                Finding("Local listener", needsReview = true, source = EvidenceSource.LOCAL_PROXY),
+                            ),
+                    ),
+                locationSignals = emptyCategory("Location"),
+                bypassResult =
+                    emptyBypass().copy(
+                        evidence =
+                            listOf(
+                                EvidenceItem(
+                                    source = EvidenceSource.LOCAL_PROXY,
+                                    detected = true,
+                                    confidence = EvidenceConfidence.MEDIUM,
+                                    description = "SOCKS5 greeting on loopback",
+                                ),
+                            ),
+                    ),
+            )
+
+        assertEquals(Verdict.NEEDS_REVIEW, assessment.verdict)
+    }
+
+    @Test
     fun `no evidence returns NOT_DETECTED`() {
         val verdict =
             VerdictEngine.evaluate(

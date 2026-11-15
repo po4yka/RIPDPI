@@ -9,19 +9,15 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.ConnectException
 import java.net.InetSocketAddress
-import java.net.Proxy
-import java.net.Socket
 import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.coroutines.resume
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class XrayApiScanner(
@@ -181,25 +177,18 @@ class XrayApiScanner(
         host: String,
         port: Int,
     ): LocalScanStatus? =
-        Socket(Proxy.NO_PROXY).use { socket ->
-            suspendCancellableCoroutine { continuation ->
-                continuation.invokeOnCancellation { runCatching { socket.close() } }
-                if (continuation.isActive) {
-                    val failure =
-                        try {
-                            socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
-                            null
-                        } catch (_: ConnectException) {
-                            LocalScanStatus.NO_MATCH
-                        } catch (_: SocketTimeoutException) {
-                            LocalScanStatus.TIMED_OUT
-                        } catch (_: IOException) {
-                            LocalScanStatus.UNAVAILABLE
-                        } catch (_: SecurityException) {
-                            LocalScanStatus.UNAVAILABLE
-                        }
-                    continuation.resume(failure)
-                }
+        withCancellableLoopbackSocket { socket ->
+            try {
+                socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
+                null
+            } catch (_: ConnectException) {
+                LocalScanStatus.NO_MATCH
+            } catch (_: SocketTimeoutException) {
+                LocalScanStatus.TIMED_OUT
+            } catch (_: IOException) {
+                LocalScanStatus.UNAVAILABLE
+            } catch (_: SecurityException) {
+                LocalScanStatus.UNAVAILABLE
             }
         }
 }

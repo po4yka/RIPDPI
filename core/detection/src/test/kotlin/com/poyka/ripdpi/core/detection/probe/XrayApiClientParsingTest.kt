@@ -125,6 +125,35 @@ class XrayApiClientParsingTest {
     }
 
     @Test
+    fun `invalid domain values cannot become configured endpoints`() {
+        for (domain in listOf("https://edge.invalid/path", "edge.invalid:443", "::1", ".", "edge..invalid")) {
+            val endpoint =
+                ServerEndpoint
+                    .newBuilder()
+                    .setAddress(IPOrDomain.newBuilder().setDomain(domain))
+                    .setPort(443)
+            val outbound = VlessOutboundConfig.newBuilder().setVnext(endpoint).build()
+            val parsed = client.parseVlessProxySettings("xray.proxy.vless.outbound.Config", outbound.toByteString())
+
+            assertNull(parsed.address)
+            assertTrue(parsed.malformed)
+        }
+    }
+
+    @Test
+    fun `domain dots are normalized before endpoint classification`() {
+        val endpoint =
+            ServerEndpoint
+                .newBuilder()
+                .setAddress(IPOrDomain.newBuilder().setDomain("localhost。"))
+                .setPort(443)
+        val outbound = VlessOutboundConfig.newBuilder().setVnext(endpoint).build()
+        val parsed = client.parseVlessProxySettings("xray.proxy.vless.outbound.Config", outbound.toByteString())
+
+        assertEquals("localhost", parsed.address)
+    }
+
+    @Test
     fun validAccountKeepsOnlyUuidPresence() {
         val uuid = "11111111-2222-3333-4444-555555555555"
         val validAccount =

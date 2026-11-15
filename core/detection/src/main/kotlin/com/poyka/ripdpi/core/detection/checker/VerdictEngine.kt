@@ -157,10 +157,11 @@ object VerdictEngine {
             evidence.any {
                 it.source == EvidenceSource.ACTIVE_VPN && it.kind == VpnAppKind.GENERIC_VPN
             }
-        val hasIndirectHit =
-            indirectSigns.detected ||
-                indirectSigns.needsReview ||
-                hasTargetedActive
+        val indirectReviewFindings = indirectSigns.findings.filter(Finding::needsReview)
+        val hasProxyInventoryHint = indirectReviewFindings.any { it.source == EvidenceSource.LOCAL_PROXY }
+        val hasOtherIndirectReview = indirectReviewFindings.any { it.source != EvidenceSource.LOCAL_PROXY }
+        val hasIndirectReview = indirectSigns.needsReview && (!hasProxyInventoryHint || hasOtherIndirectReview)
+        val hasIndirectHit = indirectSigns.detected || hasIndirectReview || hasTargetedActive
         val geoAxisEvidence = geoIp.evidence
         val indirectAxisEvidence = indirectSigns.evidence + evidence.filter { it.source == EvidenceSource.ACTIVE_VPN }
 
@@ -211,7 +212,7 @@ object VerdictEngine {
 
             hasNeedsReviewFallback(
                 hasDirectHit = hasDirectHit || directSigns.needsReview,
-                hasIndirectHit = hasIndirectHit,
+                hasIndirectHit = hasIndirectHit || hasProxyInventoryHint,
                 hasGenericActive = hasGenericActive,
                 ipComparison = ipComparison,
                 cdnPulling = cdnPulling,

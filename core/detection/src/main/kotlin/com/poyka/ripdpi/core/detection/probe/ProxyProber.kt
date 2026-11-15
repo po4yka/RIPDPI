@@ -3,15 +3,13 @@
 package com.poyka.ripdpi.core.detection.probe
 
 import java.io.IOException
-import java.io.InputStream
 import java.io.OutputStream
 import java.net.ConnectException
 import java.net.InetSocketAddress
-import java.net.Proxy
 import java.net.Socket
 import java.net.SocketTimeoutException
 
-object ProxyProber {
+internal object ProxyProber {
     internal enum class PortProbeResult {
         CLOSED,
         UNKNOWN_TCP_SERVICE,
@@ -23,7 +21,7 @@ object ProxyProber {
         PARTIAL,
     }
 
-    internal fun probePort(
+    suspend fun probePort(
         host: String,
         port: Int,
         connectTimeoutMs: Int,
@@ -43,7 +41,7 @@ object ProxyProber {
         }
     }
 
-    private fun probeSocks5NoAuth(
+    private suspend fun probeSocks5NoAuth(
         host: String,
         port: Int,
         connectTimeoutMs: Int,
@@ -51,16 +49,17 @@ object ProxyProber {
     ): PortProbeResult =
         probeSocket(host, port, connectTimeoutMs, readTimeoutMs) {
             getOutputStream().writeSocks5NoAuthGreeting()
-            val response = getInputStream().readExactly(2)
-            when {
-                response == null || response[0] != 0x05.toByte() -> PortProbeResult.UNKNOWN_TCP_SERVICE
-                response[1] == 0x00.toByte() -> PortProbeResult.SOCKS5_NO_AUTH
-                response[1] == 0xFF.toByte() -> PortProbeResult.REJECTED
+            val response = getInputStream()
+            if (response.read() != 0x05) return@probeSocket PortProbeResult.UNKNOWN_TCP_SERVICE
+            when (response.read()) {
+                0x00 -> PortProbeResult.SOCKS5_NO_AUTH
+                0xFF -> PortProbeResult.REJECTED
+                -1 -> PortProbeResult.PARTIAL
                 else -> PortProbeResult.UNKNOWN_TCP_SERVICE
             }
         }
 
-    private fun probeHttpConnect(
+    private suspend fun probeHttpConnect(
         host: String,
         port: Int,
         connectTimeoutMs: Int,
@@ -68,36 +67,31 @@ object ProxyProber {
     ): PortProbeResult =
         probeSocket(host, port, connectTimeoutMs, readTimeoutMs) {
             getOutputStream().writeHttpConnectProbe()
-            val code = HttpResponseHeadReader(this).readFinalStatus()
-            when {
-                code == null -> PortProbeResult.UNKNOWN_TCP_SERVICE
-                code in 200..299 -> PortProbeResult.HTTP_CONNECT_PROXY
-                else -> PortProbeResult.REJECTED
-            }
+            HttpResponseHeadReader(this).readFinalResult()
         }
 
-    private inline fun probeSocket(
+    private suspend fun probeSocket(
         host: String,
         port: Int,
         connectTimeoutMs: Int,
         readTimeoutMs: Int,
         probe: Socket.() -> PortProbeResult,
     ): PortProbeResult =
-        try {
-            Socket(Proxy.NO_PROXY).use { socket ->
+        withCancellableLoopbackSocket { socket ->
+            try {
                 socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
                 socket.soTimeout = readTimeoutMs
                 socket.tcpNoDelay = true
                 socket.probe()
+            } catch (_: ConnectException) {
+                PortProbeResult.CLOSED
+            } catch (_: SocketTimeoutException) {
+                PortProbeResult.TIMED_OUT
+            } catch (_: IOException) {
+                PortProbeResult.UNAVAILABLE
+            } catch (_: SecurityException) {
+                PortProbeResult.UNAVAILABLE
             }
-        } catch (_: ConnectException) {
-            PortProbeResult.CLOSED
-        } catch (_: SocketTimeoutException) {
-            PortProbeResult.TIMED_OUT
-        } catch (_: IOException) {
-            PortProbeResult.UNAVAILABLE
-        } catch (_: SecurityException) {
-            PortProbeResult.UNAVAILABLE
         }
 
     private fun OutputStream.writeSocks5NoAuthGreeting() {
@@ -117,17 +111,6 @@ object ProxyProber {
         flush()
     }
 
-    private fun InputStream.readExactly(byteCount: Int): ByteArray? {
-        val buffer = ByteArray(byteCount)
-        var offset = 0
-        while (offset < byteCount) {
-            val read = read(buffer, offset, byteCount - offset)
-            if (read <= 0) return null
-            offset += read
-        }
-        return buffer
-    }
-
     private class HttpResponseHeadReader(
         private val socket: Socket,
     ) {
@@ -135,16 +118,21 @@ object ProxyProber {
         private val deadlineNanos = System.nanoTime() + socket.soTimeout * 1_000_000L
         private var remainingBytes = 4_096
 
-        fun readFinalStatus(): Int? {
+        private var sawHttpPrefix = false
+
+        fun readFinalResult(): PortProbeResult {
             repeat(9) {
-                val line = readLine(256) ?: return null
-                val match = HttpStatus.matchEntire(line) ?: return null
+                val line = readLine(256)
+                val match = line?.let(HttpStatus::matchEntire)
+                if (match == null) {
+                    return if (sawHttpPrefix) PortProbeResult.PARTIAL else PortProbeResult.UNKNOWN_TCP_SERVICE
+                }
+                if (!readFields()) return PortProbeResult.PARTIAL
                 val code = match.groupValues[1].toInt()
-                if (!readFields()) return null
-                if (code >= 200) return code
-                if (code == 101) return null
+                if (code in 200..299) return PortProbeResult.HTTP_CONNECT_PROXY
+                if (code >= 300 || code == 101) return PortProbeResult.REJECTED
             }
-            return null
+            return PortProbeResult.PARTIAL
         }
 
         private fun readFields(): Boolean {
@@ -168,6 +156,7 @@ object ProxyProber {
                     return if (line.endsWith('\r')) line.dropLast(1).toString() else null
                 }
                 line.append(byte.toChar())
+                if (line.length == 5 && line.startsWith("HTTP/")) sawHttpPrefix = true
             }
             return null
         }

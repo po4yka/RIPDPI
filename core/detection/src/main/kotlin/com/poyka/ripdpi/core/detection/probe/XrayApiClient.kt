@@ -15,6 +15,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import java.net.IDN
 import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 import com.xray.app.proxyman.SenderConfig as ProxymanSenderConfig
@@ -197,11 +198,17 @@ class XrayApiClient(
             }
         }
 
-    private fun String.endpointName(): String? =
-        takeIf {
-            it.length in 1..MaxSummaryText && it.none(Char::isWhitespace) &&
-                !DisplayControlCharacters.containsMatchIn(it)
+    private fun String.endpointName(): String? {
+        if (length !in 1..MaxSummaryText || any(Char::isWhitespace) || DisplayControlCharacters.containsMatchIn(this)) {
+            return null
         }
+        return try {
+            val hostname = IDN.toASCII(this, IDN.USE_STD3_ASCII_RULES).removeSuffix(".")
+            hostname.takeIf { it.length in 1..MaxHostnameLength }
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
 
     private fun String.summaryText(): String? =
         take(MaxSummaryText).replace(DisplayControlCharacters, "").trim().takeIf(String::isNotEmpty)
@@ -210,6 +217,7 @@ class XrayApiClient(
         const val MaxResponseBytes = 512 * 1024
         const val MaxOutbounds = 64
         const val MaxSummaryText = 256
+        const val MaxHostnameLength = 253
         const val RealitySettingsType = "xray.transport.internet.reality.Config"
         val DisplayControlCharacters = Regex("""[\p{Cc}\p{Cf}]""")
     }
