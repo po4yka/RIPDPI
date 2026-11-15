@@ -3,8 +3,10 @@ use std::sync::{Arc, Mutex};
 use crate::connectivity::{push_event, set_report};
 use crate::engine::report::{ReportBuildContext, build_report};
 use crate::engine::runners::prepare_strategy_probe_report;
+use crate::observations::observation_for_probe;
 use crate::types::{
-    CandidateRuntimeCleanupReceipt, ScanCompletionKind, ScanReportDisposition, ScanTerminationReason, SharedState,
+    CandidateRuntimeCleanupReceipt, ProbeResult, ScanCompletionKind, ScanReportDisposition, ScanTerminationReason,
+    SharedState,
 };
 
 use super::super::plan::ExecutionPlan;
@@ -67,11 +69,30 @@ pub(in crate::engine) fn publish_cancelled_run(
 }
 
 pub(in crate::engine) fn publish_partial_run_checkpoint(plan: &ExecutionPlan, runtime: &ExecutionRuntime) {
-    if runtime.results.is_empty() && runtime.observations.is_empty() && runtime.strategy.strategy_probe_report.is_none()
+    publish_checkpoint(plan, runtime, None);
+}
+
+impl ExecutionRuntime {
+    pub(in crate::engine) fn publish_probe_checkpoint(&self, plan: &ExecutionPlan, probe: ProbeResult) {
+        publish_checkpoint(plan, self, Some(probe));
+    }
+}
+
+fn publish_checkpoint(plan: &ExecutionPlan, runtime: &ExecutionRuntime, probe: Option<ProbeResult>) {
+    if probe.is_none()
+        && runtime.results.is_empty()
+        && runtime.observations.is_empty()
+        && runtime.strategy.strategy_probe_report.is_none()
     {
         return;
     }
 
+    let mut results = runtime.results.clone();
+    let mut observations = runtime.observations.clone();
+    if let Some(probe) = probe {
+        observations.extend(observation_for_probe(&probe));
+        results.push(probe);
+    }
     let mut report = build_report(
         ReportBuildContext {
             session_id: plan.session_id.clone(),
@@ -80,8 +101,8 @@ pub(in crate::engine) fn publish_partial_run_checkpoint(plan: &ExecutionPlan, ru
             execution_plan: Some(plan.snapshot(runtime.stage_executions())),
         },
         cancelled_run_summary(true).to_string(),
-        runtime.results.clone(),
-        runtime.observations.clone(),
+        results,
+        observations,
         runtime.strategy.strategy_probe_report.clone(),
         None,
     );

@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime, RunnerArtifacts};
-use crate::telegram::run_telegram_probe_with_abort;
+use crate::telegram::run_telegram_probe_with_abort_and_checkpoint;
 use crate::tls::tls_key_log_callback_for_path;
 use crate::types::TelegramTarget;
 
@@ -13,11 +13,17 @@ pub(super) fn record_telegram_probe(
     phase: &'static str,
 ) {
     let key_log = plan.request.diagnostic_tls_keylog_path.as_deref().map(tls_key_log_callback_for_path);
-    let deadline = runtime.stage_deadline().or_else(|| runtime.scan_deadline());
+    let deadline = [runtime.stage_deadline(), runtime.scan_deadline()].into_iter().flatten().min();
     let cancel = runtime.cancel_token();
     let should_abort = || telegram_abort_reason(cancel, deadline);
     let probe = ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
-        run_telegram_probe_with_abort(target, &plan.transport, key_log.as_ref(), &should_abort)
+        run_telegram_probe_with_abort_and_checkpoint(
+            target,
+            &plan.transport,
+            key_log.as_ref(),
+            &should_abort,
+            &mut |probe| runtime.publish_probe_checkpoint(plan, probe),
+        )
     });
     let outcome = probe.outcome.clone();
     let artifacts = RunnerArtifacts::from_probe(probe, "telegram", &plan.request.path_mode);

@@ -2,6 +2,8 @@
 mod exhaustive;
 #[path = "runtime_tests/recommendation.rs"]
 mod recommendation;
+#[path = "runtime_tests/telegram_checkpoint.rs"]
+mod telegram_checkpoint;
 
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
