@@ -2,7 +2,7 @@
 id: DGN-1794747077897183
 title: Correct DIA-17 measurement and evidence handling
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: correct-dia17-measurements
 created: 2026-11-15
 updated: 2026-11-15
+status_detail: All seven fixes, JVM regressions, lint, source gates, full staticAnalysis and independent review passed. Main integration completed; exact published-commit CI remains unverified.
 ---
 
 ## Goal
