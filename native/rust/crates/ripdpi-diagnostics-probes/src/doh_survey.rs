@@ -99,7 +99,7 @@ pub struct DohResolverResult {
 /// |---|---|
 /// | At least one resolver returned `Ok` | `Pass` |
 /// | All resolvers returned `NxDomain` | `Fail { class: "doh-only-nxdomain" }` |
-/// | All resolvers returned non-`Ok`, non-`NxDomain` | `Fail { class: "doh-all-resolvers-blocked" }` |
+/// | Resolver HTTP or transport failures, without a usable answer | `Inconclusive` |
 /// | Mixed `Ok`/non-`Ok` (at least one `Ok`) | `Pass` |
 /// | No resolvers configured | `Inconclusive { reason: "no resolvers configured" }` |
 #[derive(Debug, Clone)]
@@ -134,9 +134,8 @@ impl Probe for DohSurveyProbe {
         } else if self.results.iter().all(|r| r.status.is_nxdomain()) {
             ProbeVerdict::Fail { class: "doh-only-nxdomain".to_string() }
         } else {
-            // Every result is non-Ok and not all are NxDomain — the DoH path
-            // itself looks blocked (TlsError, NetworkError, HttpError, Timeout).
-            ProbeVerdict::Fail { class: "doh-all-resolvers-blocked".to_string() }
+            // HTTP and transport failures alone do not establish blocking.
+            ProbeVerdict::Inconclusive { reason: "no resolver answered".to_string() }
         };
 
         ProbeOutcome { probe_id: self.id(), family: self.family(), verdict }
@@ -329,7 +328,7 @@ mod tests {
     }
 
     #[test]
-    fn all_network_error_yields_fail_doh_all_resolvers_blocked() {
+    fn all_network_errors_are_inconclusive() {
         let results = vec![
             net_err_result("cloudflare"),
             DohResolverResult {
@@ -344,8 +343,21 @@ mod tests {
             },
         ];
         match DohSurveyProbe::new(results).run(&ProbeContext::empty()).verdict {
-            ProbeVerdict::Fail { class } => assert_eq!(class, "doh-all-resolvers-blocked"),
-            other => panic!("expected Fail, got {other:?}"),
+            ProbeVerdict::Inconclusive { reason } => assert_eq!(reason, "no resolver answered"),
+            other => panic!("expected Inconclusive, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn provider_http_errors_do_not_establish_blocking() {
+        for status in [403, 429, 500, 503] {
+            let result = DohResolverResult {
+                resolver_label: "local".to_string(),
+                status: DohResolverStatus::HttpError { status },
+                round_trip_ms: Some(1),
+            };
+            let outcome = DohSurveyProbe::new(vec![result, nxdomain_result("negative")]).run(&ProbeContext::empty());
+            assert!(matches!(outcome.verdict, ProbeVerdict::Inconclusive { .. }), "HTTP {status}");
         }
     }
 
@@ -373,15 +385,15 @@ mod tests {
     }
 
     #[test]
-    fn timeout_result_contributes_to_blocked_class() {
+    fn timeout_result_is_inconclusive() {
         let results = vec![DohResolverResult {
             resolver_label: "cloudflare".to_string(),
             status: DohResolverStatus::Timeout,
             round_trip_ms: None,
         }];
         match DohSurveyProbe::new(results).run(&ProbeContext::empty()).verdict {
-            ProbeVerdict::Fail { class } => assert_eq!(class, "doh-all-resolvers-blocked"),
-            other => panic!("expected Fail, got {other:?}"),
+            ProbeVerdict::Inconclusive { reason } => assert_eq!(reason, "no resolver answered"),
+            other => panic!("expected Inconclusive, got {other:?}"),
         }
     }
 
