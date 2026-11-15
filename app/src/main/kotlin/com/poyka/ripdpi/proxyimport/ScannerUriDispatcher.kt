@@ -37,7 +37,7 @@ sealed interface ImportPayload {
  * order: a proxy share URI ([ProxyUriShareDispatcher]), a subscription link
  * ([SubscriptionLinkClassifier]), an AmneziaVPN `vpn://` key ([AmneziaVpnKeyDecoder]),
  * an `amneziawg://` link ([AmneziaWgUriCodec], rendered back to `.conf` text), and a
- * `.conf` with `[Interface]` and `[Peer]` sections.
+ * `.conf` with Interface and Peer headers. The editor validates their contents.
  */
 object ImportPayloadClassifier {
     fun classify(text: String): ImportPayload? {

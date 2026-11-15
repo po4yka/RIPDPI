@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.proxyimport
 
+import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -75,7 +76,7 @@ internal object AmneziaVpnKeyDecoder {
             val lastConfig = (container[key] as? JsonObject)?.string("last_config") ?: return@firstNotNullOfOrNull null
             runCatching { (Json.parseToJsonElement(lastConfig) as? JsonObject)?.string("config") }
                 .getOrNull()
-                ?.takeIf { it.contains("[Interface]") }
+                ?.takeIf(WireGuardConfParser::looksLikeConf)
         }
     }
 

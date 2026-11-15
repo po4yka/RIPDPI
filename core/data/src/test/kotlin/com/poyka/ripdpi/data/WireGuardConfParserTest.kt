@@ -378,6 +378,22 @@ class WireGuardConfParserTest {
     }
 
     @Test
+    fun `leading BOM and commented headers work for detection and parsing`() {
+        val conf = "\uFEFF[ iNtErFaCe ] # comment\r\nPrivateKey = k\r\n[ Peer ]; comment\r\nPublicKey = p"
+        assertTrue(WireGuardConfParser.looksLikeConf(conf))
+        assertTrue(WireGuardConfParser.looksLikeConf(conf.substringBefore("[ Peer ]")))
+        assertFalse(WireGuardConfParser.looksLikeConf("# [Interface]\n[Peer]\nPublicKey = p"))
+        assertEquals(
+            "p",
+            WireGuardConfParser
+                .parse(conf)
+                .peers
+                .single()
+                .publicKey,
+        )
+    }
+
+    @Test
     fun `semicolon comments are skipped like hash comments`() {
         val parsed =
             WireGuardConfParser.parse(

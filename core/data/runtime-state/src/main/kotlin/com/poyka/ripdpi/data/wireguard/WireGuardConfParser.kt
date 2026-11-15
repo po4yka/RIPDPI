@@ -59,6 +59,10 @@ object WireGuardConfParser {
 
     private enum class Section { NONE, INTERFACE, PEER }
 
+    /** Recognizes the interface header so incomplete configurations reach the editor. */
+    fun looksLikeConf(conf: String): Boolean =
+        configLines(conf).any { sectionName(it) == "interface" }
+
     /** Mutable accumulator for the `[Interface]` block while scanning lines. */
     private class InterfaceBuilder {
         var privateKey: String? = null
@@ -146,8 +150,8 @@ object WireGuardConfParser {
     fun hasInterfaceAndPeerSections(conf: String): Boolean {
         var hasInterface = false
         var hasPeer = false
-        for (line in conf.lineSequence()) {
-            when (sectionName(stripComment(line).trim())) {
+        for (line in configLines(conf)) {
+            when (sectionName(line)) {
                 "interface" -> hasInterface = true
                 "peer" -> hasPeer = true
             }
@@ -175,8 +179,7 @@ object WireGuardConfParser {
             currentPeer = null
         }
 
-        for (rawLine in conf.lineSequence()) {
-            val line = stripComment(rawLine).trim()
+        for (line in configLines(conf)) {
             if (line.isEmpty()) continue
 
             val header = sectionName(line)
@@ -319,10 +322,11 @@ object WireGuardConfParser {
             ?.trim()
             ?.lowercase()
 
-    private fun stripComment(line: String): String {
-        val comment = line.indexOfFirst { it == '#' || it == ';' }
-        return if (comment >= 0) line.substring(0, comment) else line
-    }
+    private fun configLines(conf: String): Sequence<String> =
+        conf.trimStart().removePrefix("\uFEFF").lineSequence().map { line ->
+            val comment = line.indexOfFirst { it == '#' || it == ';' }
+            (if (comment >= 0) line.substring(0, comment) else line).trim()
+        }
 
     private fun splitList(value: String): List<String> = value.split(',').map { it.trim() }.filter { it.isNotEmpty() }
 

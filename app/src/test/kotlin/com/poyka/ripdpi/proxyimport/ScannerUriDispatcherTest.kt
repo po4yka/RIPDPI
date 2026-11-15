@@ -116,6 +116,29 @@ class ScannerUriDispatcherTest {
     }
 
     @Test
+    fun `conf classification uses the parser section grammar for raw and wrapped text`() {
+        val conf =
+            AwgConf
+                .replace("[Interface]", "[ interface ] # interface")
+                .replace("[Peer]", "[ Peer ]; peer")
+        val withBom = "\uFEFF$conf"
+        val payload = ImportPayload.WireGuardConf(conf)
+
+        assertEquals(payload, recognized(withBom))
+        assertEquals(ClipboardImportResult.Importable(payload), ClipboardImportClassifier.classify(withBom))
+        val wrapped = AmneziaVpnKeyFixtures.vpnKey(conf)
+        assertEquals(payload, recognized(wrapped))
+    }
+
+    @Test
+    fun `conf routing requires both uncommented section headers`() {
+        val partial = "[Interface] # interface\nPrivateKey = fixture-key"
+
+        assertNull(ImportPayloadClassifier.classify(partial))
+        assertNull(ImportPayloadClassifier.classify("# $partial\n[Peer]"))
+    }
+
+    @Test
     fun `amneziavpn vpn key resolves to the embedded conf`() {
         val key = AmneziaVpnKeyFixtures.vpnKey(conf = "[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = p==")
 
