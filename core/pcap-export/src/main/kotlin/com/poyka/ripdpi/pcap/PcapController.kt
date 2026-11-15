@@ -73,7 +73,6 @@ class PcapController
 
         suspend fun listCaptures(captureDir: File): List<PcapCaptureMetadata> =
             withContext(Dispatchers.IO) {
-                if (!captureDir.exists()) return@withContext emptyList()
                 val json = PcapBridge.jniPcapListCaptures(captureDir.absolutePath)
                 decodeMetadataList(json)
             }

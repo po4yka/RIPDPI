@@ -170,12 +170,11 @@ pub(crate) fn pcap_retire_entry(session_handle: i64) {
 
 /// Inner entry: list captures on disk for the given directory. Used by
 /// the capture-list UI to enumerate previously-captured files.
-pub(crate) fn pcap_list_captures_entry(capture_dir: PathBuf) -> String {
-    let files = list_captures(&capture_dir);
-    serde_json::to_string(&files).unwrap_or_else(|err| {
-        log::error!("pcap_list_captures_entry: serialize files: {err}");
-        "[]".to_string()
-    })
+pub(crate) fn pcap_list_captures_entry(capture_dir: PathBuf) -> Option<String> {
+    let files = list_captures(&capture_dir)
+        .map_err(|err| log::warn!("pcap_list_captures_entry: read capture store: {err}"))
+        .ok()?;
+    serde_json::to_string(&files).map_err(|err| log::error!("pcap_list_captures_entry: serialize files: {err}")).ok()
 }
 
 /// Adopt the destination fd transferred by `ParcelFileDescriptor.detachFd()`.
@@ -340,7 +339,7 @@ mod tests {
 
         assert!(pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024, 1) > 0);
         assert!(
-            list_captures(dir.path()).len() <= crate::pcap::GLOBAL_MAX_CAPTURE_FILES as usize,
+            list_captures(dir.path()).unwrap().len() <= crate::pcap::GLOBAL_MAX_CAPTURE_FILES as usize,
             "start must prune completed captures before creating a new set",
         );
 
@@ -350,7 +349,7 @@ mod tests {
         let _ = pcap_stop_entry(handle, false).unwrap();
 
         assert!(
-            list_captures(dir.path()).len() <= crate::pcap::GLOBAL_MAX_CAPTURE_FILES as usize,
+            list_captures(dir.path()).unwrap().len() <= crate::pcap::GLOBAL_MAX_CAPTURE_FILES as usize,
             "stop must prune completed captures after finalizing the set",
         );
     }
@@ -374,10 +373,21 @@ mod tests {
     #[test]
     fn pcap_list_captures_entry_empty_dir_returns_empty_array() {
         let dir = TempDir::new().unwrap();
-        let json = pcap_list_captures_entry(dir.path().to_path_buf());
+        let json = pcap_list_captures_entry(dir.path().to_path_buf()).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("must parse");
         assert!(parsed.is_array());
         assert_eq!(parsed.as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn pcap_list_reports_an_inaccessible_store_separately_from_a_missing_store() {
+        let dir = TempDir::new().unwrap();
+        let missing = dir.path().join("absent");
+        assert_eq!(pcap_list_captures_entry(missing).as_deref(), Some("[]"));
+
+        let not_a_dir = dir.path().join("regular_file");
+        std::fs::write(&not_a_dir, b"not a directory").unwrap();
+        assert_eq!(pcap_list_captures_entry(not_a_dir), None);
     }
 
     #[test]
@@ -385,7 +395,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         std::fs::write(dir.path().join("foo.txt"), b"hi").unwrap();
         std::fs::write(dir.path().join("real.pcap"), b"\xa1\xb2\xc3\xd4").unwrap();
-        let json = pcap_list_captures_entry(dir.path().to_path_buf());
+        let json = pcap_list_captures_entry(dir.path().to_path_buf()).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("must parse");
         let arr = parsed.as_array().expect("must be array");
         assert_eq!(arr.len(), 1, "should only list .pcap files");

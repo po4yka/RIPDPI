@@ -79,7 +79,10 @@ pub(crate) fn tunnel_pcap_list_captures_entry(mut env: EnvUnowned<'_>, capture_d
         .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
             let dir =
                 capture_dir.try_to_string(env).map(PathBuf::from).map_err(|_| jni::errors::Error::JavaException)?;
-            Ok(env.new_string(pcap::pcap_list_captures_entry(dir))?.into_raw())
+            match pcap::pcap_list_captures_entry(dir) {
+                Some(json) => Ok(env.new_string(json)?.into_raw()),
+                None => Ok(std::ptr::null_mut()),
+            }
         })
         .into_outcome()
     {

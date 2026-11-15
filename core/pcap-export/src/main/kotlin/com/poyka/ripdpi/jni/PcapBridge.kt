@@ -13,10 +13,9 @@ import com.poyka.ripdpi.core.Tun2SocksNativeLoader
  *  - jniPcapStop returns a typed JSON completion response. With
  *    finishedOnly set, pending=true leaves a running writer untouched.
  *    A null response means the JNI call failed.
- *  - jniPcapListCaptures returns a JSON array of best-effort metadata
- *    (filesystem size only; packet count NOT computed - call
- *    PcapReader to count packets per file). Returns null if the
- *    native call panics; callers treat null as an empty result.
+ *  - jniPcapListCaptures returns finalized files and saved drop counts.
+ *    Packet count is computed by the packet reader. A missing store
+ *    returns an empty array. Null means listing failed.
  *  - jniPcapRedactToFile takes a SAF-provided fd that has had
  *    ParcelFileDescriptor.detachFd() called - NOT .fd() (which peeks).
  *    The fd is closed by Rust on completion. Returns bytes-written.

@@ -555,30 +555,30 @@ fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
 }
 
-/// List existing capture files in `dir` (best-effort metadata: byte
-/// size from filesystem, packet count NOT computed - that requires
-/// reading the file which is the consumer's job).
-pub fn list_captures(dir: &Path) -> Vec<PcapCaptureMetadata> {
-    let mut files: Vec<PcapCaptureMetadata> = Vec::new();
-    let Ok(entries) = fs::read_dir(dir) else {
-        return files;
+/// List finalized regular captures. A missing directory is an empty store.
+pub fn list_captures(dir: &Path) -> io::Result<Vec<PcapCaptureMetadata>> {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error),
     };
-    for entry in entries.flatten() {
+    let mut files = Vec::new();
+    for entry in entries {
+        let entry = entry?;
         let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("pcap") {
+        if !is_completed_capture(&path) || !entry.file_type()?.is_file() {
             continue;
         }
-        let byte_size = entry.metadata().map_or(0, |m| m.len());
         files.push(PcapCaptureMetadata {
             path: path.display().to_string(),
-            byte_size,
-            packet_count: 0,
+            byte_size: entry.metadata()?.len(),
+            packet_count: 0, // The packet reader computes this when the file is opened.
             started_at_ms: 0,
             ended_at_ms: 0,
-            drops: read_drops(&path).unwrap_or(0),
+            drops: read_drops(&path)?,
         });
     }
-    files
+    Ok(files)
 }
 
 /// Prune completed captures for one storage directory to a single global
@@ -816,7 +816,7 @@ mod tests {
         assert_eq!(result.total_drops, 2);
         assert!(admissions.try_acquire().is_none());
         assert!(queue.is_empty());
-        assert_eq!(list_captures(dir.path())[0].drops, 2);
+        assert_eq!(list_captures(dir.path()).unwrap()[0].drops, 2);
     }
 
     #[test]
@@ -886,7 +886,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         std::fs::write(dir.path().join("foo.txt"), b"hi").unwrap();
         std::fs::write(dir.path().join("bar.pcap"), b"\xa1\xb2\xc3\xd4").unwrap();
-        let files = list_captures(dir.path());
+        let files = list_captures(dir.path()).unwrap();
         assert_eq!(files.len(), 1);
         assert!(files[0].path.ends_with("bar.pcap"));
     }
