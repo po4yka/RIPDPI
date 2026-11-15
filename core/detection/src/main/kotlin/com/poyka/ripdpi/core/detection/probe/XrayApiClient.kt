@@ -137,11 +137,16 @@ class XrayApiClient(
         val transportName = stream.protocolName.summaryText()
         if (stream.securityType != RealitySettingsType) return SenderParsed(transportName = transportName)
 
-        val selected =
-            stream.securitySettingsList.firstOrNull { it.type == stream.securityType }
-                ?: return SenderParsed(transportName = transportName, malformed = true)
-        return try {
-            val reality = RealityConfig.parseFrom(selected.value)
+        val selected = stream.securitySettingsList.firstOrNull { it.type == stream.securityType }
+        val reality =
+            try {
+                selected?.let { RealityConfig.parseFrom(it.value) }
+            } catch (_: InvalidProtocolBufferException) {
+                null
+            }
+        return if (reality == null) {
+            SenderParsed(transportName = transportName, malformed = true)
+        } else {
             val sni = reality.serverName.endpointName()
             SenderParsed(
                 transportName = transportName,
@@ -149,8 +154,6 @@ class XrayApiClient(
                 publicKeyPresent = !reality.publicKey.isEmpty,
                 malformed = reality.serverName.isNotEmpty() && sni == null,
             )
-        } catch (_: InvalidProtocolBufferException) {
-            SenderParsed(transportName = transportName, malformed = true)
         }
     }
 

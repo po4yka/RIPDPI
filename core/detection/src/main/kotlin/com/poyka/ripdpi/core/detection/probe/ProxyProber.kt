@@ -122,36 +122,48 @@ internal object ProxyProber {
 
         fun readFinalResult(): PortProbeResult {
             repeat(9) {
-                val line = readLine(256)
-                val match = line?.let(HttpStatus::matchEntire)
-                if (match == null) {
-                    return if (sawHttpPrefix) PortProbeResult.PARTIAL else PortProbeResult.UNKNOWN_TCP_SERVICE
-                }
-                if (!readFields()) return PortProbeResult.PARTIAL
-                val code = match.groupValues[1].toInt()
-                if (code in 200..299) return PortProbeResult.HTTP_CONNECT_PROXY
-                if (code >= 300 || code == 101) return PortProbeResult.REJECTED
+                val status = readLine(256)?.let(HttpStatus::matchEntire)
+                val result =
+                    when {
+                        status == null -> {
+                            if (sawHttpPrefix) PortProbeResult.PARTIAL else PortProbeResult.UNKNOWN_TCP_SERVICE
+                        }
+
+                        !readFields() -> {
+                            PortProbeResult.PARTIAL
+                        }
+
+                        else -> {
+                            when (status.groupValues[1].toInt()) {
+                                in 200..299 -> PortProbeResult.HTTP_CONNECT_PROXY
+                                101, in 300..599 -> PortProbeResult.REJECTED
+                                else -> null
+                            }
+                        }
+                    }
+                if (result != null) return result
             }
             return PortProbeResult.PARTIAL
         }
 
         private fun readFields(): Boolean {
-            while (true) {
-                val line = readLine(remainingBytes) ?: return false
+            while (remainingBytes > 0) {
+                val line = readLine(remainingBytes) ?: break
                 if (line.isEmpty()) return true
-                if (!HttpField.matches(line)) return false
+                if (!HttpField.matches(line)) break
             }
+            return false
         }
 
         private fun readLine(limit: Int): String? {
             val line = StringBuilder()
-            repeat(limit) {
-                if (remainingBytes-- <= 0) return null
+            for (index in 0 until minOf(limit, remainingBytes)) {
+                remainingBytes--
                 val remainingNanos = deadlineNanos - System.nanoTime()
                 if (remainingNanos <= 0L) throw SocketTimeoutException()
                 socket.soTimeout = ((remainingNanos + 999_999L) / 1_000_000L).toInt().coerceAtLeast(1)
                 val byte = input.read()
-                if (byte < 0) return null
+                if (byte < 0) break
                 if (byte == '\n'.code) {
                     return if (line.endsWith('\r')) line.dropLast(1).toString() else null
                 }
