@@ -137,6 +137,9 @@ fn extract_icmpv4_envelope(packet: &[u8]) -> Option<(IcmpWrappedUdpRole, u8, &[u
         }
         packet
     };
+    if finalize_checksum(checksum_sum(icmp)) != 0 {
+        return None;
+    }
     let role = match icmp.first().copied()? {
         8 => IcmpWrappedUdpRole::ClientRequest,
         0 => IcmpWrappedUdpRole::ServerReply,
@@ -174,6 +177,37 @@ mod tests {
     };
 
     use super::{build_icmp_echo_packet, extract_icmpv4_envelope};
+
+    #[test]
+    fn extract_icmpv4_envelope_rejects_corrupted_fixed_messages() {
+        // Independent RFC 792 vectors include both odd and even message lengths.
+        let even = b"\x00\x00\xfa\xed\x00\x01\x00\x00RDP1\x01\x01\x00\x35\x00\x00\x00\x01\x00\x02ab";
+        let odd = b"\x00\x00\x97\xec\x00\x01\x00\x00RDP1\x01\x01\x00\x35\x00\x00\x00\x01\x00\x03abc";
+        let ipv4_header = b"\x45\x00\x00\x2d\x12\x34\x00\x00\x40\x01\x6a\x9a\x7f\x00\x00\x01\x7f\x00\x00\x01";
+        let prefixed = [ipv4_header.as_slice(), odd.as_slice()].concat();
+        let even_envelope = b"RDP1\x01\x01\x00\x35\x00\x00\x00\x01\x00\x02ab";
+        let odd_envelope = b"RDP1\x01\x01\x00\x35\x00\x00\x00\x01\x00\x03abc";
+
+        for (packet, icmp_offset, expected) in [
+            (even.as_slice(), 0, even_envelope.as_slice()),
+            (odd.as_slice(), 0, odd_envelope.as_slice()),
+            (prefixed.as_slice(), 20, odd_envelope.as_slice()),
+        ] {
+            let (role, code, envelope) = extract_icmpv4_envelope(packet).expect("valid fixed checksum");
+            assert_eq!(role, IcmpWrappedUdpRole::ServerReply);
+            assert_eq!(code, 0);
+            assert_eq!(envelope, expected);
+
+            for offset in [0, 1, 2, 7, packet.len() - icmp_offset - 1] {
+                let mut corrupted = packet.to_vec();
+                corrupted[icmp_offset + offset] ^= if offset == 0 { 8 } else { 1 };
+                assert!(
+                    extract_icmpv4_envelope(&corrupted).is_none(),
+                    "corrupt ICMP byte {offset} must be rejected with prefix length {icmp_offset}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn extract_icmpv4_envelope_accepts_ip_prefixed_packets() {
