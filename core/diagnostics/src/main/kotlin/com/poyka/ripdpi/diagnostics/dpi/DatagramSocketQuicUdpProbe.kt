@@ -29,29 +29,31 @@ class DatagramSocketQuicUdpProbe internal constructor(
         fingerprint: QuicFingerprint,
         packet: ByteArray,
         timeoutMs: Int,
-    ): QuicProbeSample =
-        withContext(Dispatchers.IO) {
-            try {
-                withTimeoutOrNull(timeoutMs.toLong()) {
-                    exchange(resolveProbeAddress(target, lookupScope, resolveAddress), port, packet, timeoutMs)
-                } ?: QuicProbeSample(response = null, latencyMs = null)
-            } catch (_: SocketTimeoutException) {
-                QuicProbeSample(response = null, latencyMs = null)
-            }
+        accepts: (ByteArray) -> Boolean,
+    ): QuicProbeSample {
+        val deadline = System.nanoTime() + timeoutMs * NanosPerMillis
+        val address =
+            withTimeoutOrNull(timeoutMs.toLong()) {
+                resolveProbeAddress(target, lookupScope, resolveAddress)
+            } ?: return QuicProbeSample(response = null, latencyMs = null)
+        return withContext(Dispatchers.IO) {
+            exchange(address, port, packet, deadline, accepts)
         }
+    }
 
     private suspend fun exchange(
         address: InetAddress,
         port: Int,
         packet: ByteArray,
-        timeoutMs: Int,
+        deadline: Long,
+        accepts: (ByteArray) -> Boolean,
     ): QuicProbeSample =
         DatagramSocket().use { socket ->
             suspendCancellableCoroutine { continuation ->
                 continuation.invokeOnCancellation { socket.close() }
                 if (continuation.isActive) {
                     try {
-                        continuation.resume(exchangeBlocking(socket, address, port, packet, timeoutMs))
+                        continuation.resume(exchangeBlocking(socket, address, port, packet, deadline, accepts))
                     } catch (error: IOException) {
                         continuation.resumeWithException(error)
                     }
@@ -64,23 +66,49 @@ class DatagramSocketQuicUdpProbe internal constructor(
         address: InetAddress,
         port: Int,
         packet: ByteArray,
-        timeoutMs: Int,
+        deadline: Long,
+        accepts: (ByteArray) -> Boolean,
     ): QuicProbeSample {
         socket.connect(address, port)
-        socket.soTimeout = timeoutMs
         val startedAt = System.nanoTime()
+        if (deadline - startedAt <= 0) {
+            return QuicProbeSample(response = null, latencyMs = null)
+        }
         socket.send(DatagramPacket(packet, packet.size, address, port))
         val buffer = ByteArray(MaxDatagramBytes)
         val response = DatagramPacket(buffer, buffer.size)
-        socket.receive(response)
-        return QuicProbeSample(
-            response = buffer.copyOf(response.length),
-            latencyMs = (System.nanoTime() - startedAt) / NanosPerMillis,
-        )
+        var invalidDatagrams = 0
+        var receivedBytes = 0
+        while (invalidDatagrams < MaxReceivedDatagrams && receivedBytes < MaxReceivedBytes) {
+            val remainingNanos = deadline - System.nanoTime()
+            if (remainingNanos <= 0) break
+            socket.soTimeout = ((remainingNanos + NanosPerMillis - 1) / NanosPerMillis).toInt()
+            response.length = buffer.size
+            try {
+                socket.receive(response)
+            } catch (_: SocketTimeoutException) {
+                break
+            }
+            val receivedAt = System.nanoTime()
+            if (deadline - receivedAt <= 0) break
+            receivedBytes += response.length
+            val payload = buffer.copyOf(response.length)
+            if (receivedBytes <= MaxReceivedBytes && accepts(payload)) {
+                return QuicProbeSample(
+                    response = payload,
+                    latencyMs = (receivedAt - startedAt) / NanosPerMillis,
+                    invalidDatagrams = invalidDatagrams,
+                )
+            }
+            invalidDatagrams++
+        }
+        return QuicProbeSample(response = null, latencyMs = null, invalidDatagrams = invalidDatagrams)
     }
 
     private companion object {
         private const val MaxDatagramBytes = 65_535
+        private const val MaxReceivedDatagrams = 32
+        private const val MaxReceivedBytes = 256 * 1024
         private const val NanosPerMillis = 1_000_000L
     }
 }

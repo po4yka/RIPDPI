@@ -16,7 +16,7 @@
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.diagnostics.dpi.DatagramSocketQuicUdpProbe {
     public <init>();
-    public java.lang.Object sendInitial(java.lang.String,int,com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint,byte[],int,kotlin.coroutines.Continuation);
+    public java.lang.Object sendInitial(java.lang.String,int,com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint,byte[],int,kotlin.jvm.functions.Function1,kotlin.coroutines.Continuation);
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.diagnostics.dpi.QuicProbeSample {
     public byte[] getResponse();

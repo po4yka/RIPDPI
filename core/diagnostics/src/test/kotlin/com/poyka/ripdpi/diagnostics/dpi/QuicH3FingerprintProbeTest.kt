@@ -245,7 +245,8 @@ class QuicH3FingerprintProbeTest {
                         fingerprint: QuicFingerprint,
                         packet: ByteArray,
                         timeoutMs: Int,
-                    ): QuicProbeSample = QuicProbeSample(response = packet, latencyMs = 5L)
+                        accepts: (ByteArray) -> Boolean,
+                    ): QuicProbeSample = testedReply(packet, 5L, accepts)
                 }
 
             val result = probe(reflector).check("echo.example")
@@ -265,9 +266,10 @@ class QuicH3FingerprintProbeTest {
                         fingerprint: QuicFingerprint,
                         packet: ByteArray,
                         timeoutMs: Int,
+                        accepts: (ByteArray) -> Boolean,
                     ): QuicProbeSample {
                         if (target == "x.com/i/api") throw java.net.UnknownHostException(target)
-                        return healthy.sendInitial(target, port, fingerprint, packet, timeoutMs)
+                        return healthy.sendInitial(target, port, fingerprint, packet, timeoutMs, accepts)
                     }
                 }
 
@@ -305,6 +307,7 @@ private class RecordingQuicUdpProbe(
         fingerprint: QuicFingerprint,
         packet: ByteArray,
         timeoutMs: Int,
+        accepts: (ByteArray) -> Boolean,
     ): QuicProbeSample {
         probedFingerprints += fingerprint
         sendTimeoutsMs += timeoutMs
@@ -314,18 +317,12 @@ private class RecordingQuicUdpProbe(
             }
 
             fingerprint in successes -> {
-                QuicProbeSample(
-                    response = SuccessfulReply,
-                    latencyMs = if (fingerprint == QuicFingerprint.CHROME_120) 14L else 20L,
-                )
+                testedReply(SuccessfulReply, if (fingerprint == QuicFingerprint.CHROME_120) 14L else 20L, accepts)
             }
 
             fingerprint in nonQuicResponses -> {
                 delay(nonQuicReplyDelayMs)
-                QuicProbeSample(
-                    response = byteArrayOf(0x01, 0x02, 0x03),
-                    latencyMs = 25L,
-                )
+                testedReply(byteArrayOf(0x01, 0x02, 0x03), 25L, accepts)
             }
 
             else -> {
@@ -350,4 +347,15 @@ private val AcceptSuccessfulReplies =
         _,
         ->
         response.contentEquals(SuccessfulReply)
+    }
+
+private fun testedReply(
+    response: ByteArray,
+    latencyMs: Long,
+    accepts: (ByteArray) -> Boolean,
+): QuicProbeSample =
+    if (accepts(response)) {
+        QuicProbeSample(response = response, latencyMs = latencyMs)
+    } else {
+        QuicProbeSample(response = null, latencyMs = null, invalidDatagrams = 1)
     }

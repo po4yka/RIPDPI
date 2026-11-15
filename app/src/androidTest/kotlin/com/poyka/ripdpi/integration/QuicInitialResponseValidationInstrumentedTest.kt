@@ -92,7 +92,7 @@ class QuicInitialResponseValidationInstrumentedTest {
                                 QuicFingerprint.GENERIC_V1,
                                 request,
                                 3_000,
-                            )
+                            ) { response -> bindings.validate(request, response, false) }
                         val response = requireNotNull(sample.response)
                         assertArrayEquals(expected, response)
                         assertTrue(bindings.validate(request, response, false))

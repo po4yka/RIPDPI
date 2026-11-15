@@ -46,6 +46,7 @@ data class QuicProbeResult(
 data class QuicProbeSample(
     val response: ByteArray?,
     val latencyMs: Long?,
+    val invalidDatagrams: Int = 0,
 )
 
 interface QuicUdpProbe {
@@ -55,6 +56,7 @@ interface QuicUdpProbe {
         fingerprint: QuicFingerprint,
         packet: ByteArray,
         timeoutMs: Int,
+        accepts: (ByteArray) -> Boolean,
     ): QuicProbeSample
 }
 
@@ -167,12 +169,12 @@ class QuicH3FingerprintProbe(
                 fingerprint = fingerprint,
                 packet = packet,
                 timeoutMs = sendTimeoutMs,
-            )
-        val response = sample.response ?: return QuicProbeOutcome(ok = false, timedOut = true, latencyMs = null)
-        val versionNegotiation = fingerprint == QuicFingerprint.VN_PROBE
+            ) { response ->
+                responseValidator.validate(packet, response, fingerprint == QuicFingerprint.VN_PROBE)
+            }
         return QuicProbeOutcome(
-            ok = responseValidator.validate(packet, response, versionNegotiation),
-            timedOut = false,
+            ok = sample.response != null,
+            timedOut = sample.response == null && sample.invalidDatagrams == 0,
             latencyMs = sample.latencyMs,
         )
     }
