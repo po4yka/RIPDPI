@@ -270,7 +270,7 @@ internal class VpnTunnelRuntime(
         try {
             try {
                 try {
-                    retireAndStopBridge(previousBridge)
+                    retireAndStopBridge(previousBridge, pcapCaptureRuntimeController)
                 } catch (error: Exception) {
                     retiringBridge = previousBridge
                     throw error
@@ -540,7 +540,7 @@ internal class VpnTunnelRuntime(
         forwardingLease.set(null)
         var stopFailure =
             runCatching {
-                stopBridges(activeBridge, inactiveBridge)
+                stopBridges(activeBridge, inactiveBridge, pcapCaptureRuntimeController)
             }.exceptionOrNull()
         tun2SocksBridge = null
         retiringBridge = null
@@ -573,23 +573,6 @@ internal class VpnTunnelRuntime(
         }
         flowAttributionBridge?.deactivateUidPolicy()
         stopFailure?.let { throw it }
-    }
-
-    private suspend fun stopBridges(
-        activeBridge: Tun2SocksBridge?,
-        inactiveBridge: Tun2SocksBridge?,
-    ) {
-        try {
-            retireAndStopBridge(activeBridge)
-        } finally {
-            if (inactiveBridge !== activeBridge) retireAndStopBridge(inactiveBridge)
-        }
-    }
-
-    private suspend fun retireAndStopBridge(bridge: Tun2SocksBridge?) {
-        bridge ?: return
-        pcapCaptureRuntimeController?.retireTunnel(bridge)
-        bridge.stop()
     }
 
     suspend fun pollTelemetry(): RuntimeTelemetryOutcome {
@@ -736,6 +719,27 @@ internal class VpnTunnelRuntime(
         val forwardingStopped: Boolean,
         val failure: Throwable? = null,
     )
+}
+
+private suspend fun stopBridges(
+    activeBridge: Tun2SocksBridge?,
+    inactiveBridge: Tun2SocksBridge?,
+    pcapCaptureRuntimeController: PcapCaptureRuntimeController?,
+) {
+    try {
+        retireAndStopBridge(activeBridge, pcapCaptureRuntimeController)
+    } finally {
+        if (inactiveBridge !== activeBridge) retireAndStopBridge(inactiveBridge, pcapCaptureRuntimeController)
+    }
+}
+
+private suspend fun retireAndStopBridge(
+    bridge: Tun2SocksBridge?,
+    pcapCaptureRuntimeController: PcapCaptureRuntimeController?,
+) {
+    bridge ?: return
+    pcapCaptureRuntimeController?.retireTunnel(bridge)
+    bridge.stop()
 }
 
 private class TunnelForwardingLease(
