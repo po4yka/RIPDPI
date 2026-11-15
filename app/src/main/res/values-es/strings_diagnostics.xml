@@ -261,7 +261,7 @@
     <string name="detection_dns_route_through_proxy_title">Enrutar el DNS cifrado a través del proxy</string>
     <string name="detection_dns_route_through_proxy_subtitle">Envía el DNS cifrado por el proxy activo para que la resolución no pueda bloquearse en la red local.</string>
     <string name="blockcheck_best_badge">Mejor</string>
-    <string name="detection_check_category_dns_leak">Fuga de DNS</string>
+    <string name="detection_check_category_dns_leak">Ajustes de DNS</string>
     <string name="detection_check_category_location">Señales de ubicación</string>
     <string name="detection_check_copy">Copiar</string>
     <string name="detection_check_stop">Detener</string>
@@ -1997,4 +1997,7 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Falló la verificación del certificado</string>
     <string name="detection_exposure_incomplete_reason">Algunas comprobaciones no devolvieron resultados.</string>
     <string name="detection_exposure_incomplete_hint">Revisa los detalles y vuelve a ejecutar la comprobación.</string>
+    <string name="detection_exposure_incomplete_headline">Las comprobaciones están incompletas</string>
+    <string name="detection_exposure_incomplete_signal">comprobaciones incompletas</string>
+    <string name="detection_exposure_dns_observation_reason">Las pruebas completadas no detectaron señales. Se observaron los ajustes de DNS sin una prueba de fugas.</string>
 </resources>

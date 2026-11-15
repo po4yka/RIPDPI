@@ -598,7 +598,7 @@
     <string name="detection_permission_settings">تم رفض الأذونات. افتح الإعدادات فقط إذا أردت أن تقرأ فحوصات الكشف هوية Wi-Fi أو الشبكة الخلوية؛ لا تُحفظ المعرّفات الخام وتُخفيها صادرات التشخيص.</string>
     <string name="detection_privacy_mode">وضع الخصوصية</string>
     <string name="detection_history_title">السجل</string>
-    <string name="detection_check_category_dns_leak">تسريب DNS</string>
+    <string name="detection_check_category_dns_leak">إعدادات DNS</string>
     <string name="detection_check_category_webrtc">تسريب WebRTC</string>
     <string name="detection_check_category_tls">إعدادات TLS المحلية</string>
     <string name="detection_check_category_timing">تحليل التوقيت</string>
@@ -2148,4 +2148,7 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">تعذّر التحقق من الشهادة</string>
     <string name="detection_exposure_incomplete_reason">لم تُرجع بعض الفحوص نتيجة.</string>
     <string name="detection_exposure_incomplete_hint">راجع التفاصيل وشغّل الفحص مرة أخرى.</string>
+    <string name="detection_exposure_incomplete_headline">الفحوصات غير مكتملة</string>
+    <string name="detection_exposure_incomplete_signal">فحوصات غير مكتملة</string>
+    <string name="detection_exposure_dns_observation_reason">لم تسجل الاختبارات المكتملة إشارات كشف. تمت قراءة إعدادات DNS دون اختبار تسرب.</string>
 </resources>

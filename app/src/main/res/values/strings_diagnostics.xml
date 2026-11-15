@@ -627,7 +627,7 @@
     <string name="detection_permission_settings">Permissions were denied. Open settings only if you want detection checks to read Wi-Fi or cellular identity; raw identifiers are not persisted and diagnostics exports redact them.</string>
     <string name="detection_privacy_mode">Privacy mode</string>
     <string name="detection_history_title">History</string>
-    <string name="detection_check_category_dns_leak">DNS leak</string>
+    <string name="detection_check_category_dns_leak">DNS settings</string>
     <string name="detection_check_category_webrtc">WebRTC leak</string>
     <string name="detection_check_category_tls">Local TLS settings</string>
     <string name="detection_check_category_timing">Timing analysis</string>
@@ -2008,4 +2008,7 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Certificate verification failed</string>
     <string name="detection_exposure_incomplete_reason">Some checks did not return a result.</string>
     <string name="detection_exposure_incomplete_hint">Review the details and run the check again.</string>
+    <string name="detection_exposure_incomplete_headline">Checks are incomplete</string>
+    <string name="detection_exposure_incomplete_signal">incomplete checks</string>
+    <string name="detection_exposure_dns_observation_reason">Completed probes reported no detection signals. DNS settings were observed without a leak test.</string>
 </resources>

@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.core.detection.ui.DetectionVisualState
@@ -148,9 +149,13 @@ internal fun Verdict.toDetectionVisualState(): DetectionVisualState =
 internal fun detectionCategoryVisualState(
     detected: Boolean,
     needsReview: Boolean,
+    status: DetectionCheckStatus = DetectionCheckStatus.COMPLETE,
 ): DetectionVisualState =
     when {
         detected -> DetectionVisualState.DETECTED
         needsReview -> DetectionVisualState.REVIEW
+        status == DetectionCheckStatus.ERROR -> DetectionVisualState.ERROR
+        status == DetectionCheckStatus.INCONCLUSIVE -> DetectionVisualState.REVIEW
+        status != DetectionCheckStatus.COMPLETE -> DetectionVisualState.NEUTRAL
         else -> DetectionVisualState.CLEAN
     }

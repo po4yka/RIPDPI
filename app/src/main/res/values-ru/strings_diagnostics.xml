@@ -1001,7 +1001,7 @@
     <string name="detection_permission_settings">Разрешения были отклонены. Откройте настройки только если хотите, чтобы проверки читали идентификаторы Wi-Fi или сотовой сети; сырые идентификаторы не сохраняются, а экспорт диагностики их скрывает.</string>
     <string name="detection_privacy_mode">Режим приватности</string>
     <string name="detection_history_title">История</string>
-    <string name="detection_check_category_dns_leak">Утечка DNS</string>
+    <string name="detection_check_category_dns_leak">Настройки DNS</string>
     <string name="detection_check_category_webrtc">Утечка WebRTC</string>
     <string name="detection_check_category_tls">Локальные настройки TLS</string>
     <string name="detection_check_category_timing">Анализ таймингов</string>
@@ -2052,4 +2052,7 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Не удалось проверить сертификат</string>
     <string name="detection_exposure_incomplete_reason">Некоторые проверки не вернули результат.</string>
     <string name="detection_exposure_incomplete_hint">Посмотрите подробности и запустите проверку снова.</string>
+    <string name="detection_exposure_incomplete_headline">Проверки не завершены</string>
+    <string name="detection_exposure_incomplete_signal">незавершённые проверки</string>
+    <string name="detection_exposure_dns_observation_reason">Завершённые пробы не выявили признаков обнаружения. Настройки DNS прочитаны без теста на утечку.</string>
 </resources>

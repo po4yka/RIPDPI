@@ -389,7 +389,7 @@
     <string name="blockcheck_confidence_medium">中</string>
     <string name="blockcheck_confidence_high">高</string>
     <string name="blockcheck_entry_title">策略探测</string>
-    <string name="detection_check_category_dns_leak">DNS 泄漏</string>
+    <string name="detection_check_category_dns_leak">DNS 设置</string>
     <string name="detection_check_category_ip_comparison">IP 比对</string>
     <string name="detection_check_category_tls">本地 TLS 设置</string>
     <string name="detection_check_subtitle">检查您的 VPN/代理设置的可见性。</string>
@@ -1939,4 +1939,7 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">证书验证失败</string>
     <string name="detection_exposure_incomplete_reason">部分检查未返回结果。</string>
     <string name="detection_exposure_incomplete_hint">查看详情并重新运行检查。</string>
+    <string name="detection_exposure_incomplete_headline">检查未完成</string>
+    <string name="detection_exposure_incomplete_signal">未完成的检查</string>
+    <string name="detection_exposure_dns_observation_reason">已完成的探测未报告检测信号。仅查看了 DNS 设置，未执行泄漏测试。</string>
 </resources>

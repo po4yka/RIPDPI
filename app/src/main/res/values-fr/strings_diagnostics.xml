@@ -261,7 +261,7 @@
     <string name="detection_dns_route_through_proxy_title">Acheminer le DNS chiffré via le proxy</string>
     <string name="detection_dns_route_through_proxy_subtitle">Envoie le DNS chiffré via le proxy actif afin que la résolution ne puisse pas être bloquée sur le réseau local.</string>
     <string name="blockcheck_best_badge">Meilleur</string>
-    <string name="detection_check_category_dns_leak">Fuite DNS</string>
+    <string name="detection_check_category_dns_leak">Paramètres DNS</string>
     <string name="detection_check_category_location">Signaux de localisation</string>
     <string name="detection_check_copy">Copier</string>
     <string name="detection_check_stop">Arrêter</string>
@@ -1997,4 +1997,7 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Échec de la vérification du certificat</string>
     <string name="detection_exposure_incomplete_reason">Certaines vérifications ont échoué à fournir un résultat.</string>
     <string name="detection_exposure_incomplete_hint">Consultez les détails et relancez la vérification.</string>
+    <string name="detection_exposure_incomplete_headline">Vérifications incomplètes</string>
+    <string name="detection_exposure_incomplete_signal">vérifications incomplètes</string>
+    <string name="detection_exposure_dns_observation_reason">Les tests terminés ne signalent aucun indice de détection. Les paramètres DNS ont été observés sans test de fuite.</string>
 </resources>

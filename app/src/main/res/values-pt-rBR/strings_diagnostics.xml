@@ -602,7 +602,7 @@
     <string name="detection_permission_settings">As permissões foram negadas. Abra as configurações apenas se quiser que as verificações de detecção leiam a identidade de Wi-Fi ou celular; identificadores brutos não são persistidos e as exportações de diagnóstico os ocultam.</string>
     <string name="detection_privacy_mode">Modo de privacidade</string>
     <string name="detection_history_title">Histórico</string>
-    <string name="detection_check_category_dns_leak">Vazamento de DNS</string>
+    <string name="detection_check_category_dns_leak">Configurações de DNS</string>
     <string name="detection_check_category_webrtc">Vazamento de WebRTC</string>
     <string name="detection_check_category_tls">Configurações locais de TLS</string>
     <string name="detection_check_category_timing">Análise de temporização</string>
@@ -1995,4 +1995,7 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Falha na verificação do certificado</string>
     <string name="detection_exposure_incomplete_reason">Algumas verificações não retornaram resultado.</string>
     <string name="detection_exposure_incomplete_hint">Revise os detalhes e execute a verificação novamente.</string>
+    <string name="detection_exposure_incomplete_headline">As verificações estão incompletas</string>
+    <string name="detection_exposure_incomplete_signal">verificações incompletas</string>
+    <string name="detection_exposure_dns_observation_reason">As sondagens concluídas não relataram sinais de detecção. As configurações de DNS foram observadas sem teste de vazamento.</string>
 </resources>

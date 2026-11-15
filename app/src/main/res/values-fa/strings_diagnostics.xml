@@ -523,7 +523,7 @@
     <string name="diagnostics_telegram_error">خطا</string>
     <string name="diagnostics_telegram_transferred">منتقل‌شده</string>
     <string name="diagnostics_warn_power_restriction">محدودیت‌های انرژی یا پس‌زمینه ممکن است در تشخیص پایدار اختلال ایجاد کنند.</string>
-    <string name="detection_check_category_dns_leak">نشت DNS</string>
+    <string name="detection_check_category_dns_leak">تنظیمات DNS</string>
     <string name="detection_check_category_indirect">نشانه‌های غیرمستقیم</string>
     <string name="detection_check_category_rtt_triangulation">مثلث‌بندی RTT</string>
     <string name="detection_check_category_webrtc">نشت WebRTC</string>
@@ -1981,4 +1981,7 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">اعتبارسنجی گواهی ناموفق بود</string>
     <string name="detection_exposure_incomplete_reason">برخی بررسی‌ها نتیجه‌ای برنگرداندند.</string>
     <string name="detection_exposure_incomplete_hint">جزئیات را بررسی کنید و دوباره بررسی را اجرا کنید.</string>
+    <string name="detection_exposure_incomplete_headline">بررسی‌ها کامل نیستند</string>
+    <string name="detection_exposure_incomplete_signal">بررسی‌های ناقص</string>
+    <string name="detection_exposure_dns_observation_reason">آزمون‌های کامل‌شده نشانه‌ای از شناسایی گزارش نکردند. تنظیمات DNS بدون آزمایش نشت مشاهده شدند.</string>
 </resources>

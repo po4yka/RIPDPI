@@ -158,6 +158,13 @@ private val detectionGeneratedResources =
         "Review split routing and proxy exposure, then rerun the bypass check." to
             R.string.detection_exposure_bypass_probe_hint,
         "Additional diagnostic signals need review" to R.string.detection_exposure_additional,
+        "Checks are incomplete" to R.string.detection_exposure_incomplete_headline,
+        "Some checks failed, were skipped, or returned too little data." to
+            R.string.detection_exposure_incomplete_reason,
+        "Enable the required checks and run them again." to R.string.detection_exposure_incomplete_hint,
+        "incomplete checks" to R.string.detection_exposure_incomplete_signal,
+        "Completed probes reported no detection signals. DNS settings were observed without a leak test." to
+            R.string.detection_exposure_dns_observation_reason,
         "Detection probes did not expose bypass, VPN, IP, DNS, TLS, timing, or native observability signals." to
             R.string.detection_exposure_clean_reason,
         "Keep the current profile and rerun after changing networks or profiles." to

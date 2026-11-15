@@ -16,6 +16,7 @@ import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -89,6 +90,47 @@ class DetectionScreenSemanticsTest {
         composeRule.onNodeWithText("Probe outcome: 0/4 signals exposed").fetchSemanticsNode()
         composeRule.onAllNodesWithText("100/100").assertCountEquals(0)
         composeRule.onAllNodesWithText("Excellent").assertCountEquals(0)
+    }
+
+    @Test
+    fun incompleteChecksDoNotShowCleanHeadlineOrPerfectScore() {
+        val result = cleanDetectionResult().let { it.copy(geoIp = it.geoIp.copy(status = DetectionCheckStatus.ERROR)) }
+        composeRule.setContent {
+            RipDpiTheme {
+                VerdictScoreCard(result = result, score = 100, label = "Excellent")
+            }
+        }
+
+        composeRule.onNodeWithText("Checks are incomplete").fetchSemanticsNode()
+        composeRule.onAllNodesWithText("You look like ordinary HTTPS traffic").assertCountEquals(0)
+        composeRule.onAllNodesWithText("100/100").assertCountEquals(0)
+        val image = File("build/compose-previews/renders/dia18-incomplete.png")
+        checkNotNull(image.parentFile).mkdirs()
+        image.outputStream().use { output ->
+            assertTrue(
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.DetectionVerdict)
+                    .captureToImage()
+                    .asAndroidBitmap()
+                    .compress(Bitmap.CompressFormat.PNG, 100, output),
+            )
+        }
+    }
+
+    @Test
+    fun partialCategoryKeepsConfirmedPositiveInProbeSummary() {
+        val result =
+            cleanDetectionResult().let {
+                it.copy(geoIp = it.geoIp.copy(detected = true, status = DetectionCheckStatus.INCONCLUSIVE))
+            }
+        composeRule.setContent {
+            RipDpiTheme {
+                VerdictScoreCard(result = result, score = 100, label = "Excellent")
+            }
+        }
+
+        composeRule.onNodeWithText("Probe outcome: 1/5 signals exposed").fetchSemanticsNode()
+        composeRule.onAllNodesWithText("100/100").assertCountEquals(0)
     }
 
     @Test
