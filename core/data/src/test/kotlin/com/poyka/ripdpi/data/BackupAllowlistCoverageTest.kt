@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data
 import com.poyka.ripdpi.data.backup.BackupAllowlist
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 
@@ -168,6 +169,13 @@ class BackupAllowlistCoverageTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun `coverage instances include every serialized profile subtype`() {
+        val variants = ProxyProfile.serializer().descriptor.getElementDescriptor(1)
+        val protocolKeys = (0 until variants.elementsCount).map(variants::getElementName).toSet()
+        assertEquals(protocolKeys, protocolInstances.keys)
     }
 
     @Test
