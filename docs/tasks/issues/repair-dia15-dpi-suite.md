@@ -2,7 +2,7 @@
 id: DGN-1794745065716076
 title: Repair DPI suite probe evidence and execution
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: DIA-15 repair
