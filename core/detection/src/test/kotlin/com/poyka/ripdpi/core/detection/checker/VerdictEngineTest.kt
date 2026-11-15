@@ -109,7 +109,7 @@ class VerdictEngineTest {
     }
 
     @Test
-    fun `xray API detected returns DETECTED`() {
+    fun `local Xray API needs review without bypass evidence`() {
         val bypass =
             emptyBypass().copy(
                 evidence =
@@ -130,7 +130,7 @@ class VerdictEngineTest {
                 locationSignals = emptyCategory("Location"),
                 bypassResult = bypass,
             )
-        assertEquals(Verdict.DETECTED, verdict)
+        assertEquals(Verdict.NEEDS_REVIEW, verdict)
     }
 
     @Test
@@ -173,10 +173,10 @@ class VerdictEngineTest {
                         evidence =
                             listOf(
                                 EvidenceItem(
-                                    source = EvidenceSource.XRAY_API,
+                                    source = EvidenceSource.SPLIT_TUNNEL_BYPASS,
                                     detected = true,
                                     confidence = EvidenceConfidence.HIGH,
-                                    description = "Local Xray API reachable",
+                                    description = "Direct and proxy IPs differ",
                                 ),
                             ),
                     ),
@@ -201,12 +201,12 @@ class VerdictEngineTest {
             )
 
         assertEquals(
-            listOf("R1", listOf(DetectionScope.LOCAL_OBSERVER_EXPOSURE), 1, false),
+            listOf("R1", listOf(DetectionScope.NETWORK_OBSERVATION), 1, EvidenceSource.SPLIT_TUNNEL_BYPASS),
             listOf(
                 explanation.ruleApplied,
                 explanation.appliedScopes,
                 explanation.uniqueSignalCount,
-                DetectionScope.NETWORK_OBSERVATION in explanation.appliedScopes,
+                explanation.decisionSignals.single().source,
             ),
         )
     }

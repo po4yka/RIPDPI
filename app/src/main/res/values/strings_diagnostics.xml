@@ -1710,7 +1710,7 @@
     <string name="detection_advice_proxy_title">Open localhost proxy detected</string>
     <string name="detection_advice_proxy_description">A proxy responds on localhost. Review the listener and disable it when it is not needed.</string>
     <string name="detection_advice_xray_title">Xray gRPC API exposed</string>
-    <string name="detection_advice_xray_description">The Xray HandlerService API is accessible on localhost, leaking VPN server addresses and credentials. Disable the API in your Xray client settings.</string>
+    <string name="detection_advice_xray_description">An Xray-compatible HandlerService responded on localhost. Disable the API if you do not need it.</string>
     <string name="detection_advice_dns_title">DNS points to localhost</string>
     <string name="detection_advice_dns_description">The active network lists a loopback DNS resolver. Check the DNS configuration if this is unexpected.</string>
     <string name="detection_advice_app_title">Known bypass app installed</string>

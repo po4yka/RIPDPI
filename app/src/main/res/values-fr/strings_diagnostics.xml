@@ -1686,7 +1686,7 @@
     <string name="detection_advice_proxy_title">Proxy ouvert sur localhost détecté</string>
     <string name="detection_advice_proxy_description">Un proxy répond sur localhost. Vérifiez le point d’écoute et désactivez-le s’il est inutile.</string>
     <string name="detection_advice_xray_title">API gRPC de Xray exposée</string>
-    <string name="detection_advice_xray_description">L’API HandlerService de Xray est accessible sur localhost et révèle les adresses des serveurs VPN et les identifiants. Désactivez l’API dans les réglages de votre client Xray.</string>
+    <string name="detection_advice_xray_description">Un HandlerService compatible avec Xray a répondu sur localhost. Désactivez cette API si vous ne l’utilisez pas.</string>
     <string name="detection_advice_dns_title">Le DNS pointe vers localhost</string>
     <string name="detection_advice_dns_description">Le réseau actif indique un résolveur DNS de bouclage. Vérifiez la configuration DNS si ce comportement est inattendu.</string>
     <string name="detection_advice_app_title">Application de contournement connue installée</string>

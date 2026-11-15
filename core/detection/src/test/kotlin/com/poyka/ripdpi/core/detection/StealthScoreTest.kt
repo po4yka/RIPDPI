@@ -351,7 +351,7 @@ class StealthScoreTest {
     }
 
     @Test
-    fun `exposure verdict prioritizes detection outcome over good stealth score`() {
+    fun `xray api reachability does not make claims about traffic`() {
         val result =
             cleanResult().copy(
                 bypassResult =
@@ -372,7 +372,7 @@ class StealthScoreTest {
 
         val verdict = ExposureVerdictBuilder.build(result, stealthScore = 95)
 
-        assertEquals("Your traffic is distinguishable by Xray API access", verdict.headline)
+        assertEquals("Additional diagnostic signals need review", verdict.headline)
         assertEquals("Xray API access", verdict.dominantSignal)
         assertTrue(verdict.reason.contains("local API"))
         assertTrue(verdict.adjustmentHint.contains("Restrict local API"))

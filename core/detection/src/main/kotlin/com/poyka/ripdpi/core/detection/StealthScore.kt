@@ -204,7 +204,7 @@ object ExposureVerdictBuilder {
         val dominant = signal ?: ExposureSignal.generic(result.verdict)
         return ExposureVerdict(
             headline =
-                if (result.verdict == Verdict.NEEDS_REVIEW) {
+                if (result.verdict == Verdict.NEEDS_REVIEW || dominant == ExposureSignal.xrayApi) {
                     "Additional diagnostic signals need review"
                 } else {
                     "Your traffic is distinguishable by ${dominant.label}"

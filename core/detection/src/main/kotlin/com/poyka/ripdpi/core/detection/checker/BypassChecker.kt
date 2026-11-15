@@ -174,7 +174,6 @@ object BypassChecker {
                     findings.add(Finding("Direct and proxy IPs match"))
                 }
 
-                val detected = xrayApiScanResult != null
                 return@coroutineScope BypassResult(
                     proxyEndpoint = proxyEndpoint,
                     directIp = directIp,
@@ -183,13 +182,11 @@ object BypassChecker {
                     mtProtoReachable = mtProtoReachable,
                     stunReflexiveAddresses = stunReflexiveAddresses,
                     findings = findings,
-                    detected = detected,
-                    needsReview = !detected,
+                    detected = false,
+                    needsReview = true,
                     evidence = evidence,
                 )
             }
-
-            val detected = xrayApiScanResult != null
 
             BypassResult(
                 proxyEndpoint = proxyEndpoint,
@@ -197,8 +194,8 @@ object BypassChecker {
                 proxyIp = proxyIp,
                 xrayApiScanResult = xrayApiScanResult,
                 findings = findings,
-                detected = detected,
-                needsReview = false,
+                detected = false,
+                needsReview = xrayApiScanResult != null,
                 evidence = evidence,
             )
         }
@@ -286,7 +283,6 @@ object BypassChecker {
         )
     }
 
-    @Suppress("NestedBlockDepth")
     private fun reportXrayApiResult(
         xrayApiScanResult: XrayApiScanResult?,
         findings: MutableList<Finding>,
@@ -298,13 +294,14 @@ object BypassChecker {
         }
 
         val ep = xrayApiScanResult.endpoint
+        val observation =
+            "Xray-compatible HandlerService responded to ListOutbounds at " + formatHostPort(ep.host, ep.port)
         findings.add(
             Finding(
-                description = "Xray gRPC API: ${formatHostPort(ep.host, ep.port)}",
-                detected = true,
+                description = observation,
+                needsReview = true,
                 source = EvidenceSource.XRAY_API,
                 confidence = EvidenceConfidence.HIGH,
-                family = VpnAppCatalog.FAMILY_XRAY,
             ),
         )
         evidence.add(
@@ -312,43 +309,9 @@ object BypassChecker {
                 source = EvidenceSource.XRAY_API,
                 detected = true,
                 confidence = EvidenceConfidence.HIGH,
-                description = "Detected Xray gRPC API at ${formatHostPort(ep.host, ep.port)}",
-                family = VpnAppCatalog.FAMILY_XRAY,
+                description = observation,
             ),
         )
-
-        for (outbound in xrayApiScanResult.outbounds.take(10)) {
-            val detail =
-                buildString {
-                    append("  ")
-                    append(outbound.tag)
-                    outbound.protocolName?.let { append(" [$it]") }
-                    if (outbound.address != null && outbound.port != null) {
-                        append(" -> ${outbound.address}:${outbound.port}")
-                    }
-                    outbound.sni?.let { append(", sni=$it") }
-                }
-            findings.add(
-                Finding(
-                    description = detail,
-                    detected = true,
-                    source = EvidenceSource.XRAY_API,
-                    confidence = EvidenceConfidence.HIGH,
-                    family = VpnAppCatalog.FAMILY_XRAY,
-                ),
-            )
-        }
-        if (xrayApiScanResult.outbounds.size > 10) {
-            findings.add(
-                Finding(
-                    description = "  ...${xrayApiScanResult.outbounds.size - 10} more outbounds",
-                    detected = true,
-                    source = EvidenceSource.XRAY_API,
-                    confidence = EvidenceConfidence.HIGH,
-                    family = VpnAppCatalog.FAMILY_XRAY,
-                ),
-            )
-        }
     }
 
     private fun formatHostPort(

@@ -85,7 +85,7 @@ object VerdictEngine {
                 nativeSigns?.category?.evidence?.let(::addAll)
             }
         val hardBypassEvidence =
-            evidence.filter { it.isDetected(EvidenceSource.SPLIT_TUNNEL_BYPASS, EvidenceSource.XRAY_API) }
+            evidence.filter { it.isDetected(EvidenceSource.SPLIT_TUNNEL_BYPASS) }
 
         if (hardBypassEvidence.isNotEmpty()) {
             return explanation(
@@ -140,7 +140,6 @@ object VerdictEngine {
         val hasDirectHit =
             directSigns.detected ||
                 (directSigns.needsReview && directSigns.evidence.any(EvidenceItem::detected)) ||
-                bypassResult.detected ||
                 evidence.any {
                     it.isDetected(
                         EvidenceSource.LOCAL_PROXY,
@@ -252,6 +251,7 @@ private fun hasNeedsReviewFallback(
     hasDirectHit ||
         hasIndirectHit ||
         hasGenericActive ||
+        bypassResult.evidence.any { it.isDetected(EvidenceSource.XRAY_API) } ||
         ipComparison?.category?.needsReview == true ||
         (!homeRoutedRoaming && cdnPulling?.category.hasReviewSignal()) ||
         (!homeRoutedRoaming && icmpSpoofing?.category.hasReviewSignal()) ||

@@ -181,11 +181,7 @@ private val detectionGeneratedResources =
         "A proxy responds on localhost. Review the listener and disable it when it is not needed." to
             R.string.detection_advice_proxy_description,
         "Xray gRPC API exposed" to R.string.detection_advice_xray_title,
-        (
-            "The Xray HandlerService API is accessible on localhost, " +
-                "leaking VPN server addresses and credentials. Disable the API in " +
-                "your Xray client settings."
-        ) to
+        "An Xray-compatible HandlerService responded on localhost. Disable the API if you do not need it." to
             R.string.detection_advice_xray_description,
         "DNS points to localhost" to R.string.detection_advice_dns_title,
         "The active network lists a loopback DNS resolver. Check the DNS configuration if this is unexpected." to

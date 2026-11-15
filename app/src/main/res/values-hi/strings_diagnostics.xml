@@ -1690,7 +1690,7 @@
     <string name="detection_advice_proxy_title">खुला localhost प्रॉक्सी मिला</string>
     <string name="detection_advice_proxy_description">localhost पर प्रॉक्सी जवाब दे रहा है। लिसनर की समीक्षा करें और ज़रूरत न होने पर उसे बंद करें।</string>
     <string name="detection_advice_xray_title">Xray gRPC API की पहुँच खुली है</string>
-    <string name="detection_advice_xray_description">localhost पर Xray HandlerService API तक पहुँच मिलती है, जिससे VPN सर्वर के पते और क्रेडेंशियल लीक होते हैं। अपने Xray क्लाइंट की सेटिंग में API बंद करें।</string>
+    <string name="detection_advice_xray_description">localhost पर Xray के साथ काम करने वाली HandlerService ने जवाब दिया। अगर आपको इसकी ज़रूरत नहीं है, तो API बंद कर दें।</string>
     <string name="detection_advice_dns_title">DNS localhost की ओर इशारा करता है</string>
     <string name="detection_advice_dns_description">सक्रिय नेटवर्क में लूपबैक DNS रिज़ॉल्वर दर्ज है। यदि यह अपेक्षित नहीं है, तो DNS कॉन्फ़िगरेशन जाँचें।</string>
     <string name="detection_advice_app_title">ज्ञात बायपास ऐप इंस्टॉल है</string>

@@ -1798,7 +1798,7 @@
     <string name="detection_advice_proxy_title">اكتُشف وكيل مفتوح على localhost</string>
     <string name="detection_advice_proxy_description">يستجيب وكيل على localhost. راجع واجهة الاستماع وعطّلها عند عدم الحاجة إليها.</string>
     <string name="detection_advice_xray_title">واجهة Xray gRPC البرمجية مكشوفة</string>
-    <string name="detection_advice_xray_description">يمكن الوصول إلى واجهة Xray HandlerService البرمجية على localhost، مما يكشف عناوين خوادم VPN وبيانات الاعتماد. عطّل الواجهة البرمجية في إعدادات عميل Xray.</string>
+    <string name="detection_advice_xray_description">ردّت خدمة HandlerService متوافقة مع Xray على localhost. عطّل الواجهة البرمجية إذا لم تكن بحاجة إليها.</string>
     <string name="detection_advice_dns_title">يشير DNS إلى localhost</string>
     <string name="detection_advice_dns_description">تدرج الشبكة النشطة محلّل DNS على عنوان الاسترجاع المحلي. تحقّق من إعدادات DNS إذا لم يكن ذلك متوقعًا.</string>
     <string name="detection_advice_app_title">تطبيق معروف لتجاوز الحجب مثبّت</string>

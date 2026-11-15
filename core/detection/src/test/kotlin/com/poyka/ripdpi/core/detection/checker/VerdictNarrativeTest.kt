@@ -17,6 +17,9 @@ import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.ProxyType
+import com.poyka.ripdpi.core.detection.probe.XrayApiEndpoint
+import com.poyka.ripdpi.core.detection.probe.XrayApiScanResult
+import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -25,13 +28,29 @@ import org.junit.Test
 
 class VerdictNarrativeTest {
     @Test
-    fun `remote endpoint discovered when xray API present`() {
+    fun `xray api without outbound endpoint is a local observation`() {
         val narrative =
             VerdictEngine.narrative(
-                resultWithBypassEvidence(EvidenceSource.XRAY_API),
+                resultWithOutbounds(emptyList()),
             )
 
-        assertEquals(ExposureStatus.REMOTE_ENDPOINT_DISCOVERED, narrative.exposureStatus)
+        assertEquals(ExposureStatus.LOCAL_PROXY_OR_API_ONLY, narrative.exposureStatus)
+        assertTrue(narrative.discoveredRows.any { it.value == "127.0.0.1:10085" })
+    }
+
+    @Test
+    fun `remote inventory requires an outbound address and valid port`() {
+        val incomplete = outbound("vpn.example", null)
+        val loopback = outbound("127.10.20.30", 443)
+        val remote = outbound("2001:db8::20", 443)
+
+        val local = VerdictEngine.narrative(resultWithOutbounds(listOf(incomplete, loopback)))
+        val configured = VerdictEngine.narrative(resultWithOutbounds(listOf(incomplete, loopback, remote)))
+
+        assertEquals(ExposureStatus.LOCAL_PROXY_OR_API_ONLY, local.exposureStatus)
+        assertEquals(ExposureStatus.REMOTE_ENDPOINT_DISCOVERED, configured.exposureStatus)
+        val endpoint = configured.discoveredRows.single { it.label.startsWith("Configured remote endpoint") }
+        assertEquals("[2001:db8::20]:443", endpoint.value)
     }
 
     @Test
@@ -239,6 +258,32 @@ class VerdictNarrativeTest {
 
         assertTrue(narrative.discoveredRows.size <= 10)
     }
+
+    private fun resultWithOutbounds(outbounds: List<XrayOutboundSummary>): DetectionCheckResult {
+        val result = resultWithBypassEvidence(EvidenceSource.XRAY_API)
+        return result.copy(
+            bypassResult =
+                result.bypassResult.copy(
+                    xrayApiScanResult = XrayApiScanResult(XrayApiEndpoint("127.0.0.1", 10085), outbounds),
+                ),
+        )
+    }
+
+    private fun outbound(
+        address: String,
+        port: Int?,
+    ): XrayOutboundSummary =
+        XrayOutboundSummary(
+            tag = "relay",
+            protocolName = null,
+            address = address,
+            port = port,
+            uuidPresent = false,
+            sni = null,
+            publicKeyPresent = false,
+            senderSettingsType = null,
+            proxySettingsType = null,
+        )
 
     private fun resultWithBypassEvidence(source: EvidenceSource): DetectionCheckResult =
         cleanResult().copy(

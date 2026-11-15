@@ -1683,7 +1683,7 @@
     <string name="detection_advice_proxy_title">پروکسی باز روی localhost شناسایی شد</string>
     <string name="detection_advice_proxy_description">یک پروکسی روی localhost پاسخ می‌دهد. شنونده را بررسی کنید و هنگامی که به آن نیاز نیست غیرفعالش کنید.</string>
     <string name="detection_advice_xray_title">API ‏gRPC ‏Xray آشکار است</string>
-    <string name="detection_advice_xray_description">API ‏Xray HandlerService روی localhost قابل دسترسی است و نشانی سرورهای VPN و اطلاعات ورود را افشا می‌کند. API را در تنظیمات کلاینت Xray غیرفعال کنید.</string>
+    <string name="detection_advice_xray_description">یک HandlerService سازگار با Xray روی localhost پاسخ داد. اگر به API نیاز ندارید، آن را غیرفعال کنید.</string>
     <string name="detection_advice_dns_title">DNS به localhost اشاره می‌کند</string>
     <string name="detection_advice_dns_description">شبکه فعال یک حل‌کننده DNS با نشانی حلقه بازگشت را فهرست می‌کند. اگر این وضعیت غیرمنتظره است، پیکربندی DNS را بررسی کنید.</string>
     <string name="detection_advice_app_title">برنامه شناخته‌شده عبور از محدودیت‌ها نصب است</string>

@@ -1683,7 +1683,7 @@
     <string name="detection_advice_proxy_title">Offener localhost-Proxy erkannt</string>
     <string name="detection_advice_proxy_description">Ein Proxy antwortet auf localhost. Prüfen Sie den Listener und deaktivieren Sie ihn, wenn er nicht benötigt wird.</string>
     <string name="detection_advice_xray_title">Xray-gRPC-API offengelegt</string>
-    <string name="detection_advice_xray_description">Die Xray-HandlerService-API ist auf localhost erreichbar und legt VPN-Serveradressen und Zugangsdaten offen. Deaktivieren Sie die API in den Einstellungen Ihres Xray-Clients.</string>
+    <string name="detection_advice_xray_description">Ein Xray-kompatibler HandlerService hat auf localhost geantwortet. Deaktivieren Sie die API, wenn Sie sie nicht benötigen.</string>
     <string name="detection_advice_dns_title">DNS verweist auf localhost</string>
     <string name="detection_advice_dns_description">Das aktive Netzwerk führt einen Loopback-DNS-Resolver auf. Prüfen Sie die DNS-Konfiguration, wenn dies unerwartet ist.</string>
     <string name="detection_advice_app_title">Bekannte Bypass-App installiert</string>

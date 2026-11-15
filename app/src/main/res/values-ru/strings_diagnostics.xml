@@ -1728,7 +1728,7 @@
     <string name="detection_advice_proxy_title">Обнаружен открытый прокси на localhost</string>
     <string name="detection_advice_proxy_description">Прокси отвечает на localhost. Проверьте прослушивающий сокет и отключите его, если он не нужен.</string>
     <string name="detection_advice_xray_title">API gRPC Xray открыт</string>
-    <string name="detection_advice_xray_description">API Xray HandlerService доступен на localhost и раскрывает адреса серверов VPN и учётные данные. Отключите API в настройках клиента Xray.</string>
+    <string name="detection_advice_xray_description">Совместимый с Xray HandlerService ответил на localhost. Отключите API, если он не нужен.</string>
     <string name="detection_advice_dns_title">DNS указывает на localhost</string>
     <string name="detection_advice_dns_description">В активной сети указан DNS-резолвер обратной петли. Проверьте конфигурацию DNS, если это неожиданно.</string>
     <string name="detection_advice_app_title">Установлено известное приложение обхода</string>

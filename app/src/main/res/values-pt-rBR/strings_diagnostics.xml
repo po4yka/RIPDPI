@@ -1684,7 +1684,7 @@
     <string name="detection_advice_proxy_title">Proxy aberto em localhost detectado</string>
     <string name="detection_advice_proxy_description">Um proxy responde em localhost. Revise a porta de escuta e desative-a quando não for necessária.</string>
     <string name="detection_advice_xray_title">API gRPC do Xray exposta</string>
-    <string name="detection_advice_xray_description">A API HandlerService do Xray está acessível em localhost, expondo endereços e credenciais de servidores VPN. Desative a API nas configurações do seu cliente Xray.</string>
+    <string name="detection_advice_xray_description">Um HandlerService compatível com Xray respondeu em localhost. Desative a API se não precisar dela.</string>
     <string name="detection_advice_dns_title">O DNS aponta para localhost</string>
     <string name="detection_advice_dns_description">A rede ativa lista um resolvedor DNS de loopback. Verifique a configuração DNS se isso for inesperado.</string>
     <string name="detection_advice_app_title">Aplicativo de contorno conhecido instalado</string>

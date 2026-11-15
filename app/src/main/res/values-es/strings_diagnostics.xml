@@ -1686,7 +1686,7 @@
     <string name="detection_advice_proxy_title">Se detectó un proxy abierto en localhost</string>
     <string name="detection_advice_proxy_description">Un proxy responde en localhost. Revise el puerto de escucha y desactívelo cuando no sea necesario.</string>
     <string name="detection_advice_xray_title">API gRPC de Xray expuesta</string>
-    <string name="detection_advice_xray_description">Se puede acceder a la API HandlerService de Xray en localhost, lo que revela direcciones y credenciales de servidores VPN. Desactive la API en los ajustes de su cliente Xray.</string>
+    <string name="detection_advice_xray_description">Un HandlerService compatible con Xray respondió en localhost. Desactiva la API si no la necesitas.</string>
     <string name="detection_advice_dns_title">El DNS apunta a localhost</string>
     <string name="detection_advice_dns_description">La red activa incluye un resolvedor DNS de bucle local. Compruebe la configuración DNS si no lo esperaba.</string>
     <string name="detection_advice_app_title">Aplicación de elusión conocida instalada</string>

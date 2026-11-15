@@ -5,6 +5,7 @@ package com.poyka.ripdpi.core.detection
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
+import com.poyka.ripdpi.data.NumericIp
 
 enum class ExposureStatus {
     REMOTE_ENDPOINT_DISCOVERED,
@@ -74,7 +75,13 @@ object VerdictNarrativeBuilder {
                 .distinct()
                 .take(REMOTE_ENDPOINT_LIMIT)
                 .forEachIndexed { index, endpoint ->
-                    add(row("Remote endpoint ${index + 1}", endpoint, ExposureStatus.REMOTE_ENDPOINT_DISCOVERED))
+                    add(
+                        row(
+                            "Configured remote endpoint ${index + 1}",
+                            endpoint,
+                            ExposureStatus.REMOTE_ENDPOINT_DISCOVERED,
+                        ),
+                    )
                 }
             result.bypassResult.proxyEndpoint?.let { endpoint ->
                 add(row("Local proxy", endpoint.displayEndpoint(), ExposureStatus.LOCAL_PROXY_OR_API_ONLY))
@@ -124,7 +131,7 @@ object VerdictNarrativeBuilder {
         val rows =
             buildList {
                 if (result.hasEvidence(EvidenceSource.XRAY_API) || result.bypassResult.xrayApiScanResult != null) {
-                    add(row("Xray API", "Local API or outbound configuration was reachable.", exposureStatus))
+                    add(row("Xray API", "A local Xray-compatible HandlerService responded.", exposureStatus))
                 }
                 if (result.hasEvidence(EvidenceSource.SPLIT_TUNNEL_BYPASS)) {
                     add(row("Split tunnel", "Direct and proxied network paths disagree.", exposureStatus))
@@ -183,7 +190,10 @@ object VerdictNarrativeBuilder {
     }
 
     private fun DetectionCheckResult.hasRemoteEndpointSignal(): Boolean =
-        hasEvidence(EvidenceSource.XRAY_API) || bypassResult.xrayApiScanResult != null
+        bypassResult.xrayApiScanResult
+            ?.outbounds
+            .orEmpty()
+            .any { it.displayEndpoint() != null }
 
     private fun DetectionCheckResult.hasPublicIpSignal(): Boolean =
         geoIp.detected ||
@@ -195,7 +205,8 @@ object VerdictNarrativeBuilder {
 
     private fun DetectionCheckResult.hasLocalProxyOrApiSignal(): Boolean =
         bypassResult.proxyEndpoint != null ||
-            hasEvidence(EvidenceSource.LOCAL_PROXY, EvidenceSource.SYSTEM_PROXY) ||
+            bypassResult.xrayApiScanResult != null ||
+            hasEvidence(EvidenceSource.LOCAL_PROXY, EvidenceSource.SYSTEM_PROXY, EvidenceSource.XRAY_API) ||
             directSigns.evidence.any {
                 it.source == EvidenceSource.LOCAL_PROXY || it.source == EvidenceSource.SYSTEM_PROXY
             }
@@ -285,7 +296,13 @@ object VerdictNarrativeBuilder {
 
     private fun XrayOutboundSummary.displayEndpoint(): String? {
         val address = address?.takeIf(String::isNotBlank) ?: return null
-        return port?.let { "$address:$it" } ?: address
+        val port = port?.takeIf { it in 1..MAX_PORT } ?: return null
+        val hostname = address.trimEnd('.').lowercase()
+        if (hostname == "localhost" || hostname.endsWith(".localhost")) return null
+        val candidate = NumericIp.parseAddress(address)
+        val numeric = candidate?.let { if (it.isIPv6 && it.toIPv6().isIPv4Mapped) it.toIPv4() else it }?.toInetAddress()
+        if (numeric?.isLoopbackAddress == true || numeric?.isAnyLocalAddress == true) return null
+        return if (':' in address) "[$address]:$port" else "$address:$port"
     }
 
     private fun row(
@@ -299,6 +316,7 @@ object VerdictNarrativeBuilder {
             exposureStatus = exposureStatus,
         )
 
+    private const val MAX_PORT = 65_535
     private const val DISCOVERED_ROW_LIMIT = 10
     private const val REASON_ROW_LIMIT = 5
     private const val REMOTE_ENDPOINT_LIMIT = 3
