@@ -251,6 +251,60 @@ class DnsResponseSemanticsTest {
     }
 
     @Test
+    fun jsonRejectsInvalidSoaOwnerAndEveryMalformedSoaField() {
+        val aliasOnly = """{"Status":0,"Question":[{"name":"example.com.","type":1}],
+            "Answer":[{"name":"example.com","type":5,"TTL":60,"data":"alias.example.com."}]"""
+        val goodSoa = """{"name":".","type":6,"TTL":120,"data":"ns.example.com. hostmaster.example.com. 1 2 3 4 60"}"""
+        assertEquals(
+            DnsResponseOutcome.NOT_OBSERVED,
+            DnsJsonResponseParser.parse("$aliasOnly}", "example.com", Json).response?.outcome,
+        )
+        val rootSoa = DnsJsonResponseParser.parse("$aliasOnly,\"Authority\":[$goodSoa]}", "example.com", Json)
+        assertEquals(DnsResponseOutcome.NODATA, rootSoa.response?.outcome)
+        assertEquals(60L, rootSoa.response?.negativeTtlSeconds)
+        val invalidAuthorities =
+            listOf(
+                goodSoa.replace(""""name":".",""", ""),
+                goodSoa.replace(""""name":".",""", """"name":"","""),
+                goodSoa.replace("1 2 3 4 60", "serial 2 3 4 60"),
+                goodSoa.replace("1 2 3 4 60", "1 4294967296 3 4 60"),
+                goodSoa.replace("hostmaster.example.com.", "hostmaster.example.com.."),
+            )
+        invalidAuthorities.forEach { soa ->
+            assertThrows(IllegalArgumentException::class.java) {
+                DnsJsonResponseParser.parse("$aliasOnly,\"Authority\":[$soa]}", "example.com", Json)
+            }
+        }
+    }
+
+    @Test
+    fun jsonRejectsWrongPrimitiveTypesAndInvalidHostNames() {
+        val payload = """{"Status":0,"TC":false,"Question":[{"name":"example.com.","type":1}],
+            "Answer":[{"name":"example.com","type":1,"TTL":60,"data":"192.0.2.10"}]}"""
+        val malformed =
+            listOf(
+                payload.replace(""""Status":0""", """"Status":"0""""),
+                payload.replace(""""type":1""", """"type":"1""""),
+                payload.replace(""""TC":false""", """"TC":"false""""),
+                payload.replace(""""TTL":60""", """"TTL":-1"""),
+                payload.replace(""""TTL":60""", """"TTL":"60""""),
+                payload.replace("example.com.", "example.com.."),
+                payload.replace(
+                    """"type":1,"TTL":60,"data":"192.0.2.10"""",
+                    """"type":5,"TTL":60,"data":"not a host"""",
+                ),
+            )
+        malformed.forEach {
+            assertThrows(IllegalArgumentException::class.java) {
+                DnsJsonResponseParser.parse(it, "example.com", Json)
+            }
+        }
+        val highTtl = DnsJsonResponseParser.parse(payload.replace("60", "2147483648"), "example.com", Json)
+        assertEquals(listOf("192.0.2.10"), highTtl.addresses)
+        assertEquals(0L, highTtl.response?.ttlMinSeconds)
+    }
+
+    @Test
     fun jsonLimitsNestingAndRecordCount() {
         val question = """"Status":0,"Question":[{"name":"example.com","type":1}]"""
         val nested = "{$question,\"Extension\":${"[".repeat(33)}0${"]".repeat(33)}}"
