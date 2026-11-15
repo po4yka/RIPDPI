@@ -46,7 +46,9 @@ class XrayApiScannerTest {
                 calls.incrementAndGet()
                 it.onError(Status.UNAUTHENTICATED.asRuntimeException())
             }) { port ->
-                assertNull(scanner(listOf(port)).findXrayApi {})
+                val result = scanner(listOf(port)).scan {}
+                assertNull(result.match)
+                assertEquals(LocalScanStatus.REJECTED, result.status)
                 assertEquals(1, calls.get())
             }
         }
@@ -68,7 +70,7 @@ class XrayApiScannerTest {
                     }
                 }) { responsivePort ->
                     withTimeout(4_000) {
-                        val match = scanner(listOf(stalledPort, responsivePort)).findXrayApi {}
+                        val match = scanner(listOf(stalledPort, responsivePort)).scan {}.match
                         assertEquals(responsivePort, match?.endpoint?.port)
                         stalledCancelled.await()
                     }
@@ -86,7 +88,9 @@ class XrayApiScannerTest {
                 Context.current().addListener({ cancelled.complete(Unit) }, Runnable::run)
             }) { port ->
                 withTimeout(6_000) {
-                    assertNull(scanner(listOf(port), scanDeadlineMs = 2_000).findXrayApi {})
+                    val result = scanner(listOf(port), scanDeadlineMs = 2_000).scan {}
+                    assertNull(result.match)
+                    assertEquals(LocalScanStatus.TIMED_OUT, result.status)
                     cancelled.await()
                     assertEquals(1, calls.get())
                 }
@@ -115,7 +119,14 @@ class XrayApiScannerTest {
                     },
                 )
                 try {
-                    assertEquals(port, scanner(listOf(port)).findXrayApi {}?.endpoint?.port)
+                    assertEquals(
+                        port,
+                        scanner(listOf(port))
+                            .scan {}
+                            .match
+                            ?.endpoint
+                            ?.port,
+                    )
                     assertEquals(0, selections.get())
                 } finally {
                     ProxySelector.setDefault(previous)
@@ -143,7 +154,14 @@ class XrayApiScannerTest {
                         maxConcurrency = 1,
                         progressUpdateEvery = 1,
                     )
-                assertEquals(port, scan.findXrayApi { progress += it }?.endpoint?.port)
+                assertEquals(
+                    port,
+                    scan
+                        .scan { progress += it }
+                        .match
+                        ?.endpoint
+                        ?.port,
+                )
                 assertEquals(listOf(0, 1), progress.map(XrayScanProgress::scanned))
                 assertEquals(listOf(4, 4), progress.map(XrayScanProgress::total))
                 assertEquals(port, progress.last().currentPort)
@@ -166,10 +184,28 @@ class XrayApiScannerTest {
                 it.onNext(response)
                 it.onCompleted()
             }) { port ->
-                val scan = requireNotNull(scanner(listOf(port)).findXrayApi {})
+                val scan = requireNotNull(scanner(listOf(port)).scan {}.match)
                 assertEquals(64, scan.outbounds.size)
                 assertTrue(scan.outboundsTruncated)
                 assertTrue(scan.outbounds.all { it.tag.length <= 256 && '\n' !in it.tag })
+            }
+        }
+
+    @Test
+    fun `oversized RPC response is unavailable`() =
+        runBlocking {
+            val oversized =
+                ListOutboundsResponse
+                    .newBuilder()
+                    .addOutbounds(OutboundHandlerConfig.newBuilder().setTag("x".repeat(512 * 1024)))
+                    .build()
+            withServer({
+                it.onNext(oversized)
+                it.onCompleted()
+            }) { port ->
+                val result = scanner(listOf(port)).scan {}
+                assertNull(result.match)
+                assertEquals(LocalScanStatus.UNAVAILABLE, result.status)
             }
         }
 

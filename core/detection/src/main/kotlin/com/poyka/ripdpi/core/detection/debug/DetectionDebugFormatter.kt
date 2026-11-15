@@ -77,6 +77,7 @@ object DetectionDebugFormatter {
                     needsReview = it.needsReview,
                     findings = DetectionPrivacyMask.bypassFindings(it, privacyMode),
                     evidence = it.evidence,
+                    executionStatus = it.executionStatus,
                 )
             },
         )

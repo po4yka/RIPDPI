@@ -36,6 +36,8 @@ data class BypassScanOptions(
     val portRange: BypassPortRange = BypassPortRange.Popular,
 )
 
+private const val MaxCustomScanPort = 65_535
+
 sealed interface BypassPortRange {
     data object Popular : BypassPortRange
 
@@ -48,7 +50,7 @@ sealed interface BypassPortRange {
         val end: Int,
     ) : BypassPortRange {
         val ports: IntRange?
-            get() = (start..end).takeIf { start >= 1 && start <= end && end <= 65535 }
+            get() = (start..end).takeIf { start >= 1 && start <= end && end <= MaxCustomScanPort }
     }
 }
 

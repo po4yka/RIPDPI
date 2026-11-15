@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
+import com.poyka.ripdpi.core.detection.Finding
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -15,7 +16,7 @@ class IndirectSignsCheckerProcNetTest {
                 .scan(
                     reader = reader(tcp = row("020200C0", "0A")),
                     packageResolver = { listOf("com.v2ray.ang", "com.example.shared", "com.v2ray.ang") },
-                ).single()
+                ).single(Finding::needsReview)
 
         assertEquals(EvidenceConfidence.LOW, finding.confidence)
         assertTrue(finding.needsReview)
@@ -32,7 +33,7 @@ class IndirectSignsCheckerProcNetTest {
                 packageResolver = { emptyList() },
             )
 
-        val descriptions = findings.map { it.description }
+        val descriptions = findings.filter(Finding::needsReview).map(Finding::description)
         assertEquals(2, descriptions.size)
         assertTrue(descriptions.any { it.contains("0.0.0.0:1080 (wildcard bind)") })
         assertTrue(descriptions.any { it.contains("(loopback bind)") })
@@ -47,23 +48,28 @@ class IndirectSignsCheckerProcNetTest {
                 packageResolver = { listOf("com.example.proxy") },
             )
 
-        assertTrue(findings.isEmpty())
+        assertTrue(findings.none(Finding::needsReview))
+        assertTrue(findings.all { "no listeners" in it.description })
     }
 
     @Test
-    fun readErrorIsNonFatal() {
+    fun inaccessibleTableIsNotReportedAsAnEmptyTable() {
         val findings =
             ProcNetTcpProxyScanner.scan(
                 reader =
                     object : ProcNetTcpReader {
-                        override fun readTcp(): String = throw IOException("denied")
+                        override fun readTcp(): String = Header
 
                         override fun readTcp6(): String = throw IOException("denied")
                     },
                 packageResolver = { emptyList() },
             )
 
-        assertTrue(findings.isEmpty())
+        assertEquals(
+            listOf("/proc/net/tcp: no listeners on known proxy ports", "/proc/net/tcp6: unavailable"),
+            findings.map(Finding::description),
+        )
+        assertTrue(findings.none(Finding::needsReview))
     }
 
     private fun reader(

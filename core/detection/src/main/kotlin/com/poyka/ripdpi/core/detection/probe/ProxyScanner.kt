@@ -45,34 +45,38 @@ internal class ProxyScanner(
         require(progressUpdateEvery > 0)
     }
 
-    suspend fun findOpenProxyEndpoint(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? =
+    suspend fun scan(onProgress: suspend (ScanProgress) -> Unit): LocalScanResult<ProxyEndpoint> =
         withTimeoutOrNull(scanDeadlineMs) {
             withContext(dispatchers.io) {
-                val foundOnPopular = scanPopularPorts(onProgress)
-                if (foundOnPopular != null || !fullRangeEnabled) return@withContext foundOnPopular
-                scanFullRange(onProgress)
+                val popular = scanPopularPorts(onProgress)
+                if (popular.match != null || !fullRangeEnabled) return@withContext popular
+                val full = scanFullRange(onProgress)
+                full.copy(status = popular.status.merge(full.status))
             }
-        }
+        } ?: LocalScanResult(null, LocalScanStatus.TIMED_OUT)
 
-    private suspend fun scanPopularPorts(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? {
+    private suspend fun scanPopularPorts(onProgress: suspend (ScanProgress) -> Unit): LocalScanResult<ProxyEndpoint> {
         val eligible = popularPorts.filter { it in scanRange && it !in excludePorts }
-        if (eligible.isEmpty()) return null
+        if (eligible.isEmpty()) return LocalScanResult(null, LocalScanStatus.SKIPPED)
+        var status = LocalScanStatus.NO_MATCH
         onProgress(ScanProgress(ScanPhase.POPULAR_PORTS, 0, eligible.size, eligible.first()))
         for ((index, port) in eligible.withIndex()) {
             coroutineContext.ensureActive()
-            val found = tryPort(port)
+            val result = tryPort(port)
             onProgress(ScanProgress(ScanPhase.POPULAR_PORTS, index + 1, eligible.size, port))
-            if (found != null) return found
+            if (result.match != null) return result
+            status = status.merge(result.status)
         }
-        return null
+        return LocalScanResult(null, status)
     }
 
     @Suppress("NestedBlockDepth")
-    private suspend fun scanFullRange(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? =
+    private suspend fun scanFullRange(onProgress: suspend (ScanProgress) -> Unit): LocalScanResult<ProxyEndpoint> =
         coroutineScope {
             val skipSet = popularPorts.toHashSet() + excludePorts
             val ports = scanRange.filterNot(skipSet::contains)
-            if (ports.isEmpty()) return@coroutineScope null
+            if (ports.isEmpty()) return@coroutineScope LocalScanResult(null, LocalScanStatus.SKIPPED)
+            val status = AtomicReference(LocalScanStatus.NO_MATCH)
             val completed = AtomicReference(ScanProgress(ScanPhase.FULL_RANGE, 0, ports.size, ports.first()))
             val found = CompletableDeferred<ProxyEndpoint>()
             val publishLock = Mutex()
@@ -113,29 +117,55 @@ internal class ProxyScanner(
                     }
                 }
 
-            select<ProxyEndpoint?> {
-                found.onAwait { it }
-                workers.onJoin { null }
-            }.also {
-                workers.cancelAndJoin()
-                val finalProgress = completed.get()
-                if (finalProgress.scanned > publishedCount) onProgress(finalProgress)
-            }
+            val match =
+                select<ProxyEndpoint?> {
+                    found.onAwait { it }
+                    workers.onJoin { null }
+                }
+            workers.cancelAndJoin()
+            val finalProgress = completed.get()
+            if (finalProgress.scanned > publishedCount) onProgress(finalProgress)
+            LocalScanResult(match, status.get())
         }
 
-    private suspend fun tryPort(port: Int): ProxyEndpoint? {
+    private suspend fun tryPort(port: Int): LocalScanResult<ProxyEndpoint> {
+        var status = LocalScanStatus.NO_MATCH
         for (host in loopbackHosts) {
             coroutineContext.ensureActive()
-            val type =
-                ProxyProber.probeNoAuthProxyType(
-                    host = host,
-                    port = port,
-                    connectTimeoutMs = connectTimeoutMs,
-                    readTimeoutMs = readTimeoutMs,
-                ) ?: continue
+            val next =
+                when (ProxyProber.probePort(host, port, connectTimeoutMs, readTimeoutMs)) {
+                    ProxyProber.PortProbeResult.SOCKS5_NO_AUTH -> {
+                        return LocalScanResult(ProxyEndpoint(host, port, ProxyType.SOCKS5), LocalScanStatus.MATCHED)
+                    }
 
-            return ProxyEndpoint(host, port, type)
+                    ProxyProber.PortProbeResult.HTTP_CONNECT_PROXY -> {
+                        return LocalScanResult(ProxyEndpoint(host, port, ProxyType.HTTP), LocalScanStatus.MATCHED)
+                    }
+
+                    ProxyProber.PortProbeResult.CLOSED,
+                    ProxyProber.PortProbeResult.UNKNOWN_TCP_SERVICE,
+                    -> {
+                        LocalScanStatus.NO_MATCH
+                    }
+
+                    ProxyProber.PortProbeResult.REJECTED -> {
+                        LocalScanStatus.REJECTED
+                    }
+
+                    ProxyProber.PortProbeResult.TIMED_OUT -> {
+                        LocalScanStatus.TIMED_OUT
+                    }
+
+                    ProxyProber.PortProbeResult.UNAVAILABLE -> {
+                        LocalScanStatus.UNAVAILABLE
+                    }
+
+                    ProxyProber.PortProbeResult.PARTIAL -> {
+                        LocalScanStatus.PARTIAL
+                    }
+                }
+            status = status.merge(next)
         }
-        return null
+        return LocalScanResult(null, status)
     }
 }

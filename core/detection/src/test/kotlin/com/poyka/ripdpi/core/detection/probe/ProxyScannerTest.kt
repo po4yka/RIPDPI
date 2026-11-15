@@ -52,10 +52,10 @@ class ProxyScannerTest {
                             scanRange = selected.localPort..selected.localPort,
                             readTimeoutMs = 30,
                             maxConcurrency = 1,
-                        ).findOpenProxyEndpoint {}
+                        ).scan {}
                     }
 
-                assertNull(result)
+                assertNull(result.match)
                 popular.soTimeout = 100
                 assertThrows(SocketTimeoutException::class.java) { popular.accept().close() }
             }
@@ -73,12 +73,12 @@ class ProxyScannerTest {
                         popularPorts = emptyList(),
                         scanRange = listener.localPort..listener.localPort,
                         scanDeadlineMs = 100,
-                    ).findOpenProxyEndpoint {
+                    ).scan {
                         delay(1_000)
                     }
                 }
 
-            assertNull(result)
+            assertEquals(LocalScanResult(null, LocalScanStatus.TIMED_OUT), result)
             listener.soTimeout = 100
             assertThrows(SocketTimeoutException::class.java) { listener.accept().close() }
         }
@@ -107,10 +107,16 @@ class ProxyScannerTest {
                         scanRange = port..65535,
                         readTimeoutMs = 500,
                         maxConcurrency = 1,
-                    ).findOpenProxyEndpoint { progress += it }
+                    ).scan { progress += it }
                 peer.await()
 
-                assertEquals(ProxyEndpoint(loopback.hostAddress, port, ProxyType.SOCKS5), result)
+                assertEquals(
+                    LocalScanResult(
+                        ProxyEndpoint(loopback.hostAddress, port, ProxyType.SOCKS5),
+                        LocalScanStatus.MATCHED,
+                    ),
+                    result,
+                )
                 assertEquals(
                     listOf(
                         ScanProgress(ScanPhase.FULL_RANGE, 0, 65535 - port + 1, port),

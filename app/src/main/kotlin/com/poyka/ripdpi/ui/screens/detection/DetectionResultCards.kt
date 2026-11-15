@@ -483,6 +483,7 @@ internal fun DetectionCategoryCards(
         icon = RipDpiIcons.Shield,
         detected = result.bypassResult.detected,
         needsReview = result.bypassResult.needsReview,
+        executionStatus = result.bypassResult.executionStatus,
         key = "bypass",
         expandedCategories = expandedCategories,
         onToggle = { expandedCategories = it },

@@ -14,10 +14,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
+import java.net.ConnectException
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -30,30 +33,31 @@ class XrayApiScanner(
     private val grpcDeadlineMs: Long = 2000,
     private val maxConcurrency: Int = 100,
     private val progressUpdateEvery: Int = 512,
-    private val scanDeadlineMs: Long = 30_000,
+    private val scanDeadlineMs: Long = LocalScanDeadlineMs,
 ) {
     private val clients = loopbackHosts.associateWith { XrayApiClient(host = it, dispatchers = dispatchers) }
+    private val ports =
+        (scanPorts?.asSequence() ?: scanRange.asSequence())
+            .filter { it in 1..65535 }
+            .distinct()
+            .toList()
 
-    suspend fun findXrayApi(onProgress: suspend (XrayScanProgress) -> Unit): XrayApiScanResult? =
+    internal suspend fun scan(onProgress: suspend (XrayScanProgress) -> Unit): LocalScanResult<XrayApiScanResult> =
         withTimeoutOrNull(scanDeadlineMs) {
-            val portsTotal = scanPorts?.size ?: (scanRange.last - scanRange.first + 1).coerceAtLeast(0)
-            val total = portsTotal * loopbackHosts.size
-
-            var scannedOffset = 0
-            for (host in loopbackHosts) {
-                val result =
-                    scanHost(
-                        host = host,
-                        scannedOffset = scannedOffset,
-                        total = total,
-                        onProgress = onProgress,
-                    )
-                if (result != null) return@withTimeoutOrNull result
-                scannedOffset += portsTotal
+            if (ports.isEmpty() ||
+                clients.isEmpty()
+            ) {
+                return@withTimeoutOrNull LocalScanResult(null, LocalScanStatus.SKIPPED)
             }
-
-            null
-        }
+            val total = ports.size * clients.size
+            var outcome = LocalScanStatus.NO_MATCH
+            for ((index, host) in clients.keys.withIndex()) {
+                val result = scanHost(host, index * ports.size, total, onProgress)
+                if (result.match != null) return@withTimeoutOrNull result
+                outcome = outcome.merge(result.status)
+            }
+            LocalScanResult(null, outcome)
+        } ?: LocalScanResult(null, LocalScanStatus.TIMED_OUT)
 
     @Suppress("NestedBlockDepth")
     private suspend fun scanHost(
@@ -61,14 +65,12 @@ class XrayApiScanner(
         scannedOffset: Int,
         total: Int,
         onProgress: suspend (XrayScanProgress) -> Unit,
-    ): XrayApiScanResult? =
+    ): LocalScanResult<XrayApiScanResult> =
         coroutineScope {
-            val portsTotal = scanPorts?.size ?: (scanRange.last - scanRange.first + 1).coerceAtLeast(0)
-            if (portsTotal <= 0) return@coroutineScope null
-
             val progress = HostProgress(host, scannedOffset, total, progressUpdateEvery, onProgress)
             val result = CompletableDeferred<XrayApiScanResult?>()
-            val workerCount = maxConcurrency.coerceIn(1, portsTotal)
+            val outcome = AtomicReference(LocalScanStatus.NO_MATCH)
+            val workerCount = maxConcurrency.coerceIn(1, ports.size)
             val running = AtomicInteger(workerCount)
             val dispatcher = dispatchers.io.limitedParallelism(workerCount)
 
@@ -77,7 +79,7 @@ class XrayApiScanner(
                     host = host,
                     scanned = scannedOffset,
                     total = total,
-                    currentPort = scanPorts?.first() ?: scanRange.first,
+                    currentPort = ports.first(),
                 ),
             )
 
@@ -86,13 +88,14 @@ class XrayApiScanner(
                     launch(dispatcher) {
                         try {
                             var portIndex = workerIndex
-                            while (portIndex < portsTotal && !result.isCompleted) {
+                            while (portIndex < ports.size && !result.isCompleted) {
                                 ensureActive()
-                                val port = scanPorts?.get(portIndex) ?: scanRange.first + portIndex
-                                val match = if (isTcpPortOpen(host, port)) tryListOutbounds(host, port) else null
+                                val port = ports[portIndex]
+                                val attempt = tryPort(host, port)
+                                outcome.updateAndGet { it.merge(attempt.status) }
                                 progress.completedAttempt(port)
-                                if (match != null) {
-                                    result.complete(match)
+                                if (attempt.match != null) {
+                                    result.complete(attempt.match)
                                     return@launch
                                 }
                                 portIndex += workerCount
@@ -112,7 +115,7 @@ class XrayApiScanner(
             jobs.joinAll()
 
             progress.flush()
-            match
+            LocalScanResult(match, if (match != null) LocalScanStatus.MATCHED else outcome.get())
         }
 
     private class HostProgress(
@@ -141,37 +144,61 @@ class XrayApiScanner(
         }
     }
 
-    private suspend fun tryListOutbounds(
+    private suspend fun tryPort(
         host: String,
         port: Int,
-    ): XrayApiScanResult? {
+    ): LocalScanResult<XrayApiScanResult> {
+        connectFailure(host, port)?.let { return LocalScanResult(null, it) }
+
         val client = clients.getValue(host)
-        val attempt = client.listOutbounds(port, deadlineMs = grpcDeadlineMs)
-        val error = attempt.exceptionOrNull() ?: return attempt.getOrThrow()
-        if (Status.fromThrowable(error).code != Status.Code.UNAVAILABLE) return null
-        return client.listOutbounds(port, deadlineMs = grpcDeadlineMs).getOrNull()
+        val first = client.listOutbounds(port, deadlineMs = grpcDeadlineMs)
+        val attempt =
+            if (first.exceptionOrNull()?.let(Status::fromThrowable)?.code == Status.Code.UNAVAILABLE) {
+                client.listOutbounds(port, deadlineMs = grpcDeadlineMs)
+            } else {
+                first
+            }
+        return attempt.fold(
+            onSuccess = { LocalScanResult(it, LocalScanStatus.MATCHED) },
+            onFailure = { LocalScanResult(null, rpcFailureStatus(Status.fromThrowable(it).code)) },
+        )
     }
 
-    private suspend fun isTcpPortOpen(
+    private fun rpcFailureStatus(code: Status.Code): LocalScanStatus =
+        when (code) {
+            Status.Code.UNAUTHENTICATED,
+            Status.Code.PERMISSION_DENIED,
+            -> LocalScanStatus.REJECTED
+
+            Status.Code.UNIMPLEMENTED -> LocalScanStatus.NO_MATCH
+
+            Status.Code.DEADLINE_EXCEEDED -> LocalScanStatus.TIMED_OUT
+
+            else -> LocalScanStatus.UNAVAILABLE
+        }
+
+    private suspend fun connectFailure(
         host: String,
         port: Int,
-    ): Boolean =
+    ): LocalScanStatus? =
         Socket(Proxy.NO_PROXY).use { socket ->
             suspendCancellableCoroutine { continuation ->
                 continuation.invokeOnCancellation { runCatching { socket.close() } }
                 if (continuation.isActive) {
-                    val opened =
+                    val failure =
                         try {
                             socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
-                            true
+                            null
+                        } catch (_: ConnectException) {
+                            LocalScanStatus.NO_MATCH
+                        } catch (_: SocketTimeoutException) {
+                            LocalScanStatus.TIMED_OUT
                         } catch (_: IOException) {
-                            false
-                        } catch (_: IllegalArgumentException) {
-                            false
+                            LocalScanStatus.UNAVAILABLE
                         } catch (_: SecurityException) {
-                            false
+                            LocalScanStatus.UNAVAILABLE
                         }
-                    continuation.resume(opened)
+                    continuation.resume(failure)
                 }
             }
         }

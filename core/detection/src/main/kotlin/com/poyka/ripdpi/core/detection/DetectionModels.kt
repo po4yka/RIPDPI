@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection
 
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
+import com.poyka.ripdpi.core.detection.probe.LocalScanStatus
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.XrayApiScanResult
 
@@ -306,7 +307,35 @@ data class BypassResult(
     val detected: Boolean,
     val needsReview: Boolean = false,
     val evidence: List<EvidenceItem> = emptyList(),
-)
+    val proxyScanStatus: LocalScanStatus =
+        if (proxyEndpoint == null) {
+            LocalScanStatus.SKIPPED
+        } else {
+            LocalScanStatus.MATCHED
+        },
+    val xrayScanStatus: LocalScanStatus =
+        if (xrayApiScanResult == null) {
+            LocalScanStatus.SKIPPED
+        } else {
+            LocalScanStatus.MATCHED
+        },
+) {
+    val executionStatus: CheckExecutionStatus
+        get() =
+            when {
+                proxyScanStatus == LocalScanStatus.SKIPPED && xrayScanStatus == LocalScanStatus.SKIPPED -> {
+                    CheckExecutionStatus.SKIPPED
+                }
+
+                proxyScanStatus.isInconclusive || xrayScanStatus.isInconclusive -> {
+                    CheckExecutionStatus.INCONCLUSIVE
+                }
+
+                else -> {
+                    CheckExecutionStatus.COMPLETED
+                }
+            }
+}
 
 enum class IcmpSpoofingState {
     INCONCLUSIVE,
@@ -380,14 +409,15 @@ data class DetectionCheckResult(
 )
 
 fun DetectionCheckResult.hasIncompleteChecks(): Boolean =
-    listOfNotNull(
-        directSigns,
-        tlsFingerprint,
-        timingAnalysis,
-        icmpSpoofing?.category,
-        rttTriangulation?.category,
-        webRtcLeak,
-        callTransport?.category,
-    ).any {
-        it.executionStatus == CheckExecutionStatus.INCONCLUSIVE || it.executionStatus == CheckExecutionStatus.ERROR
-    }
+    bypassResult.executionStatus == CheckExecutionStatus.INCONCLUSIVE ||
+        listOfNotNull(
+            directSigns,
+            tlsFingerprint,
+            timingAnalysis,
+            icmpSpoofing?.category,
+            rttTriangulation?.category,
+            webRtcLeak,
+            callTransport?.category,
+        ).any {
+            it.executionStatus == CheckExecutionStatus.INCONCLUSIVE || it.executionStatus == CheckExecutionStatus.ERROR
+        }

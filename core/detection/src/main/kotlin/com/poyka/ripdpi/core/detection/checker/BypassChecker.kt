@@ -11,6 +11,8 @@ import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.probe.IfconfigClient
 import com.poyka.ripdpi.core.detection.probe.KnownLocalServices
+import com.poyka.ripdpi.core.detection.probe.LocalScanResult
+import com.poyka.ripdpi.core.detection.probe.LocalScanStatus
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.ProxyScanner
 import com.poyka.ripdpi.core.detection.probe.ProxyType
@@ -64,16 +66,16 @@ object BypassChecker {
                 async {
                     when {
                         !options.proxyScanEnabled -> {
-                            null
+                            LocalScanResult(null, LocalScanStatus.SKIPPED)
                         }
 
                         proxyEndpointProvider != null -> {
-                            proxyEndpointProvider.invoke()
+                            providerResult(proxyEndpointProvider.invoke())
                         }
 
                         else -> {
                             onProgress?.invoke(Progress("Port scanning", "Searching for open proxies on localhost..."))
-                            scanner.findOpenProxyEndpoint(
+                            scanner.scan(
                                 onProgress = { progress ->
                                     val phaseText =
                                         when (progress.phase) {
@@ -93,16 +95,16 @@ object BypassChecker {
                 async {
                     when {
                         !options.xrayApiScanEnabled -> {
-                            null
+                            LocalScanResult(null, LocalScanStatus.SKIPPED)
                         }
 
                         xrayApiScanProvider != null -> {
-                            xrayApiScanProvider.invoke()
+                            providerResult(xrayApiScanProvider.invoke())
                         }
 
                         else -> {
                             onProgress?.invoke(Progress("Xray API", "Searching for gRPC API on localhost..."))
-                            xrayScanner.findXrayApi { progress ->
+                            xrayScanner.scan { progress ->
                                 val percent = if (progress.total > 0) (progress.scanned * 100 / progress.total) else 0
                                 onProgress?.invoke(
                                     Progress("Xray API", "${progress.host}:${progress.currentPort} ($percent%)"),
@@ -112,11 +114,13 @@ object BypassChecker {
                     }
                 }
 
-            val proxyEndpoint = proxyDeferred.await()
-            val xrayApiScanResult = xrayDeferred.await()
+            val proxyScan = proxyDeferred.await()
+            val xrayScan = xrayDeferred.await()
+            val proxyEndpoint = proxyScan.match
+            val xrayApiScanResult = xrayScan.match
 
-            reportProxyResult(proxyEndpoint, findings, evidence)
-            reportXrayApiResult(xrayApiScanResult, findings, evidence)
+            reportProxyResult(proxyScan, findings, evidence)
+            reportXrayApiResult(xrayScan, findings, evidence)
 
             var directIp: String? = null
             var proxyIp: String? = null
@@ -185,6 +189,8 @@ object BypassChecker {
                     detected = false,
                     needsReview = true,
                     evidence = evidence,
+                    proxyScanStatus = proxyScan.status,
+                    xrayScanStatus = xrayScan.status,
                 )
             }
 
@@ -197,6 +203,8 @@ object BypassChecker {
                 detected = false,
                 needsReview = xrayApiScanResult != null,
                 evidence = evidence,
+                proxyScanStatus = proxyScan.status,
+                xrayScanStatus = xrayScan.status,
             )
         }
 
@@ -236,12 +244,13 @@ object BypassChecker {
     }
 
     private fun reportProxyResult(
-        proxyEndpoint: ProxyEndpoint?,
+        scan: LocalScanResult<ProxyEndpoint>,
         findings: MutableList<Finding>,
         evidence: MutableList<EvidenceItem>,
     ) {
+        val proxyEndpoint = scan.match
         if (proxyEndpoint == null) {
-            findings.add(Finding("Open proxies on localhost: not detected"))
+            findings.add(Finding("Local proxy scan: ${scan.status.description()}", source = EvidenceSource.LOCAL_PROXY))
             return
         }
 
@@ -249,12 +258,15 @@ object BypassChecker {
         val familySuffix = candidateFamilies.takeIf { it.isNotEmpty() }?.joinToString()
         val description =
             buildString {
-                append("Open ")
-                append(proxyEndpoint.type.name)
-                append(" proxy: ")
+                append(
+                    when (proxyEndpoint.type) {
+                        ProxyType.SOCKS5 -> "SOCKS5 no-auth greeting accepted at "
+                        ProxyType.HTTP -> "HTTP CONNECT accepted at "
+                    },
+                )
                 append(formatHostPort(proxyEndpoint.host, proxyEndpoint.port))
                 if (!familySuffix.isNullOrBlank()) {
-                    append(" [")
+                    append(" [possible families: ")
                     append(familySuffix)
                     append("]")
                 }
@@ -275,21 +287,20 @@ object BypassChecker {
                 source = EvidenceSource.LOCAL_PROXY,
                 detected = true,
                 confidence = EvidenceConfidence.MEDIUM,
-                description =
-                    "Detected open ${proxyEndpoint.type.name} proxy at " +
-                        formatHostPort(proxyEndpoint.host, proxyEndpoint.port),
+                description = description,
                 family = familySuffix,
             ),
         )
     }
 
     private fun reportXrayApiResult(
-        xrayApiScanResult: XrayApiScanResult?,
+        scan: LocalScanResult<XrayApiScanResult>,
         findings: MutableList<Finding>,
         evidence: MutableList<EvidenceItem>,
     ) {
+        val xrayApiScanResult = scan.match
         if (xrayApiScanResult == null) {
-            findings.add(Finding("Xray gRPC API: not detected"))
+            findings.add(Finding("Xray gRPC API scan: ${scan.status.description()}", source = EvidenceSource.XRAY_API))
             return
         }
 
@@ -313,6 +324,20 @@ object BypassChecker {
             ),
         )
     }
+
+    private fun <T> providerResult(match: T?): LocalScanResult<T> =
+        LocalScanResult(match, if (match == null) LocalScanStatus.NO_MATCH else LocalScanStatus.MATCHED)
+
+    private fun LocalScanStatus.description(): String =
+        when (this) {
+            LocalScanStatus.MATCHED -> "match found"
+            LocalScanStatus.NO_MATCH -> "no matching service on scanned ports"
+            LocalScanStatus.REJECTED -> "connection or request rejected"
+            LocalScanStatus.TIMED_OUT -> "timed out"
+            LocalScanStatus.UNAVAILABLE -> "unavailable"
+            LocalScanStatus.PARTIAL -> "some attempts did not complete"
+            LocalScanStatus.SKIPPED -> "skipped"
+        }
 
     private fun formatHostPort(
         host: String,

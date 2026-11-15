@@ -54,7 +54,7 @@ object DetectionJsonExportFormatter {
     ): JsonObject =
         JsonObject(
             mapOf(
-                "formatVersion" to JsonPrimitive(1),
+                "formatVersion" to JsonPrimitive(2),
                 "timestamp" to context.string(metadata.timestamp),
                 "appVersion" to context.string(metadata.appVersion),
                 "buildType" to context.string(metadata.buildType),
@@ -138,6 +138,9 @@ object DetectionJsonExportFormatter {
     ): JsonObject =
         JsonObject(
             mapOf(
+                "executionStatus" to JsonPrimitive(bypass.executionStatus.name),
+                "proxyScanStatus" to JsonPrimitive(bypass.proxyScanStatus.name),
+                "xrayScanStatus" to JsonPrimitive(bypass.xrayScanStatus.name),
                 "detected" to JsonPrimitive(bypass.detected),
                 "needsReview" to JsonPrimitive(bypass.needsReview),
                 "proxyEndpoint" to context.string(bypass.proxyEndpoint?.let { "${it.type}:${it.host}:${it.port}" }),

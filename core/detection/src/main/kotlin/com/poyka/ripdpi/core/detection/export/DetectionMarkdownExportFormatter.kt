@@ -171,6 +171,8 @@ object DetectionMarkdownExportFormatter {
         appendLine("## Bypass")
         appendLine()
         appendLine("- status: ${bypass.statusTag()}")
+        appendLine("- proxyScanStatus: ${bypass.proxyScanStatus}")
+        appendLine("- xrayScanStatus: ${bypass.xrayScanStatus}")
         appendLine("- proxyEndpoint: ${bypass.proxyEndpoint?.let { "${it.type}:${it.host}:${it.port}" } ?: "-"}")
         appendLine("- directIp: ${bypass.directIp ?: "-"}")
         appendLine("- proxyIp: ${bypass.proxyIp ?: "-"}")
@@ -280,6 +282,7 @@ object DetectionMarkdownExportFormatter {
 
     private fun BypassResult.statusTag(): String =
         when {
+            executionStatus != CheckExecutionStatus.COMPLETED -> "[${executionStatus.name}]"
             detected -> "[DETECTED]"
             needsReview -> "[REVIEW]"
             else -> "[OK]"

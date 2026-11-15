@@ -100,6 +100,7 @@ object DetectionReportFormatter {
         appendLine("--- Bypass ---")
         val status =
             when {
+                bypass.executionStatus != CheckExecutionStatus.COMPLETED -> bypass.executionStatus.name
                 bypass.detected -> "DETECTED"
                 bypass.needsReview -> "NEEDS REVIEW"
                 else -> "OK"

@@ -30,7 +30,7 @@ class DetectionJsonExportFormatterTest {
         val root = parseJson(DetectionJsonExportFormatter.format(detectionExportFixture(), exportMetadata()))
 
         assertEquals(
-            "1",
+            "2",
             root
                 .getValue("meta")
                 .jsonObject

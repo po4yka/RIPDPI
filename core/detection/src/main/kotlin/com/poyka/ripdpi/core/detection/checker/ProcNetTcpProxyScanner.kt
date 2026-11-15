@@ -42,20 +42,36 @@ internal object ProcNetTcpProxyScanner {
         reader: ProcNetTcpReader,
         packageResolver: (uid: Int) -> List<String>,
     ): List<Finding> {
+        val tables =
+            mapOf(
+                "tcp" to readTable("tcp", reader::readTcp),
+                "tcp6" to readTable("tcp6", reader::readTcp6),
+            )
         val packagesByUid = mutableMapOf<Int, List<String>>()
-        return (readTable("tcp", reader::readTcp) + readTable("tcp6", reader::readTcp6))
-            .distinct()
-            .map { socket ->
+        return buildList {
+            tables.forEach { (table, sockets) ->
+                val status =
+                    when {
+                        sockets == null -> "unavailable"
+                        sockets.isEmpty() -> "no listeners on known proxy ports"
+                        else -> "listeners on known proxy ports observed"
+                    }
+                add(Finding("/proc/net/$table: $status"))
+            }
+            tables.values.filterNotNull().flatten().distinct().forEach { socket ->
                 val candidates = packagesByUid.getOrPut(socket.uid) { packageCandidates(socket.uid, packageResolver) }
-                Finding(
-                    description =
-                        "${socket.endpointLabel()} is listening on a known proxy port, " +
-                            "UID ${socket.uid}${candidatesLabel(candidates)}",
-                    needsReview = true,
-                    source = EvidenceSource.LOCAL_PROXY,
-                    confidence = EvidenceConfidence.LOW,
+                add(
+                    Finding(
+                        description =
+                            "${socket.endpointLabel()} is listening on a known proxy port, " +
+                                "UID ${socket.uid}${candidatesLabel(candidates)}",
+                        needsReview = true,
+                        source = EvidenceSource.LOCAL_PROXY,
+                        confidence = EvidenceConfidence.LOW,
+                    ),
                 )
             }
+        }
     }
 
     private fun packageCandidates(
@@ -80,17 +96,15 @@ internal object ProcNetTcpProxyScanner {
     private fun readTable(
         table: String,
         read: () -> String,
-    ): List<ProcNetSocket> =
+    ): List<ProcNetSocket>? =
         try {
-            read()
-                .lineSequence()
-                .drop(1)
-                .mapNotNull { line -> line.toProcNetSocket(table) }
-                .toList()
+            val lines = read().lineSequence()
+            if (lines.firstOrNull()?.contains("local_address") != true) return null
+            lines.drop(1).mapNotNull { line -> line.toProcNetSocket(table) }.toList()
         } catch (_: IOException) {
-            emptyList()
+            null
         } catch (_: SecurityException) {
-            emptyList()
+            null
         }
 
     private fun String.toProcNetSocket(table: String): ProcNetSocket? {
