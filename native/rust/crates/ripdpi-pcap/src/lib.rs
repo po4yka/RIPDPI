@@ -14,7 +14,7 @@ mod reader;
 mod redact;
 mod writer;
 
-pub use constants::{LINKTYPE_RAW, MAGIC, SNAPLEN_DEFAULT};
+pub use constants::{LINKTYPE_RAW, MAGIC, PCAP_GLOBAL_HEADER_LEN, PCAP_PACKET_HEADER_LEN, SNAPLEN_DEFAULT};
 pub use reader::{PcapReader, PcapRecord};
 pub use redact::{redact_in_place, rewrite_endpoints};
 pub use writer::PcapWriter;
@@ -183,6 +183,30 @@ mod tests {
         assert_eq!(&buf[8..16], &[0u8; 8]);
         assert_eq!(&buf[16..20], &SNAPLEN_DEFAULT.to_le_bytes());
         assert_eq!(&buf[20..24], &LINKTYPE_RAW.to_le_bytes());
+    }
+
+    #[test]
+    fn writer_rejects_zero_snaplen_without_writing() {
+        let mut output = Vec::new();
+        let error = PcapWriter::new(&mut output, 0).err().expect("zero snaplen");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn writer_rejects_unrepresentable_records_without_writing() {
+        let mut output = Vec::new();
+        let latest = 4_294_967_295_999_999;
+        {
+            let mut writer = PcapWriter::new(&mut output, u32::MAX).unwrap();
+            let timestamp = writer.write_packet(latest + 1, &[]).unwrap_err();
+            assert_eq!(timestamp.kind(), std::io::ErrorKind::InvalidInput);
+            let length = writer.write_packet(latest, &vec![0; 262_145]).unwrap_err();
+            assert_eq!(length.kind(), std::io::ErrorKind::InvalidInput);
+            assert_eq!(writer.bytes_written(), 24);
+            writer.write_packet(latest, &[]).unwrap();
+        }
+        assert_eq!(&output[24..40], &[255, 255, 255, 255, 63, 66, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
     // -- roundtrip ---------------------------------------------------------

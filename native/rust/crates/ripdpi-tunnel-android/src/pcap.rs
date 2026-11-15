@@ -20,9 +20,10 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crossbeam_queue::ArrayQueue;
-use ripdpi_pcap::{PcapWriter, SNAPLEN_DEFAULT};
+use ripdpi_pcap::{PCAP_GLOBAL_HEADER_LEN, PCAP_PACKET_HEADER_LEN, PcapWriter, SNAPLEN_DEFAULT};
 use ripdpi_tunnel_core::PacketObserver;
 
+const MIN_FILE_BYTES: u64 = (PCAP_GLOBAL_HEADER_LEN + PCAP_PACKET_HEADER_LEN) as u64;
 const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_FILES: u32 = 16;
 pub(crate) const GLOBAL_MAX_CAPTURE_BYTES: u64 = 64 * 1024 * 1024;
@@ -152,6 +153,7 @@ pub enum PcapWriterFailure {
 #[derive(Debug, Default)]
 struct WriterResult {
     files: Vec<PcapCaptureMetadata>,
+    oversized_records: u64,
     failure: Option<PcapWriterFailure>,
 }
 
@@ -164,10 +166,10 @@ impl PcapCaptureSet {
     /// `max_files` together cap the on-disk footprint (default per
     /// design: 16 MiB x 4 = 64 MiB).
     pub fn start(set_id: u64, dir: PathBuf, max_file_bytes: u64, max_files: u32) -> std::io::Result<Self> {
-        if !(1..=MAX_FILE_BYTES).contains(&max_file_bytes) || !(1..=MAX_FILES).contains(&max_files) {
+        if !(MIN_FILE_BYTES..=MAX_FILE_BYTES).contains(&max_file_bytes) || !(1..=MAX_FILES).contains(&max_files) {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("pcap limits must be fileBytes=1..={MAX_FILE_BYTES}, files=1..={MAX_FILES}"),
+                format!("pcap limits must be fileBytes={MIN_FILE_BYTES}..={MAX_FILE_BYTES}, files=1..={MAX_FILES}"),
             ));
         }
         if !dir.is_dir() {
@@ -218,6 +220,7 @@ impl PcapCaptureSet {
                 Ok(writer_result) => {
                     result.files = writer_result.files;
                     result.failure = writer_result.failure;
+                    result.total_drops += writer_result.oversized_records;
                     // Annotate the drops on the last file (most informative
                     // location for the UI).
                     if let Some(last) = result.files.last_mut() {
@@ -342,12 +345,14 @@ fn writer_loop(
     let _live_writer = LiveWriterGuard::enter();
     let mut result = WriterResult::default();
     let mut file_idx: u32 = 0;
+    let mut pending = None;
     while file_idx < max_files {
         match open_file(set_id, &dir, file_idx) {
             Ok((active_path, completed_path, file, started_at_ms)) => {
-                let drain = drain_one_file(&queue, &stop, file, max_file_bytes);
+                let drain = drain_one_file(&queue, &stop, file, max_file_bytes, &mut pending);
                 match drain {
-                    Ok((bytes, packets)) => {
+                    Ok((bytes, packets, oversized_records)) => {
+                        result.oversized_records += oversized_records;
                         if let Err(err) = fs::rename(&active_path, &completed_path) {
                             tracing::warn!(error = %err, "pcap writer failed to finalize capture file");
                             let _ = fs::remove_file(&active_path);
@@ -371,7 +376,7 @@ fn writer_loop(
                     }
                 }
                 file_idx += 1;
-                if stop.load(Ordering::Acquire) && queue.is_empty() {
+                if stop.load(Ordering::Acquire) && pending.is_none() && queue.is_empty() {
                     break;
                 }
             }
@@ -395,29 +400,41 @@ fn open_file(set_id: u64, dir: &Path, idx: u32) -> std::io::Result<(PathBuf, Pat
     Ok((active_path, completed_path, writer, started))
 }
 
-/// Drain records into `file` until either `max_file_bytes` reached
-/// OR `stop` is signaled AND the queue is drained. Returns the byte
-/// count + packet count written to this file.
+/// Keep a record that fits only in the next segment in `pending`.
+/// A record larger than an empty segment is counted as a capture drop.
 fn drain_one_file(
     queue: &ArrayQueue<PcapCaptureRecord>,
     stop: &AtomicBool,
     file: BufWriter<File>,
     max_file_bytes: u64,
-) -> std::io::Result<(u64, u64)> {
+    pending: &mut Option<PcapCaptureRecord>,
+) -> std::io::Result<(u64, u64, u64)> {
     let mut writer = PcapWriter::new(file, SNAPLEN_DEFAULT)?;
     let mut packets: u64 = 0;
+    let mut oversized_records = 0;
     let mut last_flush = Instant::now();
     loop {
-        match queue.pop() {
+        match pending.take().or_else(|| queue.pop()) {
             Some(record) => {
-                writer.write_packet(record.ts_micros, &record.bytes)?;
-                packets += 1;
-                if writer.bytes_written() >= max_file_bytes {
+                let captured_len = record.bytes.len().min(SNAPLEN_DEFAULT as usize);
+                let record_bytes = (PCAP_PACKET_HEADER_LEN + captured_len) as u64;
+                if record_bytes > max_file_bytes - PCAP_GLOBAL_HEADER_LEN as u64 {
+                    oversized_records += 1;
+                } else {
+                    if record_bytes > max_file_bytes - writer.bytes_written() {
+                        *pending = Some(record);
+                        break;
+                    }
+                    writer.write_packet(record.ts_micros, &record.bytes)?;
+                    packets += 1;
+                }
+                if writer.bytes_written() == max_file_bytes {
                     break;
                 }
             }
             None => {
-                if stop.load(Ordering::Acquire) {
+                // The empty pop could precede the last admitted producer.
+                if stop.load(Ordering::Acquire) && queue.is_empty() {
                     break;
                 }
                 thread::sleep(Duration::from_millis(50));
@@ -435,7 +452,7 @@ fn drain_one_file(
     let buf_writer = writer.into_inner();
     let inner_file = buf_writer.into_inner().map_err(std::io::IntoInnerError::into_error)?;
     inner_file.sync_all()?;
-    Ok((bytes, packets))
+    Ok((bytes, packets, oversized_records))
 }
 
 fn now_ms() -> u64 {
@@ -705,6 +722,39 @@ mod tests {
         let result = capture.stop();
         let total_packets: u64 = result.files.iter().map(|f| f.packet_count).sum();
         assert!(total_packets >= 1, "expected >=1 packet written, got files={:?}", result.files);
+    }
+
+    #[test]
+    fn rotation_defers_a_complete_record_to_the_next_segment() {
+        let _serial = serial_pcap_test();
+        let dir = TempDir::new().unwrap();
+        let capture = PcapCaptureSet::start(16, dir.path().to_path_buf(), 100, 3).unwrap();
+        assert!(capture.submit(fake_packet(1)));
+        assert!(capture.submit(fake_packet(2)));
+
+        let result = capture.stop();
+        assert_eq!(result.failure, None);
+        assert_eq!(result.total_drops, 0);
+        assert_eq!(result.files.len(), 2);
+        for (file, marker) in result.files.iter().zip(1..=2) {
+            let bytes = std::fs::read(&file.path).unwrap();
+            assert_eq!(bytes.len(), 68);
+            assert_eq!(bytes[60], marker);
+        }
+    }
+
+    #[test]
+    fn packets_larger_than_an_empty_segment_are_counted_without_overshoot() {
+        let _serial = serial_pcap_test();
+        let dir = TempDir::new().unwrap();
+        let capture = PcapCaptureSet::start(17, dir.path().to_path_buf(), 59, 1).unwrap();
+        assert!(capture.submit(fake_packet(1)));
+
+        let result = capture.stop();
+        assert_eq!(result.failure, None);
+        assert_eq!(result.total_drops, 1);
+        assert_eq!(result.files.len(), 1);
+        assert_eq!(std::fs::metadata(&result.files[0].path).unwrap().len(), 24);
     }
 
     #[test]
