@@ -98,7 +98,7 @@ fn outcome_fixture_tokens(path: &str) -> BTreeSet<String> {
 #[test]
 fn outcome_scanner_covers_delegated_domain_classification() {
     let emitted_tokens = emitted_native_outcome_tokens();
-    for token in ["tls_cert_invalid", "tls_ech_only", "tls_version_split", "unreachable"] {
+    for token in ["tls_cert_invalid", "tls_ech_only", "tls_retry_only", "tls_version_split", "unreachable"] {
         assert!(emitted_tokens.contains(token), "missing delegated domain outcome: {token}");
     }
 }
@@ -148,6 +148,10 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         (
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/domain.rs",
             "fn run_domain_probe_with_tls_probe",
+        ),
+        (
+            "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/domain.rs",
+            "fn classify_domain_outcome",
         ),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/tcp.rs", "fn tcp_probe_outcome"),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/quic.rs", "pub fn run_quic_probe"),
