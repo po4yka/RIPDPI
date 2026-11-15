@@ -1258,6 +1258,27 @@ fn zero_udplen_never_injects_or_consumes_the_original() {
 }
 
 #[test]
+fn udplen_ipv6_options_inject_decoys_and_keep_the_original() {
+    use super::upstream_vectors::{IPV6_HOP_UDP, decode};
+    let yaml = "version: 1\nstrategies:\n  - id: options\n    steps:\n      - type: udplen\n        delta: 4\n";
+    for next in [0, 60] {
+        let mut packet = decode(IPV6_HOP_UDP);
+        packet[6] = next;
+        let original = packet.clone();
+        let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default()).unwrap();
+        assert!(!interceptor.handle_packet(&packet));
+        assert_eq!(interceptor.injector.packets.len(), 1);
+        let decoy = &interceptor.injector.packets[0];
+        assert_eq!(&decoy[..52], &packet[..52]);
+        assert_eq!(&decoy[52..54], &19u16.to_be_bytes());
+        // The pinned upstream packet with four zero payload bytes has this checksum.
+        assert_eq!(&decoy[54..56], &0x513du16.to_be_bytes());
+        assert_eq!(&decoy[56..], b"abcdefg");
+        assert_eq!(packet, original);
+    }
+}
+
+#[test]
 fn zero_udplen_does_not_suppress_later_actions_or_explicit_drop() {
     let packet = ipv4_udp_packet(31000, 443, b"hello");
     let (_script, mut chain) =

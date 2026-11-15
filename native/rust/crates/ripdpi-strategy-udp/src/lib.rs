@@ -82,10 +82,7 @@ pub fn apply_udplen(packet: &[u8], delta: i16) -> Option<Vec<u8>> {
 
 /// Calculates the checksum that should be stored in an IPv6 UDP packet.
 pub fn ipv6_udp_checksum(packet: &[u8]) -> Option<u16> {
-    if packet.len() < IPV6_HEADER_LEN + UDP_HEADER_LEN || packet[0] >> 4 != 6 || packet[6] != UDP_NEXT_HEADER {
-        return None;
-    }
-    let udp_offset = IPV6_HEADER_LEN;
+    let udp_offset = ipv6_udp_offset(packet)?;
     let udp_len = u16::from_be_bytes([packet[udp_offset + 4], packet[udp_offset + 5]]) as u32;
     let mut udp_segment = packet[udp_offset..].to_vec();
     udp_segment[6] = 0;
@@ -149,17 +146,50 @@ fn apply_udplen_ipv4(packet: &[u8], delta: i16) -> Option<Vec<u8>> {
 }
 
 fn apply_udplen_ipv6(packet: &[u8], delta: i16) -> Option<Vec<u8>> {
-    if packet.len() < IPV6_HEADER_LEN + UDP_HEADER_LEN || packet[6] != UDP_NEXT_HEADER {
-        return None;
-    }
-    let udp_length_offset = IPV6_HEADER_LEN + 4;
+    let udp_offset = ipv6_udp_offset(packet)?;
+    let udp_length_offset = udp_offset + 4;
     let next_length = adjusted_udp_len(packet, udp_length_offset, delta)?;
     let mut output = packet.to_vec();
     output[udp_length_offset..udp_length_offset + 2].copy_from_slice(&next_length.to_be_bytes());
-    output[IPV6_HEADER_LEN + 6..IPV6_HEADER_LEN + 8].copy_from_slice(&[0, 0]);
+    output[udp_offset + 6..udp_offset + 8].copy_from_slice(&[0, 0]);
     let checksum = ipv6_udp_checksum(&output)?;
-    output[IPV6_HEADER_LEN + 6..IPV6_HEADER_LEN + 8].copy_from_slice(&checksum.to_be_bytes());
+    output[udp_offset + 6..udp_offset + 8].copy_from_slice(&checksum.to_be_bytes());
     Some(output)
+}
+
+// Only option headers can precede UDP; authenticated, routed and fragmented packets stay unsupported.
+fn ipv6_udp_offset(packet: &[u8]) -> Option<usize> {
+    if packet.len() < IPV6_HEADER_LEN + UDP_HEADER_LEN || packet[0] >> 4 != 6 {
+        return None;
+    }
+    let payload_len = usize::from(u16::from_be_bytes([packet[4], packet[5]]));
+    if payload_len == 0 || IPV6_HEADER_LEN + payload_len != packet.len() {
+        return None;
+    }
+    let mut next_header = packet[6];
+    let mut offset = IPV6_HEADER_LEN;
+    while matches!(next_header, 0 | 60) {
+        if next_header == 0 && offset != IPV6_HEADER_LEN {
+            return None;
+        }
+        let header = packet.get(offset..offset + 2)?;
+        let end = offset.checked_add((usize::from(header[1]) + 1) * 8)?;
+        let mut options = packet.get(offset + 2..end)?;
+        while let Some(&kind) = options.first() {
+            if kind == 0 {
+                options = &options[1..];
+            } else {
+                if kind & 0xc0 != 0 {
+                    return None;
+                }
+                let length = usize::from(*options.get(1)?);
+                options = options.get(length + 2..)?;
+            }
+        }
+        next_header = header[0];
+        offset = end;
+    }
+    (next_header == UDP_NEXT_HEADER && packet.len() >= offset + UDP_HEADER_LEN).then_some(offset)
 }
 
 fn adjusted_udp_len(packet: &[u8], offset: usize, delta: i16) -> Option<u16> {

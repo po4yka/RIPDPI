@@ -147,6 +147,11 @@ emission. A positive sidecar requires UDP Length to match the carried UDP
 segment before the change; it then advertises more bytes than the packet
 contains.
 
+For IPv6 UDP, the converter follows safe Hop-by-Hop and Destination Options
+headers to the UDP header. It preserves the extension bytes and packet
+size, and computes the UDP checksum at that offset. Routing, Fragment, AH,
+ESP and IPv6 jumbograms remain outside this path.
+
 ```mermaid
 flowchart LR
     A["Packet from Android TUN"] --> B["Parse IP + transport headers"]
