@@ -106,8 +106,14 @@ class NativeEchTlsHandshake(
             response.error?.takeIf(String::isNotBlank)?.let { message ->
                 throw IOException(message)
             }
+            if (response.negotiatedEch != true || response.latencyMs == null || response.latencyMs < 0) {
+                throw EchTlsSetupException(
+                    EchTlsSetupFailure.UNAVAILABLE,
+                    "native ECH TLS bridge returned an incomplete result",
+                )
+            }
             EchTlsHandshakeResult(
-                negotiatedEch = response.negotiatedEch ?: false,
+                negotiatedEch = true,
                 latencyMs = response.latencyMs,
             )
         }

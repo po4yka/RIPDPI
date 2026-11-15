@@ -69,6 +69,29 @@ class NativeEchTlsHandshakeTest {
             assertEquals(EchTlsSetupFailure.UNUSABLE_CONFIG, (error as EchTlsSetupException).failure)
         }
 
+    @Test
+    fun incompleteResultIsABridgeFailure() =
+        runTest {
+            val invalidPayloads =
+                listOf(
+                    "{}",
+                    """{"negotiatedEch":null}""",
+                    """{"negotiatedEch":false,"latencyMs":4}""",
+                    """{"negotiatedEch":true}""",
+                    """{"negotiatedEch":true,"latencyMs":-1}""",
+                )
+            for (payload in invalidPayloads) {
+                val handshake = NativeEchTlsHandshake(FakeNativeEchTlsHandshakeBindings(payload))
+                val error =
+                    runCatching {
+                        handshake.connect(EchTlsEndpoint("origin.example", "edge.example", 8443), TestEchConfigList)
+                    }.exceptionOrNull()
+
+                assertTrue(error is EchTlsSetupException)
+                assertEquals(EchTlsSetupFailure.UNAVAILABLE, (error as EchTlsSetupException).failure)
+            }
+        }
+
     private class FakeNativeEchTlsHandshakeBindings(
         private val responseJson: String?,
     ) : NativeEchTlsHandshakeBindings {
