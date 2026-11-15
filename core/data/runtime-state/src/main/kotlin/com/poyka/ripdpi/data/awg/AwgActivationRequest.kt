@@ -231,10 +231,7 @@ fun AwgProfileForm.toActivationRequest(
         interfaceAddressV4 = interfaceAddressV4,
         interfaceAddressV6 = interfaceAddressV6,
         dnsServers = dnsServers,
-        allowedIps =
-            allowedIps ?: run {
-                if (interfaceAddressV6.isEmpty()) listOf("0.0.0.0/0") else listOf("0.0.0.0/0", "::/0")
-            },
+        allowedIps = allowedIps ?: defaultAwgAllowedIps(hasIpv6Address = interfaceAddressV6.isNotEmpty()),
         mtu = mtu,
         persistentKeepalive = persistentKeepalive,
         persistentKeepaliveMax = persistentKeepaliveMax,
@@ -262,5 +259,9 @@ fun AwgProfileForm.toActivationRequest(
                 v3 = v3,
             ),
     )
+
+/** Default routes for a new manual profile or share link without a route policy. */
+fun defaultAwgAllowedIps(hasIpv6Address: Boolean): List<String> =
+    if (hasIpv6Address) listOf("0.0.0.0/0", "::/0") else listOf("0.0.0.0/0")
 
 private const val WssSchemePrefix = "wss://"

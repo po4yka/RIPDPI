@@ -54,7 +54,7 @@ private fun AmneziaWgEditorState.imported(
     val editor =
         copy(
             form = nextForm,
-            rawTextByField = rawTextByField - AwgEditorField.ALLOWED_IPS + nextRaw,
+            rawTextByField = rawTextByField + nextRaw,
             obfuscationLocked = cohortId != AwgProfileForm.CUSTOM_COHORT_ID,
         )
     return AwgConfImport.Imported(
@@ -70,9 +70,9 @@ private fun AmneziaWgEditorState.transportRawText(parsed: WireGuardConfModel): M
         put(AwgEditorField.ADDRESS, iface.address.joinToString(", "))
         put(AwgEditorField.DNS, iface.dns.joinToString(", "))
         put(AwgEditorField.MTU, iface.mtu?.toString().orEmpty())
-        if (peer?.allowedIpsSpecified == true) {
-            put(AwgEditorField.ALLOWED_IPS, peer.allowedIps.joinToString(", "))
-        }
+        // An omitted .conf route list is empty. The manual editor uses a default
+        // policy only when this field has not been set at all.
+        put(AwgEditorField.ALLOWED_IPS, peer?.allowedIps.orEmpty().joinToString(", "))
         put(
             AwgEditorField.PERSISTENT_KEEPALIVE,
             peer

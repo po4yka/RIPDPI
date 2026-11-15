@@ -148,8 +148,9 @@ data class AmneziaWgEditorState(
 
     /** Invalid raw text or a prefix that cannot hold the configured header-protection nonce. */
     fun hasFieldError(field: AwgEditorField): Boolean {
-        val raw = rawTextByField[field].orEmpty()
-        return (raw.isNotEmpty() && field.validate(raw) == null) || hasHeaderProtectionPrefixError(field)
+        val raw = rawTextByField[field] ?: return hasHeaderProtectionPrefixError(field)
+        val emptyRoutes = field == AwgEditorField.ALLOWED_IPS && raw.isBlank()
+        return emptyRoutes || (raw.isNotEmpty() && field.validate(raw) == null) || hasHeaderProtectionPrefixError(field)
     }
 
     fun hasHeaderProtectionPrefixError(field: AwgEditorField): Boolean {
@@ -233,6 +234,7 @@ data class AmneziaWgEditorState(
             rawText(AwgEditorField.ADDRESS).isNotBlank() &&
             obfuscationConsistent() &&
             !hasFieldError(AwgEditorField.PERSISTENT_KEEPALIVE) &&
+            !hasFieldError(AwgEditorField.ALLOWED_IPS) &&
             (form.carrier != AwgActivationRequest.CARRIER_WS || isValidAwgWssUrl(form.carrierWsUrl))
 
     /**

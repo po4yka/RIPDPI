@@ -81,7 +81,7 @@ class AmneziaWgEditorStateTest {
             for (line in listOf("", "PersistentKeepalive = off")) {
                 val conf =
                     "[Interface]\nPrivateKey = k==\nAddress = 10.8.0.2/32\n" +
-                        "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820\n$line"
+                        "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0\n$line"
                 val edited = activatableState().updateField(AwgEditorField.PERSISTENT_KEEPALIVE, previous)
                 val imported = (edited.importConf(conf, catalog) as AwgConfImport.Imported).editor
                 assertEquals("", imported.rawText(AwgEditorField.PERSISTENT_KEEPALIVE))
@@ -246,9 +246,10 @@ class AmneziaWgEditorStateTest {
                 .updateField(AwgEditorField.CARRIER_WS_URL, "wss://old.example/carrier")
         val cases =
             listOf(
-                Triple("10.23.0.2/32", "", listOf("0.0.0.0/0")),
+                Triple("10.23.0.2/32", "AllowedIPs = 0.0.0.0/0", listOf("0.0.0.0/0")),
+                Triple("10.23.0.2/32", "", emptyList()),
                 Triple("10.23.0.2/32", "AllowedIPs =", emptyList()),
-                Triple("fd23::2/128, 10.23.0.2/32", "", listOf("0.0.0.0/0", "::/0")),
+                Triple("fd23::2/128, 10.23.0.2/32", "", emptyList()),
             )
         for ((address, policy, expectedRoutes) in cases) {
             val conf =
@@ -267,7 +268,13 @@ class AmneziaWgEditorStateTest {
             assertEquals("ws", request.carrier)
             assertEquals("wss://old.example/carrier", request.carrierWsUrl)
             if (expectedRoutes.isEmpty()) {
+                assertTrue(imported.hasFieldError(AwgEditorField.ALLOWED_IPS))
+                assertFalse(imported.isActivatable())
                 assertThrows(IllegalArgumentException::class.java) { request.requireRuntimeReady() }
+
+                val edited = imported.updateField(AwgEditorField.ALLOWED_IPS, "203.0.113.0/24")
+                assertTrue(edited.isActivatable())
+                assertEquals(listOf("203.0.113.0/24"), edited.toActivationRequest("edited").allowedIps)
             } else {
                 request.requireRuntimeReady()
             }
@@ -547,6 +554,7 @@ class AmneziaWgEditorStateTest {
             [Peer]
             PublicKey = peerpub==
             Endpoint = host.example.com:443
+            AllowedIPs = 0.0.0.0/0
             """.trimIndent()
 
         val result = AmneziaWgEditorState.initial().importConf(padded, catalog) as AwgConfImport.Imported

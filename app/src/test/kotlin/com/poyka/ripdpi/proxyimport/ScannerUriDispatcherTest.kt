@@ -3,6 +3,7 @@ package com.poyka.ripdpi.proxyimport
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.uri.AmneziaWgUriCodec
 import com.poyka.ripdpi.data.wireguard.AmneziaWgProfile
+import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -137,6 +138,35 @@ class ScannerUriDispatcherTest {
         assertNull(ImportPayloadClassifier.classify(partial))
         assertNull(ImportPayloadClassifier.classify("# $partial\n[Peer]"))
     }
+}
+
+@Test
+fun `amneziawg URI defaults and explicit routes survive conversion to conf`() {
+    val profile =
+        AmneziaWgProfile(
+            name = "Home",
+            host = "vpn.example.com",
+            port = 51820,
+            privateKey = "fixture-key",
+            publicKey = "fixture-public-key",
+            address = listOf("10.8.0.2/32"),
+        )
+    val dualStack = profile.copy(address = profile.address + "fd00::2/128")
+    val splitRoutes = listOf("192.0.2.0/24", "2001:db8::/64")
+    val cases =
+        listOf(
+            profile to listOf("0.0.0.0/0"),
+            dualStack to listOf("0.0.0.0/0", "::/0"),
+            dualStack.copy(allowedIps = splitRoutes) to splitRoutes,
+        )
+
+    cases.forEach { (input, expected) ->
+        val conf = (recognized(AmneziaWgUriCodec.encode(input)) as ImportPayload.WireGuardConf).conf
+        val peer = WireGuardConfParser.parse(conf).peers.single()
+
+        assertTrue(peer.allowedIpsSpecified)
+        assertEquals(expected, peer.allowedIps)
+    }
 
     @Test
     fun `amneziavpn vpn key resolves to the embedded conf`() {
@@ -268,24 +298,25 @@ class ScannerUriDispatcherTest {
     private fun recognized(text: String): ImportPayload =
         (ScannerUriDispatcher.dispatch(text) as ScannerScanResult.Recognized).payload
 
-    private companion object {
-        val AwgConf =
-            """
-            [Interface]
-            PrivateKey = privkey==
-            Jc = 4
-            Jmin = 40
-            Jmax = 70
-            S1 = 50
-            S2 = 100
-            H1 = 1000000001
-            H2 = 1000000002
-            H3 = 1000000003
-            H4 = 1000000004
+    private companion
+        object {
+            val AwgConf =
+                """
+                [Interface]
+                PrivateKey = privkey==
+                Jc = 4
+                Jmin = 40
+                Jmax = 70
+                S1 = 50
+                S2 = 100
+                H1 = 1000000001
+                H2 = 1000000002
+                H3 = 1000000003
+                H4 = 1000000004
 
-            [Peer]
-            PublicKey = peerpub==
-            Endpoint = vpn.example.com:51820
-            """.trimIndent()
-    }
+                [Peer]
+                PublicKey = peerpub==
+                Endpoint = vpn.example.com:51820
+                """.trimIndent()
+        }
 }

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.proxyimport
 
+import com.poyka.ripdpi.data.awg.defaultAwgAllowedIps
 import com.poyka.ripdpi.data.uri.AmneziaWgUriCodec
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import com.poyka.ripdpi.data.wireguard.toWgQuickConf
@@ -53,7 +54,11 @@ object ImportPayloadClassifier {
 
     private fun amneziaWgConf(text: String): String? =
         try {
-            AmneziaWgUriCodec.decode(text)?.toWgQuickConf()
+            AmneziaWgUriCodec.decode(text)?.let { profile ->
+                // Materialize the URI default before crossing into the conf route policy.
+                val routes = profile.allowedIps.ifEmpty { defaultAwgAllowedIps(profile.address.any { ':' in it }) }
+                profile.copy(allowedIps = routes).toWgQuickConf()
+            }
         } catch (_: IllegalArgumentException) {
             null
         }

@@ -444,7 +444,7 @@ class AmneziaWgProfileViewModelTest {
                 "[Interface]\nPrivateKey = k==\nAddress = 10.8.0.2/32\n" +
                     "HeaderProtectionKey = AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=\n" +
                     "S1 = 12\nS2 = 12\nS3 = 12\nS4 = 12\n" +
-                    "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820",
+                    "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0",
             )
             assertTrue(vm.uiState.value.canActivate)
             vm.onFieldChanged(AwgEditorField.S3, "11")
