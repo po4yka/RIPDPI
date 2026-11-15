@@ -279,17 +279,12 @@ class AmneziaWgUriCodecTest {
     }
 
     @Test
-    fun `malformed numeric params are dropped rather than throwing`() {
-        val original = fullProfile()
-        // Corrupt a numeric query param; the codec must not throw.
-        val corrupted =
-            AmneziaWgUriCodec.encode(original).replace("mtu=1280", "mtu=not-a-number")
-
-        val decoded = AmneziaWgUriCodec.decode(corrupted)
-
-        // The profile still decodes; only the corrupted field is dropped.
-        assertNull(decoded?.mtu)
-        assertEquals(original.host, decoded?.host)
+    fun `only absent MTU can select the default`() {
+        val uri = AmneziaWgUriCodec.encode(fullProfile())
+        listOf("", "not-a-number", "0", "1279", "1421").forEach { value ->
+            assertNull(value, AmneziaWgUriCodec.decode(uri.replace("mtu=1280", "mtu=$value")))
+        }
+        assertEquals(1420, AmneziaWgUriCodec.decode(uri.replace("mtu=1280", "mtu=1420"))?.mtu)
     }
 
     @Test

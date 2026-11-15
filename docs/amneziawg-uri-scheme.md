@@ -57,7 +57,7 @@ amneziawg://cHJpdmF0ZS1rZXk%3D@awg.example.com:51820?wire_profile=awg-3.1-ranges
 The codec (`AmneziaWgUriCodec`) never throws on `decode`:
 
 - An unrecognised scheme, a structurally broken URI, or a missing mandatory field (private key, public key, host, port) yields `null`.
-- Unknown options, malformed obfuscation values, overlapping header ranges, and empty signature programs yield `null`. An invalid optional `mtu` is omitted.
+- Unknown options, malformed obfuscation values, overlapping header ranges, and empty signature programs yield `null`. An explicit `mtu` outside 1280–1420 or with invalid numeric syntax yields `null`.
 - `s3` and `s4` accept values from 0 to 1280. Out-of-range values or insufficient padding for a valid nonzero header-protection key yield `null`; `encode` rejects such a profile.
 - An explicitly empty `allowed_ips` list yields `null`. This includes a list made only of commas or whitespace. An absent field keeps the activation defaults.
 

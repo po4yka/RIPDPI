@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.uri
 
+import com.poyka.ripdpi.data.awg.ValidAmneziaWgMtu
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgProfile
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
@@ -148,6 +149,11 @@ object AmneziaWgUriCodec {
                 return@let null
             }
             if (listOf("i1", "i2", "i3", "i4", "i5").any { it in params && params[it].isNullOrEmpty() }) return@let null
+            val mtu =
+                params["mtu"]?.let { value ->
+                    value.toIntOrNull()?.takeIf { it in ValidAmneziaWgMtu } ?: return@let null
+                }
+            if ("mtu" in params && mtu == null) return@let null
             val keepalive = parseUriKeepalive(params["persistent_keepalive"]) ?: return@let null
             val v3 = parseUriAwg3(params) ?: return@let null
             val awg =
@@ -182,7 +188,7 @@ object AmneziaWgUriCodec {
                     presharedKey = params["preshared_key"]?.takeIf { it.isNotBlank() },
                     allowedIps = allowedIps,
                     dns = splitList(params["dns"]),
-                    mtu = params["mtu"]?.toIntOrNull(),
+                    mtu = mtu,
                     awg = awg,
                     address = splitList(params["address"]),
                     persistentKeepalive = keepalive.low,

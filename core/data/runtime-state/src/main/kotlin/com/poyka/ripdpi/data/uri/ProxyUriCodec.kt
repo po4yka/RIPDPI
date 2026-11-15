@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
 import java.net.URI
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.Base64
 import java.util.UUID
@@ -369,11 +370,13 @@ object ProxyUriCodec {
         val username: String
         val passwordFromUserInfo: String?
         if (separator < 0) {
-            username = percentDecode(rawUserInfo).takeIf { it.isNotBlank() } ?: return null
+            username = rfc3986PercentDecode(rawUserInfo)?.takeIf { it.isNotBlank() } ?: return null
             passwordFromUserInfo = null
         } else {
-            username = percentDecode(rawUserInfo.substring(0, separator)).takeIf { it.isNotBlank() } ?: return null
-            passwordFromUserInfo = percentDecode(rawUserInfo.substring(separator + 1)).takeIf { it.isNotBlank() }
+            username =
+                rfc3986PercentDecode(rawUserInfo.substring(0, separator))?.takeIf { it.isNotBlank() } ?: return null
+            passwordFromUserInfo =
+                rfc3986PercentDecode(rawUserInfo.substring(separator + 1))?.takeIf { it.isNotBlank() }
         }
         val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it in SSH_PORT_RANGE } ?: return null
@@ -403,12 +406,9 @@ object ProxyUriCodec {
             else -> null
         }
 
-    private fun percentDecode(value: String): String =
-        runCatching { java.net.URLDecoder.decode(value, "UTF-8") }.getOrDefault(value)
-
     /** RFC 3986 percent-decoding: '+' stays literal. Returns null for a malformed escape. */
     internal fun rfc3986PercentDecode(value: String): String? =
-        runCatching { java.net.URLDecoder.decode(value.replace("+", "%2B"), "UTF-8") }.getOrNull()
+        runCatching { URLDecoder.decode(value.replace("+", "%2B"), "UTF-8") }.getOrNull()
 
     @Suppress("ReturnCount")
     private fun parseShadowsocks(uri: String): ProxyProfile? {
@@ -518,7 +518,7 @@ object ProxyUriCodec {
         // REL-3: pinSHA256 is the certificate pin that makes insecure=1 safe for a
         // self-signed server. A malformed pin rejects the link: if the importer
         // dropped it and kept insecure=1, the profile would accept any certificate.
-        val rawPin = queryValue(rawQuery, "pinSHA256", ignoreCase = true)?.takeIf { it.isNotBlank() }
+        val rawPin = queryValue(rawQuery, "pinSHA256", ignoreCase = true)
         val pinSha256 = rawPin?.let { normalizeHysteria2PinSha256(it) ?: return null }
         return ProxyProfile.Hysteria2(
             id = newId(),
@@ -552,7 +552,7 @@ object ProxyUriCodec {
         // and a malformed pin rejects the link instead of silently dropping the check.
         val insecure = queryValue(parsed.rawQuery, "insecure")
         val skipsVerification = insecure == "1" || insecure.equals("true", ignoreCase = true)
-        val rawPin = queryValue(parsed.rawQuery, "pinSHA256", ignoreCase = true)?.takeIf { it.isNotBlank() }
+        val rawPin = queryValue(parsed.rawQuery, "pinSHA256", ignoreCase = true)
         val pinSha256 = rawPin?.let { normalizeHysteria2PinSha256(it) ?: return null }
         if (skipsVerification && pinSha256 == null) return null
         // RIPDPI's AnyTLS client has no server-side TLS-fallback support (upstream
@@ -629,20 +629,17 @@ object ProxyUriCodec {
         rawQuery: String?,
         key: String,
         ignoreCase: Boolean = false,
-    ): String? =
-        rawQuery
-            ?.split('&')
-            ?.asSequence()
-            ?.mapNotNull { part ->
-                val separator = part.indexOf('=')
-                if (separator <= 0) {
-                    null
-                } else {
-                    part.substring(0, separator) to part.substring(separator + 1)
-                }
-            }?.firstOrNull { (name, _) -> name.equals(key, ignoreCase = ignoreCase) }
-            ?.second
-            ?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
+    ): String? {
+        var result: String? = null
+        rawQuery?.split('&')?.forEach { component ->
+            val name = URLDecoder.decode(component.substringBefore('='), "UTF-8")
+            if (name.equals(key, ignoreCase = ignoreCase)) {
+                require('=' in component && result == null) { "URI option is missing a value or repeated" }
+                result = URLDecoder.decode(component.substringAfter('='), "UTF-8")
+            }
+        }
+        return result
+    }
 
     @Suppress("ReturnCount")
     private fun decodeBase64(raw: String): String? {

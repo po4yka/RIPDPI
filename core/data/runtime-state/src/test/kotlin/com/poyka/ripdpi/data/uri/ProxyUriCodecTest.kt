@@ -8,6 +8,15 @@ import org.junit.Test
 
 class ProxyUriCodecTest {
     @Test
+    fun `ssh userinfo preserves literal plus signs`() {
+        val profile =
+            ProxyUriCodec.parse("ssh://test+user:test+pass@example.com:22") as ProxyProfile.Ssh
+
+        assertEquals("test+user", profile.username)
+        assertEquals("test+pass", profile.password)
+    }
+
+    @Test
     fun `naive import rejects invalid decoded Basic credentials`() {
         for (scheme in listOf("naive+https", "naive+quic")) {
             assertNull(ProxyUriCodec.parse("$scheme://private%3Auser:secret@h.example"))
@@ -340,7 +349,12 @@ class ProxyUriCodecTest {
     @Test
     fun `hysteria2 uri with a malformed pin is rejected instead of importing accept-any`() {
         val base = "hysteria2://fixture-pw@h.example:443?insecure=1&pinSHA256="
+        assertNull(ProxyUriCodec.parse("$base#n"))
         assertNull(ProxyUriCodec.parse("${base}abcd#n"))
+        assertNull(ProxyUriCodec.parse("hy2://fixture-pw@h.example:443?insecure=1&pinSHA256"))
+        assertNull(ProxyUriCodec.parse("hy2://fixture-pw@h.example:443?insecure=1&insecure=0"))
+        val pin = "ac".repeat(32)
+        assertNull(ProxyUriCodec.parse("$base$pin&PINSHA256=$pin#n"))
         assertNull(ProxyUriCodec.parse("$base${"zz".repeat(32)}#n"))
     }
 
