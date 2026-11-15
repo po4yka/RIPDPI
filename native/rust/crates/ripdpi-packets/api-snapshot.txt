@@ -88,6 +88,13 @@ pub enum ripdpi_packets::QuicProbeProfile
 pub ripdpi_packets::QuicProbeProfile::Chrome
 pub ripdpi_packets::QuicProbeProfile::Firefox
 pub ripdpi_packets::QuicProbeProfile::Generic
+pub enum ripdpi_packets::QuicProbeResponseKind
+pub ripdpi_packets::QuicProbeResponseKind::InitialAck
+pub ripdpi_packets::QuicProbeResponseKind::InitialClose
+pub ripdpi_packets::QuicProbeResponseKind::InitialCrypto
+pub ripdpi_packets::QuicProbeResponseKind::InitialOther
+pub ripdpi_packets::QuicProbeResponseKind::Retry
+pub ripdpi_packets::QuicProbeResponseKind::VersionNegotiation
 pub enum ripdpi_packets::QuicResponseKind
 pub ripdpi_packets::QuicResponseKind::Initial
 pub ripdpi_packets::QuicResponseKind::Retry
@@ -254,5 +261,6 @@ pub fn ripdpi_packets::tls_session_id_mismatch(&[u8], &[u8]) -> bool
 pub fn ripdpi_packets::tune_tls_padding_size_into(&mut alloc::vec::Vec<u8>, usize) -> isize
 pub fn ripdpi_packets::tune_tls_padding_size_like_c(&[u8], usize) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::udp_fake_profile_bytes(ripdpi_packets::UdpFakeProfile) -> &'static [u8]
+pub fn ripdpi_packets::validate_quic_probe_response(&[u8], &[u8]) -> core::option::Option<ripdpi_packets::QuicProbeResponseKind>
 pub fn ripdpi_packets::validate_quic_response(&[u8], &[u8]) -> core::option::Option<ripdpi_packets::QuicResponseKind>
 pub fn ripdpi_packets::validate_quic_version_negotiation_response(&[u8], &[u8]) -> bool

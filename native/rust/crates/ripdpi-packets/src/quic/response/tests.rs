@@ -102,3 +102,53 @@ fn reserved_version_negotiation_checks_both_ids_and_complete_version_list() {
     assert!(!validate_quic_version_negotiation_response(&response, &response));
     assert!(!validate_quic_version_negotiation_response(&request, &request));
 }
+
+#[test]
+fn diagnostic_response_validates_rfc_frames_in_the_full_datagram() {
+    let request = rfc_request(QUIC_V1_VERSION);
+    let packet = include_bytes!("../../../tests/fixtures/quic/rfc9001-server-initial.bin");
+    let datagram = include_bytes!("../../../tests/fixtures/quic/rfc9001-server-initial-3000.bin");
+    let retry = include_bytes!("../../../tests/fixtures/quic/rfc9001-retry.bin");
+
+    assert_eq!(validate_quic_probe_response(&request, packet), None, "the RFC vector is only a packet");
+    assert_eq!(validate_quic_probe_response(&request, datagram), Some(QuicProbeResponseKind::InitialCrypto));
+    assert_eq!(validate_quic_probe_response(&request, retry), Some(QuicProbeResponseKind::Retry));
+    assert_eq!(
+        validate_quic_probe_response(&request, &version_negotiation(&request)),
+        Some(QuicProbeResponseKind::VersionNegotiation),
+    );
+}
+
+#[test]
+fn diagnostic_initial_labels_transport_close_and_ack_without_crypto_progress() {
+    // ACK_ECN for packet zero with no extra ranges, then two PADDING frames.
+    let ack_and_padding = [0x03, 0, 0, 0, 0, 1, 2, 3, 0, 0];
+    assert_eq!(classify_probe_initial(&ack_and_padding, 100), Some(QuicProbeResponseKind::InitialAck));
+
+    // A transport CONNECTION_CLOSE for TLS alert 120, with CRYPTO as the triggering frame.
+    let close = [0x1c, 0x41, 0x78, 0x06, 0];
+    assert_eq!(classify_probe_initial(&close, 100), Some(QuicProbeResponseKind::InitialClose));
+
+    let crypto = [0x06, 0, 1, 42];
+    let close_with_crypto = [crypto.as_slice(), &close].concat();
+    assert_eq!(classify_probe_initial(&close_with_crypto, 1200), Some(QuicProbeResponseKind::InitialClose));
+    assert_eq!(classify_probe_initial(&close_with_crypto, 1199), None);
+    assert_eq!(classify_probe_initial(&[0x01, 0x00], 1200), Some(QuicProbeResponseKind::InitialOther));
+}
+
+#[test]
+fn diagnostic_initial_rejects_incomplete_or_forbidden_frames() {
+    let invalid: &[&[u8]] = &[
+        &[],
+        &[0x06, 0, 2, 0],       // Truncated CRYPTO.
+        &[0x02, 0, 0, 0, 1],    // ACK range underflow.
+        &[0x1c, 0, 0, 2, b'a'], // Truncated transport CONNECTION_CLOSE.
+        &[0x1d, 0, 0],          // Application CONNECTION_CLOSE is forbidden in Initial.
+        &[0x08, 0],             // STREAM is forbidden in Initial.
+        &[0x40, 0x01],          // PING uses the minimal frame type encoding.
+    ];
+
+    for payload in invalid {
+        assert_eq!(classify_probe_initial(payload, 1200), None, "accepted {payload:02x?}");
+    }
+}

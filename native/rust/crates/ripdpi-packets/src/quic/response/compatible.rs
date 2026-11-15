@@ -1,4 +1,4 @@
-use super::{long_header, validate_retry_tag, validate_server_initial_with_header};
+use super::{decrypt_server_initial, long_header, validate_retry_tag};
 use crate::quic::datagram::decode_quic_initial_datagram;
 use crate::quic::frames::read_quic_varint;
 use crate::quic::parse::{
@@ -102,7 +102,7 @@ pub fn classify_quic_initial_response_context(
         let Some(received) = parse_quic_initial_response_header_for_runtime(response) else {
             return Rejected;
         };
-        if validate_server_initial_with_header(context.dcid(), response, received).is_none() {
+        if decrypt_server_initial(context.dcid(), response, received).is_none() {
             return Rejected;
         }
     }

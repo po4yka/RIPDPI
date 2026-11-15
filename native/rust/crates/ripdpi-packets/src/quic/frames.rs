@@ -55,13 +55,13 @@ pub(super) fn append_segmented_quic_crypto_frames(
     Some(())
 }
 
-fn next_quic_varint(payload: &[u8], cursor: &mut usize) -> Option<u64> {
+pub(super) fn next_quic_varint(payload: &[u8], cursor: &mut usize) -> Option<u64> {
     let (value, len) = read_quic_varint(payload, *cursor)?;
     *cursor += len;
     Some(value)
 }
 
-fn skip_quic_ack(payload: &[u8], cursor: &mut usize, ecn: bool) -> Option<()> {
+pub(super) fn skip_quic_ack(payload: &[u8], cursor: &mut usize, ecn: bool) -> Option<()> {
     let largest = next_quic_varint(payload, cursor)?;
     let _delay = next_quic_varint(payload, cursor)?;
     let range_count = next_quic_varint(payload, cursor)?;

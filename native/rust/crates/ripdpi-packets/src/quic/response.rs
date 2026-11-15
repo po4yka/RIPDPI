@@ -8,6 +8,7 @@ pub use compatible::{
 use ring::aead::{AES_128_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
 
 use super::crypto::quic_derive_initial_secret;
+use super::frames::{next_quic_varint, skip_quic_ack};
 use super::parse::{decrypt_quic_initial_with_secret, parse_quic_initial_response_header};
 use crate::types::{QUIC_V1_VERSION, QUIC_V2_VERSION};
 
@@ -18,10 +19,46 @@ pub enum QuicResponseKind {
     VersionNegotiation,
 }
 
+/// The evidence carried by a valid first-flight reply to a connectivity probe.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QuicProbeResponseKind {
+    InitialCrypto,
+    InitialAck,
+    InitialOther,
+    InitialClose,
+    Retry,
+    VersionNegotiation,
+}
+
+enum CorrelatedResponse {
+    Initial(Vec<u8>),
+    Retry,
+    VersionNegotiation,
+}
+
 /// Check response correlation and packet integrity for one Initial probe.
 /// This proves a QUIC response, not a completed or authenticated TLS handshake.
 /// Initial and Retry keys are public; an observer of the request can forge them.
 pub fn validate_quic_response(request: &[u8], response: &[u8]) -> Option<QuicResponseKind> {
+    let kind = match correlate_response(request, response)? {
+        CorrelatedResponse::Initial(_) => QuicResponseKind::Initial,
+        CorrelatedResponse::Retry => QuicResponseKind::Retry,
+        CorrelatedResponse::VersionNegotiation => QuicResponseKind::VersionNegotiation,
+    };
+    Some(kind)
+}
+
+/// Check correlation, packet protection and permitted Initial frames in one UDP datagram.
+/// Treat the result as first-flight evidence: the public Initial and Retry keys do not authenticate the peer.
+pub fn validate_quic_probe_response(request: &[u8], response: &[u8]) -> Option<QuicProbeResponseKind> {
+    match correlate_response(request, response)? {
+        CorrelatedResponse::Initial(payload) => classify_probe_initial(&payload, response.len()),
+        CorrelatedResponse::Retry => Some(QuicProbeResponseKind::Retry),
+        CorrelatedResponse::VersionNegotiation => Some(QuicProbeResponseKind::VersionNegotiation),
+    }
+}
+
+fn correlate_response(request: &[u8], response: &[u8]) -> Option<CorrelatedResponse> {
     let sent = parse_quic_initial_response_header(request)?;
     let (version, dcid, scid, offset) = long_header(response)?;
     if dcid != sent.scid {
@@ -29,7 +66,7 @@ pub fn validate_quic_response(request: &[u8], response: &[u8]) -> Option<QuicRes
     }
     if version == 0 {
         return validate_quic_version_negotiation_response(request, response)
-            .then_some(QuicResponseKind::VersionNegotiation);
+            .then_some(CorrelatedResponse::VersionNegotiation);
     }
     if version != sent.version || response[0] & 0x40 == 0 {
         return None;
@@ -44,26 +81,83 @@ pub fn validate_quic_response(request: &[u8], response: &[u8]) -> Option<QuicRes
             return None;
         }
         validate_retry_tag(version, sent.dcid, response)?;
-        return Some(QuicResponseKind::Retry);
+        return Some(CorrelatedResponse::Retry);
     }
-    validate_server_initial(sent.dcid, response)?;
-    Some(QuicResponseKind::Initial)
+    let header = parse_quic_initial_response_header(response)?;
+    decrypt_server_initial(sent.dcid, response, header).map(CorrelatedResponse::Initial)
 }
 
-fn validate_server_initial(request_dcid: &[u8], response: &[u8]) -> Option<()> {
-    validate_server_initial_with_header(request_dcid, response, parse_quic_initial_response_header(response)?)
-}
-
-fn validate_server_initial_with_header(
+fn decrypt_server_initial(
     request_dcid: &[u8],
     response: &[u8],
     header: super::parse::QuicInitialHeader<'_>,
-) -> Option<()> {
+) -> Option<Vec<u8>> {
     if !header.token.is_empty() {
         return None;
     }
     let secret = quic_derive_initial_secret(request_dcid, header.version, "tls13 server in")?;
-    decrypt_quic_initial_with_secret(response, header, &secret)?;
+    decrypt_quic_initial_with_secret(response, header, &secret).map(|(payload, _)| payload)
+}
+
+fn classify_probe_initial(payload: &[u8], datagram_len: usize) -> Option<QuicProbeResponseKind> {
+    // RFC 9000 sections 12.4 and 14.1: the 1200-byte minimum is for the UDP datagram
+    // carrying an ack-eliciting server Initial, not the individual packet.
+    const MIN_DATAGRAM_LEN: usize = 1200;
+    if payload.is_empty() {
+        return None;
+    }
+    let mut cursor = 0;
+    let mut ack = false;
+    let mut crypto = false;
+    let mut close = false;
+    let mut ack_eliciting = false;
+    while let Some(&frame_type) = payload.get(cursor) {
+        cursor += 1;
+        match frame_type {
+            0x00 => {}
+            0x01 => ack_eliciting = true,
+            0x02 | 0x03 => {
+                skip_quic_ack(payload, &mut cursor, frame_type == 0x03)?;
+                ack = true;
+            }
+            0x06 => {
+                let offset = next_quic_varint(payload, &mut cursor)?;
+                let len = next_quic_varint(payload, &mut cursor)?;
+                if offset + len >= 1 << 62 {
+                    return None;
+                }
+                skip_probe_frame_data(payload, &mut cursor, len)?;
+                ack_eliciting = true;
+                crypto |= len != 0;
+            }
+            0x1c => {
+                next_quic_varint(payload, &mut cursor)?; // Error code.
+                next_quic_varint(payload, &mut cursor)?; // Triggering frame type.
+                let len = next_quic_varint(payload, &mut cursor)?;
+                skip_probe_frame_data(payload, &mut cursor, len)?;
+                close = true;
+            }
+            _ => return None,
+        }
+    }
+
+    if ack_eliciting && datagram_len < MIN_DATAGRAM_LEN {
+        None
+    } else if close {
+        Some(QuicProbeResponseKind::InitialClose)
+    } else if crypto {
+        Some(QuicProbeResponseKind::InitialCrypto)
+    } else if ack && !ack_eliciting {
+        Some(QuicProbeResponseKind::InitialAck)
+    } else {
+        Some(QuicProbeResponseKind::InitialOther)
+    }
+}
+
+fn skip_probe_frame_data(payload: &[u8], cursor: &mut usize, len: u64) -> Option<()> {
+    let end = cursor.checked_add(usize::try_from(len).ok()?)?;
+    payload.get(*cursor..end)?;
+    *cursor = end;
     Some(())
 }
 
