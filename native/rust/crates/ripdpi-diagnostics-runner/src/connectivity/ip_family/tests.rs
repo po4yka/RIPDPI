@@ -278,3 +278,75 @@ fn discovery_gets_half_the_family_budget_and_leaves_time_for_tcp() {
     });
     assert_eq!((connects, facts.status.as_str(), facts.attempt_count), (1, "REACHABLE", 1));
 }
+
+#[test]
+fn timed_out_first_prefix_leaves_budget_to_connect_to_second() {
+    use ripdpi_diagnostics_dns::dns::Nat64Prefix;
+    use std::net::Ipv6Addr;
+
+    let listener = TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).unwrap();
+    let local_addr = listener.local_addr().unwrap();
+    // Inject discovery for the test. The second candidate translates to loopback,
+    // where only a real TCP connect to the listener can succeed.
+    let prefixes = vec![
+        Nat64Prefix { address: "2001:db8::".parse().unwrap(), length: 96 },
+        Nat64Prefix { address: Ipv6Addr::UNSPECIFIED, length: 96 },
+    ];
+    let config = IpFamilyProbeConfig { ipv4_address: "0.0.0.1".into(), port: local_addr.port(), ..config() };
+    let mut facts = nat64_evidence();
+    let family_deadline = Instant::now() + Duration::from_millis(600);
+    with_scan_io_deadline(Some(family_deadline), || {
+        execute_with(
+            &config,
+            &[],
+            &AtomicBool::new(false),
+            &mut facts,
+            |_, _| Nat64Discovery { prefixes, status: "DISCOVERED", reason: None, attempts: 1 },
+            |peer| {
+                if peer.is_ipv6() && peer.ip().is_loopback() {
+                    assert_eq!(peer, local_addr);
+                    ripdpi_diagnostics_transport::transport::connect_direct_address(peer).map(drop)
+                } else {
+                    let first_deadline = active_scan_io_deadline().unwrap();
+                    assert!(first_deadline < family_deadline);
+                    std::thread::sleep(first_deadline.saturating_duration_since(Instant::now()));
+                    Err(std::io::Error::from(std::io::ErrorKind::TimedOut))
+                }
+            },
+        );
+    });
+    listener.set_nonblocking(true).unwrap();
+    assert!(listener.accept().is_ok(), "fallback must open the loopback TCP connection");
+    assert_eq!(facts.attempt_count, 2);
+    assert_eq!(result(facts).outcome, "ip_family_reachable");
+}
+
+#[test]
+fn an_unattempted_nat64_fallback_is_inconclusive() {
+    use ripdpi_diagnostics_dns::dns::Nat64Prefix;
+
+    let prefixes = vec![
+        Nat64Prefix { address: "2001:db8::".parse().unwrap(), length: 96 },
+        Nat64Prefix { address: "64:ff9b::".parse().unwrap(), length: 96 },
+    ];
+    let mut facts = nat64_evidence();
+    let family_deadline = Instant::now() + Duration::from_millis(100);
+    with_scan_io_deadline(Some(family_deadline), || {
+        execute_with(
+            &nat64_config(),
+            &[],
+            &AtomicBool::new(false),
+            &mut facts,
+            |_, _| Nat64Discovery { prefixes, status: "DISCOVERED", reason: None, attempts: 1 },
+            |_| {
+                // Model the scan losing its remaining wall time while an attempt runs.
+                std::thread::sleep(family_deadline.saturating_duration_since(Instant::now()));
+                Err(std::io::Error::from(std::io::ErrorKind::TimedOut))
+            },
+        );
+    });
+    assert_eq!(facts.attempt_count, 1);
+    assert_eq!(facts.status, "NOT_OBSERVED");
+    assert_eq!(facts.reason.as_deref(), Some("deadline_exceeded"));
+    assert_eq!(result(facts).outcome, "ip_family_inconclusive");
+}

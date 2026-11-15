@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use ripdpi_diagnostics_contracts::types::{IpFamilyEvidence, IpFamilyProbeConfig, ProbeDetail, ProbeResult};
 use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, with_scan_io_deadline};
 use ripdpi_diagnostics_dns::dns::{Nat64Discovery, discover_network_nat64};
-use ripdpi_diagnostics_transport::transport::{TransportConfig, connect_direct_address};
+use ripdpi_diagnostics_transport::transport::{TransportConfig, connect_direct_address_with_abort};
 
 /// Independent numeric destination probes, with no hostname or cross-family fallback.
 /// Each operation owns its socket and observes cancellation before and after bounded blocking I/O.
@@ -54,7 +54,7 @@ pub fn run_ip_family_probes(
 }
 fn execute(config: &IpFamilyProbeConfig, servers: &[String], cancel: &AtomicBool, evidence: &mut IpFamilyEvidence) {
     execute_with(config, servers, cancel, evidence, discover_network_nat64, |address| {
-        connect_direct_address(address).map(drop)
+        connect_direct_address_with_abort(address, &|| cancel.load(Ordering::Acquire).then_some("cancelled")).map(drop)
     });
 }
 fn execute_with(
@@ -86,17 +86,46 @@ fn execute_with(
             fail(evidence, status, discovery.reason.unwrap_or("no_prefix"));
             return;
         }
-        for prefix in discovery.prefixes {
+        let ipv4 = config.ipv4_address.parse().ok();
+        let candidates = discovery
+            .prefixes
+            .into_iter()
+            .filter_map(|prefix| {
+                let address = prefix.synthesize(ipv4?)?;
+                address.to_ipv4_mapped().is_none().then_some((prefix, IpAddr::V6(address)))
+            })
+            .collect::<Vec<_>>();
+        if candidates.is_empty() {
+            fail(evidence, "INVALID", "invalid_config");
+            return;
+        }
+
+        // A stalled connect gets one share of the remaining family budget.
+        let deadline = active_scan_io_deadline();
+        let total = candidates.len() as u32;
+        for (index, (prefix, address)) in candidates.into_iter().enumerate() {
+            if stop(cancel, evidence) {
+                break;
+            }
+            let attempt_deadline = deadline.map(|end| {
+                let now = Instant::now();
+                let remaining = total - index as u32;
+                now + end.saturating_duration_since(now) / remaining
+            });
             let attempts_before = evidence.attempt_count;
-            let address = config.ipv4_address.parse().ok().and_then(|ip| prefix.synthesize(ip)).map(IpAddr::V6);
-            connect(address, config, cancel, evidence, &mut connect_peer);
+            with_scan_io_deadline(attempt_deadline, || {
+                connect(Some(address), config, cancel, evidence, &mut connect_peer);
+            });
             if evidence.attempt_count > attempts_before {
                 evidence.prefix = Some(prefix.address.to_string());
                 evidence.prefix_length = Some(prefix.length);
             }
-            if evidence.status == "REACHABLE" || stop(cancel, evidence) {
+            if matches!(evidence.status.as_str(), "REACHABLE" | "CANCELLED") {
                 return;
             }
+        }
+        if evidence.status != "CANCELLED" && evidence.attempt_count < total {
+            fail(evidence, "NOT_OBSERVED", "deadline_exceeded");
         }
     } else {
         let raw = if evidence.family == "IPV4" { &config.ipv4_address } else { &config.ipv6_address };
