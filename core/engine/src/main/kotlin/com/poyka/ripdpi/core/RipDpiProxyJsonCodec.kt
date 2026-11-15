@@ -314,8 +314,10 @@ private fun patchRelayRuntimeSelection(
         RipDpiNativeProxyJson
             .encodeToJsonElement(RelaySectionCodec.toNative(selection))
             .jsonObject
+    val previousRelay = source["upstreamRelay"]?.jsonObject.orEmpty()
+    // Absence belongs to the selected profile; do not inherit prior Mieru options.
     return patchObject(
-        source["upstreamRelay"]?.jsonObject ?: JsonObject(emptyMap()),
+        JsonObject(previousRelay - setOf("mieruHandshakeMode", "mieruTrafficPattern")),
         selectedRelay,
     )
 }

@@ -7,6 +7,11 @@ import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.DnsMode
+import com.poyka.ripdpi.data.MieruHandshakeDefault
+import com.poyka.ripdpi.data.MieruHandshakeNoWait
+import com.poyka.ripdpi.data.MieruHandshakeStandard
+import com.poyka.ripdpi.data.MieruTcpFragment
+import com.poyka.ripdpi.data.MieruTrafficPattern
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.PreferredStack
 import com.poyka.ripdpi.data.QuicMode
@@ -663,5 +668,57 @@ class RipDpiProxyJsonCodecTest {
         assertEquals("policy-v1", logContext?.policySignature)
         assertEquals("fp-123", logContext?.fingerprintHash)
         assertEquals("diag-321", logContext?.diagnosticsSessionId)
+    }
+}
+
+class RipDpiProxyJsonMieruSelectionTest {
+    @Test
+    fun `runtime relay selection replaces prior Mieru options including absence`() {
+        val previous =
+            RipDpiProxyUIPreferences(
+                relay =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = "mieru",
+                        profileId = "previous",
+                        mieruHandshakeMode = MieruHandshakeNoWait,
+                        mieruTrafficPattern = MieruTrafficPattern(seed = 42),
+                    ),
+            )
+        val original = Json.parseToJsonElement(previous.toNativeConfigJson()).jsonObject
+        val originalRelay = original.getValue("upstreamRelay").jsonObject
+        val futureOption = JsonPrimitive("retain-me")
+        val source =
+            JsonObject(
+                original +
+                    ("futureTopLevel" to futureOption) +
+                    ("upstreamRelay" to JsonObject(originalRelay + ("futureRelayOption" to futureOption))),
+            )
+        val patterns =
+            listOf(null, MieruTrafficPattern(), MieruTrafficPattern(tcpFragment = MieruTcpFragment(false, 0)))
+        for (mode in listOf(null, MieruHandshakeDefault, MieruHandshakeStandard, MieruHandshakeNoWait)) {
+            for (pattern in patterns) {
+                val selected =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = "mieru",
+                        profileId = "selected",
+                        mieruHandshakeMode = mode,
+                        mieruTrafficPattern = pattern,
+                    )
+                val runtime =
+                    RipDpiProxyJsonPreferences(
+                        source.toString(),
+                    ).withRelayRuntimeSelection(selected, "127.0.0.1", 12980)
+                val rendered = Json.parseToJsonElement(runtime.toNativeConfigJson()).jsonObject
+                val relay = runtime.relayConfigOrNull()
+
+                assertEquals(mode to pattern, relay?.mieruHandshakeMode to relay?.mieruTrafficPattern)
+                assertEquals("selected", relay?.profileId)
+                assertEquals(12980, relay?.localSocksPort)
+                assertEquals(futureOption, rendered["futureTopLevel"])
+                assertEquals(futureOption, rendered.getValue("upstreamRelay").jsonObject["futureRelayOption"])
+            }
+        }
     }
 }
