@@ -1668,7 +1668,7 @@
     <string name="detection_exposure_clean_reason">Die Erkennungstests haben keine Signale zu Bypass, VPN, IP, DNS, TLS, Zeitabweichungen oder nativer Beobachtbarkeit sichtbar gemacht.</string>
     <string name="detection_exposure_clean_hint">Behalten Sie das aktuelle Profil bei und wiederholen Sie den Test nach einem Netzwerk- oder Profilwechsel.</string>
     <string name="detection_exposure_low_hint">Sorgen Sie für unauffällige Testergebnisse und verbessern Sie das Tarnprofil, bevor Sie sich auf strengere Netzwerke verlassen.</string>
-    <string name="detection_exposure_generic_reason">Öffne die Detailkategorien, um die Beobachtungen zu prüfen.</string>
+    <string name="detection_exposure_generic_reason">Die vorliegenden Beobachtungen zeigen keine eindeutige Ursache.</string>
     <string name="detection_exposure_generic_hint">Öffnen Sie die detaillierten Kategorien unten und passen Sie den ersten erkannten oder zu prüfenden Punkt an.</string>
     <string name="detection_exposure_generic_review">zu prüfendes Signal</string>
     <string name="detection_exposure_generic_detection">Erkennungstest</string>

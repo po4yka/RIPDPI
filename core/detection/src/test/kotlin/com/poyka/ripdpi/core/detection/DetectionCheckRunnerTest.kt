@@ -293,7 +293,7 @@ class DetectionCheckRunnerTest {
         val result = category("direct")
         var excludePackage: String? = null
 
-        override fun check(
+        override suspend fun check(
             context: Context,
             excludePackage: String?,
         ): CategoryResult {

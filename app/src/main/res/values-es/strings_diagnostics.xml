@@ -1671,7 +1671,7 @@
     <string name="detection_exposure_clean_reason">Las pruebas no revelaron indicios de elusión, VPN, IP, DNS, TLS, anomalías temporales ni visibilidad nativa.</string>
     <string name="detection_exposure_clean_hint">Mantenga el perfil actual y repita la prueba tras cambiar de red o perfil.</string>
     <string name="detection_exposure_low_hint">Mantenga las pruebas sin indicios y mejore el perfil de camuflaje antes de usar redes más estrictas.</string>
-    <string name="detection_exposure_generic_reason">Abre las categorías detalladas para revisar las observaciones.</string>
+    <string name="detection_exposure_generic_reason">Las observaciones disponibles no identifican una causa concreta.</string>
     <string name="detection_exposure_generic_hint">Abra las categorías detalladas que aparecen debajo y ajuste el primer elemento detectado o pendiente de revisión.</string>
     <string name="detection_exposure_generic_review">indicio que requiere revisión</string>
     <string name="detection_exposure_generic_detection">prueba de detección</string>

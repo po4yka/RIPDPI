@@ -59,6 +59,7 @@ class StealthScoreTest {
 
         assertEquals(100, StealthScore.compute(result))
         assertEquals("Additional diagnostic signals need review", ExposureVerdictBuilder.build(result, 100).headline)
+        assertTrue(VerdictNarrativeBuilder.build(result).reasonRows.none { it.label == "Direct signs" })
         val known =
             result.copy(
                 directSigns = result.directSigns.copy(matchedApps = listOf(candidate.copy(technicalMetadata = null))),
@@ -323,6 +324,18 @@ class StealthScoreTest {
         assertEquals("Additional diagnostic signals need review", verdict.headline)
         assertEquals("Local TLS settings", verdict.dominantSignal)
         assertTrue(VerdictNarrativeBuilder.build(result).reasonRows.any { it.label == "Local TLS settings" })
+    }
+
+    @Test
+    fun `partial inventory cannot produce clean summary or recommendation`() {
+        val result =
+            cleanResult().copy(
+                directSigns = emptyCategory("Direct").copy(executionStatus = CheckExecutionStatus.INCONCLUSIVE),
+            )
+
+        assertTrue(result.hasIncompleteChecks())
+        assertTrue(DetectionRecommendations.generate(result).isEmpty())
+        assertEquals("Insufficient evidence", ExposureVerdictBuilder.build(result, 100).headline)
     }
 
     @Test

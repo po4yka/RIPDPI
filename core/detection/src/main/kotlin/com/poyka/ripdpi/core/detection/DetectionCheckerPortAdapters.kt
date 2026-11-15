@@ -41,7 +41,7 @@ class DefaultGeoIpCheckerPort
 class DefaultDirectSignsCheckerPort
     @Inject
     constructor() : DirectSignsCheckerPort {
-        override fun check(
+        override suspend fun check(
             context: Context,
             excludePackage: String?,
         ): CategoryResult = DirectSignsChecker.check(context, excludePackage)

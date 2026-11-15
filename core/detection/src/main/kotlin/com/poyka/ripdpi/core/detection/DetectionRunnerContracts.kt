@@ -79,7 +79,7 @@ interface GeoIpCheckerPort {
 }
 
 interface DirectSignsCheckerPort {
-    fun check(
+    suspend fun check(
         context: Context,
         excludePackage: String?,
     ): CategoryResult

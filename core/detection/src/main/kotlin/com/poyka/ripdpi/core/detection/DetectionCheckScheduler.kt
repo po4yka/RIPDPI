@@ -153,6 +153,7 @@ class DetectionCheckScheduler
                         timestamp = System.currentTimeMillis(),
                         verdict = result.verdict.name,
                         stealthScore = score,
+                        measurementsComplete = !result.hasIncompleteChecks(),
                         evidenceCount =
                             result.geoIp.evidence.size +
                                 result.directSigns.evidence.size +

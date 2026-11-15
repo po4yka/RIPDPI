@@ -1695,7 +1695,7 @@
     <string name="detection_exposure_clean_reason">Detection probes did not expose bypass, VPN, IP, DNS, TLS, timing, or native observability signals.</string>
     <string name="detection_exposure_clean_hint">Keep the current profile and rerun after changing networks or profiles.</string>
     <string name="detection_exposure_low_hint">Keep probes clean and improve the masking profile before relying on stricter networks.</string>
-    <string name="detection_exposure_generic_reason">Open the detailed categories to review the observations.</string>
+    <string name="detection_exposure_generic_reason">The available observations do not identify a specific cause.</string>
     <string name="detection_exposure_generic_hint">Open the detailed categories below and adjust the first detected or review item.</string>
     <string name="detection_exposure_generic_review">review signal</string>
     <string name="detection_exposure_generic_detection">detection probe</string>

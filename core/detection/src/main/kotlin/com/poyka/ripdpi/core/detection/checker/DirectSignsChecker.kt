@@ -7,19 +7,15 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Proxy
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
-import com.poyka.ripdpi.core.detection.MatchedVpnApp
 import com.poyka.ripdpi.core.detection.vpn.InstalledVpnAppDetector
+import kotlinx.coroutines.CancellationException
 
 object DirectSignsChecker {
-    private data class SignalOutcome(
-        val detected: Boolean = false,
-        val needsReview: Boolean = false,
-    )
-
     private val KNOWN_PROXY_PORTS =
         setOf(
             80,
@@ -44,37 +40,41 @@ object DirectSignsChecker {
         )
     private val KNOWN_PROXY_PORT_RANGES = listOf(16000..16100)
 
-    fun check(
+    suspend fun check(
         context: Context,
         excludePackage: String? = null,
     ): CategoryResult {
         val findings = mutableListOf<Finding>()
         val evidence = mutableListOf<EvidenceItem>()
-        val matchedApps = mutableListOf<MatchedVpnApp>()
-        var detected = false
-        var needsReview = false
 
-        val vpnTransportOutcome = checkVpnTransport(context, findings, evidence)
-        detected = detected || vpnTransportOutcome.detected
-        needsReview = needsReview || vpnTransportOutcome.needsReview
-
-        val systemProxyOutcome = checkSystemProxy(findings, evidence)
-        detected = detected || systemProxyOutcome.detected
-        needsReview = needsReview || systemProxyOutcome.needsReview
-
+        val vpnTransport = checkVpnTransport(context, findings, evidence)
+        val proxyNeedsReview = checkSystemProxy(findings, evidence)
         val appDetection = InstalledVpnAppDetector.detect(context, excludePackage)
         findings += appDetection.findings
         evidence += appDetection.evidence
-        matchedApps += appDetection.matchedApps
-        needsReview = needsReview || appDetection.needsReview
 
         return CategoryResult(
             name = "Direct signs",
-            detected = detected,
+            detected = vpnTransport == true,
             findings = findings,
-            needsReview = needsReview,
+            needsReview = proxyNeedsReview || appDetection.needsReview,
             evidence = evidence,
-            matchedApps = matchedApps,
+            matchedApps = appDetection.matchedApps,
+            executionStatus =
+                when {
+                    vpnTransport != null && appDetection.executionStatus == CheckExecutionStatus.COMPLETED -> {
+                        CheckExecutionStatus.COMPLETED
+                    }
+
+                    vpnTransport == null && appDetection.executionStatus == CheckExecutionStatus.ERROR &&
+                        evidence.isEmpty() -> {
+                        CheckExecutionStatus.ERROR
+                    }
+
+                    else -> {
+                        CheckExecutionStatus.INCONCLUSIVE
+                    }
+                },
         )
     }
 
@@ -82,21 +82,13 @@ object DirectSignsChecker {
         context: Context,
         findings: MutableList<Finding>,
         evidence: MutableList<EvidenceItem>,
-    ): SignalOutcome {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork = cm.activeNetwork
-        if (activeNetwork == null) {
-            findings.add(Finding("Active network not found"))
-            return SignalOutcome()
-        }
-
-        val caps = cm.getNetworkCapabilities(activeNetwork)
+    ): Boolean? {
+        val caps = defaultNetworkCapabilities(context)
         if (caps == null) {
-            findings.add(Finding("NetworkCapabilities unavailable"))
-            return SignalOutcome()
+            findings.add(Finding("Default network VPN transport could not be checked"))
+            return null
         }
 
-        var detected = false
         val hasVpnTransport = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
         findings.add(
             Finding(
@@ -107,7 +99,6 @@ object DirectSignsChecker {
             ),
         )
         if (hasVpnTransport) {
-            detected = true
             evidence.add(
                 EvidenceItem(
                     source = EvidenceSource.NETWORK_CAPABILITIES,
@@ -117,58 +108,27 @@ object DirectSignsChecker {
                 ),
             )
         }
-
-        val capsString = caps.toString()
-        val hasIsVpn = capsString.contains("IS_VPN")
-        if (hasIsVpn) {
-            detected = true
-            findings.add(
-                Finding(
-                    description = "IS_VPN flag detected in capabilities",
-                    detected = true,
-                    source = EvidenceSource.NETWORK_CAPABILITIES,
-                    confidence = EvidenceConfidence.HIGH,
-                ),
-            )
-            evidence.add(
-                EvidenceItem(
-                    source = EvidenceSource.NETWORK_CAPABILITIES,
-                    detected = true,
-                    confidence = EvidenceConfidence.HIGH,
-                    description = "NetworkCapabilities string contains IS_VPN",
-                ),
-            )
-        }
-
-        val hasVpnTransportInfo = capsString.contains("VpnTransportInfo")
-        if (hasVpnTransportInfo) {
-            detected = true
-            findings.add(
-                Finding(
-                    description = "VpnTransportInfo detected in transport info",
-                    detected = true,
-                    source = EvidenceSource.NETWORK_CAPABILITIES,
-                    confidence = EvidenceConfidence.HIGH,
-                ),
-            )
-            evidence.add(
-                EvidenceItem(
-                    source = EvidenceSource.NETWORK_CAPABILITIES,
-                    detected = true,
-                    confidence = EvidenceConfidence.HIGH,
-                    description = "NetworkCapabilities string contains VpnTransportInfo",
-                ),
-            )
-        }
-
-        return SignalOutcome(detected = detected)
+        return hasVpnTransport
     }
+
+    // ROADMAP-architecture-refactor Android can rethrow Binder failures as RuntimeException.
+    @Suppress("TooGenericExceptionCaught")
+    private fun defaultNetworkCapabilities(context: Context): NetworkCapabilities? =
+        try {
+            context.getSystemService(ConnectivityManager::class.java)?.let { cm ->
+                cm.activeNetwork?.let(cm::getNetworkCapabilities)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: RuntimeException) {
+            null
+        }
 
     @Suppress("DEPRECATION")
     private fun checkSystemProxy(
         findings: MutableList<Finding>,
         evidence: MutableList<EvidenceItem>,
-    ): SignalOutcome {
+    ): Boolean {
         val httpHost = System.getProperty("http.proxyHost") ?: Proxy.getDefaultHost()
         val httpPort =
             System.getProperty("http.proxyPort")
@@ -193,7 +153,7 @@ object DirectSignsChecker {
             evidence = evidence,
         ) || needsReview
 
-        return SignalOutcome(needsReview = needsReview)
+        return needsReview
     }
 
     private fun addProxyFinding(

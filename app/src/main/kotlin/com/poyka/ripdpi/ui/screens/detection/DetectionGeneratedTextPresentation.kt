@@ -164,7 +164,7 @@ private val detectionGeneratedResources =
             R.string.detection_exposure_clean_hint,
         "Keep probes clean and improve the masking profile before relying on stricter networks." to
             R.string.detection_exposure_low_hint,
-        "Open the detailed categories to review the observations." to
+        "The available observations do not identify a specific cause." to
             R.string.detection_exposure_generic_reason,
         "Open the detailed categories below and adjust the first detected or review item." to
             R.string.detection_exposure_generic_hint,

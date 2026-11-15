@@ -1783,7 +1783,7 @@
     <string name="detection_exposure_clean_reason">لم تكشف اختبارات الكشف عن إشارات لتجاوز الحجب أو VPN أو عناوين IP أو DNS أو TLS أو التوقيت أو قابلية رصد الشيفرة الأصلية.</string>
     <string name="detection_exposure_clean_hint">احتفظ بملف التعريف الحالي وأعد الفحص بعد تغيير الشبكة أو ملف التعريف.</string>
     <string name="detection_exposure_low_hint">حافظ على خلو نتائج الاختبارات من إشارات الكشف وحسّن ملف تعريف التمويه قبل الاعتماد عليه في شبكات أشد تقييدًا.</string>
-    <string name="detection_exposure_generic_reason">افتح الفئات المفصّلة لمراجعة الملاحظات.</string>
+    <string name="detection_exposure_generic_reason">لا تحدد الملاحظات المتاحة سببًا بعينه.</string>
     <string name="detection_exposure_generic_hint">افتح الفئات التفصيلية أدناه وعدّل أول عنصر مكتشف أو يحتاج إلى مراجعة.</string>
     <string name="detection_exposure_generic_review">إشارة تحتاج إلى مراجعة</string>
     <string name="detection_exposure_generic_detection">اختبار كشف</string>

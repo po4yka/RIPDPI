@@ -1,247 +1,189 @@
-@file:Suppress("LoopWithTooManyJumpStatements", "TooManyFunctions")
-
 package com.poyka.ripdpi.core.detection.vpn
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.MatchedVpnApp
 import com.poyka.ripdpi.core.detection.VpnAppKind
-import java.util.Locale
+import kotlinx.coroutines.currentCoroutineContext
 
 data class InstalledVpnDetectionResult(
     val findings: List<Finding>,
     val evidence: List<EvidenceItem>,
     val matchedApps: List<MatchedVpnApp>,
     val needsReview: Boolean,
+    val executionStatus: CheckExecutionStatus,
 )
 
 object InstalledVpnAppDetector {
-    fun detect(
+    suspend fun detect(
         context: Context,
         excludePackage: String? = null,
     ): InstalledVpnDetectionResult {
-        val pm = context.packageManager
+        val budget = VpnInventoryBudget(currentCoroutineContext())
+        val pm =
+            budget.readPackageManager { context.packageManager }
+                ?: return result(emptyList(), CheckExecutionStatus.ERROR)
+        val packages =
+            budget.readPackageManager {
+                installedPackages(
+                    pm,
+                ).bounded(budget).associateBy { it.packageName }
+            }
+        val services = budget.readPackageManager { queryVpnServiceProviders(pm, budget) }
+        val visiblePackages = packages.orEmpty()
+        val observedServices = services.orEmpty()
+        val matchedApps = mutableListOf<MatchedVpnApp>()
+
+        val declaredOrCatalogued =
+            VpnAppCatalog.signatures.mapNotNull { it.packageName.takeIf(visiblePackages::containsKey) }.toSet() +
+                observedServices.keys
+        val excluded = listOfNotNull(excludePackage)
+        for (packageName in declaredOrCatalogued - excluded) {
+            if (!budget.canContinue()) break
+            val packageInfo = visiblePackages[packageName]
+            val signature = VpnAppCatalog.findByPackageName(packageName)
+            val serviceNames = observedServices[packageName].orEmpty()
+            val appName = signature?.appName ?: resolveDisplayLabel(pm, packageInfo, budget) ?: packageName
+            val confidence =
+                when {
+                    serviceNames.isNotEmpty() -> EvidenceConfidence.MEDIUM
+                    signature?.kind == VpnAppKind.TARGETED_BYPASS -> EvidenceConfidence.MEDIUM
+                    else -> EvidenceConfidence.LOW
+                }
+            matchedApps +=
+                MatchedVpnApp(
+                    packageName = packageName,
+                    appName = appName,
+                    family = signature?.family,
+                    kind = signature?.kind ?: VpnAppKind.GENERIC_VPN,
+                    source =
+                        if (serviceNames.isEmpty()) {
+                            EvidenceSource.INSTALLED_APP
+                        } else {
+                            EvidenceSource.VPN_SERVICE_DECLARATION
+                        },
+                    active = false,
+                    confidence = confidence,
+                    technicalMetadata = VpnAppMetadataScanner.scan(packageInfo, budget, serviceNames),
+                )
+        }
+
+        matchedApps += findLabelMatches(pm, visiblePackages, declaredOrCatalogued + excluded, budget)
+        budget.canContinue()
+        val status =
+            when {
+                packages == null && services == null -> CheckExecutionStatus.ERROR
+                budget.incomplete -> CheckExecutionStatus.INCONCLUSIVE
+                else -> CheckExecutionStatus.COMPLETED
+            }
+        return result(matchedApps, status)
+    }
+
+    private fun findLabelMatches(
+        pm: PackageManager,
+        visiblePackages: Map<String, PackageInfo>,
+        excludedPackages: Set<String>,
+        budget: VpnInventoryBudget,
+    ): List<MatchedVpnApp> =
+        buildList {
+            val candidates =
+                visiblePackages.asSequence().filter { (packageName, packageInfo) ->
+                    packageName !in excludedPackages && packageInfo.applicationInfo?.isSystemApp() == false
+                }
+            for ((packageName, packageInfo) in candidates) {
+                if (!budget.canContinue()) break
+                val appName = resolveDisplayLabel(pm, packageInfo, budget)
+                if (appName != null && appName != packageName && appName.contains("VPN", ignoreCase = true)) {
+                    add(
+                        MatchedVpnApp(
+                            packageName = packageName,
+                            appName = appName,
+                            family = null,
+                            kind = VpnAppKind.GENERIC_VPN,
+                            source = EvidenceSource.INSTALLED_APP,
+                            active = false,
+                            confidence = EvidenceConfidence.LOW,
+                            technicalMetadata =
+                                VpnAppMetadataScanner.scan(
+                                    packageInfo,
+                                    budget,
+                                    matchedByNameHeuristic = true,
+                                ),
+                        ),
+                    )
+                }
+            }
+        }
+
+    private fun result(
+        matchedApps: List<MatchedVpnApp>,
+        status: CheckExecutionStatus,
+    ): InstalledVpnDetectionResult {
         val findings = mutableListOf<Finding>()
         val evidence = mutableListOf<EvidenceItem>()
-        val matchedApps = linkedMapOf<String, MatchedVpnApp>()
-
-        detectKnownInstalledPackages(context, pm, excludePackage, findings, evidence, matchedApps)
-        detectDeclaredVpnServices(context, pm, excludePackage, findings, evidence, matchedApps)
-        detectPackagesWithVpnInName(context, pm, excludePackage, findings, evidence, matchedApps)
-
-        if (matchedApps.isEmpty()) {
-            findings.add(Finding("Known VPN/proxy apps and VpnService providers: not detected"))
-        }
-
-        return InstalledVpnDetectionResult(
-            findings = findings,
-            evidence = evidence,
-            matchedApps = matchedApps.values.toList(),
-            needsReview = matchedApps.isNotEmpty(),
-        )
-    }
-
-    private fun detectKnownInstalledPackages(
-        context: Context,
-        pm: PackageManager,
-        excludePackage: String?,
-        findings: MutableList<Finding>,
-        evidence: MutableList<EvidenceItem>,
-        matchedApps: MutableMap<String, MatchedVpnApp>,
-    ) {
-        for (signature in VpnAppCatalog.signatures) {
-            if (signature.packageName == excludePackage) continue
-            if (!isPackageInstalled(pm, signature.packageName)) continue
-
-            val confidence =
-                when (signature.kind) {
-                    VpnAppKind.TARGETED_BYPASS -> EvidenceConfidence.MEDIUM
-                    VpnAppKind.GENERIC_VPN -> EvidenceConfidence.LOW
+        for (app in matchedApps) {
+            val labelOnly = app.technicalMetadata?.matchedByNameHeuristic == true
+            val findingLabel =
+                when {
+                    labelOnly -> "Installed app name suggests VPN"
+                    app.source == EvidenceSource.VPN_SERVICE_DECLARATION -> "App declares VpnService"
+                    else -> "Installed app"
                 }
-            val metadata = VpnAppMetadataScanner.scan(context, signature.packageName)
             val description =
-                "Installed app: ${signature.appName} (${signature.packageName})" +
-                    VpnAppMetadataScanner.formatMetadataSuffix(metadata)
-
-            findings.add(
+                "$findingLabel: ${app.appName} (${app.packageName})" +
+                    VpnAppMetadataScanner.formatMetadataSuffix(app.technicalMetadata)
+            findings +=
                 Finding(
                     description = description,
                     needsReview = true,
-                    source = EvidenceSource.INSTALLED_APP,
-                    confidence = confidence,
-                    family = signature.family,
-                    packageName = signature.packageName,
-                ),
-            )
-            evidence.add(
-                EvidenceItem(
-                    source = EvidenceSource.INSTALLED_APP,
-                    detected = true,
-                    confidence = confidence,
-                    description = description,
-                    family = signature.family,
-                    packageName = signature.packageName,
-                    kind = signature.kind,
-                ),
-            )
-            matchedApps.putIfAbsent(
-                signature.packageName,
-                MatchedVpnApp(
-                    packageName = signature.packageName,
-                    appName = signature.appName,
-                    family = signature.family,
-                    kind = signature.kind,
-                    source = EvidenceSource.INSTALLED_APP,
-                    active = false,
-                    confidence = confidence,
-                    technicalMetadata = metadata,
-                ),
-            )
-        }
-    }
-
-    private fun detectDeclaredVpnServices(
-        context: Context,
-        pm: PackageManager,
-        excludePackage: String?,
-        findings: MutableList<Finding>,
-        evidence: MutableList<EvidenceItem>,
-        matchedApps: MutableMap<String, MatchedVpnApp>,
-    ) {
-        for ((packageName, serviceNames) in queryVpnServiceProviders(pm)) {
-            if (packageName == excludePackage) continue
-            val signature = VpnAppCatalog.findByPackageName(packageName)
-            val appName = signature?.appName ?: resolveAppName(pm, packageName)
-            val family = signature?.family
-            val kind = signature?.kind ?: VpnAppKind.GENERIC_VPN
-            val confidence = EvidenceConfidence.MEDIUM
-            val metadata =
-                VpnAppMetadataScanner.scan(
-                    context = context,
-                    packageName = packageName,
-                    serviceNames = serviceNames,
+                    source = app.source,
+                    confidence = app.confidence,
+                    family = app.family,
+                    packageName = app.packageName,
                 )
-            val serviceSuffix = serviceNames.takeIf { it.isNotEmpty() }?.joinToString()
-            val description =
-                buildString {
-                    append("App declares VpnService: ")
-                    append(appName)
-                    append(" (")
-                    append(packageName)
-                    append(")")
-                    if (!serviceSuffix.isNullOrBlank()) {
-                        append(" -> ")
-                        append(serviceSuffix)
-                    }
-                    append(VpnAppMetadataScanner.formatMetadataSuffix(metadata))
+            evidence +=
+                EvidenceItem(
+                    source = app.source,
+                    detected = !labelOnly,
+                    confidence = app.confidence,
+                    description = description,
+                    family = app.family,
+                    packageName = app.packageName,
+                    kind = app.kind,
+                )
+        }
+        val summary =
+            when (status) {
+                CheckExecutionStatus.COMPLETED -> {
+                    if (matchedApps.isEmpty()) "No VPN app matches among packages visible to this app" else null
                 }
 
-            findings.add(
-                Finding(
-                    description = description,
-                    needsReview = true,
-                    source = EvidenceSource.VPN_SERVICE_DECLARATION,
-                    confidence = confidence,
-                    family = family,
-                    packageName = packageName,
-                ),
-            )
-            evidence.add(
-                EvidenceItem(
-                    source = EvidenceSource.VPN_SERVICE_DECLARATION,
-                    detected = true,
-                    confidence = confidence,
-                    description = description,
-                    family = family,
-                    packageName = packageName,
-                    kind = kind,
-                ),
-            )
+                CheckExecutionStatus.INCONCLUSIVE -> {
+                    "VPN app inventory is incomplete for packages visible to this app"
+                }
 
-            matchedApps[packageName] =
-                MatchedVpnApp(
-                    packageName = packageName,
-                    appName = appName,
-                    family = family,
-                    kind = kind,
-                    source = EvidenceSource.VPN_SERVICE_DECLARATION,
-                    active = false,
-                    confidence = confidence,
-                    technicalMetadata = metadata,
-                )
-        }
+                else -> {
+                    "VPN app inventory is unavailable"
+                }
+            }
+        summary?.let { findings += Finding(it) }
+        return InstalledVpnDetectionResult(findings, evidence, matchedApps, matchedApps.isNotEmpty(), status)
     }
 
-    private fun detectPackagesWithVpnInName(
-        context: Context,
+    private fun queryVpnServiceProviders(
         pm: PackageManager,
-        excludePackage: String?,
-        findings: MutableList<Finding>,
-        evidence: MutableList<EvidenceItem>,
-        matchedApps: MutableMap<String, MatchedVpnApp>,
-    ) {
-        for (packageInfo in installedPackages(pm)) {
-            val packageName = packageInfo.packageName
-            if (packageName == excludePackage || matchedApps.containsKey(packageName)) continue
-            val appInfo = packageInfo.applicationInfo ?: continue
-            if (appInfo.isSystemApp()) continue
-
-            val appName = resolveDisplayAppName(pm, packageName, appInfo)
-            if (!appName.uppercase(Locale.ROOT).contains("VPN")) continue
-
-            val metadata =
-                VpnAppMetadataScanner.scan(
-                    context = context,
-                    packageName = packageName,
-                    matchedByNameHeuristic = true,
-                )
-            val description =
-                "Installed app name suggests VPN: $appName ($packageName)" +
-                    VpnAppMetadataScanner.formatMetadataSuffix(metadata)
-
-            findings.add(
-                Finding(
-                    description = description,
-                    needsReview = true,
-                    source = EvidenceSource.INSTALLED_APP,
-                    confidence = EvidenceConfidence.LOW,
-                    packageName = packageName,
-                ),
-            )
-            evidence.add(
-                EvidenceItem(
-                    source = EvidenceSource.INSTALLED_APP,
-                    detected = false,
-                    confidence = EvidenceConfidence.LOW,
-                    description = description,
-                    packageName = packageName,
-                    kind = VpnAppKind.GENERIC_VPN,
-                ),
-            )
-            matchedApps.putIfAbsent(
-                packageName,
-                MatchedVpnApp(
-                    packageName = packageName,
-                    appName = appName,
-                    family = null,
-                    kind = VpnAppKind.GENERIC_VPN,
-                    source = EvidenceSource.INSTALLED_APP,
-                    active = false,
-                    confidence = EvidenceConfidence.LOW,
-                    technicalMetadata = metadata,
-                ),
-            )
-        }
-    }
-
-    private fun queryVpnServiceProviders(pm: PackageManager): Map<String, List<String>> {
+        budget: VpnInventoryBudget,
+    ): Map<String, List<String>> {
         val intent = Intent(VpnService.SERVICE_INTERFACE)
         val resolveInfos =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -252,14 +194,15 @@ object InstalledVpnAppDetector {
             }
 
         return resolveInfos
+            .bounded(budget)
             .mapNotNull { resolveInfo ->
-                val serviceInfo = resolveInfo.serviceInfo ?: return@mapNotNull null
-                if (serviceInfo.permission != android.Manifest.permission.BIND_VPN_SERVICE) return@mapNotNull null
-                serviceInfo.packageName to serviceInfo.name
+                val service = resolveInfo.serviceInfo ?: return@mapNotNull null
+                if (service.permission != Manifest.permission.BIND_VPN_SERVICE) return@mapNotNull null
+                service.packageName to service.name
             }.groupBy(keySelector = { it.first }, valueTransform = { it.second })
     }
 
-    private fun installedPackages(pm: PackageManager): List<android.content.pm.PackageInfo> =
+    private fun installedPackages(pm: PackageManager): List<PackageInfo> =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(0L))
         } else {
@@ -267,21 +210,20 @@ object InstalledVpnAppDetector {
             pm.getInstalledPackages(0)
         }
 
-    private fun resolveDisplayAppName(
+    private fun resolveDisplayLabel(
         pm: PackageManager,
-        packageName: String,
-        appInfo: android.content.pm.ApplicationInfo,
-    ): String {
-        val launcherLabel = resolveLauncherLabel(pm, packageName)
-        if (!launcherLabel.isNullOrBlank()) return launcherLabel
-
-        val applicationLabel = appInfo.loadLabel(pm).toString().trim()
-        return applicationLabel.ifBlank { packageName }
+        packageInfo: PackageInfo?,
+        budget: VpnInventoryBudget,
+    ): String? {
+        val appInfo = packageInfo?.applicationInfo ?: return null
+        val launcherLabel = budget.readPackageManager { resolveLauncherLabel(pm, packageInfo.packageName, budget) }
+        return launcherLabel ?: budget.readPackageManager { appInfo.loadLabel(pm).toString().boundedInventoryText() }
     }
 
     private fun resolveLauncherLabel(
         pm: PackageManager,
         packageName: String,
+        budget: VpnInventoryBudget,
     ): String? {
         val intent =
             Intent(Intent.ACTION_MAIN).apply {
@@ -296,41 +238,16 @@ object InstalledVpnAppDetector {
                 pm.queryIntentActivities(intent, 0)
             }
         return resolveInfos
-            .asSequence()
-            .mapNotNull { resolveInfo -> resolveInfo.loadLabel(pm).toString().trim() }
-            .firstOrNull { label -> label.isNotBlank() }
-    }
-
-    private fun android.content.pm.ApplicationInfo.isSystemApp(): Boolean {
-        val system = flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0
-        val updatedSystem = flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
-        return system || updatedSystem
-    }
-
-    private fun isPackageInstalled(
-        pm: PackageManager,
-        packageName: String,
-    ): Boolean =
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0L))
-            } else {
-                @Suppress("DEPRECATION")
-                pm.getPackageInfo(packageName, 0)
+            .bounded(budget)
+            .firstNotNullOfOrNull { info ->
+                if (budget.canContinue()) info.loadLabel(pm).toString().boundedInventoryText() else null
             }
-            true
-        } catch (_: PackageManager.NameNotFoundException) {
-            false
-        }
+    }
 
-    private fun resolveAppName(
-        pm: PackageManager,
-        packageName: String,
-    ): String =
-        try {
-            val appInfo = pm.getApplicationInfo(packageName, 0)
-            pm.getApplicationLabel(appInfo).toString()
-        } catch (_: Exception) {
-            packageName
-        }
+    private fun <T> List<T>.bounded(budget: VpnInventoryBudget): List<T> {
+        if (size > MaxVisibleRecords) budget.markIncomplete()
+        return take(MaxVisibleRecords)
+    }
+
+    private const val MaxVisibleRecords = 1024
 }

@@ -379,6 +379,6 @@ data class DetectionCheckResult(
 )
 
 fun DetectionCheckResult.hasIncompleteChecks(): Boolean =
-    listOfNotNull(tlsFingerprint, timingAnalysis, icmpSpoofing?.category, rttTriangulation?.category).any {
+    listOfNotNull(directSigns, tlsFingerprint, timingAnalysis, icmpSpoofing?.category, rttTriangulation?.category).any {
         it.executionStatus == CheckExecutionStatus.INCONCLUSIVE || it.executionStatus == CheckExecutionStatus.ERROR
     }

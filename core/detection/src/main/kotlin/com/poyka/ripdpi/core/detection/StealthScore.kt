@@ -501,7 +501,7 @@ private data class ExposureSignal(
         fun generic(verdict: Verdict) =
             ExposureSignal(
                 label = if (verdict == Verdict.NEEDS_REVIEW) "review signal" else "detection probe",
-                reason = "Open the detailed categories to review the observations.",
+                reason = "The available observations do not identify a specific cause.",
                 hint = "Open the detailed categories below and adjust the first detected or review item.",
                 priority = 99,
             )

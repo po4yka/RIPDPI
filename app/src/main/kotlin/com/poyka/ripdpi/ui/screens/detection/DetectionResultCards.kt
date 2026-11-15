@@ -258,7 +258,9 @@ private fun DetectionCheckResult.probeSummary(): DetectionProbeSummary {
         buildList {
             add(bypassResult.detected)
             add(geoIp.detected)
-            add(directSigns.detected)
+            if (directSigns.executionStatus == CheckExecutionStatus.COMPLETED || directSigns.detected) {
+                add(directSigns.detected)
+            }
             add(indirectSigns.detected)
             add(locationSignals.detected)
             dnsLeak?.let { add(it.detected) }

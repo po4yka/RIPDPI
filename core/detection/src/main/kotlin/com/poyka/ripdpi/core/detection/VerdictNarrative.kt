@@ -154,7 +154,7 @@ object VerdictNarrativeBuilder {
                 } else if (result.geoIp.detected || result.geoIp.needsReview) {
                     add(row("GeoIP", "GeoIP signal indicates exposure or needs review.", exposureStatus))
                 }
-                if (result.directSigns.hasSignal()) {
+                if (result.directSigns.hasPositiveSignal()) {
                     add(row("Direct signs", "Local direct checks found proxy or VPN artifacts.", exposureStatus))
                 }
                 if (result.indirectSigns.hasSignal()) {
@@ -256,10 +256,10 @@ object VerdictNarrativeBuilder {
         locationSignals.findings.any { it.description == "network_mcc_ru:true" } &&
             (geoIp.detected || geoIp.needsReview || hasEvidence(EvidenceSource.GEO_IP))
 
-    private fun CategoryResult?.hasSignal(): Boolean =
-        this?.detected == true ||
-            this?.needsReview == true ||
-            this?.evidence?.any(EvidenceItem::detected) == true
+    private fun CategoryResult?.hasSignal(): Boolean = this?.needsReview == true || hasPositiveSignal()
+
+    private fun CategoryResult?.hasPositiveSignal(): Boolean =
+        this?.detected == true || this?.evidence?.any(EvidenceItem::detected) == true
 
     private fun CategoryResult.isHomeRoutedRoaming(): Boolean {
         if (findings.any { it.description == "home_routed_roaming:true" }) return true

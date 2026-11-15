@@ -1668,7 +1668,7 @@
     <string name="detection_exposure_clean_reason">آزمون‌های شناسایی، نشانه‌ای از عبور از محدودیت‌ها، VPN، ‏IP، ‏DNS، ‏TLS، الگوهای زمانی یا قابلیت مشاهده کد بومی آشکار نکردند.</string>
     <string name="detection_exposure_clean_hint">نمایه فعلی را نگه دارید و پس از تغییر شبکه یا نمایه، بررسی را دوباره اجرا کنید.</string>
     <string name="detection_exposure_low_hint">نتایج آزمون‌ها را بدون نشانه شناسایی نگه دارید و پیش از اتکا به آن در شبکه‌های سخت‌گیرتر، نمایه استتار را بهبود دهید.</string>
-    <string name="detection_exposure_generic_reason">برای بررسی مشاهدات، دسته‌بندی‌های جزئی را باز کنید.</string>
+    <string name="detection_exposure_generic_reason">مشاهدات موجود دلیل مشخصی را نشان نمی‌دهند.</string>
     <string name="detection_exposure_generic_hint">دسته‌بندی‌های تفصیلی زیر را باز کنید و نخستین مورد شناسایی‌شده یا نیازمند بررسی را اصلاح کنید.</string>
     <string name="detection_exposure_generic_review">نشانه نیازمند بررسی</string>
     <string name="detection_exposure_generic_detection">آزمون شناسایی</string>
