@@ -27,6 +27,30 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `shadowsocks 2022 export uses SIP002 plain escaped userinfo`() {
+        val key128 = "AAECAwQFBgcICQoLDA0ODw=="
+        val key256 = "YctPZ6U7xPPcU+gp3u+0tx/tRizJN9K8y+uKlW2qjlI="
+        for ((method, password, escaped) in listOf(
+            Triple("2022-blake3-aes-128-gcm", key128, "AAECAwQFBgcICQoLDA0ODw%3D%3D"),
+            Triple(
+                "2022-blake3-aes-256-gcm",
+                key256,
+                "YctPZ6U7xPPcU%2Bgp3u%2B0tx%2FtRizJN9K8y%2BuKlW2qjlI%3D",
+            ),
+            Triple(
+                "2022-blake3-chacha20-poly1305",
+                key256,
+                "YctPZ6U7xPPcU%2Bgp3u%2B0tx%2FtRizJN9K8y%2BuKlW2qjlI%3D",
+            ),
+        )) {
+            val profile = ProxyProfile.Shadowsocks("id", "node", "", "192.0.2.1", 8388, method, password)
+            val encoded = ProxyUriCodec.encode(profile)
+            assertEquals("$method:$escaped", java.net.URI(encoded).rawUserInfo)
+            assertEquals(password, (ProxyUriCodec.parse(encoded) as ProxyProfile.Shadowsocks).password)
+        }
+    }
+
+    @Test
     fun `naive import rejects invalid decoded Basic credentials`() {
         for (scheme in listOf("naive+https", "naive+quic")) {
             assertNull(ProxyUriCodec.parse("$scheme://private%3Auser:secret@h.example"))
