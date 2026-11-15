@@ -298,16 +298,20 @@ class BootstrapConsumer(
             if (selector !is SelectorUrltestImportResult.Success) {
                 return BootstrapConsumeResult.ParseError("invalid bootstrap selector")
             }
+            val members = selector.group?.members ?: selector.profiles
+            val migrationTags = members.map { it.displayName } + singBox.amneziaWgProfiles.map { it.displayName }
+            if (singBox.migration?.targetTags?.any { it !in migrationTags } == true) {
+                return BootstrapConsumeResult.ParseError("migration target is not a selected bootstrap member")
+            }
             return BootstrapConsumeResult.Consumed(
-                profiles = singBox.profiles,
+                profiles = members,
                 consumedAtMillis = clockMillis(),
                 packageRoutingRules = singBox.packageRoutingRules,
                 amneziaWgProfiles = singBox.amneziaWgProfiles,
                 subscriptionMirrors = singBox.subscriptionMirrors ?: SubscriptionMirrorSet(),
                 migration = singBox.migration,
                 payloadSha256 = payload.sha256,
-                // These ids belong to singBox.profiles, not the selector's independent parse.
-                cloudflareMemberIds = singBox.cloudflareMemberIds.orEmpty(),
+                cloudflareMemberIds = selector.group?.cloudflareMemberIds ?: selector.cloudflareMemberIds.orEmpty(),
                 isSelector = selector.group != null,
                 failover = selector.failoverPolicy.toSelectorFailover(),
             )
