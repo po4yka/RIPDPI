@@ -46,7 +46,7 @@ object AmneziaWgUriCodec {
     private const val SCHEME = "amneziawg"
     private const val SCHEME_PREFIX = "$SCHEME://"
 
-    val allowedQueryKeys =
+    private val allowedQueryKeys =
         setOf(
             "wire_profile",
             "public_key",

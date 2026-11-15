@@ -16,7 +16,11 @@ class QrCodeEncoderTest {
     @Test
     fun `rendered QR has at least four quiet modules on every side`() {
         val matrix = QrCodeEncoder.encodeMatrix("HELLO", size = 512)
-        val (left, top, width, height) = matrix.enclosingRectangle
+        val bounds = matrix.enclosingRectangle
+        val left = bounds[0]
+        val top = bounds[1]
+        val width = bounds[2]
+        val height = bounds[3]
         val module = width / 21 // Version 1 has a 21-module symbol.
 
         assertEquals(21 * module, width)

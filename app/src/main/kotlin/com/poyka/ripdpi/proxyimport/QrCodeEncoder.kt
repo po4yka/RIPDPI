@@ -44,13 +44,11 @@ object QrCodeEncoder {
         content: String,
         size: Int,
     ): BitMatrix? {
-        if (size !in 1..MaximumMatrixSize || content.length > MaximumContentLength ||
-            content.isBlank() || !Charsets.UTF_8.newEncoder().canEncode(content)
-        ) {
-            return null
-        }
-        return runCatching {
-            writer.encode(content, BarcodeFormat.QR_CODE, size, size, hints)
-        }.getOrNull()?.takeIf { it.width == size && it.height == size }
+        if (size !in 1..MaximumMatrixSize || content.length > MaximumContentLength || content.isBlank()) return null
+        return content
+            .takeIf(Charsets.UTF_8.newEncoder()::canEncode)
+            ?.let { value ->
+                runCatching { writer.encode(value, BarcodeFormat.QR_CODE, size, size, hints) }.getOrNull()
+            }?.takeIf { it.width == size && it.height == size }
     }
 }

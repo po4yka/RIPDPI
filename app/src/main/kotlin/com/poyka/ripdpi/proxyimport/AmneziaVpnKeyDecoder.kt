@@ -40,8 +40,10 @@ internal object AmneziaVpnKeyDecoder {
     fun confFromCompressed(compressed: ByteArray): String? = qUncompress(compressed)?.let(::confFromJson)
 
     private fun confFromJson(bytes: ByteArray): String? {
-        val json = decodeUtf8OrNull(bytes) ?: return null
-        val root = runCatching { Json.parseToJsonElement(json) as? JsonObject }.getOrNull() ?: return null
+        val root =
+            decodeUtf8OrNull(bytes)
+                ?.let { json -> runCatching { Json.parseToJsonElement(json) as? JsonObject }.getOrNull() }
+                ?: return null
         return nativeConfOf(root)
             ?.replace("\$PRIMARY_DNS", root.string("dns1").orEmpty())
             ?.replace("\$SECONDARY_DNS", root.string("dns2").orEmpty())
