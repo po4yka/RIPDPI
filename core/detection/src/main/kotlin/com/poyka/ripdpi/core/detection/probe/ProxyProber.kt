@@ -148,16 +148,15 @@ internal object ProxyProber {
 
         private fun readFields(): Boolean {
             while (remainingBytes > 0) {
-                val line = readLine(remainingBytes) ?: break
+                val line = readLine(remainingBytes)?.takeIf { it.isEmpty() || HttpField.matches(it) } ?: break
                 if (line.isEmpty()) return true
-                if (!HttpField.matches(line)) break
             }
             return false
         }
 
         private fun readLine(limit: Int): String? {
             val line = StringBuilder()
-            for (index in 0 until minOf(limit, remainingBytes)) {
+            while (line.length < limit && remainingBytes > 0) {
                 remainingBytes--
                 val remainingNanos = deadlineNanos - System.nanoTime()
                 if (remainingNanos <= 0L) throw SocketTimeoutException()
