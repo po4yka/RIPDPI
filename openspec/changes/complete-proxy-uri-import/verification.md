@@ -1,15 +1,15 @@
 ---
 task_id: OUT-1794722656313653
 change: complete-proxy-uri-import
-commit_sha: ee25ddb7f6b33d7a6b5508c953720820f4dcda25
+commit_sha: 2f3438a9fc0fda85a4b6f31e118f693d745b07df
 local: passed
-local_evidence: "publication-v4 passed on the published SHA: 471 Kotlin tests, full staticAnalysis and app/service lint, Simple compile, locked workspace check, native wire 18 accepted and 54 rejected, ci-gates, architecture and metadata. Detailed receipts and immutable JUnit are in /Users/npochaev/GitHub/RIPDPI-worktrees/imp01-evidence/integration/publication-v4."
-remote_ci: blocked
-remote_ci_evidence: "Published ee25 CI run 43729212424 ended cancelled: three substantive failures (backup allowlist, raw Mieru round trip, stale unsupported TUIC fixture), one aggregate failure and five cancelled jobs. All five other workflows including CodeQL passed. Follow-up fixes are being validated before a new push."
+local_evidence: "All eight final-rebase-v1 jobs passed on this exact SHA: staticAnalysis, explicit app/service lint, 436 fresh affected Kotlin tests, 74 affected Rust tests, locked workspace all-targets compile, actual native wire 18 accepted/54 rejected, ci-gates, architecture and locked metadata. Full coverage on unchanged owned inputs passed 10421 fresh tests on 41129892bd; retained native scope passed 389 tests, Clippy and two pinned Go peers. Receipts: /Users/npochaev/GitHub/RIPDPI-worktrees/imp01-evidence/integration."
+remote_ci: required
+remote_ci_evidence: The first published candidate failed; its three owned failures are fixed and locally verified. Check the next exact published SHA before acceptance.
 device: not_applicable
-device_evidence: No Android UI layout or physical transport acceptance is claimed; JVM Room and native loopback cover the owned contract changes.
+device_evidence: No device or external server acceptance is claimed. JVM Room, native config and local Go peers cover the owned source contracts.
 artifact: not_applicable
-artifact_evidence: This change delivers reviewed source commits, not a packaged or signed application artifact.
+artifact_evidence: This change delivers source commits, not a packaged or signed application artifact.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -17,6 +17,7 @@ deployment_evidence: No deployment is owned by this change.
 # Verification
 
 ## Requirement evidence
+
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
@@ -28,75 +29,59 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-IMP01-F6 | OUT-1794723323595628 | Scanner tests assert redacted failures for all twelve URI schemes and aliases. | passed |
 | REQ-IMP01-F7 | OUT-1794723325992640 | Shadowsocks scheme case variants reach the parser and return the same profile. | passed |
 | REQ-IMP01-TUIC | OUT-1794723329887849 | Typed URI, real Room persistence, explicit selection, native config and lossless share tests pass. No live TUIC peer acceptance is claimed. | passed |
-| REQ-IMP01-MIERU | OUT-1794723333000951 | Presence-aware protobuf and saved share tests pass. Pinned Go vectors and two real Go 1.27.4 loopback cases verify advanced TCP and Off shutdown; 381 native tests and Clippy passed on retained native inputs. | passed |
-| REQ-IMP01-BACKUP | OUT-1794756875357718 | Backup policy commit 6735f72b86: 7 regression tests passed after 4 observed failures; FULL/SHARE literal outputs and raw presence are verified. Core-data ktlint and detekt passed; independent review approved. | passed |
-| REQ-IMP01-ROUNDTRIP | OUT-1794758046683376 | Engine commit 05690df45a preserves raw optional values. Fresh RED: 53 tests and 5 assertion failures; GREEN: 53 passed, independent review and hooks passed. Actual runtime normalization remains separate. | passed |
-| REQ-IMP01-SELECTION | OUT-1794759937653382 | Actual runtime-selection RED returned old no_wait for selected null; bounded replacement of the two Mieru keys is in progress. | required |
+| REQ-IMP01-MIERU | OUT-1794723333000951 | Presence-aware protobuf and saved share tests pass. Pinned Go vectors and two real Go 1.27.4 loopback cases verify advanced TCP and Off shutdown; 389 native tests and Clippy passed on retained native inputs. | passed |
+| REQ-IMP01-BACKUP | OUT-1794756875357718 | Upstream REDACTED SHARE policy is retained for credentials and identifying Mieru traffic patterns. FULL retains all 12 presence combinations. The reconciled policy passed 17 fresh backup tests, including sealed-type coverage; independent review approved. | passed |
+| REQ-IMP01-ROUNDTRIP | OUT-1794758046683376 | Engine change preserves raw optional values. Fresh RED: 53 tests and 5 assertion failures; GREEN: 53 passed, independent review and hooks passed. Actual runtime normalization remains separate. | passed |
+| REQ-IMP01-SELECTION | OUT-1794759937653382 | RED returned old no_wait for selected null. The fix removes only the two known prior Mieru keys before selected-profile merge. The 72-test engine selection set and dedicated 12-pair regression passed; independent review approved. | passed |
 
-## Verified candidate and publication
 
-Tested and published SHA: `ee25ddb7f6b33d7a6b5508c953720820f4dcda25` (2026-11-15).
+## Accepted local source
 
-All nine `publication-v4` jobs completed with exit 0. Main was fast-forwarded from `184b55708c67f8d5693fd58e6ff29463a114b148` to this exact SHA with a clean status. Push to origin/main completed with exit 0, and `ls-remote` confirmed the exact published SHA. Integration receipts: `main-merge.json` and `hosted-ci-initial.json` under `/Users/npochaev/GitHub/RIPDPI-worktrees/imp01-evidence/integration`.
+The final code candidate is `2f3438a9fc0fda85a4b6f31e118f693d745b07df`, rebased without conflicts onto `e7b871df4df26bb72fb3db44fd89b73311387077`. Its tracked source SHA256 is `91c9ef745594bccdc4f8e08eb1c066009c2e5c84146ef267a5b2559177f3c79f`. All eight `final-rebase-v1` jobs passed on that candidate. Each receipt records the exact command, source hash, SHA, time and result.
 
-| Local check | Observed result |
+| Check | Observed result |
 |---|---|
-| Metadata repair | Owning pcap-export metadata task passed after an observed missing-output failure. Generated metadata existed before the full gate resumed. No production fix or baseline change was used. |
-| Static and explicit Android lint | `staticAnalysis :app:lintGithubFullDebug :core:service:lintDebug`: exit 0, 828 tasks, 7m15s. |
-| Simple compile | Exit 0. |
-| Expanded Kotlin tests | **471 passed**, 0 failures/errors/skips: runtime-state 84, settings 3, core data 103, engine 20, service 5, app 256. **468 fresh, 3 settings UP-TO-DATE**. |
-| Workspace compile | `cargo check --workspace --all-targets --locked --jobs 2`: exit 0. Compile-only evidence. |
-| Kotlin-to-Rust wire | Actual Rust session decoder accepted **18 current Kotlin payloads** and rejected **54 invalid schemas**. One contract test passed; 17 unrelated tests were filtered. |
-| Offline CI source gates | `just ci-gates`: exit 0. |
-| Architecture | Exit 0: 18 existing indicators, 0 new/worsened/stale. |
-| Locked metadata | Exit 0. |
+| Static analysis and explicit lint | `staticAnalysis :app:lintGithubFullDebug :core:service:lintDebug`: passed. |
+| Affected Kotlin tests | 436 fresh passed, zero failures/errors/skips: data 7, engine 354, service 75. Service includes 29 geo tests and 46 runtime cleanup tests. |
+| Affected native tests | 74 passed, zero failed/ignored: Android proxy adapter 41 and geo 33. Cargo used `--locked`. |
+| Workspace compile | `cargo check --workspace --all-targets --locked --jobs 2`: passed. Compile-only evidence. |
+| Actual Kotlin-to-native wire | Current native decoder accepted 18 Kotlin payloads and rejected 54 invalid schemas. One contract test passed, 17 unrelated tests were filtered. |
+| Offline source gates | `just ci-gates`: passed. |
+| Architecture | 18 retained indicators, zero new, worsened or stale. |
+| Locked metadata | Passed. |
 
-Receipts: `integration/publication-v4`. Current JUnit: `publication-v4/junit-verified/summary.json`; immutable automatic snapshot: `publication-v4/kotlin-junit`. The later wire task replaced live engine XML, so counts use the saved Kotlin snapshot.
+Receipts and immutable JUnit: `integration/final-rebase-v1`. Summary: `integration/final-rebase-v1-monitor-metrics.json` under the evidence root in frontmatter.
 
-The earlier selected suite had **447 passed**. Its last publication run had 249 fresh app tests and 198 library tests FROM-CACHE; an earlier rebase run executed all 447 fresh. The current expanded selection adds 24 existing tests and supersedes that total. Do not sum 447 and 471 or call cached results fresh.
+## Full Kotlin coverage and source invariance
+
+The preceding frozen candidate `41129892bd4107f1eb5242555c6a47a2aecbc9aa` passed all nine `final-frontend-v2` jobs, including `coverageReport` and `kotlinCoverageVerification`. All 13 test tasks executed: **10421 fresh passed, zero failures/errors/skips**, no missing JUnit directories and no JaCoCo mismatch warning. Counts: app 3594, data 1029, catalog 57, model 94, runtime-state 489, settings 99, detection 451, diagnostics 1815, diagnostics-data 101, engine 354, engine-api 77, pcap-export 36, service 2225. The separate quality snapshot was not executed by coverage and is excluded. Simple subscription tests passed 9 fresh cases; PCAP viewer tests passed 7 fresh cases. Do not add the later 436 overlapping cases to 10421.
+
+The later rebase added exactly 46 upstream geo/JNI/asset/task files. It changed no owned URI, backup, Mieru codec, runtime-selection or cleanup implementation. The affected source areas were checked again as shown above. These counts are separate runs, not one fresh run on the final SHA.
 
 ## Retained native and concrete peer evidence
 
-- `publication-native-v1`: **381 passed, 0 failed, 2 opt-in peer cases ignored** across Mieru, relay-core and TLS transports. Clippy passed with `--locked --all-targets -- -D warnings`. These receipts apply to their recorded native input scopes; publication-v4 did not rerun the three-crate unit suite.
-- Actual root `publication-peer-v1/advanced-peer`: pinned Mieru source `155ebbd60f86e472586a60d7ffe58ec8f8682cb1`, **Go 1.27.4**, 1 passed, 3 filtered.
-- Actual root `publication-peer-v1/off-stop-peer`: same pin/toolchain, 1 passed, 259 filtered. Upstream verified two distinct Off carriers and closure of both before server shutdown. This is separate evidence for a case ignored by the general unit run.
+`postfix-native-v1` passed six jobs on its recorded source scope: **389 Rust unit tests** (Mieru 82, relay-core 258, TLS transports 49), affected all-target Clippy with warnings denied, locked workspace compile, actual native wire, and two real pinned Go peers. Two opt-in units were ignored in the aggregate. The Mieru Off shutdown case was executed separately; the VLESS REALITY XHTTP XUDP opt-in was not.
 
-Room tests prove durable ImportOnly save, reopen, rollback and later explicit selection. They do not prove a network handshake. A config decoder or workspace compile does not establish a live Android VPN or external TUIC connection.
+The peer source is pinned to `155ebbd60f86e472586a60d7ffe58ec8f8682cb1`, with actual Go **1.27.4**. The advanced TCP scenario passed once; the Off/stop scenario passed once and verified that both Off carriers closed before server shutdown. No external server or physical device was used.
 
-## Hosted checks and evidence limits
+The rebase review parsed the complete normal/dev/build local dependency closure of the three IMP native crates: 34 packages, no geo/proxy-runtime/Android proxy adapter dependency, and zero changed paths or manifests. The lockfile added an existing serde edge only to geo and changed no version. Thus 389/Clippy/Go results retain their named scope; they were not rerun or counted as fresh after this rebase. Proof: `integration/final-frontend-v2-monitor-metrics.json`, `rebase_delta_review`.
 
-Initial hosted status for the exact published SHA: [CI 43729212424](https://github.com/po4yka/RIPDPI/actions/runs/43729212424) queued; [CodeQL 43729212391](https://github.com/po4yka/RIPDPI/actions/runs/43729212391) running; [Secret Scan 43729212320](https://github.com/po4yka/RIPDPI/actions/runs/43729212320) success. Fleet fixtures, harness checks and L7 adversarial dry-run were also running. These are observations from `hosted-ci-initial.json`, not a claim that all remote checks passed. Use a later exact-SHA receipt before changing those statuses.
+## Corrections after first publication
 
-The approved diagnostics author evidence remains historical: **110 fresh selected diagnostics/theme tests** for the original three-file correction and **18 fresh tests** for the status-label follow-up, each with independent review and standalone lint passes. Final rebase follows upstream versions of all four diagnostics files, including new DoQ behavior; there is no own production diagnostics diff. The older tests do not establish coverage of added upstream DoQ behavior. No pixel comparison, screenshot acceptance or golden blessing was performed. Current combined static and explicit lint passed.
+The first published SHA `ee25ddb7f6b33d7a6b5508c953720820f4dcda25` reached main and origin. Its CI run 43729212424 ended cancelled, with three substantive failures: backup allowlist, raw Mieru DTO round trip, and a stale unsupported-TUIC fixture. That candidate is not accepted as hosted GREEN.
 
-The official Go 1.27.2 peer gate remains separate from the concrete Go 1.27.4 supplemental observations. Miri was attempted but blocked by unsupported macOS `kqueue`; it did not pass. No new physical/emulator installation, Android ABI packaging, root activation, real-secret use or external server run is covered. API checking retains its explicit Darwin skip for the Linux-owned runtime-platform snapshot.
+The corrected backup policy keeps upstream's stronger SHARE rule: credentials and identifying Mieru traffic patterns are REDACTED; FULL keeps all settings. Seventeen fresh reconciled backup tests passed. The raw UI DTO now retains nullable handshake and traffic-pattern presence; runtime-effective defaults resolve separately. Runtime selection removes only the two prior Mieru override keys before merging the selected profile, including absent values. The negative subscription fixture uses unsupported wireguard rather than supported TUIC.
 
-C means inspected implementation/reachability; V means the named observed execution; S means a specific checked pinned requirement; E means only the named peer/toolchain/scenario. Static, Room and config evidence do not establish network E.
+The inherited disclosure assertion correction changes two test files only; production copy and baselines stay unchanged. The final code retains upstream's equivalent PCAP viewer loop repair and all four diagnostics lint repairs, including newer DoQ behavior. It has no own production diagnostics or PCAP viewer diff. The inherited VPN runtime class repair moves two existing private cleanup helpers to file-private scope and passes the same immutable controller; ordering, cancellation, try/finally and exception behavior remain unchanged. Independent review and 46 fresh owning tests passed before integration, then passed again in combined coverage and affected rebase checks. No lint threshold or baseline was changed.
 
-## Hosted follow-up corrections
+## Environment recovery and evidence limits
 
-The first published candidate failed the full Kotlin coverage, linked-engine and Simple test jobs. Three source failures were traced to the new feature; this is not a remote CI pass. Backup policy was corrected in 6735f72b86 after a local RED-to-GREEN regression run. The engine round-trip and old unsupported TUIC fixture corrections remain in progress. All retained local and native evidence above applies only to its named inputs.
+Earlier broad attempts encountered missing generated outputs, ENOSPC and then corrupt app test metadata. These are preserved in external receipts. They do not establish source defects. Only owned generated test binaries were removed after copies were saved; no source or Git work was discarded. The later complete fresh coverage pass supersedes those failed attempts.
 
-The stale unsupported subscription fixture was corrected separately in eeee4f964d. The actual Simple reserve refresh suite passed 9 tests. Its unchanged embedded-bundle validation used the repository public CI asset as an ignored local test input; this does not establish a production bundle, packaged application or peer compatibility. The selected-profile overlay was then reproduced independently: 19 tests, one assertion failure, selected null read back as old no_wait. The overlay correction remains pending.
+Room proves durable ImportOnly save, reopen, rollback and later explicit selection. A config decoder or workspace compile does not prove a live Android VPN or TUIC handshake. C means inspected code, V means the named observed run, S means a checked pinned requirement, and E means only the named peer/toolchain/scenario.
 
-## Rebase and privacy policy reconciliation
+Official Go 1.27.2 peer acceptance remains separate from observed Go 1.27.4. Miri was attempted but stopped at unsupported macOS kqueue, so it did not pass. No physical/emulator install, Android ABI packaging, root activation, real-secret use, external TUIC peer, pixel comparison or golden blessing is claimed. API checking retains its explicit Darwin skip for the Linux-owned runtime-platform snapshot.
 
-Origin e93e88121f already classified the added backup fields, changed the unsupported TUIC fixture, and partially corrected nullable handshake handling. The rebase keeps its stricter SHARE rule: Mieru trafficPattern is REDACTED because a custom nonce prefix can identify the profile. FULL backup retains the pattern. Our FULL presence tests and sealed-subtype guard remain; the SHARE regression now requires pattern removal. Its earlier PUBLIC-pattern GREEN is historical and does not validate this revised expectation. The broader raw-presence and runtime-selection fixes remain necessary beyond the upstream correction. A new combined coverage and source-gate run is required on the reconciled tree.
+## Publication acceptance
 
-## Full coverage on the reconciled upstream
-
-The first combined full coverage run on 10f390576b executed 10,342 fresh tests: 10,340 passed, two failed, zero errors/skips. All owned backup and engine regressions passed. The two failures were inherited PCAP disclosure assertions that still expected older text; both tests and production strings matched base 2d5806e6d077 byte for byte. The wording-only correction retains checks for payload disclosure, the three-file and 24-hour limits, and separate redacted archives. No production string, behavior or baseline change is part of that correction. The combined coverage gate is not passed until its next observed run.
-
-The corrected disclosure assertions passed both fresh native-Robolectric Compose tests (SDK35, GraphicsMode.NATIVE) in disclosure-copy-v1. This is visible-text unit evidence; no device, pixel comparison or golden update is claimed. The full combined rerun remains pending.
-
-## Native proof and remaining source gate
-
-On unchanged 2c34d501ac, the recovered full app suite passed 3,590 fresh tests. coverageReport and kotlinCoverageVerification then passed, without current JaCoCo mismatch warnings. The next static gate found one inherited LoopWithTooManyJumpStatements issue in PcapCaptureContent.kt; its mechanical correction is separate from URI behavior. The independent postfix-native-v1 run passed all six jobs: 389 Rust unit cases (82 Mieru, 258 relay-core, 49 TLS), Clippy, locked workspace compile, actual pinned Go 1.27.4 advanced and Off/stop peers, and the native session decoder contract (18 accepted, 54 rejected). Two opt-in units remain ignored in the aggregate; the Mieru Off case was executed separately, while the VLESS REALITY XHTTP XUDP case was not. These native inputs are independent of the PCAP viewer loop.
-
-## Final source reconciliation
-
-New origin/main already contains an equivalent PCAP loop lint correction (0673cec203), so the rebase keeps that version and drops the redundant local refactor. The local alternative had passed seven tests and independent review; the final gate must test the retained upstream version. Origin also updated Robolectric to 4.18, Compose preview tooling and zstd-jni. Those dependency changes were not authored by this URI change. Kotlin coverage, static analysis and the Kotlin-to-native wire gate are repeated for the new dependency set. Rust library and pinned Mieru peer inputs remain identical to the successful postfix-native-v1 scope; only CLI adaptive test files changed, so locked workspace all-targets compile is repeated.
-
-The first static gate after the dependency rebase found an inherited LargeClass issue in VpnTunnelRuntime.kt. The file is byte-identical to origin 04f137a5. The bounded correction relocates existing private data holders to the same file private scope; it does not change runtime methods or resource handling. Its owning service tests, real detekt and independent review remain required before integration.
-
-The initial nested-data-holder relocation did not change the LargeClass metric: detekt excludes nested class LOC, and its observed gate remained red. That candidate was reverted in the isolated worker. The revised bounded plan moves only the existing stopBridges and retireAndStopBridge cleanup functions to file-private scope, passing the existing immutable nullable PCAP controller. It preserves all coroutine, try/finally, identity-check, retire-before-stop and exception behavior. It does not use line compression or change the lint threshold. Review and owning service tests must prove that revision.
+New main integration, push and exact-SHA hosted CI remain required at this record's commit. Update this section only with observed receipts. The user explicitly authorized main integration and push.

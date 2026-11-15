@@ -2,7 +2,7 @@
 id: OUT-1794722656313653
 title: Fix proxy URI import and complete TUIC and Mieru support
 kind: feature
-status: doing
+status: review
 area: outbound
 priority: high
 owner: URI import team
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: complete-proxy-uri-import
 created: 2026-11-15
-updated: 2026-11-15
+updated: 2026-11-16
+status_detail: All local and rebase gates passed; exact-SHA hosted CI remains pending.
 ---
 
 ## Goal
