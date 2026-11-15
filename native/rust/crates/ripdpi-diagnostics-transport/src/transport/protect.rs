@@ -36,12 +36,22 @@ pub(crate) fn protect_for_target<S: AsRawFd>(socket: &S, target: SocketAddr) -> 
     ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd())
 }
 
+/// Create an unconnected TCP socket that is protected before the caller connects it.
+pub fn protected_tcp_socket(target: SocketAddr) -> io::Result<TcpStream> {
+    new_protected_tcp_socket(target).map(Into::into)
+}
+
+fn new_protected_tcp_socket(target: SocketAddr) -> io::Result<Socket> {
+    let socket = Socket::new(domain_for(target), Type::STREAM, Some(Protocol::TCP))?;
+    protect_for_target(&socket, target)?;
+    Ok(socket)
+}
+
 /// Create a TCP socket, protect it if the VPN is active, then connect to
 /// `target` with `timeout`. Replaces a bare `TcpStream::connect_timeout` so the
 /// protect step can run on the fd before `connect`.
 pub(crate) fn protected_tcp_connect(target: SocketAddr, timeout: Duration) -> io::Result<TcpStream> {
-    let socket = Socket::new(domain_for(target), Type::STREAM, Some(Protocol::TCP))?;
-    protect_for_target(&socket, target)?;
+    let socket = new_protected_tcp_socket(target)?;
     socket.connect_timeout(&SockAddr::from(target), timeout)?;
     Ok(socket.into())
 }
@@ -60,8 +70,7 @@ pub(crate) fn protected_tcp_connect_until(
         return Err(stop_error());
     }
     let deadline = Instant::now() + timeout;
-    let socket = Socket::new(domain_for(target), Type::STREAM, Some(Protocol::TCP))?;
-    protect_for_target(&socket, target)?;
+    let socket = new_protected_tcp_socket(target)?;
     connect_socket_until(socket, target, deadline, stopped)
 }
 
@@ -141,13 +150,17 @@ fn domain_for(addr: SocketAddr) -> Domain {
     if addr.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 }
 }
 
+// Every test in this crate that mutates the process-wide protect slot shares this lock.
+#[cfg(test)]
+pub(crate) static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[cfg(test)]
 mod tests {
     use std::io::Read;
     use std::net::{Ipv4Addr, UdpSocket};
     use std::os::fd::RawFd;
+    use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
-    use std::sync::{Arc, Mutex};
 
     use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
 
@@ -232,11 +245,6 @@ mod tests {
         assert_eq!(error.kind(), io::ErrorKind::ConnectionRefused);
     }
 
-    // The protect callback slot is process-global; serialize the tests that
-    // register/clear it so a parallel test in the same binary cannot observe a
-    // half-installed callback.
-    static TEST_LOCK: Mutex<()> = Mutex::new(());
-
     struct RecordingCallback {
         last_fd: AtomicI32,
     }
@@ -254,6 +262,37 @@ mod tests {
 
     fn non_loopback(port: u16) -> SocketAddr {
         SocketAddr::from((Ipv4Addr::new(203, 0, 113, 7), port))
+    }
+
+    #[test]
+    fn tcp_socket_factory_protects_before_returning_an_unconnected_socket() {
+        let _lock = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let callback = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
+        register_protect_callback(callback.clone());
+
+        let socket = protected_tcp_socket(non_loopback(443));
+        unregister_protect_callback();
+        let socket = socket.expect("create protected socket without connecting");
+        assert_eq!(callback.last_fd.load(Ordering::Acquire), socket.as_raw_fd());
+        assert!(socket.peer_addr().is_err(), "the socket factory must not connect");
+    }
+
+    #[test]
+    fn tcp_socket_factory_fails_closed_when_protection_is_rejected() {
+        struct RejectingCallback;
+        impl ProtectCallback for RejectingCallback {
+            fn protect(&self, _fd: RawFd) -> io::Result<()> {
+                Err(io::Error::new(io::ErrorKind::PermissionDenied, "test protection refusal"))
+            }
+        }
+        let _lock = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        register_protect_callback(Arc::new(RejectingCallback));
+
+        let result = protected_tcp_socket(non_loopback(443));
+        unregister_protect_callback();
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
     }
 
     #[test]

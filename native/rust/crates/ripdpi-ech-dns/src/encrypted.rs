@@ -201,7 +201,7 @@ pub fn resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort(
 }
 
 /// Preserve the caller-owned socket policy for the ECH bootstrap lookup.
-fn resolve_https_ech_configs_via_encrypted_dns_with_hooks(
+pub fn resolve_https_ech_configs_via_encrypted_dns_with_hooks(
     domain: &str,
     endpoint: EncryptedDnsEndpoint,
     transport: &TransportConfig,

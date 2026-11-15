@@ -22,6 +22,7 @@ pub use encrypted::{
     exchange_encrypted_dns_query_with_request, extract_ech_config_list_from_https_response,
     resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
     resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort,
+    resolve_https_ech_configs_via_encrypted_dns_with_hooks,
     resolve_https_service_bindings_via_encrypted_dns_with_endpoint, resolve_outbound_ech_config_via_encrypted_dns,
     resolve_outbound_ech_config_via_encrypted_dns_async, resolve_via_encrypted_dns, resolve_via_encrypted_dns_with_raw,
     supported_ech_config,

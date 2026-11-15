@@ -432,16 +432,12 @@ mod tests {
 
     use std::net::{IpAddr, Ipv4Addr, TcpListener};
     use std::os::fd::RawFd;
-    use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
     use ripdpi_diagnostics_contracts::util::with_scan_io_deadline;
     use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
 
-    // The protect callback slot is process-global; serialize the tests that
-    // register/clear it so a parallel test cannot observe a half-installed
-    // callback.
-    static TEST_LOCK: Mutex<()> = Mutex::new(());
+    use crate::transport::protect::TEST_LOCK;
 
     struct RecordingCallback {
         last_fd: AtomicI32,

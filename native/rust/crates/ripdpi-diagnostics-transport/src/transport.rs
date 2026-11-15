@@ -34,4 +34,4 @@ pub use udp::{
 pub use watchdog::{run_with_socket_abort_watchdog, run_with_socket_watchdog};
 
 pub use address::start_address_resolution;
-pub use protect::protected_udp_bind;
+pub use protect::{protected_tcp_socket, protected_udp_bind};

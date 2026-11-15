@@ -91,14 +91,17 @@ impl RemoteEchConfigSource {
 impl EchConfigSource for RemoteEchConfigSource {
     fn fetch(&self) -> Result<Vec<u8>, EchSourceError> {
         use crate::dns::EchResolutionOutcome;
-        use crate::dns::{
-            encrypted_dns_endpoint_for_resolver_id, resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
-        };
+        use crate::dns::encrypted_dns_endpoint_for_resolver_id;
         use crate::transport::TransportConfig;
+        use ripdpi_dns_resolver::EncryptedDnsConnectHooks;
+        use ripdpi_ech_dns::resolve_https_ech_configs_via_encrypted_dns_with_hooks;
 
         let endpoint = encrypted_dns_endpoint_for_resolver_id(&self.resolver_id);
         let transport = TransportConfig::Direct { route_experiment: None };
-        let outcome = resolve_https_ech_configs_via_encrypted_dns_with_endpoint(&self.domain, endpoint, &transport);
+        let hooks = EncryptedDnsConnectHooks::new()
+            .require_direct_tcp_connector()
+            .with_direct_tcp_socket(ripdpi_diagnostics_transport::transport::protected_tcp_socket);
+        let outcome = resolve_https_ech_configs_via_encrypted_dns_with_hooks(&self.domain, endpoint, &transport, hooks);
         let bytes = match outcome {
             EchResolutionOutcome::Available(bytes) => bytes,
             EchResolutionOutcome::NotPublished => {
