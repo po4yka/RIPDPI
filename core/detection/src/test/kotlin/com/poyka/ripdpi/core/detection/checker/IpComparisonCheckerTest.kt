@@ -19,6 +19,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -88,6 +89,32 @@ class IpComparisonCheckerTest {
                         it.confidence == EvidenceConfidence.HIGH
                 },
             )
+        }
+
+    @Test
+    fun `equivalent ipv6 literals compare as one address`() =
+        runTest {
+            val compact = "2001:4860:4860::8888"
+            val expanded = "2001:4860:4860:0:0:0:0:8888"
+            org.junit.Assert.assertArrayEquals(
+                InetAddress.getByName(compact).address,
+                InetAddress.getByName(expanded).address,
+            )
+            val endpoints = IpComparisonChecker.DEFAULT_ENDPOINTS
+            val result =
+                IpComparisonChecker.check(
+                    dispatchers = testDispatchers(),
+                    endpointClient =
+                        FakeIpComparisonEndpointClient(endpoints) { endpoint ->
+                            if (endpoint.group == IpComparisonEndpointGroup.RU) compact else expanded
+                        },
+                    dnsResolver = FakeIpComparisonDnsResolver(endpoints),
+                    endpoints = endpoints,
+                )
+
+            assertFalse(result.category.needsReview)
+            assertEquals(result.ruReflectedIps, result.nonRuReflectedIps)
+            assertEquals(1, result.ruReflectedIps.size)
         }
 
     @Test

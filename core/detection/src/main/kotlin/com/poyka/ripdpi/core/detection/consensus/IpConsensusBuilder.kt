@@ -13,6 +13,7 @@ import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.IpComparisonResult
+import com.poyka.ripdpi.core.detection.probe.canonicalIpOrNull
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -202,11 +203,7 @@ object IpConsensusBuilder {
         observations: List<IpObservation>,
         asnResolver: IpAsnResolver = IpAsnResolver { null },
     ): IpConsensusResult {
-        val observedIps =
-            observations
-                .groupBy(IpObservation::channel, IpObservation::ip)
-                .mapValues { (_, ips) -> ips.distinct().sorted() }
-                .filterValues { it.isNotEmpty() }
+        val observedIps = groupObservations(observations)
         val asnByIp =
             observedIps
                 .values
@@ -228,11 +225,7 @@ object IpConsensusBuilder {
         observations: List<IpObservation>,
         asnResolver: SuspendingIpAsnResolver,
     ): IpConsensusResult {
-        val observedIps =
-            observations
-                .groupBy(IpObservation::channel, IpObservation::ip)
-                .mapValues { (_, ips) -> ips.distinct().sorted() }
-                .filterValues { it.isNotEmpty() }
+        val observedIps = groupObservations(observations)
         val asnByIp =
             observedIps
                 .values
@@ -249,6 +242,13 @@ object IpConsensusBuilder {
             asnByIp = asnByIp,
         )
     }
+
+    private fun groupObservations(observations: List<IpObservation>): Map<IpConsensusChannel, List<String>> =
+        observations
+            .mapNotNull { observation ->
+                canonicalIpOrNull(observation.ip)?.let { observation.copy(ip = it) }
+            }.groupBy(IpObservation::channel, IpObservation::ip)
+            .mapValues { (_, ips) -> ips.distinct().sorted() }
 
     /** Resolves all IPs at once; an IP not resolved within [AsnResolutionBudgetMs] gets no ASN data. */
     private suspend fun resolveConcurrently(
@@ -341,7 +341,7 @@ object IpConsensusBuilder {
     }
 
     private fun CategoryResult.asnInfoFromFindings(): IpAsnInfo? {
-        val ip = findings.firstValue("IP: ") ?: return null
+        val ip = findings.firstValue("IP: ")?.let(::canonicalIpOrNull) ?: return null
         val asn = findings.firstValue("ASN: ")
         val countryCode =
             COUNTRY_CODE_REGEX

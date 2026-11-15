@@ -66,6 +66,34 @@ class IpConsensusBuilderTest {
     }
 
     @Test
+    fun `equivalent ipv6 observations share one identity`() {
+        val compact = "2001:4860:4860::8888"
+        val expanded = "2001:4860:4860:0:0:0:0:8888"
+        org.junit.Assert.assertArrayEquals(
+            java.net.InetAddress
+                .getByName(compact)
+                .address,
+            java.net.InetAddress
+                .getByName(expanded)
+                .address,
+        )
+        val result =
+            IpConsensusBuilder.build(
+                observations =
+                    listOf(
+                        IpObservation(IpConsensusChannel.IP_COMPARISON_RU, compact),
+                        IpObservation(IpConsensusChannel.IP_COMPARISON_RU, expanded),
+                        IpObservation(IpConsensusChannel.IP_COMPARISON_NON_RU, expanded),
+                    ),
+            )
+
+        assertTrue(result.channelConflicts.isEmpty())
+        assertTrue(result.crossChannelMismatches.isEmpty())
+        assertEquals(1, result.observedIps.getValue(IpConsensusChannel.IP_COMPARISON_RU).size)
+        assertEquals(1, result.asnByIp.size)
+    }
+
+    @Test
     fun warpIndicatorTrueWhenCloudflareAsnOnUnderlyingPath() {
         val result =
             IpConsensusBuilder.build(

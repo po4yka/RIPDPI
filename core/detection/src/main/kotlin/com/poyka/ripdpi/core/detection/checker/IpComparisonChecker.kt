@@ -14,6 +14,7 @@ import com.poyka.ripdpi.core.detection.IpComparisonEndpointGroup
 import com.poyka.ripdpi.core.detection.IpComparisonEndpointResult
 import com.poyka.ripdpi.core.detection.IpComparisonEndpointStatus
 import com.poyka.ripdpi.core.detection.IpComparisonResult
+import com.poyka.ripdpi.core.detection.probe.canonicalIpOrNull
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.diagnostics.DetectionAddressFamily
@@ -32,7 +33,6 @@ import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.net.URI
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 interface IpComparisonEndpointClient {
@@ -282,7 +282,7 @@ object IpComparisonChecker {
     ): Map<IpComparisonAddressFamily, Set<String>> =
         filter { it.descriptor.group == group }
             .mapNotNull { result ->
-                val ip = result.reflectedIp ?: return@mapNotNull null
+                val ip = result.reflectedIp?.let(::canonicalIpOrNull) ?: return@mapNotNull null
                 val family = addressFamilyOf(ip) ?: return@mapNotNull null
                 family to ip
             }.groupBy({ it.first }, { it.second })
@@ -306,10 +306,7 @@ object IpComparisonChecker {
             .ifBlank { "none" }
 
     private fun normalizeIp(value: String): String =
-        value
-            .trim()
-            .trim('[', ']')
-            .lowercase(Locale.US)
+        canonicalIpOrNull(value) ?: throw IOException("Invalid reflected IP")
 
     private fun addressFamilyOf(value: String): IpComparisonAddressFamily? =
         NumericIp.parseAddress(value)?.let {
