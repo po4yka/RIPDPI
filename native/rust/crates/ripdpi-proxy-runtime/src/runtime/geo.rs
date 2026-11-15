@@ -39,8 +39,7 @@ impl GeoMatcher for RuntimeGeoMatcher {
     }
 
     fn country_match(&self, country_code: &str, ip: IpAddr) -> Option<bool> {
-        self.runtime.versions().geoip.as_ref()?;
-        Some(self.runtime.country_contains_ip(country_code, ip))
+        self.runtime.country_match(country_code, ip)
     }
 
     fn geosite_match(&self, category: &str, host: &str) -> Option<bool> {

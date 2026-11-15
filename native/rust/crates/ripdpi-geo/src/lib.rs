@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 
+mod geoip_validation;
 mod geosite_regex;
 mod mapped_file;
+mod mmdb_value;
 
 // prost-build emits enum name helpers with a borrowed receiver.
 #[allow(clippy::trivially_copy_pass_by_ref)]
@@ -30,6 +32,12 @@ use crate::mapped_file::read_snapshot;
 pub struct GeoRuntimePaths {
     pub geoip_db: PathBuf,
     pub geosite_db: PathBuf,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GeoDatabaseKind {
+    Geoip,
+    Geosite,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -101,8 +109,25 @@ impl GeoRuntime {
         self.databases.load().country_contains_ip(country_code, ip)
     }
 
+    /// Returns `None` when the database or a valid lookup result is unavailable.
+    pub fn country_match(&self, country_code: &str, ip: IpAddr) -> Option<bool> {
+        self.databases.load().geoip.as_ref()?.country_match(country_code, ip)
+    }
+
     pub fn ip_metadata(&self, ip: IpAddr) -> Option<GeoIpMetadata> {
         self.databases.load().ip_metadata(ip)
+    }
+}
+
+/// Validates one file with the runtime parser and supported record schema.
+///
+/// # Errors
+/// Returns an error for missing, malformed, unsupported, or over-budget input.
+pub fn validate_database(path: &Path, kind: GeoDatabaseKind) -> Result<(), GeoRuntimeError> {
+    let mapping = read_snapshot(path).map_err(|source| GeoRuntimeError::Map { path: path.to_path_buf(), source })?;
+    match kind {
+        GeoDatabaseKind::Geoip => parse_geoip(path, mapping).map(|_| ()),
+        GeoDatabaseKind::Geosite => parse_geosite(path, mapping).map(|_| ()),
     }
 }
 
@@ -151,15 +176,21 @@ struct GeoipDatabase {
 
 impl GeoipDatabase {
     fn country_contains_ip(&self, country_code: &str, ip: IpAddr) -> bool {
-        self.country_code(ip).is_some_and(|candidate| candidate.eq_ignore_ascii_case(country_code.trim()))
+        self.country_match(country_code, ip).unwrap_or(false)
     }
 
-    fn country_code(&self, ip: IpAddr) -> Option<&str> {
-        let lookup = self.reader.lookup(ip).ok()?;
+    fn country_match(&self, country_code: &str, ip: IpAddr) -> Option<bool> {
+        self.country_code(ip)
+            .ok()
+            .map(|code| code.is_some_and(|candidate| candidate.eq_ignore_ascii_case(country_code.trim())))
+    }
+
+    fn country_code(&self, ip: IpAddr) -> Result<Option<&str>, maxminddb::MaxMindDbError> {
+        let lookup = self.reader.lookup(ip)?;
         match lookup.decode::<geoip2::Country>() {
-            Ok(country) => country?.country.iso_code,
+            Ok(country) => Ok(country.and_then(|country| country.country.iso_code)),
             // sing-geoip (the sing-box geoip.db) stores a bare lowercase code string per network.
-            Err(_) => lookup.decode::<&str>().ok()?,
+            Err(_) => lookup.decode::<&str>(),
         }
     }
 
@@ -298,6 +329,8 @@ pub enum GeositeParseError {
     UnsupportedSingGeositeRuleType(u8),
     #[error("sing-box geosite entry {0} does not start where the previous entry ends")]
     NonContiguousSingGeositeEntry(String),
+    #[error("sing-box geosite contains undeclared trailing data")]
+    TrailingSingGeositeData,
 }
 
 fn load_databases(paths: &GeoRuntimePaths) -> Result<LoadedDatabases, GeoRuntimeError> {
@@ -313,12 +346,18 @@ fn load_geoip(path: &Path, warnings: &mut Vec<GeoRuntimeWarning>) -> Result<Opti
         return Ok(None);
     }
     let mapping = read_snapshot(path).map_err(|source| GeoRuntimeError::Map { path: path.to_path_buf(), source })?;
+    parse_geoip(path, mapping).map(Some)
+}
+
+fn parse_geoip(path: &Path, mapping: Mmap) -> Result<GeoipDatabase, GeoRuntimeError> {
+    geoip_validation::validate_snapshot(&mapping)
+        .map_err(|source| GeoRuntimeError::GeoipParse { path: path.to_path_buf(), source })?;
     let mapped_version = mapped_version(path, mapping.len());
     let reader = Reader::from_source(mapping)
         .map_err(|source| GeoRuntimeError::GeoipParse { path: path.to_path_buf(), source })?;
     let metadata = reader.metadata();
     let version = format!("{mapped_version}:{}:{}", metadata.database_type, metadata.build_epoch);
-    Ok(Some(GeoipDatabase { reader, version }))
+    Ok(GeoipDatabase { reader, version })
 }
 
 fn load_geosite(
@@ -330,6 +369,10 @@ fn load_geosite(
         return Ok(None);
     }
     let mapping = read_snapshot(path).map_err(|source| GeoRuntimeError::Map { path: path.to_path_buf(), source })?;
+    parse_geosite(path, mapping).map(Some)
+}
+
+fn parse_geosite(path: &Path, mapping: Mmap) -> Result<GeositeDatabase, GeoRuntimeError> {
     let categories = parse_geosite_catalog(&mapping)
         .map_err(|source| GeoRuntimeError::GeositeParse { path: path.to_path_buf(), source })?;
     let mut regexes = HashMap::new();
@@ -352,7 +395,7 @@ fn load_geosite(
         }
     }
     let version = mapped_version(path, mapping.len());
-    Ok(Some(GeositeDatabase { version, categories, regexes }))
+    Ok(GeositeDatabase { version, categories, regexes })
 }
 
 fn mapped_version(path: &Path, len: usize) -> String {
@@ -428,6 +471,9 @@ fn parse_sing_geosite_catalog(input: &[u8]) -> Result<HashMap<String, Vec<Geosit
         }
         categories.insert(code.to_ascii_lowercase(), rules);
     }
+    if !items.remaining().is_empty() {
+        return Err(GeositeParseError::TrailingSingGeositeData);
+    }
     Ok(categories)
 }
 
@@ -480,6 +526,7 @@ mod protobuf_tests;
 mod tests {
     mod regex_tests;
     mod suffix_tests;
+    mod validation_tests;
 
     use std::fs;
     use std::net::IpAddr;

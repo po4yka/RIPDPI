@@ -6039,6 +6039,7 @@ dependencies = [
  "prost-build",
  "protoc-bin-vendored",
  "regex",
+ "serde",
  "thiserror 2.0.21",
 ]
 
