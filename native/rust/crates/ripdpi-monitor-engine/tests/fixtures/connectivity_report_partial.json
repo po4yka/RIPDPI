@@ -109,7 +109,7 @@
         "provider": "127.0.0.1:443 (fixture)",
         "responsesSeen": null,
         "selectedSni": null,
-        "status": "ERROR"
+        "status": "OK"
       },
       "telegram": null,
       "throughput": null

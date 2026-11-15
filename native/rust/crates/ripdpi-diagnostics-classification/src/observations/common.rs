@@ -109,7 +109,7 @@ pub(crate) fn tcp_status(outcome: &str) -> TcpProbeStatus {
         "whitelist_sni_ok" => TcpProbeStatus::WhitelistSniOk,
         "tcp_16kb_blocked" => TcpProbeStatus::Blocked16Kb,
         "tcp_freeze_after_threshold" => TcpProbeStatus::FreezeAfterThreshold,
-        "tcp_ok" | "fat_ok" => TcpProbeStatus::Ok,
+        "tcp_fat_header_ok" | "tcp_ok" | "fat_ok" => TcpProbeStatus::Ok,
         "tcp_connect_failed" => TcpProbeStatus::ConnectFailed,
         _ => TcpProbeStatus::Error,
     }

@@ -95,6 +95,7 @@ fn tcp_status_maps_all_variants() {
     assert_eq!(tcp_status("whitelist_sni_ok"), TcpProbeStatus::WhitelistSniOk);
     assert_eq!(tcp_status("tcp_16kb_blocked"), TcpProbeStatus::Blocked16Kb);
     assert_eq!(tcp_status("tcp_freeze_after_threshold"), TcpProbeStatus::FreezeAfterThreshold);
+    assert_eq!(tcp_status("tcp_fat_header_ok"), TcpProbeStatus::Ok);
     assert_eq!(tcp_status("tcp_ok"), TcpProbeStatus::Ok);
     assert_eq!(tcp_status("fat_ok"), TcpProbeStatus::Ok);
     assert_eq!(tcp_status("tcp_connect_failed"), TcpProbeStatus::ConnectFailed);
