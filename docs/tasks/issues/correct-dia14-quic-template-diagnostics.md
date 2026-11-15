@@ -2,7 +2,7 @@
 id: DGN-1794744778962822
 title: Correct QUIC Initial and VN template diagnostics
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics repair team
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: correct-dia14-quic-template-diagnostics
 created: 2026-11-15
 updated: 2026-11-15
+status_detail: Local verification passed. Integration CI is pending.
 ---
 
 ## Goal
