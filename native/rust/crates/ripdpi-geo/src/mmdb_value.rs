@@ -74,9 +74,9 @@ impl<'de> Visitor<'de> for ValueVisitor {
 
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<ValueWork, A::Error> {
         let mut work = 1usize;
-        while let Some(key) = map.next_key_seed(ValueSeed { depth: self.depth + 1 })? {
+        while let Some(key) = map.next_key::<&str>()? {
             let value = map.next_value_seed(ValueSeed { depth: self.depth + 1 })?;
-            work = work.saturating_add(key.0).saturating_add(value.0);
+            work = work.saturating_add(key.len().saturating_add(1)).saturating_add(value.0);
         }
         Ok(ValueWork(work))
     }

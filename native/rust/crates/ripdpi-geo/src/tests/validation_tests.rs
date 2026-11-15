@@ -105,3 +105,29 @@ fn admission_rejects_missing_empty_wrong_kind_and_undeclared_sing_data() {
     assert!(validate_database(&dir.join("geosite.db"), GeoDatabaseKind::Geosite).is_err());
     fs::remove_dir_all(dir).expect("cleanup");
 }
+
+#[test]
+fn non_string_map_keys_reject_admission_load_and_preserve_last_good_reload() {
+    let dir = temp_dir();
+    let valid = include_bytes!("../../tests/fixtures/country-string-key.mmdb");
+    let invalid = include_bytes!("../../tests/fixtures/country-integer-key.mmdb");
+    let databases = paths(&dir);
+    fs::write(&databases.geoip_db, valid).expect("valid string-key database");
+    fs::write(&databases.geosite_db, geosite_catalog("test", &[domain(3, "example.com")])).expect("geosite");
+    validate_database(&databases.geoip_db, GeoDatabaseKind::Geoip).expect("valid admission");
+    let runtime = GeoRuntime::load(paths(&dir)).expect("valid load").runtime;
+    assert!(runtime.country_contains_ip("SE", ip("1.1.1.1")));
+    let versions = runtime.versions();
+
+    fs::write(&databases.geoip_db, invalid).expect("non-string nested map key");
+    assert!(matches!(
+        validate_database(&databases.geoip_db, GeoDatabaseKind::Geoip),
+        Err(GeoRuntimeError::GeoipParse { .. })
+    ));
+    assert!(matches!(GeoRuntime::load(paths(&dir)), Err(GeoRuntimeError::GeoipParse { .. })));
+    assert!(matches!(runtime.reload(), Err(GeoRuntimeError::GeoipParse { .. })));
+    assert_eq!(versions, runtime.versions());
+    assert!(runtime.country_contains_ip("SE", ip("1.1.1.1")));
+    assert!(runtime.geosite_contains("test", "example.com"));
+    fs::remove_dir_all(dir).expect("cleanup");
+}
