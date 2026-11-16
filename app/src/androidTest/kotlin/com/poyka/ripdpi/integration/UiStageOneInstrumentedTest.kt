@@ -94,7 +94,7 @@ class UiStageOneInstrumentedTest {
                     uiState = state.value,
                     actions =
                         OnboardingScreenActions(
-                            onPageChanged = { state.value = state.value.copy(currentPage = it) },
+                            onBack = { state.value = state.value.copy(currentPage = state.value.currentPage - 1) },
                         ),
                 )
             }

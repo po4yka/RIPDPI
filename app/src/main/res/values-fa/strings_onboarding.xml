@@ -113,4 +113,20 @@
         <item quantity="one">پس از %1$d ثانیه دوباره تلاش کنید.</item>
         <item quantity="other">پس از %1$d ثانیه دوباره تلاش کنید.</item>
     </plurals>
+    <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="onboarding_welcome_title">به RIPDPI خوش آمدید</string>
+    <string name="onboarding_welcome_body">RIPDPI مسیر شبکه شما را بررسی می‌کند و با یک VPN یا پراکسی محلی روی این دستگاه، شیوه ارسال ترافیک را بهبود می‌دهد.</string>
+    <string name="onboarding_dns_title">انتخاب DNS</string>
+    <string name="onboarding_background_title">RIPDPI را در حال اجرا نگه دارید</string>
+    <string name="onboarding_test_notification_note">اندروید هنگام شروع آزمایش برای نمایش اعلان‌ها اجازه می‌خواهد. RIPDPI تا زمانی که VPN یا پراکسی محلی کار می‌کند یک اعلان نشان می‌دهد.</string>
+    <string name="onboarding_test_proxy_card_title">پراکسی محلی</string>
+    <string name="onboarding_test_proxy_note">آزمایش یک پراکسی روی این دستگاه راه‌اندازی می‌کند. فقط برنامه‌هایی که به آن وصل می‌کنید از آن استفاده می‌کنند و اندروید مجوز VPN نمی‌خواهد.</string>
+    <string name="onboarding_done_title">راه‌اندازی کامل شد</string>
+    <string name="onboarding_done_interface">رابط کاربری</string>
+    <string name="onboarding_done_mode">حالت ترافیک</string>
+    <string name="onboarding_done_dns">سرور DNS</string>
+    <string name="onboarding_done_test">آزمایش اتصال</string>
+    <string name="onboarding_done_test_passed">موفق</string>
+    <string name="onboarding_done_test_not_run">اجرا نشده</string>
+    <string name="onboarding_done_test_failed">ناموفق</string>
 </resources>

@@ -74,6 +74,7 @@ import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalMode
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.status.StatusFirstRunIntroStore
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -134,7 +135,11 @@ fun OnboardingRoute(
 
     OnboardingEffectsHandler(
         effects = viewModel.effects,
-        onComplete = onComplete,
+        onComplete = {
+            // The main screen explains itself once to a user who has just completed onboarding.
+            StatusFirstRunIntroStore.setPending(context, pending = true)
+            onComplete()
+        },
         onRequestNotificationsPermission = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 notificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -144,6 +149,10 @@ fun OnboardingRoute(
         },
         onRequestNotificationsSettings = notificationsSettingsLauncher::launch,
         onRequestVpnConsent = vpnConsentLauncher::launch,
+        onOpenSystemSettings = { intent ->
+            // A device without that settings screen leaves the user on the step, which stays complete without it.
+            runCatching { context.startActivity(intent) }
+        },
     )
 
     OnboardingScreen(
@@ -152,9 +161,15 @@ fun OnboardingRoute(
         actions =
             OnboardingScreenActions(
                 onPageChanged = remember(viewModel) { viewModel::setCurrentPage },
+                onBack = remember(viewModel) { viewModel::previousPage },
+                onShowCompletion = remember(viewModel) { { viewModel.setCurrentPage(OnboardingCompletionPageIndex) } },
+                onDnsSelected = remember(viewModel) { viewModel::selectDnsProvider },
+                onOpenBatterySettings = remember(viewModel) { { viewModel.openSystemSettings(vpn = false) } },
+                onOpenVpnSettings = remember(viewModel) { { viewModel.openSystemSettings(vpn = true) } },
                 onFinish = remember(viewModel) { viewModel::finish },
                 onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
-                onContinue = remember(viewModel) { viewModel::nextPage },
+                onContinue =
+                    remember(viewModel) { { viewModel.setCurrentPage(viewModel.uiState.value.currentPage + 1) } },
                 onModeSelected = remember(viewModel) { viewModel::selectMode },
                 onPersonaSelected = remember(viewModel) { viewModel::selectPersona },
                 onRunValidation = remember(viewModel) { viewModel::runValidation },
@@ -172,6 +187,7 @@ internal fun OnboardingEffectsHandler(
     onRequestNotificationsPermission: () -> Unit,
     onRequestNotificationsSettings: (Intent) -> Unit,
     onRequestVpnConsent: (Intent) -> Unit,
+    onOpenSystemSettings: (Intent) -> Unit = {},
 ) {
     LifecycleEventEffect(effects) { effect ->
         when (effect) {
@@ -179,6 +195,7 @@ internal fun OnboardingEffectsHandler(
             OnboardingEffect.RequestNotificationsPermission -> onRequestNotificationsPermission()
             is OnboardingEffect.RequestNotificationsSettings -> onRequestNotificationsSettings(effect.intent)
             is OnboardingEffect.RequestVpnConsent -> onRequestVpnConsent(effect.intent)
+            is OnboardingEffect.OpenSystemSettings -> onOpenSystemSettings(effect.intent)
         }
     }
 }
@@ -192,6 +209,11 @@ private tailrec fun Context.findActivity(): Activity? =
 
 internal data class OnboardingScreenActions(
     val onPageChanged: (Int) -> Unit = {},
+    val onBack: () -> Unit = {},
+    val onShowCompletion: () -> Unit = {},
+    val onDnsSelected: (String) -> Unit = {},
+    val onOpenBatterySettings: () -> Unit = {},
+    val onOpenVpnSettings: () -> Unit = {},
     val onFinish: () -> Unit = {},
     val onFinishDisconnected: () -> Unit = {},
     val onContinue: () -> Unit = {},
@@ -216,19 +238,20 @@ internal fun OnboardingScreen(
 
     val settledPage = pagerState.settledPage.coerceIn(0, OnboardingPages.lastIndex)
     val currentPage = OnboardingPages[settledPage]
-    val isLastPage = settledPage == OnboardingPages.lastIndex
+    val isTestPage = settledPage == OnboardingTestPageIndex
+    val isCompletionPage = settledPage == OnboardingCompletionPageIndex
     val validationState = uiState.validationState
     val validationBusy = validationState.isBusy
     val validationSucceeded = validationState is OnboardingValidationState.Success
     val pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size)
     // The intro offers Skip; inner steps provide an explicit path to the previous selection.
     val skipVisible = settledPage == 0
-    val skipTestVisible = isLastPage && validationState is OnboardingValidationState.Idle
+    val skipTestVisible = isTestPage && validationState is OnboardingValidationState.Idle
 
     BackHandler(enabled = settledPage > 0) {
         // Keep the validation screen in place during its test and over the running tunnel it leaves behind.
         if (!validationBusy && !validationSucceeded) {
-            actions.onPageChanged(settledPage - 1)
+            actions.onBack()
         }
     }
 
@@ -257,15 +280,19 @@ internal fun OnboardingScreen(
                 backEnabled = !validationBusy,
                 skipTestVisible = skipTestVisible,
                 finishDisconnectedVisible = validationSucceeded,
-                onFinish = actions.onFinish,
+                // Skip setup and Skip test show the completion step, which completes onboarding.
+                onFinish = actions.onShowCompletion,
                 onFinishDisconnected = actions.onFinishDisconnected,
-                onBack = { actions.onPageChanged(settledPage - 1) },
+                onBack = actions.onBack,
                 badgePosition = pagePosition.takeIf { compactHeight },
             )
 
             // 2) STEP BADGE — pinned: it stays in place while the pages change under it.
             if (!compactHeight) {
-                OnboardingPinnedBadge(pagePosition, onboardingSignal(validationState, onTestStep = isLastPage))
+                // The completion step keeps the live line of a passed test. A failed test breaks the line on the
+                // test step only.
+                val onPath = isTestPage || (isCompletionPage && validationSucceeded)
+                OnboardingPinnedBadge(pagePosition, onboardingSignal(validationState, onTestStep = onPath))
             }
 
             // 3) CONTENT — weighted; each page renders its own title at the top
@@ -284,12 +311,14 @@ internal fun OnboardingScreen(
                 indicatorPage = { if (scrub) pagerState.currentPage else settledPage },
                 pagePosition = pagePosition,
                 pageCount = pageCount,
-                isLastPage = isLastPage,
+                isTestPage = isTestPage,
+                isCompletionPage = isCompletionPage,
                 continueLabelRes = currentPage.buttonLabelRes,
                 validationState = validationState,
                 onContinue = actions.onContinue,
                 onRunValidation = actions.onRunValidation,
                 onFinishKeepRunning = actions.onFinishKeepRunning,
+                onFinish = actions.onFinish,
             )
         }
     }
@@ -403,7 +432,11 @@ private fun OnboardingPagerContent(
     ) {
         HorizontalPager(
             state = pagerState,
-            userScrollEnabled = !validationBusy && uiState.validationState !is OnboardingValidationState.Success,
+            // The completion step is left with Back, which returns to the step that the user came from.
+            userScrollEnabled =
+                !validationBusy &&
+                    uiState.validationState !is OnboardingValidationState.Success &&
+                    pagerState.settledPage != OnboardingCompletionPageIndex,
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             // A page fades and blurs with its distance from the pager position and moves less than the finger, so
@@ -434,11 +467,7 @@ private fun OnboardingPagerContent(
                     OnboardingSetupPageScene(
                         pageModel = pageModel,
                         uiState = uiState,
-                        onModeSelected = actions.onModeSelected,
-                        onPersonaSelected = actions.onPersonaSelected,
-                        onAcceptSuggestedMode = actions.onAcceptSuggestedMode,
-                        onChangeDns = actions.onChangeDns,
-                        onFinish = actions.onFinish,
+                        actions = actions,
                         modifier = pageModifier,
                     )
                 }
@@ -558,12 +587,14 @@ private fun OnboardingBottomBar(
     indicatorPage: () -> Int,
     pagePosition: () -> Float,
     pageCount: Int,
-    isLastPage: Boolean,
+    isTestPage: Boolean,
+    isCompletionPage: Boolean,
     continueLabelRes: Int,
     validationState: OnboardingValidationState,
     onContinue: () -> Unit,
     onRunValidation: () -> Unit,
     onFinishKeepRunning: () -> Unit,
+    onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
@@ -592,12 +623,14 @@ private fun OnboardingBottomBar(
         }
         Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
         OnboardingFooterCta(
-            isLastPage = isLastPage,
+            isTestPage = isTestPage,
+            isCompletionPage = isCompletionPage,
             continueLabelRes = continueLabelRes,
             validationState = validationState,
             onContinue = onContinue,
             onRunValidation = onRunValidation,
             onFinishKeepRunning = onFinishKeepRunning,
+            onFinish = onFinish,
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -607,21 +640,33 @@ private fun OnboardingBottomBar(
 }
 
 /**
- * State-driven footer primary CTA. Identical full-width pattern across all 4 pages.
- * On pages 0–2 it is the page's Continue/Next action; on the ConnectionTest page it is driven by
- * [validationState] (Start test / Testing… disabled / Done / Retry).
+ * State-driven footer primary CTA. Identical full-width pattern across all pages.
+ * On the ConnectionTest page it is driven by [validationState] (Start test / Testing… disabled / Done / Retry).
+ * On the completion page it completes onboarding: it keeps a passed test running, and otherwise stops the test
+ * runtime. On every other page it is the page's Continue action.
  */
 @Composable
 private fun OnboardingFooterCta(
-    isLastPage: Boolean,
+    isTestPage: Boolean,
+    isCompletionPage: Boolean,
     continueLabelRes: Int,
     validationState: OnboardingValidationState,
     onContinue: () -> Unit,
     onRunValidation: () -> Unit,
     onFinishKeepRunning: () -> Unit,
+    onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (!isLastPage) {
+    if (isCompletionPage && validationState !is OnboardingValidationState.Success) {
+        RipDpiButton(
+            text = stringResource(continueLabelRes),
+            onClick = onFinish,
+            modifier = modifier.ripDpiTestTag(RipDpiTestTags.OnboardingCompletionDone),
+        )
+        return
+    }
+    // The completion page after a passed test shows the same Done as the test page, so it stays in place.
+    if (!isTestPage && !isCompletionPage) {
         RipDpiButton(
             text = stringResource(continueLabelRes),
             onClick = onContinue,
@@ -879,11 +924,7 @@ private fun OnboardingGuaranteeItem(
 private fun OnboardingSetupPageScene(
     pageModel: OnboardingPage.Setup,
     uiState: OnboardingUiState,
-    onModeSelected: (Mode) -> Unit,
-    onPersonaSelected: (String) -> Unit,
-    onAcceptSuggestedMode: () -> Unit,
-    onChangeDns: () -> Unit,
-    onFinish: () -> Unit,
+    actions: OnboardingScreenActions,
     modifier: Modifier = Modifier,
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
@@ -904,23 +945,49 @@ private fun OnboardingSetupPageScene(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(headerToContentGap),
         ) {
+            val onTest = pageModel.kind == SetupPageKind.ConnectionTest
+            // The tunnel of a passed test runs on the test step and on the completion step after it.
             val succeeded =
-                pageModel.kind == SetupPageKind.ConnectionTest &&
+                (onTest || pageModel.kind == SetupPageKind.Completion) &&
                     uiState.validationState is OnboardingValidationState.Success
             OnboardingPageHeader(
                 titleRes = if (succeeded) R.string.vpn_connected else pageModel.titleRes,
                 subtitleRes =
-                    R.string.onboarding_test_idle_body.takeIf {
-                        pageModel.kind == SetupPageKind.ConnectionTest &&
-                            uiState.validationState == OnboardingValidationState.Idle
+                    pageModel.descriptionRes.takeIf {
+                        !onTest || uiState.validationState == OnboardingValidationState.Idle
                     },
             )
 
             when (pageModel.kind) {
+                SetupPageKind.Welcome -> {
+                    OnboardingLanguageAction()
+                }
+
+                SetupPageKind.DnsSelection -> {
+                    OnboardingDnsSelectionContent(
+                        selectedDnsProviderId = uiState.selectedDnsProviderId,
+                        onDnsSelected = actions.onDnsSelected,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                SetupPageKind.BackgroundGuidance -> {
+                    OnboardingBackgroundGuidanceContent(
+                        mode = uiState.selectedMode,
+                        onOpenBatterySettings = actions.onOpenBatterySettings,
+                        onOpenVpnSettings = actions.onOpenVpnSettings,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                SetupPageKind.Completion -> {
+                    OnboardingCompletionContent(uiState = uiState, modifier = Modifier.fillMaxWidth())
+                }
+
                 SetupPageKind.PersonaSelection -> {
                     OnboardingPersonaSelectionContent(
                         selectedPersona = uiState.selectedPersona,
-                        onPersonaSelected = onPersonaSelected,
+                        onPersonaSelected = actions.onPersonaSelected,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -928,7 +995,7 @@ private fun OnboardingSetupPageScene(
                 SetupPageKind.ModeSelection -> {
                     OnboardingModeSelectionContent(
                         selectedMode = uiState.selectedMode,
-                        onModeSelected = onModeSelected,
+                        onModeSelected = actions.onModeSelected,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -936,9 +1003,10 @@ private fun OnboardingSetupPageScene(
                 SetupPageKind.ConnectionTest -> {
                     OnboardingModeValidationContent(
                         uiState = uiState,
-                        onAcceptSuggestedMode = onAcceptSuggestedMode,
-                        onChangeDns = onChangeDns,
-                        onFinish = onFinish,
+                        onAcceptSuggestedMode = actions.onAcceptSuggestedMode,
+                        onChangeDns = actions.onChangeDns,
+                        // Finish without testing shows the completion step, which completes onboarding.
+                        onFinish = actions.onShowCompletion,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

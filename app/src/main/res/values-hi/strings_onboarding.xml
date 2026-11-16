@@ -106,4 +106,20 @@
         <item quantity="one">%1$d सेकंड में पुनः प्रयास करें।</item>
         <item quantity="other">%1$d सेकंड में पुनः प्रयास करें।</item>
     </plurals>
+    <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="onboarding_welcome_title">RIPDPI में आपका स्वागत है</string>
+    <string name="onboarding_welcome_body">RIPDPI आपके नेटवर्क पथ की जाँच करता है और इस डिवाइस पर स्थानीय VPN या प्रॉक्सी से आपके ट्रैफ़िक को भेजने का तरीका बेहतर बनाता है।</string>
+    <string name="onboarding_dns_title">DNS चुनें</string>
+    <string name="onboarding_background_title">RIPDPI को चालू रखें</string>
+    <string name="onboarding_test_notification_note">परीक्षण शुरू होने पर Android सूचनाओं की अनुमति माँगता है। स्थानीय VPN या प्रॉक्सी चलने के दौरान RIPDPI एक सूचना दिखाता है।</string>
+    <string name="onboarding_test_proxy_card_title">स्थानीय प्रॉक्सी</string>
+    <string name="onboarding_test_proxy_note">परीक्षण इस डिवाइस पर एक प्रॉक्सी शुरू करता है। केवल वे ऐप इसका उपयोग करते हैं जिन्हें आप इसकी ओर भेजते हैं, और Android VPN अनुमति नहीं माँगता।</string>
+    <string name="onboarding_done_title">सेटअप पूरा हुआ</string>
+    <string name="onboarding_done_interface">इंटरफ़ेस</string>
+    <string name="onboarding_done_mode">ट्रैफ़िक मोड</string>
+    <string name="onboarding_done_dns">DNS सर्वर</string>
+    <string name="onboarding_done_test">कनेक्शन परीक्षण</string>
+    <string name="onboarding_done_test_passed">सफल</string>
+    <string name="onboarding_done_test_not_run">नहीं चलाया गया</string>
+    <string name="onboarding_done_test_failed">विफल</string>
 </resources>

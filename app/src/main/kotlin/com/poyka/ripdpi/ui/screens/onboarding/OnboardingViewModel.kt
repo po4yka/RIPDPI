@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.Mode
@@ -23,8 +24,17 @@ class OnboardingViewModel
         private val settingsCoordinator: OnboardingSettingsCoordinator,
         private val validationCoordinator: OnboardingValidationCoordinator,
         private val permissionCoordinator: OnboardingPermissionCoordinator,
+        private val savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
-        private val _uiState = MutableStateFlow(OnboardingUiState())
+        // The step survives process death. The selections return from the settings, and the test starts idle.
+        private val _uiState =
+            MutableStateFlow(
+                OnboardingUiState(
+                    currentPage = (savedStateHandle.get<Int>(SavedPageKey) ?: 0).coerceIn(0, OnboardingPages.lastIndex),
+                    completionReturnPage = savedStateHandle.get<Int>(SavedReturnPageKey),
+                    notificationsNoteVisible = permissionCoordinator.notificationsPromptExpected(),
+                ),
+            )
         val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
         private val _effects =
@@ -44,22 +54,62 @@ class OnboardingViewModel
             observeOnboardingSelections()
         }
 
+        /** Every exit shows the completion step first, so it is a step like the others. */
         fun setCurrentPage(page: Int) {
             if (_uiState.value.validationState.isBusy) {
                 return
             }
             _uiState.update { state ->
-                state.copy(currentPage = page.coerceIn(0, state.totalPages - 1))
+                val target = page.coerceIn(0, state.totalPages - 1)
+                if (target == state.currentPage) {
+                    state
+                } else {
+                    state.copy(
+                        currentPage = target,
+                        completionReturnPage = state.currentPage.takeIf { target == OnboardingCompletionPageIndex },
+                        // The user can change the permission in the system settings between two steps.
+                        notificationsNoteVisible = permissionCoordinator.notificationsPromptExpected(),
+                    )
+                }
+            }
+            val state = _uiState.value
+            savedStateHandle[SavedPageKey] = state.currentPage
+            savedStateHandle[SavedReturnPageKey] = state.completionReturnPage
+        }
+
+        /** Back: from the completion step to the step that the user left, otherwise one step back. */
+        fun previousPage() {
+            val state = _uiState.value
+            // After a passed test the tunnel runs: going back would leave it up under a mode choice.
+            if (state.validationState is OnboardingValidationState.Success) {
+                return
+            }
+            setCurrentPage(state.completionReturnPage ?: (state.currentPage - 1))
+        }
+
+        fun selectDnsProvider(dnsProviderId: String) {
+            val current = _uiState.value
+            if (current.selectedDnsProviderId == dnsProviderId) {
+                return
+            }
+            invalidateValidation()
+            _uiState.update {
+                it.copy(selectedDnsProviderId = dnsProviderId).withValidationState(OnboardingValidationState.Idle)
+            }
+            viewModelScope.launch {
+                settingsCoordinator.saveSelection(
+                    mode = current.selectedMode,
+                    dnsProviderId = dnsProviderId,
+                    persona = current.selectedPersona,
+                )
             }
         }
 
-        fun nextPage() {
-            if (_uiState.value.validationState.isBusy) {
-                return
-            }
-            _uiState.update { state ->
-                state.copy(currentPage = (state.currentPage + 1).coerceAtMost(state.totalPages - 1))
-            }
+        /** Opens the system VPN settings or the battery optimization list. It requests no permission. */
+        fun openSystemSettings(vpn: Boolean) {
+            val intent =
+                if (vpn) permissionCoordinator.vpnSettingsIntent() else permissionCoordinator.batterySettingsIntent()
+            _effects.tryEmit(OnboardingEffect.OpenSystemSettings(intent))
         }
 
         fun selectMode(mode: Mode) {
@@ -232,6 +282,9 @@ class OnboardingViewModel
             _uiState.update { current ->
                 current.withValidationState(validationState)
             }
+            if (validationState is OnboardingValidationState.Success) {
+                setCurrentPage(OnboardingCompletionPageIndex)
+            }
         }
 
         private fun invalidateValidation() {
@@ -270,5 +323,10 @@ class OnboardingViewModel
                 settingsCoordinator.complete(state)
                 _effects.emit(OnboardingEffect.OnboardingComplete)
             }
+        }
+
+        private companion object {
+            const val SavedPageKey = "onboarding_page"
+            const val SavedReturnPageKey = "onboarding_completion_return_page"
         }
     }

@@ -915,7 +915,14 @@ Each screen has one scaffold, one layout recipe, and one contract. Look up the s
 
 - Use the intro hero and footer flow for onboarding, biometric, and permission screens.
 - Offer persona selection before permissions, ask for each permission only when it is needed, and offer an optional first diagnostics check.
+- The steps, in order: welcome (with the language choice), privacy, persona, scope, DNS, background guidance, connection test, completion. `OnboardingPages` is the one list of steps.
 - The mode step offers only Whole device and Proxy only, as radio cards. Keep Xray import in the mode editor, not in onboarding.
+- The DNS step lists the built-in resolvers as radio cards. The default resolver keeps the default DNS settings.
+- The background guidance step states battery optimization, Always-on VPN, and Block without VPN in the words of the main-screen advisories. Its actions open system settings; the step requests no permission.
+- The idle connection test explains each system dialog before Start test can open it: a notification note when Android will ask, the VPN permission note for Whole device, and the local proxy note for Proxy only.
+- Every exit shows the completion step first: Skip setup, Skip test, Finish without testing, and a passed test. It states the interface, the traffic mode, the DNS resolver, and the test result. Its Done completes onboarding; after a passed test, Disconnect is the second exit.
+- The current step survives process death. The test starts idle again.
+- After onboarding, the Status screen shows one dismissible card that explains the signal line and the connect control. It does not appear for a user who completed onboarding before the card existed.
 - Use larger spacing and a stronger title treatment while keeping the calm low-chroma personality.
 - One step badge stays pinned above the pages; in a window shorter than `480dp` it sits in the top row. Page titles share one height. The badge icon, the page fade and blur, and the indicator widths follow the pager position; the blur needs API 31 and is the only blur in the app.
 - `RipDpiSignalField` runs behind the pinned badge: flat before the connection test, a travelling pulse while it runs, a live wave in `signal` when it passes, and a break in `destructive` at the failed stage. The line is not drawn when the badge sits in the top row.

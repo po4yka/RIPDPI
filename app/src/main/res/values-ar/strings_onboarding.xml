@@ -117,4 +117,20 @@
         <item quantity="many">حاول مرة أخرى بعد %1$d ثانية.</item>
         <item quantity="other">حاول مرة أخرى بعد %1$d ثانية.</item>
     </plurals>
+    <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="onboarding_welcome_title">مرحباً بك في RIPDPI</string>
+    <string name="onboarding_welcome_body">يفحص RIPDPI مسار شبكتك ويحسّن طريقة إرسال بياناتك باستخدام VPN أو وكيل محلي على هذا الجهاز.</string>
+    <string name="onboarding_dns_title">اختيار DNS</string>
+    <string name="onboarding_background_title">أبقِ RIPDPI قيد التشغيل</string>
+    <string name="onboarding_test_notification_note">يطلب Android السماح بالإشعارات عند بدء الاختبار. يعرض RIPDPI إشعاراً ما دام VPN أو الوكيل المحلي يعمل.</string>
+    <string name="onboarding_test_proxy_card_title">وكيل محلي</string>
+    <string name="onboarding_test_proxy_note">يشغّل الاختبار وكيلاً على هذا الجهاز. لا تستخدمه إلا التطبيقات التي توجّهها إليه، ولا يطلب Android إذن VPN.</string>
+    <string name="onboarding_done_title">اكتمل الإعداد</string>
+    <string name="onboarding_done_interface">الواجهة</string>
+    <string name="onboarding_done_mode">وضع حركة البيانات</string>
+    <string name="onboarding_done_dns">خادم DNS</string>
+    <string name="onboarding_done_test">اختبار الاتصال</string>
+    <string name="onboarding_done_test_passed">ناجح</string>
+    <string name="onboarding_done_test_not_run">لم يُنفَّذ</string>
+    <string name="onboarding_done_test_failed">فاشل</string>
 </resources>

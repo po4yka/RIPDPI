@@ -629,4 +629,7 @@
         <item quantity="many">%1$d applications installées sont des détecteurs de VPN connus.</item>
         <item quantity="other">%1$d applications installées sont des détecteurs de VPN connus.</item>
     </plurals>
+    <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="status_intro_line">La ligne montre le chemin du trafic : plate hors connexion, une onde une fois connecté, coupée quand la connexion échoue.</string>
+    <string name="status_intro_control">Utilisez la commande de connexion pour démarrer ou arrêter la connexion.</string>
 </resources>

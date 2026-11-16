@@ -3239,6 +3239,7 @@ app:notice_strategy_packs_refreshed_message
 app:notice_strategy_packs_refreshed_title
 app:notice_telemetry_salt_reset_message
 app:notice_telemetry_salt_reset_title
+app:onboarding_background_title
 app:onboarding_badge_recommended
 app:onboarding_chip_local_config
 app:onboarding_chip_local_proxy
@@ -3247,6 +3248,15 @@ app:onboarding_chip_no_account
 app:onboarding_chip_no_cloud_sync
 app:onboarding_chip_no_telemetry
 app:onboarding_continue
+app:onboarding_dns_title
+app:onboarding_done_dns
+app:onboarding_done_interface
+app:onboarding_done_mode
+app:onboarding_done_test
+app:onboarding_done_test_failed
+app:onboarding_done_test_not_run
+app:onboarding_done_test_passed
+app:onboarding_done_title
 app:onboarding_guarantee_header_local
 app:onboarding_guarantee_header_privacy
 app:onboarding_local_first_body
@@ -3267,8 +3277,11 @@ app:onboarding_test_failed_title
 app:onboarding_test_finish_without
 app:onboarding_test_grant_permission
 app:onboarding_test_idle_body
+app:onboarding_test_notification_note
 app:onboarding_test_permission_card_title
 app:onboarding_test_permission_note
+app:onboarding_test_proxy_card_title
+app:onboarding_test_proxy_note
 app:onboarding_test_retry
 app:onboarding_test_row_state_active
 app:onboarding_test_row_state_done
@@ -3287,6 +3300,8 @@ app:onboarding_validation_failed
 app:onboarding_validation_failed_generic
 app:onboarding_validation_notifications_required
 app:onboarding_validation_vpn_permission_denied
+app:onboarding_welcome_body
+app:onboarding_welcome_title
 app:oob_data
 app:oom_recovery_action_reconnect
 app:outbound_group_fallback
@@ -4581,6 +4596,8 @@ app:status_hard_kill_switch_not_enabled_title
 app:status_hard_kill_switch_unknown_summary
 app:status_hard_kill_switch_unknown_title
 app:status_indicator_description
+app:status_intro_control
+app:status_intro_line
 app:status_mode_card_configure
 app:status_mode_card_connected_format
 app:status_mode_card_connecting

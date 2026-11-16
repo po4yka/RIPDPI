@@ -15,26 +15,35 @@ It adds two shared pieces:
 
 ## Flow
 
-The step order, controls, and logic do not change.
+Eight steps. Every step is complete with buttons only.
 
 | Step | Content | Controls |
 |---|---|---|
-| 1. Local first | title, body, two lists of guarantees | Skip setup, Continue |
-| 2. Persona | Guided or Advanced | Back, Continue |
-| 3. Scope | Whole device or Proxy only | Back, Continue |
-| 4. Connection test | permission note, three-row checklist, result | Back, Skip test, Start test, then Try again, Grant permission, Change DNS, use the suggested mode, Finish without testing, Done, Disconnect |
+| 1. Welcome | title, what the app does, language choice | Skip setup, Language, Continue |
+| 2. Local first | title, body, two lists of guarantees | Back, Continue |
+| 3. Persona | Guided or Advanced | Back, Continue |
+| 4. Scope | Whole device or Proxy only | Back, Continue |
+| 5. DNS | the built-in resolvers, the default one marked | Back, Continue |
+| 6. Background | battery optimization, Always-on VPN, Block without VPN | Back, Open settings, Open VPN settings, Continue |
+| 7. Connection test | notes, three-row checklist, result | Back, Skip test, Start test, then Try again, Grant permission, Change DNS, use the suggested mode, Finish without testing |
+| 8. Completion | what was set up: interface, traffic mode, DNS resolver, test result | Back or Disconnect, Done |
 
 States that the design covers:
 
+- The language choice opens the language sheet of the Settings screen. The flow continues in the new language on the same step.
+- The DNS step selects one built-in resolver. The default resolver keeps the default DNS settings. A new selection resets a finished test.
+- The background step is guidance. Its two actions open the battery optimization list and the system VPN settings. It requests no permission. Always-on VPN and Block without VPN show only for Whole device.
 - The connection test is idle, asks for the notification permission, asks for VPN consent, starts the mode, checks DNS, checks traffic, succeeds, or fails. A failure names its step and offers the matching recovery.
-- A permission dialog appears only after the user presses Start test. For the VPN mode, the idle step shows the note that explains the local VPN permission before the system dialog can appear.
-- Back returns to the previous step and keeps the selections. Back is disabled during the test and hidden after a successful test, because the tunnel is running.
-- Skip setup on step 1 and Skip test on step 4 leave the flow at once.
-- After process death the flow starts at step 1. The persona and the scope are saved when the user selects them, so the selections return.
+- A permission dialog appears only after the user presses Start test. The idle step explains each dialog first: a notification note when Android will ask for that permission, the local VPN permission note for Whole device, and a local proxy note for Proxy only.
+- Back returns to the previous step and keeps the selections. Back is disabled during the test and hidden after a passed test, because the tunnel is running.
+- Every exit shows the completion step first. Skip setup, Skip test, and Finish without testing go to it at once, and a passed test moves to it. Done then completes onboarding: it keeps the tunnel of a passed test, and otherwise stops the test runtime. After a passed test, Disconnect stops the tunnel and completes onboarding.
+- Back on the completion step returns to the step that the user left. The completion step does not swipe.
+- After process death the flow returns to the saved step. The persona, the scope, and the DNS resolver are saved when the user selects them, so the selections return. The test starts idle again.
+- After the hand-off, the Status screen shows one card under the connect control. It explains the signal line and the control, and it stays until the user dismisses it. Onboarding sets its flag at completion, so a user who completed onboarding earlier does not see it.
 
 ## Transition between steps
 
-The flow is one screen, not four.
+The flow is one screen, not eight.
 
 - One step badge stays pinned above the pages. It does not slide with a page. Its icon changes from one step to the next, and the change follows the pager position, so a drag scrubs it.
 - Every page puts its title at the same height. During a drag the old page fades and blurs out and the new page comes into focus, and each page moves less than the finger. The titles cross over in place.

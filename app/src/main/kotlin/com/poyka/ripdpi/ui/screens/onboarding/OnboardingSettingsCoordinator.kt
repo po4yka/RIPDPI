@@ -2,8 +2,10 @@ package com.poyka.ripdpi.ui.screens.onboarding
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.canonicalDefaultDnsProviderDefinition
+import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
 import kotlinx.coroutines.CoroutineScope
@@ -89,6 +91,20 @@ private fun AppSettings.Builder.applyOnboardingDnsProvider(dnsProviderId: String
         setEncryptedDnsDohUrl(DefaultOnboardingDnsSettings.encryptedDnsDohUrl)
     } else {
         setDnsProviderId(dnsProviderId)
+        // The same fields as SettingsDnsActions.selectBuiltInDnsProvider: the id alone does not select a resolver.
+        dnsProviderById(dnsProviderId)?.let { resolver ->
+            setDnsMode(DnsModeEncrypted)
+            setDnsIp(resolver.primaryIp)
+            setEncryptedDnsProtocol(resolver.protocol)
+            setEncryptedDnsHost(resolver.host)
+            setEncryptedDnsPort(resolver.port)
+            setEncryptedDnsTlsServerName(resolver.tlsServerName)
+            clearEncryptedDnsBootstrapIps()
+            addAllEncryptedDnsBootstrapIps(resolver.bootstrapIps)
+            setEncryptedDnsDohUrl(resolver.dohUrl.orEmpty())
+            setEncryptedDnsDnscryptProviderName(resolver.dnscryptProviderName.orEmpty())
+            setEncryptedDnsDnscryptPublicKey(resolver.dnscryptPublicKey.orEmpty())
+        }
     }
 }
 

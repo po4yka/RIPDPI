@@ -621,4 +621,7 @@
         <item quantity="one">%1$d इंस्टॉल किया गया ऐप ज्ञात VPN डिटेक्टर है.</item>
         <item quantity="other">%1$d इंस्टॉल किए गए ऐप्स ज्ञात VPN डिटेक्टर हैं.</item>
     </plurals>
+    <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="status_intro_line">यह रेखा ट्रैफ़िक का पथ दिखाती है: कनेक्शन न होने पर सपाट, कनेक्ट होने पर लहर, और कनेक्शन विफल होने पर टूटी हुई।</string>
+    <string name="status_intro_control">कनेक्शन शुरू करने या रोकने के लिए कनेक्ट नियंत्रण का उपयोग करें।</string>
 </resources>

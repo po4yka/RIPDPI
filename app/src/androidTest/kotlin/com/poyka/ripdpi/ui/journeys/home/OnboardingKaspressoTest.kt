@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.journeys.home
 
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
@@ -26,6 +27,9 @@ private class OnboardingPage(
     val modeProxy = RipDpiTestTags.OnboardingModeProxy
     val validate = RipDpiTestTags.OnboardingValidateAction
     val skipTest = RipDpiTestTags.OnboardingSkipTest
+    val dnsDefault = RipDpiTestTags.OnboardingDnsOptionPrefix + DnsProviderAdGuard
+    val batterySettings = RipDpiTestTags.OnboardingBatterySettings
+    val completionDone = RipDpiTestTags.OnboardingCompletionDone
 }
 
 @HiltAndroidTest
@@ -42,6 +46,7 @@ class OnboardingKaspressoTest :
         mode: (OnboardingPage) -> String,
     ) = run {
         with(OnboardingPage(composeRule)) {
+            step("Welcome page continues to the privacy page") { click(next) }
             step("Privacy page continues to the persona page") { click(next) }
             step("Pick the persona and continue") {
                 waitFor(personaGuided)
@@ -53,10 +58,22 @@ class OnboardingKaspressoTest :
                 click(mode(this))
                 click(next)
             }
+            step("DNS page keeps the default resolver and continues") {
+                waitFor(dnsDefault)
+                click(next)
+            }
+            step("Background page continues without opening a system setting") {
+                waitFor(batterySettings)
+                click(next)
+            }
             step("Connection test page offers the validation action, skip the test") {
                 waitFor(validate)
                 node(validate).assertIsDisplayed()
                 click(skipTest)
+            }
+            step("Completion page completes onboarding") {
+                waitFor(completionDone)
+                click(completionDone)
             }
         }
     }
@@ -84,6 +101,10 @@ class OnboardingKaspressoTest :
         run {
             with(OnboardingPage(composeRule)) {
                 step("Skip setup on the intro page") { click(skip) }
+                step("Completion page completes onboarding") {
+                    waitFor(completionDone)
+                    click(completionDone)
+                }
             }
             step("Home appears and onboarding is persisted as complete") {
                 composeRule.waitForSettings(appSettingsRepository) { it.onboardingComplete }

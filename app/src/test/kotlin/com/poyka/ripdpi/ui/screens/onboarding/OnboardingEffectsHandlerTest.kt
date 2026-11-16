@@ -65,6 +65,31 @@ class OnboardingEffectsHandlerTest {
     }
 
     @Test
+    fun `system settings effect forwards intent to its own callback`() {
+        val effects = MutableSharedFlow<OnboardingEffect>(extraBufferCapacity = 1)
+        var openedIntent: Intent? = null
+
+        composeRule.setContent {
+            OnboardingEffectsHandler(
+                effects = effects,
+                onComplete = {},
+                onRequestNotificationsPermission = {},
+                onRequestNotificationsSettings = { error("not a permission request") },
+                onRequestVpnConsent = { error("not a permission request") },
+                onOpenSystemSettings = { openedIntent = it },
+            )
+        }
+
+        val intent = Intent("test.system.settings")
+        runBlocking {
+            effects.emit(OnboardingEffect.OpenSystemSettings(intent))
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(intent, openedIntent)
+    }
+
+    @Test
     fun `notification settings effect forwards intent to callback`() {
         val effects = MutableSharedFlow<OnboardingEffect>(extraBufferCapacity = 1)
         var launchedIntent: Intent? = null

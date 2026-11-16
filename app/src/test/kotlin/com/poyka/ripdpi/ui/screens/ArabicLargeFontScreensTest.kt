@@ -49,9 +49,11 @@ import com.poyka.ripdpi.ui.screens.mieru.MieruEditorField
 import com.poyka.ripdpi.ui.screens.mieru.MieruProfileEditorState
 import com.poyka.ripdpi.ui.screens.mieru.MieruProfileScreen
 import com.poyka.ripdpi.ui.screens.mieru.MieruProfileUiState
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingCompletionPageIndex
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingTestPageIndex
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingUiState
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptScreen
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptStage
@@ -104,10 +106,10 @@ class ArabicLargeFontScreensTest {
             }
             composeRule.assertNoClippedText("onboarding page $page")
             val primary =
-                if (page == OnboardingPages.lastIndex) {
-                    RipDpiTestTags.OnboardingValidateAction
-                } else {
-                    RipDpiTestTags.OnboardingContinue
+                when (page) {
+                    OnboardingTestPageIndex -> RipDpiTestTags.OnboardingValidateAction
+                    OnboardingCompletionPageIndex -> RipDpiTestTags.OnboardingCompletionDone
+                    else -> RipDpiTestTags.OnboardingContinue
                 }
             composeRule.onNodeWithTag(primary).assertIsDisplayed()
         }
