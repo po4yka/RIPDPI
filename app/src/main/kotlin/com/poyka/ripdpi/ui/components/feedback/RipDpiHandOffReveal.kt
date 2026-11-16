@@ -112,7 +112,7 @@ class RipDpiHandOffState {
     /** Radius of that element in pixels. The reveal starts with a ring of this size in its place. */
     var anchorRadius: Float = 0f
 
-    /** The line of the source screen. The source clears it when the line leaves; [start] keeps the last one. */
+    /** The line of the source screen, as it last showed. It stays after the source leaves, for [start]. */
     var sourceLine: RipDpiHandOffLine? = null
 
     /** The line of the destination, or null when the destination shows none. */

@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.onboarding
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -229,22 +228,25 @@ internal fun OnboardingSignalLine(
             else -> colors.signal
         }
     val breakAt = if (rtl) 1f - signal.breakAt else signal.breakAt
-    // The hand-off into the main screen starts from the part of this line that shows.
+    // The hand-off into the main screen starts from the part of this line that shows. The report is not cleared
+    // when the line leaves: onboarding can leave the screen a frame before the hand-off starts, and the hand-off
+    // then starts from where the line was.
     val handOff = LocalRipDpiHandOff.current
     var bounds by remember { mutableStateOf<Rect?>(null) }
+    // Read here, not in the effect: a read in the effect does not run it again when the line is placed.
+    val placed = bounds
     if (handOff != null) {
         SideEffect {
             val shown =
-                bounds?.let {
+                placed?.let {
                     it.copy(
                         left = it.left + if (rtl) endInset else startInset,
                         right = it.right - if (rtl) startInset else endInset,
                     )
-                }
+                } ?: return@SideEffect
             handOff.sourceLine =
-                shown?.takeIf { it.width > 0f }?.let { RipDpiHandOffLine(it, signal.mode, color, breakAt) }
+                shown.takeIf { it.width > 0f }?.let { RipDpiHandOffLine(it, signal.mode, color, breakAt) }
         }
-        DisposableEffect(handOff) { onDispose { handOff.sourceLine = null } }
     }
     RipDpiSignalField(
         mode = signal.mode,
