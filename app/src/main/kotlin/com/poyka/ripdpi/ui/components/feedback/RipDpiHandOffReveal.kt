@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.components.feedback
 
-import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +22,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -34,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.findRootCoordinates
@@ -54,6 +57,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 private val HandOffRingWidth = 2.dp
@@ -62,7 +66,10 @@ private const val HandOffLineMiddle = 0.5f
 
 // The share of the reveal in which the line travels. The destination opens in the rest.
 private const val HandOffTravelShare = 0.6f
-private const val HandOffLineFadeIn = 0.2f
+private const val NanosPerMilli = 1_000_000L
+
+// Two frames at 60 Hz. The longest step of the motion that one frame can take.
+private const val HandOffMaxFrameNanos = 32 * NanosPerMilli
 
 /** A signal line that takes part in a hand-off: its bounds in root coordinates, and its look. */
 @Immutable
@@ -80,9 +87,13 @@ internal data class RipDpiHandOffFrame(
     val ringCenter: Offset,
     val ringRadius: Float,
     val ringAlpha: Float,
+    /** True when the ring sits on the center of the line and moves with it. */
+    val ringOnLine: Boolean,
     /** Only the horizontal extent and the vertical center have a meaning. Null when no line is drawn. */
     val line: Rect?,
     val lineAlpha: Float,
+    /** The share of the line's width that shows, from its center outward. */
+    val lineReveal: Float,
 )
 
 /**
@@ -119,6 +130,7 @@ class RipDpiHandOffState {
         private set
 
     private var origin by mutableStateOf<RipDpiHandOffLine?>(null)
+    private var easing: Easing = LinearEasing
 
     val isRunning: Boolean
         get() = progress < 1f
@@ -150,9 +162,11 @@ class RipDpiHandOffState {
 
     /**
      * Fixes the kind of reveal before its first moving frame: the line travels if the destination has reported
-     * its line by now. A line reported later does not change a reveal that is on its way.
+     * its line by now. A line reported later does not change a reveal that is on its way. [easing] shapes the
+     * travel and the opening, each on its own, over a [progress] that is linear in time.
      */
-    internal fun settle() {
+    internal fun settle(easing: Easing = LinearEasing) {
+        this.easing = easing
         travels = targetLine != null
     }
 
@@ -170,31 +184,39 @@ class RipDpiHandOffState {
                 ?: Offset(size.width / 2f, size.height * HandOffFallbackAnchorHeightFraction)
         val target = targetLine.takeIf { travels }
         if (target == null) {
-            val opening = reach(from, size) * progress
+            val open = easing.transform(progress)
+            val opening = reach(from, size) * open
             return RipDpiHandOffFrame(
                 openingCenter = from,
                 openingRadius = opening,
                 ringCenter = from,
                 ringRadius = max(opening, anchorRadius),
-                ringAlpha = 1f - progress,
+                ringAlpha = 1f - open,
+                ringOnLine = false,
                 // A source line with no destination line has nowhere to go: it fades with the ring.
                 line = origin?.bounds,
-                lineAlpha = 1f - progress,
+                lineAlpha = 1f - open,
+                lineReveal = 1f,
             )
         }
-        val travel = (progress / HandOffTravelShare).coerceAtMost(1f)
-        val open = ((progress - HandOffTravelShare) / (1f - HandOffTravelShare)).coerceAtLeast(0f)
+        val travel = easing.transform((progress / HandOffTravelShare).coerceAtMost(1f))
+        val open = easing.transform(((progress - HandOffTravelShare) / (1f - HandOffTravelShare)).coerceAtLeast(0f))
         val to = target.bounds.center
+        val ringCenter = lerp(from, to, travel)
+        val source = origin?.bounds
         return RipDpiHandOffFrame(
             openingCenter = to,
             // Closed until the line has landed, so the line never crosses the content of the destination.
             openingRadius = reach(to, size) * open,
-            ringCenter = lerp(from, to, travel),
+            ringCenter = ringCenter,
             ringRadius = anchorRadius * (1f - travel),
             ringAlpha = 1f,
-            // With no source line the line grows out of the ring. It fades in, as a very short line is only glow.
-            line = lerp(origin?.bounds ?: Rect(from, from), target.bounds, travel),
-            lineAlpha = if (origin == null) (travel / HandOffLineFadeIn).coerceAtMost(1f) else 1f,
+            ringOnLine = true,
+            // With no source line the line has its final width from the start and shows from its center outward.
+            // A line that grew in width would squeeze the wave into the ring.
+            line = source?.let { lerp(it, target.bounds, travel) } ?: target.bounds.translate(ringCenter - to),
+            lineAlpha = 1f,
+            lineReveal = if (source == null) travel else 1f,
         )
     }
 
@@ -267,8 +289,18 @@ fun RipDpiHandOffReveal(
                 withTimeoutOrNull(motion.duration(motion.stateDurationMillis).toLong()) {
                     snapshotFlow { state.targetLine != null }.first { it }
                 }
-                state.settle()
-                animate(0f, 1f, animationSpec = motion.signatureTween()) { value, _ -> state.progress = value }
+                val spec = motion.signatureTween<Float>()
+                state.settle(spec.easing)
+                val duration = spec.durationMillis * NanosPerMilli
+                var played = 0L
+                var last = withFrameNanos { it }
+                while (state.isRunning) {
+                    val now = withFrameNanos { it }
+                    // A slow frame counts as a short one: the motion then takes longer and does not skip ahead.
+                    played += min(now - last, HandOffMaxFrameNanos)
+                    last = now
+                    state.progress = if (played >= duration) 1f else played.toFloat() / duration
+                }
             }
             if (!state.landingMuted) landed()
         } finally {
@@ -314,13 +346,15 @@ internal fun RipDpiHandOffLayer(
                     drawRect(veil)
                 }
                 drawContent()
-                drawCircle(
-                    color = ring,
-                    radius = frame.ringRadius,
-                    center = frame.ringCenter,
-                    alpha = frame.ringAlpha,
-                    style = Stroke(width = HandOffRingWidth.toPx()),
-                )
+                if (!frame.ringOnLine) {
+                    drawCircle(
+                        color = ring,
+                        radius = frame.ringRadius,
+                        center = frame.ringCenter,
+                        alpha = frame.ringAlpha,
+                        style = Stroke(width = HandOffRingWidth.toPx()),
+                    )
+                }
             },
     ) {
         if (visible && line != null) {
@@ -344,7 +378,21 @@ internal fun RipDpiHandOffLayer(
                                     y = (bounds.center.y - placeable.height / 2f).roundToInt(),
                                 )
                             }
-                            // The alpha of the line does not depend on the size.
+                        }.drawWithContent {
+                            // These values do not depend on the size of the layer.
+                            val frame = state.frame(progress(), Size.Zero)
+                            val hidden = size.width * (1f - frame.lineReveal) / 2f
+                            clipRect(left = hidden, right = size.width - hidden) {
+                                this@drawWithContent.drawContent()
+                            }
+                            // On the node of the line, so the ring and the line move in the same frame.
+                            if (frame.ringOnLine) {
+                                drawCircle(
+                                    color = ring,
+                                    radius = frame.ringRadius,
+                                    style = Stroke(width = HandOffRingWidth.toPx()),
+                                )
+                            }
                         }.graphicsLayer { alpha = state.frame(progress(), Size.Zero).lineAlpha },
             )
         }

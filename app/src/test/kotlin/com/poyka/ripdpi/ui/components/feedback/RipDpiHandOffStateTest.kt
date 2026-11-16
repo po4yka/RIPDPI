@@ -99,7 +99,7 @@ class RipDpiHandOffStateTest {
         assertEquals(Rect(140f, 586f, 1040f, 642f), halfWay.line)
         assertEquals(Offset(590f, 614f), halfWay.ringCenter)
         assertEquals(40f, halfWay.ringRadius)
-        assertEquals(1f, halfWay.lineAlpha)
+        assertEquals(1f, halfWay.lineReveal)
         assertEquals(0f, halfWay.openingRadius)
 
         val landed = state.frame(0.6f, screen)
@@ -124,16 +124,41 @@ class RipDpiHandOffStateTest {
     }
 
     @Test
-    fun `with no source line the line grows out of the anchor and fades in`() {
+    fun `with no source line the line keeps its final width and shows from its center outward`() {
         val state = RipDpiHandOffState().apply { anchor = Offset(540f, 300f) }
         state.start()
         state.targetLine = line(Rect(280f, 900f, 1000f, 956f))
         state.settle()
 
-        assertEquals(Rect(540f, 300f, 540f, 300f), state.frame(0f, screen).line)
-        assertEquals(0f, state.frame(0f, screen).lineAlpha)
-        assertEquals(0.5f, state.frame(0.06f, screen).lineAlpha, 0.0001f)
-        assertEquals(1f, state.frame(0.3f, screen).lineAlpha)
+        val start = state.frame(0f, screen)
+        assertEquals(Rect(180f, 272f, 900f, 328f), start.line)
+        assertEquals(0f, start.lineReveal)
+
+        val halfWay = state.frame(0.3f, screen)
+        assertEquals(Rect(230f, 586f, 950f, 642f), halfWay.line)
+        assertEquals(0.5f, halfWay.lineReveal)
+        assertEquals(halfWay.line?.center, halfWay.ringCenter)
+
+        val landed = state.frame(0.6f, screen)
+        assertEquals(Rect(280f, 900f, 1000f, 956f), landed.line)
+        assertEquals(1f, landed.lineReveal)
+    }
+
+    @Test
+    fun `the easing shapes the travel and the opening each on its own`() {
+        val state =
+            RipDpiHandOffState().apply {
+                anchor = Offset(540f, 300f)
+                anchorRadius = 80f
+            }
+        state.start()
+        state.targetLine = line(Rect(280f, 900f, 1000f, 956f))
+        // Squares its input: a quarter at the half.
+        state.settle { it * it }
+
+        // Half of the travel share of 0.6, then half of the opening share of 0.4.
+        assertEquals(60f, state.frame(0.3f, screen).ringRadius)
+        assertEquals(hypot(640f, 1472f) / 4f, state.frame(0.8f, screen).openingRadius, 0.01f)
     }
 
     @Test

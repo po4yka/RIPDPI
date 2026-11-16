@@ -55,14 +55,16 @@ The app replaces its whole navigation host when onboarding completes, so a route
 The reveal has three parts.
 
 1. Hold. In the first frame the veil covers the main screen, the line stands where the onboarding line stood, and a ring stands where the badge stood. The veil stays closed until the hero reports its line, for at most the 220ms state duration. The main screen composes for the first time in these frames, and they are slow; the motion does not run through them.
-2. Travel. In the first 60% of the 560ms signature motion the line moves over the closed veil to the hero line and takes its width, and the ring travels with it and closes on it. The line does not cross any content of the main screen.
-3. Open. In the rest of the motion the main screen opens as a circle that grows from the line. When the reveal ends the layer draws nothing and the hero shows its own line in the same place.
+2. Travel. In the first 60% of the 560ms signature motion, about 340ms, the line moves over the closed veil to the hero line, and the ring sits on its center and closes on it. The line does not cross any content of the main screen.
+3. Open. In the rest of the motion, about 220ms, the main screen opens as a circle that grows from the line. When the reveal ends the layer draws nothing and the hero shows its own line in the same place.
+
+The travel and the opening each use the signature easing on their own share. A frame that takes longer than 32ms counts as 32ms of the motion, so on a slow device the motion takes longer and does not skip ahead.
 
 | Case | Hand-off |
 |---|---|
 | Done, Disconnect, Skip setup, Skip test, Finish without testing, from any step | the same reveal; it depends only on the start destination that leaves onboarding |
 | Portrait and landscape | the same reveal; the anchor is the badge, in the page or in the top bar |
-| No `sourceLine` reported | the line grows out of the ring and fades in on its way to the hero |
+| No `sourceLine` reported | the line has the width of the hero line from the start and shows from the ring outward on its way to the hero |
 | Right-to-left layout | the same reveal; all positions are root coordinates and are not mirrored |
 | The hero line is not on screen at the end of the hold (app lock sends the user to the biometric prompt, the hero is scrolled away, or it reports late) | the circle only: the main screen opens from the place of the badge, the ring grows with the opening and fades, and a reported source line fades in its place |
 | Animations off | a cut: nothing is drawn |
