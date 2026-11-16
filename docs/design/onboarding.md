@@ -41,7 +41,7 @@ States that the design covers:
 The flow is one screen, not four.
 
 - One step badge stays pinned above the pages. It does not slide with a page. Its icon changes from one step to the next, and the change follows the pager position, so a drag scrubs it.
-- Every page puts its title at the same height. During a drag the old page fades out and the new page fades in, and each page moves less than the finger. The titles cross over in place.
+- Every page puts its title at the same height. During a drag the old page fades and blurs out and the new page comes into focus, and each page moves less than the finger. The titles cross over in place.
 - The indicator widths follow the pager position.
 - A swipe that settles on a new step gives one selection haptic. A button gives its own haptic, so it does not give a second one.
 - Every step works with buttons only. The swipe is an extra path.
@@ -63,8 +63,8 @@ Planned next, when the main-screen branch lands: `RipDpiSignalField` draws one l
 ## Reduced motion and older devices
 
 - With animations off, the pages change with no fade, the badge and the indicators change only when a step settles, the entrance does not play, and the hand-off is a cut, as it was.
-- This pass uses `graphicsLayer`, `Canvas`, and layout-phase reads only. They work on every supported API level, so no fallback is needed. The AGSL shader arrives with `RipDpiSignalField`, which has its own `Canvas` fallback below API 33.
-- No blur: the design system uses no decorative depth.
+- The badge, the page fade and parallax, the indicators, and the hand-off use `graphicsLayer`, `Canvas`, and layout-phase reads. They work on every supported API level. The AGSL shader arrives with `RipDpiSignalField`, which has its own `Canvas` fallback below API 33.
+- The page blur uses `RenderEffect` and needs API 31. On API 27 to 30 a leaving page fades and moves with no blur. A page at rest has no blur on any API level.
 
 ## Layout
 

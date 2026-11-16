@@ -47,6 +47,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -87,6 +89,9 @@ private val OnboardingCompactHeight = 480.dp
 
 // Share of the page width that a page gives up while it scrolls, so its content moves less than the finger.
 private const val OnboardingPageParallax = 0.4f
+
+// Blur of a page that is one full step away. A page at rest has no blur and no layer effect.
+private val OnboardingPageBlur = 8.dp
 
 @Composable
 fun OnboardingRoute(
@@ -368,6 +373,9 @@ private fun OnboardingPagerContent(
     val motion = RipDpiThemeTokens.motion
     val scrubPages = motion.animationsEnabled
     val direction = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1f else 1f
+    // RenderEffect needs API 31. Below it a leaving page fades and moves, with no blur.
+    val blurPages = scrubPages && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val pageBlur = with(LocalDensity.current) { OnboardingPageBlur.toPx() }
     // The first launch plays the entrance once; a rotation or a restored process does not repeat it.
     var entrancePlayed by rememberSaveable { mutableStateOf(false) }
     val entrance = remember { Animatable(if (entrancePlayed || !motion.animationsEnabled) 1f else 0f) }
@@ -389,13 +397,17 @@ private fun OnboardingPagerContent(
             userScrollEnabled = !validationBusy && uiState.validationState !is OnboardingValidationState.Success,
             modifier = Modifier.fillMaxSize(),
         ) { page ->
-            // A page fades with its distance from the pager position and moves less than the finger, so the old
-            // and the new step cross over in place. Without animations the pager moves the pages unchanged.
+            // A page fades and blurs with its distance from the pager position and moves less than the finger, so
+            // the old and the new step cross over in place. Without animations the pager moves the pages unchanged.
             val pageModifier =
                 if (scrubPages) {
                     Modifier.fillMaxSize().graphicsLayer {
                         val offset = page - (pagerState.currentPage + pagerState.currentPageOffsetFraction)
-                        alpha = 1f - abs(offset).coerceIn(0f, 1f)
+                        val distance = abs(offset).coerceIn(0f, 1f)
+                        val blur = distance * pageBlur
+                        alpha = 1f - distance
+                        // The platform rejects a blur with no radius, so a page near rest has no effect at all.
+                        renderEffect = if (blurPages && blur >= 1f) BlurEffect(blur, blur, TileMode.Decal) else null
                         translationX = -offset * size.width * OnboardingPageParallax * direction
                     }
                 } else {
