@@ -72,6 +72,7 @@ import com.poyka.ripdpi.ui.components.buttons.primaryActionWidth
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiConfirmDisconnectDialog
+import com.poyka.ripdpi.ui.components.feedback.ripDpiHandOffTarget
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalField
@@ -278,11 +279,18 @@ private fun ActuatorSignalBand(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ActuatorSessionClock(state)
+        val mode = state.status.toSignalMode()
+        val breakAt = state.failedStageFraction()
         RipDpiSignalField(
-            mode = state.status.toSignalMode(),
+            mode = mode,
             color = signal,
-            modifier = Modifier.weight(SignalLineWeight).then(press.trackLine),
-            breakAt = state.failedStageFraction(),
+            modifier =
+                Modifier
+                    .weight(SignalLineWeight)
+                    .then(press.trackLine)
+                    // The first launch hands its line over to this one.
+                    .ripDpiHandOffTarget(mode, signal, breakAt),
+            breakAt = breakAt,
             pressAt = press::positionOnLine,
             press = { press.amount.value },
         )

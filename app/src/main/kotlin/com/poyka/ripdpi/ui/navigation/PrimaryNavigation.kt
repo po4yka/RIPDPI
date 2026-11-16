@@ -37,11 +37,10 @@ internal fun NavGraphBuilder.addPrimaryRoutes(
 ) {
     composable<Route.Onboarding> {
         OnboardingRoute(
-            onComplete = {
-                navController.navigate(Route.Status) {
-                    popUpTo<Route.Onboarding> { inclusive = true }
-                }
-            },
+            // Completion sets the first-launch flag, which changes the start destination, and the activity then
+            // replaces this whole host under the hand-off veil. A navigation here would show the main screen's
+            // bar, and with app lock the main screen itself, before that replacement.
+            onComplete = {},
             onOpenAdvancedDns = { navController.navigate(Route.DnsSettings) },
         )
     }

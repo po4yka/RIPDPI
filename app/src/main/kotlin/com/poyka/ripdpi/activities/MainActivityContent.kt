@@ -11,10 +11,11 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +47,7 @@ import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.rememberSystemContrastLevel
 import kotlinx.collections.immutable.persistentListOf
 
@@ -141,6 +143,7 @@ private fun ReadyMainActivityContent(
     )
     val shellState by controller.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val onboardingHandOff = remember { RipDpiHandOffState() }
     val localeTags = LocalConfiguration.current.locales.toLanguageTags()
 
     LaunchedEffect(viewModel, localeTags) {
@@ -154,13 +157,16 @@ private fun ReadyMainActivityContent(
         canHandleStartConfiguredModeRequest = runtimeState.settingsLoaded,
         connectionState = runtimeState.connectionState,
         snackbarHostState = snackbarHostState,
+        onboardingHandOff = onboardingHandOff,
     )
+    // Above the gate below, so a hand-off is not lost if the settings reload while onboarding completes.
+    OnboardingHandOffTrigger(onboardingHandOff, startupState.startDestination)
     if (!runtimeState.settingsLoaded) {
         StartupRecoveryGateContent(failed = false, onRetry = {})
         return
     }
     val pauseViewModel = pauseViewModelFactory()
-    val onboardingHandOff = rememberOnboardingHandOff(startupState.startDestination)
+    val performHaptic = rememberRipDpiHapticPerformer()
     Box(
         modifier =
             Modifier
@@ -198,7 +204,11 @@ private fun ReadyMainActivityContent(
                 )
             }
         }
-        RipDpiHandOffReveal(state = onboardingHandOff)
+        RipDpiHandOffReveal(
+            state = onboardingHandOff,
+            // The line has arrived in the hero. The button that ended onboarding gave its own haptic at the press.
+            onLanded = { performHaptic(RipDpiHapticFeedback.Confirm) },
+        )
         MainActivityDialogs(
             viewModel = viewModel,
             controller = controller,
@@ -209,19 +219,24 @@ private fun ReadyMainActivityContent(
 
 /**
  * The content is replaced, not navigated, when the start destination leaves onboarding, so the reveal that
- * joins the two screens lives above it and starts in the frame of the replacement.
+ * joins the two screens lives above it. The reveal starts in the composition that replaces the content, not in
+ * an effect after it: the two changes reach the screen in one snapshot, so no frame shows the main screen
+ * without the veil.
  */
 @Composable
-private fun rememberOnboardingHandOff(startDestination: Route): RipDpiHandOffState {
-    val handOff = remember { RipDpiHandOffState() }
-    val previous = remember { arrayOf(startDestination) }
-    SideEffect {
-        if (previous[0] == Route.Onboarding && startDestination != Route.Onboarding) {
-            handOff.start()
+internal fun OnboardingHandOffTrigger(
+    handOff: RipDpiHandOffState,
+    startDestination: Route,
+) {
+    val animated = RipDpiThemeTokens.motion.animationsEnabled
+    val previous = remember { mutableStateOf(startDestination) }
+    // Not observed: the reveal progress changes on every frame, and this composable must not recompose with it.
+    Snapshot.withoutReadObservation {
+        if (previous.value == Route.Onboarding && startDestination != Route.Onboarding) {
+            handOff.start(animated)
         }
-        previous[0] = startDestination
+        if (previous.value != startDestination) previous.value = startDestination
     }
-    return handOff
 }
 
 internal fun navigationStateKey(
@@ -237,6 +252,7 @@ private fun MainActivityEffects(
     canHandleStartConfiguredModeRequest: Boolean,
     connectionState: ConnectionState,
     snackbarHostState: SnackbarHostState,
+    onboardingHandOff: RipDpiHandOffState,
 ) {
     val context = LocalContext.current
     val copyActionLabel = stringResource(R.string.status_diagnostics_copy_support_code)
@@ -253,6 +269,8 @@ private fun MainActivityEffects(
     LifecycleEventEffect(controller.uiEvents) { event ->
         when (event) {
             MainActivityUiEvent.ConnectionEstablished -> {
+                // One haptic if the connection comes up while the hand-off runs.
+                onboardingHandOff.muteLanding()
                 performHaptic(RipDpiHapticFeedback.Success)
             }
 
