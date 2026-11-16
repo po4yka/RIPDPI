@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -65,14 +66,18 @@ fun StatusIndicator(
      * unless the call site can name what is in flight.
      */
     pulsing: Boolean = false,
+    /** Replaces the tone's marker color; the marker shape and the label still carry the tone. */
+    markerColor: Color = Color.Unspecified,
 ) {
     val colors = RipDpiThemeTokens.colors
     val indicatorColor =
-        when (tone) {
-            StatusIndicatorTone.Active -> colors.foreground
-            StatusIndicatorTone.Idle -> colors.mutedForeground
-            StatusIndicatorTone.Warning -> colors.warning
-            StatusIndicatorTone.Error -> colors.destructive
+        markerColor.takeOrElse {
+            when (tone) {
+                StatusIndicatorTone.Active -> colors.foreground
+                StatusIndicatorTone.Idle -> colors.mutedForeground
+                StatusIndicatorTone.Warning -> colors.warning
+                StatusIndicatorTone.Error -> colors.destructive
+            }
         }
     val animation = rememberStatusIndicatorAnimation(indicatorColor, pulsing)
     val statusDescription = stringResource(R.string.status_indicator_description, label)

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import com.poyka.ripdpi.ui.screens.status.activeModeMarkerColor
 import com.poyka.ripdpi.ui.theme.ContrastAssertions.Enhanced
 import com.poyka.ripdpi.ui.theme.ContrastAssertions.NonText
 import com.poyka.ripdpi.ui.theme.ContrastAssertions.Text
@@ -88,6 +89,19 @@ class RipDpiRoleContrastTest {
             RipDpiActuatorStageRole.entries.forEach { role ->
                 val s = p.states.actuator.resolveStage(role)
                 assertAtLeast("${p.label} stage $role", Text, s.content, s.container)
+            }
+        }
+    }
+
+    @Test
+    fun `the signal marker of the active mode card is visible on the selected card`() {
+        palettes.forEach { p ->
+            val selected = p.surfaces.resolve(DefaultRipDpiSurfaceRoleMappings.cards.selected)
+            val marker = activeModeMarkerColor(p.colors.signal, selected.container, selected.content)
+            assertAtLeast("${p.label} active mode marker", NonText, marker, selected.container)
+            // The fallback is for the higher contrast levels only; the default look keeps the signal color.
+            if (p.level == RipDpiContrastLevel.Standard) {
+                assertTrue("${p.label} marker should be the signal color", marker == p.colors.signal)
             }
         }
     }

@@ -9,6 +9,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -16,6 +19,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -68,6 +72,29 @@ class StatusModeCardTest {
                 .onAllNodesWithTag(RipDpiTestTags.statusModeCard(mode.name))
                 .assertCountEquals(2)
         }
+    }
+
+    @Test
+    fun `only a live or busy card shows a status and an inactive card names its state`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                Column {
+                    StatusModeCard(uiState = card(StatusMode.LocalDpiBypass, active = true), onConfigure = {})
+                    StatusModeCard(uiState = card(StatusMode.RemoteVpn), onConfigure = {}, onCardClick = {})
+                    StatusModeCard(uiState = card(StatusMode.Diagnostic, loading = true), onConfigure = {})
+                }
+            }
+        }
+
+        composeRule.onAllNodesWithText("Active").assertCountEquals(1)
+        composeRule.onAllNodesWithText("Busy").assertCountEquals(1)
+        composeRule.onAllNodesWithText("Inactive").assertCountEquals(0)
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.statusModeCardBody(StatusMode.RemoteVpn.name))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Inactive"))
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.statusModeCardBody(StatusMode.LocalDpiBypass.name))
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.StateDescription))
     }
 
     @Test

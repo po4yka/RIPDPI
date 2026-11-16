@@ -12,6 +12,7 @@ The screen is an instrument that shows the traffic path. One signal line runs th
 - `signal` is the one new role: cyan `#0E7490` in light and `#22D3EE` in dark. Medium and High contrast darken the light value. The fixed values hold at least 4.5:1 against the page at every contrast level.
 - With dynamic color on, `signal` is the wallpaper `primary` role, and the wallpaper scheme decides its contrast.
 - `signal` marks a live or connecting path. It is not a status tone. A warning uses `warning` and a failure uses `destructive`, as before.
+- The status marker of the active mode card uses `signal`, so the live mode has the color of the live line. Where `signal` does not hold 3:1 on the selected surface (the light Medium and High contrast levels, whose selected fill is dark), the marker keeps the content color. The selected surface, the dot shape, and the Active label say the same without color.
 - The signal line never carries state alone. The headline icon and text always name the state.
 
 ## Type scale
@@ -40,9 +41,10 @@ Each motion has one purpose.
 
 With animations off, or reduced motion on, the line shows one still frame for each state, values change with no fade, and disclosed items appear at once.
 
-## Advisories
+## Advisories and mode cards
 
 - The advisory card has a leading stripe in the tone of its top notice, the same stripe as a warning or critical measurement. The user sees the severity before the text; the icon and the text still carry it.
+- An inactive mode card shows no status. Two Inactive labels beside one Active label only repeat what the missing label already says. A screen reader still hears Inactive as the state of the card.
 
 ## Signature element
 

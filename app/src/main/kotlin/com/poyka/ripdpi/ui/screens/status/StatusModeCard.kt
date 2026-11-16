@@ -12,9 +12,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -24,6 +27,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.contrastRatio
 import com.poyka.ripdpi.ui.components.indicators.AnalysisProgressIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
@@ -62,7 +66,8 @@ fun StatusModeCard(
 
                 // Active card uses the Selected surface (accent fill + bold
                 // foreground border + elevation) so it is unmistakably the live
-                // card, rather than receding behind the flat Outlined cards.
+                // card, rather than receding behind the flat Outlined cards. Its
+                // status marker carries the signal color on top of that.
                 uiState.isActive -> RipDpiCardVariant.Selected
 
                 else -> RipDpiCardVariant.Outlined
@@ -92,11 +97,14 @@ private fun StatusModeCardContent(
     statusLabel: String,
     onCardClick: (() -> Unit)?,
 ) {
+    val showsStatus = uiState.isLoading || uiState.isActive
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .ripDpiTestTag(RipDpiTestTags.statusModeCardBody(uiState.mode.name))
+                // An inactive card shows no status, so its accessible name says it instead.
+                .then(if (showsStatus) Modifier else Modifier.semantics { stateDescription = statusLabel })
                 .then(
                     if (onCardClick != null) {
                         Modifier.ripDpiClickable(role = Role.Button, onClick = onCardClick)
@@ -106,7 +114,7 @@ private fun StatusModeCardContent(
                 ),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
-        StatusModeCardHeader(uiState = uiState, statusLabel = statusLabel)
+        StatusModeCardHeader(uiState = uiState, statusLabel = statusLabel, showsStatus = showsStatus)
         StatusModeCardBody(uiState = uiState, statusLabel = statusLabel)
     }
 }
@@ -115,9 +123,13 @@ private fun StatusModeCardContent(
 private fun StatusModeCardHeader(
     uiState: StatusModeCardUiState,
     statusLabel: String,
+    showsStatus: Boolean,
 ) {
     val stackHeader = LocalDensity.current.fontScale >= StatusModeStackedSummaryFontScale
-    if (stackHeader) {
+    if (!showsStatus) {
+        // "Inactive" on every card but one is noise; the card that is live or busy says so.
+        StatusModeCardTitle(title = uiState.title, modifier = Modifier.fillMaxWidth())
+    } else if (stackHeader) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
@@ -160,8 +172,29 @@ private fun StatusModeCardStatus(
         tone = statusModeStatusTone(uiState),
         // isActive is a steady connected state; only the transition into it is in flight.
         pulsing = uiState.isLoading,
+        // The live mode carries the signal color of the hero; the dot shape and "Active" say it without color.
+        markerColor =
+            if (uiState.isActive && !uiState.isLoading) {
+                val selectedCard = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.cards.selected)
+                activeModeMarkerColor(RipDpiThemeTokens.colors.signal, selectedCard.container, selectedCard.content)
+            } else {
+                Color.Unspecified
+            },
     )
 }
+
+/**
+ * The signal color where it holds 3:1 on the selected card. Where it does not (the light Medium and
+ * High contrast levels, whose selected fill is dark, or an unlucky wallpaper), the marker keeps the
+ * card's content color.
+ */
+internal fun activeModeMarkerColor(
+    signal: Color,
+    container: Color,
+    content: Color,
+): Color = if (contrastRatio(signal, container) >= ActiveModeMarkerMinimumContrast) signal else content
+
+private const val ActiveModeMarkerMinimumContrast = 3f
 
 @Composable
 private fun StatusModeCardBody(
@@ -170,11 +203,8 @@ private fun StatusModeCardBody(
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    // Falling back to the header badge's own label spent a whole line repeating
-    // a word the user had just read one line above, and pushed the facets that
-    // actually differ per mode further down. With nothing distinct to add, add
-    // nothing.
-    // The header badge already names the state; a body line that only repeats it says nothing new.
+    // A body line that only repeats the state says nothing new: the header badge names an
+    // active or busy state, and an inactive card names its state to accessibility services only.
     if (uiState.statusLine.isNotBlank() && !uiState.statusLine.equals(statusLabel, ignoreCase = true)) {
         Text(
             text = uiState.statusLine,
@@ -374,57 +404,55 @@ private fun statusModeStatusTone(uiState: StatusModeCardUiState): StatusIndicato
         else -> StatusIndicatorTone.Idle
     }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, name = "Mode card Local: active, inactive, loading (light)")
 @Composable
-private fun StatusModeCardLocalActivePreview() {
-    StatusModeCardPreviewContent(card = previewCard(StatusMode.LocalDpiBypass, active = true))
-}
+private fun StatusModeCardLocalPreview() = StatusModeCardStatesPreview(StatusMode.LocalDpiBypass)
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, name = "Mode card Local: active, inactive, loading (dark)")
 @Composable
-private fun StatusModeCardLocalInactivePreview() {
-    StatusModeCardPreviewContent(card = previewCard(StatusMode.LocalDpiBypass))
-}
+private fun StatusModeCardLocalDarkPreview() = StatusModeCardStatesPreview(StatusMode.LocalDpiBypass, dark = true)
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, name = "Mode card Vpn: active, inactive, loading (light)")
 @Composable
-private fun StatusModeCardVpnActivePreview() {
-    StatusModeCardPreviewContent(card = previewCard(StatusMode.RemoteVpn, active = true))
-}
+private fun StatusModeCardVpnPreview() = StatusModeCardStatesPreview(StatusMode.RemoteVpn)
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, name = "Mode card Vpn: active, inactive, loading (dark)")
 @Composable
-private fun StatusModeCardVpnInactivePreview() {
-    StatusModeCardPreviewContent(card = previewCard(StatusMode.RemoteVpn))
-}
+private fun StatusModeCardVpnDarkPreview() = StatusModeCardStatesPreview(StatusMode.RemoteVpn, dark = true)
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, name = "Mode card Diagnostic: active, inactive, loading (light)")
 @Composable
-private fun StatusModeCardDiagnosticActivePreview() {
-    StatusModeCardPreviewContent(card = previewCard(StatusMode.Diagnostic, active = true))
-}
+private fun StatusModeCardDiagnosticPreview() = StatusModeCardStatesPreview(StatusMode.Diagnostic)
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, name = "Mode card Diagnostic: active, inactive, loading (dark)")
 @Composable
-private fun StatusModeCardDiagnosticInactivePreview() {
-    StatusModeCardPreviewContent(card = previewCard(StatusMode.Diagnostic))
-}
+private fun StatusModeCardDiagnosticDarkPreview() = StatusModeCardStatesPreview(StatusMode.Diagnostic, dark = true)
 
 @Composable
-private fun StatusModeCardPreviewContent(card: StatusModeCardUiState) {
-    RipDpiComponentPreview {
-        StatusModeCard(
-            uiState = card,
-            onPrimaryAction = if (card.mode == StatusMode.Diagnostic) ({}) else null,
-            onConfigure = {},
-            onCardClick = {},
-        )
+private fun StatusModeCardStatesPreview(
+    mode: StatusMode,
+    dark: Boolean = false,
+) {
+    RipDpiComponentPreview(themePreference = if (dark) "dark" else "light") {
+        listOf(
+            previewCard(mode, active = true),
+            previewCard(mode),
+            previewCard(mode, loading = true),
+        ).forEach { card ->
+            StatusModeCard(
+                uiState = card,
+                onPrimaryAction = if (card.mode == StatusMode.Diagnostic) ({}) else null,
+                onConfigure = {},
+                onCardClick = {},
+            )
+        }
     }
 }
 
 private fun previewCard(
     mode: StatusMode,
     active: Boolean = false,
+    loading: Boolean = false,
 ): StatusModeCardUiState =
     StatusModeCardUiState(
         mode = mode,
@@ -460,4 +488,5 @@ private fun previewCard(
         configureLabel = "Configure",
         primaryActionEnabled = true,
         isActive = active,
+        isLoading = loading,
     )

@@ -94,6 +94,8 @@ fun StatusScreen(
         // above the two-column split so widening the window past the Expanded
         // breakpoint re-parents the accordion without resetting it.
         var modesExpanded by rememberSaveable { mutableStateOf(initialModesExpanded) }
+        // Cards that are restored open are already there; only a tap reveals them one by one.
+        var modesRevealed by remember { mutableStateOf(false) }
 
         StatusSupportingPaneLayout(
             primary = {
@@ -178,6 +180,7 @@ fun StatusScreen(
                     expanded = modesExpanded || homeDiagnostics.analysisAction.busy,
                     onExpandedChange = {
                         modesExpanded = it
+                        modesRevealed = true
                         onModesExpandedChange(it)
                     },
                     headerTestTag = RipDpiTestTags.StatusModesDiagnosticsHeader,
@@ -199,6 +202,7 @@ fun StatusScreen(
                         onVpnCardClick = onVpnCardClick,
                         onDiagnosticCardClick = onDiagnosticCardClick,
                         onTogglePcapRecording = onTogglePcapRecording,
+                        reveal = modesRevealed,
                     )
                 }
             },
@@ -230,46 +234,55 @@ private fun StatusModeCardList(
     onVpnCardClick: () -> Unit,
     onDiagnosticCardClick: () -> Unit,
     onTogglePcapRecording: () -> Unit,
+    reveal: Boolean,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.layout.groupGap),
     ) {
-        StatusModeCard(
-            uiState = uiState.localBypassCard,
-            onConfigure = onBypassCardClick,
-            onCardClick = onBypassCardClick,
-            configureActionVariant = RipDpiButtonVariant.Ghost,
-        )
-        StatusModeCard(
-            uiState = uiState.vpnCard,
-            onConfigure = onVpnCardClick,
-            onCardClick = onVpnCardClick,
-            configureActionVariant = RipDpiButtonVariant.Ghost,
-        )
-        StatusModeCard(
-            uiState = diagnosticCard,
-            onPrimaryAction =
-                if (
-                    homeDiagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.STARTING ||
-                    homeDiagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.RUNNING
-                ) {
-                    onCancelDiagnosticRun
-                } else {
-                    onDiagnosticRun
-                },
-            onConfigure = onDiagnosticCardClick,
-            onCardClick = onDiagnosticCardClick,
-            primaryActionVariant = RipDpiButtonVariant.Outline,
-            configureActionVariant = RipDpiButtonVariant.Ghost,
-        )
-        RipDpiButton(
-            text = stringResource(R.string.status_diagnostics_run_analysis),
-            onClick = onRunFullDiagnosticRun,
-            enabled = homeDiagnostics.analysisAction.enabled && !homeDiagnostics.analysisAction.busy,
-            variant = RipDpiButtonVariant.Ghost,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
-        )
+        StatusStaggeredReveal(index = 0, animate = reveal) {
+            StatusModeCard(
+                uiState = uiState.localBypassCard,
+                onConfigure = onBypassCardClick,
+                onCardClick = onBypassCardClick,
+                configureActionVariant = RipDpiButtonVariant.Ghost,
+            )
+        }
+        StatusStaggeredReveal(index = 1, animate = reveal) {
+            StatusModeCard(
+                uiState = uiState.vpnCard,
+                onConfigure = onVpnCardClick,
+                onCardClick = onVpnCardClick,
+                configureActionVariant = RipDpiButtonVariant.Ghost,
+            )
+        }
+        StatusStaggeredReveal(index = 2, animate = reveal) {
+            StatusModeCard(
+                uiState = diagnosticCard,
+                onPrimaryAction =
+                    if (
+                        homeDiagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.STARTING ||
+                        homeDiagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.RUNNING
+                    ) {
+                        onCancelDiagnosticRun
+                    } else {
+                        onDiagnosticRun
+                    },
+                onConfigure = onDiagnosticCardClick,
+                onCardClick = onDiagnosticCardClick,
+                primaryActionVariant = RipDpiButtonVariant.Outline,
+                configureActionVariant = RipDpiButtonVariant.Ghost,
+            )
+        }
+        StatusStaggeredReveal(index = 3, animate = reveal) {
+            RipDpiButton(
+                text = stringResource(R.string.status_diagnostics_run_analysis),
+                onClick = onRunFullDiagnosticRun,
+                enabled = homeDiagnostics.analysisAction.enabled && !homeDiagnostics.analysisAction.busy,
+                variant = RipDpiButtonVariant.Ghost,
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
+            )
+        }
         if (homeDiagnostics.pcapToggleVisible) {
             RipDpiSwitch(
                 checked = homeDiagnostics.pcapRecordingRequested,
