@@ -918,4 +918,5 @@ Each screen has one scaffold, one layout recipe, and one contract. Look up the s
 - The mode step offers only Whole device and Proxy only, as radio cards. Keep Xray import in the mode editor, not in onboarding.
 - Use larger spacing and a stronger title treatment while keeping the calm low-chroma personality.
 - One step badge stays pinned above the pages; in a window shorter than `480dp` it sits in the top row. Page titles share one height. The badge icon, the page fade and blur, and the indicator widths follow the pager position; the blur needs API 31 and is the only blur in the app.
+- `RipDpiSignalField` runs behind the pinned badge: flat before the connection test, a travelling pulse while it runs, a live wave in `signal` when it passes, and a break in `destructive` at the failed stage. The line is not drawn when the badge sits in the top row.
 - `RipDpiHandOffReveal` above the navigation host opens the main screen as a circle from the step badge when onboarding completes. With animations off it is a cut. [docs/design/onboarding.md](docs/design/onboarding.md) gives the reasons.

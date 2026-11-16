@@ -1,14 +1,10 @@
 # Onboarding design brief: One continuous setup
 
-This brief covers the onboarding flow, from the first frame after the splash screen to the first frame of the main screen. `DESIGN.md` stays the contract; this file gives the reasons. The main-screen brief is `docs/design/main-screen.md` on the main-screen branch.
-
-## Scope of this pass
-
-The main-screen redesign (the `signal` color role and `RipDpiSignalField`) is not on `main` yet. This pass builds every part of the onboarding design that does not need those two pieces. The signal line is the last part, and its slot is named in [Signature moment](#signature-moment).
+This brief covers the onboarding flow, from the first frame after the splash screen to the first frame of the main screen. `DESIGN.md` stays the contract; this file gives the reasons. The main-screen brief is [main-screen.md](main-screen.md).
 
 ## How onboarding extends the design system
 
-Onboarding keeps the neutral ink-on-paper base, the Geist type roles, the intro layout metrics, and the existing option cards, banners, buttons, and checklist. It adds no color, no type role, and no shape.
+Onboarding keeps the neutral ink-on-paper base, the Geist type roles, the intro layout metrics, and the existing option cards, banners, buttons, and checklist. It reuses the `signal` color role and `RipDpiSignalField` from the main screen without a change. It adds no color, no type role, and no shape.
 
 It adds two shared pieces:
 
@@ -56,14 +52,26 @@ In the frame in which the main screen replaces onboarding, the veil covers it an
 
 ## Signature moment
 
-The signature moment is the hand-off: the badge that stayed with the user through every step becomes the opening through which the main screen appears.
+One line runs through the whole first launch. It is `RipDpiSignalField`, the line of the main-screen hero, and the pinned badge sits on it.
 
-Planned next, when the main-screen branch lands: `RipDpiSignalField` draws one line through the badge. The line is flat on step 1, takes its shape from the persona and the scope, carries the three test stages on step 4, and turns to the `signal` color when the test passes. At the hand-off the line continues into the hero card of the main screen. The badge is the slot for that line; no other layout change is needed.
+| Step or state | Line |
+|---|---|
+| Steps 1 to 3, and step 4 before the test | flat, `outline` |
+| A drag between two steps | the flat line dips at a point that travels with the pager position |
+| The test runs, including a permission request | flat with a travelling pulse, `signal` |
+| The test passed | steady flowing wave, `signal` |
+| The test failed | wave up to the failed stage, then a gap and a dim flat line, `destructive` |
+
+The three test stages sit at the quarter points of the line, in the order of the checklist under it. A failed test breaks the line only on step 4: the persona and the scope steps have no path to break.
+
+When the test passes, the tunnel runs, so the line is live before the user leaves onboarding. The hand-off then opens the main screen, where the hero shows the same live line. The line never carries state alone: the title, the checklist, and the banner name each state.
+
+The line is not drawn in the landscape layout, where the badge sits in the top bar between the controls.
 
 ## Reduced motion and older devices
 
 - With animations off, the pages change with no fade, the badge and the indicators change only when a step settles, the entrance does not play, and the hand-off is a cut, as it was.
-- The badge, the page fade and parallax, the indicators, and the hand-off use `graphicsLayer`, `Canvas`, and layout-phase reads. They work on every supported API level. The AGSL shader arrives with `RipDpiSignalField`, which has its own `Canvas` fallback below API 33.
+- The badge, the page fade and parallax, the indicators, and the hand-off use `graphicsLayer`, `Canvas`, and layout-phase reads. They work on every supported API level. The signal line is an AGSL `RuntimeShader` on API 33 and later; on API 27 to 32, and for the still frame with animations off, `RipDpiSignalField` draws the same curve as a `Canvas` path.
 - The page blur uses `RenderEffect` and needs API 31. On API 27 to 30 a leaving page fades and moves with no blur. A page at rest has no blur on any API level.
 
 ## Layout

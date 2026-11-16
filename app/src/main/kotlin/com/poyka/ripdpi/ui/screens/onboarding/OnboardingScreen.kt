@@ -72,6 +72,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiTextAction
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.components.signal.RipDpiSignalMode
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
@@ -264,7 +265,7 @@ internal fun OnboardingScreen(
 
             // 2) STEP BADGE — pinned: it stays in place while the pages change under it.
             if (!compactHeight) {
-                OnboardingPinnedBadge(pagePosition, validationSucceeded, Modifier.align(Alignment.CenterHorizontally))
+                OnboardingPinnedBadge(pagePosition, onboardingSignal(validationState, onTestStep = isLastPage))
             }
 
             // 3) CONTENT — weighted; each page renders its own title at the top
@@ -314,21 +315,29 @@ private fun rememberOnboardingPagePosition(
         }
     }
 
-/** The step badge in its pinned place above the pages. It does not scroll, so at large font scales it is smaller. */
+/**
+ * The step badge in its pinned place above the pages, on the signal line that runs through every step. It does
+ * not scroll, so at large font scales the badge is smaller.
+ */
 @Composable
 private fun OnboardingPinnedBadge(
     pagePosition: () -> Float,
-    succeeded: Boolean,
+    signal: OnboardingSignal,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val largeFont = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
-    OnboardingStepBadge(
-        pagePosition = pagePosition,
-        succeeded = succeeded,
-        modifier = modifier.padding(bottom = spacing.md + spacing.sm),
-        size = if (largeFont) OnboardingStepBadgeCompactSize else OnboardingStepBadgeSize,
-    )
+    Box(
+        modifier = modifier.fillMaxWidth().padding(bottom = spacing.md + spacing.sm),
+        contentAlignment = Alignment.Center,
+    ) {
+        OnboardingSignalLine(signal = signal, pagePosition = pagePosition)
+        OnboardingStepBadge(
+            pagePosition = pagePosition,
+            succeeded = signal.mode == RipDpiSignalMode.Live,
+            size = if (largeFont) OnboardingStepBadgeCompactSize else OnboardingStepBadgeSize,
+        )
+    }
 }
 
 /** The pager follows the step in the state, and reports a step the user reached with a swipe. */
