@@ -53,6 +53,11 @@ With animations off, or reduced motion on, the line shows one still frame for ea
 
 On API 33 and later an AGSL `RuntimeShader` draws the moving line and its glow. On API 27 to 32 a `Canvas` path draws the same curve with a wide, faint stroke for the glow. The path also draws every still frame, on every API level. Time and state reach the drawing code as values read in the draw phase, so a frame does not recompose.
 
+## Measurements
+
+- The readouts sit on two equal columns, so the values align. When a value does not fit a column at a large font scale, every readout takes the full width.
+- Connection health is the footer link of the measurements card, not a card of its own. When nothing is measured and the path is not connected, the card holds only that link.
+
 ## Not in this pass
 
 - No sparkline: the screen state has no history series, and the brief forbids a data-layer change.
