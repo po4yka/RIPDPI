@@ -844,7 +844,8 @@ Each screen has one scaffold, one layout recipe, and one contract. Look up the s
 ### Status
 
 - The hero is the actuator on the elevated card. Its signal line takes the `signal` color while connecting or connected, `outline` when idle, `warning` for a warning, and `destructive` for a failure. The idle line is decoration: it is drawn at reduced opacity with faded ends, so it does not read as a field underline, and the headline names the state. The line dips under a press on the connection button, and the button shrinks to `0.98`.
-- The session clock uses `heroValue`, sits under the signal line, and shows only while a session is live. It takes at most three fifths of the band and shrinks to stay on one line, so the line always keeps two fifths.
+- The state headline text cross-fades on a state change in the quick bucket, as its symbol does; one node owns the text and the polite live region, and with animations off it is plain text.
+- The session clock uses `heroValue`, shares the band with the signal line, and shows only while a session is live. Its colons take the `signal` color once per second and fade back; reduced motion keeps plain colons. It takes at most three fifths of the band and shrinks to stay on one line, so the line always keeps two fifths.
 - A measured value is a readout: its label above the value in `readoutValue`. Only a readout that opens a detail has a fill and an outline. Readouts sit on two equal columns; when a value does not fit a column at a large font scale, every readout takes the full width.
 - The primary pane holds, in order: `RipDpiConnectionActuator` with its pause controls, the advisory slot, connection measurements, and the applied configuration panel.
 - The connection-health entry is the footer link of the connection measurements card. When nothing is measured and the path is not connected, the card holds only that link.

@@ -34,6 +34,8 @@ Each motion has one purpose.
 | Signal line flows while connected, and a pulse travels while connecting | live state | frame clock, stops with reduced motion |
 | Signal line dips under the finger on press | feedback | press spring |
 | Measured value cross-fades when it changes | feedback | quick bucket, 120ms |
+| State headline text cross-fades when the state changes | continuity | quick bucket, 120ms |
+| Clock colons take the signal color once per second | live state | emphasized bucket, 320ms, stops with reduced motion |
 
 With animations off, or reduced motion on, the line shows one still frame for each state and values change with no fade.
 

@@ -178,6 +178,8 @@ class RipDpiConnectionActuatorFeedbackTest {
         composeRule.onNodeWithText("State Fault").assert(
             SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite),
         )
+        // The headline that fades out is not a second node for TalkBack to announce.
+        composeRule.onNodeWithText("State Engaging").assertDoesNotExist()
         composeRule.onNode(progress).assertDoesNotExist()
     }
 

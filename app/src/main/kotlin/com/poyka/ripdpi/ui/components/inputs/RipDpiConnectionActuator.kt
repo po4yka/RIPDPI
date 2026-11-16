@@ -2,7 +2,9 @@
 
 package com.poyka.ripdpi.ui.components.inputs
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -13,6 +15,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -30,6 +33,7 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -40,8 +44,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
@@ -62,6 +69,9 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.sp
 import com.poyka.ripdpi.R
@@ -104,6 +114,9 @@ private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spaceba
 /**
  * The Status hero: state headline, route labels, the signal line, the session clock, and the one connection
  * action. Status and route information remain outside the connection action target.
+ *
+ * @param sessionControls what qualifies the session, such as pause and a pending reconnect. It sits under the
+ * connection action, so every session action shares the hero surface.
  */
 @Composable
 fun RipDpiConnectionActuator(
@@ -115,6 +128,7 @@ fun RipDpiConnectionActuator(
     onDiagnoseIssue: (() -> Unit)? = null,
     onViewIssueLog: (() -> Unit)? = null,
     testTag: String? = null,
+    sessionControls: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val resolved = state.withResolvedLabels()
     val style = RipDpiThemeTokens.state.actuator.resolve(role = state.status.toThemeRole())
@@ -169,6 +183,13 @@ fun RipDpiConnectionActuator(
             }
             Spacer(modifier = Modifier.height(spacing.md))
             ActuatorAction(resolved.actionLabel, state, enabled, press, testTag, onAction)
+            sessionControls?.let {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                    content = it,
+                )
+            }
             val fault = state.status == StatusConnectionActuatorStatus.Fault
             AnimatedVisibility(
                 visible = fault || state.status == StatusConnectionActuatorStatus.Degraded,
@@ -322,6 +343,8 @@ private fun RowScope.ActuatorSessionClock(state: StatusConnectionActuatorUiState
     }
     val type = RipDpiThemeTokens.type
     val locale = LocalConfiguration.current.locales[0]
+    val text = localizedClockDuration(state.sessionDuration, locale)
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     // The ticking digits are read out as a spoken duration; the text is not a live region, so no tick is announced.
     val spoken = remember(state.sessionDuration, locale) { spokenDuration(state.sessionDuration, locale) }
     Text(
@@ -332,8 +355,10 @@ private fun RowScope.ActuatorSessionClock(state: StatusConnectionActuatorUiState
                 .height(RipDpiSignalFieldHeight)
                 .wrapContentHeight()
                 .semantics { contentDescription = spoken }
-                .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorDurationLabel),
-        text = localizedClockDuration(state.sessionDuration, locale),
+                .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorDurationLabel)
+                .colonPulse(text, RipDpiThemeTokens.colors.signal) { layout },
+        text = text,
+        onTextLayout = { layout = it },
         // A clock reads left to right in every locale; without this a right to left paragraph can reorder it.
         style = type.heroValue.copy(textDirection = TextDirection.Ltr),
         color = RipDpiThemeTokens.colors.foreground,
@@ -341,6 +366,42 @@ private fun RowScope.ActuatorSessionClock(state: StatusConnectionActuatorUiState
         // Large font scales shrink the clock to the band; it never wraps or clips.
         autoSize = TextAutoSize.StepBased(minFontSize = SessionClockMinSize, maxFontSize = type.heroValue.fontSize),
     )
+}
+
+/**
+ * Tints the colons of the clock with [color] once per tick. The hero already recomposes once per second for the
+ * new digits; the fade between ticks reads its alpha in the draw phase only. Reduced motion draws plain colons.
+ */
+@Composable
+private fun Modifier.colonPulse(
+    text: String,
+    color: Color,
+    layout: () -> TextLayoutResult?,
+): Modifier {
+    val motion = RipDpiThemeTokens.motion
+    if (!motion.allowsInfiniteMotion) return this
+    val pulse = remember { Animatable(0f) }
+    val fade = motion.emphasizedTween<Float>()
+    LaunchedEffect(text) {
+        pulse.snapTo(1f)
+        pulse.animateTo(0f, fade)
+    }
+    return this
+        // Its own layer, so the tint lands on the glyphs alone and not on the card behind them.
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val alpha = pulse.value
+            val measured = layout()?.takeIf { it.layoutInput.text.text == text }
+            if (alpha > 0f && measured != null) {
+                text.forEachIndexed { index, char ->
+                    if (char == ':') {
+                        val box = measured.getBoundingBox(index)
+                        drawRect(color, box.topLeft, box.size, alpha = alpha, blendMode = BlendMode.SrcAtop)
+                    }
+                }
+            }
+        }
 }
 
 @Composable
@@ -382,7 +443,6 @@ private fun ActuatorHeadline(
     stateStyle: RipDpiActuatorStateStyle,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -391,12 +451,7 @@ private fun ActuatorHeadline(
             // The state is the header's main status text: foreground ink, with semantic color only for
             // degraded and fault, and a per-state symbol so color never carries it alone. Metadata stays neutral.
             ConnectionStatusFeedback(status = state.status, tint = stateStyle.routeLabel)
-            Text(
-                modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
-                text = state.statusDescription,
-                style = type.screenTitleEmphasis,
-                color = stateStyle.routeLabel,
-            )
+            ActuatorStateText(state.statusDescription, stateStyle.routeLabel, Modifier.weight(1f))
         }
         if (LocalDensity.current.fontScale >= StackedRouteFontScale) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
@@ -411,6 +466,41 @@ private fun ActuatorHeadline(
                 ActuatorRouteLabels(state)
             }
         }
+    }
+}
+
+/**
+ * The state text cross-fades on a change, as the symbol beside it does. One node owns the text and the live region;
+ * the two copies that fade have no semantics, so a change is announced once. With animations off it is plain text.
+ */
+@Composable
+private fun ActuatorStateText(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val motion = RipDpiThemeTokens.motion
+    val style = RipDpiThemeTokens.type.screenTitleEmphasis
+    if (!motion.animationsEnabled) {
+        Text(
+            modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            text = text,
+            style = style,
+            color = color,
+        )
+        return
+    }
+    AnimatedContent(
+        targetState = text,
+        modifier =
+            modifier.clearAndSetSemantics {
+                this.text = AnnotatedString(text)
+                liveRegion = LiveRegionMode.Polite
+            },
+        transitionSpec = { motion.quickFadeContentTransform().using(null) },
+        label = "Connection state text",
+    ) { visible ->
+        Text(text = visible, style = style, color = color)
     }
 }
 
