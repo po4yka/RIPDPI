@@ -1,5 +1,6 @@
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
+import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
@@ -11,6 +12,7 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.TaskAction
 import org.gradle.process.ExecOperations
 import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
@@ -32,6 +34,20 @@ plugins {
     alias(libs.plugins.roborazzi) apply false
     alias(libs.plugins.compose.preview) apply false
     jacoco
+}
+
+val versionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
+val robolectricSdkConfigurations =
+    versionCatalog.versionAliases.filter { it.startsWith("robolectric.sdk.") }.map { alias ->
+        // The sandboxes use different versions of the same Maven module.
+        val version = versionCatalog.findVersion(alias).orElseThrow().requiredVersion
+        val sdk = dependencies.create("org.robolectric:android-all-instrumented:$version")
+        configurations.detachedConfiguration(sdk).apply { isTransitive = false }
+    }
+check(robolectricSdkConfigurations.isNotEmpty()) { "No Robolectric SDK versions in the version catalog" }
+tasks.register<Sync>("prepareRobolectricSdks") {
+    from(robolectricSdkConfigurations)
+    into(layout.buildDirectory.dir("robolectric-sdks"))
 }
 
 // Generates docs/architecture/MODULE_GRAPH.md -- a Mermaid graph of inter-module
