@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -124,6 +123,7 @@ internal fun OnboardingModeValidationContent(
         OnboardingValidationStatusBlock(
             state = state,
             selectedMode = uiState.selectedMode,
+            notificationsNoteVisible = uiState.notificationsNoteVisible,
         )
 
         if (state !is OnboardingValidationState.Success) {
@@ -146,6 +146,7 @@ internal fun OnboardingModeValidationContent(
 private fun OnboardingValidationStatusBlock(
     state: OnboardingValidationState,
     selectedMode: Mode,
+    notificationsNoteVisible: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -154,9 +155,7 @@ private fun OnboardingValidationStatusBlock(
 
     when (state) {
         OnboardingValidationState.Idle -> {
-            if (selectedMode == Mode.VPN) {
-                OnboardingPermissionNote()
-            }
+            OnboardingTestIdleNotes(selectedMode, notificationsNoteVisible, modifier)
         }
 
         is OnboardingValidationState.Success -> {
@@ -172,7 +171,9 @@ private fun OnboardingValidationStatusBlock(
                 if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION) {
                     stringResource(R.string.onboarding_test_failed_permission)
                 } else if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS) {
-                    stringResource(R.string.onboarding_test_failed_permission)
+                    stringResource(R.string.permissions_notifications_open_settings)
+                } else if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS) {
+                    state.reason
                 } else {
                     stringResource(R.string.onboarding_validation_failed, state.reason)
                 }
@@ -213,6 +214,43 @@ private fun OnboardingValidationStatusBlock(
     }
 }
 
+/** Each note explains what Start test does before a system dialog can appear, in the order of the dialogs. */
+@Composable
+private fun OnboardingTestIdleNotes(
+    selectedMode: Mode,
+    notificationsNoteVisible: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
+        if (notificationsNoteVisible) {
+            OnboardingNote(
+                icon = RipDpiIcons.Info,
+                titleRes = R.string.permissions_notifications_title,
+                bodyRes = R.string.onboarding_test_notification_note,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingNotificationNote),
+            )
+        }
+        when (selectedMode) {
+            Mode.VPN -> {
+                OnboardingNote(
+                    icon = RipDpiIcons.Lock,
+                    titleRes = R.string.onboarding_test_permission_card_title,
+                    bodyRes = R.string.onboarding_test_permission_note,
+                )
+            }
+
+            Mode.Proxy -> {
+                OnboardingNote(
+                    icon = RipDpiIcons.Info,
+                    titleRes = R.string.onboarding_test_proxy_card_title,
+                    bodyRes = R.string.onboarding_test_proxy_note,
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingProxyNote),
+                )
+            }
+        }
+    }
+}
+
 /** What now runs: the header says connected, this says how. TalkBack hears both through the live region. */
 @Composable
 private fun OnboardingValidationSuccessRoute(
@@ -242,56 +280,6 @@ private fun OnboardingValidationSuccessRoute(
                     liveRegion = LiveRegionMode.Polite
                 },
     )
-}
-
-/**
- * Low-emphasis info card clarifying the Android VPN consent prompt is for a LOCAL tunnel: a lock glyph,
- * title, and supporting text on the same neutral surface as an unselected option card, read as one
- * TalkBack stop.
- */
-@Composable
-private fun OnboardingPermissionNote(modifier: Modifier = Modifier) {
-    val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
-    val components = RipDpiThemeTokens.components
-    // Same neutral surface as an unselected option card.
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .ripDpiFeatureSurface(
-                    container = colors.card,
-                    shape = RipDpiThemeTokens.shapes.xl,
-                    border = colors.outlineVariant,
-                    borderWidth = spacing.xs / 4,
-                    clip = true,
-                ).padding(
-                    horizontal = components.inputs.fieldHorizontalPadding,
-                    vertical = components.rows.settingsRowVerticalPadding,
-                ).semantics(mergeDescendants = true) {},
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Icon(
-            imageVector = RipDpiIcons.Lock,
-            contentDescription = null,
-            tint = colors.mutedForeground,
-            modifier = Modifier.size(components.inputs.chipIconSize),
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            Text(
-                text = stringResource(R.string.onboarding_test_permission_card_title),
-                style = type.bodyEmphasis,
-                color = colors.foreground,
-            )
-            Text(
-                text = stringResource(R.string.onboarding_test_permission_note),
-                style = type.secondaryBody,
-                color = colors.mutedForeground,
-            )
-        }
-    }
 }
 
 private enum class OnboardingRowStatus { Pending, Active, Complete, Failed }
@@ -536,7 +524,8 @@ private fun tunnelRowStatus(state: OnboardingValidationState): OnboardingRowStat
         }
 
         is OnboardingValidationState.Failed -> {
-            if (state.failedStep == OnboardingValidationStep.Tunnel) {
+            // A failure with no step, such as a denied permission, stopped before the tunnel started.
+            if (state.failedStep == OnboardingValidationStep.Tunnel || state.failedStep == null) {
                 OnboardingRowStatus.Failed
             } else {
                 OnboardingRowStatus.Complete

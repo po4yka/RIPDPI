@@ -107,4 +107,20 @@
         <item quantity="many">Повторите через %1$d секунд.</item>
         <item quantity="other">Повторите через %1$d секунды.</item>
     </plurals>
+    <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="onboarding_welcome_title">Добро пожаловать в RIPDPI</string>
+    <string name="onboarding_welcome_body">RIPDPI проверяет сетевой путь и улучшает отправку трафика с помощью локального VPN или прокси на этом устройстве.</string>
+    <string name="onboarding_dns_title">Выберите DNS</string>
+    <string name="onboarding_background_title">Не давайте RIPDPI останавливаться</string>
+    <string name="onboarding_test_notification_note">При запуске проверки Android попросит разрешить уведомления. RIPDPI показывает уведомление, пока работает локальный VPN или прокси.</string>
+    <string name="onboarding_test_proxy_card_title">Локальный прокси</string>
+    <string name="onboarding_test_proxy_note">Проверка запускает прокси на этом устройстве. Им пользуются только приложения, которые вы на него направите, и Android не запрашивает разрешение VPN.</string>
+    <string name="onboarding_done_title">Настройка завершена</string>
+    <string name="onboarding_done_interface">Интерфейс</string>
+    <string name="onboarding_done_mode">Режим трафика</string>
+    <string name="onboarding_done_dns">DNS-сервер</string>
+    <string name="onboarding_done_test">Проверка соединения</string>
+    <string name="onboarding_done_test_passed">Пройдена</string>
+    <string name="onboarding_done_test_not_run">Не запускалась</string>
+    <string name="onboarding_done_test_failed">Не пройдена</string>
 </resources>

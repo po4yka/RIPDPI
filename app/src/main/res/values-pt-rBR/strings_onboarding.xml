@@ -106,4 +106,20 @@
         <item quantity="many">Tente novamente em %1$d segundos.</item>
         <item quantity="other">Tente novamente em %1$d segundos.</item>
     </plurals>
+    <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="onboarding_welcome_title">Boas-vindas ao RIPDPI</string>
+    <string name="onboarding_welcome_body">O RIPDPI verifica o caminho da sua rede e melhora o envio do seu tráfego, com uma VPN ou um proxy local neste dispositivo.</string>
+    <string name="onboarding_dns_title">Escolha o DNS</string>
+    <string name="onboarding_background_title">Mantenha o RIPDPI em execução</string>
+    <string name="onboarding_test_notification_note">O Android pede para permitir notificações quando o teste começa. O RIPDPI mostra uma enquanto a VPN ou o proxy local está em execução.</string>
+    <string name="onboarding_test_proxy_card_title">Proxy local</string>
+    <string name="onboarding_test_proxy_note">O teste inicia um proxy neste dispositivo. Só os apps que você direcionar a ele o usam, e o Android não pede a permissão de VPN.</string>
+    <string name="onboarding_done_title">Configuração concluída</string>
+    <string name="onboarding_done_interface">Interface do app</string>
+    <string name="onboarding_done_mode">Modo de tráfego</string>
+    <string name="onboarding_done_dns">Servidor DNS</string>
+    <string name="onboarding_done_test">Teste de conexão</string>
+    <string name="onboarding_done_test_passed">Aprovado</string>
+    <string name="onboarding_done_test_not_run">Não executado</string>
+    <string name="onboarding_done_test_failed">Falhou</string>
 </resources>

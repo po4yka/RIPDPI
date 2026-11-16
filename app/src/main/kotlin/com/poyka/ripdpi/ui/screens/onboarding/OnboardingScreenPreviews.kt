@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 
@@ -11,22 +12,45 @@ private const val PreviewFailureReason = "The network did not answer."
 
 /** Every step of the flow in every state it can show. */
 private class OnboardingStateProvider : PreviewParameterProvider<OnboardingUiState> {
-    private val test = OnboardingPages.lastIndex
+    private val persona = onboardingPageIndex(SetupPageKind.PersonaSelection)
+    private val scope = onboardingPageIndex(SetupPageKind.ModeSelection)
+    private val dns = onboardingPageIndex(SetupPageKind.DnsSelection)
+    private val background = onboardingPageIndex(SetupPageKind.BackgroundGuidance)
+    private val test = OnboardingTestPageIndex
+    private val completion = OnboardingCompletionPageIndex
 
     private fun testState(
         validationState: OnboardingValidationState,
         mode: Mode = Mode.VPN,
-    ) = OnboardingUiState(currentPage = test, selectedMode = mode).withValidationState(validationState)
+        notificationsNoteVisible: Boolean = false,
+    ) = OnboardingUiState(
+        currentPage = test,
+        selectedMode = mode,
+        notificationsNoteVisible = notificationsNoteVisible,
+    ).withValidationState(validationState)
+
+    private fun completionState(
+        validationState: OnboardingValidationState,
+        mode: Mode = Mode.VPN,
+    ) = OnboardingUiState(currentPage = completion, selectedMode = mode).withValidationState(validationState)
 
     override val values: Sequence<OnboardingUiState> =
         sequenceOf(
+            // Welcome, then the privacy step.
             OnboardingUiState(currentPage = 0),
-            OnboardingUiState(currentPage = 1, selectedPersona = "simple"),
-            OnboardingUiState(currentPage = 1, selectedPersona = "advanced"),
-            OnboardingUiState(currentPage = 2, selectedMode = Mode.VPN),
-            OnboardingUiState(currentPage = 2, selectedMode = Mode.Proxy),
+            OnboardingUiState(currentPage = 1),
+            OnboardingUiState(currentPage = persona, selectedPersona = "simple"),
+            OnboardingUiState(currentPage = persona, selectedPersona = "advanced"),
+            OnboardingUiState(currentPage = scope, selectedMode = Mode.VPN),
+            OnboardingUiState(currentPage = scope, selectedMode = Mode.Proxy),
+            OnboardingUiState(currentPage = dns),
+            OnboardingUiState(currentPage = dns, selectedDnsProviderId = DnsProviderCloudflare),
+            OnboardingUiState(currentPage = background, selectedMode = Mode.VPN),
+            OnboardingUiState(currentPage = background, selectedMode = Mode.Proxy),
             testState(OnboardingValidationState.Idle),
+            testState(OnboardingValidationState.Idle, notificationsNoteVisible = true),
             testState(OnboardingValidationState.Idle, mode = Mode.Proxy),
+            testState(OnboardingValidationState.Idle, mode = Mode.Proxy, notificationsNoteVisible = true),
             testState(OnboardingValidationState.RequestingNotifications),
             testState(OnboardingValidationState.RequestingVpnConsent),
             testState(OnboardingValidationState.StartingMode(Mode.VPN)),
@@ -59,6 +83,16 @@ private class OnboardingStateProvider : PreviewParameterProvider<OnboardingUiSta
                     reason = PreviewFailureReason,
                     recoveryKind = OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS,
                     failedStep = OnboardingValidationStep.Tunnel,
+                ),
+            ),
+            // The completion step for each exit: a skipped test, a passed test, and a failed test.
+            completionState(OnboardingValidationState.Idle),
+            completionState(OnboardingValidationState.Idle, mode = Mode.Proxy),
+            completionState(OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "System DNS")),
+            completionState(
+                OnboardingValidationState.Failed(
+                    reason = PreviewFailureReason,
+                    failedStep = OnboardingValidationStep.Connectivity,
                 ),
             ),
         )

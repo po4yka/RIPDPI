@@ -26,7 +26,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.toScreenUiState
 import com.poyka.ripdpi.ui.screens.dns.DnsUiState
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingUiState
@@ -252,7 +252,7 @@ private fun IntroLargeFontPreview() {
 internal fun RipDpiIntroLargeFontPreviewScene() {
     RipDpiTheme(themePreference = "dark") {
         OnboardingScreen(
-            uiState = OnboardingUiState(currentPage = 1, totalPages = OnboardingPages.size),
+            uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount),
             actions = OnboardingScreenActions(),
         )
     }

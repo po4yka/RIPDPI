@@ -33,7 +33,6 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -62,20 +61,6 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `skip on intro completes immediately without confirmation`() {
-        var skipped = false
-        renderOnboarding(
-            uiState = OnboardingUiState(currentPage = 0),
-            onFinish = { skipped = true },
-        )
-
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).performClick()
-
-        assertTrue(skipped)
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipConfirmDialog).assertCountEquals(0)
-    }
-
-    @Test
     fun `setup pages do not show a top skip action`() {
         renderOnboarding(uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount))
 
@@ -100,25 +85,29 @@ class OnboardingScreenTest {
 
     @Test
     fun `second step exposes back to the intro`() {
-        var selectedPage = -1
+        var back = false
         composeRule.setContent {
             RipDpiTheme {
                 OnboardingScreen(
                     uiState = OnboardingUiState(currentPage = 1),
-                    actions = OnboardingScreenActions(onPageChanged = { selectedPage = it }),
+                    actions = OnboardingScreenActions(onBack = { back = true }),
                 )
             }
         }
 
         composeRule.onNodeWithContentDescription("Navigate back").performClick()
 
-        assertEquals(0, selectedPage)
+        assertTrue(back)
     }
 
     @Test
     fun `system back returns to the previous step and keeps selections`() {
         var uiState by mutableStateOf(
-            OnboardingUiState(currentPage = 2, selectedPersona = "advanced", selectedMode = Mode.Proxy),
+            OnboardingUiState(
+                currentPage = onboardingPageIndex(SetupPageKind.ModeSelection),
+                selectedPersona = "advanced",
+                selectedMode = Mode.Proxy,
+            ),
         )
         lateinit var backDispatcher: OnBackPressedDispatcher
         composeRule.setContent {
@@ -128,7 +117,7 @@ class OnboardingScreenTest {
                     uiState = uiState,
                     actions =
                         OnboardingScreenActions(
-                            onPageChanged = { uiState = uiState.copy(currentPage = it) },
+                            onBack = { uiState = uiState.copy(currentPage = uiState.currentPage - 1) },
                             onContinue = { uiState = uiState.copy(currentPage = uiState.currentPage + 1) },
                         ),
                 )
@@ -157,10 +146,10 @@ class OnboardingScreenTest {
                 OnboardingScreen(
                     uiState =
                         OnboardingUiState(
-                            currentPage = OnboardingPages.lastIndex,
+                            currentPage = OnboardingTestPageIndex,
                             validationState = validationState,
                         ),
-                    actions = OnboardingScreenActions(onPageChanged = { navigatedBack = true }),
+                    actions = OnboardingScreenActions(onBack = { navigatedBack = true }),
                 )
             }
         }
@@ -182,7 +171,7 @@ class OnboardingScreenTest {
 
     @Test
     fun `idle connection test exposes start cta and pending checklist`() {
-        renderOnboarding(OnboardingUiState(currentPage = OnboardingPages.lastIndex))
+        renderOnboarding(OnboardingUiState(currentPage = OnboardingTestPageIndex))
 
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidateAction).assertExists()
         composeRule.onNodeWithText("Start test").assertExists()
@@ -200,7 +189,7 @@ class OnboardingScreenTest {
     fun `failed validation renders retry finish without testing and suggested mode action`() {
         renderOnboarding(
             OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
+                currentPage = OnboardingTestPageIndex,
                 validationState =
                     OnboardingValidationState.Failed(
                         reason = "SOCKS listener failed",
@@ -222,7 +211,7 @@ class OnboardingScreenTest {
     fun `vpn permission failure surfaces grant permission cta and proxy fallback`() {
         renderOnboarding(
             OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
+                currentPage = OnboardingTestPageIndex,
                 selectedMode = Mode.VPN,
                 validationState =
                     OnboardingValidationState.Failed(
@@ -249,7 +238,7 @@ class OnboardingScreenTest {
     fun `dns step failure renders change dns action and suppresses mode switch`() {
         renderOnboarding(
             OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
+                currentPage = OnboardingTestPageIndex,
                 validationState =
                     OnboardingValidationState.Failed(
                         reason = "DNS resolution failed",
@@ -273,7 +262,7 @@ class OnboardingScreenTest {
         var changeDns = false
         renderOnboarding(
             OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
+                currentPage = OnboardingTestPageIndex,
                 validationState =
                     OnboardingValidationState.Failed(
                         reason = "DNS resolution failed",
@@ -292,7 +281,7 @@ class OnboardingScreenTest {
     fun `successful validation states the running route and its two exits`() {
         renderOnboarding(
             OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
+                currentPage = OnboardingTestPageIndex,
                 validationState = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "Test DNS"),
             ),
         )
@@ -309,7 +298,7 @@ class OnboardingScreenTest {
     fun `dns failure offers both change dns and the mode switch`() {
         renderOnboarding(
             OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
+                currentPage = OnboardingTestPageIndex,
                 validationState =
                     OnboardingValidationState.Failed(
                         reason = "DNS resolution failed",
@@ -333,11 +322,11 @@ class OnboardingScreenTest {
                 OnboardingScreen(
                     uiState =
                         OnboardingUiState(
-                            currentPage = OnboardingPages.lastIndex,
+                            currentPage = OnboardingTestPageIndex,
                             validationState =
                                 OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "Test DNS"),
                         ),
-                    actions = OnboardingScreenActions(onPageChanged = { navigatedBack = true }),
+                    actions = OnboardingScreenActions(onBack = { navigatedBack = true }),
                 )
             }
         }
@@ -351,7 +340,7 @@ class OnboardingScreenTest {
     fun `running connectivity check hides finish and validate actions`() {
         renderOnboarding(
             OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
+                currentPage = OnboardingTestPageIndex,
                 validationState = OnboardingValidationState.RunningTrafficCheck(Mode.Proxy),
             ),
         )
@@ -366,7 +355,7 @@ class OnboardingScreenTest {
     fun `checking dns busy state hides actions and blocks skip`() {
         renderOnboarding(
             OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
+                currentPage = OnboardingTestPageIndex,
                 selectedMode = Mode.VPN,
                 validationState = OnboardingValidationState.CheckingDns(Mode.VPN),
             ),
@@ -374,7 +363,7 @@ class OnboardingScreenTest {
 
         // Busy footer CTA carries no actionable tag and shows the testing label.
         composeRule.onNodeWithText("Testing…").assertExists()
-        composeRule.onNodeWithContentDescription("Step 4 of 4").assertExists()
+        composeRule.onNodeWithContentDescription("Step 7 of 8").assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipTest).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidationStatus).assertExists()
@@ -384,13 +373,13 @@ class OnboardingScreenTest {
     fun `starting mode busy state blocks skip and validate actions`() {
         renderOnboarding(
             OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
+                currentPage = OnboardingTestPageIndex,
                 selectedMode = Mode.VPN,
                 validationState = OnboardingValidationState.StartingMode(Mode.VPN),
             ),
         )
 
-        composeRule.onNodeWithContentDescription("Step 4 of 4").assertExists()
+        composeRule.onNodeWithContentDescription("Step 7 of 8").assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipTest).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
     }
@@ -399,7 +388,7 @@ class OnboardingScreenTest {
     fun `requesting vpn consent surfaces the local permission helper copy`() {
         renderOnboarding(
             OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
+                currentPage = OnboardingTestPageIndex,
                 selectedMode = Mode.VPN,
                 validationState = OnboardingValidationState.RequestingVpnConsent,
             ),
@@ -414,7 +403,7 @@ class OnboardingScreenTest {
     @Test
     @Config(qualifiers = "w914dp-h411dp-land")
     fun `landscape intro keeps both guarantee lists in view`() {
-        renderOnboarding(OnboardingUiState(currentPage = 0))
+        renderOnboarding(OnboardingUiState(currentPage = 1))
 
         // The last item of each list must be on screen without scrolling.
         listOf("No cloud sync", "Local config").forEach { label ->
@@ -447,17 +436,36 @@ class OnboardingScreenTest {
                     .fetchSemanticsNode()
                     .boundsInRoot
             val footerTag =
-                if (page == OnboardingPages.lastIndex) {
-                    RipDpiTestTags.OnboardingValidateAction
-                } else {
-                    RipDpiTestTags.OnboardingContinue
+                when (page) {
+                    OnboardingTestPageIndex -> RipDpiTestTags.OnboardingValidateAction
+                    OnboardingCompletionPageIndex -> RipDpiTestTags.OnboardingCompletionDone
+                    else -> RipDpiTestTags.OnboardingContinue
                 }
             val footerBounds = composeRule.onNodeWithTag(footerTag).fetchSemanticsNode().boundsInRoot
             assertTrue(footerBounds.top >= rootBounds.top)
             assertTrue(footerBounds.bottom <= rootBounds.bottom)
         }
 
-        composeRule.runOnIdle { uiState = uiState.copy(currentPage = 0) }
+        // Scrolling content stays clear of the indicators: the scope cards overflow the page at this font scale.
+        composeRule.runOnIdle {
+            uiState = uiState.copy(currentPage = onboardingPageIndex(SetupPageKind.ModeSelection))
+        }
+        composeRule.waitForIdle()
+        val indicatorTop =
+            composeRule
+                .onNodeWithContentDescription("Step 4 of 8")
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .top
+        val contentBottom =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.OnboardingModeProxy)
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .bottom
+        assertTrue("content $contentBottom must end above the indicators $indicatorTop", contentBottom < indicatorTop)
+
+        composeRule.runOnIdle { uiState = uiState.copy(currentPage = 1) }
         composeRule.waitForIdle()
         val introLayouts = mutableListOf<TextLayoutResult>()
         val introNode =

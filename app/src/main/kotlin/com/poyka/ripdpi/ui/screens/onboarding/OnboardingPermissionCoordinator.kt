@@ -75,6 +75,14 @@ class OnboardingPermissionCoordinator
             return prompt
         }
 
+        /** True when starting the test opens the system notification dialog or the app settings. */
+        internal fun notificationsPromptExpected(): Boolean =
+            permissionStatusProvider.currentSnapshot().notifications.requiresValidationPrompt()
+
+        internal fun batterySettingsIntent(): Intent = permissionPlatformBridge.createBatteryOptimizationIntent()
+
+        internal fun vpnSettingsIntent(): Intent = permissionPlatformBridge.createVpnSettingsIntent()
+
         private fun PermissionStatus.validationPrompt(): OnboardingPermissionPrompt? =
             when {
                 this == PermissionStatus.Granted || this == PermissionStatus.NotApplicable -> {

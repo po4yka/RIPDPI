@@ -57,6 +57,10 @@ data class OnboardingUiState(
     val selectedMode: Mode = Mode.VPN,
     val selectedPersona: String = "simple",
     val selectedDnsProviderId: String = OnboardingDnsSystemId,
+    // The step that Back returns to from the completion step: an exit can reach it from any step.
+    val completionReturnPage: Int? = null,
+    // Android will ask for the notification permission when the test starts, so the step explains it first.
+    val notificationsNoteVisible: Boolean = false,
     val validationState: OnboardingValidationState = OnboardingValidationState.Idle,
     val canFinishAnyway: Boolean = true,
     val canFinishKeepingRunning: Boolean = false,
@@ -73,6 +77,11 @@ sealed interface OnboardingEffect {
     ) : OnboardingEffect
 
     data class RequestVpnConsent(
+        val intent: Intent,
+    ) : OnboardingEffect
+
+    /** Opens a system settings screen from the guidance step. It requests nothing. */
+    data class OpenSystemSettings(
         val intent: Intent,
     ) : OnboardingEffect
 }

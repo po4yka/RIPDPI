@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
 import android.content.Intent
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakePermissionPlatformBridge
@@ -28,28 +29,10 @@ class OnboardingViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private fun createViewModel(
-        repository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
-        validationRunner: FakeOnboardingModeValidationRunner = FakeOnboardingModeValidationRunner(),
-        permissionStatusProvider: FakePermissionStatusProvider = grantedPermissionStatusProvider(),
-        permissionPlatformBridge: FakePermissionPlatformBridge = FakePermissionPlatformBridge(),
-        xrayNativeProviderSelection: RecordingXrayNativeProviderSelection =
-            RecordingXrayNativeProviderSelection(repository),
-    ) = OnboardingViewModel(
-        settingsCoordinator = OnboardingSettingsCoordinator(repository, xrayNativeProviderSelection),
-        validationCoordinator = OnboardingValidationCoordinator(validationRunner),
-        permissionCoordinator =
-            OnboardingPermissionCoordinator(
-                permissionStatusProvider = permissionStatusProvider,
-                permissionPlatformBridge = permissionPlatformBridge,
-                stringResolver = FakeStringResolver(),
-            ),
-    )
-
     @Test
     fun `initial state has page zero and correct total pages`() =
         runTest {
-            val vm = createViewModel()
+            val vm = createOnboardingViewModel()
             vm.uiState.test {
                 val state = awaitItem()
                 assertEquals(0, state.currentPage)
@@ -65,7 +48,11 @@ class OnboardingViewModelTest {
         runTest {
             val repository = FakeAppSettingsRepository()
             val xrayNativeProviderSelection = RecordingXrayNativeProviderSelection(repository)
-            val vm = createViewModel(repository = repository, xrayNativeProviderSelection = xrayNativeProviderSelection)
+            val vm =
+                createOnboardingViewModel(
+                    repository = repository,
+                    xrayNativeProviderSelection = xrayNativeProviderSelection,
+                )
             runCurrent()
 
             vm.selectMode(Mode.Proxy)
@@ -109,7 +96,7 @@ class OnboardingViewModelTest {
                             .build(),
                 )
 
-            val vm = createViewModel(repository = repository)
+            val vm = createOnboardingViewModel(repository = repository)
             runCurrent()
 
             assertEquals(Mode.Proxy, vm.uiState.value.selectedMode)
@@ -119,7 +106,7 @@ class OnboardingViewModelTest {
     @Test
     fun `setCurrentPage updates current page`() =
         runTest {
-            val vm = createViewModel()
+            val vm = createOnboardingViewModel()
             vm.uiState.test {
                 awaitItem()
                 vm.setCurrentPage(2)
@@ -130,7 +117,7 @@ class OnboardingViewModelTest {
     @Test
     fun `setCurrentPage clamps to valid range`() =
         runTest {
-            val vm = createViewModel()
+            val vm = createOnboardingViewModel()
             vm.uiState.test {
                 awaitItem()
 
@@ -143,28 +130,28 @@ class OnboardingViewModelTest {
         }
 
     @Test
-    fun `nextPage increments current page`() =
+    fun `continue increments current page`() =
         runTest {
-            val vm = createViewModel()
+            val vm = createOnboardingViewModel()
             vm.uiState.test {
                 awaitItem()
 
-                vm.nextPage()
+                vm.setCurrentPage(vm.uiState.value.currentPage + 1)
                 assertEquals(1, awaitItem().currentPage)
 
-                vm.nextPage()
+                vm.setCurrentPage(vm.uiState.value.currentPage + 1)
                 assertEquals(2, awaitItem().currentPage)
             }
         }
 
     @Test
-    fun `nextPage does not exceed last page`() =
+    fun `continue does not exceed last page`() =
         runTest {
-            val vm = createViewModel()
+            val vm = createOnboardingViewModel()
             vm.setCurrentPage(OnboardingPages.lastIndex)
             vm.uiState.test {
                 assertEquals(OnboardingPages.lastIndex, awaitItem().currentPage)
-                vm.nextPage()
+                vm.setCurrentPage(vm.uiState.value.currentPage + 1)
                 expectNoEvents()
             }
         }
@@ -177,7 +164,7 @@ class OnboardingViewModelTest {
                 FakeOnboardingModeValidationRunner().apply {
                     result = OnboardingValidationResult.Success(dnsSummary = "Test DNS")
                 }
-            val vm = createViewModel(repository = repository, validationRunner = runner)
+            val vm = createOnboardingViewModel(repository = repository, validationRunner = runner)
 
             vm.runValidation()
             advanceUntilIdle()
@@ -199,7 +186,7 @@ class OnboardingViewModelTest {
                 FakeOnboardingModeValidationRunner().apply {
                     result = OnboardingValidationResult.Success(dnsSummary = "Test DNS")
                 }
-            val vm = createViewModel(validationRunner = runner)
+            val vm = createOnboardingViewModel(validationRunner = runner)
             vm.selectMode(Mode.Proxy)
 
             vm.runValidation()
@@ -229,7 +216,7 @@ class OnboardingViewModelTest {
                         ),
                 )
             val vm =
-                createViewModel(
+                createOnboardingViewModel(
                     validationRunner = runner,
                     permissionStatusProvider = permissionStatusProvider,
                 )
@@ -274,7 +261,7 @@ class OnboardingViewModelTest {
                         )
                 }
             val vm =
-                createViewModel(
+                createOnboardingViewModel(
                     validationRunner = runner,
                     permissionStatusProvider = permissionStatusProvider,
                     permissionPlatformBridge = FakePermissionPlatformBridge(vpnPermissionIntent = Intent("fake.vpn")),
@@ -311,7 +298,7 @@ class OnboardingViewModelTest {
                         )
                 }
             val vm =
-                createViewModel(
+                createOnboardingViewModel(
                     validationRunner = runner,
                     permissionStatusProvider = permissionStatusProvider,
                 )
@@ -341,9 +328,13 @@ class OnboardingViewModelTest {
                             batteryOptimization = PermissionStatus.NotApplicable,
                         ),
                 )
-            val vm = createViewModel(permissionStatusProvider = permissionStatusProvider)
+            val vm = createOnboardingViewModel(permissionStatusProvider = permissionStatusProvider)
 
             vm.effects.test {
+                // The explanation is in the state from the start, before any request can leave the view model.
+                assertTrue(vm.uiState.value.notificationsNoteVisible)
+                expectNoEvents()
+
                 vm.runValidation()
                 assertTrue(awaitItem() is OnboardingEffect.RequestNotificationsPermission)
             }
@@ -363,7 +354,7 @@ class OnboardingViewModelTest {
                             batteryOptimization = PermissionStatus.NotApplicable,
                         ),
                 )
-            val vm = createViewModel(permissionStatusProvider = permissionStatusProvider)
+            val vm = createOnboardingViewModel(permissionStatusProvider = permissionStatusProvider)
 
             vm.runValidation()
             advanceUntilIdle()
@@ -389,7 +380,7 @@ class OnboardingViewModelTest {
             val settingsIntent = Intent("test.notification.settings")
             val permissionPlatformBridge = FakePermissionPlatformBridge(appSettingsIntent = settingsIntent)
             val vm =
-                createViewModel(
+                createOnboardingViewModel(
                     permissionStatusProvider = permissionStatusProvider,
                     permissionPlatformBridge = permissionPlatformBridge,
                 )
@@ -422,7 +413,7 @@ class OnboardingViewModelTest {
                 )
             val settingsIntent = Intent("test.notification.settings")
             val vm =
-                createViewModel(
+                createOnboardingViewModel(
                     permissionStatusProvider = permissionStatusProvider,
                     permissionPlatformBridge = FakePermissionPlatformBridge(appSettingsIntent = settingsIntent),
                 )
@@ -458,7 +449,7 @@ class OnboardingViewModelTest {
                             batteryOptimization = PermissionStatus.NotApplicable,
                         ),
                 )
-            val vm = createViewModel(permissionStatusProvider = permissionStatusProvider)
+            val vm = createOnboardingViewModel(permissionStatusProvider = permissionStatusProvider)
 
             vm.runValidation()
             advanceUntilIdle()
@@ -476,7 +467,7 @@ class OnboardingViewModelTest {
                     result =
                         OnboardingValidationResult.Failed(reason = "SOCKS listener failed", suggestedMode = Mode.VPN)
                 }
-            val vm = createViewModel(validationRunner = runner)
+            val vm = createOnboardingViewModel(validationRunner = runner)
             vm.selectMode(Mode.Proxy)
 
             vm.runValidation()
@@ -498,7 +489,7 @@ class OnboardingViewModelTest {
                             failedStep = OnboardingValidationStep.Dns,
                         )
                 }
-            val vm = createViewModel(validationRunner = runner)
+            val vm = createOnboardingViewModel(validationRunner = runner)
 
             vm.runValidation()
             advanceUntilIdle()
@@ -523,7 +514,7 @@ class OnboardingViewModelTest {
                             failedStep = OnboardingValidationStep.Tunnel,
                         )
                 }
-            val vm = createViewModel(validationRunner = runner)
+            val vm = createOnboardingViewModel(validationRunner = runner)
 
             vm.runValidation()
             advanceUntilIdle()
@@ -543,7 +534,7 @@ class OnboardingViewModelTest {
                 FakeOnboardingModeValidationRunner().apply {
                     result = OnboardingValidationResult.Success(dnsSummary = "Test DNS")
                 }
-            val vm = createViewModel(repository = repository, validationRunner = runner)
+            val vm = createOnboardingViewModel(repository = repository, validationRunner = runner)
 
             vm.runValidation()
             advanceUntilIdle()
@@ -563,7 +554,7 @@ class OnboardingViewModelTest {
         runTest {
             val repository = FakeAppSettingsRepository()
             val runner = FakeOnboardingModeValidationRunner()
-            val vm = createViewModel(repository = repository, validationRunner = runner)
+            val vm = createOnboardingViewModel(repository = repository, validationRunner = runner)
 
             vm.effects.test {
                 vm.finishDisconnected()
@@ -579,7 +570,7 @@ class OnboardingViewModelTest {
         runTest {
             val repository = FakeAppSettingsRepository()
             val runner = FakeOnboardingModeValidationRunner()
-            val vm = createViewModel(repository = repository, validationRunner = runner)
+            val vm = createOnboardingViewModel(repository = repository, validationRunner = runner)
 
             vm.effects.test {
                 vm.finish()
@@ -589,45 +580,65 @@ class OnboardingViewModelTest {
             assertTrue(repository.snapshot().onboardingComplete)
             assertEquals(1, runner.stopCount)
         }
+}
 
-    private class FakeOnboardingModeValidationRunner : OnboardingModeValidationRunner {
-        var result: OnboardingValidationResult = OnboardingValidationResult.Success(dnsSummary = "Test DNS")
-        val validateCalls = mutableListOf<Mode>()
-        var stopCount: Int = 0
-        var retainCount: Int = 0
-        var disconnectCount: Int = 0
+internal fun createOnboardingViewModel(
+    repository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+    validationRunner: FakeOnboardingModeValidationRunner = FakeOnboardingModeValidationRunner(),
+    permissionStatusProvider: FakePermissionStatusProvider = grantedPermissionStatusProvider(),
+    permissionPlatformBridge: FakePermissionPlatformBridge = FakePermissionPlatformBridge(),
+    xrayNativeProviderSelection: RecordingXrayNativeProviderSelection =
+        RecordingXrayNativeProviderSelection(repository),
+    savedStateHandle: SavedStateHandle = SavedStateHandle(),
+) = OnboardingViewModel(
+    savedStateHandle = savedStateHandle,
+    settingsCoordinator = OnboardingSettingsCoordinator(repository, xrayNativeProviderSelection),
+    validationCoordinator = OnboardingValidationCoordinator(validationRunner),
+    permissionCoordinator =
+        OnboardingPermissionCoordinator(
+            permissionStatusProvider = permissionStatusProvider,
+            permissionPlatformBridge = permissionPlatformBridge,
+            stringResolver = FakeStringResolver(),
+        ),
+)
 
-        override suspend fun validate(
-            mode: Mode,
-            onProgress: (OnboardingValidationState) -> Unit,
-        ): OnboardingValidationResult {
-            validateCalls += mode
-            onProgress(OnboardingValidationState.StartingMode(mode))
-            onProgress(OnboardingValidationState.CheckingDns(mode))
-            onProgress(OnboardingValidationState.RunningTrafficCheck(mode))
-            return result
-        }
+internal class FakeOnboardingModeValidationRunner : OnboardingModeValidationRunner {
+    var result: OnboardingValidationResult = OnboardingValidationResult.Success(dnsSummary = "Test DNS")
+    val validateCalls = mutableListOf<Mode>()
+    var stopCount: Int = 0
+    var retainCount: Int = 0
+    var disconnectCount: Int = 0
 
-        override fun stopActiveValidation() {
-            stopCount += 1
-        }
-
-        override suspend fun disconnect() {
-            disconnectCount += 1
-        }
-
-        override fun retainActiveValidation() {
-            retainCount += 1
-        }
+    override suspend fun validate(
+        mode: Mode,
+        onProgress: (OnboardingValidationState) -> Unit,
+    ): OnboardingValidationResult {
+        validateCalls += mode
+        onProgress(OnboardingValidationState.StartingMode(mode))
+        onProgress(OnboardingValidationState.CheckingDns(mode))
+        onProgress(OnboardingValidationState.RunningTrafficCheck(mode))
+        return result
     }
 
-    private fun grantedPermissionStatusProvider(): FakePermissionStatusProvider =
-        FakePermissionStatusProvider(
-            snapshot =
-                PermissionSnapshot(
-                    vpnConsent = PermissionStatus.Granted,
-                    notifications = PermissionStatus.Granted,
-                    batteryOptimization = PermissionStatus.NotApplicable,
-                ),
-        )
+    override fun stopActiveValidation() {
+        stopCount += 1
+    }
+
+    override suspend fun disconnect() {
+        disconnectCount += 1
+    }
+
+    override fun retainActiveValidation() {
+        retainCount += 1
+    }
 }
+
+internal fun grantedPermissionStatusProvider(): FakePermissionStatusProvider =
+    FakePermissionStatusProvider(
+        snapshot =
+            PermissionSnapshot(
+                vpnConsent = PermissionStatus.Granted,
+                notifications = PermissionStatus.Granted,
+                batteryOptimization = PermissionStatus.NotApplicable,
+            ),
+    )

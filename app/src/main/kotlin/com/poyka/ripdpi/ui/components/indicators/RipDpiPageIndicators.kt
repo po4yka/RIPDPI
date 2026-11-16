@@ -15,7 +15,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Constraints
@@ -63,7 +65,11 @@ fun RipDpiPageIndicators(
         modifier =
             modifier.then(
                 if (accessibilityLabel != null) {
-                    Modifier.semantics { contentDescription = accessibilityLabel }
+                    // Polite live region: TalkBack announces the label when the page changes.
+                    Modifier.semantics {
+                        contentDescription = accessibilityLabel
+                        liveRegion = LiveRegionMode.Polite
+                    }
                 } else {
                     Modifier
                 },

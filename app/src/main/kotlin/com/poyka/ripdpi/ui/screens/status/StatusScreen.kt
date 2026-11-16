@@ -133,6 +133,9 @@ fun StatusScreen(
                     }
                 }
 
+                // Once, after onboarding: what the line and the control above mean.
+                StatusFirstRunIntro()
+
                 // One slot, ordered by severity. Setup health, the Xray provider stage,
                 // the network condition and subscription expiry each used to render
                 // themselves, so a bad enough moment put four full-width surfaces

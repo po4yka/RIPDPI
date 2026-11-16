@@ -629,4 +629,7 @@
         <item quantity="many">%1$d apps instaladas son detectores conocidos de VPN.</item>
         <item quantity="other">%1$d apps instaladas son detectores conocidos de VPN.</item>
     </plurals>
+    <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="status_intro_line">La línea muestra la ruta del tráfico: plana sin conexión, una onda con conexión, cortada cuando la conexión falla.</string>
+    <string name="status_intro_control">Usa el control de conexión para iniciar o detener la conexión.</string>
 </resources>

@@ -2,8 +2,10 @@ package com.poyka.ripdpi.ui.screens.onboarding
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -12,12 +14,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.feedback.LocalRipDpiHandOff
+import com.poyka.ripdpi.ui.components.feedback.RipDpiHandOffLine
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalField
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalMode
@@ -107,11 +113,6 @@ internal fun onboardingSignal(
 
 internal val OnboardingPage.isConnectionTest: Boolean
     get() = this is OnboardingPage.Setup && kind == SetupPageKind.ConnectionTest
-
-private fun stepOf(kind: SetupPageKind): Int =
-    OnboardingPages.indexOfFirst { it is OnboardingPage.Setup && it.kind == kind }
-
-internal val OnboardingTestStep: Int get() = stepOf(SetupPageKind.ConnectionTest)
 
 /**
  * Whether the line at [step] states the connection test. It does on the test step. On a step after it, it does
@@ -208,9 +209,9 @@ internal fun OnboardingSignalLine(
         animateFloatAsState(if (signal.rippleOneSided) 1f else 0f, motion.emphasizedTween(), label = "Ripple side")
     val ripple =
         remember(pagePosition, rtl) {
-            val personaStep = stepOf(SetupPageKind.PersonaSelection)
-            val scopeStep = stepOf(SetupPageKind.ModeSelection)
-            val testStep = stepOf(SetupPageKind.ConnectionTest)
+            val personaStep = onboardingPageIndex(SetupPageKind.PersonaSelection)
+            val scopeStep = onboardingPageIndex(SetupPageKind.ModeSelection)
+            val testStep = onboardingPageIndex(SetupPageKind.ConnectionTest)
             // The part of the line before the badge that goes flat for Proxy only.
             val flat = { Half * oneSided.value * onboardingScopeWeight(pagePosition(), scopeStep) }
             RipDpiSignalRipple(
@@ -220,16 +221,30 @@ internal fun OnboardingSignalLine(
                 end = { if (rtl) 1f - flat() else 1f },
             )
         }
+    val color =
+        when (signal.mode) {
+            RipDpiSignalMode.Idle -> colors.outline
+            RipDpiSignalMode.Broken -> colors.destructive
+            else -> colors.signal
+        }
+    val breakAt = if (rtl) 1f - signal.breakAt else signal.breakAt
+    // The hand-off into the main screen starts from this line. A change of look does not move the line, so the
+    // position callback does not report it.
+    val handOff = LocalRipDpiHandOff.current
+    if (handOff != null) {
+        SideEffect {
+            handOff.sourceLine = handOff.sourceLine?.copy(mode = signal.mode, color = color, breakAt = breakAt)
+        }
+        DisposableEffect(handOff) { onDispose { handOff.sourceLine = null } }
+    }
     RipDpiSignalField(
         mode = signal.mode,
-        color =
-            when (signal.mode) {
-                RipDpiSignalMode.Idle -> colors.outline
-                RipDpiSignalMode.Broken -> colors.destructive
-                else -> colors.signal
+        color = color,
+        modifier =
+            modifier.onGloballyPositioned { coordinates ->
+                handOff?.sourceLine = RipDpiHandOffLine(coordinates.boundsInRoot(), signal.mode, color, breakAt)
             },
-        modifier = modifier,
-        breakAt = if (rtl) 1f - signal.breakAt else signal.breakAt,
+        breakAt = breakAt,
         pressAt = {
             val along = DipStart + (DipEnd - DipStart) * (pagePosition() / lastStep).coerceIn(0f, 1f)
             if (rtl) 1f - along else along
@@ -246,8 +261,8 @@ internal fun OnboardingSignalLine(
 @Composable
 private fun OnboardingSignalLinePreviewBody(themePreference: String) {
     RipDpiComponentPreview(themePreference = themePreference) {
-        val test = stepOf(SetupPageKind.ConnectionTest).toFloat()
-        val scope = stepOf(SetupPageKind.ModeSelection).toFloat()
+        val test = onboardingPageIndex(SetupPageKind.ConnectionTest).toFloat()
+        val scope = onboardingPageIndex(SetupPageKind.ModeSelection).toFloat()
 
         fun signal(
             state: OnboardingValidationState,

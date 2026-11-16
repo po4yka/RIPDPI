@@ -110,7 +110,7 @@ private fun OnboardingStepBadgePreviewBody(themePreference: String) {
             OnboardingStepBadge(pagePosition = { index.toFloat() }, succeeded = false)
         }
         OnboardingStepBadge(pagePosition = { PreviewBetweenStepsPosition }, succeeded = false)
-        OnboardingStepBadge(pagePosition = { OnboardingTestStep.toFloat() }, succeeded = true)
+        OnboardingStepBadge(pagePosition = { OnboardingTestPageIndex.toFloat() }, succeeded = true)
         OnboardingStepBadge(pagePosition = { 0f }, succeeded = false, size = OnboardingStepBadgeCompactSize)
     }
 }

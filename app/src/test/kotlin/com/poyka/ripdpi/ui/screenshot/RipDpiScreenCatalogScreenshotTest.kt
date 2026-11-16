@@ -35,9 +35,9 @@ import com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryScreen
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthScreen
 import com.poyka.ripdpi.ui.screens.health.previewConnectionHealthUiState
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingTestPageIndex
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingUiState
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingValidationState
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareScreen
@@ -143,7 +143,7 @@ class RipDpiScreenCatalogScreenshotTest {
     @Test
     fun onboardingValidationMaximumFontScreen() {
         captureOnboardingScreen(
-            uiState = OnboardingUiState(currentPage = OnboardingPages.lastIndex),
+            uiState = OnboardingUiState(currentPage = OnboardingTestPageIndex),
             widthDp = 411,
             heightDp = 891,
             fontScale = 2f,
@@ -566,7 +566,7 @@ class RipDpiScreenCatalogScreenshotTest {
         captureOnboardingScreen(
             uiState =
                 OnboardingUiState(
-                    currentPage = OnboardingPages.lastIndex,
+                    currentPage = OnboardingTestPageIndex,
                     validationState = validationState,
                     canFinishAnyway = !validationBusy,
                     canFinishKeepingRunning = validationState is OnboardingValidationState.Success,
