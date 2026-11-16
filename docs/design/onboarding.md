@@ -46,9 +46,28 @@ On the first launch the page content rises and fades in once. The badge is visib
 
 ## Hand-off to the main screen
 
-The app replaces its whole navigation host when onboarding completes, so a route transition cannot join the two screens. `RipDpiHandOffReveal` sits above the host and survives the replacement.
+The app replaces its whole navigation host when onboarding completes, so a route transition or a `SharedTransitionLayout` inside the host cannot join the two screens. `RipDpiHandOffReveal` sits above the host and survives the replacement. The signal line is the shared element, and the layer draws it on its way.
 
-In the frame in which the main screen replaces onboarding, the veil covers it and a ring stands where the badge stood. The main screen then opens as a circle that grows from the center of that ring. The same reveal runs for Done, Disconnect, Skip setup, Skip test, and Finish without testing.
+- The badge reports its center and radius to `LocalRipDpiHandOff` as the anchor. The onboarding line can report its bounds and look as `sourceLine`.
+- The hero line in `RipDpiConnectionActuator` reports its bounds and look as `targetLine` through `Modifier.ripDpiHandOffTarget`, and it is hidden while the layer draws the line. The hero has no other change.
+- `OnboardingHandOffTrigger` starts the reveal in the composition that replaces the content, so the veil and the main screen reach the screen in one frame. No frame shows the main screen without the veil.
+
+In that first frame the veil covers the main screen, the line stands where the onboarding line stood, and a ring stands where the badge stood. Over the 560ms signature duration the line moves to the hero line and takes its width, and the ring travels with it and closes on it. At the same time the main screen opens as a circle that grows from the place of the badge. When the reveal ends the layer draws nothing and the hero shows its own line in the same place.
+
+| Case | Hand-off |
+|---|---|
+| Done, Disconnect, Skip setup, Skip test, Finish without testing, from any step | the same reveal; it depends only on the start destination that leaves onboarding |
+| Portrait and landscape | the same reveal; the anchor is the badge, in the page or in the top bar |
+| No `sourceLine` reported | the line grows out of the ring on its way to the hero |
+| Right-to-left layout | the same reveal; all positions are root coordinates and are not mirrored |
+| The hero line is not on screen (app lock sends the user to the biometric prompt, or the hero is scrolled away) | the circle only: the ring grows with the opening and fades, and a reported source line fades in its place |
+| Animations off | a cut: nothing is drawn |
+
+The destination reports its line one or more frames after the replacement. The travel starts from the frame of that report, so the line does not jump.
+
+One `Confirm` haptic marks the moment the line arrives, also for the circle and for the cut. The button that ended onboarding gives its own haptic at the press, about half a second earlier. If the connection comes up while the reveal runs, its success haptic replaces the arrival haptic.
+
+The layer takes no input. A reveal that is cancelled sets its progress to the end, so nothing stays drawn over the app, and it does not play again.
 
 ## Signature moment
 
