@@ -2,7 +2,7 @@
 id: OUT-1794722656313653
 title: Fix proxy URI import and complete TUIC and Mieru support
 kind: feature
-status: doing
+status: review
 area: outbound
 priority: high
 owner: URI import team
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: complete-proxy-uri-import
 created: 2026-11-15
 updated: 2026-11-16
-status_detail: User approved the 800 KiB per-library native budget; verify the policy and fresh hosted CI.
+status_detail: Full manual CI passed on exact 5b7d33fade, including all native-size and emulator gates.
 ---
 
 ## Goal

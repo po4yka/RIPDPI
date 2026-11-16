@@ -1,23 +1,22 @@
 ---
 task_id: OUT-1794722656313653
 change: complete-proxy-uri-import
-commit_sha: 07cee2106e10df9f8a614022bdd21a413c20a4f0
+commit_sha: 5b7d33fade930ed10131d1d84ee3a7cdc86367af
 local: passed
-local_evidence: "The approved budget candidate passed ci-gates, architecture and locked metadata. The native verifier passed 35 fresh policy/size/ELF/bloat tests, actual policy-delta validation, eight actual library sizes and all 20 actual ELF files from verified CI archives. Application source inputs remain unchanged. All eight final-rebase-v1 jobs passed on earlier code 2f3438a9fc: staticAnalysis, explicit app/service lint, 436 fresh affected Kotlin tests, 74 affected Rust tests, locked workspace all-targets compile, actual native wire 18 accepted/54 rejected, ci-gates, architecture and locked metadata. Full coverage on unchanged owned inputs passed 10421 fresh tests on 41129892bd; retained native scope passed 389 tests, Clippy and two pinned Go peers. Receipts: /Users/npochaev/GitHub/RIPDPI-worktrees/imp01-evidence/integration."
-remote_ci: required
-remote_ci_evidence: "Published 1c29c2c51e CI 43756895493 ended failure: 47 success, 18 skipped and 5 failure. Three debug variants failed the same inherited x86 native-size limit; API37 timed out installing the APK before test assertions; ci-required aggregated those failures. All prior owned failure jobs, static analysis and four non-CI workflows passed. The user approved an 800 KiB per-library budget on 2026-11-16; a fresh exact-SHA CI run is required after that change."
-device: not_applicable
-device_evidence: No device or external server acceptance is claimed. JVM Room, native config and local Go peers cover the owned source contracts.
+local_evidence: "Exact 5b passed 389 Rust unit tests, Clippy with warnings denied, locked workspace all-targets check, ci-gates, architecture and metadata. Recovered Kotlin validation passed 1079 cases: 1068 fresh and 11 detection FROM-CACHE. Diagnostics-data lint/detekt and actual wire 18 accepted/54 rejected passed. Full static/app/service lint passed on production-identical C99 before the test-only 5b change. Receipts: /Users/npochaev/GitHub/RIPDPI-worktrees/imp01-evidence/integration."
+remote_ci: passed
+remote_ci_evidence: "Full manual CI 43804310691 completed SUCCESS on exact 5b: 70 jobs, 55 success, 15 routed skipped, zero failed/cancelled. ci-required, all three debug size jobs, all five emulator jobs, CodeQL, fleet, harness and Secret Scan passed. Compact proof: integration/approved-budget-hosted-ci-terminal.json, SHA256 674d28aafafcf1273ce4d73f01b8d0c21e9fe3c6227558fab7bc59088ccdba7c."
+device: passed
+device_evidence: "Hosted API27/33/35/36/37 emulator jobs passed on exact 5b. API35 passed independent Xray peer and real provider TUN steps. API37 passed actual instrumentation, Simple integration and Kaspresso smoke with the unchanged runner and 120-second install timeout. This does not establish physical-device or external TUIC/Mieru peer acceptance."
 artifact: not_applicable
-artifact_evidence: This change delivers source commits, not a packaged or signed application artifact.
+artifact_evidence: Source commits are the deliverable; no signed application or release is owned. Actual native file verification is recorded below.
 deployment: not_applicable
-deployment_evidence: No deployment is owned by this change.
+deployment_evidence: No deployment or release is owned by this change.
 ---
 
 # Verification
 
 ## Requirement evidence
-
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
@@ -34,66 +33,48 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-IMP01-ROUNDTRIP | OUT-1794758046683376 | Engine change preserves raw optional values. Fresh RED: 53 tests and 5 assertion failures; GREEN: 53 passed, independent review and hooks passed. Actual runtime normalization remains separate. | passed |
 | REQ-IMP01-SELECTION | OUT-1794759937653382 | RED returned old no_wait for selected null. The fix removes only the two known prior Mieru keys before selected-profile merge. The 72-test engine selection set and dedicated 12-pair regression passed; independent review approved. | passed |
 
+## Accepted source and complete hosted check
 
-## Accepted local source
+Accepted code and policy SHA: `5b7d33fade930ed10131d1d84ee3a7cdc86367af`. All requested fixes, TUIC URI support, advanced Mieru TCP settings and the approved native budget are ancestors of this published source.
 
-The final code candidate is `2f3438a9fc0fda85a4b6f31e118f693d745b07df`, rebased without conflicts onto `e7b871df4df26bb72fb3db44fd89b73311387077`. Its tracked source SHA256 is `91c9ef745594bccdc4f8e08eb1c066009c2e5c84146ef267a5b2559177f3c79f`. All eight `final-rebase-v1` jobs passed on that candidate. Each receipt records the exact command, source hash, SHA, time and result.
+[Full manual CI 43804310691](https://github.com/po4yka/RIPDPI/actions/runs/43804310691) completed SUCCESS: **55 successful jobs, 15 routed skips, zero failures or cancellations**. All three debug APK jobs passed the actual packaged native-size guard. All five emulator jobs passed; API35 passed the independent Xray peer and actual TUN steps, and API37 passed actual instrumentation, Simple integration and Kaspresso smoke. CodeQL, fleet, harness and Secret Scan passed on the same SHA. The run used normal default inputs and the full route; no optional soak, benchmark, root, physical-device or external-server lane was enabled.
 
-| Check | Observed result |
+Earlier push CI runs remain historical failures or cancellations. They are not relabelled GREEN. The full manual run has its own concurrency group and retained its exact SHA while later main pushes cancelled push-triggered runs. Compact terminal proof: `integration/approved-budget-hosted-ci-terminal.json`; full snapshot and scoped APK/API37 proofs are linked from that receipt.
+
+## Final local evidence
+
+| Check | Observed result and exact scope |
 |---|---|
-| Static analysis and explicit lint | `staticAnalysis :app:lintGithubFullDebug :core:service:lintDebug`: passed. |
-| Affected Kotlin tests | 436 fresh passed, zero failures/errors/skips: data 7, engine 354, service 75. Service includes 29 geo tests and 46 runtime cleanup tests. |
-| Affected native tests | 74 passed, zero failed/ignored: Android proxy adapter 41 and geo 33. Cargo used `--locked`. |
-| Workspace compile | `cargo check --workspace --all-targets --locked --jobs 2`: passed. Compile-only evidence. |
-| Actual Kotlin-to-native wire | Current native decoder accepted 18 Kotlin payloads and rejected 54 invalid schemas. One contract test passed, 17 unrelated tests were filtered. |
-| Offline source gates | `just ci-gates`: passed. |
-| Architecture | 18 retained indicators, zero new, worsened or stale. |
-| Locked metadata | Passed. |
+| Native units on 5b | 389 passed: Mieru 82, relay-core 258, TLS transports 49. Two unit opt-ins and five separate integration opt-ins remained ignored. They are excluded from the passed count. |
+| Native checks on 5b | All-target Clippy for the three owned crates with warnings denied, locked workspace all-targets compile, ci-gates, architecture and locked metadata passed. |
+| Kotlin on 5b | 1079 passed: 1068 fresh and 11 detection FROM-CACHE. Fresh counts: runtime-state 489, engine 354, diagnostics 23, service 82, app 19, diagnostics-data 101. No failures/errors/skips. The four updated DNS cancellation tests passed fresh within diagnostics-data. |
+| Test-only delta on 5b | Diagnostics-data detekt and lint passed. Full staticAnalysis and explicit app/service lint had passed on C99, whose production sources are identical to 5b. |
+| Actual wire on 5b | Current Kotlin export plus actual Rust decoder: 18 accepted, 54 invalid schemas rejected; one contract test passed, 17 unrelated cases filtered. |
+| Approved size policy | 35 fresh existing Python tests and actual policy-delta validation passed. All eight real CI library sizes passed under the 800 KiB limit; old policy reproduced the prior failure. |
+| Actual native ELF files | All 20 libraries across four ABIs passed. Exact NEEDED oracles cover main, tunnel and AmneziaWG; alignment/export checks cover all five libraries. Helper executables are outside this gate. |
 
-Receipts and immutable JUnit: `integration/final-rebase-v1`. Summary: `integration/final-rebase-v1-monitor-metrics.json` under the evidence root in frontmatter.
+Exact commands, source hashes and immutable results: `integration/final-native-5b-v1` and `integration/robolectric-cache-recovery-v1/CHECKPOINT.md`. The latter terminal receipt has SHA256 `8ab9770d85dc96f6a42530835b18a45c3025847120cb048d9d31f01837987bda`.
 
-## Full Kotlin coverage and source invariance
+The earlier full `coverageReport` and `kotlinCoverageVerification` run passed 10421 fresh tests on `41129892bd4107f1eb5242555c6a47a2aecbc9aa`. Its source scope and all 13 executed test tasks remain recorded in `integration/final-frontend-v2-monitor-metrics.json`. The later 1079 cases overlap that set and are not added as distinct coverage. The full manual 5b coverage job passed, but no new test count or all-fresh claim is inferred from job status alone.
 
-The preceding frozen candidate `41129892bd4107f1eb5242555c6a47a2aecbc9aa` passed all nine `final-frontend-v2` jobs, including `coverageReport` and `kotlinCoverageVerification`. All 13 test tasks executed: **10421 fresh passed, zero failures/errors/skips**, no missing JUnit directories and no JaCoCo mismatch warning. Counts: app 3594, data 1029, catalog 57, model 94, runtime-state 489, settings 99, detection 451, diagnostics 1815, diagnostics-data 101, engine 354, engine-api 77, pcap-export 36, service 2225. The separate quality snapshot was not executed by coverage and is excluded. Simple subscription tests passed 9 fresh cases; PCAP viewer tests passed 7 fresh cases. Do not add the later 436 overlapping cases to 10421.
+## Approved native budget
 
-The later rebase added exactly 46 upstream geo/JNI/asset/task files. It changed no owned URI, backup, Mieru codec, runtime-selection or cleanup implementation. The affected source areas were checked again as shown above. These counts are separate runs, not one fresh run on the final SHA.
+The user explicitly approved **720 to 800 KiB** per-library growth on 2026-11-16. Root commit `07cee2106e10df9f8a614022bdd21a413c20a4f0` (author `34faefe4a7bd54a69630f0b6f5c78461ddf34cd2`) changes only that effective limit and appends required approval provenance. All eight historical measured sizes, 4.7% and 3670016-byte total caps, bloat limits, source behavior, profiles and ABI coverage remain unchanged. Independent review approved the patch.
 
-## Retained native and concrete peer evidence
+Original IMP-01 EE passed its size guard. Later upstream native-fetch/adaptive changes added 64432 packaged x86 bytes; geo added another 30120. Current follow-up and its prior base were byte-identical. The exact first crossing commit was not established. This was measured cumulative growth, not an unproved source optimization. Four downloaded CI ZIP digests matched metadata. Prior actual total was 79052792 versus allowed 80238131; the approved budget left 22748 x86 bytes. Fresh 5b APK guards subsequently passed. Proof: `integration/approved-native-budget-v1`, `integration/native-size-regression-v1` and `integration/approved-budget-main-publication.json`.
 
-`postfix-native-v1` passed six jobs on its recorded source scope: **389 Rust unit tests** (Mieru 82, relay-core 258, TLS transports 49), affected all-target Clippy with warnings denied, locked workspace compile, actual native wire, and two real pinned Go peers. Two opt-in units were ignored in the aggregate. The Mieru Off shutdown case was executed separately; the VLESS REALITY XHTTP XUDP opt-in was not.
+## Pinned peer and evidence limits
 
-The peer source is pinned to `155ebbd60f86e472586a60d7ffe58ec8f8682cb1`, with actual Go **1.27.4**. The advanced TCP scenario passed once; the Off/stop scenario passed once and verified that both Off carriers closed before server shutdown. No external server or physical device was used.
+Actual local Go 1.27.4 peers at source `155ebbd60f86e472586a60d7ffe58ec8f8682cb1` verified advanced Mieru TCP and Off shutdown. The latter closed both independent Off carriers before server shutdown. Those concrete scenarios are separate from the ignored aggregate tests. Hosted interop evidence also records the pin and successful named scenarios, but no actual hosted Go-version metadata was available; it does not prove official Go 1.27.2 acceptance. The fresh native suite validates the later h3 vendor changes without promoting the retained peer proof into a new run.
 
-The rebase review parsed the complete normal/dev/build local dependency closure of the three IMP native crates: 34 packages, no geo/proxy-runtime/Android proxy adapter dependency, and zero changed paths or manifests. The lockfile added an existing serde edge only to geo and changed no version. Thus 389/Clippy/Go results retain their named scope; they were not rerun or counted as fresh after this rebase. Proof: `integration/final-frontend-v2-monitor-metrics.json`, `rebase_delta_review`.
+Room proves durable ImportOnly save, reopen, rollback and later explicit selection. The native decoder proves configuration acceptance. Neither proves a live external TUIC connection. C means inspected code, V means the named observed run, S means a checked pinned requirement, and E means only the named peer/toolchain/scenario. Miri stopped at unsupported macOS kqueue and did not pass. No physical-device install, real-secret use, root activation, external TUIC server, pixel comparison, golden blessing or release is claimed.
 
-## Corrections after first publication
+## Preserved failures and recovery
 
-The first published SHA `ee25ddb7f6b33d7a6b5508c953720820f4dcda25` reached main and origin. Its CI run 43729212424 ended cancelled, with three substantive failures: backup allowlist, raw Mieru DTO round trip, and a stale unsupported-TUIC fixture. That candidate is not accepted as hosted GREEN.
+The first published candidate exposed the backup allowlist, raw Mieru DTO and obsolete unsupported-TUIC fixture failures; these were corrected and their owning jobs passed later. FULL retains settings; SHARE omits credentials and identifying Mieru traffic patterns. Raw UI JSON retains optional presence, while runtime selection removes only the two prior Mieru keys before merging the selected profile. Upstream-equivalent diagnostics and PCAP loop fixes were retained instead of duplicating them. Disclosure changes affect tests only. The VPN class repair moves two private cleanup helpers with the same immutable controller; independent review and owning tests passed.
 
-The corrected backup policy keeps upstream's stronger SHARE rule: credentials and identifying Mieru traffic patterns are REDACTED; FULL keeps all settings. Seventeen fresh reconciled backup tests passed. The raw UI DTO now retains nullable handshake and traffic-pattern presence; runtime-effective defaults resolve separately. Runtime selection removes only the two prior Mieru override keys before merging the selected profile, including absent values. The negative subscription fixture uses unsupported wireguard rather than supported TUIC.
+Infrastructure attempts are retained honestly. A fleet Maven HTTP429 failed before tests; one failed-jobs retry passed without dependency or mirror changes. A push coverage attempt failed on a Robolectric connection reset before class assertions. Local C99 validation blocked in a framework download and file lock; verified owned launcher termination preserved thread dumps. Exact existing framework JARs were SHA512-verified against official Maven Central and installed under a real Java FileChannel lock. The recovered 5b test run passed without app, dependency-version, TLS, Java IPv6, timeout or repository-URI changes.
 
-The inherited disclosure assertion correction changes two test files only; production copy and baselines stay unchanged. The final code retains upstream's equivalent PCAP viewer loop repair and all four diagnostics lint repairs, including newer DoQ behavior. It has no own production diagnostics or PCAP viewer diff. The inherited VPN runtime class repair moves two existing private cleanup helpers to file-private scope and passes the same immutable controller; ordering, cancellation, try/finally and exception behavior remain unchanged. Independent review and 46 fresh owning tests passed before integration, then passed again in combined coverage and affected rebase checks. No lint threshold or baseline was changed.
+Earlier API37 install hit the unchanged 120-second timeout before assertions. The subsequent exact 5b job passed with the same runner blob and timeout. Its secondary push execution used an existing internal retry after a first 'Process crashed'; no stack or cause was established. That history is not called a clean first attempt. Primary manual API37 succeeded; absence of retries is not inferred without a complete attempt record.
 
-## Environment recovery and evidence limits
-
-Earlier broad attempts encountered missing generated outputs, ENOSPC and then corrupt app test metadata. These are preserved in external receipts. They do not establish source defects. Only owned generated test binaries were removed after copies were saved; no source or Git work was discarded. The later complete fresh coverage pass supersedes those failed attempts.
-
-Room proves durable ImportOnly save, reopen, rollback and later explicit selection. A config decoder or workspace compile does not prove a live Android VPN or TUIC handshake. C means inspected code, V means the named observed run, S means a checked pinned requirement, and E means only the named peer/toolchain/scenario.
-
-Official Go 1.27.2 peer acceptance remains separate from observed Go 1.27.4. Miri was attempted but stopped at unsupported macOS kqueue, so it did not pass. No physical/emulator install, Android ABI packaging, root activation, real-secret use, external TUIC peer, pixel comparison or golden blessing is claimed. API checking retains its explicit Darwin skip for the Linux-owned runtime-platform snapshot.
-
-## Publication acceptance
-
-New main integration, push and exact-SHA hosted CI remain required at this record's commit. Update this section only with observed receipts. The user explicitly authorized main integration and push.
-
-## Approved native budget follow-up
-
-On 2026-11-16 the user explicitly approved changing only the per-library native growth limit from 720 to 800 KiB. Execution steps: `OUT-1794799654273416` for the policy and `OUT-1794799654782846` for fresh hosted CI. Preserve all eight historical measured sizes, the 4.7% and 3670016-byte total limits, bloat limits, source behavior, profiles and ABI coverage. The policy comment must append approval provenance, as required by the existing policy guard.
-
-The read-only artifact diagnosis proves that original IMP-01 EE passed the size gate. Later upstream native-fetch/adaptive changes added 64432 packaged x86 bytes before geo added another 30120. Current 1c29 and base e7b871 binaries are byte-identical; the follow-up fixes added zero native bytes. The exact first crossing commit is not established. No measured low-risk source reduction of 59172 bytes was found. All four downloaded CI shard ZIP digests match GitHub metadata. The existing verifier reproduced the old failing hosted report exactly on eight actual libraries and passed with the external 800 KiB proposal. This is a local proposal check, not a hosted pass. Proof: `integration/native-size-regression-v1/REPORT.md`, `PROPOSAL.md` and `all-abi-proposal-verification-receipt.json`.
-
-The API37 failure is an adb install timeout after 120 seconds, before installation completed and before test assertions. Its underlying cause is not established. Keep the original timeout and obtain a fresh run after the approved policy push; do not infer a production defect or change app behavior from that failure. API27/33/35/36 jobs passed; API35 also passed the independent Xray peer and actual TUN steps. Those results do not prove a TUIC or Mieru network exchange. Terminal evidence: `integration/followup-hosted-ci-terminal.json` and `integration/followup-hosted-artifacts/api37-install-timeout.json`.
-
-The approved policy is implemented in root commit `07cee2106e10df9f8a614022bdd21a413c20a4f0` (author commit `34faefe4a7bd54a69630f0b6f5c78461ddf34cd2`). Only the per-library budget and append-only approval provenance changed in the JSON; both total limits and eight measured baselines remain identical. Independent review approved the two-file patch. Thirty-five fresh owning Python tests passed. The old policy verifier reproduced the hosted failure; the approved repository policy passed all eight actual CI libraries. The actual ELF verifier passed 20 files across four ABIs; exact NEEDED oracles cover main/tunnel/AmneziaWG, while alignment/export checks cover all five libraries. Helpers are outside that gate. The unchanged bloat scope uses its retained CI report, not a new local build.
-
-All three `approved-budget-gates-v1` jobs passed on the exact root budget commit: `just ci-gates`, architecture with zero new/worsened/stale indicators, and locked metadata. Evidence: `integration/approved-native-budget-v1/CHECKPOINT.md` and `integration/approved-budget-gates-v1`. A fresh main push and exact-SHA hosted CI remain required; no successful next CI or API37 rerun is claimed by this checkpoint.
+Upstream after accepted 5b added only Robolectric SDK preparation in build logic and the test SDK catalog. Application/native sources and the approved policy remain unchanged by that rebase. This later infrastructure is not authored as an IMP-01 source fix; its configuration/source checks are recorded separately before final integration.
