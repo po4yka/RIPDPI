@@ -26,14 +26,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.localizedDigits
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -84,6 +87,8 @@ fun RipDpiMeasurementStrip(
     secondaryAction: RipDpiMeasurementAction?,
     modifier: Modifier = Modifier,
     tone: RipDpiMeasurementTone = RipDpiMeasurementTone.Warning,
+    link: RipDpiMeasurementAction? = null,
+    linkTestTag: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val shapes = RipDpiThemeTokens.shapes
@@ -172,16 +177,7 @@ fun RipDpiMeasurementStrip(
                     style = type.secondaryBody,
                     color = colors.mutedForeground,
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(spacing.sm),
-                    // An actionable readout reserves a taller touch slot; keep its neighbours level with it.
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
-                    metrics.forEach { metric ->
-                        RipDpiMeasurementMetricChip(metric = metric)
-                    }
-                }
+                RipDpiMeasurementGrid(metrics)
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
@@ -198,6 +194,85 @@ fun RipDpiMeasurementStrip(
                     }
                     RipDpiMeasurementActions(primaryAction, secondaryAction)
                 }
+                link?.let { RipDpiMeasurementLink(it, linkTestTag) }
+            }
+        }
+    }
+}
+
+/** The measurements card before anything is measured: only its footer link. */
+@Composable
+fun RipDpiMeasurementLinkCard(
+    link: RipDpiMeasurementAction,
+    modifier: Modifier = Modifier,
+    linkTestTag: String? = null,
+) {
+    val tonalCard = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.cards.tonal)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RipDpiThemeTokens.shapes.xl,
+        color = tonalCard.container,
+        contentColor = RipDpiThemeTokens.colors.cardForeground,
+        border = tonalCard.border.takeIf { it != Color.Transparent }?.let { BorderStroke(RipDpiStroke.Thin, it) },
+    ) {
+        RipDpiMeasurementLink(
+            link = link,
+            testTag = linkTestTag,
+            modifier = Modifier.padding(horizontal = RipDpiThemeTokens.layout.cardPadding),
+        )
+    }
+}
+
+@Composable
+private fun RipDpiMeasurementLink(
+    link: RipDpiMeasurementAction,
+    testTag: String?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .ripDpiTestTag(testTag)
+                .ripDpiClickable(role = Role.Button, onClick = link.onClick),
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(link.label, Modifier.weight(1f), style = RipDpiThemeTokens.type.bodyEmphasis)
+        Icon(
+            imageVector = RipDpiIcons.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(RipDpiIconSizes.Default),
+        )
+    }
+}
+
+/**
+ * Readouts on two equal columns, so values align across rows. When a readout is wider than a column (large font
+ * scales), every readout takes the full width instead, so no value wraps.
+ */
+@Composable
+private fun RipDpiMeasurementGrid(metrics: ImmutableList<RipDpiMeasurementMetric>) {
+    val spacing = RipDpiThemeTokens.spacing
+    Layout(
+        content = { metrics.forEach { RipDpiMeasurementMetricChip(metric = it) } },
+        modifier = Modifier.fillMaxWidth(),
+    ) { measurables, constraints ->
+        val columnGap = spacing.md.roundToPx()
+        val rowGap = spacing.sm.roundToPx()
+        val half = (constraints.maxWidth - columnGap) / 2
+        val columns = if (measurables.all { it.maxIntrinsicWidth(Constraints.Infinity) <= half }) 2 else 1
+        val cell = if (columns == 2) half else constraints.maxWidth
+        val rows = measurables.map { it.measure(Constraints(maxWidth = cell)) }.chunked(columns)
+        val rowHeights = rows.map { row -> row.maxOf { it.height } }
+        layout(constraints.maxWidth, rowHeights.sum() + rowGap * (rows.size - 1).coerceAtLeast(0)) {
+            var y = 0
+            rows.forEachIndexed { index, row ->
+                row.forEachIndexed { column, readout ->
+                    // An actionable readout reserves a taller touch slot; keep its neighbour level with it.
+                    readout.placeRelative(column * (cell + columnGap), y + (rowHeights[index] - readout.height) / 2)
+                }
+                y += rowHeights[index] + rowGap
             }
         }
     }
@@ -297,92 +372,93 @@ private fun RipDpiMeasurementMetricChip(metric: RipDpiMeasurementMetric) {
 
 private val sampleMetrics =
     persistentListOf(
-        RipDpiMeasurementMetric(
-            label = "Loss",
-            value = "4.1%",
-            delta = "+3.2 pp",
-            deltaIsBad = true,
-        ),
+        RipDpiMeasurementMetric(label = "Loss", value = "4.1%", delta = "", deltaIsBad = false),
         RipDpiMeasurementMetric(
             label = "RTT p50",
             value = "240 ms",
-            delta = "+120",
-            deltaIsBad = true,
+            delta = "",
+            deltaIsBad = false,
+            action = RipDpiMeasurementAction(label = "Open", onClick = {}),
         ),
-        RipDpiMeasurementMetric(
-            label = "Jitter",
-            value = "18 ms",
-            delta = "+7",
-            deltaIsBad = true,
-        ),
+        RipDpiMeasurementMetric(label = "Jitter", value = "18 ms", delta = "", deltaIsBad = false),
+        RipDpiMeasurementMetric(label = "Traffic total", value = "192 kB", delta = "", deltaIsBad = false),
     )
 
-@Preview(showBackground = true)
+private val sampleLink = RipDpiMeasurementAction(label = "Connection health", onClick = {})
+
 @Composable
-private fun RipDpiMeasurementStripWarningPreview() {
-    RipDpiComponentPreview {
+private fun MeasurementStripPreview(
+    theme: String,
+    tone: RipDpiMeasurementTone,
+) {
+    RipDpiComponentPreview(themePreference = theme) {
         RipDpiMeasurementStrip(
-            title = "Connected · quality degraded",
-            body = "Latency and loss are above baseline since 12:14.",
+            title =
+                when (tone) {
+                    RipDpiMeasurementTone.Nominal -> "Connection measurements"
+                    RipDpiMeasurementTone.Warning -> "Connected · quality degraded"
+                    RipDpiMeasurementTone.Critical -> "Connected · severe degradation"
+                },
+            body =
+                when (tone) {
+                    RipDpiMeasurementTone.Nominal -> "Indicators are in range."
+                    RipDpiMeasurementTone.Warning -> "Latency and loss are above baseline."
+                    RipDpiMeasurementTone.Critical -> "Sustained loss and elevated RTT suggest active throttling."
+                },
             metrics = sampleMetrics,
-            footnote = "Since 12:14",
-            primaryAction = RipDpiMeasurementAction(label = "Reprobe", onClick = {}),
-            secondaryAction = RipDpiMeasurementAction(label = "Dismiss", onClick = {}),
-            tone = RipDpiMeasurementTone.Warning,
+            footnote = "12 RTT samples",
+            primaryAction = RipDpiMeasurementAction(label = "Re-measure", onClick = {}),
+            secondaryAction = null,
+            tone = tone,
+            link = sampleLink,
         )
     }
 }
 
-@Preview(showBackground = true)
+@Preview(name = "MeasurementStrip link only light", showBackground = true)
 @Composable
-private fun RipDpiMeasurementStripCriticalPreview() {
-    RipDpiComponentPreview(themePreference = "dark") {
-        RipDpiMeasurementStrip(
-            title = "Connected · severe degradation",
-            body = "Sustained loss and elevated RTT suggest active throttling.",
-            metrics = sampleMetrics,
-            footnote = "Since 12:14",
-            primaryAction = RipDpiMeasurementAction(label = "Reprobe", onClick = {}),
-            secondaryAction = null,
-            tone = RipDpiMeasurementTone.Critical,
-        )
-    }
+private fun RipDpiMeasurementLinkCardLightPreview() {
+    RipDpiComponentPreview(themePreference = "light") { RipDpiMeasurementLinkCard(sampleLink) }
+}
+
+@Preview(name = "MeasurementStrip link only dark", showBackground = true)
+@Composable
+private fun RipDpiMeasurementLinkCardDarkPreview() {
+    RipDpiComponentPreview(themePreference = "dark") { RipDpiMeasurementLinkCard(sampleLink) }
 }
 
 @Preview(name = "MeasurementStrip nominal light", showBackground = true)
 @Composable
 private fun RipDpiMeasurementStripNominalLightPreview() {
-    MeasurementStripNominal(theme = "light")
+    MeasurementStripPreview("light", RipDpiMeasurementTone.Nominal)
 }
 
 @Preview(name = "MeasurementStrip nominal dark", showBackground = true)
 @Composable
 private fun RipDpiMeasurementStripNominalDarkPreview() {
-    MeasurementStripNominal(theme = "dark")
+    MeasurementStripPreview("dark", RipDpiMeasurementTone.Nominal)
 }
 
+@Preview(name = "MeasurementStrip warning light", showBackground = true)
 @Composable
-private fun MeasurementStripNominal(theme: String) {
-    RipDpiComponentPreview(themePreference = theme) {
-        RipDpiMeasurementStrip(
-            title = "Connection measurements",
-            body = "Indicators are in range.",
-            metrics =
-                persistentListOf(
-                    RipDpiMeasurementMetric(label = "Loss", value = "0.0%", delta = "", deltaIsBad = false),
-                    RipDpiMeasurementMetric(
-                        label = "RTT p50",
-                        value = "105 ms",
-                        delta = "",
-                        deltaIsBad = false,
-                        action = RipDpiMeasurementAction(label = "Open", onClick = {}),
-                    ),
-                    RipDpiMeasurementMetric(label = "Traffic total", value = "192 kB", delta = "", deltaIsBad = false),
-                ),
-            footnote = "2 RTT samples",
-            primaryAction = RipDpiMeasurementAction(label = "Re-measure", onClick = {}),
-            secondaryAction = null,
-            tone = RipDpiMeasurementTone.Nominal,
-        )
-    }
+private fun RipDpiMeasurementStripWarningPreview() {
+    MeasurementStripPreview("light", RipDpiMeasurementTone.Warning)
+}
+
+@Preview(name = "MeasurementStrip warning dark", showBackground = true)
+@Composable
+private fun RipDpiMeasurementStripWarningDarkPreview() {
+    MeasurementStripPreview("dark", RipDpiMeasurementTone.Warning)
+}
+
+@Preview(name = "MeasurementStrip critical light", showBackground = true)
+@Composable
+private fun RipDpiMeasurementStripCriticalLightPreview() {
+    MeasurementStripPreview("light", RipDpiMeasurementTone.Critical)
+}
+
+@Preview(name = "MeasurementStrip critical dark", showBackground = true)
+@Composable
+private fun RipDpiMeasurementStripCriticalPreview() {
+    MeasurementStripPreview("dark", RipDpiMeasurementTone.Critical)
 }

@@ -22,8 +22,6 @@ import com.poyka.ripdpi.platform.withoutBidiIsolates
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
-import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
@@ -32,7 +30,6 @@ import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
@@ -164,6 +161,7 @@ fun StatusScreen(
                     connected = uiState.isConnected,
                     dataTransferred = uiState.dataTransferred,
                     onReprobe = onRunFullDiagnosticRun,
+                    onOpenConnectionHealth = onOpenConnectionHealth,
                 )
 
                 StatusAppliedConfigurationPanel(
@@ -173,7 +171,6 @@ fun StatusScreen(
                 )
             },
             supporting = {
-                StatusConnectionHealthEntry(onOpenConnectionHealth = onOpenConnectionHealth)
                 RipDpiAccordion(
                     title = stringResource(R.string.status_modes_diagnostics_title),
                     expanded = modesExpanded || homeDiagnostics.analysisAction.busy,
@@ -215,19 +212,6 @@ fun StatusScreen(
             onShareAnalysis = onShareAnalysis,
             onDismissAnalysisSheet = onDismissAnalysisSheet,
             onDismissVerificationSheet = onDismissVerificationSheet,
-        )
-    }
-}
-
-@Composable
-private fun StatusConnectionHealthEntry(onOpenConnectionHealth: () -> Unit) {
-    RipDpiCard {
-        SettingsRow(
-            title = stringResource(R.string.connection_health_home_title),
-            onClick = onOpenConnectionHealth,
-            leadingIcon = RipDpiIcons.NetworkCheck,
-            showChevron = true,
-            testTag = RipDpiTestTags.StatusConnectionHealthAction,
         )
     }
 }

@@ -26,6 +26,7 @@ import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource
 import com.poyka.ripdpi.service.telemetry.freshness
 import com.poyka.ripdpi.services.hasObservedMeasurements
 import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementLinkCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementMetric
 import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementStrip
 import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementTone
@@ -47,6 +48,7 @@ internal fun StatusConnectionMeasurements(
     connected: Boolean,
     dataTransferred: Long,
     onReprobe: () -> Unit,
+    onOpenConnectionHealth: () -> Unit = {},
     now: Long? = null,
 ) {
     var selectedSnapshot by remember { mutableStateOf<LatencyDetailSnapshot?>(null) }
@@ -66,6 +68,12 @@ internal fun StatusConnectionMeasurements(
             }
             returnFocusRequested = false
         }
+    }
+    val healthLink =
+        RipDpiMeasurementAction(stringResource(R.string.connection_health_home_title), onOpenConnectionHealth)
+    // Nothing to show yet, but Connection health must stay reachable.
+    if (!hasMeasurements) {
+        RipDpiMeasurementLinkCard(healthLink, linkTestTag = RipDpiTestTags.StatusConnectionHealthAction)
     }
     if (!hasMeasurements && selectedSnapshot == null) return
     val currentTime = now ?: source?.let { measurementNow(it) } ?: 0L
@@ -104,6 +112,8 @@ internal fun StatusConnectionMeasurements(
             secondaryAction = null,
             tone = summary.tone,
             modifier = Modifier.fillMaxWidth(),
+            link = healthLink,
+            linkTestTag = RipDpiTestTags.StatusConnectionHealthAction,
         )
     }
     selectedSnapshot?.let { snapshot ->

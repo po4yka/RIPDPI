@@ -175,11 +175,11 @@ class StatusScreenTest {
 
         val actuator =
             composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).fetchSemanticsNode().boundsInRoot
-        val health =
-            composeRule.onNodeWithTag(RipDpiTestTags.StatusConnectionHealthAction).fetchSemanticsNode().boundsInRoot
-        assertTrue("Supporting pane must sit beside the actuator", health.left >= actuator.right)
+        val modes =
+            composeRule.onNodeWithTag(RipDpiTestTags.StatusModesDiagnosticsHeader).fetchSemanticsNode().boundsInRoot
+        assertTrue("Supporting pane must sit beside the actuator", modes.left >= actuator.right)
         val density = composeRule.density.density
-        assertTrue("Supporting pane stays near 360dp", health.width <= 360f * density)
+        assertTrue("Supporting pane stays near 360dp", modes.width <= 360f * density)
     }
 
     @Test

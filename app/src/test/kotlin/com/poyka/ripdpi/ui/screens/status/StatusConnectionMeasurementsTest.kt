@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.status
 
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.R
@@ -12,6 +13,7 @@ import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementFreshness
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource
 import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementTone
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -51,6 +53,26 @@ class StatusConnectionMeasurementsTest {
         // Nothing was measured yet, so the action cannot claim a repeat.
         node(R.string.status_quality_measure).assertExists()
         node(R.string.vpn_quality_strip_reprobe).assertDoesNotExist()
+    }
+
+    @Test
+    fun `connection health stays reachable when idle with nothing measured`() {
+        var opened = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                StatusConnectionMeasurements(
+                    quality = null,
+                    source = null,
+                    connected = false,
+                    dataTransferred = 0L,
+                    onReprobe = {},
+                    onOpenConnectionHealth = { opened++ },
+                )
+            }
+        }
+        node(R.string.connection_health_summary_title).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusConnectionHealthAction).assertHasClickAction().performClick()
+        assertEquals(1, opened)
     }
 
     @Test

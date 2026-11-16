@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -22,6 +23,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -57,6 +59,68 @@ class RipDpiMeasurementStripTest {
     @Test
     fun `normal font keeps complete content and working primary and secondary actions`() =
         assertResponsiveContent(fontScale = 1f, direction = LayoutDirection.Ltr, value = "204 kB")
+
+    @Test
+    fun `readouts align on two equal columns`() = assertReadoutGrid(fontScale = 1f, width = 390.dp, twoColumns = true)
+
+    @Test
+    fun `readouts too wide for a column stack with each value on one line`() =
+        assertReadoutGrid(fontScale = 2f, width = 280.dp, twoColumns = false)
+
+    private fun assertReadoutGrid(
+        fontScale: Float,
+        width: Dp,
+        twoColumns: Boolean,
+    ) {
+        val values = listOf("4.1%", "240 ms", "18 ms", "204 kB")
+        composeRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+                RipDpiTheme {
+                    RipDpiMeasurementStrip(
+                        "Title",
+                        "Body",
+                        values
+                            .mapIndexed { index, value ->
+                                RipDpiMeasurementMetric(
+                                    "Metric $index",
+                                    value,
+                                    "",
+                                    false,
+                                    action = RipDpiMeasurementAction("Open") {}.takeIf { index == 1 },
+                                    modifier = Modifier.ripDpiTestTag("readout-$index"),
+                                )
+                            }.toImmutableList(),
+                        footnote = null,
+                        primaryAction = RipDpiMeasurementAction("Measure") {},
+                        secondaryAction = null,
+                        modifier = Modifier.requiredWidth(width),
+                    )
+                }
+            }
+        }
+        val readouts = values.indices.map { composeRule.onNodeWithTag("readout-$it").fetchSemanticsNode().boundsInRoot }
+        assertEquals(readouts[0].left, readouts[2].left)
+        assertEquals(readouts[1].left, readouts[3].left)
+        assertEquals(twoColumns, readouts[1].left > readouts[0].left)
+        if (twoColumns) {
+            assertEquals(readouts[0].center.y, readouts[1].center.y)
+            assertTrue(readouts[2].top >= readouts[1].bottom)
+            val column = readouts[1].left - readouts[0].left
+            assertTrue("A readout stays inside its column", readouts.all { it.width <= column })
+        }
+        assertTrue(
+            "The actionable readout keeps a 48dp touch slot",
+            readouts[1].height >= 48f * composeRule.density.density,
+        )
+        values.forEach { value ->
+            val layouts = mutableListOf<TextLayoutResult>()
+            composeRule
+                .onNodeWithText(value, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertEquals("Value '$value' stays on one line", 1, layouts.single().lineCount)
+        }
+    }
 
     private fun assertResponsiveContent(
         fontScale: Float,
