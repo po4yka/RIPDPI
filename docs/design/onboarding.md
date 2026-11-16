@@ -58,7 +58,7 @@ The reveal has three parts.
 2. Travel. In the first 60% of the 560ms signature motion, about 340ms, the line moves over the closed veil to the hero line, and the ring sits on its center and closes on it. The line does not cross any content of the main screen.
 3. Open. In the rest of the motion, about 220ms, the main screen opens as a circle that grows from the line. When the reveal ends the layer draws nothing and the hero shows its own line in the same place.
 
-The travel and the opening each use the signature easing on their own share. A frame that takes longer than 32ms counts as 32ms of the motion, so on a slow device the motion takes longer and does not skip ahead.
+The travel and the opening each use the signature easing on their own share. A frame that takes longer than 32ms counts as 32ms of the motion, or as half of its time if that is more. On a slow device the motion takes longer and does not skip ahead, and it takes at most twice its duration.
 
 | Case | Hand-off |
 |---|---|

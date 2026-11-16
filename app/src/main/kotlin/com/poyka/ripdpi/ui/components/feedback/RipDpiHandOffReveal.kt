@@ -70,6 +70,7 @@ private const val NanosPerMilli = 1_000_000L
 
 // Two frames at 60 Hz. The longest step of the motion that one frame can take.
 private const val HandOffMaxFrameNanos = 32 * NanosPerMilli
+private const val HandOffLongestStretch = 2
 
 /** A signal line that takes part in a hand-off: its bounds in root coordinates, and its look. */
 @Immutable
@@ -227,6 +228,13 @@ class RipDpiHandOffState {
     ): Float = hypot(max(center.x, size.width - center.x), max(center.y, size.height - center.y))
 }
 
+/**
+ * How much of the motion one frame plays. A slow frame counts as a short one, so the motion takes longer and
+ * does not skip ahead; it still plays at half speed or faster, so the reveal takes at most twice its duration.
+ */
+internal fun handOffStep(frameNanos: Long): Long =
+    max(min(frameNanos, HandOffMaxFrameNanos), frameNanos / HandOffLongestStretch)
+
 /** Null where no hand-off layer exists (previews and tests): a screen then has nothing to report. */
 val LocalRipDpiHandOff = staticCompositionLocalOf<RipDpiHandOffState?> { null }
 
@@ -296,8 +304,7 @@ fun RipDpiHandOffReveal(
                 var last = withFrameNanos { it }
                 while (state.isRunning) {
                     val now = withFrameNanos { it }
-                    // A slow frame counts as a short one: the motion then takes longer and does not skip ahead.
-                    played += min(now - last, HandOffMaxFrameNanos)
+                    played += handOffStep(frameNanos = now - last)
                     last = now
                     state.progress = if (played >= duration) 1f else played.toFloat() / duration
                 }

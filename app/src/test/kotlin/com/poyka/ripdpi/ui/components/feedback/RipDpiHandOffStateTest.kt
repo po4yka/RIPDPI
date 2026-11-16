@@ -254,6 +254,19 @@ class RipDpiHandOffStateTest {
         assertFalse(state.landingMuted)
     }
 
+    @Test
+    fun `a slow frame stretches the motion, to at most twice its duration`() {
+        val millis = 1_000_000L
+
+        // A frame at 60 Hz and at 30 Hz plays in real time.
+        assertEquals(16 * millis, handOffStep(16 * millis))
+        assertEquals(32 * millis, handOffStep(32 * millis))
+        // A dropped frame does not skip ahead.
+        assertEquals(32 * millis, handOffStep(50 * millis))
+        // A very slow frame still plays half of its time.
+        assertEquals(250 * millis, handOffStep(500 * millis))
+    }
+
     private val screen = Size(1080f, 2400f)
 
     private fun line(
