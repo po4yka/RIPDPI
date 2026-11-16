@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -22,11 +23,15 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.ui.screens.status.StatusFirstRunIntroStore
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -309,6 +314,24 @@ class OnboardingStepsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingBatterySettings).assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingVpnSettings).assertCountEquals(0)
         composeRule.onAllNodesWithText("Always-on VPN").assertCountEquals(0)
+    }
+
+    @Test
+    fun `the completion step arms the main-screen explanation before onboarding completes`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repository = FakeAppSettingsRepository()
+        val viewModel = createOnboardingViewModel(repository = repository)
+        composeRule.setContent {
+            RipDpiTheme { OnboardingRoute(onComplete = {}, onOpenAdvancedDns = {}, viewModel = viewModel) }
+        }
+        composeRule.waitForIdle()
+        assertFalse(StatusFirstRunIntroStore.isPending(context))
+
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).performClick()
+        composeRule.waitForIdle()
+
+        assertTrue(StatusFirstRunIntroStore.isPending(context))
+        assertFalse(runBlocking { repository.snapshot() }.onboardingComplete)
     }
 
     /** A checklist row: the state description is on the row, and the label is its child. */

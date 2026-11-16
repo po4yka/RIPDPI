@@ -133,13 +133,15 @@ fun OnboardingRoute(
             )
         }
 
+    // The main screen explains itself once to a user who has just completed onboarding. Every exit passes the
+    // completion step, so the flag is set there: the completed flag can replace this screen before an effect runs.
+    if (uiState.currentPage == OnboardingCompletionPageIndex) {
+        LaunchedEffect(context) { StatusFirstRunIntroStore.setPending(context, pending = true) }
+    }
+
     OnboardingEffectsHandler(
         effects = viewModel.effects,
-        onComplete = {
-            // The main screen explains itself once to a user who has just completed onboarding.
-            StatusFirstRunIntroStore.setPending(context, pending = true)
-            onComplete()
-        },
+        onComplete = onComplete,
         onRequestNotificationsPermission = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 notificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
