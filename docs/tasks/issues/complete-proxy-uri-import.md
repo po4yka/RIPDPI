@@ -2,7 +2,7 @@
 id: OUT-1794722656313653
 title: Fix proxy URI import and complete TUIC and Mieru support
 kind: feature
-status: review
+status: doing
 area: outbound
 priority: high
 owner: URI import team
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: complete-proxy-uri-import
 created: 2026-11-15
 updated: 2026-11-16
-status_detail: All local and rebase gates passed; exact-SHA hosted CI remains pending.
+status_detail: User approved the 800 KiB per-library native budget; verify the policy and fresh hosted CI.
 ---
 
 ## Goal
@@ -41,6 +41,7 @@ Fix IMP-01 findings F1-F7. Add a usable TUIC v5 URI import path and pinned Mieru
 - Root owns wording-only updates to inherited RawPacketDisclosureContentTest.kt and DiagnosticsScreenTest.kt assertions after the full coverage gate found stale PCAP disclosure expectations. Production strings, behavior and baselines stay unchanged.
 - PCAP lint worker owns only PcapCaptureContent.kt in imp01-pcap-lint for the inherited single loop-jump lint failure; EOF, bounds, payload handling and reader lifetime must remain unchanged.
 - Runtime lint worker owns only VpnTunnelRuntime.kt in imp01-runtime-lint for inherited LargeClass lint. Nested DTOs stay unchanged; two existing private cleanup helpers move to file-private scope with the same immutable PCAP controller passed explicitly. Control flow, coroutine context, authority, state, locks, callbacks and resource handling stay unchanged.
+- Native verifier owns only scripts/ci/native-size-baseline.json and docs/native/size-monitoring.md in an isolated worktree. The user approved an 800 KiB per-library growth limit on 2026-11-16. Retain all eight measured sizes, both total limits, bloat limits, ABI coverage and source behavior. Append approval provenance without changing earlier provenance. Root owns the linked execution and verification records.
 - Workers use separate worktrees. Shared files have one active writer. No worker edits task artifacts, baselines, Cargo.lock or version catalogs.
 - Required reviewers: pr-reviewer for the combined behavior/contract change; async-cancel-safety for native async changes; JNI verifier only if an actual JNI signature changes.
 
