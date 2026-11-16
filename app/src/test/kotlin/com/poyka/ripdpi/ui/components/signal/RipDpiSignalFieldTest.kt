@@ -25,8 +25,9 @@ class RipDpiSignalFieldTest {
     )
 
     @Test
-    fun `the hero modes keep the shape values they had before the ripple`() {
-        assertEquals(SignalShape(0f, 0f, 0f, 0f, broken = false), RipDpiSignalMode.Idle.shape())
+    fun `the hero modes keep their line shape, and only idle is at rest`() {
+        // Idle is the one mode at rest: flat as before, and drawn faint with faded ends.
+        assertEquals(SignalShape(0f, 0f, 0f, 0f, broken = false, rest = 1f), RipDpiSignalMode.Idle.shape())
         assertEquals(SignalShape(0f, 1f, 0f, 1f, broken = false), RipDpiSignalMode.Seeking.shape())
         assertEquals(SignalShape(0.16f, 0f, 0f, 1f, broken = false), RipDpiSignalMode.Live.shape())
         assertEquals(SignalShape(0.16f, 0f, 0.5f, 1f, broken = false), RipDpiSignalMode.Unstable.shape())
