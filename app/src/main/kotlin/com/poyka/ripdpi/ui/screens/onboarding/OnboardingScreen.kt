@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -50,6 +51,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -224,6 +226,9 @@ internal fun OnboardingScreen(
     // The intro offers Skip; inner steps provide an explicit path to the previous selection.
     val skipVisible = settledPage == 0
     val skipTestVisible = isLastPage && validationState is OnboardingValidationState.Idle
+    val persona = OnboardingPersona.fromId(uiState.selectedPersona)
+    val signal = onboardingSignal(validationState, currentPage.isConnectionTest, persona, uiState.selectedMode)
+    OnboardingResultHaptic(validationState)
 
     BackHandler(enabled = settledPage > 0) {
         // Keep the validation screen in place during its test and over the running tunnel it leaves behind.
@@ -261,11 +266,12 @@ internal fun OnboardingScreen(
                 onFinishDisconnected = actions.onFinishDisconnected,
                 onBack = { actions.onPageChanged(settledPage - 1) },
                 badgePosition = pagePosition.takeIf { compactHeight },
+                signal = signal,
             )
 
             // 2) STEP BADGE — pinned: it stays in place while the pages change under it.
             if (!compactHeight) {
-                OnboardingPinnedBadge(pagePosition, onboardingSignal(validationState, onTestStep = isLastPage))
+                OnboardingPinnedBadge(pagePosition, signal)
             }
 
             // 3) CONTENT — weighted; each page renders its own title at the top
@@ -449,7 +455,8 @@ private fun OnboardingPagerContent(
 
 /**
  * Status-inset top bar: Back on later steps and the step's optional text action at the end. In a short window
- * it also holds the step badge, centered between two equal sides; [badgePosition] is then the pager position.
+ * it also holds the step badge on the signal line, centered between two equal sides; [badgePosition] is then the
+ * pager position.
  */
 @Composable
 private fun OnboardingTopBar(
@@ -460,6 +467,7 @@ private fun OnboardingTopBar(
     onFinish: () -> Unit,
     onFinishDisconnected: () -> Unit,
     onBack: () -> Unit,
+    signal: OnboardingSignal,
     modifier: Modifier = Modifier,
     badgePosition: (() -> Float)? = null,
 ) {
@@ -522,14 +530,46 @@ private fun OnboardingTopBar(
             action(Modifier.weight(1f, fill = false))
         }
     } else {
-        Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { back() }
+        OnboardingTopBarBadgeRow(badgePosition, signal, back, { action(Modifier) }, rowModifier)
+    }
+}
+
+/**
+ * The top bar of a short window: the badge on the signal line, between Back and the text action. The line is
+ * drawn only in the space that the two controls leave, so it does not cross a control or its label.
+ */
+@Composable
+private fun OnboardingTopBarBadgeRow(
+    pagePosition: () -> Float,
+    signal: OnboardingSignal,
+    back: @Composable () -> Unit,
+    action: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val gap = with(LocalDensity.current) { RipDpiThemeTokens.spacing.sm.roundToPx() }
+    var backWidth by remember { mutableIntStateOf(0) }
+    var actionWidth by remember { mutableIntStateOf(0) }
+    Box(modifier = modifier) {
+        OnboardingSignalLine(
+            signal = signal,
+            pagePosition = pagePosition,
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .onboardingLineBetween(startInset = { backWidth + gap }, endInset = { actionWidth + gap }),
+        )
+        Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                Box(modifier = Modifier.onSizeChanged { backWidth = it.width }) { back() }
+            }
             OnboardingStepBadge(
-                pagePosition = badgePosition,
-                succeeded = finishDisconnectedVisible,
+                pagePosition = pagePosition,
+                succeeded = signal.mode == RipDpiSignalMode.Live,
                 size = OnboardingStepBadgeCompactSize,
             )
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { action(Modifier) }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                Box(modifier = Modifier.onSizeChanged { actionWidth = it.width }) { action() }
+            }
         }
     }
 }

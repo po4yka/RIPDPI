@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -54,7 +55,20 @@ enum class RipDpiSignalMode {
     Broken,
 }
 
-private class SignalShape(
+/**
+ * A standing ripple on a line that has no path yet: a still sine of [cycles] periods across the width, shown from
+ * [start] to [end] as fractions of the width. It does not move with time and is not a connection state, so the
+ * caller keeps the neutral color. Every value is read in the draw phase.
+ */
+@Stable
+class RipDpiSignalRipple(
+    val amplitude: () -> Float,
+    val cycles: () -> Float,
+    val start: () -> Float = { 0f },
+    val end: () -> Float = { 1f },
+)
+
+internal data class SignalShape(
     val amplitude: Float,
     val pulse: Float,
     val noise: Float,
@@ -62,7 +76,7 @@ private class SignalShape(
     val broken: Boolean,
 )
 
-private fun RipDpiSignalMode.shape(): SignalShape =
+internal fun RipDpiSignalMode.shape(): SignalShape =
     when (this) {
         RipDpiSignalMode.Idle -> SignalShape(0f, 0f, 0f, 0f, broken = false)
         RipDpiSignalMode.Seeking -> SignalShape(0f, 1f, 0f, 1f, broken = false)
@@ -71,8 +85,18 @@ private fun RipDpiSignalMode.shape(): SignalShape =
         RipDpiSignalMode.Broken -> SignalShape(LiveAmplitude, 0f, 0f, BrokenGlow, broken = true)
     }
 
+/** The ripple of one frame. [NoRipple] adds nothing to the line. */
+internal class SignalRippleFrame(
+    val amplitude: Float,
+    val cycles: Float,
+    val start: Float,
+    val end: Float,
+)
+
+private val NoRipple = SignalRippleFrame(amplitude = 0f, cycles = 0f, start = 0f, end = 1f)
+
 /** One frame of the line. Plain floats, so the draw phase reads them without a recomposition. */
-private class SignalFrame(
+internal class SignalFrame(
     val time: Float,
     val amplitude: Float,
     val pulse: Float,
@@ -81,6 +105,7 @@ private class SignalFrame(
     val glow: Float,
     val pressAt: Float,
     val press: Float,
+    val ripple: SignalRippleFrame = NoRipple,
 )
 
 /**
@@ -91,6 +116,7 @@ private class SignalFrame(
  * @param breakAt where the line stops in [RipDpiSignalMode.Broken], as a fraction of the width.
  * @param pressAt where the pointer is, as a fraction of the width.
  * @param press how far the line dips at [pressAt], from 0 to 1.
+ * @param ripple a standing ripple for a line with no path. The default draws the line as before.
  */
 @Composable
 fun RipDpiSignalField(
@@ -100,6 +126,7 @@ fun RipDpiSignalField(
     breakAt: Float = Middle,
     pressAt: () -> Float = { Middle },
     press: () -> Float = { 0f },
+    ripple: RipDpiSignalRipple? = null,
 ) {
     val motion = RipDpiThemeTokens.motion
     val transition = updateTransition(targetState = mode, label = "Signal mode")
@@ -139,7 +166,11 @@ fun RipDpiSignalField(
                 .height(RipDpiSignalFieldHeight)
                 .clipToBounds()
                 .drawBehind {
-                    val frame = SignalFrame(time.floatValue, amplitude, pulse, noise, cut, glow, pressAt(), press())
+                    val rippleFrame =
+                        ripple?.let { SignalRippleFrame(it.amplitude(), it.cycles(), it.start(), it.end()) }
+                            ?: NoRipple
+                    val now = time.floatValue
+                    val frame = SignalFrame(now, amplitude, pulse, noise, cut, glow, pressAt(), press(), rippleFrame)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && shader != null) {
                         drawRect(shader.brush(size, frame, lineColor, StrokeWidth.toPx(), GlowSpread.toPx()))
                     } else {
@@ -181,6 +212,8 @@ private class SignalShader {
         shader.setFloatUniform("cut", frame.cut)
         shader.setFloatUniform("glow", frame.glow)
         shader.setFloatUniform("press", frame.pressAt, frame.press)
+        val ripple = frame.ripple
+        shader.setFloatUniform("ripple", ripple.amplitude, ripple.cycles, ripple.start, ripple.end)
         shader.setFloatUniform("stroke", strokePx / 2f)
         shader.setFloatUniform("spread", spreadPx)
         shader.setColorUniform("color", color.toArgb())
@@ -189,7 +222,7 @@ private class SignalShader {
 }
 
 /** Vertical offset of the line at [u], as a fraction of the height. Mirrors `offsetAt` in the shader. */
-private fun SignalFrame.offsetAt(u: Float): Float {
+internal fun SignalFrame.offsetAt(u: Float): Float {
     val edge = smoothStep(0f, EdgeFade, u) * (1f - smoothStep(1f - EdgeFade, 1f, u))
     var wave =
         SlowWeight * sin(Tau * (SlowCycles * u - SlowSpeed * time)) +
@@ -200,7 +233,12 @@ private fun SignalFrame.offsetAt(u: Float): Float {
     val bump = pulse * PulseHeight * exp(-p * p) * sin(Tau * Middle * p)
     val d = (u - pressAt) / PressWidth
     val live = if (u <= cut) 1f else 0f
-    return edge * live * (amplitude * wave + bump) + PressDepth * press * exp(-d * d)
+    val line = edge * live * (amplitude * wave + bump) + PressDepth * press * exp(-d * d)
+    // The hero has no ripple, so its line keeps the exact value it had before the ripple existed.
+    if (ripple.amplitude == 0f) return line
+    val window =
+        smoothStep(ripple.start, ripple.start + EdgeFade, u) * (1f - smoothStep(ripple.end - EdgeFade, ripple.end, u))
+    return line + ripple.amplitude * window * sin(Tau * ripple.cycles * (u - Middle))
 }
 
 private fun smoothStep(
@@ -305,6 +343,7 @@ uniform float noise;
 uniform float cut;
 uniform float glow;
 uniform float2 press;
+uniform float4 ripple;
 uniform float stroke;
 uniform float spread;
 layout(color) uniform half4 color;
@@ -318,7 +357,9 @@ float offsetAt(float u) {
     float p = (u - fract(0.55 * time)) / 0.07;
     float bump = pulse * 0.3 * exp(-p * p) * sin(TAU * 0.5 * p);
     float d = (u - press.x) / 0.12;
-    return edge * step(u, cut) * (amp * w + bump) + 0.2 * press.y * exp(-d * d);
+    float window = smoothstep(ripple.z, ripple.z + 0.18, u) * (1.0 - smoothstep(ripple.w - 0.18, ripple.w, u));
+    float standing = ripple.x * window * sin(TAU * ripple.y * (u - 0.5));
+    return edge * step(u, cut) * (amp * w + bump) + 0.2 * press.y * exp(-d * d) + standing;
 }
 
 half4 main(float2 xy) {
@@ -357,5 +398,16 @@ private fun SignalFieldModes(theme: String) {
         RipDpiSignalField(RipDpiSignalMode.Live, colors.signal, press = { 1f })
         RipDpiSignalField(RipDpiSignalMode.Unstable, colors.warning)
         RipDpiSignalField(RipDpiSignalMode.Broken, colors.destructive, breakAt = 0.7f)
+        // The standing ripple of a line with no path: wide, fine, and limited to one half of the width.
+        RipDpiSignalField(RipDpiSignalMode.Idle, colors.outline, ripple = previewRipple(cycles = 2f))
+        RipDpiSignalField(RipDpiSignalMode.Idle, colors.outline, ripple = previewRipple(cycles = 7f))
+        RipDpiSignalField(RipDpiSignalMode.Idle, colors.outline, ripple = previewRipple(cycles = 2f, start = 0.5f))
     }
 }
+
+private fun previewRipple(
+    cycles: Float,
+    start: Float = 0f,
+) = RipDpiSignalRipple(amplitude = { PreviewRippleAmplitude }, cycles = { cycles }, start = { start })
+
+private const val PreviewRippleAmplitude = 0.12f
