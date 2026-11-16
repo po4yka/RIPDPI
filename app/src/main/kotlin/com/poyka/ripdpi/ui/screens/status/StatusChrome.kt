@@ -8,59 +8,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 
-@Immutable
-internal data class StatusChromeMetrics(
-    val topBarMinHeight: Dp = 72.dp,
-    val connectionHaloSize: Dp = 192.dp,
-    val connectionButtonSize: Dp = 172.dp,
-    val connectionHorizontalPadding: Dp = 20.dp,
-    val connectionVerticalPadding: Dp = 24.dp,
-    val connectionIconSize: Dp = 28.dp,
-)
-
-@Composable
-internal fun rememberStatusChromeMetrics(): StatusChromeMetrics {
-    val layout = RipDpiThemeTokens.layout
-
-    return when (layout.widthClass) {
-        RipDpiWidthClass.Compact -> {
-            StatusChromeMetrics()
-        }
-
-        RipDpiWidthClass.Medium -> {
-            StatusChromeMetrics(
-                topBarMinHeight = 76.dp,
-                connectionHaloSize = 204.dp,
-                connectionButtonSize = 184.dp,
-                connectionHorizontalPadding = 24.dp,
-                connectionVerticalPadding = 26.dp,
-                connectionIconSize = 30.dp,
-            )
-        }
-
-        RipDpiWidthClass.Expanded,
-        RipDpiWidthClass.Large,
-        RipDpiWidthClass.ExtraLarge,
-        -> {
-            StatusChromeMetrics(
-                topBarMinHeight = 80.dp,
-                connectionHaloSize = 216.dp,
-                connectionButtonSize = 196.dp,
-                connectionHorizontalPadding = 28.dp,
-                connectionVerticalPadding = 28.dp,
-                connectionIconSize = 32.dp,
-            )
-        }
-    }
-}
+// One touch-target row: the brand names the app and is not the screen's subject, so the hero starts close to the top.
+private val StatusTopBarMinHeight = 48.dp
 
 @Composable
 internal fun StatusTopBar(
@@ -70,7 +24,6 @@ internal fun StatusTopBar(
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
-    val statusChrome = rememberStatusChromeMetrics()
     // The dashboard column is contentMaxWidth wide including its own padding, so the title lines up with it.
     val containerMaxWidth = layout.contentMaxWidth - layout.horizontalPadding - layout.horizontalPadding
 
@@ -86,14 +39,14 @@ internal fun StatusTopBar(
                 Modifier
                     .widthIn(max = containerMaxWidth)
                     .fillMaxWidth()
-                    .heightIn(min = statusChrome.topBarMinHeight),
+                    .heightIn(min = StatusTopBarMinHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = title,
                 modifier = Modifier.weight(1f),
-                style = type.appBarTitle,
-                color = colors.foreground,
+                style = type.sectionTitle,
+                color = colors.mutedForeground,
             )
         }
     }

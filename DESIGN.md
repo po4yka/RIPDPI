@@ -631,7 +631,7 @@ The primary reusable components are:
 - Secure Routes: `RipDpiRouteProfileCard`, `RipDpiRouteCapabilityPill`, `RipDpiRouteStackDiagram`, `RipDpiRouteOpportunityPanel`
 - Inputs: `RipDpiTextField`, `RipDpiConfigTextField`, `RipDpiDropdown`, `RipDpiSwitch`
 - Containers: `RipDpiCard`, `PresetCard`, `SettingsRow`, `RipDpiDialog`, `RipDpiBottomSheet`, `RipDpiSnackbar`, `WarningBanner`
-- Navigation: `RipDpiTopAppBar`, bottom navigation, `SettingsCategoryHeader`. Every screen uses the Material top app bar through `RipDpiTopAppBar`, except Home, which keeps its brand header (`HomeTopBar`) as the documented exception.
+- Navigation: `RipDpiTopAppBar`, bottom navigation, `SettingsCategoryHeader`. Every screen uses the Material top app bar through `RipDpiTopAppBar`, except Status, which keeps a compact brand line (`StatusTopBar`) as the documented exception: the app name in `sectionTitle` and `mutedForeground` on one 48dp row, with no actions.
 - Signal: `RipDpiSignalField`, the line that shows the state of a path
 - Indicators: `StatusIndicator`, `LogRow`, `StageProgressIndicator`, `AnalysisProgressIndicator`, `RipDpiPageIndicators`
 - Scaffolds: `RipDpiContentScreenScaffold`, `RipDpiSettingsScaffold`, `RipDpiDashboardScaffold`, `RipDpiIntroScaffold`
