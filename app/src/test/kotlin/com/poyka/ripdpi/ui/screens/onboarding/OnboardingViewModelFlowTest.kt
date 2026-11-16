@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsProviderGoogle
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -42,6 +43,24 @@ class OnboardingViewModelFlowTest {
             restored.previousPage()
             assertEquals(3, restored.uiState.value.currentPage)
             assertEquals(3, createOnboardingViewModel(savedStateHandle = savedStateHandle).uiState.value.currentPage)
+        }
+
+    @Test
+    fun `persona, scope and dns return from the settings after process death`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val first = createOnboardingViewModel(repository = repository)
+            first.selectPersona("advanced")
+            first.selectMode(Mode.Proxy)
+            first.selectDnsProvider(DnsProviderGoogle)
+            advanceUntilIdle()
+
+            val restored = createOnboardingViewModel(repository = repository)
+            advanceUntilIdle()
+
+            assertEquals("advanced", restored.uiState.value.selectedPersona)
+            assertEquals(Mode.Proxy, restored.uiState.value.selectedMode)
+            assertEquals(DnsProviderGoogle, restored.uiState.value.selectedDnsProviderId)
         }
 
     @Test

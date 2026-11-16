@@ -29,7 +29,7 @@ class OnboardingSettingsCoordinator
     ) {
         fun observeSelections(
             scope: CoroutineScope,
-            onSelectionChanged: (Mode, String) -> Unit,
+            onSelectionChanged: (Mode, String, String) -> Unit,
         ) {
             scope.launch {
                 appSettingsRepository.settings.collect { settings ->
@@ -37,6 +37,7 @@ class OnboardingSettingsCoordinator
                     onSelectionChanged(
                         Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue }),
                         settings.onboardingDnsProviderId(),
+                        normalizePersona(settings.uiPersona),
                     )
                 }
             }

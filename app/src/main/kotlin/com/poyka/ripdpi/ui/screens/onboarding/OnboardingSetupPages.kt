@@ -171,7 +171,9 @@ private fun OnboardingValidationStatusBlock(
                 if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION) {
                     stringResource(R.string.onboarding_test_failed_permission)
                 } else if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS) {
-                    stringResource(R.string.onboarding_test_failed_permission)
+                    stringResource(R.string.permissions_notifications_open_settings)
+                } else if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS) {
+                    state.reason
                 } else {
                     stringResource(R.string.onboarding_validation_failed, state.reason)
                 }
@@ -522,7 +524,8 @@ private fun tunnelRowStatus(state: OnboardingValidationState): OnboardingRowStat
         }
 
         is OnboardingValidationState.Failed -> {
-            if (state.failedStep == OnboardingValidationStep.Tunnel) {
+            // A failure with no step, such as a denied permission, stopped before the tunnel started.
+            if (state.failedStep == OnboardingValidationStep.Tunnel || state.failedStep == null) {
                 OnboardingRowStatus.Failed
             } else {
                 OnboardingRowStatus.Complete

@@ -603,7 +603,8 @@ private fun OnboardingBottomBar(
             modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(bottom = introLayout.footerBottomPadding),
+                // The top gap keeps scrolling page content clear of the indicators.
+                .padding(top = introLayout.footerProgressGap, bottom = introLayout.footerBottomPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // Hidden, not removed, so the CTA stays in place when the test succeeds.
@@ -686,18 +687,12 @@ private fun OnboardingFooterCta(
         }
 
         is OnboardingValidationState.Failed -> {
-            val grantPermission = validationState.recoveryKind.requiresPermissionGrantAction()
+            // A permission failure names the permission to grant; the action asks for it again.
+            val grantLabelRes = validationState.recoveryKind.grantActionLabelRes()
             RipDpiButton(
-                text =
-                    stringResource(
-                        if (grantPermission) {
-                            R.string.onboarding_test_grant_permission
-                        } else {
-                            R.string.onboarding_test_retry
-                        },
-                    ),
+                text = stringResource(grantLabelRes ?: R.string.onboarding_test_retry),
                 onClick = onRunValidation,
-                leadingIcon = if (grantPermission) RipDpiIcons.Lock else null,
+                leadingIcon = if (grantLabelRes != null) RipDpiIcons.Lock else null,
                 modifier = modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidateAction),
             )
         }
@@ -727,9 +722,19 @@ private fun OnboardingFooterCta(
     }
 }
 
-private fun OnboardingValidationRecoveryKind.requiresPermissionGrantAction(): Boolean =
-    this == OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION ||
-        this == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS
+@StringRes
+private fun OnboardingValidationRecoveryKind.grantActionLabelRes(): Int? =
+    when (this) {
+        OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION -> R.string.onboarding_test_grant_permission
+
+        OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS,
+        OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS,
+        -> R.string.permissions_notifications_title
+
+        OnboardingValidationRecoveryKind.RETRY,
+        OnboardingValidationRecoveryKind.SWITCH_MODE,
+        -> null
+    }
 
 @Composable
 private fun OnboardingInfoPageScene(

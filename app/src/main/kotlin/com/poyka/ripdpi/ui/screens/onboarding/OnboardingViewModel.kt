@@ -238,14 +238,16 @@ class OnboardingViewModel
         }
 
         private fun observeOnboardingSelections() {
-            settingsCoordinator.observeSelections(viewModelScope) { selectedMode, dnsProviderId ->
+            settingsCoordinator.observeSelections(viewModelScope) { selectedMode, dnsProviderId, persona ->
                 _uiState.update { current ->
+                    // The persona does not change what the test checks, so it returns without a test reset.
+                    val restored = current.copy(selectedPersona = persona)
                     if (current.selectedMode == selectedMode &&
                         current.selectedDnsProviderId == dnsProviderId
                     ) {
-                        current
+                        restored
                     } else {
-                        current
+                        restored
                             .copy(
                                 selectedMode = selectedMode,
                                 selectedDnsProviderId = dnsProviderId,

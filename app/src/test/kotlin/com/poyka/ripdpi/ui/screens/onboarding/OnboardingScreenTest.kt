@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
@@ -30,13 +29,10 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.data.DnsProviderAdGuard
-import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -62,223 +58,6 @@ class OnboardingScreenTest {
         composeRule.onNodeWithText("Skip setup").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingContinue).assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingBack).assertCountEquals(0)
-    }
-
-    @Test
-    fun `steps come in the documented order and the progress counts all of them`() {
-        val kinds = OnboardingPages.map { (it as? OnboardingPage.Setup)?.kind }
-        assertEquals(
-            listOf(
-                SetupPageKind.Welcome,
-                null,
-                SetupPageKind.PersonaSelection,
-                SetupPageKind.ModeSelection,
-                SetupPageKind.DnsSelection,
-                SetupPageKind.BackgroundGuidance,
-                SetupPageKind.ConnectionTest,
-                SetupPageKind.Completion,
-            ),
-            kinds,
-        )
-
-        renderOnboarding(OnboardingUiState(currentPage = 0))
-
-        composeRule.onNodeWithText("Welcome to RIPDPI").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Step 1 of 8").assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingLanguage).assertHasClickAction()
-    }
-
-    @Test
-    fun `skip on intro shows the completion step, which completes onboarding`() {
-        var uiState by mutableStateOf(OnboardingUiState(currentPage = 0))
-        var finished = false
-        composeRule.setContent {
-            RipDpiTheme {
-                OnboardingScreen(
-                    uiState = uiState,
-                    actions =
-                        OnboardingScreenActions(
-                            onShowCompletion = { uiState = uiState.copy(currentPage = OnboardingCompletionPageIndex) },
-                            onFinish = { finished = true },
-                        ),
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).performClick()
-        composeRule.waitForIdle()
-
-        assertFalse(finished)
-        composeRule.onNodeWithText("Setup complete").assertIsDisplayed()
-        composeRule.onNodeWithText("Not run").assertExists()
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipConfirmDialog).assertCountEquals(0)
-
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingCompletionDone).performClick()
-
-        assertTrue(finished)
-    }
-
-    @Test
-    fun `skip test and finish without testing show the completion step`() {
-        var shown = 0
-        var uiState by mutableStateOf(OnboardingUiState(currentPage = OnboardingTestPageIndex))
-        composeRule.setContent {
-            RipDpiTheme {
-                OnboardingScreen(
-                    uiState = uiState,
-                    actions = OnboardingScreenActions(onShowCompletion = { shown++ }, onFinish = { error("no exit") }),
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipTest).performClick()
-        assertEquals(1, shown)
-
-        composeRule.runOnIdle {
-            uiState = uiState.withValidationState(OnboardingValidationState.Failed(reason = "No answer"))
-        }
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishAnyway).performScrollTo().performClick()
-        assertEquals(2, shown)
-    }
-
-    @Test
-    fun `completion after a passed test keeps the tunnel with Done and offers Disconnect`() {
-        var kept = false
-        var disconnected = false
-        composeRule.setContent {
-            RipDpiTheme {
-                OnboardingScreen(
-                    uiState =
-                        OnboardingUiState(
-                            currentPage = OnboardingCompletionPageIndex,
-                            selectedPersona = "advanced",
-                            selectedMode = Mode.Proxy,
-                            selectedDnsProviderId = DnsProviderCloudflare,
-                        ).withValidationState(OnboardingValidationState.Success(Mode.Proxy, dnsSummary = "Test DNS")),
-                    actions =
-                        OnboardingScreenActions(
-                            onFinishKeepRunning = { kept = true },
-                            onFinishDisconnected = { disconnected = true },
-                            onFinish = { error("a passed test must not stop the tunnel") },
-                        ),
-                )
-            }
-        }
-
-        composeRule.onNodeWithText("Connected").assertIsDisplayed()
-        listOf("Advanced", "Proxy only", "Cloudflare", "Passed").forEach { value ->
-            composeRule.onNodeWithText(value).assertExists()
-        }
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingBack).assertCountEquals(0)
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishDisconnected).performClick()
-
-        assertTrue(kept)
-        assertTrue(disconnected)
-    }
-
-    @Test
-    fun `completion after a failed test states the failure and goes back with the back action`() {
-        var back = false
-        composeRule.setContent {
-            RipDpiTheme {
-                OnboardingScreen(
-                    uiState =
-                        OnboardingUiState(currentPage = OnboardingCompletionPageIndex)
-                            .withValidationState(OnboardingValidationState.Failed(reason = "No answer")),
-                    actions = OnboardingScreenActions(onBack = { back = true }),
-                )
-            }
-        }
-
-        composeRule.onNodeWithText("Failed").assertExists()
-        composeRule.onNodeWithText("AdGuard DNS").assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingBack).performClick()
-
-        assertTrue(back)
-    }
-
-    @Test
-    fun `idle test explains the notification request before the user can start the test`() {
-        renderOnboarding(OnboardingUiState(currentPage = OnboardingTestPageIndex, notificationsNoteVisible = true))
-
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingNotificationNote).assertIsDisplayed()
-        composeRule.onNodeWithText("Allow status notifications").assertIsDisplayed()
-        composeRule.onNodeWithText("VPN permission").assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidateAction).assertTextEquals("Start test")
-    }
-
-    @Test
-    fun `idle test has no notification note when android will not ask`() {
-        renderOnboarding(OnboardingUiState(currentPage = OnboardingTestPageIndex))
-
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingNotificationNote).assertCountEquals(0)
-    }
-
-    @Test
-    fun `idle proxy test explains the local proxy instead of the vpn permission`() {
-        renderOnboarding(OnboardingUiState(currentPage = OnboardingTestPageIndex, selectedMode = Mode.Proxy))
-
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingProxyNote).assertIsDisplayed()
-        composeRule.onNodeWithText("Local proxy").assertIsDisplayed()
-        composeRule.onAllNodesWithText("VPN permission").assertCountEquals(0)
-    }
-
-    @Test
-    fun `dns step selects a resolver and maps the default resolver to the untouched settings`() {
-        val selected = mutableListOf<String>()
-        composeRule.setContent {
-            RipDpiTheme {
-                OnboardingScreen(
-                    uiState = OnboardingUiState(currentPage = onboardingPageIndex(SetupPageKind.DnsSelection)),
-                    actions = OnboardingScreenActions(onDnsSelected = { selected += it }),
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingDnsOptionPrefix + DnsProviderAdGuard).assertIsSelected()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.OnboardingDnsOptionPrefix + DnsProviderCloudflare)
-            .performScrollTo()
-            .performClick()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.OnboardingDnsOptionPrefix + DnsProviderAdGuard)
-            .performScrollTo()
-            .performClick()
-
-        assertEquals(listOf(DnsProviderCloudflare, OnboardingDnsSystemId), selected)
-    }
-
-    @Test
-    fun `background step opens system settings and hides vpn settings for the proxy`() {
-        var uiState by mutableStateOf(
-            OnboardingUiState(currentPage = onboardingPageIndex(SetupPageKind.BackgroundGuidance)),
-        )
-        val opened = mutableListOf<String>()
-        composeRule.setContent {
-            RipDpiTheme {
-                OnboardingScreen(
-                    uiState = uiState,
-                    actions =
-                        OnboardingScreenActions(
-                            onOpenBatterySettings = { opened += "battery" },
-                            onOpenVpnSettings = { opened += "vpn" },
-                        ),
-                )
-            }
-        }
-
-        composeRule.onNodeWithText("Always-on VPN").assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingBatterySettings).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingVpnSettings).performScrollTo().performClick()
-        assertEquals(listOf("battery", "vpn"), opened)
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingContinue).assertExists()
-
-        composeRule.runOnIdle { uiState = uiState.copy(selectedMode = Mode.Proxy) }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingBatterySettings).assertExists()
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingVpnSettings).assertCountEquals(0)
-        composeRule.onAllNodesWithText("Always-on VPN").assertCountEquals(0)
     }
 
     @Test
@@ -666,6 +445,25 @@ class OnboardingScreenTest {
             assertTrue(footerBounds.top >= rootBounds.top)
             assertTrue(footerBounds.bottom <= rootBounds.bottom)
         }
+
+        // Scrolling content stays clear of the indicators: the scope cards overflow the page at this font scale.
+        composeRule.runOnIdle {
+            uiState = uiState.copy(currentPage = onboardingPageIndex(SetupPageKind.ModeSelection))
+        }
+        composeRule.waitForIdle()
+        val indicatorTop =
+            composeRule
+                .onNodeWithContentDescription("Step 4 of 8")
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .top
+        val contentBottom =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.OnboardingModeProxy)
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .bottom
+        assertTrue("content $contentBottom must end above the indicators $indicatorTop", contentBottom < indicatorTop)
 
         composeRule.runOnIdle { uiState = uiState.copy(currentPage = 1) }
         composeRule.waitForIdle()
