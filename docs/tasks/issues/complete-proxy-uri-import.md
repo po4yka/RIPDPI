@@ -2,7 +2,7 @@
 id: OUT-1794722656313653
 title: Fix proxy URI import and complete TUIC and Mieru support
 kind: feature
-status: review
+status: done
 area: outbound
 priority: high
 owner: URI import team
@@ -13,6 +13,9 @@ openspec_change: complete-proxy-uri-import
 created: 2026-11-15
 updated: 2026-11-16
 status_detail: Full manual CI passed on exact 5b7d33fade, including all native-size and emulator gates.
+closed_at: "2026-11-16T05:22:20Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "F1-F10, TUIC URI and advanced Mieru TCP fixes are published. Full manual CI 43804310691 passed on exact 5b7d33fade930ed10131d1d84ee3a7cdc86367af: 55 successful jobs, 15 routed skips, all native-size and five emulator gates passed. Local 389 Rust tests, 1079 Kotlin cases, actual wire, approved 800 KiB policy and final source gates passed; archived verification preserves scope and residual external/device gaps."
 ---
 
 ## Goal

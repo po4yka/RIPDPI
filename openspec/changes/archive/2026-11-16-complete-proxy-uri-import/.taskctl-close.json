@@ -1,0 +1,11 @@
+{
+  "change": "complete-proxy-uri-import",
+  "evidence_summary": "F1-F10, TUIC URI and advanced Mieru TCP fixes are published. Full manual CI 43804310691 passed on exact 5b7d33fade930ed10131d1d84ee3a7cdc86367af: 55 successful jobs, 15 routed skips, all native-size and five emulator gates passed. Local 389 Rust tests, 1079 Kotlin cases, actual wire, approved 800 KiB policy and final source gates passed; archived verification preserves scope and residual external/device gaps.",
+  "execution_sha256": "db4abb21dd823effef4e349bbbba65a2fded373f66fbe726318e5170db78cb03",
+  "issue_sha256": "a36b8b7d6206a9f10098ad3320c86cd9c55f67d17624cf262b4e244066f1ba32",
+  "outcome": "done",
+  "prepared_at": "2026-11-16T05:22:20Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "OUT-1794722656313653"
+}
