@@ -4,8 +4,8 @@ change: complete-proxy-uri-import
 commit_sha: 2f3438a9fc0fda85a4b6f31e118f693d745b07df
 local: passed
 local_evidence: "All eight final-rebase-v1 jobs passed on this exact SHA: staticAnalysis, explicit app/service lint, 436 fresh affected Kotlin tests, 74 affected Rust tests, locked workspace all-targets compile, actual native wire 18 accepted/54 rejected, ci-gates, architecture and locked metadata. Full coverage on unchanged owned inputs passed 10421 fresh tests on 41129892bd; retained native scope passed 389 tests, Clippy and two pinned Go peers. Receipts: /Users/npochaev/GitHub/RIPDPI-worktrees/imp01-evidence/integration."
-remote_ci: required
-remote_ci_evidence: The first published candidate failed; its three owned failures are fixed and locally verified. Check the next exact published SHA before acceptance.
+remote_ci: blocked
+remote_ci_evidence: "Published 1c29c2c51e CI 43756895493 ended failure: 47 success, 18 skipped and 5 failure. Three debug variants failed the same inherited x86 native-size limit; API37 timed out installing the APK before test assertions; ci-required aggregated those failures. All prior owned failure jobs, static analysis and four non-CI workflows passed. The user approved an 800 KiB per-library budget on 2026-11-16; a fresh exact-SHA CI run is required after that change."
 device: not_applicable
 device_evidence: No device or external server acceptance is claimed. JVM Room, native config and local Go peers cover the owned source contracts.
 artifact: not_applicable
@@ -85,3 +85,11 @@ Official Go 1.27.2 peer acceptance remains separate from observed Go 1.27.4. Mir
 ## Publication acceptance
 
 New main integration, push and exact-SHA hosted CI remain required at this record's commit. Update this section only with observed receipts. The user explicitly authorized main integration and push.
+
+## Approved native budget follow-up
+
+On 2026-11-16 the user explicitly approved changing only the per-library native growth limit from 720 to 800 KiB. Execution steps: `OUT-1794799654273416` for the policy and `OUT-1794799654782846` for fresh hosted CI. Preserve all eight historical measured sizes, the 4.7% and 3670016-byte total limits, bloat limits, source behavior, profiles and ABI coverage. The policy comment must append approval provenance, as required by the existing policy guard.
+
+The read-only artifact diagnosis proves that original IMP-01 EE passed the size gate. Later upstream native-fetch/adaptive changes added 64432 packaged x86 bytes before geo added another 30120. Current 1c29 and base e7b871 binaries are byte-identical; the follow-up fixes added zero native bytes. The exact first crossing commit is not established. No measured low-risk source reduction of 59172 bytes was found. All four downloaded CI shard ZIP digests match GitHub metadata. The existing verifier reproduced the old failing hosted report exactly on eight actual libraries and passed with the external 800 KiB proposal. This is a local proposal check, not a hosted pass. Proof: `integration/native-size-regression-v1/REPORT.md`, `PROPOSAL.md` and `all-abi-proposal-verification-receipt.json`.
+
+The API37 failure is an adb install timeout after 120 seconds, before installation completed and before test assertions. Its underlying cause is not established. Keep the original timeout and obtain a fresh run after the approved policy push; do not infer a production defect or change app behavior from that failure. API27/33/35/36 jobs passed; API35 also passed the independent Xray peer and actual TUN steps. Those results do not prove a TUIC or Mieru network exchange. Terminal evidence: `integration/followup-hosted-ci-terminal.json` and `integration/followup-hosted-artifacts/api37-install-timeout.json`.
