@@ -63,6 +63,15 @@ private val DarkToneColors =
             ToneColors(DarkSuccess, DarkWarning, Color(0xFF8BBDFB), Color(0xFFB5BAC3)),
     )
 
+// The live-path signal. Cyan is the one hue no status tone uses, so it never reads as success or info.
+private val LightSignalColors =
+    mapOf(
+        RipDpiContrastLevel.Standard to Color(0xFF0E7490),
+        RipDpiContrastLevel.Medium to Color(0xFF0B5E75),
+        RipDpiContrastLevel.High to Color(0xFF094F63),
+    )
+private val DarkSignal = Color(0xFF22D3EE)
+
 private val LightScrim = Color(0x99000000)
 private val DarkScrim = Color(0xCC000000)
 
@@ -102,6 +111,8 @@ data class RipDpiExtendedColors(
     val restrictedForeground: Color,
     val restrictedContainer: Color,
     val restrictedContainerForeground: Color,
+    /** Marks a live or connecting path. Not a status tone: warning and failure keep their own roles. */
+    val signal: Color,
     /** Container of the Primary button and its label; full white in dark theme so it stays the strongest control. */
     val primaryAction: Color,
     val primaryActionForeground: Color,
@@ -123,6 +134,7 @@ fun ripDpiExtendedColors(
     scheme: ColorScheme,
     isDark: Boolean,
     contrast: RipDpiContrastLevel = RipDpiContrastLevel.Standard,
+    dynamicColor: Boolean = false,
 ): RipDpiExtendedColors {
     val tones = checkNotNull((if (isDark) DarkToneColors else LightToneColors)[contrast])
     return RipDpiExtendedColors(
@@ -155,6 +167,12 @@ fun ripDpiExtendedColors(
         restrictedContainer = if (isDark) DarkRestrictedContainer else LightRestrictedContainer,
         restrictedContainerForeground =
             if (isDark) DarkRestrictedContainerForeground else LightRestrictedContainerForeground,
+        signal =
+            when {
+                dynamicColor -> scheme.primary
+                isDark -> DarkSignal
+                else -> checkNotNull(LightSignalColors[contrast])
+            },
         tonalCardBorder = if (contrast == RipDpiContrastLevel.Standard) Color.Transparent else scheme.outlineVariant,
         primaryAction = if (isDark) Color.White else scheme.onSurface,
         primaryActionForeground = scheme.surface,

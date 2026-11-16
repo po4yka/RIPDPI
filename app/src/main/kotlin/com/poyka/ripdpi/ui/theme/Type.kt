@@ -82,6 +82,8 @@ data class RipDpiTextStyles(
     val monoInline: TextStyle,
     val monoLog: TextStyle,
     val monoSmall: TextStyle,
+    val heroValue: TextStyle,
+    val readoutValue: TextStyle,
     val brandStatus: TextStyle,
 )
 
@@ -109,6 +111,8 @@ internal fun RipDpiTextStyles.withLocaleList(locales: LocaleList): RipDpiTextSty
         monoInline = monoInline.copy(localeList = locales),
         monoLog = monoLog.copy(localeList = locales),
         monoSmall = monoSmall.copy(localeList = locales),
+        heroValue = heroValue.copy(localeList = locales),
+        readoutValue = readoutValue.copy(localeList = locales),
         brandStatus = brandStatus.copy(localeList = locales),
     )
 
@@ -142,6 +146,8 @@ val RipDpiTypeScale =
         monoInline = monoStyle(fontSize = 13, lineHeight = 20),
         monoLog = monoStyle(fontSize = 12, lineHeight = 20),
         monoSmall = monoStyle(fontSize = 12, lineHeight = 16),
+        heroValue = monoStyle(fontSize = 32, lineHeight = 40, fontWeight = FontWeight.Medium),
+        readoutValue = monoStyle(fontSize = 20, lineHeight = 28, fontWeight = FontWeight.Medium),
         brandStatus = monoStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Medium),
     )
 

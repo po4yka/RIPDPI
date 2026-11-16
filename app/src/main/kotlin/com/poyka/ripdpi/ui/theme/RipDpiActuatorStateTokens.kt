@@ -20,6 +20,7 @@ data class RipDpiActuatorStateTokens(
                     carriageContent = colors.foreground,
                     terminal = colors.inputBackground,
                     terminalBorder = colors.mutedForeground,
+                    signal = colors.outline,
                 )
             }
 
@@ -32,6 +33,7 @@ data class RipDpiActuatorStateTokens(
                     terminal = colors.accent,
                     terminalBorder = colors.mutedForeground,
                     slotContent = colors.accentForeground,
+                    signal = colors.signal,
                 )
             }
 
@@ -45,6 +47,7 @@ data class RipDpiActuatorStateTokens(
                     terminalBorder = colors.foreground,
                     slotContent = colors.background,
                     railContent = colors.accentForeground,
+                    signal = colors.signal,
                 )
             }
 
@@ -59,6 +62,7 @@ data class RipDpiActuatorStateTokens(
                     slotContent = colors.background,
                     routeLabel = colors.warning,
                     railContent = colors.warningContainerForeground,
+                    signal = colors.warning,
                 )
             }
 
@@ -72,6 +76,7 @@ data class RipDpiActuatorStateTokens(
                     terminalBorder = colors.destructive,
                     routeLabel = colors.destructive,
                     railContent = colors.destructiveContainerForeground,
+                    signal = colors.destructive,
                 )
             }
         }
@@ -151,6 +156,7 @@ data class RipDpiActuatorStateTokens(
         routeLabel: Color = colors.foreground,
         slotContent: Color = colors.foreground,
         railContent: Color = colors.foreground,
+        signal: Color,
     ): RipDpiActuatorStateStyle =
         RipDpiActuatorStateStyle(
             rail = rail,
@@ -163,5 +169,6 @@ data class RipDpiActuatorStateTokens(
             routeLabel = routeLabel,
             slotContent = slotContent,
             railContent = railContent,
+            signal = signal,
         )
 }

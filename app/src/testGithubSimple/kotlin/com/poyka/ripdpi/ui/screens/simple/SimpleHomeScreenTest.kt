@@ -684,7 +684,12 @@ class SimpleHomeScreenTest {
 
         composeRule.onNodeWithText("Network analysis complete").assertIsDisplayed()
         composeRule.onNodeWithText("Two recommended settings are ready to review.").assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsShareAction).assertIsEnabled().performClick()
+        // The hero card is taller than the old header, so the action can start below the host viewport.
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.StatusDiagnosticsShareAction)
+            .performScrollTo()
+            .assertIsEnabled()
+            .performClick()
         composeRule.runOnIdle { assertEquals(1, shareClicks) }
     }
 
@@ -817,7 +822,11 @@ class SimpleHomeScreenTest {
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsShareAction).assertIsNotEnabled()
-        composeRule.onNodeWithText("Save archive").assertIsEnabled().performClick()
+        composeRule
+            .onNodeWithText("Save archive")
+            .performScrollTo()
+            .assertIsEnabled()
+            .performClick()
         composeRule.runOnIdle { assertEquals(1, saveClicks) }
     }
 

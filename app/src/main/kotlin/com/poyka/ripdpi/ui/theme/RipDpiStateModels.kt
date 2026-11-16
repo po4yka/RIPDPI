@@ -61,6 +61,8 @@ data class RipDpiActuatorStateStyle(
     val slotContent: Color,
     // Text and icons drawn on the rail, such as the fault detail row.
     val railContent: Color,
+    /** The signal line of the hero: the live color only while a path is live or connecting. */
+    val signal: Color,
 )
 
 @Immutable

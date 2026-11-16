@@ -44,6 +44,30 @@ private fun ConnectionActuatorFaultPreview() {
     ConnectionActuatorScene(StatusConnectionActuatorStatus.Fault)
 }
 
+@Preview(name = "ConnectionActuator connecting dark", widthDp = 360)
+@Composable
+private fun ConnectionActuatorEngagingDarkPreview() {
+    ConnectionActuatorScene(StatusConnectionActuatorStatus.Engaging, theme = "dark")
+}
+
+@Preview(name = "ConnectionActuator connected dark", widthDp = 360)
+@Composable
+private fun ConnectionActuatorLockedDarkPreview() {
+    ConnectionActuatorScene(StatusConnectionActuatorStatus.Locked, theme = "dark")
+}
+
+@Preview(name = "ConnectionActuator warning dark", widthDp = 360)
+@Composable
+private fun ConnectionActuatorDegradedDarkPreview() {
+    ConnectionActuatorScene(StatusConnectionActuatorStatus.Degraded, theme = "dark")
+}
+
+@Preview(name = "ConnectionActuator fault dark", widthDp = 360)
+@Composable
+private fun ConnectionActuatorFaultDarkPreview() {
+    ConnectionActuatorScene(StatusConnectionActuatorStatus.Fault, theme = "dark")
+}
+
 @Preview(name = "ConnectionActuator RTL large text", widthDp = 360, fontScale = 2f, locale = "ar")
 @Composable
 private fun ConnectionActuatorRtlPreview() {

@@ -32,6 +32,7 @@ colors:
   restrictedForeground: "#FFFFFF"
   restrictedContainer: "#F3F4F6"
   restrictedContainerForeground: "#374151"
+  signal: "#0E7490"
   tonalCardBorder: "#00000000"
   primaryAction: "#1B1B1D"
   primaryActionForeground: "#FBF9FA"
@@ -152,6 +153,16 @@ typography:
     fontSize: 12px
     fontWeight: 400
     lineHeight: 16px
+  heroValue:
+    fontFamily: Geist Mono
+    fontSize: 32px
+    fontWeight: 500
+    lineHeight: 40px
+  readoutValue:
+    fontFamily: Geist Mono
+    fontSize: 20px
+    fontWeight: 500
+    lineHeight: 28px
   brandStatus:
     fontFamily: Geist Mono
     fontSize: 13px
@@ -532,6 +543,8 @@ Status color is intentionally scarce and semantic:
 - `info` and `infoContainer` mean explanatory state or guidance.
 - `restricted` and `restrictedContainer` mean limited capability or unavailable mode.
 
+`signal` is the one identity color: cyan, a hue that no status tone uses. It marks a live or connecting path, and only the Status signal line uses it. It is not a status tone, so a warning keeps `warning` and a failure keeps `destructive`. Its fixed values hold at least 4.5:1 against the page at every contrast level, and it never carries state alone. With dynamic color on, `signal` is the Material `primary` role, and the wallpaper scheme decides its contrast.
+
 Dark mode preserves the same role mapping instead of inventing a separate visual identity. Contrast levels select the matching generated scheme, which strengthens text, outline, and container relationships without making the app visually loud. `destructive` roles come from the Material `error` roles; `success`, `warning`, `info`, and `restricted` are fixed semantic hues outside the Material scheme, but their tone colors follow the contrast level: Medium and High darken them in light and lighten them in dark, so a tone holds at least 4.5:1 against the page at every level and at least 7:1 at High. `RipDpiRoleContrastTest` checks every surface, banner, actuator, and route role in light, dark, medium, and high.
 
 Dynamic color is an opt-in Settings switch on Android 12 and later, off by default. When it is on, Material roles come from the system wallpaper scheme and the RDS roles derive from it; the fixed semantic status roles do not change.
@@ -553,6 +566,7 @@ Reserved usage matters:
 - `brandStatus` is for compact status badges and telemetry labels.
 - `sectionTitle` is for section grouping labels, not for body emphasis.
 - `monoValue`, `monoConfig`, `monoInline`, `monoLog`, and `monoSmall` are operator-facing monospace roles.
+- `heroValue` (`32sp/40sp`) is for the Status session clock only. `readoutValue` (`20sp/28sp`) is for a measured value shown under its label.
 
 ## Layout
 
@@ -618,6 +632,7 @@ The primary reusable components are:
 - Inputs: `RipDpiTextField`, `RipDpiConfigTextField`, `RipDpiDropdown`, `RipDpiSwitch`
 - Containers: `RipDpiCard`, `PresetCard`, `SettingsRow`, `RipDpiDialog`, `RipDpiBottomSheet`, `RipDpiSnackbar`, `WarningBanner`
 - Navigation: `RipDpiTopAppBar`, bottom navigation, `SettingsCategoryHeader`. Every screen uses the Material top app bar through `RipDpiTopAppBar`, except Home, which keeps its brand header (`HomeTopBar`) as the documented exception.
+- Signal: `RipDpiSignalField`, the line that shows the state of a path
 - Indicators: `StatusIndicator`, `LogRow`, `StageProgressIndicator`, `AnalysisProgressIndicator`, `RipDpiPageIndicators`
 - Scaffolds: `RipDpiContentScreenScaffold`, `RipDpiSettingsScaffold`, `RipDpiDashboardScaffold`, `RipDpiIntroScaffold`
 
@@ -629,7 +644,8 @@ Component behavior rules:
 - Text fields and dropdowns use filled muted surfaces, not raw outlined-only treatment. Their idle boundary and the outline button boundary use the `outline` role, which holds 3:1; field text uses `foreground` in every state, including error, which shows in the border, trailing icon and supporting text only, and a disabled outline button uses `onSurface` at 12%. `Hidden` and `RevealLastTyped` render a secure field that offers no copy or cut and no keyboard learning, and a read-only secure field rejects edits. `Visible` renders a plain, readable, copyable field, so a revealed secret stays readable to a screen reader; Compose has no incognito keyboard flag, so a field that must stay out of suggestions asks for a URI keyboard without autocorrect.
 - Settings rows use `body` for the title. A row has a `secondaryBody` description only when it shows a value or state; a description that repeats the title or explains the control is cut. Text values appear in the main text column and can wrap. Switches and chevrons use only their required width. Rows grow with content and clearly communicate selected, navigable, and toggle states.
 - Diagnostics sections use a horizontal, scrollable Material 3 tab row at all font scales. Tabs retain selection semantics, localized labels, and section callbacks. Large font does not create a fixed vertical selector above the results.
-- `RipDpiConnectionActuator` is the Status primary connection primitive: a state headline with a per-state symbol, neutral route, path, and session labels, the bypass strategy panel, one connect or disconnect button, and the issue detail with its Diagnose and View log actions. Network, DNS, Handshake, Tunnel, and Route stages name a warning or fault; they are not drawn as a track.
+- `RipDpiConnectionActuator` is the Status primary connection primitive and the screen's hero, on the elevated card: a state headline with a per-state symbol, neutral route and path labels, the signal line, the session clock while a session is live, the bypass strategy panel, one connect or disconnect button, and the issue detail with its Diagnose and View log actions.
+- `RipDpiSignalField` draws one line whose shape is the path state: flat when there is no path, a travelling pulse while connecting, a flowing wave when connected, an irregular wave for a warning, and a wave that stops at the failed stage. An AGSL shader draws the moving line on API 33 and later; a path draws the same curve below that, and draws every still frame. The headline symbol and text always name the state as well. Network, DNS, Handshake, Tunnel, and Route stages name a warning or fault; they are not drawn as a track.
 - Secure Route components describe any user-engageable protected path. Transport labels identify local VPN, local proxy, relay, WARP, or future provider VPN paths; capability pills identify VPN privacy, DNS protection, anti-DPI, relay, split/full tunnel, and traffic modification without making low-level techniques the product identity.
 - Warning and remediation surfaces use semantic containers, not full-saturation fills by default.
 - Monospace treatments belong in diagnostic or configuration contexts, not in general navigation chrome.
@@ -704,7 +720,8 @@ Compose implementation uses both cubic easing and spring motion. `MaterialTheme`
 - press and emphasis springs must remain controlled and not become playful bounce animations
 - shared controls and screens should consume semantic motion presets from `RipDpiMotion` instead of rebuilding raw tweens and visibility transitions inline
 - quick, state, emphasized, and route buckets should remain distinct and should map to borders or alpha, content settling, section reveal, and navigation respectively
-- infinite motion should be limited to status or progress signals that already respect reduced or static motion
+- infinite motion should be limited to status or progress signals that already respect reduced or static motion; the Status signal line is one, and it shows a still frame for each state when motion is reduced
+- a value that animates every frame is read in the draw or layer phase, not in composition
 
 ## Iconography
 
@@ -825,6 +842,9 @@ Each screen has one scaffold, one layout recipe, and one contract. Look up the s
 
 ### Status
 
+- The hero is the actuator on the elevated card. Its signal line takes the `signal` color while connecting or connected, `outline` when idle, `warning` for a warning, and `destructive` for a failure. The line dips under a press on the connection button, and the button shrinks to `0.98`.
+- The session clock uses `heroValue`, sits under the signal line, and shows only while a session is live. It takes at most three fifths of the band and shrinks to stay on one line, so the line always keeps two fifths.
+- A measured value is a readout: its label above the value in `readoutValue`. Only a readout that opens a detail has a fill and an outline.
 - The primary pane holds, in order: `RipDpiConnectionActuator` with its pause controls, the advisory slot, connection measurements, and the applied configuration panel.
 - The supporting pane (below the primary pane on compact widths) holds the connection-health entry, then the `Modes & diagnostics` disclosure, collapsed by default. Its stable automation ID belongs to the clickable header; the collapsed and expanded IDs are state markers only.
 - The disclosure holds three `StatusModeCard` entries in this order: Proxy only, Whole device, and Diagnose. Proxy only and Whole device name the scope; each shows its path (Direct, or Relay and the server) and status, and has a configure affordance but no primary action. Only Diagnose has a primary action: it runs the Home analysis in place, and its body and configure affordance open Diagnostics. `RipDpiConnectionActuator` is the only connect and disconnect control in the app.

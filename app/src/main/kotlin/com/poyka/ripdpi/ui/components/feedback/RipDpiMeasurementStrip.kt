@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.ui.components.feedback
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -172,9 +173,9 @@ fun RipDpiMeasurementStrip(
                     color = colors.mutedForeground,
                 )
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.md),
                     verticalArrangement = Arrangement.spacedBy(spacing.sm),
-                    // An actionable chip reserves a taller touch slot; keep its neighbours level with it.
+                    // An actionable readout reserves a taller touch slot; keep its neighbours level with it.
                     itemVerticalAlignment = Alignment.CenterVertically,
                 ) {
                     metrics.forEach { metric ->
@@ -232,57 +233,64 @@ private fun RipDpiMeasurementActions(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * A measured value as a readout: the label above, the value in large mono digits. Only a metric with an action
+ * gets a filled, outlined surface, so the fill marks what can be opened.
+ */
 @Composable
 private fun RipDpiMeasurementMetricChip(metric: RipDpiMeasurementMetric) {
     val colors = RipDpiThemeTokens.colors
-    val shapes = RipDpiThemeTokens.shapes
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
-    val deltaColor = if (metric.deltaIsBad) colors.destructive else colors.success
+    val motion = RipDpiThemeTokens.motion
+    val action = metric.action
+    // Each text hugs its content, so a right-to-left paragraph is not laid out wider than its node.
+    val hug = Modifier.width(IntrinsicSize.Max)
 
-    Surface(
-        modifier =
-            metric.modifier.then(
-                metric.action?.let { action ->
-                    // ripDpiClickable reserves the 48dp touch slot around the chip without enlarging the chip itself.
-                    Modifier.ripDpiClickable(
-                        role = Role.Button,
-                        onClickLabel = action.label,
-                        onClick = action.onClick,
-                    )
-                } ?: Modifier,
-            ),
-        shape = shapes.md,
-        color = colors.inputBackground,
-        contentColor = colors.foreground,
-        border = BorderStroke(RipDpiStroke.Thin, colors.border),
-    ) {
-        FlowRow(
+    val readout: @Composable () -> Unit = {
+        Column {
+            Text(metric.label, hug, style = type.smallLabel, color = colors.mutedForeground)
+            val value = localizedDigits(metric.value)
+            // An actionable readout does not fade: two values in the tree would both be read as its name.
+            if (motion.animationsEnabled && action == null) {
+                AnimatedContent(
+                    targetState = value,
+                    transitionSpec = { motion.quickFadeContentTransform() },
+                    label = "Measured value",
+                ) { shown ->
+                    Text(shown, hug, style = type.readoutValue, color = colors.foreground)
+                }
+            } else {
+                Text(value, hug, style = type.readoutValue, color = colors.foreground)
+            }
+            if (metric.delta.isNotEmpty()) {
+                Text(
+                    text = metric.delta,
+                    modifier = hug,
+                    style = type.monoSmall,
+                    color = if (metric.deltaIsBad) colors.destructive else colors.success,
+                )
+            }
+        }
+    }
+    if (action == null) {
+        // No surface: its shape would clip the first glyph, which sits on the card's text edge.
+        Box(modifier = metric.modifier) { readout() }
+    } else {
+        Surface(
+            // ripDpiClickable reserves the 48dp touch slot around the readout without enlarging it.
             modifier =
-                Modifier
-                    .padding(horizontal = spacing.sm, vertical = spacing.xs),
-            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-            verticalArrangement = Arrangement.spacedBy(spacing.xs, Alignment.CenterVertically),
+                metric.modifier.ripDpiClickable(
+                    role = Role.Button,
+                    onClickLabel = action.label,
+                    onClick = action.onClick,
+                ),
+            shape = RipDpiThemeTokens.shapes.md,
+            color = colors.inputBackground,
+            contentColor = colors.foreground,
+            border = BorderStroke(RipDpiStroke.Thin, colors.border),
         ) {
-            Text(
-                text = metric.label,
-                modifier = Modifier.width(IntrinsicSize.Max),
-                style = type.smallLabel,
-                color = colors.mutedForeground,
-            )
-            Text(
-                text = localizedDigits(metric.value),
-                modifier = Modifier.width(IntrinsicSize.Max),
-                style = type.monoSmall,
-                color = colors.foreground,
-            )
-            Text(
-                text = metric.delta,
-                modifier = Modifier.width(IntrinsicSize.Max),
-                style = type.monoSmall,
-                color = deltaColor,
-            )
+            Box(modifier = Modifier.padding(horizontal = spacing.sm, vertical = spacing.xs)) { readout() }
         }
     }
 }
@@ -337,6 +345,44 @@ private fun RipDpiMeasurementStripCriticalPreview() {
             primaryAction = RipDpiMeasurementAction(label = "Reprobe", onClick = {}),
             secondaryAction = null,
             tone = RipDpiMeasurementTone.Critical,
+        )
+    }
+}
+
+@Preview(name = "MeasurementStrip nominal light", showBackground = true)
+@Composable
+private fun RipDpiMeasurementStripNominalLightPreview() {
+    MeasurementStripNominal(theme = "light")
+}
+
+@Preview(name = "MeasurementStrip nominal dark", showBackground = true)
+@Composable
+private fun RipDpiMeasurementStripNominalDarkPreview() {
+    MeasurementStripNominal(theme = "dark")
+}
+
+@Composable
+private fun MeasurementStripNominal(theme: String) {
+    RipDpiComponentPreview(themePreference = theme) {
+        RipDpiMeasurementStrip(
+            title = "Connection measurements",
+            body = "Indicators are in range.",
+            metrics =
+                persistentListOf(
+                    RipDpiMeasurementMetric(label = "Loss", value = "0.0%", delta = "", deltaIsBad = false),
+                    RipDpiMeasurementMetric(
+                        label = "RTT p50",
+                        value = "105 ms",
+                        delta = "",
+                        deltaIsBad = false,
+                        action = RipDpiMeasurementAction(label = "Open", onClick = {}),
+                    ),
+                    RipDpiMeasurementMetric(label = "Traffic total", value = "192 kB", delta = "", deltaIsBad = false),
+                ),
+            footnote = "2 RTT samples",
+            primaryAction = RipDpiMeasurementAction(label = "Re-measure", onClick = {}),
+            secondaryAction = null,
+            tone = RipDpiMeasurementTone.Nominal,
         )
     }
 }

@@ -80,6 +80,9 @@ class RipDpiRoleContrastTest {
                 assertAtLeast("$id label", Text, s.label, p.colors.background)
                 assertAtLeast("$id route label", Text, s.routeLabel, p.colors.background)
                 assertAtLeast("$id rail content", Text, s.railContent, s.rail)
+                // The signal line is a graphic on the hero card, so it needs the 3:1 non-text ratio.
+                val hero = p.surfaces.resolve(DefaultRipDpiSurfaceRoleMappings.cards.elevated).container
+                assertAtLeast("$id signal", NonText, s.signal, hero)
             }
             RipDpiActuatorStageRole.entries.forEach { role ->
                 val s = p.states.actuator.resolveStage(role)
