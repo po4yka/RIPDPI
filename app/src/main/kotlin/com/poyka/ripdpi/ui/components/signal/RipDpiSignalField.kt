@@ -21,9 +21,11 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -39,7 +41,7 @@ import kotlin.math.sin
 
 /** The shape of the signal line. The caller picks the color; the line never carries state alone. */
 enum class RipDpiSignalMode {
-    /** No path: a flat line. */
+    /** No path: a faint flat line that fades out at both ends. */
     Idle,
 
     /** A path is being set up: a pulse travels along a flat line. */
@@ -74,11 +76,12 @@ internal data class SignalShape(
     val noise: Float,
     val glow: Float,
     val broken: Boolean,
+    val rest: Float = 0f,
 )
 
 internal fun RipDpiSignalMode.shape(): SignalShape =
     when (this) {
-        RipDpiSignalMode.Idle -> SignalShape(0f, 0f, 0f, 0f, broken = false)
+        RipDpiSignalMode.Idle -> SignalShape(0f, 0f, 0f, 0f, broken = false, rest = 1f)
         RipDpiSignalMode.Seeking -> SignalShape(0f, 1f, 0f, 1f, broken = false)
         RipDpiSignalMode.Live -> SignalShape(LiveAmplitude, 0f, 0f, 1f, broken = false)
         RipDpiSignalMode.Unstable -> SignalShape(LiveAmplitude, 0f, UnstableNoise, 1f, broken = false)
@@ -105,6 +108,8 @@ internal class SignalFrame(
     val glow: Float,
     val pressAt: Float,
     val press: Float,
+    /** How far the line is at rest, from 0 to 1. A resting line is faint and fades out at both ends. */
+    val rest: Float = 0f,
     val ripple: SignalRippleFrame = NoRipple,
 )
 
@@ -134,6 +139,7 @@ fun RipDpiSignalField(
     val pulse by transition.animateFloat({ motion.emphasizedTween() }, "pulse") { it.shape().pulse }
     val noise by transition.animateFloat({ motion.emphasizedTween() }, "noise") { it.shape().noise }
     val glow by transition.animateFloat({ motion.emphasizedTween() }, "glow") { it.shape().glow }
+    val rest by transition.animateFloat({ motion.emphasizedTween() }, "rest") { it.shape().rest }
     val cut by transition.animateFloat({ motion.emphasizedTween() }, "cut") {
         if (it.shape().broken) breakAt.coerceIn(0f, 1f) else NoCut
     }
@@ -170,7 +176,10 @@ fun RipDpiSignalField(
                         ripple?.let { SignalRippleFrame(it.amplitude(), it.cycles(), it.start(), it.end()) }
                             ?: NoRipple
                     val now = time.floatValue
-                    val frame = SignalFrame(now, amplitude, pulse, noise, cut, glow, pressAt(), press(), rippleFrame)
+                    // A rippled line is content, not a resting hero line, so it keeps its full strength.
+                    val resting = if (ripple == null) rest else 0f
+                    val frame =
+                        SignalFrame(now, amplitude, pulse, noise, cut, glow, pressAt(), press(), resting, rippleFrame)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && shader != null) {
                         drawRect(shader.brush(size, frame, lineColor, StrokeWidth.toPx(), GlowSpread.toPx()))
                     } else {
@@ -214,6 +223,7 @@ private class SignalShader {
         shader.setFloatUniform("press", frame.pressAt, frame.press)
         val ripple = frame.ripple
         shader.setFloatUniform("ripple", ripple.amplitude, ripple.cycles, ripple.start, ripple.end)
+        shader.setFloatUniform("rest", frame.rest)
         shader.setFloatUniform("stroke", strokePx / 2f)
         shader.setFloatUniform("spread", spreadPx)
         shader.setColorUniform("color", color.toArgb())
@@ -263,7 +273,7 @@ private fun DrawScope.drawSignalPath(
             style = Stroke(GlowSpread.toPx() * 2f, cap = StrokeCap.Round),
         )
     }
-    drawPath(live, color, style = Stroke(StrokeWidth.toPx(), cap = StrokeCap.Round))
+    drawPath(live, restBrush(frame.rest, color), style = Stroke(StrokeWidth.toPx(), cap = StrokeCap.Round))
     if (end < 1f) {
         drawPath(
             signalPath(frame, from = end + GapWidth, to = 1f),
@@ -271,6 +281,17 @@ private fun DrawScope.drawSignalPath(
             style = Stroke(StrokeWidth.toPx(), cap = StrokeCap.Round),
         )
     }
+}
+
+/** The line color, faint with faded ends as far as the line is at [rest]. Mirrors `calm` in the shader. */
+private fun restBrush(
+    rest: Float,
+    color: Color,
+): Brush {
+    if (rest <= 0f) return SolidColor(color)
+    val middle = color.copy(alpha = color.alpha * (1f - rest * (1f - RestAlpha)))
+    val end = color.copy(alpha = color.alpha * (1f - rest))
+    return Brush.horizontalGradient(0f to end, RestFade to middle, 1f - RestFade to middle, 1f to end)
 }
 
 private fun DrawScope.signalPath(
@@ -325,6 +346,10 @@ private const val LiveAmplitude = 0.16f
 private const val UnstableNoise = 0.5f
 private const val BrokenGlow = 0.5f
 private const val EdgeFade = 0.18f
+
+// A resting line is decoration: the headline names the state. The shader source repeats these values.
+private const val RestAlpha = 0.55f
+private const val RestFade = 0.3f
 private const val PulseWidth = 0.07f
 private const val PulseHeight = 0.3f
 private const val PressWidth = 0.12f
@@ -344,6 +369,7 @@ uniform float cut;
 uniform float glow;
 uniform float2 press;
 uniform float4 ripple;
+uniform float rest;
 uniform float stroke;
 uniform float spread;
 layout(color) uniform half4 color;
@@ -371,7 +397,9 @@ half4 main(float2 xy) {
     float halo = 0.35 * glow * exp(-d * d / (2.0 * spread * spread));
     float tail = mix(0.3, 1.0, step(u, cut));
     float gap = smoothstep(0.0, 0.02, abs(u - cut));
-    float a = clamp(core + halo, 0.0, 1.0) * tail * gap * color.a;
+    float ends = smoothstep(0.0, 0.3, u) * (1.0 - smoothstep(0.7, 1.0, u));
+    float calm = mix(1.0, 0.55 * ends, rest);
+    float a = clamp(core + halo, 0.0, 1.0) * tail * gap * calm * color.a;
     return half4(color.rgb * a, a);
 }
 """

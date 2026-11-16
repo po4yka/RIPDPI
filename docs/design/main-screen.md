@@ -43,7 +43,7 @@ With animations off, or reduced motion on, the line shows one still frame for ea
 
 | State | Line |
 |---|---|
-| Not connected | flat, `outline` color |
+| Not connected | flat and faint, ends fade out, `outline` color |
 | Connecting | flat with a travelling pulse, `signal` |
 | Connected | steady flowing wave, `signal` |
 | Warning | irregular wave, `warning` |

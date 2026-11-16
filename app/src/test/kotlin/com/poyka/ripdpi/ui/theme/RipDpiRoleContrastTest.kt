@@ -81,6 +81,7 @@ class RipDpiRoleContrastTest {
                 assertAtLeast("$id route label", Text, s.routeLabel, p.colors.background)
                 assertAtLeast("$id rail content", Text, s.railContent, s.rail)
                 // The signal line is a graphic on the hero card, so it needs the 3:1 non-text ratio.
+                // The idle line is drawn fainter than its role: it is decoration, and the headline names the state.
                 val hero = p.surfaces.resolve(DefaultRipDpiSurfaceRoleMappings.cards.elevated).container
                 assertAtLeast("$id signal", NonText, s.signal, hero)
             }
