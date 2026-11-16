@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.ui.screens.status
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,8 +20,6 @@ import com.poyka.ripdpi.activities.StatusAppliedConfigurationUiState
 import com.poyka.ripdpi.services.RunningReconnectRequest
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
-import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -37,7 +38,12 @@ internal fun StatusAppliedConfigurationPanel(
         if (!eligible || confirming?.matches(state) != true) confirming = null
     }
     if (!state.visible) return
-    RipDpiCard(variant = RipDpiCardVariant.Tonal, modifier = Modifier.ripDpiTestTag("home_runtime_configuration")) {
+    // No card of its own: the caller places it in the hero, under the connection action it qualifies.
+    Column(
+        modifier = Modifier.fillMaxWidth().ripDpiTestTag("home_runtime_configuration"),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+    ) {
+        HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
         StatusAppliedConfigurationSummary(state)
         if (state.reconnecting) {
             RipDpiButton(

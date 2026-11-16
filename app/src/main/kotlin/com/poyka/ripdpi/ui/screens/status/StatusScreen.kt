@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -102,33 +103,40 @@ fun StatusScreen(
                 // message and its copy action belonged to the banner exclusively.
                 val issueDetail = uiState.connectionActuator.issueDetail
                 val errorClipboardLabel = stringResource(R.string.clipboard_label_error)
-                // Pause qualifies the connection action, so it shares the control's group
-                // instead of taking a section, and its section gaps, of its own.
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-                ) {
-                    RipDpiConnectionActuator(
-                        state = uiState.connectionActuator,
-                        onActivate = onToggleConnection,
-                        onDeactivate = onToggleConnection,
-                        modifier = Modifier.fillMaxWidth(),
-                        onCopyIssueDetail =
-                            issueDetail.takeIf { it.isNotEmpty() }?.let { message ->
-                                {
-                                    clipboardManager?.setPrimaryClip(
-                                        ClipData.newPlainText(errorClipboardLabel, message.withoutBidiIsolates()),
-                                    )
-                                }
-                            },
-                        onDiagnoseIssue = onOpenDiagnostics,
-                        onViewIssueLog = onOpenLogs,
-                        testTag = RipDpiTestTags.ConnectionActuatorButton,
-                    )
-                    if (pause.available || pause.phase != null || pause.requestFailed) {
-                        StatusPauseControls(pause, onPause, onResumePause, onStopPause)
+                // Pause and a pending reconnect qualify the connection action, so they sit under it
+                // in the hero card instead of taking surfaces, and section gaps, of their own.
+                val pauseVisible = pause.available || pause.phase != null || pause.requestFailed
+                val sessionControls: (@Composable ColumnScope.() -> Unit)? =
+                    if (pauseVisible || uiState.appliedConfiguration.visible) {
+                        {
+                            if (pauseVisible) StatusPauseControls(pause, onPause, onResumePause, onStopPause)
+                            StatusAppliedConfigurationPanel(
+                                state = uiState.appliedConfiguration,
+                                onReconnect = onReconnectConfiguration,
+                                onCancelReconnect = onCancelConfigurationReconnect,
+                            )
+                        }
+                    } else {
+                        null
                     }
-                }
+                RipDpiConnectionActuator(
+                    state = uiState.connectionActuator,
+                    onActivate = onToggleConnection,
+                    onDeactivate = onToggleConnection,
+                    modifier = Modifier.fillMaxWidth(),
+                    onCopyIssueDetail =
+                        issueDetail.takeIf { it.isNotEmpty() }?.let { message ->
+                            {
+                                clipboardManager?.setPrimaryClip(
+                                    ClipData.newPlainText(errorClipboardLabel, message.withoutBidiIsolates()),
+                                )
+                            }
+                        },
+                    onDiagnoseIssue = onOpenDiagnostics,
+                    onViewIssueLog = onOpenLogs,
+                    testTag = RipDpiTestTags.ConnectionActuatorButton,
+                    sessionControls = sessionControls,
+                )
 
                 // Once, after onboarding: what the line and the control above mean.
                 StatusFirstRunIntro()
@@ -162,12 +170,6 @@ fun StatusScreen(
                     dataTransferred = uiState.dataTransferred,
                     onReprobe = onRunFullDiagnosticRun,
                     onOpenConnectionHealth = onOpenConnectionHealth,
-                )
-
-                StatusAppliedConfigurationPanel(
-                    state = uiState.appliedConfiguration,
-                    onReconnect = onReconnectConfiguration,
-                    onCancelReconnect = onCancelConfigurationReconnect,
                 )
             },
             supporting = {
