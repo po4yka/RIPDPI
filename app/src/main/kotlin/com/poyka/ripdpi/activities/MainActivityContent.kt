@@ -159,12 +159,13 @@ private fun ReadyMainActivityContent(
         snackbarHostState = snackbarHostState,
         onboardingHandOff = onboardingHandOff,
     )
+    // Above the gate below, so a hand-off is not lost if the settings reload while onboarding completes.
+    OnboardingHandOffTrigger(onboardingHandOff, startupState.startDestination)
     if (!runtimeState.settingsLoaded) {
         StartupRecoveryGateContent(failed = false, onRetry = {})
         return
     }
     val pauseViewModel = pauseViewModelFactory()
-    OnboardingHandOffTrigger(onboardingHandOff, startupState.startDestination)
     val performHaptic = rememberRipDpiHapticPerformer()
     Box(
         modifier =

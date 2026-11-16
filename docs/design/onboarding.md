@@ -65,7 +65,7 @@ In that first frame the veil covers the main screen, the line stands where the o
 
 The destination reports its line one or more frames after the replacement. The travel starts from the frame of that report, so the line does not jump.
 
-One `Confirm` haptic marks the moment the line arrives, also for the circle and for the cut. The button that ended onboarding gives its own haptic at the press, about half a second earlier. If the connection comes up while the reveal runs, its success haptic replaces the arrival haptic.
+One `Confirm` haptic marks the moment the line arrives, also for the circle and for the cut. The button that ended onboarding gives its own haptic at the press, about half a second earlier. If the connection comes up after the hand-off starts and before the line arrives, its success haptic replaces the arrival haptic.
 
 The layer takes no input. A reveal that is cancelled sets its progress to the end, so nothing stays drawn over the app, and it does not play again.
 

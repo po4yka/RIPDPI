@@ -138,19 +138,31 @@ class RipDpiHandOffStateTest {
     }
 
     @Test
-    fun `the landing is muted only for the hand-off that runs`() {
+    fun `a muted landing stays muted until the next hand-off`() {
         val state = RipDpiHandOffState()
-
-        state.muteLanding()
-        assertFalse(state.landingMuted)
-
         state.start()
+        // The last frame has run and the landing has not yet been given.
+        state.progress = 1f
+
         state.muteLanding()
         assertTrue(state.landingMuted)
 
-        state.progress = 1f
         state.start()
         assertFalse(state.landingMuted)
+    }
+
+    @Test
+    fun `the ring does not jump when the destination reports late`() {
+        val state = RipDpiHandOffState().apply { anchorRadius = 80f }
+        state.start()
+        state.progress = 0.2f
+        val before = state.ring(0.2f, opening = 500f, reach = 2500f)
+
+        state.targetLine = line(Rect(280f, 900f, 1000f, 956f))
+
+        assertEquals(500f to 0.8f, before)
+        assertEquals(before, state.ring(0.2f, opening = 500f, reach = 2500f))
+        assertEquals(0f to 1f, state.ring(1f, opening = 2500f, reach = 2500f))
     }
 
     private val screen = Size(1080f, 2400f)

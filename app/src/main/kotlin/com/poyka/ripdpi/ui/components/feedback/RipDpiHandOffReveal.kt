@@ -48,6 +48,7 @@ import com.poyka.ripdpi.ui.components.signal.RipDpiSignalField
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalMode
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -123,9 +124,12 @@ class RipDpiHandOffState {
         epoch++
     }
 
-    /** Another feedback covers the landing of the running hand-off, so the reveal gives none. */
+    /**
+     * Another feedback covers the landing, so the reveal gives none. It holds until the next [start], not only
+     * while the reveal runs: the feedback can arrive between the last frame and the landing.
+     */
     fun muteLanding() {
-        if (isRunning) landingMuted = true
+        landingMuted = true
     }
 
     internal fun center(size: Size): Offset =
@@ -134,6 +138,22 @@ class RipDpiHandOffState {
     /** How far the line and the ring are on their way to [targetLine], from 0 to 1. */
     internal fun travel(progress: Float): Float =
         if (target == null) 0f else ((progress - travelFrom) / (1f - travelFrom)).coerceIn(0f, 1f)
+
+    /**
+     * Radius and alpha of the ring. With no destination line it grows with the opening, of radius [opening],
+     * and fades. With one it closes on the line, from the size and alpha it had when the destination reported.
+     */
+    internal fun ring(
+        progress: Float,
+        opening: Float,
+        reach: Float,
+    ): Pair<Float, Float> =
+        if (target == null) {
+            max(opening, anchorRadius) to 1f - progress
+        } else {
+            val travel = travel(progress)
+            max(reach * travelFrom, anchorRadius) * (1f - travel) to 1f - travelFrom * (1f - travel)
+        }
 
     internal fun ringCenter(
         progress: Float,
@@ -180,8 +200,10 @@ fun Modifier.ripDpiHandOffTarget(
                 .size
                 .toSize()
                 .toRect()
+        // Within a pixel: the bounds are fractional and the size is whole.
         val whole =
-            bounds.size == coordinates.size.toSize() && root.left <= bounds.left && root.top <= bounds.top &&
+            abs(bounds.width - coordinates.size.width) < 1f && abs(bounds.height - coordinates.size.height) < 1f &&
+                root.left <= bounds.left && root.top <= bounds.top &&
                 bounds.right <= root.right && bounds.bottom <= root.bottom
         handOff.targetLine = if (whole) RipDpiHandOffLine(bounds, mode, color, breakAt) else null
     }.graphicsLayer { alpha = if (handOff.isRunning && handOff.targetLine != null) 0f else 1f }
@@ -262,17 +284,12 @@ internal fun RipDpiHandOffLayer(
                     drawRect(veil)
                 }
                 drawContent()
-                val travels = state.targetLine != null
+                val (ringRadius, ringAlpha) = state.ring(fraction, opening = radius, reach = reach)
                 drawCircle(
                     color = ring,
-                    radius =
-                        if (travels) {
-                            state.anchorRadius * (1f - state.travel(fraction))
-                        } else {
-                            max(radius, state.anchorRadius)
-                        },
+                    radius = ringRadius,
                     center = state.ringCenter(fraction, size),
-                    alpha = if (travels) 1f else 1f - fraction,
+                    alpha = ringAlpha,
                     style = Stroke(width = HandOffRingWidth.toPx()),
                 )
             },
@@ -287,7 +304,10 @@ internal fun RipDpiHandOffLayer(
                         .layout { measurable, constraints ->
                             val size = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
                             val bounds = state.lineBounds(progress(), size) ?: Rect.Zero
-                            val placeable = measurable.measure(Constraints.fixedWidth(bounds.width.roundToInt()))
+                            val placeable =
+                                measurable.measure(
+                                    Constraints.fixedWidth(max(bounds.width.roundToInt(), 1)),
+                                )
                             layout(constraints.maxWidth, constraints.maxHeight) {
                                 // Root coordinates, so not mirrored in a right-to-left layout.
                                 placeable.place(
