@@ -53,6 +53,10 @@ class RipDpiHandOffRevealTest {
     private var clicks = 0
     private var revealShown by mutableStateOf(true)
 
+    // The bounded wait for the destination, the reveal, and a margin.
+    private val revealMillis =
+        2L * (DefaultRipDpiMotion.stateDurationMillis + DefaultRipDpiMotion.signatureDurationMillis)
+
     @Test
     fun `a complete hand-off lands once, draws nothing after it, and leaves touches to the app`() {
         composeRule.mainClock.autoAdvance = false
@@ -67,7 +71,7 @@ class RipDpiHandOffRevealTest {
         assertEquals(0, landings)
         assertNotEquals(before[2, 2], during[2, 2])
 
-        composeRule.mainClock.advanceTimeBy(2 * DefaultRipDpiMotion.signatureDurationMillis.toLong())
+        composeRule.mainClock.advanceTimeBy(revealMillis)
         val after = composeRule.onRoot().captureToImage().toPixelMap()
         assertFalse(state.isRunning)
         assertEquals(1, landings)
@@ -94,7 +98,7 @@ class RipDpiHandOffRevealTest {
         assertFalse(state.isRunning)
 
         composeRule.runOnIdle { revealShown = true }
-        composeRule.mainClock.advanceTimeBy(2 * DefaultRipDpiMotion.signatureDurationMillis.toLong())
+        composeRule.mainClock.advanceTimeBy(revealMillis)
         val after = composeRule.onRoot().captureToImage().toPixelMap()
         assertFalse(state.isRunning)
         assertEquals(0, landings)
@@ -129,7 +133,7 @@ class RipDpiHandOffRevealTest {
         composeRule.mainClock.advanceTimeByFrame()
         composeRule.runOnIdle { state.muteLanding() }
 
-        composeRule.mainClock.advanceTimeBy(2 * DefaultRipDpiMotion.signatureDurationMillis.toLong())
+        composeRule.mainClock.advanceTimeBy(revealMillis)
 
         assertFalse(state.isRunning)
         assertEquals(0, landings)
@@ -142,6 +146,7 @@ class RipDpiHandOffRevealTest {
         state.anchor = Offset(250f, 40f)
         state.start()
         state.targetLine = RipDpiHandOffLine(target, RipDpiSignalMode.Idle, Color.Red)
+        state.settle()
         composeRule.setContent {
             RipDpiTheme(themePreference = "light") {
                 CompositionLocalProvider(
@@ -150,8 +155,8 @@ class RipDpiHandOffRevealTest {
                     LocalRipDpiMotion provides DefaultRipDpiMotion.copy(reducedMotion = true),
                 ) {
                     Box(modifier = Modifier.size(300.dp)) {
-                        // Just short of the end: the line stands on the destination and the veil is still drawn.
-                        RipDpiHandOffLayer(state = state, progress = { 0.999f })
+                        // The line has landed and the destination has not yet opened.
+                        RipDpiHandOffLayer(state = state, progress = { 0.6f })
                     }
                 }
             }
@@ -202,6 +207,44 @@ class RipDpiHandOffRevealTest {
 
         shown = false
         composeRule.runOnIdle { assertNull(state.targetLine) }
+    }
+
+    @Test
+    fun `the reveal holds the closed veil until the destination reports its line, then the line travels`() {
+        composeRule.mainClock.autoAdvance = false
+        setRevealOverApp()
+        composeRule.runOnIdle { state.start() }
+        repeat(3) { composeRule.mainClock.advanceTimeByFrame() }
+        assertEquals(0f, state.progress)
+        assertFalse(state.travels)
+
+        composeRule.runOnIdle {
+            state.targetLine = RipDpiHandOffLine(Rect(20f, 100f, 120f, 156f), RipDpiSignalMode.Idle, Color.Blue)
+        }
+        composeRule.mainClock.advanceTimeBy(DefaultRipDpiMotion.signatureDurationMillis / 2L)
+
+        assertTrue(state.travels)
+        assertTrue(state.progress > 0f)
+        composeRule.mainClock.advanceTimeBy(revealMillis)
+        assertFalse(state.travels)
+        assertEquals(1, landings)
+    }
+
+    @Test
+    fun `with no destination line the reveal starts after a bounded wait`() {
+        composeRule.mainClock.autoAdvance = false
+        setRevealOverApp()
+        composeRule.runOnIdle { state.start() }
+        // The idle pass delivers the state write to the composition.
+        composeRule.waitForIdle()
+        repeat(2) { composeRule.mainClock.advanceTimeByFrame() }
+        assertEquals(0f, state.progress)
+
+        composeRule.mainClock.advanceTimeBy(revealMillis)
+
+        assertFalse(state.isRunning)
+        assertFalse(state.travels)
+        assertEquals(1, landings)
     }
 
     private fun setRevealOverApp(motion: RipDpiMotion = DefaultRipDpiMotion) {

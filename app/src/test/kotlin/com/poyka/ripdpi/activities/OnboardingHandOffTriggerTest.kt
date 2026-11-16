@@ -55,7 +55,9 @@ class OnboardingHandOffTriggerTest {
         assertNotEquals(MainScreenColor, firstFrame[2, 2])
         assertNotEquals(MainScreenColor, firstFrame[firstFrame.width / 2, firstFrame.height / 2])
 
-        composeRule.mainClock.advanceTimeBy(2 * DefaultRipDpiMotion.signatureDurationMillis.toLong())
+        composeRule.mainClock.advanceTimeBy(
+            2L * (DefaultRipDpiMotion.stateDurationMillis + DefaultRipDpiMotion.signatureDurationMillis),
+        )
         val settled = composeRule.onRoot().captureToImage().toPixelMap()
         assertFalse(handOff.isRunning)
         assertEquals(MainScreenColor, settled[2, 2])
