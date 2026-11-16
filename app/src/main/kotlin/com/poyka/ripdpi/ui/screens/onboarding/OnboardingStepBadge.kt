@@ -35,24 +35,13 @@ private const val BadgeDragShrink = 0.08f
 private const val PreviewBetweenStepsPosition = 1.5f
 
 /**
- * Where the step badge is in the window. The activity provides it, so that the splash exit can carry the splash
- * icon to the badge. Touch it on the main thread only.
+ * Where the step badge is in the window. The activity provides it, so that the splash screen can wait for the
+ * badge and move its icon to it. Touch it on the main thread only.
  */
 @Stable
 internal class OnboardingBadgeAnchor {
     /** The badge bounds in the window, in pixels, or null until the badge is placed. */
     var bounds: Rect? = null
-        private set
-
-    /** Called once, when the badge is next placed. */
-    var onPlaced: (() -> Unit)? = null
-
-    internal fun place(bounds: Rect) {
-        this.bounds = bounds
-        val placed = onPlaced
-        onPlaced = null
-        placed?.invoke()
-    }
 }
 
 /** Null in previews and tests, where no splash screen exists. */
@@ -80,7 +69,7 @@ internal fun OnboardingStepBadge(
                 .onGloballyPositioned { coordinates ->
                     handOff?.anchor = coordinates.boundsInRoot().center
                     handOff?.anchorRadius = coordinates.size.width / 2f
-                    splashAnchor?.place(coordinates.boundsInWindow())
+                    splashAnchor?.bounds = coordinates.boundsInWindow()
                 }.graphicsLayer {
                     // Smallest halfway between two steps, full size at rest.
                     val position = pagePosition()
@@ -121,7 +110,7 @@ private fun OnboardingStepBadgePreviewBody(themePreference: String) {
             OnboardingStepBadge(pagePosition = { index.toFloat() }, succeeded = false)
         }
         OnboardingStepBadge(pagePosition = { PreviewBetweenStepsPosition }, succeeded = false)
-        OnboardingStepBadge(pagePosition = { OnboardingPages.lastIndex.toFloat() }, succeeded = true)
+        OnboardingStepBadge(pagePosition = { OnboardingTestStep.toFloat() }, succeeded = true)
         OnboardingStepBadge(pagePosition = { 0f }, succeeded = false, size = OnboardingStepBadgeCompactSize)
     }
 }

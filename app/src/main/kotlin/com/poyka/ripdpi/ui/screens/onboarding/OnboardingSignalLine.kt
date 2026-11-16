@@ -111,6 +111,18 @@ internal val OnboardingPage.isConnectionTest: Boolean
 private fun stepOf(kind: SetupPageKind): Int =
     OnboardingPages.indexOfFirst { it is OnboardingPage.Setup && it.kind == kind }
 
+internal val OnboardingTestStep: Int get() = stepOf(SetupPageKind.ConnectionTest)
+
+/**
+ * Whether the line at [step] states the connection test. It does on the test step. On a step after it, it does
+ * only for a passed test: the tunnel runs, so the line stays live until the user leaves onboarding.
+ */
+internal fun onboardingLineStatesTest(
+    step: Int,
+    testStep: Int,
+    validationState: OnboardingValidationState,
+): Boolean = step == testStep || (step > testStep && validationState is OnboardingValidationState.Success)
+
 /**
  * How much of the ripple shows at the pager [position]: it grows over the drag onto [personaStep], stays through
  * the steps after it, and flattens over the drag onto [testStep], where the line states the path alone.

@@ -225,9 +225,10 @@ internal fun OnboardingScreen(
     val pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size)
     // The intro offers Skip; inner steps provide an explicit path to the previous selection.
     val skipVisible = settledPage == 0
-    val skipTestVisible = isLastPage && validationState is OnboardingValidationState.Idle
+    val skipTestVisible = currentPage.isConnectionTest && validationState is OnboardingValidationState.Idle
     val persona = OnboardingPersona.fromId(uiState.selectedPersona)
-    val signal = onboardingSignal(validationState, currentPage.isConnectionTest, persona, uiState.selectedMode)
+    val statesTest = onboardingLineStatesTest(settledPage, OnboardingTestStep, validationState)
+    val signal = onboardingSignal(validationState, statesTest, persona, uiState.selectedMode)
     OnboardingResultHaptic(validationState)
 
     BackHandler(enabled = settledPage > 0) {

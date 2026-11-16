@@ -112,13 +112,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        splashScreen.setKeepOnScreenCondition {
-            viewModel.startupState.value.readiness == AppStartupReadinessState.Pending
-        }
         val badgeAnchor = OnboardingBadgeAnchor()
-        splashScreen.setRipDpiExit(badgeAnchor) {
+        val startsOnOnboarding = {
             viewModel.startupState.value.run { isReady && startDestination == Route.Onboarding }
         }
+        val holdForBadge = splashHoldForBadge(badgeAnchor)
+        splashScreen.setKeepOnScreenCondition {
+            viewModel.startupState.value.readiness == AppStartupReadinessState.Pending ||
+                holdForBadge(startsOnOnboarding())
+        }
+        splashScreen.setRipDpiExit(badgeAnchor, startsOnOnboarding)
 
         setContent {
             CompositionLocalProvider(LocalOnboardingBadgeAnchor provides badgeAnchor) {

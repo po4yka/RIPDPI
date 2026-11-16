@@ -67,7 +67,7 @@ One line runs through the whole first launch. It is `RipDpiSignalField`, the lin
 
 The ripple states the two choices, not a path. It does not move with time and keeps the `outline` color, because `signal` marks a live or connecting path only. A new selection reshapes the ripple over the emphasized bucket. The steps are found by their kind, so a step added to the flow does not move the ripple to another step.
 
-The three test stages sit at the quarter points of the line, in the order of the checklist under it. A failed test breaks the line only on the test step: the persona and the scope steps have no path to break.
+The three test stages sit at the quarter points of the line, in the order of the checklist under it. A failed test breaks the line only on the test step: the persona and the scope steps have no path to break. On a step after the test step the line stays live for a passed test and is flat for every other state.
 
 When the test passes, the tunnel runs, so the line is live before the user leaves onboarding. The hand-off then opens the main screen, where the hero shows the same live line. The line never carries state alone: the title, the option cards, the checklist, and the banner name each state.
 
@@ -75,7 +75,7 @@ The result of the test gives one haptic: success when the test passes and error 
 
 In the landscape layout the badge sits in the top bar between Back and the text action, and the line runs through the bar. The line is drawn only in the space that the two controls leave, so it does not cross a control or a label in either layout direction or at a large font scale. A long label leaves a short line or none.
 
-The splash screen joins the line. When the app starts on onboarding, the splash icon moves to the place of the badge and shrinks to its size while the splash screen fades, over the signature bucket. With animations off the splash screen is removed at once. For every other start destination the splash screen fades out on API 31 and later and is removed at once below API 31. Android 12 and later must know about a splash exit before the start destination is known, so the app owns the exit for every start destination and the short fade stands in for the system exit animation.
+The splash screen joins the line. When the app starts on onboarding, the splash screen stays until the badge is placed, for 500ms at most, so the startup gate does not show between the two. The splash icon then moves to the place of the badge and shrinks to its size while the splash screen fades, over the signature bucket. With animations off the splash screen is removed at once. For every other start destination the splash screen fades out on API 31 and later and is removed at once below API 31. Android 12 and later must know about a splash exit before the start destination is known, so the app owns the exit for every start destination and the short fade stands in for the system exit animation.
 
 ## Reduced motion and older devices
 

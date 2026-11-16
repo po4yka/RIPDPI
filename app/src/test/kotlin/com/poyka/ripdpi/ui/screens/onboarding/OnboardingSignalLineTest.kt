@@ -132,6 +132,17 @@ class OnboardingSignalLineTest {
     }
 
     @Test
+    fun `the line states the test on the test step, and a passed test on a step after it`() {
+        val passed = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "")
+        val failed = OnboardingValidationState.Failed(reason = "")
+
+        assertTrue(onboardingLineStatesTest(step = 3, testStep = 3, failed))
+        assertTrue(onboardingLineStatesTest(step = 4, testStep = 3, passed))
+        assertFalse(onboardingLineStatesTest(step = 4, testStep = 3, failed))
+        assertFalse(onboardingLineStatesTest(step = 2, testStep = 3, passed))
+    }
+
+    @Test
     fun `only a finished test gives a haptic, success or error`() {
         assertEquals(
             RipDpiHapticFeedback.Success,

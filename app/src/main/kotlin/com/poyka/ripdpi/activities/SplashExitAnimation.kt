@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
 import android.os.Build
+import android.os.SystemClock
 import androidx.compose.ui.geometry.Rect
 import androidx.core.splashscreen.SplashScreen
 import androidx.core.splashscreen.SplashScreenViewProvider
@@ -12,8 +13,26 @@ import com.poyka.ripdpi.ui.screens.onboarding.OnboardingBadgeAnchor
 import com.poyka.ripdpi.ui.theme.DefaultRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 
-// The badge is placed in the first frames after the splash screen. If it is not, the splash screen fades out.
+// The longest that the splash screen waits for the first onboarding frame. After it, the splash screen fades out.
 private const val BadgePlacementTimeoutMillis = 500L
+
+/**
+ * Keeps the splash screen until the onboarding step badge is placed. The startup gate draws for a few frames
+ * while onboarding composes; without the hold it shows between the splash screen and onboarding, and the splash
+ * icon has no badge to move to. The returned condition takes whether the app starts on onboarding.
+ */
+internal fun splashHoldForBadge(badgeAnchor: OnboardingBadgeAnchor): (Boolean) -> Boolean {
+    var since = 0L
+    return { startsOnOnboarding ->
+        if (!startsOnOnboarding || badgeAnchor.bounds != null) {
+            false
+        } else {
+            val now = SystemClock.uptimeMillis()
+            if (since == 0L) since = now
+            now - since < BadgePlacementTimeoutMillis
+        }
+    }
+}
 
 /**
  * Sets how the splash screen leaves. When the app starts on onboarding, the splash icon moves to the place of the
@@ -31,27 +50,11 @@ internal fun SplashScreen.setRipDpiExit(
     setOnExitAnimationListener { splash ->
         when {
             !ValueAnimator.areAnimatorsEnabled() -> splash.remove()
-            startsOnOnboarding() -> splash.carryIconTo(badgeAnchor)
+            startsOnOnboarding() -> badgeAnchor.bounds?.let(splash::moveIconTo) ?: splash.fadeOut()
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> splash.fadeOut()
             else -> splash.remove()
         }
     }
-}
-
-private fun SplashScreenViewProvider.carryIconTo(badgeAnchor: OnboardingBadgeAnchor) {
-    val bounds = badgeAnchor.bounds
-    if (bounds != null) {
-        moveIconTo(bounds)
-        return
-    }
-    // The first onboarding frame can come after the splash screen starts to leave.
-    badgeAnchor.onPlaced = { badgeAnchor.bounds?.let(::moveIconTo) ?: fadeOut() }
-    view.postDelayed({
-        if (badgeAnchor.onPlaced != null) {
-            badgeAnchor.onPlaced = null
-            fadeOut()
-        }
-    }, BadgePlacementTimeoutMillis)
 }
 
 private fun SplashScreenViewProvider.moveIconTo(badge: Rect) {
