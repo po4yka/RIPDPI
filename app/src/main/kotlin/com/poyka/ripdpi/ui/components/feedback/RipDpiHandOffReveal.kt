@@ -307,6 +307,9 @@ internal fun RipDpiHandOffLayer(
 private const val PreviewWidth = 220f
 private const val PreviewHeight = 320f
 private const val PreviewLineHeight = 56f
+private const val PreviewAnchorY = 80f
+private const val PreviewTargetLeft = 55f
+private const val PreviewTargetTop = 213f
 private val PreviewProgress = listOf(0f, 0.35f, 0.7f)
 
 /** The source line and the badge near the top, and, with [travels], the destination line lower and narrower. */
@@ -319,7 +322,7 @@ private fun RipDpiHandOffPreviewBody(
     val state =
         remember(color, travels) {
             RipDpiHandOffState().apply {
-                anchor = Offset(PreviewWidth / 2f, PreviewHeight / 4f)
+                anchor = Offset(PreviewWidth / 2f, PreviewAnchorY)
                 anchorRadius = PreviewLineHeight / 2f
                 sourceLine =
                     RipDpiHandOffLine(
@@ -337,10 +340,10 @@ private fun RipDpiHandOffPreviewBody(
                         sourceLine?.copy(
                             bounds =
                                 Rect(
-                                    left = PreviewWidth / 4f,
-                                    top = PreviewHeight * 2f / 3f,
+                                    left = PreviewTargetLeft,
+                                    top = PreviewTargetTop,
                                     right = PreviewWidth,
-                                    bottom = PreviewHeight * 2f / 3f + PreviewLineHeight,
+                                    bottom = PreviewTargetTop + PreviewLineHeight,
                                 ),
                         )
                 }
