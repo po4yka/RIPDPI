@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use ripdpi_strategy_trait::{
-    Capabilities, ConnectionState, Dissect, FlowDirection, FlowId, RuntimeCapability, StrategyContext,
+    Capabilities, CapabilityTier, ConnectionState, Dissect, FlowDirection, FlowId, RuntimeCapability, StrategyContext,
 };
 
 pub fn ipv6_tcp_packet() -> Vec<u8> {
@@ -26,5 +26,5 @@ pub fn vpn_ipv6_context<'a>(
 }
 
 pub fn vpn_caps() -> Capabilities {
-    Capabilities { tier: Default::default(), available: vec![RuntimeCapability::VpnMode] }
+    Capabilities { tier: CapabilityTier::default(), available: vec![RuntimeCapability::VpnMode] }
 }

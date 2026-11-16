@@ -3,9 +3,9 @@
 #![forbid(unsafe_code)]
 
 use ripdpi_strategy_trait::{
-    CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, L7Protocol, RuntimeCapability, StrategyContext,
-    StrategyDescriptor, StrategyError, StrategyPlanOutcome, StrategyStepDescriptor, StrategyStepFactory,
-    StrategyStepParams, StrategyStepRegistration, StrategyVerdict,
+    CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, L7Protocol, QuicDissect, RuntimeCapability,
+    StrategyContext, StrategyDescriptor, StrategyError, StrategyPlanOutcome, StrategyStepDescriptor,
+    StrategyStepFactory, StrategyStepParams, StrategyStepRegistration, StrategyVerdict,
 };
 
 const IPV4_HEADER_MIN_LEN: usize = 20;
@@ -58,7 +58,7 @@ impl DesyncStrategy for UdpLenStrategy {
         StrategyDescriptor {
             id: "udplen".to_owned(),
             label: "UDP length falsification".to_owned(),
-            supported_protocols: vec![L7Protocol::Quic(Default::default()), L7Protocol::Unknown],
+            supported_protocols: vec![L7Protocol::Quic(QuicDissect::default()), L7Protocol::Unknown],
             required_tier: CapabilityTier::Tier3,
             required_capabilities: vec![RuntimeCapability::VpnMode],
         }

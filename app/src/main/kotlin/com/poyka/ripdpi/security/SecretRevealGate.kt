@@ -102,7 +102,6 @@ internal fun rememberSecretRevealGate(
 
                 else -> {
                     // No host for the system prompt: keep the secret hidden.
-                    Unit
                 }
             }
         }

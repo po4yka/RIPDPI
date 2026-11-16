@@ -7,3 +7,6 @@ license.workspace = true
 [dependencies]
 linkme = { workspace = true }
 ripdpi-strategy-trait = { workspace = true }
+
+[lints]
+workspace = true

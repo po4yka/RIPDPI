@@ -198,7 +198,6 @@ ripdpi-subprocess-protect = { path = "crates/ripdpi-subprocess-protect" }
 ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
 ripdpi-desync-runtime = { path = "crates/ripdpi-desync-runtime" }
-ripdpi-cli = { path = "crates/ripdpi-cli" }
 ripdpi-capabilities = { path = "crates/ripdpi-capabilities" }
 ripdpi-privileged-ops = { path = "crates/ripdpi-privileged-ops" }
 ripdpi-protocol-detect = { path = "crates/ripdpi-protocol-detect" }
@@ -230,8 +229,6 @@ ripdpi-ssh = { path = "crates/ripdpi-ssh" }
 # build via the always-on SSH relay. Track the remaining upstream stabilization in
 # deny.toml [advisories] "Known RC-crypto exposure" and Eugeny/russh #697 / PR #702.
 russh = "=0.65.1"
-ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
-ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
 criterion = { version = "0.8", features = ["html_reports"] }
 enum-map = "3"
 arti-client = { version = "0.48.0", default-features = false, features = ["tokio", "rustls", "pt-client", "bridge-client", "onion-service-client", "static-sqlite"] }
@@ -265,7 +262,6 @@ lru = "0.19"
 maxminddb = "0.33"
 memmap2 = "0.9.12"
 mlua = "0.12"
-mio = { version = "1.2", features = ["net", "os-poll"] }
 nix = { version = "0.31", features = ["net", "ioctl", "fs", "mman", "signal", "process", "uio", "zerocopy"] }
 odoh-rs = "=1.0.5"
 once_cell = "1"
@@ -330,7 +326,6 @@ blake2 = "0.11"
 futures = "0.3"
 h3-datagram = "0.0.2"
 rand = "0.10"
-ringbuf = { version = "0.6.0", features = ["alloc"] }
 sha2 = "0.11"
 flate2 = "1"
 time = "0.3"

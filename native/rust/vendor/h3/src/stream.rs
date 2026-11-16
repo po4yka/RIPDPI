@@ -14,7 +14,7 @@ use crate::{
     error::{internal_error::InternalConnectionError, Code},
     frame::FrameStream,
     proto::{
-        coding::{Decode as _, Encode},
+        coding::Encode,
         frame::{Frame, Settings},
         stream::StreamType,
         varint::VarInt,
@@ -321,12 +321,10 @@ where
                 Err(StreamErrorIncoming::ConnectionErrorIncoming { connection_error }) => {
                     return Poll::Ready(Err(PollTypeError::IncomingError(connection_error)));
                 }
-                Err(StreamErrorIncoming::StreamTerminated { error_code }) => {
-                    Some(StreamEnd::Reset(error_code))
-                }
-                Err(StreamErrorIncoming::Unknown(err)) => {
+                Err(StreamErrorIncoming::StreamTerminated { .. }) => Some(StreamEnd::Reset),
+                Err(StreamErrorIncoming::Unknown(_err)) => {
                     #[cfg(feature = "tracing")]
-                    tracing::error!("Unknown error when reading stream {}", err);
+                    tracing::error!("Unknown error when reading stream {}", _err);
 
                     Some(StreamEnd::Other)
                 }
@@ -383,7 +381,7 @@ where
 
 enum StreamEnd {
     EndOfStream,
-    Reset(u64),
+    Reset,
     // if the quic layer returns an unknown error
     Other,
 }

@@ -94,7 +94,6 @@ private class ImportReadRequest(
             ImportReaderWorkers.cancellations.execute { runCatching { cancellationSignal.cancel() } }
         } catch (_: RejectedExecutionException) {
             // A provider that ignores cancellation may occupy a worker, but cannot grow either pool.
-            Unit
         }
     }
 }

@@ -11,3 +11,6 @@ ripdpi-strategy-trait = { workspace = true }
 [dev-dependencies]
 ripdpi-strategy-config = { workspace = true }
 ripdpi-strategy-registry = { workspace = true }
+
+[lints]
+workspace = true

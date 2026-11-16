@@ -152,10 +152,10 @@ internal class SubprocessRelayProcessSupervisor(
         thread(name = "subprocess-relay-stderr-$runtimeKind", isDaemon = true) {
             try {
                 activeProcess.errorStream.use { input ->
-                    // Stderr is diagnostic text, not PT control. Discard it in bounded chunks;
-                    // retaining or parsing it could expose secrets or alter another run's state.
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    while (input.read(buffer) != -1) Unit
+                    while (input.read(buffer) != -1) {
+                        // Discard stderr to avoid retaining secrets or treating it as PT control.
+                    }
                 }
             } catch (_: IOException) {
                 // Termination can close the pipe while the drain is blocked.

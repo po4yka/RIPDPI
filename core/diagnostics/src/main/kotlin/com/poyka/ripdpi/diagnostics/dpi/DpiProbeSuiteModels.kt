@@ -22,6 +22,7 @@ data class DpiSuiteConfig(
     }
 }
 
+@ConsistentCopyVisibility
 data class DpiSuiteTargets private constructor(
     val domains: List<String>,
     val quic: List<String>,

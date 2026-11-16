@@ -22,7 +22,7 @@ internal class FlowAttributionCache(
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ScopeOwner>?): Boolean {
                 if (size <= capacity) return false
                 val identity = eldest?.value
-                if (identity != null && scopesByApp[identity] == eldest?.key) scopesByApp.remove(identity)
+                if (identity != null && scopesByApp[identity] == eldest.key) scopesByApp.remove(identity)
                 return true
             }
         }

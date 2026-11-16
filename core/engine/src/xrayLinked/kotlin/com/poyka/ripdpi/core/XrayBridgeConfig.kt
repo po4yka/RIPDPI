@@ -30,7 +30,7 @@ internal data class XrayBridgeConfig(
                 when ((settings?.get("auth") as? JsonPrimitive)?.contentOrNull) {
                     "password" -> {
                         val account =
-                            (settings?.get("accounts") as? JsonArray)?.singleOrNull() as? JsonObject
+                            (settings["accounts"] as? JsonArray)?.singleOrNull() as? JsonObject
                                 ?: error("Xray inbound account is missing")
                         LocalSocksCredentials(
                             username = (account["user"] as? JsonPrimitive)?.contentOrNull.orEmpty(),

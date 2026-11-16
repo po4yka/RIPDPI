@@ -441,7 +441,7 @@ mod enabled {
         for pair in globals.pairs::<Value, Value>() {
             let (key, value) = pair.map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
             if let (Value::String(name), Value::Function(_)) = (key, value) {
-                names.insert(name.to_string_lossy().to_string());
+                names.insert(name.to_string_lossy());
             }
         }
         Ok(names)

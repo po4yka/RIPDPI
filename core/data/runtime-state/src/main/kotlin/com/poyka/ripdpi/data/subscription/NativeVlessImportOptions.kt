@@ -84,7 +84,7 @@ private fun unsupportedStreamOptions(
             "VLESS stream options"
         }
 
-        reality != null && stream?.get("security")?.let { it != JsonPrimitive("reality") } == true -> {
+        reality != null && stream["security"]?.let { it != JsonPrimitive("reality") } == true -> {
             "REALITY security options"
         }
 

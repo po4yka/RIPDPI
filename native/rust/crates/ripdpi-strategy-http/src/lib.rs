@@ -5,9 +5,9 @@
 use std::ops::Range;
 
 use ripdpi_strategy_trait::{
-    CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, FlowId, L7Protocol, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyPlanOutcome, StrategyStepDescriptor, StrategyStepFactory, StrategyStepRegistration,
-    StrategyVerdict,
+    CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, FlowId, HttpDissect, L7Protocol, StrategyContext,
+    StrategyDescriptor, StrategyError, StrategyPlanOutcome, StrategyStepDescriptor, StrategyStepFactory,
+    StrategyStepRegistration, StrategyVerdict,
 };
 
 /// Alternates HTTP Host value casing using the zapret2 `domcase` pattern.
@@ -126,7 +126,7 @@ macro_rules! impl_http_strategy {
                 StrategyDescriptor {
                     id: $id.to_owned(),
                     label: $label.to_owned(),
-                    supported_protocols: vec![L7Protocol::Http(Default::default())],
+                    supported_protocols: vec![L7Protocol::Http(HttpDissect::default())],
                     required_tier: CapabilityTier::Tier0,
                     required_capabilities: Vec::new(),
                 }

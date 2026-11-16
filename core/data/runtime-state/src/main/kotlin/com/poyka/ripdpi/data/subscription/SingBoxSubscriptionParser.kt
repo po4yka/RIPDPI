@@ -504,7 +504,7 @@ private fun mapVlessReality(
         xhttpPath = xhttpPath,
         xhttpHost = xhttpHost,
         xhttpMode = xhttpMode,
-        xhttpMaxConnections = if (isXhttp) transportObj?.xhttpMaxConnections() else null,
+        xhttpMaxConnections = if (isXhttp) transportObj.xhttpMaxConnections() else null,
     )
 }
 

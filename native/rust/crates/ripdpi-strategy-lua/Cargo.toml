@@ -21,3 +21,6 @@ thiserror = { workspace = true }
 [dev-dependencies]
 golden-test-support = { workspace = true }
 static_assertions = "1"
+
+[lints]
+workspace = true

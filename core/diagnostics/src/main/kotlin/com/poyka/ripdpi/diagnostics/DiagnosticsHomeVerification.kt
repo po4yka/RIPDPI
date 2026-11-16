@@ -12,7 +12,7 @@ internal fun summarizeHomeVerification(
         session != null && report != null && session.hasCompleteHomeReport(sessionId, report) &&
             session.serviceMode == "VPN" && session.pathMode == ScanPathMode.IN_PATH.name &&
             report.pathMode == ScanPathMode.IN_PATH
-    val success = complete && report?.hasHealthyVerificationTargets() == true
+    val success = complete && report.hasHealthyVerificationTargets()
     return DiagnosticsHomeVerificationOutcome(
         sessionId = sessionId,
         success = success,

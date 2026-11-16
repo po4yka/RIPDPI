@@ -71,7 +71,7 @@ fun RipDpiTopAppBar(
         LocalDensity.current.fontScale >= TopAppBarStackFontScale && (hasNavigation || actions != null)
     val titleContent: @Composable () -> Unit = { Text(text = title, modifier = Modifier.semantics { heading() }) }
     val navigationContent: @Composable () -> Unit = {
-        if (hasNavigation && navigationIcon != null && onNavigationClick != null) {
+        if (hasNavigation) {
             RipDpiIconButton(
                 icon = navigationIcon,
                 contentDescription = navigationContentDescription ?: stringResource(R.string.navigation_back),
