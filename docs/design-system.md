@@ -246,6 +246,7 @@ Motion tokens live in `ui/theme/RipDpiMotion.kt`.
 - State changes: `220ms`
 - Emphasized transitions: `320ms`
 - Route transitions: `260ms`
+- Signature hand-off: `560ms`
 - Press scale: `0.98`
 - Selection scale: `1.02`
 - Emphasis scale: `1.04`

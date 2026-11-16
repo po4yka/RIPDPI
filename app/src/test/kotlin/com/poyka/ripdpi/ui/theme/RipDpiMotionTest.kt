@@ -23,6 +23,7 @@ class RipDpiMotionTest {
             DefaultRipDpiMotion.emphasizedTween<Float>().durationMillis,
         )
         assertEquals(DefaultRipDpiMotion.routeDurationMillis, DefaultRipDpiMotion.routeTween<Float>().durationMillis)
+        assertEquals(560, DefaultRipDpiMotion.signatureTween<Float>().durationMillis)
     }
 
     @Test

@@ -9,7 +9,9 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -26,6 +28,9 @@ import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiRemediationCard
+import com.poyka.ripdpi.ui.components.feedback.LocalRipDpiHandOff
+import com.poyka.ripdpi.ui.components.feedback.RipDpiHandOffReveal
+import com.poyka.ripdpi.ui.components.feedback.RipDpiHandOffState
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
@@ -155,47 +160,68 @@ private fun ReadyMainActivityContent(
         return
     }
     val pauseViewModel = pauseViewModelFactory()
+    val onboardingHandOff = rememberOnboardingHandOff(startupState.startDestination)
     Box(
         modifier =
             Modifier
                 .fillMaxSize()
                 .ripDpiAutomationTreeRoot(),
     ) {
-        key(
-            startupState.startDestination,
-            navigationStateKey(startupState.startDestination, viewModel.navigationSessionKey),
-        ) {
-            // Flavor seam: the "full" source set renders the full nav host;
-            // the "simple" source set renders the two-action SimpleHomeScreen.
-            AppExperienceContent(
-                startDestination = startupState.startDestination,
-                viewModel = viewModel,
-                pauseViewModel = pauseViewModel,
-                controller = controller,
-                shellState = shellState,
-                snackbarHostState = snackbarHostState,
-                onExportEligibilityChanged = exportPreview::setContentUnlocked,
-                exportPreviewContent = {
-                    val previewState by exportPreview.state.collectAsStateWithLifecycle()
-                    previewState?.let { preview ->
-                        key(preview.token) {
-                            com.poyka.ripdpi.ui.components.export.ExportPreviewSheet(
-                                presentation = preview.presentation,
-                                onConfirm = { exportPreview.confirm(preview.token) },
-                                onCancel = { exportPreview.cancel(preview.token) },
-                                onDismiss = { exportPreview.cancel(preview.token) },
-                            )
+        CompositionLocalProvider(LocalRipDpiHandOff provides onboardingHandOff) {
+            key(
+                startupState.startDestination,
+                navigationStateKey(startupState.startDestination, viewModel.navigationSessionKey),
+            ) {
+                // Flavor seam: the "full" source set renders the full nav host;
+                // the "simple" source set renders the two-action SimpleHomeScreen.
+                AppExperienceContent(
+                    startDestination = startupState.startDestination,
+                    viewModel = viewModel,
+                    pauseViewModel = pauseViewModel,
+                    controller = controller,
+                    shellState = shellState,
+                    snackbarHostState = snackbarHostState,
+                    onExportEligibilityChanged = exportPreview::setContentUnlocked,
+                    exportPreviewContent = {
+                        val previewState by exportPreview.state.collectAsStateWithLifecycle()
+                        previewState?.let { preview ->
+                            key(preview.token) {
+                                com.poyka.ripdpi.ui.components.export.ExportPreviewSheet(
+                                    presentation = preview.presentation,
+                                    onConfirm = { exportPreview.confirm(preview.token) },
+                                    onCancel = { exportPreview.cancel(preview.token) },
+                                    onDismiss = { exportPreview.cancel(preview.token) },
+                                )
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
         }
+        RipDpiHandOffReveal(state = onboardingHandOff)
         MainActivityDialogs(
             viewModel = viewModel,
             controller = controller,
             shellState = shellState,
         )
     }
+}
+
+/**
+ * The content is replaced, not navigated, when the start destination leaves onboarding, so the reveal that
+ * joins the two screens lives above it and starts in the frame of the replacement.
+ */
+@Composable
+private fun rememberOnboardingHandOff(startDestination: Route): RipDpiHandOffState {
+    val handOff = remember { RipDpiHandOffState() }
+    val previous = remember { arrayOf(startDestination) }
+    SideEffect {
+        if (previous[0] == Route.Onboarding && startDestination != Route.Onboarding) {
+            handOff.start()
+        }
+        previous[0] = startDestination
+    }
+    return handOff
 }
 
 internal fun navigationStateKey(

@@ -41,6 +41,7 @@ data class RipDpiMotion(
     val stateDurationMillis: Int = 220,
     val emphasizedDurationMillis: Int = 320,
     val routeDurationMillis: Int = 260,
+    val signatureDurationMillis: Int = 560,
 ) {
     fun duration(baseDurationMillis: Int): Int =
         when {
@@ -76,6 +77,10 @@ data class RipDpiMotion(
 
     fun <T> routeTween(easing: Easing = EmphasizedDecelerate): TweenSpec<T> =
         tween(durationMillis = duration(routeDurationMillis), easing = easing)
+
+    /** A one-off hand-off between two parts of the product, such as onboarding into the main screen. */
+    fun <T> signatureTween(easing: Easing = StandardEasing): TweenSpec<T> =
+        tween(durationMillis = duration(signatureDurationMillis), easing = easing)
 
     fun sectionEnterTransition(): EnterTransition =
         if (!animationsEnabled) {

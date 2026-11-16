@@ -11,14 +11,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,17 +40,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,24 +63,30 @@ import com.poyka.ripdpi.activities.mapNotificationPermissionResult
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiTextAction
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.coroutines.flow.Flow
+import kotlin.math.abs
 
 private const val AccessibilityOnboardingFontScale = 1.5f
-private val OnboardingHeaderBadgeSize = 56.dp
-private val OnboardingHeaderIconSize = 28.dp
+
+// Below this window height (a phone in landscape) the step badge moves into the top bar.
+private val OnboardingCompactHeight = 480.dp
+
+// Share of the page width that a page gives up while it scrolls, so its content moves less than the finger.
+private const val OnboardingPageParallax = 0.4f
 
 @Composable
 fun OnboardingRoute(
@@ -195,24 +204,9 @@ internal fun OnboardingScreen(
     modifier: Modifier = Modifier,
 ) {
     val layout = RipDpiThemeTokens.layout
-    val pagerState =
-        rememberPagerState(
-            initialPage = uiState.currentPage.coerceIn(0, OnboardingPages.lastIndex),
-            pageCount = { OnboardingPages.size },
-        )
-
-    LaunchedEffect(uiState.currentPage) {
-        val targetPage = uiState.currentPage.coerceIn(0, OnboardingPages.lastIndex)
-        if (targetPage != pagerState.settledPage) {
-            pagerState.animateScrollToPage(targetPage)
-        }
-    }
-
-    LaunchedEffect(pagerState.settledPage) {
-        if (pagerState.settledPage != uiState.currentPage) {
-            actions.onPageChanged(pagerState.settledPage)
-        }
-    }
+    val pagerState = rememberOnboardingPagerState(uiState.currentPage, actions.onPageChanged)
+    val scrub = RipDpiThemeTokens.motion.animationsEnabled
+    val pagePosition = rememberOnboardingPagePosition(pagerState, scrub)
 
     val settledPage = pagerState.settledPage.coerceIn(0, OnboardingPages.lastIndex)
     val currentPage = OnboardingPages[settledPage]
@@ -232,7 +226,7 @@ internal fun OnboardingScreen(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier =
             modifier
                 .ripDpiAutomationTreeRoot()
@@ -240,6 +234,8 @@ internal fun OnboardingScreen(
                 .fillMaxSize()
                 .ripDpiScreenBackground(),
     ) {
+        // A short and narrow window (split screen) keeps the plain top bar: its action needs the width.
+        val compactHeight = maxHeight < OnboardingCompactHeight && maxWidth > maxHeight
         Column(
             modifier =
                 Modifier
@@ -258,9 +254,15 @@ internal fun OnboardingScreen(
                 onFinish = actions.onFinish,
                 onFinishDisconnected = actions.onFinishDisconnected,
                 onBack = { actions.onPageChanged(settledPage - 1) },
+                badgePosition = pagePosition.takeIf { compactHeight },
             )
 
-            // 2) CONTENT — weighted; each page renders its own title at the top
+            // 2) STEP BADGE — pinned: it stays in place while the pages change under it.
+            if (!compactHeight) {
+                OnboardingPinnedBadge(pagePosition, validationSucceeded, Modifier.align(Alignment.CenterHorizontally))
+            }
+
+            // 3) CONTENT — weighted; each page renders its own title at the top
             OnboardingPagerContent(
                 pagerState = pagerState,
                 validationBusy = validationBusy,
@@ -269,9 +271,12 @@ internal fun OnboardingScreen(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             )
 
-            // 3) BOTTOM BAR — nav inset, page indicator + full-width primary CTA
+            // 4) BOTTOM BAR — nav inset, page indicator + full-width primary CTA
             OnboardingBottomBar(
                 settledPage = settledPage,
+                // Flips halfway through a drag, so the highlight moves with the widths.
+                indicatorPage = { if (scrub) pagerState.currentPage else settledPage },
+                pagePosition = pagePosition,
                 pageCount = pageCount,
                 isLastPage = isLastPage,
                 continueLabelRes = currentPage.buttonLabelRes,
@@ -284,6 +289,73 @@ internal fun OnboardingScreen(
     }
 }
 
+/**
+ * The fractional pager position for the badge and the indicators. It is read in the layout and draw phases
+ * only, so a drag between steps does not recompose the screen. Without animations it changes only when a step
+ * settles.
+ */
+@Composable
+private fun rememberOnboardingPagePosition(
+    pagerState: PagerState,
+    scrub: Boolean,
+): () -> Float =
+    remember(pagerState, scrub) {
+        {
+            if (scrub) {
+                pagerState.currentPage + pagerState.currentPageOffsetFraction
+            } else {
+                pagerState.settledPage.toFloat()
+            }
+        }
+    }
+
+/** The step badge in its pinned place above the pages. It does not scroll, so at large font scales it is smaller. */
+@Composable
+private fun OnboardingPinnedBadge(
+    pagePosition: () -> Float,
+    succeeded: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val largeFont = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
+    OnboardingStepBadge(
+        pagePosition = pagePosition,
+        succeeded = succeeded,
+        modifier = modifier.padding(bottom = spacing.md + spacing.sm),
+        size = if (largeFont) OnboardingStepBadgeCompactSize else OnboardingStepBadgeSize,
+    )
+}
+
+/** The pager follows the step in the state, and reports a step the user reached with a swipe. */
+@Composable
+private fun rememberOnboardingPagerState(
+    currentPage: Int,
+    onPageChanged: (Int) -> Unit,
+): PagerState {
+    val pagerState =
+        rememberPagerState(
+            initialPage = currentPage.coerceIn(0, OnboardingPages.lastIndex),
+            pageCount = { OnboardingPages.size },
+        )
+
+    LaunchedEffect(currentPage) {
+        val targetPage = currentPage.coerceIn(0, OnboardingPages.lastIndex)
+        if (targetPage != pagerState.settledPage) {
+            pagerState.animateScrollToPage(targetPage)
+        }
+    }
+
+    val performHaptic = rememberRipDpiHapticPerformer()
+    LaunchedEffect(pagerState.settledPage) {
+        if (pagerState.settledPage != currentPage) {
+            // Only a swipe settles on a step that the state does not hold yet. A button gives its own haptic.
+            performHaptic(RipDpiHapticFeedback.Selection)
+            onPageChanged(pagerState.settledPage)
+        }
+    }
+    return pagerState
+}
+
 /** The weighted, swipeable content region: one page per [OnboardingPages] entry. */
 @Composable
 private fun OnboardingPagerContent(
@@ -293,17 +365,47 @@ private fun OnboardingPagerContent(
     actions: OnboardingScreenActions,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier = modifier) {
+    val motion = RipDpiThemeTokens.motion
+    val scrubPages = motion.animationsEnabled
+    val direction = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1f else 1f
+    // The first launch plays the entrance once; a rotation or a restored process does not repeat it.
+    var entrancePlayed by rememberSaveable { mutableStateOf(false) }
+    val entrance = remember { Animatable(if (entrancePlayed || !motion.animationsEnabled) 1f else 0f) }
+    val entranceRise = with(LocalDensity.current) { RipDpiThemeTokens.spacing.lg.toPx() }
+    LaunchedEffect(entrance) {
+        if (entrance.value < 1f) entrance.animateTo(1f, motion.emphasizedTween())
+        entrancePlayed = true
+    }
+
+    Box(
+        modifier =
+            modifier.graphicsLayer {
+                alpha = entrance.value
+                translationY = (1f - entrance.value) * entranceRise
+            },
+    ) {
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = !validationBusy && uiState.validationState !is OnboardingValidationState.Success,
             modifier = Modifier.fillMaxSize(),
         ) { page ->
+            // A page fades with its distance from the pager position and moves less than the finger, so the old
+            // and the new step cross over in place. Without animations the pager moves the pages unchanged.
+            val pageModifier =
+                if (scrubPages) {
+                    Modifier.fillMaxSize().graphicsLayer {
+                        val offset = page - (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                        alpha = 1f - abs(offset).coerceIn(0f, 1f)
+                        translationX = -offset * size.width * OnboardingPageParallax * direction
+                    }
+                } else {
+                    Modifier.fillMaxSize()
+                }
             when (val pageModel = OnboardingPages[page]) {
                 is OnboardingPage.Informational -> {
                     OnboardingInfoPageScene(
                         pageModel = pageModel,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = pageModifier,
                     )
                 }
 
@@ -316,7 +418,7 @@ private fun OnboardingPagerContent(
                         onAcceptSuggestedMode = actions.onAcceptSuggestedMode,
                         onChangeDns = actions.onChangeDns,
                         onFinish = actions.onFinish,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = pageModifier,
                     )
                 }
             }
@@ -324,7 +426,10 @@ private fun OnboardingPagerContent(
     }
 }
 
-/** Status-inset top bar: Back on later steps and the step's optional text action at the end. */
+/**
+ * Status-inset top bar: Back on later steps and the step's optional text action at the end. In a short window
+ * it also holds the step badge, centered between two equal sides; [badgePosition] is then the pager position.
+ */
 @Composable
 private fun OnboardingTopBar(
     skipVisible: Boolean,
@@ -335,19 +440,12 @@ private fun OnboardingTopBar(
     onFinishDisconnected: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    badgePosition: (() -> Float)? = null,
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
     // After a successful test the tunnel runs: going back would leave it up under a mode choice.
     val backVisible = !skipVisible && !finishDisconnectedVisible
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .height(introLayout.topActionRowHeight),
-        horizontalArrangement = if (backVisible) Arrangement.SpaceBetween else Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val back = @Composable {
         if (backVisible) {
             RipDpiIconButton(
                 icon = RipDpiIcons.Back,
@@ -357,13 +455,25 @@ private fun OnboardingTopBar(
                 enabled = backEnabled,
             )
         }
+    }
+    val action = @Composable { actionModifier: Modifier ->
         when {
             skipVisible -> {
-                OnboardingTopBarAction(R.string.onboarding_skip_setup, onFinish, RipDpiTestTags.OnboardingSkip)
+                OnboardingTopBarAction(
+                    R.string.onboarding_skip_setup,
+                    onFinish,
+                    RipDpiTestTags.OnboardingSkip,
+                    actionModifier,
+                )
             }
 
             skipTestVisible -> {
-                OnboardingTopBarAction(R.string.onboarding_skip_test, onFinish, RipDpiTestTags.OnboardingSkipTest)
+                OnboardingTopBarAction(
+                    R.string.onboarding_skip_test,
+                    onFinish,
+                    RipDpiTestTags.OnboardingSkipTest,
+                    actionModifier,
+                )
             }
 
             finishDisconnectedVisible -> {
@@ -371,22 +481,49 @@ private fun OnboardingTopBar(
                     R.string.vpn_confirm_disconnect_disconnect,
                     onFinishDisconnected,
                     RipDpiTestTags.OnboardingFinishDisconnected,
+                    actionModifier,
                 )
             }
+        }
+    }
+    val rowModifier =
+        modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .height(introLayout.topActionRowHeight)
+    if (badgePosition == null) {
+        Row(
+            modifier = rowModifier,
+            horizontalArrangement = if (backVisible) Arrangement.SpaceBetween else Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            back()
+            action(Modifier.weight(1f, fill = false))
+        }
+    } else {
+        Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { back() }
+            OnboardingStepBadge(
+                pagePosition = badgePosition,
+                succeeded = finishDisconnectedVisible,
+                size = OnboardingStepBadgeCompactSize,
+            )
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { action(Modifier) }
         }
     }
 }
 
 @Composable
-private fun RowScope.OnboardingTopBarAction(
+private fun OnboardingTopBarAction(
     @StringRes textRes: Int,
     onClick: () -> Unit,
     testTag: String,
+    modifier: Modifier = Modifier,
 ) {
     RipDpiTextAction(
         text = stringResource(textRes),
         onClick = onClick,
-        modifier = Modifier.weight(1f, fill = false).ripDpiTestTag(testTag),
+        modifier = modifier.ripDpiTestTag(testTag),
         textStyle = RipDpiThemeTokens.type.introAction,
         color = RipDpiThemeTokens.colors.mutedForeground,
         minHeight = rememberRipDpiIntroScaffoldMetrics().topActionRowHeight,
@@ -397,6 +534,8 @@ private fun RowScope.OnboardingTopBarAction(
 @Composable
 private fun OnboardingBottomBar(
     settledPage: Int,
+    indicatorPage: () -> Int,
+    pagePosition: () -> Float,
     pageCount: Int,
     isLastPage: Boolean,
     continueLabelRes: Int,
@@ -419,7 +558,8 @@ private fun OnboardingBottomBar(
         val finished = validationState is OnboardingValidationState.Success
         Box(modifier = if (finished) Modifier.alpha(0f).clearAndSetSemantics {} else Modifier) {
             RipDpiPageIndicators(
-                currentPage = settledPage,
+                currentPage = indicatorPage(),
+                pagePosition = pagePosition,
                 pageCount = pageCount,
                 accessibilityLabel =
                     stringResource(
@@ -533,7 +673,6 @@ private fun OnboardingInfoPageScene(
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
     val header = @Composable { headerModifier: Modifier ->
         OnboardingPageHeader(
-            icon = pageModel.icon,
             titleRes = pageModel.titleRes,
             subtitleRes = pageModel.descriptionRes,
             modifier = headerModifier,
@@ -563,8 +702,8 @@ private fun OnboardingInfoPageScene(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = introLayout.bodyHorizontalPadding)
-                // A scroll child measures with unbounded height; the minimum lets the content center in the free
-                // space, and it still scrolls from the top once it outgrows the page (200% font).
+                // A scroll child measures with unbounded height; the minimum lets the two landscape panes center
+                // in the free space, and the content still scrolls from the top once it outgrows the page.
                 .heightIn(min = maxHeight)
         if (maxWidth > maxHeight) {
             // Landscape leaves too little height to stack the header over the lists, so the
@@ -578,10 +717,11 @@ private fun OnboardingInfoPageScene(
                 grid(Modifier.weight(1f))
             }
         } else {
+            // Top-anchored like the setup steps: every title sits at one height under the pinned badge.
             Column(
                 modifier = scrollModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap),
             ) {
                 header(Modifier)
                 grid(Modifier)
@@ -747,7 +887,6 @@ private fun OnboardingSetupPageScene(
                 pageModel.kind == SetupPageKind.ConnectionTest &&
                     uiState.validationState is OnboardingValidationState.Success
             OnboardingPageHeader(
-                icon = if (succeeded) RipDpiIcons.Check else pageModel.icon,
                 titleRes = if (succeeded) R.string.vpn_connected else pageModel.titleRes,
                 subtitleRes =
                     R.string.onboarding_test_idle_body.takeIf {
@@ -787,10 +926,9 @@ private fun OnboardingSetupPageScene(
     }
 }
 
-/** Header shared by every onboarding page: icon badge, title, optional subtitle, anchored at the top. */
+/** Header shared by every onboarding page: title and optional subtitle. The step icon is the pinned badge. */
 @Composable
 private fun OnboardingPageHeader(
-    icon: ImageVector,
     titleRes: Int,
     subtitleRes: Int?,
     modifier: Modifier = Modifier,
@@ -804,21 +942,6 @@ private fun OnboardingPageHeader(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .padding(bottom = spacing.md)
-                    .size(OnboardingHeaderBadgeSize)
-                    .background(colors.muted, RipDpiThemeTokens.shapes.full),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = colors.foreground,
-                modifier = Modifier.size(OnboardingHeaderIconSize),
-            )
-        }
         Text(
             text = stringResource(titleRes),
             style = type.introTitle,
@@ -842,41 +965,4 @@ private fun OnboardingPageHeader(
             )
         }
     }
-}
-
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
-@Composable
-private fun OnboardingScreenPreview() {
-    RipDpiTheme(themePreference = "light") {
-        OnboardingScreenPreviewBody(OnboardingUiState(currentPage = 0, totalPages = OnboardingPages.size))
-    }
-}
-
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
-@Composable
-private fun OnboardingScreenSetupPreview() {
-    RipDpiTheme(themePreference = "light") {
-        OnboardingScreenPreviewBody(
-            OnboardingUiState(
-                currentPage = OnboardingInfoPageCount,
-                totalPages = OnboardingPages.size,
-            ),
-        )
-    }
-}
-
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
-@Composable
-private fun OnboardingScreenDarkPreview() {
-    RipDpiTheme(themePreference = "dark") {
-        OnboardingScreenPreviewBody(OnboardingUiState(currentPage = 2, totalPages = OnboardingPages.size))
-    }
-}
-
-@Composable
-private fun OnboardingScreenPreviewBody(uiState: OnboardingUiState) {
-    OnboardingScreen(
-        uiState = uiState,
-        actions = OnboardingScreenActions(),
-    )
 }
