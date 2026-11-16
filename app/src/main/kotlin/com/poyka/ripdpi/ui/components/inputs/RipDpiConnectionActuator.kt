@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -58,6 +57,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalConfiguration
@@ -105,8 +105,7 @@ import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
 private const val StackedRouteFontScale = 1.5f
 private const val PressedScale = 0.98f
 private val SessionClockMinSize = 16.sp
-private const val SessionClockWeight = 3f
-private const val SignalLineWeight = 2f
+private const val SessionClockShare = 0.6f
 private const val LineMiddle = 0.5f
 
 private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)
@@ -294,27 +293,42 @@ private fun ActuatorSignalBand(
     press: HeroPress,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    Row(
+    Layout(
         modifier = Modifier.fillMaxWidth().padding(top = spacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ActuatorSessionClock(state)
-        val mode = state.status.toSignalMode()
-        val breakAt = state.failedStageFraction()
-        RipDpiSignalField(
-            mode = mode,
-            color = signal,
-            modifier =
-                Modifier
-                    .weight(SignalLineWeight)
-                    .then(press.trackLine)
-                    // The first launch hands its line over to this one.
-                    .ripDpiHandOffTarget(mode, signal, breakAt),
-            breakAt = breakAt,
-            pressAt = press::positionOnLine,
-            press = { press.amount.value },
-        )
+        content = {
+            ActuatorSessionClock(state)
+            val mode = state.status.toSignalMode()
+            val breakAt = state.failedStageFraction()
+            RipDpiSignalField(
+                mode = mode,
+                color = signal,
+                modifier =
+                    Modifier
+                        .then(press.trackLine)
+                        // The first launch hands its line over to this one.
+                        .ripDpiHandOffTarget(mode, signal, breakAt),
+                breakAt = breakAt,
+                pressAt = press::positionOnLine,
+                press = { press.amount.value },
+            )
+        },
+    ) { measurables, constraints ->
+        // The clock takes what it needs, up to its share; the line takes all the rest, so it always reaches the edge.
+        val gap = spacing.md.roundToPx()
+        val width = constraints.maxWidth
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val clock =
+            measurables
+                .dropLast(1)
+                .firstOrNull()
+                ?.measure(loose.copy(maxWidth = ((width - gap) * SessionClockShare).toInt()))
+        val lineStart = clock?.let { it.width + gap } ?: 0
+        val line = measurables.last().measure(loose.copy(minWidth = width - lineStart, maxWidth = width - lineStart))
+        val height = maxOf(line.height, clock?.height ?: 0)
+        layout(width, height) {
+            clock?.placeRelative(0, (height - clock.height) / 2)
+            line.placeRelative(lineStart, (height - line.height) / 2)
+        }
     }
 }
 
@@ -335,7 +349,7 @@ private fun StatusConnectionActuatorUiState.failedStageFraction(): Float {
 
 /** The idle duration is a meaningless 00:00:00, so only a live session shows the clock. */
 @Composable
-private fun RowScope.ActuatorSessionClock(state: StatusConnectionActuatorUiState) {
+private fun ActuatorSessionClock(state: StatusConnectionActuatorUiState) {
     if (state.status != StatusConnectionActuatorStatus.Locked &&
         state.status != StatusConnectionActuatorStatus.Degraded
     ) {
@@ -350,8 +364,6 @@ private fun RowScope.ActuatorSessionClock(state: StatusConnectionActuatorUiState
     Text(
         modifier =
             Modifier
-                // A share of the band, not its natural width, so large text cannot squeeze the line to a stub.
-                .weight(SessionClockWeight, fill = false)
                 .height(RipDpiSignalFieldHeight)
                 .wrapContentHeight()
                 .semantics { contentDescription = spoken }

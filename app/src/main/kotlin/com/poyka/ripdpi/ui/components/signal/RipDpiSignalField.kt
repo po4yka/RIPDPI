@@ -394,7 +394,10 @@ half4 main(float2 xy) {
     float slope = size.y * (offsetAt(u + 1.0 / size.x) - offsetAt(u));
     float d = abs(xy.y - y) / sqrt(1.0 + slope * slope);
     float core = 1.0 - smoothstep(stroke, stroke + 1.0, d);
-    float halo = 0.35 * glow * exp(-d * d / (2.0 * spread * spread));
+    // The glow fades out before the bounds, so the clip of the field never shows as a hard edge.
+    float2 inset = min(xy, size - xy);
+    float inside = smoothstep(0.0, 2.0 * spread, inset.x) * smoothstep(0.0, 2.0 * spread, inset.y);
+    float halo = 0.35 * glow * inside * exp(-d * d / (2.0 * spread * spread));
     float tail = mix(0.3, 1.0, step(u, cut));
     float gap = smoothstep(0.0, 0.02, abs(u - cut));
     float ends = smoothstep(0.0, 0.3, u) * (1.0 - smoothstep(0.7, 1.0, u));
