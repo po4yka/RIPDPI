@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.feedback.LocalRipDpiHandOff
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.math.abs
 import kotlin.math.floor
@@ -55,7 +54,6 @@ internal val LocalOnboardingBadgeAnchor = staticCompositionLocalOf<OnboardingBad
 @Composable
 internal fun OnboardingStepBadge(
     pagePosition: () -> Float,
-    succeeded: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = OnboardingStepBadgeSize,
 ) {
@@ -84,7 +82,7 @@ internal fun OnboardingStepBadge(
     ) {
         OnboardingPages.forEachIndexed { index, page ->
             Icon(
-                imageVector = if (succeeded && page.isConnectionTest) RipDpiIcons.Check else page.icon,
+                imageVector = page.icon,
                 contentDescription = null,
                 tint = colors.foreground,
                 modifier =
@@ -107,11 +105,11 @@ private fun OnboardingStepBadgePreviewBody(themePreference: String) {
     RipDpiComponentPreview(themePreference = themePreference) {
         // Each step at rest, halfway between two steps, the passed connection test, and the compact size.
         OnboardingPages.indices.forEach { index ->
-            OnboardingStepBadge(pagePosition = { index.toFloat() }, succeeded = false)
+            OnboardingStepBadge(pagePosition = { index.toFloat() })
         }
-        OnboardingStepBadge(pagePosition = { PreviewBetweenStepsPosition }, succeeded = false)
-        OnboardingStepBadge(pagePosition = { OnboardingTestPageIndex.toFloat() }, succeeded = true)
-        OnboardingStepBadge(pagePosition = { 0f }, succeeded = false, size = OnboardingStepBadgeCompactSize)
+        OnboardingStepBadge(pagePosition = { PreviewBetweenStepsPosition })
+        OnboardingStepBadge(pagePosition = { OnboardingTestPageIndex.toFloat() })
+        OnboardingStepBadge(pagePosition = { 0f }, size = OnboardingStepBadgeCompactSize)
     }
 }
 

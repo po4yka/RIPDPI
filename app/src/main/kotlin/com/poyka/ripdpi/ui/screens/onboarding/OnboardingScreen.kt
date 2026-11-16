@@ -74,7 +74,6 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiTextAction
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
-import com.poyka.ripdpi.ui.components.signal.RipDpiSignalMode
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.status.StatusFirstRunIntroStore
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -251,10 +250,7 @@ internal fun OnboardingScreen(
     // The intro offers Skip; inner steps provide an explicit path to the previous selection.
     val skipVisible = settledPage == 0
     val skipTestVisible = isTestPage && validationState is OnboardingValidationState.Idle
-    val persona = OnboardingPersona.fromId(uiState.selectedPersona)
-    // The completion step keeps the live line of a passed test. A failed test breaks the line on the test step only.
-    val statesTest = onboardingLineStatesTest(settledPage, OnboardingTestPageIndex, validationState)
-    val signal = onboardingSignal(validationState, statesTest, persona, uiState.selectedMode)
+    val signal = onboardingSignalAt(settledPage, uiState)
     OnboardingResultHaptic(validationState)
 
     BackHandler(enabled = settledPage > 0) {
@@ -331,6 +327,18 @@ internal fun OnboardingScreen(
     }
 }
 
+/** The completion step keeps the live line of a passed test. A failed test breaks the line on the test step only. */
+private fun onboardingSignalAt(
+    step: Int,
+    uiState: OnboardingUiState,
+): OnboardingSignal =
+    onboardingSignal(
+        validationState = uiState.validationState,
+        onTestStep = onboardingLineStatesTest(step, OnboardingTestPageIndex, uiState.validationState),
+        persona = OnboardingPersona.fromId(uiState.selectedPersona),
+        scope = uiState.selectedMode,
+    )
+
 /**
  * The fractional pager position for the badge and the indicators. It is read in the layout and draw phases
  * only, so a drag between steps does not recompose the screen. Without animations it changes only when a step
@@ -370,7 +378,6 @@ private fun OnboardingPinnedBadge(
         OnboardingSignalLine(signal = signal, pagePosition = pagePosition)
         OnboardingStepBadge(
             pagePosition = pagePosition,
-            succeeded = signal.mode == RipDpiSignalMode.Live,
             size = if (largeFont) OnboardingStepBadgeCompactSize else OnboardingStepBadgeSize,
         )
     }
@@ -583,10 +590,9 @@ private fun OnboardingTopBarBadgeRow(
         OnboardingSignalLine(
             signal = signal,
             pagePosition = pagePosition,
-            modifier =
-                Modifier
-                    .matchParentSize()
-                    .onboardingLineBetween(startInset = { backWidth + gap }, endInset = { actionWidth + gap }),
+            modifier = Modifier.matchParentSize(),
+            startInset = backWidth + gap,
+            endInset = actionWidth + gap,
         )
         Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
@@ -594,7 +600,6 @@ private fun OnboardingTopBarBadgeRow(
             }
             OnboardingStepBadge(
                 pagePosition = pagePosition,
-                succeeded = signal.mode == RipDpiSignalMode.Live,
                 size = OnboardingStepBadgeCompactSize,
             )
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {

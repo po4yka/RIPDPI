@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -111,9 +112,6 @@ internal fun onboardingSignal(
     }
 }
 
-internal val OnboardingPage.isConnectionTest: Boolean
-    get() = this is OnboardingPage.Setup && kind == SetupPageKind.ConnectionTest
-
 /**
  * Whether the line at [step] states the connection test. It does on the test step. On a step after it, it does
  * only for a passed test: the tunnel runs, so the line stays live until the user leaves onboarding.
@@ -175,7 +173,7 @@ internal fun OnboardingResultHaptic(validationState: OnboardingValidationState) 
  * Draws the line only between two controls. [startInset] and [endInset] are the pixels that the control at each
  * end of the row takes, read in the draw phase and mirrored in a right-to-left layout.
  */
-internal fun Modifier.onboardingLineBetween(
+private fun Modifier.onboardingLineBetween(
     startInset: () -> Int,
     endInset: () -> Int,
 ): Modifier =
@@ -190,13 +188,16 @@ internal fun Modifier.onboardingLineBetween(
 
 /**
  * The main-screen signal line, carried through onboarding. During a drag between two steps the line dips at a
- * point that travels with [pagePosition], which is read in the draw phase.
+ * point that travels with [pagePosition], which is read in the draw phase. [startInset] and [endInset] are the
+ * pixels that a control at each end takes: the line is not drawn there.
  */
 @Composable
 internal fun OnboardingSignalLine(
     signal: OnboardingSignal,
     pagePosition: () -> Float,
     modifier: Modifier = Modifier,
+    startInset: Int = 0,
+    endInset: Int = 0,
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
@@ -228,12 +229,20 @@ internal fun OnboardingSignalLine(
             else -> colors.signal
         }
     val breakAt = if (rtl) 1f - signal.breakAt else signal.breakAt
-    // The hand-off into the main screen starts from this line. A change of look does not move the line, so the
-    // position callback does not report it.
+    // The hand-off into the main screen starts from the part of this line that shows.
     val handOff = LocalRipDpiHandOff.current
+    var bounds by remember { mutableStateOf<Rect?>(null) }
     if (handOff != null) {
         SideEffect {
-            handOff.sourceLine = handOff.sourceLine?.copy(mode = signal.mode, color = color, breakAt = breakAt)
+            val shown =
+                bounds?.let {
+                    it.copy(
+                        left = it.left + if (rtl) endInset else startInset,
+                        right = it.right - if (rtl) startInset else endInset,
+                    )
+                }
+            handOff.sourceLine =
+                shown?.takeIf { it.width > 0f }?.let { RipDpiHandOffLine(it, signal.mode, color, breakAt) }
         }
         DisposableEffect(handOff) { onDispose { handOff.sourceLine = null } }
     }
@@ -241,9 +250,9 @@ internal fun OnboardingSignalLine(
         mode = signal.mode,
         color = color,
         modifier =
-            modifier.onGloballyPositioned { coordinates ->
-                handOff?.sourceLine = RipDpiHandOffLine(coordinates.boundsInRoot(), signal.mode, color, breakAt)
-            },
+            modifier
+                .onboardingLineBetween(startInset = { startInset }, endInset = { endInset })
+                .onGloballyPositioned { coordinates -> if (handOff != null) bounds = coordinates.boundsInRoot() },
         breakAt = breakAt,
         pressAt = {
             val along = DipStart + (DipEnd - DipStart) * (pagePosition() / lastStep).coerceIn(0f, 1f)
@@ -296,7 +305,8 @@ private fun OnboardingSignalLinePreviewBody(themePreference: String) {
         OnboardingSignalLine(
             signal(idle, OnboardingPersona.Advanced),
             pagePosition = { scope },
-            modifier = Modifier.onboardingLineBetween({ PreviewControlInset }, { PreviewControlInset }),
+            startInset = PreviewControlInset,
+            endInset = PreviewControlInset,
         )
     }
 }

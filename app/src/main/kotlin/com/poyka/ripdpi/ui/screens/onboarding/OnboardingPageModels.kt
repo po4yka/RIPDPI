@@ -38,7 +38,7 @@ internal enum class SetupPageKind {
 
 internal val OnboardingPages: List<OnboardingPage> =
     listOf(
-        // -- Informational pages --
+        // -- Welcome and privacy --
         OnboardingPage.Setup(
             kind = SetupPageKind.Welcome,
             icon = RipDpiIcons.Connected,
