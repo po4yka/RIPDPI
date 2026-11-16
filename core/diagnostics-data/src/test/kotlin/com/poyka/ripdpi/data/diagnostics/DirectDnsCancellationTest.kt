@@ -1,10 +1,19 @@
 package com.poyka.ripdpi.data.diagnostics
 
+import android.net.Network
 import okhttp3.Dns
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.shadow.api.Shadow
+import org.robolectric.shadows.ShadowNetwork
 import java.io.DataInputStream
 import java.io.IOException
 import java.net.DatagramPacket
@@ -17,6 +26,8 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class DirectDnsCancellationTest {
     private val loopback = InetAddress.getByName("127.0.0.1")
 
@@ -55,15 +66,23 @@ class DirectDnsCancellationTest {
         }
     }
 
-    @Test fun `cancel releases the actual UDP socket and prevents retries`() {
+    @Test
+    @Config(shadows = [DnsSocketNetworkShadow::class])
+    fun `cancel closes the actual UDP socket and prevents retries`() {
         DatagramSocket(0, loopback).use { udp ->
             udp.soTimeout = 2_000
             val outcome = Outcome()
-            val call = resolver(udp.localPort).newCall(Dns.Request("example.com"))
+            val network = ShadowNetwork.newInstance(100)
+            val call =
+                resolver(udp.localPort, DetectionNetworkBinding.AndroidNetworkBinding(network))
+                    .newCall(Dns.Request("example.com"))
             call.enqueue(outcome)
             val query = receive(udp)
+            val client = requireNotNull(Shadow.extract<DnsSocketNetworkShadow>(network).socket)
+            assertFalse(client.isClosed)
+            assertEquals(query.port, client.localPort)
             call.cancel()
-            DatagramSocket(query.port, loopback).use { assertEquals(query.port, it.localPort) }
+            assertTrue(client.isClosed)
             outcome.assertCancelled()
             assertTrue(call.isCanceled())
             assertNoQuery(udp)
@@ -99,13 +118,16 @@ class DirectDnsCancellationTest {
         }
     }
 
-    private fun resolver(port: Int) =
-        DirectDns(
-            listOf("127.0.0.1", "127.0.0.1"),
-            DetectionAddressFamily.ANY,
-            port,
-            1_200,
-        )
+    private fun resolver(
+        port: Int,
+        binding: DetectionNetworkBinding = DetectionNetworkBinding.None,
+    ) = DirectDns(
+        listOf("127.0.0.1", "127.0.0.1"),
+        DetectionAddressFamily.ANY,
+        port,
+        5_000,
+        binding,
+    )
 
     private fun receive(socket: DatagramSocket): DatagramPacket =
         DatagramPacket(ByteArray(1024), 1024).also(socket::receive)
@@ -153,5 +175,17 @@ class DirectDnsCancellationTest {
             assertEquals(1, successes.get())
             assertEquals(0, failures.get())
         }
+    }
+}
+
+@Implements(Network::class)
+class DnsSocketNetworkShadow : ShadowNetwork() {
+    @Volatile
+    var socket: DatagramSocket? = null
+        private set
+
+    @Implementation
+    override fun bindSocket(socket: DatagramSocket) {
+        this.socket = socket
     }
 }
