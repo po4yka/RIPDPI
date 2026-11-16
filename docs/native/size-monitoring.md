@@ -9,13 +9,13 @@ This document describes the current native size policy and attribution workflow.
 - always upload human-readable reports for both lanes so growth is attributable, not just pass/fail
 - defer protocol feature-gating unless the packaged `.so` trend becomes a real release constraint
 
-The user approved the per-library growth limit on 2026-11-13. The total limits
+The user approved the per-library growth limit on 2026-11-16. The total limits
 remain as approved on 2026-11-06. All eight measured library sizes from the
 approved 2026-09-29 baseline remain unchanged.
 
 | Limit | Previous | Current |
 | --- | ---: | ---: |
-| Growth of each tracked library and ABI | 671,744 bytes (656 KiB) | 737,280 bytes (720 KiB) |
+| Growth of each tracked library and ABI | 737,280 bytes (720 KiB) | 819,200 bytes (800 KiB) |
 | Total absolute growth | 3,670,016 bytes (3.5 MiB) | 3,670,016 bytes (3.5 MiB) |
 | Total percentage growth | 4.7% | 4.7% |
 
@@ -23,7 +23,7 @@ The total limit is the smaller of the percentage limit, rounded up to the next
 byte, and the absolute limit. The recorded baseline total is 76,636,228 bytes.
 The 4.7% limit permits 80,238,131 bytes; the absolute limit permits 80,306,244
 bytes. Thus, the percentage limit controls total growth. Each tracked library
-also has its own 737,280-byte growth limit.
+also has its own 819,200-byte growth limit.
 
 This approved policy change retains the recorded measurements, size checks,
 and bloat limits.
@@ -201,7 +201,7 @@ No library file or recorded baseline measurement was changed.
 | `native-shard-x86` | `13491852030` | `db67e44a7182c35ef0561c3dc77a82b02456fc9c2d59420c55bbf4d14210fba5` |
 | `native-shard-x86_64` | `13491502537` | `218a74bb644f82f17f0dbff15208dc5c95fd1ff50fc9321067c28dbb9048ab00` |
 
-#### Current approval: 2026-11-13
+#### Previous approval: 2026-11-13
 
 The user explicitly approved a per-library growth limit of 737,280 bytes
 (720 KiB), with the recorded measurements and both total limits retained.
@@ -227,6 +227,41 @@ and passes under the approved policy against the same extracted files.
 | `native-shard-armeabi-v7a` | `14037125152` | `d08c5ff8556d182a3180c5185552ef09db6abe3a0b31f5c6a3a99f082b3c4dca` |
 | `native-shard-x86` | `14036320515` | `afdf22bda38e5f24b788c52b893bc643d479339c795f4e7634037f180882bfa1` |
 | `native-shard-x86_64` | `14035183794` | `4f3379d5f901c5f49fceecf3176fc04f982144746b2fb5fe4109a35df62d9e98` |
+
+#### Current approval: 2026-11-16
+
+The user explicitly approved an 819,200-byte (800 KiB) per-library growth
+limit. All eight recorded measurements, both total limits, and bloat limits
+remain unchanged. [CI run 43756895493](https://github.com/po4yka/RIPDPI/actions/runs/43756895493)
+used source commit `1c29c2c51e6028632b47ac1703185c1d7db3e4df`.
+
+Only `x86/libripdpi.so` exceeds the previous policy: its 12,022,004-byte size
+is 59,172 bytes above the previous 11,962,832-byte limit. Original IMP-01
+passed this gate; later upstream native-fetch, adaptive relay, and Geo changes
+added native code. The follow-up binary is byte-identical to its upstream base.
+No measured low-risk source reduction was established. The individual budget
+rounds the 796,452-byte growth up to a 16 KiB boundary and adds one 16 KiB
+step. The approved policy leaves 22,748 bytes for x86 and 1,185,339 bytes in
+total. Total size is 79,052,792 bytes against the unchanged 80,238,131-byte limit.
+
+All four native shard ZIP digests match GitHub artifact metadata. All eight
+extracted library sizes match the report. The same size verifier fails with
+the previous policy and passes with the approved policy against those files.
+This local result does not establish that the next hosted CI run passed.
+
+| ABI | `libripdpi.so` bytes | `libripdpi-tunnel.so` bytes |
+| --- | ---: | ---: |
+| arm64-v8a | 11,804,272 | 8,668,472 |
+| armeabi-v7a | 8,751,400 | 6,314,484 |
+| x86 | 12,022,004 | 8,437,960 |
+| x86_64 | 13,321,072 | 9,733,128 |
+
+| Artifact | ID | SHA-256 |
+| --- | --- | --- |
+| `native-shard-arm64-v8a` | `14179430882` | `472ee660f7fce964da75873b6a388ae163cf7ac704a073f22a19cac4e3d8b338` |
+| `native-shard-armeabi-v7a` | `14178978108` | `ef0db5cf59f1cd77734fdd0f77aba9f2f2e9dc36f53cd6a8610d2d7630e5b4cc` |
+| `native-shard-x86` | `14178389844` | `4ed6523ea1657bd7879c1fc16cbfbed940affcd0449a892a4f50f1136528044c` |
+| `native-shard-x86_64` | `14179385178` | `0e3e746a11c4b999a256444b4118cce49c61fe5618cebed0b76a67569fe081ad` |
 
 For a PR size-policy update, a repository maintainer must apply the
 `approved-native-size-policy` label after explicit user approval. The
