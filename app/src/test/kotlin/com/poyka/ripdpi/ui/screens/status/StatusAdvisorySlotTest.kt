@@ -61,6 +61,17 @@ class StatusAdvisorySlotTest {
         composeRule.onNodeWithText(LOCKDOWN_LABEL).performScrollTo().assertIsDisplayed()
     }
 
+    @Test
+    fun `collapsing the card removes the notices it disclosed`() {
+        setHome()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performScrollTo().performClick()
+
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusSetupHealthDetails).assertCountEquals(0)
+        composeRule.onAllNodesWithText(LOCKDOWN_LABEL).assertCountEquals(0)
+    }
+
     private fun setHome() {
         val group =
             ProxyGroup(

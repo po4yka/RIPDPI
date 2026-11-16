@@ -36,8 +36,13 @@ Each motion has one purpose.
 | Measured value cross-fades when it changes | feedback | quick bucket, 120ms |
 | State headline text cross-fades when the state changes | continuity | quick bucket, 120ms |
 | Clock colons take the signal color once per second | live state | emphasized bucket, 320ms, stops with reduced motion |
+| More notices, and the entries of Modes & diagnostics, enter one after another when the user opens them | continuity | section entrance, 40ms step for each item |
 
-With animations off, or reduced motion on, the line shows one still frame for each state and values change with no fade.
+With animations off, or reduced motion on, the line shows one still frame for each state, values change with no fade, and disclosed items appear at once.
+
+## Advisories
+
+- The advisory card has a leading stripe in the tone of its top notice, the same stripe as a warning or critical measurement. The user sees the severity before the text; the icon and the text still carry it.
 
 ## Signature element
 

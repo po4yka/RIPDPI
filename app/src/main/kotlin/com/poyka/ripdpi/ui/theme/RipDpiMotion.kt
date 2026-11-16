@@ -90,6 +90,16 @@ data class RipDpiMotion(
                 fadeIn(animationSpec = stateTween(easing = EmphasizedDecelerate))
         }
 
+    /** The section entrance for item [index] of a list: each item starts one step after the item before it. */
+    fun staggeredSectionEnterTransition(index: Int): EnterTransition {
+        if (!animationsEnabled) return EnterTransition.None
+        // Capped, so the last item of a long list does not wait longer than one section entrance.
+        val delay = duration(quickDurationMillis) / StaggerStepDivisor * index.coerceIn(0, MaxStaggeredItems)
+        return expandVertically(
+            animationSpec = tween(duration(emphasizedDurationMillis), delay, EmphasizedDecelerate),
+        ) + fadeIn(animationSpec = tween(duration(stateDurationMillis), delay, EmphasizedDecelerate))
+    }
+
     fun sectionExitTransition(): ExitTransition =
         if (!animationsEnabled) {
             ExitTransition.None
@@ -242,6 +252,9 @@ data class RipDpiMotion(
         /** M3 Expressive expressive spring -- under-damped, slight bounce. */
         const val ExpressiveSpringDamping = 0.7f
         const val ExpressiveSpringStiffness = 400f
+
+        private const val StaggerStepDivisor = 3
+        private const val MaxStaggeredItems = 5
     }
 }
 
