@@ -37,16 +37,14 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 import kotlinx.collections.immutable.ImmutableList
 
-private const val CollapsedChainLines = 2
 private const val StackedFacetFontScale = 1.3f
 private const val FacetLabelWeight = 0.4f
 private const val FacetValueWeight = 0.6f
 
 /**
- * Names the active bypass strategy under the connection status and, when a passage is set,
- * draws what it does to a packet. The step chain stays visible; the explanation and the
- * labeled settings open on demand, so the primary action does not move down by a full
- * settings list.
+ * Names the active bypass strategy under the connection status in one row. A tap opens the rest: the scene that
+ * draws what a passage does to a packet, the whole step chain, the explanation, and the labeled settings. The
+ * primary action therefore stays close to the signal line.
  */
 @Composable
 internal fun RipDpiConnectionStrategyPanel(
@@ -55,16 +53,17 @@ internal fun RipDpiConnectionStrategyPanel(
     status: StatusConnectionActuatorStatus,
     passage: StrategyPassageScene?,
     modifier: Modifier = Modifier,
+    initiallyExpanded: Boolean = false,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
-    val expandable = facets.isNotEmpty()
+    val expandable = facets.isNotEmpty() || passage != null
     val inset = RipDpiThemeTokens.layout.cardPadding
-    var expanded by rememberSaveable { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
     val playback = remember { PassagePlaybackMemory() }
     val expandedLabel = stringResource(R.string.semantic_state_expanded)
     val collapsedLabel = stringResource(R.string.semantic_state_collapsed)
-    val tone = strategyTone(status, expandable, passage != null)
+    val tone = strategyTone(status, expandable, hasOpenPassage = passage != null && expanded)
     val headerModifier =
         Modifier
             .fillMaxWidth()
@@ -74,10 +73,10 @@ internal fun RipDpiConnectionStrategyPanel(
                         .semantics { stateDescription = if (expanded) expandedLabel else collapsedLabel }
                         .ripDpiClickable(role = Role.Button) {
                             expanded = !expanded
-                            if (passage != null) playback.replayRequests += 1
+                            if (passage != null && expanded) playback.replayRequests += 1
                         }
                 } else {
-                    // TalkBack reads the name, the scene, and the chain as one item.
+                    // TalkBack reads the title and the chain as one item.
                     Modifier.semantics(mergeDescendants = true) {}
                 },
             ).padding(horizontal = if (expandable) inset else 0.dp, vertical = spacing.sm)
@@ -118,15 +117,15 @@ internal fun RipDpiConnectionStrategyPanel(
                 passage = passage,
                 status = status,
                 tone = tone,
-                showWholeChain = expanded || !expandable,
+                expanded = expanded,
                 playback = playback,
                 toggle = toggle,
                 modifier = headerModifier,
             )
         } else {
-            ChainHeader(strategyLabel, toggle, headerModifier)
+            ChainHeader(strategyLabel, wholeChain = expanded || !expandable, toggle, headerModifier)
         }
-        StrategyDetails(facets, visible = expanded && expandable)
+        StrategyDetails(facets, visible = expanded && facets.isNotEmpty())
     }
 }
 
@@ -190,7 +189,7 @@ private fun PassageHeader(
     passage: StrategyPassageScene,
     status: StatusConnectionActuatorStatus,
     tone: StrategyTone,
-    showWholeChain: Boolean,
+    expanded: Boolean,
     playback: PassagePlaybackMemory,
     toggle: (@Composable () -> Unit)?,
     modifier: Modifier,
@@ -208,23 +207,28 @@ private fun PassageHeader(
                 modifier = Modifier.weight(1f),
                 style = type.bodyEmphasis,
                 color = tone.content,
+                maxLines = if (expanded) Int.MAX_VALUE else 1,
+                overflow = TextOverflow.Ellipsis,
             )
             toggle?.invoke()
         }
-        RipDpiStrategyPassage(passage, status, playback, tone.surface, tone.content)
-        Text(
-            text = strategyLabel,
-            style = type.monoSmall,
-            color = tone.content,
-            maxLines = if (showWholeChain) Int.MAX_VALUE else CollapsedChainLines,
-            overflow = TextOverflow.Ellipsis,
-        )
+        AnimatedVisibility(
+            visible = expanded,
+            enter = RipDpiThemeTokens.motion.sectionEnterTransition(),
+            exit = RipDpiThemeTokens.motion.sectionExitTransition(),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                RipDpiStrategyPassage(passage, status, playback, tone.surface, tone.content)
+                Text(text = strategyLabel, style = type.monoSmall, color = tone.content)
+            }
+        }
     }
 }
 
 @Composable
 private fun ChainHeader(
     strategyLabel: String,
+    wholeChain: Boolean,
     toggle: (@Composable () -> Unit)?,
     modifier: Modifier,
 ) {
@@ -237,12 +241,21 @@ private fun ChainHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            // The closed row is the chain alone, so it stays one line; the title returns with the details.
+            if (wholeChain) {
+                Text(
+                    text = stringResource(R.string.config_local_bypass_strategy_title),
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
             Text(
-                text = stringResource(R.string.config_local_bypass_strategy_title),
-                style = type.caption,
-                color = colors.mutedForeground,
+                text = strategyLabel,
+                style = type.monoValue,
+                color = colors.foreground,
+                maxLines = if (wholeChain) Int.MAX_VALUE else 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            Text(text = strategyLabel, style = type.monoValue, color = colors.foreground)
         }
         toggle?.invoke()
     }
@@ -254,12 +267,12 @@ private class StrategyTone(
     val content: Color,
 )
 
-/** Color follows the live connection only where the scene is drawn. */
+/** Color follows the live connection only where the open scene is drawn. */
 @Composable
 private fun strategyTone(
     status: StatusConnectionActuatorStatus,
     expandable: Boolean,
-    hasPassage: Boolean,
+    hasOpenPassage: Boolean,
 ): StrategyTone {
     val colors = RipDpiThemeTokens.colors
     return when {
@@ -267,11 +280,11 @@ private fun strategyTone(
             StrategyTone(colors.background, colors.foreground)
         }
 
-        hasPassage && status == StatusConnectionActuatorStatus.Locked -> {
+        hasOpenPassage && status == StatusConnectionActuatorStatus.Locked -> {
             StrategyTone(colors.infoContainer, colors.infoContainerForeground)
         }
 
-        hasPassage && status == StatusConnectionActuatorStatus.Degraded -> {
+        hasOpenPassage && status == StatusConnectionActuatorStatus.Degraded -> {
             StrategyTone(colors.warningContainer, colors.warningContainerForeground)
         }
 

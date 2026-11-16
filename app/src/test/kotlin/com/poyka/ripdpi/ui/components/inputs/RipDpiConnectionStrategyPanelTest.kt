@@ -5,7 +5,6 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -86,7 +85,15 @@ class RipDpiConnectionStrategyPanelTest {
                     ),
             ),
         )
+        // Closed, the panel is one row: the family name. The scene and the chain open on a tap.
         composeRule.onNodeWithText("Packet split").assertIsDisplayed()
+        composeRule.onNodeWithText("tcp: split(host+1)").assertDoesNotExist()
+        composeRule
+            .onNode(hasContentDescription("Bypass strategy: The packet is sent in parts."))
+            .assertDoesNotExist()
+
+        composeRule.onNodeWithText("Packet split").performClick()
+
         composeRule.onNodeWithText("tcp: split(host+1)").assertIsDisplayed()
         composeRule.onNodeWithText("Bypass strategy").assertDoesNotExist()
         composeRule
@@ -95,20 +102,19 @@ class RipDpiConnectionStrategyPanelTest {
     }
 
     @Test
-    fun `a passage without settings reads as one TalkBack item`() {
+    fun `a passage without settings still opens its scene on a tap`() {
         composeRule.setActuator(
             actuatorState(StatusConnectionActuatorStatus.Locked).copy(
                 strategyLabel = "tcp: none",
                 strategyPassage = compileStrategyPassageScene(emptyList(), emptyList()),
             ),
         )
+        composeRule.onNodeWithText("No changes").performClick()
+
+        composeRule.onNodeWithText("tcp: none").assertIsDisplayed()
         composeRule
-            .onNode(
-                hasText("No changes")
-                    .and(hasText("tcp: none"))
-                    .and(hasContentDescription("Bypass strategy: The packet is sent unchanged.")),
-            ).assertIsDisplayed()
-            .assertHasNoClickAction()
+            .onNode(hasContentDescription("Bypass strategy: The packet is sent unchanged."))
+            .assertIsDisplayed()
     }
 
     @Test
