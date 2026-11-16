@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -29,6 +30,8 @@ import com.poyka.ripdpi.services.ProcessDeathResumeCoordinator
 import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.diagnostics.share.DiagnosticShareLinkDeepLink
+import com.poyka.ripdpi.ui.screens.onboarding.LocalOnboardingBadgeAnchor
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingBadgeAnchor
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -109,13 +112,26 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        splashScreen.setKeepOnScreenCondition {
-            viewModel.startupState.value.readiness == AppStartupReadinessState.Pending
+        val badgeAnchor = OnboardingBadgeAnchor()
+        val startsOnOnboarding = {
+            viewModel.startupState.value.run { isReady && startDestination == Route.Onboarding }
         }
+        val holdForBadge = splashHoldForBadge(badgeAnchor)
+        splashScreen.setKeepOnScreenCondition {
+            viewModel.startupState.value.readiness == AppStartupReadinessState.Pending ||
+                holdForBadge(startsOnOnboarding())
+        }
+        splashScreen.setRipDpiExit(badgeAnchor, startsOnOnboarding)
 
         setContent {
-            ProvideDeviceHourCycle {
-                MainActivityContent(viewModel = viewModel, controller = shellController, exportPreview = exportPreview)
+            CompositionLocalProvider(LocalOnboardingBadgeAnchor provides badgeAnchor) {
+                ProvideDeviceHourCycle {
+                    MainActivityContent(
+                        viewModel = viewModel,
+                        controller = shellController,
+                        exportPreview = exportPreview,
+                    )
+                }
             }
         }
     }

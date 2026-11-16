@@ -5,10 +5,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,6 +35,19 @@ private const val BadgeDragShrink = 0.08f
 private const val PreviewBetweenStepsPosition = 1.5f
 
 /**
+ * Where the step badge is in the window. The activity provides it, so that the splash screen can wait for the
+ * badge and move its icon to it. Touch it on the main thread only.
+ */
+@Stable
+internal class OnboardingBadgeAnchor {
+    /** The badge bounds in the window, in pixels, or null until the badge is placed. */
+    var bounds: Rect? = null
+}
+
+/** Null in previews and tests, where no splash screen exists. */
+internal val LocalOnboardingBadgeAnchor = staticCompositionLocalOf<OnboardingBadgeAnchor?> { null }
+
+/**
  * The one element that stays in place through every onboarding step. Its icon follows [pagePosition], the
  * fractional pager position, which is read in the draw phase so a drag does not recompose. The badge is also
  * the anchor from which the main screen opens when onboarding completes.
@@ -44,6 +61,7 @@ internal fun OnboardingStepBadge(
 ) {
     val colors = RipDpiThemeTokens.colors
     val handOff = LocalRipDpiHandOff.current
+    val splashAnchor = LocalOnboardingBadgeAnchor.current
     Box(
         modifier =
             modifier
@@ -51,6 +69,7 @@ internal fun OnboardingStepBadge(
                 .onGloballyPositioned { coordinates ->
                     handOff?.anchor = coordinates.boundsInRoot().center
                     handOff?.anchorRadius = coordinates.size.width / 2f
+                    splashAnchor?.bounds = coordinates.boundsInWindow()
                 }.graphicsLayer {
                     // Smallest halfway between two steps, full size at rest.
                     val position = pagePosition()
@@ -65,7 +84,7 @@ internal fun OnboardingStepBadge(
     ) {
         OnboardingPages.forEachIndexed { index, page ->
             Icon(
-                imageVector = if (succeeded && index == OnboardingPages.lastIndex) RipDpiIcons.Check else page.icon,
+                imageVector = if (succeeded && page.isConnectionTest) RipDpiIcons.Check else page.icon,
                 contentDescription = null,
                 tint = colors.foreground,
                 modifier =
@@ -91,7 +110,7 @@ private fun OnboardingStepBadgePreviewBody(themePreference: String) {
             OnboardingStepBadge(pagePosition = { index.toFloat() }, succeeded = false)
         }
         OnboardingStepBadge(pagePosition = { PreviewBetweenStepsPosition }, succeeded = false)
-        OnboardingStepBadge(pagePosition = { OnboardingPages.lastIndex.toFloat() }, succeeded = true)
+        OnboardingStepBadge(pagePosition = { OnboardingTestStep.toFloat() }, succeeded = true)
         OnboardingStepBadge(pagePosition = { 0f }, succeeded = false, size = OnboardingStepBadgeCompactSize)
     }
 }

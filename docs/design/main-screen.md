@@ -49,6 +49,8 @@ With animations off, or reduced motion on, the line shows one still frame for ea
 | Warning | irregular wave, `warning` |
 | Failed | wave up to the failed stage, then a gap and a dim flat line, `destructive` |
 
+`RipDpiSignalField` also takes an optional standing ripple: a still sine with an amplitude, a number of periods, and a start and an end on the width. Onboarding uses it to show the persona and the scope on a line that has no path yet. It is not a connection state and has no color of its own. The hero passes no ripple, and its line is the same in the shader and in the path as before.
+
 On API 33 and later an AGSL `RuntimeShader` draws the moving line and its glow. On API 27 to 32 a `Canvas` path draws the same curve with a wide, faint stroke for the glow. The path also draws every still frame, on every API level. Time and state reach the drawing code as values read in the draw phase, so a frame does not recompose.
 
 ## Not in this pass
