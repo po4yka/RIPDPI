@@ -8,8 +8,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
@@ -121,7 +122,10 @@ class ConnectionStrategyPanelScreenshotTest {
                 }
             }
         }
-        if (expanded) composeRule.onNodeWithText(formatChainSummary(tcp, udp)).performClick()
+        // Closed, the panel shows only the family name; its header is the one node with a state description.
+        if (expanded) {
+            composeRule.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription)).performClick()
+        }
         composeRule.waitForIdle()
         composeRule.onRoot().captureRoboImage(roborazziOptions = CROSS_PLATFORM_OPTIONS)
     }
