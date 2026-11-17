@@ -129,8 +129,7 @@ internal class VpnTelemetryCoordinator(
         telemetry: VpnTelemetrySnapshot,
         failureBoundary: VpnTelemetryFailureBoundary,
     ): Boolean {
-        if (tunnelRefreshCoordinator.recoverIfNeeded(session, telemetry)) {
-            tunnelRefreshCoordinator.refreshIfNeeded(session)
+        if (tunnelRefreshCoordinator.recoverAndRefresh(session, telemetry)) {
             if (state.status() != ServiceStatus.Connected) return false
         }
         return when (failureHandler.handleOutcome(telemetry, failureBoundary)) {

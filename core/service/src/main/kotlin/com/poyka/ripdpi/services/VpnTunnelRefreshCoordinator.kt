@@ -14,6 +14,7 @@ internal class VpnTunnelRefreshCoordinator(
     suspend fun refreshIfNeeded(
         session: VpnRuntimeSession,
         interfacePolicyChangeObserved: Boolean = false,
+        forceTunnelRebuild: Boolean = false,
     ) {
         dependencies.mutex.withLock {
             val activeSession = state.runtimeSession()
@@ -35,7 +36,8 @@ internal class VpnTunnelRefreshCoordinator(
                 }
                 return@withLock
             }
-            if (!latestRefreshPlan.requiresTunnelRebuild &&
+            if (!forceTunnelRebuild &&
+                !latestRefreshPlan.requiresTunnelRebuild &&
                 (!interfacePolicyChangeObserved || !dependencies.vpnTunnelRuntime.requiresInterfacePolicyRebuild())
             ) {
                 return@withLock
@@ -96,6 +98,19 @@ internal class VpnTunnelRefreshCoordinator(
             state.runtimeSession()?.runtimeId == session.runtimeId &&
                 state.status() == ServiceStatus.Connected
         if (isCurrentRuntimeGeneration) callbacks.failTunnelRefresh(session, error)
+    }
+
+    /** Runs DNS recovery for [telemetry]; returns true when it refreshed the tunnel. */
+    suspend fun recoverAndRefresh(
+        session: VpnRuntimeSession,
+        telemetry: VpnTelemetrySnapshot,
+    ): Boolean {
+        val recoverDns = recoverIfNeeded(session, telemetry)
+        // The synthetic address pool belongs to one tunnel session and never reuses an address,
+        // so only a new tunnel session restores DNS once the pool is used up.
+        val poolUsedUp = isSyntheticDnsPoolUsedUp(telemetry.tunnelTelemetry.lastDnsError.orEmpty())
+        if (recoverDns || poolUsedUp) refreshIfNeeded(session, forceTunnelRebuild = poolUsedUp)
+        return recoverDns || poolUsedUp
     }
 
     suspend fun recoverIfNeeded(

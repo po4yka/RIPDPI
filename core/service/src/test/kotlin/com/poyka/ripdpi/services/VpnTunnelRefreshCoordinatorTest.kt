@@ -191,6 +191,20 @@ class VpnTunnelRefreshCoordinatorTest {
         }
 
     @Test
+    fun forcedRebuildReplacesTheTunnelWithoutADnsChange() =
+        runTest {
+            with(routingRefreshFixture()) {
+                coordinator.refreshIfNeeded(session)
+                val establishedBefore = events.count { it == "vpn:establish" }
+
+                coordinator.refreshIfNeeded(session, forceTunnelRebuild = true)
+
+                assertEquals(establishedBefore + 1, events.count { it == "vpn:establish" })
+                runtime.stop()
+            }
+        }
+
+    @Test
     fun dnsOnlyRefreshPreservesConsumedSharedUpstream() =
         runTest {
             with(routingRefreshFixture(sharedProxyPath = true)) {

@@ -426,6 +426,7 @@ class VpnEncryptedDnsFailoverControllerTest {
         runTest {
             for (error in listOf(
                 "all synthetic DNS mappings are leased by active flows",
+                "all synthetic network addresses have already been issued in this tunnel session",
                 "dns worker queue full",
                 "response buffer smaller than request",
             )) {

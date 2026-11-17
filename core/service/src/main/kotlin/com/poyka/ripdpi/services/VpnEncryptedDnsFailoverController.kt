@@ -308,12 +308,14 @@ internal class VpnEncryptedDnsFailoverController(
     /**
      * Transient failures that the tunnel produces locally say nothing about the resolver path.
      * The strings match `ripdpi-tunnel-core` `DnsCacheError` and its SERVFAIL reasons.
-     * shortcut: session-fatal local errors (pool issued, worker gone) still fail over, because the
-     * resulting rebuild is their only recovery; upgrade when the tunnel can rebuild without an override.
+     * A used-up address pool is recovered by a tunnel rebuild in `VpnTelemetryCoordinator`.
+     * shortcut: a dead DNS worker still fails over, because the resulting rebuild is its only
+     * recovery; upgrade when the telemetry reports that state distinctly.
      */
     internal fun isLocalTunnelDnsFailure(error: String): Boolean {
         val lower = error.lowercase()
-        return "synthetic dns mappings are leased by active flows" in lower ||
+        return isSyntheticDnsPoolUsedUp(error) ||
+            "synthetic dns mappings are leased by active flows" in lower ||
             "dns worker queue full" in lower || "response buffer smaller than request" in lower
     }
 
@@ -342,3 +344,7 @@ internal class VpnEncryptedDnsFailoverController(
             "broken pipe" in lower
     }
 }
+
+/** Matches `ripdpi-tunnel-core` `DnsCacheError::SyntheticNetworkExhausted`. */
+internal fun isSyntheticDnsPoolUsedUp(error: String): Boolean =
+    "all synthetic network addresses have already been issued" in error.lowercase()
