@@ -15,6 +15,10 @@ impl RuntimeState {
             self.warmup_probe_settings.ipv6_enabled,
         )
     }
+    /// True in VPN mode, where the system resolver is the underlying network's resolver.
+    pub(in crate::runtime) fn warmup_runs_under_vpn(&self) -> bool {
+        self.warmup_probe_settings.protect_path.is_some()
+    }
     pub(in crate::runtime) fn classify_warmup_send_error(source: &io::Error) -> RuntimeClassifiedFailure {
         runtime_classify_warmup_send_error(source)
     }
