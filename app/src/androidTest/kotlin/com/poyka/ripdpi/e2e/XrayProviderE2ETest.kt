@@ -1340,7 +1340,14 @@ class XrayProviderE2ETest {
     private fun assertOwnedDnsThroughProvider() {
         val before = readControl("dns-receipts").getInt("count")
         val packetsBefore = state.telemetry.value.tunnelStats
-        val response = testProcessDnsProbe(queryHost = "owned.test", serverHost = "192.0.2.53", timeoutMs = 3_000L)
+        // Encrypted DNS maps public port 53; this probe checks the peer's raw UDP path.
+        val response =
+            testProcessDnsProbe(
+                queryHost = "owned.test",
+                serverHost = "192.0.2.53",
+                serverPort = manifest.getInt("dnsPort"),
+                timeoutMs = 3_000L,
+            )
         assertTrue(
             "DNS must originate from a distinct test UID",
             response.probeUid != null && response.probeUid != Process.myUid(),

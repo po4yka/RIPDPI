@@ -302,10 +302,9 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 			map[string]any{"tag": "owned-doh-tls", "protocol": "freedom", "settings": ownedRedirect("tcp", dnsHTTPSListener.Addr().(*net.TCPAddr).AddrPort())},
 		},
 		"routing": map[string]any{"domainStrategy": "AsIs", "rules": []any{
-			map[string]any{"type": "field", "inboundTag": []string{"hysteria-dns"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": fmt.Sprint(p.manifest.DNSPort), "outboundTag": "owned-dns"},
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls", "hysteria-dns"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": fmt.Sprint(p.manifest.DNSPort), "outboundTag": "owned-dns"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "domain": []string{"full:quality-a.example.test", "full:quality-b.example.test"}, "port": fmt.Sprintf("443,%d", p.manifest.QualityPort), "outboundTag": "owned-quality"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
-			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": "53", "outboundTag": "owned-dns"},
 			// Host tests and the emulator alias reach only this owned HTTP port.
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPPort), "outboundTag": "owned-doh"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPSPort), "outboundTag": "owned-doh-tls"},

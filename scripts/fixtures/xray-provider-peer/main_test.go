@@ -460,7 +460,7 @@ func (p *peer) exchangeDNSQuery(network string, name string, wrongIdentity bool)
 	if err != nil {
 		return nil, err
 	}
-	payload := append([]byte{0, 0, 0, 1, 192, 0, 2, 53, 0, 53}, query...)
+	payload := append([]byte{0, 0, 0, 1, 192, 0, 2, 53, byte(p.manifest.DNSPort >> 8), byte(p.manifest.DNSPort)}, query...)
 	if _, err := packet.WriteTo(payload, bind); err != nil {
 		return nil, err
 	}
