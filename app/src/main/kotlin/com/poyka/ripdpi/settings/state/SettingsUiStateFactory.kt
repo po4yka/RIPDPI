@@ -31,7 +31,6 @@ internal fun AppSettings.toUiState(
     systemPrivateDnsStatus: SystemPrivateDnsStatus = SystemPrivateDnsStatus.UNKNOWN,
 ): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
-    val activeDns = activeDnsSettings()
     val chain = analyzeChainFlags()
     val isVpn = normalizedMode == "vpn"
 
@@ -45,7 +44,7 @@ internal fun AppSettings.toUiState(
         themedAppIconEnabled =
             LauncherIconManager.normalizeIconStyle(appIconStyle) == LauncherIconManager.ThemedIconStyle,
         ripdpiMode = normalizedMode,
-        dns = buildDnsUiState(activeDns, systemPrivateDnsStatus),
+        dns = buildDnsUiState(activeDnsSettings(), systemPrivateDnsStatus),
         ipv6Enable = ipv6Enable,
         enableCmdSettings = enableCmdSettings,
         cmdArgs = cmdArgs,
