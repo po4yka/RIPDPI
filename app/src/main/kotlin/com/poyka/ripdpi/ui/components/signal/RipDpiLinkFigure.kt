@@ -276,8 +276,8 @@ internal class LinkFigure(
         ring = 1f
         shake = 1f
         flow = 1f
-        still(sent, input.sent, input)
-        still(received, input.received, input)
+        sent.still(input.sent, input)
+        received.still(input.received, input)
         lamps.forEachIndexed { index, lamp ->
             val stage = input.stages[index]
             lamp.stage = stage
@@ -411,10 +411,7 @@ internal class LinkFigure(
         lane.level = ease(lane.level, if (live) traffic else 0f, seconds, state)
         val step = LinkSpeed * flow * seconds
         for (index in lane.pulses.indices) lane.pulses[index].at += step
-        // Indexed from the end, so a frame allocates no predicate and a removal skips no packet.
-        for (index in lane.pulses.lastIndex downTo 0) {
-            if (lane.pulses[index].ends(input, live, probes)) lane.pulses.removeAt(index)
-        }
+        lane.drop(input, live, probes)
         if (live) {
             lane.wait -= seconds
             lane.until -= step
@@ -447,25 +444,6 @@ internal class LinkFigure(
             // A keep-alive packet keeps its interval, so the cable is empty between two of them.
             val jitter = if (level > 0f) JitterFrom + JitterSpan * random.nextFloat() else 1f
             lane.until = length + spacing(level) * jitter
-        }
-    }
-
-    private fun still(
-        lane: LinkLane,
-        traffic: Float,
-        input: LinkInput,
-    ) {
-        lane.pulses.clear()
-        lane.alpha = 1f
-        lane.burst = 0
-        // A still frame shows the traffic in a few steps, so it does not shift with each small change.
-        lane.level = if (input.mode.live()) ceil(traffic.coerceIn(0f, 1f) * StillSteps) / StillSteps else 0f
-        if (!input.mode.live()) return
-        val gap = LinkPulseLength + spacing(lane.level)
-        var at = gap / 2f
-        while (at < input.length) {
-            lane.pulses += LinkPulse(at)
-            at += gap
         }
     }
 
@@ -522,6 +500,37 @@ private fun LinkPulse.ends(
     val hidden = (if (forward) plug - connector else plug) - CableCover + length
     val blocked = !live && at >= hidden && at < if (forward) plug else plug + connector
     return blocked || at >= input.length + length
+}
+
+/** Takes out the packets that are at the end of their way. */
+private fun LinkLane.drop(
+    input: LinkInput,
+    live: Boolean,
+    forward: Boolean,
+) {
+    // Indexed from the end, so a frame allocates no predicate and a removal skips no packet.
+    for (index in pulses.lastIndex downTo 0) {
+        if (pulses[index].ends(input, live, forward)) pulses.removeAt(index)
+    }
+}
+
+/** The still frame of a lane: packets at the spacing of its traffic. */
+private fun LinkLane.still(
+    traffic: Float,
+    input: LinkInput,
+) {
+    pulses.clear()
+    alpha = 1f
+    burst = 0
+    // A still frame shows the traffic in a few steps, so it does not shift with each small change.
+    level = if (input.mode.live()) ceil(traffic.coerceIn(0f, 1f) * StillSteps) / StillSteps else 0f
+    if (!input.mode.live()) return
+    val gap = LinkPulseLength + spacing(level)
+    var at = gap / 2f
+    while (at < input.length) {
+        pulses += LinkPulse(at)
+        at += gap
+    }
 }
 
 private fun RipDpiLinkMode.live(): Boolean = this == RipDpiLinkMode.Live || this == RipDpiLinkMode.Unstable

@@ -29,8 +29,9 @@ internal class LinkRope {
     private val beforeY = FloatArray(RopeNodes)
     private var spare = 0f
 
-    // The ends that the cable is at rest between, or NaN after it has moved.
-    private val rested = FloatArray(EndValues) { Float.NaN }
+    // The ends that the cable was put at rest between, and whether it has not moved since.
+    private val rested = LinkRopeEnds()
+    private var atRest = false
 
     /** The speed of the fastest point, in dp a second. */
     var speed = 0f
@@ -47,7 +48,7 @@ internal class LinkRope {
         spare += seconds
         while (spare >= RopeStep) {
             spare -= RopeStep
-            rested[0] = Float.NaN
+            atRest = false
             move(ends, RopeDamping)
         }
     }
@@ -71,18 +72,22 @@ internal class LinkRope {
         keep(ends)
     }
 
-    private fun rests(ends: LinkRopeEnds): Boolean =
-        rested[0] == ends.fromX && rested[1] == ends.fromY && rested[2] == ends.alongX && rested[3] == ends.alongY &&
-            rested[4] == ends.toX && rested[5] == ends.toY && rested[6] == ends.stretch
+    private fun rests(ends: LinkRopeEnds): Boolean {
+        val from = rested.fromX == ends.fromX && rested.fromY == ends.fromY
+        val along = rested.alongX == ends.alongX && rested.alongY == ends.alongY
+        val to = rested.toX == ends.toX && rested.toY == ends.toY && rested.stretch == ends.stretch
+        return atRest && from && along && to
+    }
 
     private fun keep(ends: LinkRopeEnds) {
-        rested[0] = ends.fromX
-        rested[1] = ends.fromY
-        rested[2] = ends.alongX
-        rested[3] = ends.alongY
-        rested[4] = ends.toX
-        rested[5] = ends.toY
-        rested[6] = ends.stretch
+        rested.fromX = ends.fromX
+        rested.fromY = ends.fromY
+        rested.alongX = ends.alongX
+        rested.alongY = ends.alongY
+        rested.toX = ends.toX
+        rested.toY = ends.toY
+        rested.stretch = ends.stretch
+        atRest = true
     }
 
     /** The place of the cable at the share [t] of its length, on a smooth curve through its points. */
@@ -163,7 +168,6 @@ internal class LinkRope {
 }
 
 private const val RopeNodes = 10
-private const val EndValues = 7
 private const val FirstFree = 2
 private const val LastFree = RopeNodes - 3
 
