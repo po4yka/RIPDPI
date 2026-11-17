@@ -577,7 +577,8 @@ class RipDpiVpnService :
         ): Int {
             val action = intent?.action
             if (action == null || action == android.net.VpnService.SERVICE_INTERFACE) {
-                return dispatchStickyRecovery(startId)
+                val alwaysOnActive = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isAlwaysOn
+                return dispatchStickyRecovery(startId, isAlwaysOnStart(action, alwaysOnActive))
             }
             return when {
                 intent.hasStaleServiceCommand(serviceIntentArbiter) -> {
@@ -605,14 +606,21 @@ class RipDpiVpnService :
             }
         }
 
-        private suspend fun dispatchStickyRecovery(startId: Int): Int {
+        private suspend fun dispatchStickyRecovery(
+            startId: Int,
+            alwaysOn: Boolean,
+        ): Int {
             if (activeSessionAttached) return START_STICKY
+            if (alwaysOn && android.net.VpnService.prepare(this@RipDpiVpnService) != null) {
+                return discardIdleStart(startId)
+            }
             val recovery =
                 createStickyRecoveryCommand(
                     this@RipDpiVpnService,
                     pauseAuthority,
                     serviceIntentArbiter,
                     Mode.VPN,
+                    alwaysOn,
                 )
             return if (recovery == null) discardIdleStart(startId) else dispatchActiveCommand(recovery, startId)
         }

@@ -79,23 +79,31 @@ internal fun Intent?.capturedRuntimeStop(): com.poyka.ripdpi.data.RuntimeAuthori
 
 private const val RuntimeStopSnapshotExtra = "runtimeStopSnapshot"
 
-/** Sticky restart requires mandatory recovery and its captured Running record to remain current. */
+/** Android starts an Always-on VPN with SERVICE_INTERFACE and may redeliver a null intent while Always-on is set. */
+internal fun isAlwaysOnStart(
+    action: String?,
+    alwaysOnActive: Boolean,
+): Boolean = action == android.net.VpnService.SERVICE_INTERFACE || (action == null && alwaysOnActive)
+
+/** Sticky restart needs a current Running record; an Always-on start falls back to a stored-profile policy start. */
 internal fun createStickyRecoveryCommand(
     context: android.content.Context,
     authority: PauseIntentAuthority,
     arbiter: ServiceIntentArbiter,
     mode: Mode,
+    alwaysOn: Boolean = false,
 ): Intent? {
     val expected = authority.snapshotAuthority()
-    return authority.authorizeRecovery(mode, expected)?.let { receipt ->
-        arbiter.dispatchExplicit(receipt)?.let { lease ->
-            val service = if (mode == Mode.VPN) RipDpiVpnService::class.java else RipDpiProxyService::class.java
-            Intent(context, service).apply {
-                action = processDeathRecoveryStartAction
-                stampRuntimeActivation(receipt)
-                putExtra(durableIntentGenerationExtra, receipt.authority.generation)
-                putExtra(explicitUserIntentGenerationExtra, lease.processGeneration)
-            }
+    val recovery = authority.authorizeRecovery(mode, expected)
+    val policyStart = if (alwaysOn && recovery == null) authority.authorizeBootPolicyStart(mode, expected) else null
+    val receipt = recovery ?: policyStart ?: return null
+    return arbiter.dispatchExplicit(receipt)?.let { lease ->
+        val service = if (mode == Mode.VPN) RipDpiVpnService::class.java else RipDpiProxyService::class.java
+        Intent(context, service).apply {
+            action = if (recovery != null) processDeathRecoveryStartAction else android.net.VpnService.SERVICE_INTERFACE
+            stampRuntimeActivation(receipt)
+            putExtra(durableIntentGenerationExtra, receipt.authority.generation)
+            putExtra(explicitUserIntentGenerationExtra, lease.processGeneration)
         }
     }
 }
