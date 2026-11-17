@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
-import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -33,6 +32,9 @@ internal class LinkPalette(
     val socketTop = lerp(socket, colors.card, TopMix)
     val socketSide = lerp(socket, plug, SideMix)
     val port = lerp(socket, Color.Black, PortMix)
+    val socketBase = lerp(socket, plug, BaseMix)
+    val sideBase = lerp(socketSide, plug, BaseMix)
+    val glint = Color.White
     val jacket = socket
 
     // The cable is a solid tube: a tone of its own between the tile and its jacket.
@@ -134,11 +136,66 @@ internal class LinkShapes(
     val socketTop = top(SocketStart, SocketEnd, SocketHalf, 0f, SocketDepth)
     val socketFront = front(SocketStart, SocketEnd, SocketHalf, SocketHalf, 0f)
 
-    // The parts of the plug, from the back to the front: the nose, the boot, and the body with its latch.
+    // The base of the socket, and the gland where the device cable goes in.
+    val frontBase = front(SocketStart, SocketEnd, BaseHeight - SocketHalf, SocketHalf, 0f)
+    val sideBase = end(SocketEnd, BaseHeight - SocketHalf, SocketHalf, 0f, SocketDepth)
+    val gland = box(GlandStart, SocketStart + 1f, GlandHalf, GlandHalf, CollarNear, CollarFar)
+
+    // The parts of the plug, from the back to the front: the nose, the boot, the collar, and the body.
     val nose = box(PlugNose, NoseEnd, NoseHalf, NoseHalf, NoseNear, NoseFar)
-    val boot = box(BootStart, PlugEnd, BootHalf, BootHalf, BootNear, BootFar)
+    val collar = box(CollarStart, BodyStart + 1f, CollarHalf, CollarHalf, CollarNear, CollarFar)
     val body = box(BodyStart, BootStart, BodyHalf, BodyHalf, BodyNear, BodyFar)
-    val latch = box(LatchStart, LatchEnd, LatchTop, -BodyHalf, LatchNear, LatchFar)
+
+    /** The boot narrows from the body to the cable. */
+    val boot =
+        listOf(
+            LinkFace(
+                end(PlugEnd, BootEndHalf, BootEndHalf, CollarNear + BootInset, CollarFar - BootInset),
+                top = false,
+            ),
+            LinkFace(
+                quad(
+                    at(BootStart, CableY - CollarHalf, CollarNear),
+                    at(PlugEnd, CableY - BootEndHalf, CollarNear + BootInset),
+                    at(PlugEnd, CableY - BootEndHalf, CollarFar - BootInset),
+                    at(BootStart, CableY - CollarHalf, CollarFar),
+                ),
+                top = true,
+            ),
+            LinkFace(
+                quad(
+                    at(BootStart, CableY - CollarHalf, CollarNear),
+                    at(PlugEnd, CableY - BootEndHalf, CollarNear + BootInset),
+                    at(PlugEnd, CableY + BootEndHalf, CollarNear + BootInset),
+                    at(BootStart, CableY + CollarHalf, CollarNear),
+                ),
+                top = false,
+            ),
+        )
+
+    /** The latch: a lever that rises from the nose to above the body. The socket holds it when the plug is in. */
+    val latch =
+        listOf(
+            LinkFace(end(LeverEnd, LeverTop, LeverThick - LeverTop, LeverNear, LeverFar), top = false),
+            LinkFace(
+                quad(
+                    at(LeverStart, CableY - NoseHalf, LeverNear),
+                    at(LeverEnd, CableY - LeverTop, LeverNear),
+                    at(LeverEnd, CableY - LeverTop, LeverFar),
+                    at(LeverStart, CableY - NoseHalf, LeverFar),
+                ),
+                top = true,
+            ),
+            LinkFace(
+                quad(
+                    at(LeverStart, CableY - NoseHalf, LeverNear),
+                    at(LeverEnd, CableY - LeverTop, LeverNear),
+                    at(LeverEnd, CableY - LeverTop + LeverThick, LeverNear),
+                    at(LeverStart, CableY - NoseHalf + LeverThick, LeverNear),
+                ),
+                top = false,
+            ),
+        )
 
     /** The contacts of the plug: one line across the top of the nose for each stage of the path. */
     val contacts =
@@ -152,13 +209,27 @@ internal class LinkShapes(
             }
         }
 
-    /** The grooves of the boot, where the cable bends. */
+    /** The grooves of the boot, where the cable bends. They follow its taper. */
     val ribs =
         Path().apply {
             repeat(RibCount) { index ->
-                val x = BootStart + RibStep * (index + 1)
-                val high = at(x, CableY - RibHalf, BootNear)
-                val low = at(x, CableY + RibHalf, BootNear)
+                val share = (index + 1f) / (RibCount + 1f)
+                val x = BootStart + (PlugEnd - BootStart) * share
+                val half = CollarHalf + (BootEndHalf - CollarHalf) * share - RibInset
+                val high = at(x, CableY - half, CollarNear + BootInset * share)
+                val low = at(x, CableY + half, CollarNear + BootInset * share)
+                moveTo(high.x, high.y)
+                lineTo(low.x, low.y)
+            }
+        }
+
+    /** The grip of the body. */
+    val grip =
+        Path().apply {
+            repeat(RibCount) { index ->
+                val x = FirstGrip + GripStep * index
+                val high = at(x, CableY - GripHalf, BodyNear)
+                val low = at(x, CableY + GripHalf, BodyNear)
                 moveTo(high.x, high.y)
                 lineTo(low.x, low.y)
             }
@@ -170,14 +241,41 @@ internal class LinkShapes(
     val lampPath = Path()
     val leadPath = Path()
     val litPath = Path()
-    val jacket = Stroke(JacketWidth * unit, cap = StrokeCap.Round)
-    val track = Stroke(TrackWidth * unit, cap = StrokeCap.Round)
+    val jacket = Stroke(JacketWidth * unit, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    val track = Stroke(TrackWidth * unit, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    val lane = Stroke(PulseWidth * unit, join = StrokeJoin.Round)
+    val rim = Stroke(RimWidth * unit, join = StrokeJoin.Round)
     val edge = Stroke(FaceStroke * unit, join = StrokeJoin.Round)
     val hair = Stroke(HairWidth * unit, cap = StrokeCap.Round)
     val ring = Stroke(RingWidth * unit)
     val fade = LinkFade()
 
     fun lamp(index: Int) = at(FirstLamp + LampStep * index, CableY, 0f)
+
+    /** Traces the cable behind the plug into [path], as far as the share [upTo] of its length, moved by [lane]. */
+    fun trace(
+        path: Path,
+        rope: LinkRope,
+        upTo: Float,
+        lane: Float = 0f,
+    ) {
+        path.rewind()
+        for (step in 0..RopeSamples) {
+            val t = upTo * step / RopeSamples
+            val point = at(rope.x(t), rope.y(t) + lane)
+            if (step == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
+        }
+    }
+
+    /** The point of the cable behind the plug at [x], moved by [lane] across it. */
+    fun onRope(
+        rope: LinkRope,
+        x: Float,
+        lane: Float,
+    ): Offset {
+        val t = ((x - rope.startX) / (rope.endX - rope.startX)).coerceIn(0f, 1f)
+        return at(rope.x(t), rope.y(t) + lane)
+    }
 }
 
 /** The fade of the device cable where other content takes the start of the tile. It is made again only on a change. */
@@ -215,18 +313,12 @@ internal fun DrawScope.drawLink(
     cover: Color,
 ) {
     val unit = shapes.unit
-    val angle = figure.lie.at * LooseTurn
+    val angle = figure.tilt.at * LooseTurn
     val drop = figure.lie.at * LooseDrop
     val shift = figure.out + figure.shakeBy
-    // Where the cable leaves the plug: the plug turns about a point on its cable.
-    val radians = angle * PI.toFloat() / HalfTurn
-    val reach = LeadStart - PlugPivot
-    val leadX = PlugPivot + reach * cos(radians) + shift
-    val leadY = CableY + reach * sin(radians) + drop
     val from = span.from.floatValue
-    val lead = LinkLead(shapes, leadX, leadY, (leadY + CableY) / 2f + figure.sag.at, span.to)
 
-    drawCables(figure, shapes, palette, tone, lead, from)
+    drawCables(figure, shapes, palette, tone, from)
     if (cover.isSpecified) {
         val start = shapes.at(from - FadeLead, CableY - FadeHalf)
         val brush = shapes.fade.brush(cover, shapes.at(from, CableY).x, shapes.at(from + FadeLength, CableY).x)
@@ -234,6 +326,9 @@ internal fun DrawScope.drawLink(
     }
     translate(left = figure.recoil.at * unit) {
         drawFace(shapes.socketSide, palette.socketSide, shapes)
+        drawFace(shapes.sideBase, palette.sideBase, shapes)
+        // The port has a rim, a step lighter than the face that it is in.
+        drawPath(shapes.port, palette.socketTop, style = shapes.rim)
         drawFace(shapes.port, palette.port, shapes)
     }
     if (figure.ring < 1f) {
@@ -251,14 +346,14 @@ private fun DrawScope.drawCables(
     shapes: LinkShapes,
     palette: LinkPalette,
     tone: Color,
-    lead: LinkLead,
     from: Float,
 ) {
+    val rope = figure.rope
     val deviceFrom = shapes.at(from, CableY)
     val deviceTo = shapes.at(DeviceEnd, CableY)
     drawLine(palette.jacket, deviceFrom, deviceTo, shapes.jacket.width, StrokeCap.Round)
     drawLine(palette.track, deviceFrom, deviceTo, shapes.track.width, StrokeCap.Round)
-    lead.trace(shapes.leadPath, upTo = 1f)
+    shapes.trace(shapes.leadPath, rope, upTo = 1f)
     drawPath(shapes.leadPath, palette.jacket, style = shapes.jacket)
     drawPath(shapes.leadPath, palette.track, style = shapes.track)
     // A live link lights the cable. The light spreads from the socket to both ends.
@@ -266,11 +361,72 @@ private fun DrawScope.drawCables(
         val lit = tone.copy(alpha = tone.alpha * ChargeAlpha)
         val reach = DeviceEnd - (DeviceEnd - from) * figure.charge
         drawLine(lit, shapes.at(reach, CableY), deviceTo, shapes.track.width, StrokeCap.Round)
-        lead.trace(shapes.litPath, upTo = figure.charge)
+        shapes.trace(shapes.litPath, rope, upTo = figure.charge)
         drawPath(shapes.litPath, lit, style = shapes.track)
     }
-    drawPulses(figure.sent, forward = true, shapes, lead, tone, from)
-    drawPulses(figure.received, forward = false, shapes, lead, tone, from)
+    drawLane(figure.sent, forward = true, figure, shapes, tone, from)
+    drawLane(figure.received, forward = false, figure, shapes, tone, from)
+}
+
+/** One lane of the cable: a stream as strong as the traffic of the lane, and the packets on it. */
+private fun DrawScope.drawLane(
+    lane: LinkLane,
+    forward: Boolean,
+    figure: LinkFigure,
+    shapes: LinkShapes,
+    color: Color,
+    from: Float,
+) {
+    if (lane.alpha <= 0f) return
+    val rope = figure.rope
+    val side = if (forward) -LaneOffset else LaneOffset
+    val alpha = color.alpha * lane.alpha.coerceIn(0f, 1f)
+    val stream = alpha * lane.level.coerceIn(0f, 1f) * figure.charge * StreamAlpha
+    if (stream > MinAlpha) {
+        val tint = color.copy(alpha = stream)
+        drawLine(tint, shapes.at(from, CableY + side), shapes.at(DeviceEnd, CableY + side), shapes.lane.width)
+        shapes.trace(shapes.litPath, rope, upTo = 1f, lane = side)
+        drawPath(shapes.litPath, tint, style = shapes.lane)
+    }
+    val head = color.copy(alpha = alpha)
+    val middle = color.copy(alpha = alpha * MiddleAlpha)
+    val tail = color.copy(alpha = alpha * TailAlpha)
+    // Indexed, so a frame allocates no iterator.
+    for (index in lane.pulses.indices) {
+        // The distance that a packet has travelled becomes a place on the cable: sent packets start at the device.
+        val pulse = lane.pulses[index]
+        val a = if (forward) from + pulse.at - pulse.length else rope.endX - pulse.at
+        val b = a + pulse.length
+        val half = pulse.length / 2f
+        // A packet has a bright head, and a tail behind it that fades in two steps.
+        drawPulse(a, b, side, tail, shapes, rope, from)
+        drawPulse(if (forward) b - half else a, if (forward) b else a + half, side, middle, shapes, rope, from)
+        drawPulse(if (forward) b - PulseHead else a, if (forward) b else a + PulseHead, side, head, shapes, rope, from)
+    }
+}
+
+/** Draws the part of a packet from [a] to [b] that is not behind the socket or the plug. */
+private fun DrawScope.drawPulse(
+    a: Float,
+    b: Float,
+    side: Float,
+    color: Color,
+    shapes: LinkShapes,
+    rope: LinkRope,
+    from: Float,
+) {
+    val width = PulseWidth * shapes.unit
+    val deviceTo = minOf(b, DeviceEnd - CableCover)
+    val deviceFrom = maxOf(a, from)
+    if (deviceTo - deviceFrom > MinPulse) {
+        val start = shapes.at(deviceFrom, CableY + side)
+        drawLine(color, start, shapes.at(deviceTo, CableY + side), width, StrokeCap.Round)
+    }
+    val leadFrom = maxOf(a, rope.startX + CableCover)
+    val leadTo = minOf(b, rope.endX)
+    if (leadTo - leadFrom > MinPulse) {
+        drawLine(color, shapes.onRope(rope, leadFrom, side), shapes.onRope(rope, leadTo, side), width, StrokeCap.Round)
+    }
 }
 
 private fun DrawScope.drawPlug(
@@ -278,12 +434,17 @@ private fun DrawScope.drawPlug(
     shapes: LinkShapes,
     palette: LinkPalette,
 ) {
-    drawFaces(shapes.nose, palette, shapes)
+    drawFaces(shapes.nose, palette.plug, palette.plugTop, shapes)
     drawPath(shapes.contacts, palette.contact, style = shapes.hair)
-    drawFaces(shapes.boot, palette, shapes)
+    drawFaces(shapes.boot, palette.plug, palette.plugTop, shapes)
     drawPath(shapes.ribs, palette.plugTop, style = shapes.hair)
-    drawFaces(shapes.body, palette, shapes)
-    translate(top = figure.click.at.coerceAtLeast(0f) * shapes.unit) { drawFaces(shapes.latch, palette, shapes) }
+    drawFaces(shapes.collar, palette.plug, palette.plugTop, shapes)
+    drawFaces(shapes.body, palette.plug, palette.plugTop, shapes)
+    drawPath(shapes.grip, palette.plugTop, style = shapes.hair)
+    // The latch goes down when a contact makes.
+    translate(top = figure.click.at.coerceAtLeast(0f) * shapes.unit) {
+        drawFaces(shapes.latch, palette.plug, palette.plugTop, shapes)
+    }
 }
 
 private fun DrawScope.drawSocket(
@@ -292,6 +453,7 @@ private fun DrawScope.drawSocket(
     palette: LinkPalette,
     tone: Color,
 ) {
+    drawFaces(shapes.gland, palette.socketSide, palette.socket, shapes)
     drawFace(shapes.socketTop, palette.socketTop, shapes)
     // The lamps light the top of the socket by one step of tone.
     var light = 0f
@@ -301,6 +463,7 @@ private fun DrawScope.drawSocket(
     }
     if (light > 0f) drawPath(shapes.socketTop, tone, alpha = light.coerceAtMost(1f) * CastAlpha)
     drawFace(shapes.socketFront, palette.socket, shapes)
+    drawFace(shapes.frontBase, palette.socketBase, shapes)
     drawRoundRect(palette.window, shapes.windowAt, shapes.windowSize, CornerRadius(WindowInset * shapes.unit))
     for (index in figure.lamps.indices) drawLamp(figure.lamps[index], shapes, index, palette)
 }
@@ -317,13 +480,12 @@ private fun DrawScope.drawFace(
 
 private fun DrawScope.drawFaces(
     faces: List<LinkFace>,
-    palette: LinkPalette,
+    side: Color,
+    top: Color,
     shapes: LinkShapes,
 ) {
     // Indexed, so a frame allocates no iterator.
-    for (index in faces.indices) {
-        drawFace(faces[index].path, if (faces[index].top) palette.plugTop else palette.plug, shapes)
-    }
+    for (index in faces.indices) drawFace(faces[index].path, if (faces[index].top) top else side, shapes)
 }
 
 /** A lamp is a circle. A warning gives it four points, and a failure turns the points to a cross. */
@@ -347,92 +509,12 @@ private fun DrawScope.drawLamp(
     path.close()
     val now = palette.lamp(lamp.stage)
     val color = if (lamp.mix < 1f) lerp(palette.lamp(lamp.before), now, lamp.mix) else now
-    drawPath(path, color, alpha = lamp.glow.coerceIn(0f, 1f))
-}
-
-/** The cable behind the plug. It hangs between the plug and the edge of the tile. */
-private class LinkLead(
-    private val shapes: LinkShapes,
-    val startX: Float,
-    private val startY: Float,
-    private val middleY: Float,
-    val to: Float,
-) {
-    /** Traces the cable from the plug as far as the share [upTo] of its length. */
-    fun trace(
-        path: Path,
-        upTo: Float,
-    ) {
-        val start = shapes.at(startX, startY)
-        val middleX = (startX + to) / 2f
-        // The first part of a curve is a curve: its control point and its end move toward the start.
-        val control = shapes.at(startX + (middleX - startX) * upTo, startY + (middleY - startY) * upTo)
-        val end = at(startX + (to - startX) * upTo, lane = 0f)
-        path.rewind()
-        path.moveTo(start.x, start.y)
-        path.quadraticTo(control.x, control.y, end.x, end.y)
-    }
-
-    /** The point of the cable at [x], moved by [lane] across it. */
-    fun at(
-        x: Float,
-        lane: Float,
-    ): Offset {
-        val t = ((x - startX) / (to - startX)).coerceIn(0f, 1f)
-        val u = 1f - t
-        val px = u * u * startX + 2f * u * t * (startX + to) / 2f + t * t * to
-        val py = u * u * startY + 2f * u * t * middleY + t * t * CableY
-        return shapes.at(px, py + lane)
-    }
-}
-
-private fun DrawScope.drawPulses(
-    lane: LinkLane,
-    forward: Boolean,
-    shapes: LinkShapes,
-    lead: LinkLead,
-    color: Color,
-    from: Float,
-) {
-    if (lane.alpha <= 0f) return
-    val side = if (forward) -LaneOffset else LaneOffset
-    val alpha = color.alpha * lane.alpha.coerceIn(0f, 1f)
-    val head = color.copy(alpha = alpha)
-    val tail = color.copy(alpha = alpha * TailAlpha)
-    // Indexed, so a frame allocates no iterator.
-    for (index in lane.pulses.indices) {
-        // The distance that a packet has travelled becomes a place on the cable: sent packets start at the device.
-        val travelled = lane.pulses[index].at
-        val a = if (forward) from + travelled - LinkPulseLength else lead.to - travelled
-        val b = a + LinkPulseLength
-        // A packet has a bright head and a faint tail behind it.
-        drawPulse(a, b, side, tail, shapes, lead, from)
-        if (forward) drawPulse(b - PulseHead, b, side, head, shapes, lead, from)
-        if (!forward) drawPulse(a, a + PulseHead, side, head, shapes, lead, from)
-    }
-}
-
-/** Draws the part of a packet from [a] to [b] that is not behind the socket or the plug. */
-private fun DrawScope.drawPulse(
-    a: Float,
-    b: Float,
-    side: Float,
-    color: Color,
-    shapes: LinkShapes,
-    lead: LinkLead,
-    from: Float,
-) {
-    val width = PulseWidth * shapes.unit
-    val deviceTo = minOf(b, DeviceEnd - CableCover)
-    val deviceFrom = maxOf(a, from)
-    if (deviceTo - deviceFrom > MinPulse) {
-        val start = shapes.at(deviceFrom, CableY + side)
-        drawLine(color, start, shapes.at(deviceTo, CableY + side), width, StrokeCap.Round)
-    }
-    val leadFrom = maxOf(a, lead.startX + CableCover)
-    val leadTo = minOf(b, lead.to)
-    if (leadTo - leadFrom > MinPulse) {
-        drawLine(color, lead.at(leadFrom, side), lead.at(leadTo, side), width, StrokeCap.Round)
+    val glow = lamp.glow.coerceIn(0f, 1f)
+    drawPath(path, color, alpha = glow)
+    // A round lamp that is on has a glint, as a lens has.
+    if (lamp.stage != RipDpiLinkStage.Pending && lamp.notch < GlintWithin) {
+        val at = Offset(center.x - size * GlintOffset, center.y - size * GlintOffset)
+        drawCircle(palette.glint, size * GlintSize, at, alpha = glow * GlintAlpha)
     }
 }
 
@@ -443,10 +525,8 @@ internal const val EdgeFrom = -24f
 internal const val EdgeBeyond = 44f
 internal const val PlugNose = 124f
 internal const val PlugEnd = 196f
-internal const val LeadStart = 192f
 private const val DepthX = 0.55f
 private const val DepthY = 0.4f
-private const val CableY = 42f
 private const val CableDepth = 7f
 private const val SocketStart = 74f
 private const val SocketEnd = 136f
@@ -464,26 +544,33 @@ private const val BodyHalf = 11f
 private const val BodyNear = 1.5f
 private const val BodyFar = 12.5f
 private const val BootStart = 178f
-private const val BootHalf = 8f
-private const val BootNear = 3f
-private const val BootFar = 11f
-private const val LatchStart = 146f
-private const val LatchEnd = 166f
-private const val LatchTop = 14.5f
-private const val LatchNear = 5f
-private const val LatchFar = 9f
+private const val BootEndHalf = 6.5f
+private const val BootInset = 1f
+private const val CollarStart = 143f
+private const val CollarHalf = 9f
+private const val CollarNear = 2.5f
+private const val CollarFar = 11.5f
+private const val LeverStart = 128f
+private const val LeverEnd = 162f
+private const val LeverTop = 15.5f
+private const val LeverThick = 1.5f
+private const val LeverNear = 5f
+private const val LeverFar = 9f
+private const val FirstGrip = 157f
+private const val GripStep = 4f
+private const val GripHalf = 5f
+private const val GlandStart = 67f
+private const val GlandHalf = 8.5f
+private const val BaseHeight = 4f
+private const val RimWidth = 5f
 
 // The contacts are all in the socket when the plug is seated.
 private const val FirstContact = 126f
 private const val ContactStep = 2.2f
 private const val ContactInset = 1f
 private const val RibCount = 3
-private const val RibStep = 4.5f
-private const val RibHalf = 5f
+private const val RibInset = 2.5f
 private const val HairWidth = 1f
-private const val PlugPivot = 256f
-private const val DeviceEnd = 78f
-private const val CableCover = 3f
 private const val FirstLamp = 83f
 private const val LampStep = 11f
 private const val LampRadius = 4.25f
@@ -497,7 +584,15 @@ private const val JacketWidth = 12f
 private const val TrackWidth = 10f
 private const val PulseWidth = 4f
 private const val PulseHead = 2f
-private const val TailAlpha = 0.4f
+private const val TailAlpha = 0.3f
+private const val MiddleAlpha = 0.6f
+private const val StreamAlpha = 0.22f
+private const val MinAlpha = 0.01f
+private const val RopeSamples = 28
+private const val GlintWithin = 0.05f
+private const val GlintOffset = 0.3f
+private const val GlintSize = 0.24f
+private const val GlintAlpha = 0.5f
 private const val LaneOffset = 2.5f
 private const val MinPulse = 0.4f
 private const val ChargeAlpha = 0.16f
@@ -510,15 +605,11 @@ private const val RingGrow = 22f
 private const val RingWidth = 2f
 private const val RingAlpha = 0.6f
 
-// A loose plug lies a little lower and turns.
-private const val LooseDrop = 5f
-private const val LooseTurn = 5f
-private const val HalfTurn = 180f
-
 private const val PlugMix = 0.14f
 private const val TopMix = 0.2f
 private const val ContactMix = 0.6f
 private const val SideMix = 0.3f
 private const val PortMix = 0.75f
+private const val BaseMix = 0.18f
 private const val TrackMix = 0.22f
 private const val LampOffMix = 0.3f

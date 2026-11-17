@@ -245,6 +245,83 @@ class RipDpiLinkFigureTest {
     }
 
     @Test
+    fun `the cable hangs lower behind a loose plug, swings when the plug comes out, and comes to rest`() {
+        fun lowest(figure: LinkFigure) = (0..10).maxOf { figure.rope.y(it / 10f) }
+        val seated = lowest(figure(input(RipDpiLinkMode.Live)))
+        val loose = lowest(figure(input(RipDpiLinkMode.Open)))
+        assertTrue("seated $seated, loose $loose", loose > seated + 3f)
+
+        val open = input(RipDpiLinkMode.Open)
+        val figure = figure(input(RipDpiLinkMode.Live))
+        var deepest = 0f
+        figure.run(4f, open) { deepest = maxOf(deepest, lowest(figure)) }
+
+        // The swing takes the cable below where it rests, and the tile then takes no more frames.
+        assertTrue("deepest $deepest, rest ${lowest(figure)}", deepest > lowest(figure) + 0.5f)
+        assertEquals(loose, lowest(figure), 0.5f)
+        assertFalse(figure.moving(open))
+    }
+
+    @Test
+    fun `a faster plug hits the socket harder, and a plug that a finger lets go keeps its speed`() {
+        fun hit(from: RipDpiLinkMode): Float {
+            val figure = figure(input(from, all(Active)))
+            var hardest = 0f
+            figure.run(1f, input(RipDpiLinkMode.Live)) { hardest = minOf(hardest, figure.recoil.at) }
+            return -hardest
+        }
+        // From loose the plug has farther to go than from the socket, so it arrives faster.
+        assertTrue(hit(RipDpiLinkMode.Open) > hit(RipDpiLinkMode.Seeking) * 1.2f)
+
+        val figure = figure(input(RipDpiLinkMode.Open))
+        figure.advance(1f / FramesPerSecond, LinkInput(RipDpiLinkMode.Open, all(Pending), drag = 32f))
+        assertTrue("rate ${figure.pull.rate}", figure.pull.rate < -100f)
+    }
+
+    @Test
+    fun `a busy lane sends longer packets, some of them close together`() {
+        val figure = figure(input(RipDpiLinkMode.Open))
+        val lengths = HashSet<Float>()
+        var closest = Float.MAX_VALUE
+
+        figure.run(10f, input(RipDpiLinkMode.Live, sent = 1f, received = 0f)) {
+            figure.sent.pulses.forEach { lengths += it.length }
+            figure.sent.pulses.zipWithNext { ahead, behind ->
+                closest = minOf(closest, ahead.at - ahead.length - behind.at)
+            }
+        }
+
+        assertTrue(lengths.max() > 11f && lengths.min() < 8f)
+        // The packets of a burst are 3 dp apart, and one frame of travel more at most.
+        assertTrue("closest $closest", closest >= 3f && closest < 5f)
+        // With no traffic every packet is short.
+        figure.received.pulses.forEach { assertEquals(5f, it.length, 0f) }
+    }
+
+    @Test
+    fun `with no live session a packet does not cross the connector`() {
+        val figure = figure(input(RipDpiLinkMode.Open))
+        figure.run(4f, input(RipDpiLinkMode.Live, sent = 1f, received = 1f))
+        val open = input(RipDpiLinkMode.Open)
+
+        // Past the plug for a sent packet, and past the socket for a received packet.
+        fun crossed() =
+            figure.sent.pulses.count { it.at >= LinkDefaultProbeFrom } to
+                figure.received.pulses.count { it.at >= LinkDefaultLength - LinkDefaultProbeFrom + 114f }
+        // A packet that is at the end of the connector when the session ends is through it one frame later.
+        figure.advance(1f / FramesPerSecond, open)
+        var before = crossed()
+        assertTrue(before.first > 0 && before.second > 0)
+
+        figure.run(5f, open) {
+            val now = crossed()
+            assertTrue(now.first <= before.first && now.second <= before.second)
+            before = now
+        }
+        assertTrue(figure.sent.pulses.isEmpty() && figure.received.pulses.isEmpty())
+    }
+
+    @Test
     fun `a live link with an empty cable rests until its next packet, for one second at most`() {
         val silent = input(RipDpiLinkMode.Live, sent = 0f, received = 0f)
         val figure = figure(input(RipDpiLinkMode.Open))

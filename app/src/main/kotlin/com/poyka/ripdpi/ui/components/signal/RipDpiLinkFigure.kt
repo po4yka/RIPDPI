@@ -77,6 +77,7 @@ internal class LinkSpring(
 /** One packet in a lane of the cable. [at] is how far it has travelled from its own end of the cable, in dp. */
 internal class LinkPulse(
     var at: Float,
+    val length: Float = LinkPulseLength,
 )
 
 /** A lane of the cable: sent packets travel away from the device, received packets toward it. */
@@ -88,6 +89,9 @@ internal class LinkLane {
     var level = 0f
     var until = 0f
     var wait = 0f
+
+    /** How many more packets of the present burst follow closely. */
+    var burst = 0
 }
 
 /** One lamp of the socket. A warning gives it four points, and a failure turns the points to a cross. */
@@ -131,11 +135,15 @@ internal class LinkFigure(
     /** The latch tab of the plug. */
     val click = LinkSpring()
 
-    /** The slack of the cable behind the plug. */
-    val sag = LinkSpring(LinkSlack)
+    /** The cable behind the plug. It hangs under its weight, and swings when the plug moves. */
+    val rope = LinkRope()
+    private val ends = LinkRopeEnds()
 
     /** How much the plug lies down, from 0 in line with the socket to 1. A plug that falls out bounces once. */
     val lie = LinkSpring(1f)
+
+    /** How much the plug is turned, as [lie]. It turns more slowly than it falls, so it rocks after it lands. */
+    val tilt = LinkSpring(1f)
 
     /** How far the live tint has spread along the cable from the socket, from 0 to 1. */
     var charge = 0f
@@ -198,24 +206,7 @@ internal class LinkFigure(
         input: LinkInput,
     ) {
         enter(input)
-        time += seconds
-        // A plug that waits for its session presses on the socket and lets go, slowly.
-        val hunts = input.mode == RipDpiLinkMode.Seeking && input.drag == null
-        val want = target(input) + if (hunts) LinkHunt * sin(time / HuntPeriod * LinkTau) else 0f
-        if (input.drag != null) {
-            pull.snap(want)
-        } else {
-            // The plug overshoots a little on the way in and does not on the way out.
-            pull.step(want, PlugStiffness, if (want < pull.at) SeatDamping else PullDamping, seconds)
-        }
-        // On the way in the plug lines up exactly. On the way out it falls, and bounces once.
-        val falls = input.drag == null && pull.rate > 0f
-        if (falls) lie.step(loose, LieStiffness, LieDamping, seconds) else lie.snap(loose)
-        recoil.step(0f, RecoilStiffness, RecoilDamping, seconds)
-        click.step(0f, ClickStiffness, ClickDamping, seconds)
-        // The cable swings when the plug moves.
-        sag.rate += pull.rate * SagCoupling * seconds
-        sag.step(slack(), SagStiffness, SagDamping, seconds)
+        movePlug(seconds, input)
 
         val nowSeated = out < LinkSeatedWithin
         val byItself = input.mode != RipDpiLinkMode.Open && input.drag == null
@@ -243,14 +234,42 @@ internal class LinkFigure(
         for (index in lamps.indices) lamps[index].advance(index, input.stages[index], seconds)
     }
 
+    /** Moves the plug toward where it rests, and with it the socket, the latch, and the cable. */
+    private fun movePlug(
+        seconds: Float,
+        input: LinkInput,
+    ) {
+        time += seconds
+        // A plug that waits for its session presses on the socket and lets go, slowly.
+        val hunts = input.mode == RipDpiLinkMode.Seeking && input.drag == null
+        val want = target(input) + if (hunts) LinkHunt * sin(time / HuntPeriod * LinkTau) else 0f
+        if (input.drag != null) {
+            // A plug that a finger lets go keeps the speed of the finger.
+            val rate = if (seconds > 0f) (want - pull.at) / seconds else 0f
+            pull.snap(want)
+            pull.rate = rate.coerceIn(-ThrowMost, ThrowMost)
+        } else {
+            // The plug overshoots a little on the way in and does not on the way out.
+            pull.step(want, PlugStiffness, if (want < pull.at) SeatDamping else PullDamping, seconds)
+        }
+        // On the way in the plug lines up exactly. On the way out it falls, and bounces once.
+        val falls = input.drag == null && pull.rate > 0f
+        if (falls) lie.step(loose, LieStiffness, LieDamping, seconds) else lie.snap(loose)
+        if (falls) tilt.step(loose, TiltStiffness, TiltDamping, seconds) else tilt.snap(loose)
+        recoil.step(0f, RecoilStiffness, RecoilDamping, seconds)
+        click.step(0f, ClickStiffness, ClickDamping, seconds)
+        rope.step(seconds, pose(input))
+    }
+
     /** The still frame of a state: nothing in flight, packets at their spacing, lamps steady. */
     fun settle(input: LinkInput) {
         mode = input.mode
         pull.snap(target(input))
         recoil.snap(0f)
         click.snap(0f)
-        sag.snap(slack())
         lie.snap(loose)
+        tilt.snap(loose)
+        rope.settle(pose(input))
         charge = if (input.mode.live()) 1f else 0f
         seated = out < LinkSeatedWithin
         complete = input.stages.count { it == RipDpiLinkStage.Complete }
@@ -306,7 +325,8 @@ internal class LinkFigure(
         val plug = abs(pull.rate) < Rest && abs(pull.at - target(input)) < Rest
         val socket = abs(recoil.at) < Rest && abs(click.at) < Rest
         val lies = abs(lie.rate) < Rest && abs(lie.at - loose) < Rest
-        return plug && socket && lies && abs(sag.rate) < SagRest && abs(sag.at - slack()) < SagRest
+        val turned = abs(tilt.rate) < Rest && abs(tilt.at - loose) < Rest
+        return plug && socket && lies && turned && rope.speed < RopeRest
     }
 
     private fun lampsRest(input: LinkInput): Boolean {
@@ -347,18 +367,32 @@ internal class LinkFigure(
         }
     }
 
-    // A contact makes: the socket takes the hit and the latch clicks.
+    // A contact makes: the socket takes the hit and the latch clicks. A faster plug hits harder.
     private fun tap() {
-        recoil.rate = -TapSpeed
-        click.rate = ClickSpeed
+        val force = (abs(pull.rate) / TapRate).coerceIn(TapLeast, TapMost)
+        recoil.rate = -TapSpeed * force
+        click.rate = ClickSpeed * force
+    }
+
+    /** Where the cable leaves the plug and where it ends, for the plug as it is now. */
+    private fun pose(input: LinkInput): LinkRopeEnds {
+        val radians = tilt.at * LooseTurn * PI.toFloat() / HalfTurn
+        val reach = LeadStart - PlugPivot
+        ends.alongX = cos(radians)
+        ends.alongY = sin(radians)
+        ends.fromX = PlugPivot + reach * ends.alongX + out + shakeBy
+        ends.fromY = CableY + reach * ends.alongY + lie.at * LooseDrop
+        ends.toX = LeadStart - input.probeFrom + input.length
+        ends.toY = CableY
+        // A loose plug is nearer the edge of the tile, so more of the cable hangs.
+        ends.stretch = 1f + RopeTaut + RopeLoose * (out / LinkGap).coerceIn(0f, 1f)
+        return ends
     }
 
     private fun free(
         lane: LinkLane,
         input: LinkInput,
     ): Boolean = lane.pulses.isEmpty() && abs(pull.at - target(input)) < RestsWithin
-
-    private fun slack(): Float = LinkSlack + LinkSlackLoose * (out / LinkGap).coerceIn(0f, 1f)
 
     private fun advance(
         lane: LinkLane,
@@ -371,14 +405,11 @@ internal class LinkFigure(
         lane.level = ease(lane.level, if (live) traffic else 0f, seconds, state)
         val step = LinkSpeed * flow * seconds
         for (index in lane.pulses.indices) lane.pulses[index].at += step
-        lane.pulses.removeAll { it.at >= input.length + LinkPulseLength }
+        lane.pulses.removeAll { it.ends(input, live, probes) }
         if (live) {
             lane.wait -= seconds
             lane.until -= step
-            if (lane.wait <= 0f && lane.until <= 0f) {
-                lane.pulses += LinkPulse(0f)
-                lane.until = LinkPulseLength + spacing(lane.level) * (JitterFrom + JitterSpan * random.nextFloat())
-            }
+            if (lane.wait <= 0f && lane.until <= 0f) emit(lane)
         } else if (probes && input.mode == RipDpiLinkMode.Seeking && free(lane, input)) {
             // One probe at a time leaves the plug, once the plug is at the socket.
             lane.pulses += LinkPulse(input.probeFrom)
@@ -394,6 +425,22 @@ internal class LinkFigure(
         if (shown == 0f && lane.alpha < Rest) lane.pulses.clear()
     }
 
+    /** Traffic comes in bursts: a few packets close together, then a gap. A busy lane has longer packets. */
+    private fun emit(lane: LinkLane) {
+        val level = lane.level.coerceIn(0f, 1f)
+        val length = PulseShort + (PulseLong - PulseShort) * level * random.nextFloat()
+        lane.pulses += LinkPulse(0f, length)
+        if (lane.burst > 0) {
+            lane.burst--
+            lane.until = length + BurstGap
+        } else {
+            lane.burst = (level * BurstMost * random.nextFloat()).toInt()
+            // A keep-alive packet keeps its interval, so the cable is empty between two of them.
+            val jitter = if (level > 0f) JitterFrom + JitterSpan * random.nextFloat() else 1f
+            lane.until = length + spacing(level) * jitter
+        }
+    }
+
     private fun still(
         lane: LinkLane,
         traffic: Float,
@@ -401,6 +448,7 @@ internal class LinkFigure(
     ) {
         lane.pulses.clear()
         lane.alpha = 1f
+        lane.burst = 0
         // A still frame shows the traffic in a few steps, so it does not shift with each small change.
         lane.level = if (input.mode.live()) ceil(traffic.coerceIn(0f, 1f) * StillSteps) / StillSteps else 0f
         if (!input.mode.live()) return
@@ -448,6 +496,23 @@ internal class LinkFigure(
         mix = 0f
         if (wanted != RipDpiLinkStage.Pending) size.rate = PopSpeed
     }
+}
+
+/**
+ * True when a packet is at the end of its way. That is the far end of the cable. With no live session it is also
+ * the connector, which a packet does not cross: it ends where the socket or the plug hides it. [forward] is true
+ * for a sent packet, which comes to the socket first.
+ */
+private fun LinkPulse.ends(
+    input: LinkInput,
+    live: Boolean,
+    forward: Boolean,
+): Boolean {
+    val connector = LeadStart - DeviceEnd
+    val plug = if (forward) input.probeFrom else input.length - input.probeFrom
+    val hidden = (if (forward) plug - connector else plug) - CableCover + length
+    val blocked = !live && at >= hidden && at < if (forward) plug else plug + connector
+    return blocked || at >= input.length + length
 }
 
 private fun RipDpiLinkMode.live(): Boolean = this == RipDpiLinkMode.Live || this == RipDpiLinkMode.Unstable
@@ -503,8 +568,20 @@ private const val LinkSeatedWithin = 0.6f
 private const val LinkAlignAt = 0.4f
 private const val LinkShake = 2f
 private const val LinkShakeTurns = 2f
-private const val LinkSlack = 3f
-private const val LinkSlackLoose = 15f
+
+// The pose of the plug, in dp of the design: the line of the cable, the point that the plug turns about, where
+// the cable leaves the plug, and how far a loose plug drops and turns.
+internal const val CableY = 42f
+internal const val PlugPivot = 256f
+internal const val LeadStart = 192f
+internal const val DeviceEnd = 78f
+internal const val CableCover = 3f
+internal const val LooseDrop = 5f
+internal const val LooseTurn = 5f
+internal const val HalfTurn = 180f
+private const val RopeTaut = 0.001f
+private const val RopeLoose = 0.035f
+private const val RopeRest = 1f
 private const val LinkSeed = 7
 private const val LinkHunt = 0.6f
 private const val HuntPeriod = 1.6f
@@ -525,9 +602,12 @@ private const val RecoilStiffness = 900f
 private const val RecoilDamping = 34f
 private const val ClickStiffness = 1200f
 private const val ClickDamping = 30f
-private const val SagStiffness = 90f
-private const val SagDamping = 7f
-private const val SagCoupling = 3f
+private const val TiltStiffness = 170f
+private const val TiltDamping = 8f
+private const val ThrowMost = 300f
+private const val TapRate = 80f
+private const val TapLeast = 0.6f
+private const val TapMost = 1.6f
 private const val LieStiffness = 300f
 private const val LieDamping = 14f
 private const val KickSpeed = 140f
@@ -540,7 +620,6 @@ private const val ChaseLag = 0.18f
 private const val TapSpeed = 26f
 private const val ClickSpeed = 30f
 private const val Rest = 0.02f
-private const val SagRest = 0.2f
 
 // The packets: speed in dp a second, gaps in seconds.
 private const val LinkSpeed = 110f
@@ -549,6 +628,10 @@ private const val QuietGap = 0.9f
 private const val BusyGap = 0.16f
 private const val JitterFrom = 0.7f
 private const val JitterSpan = 0.6f
+private const val PulseShort = 5f
+private const val PulseLong = 14f
+private const val BurstGap = 3f
+private const val BurstMost = 3.5f
 
 private const val HeldGlow = 0.45f
 private const val ActiveLow = 0.35f
