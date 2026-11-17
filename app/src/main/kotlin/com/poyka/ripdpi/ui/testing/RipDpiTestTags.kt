@@ -341,8 +341,6 @@ internal object RipDpiTestTags {
     const val OnboardingProxyNote = "onboarding-proxy-note"
     const val OnboardingCompletionSummary = "onboarding-completion-summary"
     const val OnboardingCompletionDone = "onboarding-completion-done"
-    const val StatusFirstRunIntro = "status-first-run-intro"
-    const val StatusFirstRunIntroDismiss = "status-first-run-intro-dismiss"
 
     const val BiometricPromptPrimaryAction = "biometric-prompt-primary-action"
     const val BiometricPromptSecondaryAction = "biometric-prompt-secondary-action"

@@ -672,6 +672,4 @@
         <item quantity="other">%1$d من التطبيقات المثبّتة معروفة بكشف الـ VPN.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
-    <string name="status_intro_line">يعرض الخط مسار البيانات: مستوٍ عند عدم الاتصال، وموجة عند الاتصال، ومقطوع عند فشل الاتصال.</string>
-    <string name="status_intro_control">استخدم عنصر التحكم في الاتصال لبدء الاتصال أو إيقافه.</string>
 </resources>

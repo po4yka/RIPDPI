@@ -621,6 +621,4 @@
         <item quantity="other">%1$d برنامهٔ نصب‌شده شناخته‌شده به‌عنوان تشخیص‌دهندهٔ VPN.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
-    <string name="status_intro_line">این خط مسیر ترافیک را نشان می‌دهد: بدون اتصال صاف است، هنگام اتصال موج دارد و هنگام خطای اتصال بریده می‌شود.</string>
-    <string name="status_intro_control">برای شروع یا توقف اتصال از کنترل اتصال استفاده کنید.</string>
 </resources>

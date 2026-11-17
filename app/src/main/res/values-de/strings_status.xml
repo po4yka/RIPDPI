@@ -621,6 +621,4 @@
         <item quantity="other">%1$d installierte Apps sind bekannte VPN-Detektoren.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
-    <string name="status_intro_line">Die Linie zeigt den Weg des Datenverkehrs: flach ohne Verbindung, eine Welle bei Verbindung, unterbrochen bei einem Verbindungsfehler.</string>
-    <string name="status_intro_control">Mit dem Verbindungsschalter startest oder beendest du die Verbindung.</string>
 </resources>

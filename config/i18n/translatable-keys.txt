@@ -4598,8 +4598,6 @@ app:status_hard_kill_switch_not_enabled_title
 app:status_hard_kill_switch_unknown_summary
 app:status_hard_kill_switch_unknown_title
 app:status_indicator_description
-app:status_intro_control
-app:status_intro_line
 app:status_mode_card_configure
 app:status_mode_card_connected_format
 app:status_mode_card_connecting

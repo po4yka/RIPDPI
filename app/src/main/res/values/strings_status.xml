@@ -626,6 +626,4 @@
         <item quantity="other">%1$d installed apps are known VPN detectors.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
-    <string name="status_intro_line">The line shows the traffic path: flat when disconnected, a wave when connected, broken when the connection fails.</string>
-    <string name="status_intro_control">Use the connect control to start or stop the connection.</string>
 </resources>

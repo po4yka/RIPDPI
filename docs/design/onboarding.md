@@ -39,7 +39,6 @@ States that the design covers:
 - Every exit shows the completion step first. Skip setup, Skip test, and Finish without testing go to it at once, and a passed test moves to it. Done then completes onboarding: it keeps the tunnel of a passed test, and otherwise stops the test runtime. After a passed test, Disconnect stops the tunnel and completes onboarding.
 - Back on the completion step returns to the step that the user left. The completion step does not swipe.
 - After process death the flow returns to the saved step. The persona, the scope, and the DNS resolver are saved when the user selects them, so the selections return. The test starts idle again.
-- After the hand-off, the Status screen shows one card under the connect control. It explains the signal line and the control, and it stays until the user dismisses it. Onboarding sets its flag at completion, so a user who completed onboarding earlier does not see it.
 
 ## Transition between steps
 

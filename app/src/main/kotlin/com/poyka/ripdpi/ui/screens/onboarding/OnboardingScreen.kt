@@ -75,7 +75,6 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.status.StatusFirstRunIntroStore
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -133,12 +132,6 @@ fun OnboardingRoute(
                     },
             )
         }
-
-    // The main screen explains itself once to a user who has just completed onboarding. Every exit passes the
-    // completion step, so the flag is set there: the completed flag can replace this screen before an effect runs.
-    if (uiState.currentPage == OnboardingCompletionPageIndex) {
-        LaunchedEffect(context) { StatusFirstRunIntroStore.setPending(context, pending = true) }
-    }
 
     OnboardingEffectsHandler(
         effects = viewModel.effects,

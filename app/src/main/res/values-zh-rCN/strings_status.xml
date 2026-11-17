@@ -608,6 +608,4 @@
         <item quantity="other">%1$d 个已安装应用属于已知 VPN 检测应用。</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
-    <string name="status_intro_line">这条线显示流量路径：未连接时是平的，已连接时是波浪，连接失败时会断开。</string>
-    <string name="status_intro_control">使用连接控件来开始或停止连接。</string>
 </resources>

@@ -646,6 +646,4 @@
         <item quantity="other">%1$d установленных приложения известны как детекторы VPN.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
-    <string name="status_intro_line">Линия показывает путь трафика: ровная без подключения, волна при подключении, разрыв при сбое соединения.</string>
-    <string name="status_intro_control">Кнопка подключения запускает и останавливает соединение.</string>
 </resources>
