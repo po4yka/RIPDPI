@@ -1,0 +1,8 @@
+{
+  "uniqueId": "go.dev/std",
+  "name": "Go standard library",
+  "description": "Copyright 2009 The Go Authors.",
+  "website": "https://go.dev",
+  "developers": [{ "name": "The Go Authors", "organisationUrl": "https://go.dev" }],
+  "licenses": ["BSD-3-Clause"]
+}

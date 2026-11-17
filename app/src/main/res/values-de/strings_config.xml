@@ -348,6 +348,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_summary_label_scope">Verkehrsbereich</string>
     <string name="ripdpi_no_domain_setting">Keine Domain</string>
     <string name="ripdpi_readme_link">So funktioniert RIPDPI</string>
+    <string name="open_source_licenses">Open-Source-Lizenzen</string>
     <string name="ripdpi_seqovl_ready_body">Die gespeicherte Strategiekette enthält bereits seqovl und behält ihren Marker, ihre Überlappungsgröße und ihren Fake-Modus über Einstellungsbearbeitungen hinweg bei.</string>
     <string name="ripdpi_seqovl_summary_fake_mode_profile">Profil</string>
     <string name="ripdpi_seqovl_summary_label_runtime">Laufzeitpfad</string>

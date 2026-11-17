@@ -3304,6 +3304,7 @@ app:onboarding_welcome_body
 app:onboarding_welcome_title
 app:oob_data
 app:oom_recovery_action_reconnect
+app:open_source_licenses
 app:outbound_group_fallback
 app:outbound_profile_fallback
 app:owned_stack_browser_backend_http_engine

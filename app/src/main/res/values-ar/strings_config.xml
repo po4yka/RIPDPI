@@ -889,6 +889,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_unix_eol_setting">نهايات أسطر Unix</string>
     <string name="ripdpi_tlsrec_position_setting">علامة سجل TLS</string>
     <string name="ripdpi_readme_link">كيف يعمل RIPDPI</string>
+    <string name="open_source_licenses">تراخيص المصادر المفتوحة</string>
     <string name="desync_http">استراتيجية التجاوز HTTP</string>
     <string name="desync_https">استراتيجية التجاوز HTTPS</string>
     <string name="desync_udp">استراتيجية التجاوز UDP</string>

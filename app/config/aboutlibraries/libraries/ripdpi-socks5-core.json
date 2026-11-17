@@ -1,0 +1,7 @@
+{
+  "uniqueId": "ripdpi-socks5-core",
+  "name": "ripdpi-socks5-core",
+  "description": "Copyright (c) 2025 Jonathan Dizdarevic. Source: native/rust/crates/ripdpi-socks5-core.",
+  "developers": [{ "name": "Jonathan Dizdarevic" }],
+  "licenses": ["MIT"]
+}

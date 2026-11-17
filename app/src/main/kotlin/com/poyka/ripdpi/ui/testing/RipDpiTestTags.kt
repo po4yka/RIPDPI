@@ -316,6 +316,7 @@ internal object RipDpiTestTags {
     const val CustomizationThemedIcon = "customization-themed-icon"
     const val AboutSourceCode = "about-source-code"
     const val AboutReadme = "about-readme"
+    const val AboutLicenses = "about-licenses"
 
     const val OnboardingSkip = "onboarding-skip"
     const val OnboardingBack = "onboarding-back"

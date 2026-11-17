@@ -41,6 +41,7 @@ import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
+import com.poyka.ripdpi.ui.screens.customization.OpenSourceLicensesRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import com.poyka.ripdpi.ui.screens.settings.LocalSettingsListState
 import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
@@ -377,7 +378,13 @@ private fun RipDpiNavGraph(
             permissionSummary = permissionSummary,
         )
         composable<Route.About> {
-            AboutRoute(onBack = { navController.popBackStack() })
+            AboutRoute(
+                onBack = { navController.popBackStack() },
+                onOpenLicenses = { navController.navigate(Route.OpenSourceLicenses) },
+            )
+        }
+        composable<Route.OpenSourceLicenses> {
+            OpenSourceLicensesRoute(onBack = { navController.popBackStack() })
         }
     }
 }
@@ -459,6 +466,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.BiometricPrompt.stableRoute to { hasRoute<Route.BiometricPrompt>() },
         Route.AppCustomization.stableRoute to { hasRoute<Route.AppCustomization>() },
         Route.About.stableRoute to { hasRoute<Route.About>() },
+        Route.OpenSourceLicenses.stableRoute to { hasRoute<Route.OpenSourceLicenses>() },
         Route.DataTransparency.stableRoute to { hasRoute<Route.DataTransparency>() },
         Route.DetectionCheck.stableRoute to { hasRoute<Route.DetectionCheck>() },
         Route.DetectionSettings.stableRoute to { hasRoute<Route.DetectionSettings>() },

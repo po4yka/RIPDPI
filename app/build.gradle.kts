@@ -141,6 +141,7 @@ plugins {
     id("ripdpi.android.quality")
     id("ripdpi.android.roborazzi")
     id("ripdpi.android.serialization")
+    alias(libs.plugins.aboutlibraries.android)
 }
 
 // One APK bundle supplies every emulator in the CI API matrix.
@@ -426,6 +427,7 @@ extensions.configure<ApplicationExtension> {
 dependencies {
     // dnsjava retains this CLASS-retention annotation; it is not a runtime dependency.
     compileOnly(libs.lombok)
+    implementation(libs.aboutlibraries.core)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.profileinstaller)
@@ -614,4 +616,11 @@ tasks.withType<PackageBundleTask>().configureEach {
 }
 tasks.withType<FinalizeBundleTask>().configureEach {
     dependsOn(":core:engine:verifyLibXrayReleaseArtifacts")
+}
+
+aboutLibraries {
+    collect {
+        // Native Go components (libXray AAR) that Gradle metadata cannot describe.
+        configPath = file("config/aboutlibraries")
+    }
 }

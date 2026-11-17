@@ -204,6 +204,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_ip_id_mode_body">设置原始伪造数据包和分片路径的首选 IPv4 ID。发送器可以选择其他 ID，以避免重复使用。Seqgroup 也会通过原始路径发送混合的伪造和原始 TCP 数据包。</string>
     <string name="ripdpi_protocols_category">协议</string>
     <string name="ripdpi_readme_link">RIPDPI 工作原理</string>
+    <string name="open_source_licenses">开源许可</string>
     <string name="ripdpi_seqovl_cli_title">由命令行控制</string>
     <string name="ripdpi_seqovl_restart_title">重启以重新应用 seqovl</string>
     <string name="ripdpi_seqovl_summary_label_marker">分割标记</string>

@@ -906,6 +906,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_unix_eol_setting">Unix line endings</string>
     <string name="ripdpi_tlsrec_position_setting">TLS record marker</string>
     <string name="ripdpi_readme_link">How RIPDPI works</string>
+    <string name="open_source_licenses">Open-source licenses</string>
     <string name="desync_http">HTTP bypass strategy</string>
     <string name="desync_https">HTTPS bypass strategy</string>
     <string name="desync_udp">UDP bypass strategy</string>

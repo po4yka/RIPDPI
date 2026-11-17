@@ -49,6 +49,7 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiAdaptiveColumns
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
+import com.poyka.ripdpi.ui.screens.customization.OpenSourceLicensesRoute
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityRoute
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityViewModel
 import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
@@ -120,9 +121,19 @@ fun SimpleHomeScreen(
     // This flavor has no nav host, so About is a saved-state overlay rather than a route.
     // AboutRoute brings its own view model, so nothing has to be threaded through here.
     var aboutVisible by rememberSaveable { mutableStateOf(false) }
+    var licensesVisible by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = licensesVisible) { licensesVisible = false }
+    if (licensesVisible) {
+        OpenSourceLicensesRoute(onBack = { licensesVisible = false }, modifier = modifier)
+        return
+    }
     BackHandler(enabled = aboutVisible) { aboutVisible = false }
     if (aboutVisible) {
-        AboutRoute(onBack = { aboutVisible = false }, modifier = modifier)
+        AboutRoute(
+            onBack = { aboutVisible = false },
+            onOpenLicenses = { licensesVisible = true },
+            modifier = modifier,
+        )
         return
     }
 

@@ -33,6 +33,7 @@ plugins {
     alias(libs.plugins.ktlint) apply false
     alias(libs.plugins.roborazzi) apply false
     alias(libs.plugins.compose.preview) apply false
+    alias(libs.plugins.aboutlibraries.android) apply false
     jacoco
 }
 

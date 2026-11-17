@@ -659,6 +659,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_unix_eol_setting">Переносы строк в стиле Unix</string>
     <string name="ripdpi_tlsrec_position_setting">Маркер TLS-записи</string>
     <string name="ripdpi_readme_link">Как работает RIPDPI</string>
+    <string name="open_source_licenses">Лицензии открытого ПО</string>
     <string name="desync_http">HTTP-стратегия обхода</string>
     <string name="desync_https">HTTPS-стратегия обхода</string>
     <string name="desync_udp">UDP-стратегия обхода</string>

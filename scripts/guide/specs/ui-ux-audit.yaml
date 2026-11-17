@@ -96,6 +96,7 @@ flow_sections:
       - data_transparency
       - backup_restore
       - about
+      - open_source_licenses
       - biometric_prompt
   - title: "Profiles and Imports"
     subtitle: "Standalone profile and import surfaces available through validated launch requests."
@@ -500,6 +501,16 @@ pages:
     state: "about"
     description: |
       About state with version, distribution, and support links.
+
+  - id: open_source_licenses
+    title: "Open-source licenses"
+    route: "open_source_licenses"
+    flow_from: "about"
+    flow_label: "licenses"
+    expected_root: "open_source_licenses-screen"
+    state: "licenses"
+    description: |
+      Third-party component notices with expandable license text.
 
   - id: biometric_prompt
     title: "Biometric Prompt"

@@ -348,6 +348,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_summary_label_scope">Alcance del tráfico</string>
     <string name="ripdpi_no_domain_setting">Sin dominio</string>
     <string name="ripdpi_readme_link">Cómo funciona RIPDPI</string>
+    <string name="open_source_licenses">Licencias de código abierto</string>
     <string name="ripdpi_seqovl_ready_body">La estrategia de bypass guardada ya contiene seqovl y preservará su marcador, tamaño de superposición y modo fake a través de las ediciones de ajustes.</string>
     <string name="ripdpi_seqovl_summary_fake_mode_profile">perfil</string>
     <string name="ripdpi_seqovl_summary_label_runtime">Ruta de runtime</string>

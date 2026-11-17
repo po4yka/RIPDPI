@@ -984,6 +984,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_max_connections_setting">حداکثر تعداد اتصالات</string>
     <string name="ripdpi_protocols_hint">تیک HTTP و HTTPS را بردارید تا راهبرد عبور TCP بدون فیلتر پروتکل اعمال شود. عبور UDP جداگانه تنظیم می‌شود.</string>
     <string name="ripdpi_readme_link">RIPDPI چگونه کار می‌کند</string>
+    <string name="open_source_licenses">مجوزهای متن‌باز</string>
     <string name="ripdpi_tlsrec_position_setting">نشانگر رکورد TLS</string>
     <string name="sni_of_fake_packet">SNI بسته جعلی</string>
     <string name="strategy_config_export_action">صدور</string>

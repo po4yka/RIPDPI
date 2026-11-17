@@ -246,6 +246,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object OpenSourceLicenses : Route() {
+        override val stableRoute = "open_source_licenses"
+        override val titleRes = R.string.open_source_licenses
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object DataTransparency : Route() {
         override val stableRoute = "data_transparency"
         override val titleRes = R.string.title_data_transparency
@@ -515,6 +522,7 @@ sealed class Route {
                     BiometricPrompt,
                     AppCustomization,
                     About,
+                    OpenSourceLicenses,
                     DataTransparency,
                     DetectionCheck,
                     DetectionSettings,

@@ -53,6 +53,7 @@ import com.poyka.ripdpi.updates.UpdateViewModel
 @Composable
 fun AboutRoute(
     onBack: () -> Unit,
+    onOpenLicenses: () -> Unit,
     modifier: Modifier = Modifier,
     updateViewModel: UpdateViewModel = hiltViewModel(),
 ) {
@@ -68,6 +69,7 @@ fun AboutRoute(
         updateUiState = updateUiState.value,
         onCheckForUpdates = updateViewModel::checkForUpdates,
         onInstallUpdate = updateViewModel::installAvailableUpdate,
+        onOpenLicenses = onOpenLicenses,
         modifier = modifier,
     )
 }
@@ -79,6 +81,7 @@ internal fun AboutScreen(
     updateUiState: UpdateUiState = previewUpdateUiState(),
     onCheckForUpdates: () -> Unit = {},
     onInstallUpdate: () -> Unit = {},
+    onOpenLicenses: () -> Unit = {},
 ) {
     RipDpiSettingsScaffold(
         modifier =
@@ -111,7 +114,7 @@ internal fun AboutScreen(
         }
 
         item {
-            AboutLinksSection()
+            AboutLinksSection(onOpenLicenses = onOpenLicenses)
         }
     }
 }
@@ -220,7 +223,7 @@ private fun AboutProjectSection() {
 }
 
 @Composable
-private fun AboutLinksSection() {
+private fun AboutLinksSection(onOpenLicenses: () -> Unit) {
     val spacing = RipDpiThemeTokens.spacing
     val uriHandler = LocalUriHandler.current
     val sourceUrl = stringResource(R.string.ripdpi_source)
@@ -247,6 +250,15 @@ private fun AboutLinksSection() {
                     Modifier
                         .fillMaxWidth()
                         .ripDpiTestTag(RipDpiTestTags.AboutReadme),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.open_source_licenses),
+                onClick = onOpenLicenses,
+                variant = RipDpiButtonVariant.Ghost,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.AboutLicenses),
             )
         }
     }
