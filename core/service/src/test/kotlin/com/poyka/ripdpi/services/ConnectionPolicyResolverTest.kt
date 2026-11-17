@@ -105,6 +105,26 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
+    fun `configured encrypted resolver is not replaced by a learned or remembered path`() =
+        runTest {
+            val configured = quad9DotPath().toActiveDnsSettings()
+
+            val baseline =
+                resolveVpnDnsSelection(
+                    mode = Mode.VPN,
+                    baseDns = configured,
+                    preferredPath =
+                        com.poyka.ripdpi.data
+                            .canonicalDefaultEncryptedDnsPathCandidate(),
+                    userChoseEncryptedDns = true,
+                )
+
+            assertEquals(configured, baseline.activeDns)
+            assertNull(baseline.preferredPath)
+            assertNull(baseline.rememberedVpnDnsPolicy)
+        }
+
+    @Test
     fun `plain udp vpn dns selection applies preferred path when available`() =
         runTest {
             val selection =

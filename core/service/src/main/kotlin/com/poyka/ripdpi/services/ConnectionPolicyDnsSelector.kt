@@ -22,6 +22,8 @@ internal data class VpnDnsSelection(
     val activeDns: ActiveDnsSettings,
     val preferredPath: EncryptedDnsPathCandidate? = null,
     val rememberedVpnDnsPolicy: VpnDnsPolicyJson? = null,
+    /** The user configured an encrypted resolver; learned and remembered paths must not replace it. */
+    val userChoseEncryptedDns: Boolean = false,
 )
 
 @Singleton
@@ -55,6 +57,7 @@ internal class ConnectionPolicyDnsSelector
                 mode = mode,
                 baseDns = baseDns,
                 preferredPath = preferredPath,
+                userChoseEncryptedDns = dnsResolution.override == null && dnsResolution.activeDns.isEncrypted,
             )
         }
 
@@ -79,6 +82,7 @@ internal class ConnectionPolicyDnsSelector
                 preferredPath = baselineSelection.preferredPath,
                 rememberedVpnDnsPolicy = rememberedVpnDnsPolicy,
                 resolverOverride = resolverOverride,
+                userChoseEncryptedDns = baselineSelection.userChoseEncryptedDns,
             )
 
         private suspend fun resolvePreferredVpnDnsPath(
@@ -172,12 +176,21 @@ internal fun resolveVpnDnsSelection(
     preferredPath: EncryptedDnsPathCandidate? = null,
     rememberedVpnDnsPolicy: VpnDnsPolicyJson? = null,
     resolverOverride: TemporaryResolverOverride? = null,
+    userChoseEncryptedDns: Boolean = false,
 ): VpnDnsSelection {
     if (mode != Mode.VPN) {
         return VpnDnsSelection(activeDns = baseDns)
     }
     if (resolverOverride != null) {
-        return VpnDnsSelection(activeDns = resolverOverride.toActiveDnsSettings())
+        return VpnDnsSelection(
+            activeDns = resolverOverride.toActiveDnsSettings(),
+            userChoseEncryptedDns = userChoseEncryptedDns,
+        )
+    }
+    if (userChoseEncryptedDns) {
+        // Every session starts on the resolver the user configured. A path that failover learned
+        // on this network is tried only after that resolver fails here.
+        return VpnDnsSelection(activeDns = baseDns, userChoseEncryptedDns = true)
     }
     val automaticPreferredPath = preferredPath?.takeIf { isAutomaticEncryptedDnsProvider(it.resolverId) }
     if (automaticPreferredPath != null) {
