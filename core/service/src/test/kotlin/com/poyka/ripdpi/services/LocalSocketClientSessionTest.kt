@@ -2,7 +2,6 @@ package com.poyka.ripdpi.services
 
 import android.net.LocalSocket
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -12,7 +11,6 @@ import java.io.FileDescriptor
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
-import java.net.SocketTimeoutException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -63,12 +61,12 @@ class LocalSocketClientSessionTest {
     }
 
     @Test
-    fun `queued session cannot start a handshake after its deadline`() {
+    fun `time spent queued does not use up the handshake deadline`() {
         ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { listener ->
             TcpClientSession(listener).use { peer ->
                 peer.client.getOutputStream().write(1)
                 Thread.sleep(1_100L)
-                assertThrows(SocketTimeoutException::class.java) { peer.session.readHandshake() }
+                assertEquals(1, peer.session.readHandshake())
             }
         }
     }
