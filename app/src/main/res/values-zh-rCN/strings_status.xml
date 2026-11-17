@@ -310,6 +310,24 @@
     <string name="status_strategy_family_pair">%1$s + %2$s</string>
     <string name="status_strategy_passage_description">%1$s:%2$s</string>
     <string name="status_strategy_family_steps">步骤数：%1$d</string>
+    <string name="status_strategy_part_real">真实</string>
+    <string name="status_strategy_part_decoy">诱饵</string>
+    <string name="status_strategy_part_short_ttl">短 TTL</string>
+    <string name="status_strategy_part_resend">重发</string>
+    <string name="status_strategy_part_ip_fragment">IP 分片</string>
+    <string name="status_strategy_part_fake_reset">伪造重置</string>
+    <string name="status_strategy_result_arrives">到达</string>
+    <string name="status_strategy_result_lost">在途中终止</string>
+    <string name="status_strategy_result_early">在 DPI 之前终止</string>
+    <string name="status_strategy_dpi_reads">DPI 读取</string>
+    <string name="status_strategy_server_gets">服务器收到</string>
+    <string name="status_strategy_verdict_no_match">无匹配</string>
+    <string name="status_strategy_verdict_stops">停止检查</string>
+    <string name="status_strategy_verdict_whole_name">完整名称</string>
+    <string name="status_strategy_server_whole">完整</string>
+    <string name="status_strategy_sample">示例</string>
+    <string name="status_strategy_lowered">原始数据包已关闭。部分步骤以更简单的形式发送。</string>
+    <string name="status_strategy_source">根据设置绘制，而非捕获的流量。</string>
     <plurals name="status_advisories_more">
         <item quantity="other">另有 %d 条提示</item>
     </plurals>
@@ -353,7 +371,6 @@
     <string name="status_connection_stage_state_failed">失败</string>
     <string name="status_connection_actuator_action_cancel">取消连接</string>
     <string name="status_connection_actuator_action_retry">重试</string>
-    <string name="status_connection_strategy_explainer">RIPDPI 通过以下方式修改您的流量，使网络过滤器无法识别并拦截它。</string>
     <string name="status_generated_dns_answers_matching">匹配的加密应答</string>
     <string name="status_generated_dns_answers_usable">可用的加密应答</string>
     <string name="status_diagnostics_network_note_vpn">当前网络为 VPN</string>

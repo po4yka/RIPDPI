@@ -54,17 +54,17 @@ class ConnectionStrategyPanelScreenshotTest {
 
     @Test fun collapsedDark() = capture(expanded = false, themePreference = "dark")
 
-    @Test fun degraded() = capture(expanded = false, status = StatusConnectionActuatorStatus.Degraded)
+    @Test fun degraded() = capture(expanded = true, status = StatusConnectionActuatorStatus.Degraded)
 
-    @Test fun open() = capture(expanded = false, status = StatusConnectionActuatorStatus.Open)
+    @Test fun open() = capture(expanded = true, status = StatusConnectionActuatorStatus.Open)
 
-    @Test fun decoys() = capture(expanded = false, tcp = listOf(step(TcpChainStepKind.FakeSplit)))
+    @Test fun decoys() = capture(expanded = true, tcp = listOf(step(TcpChainStepKind.FakeSplit)))
 
-    @Test fun hostMask() = capture(expanded = false, tcp = listOf(step(TcpChainStepKind.HostFake, "endhost")))
+    @Test fun hostMask() = capture(expanded = true, tcp = listOf(step(TcpChainStepKind.HostFake, "endhost")))
 
     @Test fun lateAndUrgent() =
         capture(
-            expanded = false,
+            expanded = true,
             tcp =
                 listOf(
                     step(TcpChainStepKind.TlsRandRec, "sniext+4"),
@@ -74,12 +74,12 @@ class ConnectionStrategyPanelScreenshotTest {
 
     @Test fun tcpAndQuic() =
         capture(
-            expanded = false,
+            expanded = true,
             tcp = listOf(step(TcpChainStepKind.Split)),
             udp = listOf(UdpChainStepModel(8, UdpChainStepKind.FakeBurst)),
         )
 
-    @Test fun rightToLeft() = capture(expanded = false, layoutDirection = LayoutDirection.Rtl)
+    @Test fun rightToLeft() = capture(expanded = true, layoutDirection = LayoutDirection.Rtl)
 
     private fun step(
         kind: TcpChainStepKind,

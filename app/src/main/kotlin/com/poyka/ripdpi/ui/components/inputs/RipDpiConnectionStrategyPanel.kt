@@ -125,13 +125,14 @@ internal fun RipDpiConnectionStrategyPanel(
         } else {
             ChainHeader(strategyLabel, wholeChain = expanded || !expandable, toggle, headerModifier)
         }
-        StrategyDetails(facets, visible = expanded && facets.isNotEmpty())
+        StrategyDetails(facets, passage, visible = expanded && (facets.isNotEmpty() || passage != null))
     }
 }
 
 @Composable
 private fun StrategyDetails(
     facets: ImmutableList<StatusModeSummaryFacet>,
+    passage: StrategyPassageScene?,
     visible: Boolean,
 ) {
     val inset = RipDpiThemeTokens.layout.cardPadding
@@ -145,11 +146,7 @@ private fun StrategyDetails(
             modifier = Modifier.fillMaxWidth().padding(start = inset, end = inset, bottom = spacing.md),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            Text(
-                text = stringResource(R.string.status_connection_strategy_explainer),
-                style = RipDpiThemeTokens.type.secondaryBody,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
+            passage?.let { RipDpiStrategyReadout(it) }
             facets.forEach { StrategyFacetRow(it) }
         }
     }
@@ -267,7 +264,7 @@ private class StrategyTone(
     val content: Color,
 )
 
-/** Color follows the live connection only where the open scene is drawn. */
+/** A degraded session tints the open scheme. The live color comes from the scheme itself. */
 @Composable
 private fun strategyTone(
     status: StatusConnectionActuatorStatus,
@@ -278,10 +275,6 @@ private fun strategyTone(
     return when {
         !expandable -> {
             StrategyTone(colors.background, colors.foreground)
-        }
-
-        hasOpenPassage && status == StatusConnectionActuatorStatus.Locked -> {
-            StrategyTone(colors.infoContainer, colors.infoContainerForeground)
         }
 
         hasOpenPassage && status == StatusConnectionActuatorStatus.Degraded -> {

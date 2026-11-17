@@ -89,6 +89,8 @@ data class StrategyPassageScene(
     val stepCount: Int,
     val tcp: PassageLane?,
     val udp: PassageLane?,
+    /** The device cannot send raw packets, so the engine sends a step of the chain in a plainer form. */
+    val lowered: Boolean = false,
 )
 
 internal const val PassageStartDelayMillis = 120
@@ -192,6 +194,9 @@ private fun TcpChainStepModel.family(
 
 // The engine refuses a raw send before any packet leaves and writes these as plain cuts.
 private val LoweredWithoutRawPackets = setOf(TcpChainStepKind.SeqOverlap, TcpChainStepKind.FakeRst)
+
+// Without a raw send the engine also drops the fake hosts of a host mask.
+private val PlainerWithoutRawPackets = LoweredWithoutRawPackets + TcpChainStepKind.HostFake
 
 // The scene shows the first packet of a flow, and the engine skips a filter that excludes round 1.
 // shortcut: payload, stream, and TCP state conditions are not read, model them if a preset starts to use them.
@@ -491,6 +496,7 @@ fun compileStrategyPassageScene(
         stepCount = activeTcp.size + activeUdp.size,
         tcp = tcp,
         udp = udp,
+        lowered = !rawPackets && activeTcp.any { it.kind in PlainerWithoutRawPackets },
     )
 }
 

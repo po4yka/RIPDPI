@@ -9,7 +9,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepKind
@@ -25,7 +24,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -36,9 +34,6 @@ class RipDpiConnectionStrategyPanelTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private val explainer =
-        RuntimeEnvironment.getApplication().getString(R.string.status_connection_strategy_explainer)
-
     @Test
     fun `strategy steps stay visible and the labeled settings open on demand above the action`() {
         composeRule.setActuator(
@@ -48,7 +43,6 @@ class RipDpiConnectionStrategyPanelTest {
             ),
         )
         composeRule.onNodeWithText("tcp: split(host+1)").assertIsDisplayed()
-        composeRule.onNodeWithText(explainer).assertDoesNotExist()
         composeRule.onNodeWithText("AdGuard DNS DoH").assertDoesNotExist()
         // A text toggle, so the panel does not read as a dropdown.
         composeRule.onNodeWithText("Details").assertIsDisplayed()
@@ -56,7 +50,6 @@ class RipDpiConnectionStrategyPanelTest {
         composeRule.onNodeWithText("tcp: split(host+1)").performClick()
 
         composeRule.onNodeWithText("Hide details").assertIsDisplayed()
-        composeRule.onNodeWithText(explainer).assertIsDisplayed()
         composeRule.onNodeWithText("DNS").assertIsDisplayed()
         composeRule.onNodeWithText("AdGuard DNS DoH").assertIsDisplayed()
         val panel = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorStrategyPanel).fetchSemanticsNode()
@@ -99,6 +92,11 @@ class RipDpiConnectionStrategyPanelTest {
         composeRule
             .onNode(hasContentDescription("Bypass strategy: The packet is sent in parts."))
             .assertIsDisplayed()
+        // The scheme in words: the filter reads two parts of the sample name and finds no match.
+        composeRule.onNodeWithText("DPI reads").assertIsDisplayed()
+        composeRule.onNodeWithText("ite.test").assertIsDisplayed()
+        composeRule.onNodeWithText("no match").assertIsDisplayed()
+        composeRule.onNodeWithText("Drawn from settings, not from captured traffic.").assertIsDisplayed()
     }
 
     @Test
@@ -115,6 +113,7 @@ class RipDpiConnectionStrategyPanelTest {
         composeRule
             .onNode(hasContentDescription("Bypass strategy: The packet is sent unchanged."))
             .assertIsDisplayed()
+        composeRule.onNodeWithText("whole name").assertIsDisplayed()
     }
 
     @Test
