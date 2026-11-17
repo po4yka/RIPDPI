@@ -15,6 +15,7 @@
 
 ## Checklist
 
+- [ ] I have read the RIPDPI Contributor License Agreement (CLA.md) and I agree to its terms for this contribution
 - [ ] `just task-check` passes
 - [ ] No work is marked complete without its required evidence
 - [ ] No baseline files extended (detekt, lint, LoC)

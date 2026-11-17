@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 //! Loopback round-trip for the WireGuard-over-WebSocket carrier.
 //!

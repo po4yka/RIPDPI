@@ -197,3 +197,7 @@ RIPDPI 追求 Linear 或 Apple Notes 那样的简洁：简单的目标、简单�
 ## 翻译 RIPDPI
 
 翻译由社区通过 GitHub pull request 贡献。新增或改进语言请参阅 [docs/localization.md](docs/localization.md)，各语言的审核状态与日期见[来源记录](docs/localization-provenance.md)。结构检查不能证明语言准确性；阿拉伯语、印地语和巴西葡萄牙语仍待母语使用者审核。
+
+## 许可证
+
+RIPDPI 采用双重许可：[AGPL-3.0-only](LICENSE) 或作者提供的商业许可。详见 [LICENSING.md](LICENSING.md)。贡献需同意 [CLA](CLA.md)。

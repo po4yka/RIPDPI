@@ -14,7 +14,7 @@ and the `native/rust/crates/` tree.
 
 - **All crates** under `native/rust/crates/` are declared as
   `[workspace]` members — **no orphan directories, no missing members.**
-- `edition = "2024"`, `version = "0.1.0"`, `license = "MIT"` (workspace-inherited).
+- `edition = "2024"`, `version = "0.1.0"`, `license = "AGPL-3.0-only"` (workspace-inherited).
 - Build profiles: `release` (thin LTO, `panic = "abort"`, stripped),
   `android-jni` (inherits `release`, **fat LTO**, `opt-level = "z"`,
   `panic = "unwind"`), `android-jni-dev`, `bench`.

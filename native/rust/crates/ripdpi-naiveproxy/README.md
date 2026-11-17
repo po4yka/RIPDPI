@@ -16,7 +16,7 @@ This crate intentionally does not aim for a TLS or HTTP/2 fingerprint identical 
 
 - klzgrad/naiveproxy README, `Padding protocol, an informal specification`: payload padding, HEADERS padding, opt-in behavior, Fast Open restriction.
 - klzgrad/naiveproxy source at tag `v154.0.8037.49-5`, commit `d04efe1ea4477c2db24a7d0e2f068b3bee931e45` (see `SPEC_VERSION.md`): `src/net/tools/naive/naive_padding_framer.{h,cc}`, `naive_padding_socket.cc`, `naive_proxy_delegate.cc`, `http_proxy_server_socket.cc`, and `naive_protocol.{h,cc}`.
-- Cross-check only: `cfal/shoes` and `SagerNet/sing-box protocol/naive`. These are not implementation sources for this BSD-3-Clause crate.
+- Cross-check only: `cfal/shoes` and `SagerNet/sing-box protocol/naive`. These are not implementation sources for this crate.
 
 ## Implementation Status
 

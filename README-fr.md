@@ -197,3 +197,7 @@ RIPDPI vise la simplicité de Linear ou d'Apple Notes : un objectif simple, une 
 ## Traduire RIPDPI
 
 Les traductions sont des contributions de la communauté via des pull requests GitHub. Consultez [docs/localization.md](docs/localization.md) pour ajouter ou améliorer une langue et [le registre de provenance](docs/localization-provenance.md) pour les statuts et dates de révision. Les contrôles structurels ne prouvent pas la justesse linguistique ; l'arabe, le hindi et le portugais brésilien attendent encore une révision par des locuteurs natifs.
+
+## Licence
+
+RIPDPI est sous double licence : [AGPL-3.0-only](LICENSE) ou une licence commerciale de l'auteur. Voir [LICENSING.md](LICENSING.md). Les contributions nécessitent l'acceptation du [CLA](CLA.md).
