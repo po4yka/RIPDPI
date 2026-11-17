@@ -496,21 +496,26 @@ private fun DrawScope.drawLamp(
     palette: LinkPalette,
 ) {
     val center = shapes.lamp(index)
-    val path = shapes.lampPath
     val size = LampRadius * shapes.unit * lamp.size.at.coerceAtLeast(0f)
-    path.rewind()
-    for (step in 0 until LampSteps) {
-        val angle = LinkTau * step / LampSteps
-        val radius = size * (1f + lamp.notch * cos(LampPoints * angle + lamp.turn))
-        val x = center.x + radius * cos(angle)
-        val y = center.y + radius * sin(angle)
-        if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)
-    }
-    path.close()
     val now = palette.lamp(lamp.stage)
     val color = if (lamp.mix < 1f) lerp(palette.lamp(lamp.before), now, lamp.mix) else now
     val glow = lamp.glow.coerceIn(0f, 1f)
-    drawPath(path, color, alpha = glow)
+    if (lamp.notch < RoundWithin) {
+        // A lamp with no points is a circle, so the steady frame traces no outline.
+        drawCircle(color, size, center, alpha = glow)
+    } else {
+        val path = shapes.lampPath
+        path.rewind()
+        for (step in 0 until LampSteps) {
+            val angle = LinkTau * step / LampSteps
+            val radius = size * (1f + lamp.notch * cos(LampPoints * angle + lamp.turn))
+            val x = center.x + radius * cos(angle)
+            val y = center.y + radius * sin(angle)
+            if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        drawPath(path, color, alpha = glow)
+    }
     // A round lamp that is on has a glint, as a lens has.
     if (lamp.stage != RipDpiLinkStage.Pending && lamp.notch < GlintWithin) {
         val at = Offset(center.x - size * GlintOffset, center.y - size * GlintOffset)
@@ -590,6 +595,9 @@ private const val StreamAlpha = 0.22f
 private const val MinAlpha = 0.01f
 private const val RopeSamples = 28
 private const val GlintWithin = 0.05f
+
+// Points smaller than this share of the radius do not show.
+private const val RoundWithin = 0.005f
 private const val GlintOffset = 0.3f
 private const val GlintSize = 0.24f
 private const val GlintAlpha = 0.5f
