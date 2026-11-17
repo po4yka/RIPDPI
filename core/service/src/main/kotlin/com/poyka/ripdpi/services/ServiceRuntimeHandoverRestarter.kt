@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.policyHandoverDeliveryId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -53,7 +55,17 @@ internal class ServiceRuntimeHandoverRestarter<TSession>(
             }
 
         if (restartResult != null && isCurrentAttempt()) {
-            publishRestart(event, currentFingerprint, resolution, restartResult, appliedAt)
+            // The runtime already restarted. A failed event write must not report the restart
+            // as failed, because the processor would then restart the runtime again.
+            try {
+                publishRestart(event, currentFingerprint, resolution, restartResult, appliedAt)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (
+                @Suppress("TooGenericExceptionCaught") error: Exception,
+            ) {
+                Logger.e(error) { "Failed to publish the policy handover event" }
+            }
             return currentFingerprintHash
         }
         return null

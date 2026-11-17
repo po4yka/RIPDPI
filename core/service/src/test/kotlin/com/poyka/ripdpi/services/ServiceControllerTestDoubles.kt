@@ -193,7 +193,10 @@ internal class TestPolicyHandoverEventStore : PolicyHandoverEventStore {
     val published = mutableListOf<PolicyHandoverEvent>()
     val acknowledged = mutableListOf<String>()
 
+    var publishFailure: Exception? = null
+
     override suspend fun publish(event: PolicyHandoverEvent) {
+        publishFailure?.let { throw it }
         published += event
         eventsState.emit(event)
     }

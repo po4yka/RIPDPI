@@ -841,6 +841,31 @@ class ServiceRuntimeHandoverTest {
         }
 
     @Test
+    fun `handover event write failure does not restart the runtime again`() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val env = newEnv(fingerprint = initialFingerprint)
+            env.handoverEvents.publishFailure = IllegalStateException("database is full")
+
+            env.coordinator.start()
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            advanceTimeBy(60_000L)
+            runCurrent()
+
+            assertEquals(1, env.coordinator.restartCalls)
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+        }
+
+    @Test
     fun stopCancelsScheduledHandoverRetry() =
         runTest {
             val initialFingerprint = sampleFingerprint()
