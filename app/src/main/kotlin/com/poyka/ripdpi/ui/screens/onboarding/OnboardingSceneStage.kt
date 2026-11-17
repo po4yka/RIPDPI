@@ -30,6 +30,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -169,7 +170,7 @@ private class SceneStage {
         val at = position.coerceIn(0f, scenes.lastIndex.toFloat())
         val base = floor(at).toInt().coerceAtMost(scenes.lastIndex)
         val next = ease(at - base)
-        val dt = if (moves) pending else 0f
+        val dt = if (moves) pending.coerceAtMost(LongestStep * 2f) else 0f
         pending = 0f
         time += dt
         frame.take(state, dt)
@@ -178,7 +179,8 @@ private class SceneStage {
             if (visible && !shown[index]) arrive(pen, scene, moves)
             shown[index] = visible
         }
-        // With no motion every change of the setup gives a new still frame.
+        // With no motion every change of the setup gives a new still frame, and so does the end of motion.
+        if (moves) still = null
         if (!moves && still != state) {
             still = state
             scenes.forEachIndexed { index, scene -> if (shown[index]) settle(pen, scene) }
@@ -279,7 +281,8 @@ internal fun OnboardingSceneStage(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
-    val moves = RipDpiThemeTokens.motion.allowsInfiniteMotion
+    // A preview shows the still frame.
+    val moves = RipDpiThemeTokens.motion.allowsInfiniteMotion && !LocalInspectionMode.current
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val pen =

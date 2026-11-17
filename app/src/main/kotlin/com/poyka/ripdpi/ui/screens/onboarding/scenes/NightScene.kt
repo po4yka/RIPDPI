@@ -8,6 +8,9 @@ import kotlin.math.sin
 
 private const val NightGround = Ground - 6f
 private const val Watch = 10f
+
+// The night is a panel inside the stage, clear of the sides where the stage fades into the page.
+private const val PanelX = 24f
 private const val GraveX = 206f
 private const val HandX = 190f
 
@@ -91,11 +94,11 @@ internal class NightScene(
                 else -> mix(178f, 50f, ease((cycle - 6f) / 4f))
             }
         sky(1f - night)
-        rr(8f, 5f, 284f, 156f, 20f)
+        rr(PanelX, 5f, SceneWidth - PanelX * 2f, 146f, 18f)
         clipped {
             faded(night) {
                 heavens()
-                tree(34f, NightGround + 2f, 1.15f, colors.night, 1f)
+                tree(52f, NightGround + 2f, 1.15f, colors.night, 1f)
                 owl(ghostX)
                 fence(NightGround + 1f, 0.5f, colors.night)
                 hill(NightGround - 2f, 5f, 29f, 4.4f, colors.tone(0.14f), 1f)
@@ -114,12 +117,12 @@ internal class NightScene(
                 }
             }
         }
-        rr(8f, 5f, 284f, 156f, 20f)
+        rr(PanelX, 5f, SceneWidth - PanelX * 2f, 146f, 18f)
         stroke(colors.ink, 0.2f * night, 1f)
     }
 
     private fun Pen.heavens() {
-        rr(8f, 5f, 284f, 156f, 20f)
+        rr(PanelX, 5f, SceneWidth - PanelX * 2f, 146f, 18f)
         fill(colors.tone(0.06f))
         repeat(Stars.size / 4) { i ->
             val twinkle = 0.5f + 0.5f * sin(time * 2f + Stars[i * 4 + 3])
@@ -145,8 +148,8 @@ internal class NightScene(
     /** The eyes of an owl in the tree. They follow the ghost. */
     private fun Pen.owl(ghostX: Float) {
         val open = if (fract(time * 0.17f) > 0.92f) 0.15f else 1f
-        val look = cl((ghostX - 34f) / 160f, -1f, 1f) * 1.3f
-        listOf(26f, 31.5f).forEach { x ->
+        val look = cl((ghostX - 52f) / 160f, -1f, 1f) * 1.3f
+        listOf(44f, 49.5f).forEach { x ->
             ell(x, NightGround - 52f, 2.3f, 2.3f * open)
             fill(colors.glowHigh)
             circ(x + look, NightGround - 52f, open)

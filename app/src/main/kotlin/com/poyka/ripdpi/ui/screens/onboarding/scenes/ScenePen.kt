@@ -148,6 +148,7 @@ internal class Pen(
     private val clips = Array(ClipDepth) { Path() }
     private var depth = 0
     private val layouts = HashMap<String, TextLayoutResult>()
+    private val strokes = HashMap<Float, Stroke>()
 
     inline fun shape(build: Path.() -> Unit) {
         path.rewind()
@@ -249,13 +250,26 @@ internal class Pen(
     ) {
         val shown = cl(a) * alpha
         if (mute || shown <= MinAlpha) return
-        val effect = if (dash > 0f) PathEffect.dashPathEffect(floatArrayOf(dash, gap), phase) else null
-        val style = Stroke(width = w, cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = effect)
+        val style = strokeStyle(w, dash, gap, phase)
         if (turn != 0f) {
             scope.rotate(turn, turnAt) { drawPath(path, color, shown, style) }
         } else {
             scope.drawPath(path, color, shown, style)
         }
+    }
+
+    /** A plain stroke of each width is made once. A dashed stroke moves with its phase, so it is made each time. */
+    private fun strokeStyle(
+        w: Float,
+        dash: Float,
+        gap: Float,
+        phase: Float,
+    ): Stroke {
+        if (dash > 0f) {
+            val effect = PathEffect.dashPathEffect(floatArrayOf(dash, gap), phase)
+            return Stroke(width = w, cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = effect)
+        }
+        return strokes.getOrPut(w) { Stroke(width = w, cap = StrokeCap.Round, join = StrokeJoin.Round) }
     }
 
     fun seg(
@@ -281,6 +295,10 @@ internal class Pen(
         sy: Float = 1f,
         block: () -> Unit,
     ) {
+        if (mute) {
+            block()
+            return
+        }
         scope.withTransform({
             translate(x, y)
             if (rot != 0f) rotate(rot * DegreesOfRadian, Offset.Zero)
@@ -301,6 +319,10 @@ internal class Pen(
 
     /** Draws [block] inside the shape that was built last. */
     fun clipped(block: () -> Unit) {
+        if (mute) {
+            block()
+            return
+        }
         val clip = clips[depth]
         clip.rewind()
         clip.addPath(path)
