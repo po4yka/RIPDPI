@@ -216,6 +216,7 @@ private fun SecurityToggleRows(
             checked = uiState.blockTrafficOnEngineFailure,
             onCheckedChange = actions.onBlockTrafficOnEngineFailureChanged,
             showDivider = true,
+            testTag = RipDpiTestTags.SettingsBlockTrafficOnEngineFailure,
         )
     }
     FullTunnelExclusionsRows(uiState, actions)
