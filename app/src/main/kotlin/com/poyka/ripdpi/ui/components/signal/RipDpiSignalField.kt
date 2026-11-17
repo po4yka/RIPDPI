@@ -1,13 +1,8 @@
 package com.poyka.ripdpi.ui.components.signal
 
-import android.graphics.RuntimeShader
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.foundation.layout.Spacer
@@ -17,49 +12,52 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
-import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.math.PI
 import kotlin.math.exp
-import kotlin.math.floor
+import kotlin.math.log10
 import kotlin.math.sin
+import kotlin.random.Random
 
-/** The shape of the signal line. The caller picks the color; the line never carries state alone. */
+/** The state of the signal line. The caller picks the color; the line never carries state alone. */
 enum class RipDpiSignalMode {
     /** No path: a faint flat line that fades out at both ends. */
     Idle,
 
-    /** A path is being set up: a pulse travels along a flat line. */
+    /** A path is being set up: one packet travels along the line. */
     Seeking,
 
-    /** A path is live: a steady flowing wave. */
+    /** A path is live: packets travel along the line, as many as the traffic. */
     Live,
 
-    /** A path is live with a warning: an irregular wave. */
+    /** A path is live with a warning: some of the packets are lost on the way. */
     Unstable,
 
-    /** The path failed: the wave stops at [RipDpiSignalField]'s `breakAt` and a dim flat line follows. */
+    /** The path failed: the line stops at [RipDpiSignalField]'s `breakAt` and a dim line follows. */
     Broken,
 }
+
+private fun RipDpiSignalMode.carriesPackets(): Boolean =
+    this == RipDpiSignalMode.Seeking || this == RipDpiSignalMode.Live || this == RipDpiSignalMode.Unstable
 
 /**
  * A standing ripple on a line that has no path yet: a still sine of [cycles] periods across the width, shown from
@@ -74,24 +72,6 @@ class RipDpiSignalRipple(
     val end: () -> Float = { 1f },
 )
 
-internal data class SignalShape(
-    val amplitude: Float,
-    val pulse: Float,
-    val noise: Float,
-    val glow: Float,
-    val broken: Boolean,
-    val rest: Float = 0f,
-)
-
-internal fun RipDpiSignalMode.shape(): SignalShape =
-    when (this) {
-        RipDpiSignalMode.Idle -> SignalShape(0f, 0f, 0f, 0f, broken = false, rest = 1f)
-        RipDpiSignalMode.Seeking -> SignalShape(0f, 1f, 0f, 1f, broken = false)
-        RipDpiSignalMode.Live -> SignalShape(LiveAmplitude, 0f, 0f, 1f, broken = false)
-        RipDpiSignalMode.Unstable -> SignalShape(LiveAmplitude, 0f, UnstableNoise, 1f, broken = false)
-        RipDpiSignalMode.Broken -> SignalShape(LiveAmplitude, 0f, 0f, BrokenGlow, broken = true)
-    }
-
 /** The ripple of one frame. [NoRipple] adds nothing to the line. */
 internal class SignalRippleFrame(
     val amplitude: Float,
@@ -104,32 +84,144 @@ private val NoRipple = SignalRippleFrame(amplitude = 0f, cycles = 0f, start = 0f
 
 /** One frame of the line. Plain floats, so the draw phase reads them without a recomposition. */
 internal class SignalFrame(
-    val time: Float,
-    val amplitude: Float,
-    val pulse: Float,
-    val noise: Float,
-    val cut: Float,
-    val glow: Float,
-    val pressAt: Float,
-    val press: Float,
+    /** Where the line stops, as a fraction of the width. [NoCut] is a whole line. */
+    val cut: Float = NoCut,
+    val pressAt: Float = Middle,
+    val press: Float = 0f,
     /** How far the line is at rest, from 0 to 1. A resting line is faint and fades out at both ends. */
     val rest: Float = 0f,
     val ripple: SignalRippleFrame = NoRipple,
-    /** How far the wave reaches from the start of the line, as a fraction of the width. */
-    val front: Float = FrontOpen,
     /** The recoil of the end of a line that has just broken, from 1 at the break to 0 at rest. */
     val kick: Float = 0f,
 )
 
+/** One packet on the line. [head] is its leading edge and [length] its size, as fractions of the width. */
+internal class SignalPacket(
+    var head: Float,
+    val length: Float,
+    /** Where the packet is lost. [NoCut] is a packet that arrives. */
+    val lostAt: Float = NoCut,
+)
+
+/** How visible the packet is. It fades in at the start of the line, and out at its end, its loss, or the [cut]. */
+internal fun SignalPacket.alpha(cut: Float): Float {
+    val enter = (head / PacketFade).coerceIn(0f, 1f)
+    val leave = ((1f + length - head) / PacketFade).coerceIn(0f, 1f)
+    val stop = minOf(lostAt, cut)
+    return enter * leave * (1f - smoothStep(stop - PacketFade, stop, head))
+}
+
 /**
- * The hero signal line. An AGSL shader draws the moving line on API 33 and later. A path draws the same curve below
- * that, and draws the still frame that each [mode] shows with animations off or reduced motion. Animated values
- * are read in the draw phase only. The line is decoration and has no semantics; the caller names the state.
+ * The packets on the line. They enter at the device end and leave at the network end, so a line that goes live
+ * fills from the start, and a line that stops carrying packets empties by itself.
+ */
+internal class SignalPacketStream(
+    private val random: Random = Random(StreamSeed),
+) {
+    val packets = ArrayList<SignalPacket>()
+    private var untilNext = 0f
+    private var probed = false
+
+    /**
+     * Moves the packets by [seconds] and sends the next one when it is due. [traffic] is the measured level from
+     * 0 to 1; without traffic a live line sends one keep-alive packet at a long interval. [origin] is where the
+     * first packet of a connection attempt starts.
+     */
+    fun advance(
+        seconds: Float,
+        mode: RipDpiSignalMode,
+        traffic: Float,
+        origin: Float,
+    ) {
+        val step = PacketSpeed * seconds
+        packets.forEach { it.head += step }
+        packets.removeAll { it.head - it.length >= 1f || it.head >= it.lostAt }
+        when (mode) {
+            RipDpiSignalMode.Seeking -> {
+                if (packets.isEmpty()) {
+                    packets += SignalPacket(head = if (probed) 0f else origin.coerceIn(0f, 1f), length = ProbeLength)
+                    probed = true
+                }
+            }
+
+            RipDpiSignalMode.Live, RipDpiSignalMode.Unstable -> {
+                probed = false
+                // A rise in traffic shows at once, not after the long interval of a quiet line.
+                untilNext = minOf(untilNext, gap(traffic) * (JitterFrom + JitterSpan)) - seconds
+                if (untilNext <= 0f) {
+                    packets += next(lossy = mode == RipDpiSignalMode.Unstable)
+                    untilNext = gap(traffic) * (JitterFrom + JitterSpan * random.nextFloat())
+                }
+            }
+
+            RipDpiSignalMode.Idle, RipDpiSignalMode.Broken -> {
+                probed = false
+                untilNext = 0f
+            }
+        }
+    }
+
+    private fun next(lossy: Boolean): SignalPacket {
+        val length = ShortPacket + (LongPacket - ShortPacket) * random.nextFloat()
+        val lost = lossy && random.nextFloat() < LossShare
+        return SignalPacket(head = 0f, length, if (lost) LossFrom + LossSpan * random.nextFloat() else NoCut)
+    }
+
+    private fun gap(traffic: Float): Float =
+        if (traffic <= 0f) KeepAliveGap else QuietGap + (BusyGap - QuietGap) * traffic.coerceAtMost(1f)
+}
+
+/** The packets of a line that does not move: the frame that [mode] shows with animations off or reduced motion. */
+internal fun stillPackets(mode: RipDpiSignalMode): List<SignalPacket> =
+    when (mode) {
+        RipDpiSignalMode.Seeking -> {
+            listOf(SignalPacket(head = Middle + ProbeLength / 2f, length = ProbeLength))
+        }
+
+        RipDpiSignalMode.Live, RipDpiSignalMode.Unstable -> {
+            StillHeads.mapIndexed { index, head ->
+                val lost = mode == RipDpiSignalMode.Unstable && index % 2 == 1
+                SignalPacket(head, StillLengths[index], if (lost) head + PacketFade / 2f else NoCut)
+            }
+        }
+
+        RipDpiSignalMode.Idle, RipDpiSignalMode.Broken -> {
+            emptyList()
+        }
+    }
+
+/** Turns the packet counter of a session into the traffic level of the line, from 0 to 1. */
+internal class SignalTrafficMeter {
+    private var packets = -1L
+    private var at = 0L
+
+    /** The level since the last call. The first call, and a counter that went back, start a new baseline at 0. */
+    fun level(
+        totalPackets: Long,
+        atMillis: Long,
+    ): Float {
+        val moved = totalPackets - packets
+        val elapsed = atMillis - at
+        val known = packets >= 0 && moved >= 0 && elapsed > 0
+        packets = totalPackets
+        at = atMillis
+        if (!known) return 0f
+        val perSecond = moved * MillisPerSecond / elapsed
+        // A logarithmic scale: a few packets a second already show, and a busy line does not turn solid.
+        return (log10(1f + perSecond) / log10(1f + FullPacketsPerSecond)).coerceIn(0f, 1f)
+    }
+}
+
+/**
+ * The hero signal line: a straight line from the device to the network, with the packets that travel on it. The
+ * packets move only while the app allows infinite motion; otherwise each [mode] shows a still frame. Animated
+ * values are read in the draw phase only. The line is decoration and has no semantics; the caller names the state.
  *
  * @param breakAt where the line stops in [RipDpiSignalMode.Broken], as a fraction of the width.
  * @param pressAt where the pointer is, as a fraction of the width.
  * @param press how far the line dips at [pressAt], from 0 to 1.
  * @param ripple a standing ripple for a line with no path. The default draws the line as before.
+ * @param traffic the measured traffic level from 0 to 1. A caller with no measurement keeps the default.
  */
 @Composable
 fun RipDpiSignalField(
@@ -140,31 +232,19 @@ fun RipDpiSignalField(
     pressAt: () -> Float = { Middle },
     press: () -> Float = { 0f },
     ripple: RipDpiSignalRipple? = null,
+    traffic: () -> Float = { UnmeasuredTraffic },
 ) {
     val motion = RipDpiThemeTokens.motion
     val transition = updateTransition(targetState = mode, label = "Signal mode")
-    // The wave has its own animations: a transition that a state change interrupts drops its timing for a spring,
-    // and a session that flips to a warning and back at the lock does interrupt it. The front carries the change:
-    // the wave is at full height before the front has gone far, and keeps its height while the front drains back.
-    val waves = mode.shape().amplitude > 0f
-    val amplitude by animateFloatAsState(
-        targetValue = mode.shape().amplitude,
-        animationSpec =
-            if (waves) motion.quickTween() else motion.emphasizedTween(easing = RipDpiMotion.EmphasizedAccelerate),
-        label = "Signal amplitude",
-    )
-    // It unrolls from the device end when a path goes live, and drains back to it when the path ends.
-    val front by animateFloatAsState(
-        targetValue = if (waves) FrontOpen else 0f,
-        animationSpec = motion.emphasizedTween(easing = LinearEasing),
-        label = "Signal front",
-    )
-    val pulse by transition.animateFloat({ motion.emphasizedTween() }, "pulse") { it.shape().pulse }
-    val noise by transition.animateFloat({ motion.emphasizedTween() }, "noise") { it.shape().noise }
-    val glow by transition.animateFloat({ motion.emphasizedTween() }, "glow") { it.shape().glow }
-    val rest by transition.animateFloat({ motion.emphasizedTween() }, "rest") { it.shape().rest }
+    val rest by transition.animateFloat({ motion.emphasizedTween() }, "rest") {
+        if (it == RipDpiSignalMode.Idle) 1f else 0f
+    }
+    // Under packets the line is a track, so it steps back and the packets carry the color.
+    val track by transition.animateFloat({ motion.emphasizedTween() }, "track") {
+        if (it.carriesPackets()) TrackAlpha else 1f
+    }
     val cut by transition.animateFloat({ motion.emphasizedTween() }, "cut") {
-        if (it.shape().broken) breakAt.coerceIn(0f, 1f) else NoCut
+        if (it == RipDpiSignalMode.Broken) breakAt.coerceIn(0f, 1f) else NoCut
     }
     val kick = remember { Animatable(0f) }
     LaunchedEffect(mode) {
@@ -178,28 +258,28 @@ fun RipDpiSignalField(
     }
     val lineColor by animateColorAsState(color, motion.emphasizedTween(), label = "Signal color")
 
-    val time = remember { mutableFloatStateOf(StillTime) }
-    val moving = motion.allowsInfiniteMotion && (mode != RipDpiSignalMode.Idle && mode != RipDpiSignalMode.Broken)
-    if (moving) {
-        LaunchedEffect(Unit) {
+    val moves = motion.allowsInfiniteMotion
+    val stream = remember { SignalPacketStream() }
+    val still = remember(mode, moves) { if (moves) null else stillPackets(mode) }
+    val frames = remember { mutableIntStateOf(0) }
+    val currentTraffic by rememberUpdatedState(traffic)
+    val currentPressAt by rememberUpdatedState(pressAt)
+    if (moves) {
+        LaunchedEffect(mode) {
             // The infinite-animation clock lets a test or a host policy stop the loop, as for any infinite transition.
-            // Continue from the last frame, so a restart after an idle or failed state does not jump the phase.
-            // A flat line has no phase to keep, so its first pulse leaves from the pointer.
-            val fromPointer = mode == RipDpiSignalMode.Seeking && amplitude == 0f
-            val base = if (fromPointer) pressAt().coerceIn(0f, 1f) / PulseSpeed else time.floatValue
-            val start = withInfiniteAnimationFrameNanos { it }
-            while (true) {
-                withInfiniteAnimationFrameNanos {
-                    time.floatValue = ((it - start) / NanosPerSecond + base) % TimePeriod
+            var last = withInfiniteAnimationFrameNanos { it }
+            // A line that stops carrying packets keeps moving until the last one has left.
+            while (mode.carriesPackets() || stream.packets.isNotEmpty()) {
+                withInfiniteAnimationFrameNanos { now ->
+                    val seconds = ((now - last) / NanosPerSecond).coerceAtMost(LongestStep)
+                    stream.advance(seconds, mode, currentTraffic(), currentPressAt())
+                    last = now
+                    frames.intValue++
                 }
             }
         }
     }
 
-    // A still frame needs no shader: the path draws it on every API level, in previews, and in host screenshot
-    // tests, where the native renderer drops a runtime shader and everything drawn after it.
-    val moves = motion.allowsInfiniteMotion
-    val shader = remember(moves) { if (moves) signalShaderOrNull() else null }
     Spacer(
         modifier =
             modifier
@@ -207,96 +287,26 @@ fun RipDpiSignalField(
                 .height(RipDpiSignalFieldHeight)
                 .clipToBounds()
                 .drawBehind {
+                    // Each frame of the stream redraws the line.
+                    frames.intValue
                     val rippleFrame =
                         ripple?.let { SignalRippleFrame(it.amplitude(), it.cycles(), it.start(), it.end()) }
                             ?: NoRipple
-                    val now = time.floatValue
-                    // A rippled line is content, not a resting hero line, so it keeps its full strength.
-                    val resting = if (ripple == null) rest else 0f
-                    val frame =
-                        SignalFrame(
-                            now,
-                            amplitude,
-                            pulse,
-                            noise,
-                            cut,
-                            glow,
-                            pressAt(),
-                            press(),
-                            resting,
-                            rippleFrame,
-                            front,
-                            kick.value,
-                        )
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && shader != null) {
-                        drawRect(shader.brush(size, frame, lineColor, StrokeWidth.toPx(), GlowSpread.toPx()))
-                    } else {
-                        drawSignalPath(frame, lineColor)
-                    }
+                    // A rippled line is content, not a resting hero line or a track, so it keeps its full strength.
+                    val plain = ripple == null
+                    val frame = SignalFrame(cut, pressAt(), press(), if (plain) rest else 0f, rippleFrame, kick.value)
+                    drawSignalLine(frame, lineColor, strength = if (plain) track else 1f)
+                    // The packets that are still on a line whose path has ended fade out with it.
+                    drawPackets(still ?: stream.packets, frame, lineColor, strength = 1f - rest)
                 },
     )
 }
 
-private fun signalShaderOrNull(): SignalShader? =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        try {
-            SignalShader()
-        } catch (_: IllegalArgumentException) {
-            // The shader did not compile on this device; the path draws the line.
-            null
-        }
-    } else {
-        null
-    }
-
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
-private class SignalShader {
-    private val shader = RuntimeShader(SignalShaderSource)
-    private val brush = ShaderBrush(shader)
-
-    fun brush(
-        size: Size,
-        frame: SignalFrame,
-        color: Color,
-        strokePx: Float,
-        spreadPx: Float,
-    ): ShaderBrush {
-        shader.setFloatUniform("size", size.width, size.height)
-        shader.setFloatUniform("time", frame.time)
-        shader.setFloatUniform("amp", frame.amplitude)
-        shader.setFloatUniform("pulse", frame.pulse)
-        shader.setFloatUniform("noise", frame.noise)
-        shader.setFloatUniform("cut", frame.cut)
-        shader.setFloatUniform("glow", frame.glow)
-        shader.setFloatUniform("press", frame.pressAt, frame.press)
-        val ripple = frame.ripple
-        shader.setFloatUniform("ripple", ripple.amplitude, ripple.cycles, ripple.start, ripple.end)
-        shader.setFloatUniform("rest", frame.rest)
-        shader.setFloatUniform("front", frame.front)
-        shader.setFloatUniform("kick", frame.kick)
-        shader.setFloatUniform("stroke", strokePx / 2f)
-        shader.setFloatUniform("spread", spreadPx)
-        shader.setColorUniform("color", color.toArgb())
-        return brush
-    }
-}
-
-/** Vertical offset of the line at [u], as a fraction of the height. Mirrors `offsetAt` in the shader. */
+/** Vertical offset of the line at [u], as a fraction of the height. */
 internal fun SignalFrame.offsetAt(u: Float): Float {
-    val edge = smoothStep(0f, EdgeFade, u) * (1f - smoothStep(1f - EdgeFade, 1f, u))
-    var wave =
-        SlowWeight * sin(Tau * (SlowCycles * u - SlowSpeed * time)) +
-            FastWeight * sin(Tau * (FastCycles * u - FastSpeed * time) + FastPhase)
-    wave += noise * sin(Tau * (NoiseCycles * u + NoiseSpeed * time)) * sin(Tau * (GustCycles * u - GustSpeed * time))
-    val head = PulseSpeed * time
-    val p = (u - (head - floor(head))) / PulseWidth
-    val bump = pulse * PulseHeight * exp(-p * p) * sin(Tau * Middle * p)
     val d = (u - pressAt) / PressWidth
-    val live = if (u <= cut) 1f else 0f
-    val unrolled = 1f - smoothStep(front - FrontSoft, front, u)
-    val whip = kick * KickHeight * exp((u - cut) / KickWidth) * sin(Tau * KickCycles * kick)
-    val line = edge * live * (amplitude * unrolled * wave + bump + whip) + PressDepth * press * exp(-d * d)
-    // The hero has no ripple, so its line keeps the exact value it had before the ripple existed.
+    val whip = if (u <= cut) kick * KickHeight * exp((u - cut) / KickWidth) * sin(Tau * KickCycles * kick) else 0f
+    val line = whip + PressDepth * press * exp(-d * d)
     if (ripple.amplitude == 0f) return line
     val window =
         smoothStep(ripple.start, ripple.start + EdgeFade, u) * (1f - smoothStep(ripple.end - EdgeFade, ripple.end, u))
@@ -312,20 +322,15 @@ private fun smoothStep(
     return t * t * (SmoothA - SmoothB * t)
 }
 
-private fun DrawScope.drawSignalPath(
+private fun DrawScope.drawSignalLine(
     frame: SignalFrame,
     color: Color,
+    strength: Float,
 ) {
     val end = frame.cut.coerceAtMost(1f)
     val live = signalPath(frame, from = 0f, to = end - if (end < 1f) GapWidth else 0f)
-    if (frame.glow > 0f) {
-        drawPath(
-            live,
-            color.copy(alpha = color.alpha * PathGlowAlpha * frame.glow),
-            style = Stroke(GlowSpread.toPx() * 2f, cap = StrokeCap.Round),
-        )
-    }
-    drawPath(live, restBrush(frame.rest, color), style = Stroke(StrokeWidth.toPx(), cap = StrokeCap.Round))
+    val lineColor = color.copy(alpha = color.alpha * strength)
+    drawPath(live, restBrush(frame.rest, lineColor), style = Stroke(StrokeWidth.toPx(), cap = StrokeCap.Round))
     if (end < 1f) {
         drawPath(
             signalPath(frame, from = end + GapWidth, to = 1f),
@@ -335,7 +340,32 @@ private fun DrawScope.drawSignalPath(
     }
 }
 
-/** The line color, faint with faded ends as far as the line is at [rest]. Mirrors `calm` in the shader. */
+private fun DrawScope.drawPackets(
+    packets: List<SignalPacket>,
+    frame: SignalFrame,
+    color: Color,
+    strength: Float,
+) {
+    val height = PacketHeight.toPx()
+    val corner = CornerRadius(PacketCorner.toPx())
+    // Indexed, so a frame allocates no iterator.
+    for (index in packets.indices) {
+        val packet = packets[index]
+        val alpha = packet.alpha(frame.cut) * strength
+        if (alpha > 0f) {
+            val middle = size.height * (Middle + frame.offsetAt(packet.head - packet.length / 2f))
+            drawRoundRect(
+                color = color,
+                topLeft = Offset((packet.head - packet.length) * size.width, middle - height / 2f),
+                size = Size(packet.length * size.width, height),
+                cornerRadius = corner,
+                alpha = alpha,
+            )
+        }
+    }
+}
+
+/** The line color, faint with faded ends as far as the line is at [rest]. */
 private fun restBrush(
     rest: Float,
     color: Color,
@@ -364,111 +394,59 @@ private fun DrawScope.signalPath(
 /** Height of the signal band. Content that shares the band, such as the session clock, uses it too. */
 val RipDpiSignalFieldHeight = 56.dp
 private val StrokeWidth = 2.dp
-private val GlowSpread = 6.dp
+private val PacketHeight = 6.dp
+private val PacketCorner = 2.dp
 
 private const val Tau = (2.0 * PI).toFloat()
 private const val NanosPerSecond = 1_000_000_000f
-
-// Every wave frequency completes a whole number of cycles in this period, so the wrap is seamless.
-private const val TimePeriod = 400f
-
-// The still frame puts the connecting pulse in the middle of the line instead of under the edge fade.
-private const val StillTime = 0.9f
+private const val MillisPerSecond = 1_000f
 private const val NoCut = 2f
 private const val Middle = 0.5f
-
-// The wave: a slow and a fast sine, plus gusting noise for a warning. The shader source repeats these values.
-private const val SlowWeight = 0.6f
-private const val SlowCycles = 1.6f
-private const val SlowSpeed = 0.35f
-private const val FastWeight = 0.4f
-private const val FastCycles = 3.7f
-private const val FastSpeed = 0.6f
-private const val FastPhase = 1.3f
-private const val NoiseCycles = 11f
-private const val NoiseSpeed = 1.9f
-private const val GustCycles = 0.7f
-private const val GustSpeed = 0.23f
-private const val PulseSpeed = 0.55f
 
 // The cubic of a smooth step: 3t^2 - 2t^3.
 private const val SmoothA = 3f
 private const val SmoothB = 2f
-private const val LiveAmplitude = 0.16f
-private const val UnstableNoise = 0.5f
-private const val BrokenGlow = 0.5f
 private const val EdgeFade = 0.18f
 
-// A resting line is decoration: the headline names the state. The shader source repeats these values.
+// A resting line is decoration: the headline names the state.
 private const val RestAlpha = 0.55f
 private const val RestFade = 0.3f
-private const val PulseWidth = 0.07f
-private const val PulseHeight = 0.3f
+private const val TrackAlpha = 0.35f
 private const val PressWidth = 0.12f
 private const val PressDepth = 0.2f
 private const val GapWidth = 0.02f
+private const val TailAlpha = 0.3f
+private const val PathSteps = 72
 
-// The edge of the unrolling wave, and the recoil of a broken end. The shader source repeats these values.
-private const val FrontSoft = 0.12f
-private const val FrontOpen = 1f + FrontSoft
+// The recoil of a broken end.
 private const val KickHeight = 0.22f
 private const val KickWidth = 0.12f
 private const val KickCycles = 1.5f
-private const val TailAlpha = 0.3f
-private const val PathGlowAlpha = 0.12f
-private const val PathSteps = 72
 
-private const val SignalShaderSource = """
-uniform float2 size;
-uniform float time;
-uniform float amp;
-uniform float pulse;
-uniform float noise;
-uniform float cut;
-uniform float glow;
-uniform float2 press;
-uniform float4 ripple;
-uniform float rest;
-uniform float front;
-uniform float kick;
-uniform float stroke;
-uniform float spread;
-layout(color) uniform half4 color;
+// The packets. Sizes and positions are fractions of the width, speed is widths in a second, gaps are seconds.
+private const val StreamSeed = 7
+private const val PacketSpeed = 0.42f
+private const val PacketFade = 0.06f
+private const val ProbeLength = 0.08f
+private const val ShortPacket = 0.04f
+private const val LongPacket = 0.11f
+private const val KeepAliveGap = 4f
+private const val QuietGap = 1.2f
+private const val BusyGap = 0.1f
+private const val JitterFrom = 0.6f
+private const val JitterSpan = 0.8f
+private const val LossShare = 0.45f
+private const val LossFrom = 0.35f
+private const val LossSpan = 0.45f
 
-const float TAU = 6.2831853;
+// A frame that comes late moves the packets by no more than this, so they do not jump.
+private const val LongestStep = 0.05f
 
-float offsetAt(float u) {
-    float edge = smoothstep(0.0, 0.18, u) * (1.0 - smoothstep(0.82, 1.0, u));
-    float w = 0.6 * sin(TAU * (1.6 * u - 0.35 * time)) + 0.4 * sin(TAU * (3.7 * u - 0.6 * time) + 1.3);
-    w += noise * sin(TAU * (11.0 * u + 1.9 * time)) * sin(TAU * (0.7 * u - 0.23 * time));
-    float p = (u - fract(0.55 * time)) / 0.07;
-    float bump = pulse * 0.3 * exp(-p * p) * sin(TAU * 0.5 * p);
-    float d = (u - press.x) / 0.12;
-    float window = smoothstep(ripple.z, ripple.z + 0.18, u) * (1.0 - smoothstep(ripple.w - 0.18, ripple.w, u));
-    float standing = ripple.x * window * sin(TAU * ripple.y * (u - 0.5));
-    float unrolled = 1.0 - smoothstep(front - 0.12, front, u);
-    float whip = kick * 0.22 * exp(min(u - cut, 0.0) / 0.12) * sin(TAU * 1.5 * kick);
-    return edge * step(u, cut) * (amp * unrolled * w + bump + whip) + 0.2 * press.y * exp(-d * d) + standing;
-}
-
-half4 main(float2 xy) {
-    float u = xy.x / size.x;
-    float y = size.y * (0.5 + offsetAt(u));
-    float slope = size.y * (offsetAt(u + 1.0 / size.x) - offsetAt(u));
-    float d = abs(xy.y - y) / sqrt(1.0 + slope * slope);
-    float core = 1.0 - smoothstep(stroke, stroke + 1.0, d);
-    // The glow fades out before the bounds, so the clip of the field never shows as a hard edge.
-    float2 inset = min(xy, size - xy);
-    float inside = smoothstep(0.0, 2.0 * spread, inset.x) * smoothstep(0.0, 2.0 * spread, inset.y);
-    float halo = 0.35 * glow * inside * exp(-d * d / (2.0 * spread * spread));
-    float tail = mix(0.3, 1.0, step(u, cut));
-    float gap = smoothstep(0.0, 0.02, abs(u - cut));
-    float ends = smoothstep(0.0, 0.3, u) * (1.0 - smoothstep(0.7, 1.0, u));
-    float calm = mix(1.0, 0.55 * ends, rest);
-    float a = clamp(core + halo, 0.0, 1.0) * tail * gap * calm * color.a;
-    return half4(color.rgb * a, a);
-}
-"""
+// The line of a caller that measures nothing, such as the first launch: a calm, even stream.
+private const val UnmeasuredTraffic = 0.35f
+private const val FullPacketsPerSecond = 2_000f
+private val StillHeads = floatArrayOf(0.2f, 0.42f, 0.6f, 0.86f)
+private val StillLengths = floatArrayOf(0.05f, 0.08f, 0.04f, 0.07f)
 
 @Preview(name = "SignalField light", showBackground = true, widthDp = 360)
 @Composable

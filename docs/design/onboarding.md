@@ -94,9 +94,9 @@ One line runs through the whole first launch. It is `RipDpiSignalField`, the lin
 | The scope step and every later step before the test | Whole device keeps the ripple on the whole line; Proxy only keeps it on the half after the badge |
 | A drag between two steps | the line dips at a point that travels with the pager position; the ripple grows on the drag to the persona step, takes the scope on the drag to the scope step, and goes flat on the drag to the test step |
 | The test step before the test | flat, `outline` |
-| The test runs, including a permission request | flat with a travelling pulse, `signal` |
-| The test passed | steady flowing wave, `signal` |
-| The test failed | wave up to the failed stage, then a gap and a dim flat line, `destructive` |
+| The test runs, including a permission request | one travelling packet, `signal` |
+| The test passed | an even stream of packets, `signal` |
+| The test failed | the line up to the failed stage, then a gap and a dim flat line, `destructive` |
 
 The ripple states the two choices, not a path. It does not move with time and keeps the `outline` color, because `signal` marks a live or connecting path only. A new selection reshapes the ripple over the emphasized bucket. The steps are found by their kind, so a step added to the flow does not move the ripple to another step.
 
@@ -113,7 +113,7 @@ The splash screen joins the line. When the app starts on onboarding, the splash 
 ## Reduced motion and older devices
 
 - With animations off, the pages change with no fade, the badge and the indicators change only when a step settles, the entrance does not play, and the hand-off is a cut, as it was.
-- The badge, the page fade and parallax, the indicators, and the hand-off use `graphicsLayer`, `Canvas`, and layout-phase reads. They work on every supported API level. The signal line is an AGSL `RuntimeShader` on API 33 and later; on API 27 to 32, and for the still frame with animations off, `RipDpiSignalField` draws the same curve as a `Canvas` path.
+- The badge, the page fade and parallax, the indicators, and the hand-off use `graphicsLayer`, `Canvas`, and layout-phase reads. They work on every supported API level. The signal line is a `Canvas` path and blocks on every API level.
 - The page blur uses `RenderEffect` and needs API 31. On API 27 to 30 a leaving page fades and moves with no blur. A page at rest has no blur on any API level.
 
 ## Layout

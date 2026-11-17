@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.ui.components.inputs
 
+import android.os.SystemClock
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -32,12 +33,14 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -88,6 +91,7 @@ import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalField
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalFieldHeight
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalMode
+import com.poyka.ripdpi.ui.components.signal.SignalTrafficMeter
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageState
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
@@ -101,6 +105,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.actuatorFault
 import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
 import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
+import kotlinx.coroutines.delay
 
 private const val StackedRouteFontScale = 1.5f
 private const val PressedScale = 0.98f
@@ -293,6 +298,7 @@ private fun ActuatorSignalBand(
     press: HeroPress,
 ) {
     val spacing = RipDpiThemeTokens.spacing
+    val traffic = rememberSessionTraffic(state)
     Layout(
         modifier = Modifier.fillMaxWidth().padding(top = spacing.sm),
         content = {
@@ -310,6 +316,7 @@ private fun ActuatorSignalBand(
                 breakAt = breakAt,
                 pressAt = press::positionOnLine,
                 press = { press.amount.value },
+                traffic = { traffic.floatValue },
             )
         },
     ) { measurables, constraints ->
@@ -331,6 +338,29 @@ private fun ActuatorSignalBand(
         }
     }
 }
+
+/**
+ * The traffic level of the running session, sampled once a second from its packet counter. The counter does not
+ * change on a quiet line, so the sample runs on a timer and a quiet line reads as no traffic.
+ */
+@Composable
+private fun rememberSessionTraffic(state: StatusConnectionActuatorUiState): FloatState {
+    val level = remember { mutableFloatStateOf(0f) }
+    val packets by rememberUpdatedState(state.trafficPackets)
+    val live =
+        state.status == StatusConnectionActuatorStatus.Locked || state.status == StatusConnectionActuatorStatus.Degraded
+    LaunchedEffect(live) {
+        val meter = SignalTrafficMeter()
+        level.floatValue = 0f
+        while (live) {
+            level.floatValue = meter.level(packets, SystemClock.elapsedRealtime())
+            delay(TrafficSampleMillis)
+        }
+    }
+    return level
+}
+
+private const val TrafficSampleMillis = 1_000L
 
 private fun StatusConnectionActuatorStatus.toSignalMode(): RipDpiSignalMode =
     when (this) {

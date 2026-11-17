@@ -387,6 +387,7 @@ internal fun buildConnectionActuatorUiState(
                 ?: actuatorActionLabel(status, isActivation, stringResolver),
         issueDetail = actuatorIssueDetail(status, runtime, vpnWarning, warningStage, telemetry, stringResolver),
         sessionDuration = runtime.connectionDuration,
+        trafficPackets = telemetry.tunnelStats.txPackets + telemetry.tunnelStats.rxPackets,
         stages = buildActuatorStages(status, warningStage, failedStage, stringResolver),
         activationEnabled = isActivation,
         deactivationEnabled = !isActivation && !hardKillSwitch.blocksDisconnect,
