@@ -290,7 +290,6 @@ class NaiveProxyRuntime
 
         @Suppress("detekt.ReturnCount")
         override suspend fun start(config: ResolvedRipDpiRelayConfig): Int {
-            stopping = false
             val signal = CompletableDeferred<Unit>()
             readySignal = signal
             val restartAttempts = ArrayDeque<Long>()
@@ -310,6 +309,11 @@ class NaiveProxyRuntime
                         throw readinessError
                     }
                     signal.complete(Unit)
+                }
+                if (stopping) {
+                    // stop() ran before the helper existed and found nothing to kill.
+                    manager.stop()
+                    return 0
                 }
                 val exitCode = manager.waitForExit()
                 if (stopping) {

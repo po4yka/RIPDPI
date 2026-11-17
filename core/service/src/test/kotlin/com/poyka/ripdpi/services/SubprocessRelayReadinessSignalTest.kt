@@ -57,18 +57,22 @@ class SubprocessRelayReadinessSignalTest {
         var startCount = 0
             private set
 
+        private var launched = false
+
         override suspend fun start(config: ResolvedRipDpiRelayConfig) {
             startCount += 1
             startGate.await()
             startFailure?.let { throw it }
+            launched = true
         }
 
         override suspend fun waitForExit(): Int = exit.await()
 
         override fun noteRestarting(reason: String) = Unit
 
+        // Like the real manager, stop() ends only a helper that was already launched.
         override suspend fun stop() {
-            if (!exit.isCompleted) exit.complete(0)
+            if (launched && !exit.isCompleted) exit.complete(0)
         }
     }
 
@@ -80,17 +84,21 @@ class SubprocessRelayReadinessSignalTest {
     ) : PluggableTransportManager(context, subprocessManager) {
         val exit = CompletableDeferred<Int>()
 
+        private var launched = false
+
         override suspend fun start(config: ResolvedRipDpiRelayConfig) {
             startGate.await()
             startFailure?.let { throw it }
+            launched = true
         }
 
         override suspend fun waitForExit(): Int = exit.await()
 
         override suspend fun pollTelemetry(): NativeRuntimeSnapshot = NativeRuntimeSnapshot(source = "relay")
 
+        // Like the real manager, stop() ends only a helper that was already launched.
         override suspend fun stop() {
-            if (!exit.isCompleted) exit.complete(0)
+            if (launched && !exit.isCompleted) exit.complete(0)
         }
     }
 
@@ -384,5 +392,44 @@ class SubprocessRelayReadinessSignalTest {
             val readyError = readyResult.exceptionOrNull()
             assertTrue("awaitReady() should surface an IOException", readyError is IOException)
             assertEquals(failure.message, readyError?.message)
+        }
+
+    @Test
+    fun `naive runtime stopped during launch ends the late helper`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            val manager = FakeNaiveProxyManager(subprocessManager(), startGate = gate)
+            val runtime = NaiveProxyRuntime(manager)
+
+            val startJob = launch { runtime.start(sampleResolvedRelayConfig(kind = RelayKindNaiveProxy)) }
+            runCurrent()
+            runtime.stop()
+            gate.complete(Unit)
+            runCurrent()
+
+            assertTrue("start() kept waiting on a helper launched after stop()", startJob.isCompleted)
+            assertTrue("the late helper was not stopped", manager.exit.isCompleted)
+        }
+
+    @Test
+    fun `pluggable transport runtime stopped during launch ends the late helper`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            val manager =
+                FakePluggableTransportManager(
+                    context = context,
+                    subprocessManager = subprocessManager(),
+                    startGate = gate,
+                )
+            val runtime = PluggableTransportRuntime(manager)
+
+            val startJob = launch { runtime.start(sampleResolvedRelayConfig(kind = RelayKindWebTunnel)) }
+            runCurrent()
+            runtime.stop()
+            gate.complete(Unit)
+            runCurrent()
+
+            assertTrue("start() kept waiting on a helper launched after stop()", startJob.isCompleted)
+            assertTrue("the late helper was not stopped", manager.exit.isCompleted)
         }
 }

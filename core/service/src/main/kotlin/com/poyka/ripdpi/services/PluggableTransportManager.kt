@@ -304,6 +304,8 @@ class PluggableTransportRuntime
     constructor(
         private val manager: PluggableTransportManager,
     ) : RipDpiRelayRuntime {
+        @Volatile private var stopping = false
+
         // Completed once the subprocess launch passes its readiness probe, or completed
         // exceptionally if the launch fails. `awaitReady()` blocks on this so the supervisor
         // only reports Connected after the local SOCKS listener answers a probe.
@@ -321,6 +323,11 @@ class PluggableTransportRuntime
                 throw readinessError
             }
             signal.complete(Unit)
+            if (stopping) {
+                // stop() ran before the helper existed and found nothing to kill.
+                manager.stop()
+                return 0
+            }
             return manager.waitForExit()
         }
 
@@ -331,6 +338,7 @@ class PluggableTransportRuntime
         }
 
         override suspend fun stop() {
+            stopping = true
             readySignal.cancel(CancellationException("Pluggable transport runtime stopped before readiness"))
             manager.stop()
         }
