@@ -44,6 +44,11 @@ pub(super) async fn write_tun_packet(
                 }
             }
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) if is_packet_drop(&error) => {
+                warn!("TUN dropped a packet: {error}");
+                stats.record_tun_write_error();
+                return Ok(true);
+            }
             Err(error) => {
                 warn!("TUN write error: {error}");
                 stats.record_tun_write_error();
@@ -51,6 +56,12 @@ pub(super) async fn write_tun_packet(
             }
         }
     }
+}
+
+/// The kernel had no memory for this packet. The descriptor is still valid, so the packet is
+/// lost like any other dropped packet and the tunnel keeps running.
+fn is_packet_drop(error: &io::Error) -> bool {
+    matches!(error.raw_os_error(), Some(libc::ENOBUFS | libc::ENOMEM))
 }
 
 /// # Cancel safety:
@@ -86,6 +97,15 @@ mod tests {
         assert_eq!(evidence.tun_write_packets, 0);
         assert_eq!(evidence.tun_write_bytes, 0);
         assert_eq!(evidence.tun_write_errors, 1);
+    }
+
+    #[test]
+    fn only_kernel_memory_errors_drop_the_packet() {
+        assert!(is_packet_drop(&io::Error::from_raw_os_error(libc::ENOBUFS)));
+        assert!(is_packet_drop(&io::Error::from_raw_os_error(libc::ENOMEM)));
+        // A revoked interface must still end the tunnel.
+        assert!(!is_packet_drop(&io::Error::from_raw_os_error(libc::EBADF)));
+        assert!(!is_packet_drop(&io::Error::from_raw_os_error(libc::EIO)));
     }
 
     /// # Cancel safety:
