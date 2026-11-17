@@ -80,6 +80,8 @@
     <string name="settings_security_section">गोपनीयता</string>
     <string name="settings_webrtc_title">WebRTC सुरक्षा</string>
     <string name="settings_webrtc_body">पीयर-डिस्कवरी लीक कम करें जो स्थानीय टनल को बायपास कर सकते हैं।</string>
+    <string name="settings_engine_failure_block_title">कनेक्शन विफल होने पर ट्रैफ़िक रोकें</string>
+    <string name="settings_engine_failure_block_body">जब तक आप VPN बंद नहीं करते, इंटरनेट नहीं चलेगा। यह विकल्प बंद होने पर VPN रुक जाता है और ट्रैफ़िक सीधे जाता है।</string>
     <string name="settings_start_on_boot_title">बूट पर शुरू करें</string>
     <string name="settings_start_on_boot_battery_warning">बैटरी ऑप्टिमाइज़ेशन अभी भी सक्रिय है। जब तक आप RIPDPI को बैटरी ऑप्टिमाइज़ेशन से छूट नहीं देते, तब तक Android इसे बूट पर शुरू होने से रोक सकता है।</string>
     <string name="settings_exclude_russian_apps_title">रूसी ऐप्स को बाहर रखें</string>

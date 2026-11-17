@@ -55,6 +55,7 @@ data class SettingsUiState(
     val webrtcProtectionEnabled: Boolean = false,
     val excludeRussianAppsEnabled: Boolean = true,
     val fullTunnelMode: Boolean = false,
+    val blockTrafficOnEngineFailure: Boolean = true,
     val startOnBootEnabled: Boolean = false,
     val biometricEnabled: Boolean = false,
     val biometricAvailability: Int = BiometricManager.BIOMETRIC_SUCCESS,

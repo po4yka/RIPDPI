@@ -58,6 +58,8 @@
     <string name="settings_security_section">الخصوصية</string>
     <string name="settings_webrtc_title">حماية WebRTC</string>
     <string name="settings_webrtc_body">تقليل تسريبات اكتشاف النظير التي قد تتجاوز النفق المحلي.</string>
+    <string name="settings_engine_failure_block_title">حظر حركة المرور عند فشل الاتصال</string>
+    <string name="settings_engine_failure_block_body">لا إنترنت حتى توقف VPN. عند إيقاف هذا الخيار، يتوقف VPN وتمر حركة المرور مباشرةً.</string>
     <string name="settings_start_on_boot_title">التشغيل عند الإقلاع</string>
     <string name="settings_start_on_boot_battery_warning">تحسين البطارية لا يزال نشطاً. قد يمنع Android بدء تشغيل RIPDPI عند الإقلاع حتى تُعفيه من تحسين البطارية.</string>
     <string name="settings_exclude_russian_apps_title">استثناء التطبيقات الروسية</string>

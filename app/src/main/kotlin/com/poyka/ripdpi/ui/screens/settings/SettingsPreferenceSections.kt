@@ -209,6 +209,15 @@ private fun SecurityToggleRows(
         showDivider = true,
         testTag = RipDpiTestTags.SettingsWebRtcProtection,
     )
+    if (uiState.isVpn) {
+        SettingsRow(
+            title = stringResource(R.string.settings_engine_failure_block_title),
+            subtitle = stringResource(R.string.settings_engine_failure_block_body),
+            checked = uiState.blockTrafficOnEngineFailure,
+            onCheckedChange = actions.onBlockTrafficOnEngineFailureChanged,
+            showDivider = true,
+        )
+    }
     FullTunnelExclusionsRows(uiState, actions)
     SettingsRow(
         title = stringResource(R.string.settings_biometric_title),

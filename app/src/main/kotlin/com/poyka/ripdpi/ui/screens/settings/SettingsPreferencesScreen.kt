@@ -111,6 +111,8 @@ fun SettingsRoute(
                 onWebRtcProtectionChanged = remember(customization) { customization::setWebRtcProtectionEnabled },
                 onExcludeRussianAppsChanged = remember(customization) { customization::setExcludeRussianAppsEnabled },
                 onFullTunnelModeChanged = remember(customization) { customization::setFullTunnelMode },
+                onBlockTrafficOnEngineFailureChanged =
+                    remember(customization) { customization::setBlockTrafficOnEngineFailure },
                 onStartOnBootChanged = remember(customization) { customization::setStartOnBootEnabled },
                 onBiometricChanged = remember(customization) { customization::setBiometricEnabled },
                 onSaveBackupPin = remember(customization) { customization::setBackupPin },
@@ -208,6 +210,7 @@ internal data class SettingsScreenActions(
     val onWebRtcProtectionChanged: (Boolean) -> Unit,
     val onExcludeRussianAppsChanged: (Boolean) -> Unit,
     val onFullTunnelModeChanged: (Boolean) -> Unit,
+    val onBlockTrafficOnEngineFailureChanged: (Boolean) -> Unit = {},
     val onStartOnBootChanged: (Boolean) -> Unit,
     val onBiometricChanged: (Boolean) -> Unit,
     val onSaveBackupPin: (String) -> Unit,

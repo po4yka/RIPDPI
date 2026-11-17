@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.blocksTrafficOnEngineFailure
 import com.poyka.ripdpi.data.effectiveAppRoutingEnabledPresetIds
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 import com.poyka.ripdpi.proto.AppSettings
@@ -70,6 +71,7 @@ internal fun AppSettings.toUiState(
         excludeRussianAppsEnabled =
             effectiveAppRoutingEnabledPresetIds().contains(DefaultAppRoutingRussianPresetId),
         fullTunnelMode = fullTunnelMode,
+        blockTrafficOnEngineFailure = blocksTrafficOnEngineFailure(),
         startOnBootEnabled = startOnBoot,
         biometricEnabled = biometricEnabled,
         biometricAvailability = biometricAvailability,

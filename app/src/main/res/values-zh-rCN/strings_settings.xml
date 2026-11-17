@@ -46,6 +46,8 @@
     <string name="settings_tethering_dns_warning_body">当热点共享处于活动状态时,Android 会运行一个绕过 VPN 的本地 DNS 服务器。应用可能利用此机制在隧道之外发送跟踪信标。</string>
     <string name="settings_vpn_flag_warning_body">所有 Android 配置文件(包括工作资料和 Knox)中的应用都能检测到 VPN 正在使用中。要实现完全隔离,请为俄罗斯应用使用单独的设备。</string>
     <string name="settings_webrtc_body">减少可能绕过本地隧道的对等发现泄漏。</string>
+    <string name="settings_engine_failure_block_title">连接失败时阻止流量</string>
+    <string name="settings_engine_failure_block_body">在你停止 VPN 之前无法上网。关闭此项时，VPN 会停止，流量将直接发出。</string>
     <string name="settings_start_on_boot_title">开机自启</string>
     <string name="settings_start_on_boot_battery_warning">电池优化仍处于开启状态。在你将 RIPDPI 从电池优化中排除之前，Android 可能会阻止它开机自启。</string>
     <string name="about_build_type">构建类型</string>

@@ -33,6 +33,8 @@
     <string name="settings_strategy_pack_allow_rollback_override_body">Solo para depuración. Permite secuencias de paquetes de estrategia descargados iguales o anteriores para validación local. Las comprobaciones de firma, compatibilidad y vigencia siguen aplicándose.</string>
     <string name="settings_telemetry_salt_reset_action">Restablecer salt de telemetría</string>
     <string name="settings_webrtc_body">Reduce las filtraciones de descubrimiento de pares que pueden eludir el túnel local.</string>
+    <string name="settings_engine_failure_block_title">Bloquear el tráfico si falla la conexión</string>
+    <string name="settings_engine_failure_block_body">Sin internet hasta que detengas la VPN. Si está desactivado, la VPN se detiene y el tráfico sale directo.</string>
     <string name="settings_start_on_boot_title">Iniciar al arrancar</string>
     <string name="settings_start_on_boot_battery_warning">La optimización de batería sigue activa. Android podría impedir que RIPDPI se inicie al arrancar hasta que lo excluyas de la optimización de batería.</string>
     <string name="about_build_type">Tipo de compilación</string>

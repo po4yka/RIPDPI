@@ -5,7 +5,9 @@ import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeLauncherIconController
 import com.poyka.ripdpi.activities.FakePinVerifier
 import com.poyka.ripdpi.platform.StartOnBootController
+import com.poyka.ripdpi.proto.VpnEngineFailureAction
 import com.poyka.ripdpi.security.PinLockoutManager
+import com.poyka.ripdpi.settings.state.toUiState
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,6 +50,40 @@ class SettingsCustomizationActionsTest {
             harness.actions.setDynamicColorEnabled(false)
             advanceUntilIdle()
             assertFalse(harness.repository.snapshot().dynamicColorEnabled)
+        }
+
+    @Test
+    fun `engine failure choice persists both values and maps to ui state`() =
+        runTest {
+            val harness = buildHarness(batteryIgnored = false)
+            assertTrue(
+                harness.repository
+                    .snapshot()
+                    .toUiState()
+                    .blockTrafficOnEngineFailure,
+            )
+
+            harness.actions.setBlockTrafficOnEngineFailure(false)
+            advanceUntilIdle()
+            assertEquals(
+                VpnEngineFailureAction.VPN_ENGINE_FAILURE_ACTION_STOP,
+                harness.repository.snapshot().vpnEngineFailureAction,
+            )
+            assertFalse(
+                harness.repository
+                    .snapshot()
+                    .toUiState()
+                    .blockTrafficOnEngineFailure,
+            )
+
+            harness.actions.setBlockTrafficOnEngineFailure(true)
+            advanceUntilIdle()
+            assertTrue(
+                harness.repository
+                    .snapshot()
+                    .toUiState()
+                    .blockTrafficOnEngineFailure,
+            )
         }
 
     @Test

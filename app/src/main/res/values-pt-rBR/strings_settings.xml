@@ -69,6 +69,8 @@
     <string name="settings_security_section">Privacidade</string>
     <string name="settings_webrtc_title">Proteção WebRTC</string>
     <string name="settings_webrtc_body">Reduz vazamentos de descoberta de pares que podem contornar o túnel local.</string>
+    <string name="settings_engine_failure_block_title">Bloquear o tráfego se a conexão falhar</string>
+    <string name="settings_engine_failure_block_body">Sem internet até você parar a VPN. Se desativado, a VPN para e o tráfego sai direto.</string>
     <string name="settings_start_on_boot_title">Iniciar com o sistema</string>
     <string name="settings_start_on_boot_battery_warning">A otimização de bateria segue ativa. O Android pode impedir o RIPDPI de iniciar com o sistema até você isentá-lo da otimização de bateria.</string>
     <string name="settings_exclude_russian_apps_title">Excluir apps russos</string>

@@ -33,6 +33,8 @@
     <string name="settings_strategy_pack_allow_rollback_override_body">Nur für Debug. Erlaubt gleiche oder niedrigere heruntergeladene Strategie-Paket-Sequenzen für die lokale Validierung. Signatur-, Kompatibilitäts- und Aktualitätsprüfungen gelten weiterhin.</string>
     <string name="settings_telemetry_salt_reset_action">Telemetrie-Salt zurücksetzen</string>
     <string name="settings_webrtc_body">Reduziert Peer-Discovery-Leaks, die den lokalen Tunnel umgehen können.</string>
+    <string name="settings_engine_failure_block_title">Datenverkehr bei Verbindungsfehler blockieren</string>
+    <string name="settings_engine_failure_block_body">Kein Internet, bis du das VPN stoppst. Wenn aus, stoppt das VPN und der Datenverkehr läuft direkt.</string>
     <string name="settings_start_on_boot_title">Beim Hochfahren starten</string>
     <string name="settings_start_on_boot_battery_warning">Die Akkuoptimierung ist weiterhin aktiv. Android kann verhindern, dass RIPDPI beim Hochfahren startet, bis Sie es von der Akkuoptimierung ausnehmen.</string>
     <string name="about_build_type">Build-Typ</string>
