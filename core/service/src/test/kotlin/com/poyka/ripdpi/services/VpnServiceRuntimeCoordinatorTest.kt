@@ -334,9 +334,116 @@ class VpnServiceRuntimeCoordinatorTest {
                 .build(),
         )
 
-    private fun relayResolution() =
+    @Test
+    fun unreachableRelayFailsStartWithoutPublishingRunning() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions = listOf(relayResolution()),
+                    relayActiveProbe = RelayActiveProbe { _, _, _ -> failingRelayProbe },
+                )
+
+            env.startCaptured()
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.statusHistory.none { it.first == AppStatus.Running })
+            assertEquals(
+                FailureReason.InitialTransportSelectionFailed("Relay server could not be reached"),
+                (env.store.eventHistory.single() as ServiceEvent.Failed).reason,
+            )
+            assertFalse(env.events.contains("vpn:establish"))
+            assertEquals(1, env.relayFactory.lastRuntime.stopCount)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
+    fun reachableRelayPublishesRunningOnlyAfterTheProbePasses() =
+        runTest {
+            val probeResult = CompletableDeferred<RelayActiveProbeResult>()
+            val env =
+                newEnv(
+                    resolutions = listOf(relayResolution()),
+                    relayActiveProbe = RelayActiveProbe { _, _, _ -> probeResult.await() },
+                )
+
+            val startup = backgroundScope.launch { env.startCaptured() }
+            runCurrent()
+
+            assertFalse(env.events.contains("vpn:establish"))
+            assertTrue(env.store.statusHistory.none { it.first == AppStatus.Running })
+
+            probeResult.complete(passingRelayProbe)
+            repeat(3) { runCurrent() }
+
+            assertTrue(startup.isCompleted)
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
+    fun stopDuringRelayProbeCancelsStartAndStopsRelay() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions = listOf(relayResolution()),
+                    relayActiveProbe = RelayActiveProbe { _, _, _ -> kotlinx.coroutines.awaitCancellation() },
+                )
+
+            val startup = backgroundScope.launch { env.startCaptured() }
+            runCurrent()
+            // A user stop cancels the accepted start command, then stops the coordinator.
+            startup.cancel()
+            runCurrent()
+            env.coordinator.stop()
+            repeat(3) { runCurrent() }
+
+            assertTrue(startup.isCompleted)
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.statusHistory.none { it.first == AppStatus.Running })
+            assertFalse(env.events.contains("vpn:establish"))
+            assertEquals(1, env.relayFactory.lastRuntime.stopCount)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
+    fun handoverRestartDoesNotProbeTheRelayAgain() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            var probes = 0
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions =
+                        listOf(
+                            relayResolution(policySignature = "initial"),
+                            relayResolution(policySignature = "handover"),
+                        ),
+                    relayActiveProbe =
+                        RelayActiveProbe { _, _, _ -> if (probes++ == 0) passingRelayProbe else failingRelayProbe },
+                )
+
+            env.startCaptured()
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4")),
+                    classification = "transport_switch",
+                    occurredAt = 2_000L,
+                ),
+            )
+            repeat(3) { runCurrent() }
+
+            assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.eventHistory.none { it is ServiceEvent.Failed })
+        }
+
+    private fun relayResolution(policySignature: String = "policy-signature") =
         sampleResolution(
             mode = Mode.VPN,
+            policySignature = policySignature,
             proxyPreferences =
                 RipDpiProxyUIPreferences(
                     protocols = RipDpiProtocolConfig(udpAssociateEnabled = false),
@@ -2802,6 +2909,7 @@ class VpnServiceRuntimeCoordinatorTest {
         xrayProviderSessionControllerFactory:
             ((VpnTunnelRuntime, kotlinx.coroutines.CoroutineDispatcher) -> XrayProviderSessionController)? = null,
         additionalTunnelBridges: List<TestTun2SocksBridge> = emptyList(),
+        relayActiveProbe: RelayActiveProbe = RelayActiveProbe { _, _, _ -> passingRelayProbe },
     ): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val events = mutableListOf<String>()
@@ -2911,6 +3019,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         relayFactory = relayFactory,
                         naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                         runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(relayRuntimeConfig),
+                        relayActiveProbe = relayActiveProbe,
                     ),
                 warpRuntimeSupervisor =
                     WarpRuntimeSupervisor(
@@ -3018,3 +3127,7 @@ private class DelayedStopVpnProxyRuntime(
         }
     }
 }
+
+private val passingRelayProbe = RelayActiveProbeResult(succeeded = true, statusCode = 204, latencyMs = 1)
+
+private val failingRelayProbe = RelayActiveProbeResult(succeeded = false, latencyMs = 1, failure = "tcp_connect")

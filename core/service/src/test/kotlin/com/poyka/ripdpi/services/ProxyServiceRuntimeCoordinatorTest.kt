@@ -439,6 +439,37 @@ class ProxyServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun relayStartInProxyModeDoesNotProbeEgress() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.Proxy,
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        protocols = RipDpiProtocolConfig(udpAssociateEnabled = false),
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = RelayKindVlessReality,
+                                                profileId = "relay-profile",
+                                            ),
+                                    ),
+                            ),
+                        ),
+                )
+
+            env.startCaptured()
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
+            assertTrue(env.store.eventHistory.none { it is ServiceEvent.Failed })
+            assertEquals(0, env.relayFactory.lastRuntime.stopCount)
+        }
+
+    @Test
     fun duplicateStartIsIgnored() =
         runTest {
             val env = newEnv()
@@ -706,6 +737,8 @@ private fun TestScope.buildProxySupervisorBundle(
                 relayFactory = relayFactory,
                 naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                 runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                // Proxy mode never probes egress, so an unreachable answer must not affect any start.
+                relayActiveProbe = { _, _, _ -> RelayActiveProbeResult(succeeded = false, latencyMs = 1) },
             ),
         warpRuntimeSupervisor =
             WarpRuntimeSupervisor(

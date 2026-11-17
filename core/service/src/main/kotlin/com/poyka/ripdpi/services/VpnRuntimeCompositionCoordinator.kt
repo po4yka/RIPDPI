@@ -158,6 +158,7 @@ internal class VpnRuntimeCompositionCoordinator(
         proxyRuntimeStack.stop(skipRuntimeShutdown = false)
         currentLocalProxyEndpoint = null
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
+        // No egress check here: right after a handover the new network may not carry traffic yet.
         val proxyStartResult = startProxyRuntime(session, resolution, logContext)
         vpnTunnelRuntime.rebuild(
             configurationInput = resolution.requestedConfiguration.tunnelInput,
@@ -221,7 +222,7 @@ internal class VpnRuntimeCompositionCoordinator(
         }
 
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
-        val proxyStartResult = startProxyRuntime(session, resolution, logContext)
+        val proxyStartResult = startProxyRuntime(session, resolution, logContext, verifyRelayEgress = true)
         vpnTunnelRuntime.start(
             configurationInput = resolution.requestedConfiguration.tunnelInput,
             activeDns = resolution.activeDns,
@@ -250,6 +251,7 @@ internal class VpnRuntimeCompositionCoordinator(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         logContext: RipDpiLogContext,
+        verifyRelayEgress: Boolean = false,
     ): ProxyRuntimeStartResult {
         val exits = supervisorExitHandlerFor(session)
         val authToken =
@@ -289,6 +291,7 @@ internal class VpnRuntimeCompositionCoordinator(
                 initialRelayRacePlan = racePlan,
                 onInitialRelayRaceState = { state -> initialRelayRacePolicy?.onStateChanged(state) },
                 onInitialRelaySelected = { result -> initialRelayRacePolicy?.onSelected(result) },
+                verifyRelayEgress = verifyRelayEgress,
             ).also { currentLocalProxyEndpoint = it.endpoint }
     }
 }

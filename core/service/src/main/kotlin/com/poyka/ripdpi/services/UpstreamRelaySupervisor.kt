@@ -67,6 +67,7 @@ internal class UpstreamRelaySupervisor(
     private val runtimeConfigResolver: UpstreamRelayRuntimeConfigResolver,
     private val networkMode: RelayRuntimeNetworkMode = RelayRuntimeNetworkMode.Proxy,
     private val initialRelayRaceRunnerFactory: InitialRelayRaceRunnerFactory = InitialRelayRaceRunnerFactory(),
+    private val relayActiveProbe: RelayActiveProbe = OkHttpRelayActiveProbe(),
     private val stopTimeoutMillis: Long = 5_000L,
 ) {
     constructor(
@@ -131,6 +132,7 @@ internal class UpstreamRelaySupervisor(
         inputs: RelayResolutionInputs,
         expectedSelection: RuntimeConfigurationSelection,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
+        verifyEgress: Boolean = false,
     ): StartedRelayRuntime {
         check(!hasOwnedRuntime) { "Relay runtime is already active" }
         val slot =
@@ -141,6 +143,7 @@ internal class UpstreamRelaySupervisor(
                 localPortOverride = null,
                 requirements = requirements,
                 onUnexpectedExit = onUnexpectedExit,
+                verifyEgress = verifyEgress,
             )
         promoteSlot(slot)
         return StartedRelayRuntime(
@@ -190,6 +193,7 @@ internal class UpstreamRelaySupervisor(
         requirements: EgressRequirements,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
         expectedCandidate: InitialRelayCandidate? = null,
+        verifyEgress: Boolean = false,
     ): RelayRuntimeSlot {
         val configResolution =
             if (runtimeConfigResolver is LocalNetworkAwareRelayRuntimeConfigResolver) {
@@ -279,10 +283,17 @@ internal class UpstreamRelaySupervisor(
                 endpoint.copy(username = listenerCredentials.username, password = listenerCredentials.password)
             // The completion handler may have run before the endpoint existed.
             if (job.isCompleted) slot.releaseListenerCredentials()
+            // The native relay reports ready once its listener binds; only traffic proves the server answers.
+            if (verifyEgress && helperRuntimeFactory(resolvedConfig) == null) {
+                requireRelayEgress(checkNotNull(slot.endpoint))
+            }
             return slot
         } catch (readinessError: CancellationException) {
             cleanupFailedStart(slot)
             throw readinessError
+        } catch (unreachable: InitialTransportSelectionException) {
+            cleanupFailedStart(slot)
+            throw unreachable
         } catch (
             @Suppress("TooGenericExceptionCaught") readinessError: Exception,
         ) {
@@ -300,6 +311,19 @@ internal class UpstreamRelaySupervisor(
     ) {
         if (expected != null && (resolved.kind != expected.relayKind || resolved.profileId != expected.profileId)) {
             throw InitialTransportSelectionException("Initial relay candidate changed during configuration resolution")
+        }
+    }
+
+    /** cancel-safe: the probe is bounded by its own call timeout and closes its socket on cancellation. */
+    private suspend fun requireRelayEgress(endpoint: LocalProxyEndpoint) {
+        val result =
+            relayActiveProbe.probe(
+                endpoint = endpoint,
+                url = ConnectivityCheckProbeUrl,
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+            )
+        if (!result.succeeded) {
+            throw InitialTransportSelectionException("Relay server could not be reached")
         }
     }
 

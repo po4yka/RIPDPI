@@ -60,6 +60,7 @@ internal class SharedProxyRuntimeStack(
         onInitialRelayRaceState: (InitialTransportRaceSnapshot) -> Unit = {},
         onInitialRelaySelected: (InitialRelayRaceResult) -> Unit = {},
         networkScopeKey: String? = null,
+        verifyRelayEgress: Boolean = false,
     ): ProxyRuntimeStartResult {
         val selectedRelay = capturedSelectorRelay(requestedSelection)
         val awgRequest = proxyPreferences.awgConfigOrNull()?.let { it.copy(dnsServers = it.dnsServers.toList()) }
@@ -110,6 +111,7 @@ internal class SharedProxyRuntimeStack(
                             expectedSelection = requestedSelection,
                             requirements = egressRequirements,
                             onUnexpectedExit = onRelayExit,
+                            verifyEgress = verifyRelayEgress,
                         )
                     effectivePreferences = applyStartedRelay(effectivePreferences, started)
                 } else {

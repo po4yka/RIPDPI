@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.services.ConnectivityCheckProbeUrl
 import com.poyka.ripdpi.services.LocalSocksRoute
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.services.ServiceController
@@ -334,7 +335,7 @@ class DefaultOnboardingModeValidationRunner
         }
 
         private fun resolveDnsProbeHost(): String =
-            runCatching { URI(OnboardingConnectivityCheckUrl).host }
+            runCatching { URI(ConnectivityCheckProbeUrl).host }
                 .getOrNull()
                 ?.takeIf { it.isNotBlank() }
                 ?: throw dnsProbeFailure()
@@ -367,7 +368,7 @@ class DefaultOnboardingModeValidationRunner
             val request =
                 Request
                     .Builder()
-                    .url(OnboardingConnectivityCheckUrl)
+                    .url(ConnectivityCheckProbeUrl)
                     .head()
                     .build()
             val client =
@@ -422,8 +423,6 @@ private fun Mode.alternateOrNull(): Mode? =
         Mode.VPN -> Mode.Proxy
         Mode.Proxy -> Mode.VPN
     }
-
-private const val OnboardingConnectivityCheckUrl = "https://connectivitycheck.gstatic.com/generate_204"
 
 @Module
 @InstallIn(SingletonComponent::class)

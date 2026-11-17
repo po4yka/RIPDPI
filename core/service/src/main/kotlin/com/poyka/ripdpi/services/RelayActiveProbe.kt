@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.services
 
+/** The Android platform's own captive-portal check, so a probe adds no host the device does not already contact. */
+const val ConnectivityCheckProbeUrl = "https://connectivitycheck.gstatic.com/generate_204"
+
 internal data class RelayActiveProbeResult(
     val succeeded: Boolean,
     val statusCode: Int? = null,
