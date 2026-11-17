@@ -4,6 +4,8 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -77,6 +79,7 @@ internal fun RipDpiStrategyReadout(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ReadoutLine(
     label: String,
@@ -97,9 +100,10 @@ private fun ReadoutLine(
             Text(text = label, modifier = Modifier.weight(1f), style = type.secondaryBody, color = muted)
             Text(text = verdict, style = type.smallLabel, color = colors.foreground)
         }
-        Row(
+        FlowRow(
             horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             chunks.forEach { chunk ->
                 val tint = if (chunk.decoy) colors.warning else colors.foreground

@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.screens.status
 
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepKind
+import com.poyka.ripdpi.data.UdpChainStepModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -81,5 +83,33 @@ class StrategySchemeTest {
         assertFalse(
             compileStrategyPassageScene(listOf(step(TcpChainStepKind.Split)), emptyList(), rawPackets = false).lowered,
         )
+    }
+
+    @Test
+    fun `a short TTL part ends before the filter, so the filter reads the late part first`() {
+        val readout = schemeReadout(lane(step(TcpChainStepKind.Disorder)))
+
+        assertEquals(listOf("ite.test", "s"), readout.chunks.map { it.text })
+        assertEquals(SchemeVerdict.NoMatch, readout.verdict)
+    }
+
+    @Test
+    fun `a fake reset ends the inspection before any real byte`() {
+        val readout = schemeReadout(lane(step(TcpChainStepKind.FakeRst)))
+
+        assertEquals(listOf("RST"), readout.chunks.map { it.text })
+        assertEquals(SchemeVerdict.StopsLooking, readout.verdict)
+    }
+
+    @Test
+    fun `a QUIC split copy carries the real name in two parts`() {
+        val udp = listOf(UdpChainStepModel(1, UdpChainStepKind.QuicSniSplit))
+        val quic = requireNotNull(compileStrategyPassageScene(emptyList(), udp).udp)
+
+        val copy = schemeReadout(quic).chunks.single().text
+
+        // The cut is in the middle of the name, so the copy is the real name with one border in it.
+        assertEquals(SchemeSampleHost, copy.replace("|", ""))
+        assertEquals(SchemeSampleHost.length + 1, copy.length)
     }
 }
