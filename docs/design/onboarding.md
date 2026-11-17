@@ -54,7 +54,7 @@ On the first launch the page content rises and fades in once. The badge is visib
 
 ## Hand-off to the main screen
 
-The app replaces its whole navigation host when onboarding completes, so a route transition or a `SharedTransitionLayout` inside the host cannot join the two screens. `RipDpiHandOffReveal` sits above the host and survives the replacement. The signal line is the shared element: the layer draws it on its way to the cable of the hero link tile, and the tile is hidden until the line lands.
+The app replaces its whole navigation host when onboarding completes, so a route transition or a `SharedTransitionLayout` inside the host cannot join the two screens. `RipDpiHandOffReveal` sits above the host and survives the replacement. The signal line is the shared element: the layer draws it on its way to the cable of the hero link tile, and the tile is hidden until the line lands, then fades in in the quick bucket.
 
 - The badge reports its center and radius to `LocalRipDpiHandOff` as the anchor. The onboarding line reports its bounds and look as `sourceLine`, and the report stays when onboarding leaves the screen.
 - The link tile in `RipDpiConnectionActuator` reports its bounds and the look of the line as `targetLine` through `Modifier.ripDpiHandOffTarget`, and it is hidden while the layer draws the line. The line lands on the middle of the tile, where its cable runs. The hero has no other change.

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.components.signal
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -22,6 +23,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
@@ -38,6 +41,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -57,15 +61,17 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * The hero link tile: the path as a plug and a socket. With no session the plug lies out of the socket. It goes in
- * one contact for each completed stage, and the socket has one lamp for each stage. Packets travel in the cable
- * while the session is live: sent packets in the upper lane, received packets in the lower lane.
+ * The hero link tile: the path as a plug and a socket. With no session the plug lies out of the socket. A live
+ * session seats it, and packets travel in the cable: sent packets in the upper lane, received packets in the lower
+ * lane. The socket has one lamp for each stage of the path.
  *
  * The parts move only while the app allows infinite motion; otherwise each state shows a still frame. Animated
  * values are read in the draw phase only. The tile is decoration and has no semantics; the caller names the state.
  *
  * @param stages the state of each stage of the path, in order. The tile takes the first five.
  * @param tone the color of the packets. Lamps take the signal, warning, and destructive roles from their stage.
+ * @param reserve the share of the width at the start edge that other content takes, from 0 to 1. The figure keeps
+ * to the rest, so the caller can put the session clock in the tile.
  * @param press how far the connection action is pressed, from 0 to 1. A loose plug leans toward the socket.
  * @param pressed true while the connection action is pressed, so the tile takes frames for [press].
  * @param sent the measured level of sent traffic from 0 to 1.
@@ -78,6 +84,7 @@ fun RipDpiLinkTile(
     stages: ImmutableList<RipDpiLinkStage>,
     tone: Color,
     modifier: Modifier = Modifier,
+    reserve: () -> Float = { 0f },
     press: () -> Float = { 0f },
     pressed: Boolean = false,
     sent: () -> Float = { 0f },
@@ -96,41 +103,34 @@ fun RipDpiLinkTile(
     val moves = motion.allowsInfiniteMotion
     val drag = remember { mutableStateOf<Float?>(null) }
     val dragging by remember { derivedStateOf { drag.value != null } }
-    // The cable length in dp. The draw phase measures it, and the next frame of the figure uses it.
-    val length = remember { mutableFloatStateOf(LinkDefaultLength) }
+    val nudge = plugNudge(enabled = onPlug != null && moves && mode == RipDpiLinkMode.Open)
+    // The cable in dp: where it starts, and how long it is. The draw phase measures it for the next frame.
+    val span = remember { LinkSpan() }
     val frames = remember { mutableIntStateOf(0) }
     val currentPress by rememberUpdatedState(press)
     val currentSent by rememberUpdatedState(sent)
     val currentReceived by rememberUpdatedState(received)
+    val currentReserve by rememberUpdatedState(reserve)
     val input = {
         LinkInput(
             mode = mode,
             stages = lamps,
             sent = currentSent(),
             received = currentReceived(),
-            press = currentPress(),
+            press = maxOf(currentPress(), nudge.value.value),
             drag = drag.value,
-            length = length.floatValue,
-            probeFrom = LeadStart - EdgeFrom + (length.floatValue - LinkDesignLength) / 2f,
+            length = span.length.floatValue,
+            probeFrom = LeadStart - span.from.floatValue,
         )
     }
     // The tile first shows the still frame of its state, so a tile that takes no frames is still correct.
     val figure = remember(motion) { LinkFigure(motion = motion).apply { settle(input()) } }
     if (moves) {
-        LaunchedEffect(figure, mode, lamps, pressed, dragging) {
-            var last = withInfiniteAnimationFrameNanos { it }
+        LaunchedEffect(figure, mode, lamps, pressed, dragging, nudge.active) {
             // A press starts before the plug moves, so the loop also runs while the action is pressed.
-            while (pressed || figure.moving(input())) {
-                withInfiniteAnimationFrameNanos { now ->
-                    figure.advance(((now - last) / NanosPerSecond).coerceAtMost(LongestStep), input())
-                    last = now
-                    frames.intValue++
-                }
-            }
+            figure.run(input, held = { pressed || nudge.active }) { frames.intValue++ }
         }
     }
-
-    val dragModifier = plugDrag(mode, enabled = onPlug != null && moves, rtl, figure, drag, onPlug)
 
     val still = remember { LinkStill() }
     Spacer(
@@ -139,21 +139,70 @@ fun RipDpiLinkTile(
                 .fillMaxWidth()
                 .height(RipDpiLinkTileHeight)
                 .clip(RipDpiThemeTokens.shapes.md)
-                .then(dragModifier)
+                .then(plugDrag(mode, enabled = onPlug != null && moves, rtl, figure, drag, span, onPlug))
                 .drawWithCache {
-                    val shapes = LinkShapes(size, this)
+                    val shapes = LinkShapes(this)
+                    val edge = Stroke(1.dp.toPx())
+                    val corner = CornerRadius(shapes.unit * TileCorner)
                     onDrawBehind {
                         // Each frame of the figure redraws the tile.
                         frames.intValue
-                        length.floatValue = shapes.length
+                        val widthDp = size.width / shapes.unit
+                        val taken = widthDp * currentReserve().coerceIn(0f, 1f)
+                        // The figure sits in the middle of the width that is left.
+                        val shift = taken + (widthDp - taken) / 2f - FigureMiddle
+                        span.from.floatValue = taken - shift + if (taken > 0f) ReserveGap else EdgeFrom
+                        span.shift.floatValue = shift
+                        span.length.floatValue = widthDp - shift + EdgeBeyond - span.from.floatValue
                         drawRect(container.value)
+                        drawRoundRect(palette.border, style = edge, cornerRadius = corner)
                         // With no motion the tile shows the still frame of its state, and renews it only on a change.
                         if (!moves) still.settle(figure, input())
                         // A right-to-left layout mirrors the figure: the device is at the start edge.
-                        scale(if (rtl) -1f else 1f, 1f) { drawLink(figure, shapes, palette, pulseColor.value, lamps) }
+                        scale(if (rtl) -1f else 1f, 1f) {
+                            translate(left = shift * shapes.unit) {
+                                drawLink(figure, shapes, palette, pulseColor.value, lamps, span)
+                            }
+                        }
                     }
                 },
     )
+}
+
+/**
+ * Moves the figure frame by frame until nothing moves. A live link with an empty cable at rest takes no frame
+ * until its next packet is due.
+ */
+private suspend fun LinkFigure.run(
+    input: () -> LinkInput,
+    held: () -> Boolean,
+    onFrame: () -> Unit,
+) {
+    var last = withInfiniteAnimationFrameNanos { it }
+    while (held() || moving(input())) {
+        val quiet = quiet(input())
+        if (quiet > QuietWorth) {
+            delay((quiet * MillisPerSecond).toLong())
+            skip(quiet)
+            last = withInfiniteAnimationFrameNanos { it }
+        } else {
+            withInfiniteAnimationFrameNanos { now ->
+                advance(((now - last) / NanosPerSecond).coerceAtMost(LongestStep), input())
+                last = now
+                onFrame()
+            }
+        }
+    }
+}
+
+private fun RipDpiLinkMode.live(): Boolean = this == RipDpiLinkMode.Live || this == RipDpiLinkMode.Unstable
+
+/** Where the cable is on the tile, in dp of the design: its start, its length, and the shift of the design. */
+private class LinkSpan {
+    val from = mutableFloatStateOf(EdgeFrom)
+    val length = mutableFloatStateOf(LinkDefaultLength)
+    val shift = mutableFloatStateOf(0f)
+    val to: Float get() = from.floatValue + length.floatValue
 }
 
 @Composable
@@ -163,11 +212,36 @@ private fun linkContainer(mode: RipDpiLinkMode): State<Color> {
         when (mode) {
             RipDpiLinkMode.Unstable -> colors.warningContainer
             RipDpiLinkMode.Broken -> colors.destructiveContainer
-            else -> colors.muted
+            else -> colors.card
         },
         RipDpiThemeTokens.motion.stateTween(),
         label = "Link container",
     )
+}
+
+/** The hint that the plug can be moved: a loose plug leans toward the socket once, the first time it is shown. */
+private class PlugNudge(
+    val value: State<Float>,
+    val active: Boolean,
+)
+
+@Composable
+private fun plugNudge(enabled: Boolean): PlugNudge {
+    val motion = RipDpiThemeTokens.motion
+    var shown by rememberSaveable { mutableStateOf(false) }
+    var active by remember { mutableStateOf(false) }
+    val lean = remember { Animatable(0f) }
+    LaunchedEffect(enabled) {
+        if (enabled && !shown) {
+            delay(NudgeDelayMillis)
+            active = true
+            lean.animateTo(1f, motion.emphasizedTween())
+            lean.animateTo(0f, motion.emphasizedTween())
+            active = false
+            shown = true
+        }
+    }
+    return PlugNudge(lean.asState(), active)
 }
 
 /**
@@ -181,6 +255,7 @@ private fun plugDrag(
     rtl: Boolean,
     figure: LinkFigure,
     drag: MutableState<Float?>,
+    span: LinkSpan,
     onPlug: (() -> Unit)?,
 ): Modifier {
     val open = mode == RipDpiLinkMode.Open
@@ -203,7 +278,7 @@ private fun plugDrag(
             val down = awaitFirstDown(requireUnconsumed = false)
             val start = figure.pull.at.coerceIn(0f, LinkGap)
             val x = (if (rtl) size.width - down.position.x else down.position.x) / unit
-            val plugFrom = (size.width / unit - LinkDesignWidth) / 2f + PlugNose + start - PlugTouch
+            val plugFrom = span.shift.floatValue + PlugNose + start - PlugTouch
             val slop =
                 if (x in plugFrom..plugFrom + PlugEnd - PlugNose + PlugTouch * 2f) {
                     awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
@@ -231,8 +306,6 @@ private fun plugDrag(
         }
     }
 }
-
-private fun RipDpiLinkMode.live(): Boolean = this == RipDpiLinkMode.Live || this == RipDpiLinkMode.Unstable
 
 /** Keeps the still frame of the figure, and settles the figure again only when the frame would differ. */
 private class LinkStill {
@@ -264,19 +337,48 @@ private class LinkStill {
     }
 }
 
+/**
+ * The tone between [a] and [b] that has the same contrast to both. The socket takes it between the plug and the
+ * tile, so the three stay apart at every contrast level of the theme.
+ */
+internal fun linkMidTone(
+    a: Color,
+    b: Color,
+): Color {
+    var low = 0f
+    var high = 1f
+    repeat(MidToneSteps) {
+        val t = (low + high) / 2f
+        val tone = lerp(a, b, t)
+        if (linkContrast(tone, a) < linkContrast(tone, b)) low = t else high = t
+    }
+    return lerp(a, b, (low + high) / 2f)
+}
+
+internal fun linkContrast(
+    a: Color,
+    b: Color,
+): Float {
+    val one = a.luminance()
+    val two = b.luminance()
+    return (maxOf(one, two) + ContrastOffset) / (minOf(one, two) + ContrastOffset)
+}
+
 /** The colors of the figure. Every one is a role of the theme, or a mix of two roles. */
 private class LinkPalette(
     colors: RipDpiExtendedColors,
 ) {
-    val plug = colors.primaryAction
-    val plugTop = lerp(colors.primaryAction, colors.card, TopMix)
-    val socket = colors.outline
-    val socketTop = lerp(colors.outline, colors.card, TopMix)
-    val socketSide = lerp(colors.outline, colors.foreground, SideMix)
-    val port = lerp(colors.outline, Color.Black, PortMix)
-    val jacket = colors.outline
+    // The plug is the strongest shape, a step calmer than the primary action so it does not outweigh the headline.
+    val plug = lerp(colors.primaryAction, colors.card, PlugMix)
+    val plugTop = lerp(plug, colors.card, TopMix)
+    val socket = linkMidTone(plug, colors.card)
+    val socketTop = lerp(socket, colors.card, TopMix)
+    val socketSide = lerp(socket, plug, SideMix)
+    val port = lerp(socket, Color.Black, PortMix)
+    val jacket = socket
     val track = colors.card
-    val lampOff = lerp(colors.card, colors.outline, LampOffMix)
+    val border = colors.cardBorder
+    val lampOff = lerp(colors.card, socket, LampOffMix)
     val signal = colors.signal
     val warning = colors.warning
     val destructive = colors.destructive
@@ -296,28 +398,18 @@ private class LinkFace(
     val top: Boolean,
 )
 
-/**
- * The fixed shapes of the figure for one tile size, in pixels. The figure is drawn around the middle of the tile,
- * and the cable runs to both edges.
- */
+/** The fixed shapes of the figure, in pixels of the design. The draw phase moves the design to its place. */
 private class LinkShapes(
-    size: Size,
     density: Density,
 ) {
     val unit = with(density) { 1.dp.toPx() }
-
-    // Where the design, which is LinkDesignWidth dp wide, starts on a tile of another width.
-    private val shift = (size.width / unit - LinkDesignWidth) / 2f
-    val from = EdgeFrom - shift
-    val to = LinkDesignWidth + shift + EdgeBeyond
-    val length = to - from
 
     /** One oblique view: x to the right, y down, z into the page and up to the right. */
     fun at(
         x: Float,
         y: Float,
         z: Float = CableDepth,
-    ) = Offset((shift + x + z * DepthX) * unit, (y - z * DepthY) * unit)
+    ) = Offset((x + z * DepthX) * unit, (y - z * DepthY) * unit)
 
     private fun quad(
         a: Offset,
@@ -334,53 +426,59 @@ private class LinkShapes(
 
     private fun end(
         x: Float,
-        y0: Float,
-        y1: Float,
+        above: Float,
+        below: Float,
         z0: Float,
         z1: Float,
-    ) = quad(at(x, y0, z0), at(x, y0, z1), at(x, y1, z1), at(x, y1, z0))
+    ) = quad(at(x, CableY - above, z0), at(x, CableY - above, z1), at(x, CableY + below, z1), at(x, CableY + below, z0))
 
     private fun top(
         x0: Float,
         x1: Float,
-        y: Float,
+        above: Float,
         z0: Float,
         z1: Float,
-    ) = quad(at(x0, y, z0), at(x1, y, z0), at(x1, y, z1), at(x0, y, z1))
+    ): Path {
+        val y = CableY - above
+        return quad(at(x0, y, z0), at(x1, y, z0), at(x1, y, z1), at(x0, y, z1))
+    }
 
     private fun front(
         x0: Float,
         x1: Float,
-        y0: Float,
-        y1: Float,
+        above: Float,
+        below: Float,
         z: Float,
-    ) = quad(at(x0, y0, z), at(x1, y0, z), at(x1, y1, z), at(x0, y1, z))
+    ) = quad(at(x0, CableY - above, z), at(x1, CableY - above, z), at(x1, CableY + below, z), at(x0, CableY + below, z))
 
-    /** The three faces of a box that this view shows: the end that looks right, the top, and the front. */
+    /**
+     * The three faces of a box that this view shows: the end that looks right, the top, and the front. [above] and
+     * [below] are its extent from the middle of the cable.
+     */
     private fun box(
         x0: Float,
         x1: Float,
-        y0: Float,
-        y1: Float,
+        above: Float,
+        below: Float,
         z0: Float,
         z1: Float,
     ) = listOf(
-        LinkFace(end(x1, y0, y1, z0, z1), top = false),
-        LinkFace(top(x0, x1, y0, z0, z1), top = true),
-        LinkFace(front(x0, x1, y0, y1, z0), top = false),
+        LinkFace(end(x1, above, below, z0, z1), top = false),
+        LinkFace(top(x0, x1, above, z0, z1), top = true),
+        LinkFace(front(x0, x1, above, below, z0), top = false),
     )
 
-    val socketSide = end(SocketEnd, SocketTop, SocketBottom, 0f, SocketDepth)
-    val port = end(SocketEnd, PortTop, PortBottom, PortNear, PortFar)
-    val socketTop = top(SocketStart, SocketEnd, SocketTop, 0f, SocketDepth)
-    val socketFront = front(SocketStart, SocketEnd, SocketTop, SocketBottom, 0f)
+    val socketSide = end(SocketEnd, SocketHalf, SocketHalf, 0f, SocketDepth)
+    val port = end(SocketEnd, PortHalf, PortHalf, PortNear, PortFar)
+    val socketTop = top(SocketStart, SocketEnd, SocketHalf, 0f, SocketDepth)
+    val socketFront = front(SocketStart, SocketEnd, SocketHalf, SocketHalf, 0f)
 
     // The nose, the boot, and the body of the plug, from the back to the front.
     val plug =
-        box(PlugNose, 150f, 49f, 67f, 5f, 13f) + box(186f, PlugEnd, 47f, 69f, 4f, 14f) +
-            box(148f, 186f, 43f, 73f, 2f, 16f)
-    val latch = box(150f, 172f, 39f, 43f, 6f, 12f)
-    val pivot = Offset((shift + PlugPivot) * unit, CableY * unit)
+        box(PlugNose, 150f, 9f, 9f, 5f, 13f) + box(186f, PlugEnd, 11f, 11f, 4f, 14f) +
+            box(148f, 186f, 15f, 15f, 2f, 16f)
+    val latch = box(150f, 172f, 19f, -15f, 6f, 12f)
+    val pivot = Offset(PlugPivot * unit, CableY * unit)
     val seat = at(SocketEnd, CableY)
     val windowAt = Offset(lamp(0).x - WindowInset * unit, (CableY - WindowInset) * unit)
     val windowSize = Size((LampStep * (LinkStageCount - 1) + WindowInset * 2f) * unit, WindowInset * 2f * unit)
@@ -400,6 +498,7 @@ private fun DrawScope.drawLink(
     palette: LinkPalette,
     tone: Color,
     stages: List<RipDpiLinkStage>,
+    span: LinkSpan,
 ) {
     val unit = shapes.unit
     val angle = figure.loose * LooseTurn
@@ -410,19 +509,18 @@ private fun DrawScope.drawLink(
     val dx = LeadStart - PlugPivot
     val leadX = PlugPivot + dx * cos(radians) + shift
     val leadY = CableY + dx * sin(radians) + drop
-    val lead = LinkLead(shapes, leadX, leadY, (leadY + CableY) / 2f + figure.sag.at)
+    val from = span.from.floatValue
+    val lead = LinkLead(shapes, leadX, leadY, (leadY + CableY) / 2f + figure.sag.at, span.to)
 
-    val jacket = shapes.jacket
-    val track = shapes.track
-    val deviceFrom = shapes.at(shapes.from, CableY)
+    val deviceFrom = shapes.at(from, CableY)
     val deviceTo = shapes.at(DeviceEnd, CableY)
-    drawLine(palette.jacket, deviceFrom, deviceTo, jacket.width, StrokeCap.Round)
-    drawLine(palette.track, deviceFrom, deviceTo, track.width, StrokeCap.Round)
+    drawLine(palette.jacket, deviceFrom, deviceTo, shapes.jacket.width, StrokeCap.Round)
+    drawLine(palette.track, deviceFrom, deviceTo, shapes.track.width, StrokeCap.Round)
     lead.trace(shapes.leadPath)
-    drawPath(shapes.leadPath, palette.jacket, style = jacket)
-    drawPath(shapes.leadPath, palette.track, style = track)
-    drawPulses(figure.sent, forward = true, shapes, lead, tone)
-    drawPulses(figure.received, forward = false, shapes, lead, tone)
+    drawPath(shapes.leadPath, palette.jacket, style = shapes.jacket)
+    drawPath(shapes.leadPath, palette.track, style = shapes.track)
+    drawPulses(figure.sent, forward = true, shapes, lead, tone, from)
+    drawPulses(figure.received, forward = false, shapes, lead, tone, from)
 
     translate(left = figure.recoil.at * unit) {
         drawFace(shapes.socketSide, palette.socketSide, shapes)
@@ -441,9 +539,6 @@ private fun DrawScope.drawLink(
     translate(left = figure.recoil.at * unit) {
         drawFace(shapes.socketTop, palette.socketTop, shapes)
         drawFace(shapes.socketFront, palette.socket, shapes)
-        // The lit lamps tint the faces of the socket by one step of tone.
-        drawFace(shapes.socketTop, tone.copy(alpha = tone.alpha * figure.cast * TopCast), shapes)
-        drawFace(shapes.socketFront, tone.copy(alpha = tone.alpha * figure.cast * FrontCast), shapes)
         drawRoundRect(palette.track, shapes.windowAt, shapes.windowSize, CornerRadius(WindowInset * unit))
         for (index in stages.indices) drawLamp(figure.lamps[index], shapes, index, palette.lamp(stages[index]))
     }
@@ -497,11 +592,12 @@ private class LinkLead(
     val startX: Float,
     private val startY: Float,
     private val middleY: Float,
+    val to: Float,
 ) {
     fun trace(path: Path) {
         val start = shapes.at(startX, startY)
-        val middle = shapes.at((startX + shapes.to) / 2f, middleY)
-        val end = shapes.at(shapes.to, CableY)
+        val middle = shapes.at((startX + to) / 2f, middleY)
+        val end = shapes.at(to, CableY)
         path.rewind()
         path.moveTo(start.x, start.y)
         path.quadraticTo(middle.x, middle.y, end.x, end.y)
@@ -512,9 +608,9 @@ private class LinkLead(
         x: Float,
         lane: Float,
     ): Offset {
-        val t = ((x - startX) / (shapes.to - startX)).coerceIn(0f, 1f)
+        val t = ((x - startX) / (to - startX)).coerceIn(0f, 1f)
         val u = 1f - t
-        val px = u * u * startX + 2f * u * t * (startX + shapes.to) / 2f + t * t * shapes.to
+        val px = u * u * startX + 2f * u * t * (startX + to) / 2f + t * t * to
         val py = u * u * startY + 2f * u * t * middleY + t * t * CableY
         return shapes.at(px, py + lane)
     }
@@ -526,6 +622,7 @@ private fun DrawScope.drawPulses(
     shapes: LinkShapes,
     lead: LinkLead,
     color: Color,
+    from: Float,
 ) {
     if (lane.alpha <= 0f) return
     val width = PulseWidth * shapes.unit
@@ -535,17 +632,17 @@ private fun DrawScope.drawPulses(
     for (index in lane.pulses.indices) {
         // The distance that a packet has travelled becomes a place on the cable: sent packets start at the device.
         val travelled = lane.pulses[index].at
-        val a = if (forward) shapes.from + travelled - LinkPulseLength else shapes.to - travelled
+        val a = if (forward) from + travelled - LinkPulseLength else lead.to - travelled
         val b = a + LinkPulseLength
         // The socket and the plug hide the middle of the cable.
         val deviceTo = minOf(b, DeviceEnd - CableCover)
-        val deviceFrom = maxOf(a, shapes.from)
+        val deviceFrom = maxOf(a, from)
         if (deviceTo - deviceFrom > MinPulse) {
             val start = shapes.at(deviceFrom, CableY + side)
             drawLine(tone, start, shapes.at(deviceTo, CableY + side), width, StrokeCap.Round)
         }
         val leadFrom = maxOf(a, lead.startX + CableCover)
-        val leadTo = minOf(b, shapes.to)
+        val leadTo = minOf(b, lead.to)
         if (leadTo - leadFrom > MinPulse) {
             drawLine(tone, lead.at(leadFrom, side), lead.at(leadTo, side), width, StrokeCap.Round)
         }
@@ -553,43 +650,44 @@ private fun DrawScope.drawPulses(
 }
 
 /** Height of the link tile. */
-val RipDpiLinkTileHeight = 104.dp
+val RipDpiLinkTileHeight = 80.dp
 
-// The design, in dp. It is 328 wide; a wider tile has more cable on both sides.
-private const val LinkDesignWidth = 328f
-private const val LinkDesignLength = 392f
-private const val EdgeFrom = -20f
+// The design, in dp. The cable runs along CableY, and every part is placed from it.
+private const val FigureMiddle = 140f
+private const val EdgeFrom = -24f
 private const val EdgeBeyond = 44f
+private const val ReserveGap = 6f
+private const val TileCorner = 12f
 private const val DepthX = 0.55f
 private const val DepthY = 0.4f
-private const val CableY = 58f
+private const val CableY = 44f
 private const val CableDepth = 9f
-private const val SocketStart = 84f
+private const val SocketStart = 74f
 private const val SocketEnd = 140f
-private const val SocketTop = 34f
-private const val SocketBottom = 82f
+private const val SocketHalf = 24f
 private const val SocketDepth = 18f
-private const val PortTop = 47f
-private const val PortBottom = 69f
+private const val PortHalf = 11f
 private const val PortNear = 4f
 private const val PortFar = 14f
 private const val PlugNose = 132f
 private const val PlugEnd = 206f
 private const val PlugPivot = 266f
-private const val DeviceEnd = 88f
+private const val DeviceEnd = 78f
 private const val LeadStart = 202f
 private const val CableCover = 3f
-private const val FirstLamp = 92f
-private const val LampStep = 10f
-private const val LampRadius = 3.5f
+private const val FirstLamp = 83f
+private const val LampStep = 12f
+private const val LampRadius = 4.5f
 private const val LampSteps = 32
 private const val LampPoints = 4f
 private const val WindowInset = 6.5f
 private const val FaceStroke = 3f
-private const val JacketWidth = 11f
-private const val TrackWidth = 8f
-private const val PulseWidth = 2.2f
-private const val LaneOffset = 1.7f
+
+// The cable carries two lanes of packets, each 4 dp wide.
+private const val JacketWidth = 16f
+private const val TrackWidth = 12f
+private const val PulseWidth = 4f
+private const val LaneOffset = 3f
 private const val MinPulse = 0.4f
 private const val RingFrom = 6f
 private const val RingGrow = 22f
@@ -607,20 +705,26 @@ private const val PlugInShare = 0.55f
 private const val PlugOutShare = 0.6f
 private const val PlugTouch = 20f
 private const val DragHoldMillis = 1_500L
+private const val NudgeDelayMillis = 700L
 private const val StillSteps = 4f
 private const val HalfPress = 0.5f
 
+private const val PlugMix = 0.14f
 private const val TopMix = 0.2f
-private const val SideMix = 0.25f
+private const val SideMix = 0.3f
 private const val PortMix = 0.75f
 private const val LampOffMix = 0.3f
-private const val TopCast = 0.22f
-private const val FrontCast = 0.1f
+private const val MidToneSteps = 14
+private const val ContrastOffset = 0.05f
 
 private const val NanosPerSecond = 1_000_000_000f
+private const val MillisPerSecond = 1_000f
 
 // A frame that comes late moves the figure by no more than this, so it does not jump.
 private const val LongestStep = 0.05f
+
+// A wait shorter than this is not worth a pause of the frame loop.
+private const val QuietWorth = 0.1f
 
 @Preview(name = "LinkTile light", showBackground = true, widthDp = 360)
 @Composable
@@ -647,6 +751,7 @@ private fun LinkTileModes(theme: String) {
                 RipDpiLinkMode.Live,
                 stages { RipDpiLinkStage.Complete },
                 colors.signal,
+                reserve = { PreviewReserve },
                 sent = { PreviewSent },
                 received = { PreviewReceived },
             )
@@ -669,5 +774,6 @@ private fun LinkTileModes(theme: String) {
 
 private const val PreviewSent = 0.4f
 private const val PreviewReceived = 0.8f
+private const val PreviewReserve = 0.4f
 private const val PreviewWarningAt = 1
 private const val PreviewFailedAt = 3

@@ -23,7 +23,7 @@ enum class RipDpiLinkMode {
     /** A session is live with a warning. */
     Unstable,
 
-    /** The session failed: the plug stops at the contact of the failed stage. */
+    /** The session failed: the plug stops at the socket, and the lamp of the failed stage shows the failure. */
     Broken,
 
     /** The session is paused: the plug is held at the latch, with its contacts apart. */
@@ -131,9 +131,6 @@ internal class LinkFigure(
     var shake = 1f
         private set
 
-    /** The share of the lamps that are lit. It tints the faces of the socket. */
-    var cast = 0f
-        private set
     val sent = LinkLane()
     val received = LinkLane()
     val lamps = List(LinkStageCount) { LinkLamp() }
@@ -158,10 +155,9 @@ internal class LinkFigure(
                 LinkDetent * (LinkStageCount - input.stages.count { it == RipDpiLinkStage.Complete }) / LinkStageCount
             }
 
-            // The plug stops at the contact of the stage that failed, or at the socket when no stage is named.
+            // A failed plug stops at the socket. The lamp names the stage: a few dp of travel cannot.
             RipDpiLinkMode.Broken -> {
-                val failed = input.stages.indexOf(RipDpiLinkStage.Failed).coerceAtLeast(0)
-                LinkDetent * (LinkStageCount - failed) / LinkStageCount
+                LinkDetent
             }
 
             RipDpiLinkMode.Live, RipDpiLinkMode.Unstable -> {
@@ -216,7 +212,6 @@ internal class LinkFigure(
         advance(received, input.received, seconds, input, probes = false)
         // Indexed, so a frame allocates no iterator.
         for (index in lamps.indices) lamps[index].advance(input.stages[index], seconds)
-        cast = ease(cast, lit(input), seconds, state / EaseShare)
     }
 
     /** The still frame of a state: nothing in flight, packets at their spacing, lamps steady. */
@@ -239,7 +234,26 @@ internal class LinkFigure(
             lamp.notch = stage.notch()
             lamp.turn = stage.turn()
         }
-        cast = lit(input)
+    }
+
+    /**
+     * How long no frame can change the picture, in seconds: a live link at rest with an empty cable waits for its
+     * next packet. Zero when a frame is due. The wait is at most one traffic sample long.
+     */
+    fun quiet(input: LinkInput): Float {
+        val calm = input.mode == RipDpiLinkMode.Live && input.drag == null && ring >= 1f
+        val empty = sent.pulses.isEmpty() && received.pulses.isEmpty()
+        val still = partsRest(input) && lampsRest(input)
+        if (!(calm && empty && still)) return 0f
+        return (minOf(sent.until, received.until) / LinkSpeed).coerceIn(0f, QuietLimit)
+    }
+
+    /** Lets [seconds] pass in which nothing moved, after a wait of [quiet]. */
+    fun skip(seconds: Float) {
+        sent.until -= LinkSpeed * seconds
+        received.until -= LinkSpeed * seconds
+        sent.wait -= seconds
+        received.wait -= seconds
     }
 
     /** True while a frame can change the picture. A settled tile with no session takes no frames. */
@@ -352,12 +366,6 @@ internal class LinkFigure(
         }
     }
 
-    private fun lit(input: LinkInput): Float {
-        var sum = 0f
-        for (index in lamps.indices) if (input.stages[index] != RipDpiLinkStage.Pending) sum += lamps[index].glow
-        return sum / LinkStageCount
-    }
-
     private fun LinkLamp.advance(
         stage: RipDpiLinkStage,
         seconds: Float,
@@ -418,8 +426,8 @@ internal const val LinkDetent = 15f
 internal const val LinkLean = 5f
 internal const val LinkOvershoot = 1.5f
 internal const val LinkPulseLength = 9f
-internal const val LinkDefaultLength = 392f
-internal const val LinkDefaultProbeFrom = 222f
+internal const val LinkDefaultLength = 396f
+internal const val LinkDefaultProbeFrom = 226f
 private const val LinkSeatedWithin = 0.6f
 private const val LinkAlignAt = 0.4f
 private const val LinkShake = 2f
@@ -430,6 +438,7 @@ private const val LinkSeed = 7
 
 private const val MillisPerSecond = 1_000f
 private const val RestsWithin = 1f
+private const val QuietLimit = 1f
 private const val StillSteps = 4f
 
 // An eased value comes within 5% of its target in one bucket.

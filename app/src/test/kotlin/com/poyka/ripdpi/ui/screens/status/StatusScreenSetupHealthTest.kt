@@ -161,10 +161,9 @@ class StatusScreenSetupHealthTest {
         composeRule.onAllNodesWithTag(RipDpiTestTags.StatusBackgroundGuidanceBanner).assertCountEquals(0)
         composeRule
             .onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore)
-            .performScrollTo()
             .assertIsDisplayed()
             .performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.StatusSetupHealthDetails).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusSetupHealthDetails).assertIsDisplayed()
         // Both items offer a "Review" action once the card is expanded.
         composeRule.onAllNodesWithText("Review").assertCountEquals(2)
         composeRule.onAllNodesWithText("Review the Doze exemption.").assertCountEquals(0)

@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.style.CommonStyle
 import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.foundation.style.styleResolver
@@ -84,7 +84,6 @@ import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.signal.RipDpiLinkMode
 import com.poyka.ripdpi.ui.components.signal.RipDpiLinkStage
 import com.poyka.ripdpi.ui.components.signal.RipDpiLinkTile
-import com.poyka.ripdpi.ui.components.signal.RipDpiSignalFieldHeight
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalMode
 import com.poyka.ripdpi.ui.components.signal.SignalTrafficMeter
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageState
@@ -107,6 +106,9 @@ import kotlinx.coroutines.delay
 private const val StackedRouteFontScale = 1.5f
 private const val PressedScale = 0.98f
 private val SessionClockMinSize = 16.sp
+
+// The share of the link tile that the session clock takes. The figure keeps the rest.
+private const val SessionClockShare = 0.4f
 
 private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)
 
@@ -172,7 +174,6 @@ fun RipDpiConnectionActuator(
     RipDpiCard(modifier = modifier, variant = RipDpiCardVariant.Elevated) {
         Column(modifier = Modifier.fillMaxWidth()) {
             ActuatorHeadline(state = resolved, stateStyle = style)
-            ActuatorSessionClock(resolved)
             ActuatorLink(resolved, style.signal, press, sessionHeld, onAction.takeIf { enabled })
             if (resolved.strategyLabel.isNotEmpty()) {
                 RipDpiConnectionStrategyPanel(
@@ -269,7 +270,11 @@ private fun ActuatorAction(
     )
 }
 
-/** The link tile: the path as a plug and a socket. A drag of the plug does what the connection action does. */
+/**
+ * The link tile: the path as a plug and a socket, with the session clock at its start edge while a session is live.
+ * The clock is inside the tile, so the action below does not move when a session starts. A drag of the plug does
+ * what the connection action does.
+ */
 @Composable
 private fun ActuatorLink(
     state: StatusConnectionActuatorUiState,
@@ -278,23 +283,43 @@ private fun ActuatorLink(
     held: Boolean,
     onPlug: (() -> Unit)?,
 ) {
+    val spacing = RipDpiThemeTokens.spacing
     val traffic = rememberSessionTraffic(state)
     val mode = if (held) RipDpiLinkMode.Held else state.status.toLinkMode()
-    RipDpiLinkTile(
-        mode = mode,
-        stages = remember(state.status, state.stages, held) { state.linkStages(held) },
-        tone = signal,
-        modifier =
-            Modifier
-                .padding(top = RipDpiThemeTokens.spacing.sm)
-                // The first launch hands its line over to the cable of this tile.
-                .ripDpiHandOffTarget(state.status.toSignalMode(), signal),
-        press = { press.amount.value },
-        pressed = press.pressed.value,
-        sent = { traffic.sent.floatValue },
-        received = { traffic.received.floatValue },
-        onPlug = onPlug,
-    )
+    val timed =
+        state.status == StatusConnectionActuatorStatus.Locked || state.status == StatusConnectionActuatorStatus.Degraded
+    // How far the clock is shown, from 0 to 1. The figure moves aside for it in the same motion.
+    val clock =
+        animateFloatAsState(
+            targetValue = if (timed) 1f else 0f,
+            animationSpec = RipDpiThemeTokens.motion.emphasizedTween(),
+            label = "Session clock",
+        )
+    Box(modifier = Modifier.fillMaxWidth().padding(top = spacing.sm), contentAlignment = Alignment.CenterStart) {
+        RipDpiLinkTile(
+            mode = mode,
+            stages = remember(state.status, state.stages, held) { state.linkStages(held) },
+            tone = signal,
+            // The first launch hands its line over to the cable of this tile.
+            modifier = Modifier.ripDpiHandOffTarget(state.status.toSignalMode(), signal),
+            reserve = { SessionClockShare * clock.value },
+            press = { press.amount.value },
+            pressed = press.pressed.value,
+            sent = { traffic.sent.floatValue },
+            received = { traffic.received.floatValue },
+            onPlug = onPlug,
+        )
+        if (timed) {
+            SessionClockText(
+                state = state,
+                modifier =
+                    Modifier
+                        .fillMaxWidth(SessionClockShare)
+                        .padding(start = spacing.md)
+                        .graphicsLayer { alpha = clock.value },
+            )
+        }
+    }
 }
 
 /** The traffic levels of the running session, from 0 to 1. */
@@ -392,21 +417,10 @@ private fun StatusConnectionActuatorStageState.toLinkStage(): RipDpiLinkStage =
 
 /** The idle duration is a meaningless 00:00:00, so only a live session shows the clock. */
 @Composable
-private fun ActuatorSessionClock(state: StatusConnectionActuatorUiState) {
-    val motion = RipDpiThemeTokens.motion
-    AnimatedVisibility(
-        visible =
-            state.status == StatusConnectionActuatorStatus.Locked ||
-                state.status == StatusConnectionActuatorStatus.Degraded,
-        enter = motion.sectionEnterTransition(),
-        exit = motion.sectionExitTransition(),
-    ) {
-        SessionClockText(state)
-    }
-}
-
-@Composable
-private fun SessionClockText(state: StatusConnectionActuatorUiState) {
+private fun SessionClockText(
+    state: StatusConnectionActuatorUiState,
+    modifier: Modifier = Modifier,
+) {
     val type = RipDpiThemeTokens.type
     val locale = LocalConfiguration.current.locales[0]
     val text = localizedClockDuration(state.sessionDuration, locale)
@@ -415,9 +429,7 @@ private fun SessionClockText(state: StatusConnectionActuatorUiState) {
     val spoken = remember(state.sessionDuration, locale) { spokenDuration(state.sessionDuration, locale) }
     Text(
         modifier =
-            Modifier
-                .height(RipDpiSignalFieldHeight)
-                .wrapContentHeight()
+            modifier
                 .semantics { contentDescription = spoken }
                 .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorDurationLabel)
                 .colonPulse(text, RipDpiThemeTokens.colors.signal) { layout },
@@ -427,7 +439,7 @@ private fun SessionClockText(state: StatusConnectionActuatorUiState) {
         style = type.heroValue.copy(textDirection = TextDirection.Ltr),
         color = RipDpiThemeTokens.colors.foreground,
         maxLines = 1,
-        // Large font scales shrink the clock to its row; it never wraps or clips.
+        // Large font scales shrink the clock to its share of the tile; it never wraps or clips.
         autoSize = TextAutoSize.StepBased(minFontSize = SessionClockMinSize, maxFontSize = type.heroValue.fontSize),
     )
 }

@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -249,6 +251,13 @@ fun Modifier.ripDpiHandOffTarget(
     breakAt: Float = HandOffLineMiddle,
 ): Modifier {
     val handOff = LocalRipDpiHandOff.current ?: return this
+    // The target is hidden while the line travels, and fades in when the line has landed on it.
+    val shown =
+        animateFloatAsState(
+            targetValue = if (handOff.travels) 0f else 1f,
+            animationSpec = if (handOff.travels) snap() else RipDpiThemeTokens.motion.quickTween(),
+            label = "Hand-off target",
+        )
     // A change of look does not move the line, so the position callback does not report it.
     SideEffect { handOff.targetLine = handOff.targetLine?.copy(mode = mode, color = color, breakAt = breakAt) }
     DisposableEffect(handOff) { onDispose { handOff.targetLine = null } }
@@ -267,7 +276,7 @@ fun Modifier.ripDpiHandOffTarget(
                 root.left <= bounds.left && root.top <= bounds.top &&
                 bounds.right <= root.right && bounds.bottom <= root.bottom
         handOff.targetLine = if (whole) RipDpiHandOffLine(bounds, mode, color, breakAt) else null
-    }.graphicsLayer { alpha = if (handOff.travels) 0f else 1f }
+    }.graphicsLayer { alpha = shown.value }
 }
 
 /**

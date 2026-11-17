@@ -23,7 +23,7 @@ The screen is an instrument that shows the traffic path. The hero card has one l
 
 ## Shape
 
-The hero is the elevated card with the standard card radius. The link tile is a `muted` container with the medium radius, and its figure is filled tonal shapes with no outline, glow, or shadow. No new radii.
+The hero is the elevated card with the standard card radius. The link tile is an outlined `card` surface with the medium radius, 80dp high, and its figure is filled tonal shapes with no outline, glow, or shadow. No new radii.
 
 ## Motion
 

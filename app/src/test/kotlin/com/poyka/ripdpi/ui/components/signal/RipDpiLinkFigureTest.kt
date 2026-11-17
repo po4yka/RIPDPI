@@ -47,11 +47,9 @@ class RipDpiLinkFigureTest {
         // Two of five stages are complete: three contacts of 3 dp are left.
         val two = listOf(Complete, Complete, Active, Pending, Pending)
         assertEquals(9f, figure.target(input(RipDpiLinkMode.Seeking, two)), 0f)
-        // A failure names its stage only: the plug stops at the fourth contact for the fourth stage.
+        // A failed plug stops at the socket, whichever stage failed.
         val failedAtTunnel = listOf(Pending, Pending, Pending, Failed, Pending)
-        assertEquals(6f, figure.target(input(RipDpiLinkMode.Broken, failedAtTunnel)), 0f)
-        // A failure that names no stage leaves the plug at the socket, as a connection attempt does.
-        assertEquals(15f, figure.target(input(RipDpiLinkMode.Broken, all(Pending))), 0f)
+        assertEquals(15f, figure.target(input(RipDpiLinkMode.Broken, failedAtTunnel)), 0f)
         assertEquals(15f, figure.target(input(RipDpiLinkMode.Seeking, all(Active))), 0f)
     }
 
@@ -198,8 +196,35 @@ class RipDpiLinkFigureTest {
         assertEquals(listOf(0f, 0.24f, 0.34f, 0f, 0f), figure.lamps.map { it.notch })
         assertEquals(Math.PI.toFloat(), figure.lamps[2].turn, 0f)
         assertEquals(0f, figure.lamps[1].turn, 0f)
-        // Four of five lamps are lit in the still frame, each at full strength.
-        assertEquals(0.8f, figure.cast, Tolerance)
+    }
+
+    @Test
+    fun `a live link with an empty cable rests until its next packet, for one second at most`() {
+        val silent = input(RipDpiLinkMode.Live, sent = 0f, received = 0f)
+        val figure = figure(input(RipDpiLinkMode.Open))
+
+        fun empty() = figure.sent.pulses.isEmpty() && figure.received.pulses.isEmpty()
+        // The plug seats and the first keep-alive packets cross the cable.
+        figure.run(1f, silent)
+        assertFalse(empty())
+        assertEquals(0f, figure.quiet(silent), 0f)
+
+        var frames = 0
+        while (!empty() && frames++ < 20 * FramesPerSecond) figure.advance(1f / FramesPerSecond, silent)
+        assertTrue(empty())
+        val rest = figure.quiet(silent)
+        assertTrue("rest $rest", rest > 0f && rest <= 1f)
+
+        // After the rests, the next keep-alive packet comes, and the link takes frames again.
+        frames = 0
+        while (empty() && frames++ < 10 * FramesPerSecond) {
+            val quiet = figure.quiet(silent)
+            if (quiet > 0f) figure.skip(quiet) else figure.advance(1f / FramesPerSecond, silent)
+        }
+        assertFalse(empty())
+        assertEquals(0f, figure.quiet(silent), 0f)
+        // A warning lamp breathes, so a link with a warning does not rest.
+        assertEquals(0f, figure(silent).quiet(input(RipDpiLinkMode.Unstable, sent = 0f, received = 0f)), 0f)
     }
 
     @Test
