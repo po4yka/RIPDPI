@@ -130,6 +130,14 @@ fun RipDpiLinkTile(
                 .then(plugDrag(mode, enabled = onPlug != null && moves, rtl, figure, drag, span, onPlug))
                 .drawWithCache {
                     val shapes = LinkShapes(this)
+                    // The parts that keep their shape are recorded here, and again only for a new size or theme.
+                    val parts =
+                        LinkParts(
+                            socketBack = obtainGraphicsLayer().apply { record { drawSocketBack(shapes, palette) } },
+                            plug = obtainGraphicsLayer().apply { record { drawPlug(shapes, palette) } },
+                            socketTop = obtainGraphicsLayer().apply { record { drawSocketTop(shapes, palette) } },
+                            socketFront = obtainGraphicsLayer().apply { record { drawSocketFront(shapes, palette) } },
+                        )
                     val edge = Stroke(1.dp.toPx())
                     val corner = CornerRadius(shapes.unit * TileCorner)
                     onDrawBehind {
@@ -152,7 +160,7 @@ fun RipDpiLinkTile(
                         scale(if (rtl) -1f else 1f, 1f) {
                             translate(left = shift * shapes.unit) {
                                 val cover = if (taken > 0f) container.value else Color.Unspecified
-                                drawLink(figure, shapes, palette, pulseColor.value, span, cover)
+                                drawLink(figure, shapes, parts, palette, pulseColor.value, span, cover)
                             }
                         }
                     }

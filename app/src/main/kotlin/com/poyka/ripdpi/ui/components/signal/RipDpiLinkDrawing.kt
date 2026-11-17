@@ -13,6 +13,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -278,6 +280,17 @@ internal class LinkShapes(
     }
 }
 
+/**
+ * The parts of the figure that never change shape, each recorded once. A frame draws a part as one operation and
+ * only moves it. They are in the order of the picture, from the back to the front.
+ */
+internal class LinkParts(
+    val socketBack: GraphicsLayer,
+    val plug: GraphicsLayer,
+    val socketTop: GraphicsLayer,
+    val socketFront: GraphicsLayer,
+)
+
 /** The fade of the device cable where other content takes the start of the tile. It is made again only on a change. */
 internal class LinkFade {
     private var color = Color.Unspecified
@@ -307,6 +320,7 @@ internal class LinkFade {
 internal fun DrawScope.drawLink(
     figure: LinkFigure,
     shapes: LinkShapes,
+    parts: LinkParts,
     palette: LinkPalette,
     tone: Color,
     span: LinkSpan,
@@ -324,21 +338,33 @@ internal fun DrawScope.drawLink(
         val brush = shapes.fade.brush(cover, shapes.at(from, CableY).x, shapes.at(from + FadeLength, CableY).x)
         drawRect(brush, start, Size((FadeLead + FadeLength) * unit, FadeHalf * 2f * unit))
     }
-    translate(left = figure.recoil.at * unit) {
-        drawFace(shapes.socketSide, palette.socketSide, shapes)
-        drawFace(shapes.sideBase, palette.sideBase, shapes)
-        // The port has a rim, a step lighter than the face that it is in.
-        drawPath(shapes.port, palette.socketTop, style = shapes.rim)
-        drawFace(shapes.port, palette.port, shapes)
-    }
+    translate(left = figure.recoil.at * unit) { drawLayer(parts.socketBack) }
     if (figure.ring < 1f) {
         val radius = (RingFrom + RingGrow * figure.ring) * unit
         drawCircle(tone, radius, shapes.seat, alpha = (1f - figure.ring) * RingAlpha, style = shapes.ring)
     }
     translate(left = shift * unit, top = drop * unit) {
-        rotate(angle, shapes.pivot) { drawPlug(figure, shapes, palette) }
+        rotate(angle, shapes.pivot) {
+            drawLayer(parts.plug)
+            // The latch goes down when a contact makes.
+            translate(top = figure.click.at.coerceAtLeast(0f) * unit) {
+                drawFaces(shapes.latch, palette.plug, palette.plugTop, shapes)
+            }
+        }
     }
-    translate(left = figure.recoil.at * unit) { drawSocket(figure, shapes, palette, tone) }
+    translate(left = figure.recoil.at * unit) { drawSocket(figure, shapes, parts, palette, tone) }
+}
+
+/** The end of the socket that the plug goes into. It is behind the plug. */
+internal fun DrawScope.drawSocketBack(
+    shapes: LinkShapes,
+    palette: LinkPalette,
+) {
+    drawFace(shapes.socketSide, palette.socketSide, shapes)
+    drawFace(shapes.sideBase, palette.sideBase, shapes)
+    // The port has a rim, a step lighter than the face that it is in.
+    drawPath(shapes.port, palette.socketTop, style = shapes.rim)
+    drawFace(shapes.port, palette.port, shapes)
 }
 
 private fun DrawScope.drawCables(
@@ -429,8 +455,8 @@ private fun DrawScope.drawPulse(
     }
 }
 
-private fun DrawScope.drawPlug(
-    figure: LinkFigure,
+/** The plug without its latch, which moves on it. */
+internal fun DrawScope.drawPlug(
     shapes: LinkShapes,
     palette: LinkPalette,
 ) {
@@ -441,20 +467,35 @@ private fun DrawScope.drawPlug(
     drawFaces(shapes.collar, palette.plug, palette.plugTop, shapes)
     drawFaces(shapes.body, palette.plug, palette.plugTop, shapes)
     drawPath(shapes.grip, palette.plugTop, style = shapes.hair)
-    // The latch goes down when a contact makes.
-    translate(top = figure.click.at.coerceAtLeast(0f) * shapes.unit) {
-        drawFaces(shapes.latch, palette.plug, palette.plugTop, shapes)
-    }
+}
+
+/** The gland and the top of the socket. The light of the lamps falls on the top, under the front. */
+internal fun DrawScope.drawSocketTop(
+    shapes: LinkShapes,
+    palette: LinkPalette,
+) {
+    drawFaces(shapes.gland, palette.socketSide, palette.socket, shapes)
+    drawFace(shapes.socketTop, palette.socketTop, shapes)
+}
+
+/** The front of the socket, with the window of the lamps. */
+internal fun DrawScope.drawSocketFront(
+    shapes: LinkShapes,
+    palette: LinkPalette,
+) {
+    drawFace(shapes.socketFront, palette.socket, shapes)
+    drawFace(shapes.frontBase, palette.socketBase, shapes)
+    drawRoundRect(palette.window, shapes.windowAt, shapes.windowSize, CornerRadius(WindowInset * shapes.unit))
 }
 
 private fun DrawScope.drawSocket(
     figure: LinkFigure,
     shapes: LinkShapes,
+    parts: LinkParts,
     palette: LinkPalette,
     tone: Color,
 ) {
-    drawFaces(shapes.gland, palette.socketSide, palette.socket, shapes)
-    drawFace(shapes.socketTop, palette.socketTop, shapes)
+    drawLayer(parts.socketTop)
     // The lamps light the top of the socket by one step of tone.
     var light = 0f
     for (index in figure.lamps.indices) {
@@ -462,9 +503,7 @@ private fun DrawScope.drawSocket(
         if (lamp.stage != RipDpiLinkStage.Pending) light += lamp.glow / LinkStageCount
     }
     if (light > 0f) drawPath(shapes.socketTop, tone, alpha = light.coerceAtMost(1f) * CastAlpha)
-    drawFace(shapes.socketFront, palette.socket, shapes)
-    drawFace(shapes.frontBase, palette.socketBase, shapes)
-    drawRoundRect(palette.window, shapes.windowAt, shapes.windowSize, CornerRadius(WindowInset * shapes.unit))
+    drawLayer(parts.socketFront)
     for (index in figure.lamps.indices) drawLamp(figure.lamps[index], shapes, index, palette)
 }
 
