@@ -527,11 +527,9 @@ class RipDpiProxyCmdPreferences(
     )
 
     companion object {
-        private fun cmdToArgs(cmd: String): Array<String> {
-            val firstArgIndex = cmd.indexOf("-")
-            val argsStr = (if (firstArgIndex > 0) cmd.substring(firstArgIndex) else cmd).trim()
-            return arrayOf("ripdpi") + shellSplit(argsStr)
-        }
+        // Text before the first option (for example a pasted program name) is not an argument.
+        private fun cmdToArgs(cmd: String): Array<String> =
+            arrayOf("ripdpi") + shellSplit(cmd.substring(cmd.indexOf('-').coerceAtLeast(0)))
     }
 
     override fun toNativeConfigJson(): String =

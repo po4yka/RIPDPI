@@ -1,41 +1,51 @@
 package com.poyka.ripdpi.utility
 
-// Based on https://gist.github.com/raymyers/8077031
-fun shellSplit(string: CharSequence): List<String> {
-    val tokens: MutableList<String> = ArrayList()
-    var escaping = false
-    var quoteChar = ' '
-    var quoting = false
-    var lastCloseQuoteIndex = Int.MIN_VALUE
-    var current = StringBuilder()
-
-    for (i in string.indices) {
-        val c = string[i]
-
-        if (escaping) {
-            current.append(c)
-            escaping = false
-        } else if (c == '\\' && !(quoting && quoteChar == '\'')) {
-            escaping = true
-        } else if (quoting && c == quoteChar) {
-            quoting = false
-            lastCloseQuoteIndex = i
-        } else if (!quoting && (c == '\'' || c == '"')) {
-            quoting = true
-            quoteChar = c
-        } else if (!quoting && Character.isWhitespace(c)) {
-            if (current.isNotEmpty() || lastCloseQuoteIndex == i - 1) {
-                tokens.add(current.toString())
-                current = StringBuilder()
+/**
+ * Splits a command line into arguments. Whitespace separates arguments, single and double quotes group text,
+ * and a backslash outside single quotes takes the next character literally. An empty quoted string ('' or "")
+ * is kept as an empty argument.
+ */
+fun shellSplit(input: CharSequence): List<String> {
+    val args = mutableListOf<String>()
+    val arg = StringBuilder()
+    var started = false
+    var quote: Char? = null
+    var escaped = false
+    for (c in input) {
+        when {
+            escaped -> {
+                arg.append(c)
+                escaped = false
+                started = true
             }
-        } else {
-            current.append(c)
+
+            c == '\\' && quote != '\'' -> {
+                escaped = true
+            }
+
+            quote != null -> {
+                if (c == quote) quote = null else arg.append(c)
+            }
+
+            c == '\'' || c == '"' -> {
+                quote = c
+                started = true
+            }
+
+            Character.isWhitespace(c) -> {
+                if (started) {
+                    args += arg.toString()
+                    arg.clear()
+                    started = false
+                }
+            }
+
+            else -> {
+                arg.append(c)
+                started = true
+            }
         }
     }
-
-    if (current.isNotEmpty() || lastCloseQuoteIndex == string.length - 1) {
-        tokens.add(current.toString())
-    }
-
-    return tokens
+    if (started) args += arg.toString()
+    return args
 }

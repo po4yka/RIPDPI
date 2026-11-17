@@ -32,6 +32,8 @@ Commits before the license change were released under the BSD 3-Clause License. 
 
 Bundled third-party code keeps its own license. Its notices stay in the files or directories that contain it, for example `native/rust/vendor/`, `native/rust/crates/ripdpi-socks5-core/LICENSE`, and `core/engine/src/main/assets/lua/LICENSE.zapret2.txt`.
 
+Parts of the native desync engine are derived from [byedpi](https://github.com/hufrea/byedpi), Copyright (c) 2024 hufrea, under the MIT License. This includes the command-line option set and constants in `native/rust/crates/ripdpi-config` and the default fake TLS ClientHello in `native/rust/crates/ripdpi-packets`. The license text is in [LICENSES/byedpi-MIT.txt](LICENSES/byedpi-MIT.txt).
+
 ## Contributions
 
 To keep dual licensing possible, every contribution requires agreement to the [Contributor License Agreement](CLA.md).
