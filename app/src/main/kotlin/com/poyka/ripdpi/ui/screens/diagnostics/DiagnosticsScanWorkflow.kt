@@ -63,14 +63,7 @@ internal fun DiagnosticsScanWorkflowCard(
         variant = RipDpiCardVariant.Tonal,
     ) {
         StatusIndicator(label = presentation.title, tone = statusTone(presentation.tone))
-        // The status label is the profile name when the profile has no result to report yet.
-        if (profile.name != presentation.title) {
-            Text(
-                text = profile.name,
-                style = RipDpiThemeTokens.type.screenTitle,
-                color = colors.foreground,
-            )
-        }
+        // The profile row above this card names the profile.
         if (presentation.body.isNotBlank()) {
             Text(
                 text = presentation.body,
