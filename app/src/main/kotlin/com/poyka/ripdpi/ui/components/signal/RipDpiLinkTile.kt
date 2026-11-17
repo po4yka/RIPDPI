@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
@@ -112,7 +113,9 @@ fun RipDpiLinkTile(
         )
     }
     // The tile first shows the still frame of its state, so a tile that takes no frames is still correct.
-    val figure = remember(motion) { LinkFigure(motion = motion).apply { settle(input()) } }
+    // The frame loop and the draw phase follow the input; the composition does not, so it reads without observation.
+    val figure =
+        remember(motion) { LinkFigure(motion = motion).apply { Snapshot.withoutReadObservation { settle(input()) } } }
     if (moves) {
         LaunchedEffect(figure, mode, lamps, pressed, dragging, nudge.active) {
             // A press starts before the plug moves, so the loop also runs while the action is pressed.

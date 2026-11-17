@@ -7,6 +7,7 @@ import com.poyka.ripdpi.ui.components.signal.RipDpiLinkStage.Pending
 import com.poyka.ripdpi.ui.components.signal.RipDpiLinkStage.Warning
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
@@ -319,6 +320,21 @@ class RipDpiLinkFigureTest {
             before = now
         }
         assertTrue(figure.sent.pulses.isEmpty() && figure.received.pulses.isEmpty())
+    }
+
+    @Test
+    fun `a cable that has moved comes back to its still frame`() {
+        val live = input(RipDpiLinkMode.Live)
+        val figure = figure(live)
+
+        fun shape() = (0..10).map { figure.rope.y(it / 10f) }
+        val still = shape()
+
+        // The plug comes out and the cable swings. The still frame of the same state is then the first one again.
+        figure.run(0.3f, input(RipDpiLinkMode.Open))
+        assertNotEquals(still, shape())
+        figure.settle(live)
+        assertEquals(still, shape())
     }
 
     @Test

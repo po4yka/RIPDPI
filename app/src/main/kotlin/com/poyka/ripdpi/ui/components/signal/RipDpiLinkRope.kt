@@ -29,6 +29,9 @@ internal class LinkRope {
     private val beforeY = FloatArray(RopeNodes)
     private var spare = 0f
 
+    // The ends that the cable is at rest between, or NaN after it has moved.
+    private val rested = FloatArray(EndValues) { Float.NaN }
+
     /** The speed of the fastest point, in dp a second. */
     var speed = 0f
         private set
@@ -44,12 +47,15 @@ internal class LinkRope {
         spare += seconds
         while (spare >= RopeStep) {
             spare -= RopeStep
+            rested[0] = Float.NaN
             move(ends, RopeDamping)
         }
     }
 
     /** Puts the cable at rest between [ends]. */
     fun settle(ends: LinkRopeEnds) {
+        // The cable is already at rest between these ends, so the still frame of a new traffic level is free.
+        if (rests(ends)) return
         for (index in 0 until RopeNodes) {
             val share = index / (RopeNodes - 1f)
             x[index] = ends.fromX + (ends.toX - ends.fromX) * share
@@ -62,6 +68,21 @@ internal class LinkRope {
         y.copyInto(beforeY)
         speed = 0f
         spare = 0f
+        keep(ends)
+    }
+
+    private fun rests(ends: LinkRopeEnds): Boolean =
+        rested[0] == ends.fromX && rested[1] == ends.fromY && rested[2] == ends.alongX && rested[3] == ends.alongY &&
+            rested[4] == ends.toX && rested[5] == ends.toY && rested[6] == ends.stretch
+
+    private fun keep(ends: LinkRopeEnds) {
+        rested[0] = ends.fromX
+        rested[1] = ends.fromY
+        rested[2] = ends.alongX
+        rested[3] = ends.alongY
+        rested[4] = ends.toX
+        rested[5] = ends.toY
+        rested[6] = ends.stretch
     }
 
     /** The place of the cable at the share [t] of its length, on a smooth curve through its points. */
@@ -142,6 +163,7 @@ internal class LinkRope {
 }
 
 private const val RopeNodes = 10
+private const val EndValues = 7
 private const val FirstFree = 2
 private const val LastFree = RopeNodes - 3
 
