@@ -17,6 +17,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource
 import com.poyka.ripdpi.services.ConnectionHealthDestinationClass
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -74,11 +75,19 @@ fun ConnectionHealthScreen(
             )
         } else {
             ConnectionHealthSummary(uiState)
+            // A card states its source only when no card above it has stated the same source.
+            val stated = mutableListOf<RuntimeMeasurementSource?>()
+            if (uiState.qualitySampleCount != null) stated += uiState.qualitySource
             if (uiState.latencyDistributions.isNotEmpty()) {
-                LatencyDistributionsCard(distributions = uiState.latencyDistributions, source = uiState.latencySource)
+                LatencyDistributionsCard(
+                    distributions = uiState.latencyDistributions,
+                    source = uiState.latencySource,
+                    showSource = uiState.latencySource !in stated,
+                )
+                stated += uiState.latencySource
             }
             uiState.dnsCounters?.let { counters ->
-                DnsCountersCard(counters = counters, source = uiState.dnsSource)
+                DnsCountersCard(counters, uiState.dnsSource, showSource = uiState.dnsSource !in stated)
             }
             DestinationRows(uiState)
         }
@@ -229,13 +238,14 @@ private fun ConnectionHealthDestinationClass.label(): String =
 @Composable
 private fun LatencyDistributionsCard(
     distributions: List<LatencyDistributionUiState>,
-    source: com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource?,
+    source: RuntimeMeasurementSource?,
+    showSource: Boolean,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.connection_health_latency_section_title))
-        MeasurementSource(source)
+        if (showSource) MeasurementSource(source)
         MeasurementHelp(
             stringResource(R.string.connection_health_latency_caption),
             stringResource(R.string.measurement_percentiles_meaning),
@@ -305,13 +315,14 @@ private fun PercentileBar(
 @Composable
 private fun DnsCountersCard(
     counters: DnsCountersUiState,
-    source: com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource?,
+    source: RuntimeMeasurementSource?,
+    showSource: Boolean,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.connection_health_dns_section_title))
-        MeasurementSource(source)
+        if (showSource) MeasurementSource(source)
         MeasurementHelp(stringResource(R.string.measurement_runtime_scope))
         counters.cacheHitRatePercent?.let { rate ->
             Text(
