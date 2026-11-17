@@ -186,10 +186,11 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
         self.assertNotIn("گواهی‌نامه", self.value("profile_share_warning_body"))
         self.assertIn("درخواست صریح", self.value("data_transparency_export_explicit"))
         pcap = self.value("diagnostics_pcap_card_body_idle")
-        for term in ("خام", "محلی", "۲۴", "۳", "شروع", "خودکار"):
+        for term in ("خام", "محلی", "۲۴", "غیرفعال"):
             self.assertIn(term, pcap)
+        self.assertRegex(pcap, r"(۳|سه) فایل")
         consent = self.value("vpn_dev_pcap_consent_warning")
-        for term in ("TLS SNI", "IP", "۶۴ MiB", "خصوصی برنامه", "صریحاً"):
+        for term in ("خام", "IP", "بار مفید", "این دستگاه", "متوقف"):
             self.assertIn(term, consent)
         self.assertIn("جای دیگری", self.value("settings_diagnostics_retention_body"))
         self.assertIn("انتخاب محل ذخیره", self.value("diagnostics_save_logs_body"))

@@ -47,8 +47,9 @@ class SpanishLocalizationRegressionsTest(unittest.TestCase):
         for term in ("tráfico", "credenciales", "diagnóstico", "privileg", "confía"):
             self.assertIn(term, warning)
         pcap = text(self.es["diagnostics_pcap_card_body_idle"])
-        for term in ("sin procesar", "24", "3", "automática"):
+        for term in ("sin procesar", "local", "24", "inactivos"):
             self.assertIn(term, pcap)
+        self.assertRegex(pcap, r"(3|tres) archivos")
         retention = text(self.es["settings_diagnostics_retention_body"])
         for term in ("aplicación", "elimine", "otros lugares"):
             self.assertIn(term, retention)

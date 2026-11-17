@@ -486,12 +486,12 @@
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s erreichbar</string>
     <string name="diagnostics_trends_section">Aktuelle Trends</string>
     <string name="diagnostics_pcap_card_title">Paketaufzeichnung</string>
-    <string name="diagnostics_pcap_card_body_idle">Zeichnet unverarbeitete IP-Pakete in einer lokalen PCAP-Datei auf. Die Bereinigung behält bis zu drei Dateien und entfernt inaktive Dateien, die älter als 24 Stunden sind.</string>
-    <string name="diagnostics_pcap_card_body_recording">Unverarbeitete IP-Pakete werden in lokalen PCAP-Dateien aufgezeichnet. Bereinigte Diagnosearchive enthalten keine PCAP-Dateien.</string>
+    <string name="diagnostics_pcap_card_body_idle">Zeichnet rohe IP-Pakete in einer lokalen PCAP-Datei auf. Die Bereinigung behält bis zu drei Dateien und entfernt inaktive Dateien, die älter als 24 Stunden sind.</string>
+    <string name="diagnostics_pcap_card_body_recording">Rohe IP-Pakete werden in lokalen PCAP-Dateien aufgezeichnet. Diagnosearchive mit unkenntlich gemachten Angaben enthalten keine PCAP-Dateien.</string>
     <string name="diagnostics_pcap_card_start">Aufzeichnung starten</string>
     <string name="diagnostics_pcap_card_stop">Aufzeichnung stoppen</string>
     <string name="diagnostics_pcap_disclosure_title">Hinweis zur Rohpaketaufzeichnung</string>
-    <string name="diagnostics_pcap_disclosure_body">PCAP-Dateien können Paketnutzdaten enthalten. Die Bereinigung behält bis zu drei Dateien und entfernt inaktive Dateien, die älter als 24 Stunden sind. PCAP-Dateien bleiben von bereinigten Diagnosearchiven getrennt.</string>
+    <string name="diagnostics_pcap_disclosure_body">PCAP-Dateien können Paketnutzdaten enthalten. Die Bereinigung behält bis zu drei Dateien und entfernt inaktive Dateien, die älter als 24 Stunden sind. PCAP-Dateien bleiben von Diagnosearchiven mit unkenntlich gemachten Angaben getrennt.</string>
     <string name="diagnostics_open_logs_body">Öffnet den Live-Protokollstrom mit Filtern für Dienst, Proxy, Tunnel und Diagnose.</string>
     <string name="blockcheck_dns_warning">Der DNS-Vergleich hat für mindestens eine Domain ein Manipulationssignal markiert.</string>
     <string name="blockcheck_diagnosis_title">Warum diese Site blockiert ist</string>

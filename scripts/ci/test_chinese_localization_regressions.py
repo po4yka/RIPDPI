@@ -39,8 +39,9 @@ class ChineseLocalizationRegressionsTest(unittest.TestCase):
             self.assertIn(term, warning)
         self.assertIn("凭据", text(self.zh["profile_share_setup_sheet_template"]))
         pcap = text(self.zh["diagnostics_pcap_card_body_idle"])
-        for term in ("原始", "24", "3", "自动分享"):
+        for term in ("原始", "本地", "24", "非活动"):
             self.assertIn(term, pcap)
+        self.assertRegex(pcap, r"(3|三)个文件")
         retention = text(self.zh["settings_diagnostics_retention_body"])
         for term in ("应用", "删除", "其他位置"):
             self.assertIn(term, retention)

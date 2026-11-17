@@ -188,9 +188,9 @@ class GermanLocalizationRegressionsTest(unittest.TestCase):
         for term in ("verkehr", "zugang", "diagnose", "privileg", "vertrau"):
             self.assertIn(term, warning)
         pcap = text(self.de["diagnostics_pcap_card_body_idle"]).casefold()
-        for term in ("roh", "24", "3", "automatisch"):
+        for term in ("roh", "lokal", "24", "inaktiv"):
             self.assertIn(term, pcap)
-        self.assertRegex(pcap, r"keine|nicht")
+        self.assertRegex(pcap, r"(3|drei) dateien")
         retention = text(self.de["settings_diagnostics_retention_body"]).casefold()
         self.assertRegex(retention, r"app-speicher|app.?speicher")
         self.assertRegex(retention, r"ander|anderswo")

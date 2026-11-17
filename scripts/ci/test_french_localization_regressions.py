@@ -250,8 +250,9 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
         for term in ("trafic", "identifiants", "diagnostics", "privilégiées", "confiance"):
             self.assertIn(term, warning)
         pcap = text(self.fr["diagnostics_pcap_card_body_idle"]).casefold()
-        for term in ("octets bruts", "local", "24 h", "3 fichiers", "avant le démarrage", "aucun partage automatique"):
+        for term in ("paquets ip bruts", "local", "24 heures", "inactifs"):
             self.assertIn(term, pcap)
+        self.assertRegex(pcap, r"(3|trois) fichiers")
         self.assertIn("demande explicite", text(self.fr["data_transparency_export_explicit"]))
         self.assertIn("ailleurs", text(self.fr["settings_diagnostics_retention_body"]))
         self.assertIn("votre accord", text(self.fr["update_channel_github_body"]))
