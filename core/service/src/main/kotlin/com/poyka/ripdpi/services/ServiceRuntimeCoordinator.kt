@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
@@ -207,20 +208,25 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
      * does nothing, and the guarded stop leaves alone a session that a queued Start brought up.
      * The failure is reported at once, because the guarded stop can wait behind a long reload or
      * handover; the lifecycle status itself changes only under the mutex.
+     * An [engineFailure] may keep the session's barrier instead (see [retainBarrierAfterEngineFailure]).
      */
     protected fun failAndStopFromCallback(
         runtimeId: String,
         failureReason: FailureReason?,
+        engineFailure: Boolean = false,
     ) {
         val isCurrent = { runtimeSession?.runtimeId == runtimeId }
         if (!isCurrent()) return
-        failureReason?.let(runtimeHooks.statusHooks.reportCallbackFailure)
+        // A Failed session keeps its first reason; a stop still publishes the new one under the mutex.
+        if (!engineFailure || status != ServiceStatus.Failed) {
+            failureReason?.let(runtimeHooks.statusHooks.reportCallbackFailure)
+        }
         host.serviceScope.launch(ioDispatcher) {
             val guard = RuntimeStopGuard(isCurrent = isCurrent, failureReason = failureReason)
-            if (failureReason == null) {
-                stop(guard = guard)
-            } else {
-                failAndStopRuntime(failureReason, guard, ::beforeCallbackFailureStop)
+            when {
+                failureReason == null -> stop(guard = guard)
+                engineFailure && retainBarrierAfterEngineFailure(isCurrent, failureReason) -> Unit
+                else -> failAndStopRuntime(failureReason, guard, ::beforeCallbackFailureStop)
             }
         }
     }
@@ -228,17 +234,64 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     /** Runs under the lifecycle mutex before a callback failure tears the runtime down. */
     protected open suspend fun beforeCallbackFailureStop() = Unit
 
+    /** Read when an engine dies: true keeps the session's fail-closed barrier instead of stopping. */
+    protected open suspend fun shouldRetainBarrierOnEngineFailure(): Boolean = false
+
+    // Written under the mutex: the session whose barrier an engine failure retained, so later failures keep it.
+    private var engineFailureBarrierRuntimeId: String? = null
+
+    /**
+     * Keeps the current session's fail-closed barrier after a connection engine died and publishes Failed.
+     * Returns false when the caller must fail and stop the session as before: the setting asks for a stop,
+     * the session is stale, stopping, or not Connected, or the barrier could not be kept.
+     */
+    protected suspend fun retainBarrierAfterEngineFailure(
+        isCurrent: () -> Boolean,
+        failureReason: FailureReason,
+        beforeFailureStatus: suspend () -> Unit = {},
+    ): Boolean {
+        val retained =
+            shouldRetainBarrierOnEngineFailure() &&
+                mutex.withLock {
+                    val current = isCurrent() && !stopping
+                    val runtimeId = runtimeSession?.runtimeId
+                    if (current && status == ServiceStatus.Failed && engineFailureBarrierRuntimeId == runtimeId) {
+                        return@withLock true
+                    }
+                    val kept =
+                        current &&
+                            status == ServiceStatus.Connected &&
+                            runtimeHooks.handoverHooks.retainFailClosedAfterExhaustion()
+                    if (kept) {
+                        engineFailureBarrierRuntimeId = runtimeId
+                        beforeFailureStatus()
+                        runtimeHooks.statusHooks.updateStatus(ServiceStatus.Failed, failureReason)
+                    }
+                    kept
+                }
+        if (retained) {
+            Logger.w { "Connection engine failed; keeping the VPN barrier until the user stops it" }
+        } else {
+            Logger.w { "Connection engine failed; stopping the service" }
+        }
+        return retained
+    }
+
     protected fun monitorNfqws(
         manager: RootHelperManager,
         beforeStopFinalization: suspend () -> Unit = {},
     ) {
         val observedSession = runtimeSession ?: return
         manager.monitorNfqws(host.serviceScope) { error ->
-            failAndStopRuntime(
-                failureReason = FailureReason.NativeError(error.message ?: "nfqws2 failed"),
-                guard = RuntimeStopGuard(isCurrent = { runtimeSession?.runtimeId == observedSession.runtimeId }),
-                beforeStopFinalization = beforeStopFinalization,
-            )
+            val failureReason = FailureReason.NativeError(error.message ?: "nfqws2 failed")
+            val isCurrent = { runtimeSession?.runtimeId == observedSession.runtimeId }
+            if (!retainBarrierAfterEngineFailure(isCurrent, failureReason)) {
+                failAndStopRuntime(
+                    failureReason = failureReason,
+                    guard = RuntimeStopGuard(isCurrent = isCurrent),
+                    beforeStopFinalization = beforeStopFinalization,
+                )
+            }
         }
     }
 

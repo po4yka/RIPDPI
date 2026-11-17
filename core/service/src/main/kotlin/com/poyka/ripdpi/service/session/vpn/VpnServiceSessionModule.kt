@@ -446,6 +446,7 @@ internal object VpnServiceSessionModule {
             proxyRuntimeSupervisor = services.proxyRuntimeSupervisor,
             autolearnActivationReceiptPublisher = services.autolearnActivationReceiptPublisher,
             statusReporter = services.statusReporter,
+            appSettingsRepository = runtimeDependencies.appSettingsRepository,
             configurationLifecycle = configurationLifecycle,
             transportFailoverApplyTracker = transportFailoverApplyTracker,
             screenStateObserver = runtimeDependencies.screenStateObserver,

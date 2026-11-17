@@ -58,6 +58,7 @@ internal data class VpnRuntimeTelemetryStateBindings(
 
 internal data class VpnRuntimeTelemetryActions(
     val updateStatus: suspend (ServiceStatus, FailureReason?) -> Unit,
+    val retainBarrierAfterEngineFailure: suspend (FailureReason, RuntimeStopGuard, suspend () -> Unit) -> Boolean,
     val failAndStopService: suspend (FailureReason, RuntimeStopGuard?, suspend () -> Unit) -> Boolean,
     val stopService: suspend (RuntimeStopGuard?) -> Boolean,
 )
@@ -66,7 +67,7 @@ internal fun createVpnRuntimeTelemetryCoordinator(
     runtimePorts: VpnRuntimeTelemetryRuntimePorts,
     supervisors: VpnRuntimeTelemetrySupervisors,
     reporterPorts: VpnRuntimeTelemetryReporterPorts,
-    stateBindings: VpnRuntimeTelemetryStateBindings,
+    state: VpnTelemetryStateAccess,
     actions: VpnRuntimeTelemetryActions,
 ): VpnTelemetryCoordinator =
     VpnTelemetryCoordinator(
@@ -76,7 +77,7 @@ internal fun createVpnRuntimeTelemetryCoordinator(
                 supervisors = supervisors,
                 reporterPorts = reporterPorts,
             ),
-        state = VpnRuntimeTelemetryState(stateBindings),
+        state = state,
         callbacks = VpnRuntimeTelemetryCallbacks(actions),
     )
 
@@ -107,7 +108,7 @@ private class VpnRuntimeTelemetryDependencies(
         )
 }
 
-private class VpnRuntimeTelemetryState(
+internal class VpnRuntimeTelemetryState(
     private val bindings: VpnRuntimeTelemetryStateBindings,
 ) : VpnTelemetryStateAccess {
     override fun status(): ServiceStatus = bindings.currentStatus()
@@ -131,6 +132,12 @@ private class VpnRuntimeTelemetryCallbacks(
         status: ServiceStatus,
         failureReason: FailureReason?,
     ) = actions.updateStatus(status, failureReason)
+
+    override suspend fun retainBarrierAfterEngineFailure(
+        failureReason: FailureReason,
+        guard: RuntimeStopGuard,
+        beforeFailureStatus: suspend () -> Unit,
+    ): Boolean = actions.retainBarrierAfterEngineFailure(failureReason, guard, beforeFailureStatus)
 
     override suspend fun failAndStopService(
         failureReason: FailureReason,

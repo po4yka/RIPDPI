@@ -95,10 +95,13 @@ internal class VpnTelemetryFailureHandler(
                     failureReason = failureReason,
                     currentSession = state::runtimeSession,
                 )
-            if (
-                callbacks.failAndStopService(failureReason, guard) {
-                    dependencies.telemetryReporter.report(telemetry, state, failureReason)
-                }
+            val reportFailure: suspend () -> Unit = {
+                dependencies.telemetryReporter.report(telemetry, state, failureReason)
+            }
+            if (guard != null && callbacks.retainBarrierAfterEngineFailure(failureReason, guard, reportFailure)) {
+                VpnTelemetryFailureHandling.StopAccepted
+            } else if (
+                callbacks.failAndStopService(failureReason, guard, reportFailure)
             ) {
                 VpnTelemetryFailureHandling.StopAccepted
             } else {

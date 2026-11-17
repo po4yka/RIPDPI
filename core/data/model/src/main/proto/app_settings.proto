@@ -46,6 +46,14 @@ message StrategyUdpStep {
   string ipv6_extension_profile = 5;
 }
 
+// What the VPN does when a connection engine dies while connected.
+enum VpnEngineFailureAction {
+  // Keep the TUN as a blocking barrier until the user stops the VPN.
+  VPN_ENGINE_FAILURE_ACTION_BLOCK = 0;
+  // Stop the VPN; traffic goes out on the real network.
+  VPN_ENGINE_FAILURE_ACTION_STOP = 1;
+}
+
 message AppSettings {
   reserved 15, 16, 17, 29, 30, 31, 32, 64, 69, 71, 93, 94, 118, 120, 121, 130, 190, 208, 209, 215, 216;
   reserved
@@ -497,4 +505,7 @@ message AppSettings {
   // Set in the update that wipes a PIN whose keystore key was lost; cleared on acknowledgement or a new PIN.
   // Local to this device: never exported in backups.
   bool app_lock_reset_notice_pending = 425;
+
+  // Unset is BLOCK, so existing installs keep traffic blocked after an engine failure.
+  VpnEngineFailureAction vpn_engine_failure_action = 431;
 }

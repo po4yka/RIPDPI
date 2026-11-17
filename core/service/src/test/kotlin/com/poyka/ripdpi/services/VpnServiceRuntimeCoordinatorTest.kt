@@ -36,6 +36,7 @@ import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
+import com.poyka.ripdpi.data.setBlocksTrafficOnEngineFailure
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
@@ -56,6 +57,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -200,30 +202,16 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun relayExitFailsClosedAndHaltsVpnService() =
+    fun relayExitStopsVpnServiceWhenSettingIsStop() =
         runTest {
-            val env =
-                newEnv(
-                    resolutions =
-                        listOf(
-                            sampleResolution(
-                                mode = Mode.VPN,
-                                proxyPreferences =
-                                    RipDpiProxyUIPreferences(
-                                        protocols = RipDpiProtocolConfig(udpAssociateEnabled = false),
-                                        relay =
-                                            RipDpiRelayConfig(
-                                                enabled = true,
-                                                kind = RelayKindVlessReality,
-                                                profileId = "relay-profile",
-                                            ),
-                                    ),
-                            ),
-                        ),
-                )
+            val resolution = relayResolution()
+            val settings = TestAppSettingsRepository(resolution.settings)
+            val env = newEnv(resolutions = listOf(resolution), appSettingsRepository = settings)
 
             env.startCaptured()
             runCurrent()
+            // The setting is read when the engine dies, not when the VPN starts.
+            settings.update { setBlocksTrafficOnEngineFailure(false) }
             env.relayFactory.lastRuntime.complete(17)
             repeat(3) { runCurrent() }
 
@@ -234,6 +222,132 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.factory.lastRuntime.stopCount)
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
         }
+
+    @Test
+    fun relayExitKeepsTunAsBarrierUntilExplicitStopByDefault() =
+        runTest {
+            val resolution = relayResolution()
+            val env = newEnv(resolutions = listOf(resolution, resolution))
+
+            env.startCaptured()
+            runCurrent()
+            val barrierSession = env.tunnelProvider.session
+            env.relayFactory.lastRuntime.complete(17)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertEquals(
+                FailureReason.NativeError("Relay exited with code 17"),
+                env.store.eventHistory
+                    .filterIsInstance<ServiceEvent.Failed>()
+                    .last()
+                    .reason,
+            )
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertFalse(barrierSession.closed)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+            assertEquals(1, env.factory.lastRuntime.stopCount)
+
+            env.coordinator.stop()
+            runCurrent()
+
+            assertTrue(barrierSession.closed)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+
+            env.startCaptured()
+            runCurrent()
+
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
+    fun secondEngineFailureKeepsTheRetainedBarrierAndFirstReason() =
+        runTest {
+            val resolution = relayResolution()
+            val env =
+                newEnv(
+                    resolutions = listOf(resolution),
+                    // The proxy dies with a crash code while the barrier stops it: a second engine failure.
+                    runtimeFactory = { events -> TestProxyRuntime(events).apply { beforeStop = { complete(9) } } },
+                )
+
+            env.startCaptured()
+            runCurrent()
+            val barrierSession = env.tunnelProvider.session
+            env.relayFactory.lastRuntime.complete(17)
+            repeat(5) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertFalse(barrierSession.closed)
+            assertEquals(
+                FailureReason.NativeError("Relay exited with code 17"),
+                env.store.eventHistory
+                    .filterIsInstance<ServiceEvent.Failed>()
+                    .last()
+                    .reason,
+            )
+        }
+
+    @Test
+    fun tunnelExitKeepsTunAsBarrierUntilExplicitStopByDefault() =
+        runTest {
+            val env = newEnv(resolutions = listOf(plainDnsResolution()))
+
+            env.startCaptured()
+            runCurrent()
+            env.bridgeFactory.bridge.telemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "idle",
+                    health = "healthy",
+                    lastError = "tunnel process exited",
+                )
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertEquals(
+                FailureReason.NativeError("tunnel process exited"),
+                env.store.eventHistory
+                    .filterIsInstance<ServiceEvent.Failed>()
+                    .last()
+                    .reason,
+            )
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertFalse(env.tunnelProvider.session.closed)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+
+            env.coordinator.stop()
+            runCurrent()
+
+            assertTrue(env.tunnelProvider.session.closed)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    private fun stopOnEngineFailure(resolution: ConnectionPolicyResolution) =
+        TestAppSettingsRepository(
+            resolution.settings
+                .toBuilder()
+                .setBlocksTrafficOnEngineFailure(false)
+                .build(),
+        )
+
+    private fun relayResolution() =
+        sampleResolution(
+            mode = Mode.VPN,
+            proxyPreferences =
+                RipDpiProxyUIPreferences(
+                    protocols = RipDpiProtocolConfig(udpAssociateEnabled = false),
+                    relay =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindVlessReality,
+                            profileId = "relay-profile",
+                        ),
+                ),
+        )
 
     @Test
     fun stopStopsTunnelBeforeProxy() =
@@ -1130,9 +1244,11 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun tunnelTelemetryFailureTransitionsToFailedThenStopped() =
+    fun tunnelTelemetryFailureTransitionsToFailedThenStoppedWhenSettingIsStop() =
         runTest {
-            val env = newEnv(resolutions = listOf(plainDnsResolution()))
+            val resolution = plainDnsResolution()
+            val env =
+                newEnv(resolutions = listOf(resolution), appSettingsRepository = stopOnEngineFailure(resolution))
 
             env.startCaptured()
             runCurrent()
@@ -1479,9 +1595,11 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun tunnelTelemetryEngineErrorFailsClosedWithEncryptedDnsActive() =
+    fun tunnelTelemetryEngineErrorStopsWithEncryptedDnsActiveWhenSettingIsStop() =
         runTest {
-            val env = newEnv()
+            val resolution = sampleResolution(mode = Mode.VPN)
+            val env =
+                newEnv(resolutions = listOf(resolution), appSettingsRepository = stopOnEngineFailure(resolution))
 
             env.startCaptured()
             runCurrent()
@@ -2028,6 +2146,7 @@ class VpnServiceRuntimeCoordinatorTest {
 
             env.startCaptured()
             runCurrent()
+            val originalSession = env.runtimeRegistry.current(Mode.VPN)
 
             env.handoverMonitor.emit(
                 NetworkHandoverEvent(
@@ -2045,7 +2164,8 @@ class VpnServiceRuntimeCoordinatorTest {
 
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
             assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
-            assertNull(env.runtimeRegistry.current(Mode.VPN))
+            // The engine death keeps the original session as a blocking barrier instead of a replacement.
+            assertSame(originalSession, env.runtimeRegistry.current(Mode.VPN))
         }
 
     private data class StaleProxyExitEnv(
@@ -2140,6 +2260,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val appSettingsRepository = TestAppSettingsRepository()
         val tunnelRuntime = buildTestVpnTunnelRuntime(host, appSettingsRepository, events)
         return VpnServiceRuntimeCoordinator(
+            appSettingsRepository = appSettingsRepository,
             configurationLifecycle =
                 RuntimeConfigurationLifecycle(
                     AppliedRuntimeConfigurationStore(
@@ -2754,6 +2875,7 @@ class VpnServiceRuntimeCoordinatorTest {
             )
         val coordinator =
             VpnServiceRuntimeCoordinator(
+                appSettingsRepository = appSettingsRepository,
                 configurationLifecycle =
                     RuntimeConfigurationLifecycle(
                         configurations,

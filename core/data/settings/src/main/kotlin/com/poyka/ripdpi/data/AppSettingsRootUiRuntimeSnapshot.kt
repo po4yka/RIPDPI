@@ -11,6 +11,7 @@ internal data class AppSettingsRootUiRuntimeSnapshot(
     val mode: Mode = Mode.fromString(defaultSettings.ripdpiMode),
     val onboardingComplete: Boolean = defaultSettings.onboardingComplete,
     val webrtcProtectionEnabled: Boolean = defaultSettings.webrtcProtectionEnabled,
+    val blockTrafficOnEngineFailure: Boolean = defaultSettings.blocksTrafficOnEngineFailure(),
     val biometricEnabled: Boolean = defaultSettings.biometricEnabled,
     @Transient
     val backupPin: String = "",

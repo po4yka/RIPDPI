@@ -10,7 +10,7 @@ internal class VpnSupervisorExitHandler(
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val markForeignRelayFailed: () -> Unit,
-    // Fails (when the reason is set) and stops the session that is current when the exit is seen.
+    // Fails the session current when the exit is seen; a null reason is a plain stop.
     private val failAndStop: (FailureReason?) -> Unit,
 ) {
     suspend fun handleProxyExit(cause: SupervisorExitCause) {
@@ -123,18 +123,18 @@ internal class VpnSupervisorExitHandler(
         val failureReason =
             when (cause) {
                 is SupervisorExitCause.Crash -> {
-                    Logger.e { "Relay stopped with code ${cause.code}; stopping VPN fail-closed" }
+                    Logger.e { "Relay stopped with code ${cause.code}" }
                     FailureReason.NativeError("Relay exited with code ${cause.code}")
                 }
 
                 is SupervisorExitCause.StartupFailure -> {
                     val error = cause.throwable
-                    Logger.e(error) { "Relay failed after startup; stopping VPN fail-closed" }
+                    Logger.e(error) { "Relay failed after startup" }
                     classifyFailureReason(error, isTunnelContext = true)
                 }
 
                 SupervisorExitCause.Cancellation -> {
-                    Logger.e { "Relay runtime was cancelled unexpectedly; stopping VPN fail-closed" }
+                    Logger.e { "Relay runtime was cancelled unexpectedly" }
                     FailureReason.NativeError("Relay runtime was cancelled unexpectedly")
                 }
 

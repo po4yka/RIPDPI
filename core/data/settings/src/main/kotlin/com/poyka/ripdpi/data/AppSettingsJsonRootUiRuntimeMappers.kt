@@ -10,6 +10,7 @@ internal fun AppSettingsSnapshot.withUiRuntimeSnapshot(settings: AppSettings): A
                 dynamicColorEnabled = settings.dynamicColorEnabled,
                 onboardingComplete = settings.onboardingComplete,
                 webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
+                blockTrafficOnEngineFailure = settings.blocksTrafficOnEngineFailure(),
                 biometricEnabled = settings.biometricEnabled,
                 appIconVariant = settings.appIconVariant,
                 appIconStyle = settings.appIconStyle,
@@ -26,6 +27,7 @@ internal fun AppSettings.Builder.applyRootUiRuntimeSnapshot(snapshot: AppSetting
         .setCmdArgs(snapshot.proxyDesync.commandLineArgs)
         .setOnboardingComplete(snapshot.rootUiRuntime.onboardingComplete)
         .setWebrtcProtectionEnabled(snapshot.rootUiRuntime.webrtcProtectionEnabled)
+        .setBlocksTrafficOnEngineFailure(snapshot.rootUiRuntime.blockTrafficOnEngineFailure)
         .setBiometricEnabled(snapshot.rootUiRuntime.biometricEnabled)
         .setAppIconVariant(snapshot.rootUiRuntime.appIconVariant)
         .setAppIconStyle(snapshot.rootUiRuntime.appIconStyle)

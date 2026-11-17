@@ -51,6 +51,13 @@ internal interface VpnTelemetryFailureCallbacks {
         failureReason: FailureReason?,
     )
 
+    /** Keeps the barrier instead of stopping after an engine died; false means the caller stops as before. */
+    suspend fun retainBarrierAfterEngineFailure(
+        failureReason: FailureReason,
+        guard: RuntimeStopGuard,
+        beforeFailureStatus: suspend () -> Unit,
+    ): Boolean = false
+
     suspend fun failAndStopService(
         failureReason: FailureReason,
         guard: RuntimeStopGuard? = null,
