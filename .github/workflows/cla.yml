@@ -1,0 +1,41 @@
+# Fails a pull request whose description lacks the CLA agreement statement
+# defined in CLA.md ("How to agree"). The repository owner and bots are exempt.
+#
+# pull_request_target runs the check script from the base branch, so a pull
+# request cannot weaken the check by editing it. The job never checks out or
+# runs pull request code, uses no secrets, and reads the untrusted
+# description only through an environment variable.
+
+name: CLA
+
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] base-branch code only, read-only token, no secrets
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cla-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  cla-agreement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            CLA.md
+            scripts/ci/check_cla_agreement.py
+            scripts/ci/test_check_cla_agreement.py
+          sparse-checkout-cone-mode: false
+      - name: Test CLA check
+        run: python3 -m unittest scripts/ci/test_check_cla_agreement.py
+      - name: Check CLA agreement
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 scripts/ci/check_cla_agreement.py
