@@ -327,6 +327,11 @@ class RipDpiVpnService :
                 if (failure !is Exception || failure is kotlinx.coroutines.CancellationException) throw failure
                 co.touchlab.kermit.Logger
                     .e { "VPN recovery prerequisite failed: ${failure::class.java.simpleName}" }
+                if (failure is RuntimeCleanupPendingException) {
+                    // The previous instance still holds the native runtime. Say so, or Connect
+                    // appears to do nothing.
+                    serviceStateStore.emitFailed(Sender.VPN, RuntimeCleanupIncompleteFailure)
+                }
                 if (activeOwnership.hasOwnership) {
                     pauseController.retainPartialCleanup(pauseHost)
                 } else {
