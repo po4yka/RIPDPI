@@ -82,7 +82,7 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
 
     init {
         stopAfterHandoverFailure = { guard ->
-            startStopOrchestrator.stop(guard = guard)
+            startStopOrchestrator.stop(guard = guard, afterQueuedCommands = true)
         }
     }
 
@@ -96,8 +96,10 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
         skipRuntimeShutdown: Boolean = false,
         guard: RuntimeStopGuard? = null,
         disposition: RuntimeStopDisposition = RuntimeStopDisposition.StopService,
+        afterQueuedCommands: Boolean = false,
     ) = startStopOrchestrator.stop(
         stopSelfStartId = stopSelfStartId,
+        afterQueuedCommands = afterQueuedCommands,
         skipRuntimeShutdown = skipRuntimeShutdown,
         guard = guard,
         disposition = disposition,

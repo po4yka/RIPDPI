@@ -116,7 +116,7 @@ class RipDpiVpnService :
 
     @Volatile private var lastPausedStartId = 0
 
-    @Volatile private var latestStartId = 0
+    private val stopRequests = ServiceStopRequests(::stopSelfResult, ::stopSelf) { pauseAuthority.snapshot() != null }
 
     @Volatile
     internal var permissionRevoked = false
@@ -243,7 +243,7 @@ class RipDpiVpnService :
                 }
             },
             showPaused = { intent ->
-                lastPausedStartId = latestStartId
+                lastPausedStartId = stopRequests.latestStartId ?: 0
                 notificationController.showPaused(intent)
             },
             stopShell = { lease ->
@@ -301,7 +301,7 @@ class RipDpiVpnService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
-        latestStartId = startId
+        stopRequests.commandDelivered(startId)
         notificationController.refresh()
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
@@ -310,13 +310,18 @@ class RipDpiVpnService :
                     consumeShellStartHandoff = runtimeCommands::consumeShellStartHandoff,
                     completeStart = { intent.vpnStartGeneration()?.let(serviceIntentArbiter::completeVpnStart) },
                 ) {
-                    profileMutationCoordinator.recover()
-                    if (!pauseController.handleShellStart(
-                            pauseHost,
-                            intent,
-                        )
-                    ) {
-                        runtimeCommands.dispatchAfterRecovery(intent, startId)
+                    try {
+                        profileMutationCoordinator.recover()
+                        if (!pauseController.handleShellStart(
+                                pauseHost,
+                                intent,
+                            )
+                        ) {
+                            runtimeCommands.dispatchAfterRecovery(intent, startId)
+                        }
+                    } finally {
+                        stopRequests.serviceStageEnded()
+                        scheduleStopSettle()
                     }
                 }
             }.onFailure { failure ->
@@ -376,12 +381,21 @@ class RipDpiVpnService :
     }
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
-        requestStopSelfWithFallback(
-            stopSelfStartId = stopSelfStartId,
-            stopSelfResult = ::stopSelfResult,
-            stopSelf = ::stopSelf,
-        )
+        if (stopRequests.request(stopSelfStartId)) launchStopSettle()
     }
+
+    override fun requestStopAfterQueuedCommands() {
+        stopRequests.requestAfterQueuedCommands()
+        launchStopSettle()
+    }
+
+    private fun launchStopSettle() = stopRequests.launchSettle(serviceScope, entryMutex, ::scheduleStopSettle)
+
+    /** Called under entryMutex, so the settle queues behind every shell command of the commands handled so far. */
+    private suspend fun scheduleStopSettle() =
+        stopRequests.scheduleSettle(shellDelegate.current?.let { it::enqueueAfterQueuedCommands }) {
+            ::sessionLifecycle.isInitialized && sessionLifecycle.hasRuntimeSession()
+        }
 
     override suspend fun resolveAppRoutingPlan(
         settings: AppSettings,
@@ -557,10 +571,9 @@ class RipDpiVpnService :
 
                 else -> {
                     val result = sessionLifecycle.releaseRetainingShell(guard)
-                    val outcome = if (result == RuntimeStopOutcome.FullyReleased) activeOwnership.release() else result
-                    outcome
+                    if (result == RuntimeStopOutcome.FullyReleased) activeOwnership.release() else result
                 }
-            }
+            }.also { if (it == RuntimeStopOutcome.FullyReleased) scheduleStopSettle() }
 
         // Guarded by entryMutex: set when an intent reaches the shell delegate, which then owns it.
         private var shellStartHandedOff = false

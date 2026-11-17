@@ -129,6 +129,8 @@ internal class VpnServiceSessionLifecycle(
         }.getOrThrow()
     }
 
+    suspend fun hasRuntimeSession(): Boolean = coordinator?.hasRuntimeSession() == true
+
     suspend fun startForPauseResume() {
         checkNotNull(coordinator).start()
     }

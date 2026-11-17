@@ -74,7 +74,7 @@ class RipDpiProxyService :
 
     @Volatile private var lastPausedStartId = 0
 
-    @Volatile private var latestStartId = 0
+    private val stopRequests = ServiceStopRequests(::stopSelfResult, ::stopSelf) { pauseAuthority.snapshot() != null }
     private val entryMutex = kotlinx.coroutines.sync.Mutex()
     private var destroyCleanupJob: kotlinx.coroutines.Job? = null
 
@@ -192,7 +192,7 @@ class RipDpiProxyService :
                 if (outcome == RuntimeStopOutcome.FullyReleased) clearSessionReferences()
                 outcome
             }
-        }
+        }.also { if (it == RuntimeStopOutcome.FullyReleased) scheduleStopSettle() }
 
     private val pauseHost by lazy {
         PausedServiceHost(
@@ -213,7 +213,7 @@ class RipDpiProxyService :
                 }
             },
             showPaused = { intent ->
-                lastPausedStartId = latestStartId
+                lastPausedStartId = stopRequests.latestStartId ?: 0
                 notificationController.showPaused(intent)
             },
             stopShell = { lease ->
@@ -263,13 +263,18 @@ class RipDpiProxyService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
-        latestStartId = startId
+        stopRequests.commandDelivered(startId)
         notificationController.refresh()
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
                 entryMutex.withLock {
-                    profileRecovery.recover()
-                    if (!pauseController.handleShellStart(pauseHost, intent)) dispatchAfterRecovery(intent, startId)
+                    try {
+                        profileRecovery.recover()
+                        if (!pauseController.handleShellStart(pauseHost, intent)) dispatchAfterRecovery(intent, startId)
+                    } finally {
+                        stopRequests.serviceStageEnded()
+                        scheduleStopSettle()
+                    }
                 }
             }.onFailure { failure ->
                 if (failure !is Exception || failure is kotlinx.coroutines.CancellationException) throw failure
@@ -375,12 +380,21 @@ class RipDpiProxyService :
     ) = notificationController.update(tunnelStats, interactive)
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
-        requestStopSelfWithFallback(
-            stopSelfStartId = stopSelfStartId,
-            stopSelfResult = ::stopSelfResult,
-            stopSelf = ::stopSelf,
-        )
+        if (stopRequests.request(stopSelfStartId)) launchStopSettle()
     }
+
+    override fun requestStopAfterQueuedCommands() {
+        stopRequests.requestAfterQueuedCommands()
+        launchStopSettle()
+    }
+
+    private fun launchStopSettle() = stopRequests.launchSettle(serviceScope, entryMutex, ::scheduleStopSettle)
+
+    /** Called under entryMutex, so the settle queues behind every shell command of the commands handled so far. */
+    private suspend fun scheduleStopSettle() =
+        stopRequests.scheduleSettle(shellDelegate?.let { it::enqueueAfterQueuedCommands }) {
+            coordinator?.hasRuntimeSession() == true
+        }
 
     private fun clearSessionReferences() {
         shellDelegate = null

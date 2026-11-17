@@ -30,6 +30,9 @@ internal interface ServiceCoordinatorHost {
     )
 
     fun requestStopSelf(stopSelfStartId: Int?)
+
+    /** A failure stop: the service stops only if no session or pause remains once every queued command has run. */
+    fun requestStopAfterQueuedCommands()
 }
 
 internal interface VpnCoordinatorHost :
@@ -185,13 +188,16 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         skipRuntimeShutdown: Boolean = false,
         guard: RuntimeStopGuard? = null,
         disposition: RuntimeStopDisposition = RuntimeStopDisposition.StopService,
+        afterQueuedCommands: Boolean = false,
     ) = sessionLifecycle.stop(
         stopSelfStartId = stopSelfStartId,
+        afterQueuedCommands = afterQueuedCommands,
         skipRuntimeShutdown = skipRuntimeShutdown,
         guard = guard ?: kotlinx.coroutines.currentCoroutineContext()[RuntimeStopAuthority]?.guard,
         disposition = disposition,
     )
 
+    /** Fails and stops the session; the service stops only after every queued command has run. */
     protected suspend fun failAndStopRuntime(
         failureReason: FailureReason,
         guard: RuntimeStopGuard? = null,
@@ -201,6 +207,9 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         guard = guard,
         beforeStopFinalization = beforeStopFinalization,
     )
+
+    /** True while a session is registered, including a Failed one that keeps its barrier after an engine failure. */
+    suspend fun hasRuntimeSession(): Boolean = mutex.withLock { runtimeSession != null }
 
     /**
      * Fails and stops the session with [runtimeId], which an out-of-lock callback (permission watchdog,
@@ -224,7 +233,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         host.serviceScope.launch(ioDispatcher) {
             val guard = RuntimeStopGuard(isCurrent = isCurrent, failureReason = failureReason)
             when {
-                failureReason == null -> stop(guard = guard)
+                failureReason == null -> stop(guard = guard, afterQueuedCommands = true)
                 engineFailure && retainBarrierAfterEngineFailure(isCurrent, failureReason) -> Unit
                 else -> failAndStopRuntime(failureReason, guard, ::beforeCallbackFailureStop)
             }
@@ -345,6 +354,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             if (cleanupRequired) {
                 withContext(NonCancellable) {
                     stop(
+                        afterQueuedCommands = true,
                         guard =
                             RuntimeStopGuard(
                                 isCurrent = { runtimeSession?.runtimeId == observedSession.runtimeId },

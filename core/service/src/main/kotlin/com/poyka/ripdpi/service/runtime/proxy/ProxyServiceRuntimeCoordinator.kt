@@ -414,6 +414,7 @@ internal class ProxyServiceRuntimeCoordinator(
     ) {
         host.serviceScope.launch(ioDispatcher) {
             stop(
+                afterQueuedCommands = true,
                 guard =
                     RuntimeStopGuard(
                         isCurrent = {

@@ -40,8 +40,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                     dependencies.handoverProcessor.cancel()
                     finalizeRuntimeStop(
                         skipRuntimeShutdown = false,
-                        stopSelfStartId = null,
-                        requestServiceStop = false,
+                        requestServiceStop = null,
                     )
                 },
             ) {
@@ -130,13 +129,18 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         skipRuntimeShutdown: Boolean = false,
         guard: RuntimeStopGuard? = null,
         disposition: RuntimeStopDisposition = RuntimeStopDisposition.StopService,
+        afterQueuedCommands: Boolean = false,
     ): RuntimeStopOutcome =
         stopInternal(
-            stopSelfStartId = stopSelfStartId,
             skipRuntimeShutdown = skipRuntimeShutdown,
             guard = guard,
             terminalFailure = guard?.failureReason,
-            disposition = disposition,
+            requestServiceStop =
+                when {
+                    disposition != RuntimeStopDisposition.StopService -> null
+                    afterQueuedCommands -> dependencies.host::requestStopAfterQueuedCommands
+                    else -> ({ dependencies.host.requestStopSelf(stopSelfStartId) })
+                },
         )
 
     suspend fun failAndStop(
@@ -145,20 +149,20 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         beforeStopFinalization: suspend () -> Unit,
     ): RuntimeStopOutcome =
         stopInternal(
-            stopSelfStartId = null,
             skipRuntimeShutdown = false,
             guard = guard,
             terminalFailure = failureReason,
             beforeStopFinalization = beforeStopFinalization,
+            requestServiceStop = dependencies.host::requestStopAfterQueuedCommands,
         )
 
+    /** [requestServiceStop] asks Android to stop the service once the runtime is released; null keeps the service. */
     private suspend fun stopInternal(
-        stopSelfStartId: Int? = null,
-        skipRuntimeShutdown: Boolean = false,
-        guard: RuntimeStopGuard? = null,
+        skipRuntimeShutdown: Boolean,
+        guard: RuntimeStopGuard?,
         terminalFailure: FailureReason?,
         beforeStopFinalization: suspend () -> Unit = {},
-        disposition: RuntimeStopDisposition = RuntimeStopDisposition.StopService,
+        requestServiceStop: (() -> Unit)?,
     ): RuntimeStopOutcome {
         Logger.i { "Stopping ${dependencies.serviceLabel()}" }
         if (guard == null) dependencies.handoverProcessor.cancel()
@@ -172,8 +176,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                             finalizeAfterStopCallback(beforeStopFinalization) {
                                 finalizeRuntimeStop(
                                     skipRuntimeShutdown = skipRuntimeShutdown,
-                                    stopSelfStartId = stopSelfStartId,
-                                    requestServiceStop = disposition == RuntimeStopDisposition.StopService,
+                                    requestServiceStop = requestServiceStop,
                                     terminalFailure = terminalFailure,
                                 )
                             }
@@ -193,8 +196,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
 
     private suspend fun finalizeRuntimeStop(
         skipRuntimeShutdown: Boolean,
-        stopSelfStartId: Int?,
-        requestServiceStop: Boolean,
+        requestServiceStop: (() -> Unit)?,
         terminalFailure: FailureReason? = null,
     ): CancellationException? {
         dependencies.loopOwner.cancelPermissionWatchdog()
@@ -245,9 +247,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 }
             }
             callbacks.setRuntimeSession(null)
-            if (requestServiceStop) {
-                dependencies.host.requestStopSelf(stopSelfStartId)
-            }
+            requestServiceStop?.invoke()
         }
         return terminalTelemetryCancellation
     }

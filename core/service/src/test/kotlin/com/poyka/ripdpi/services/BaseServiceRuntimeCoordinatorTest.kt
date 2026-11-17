@@ -235,7 +235,8 @@ class BaseServiceRuntimeCoordinatorTest {
             )
             assertEquals(1, env.coordinator.stopCalls)
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
-            assertEquals(1, env.host.stopRequests.size)
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+            assertEquals(1, env.host.stopsAfterQueuedCommands)
             assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
         }
 
@@ -477,7 +478,8 @@ class BaseServiceRuntimeCoordinatorTest {
             assertEquals(listOf("final_telemetry", "runtime_stop"), env.coordinator.stopLifecycleEvents)
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
             assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
-            assertEquals(listOf(null), env.host.stopRequests)
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+            assertEquals(1, env.host.stopsAfterQueuedCommands)
         }
 
     @Test
@@ -498,7 +500,8 @@ class BaseServiceRuntimeCoordinatorTest {
             assertEquals(listOf("final_telemetry", "runtime_stop"), env.coordinator.stopLifecycleEvents)
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
             assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
-            assertEquals(listOf(null), env.host.stopRequests)
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+            assertEquals(1, env.host.stopsAfterQueuedCommands)
         }
 
     @Test
@@ -600,6 +603,173 @@ class BaseServiceRuntimeCoordinatorTest {
             assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
         }
+
+    @Test
+    fun `failure stop defers the service stop behind the queued commands`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+
+            env.coordinator.installedFailureCallbacks.single()(FailureReason.NativeError("relay exited"))
+            runCurrent()
+
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+            assertEquals(1, env.host.stopsAfterQueuedCommands)
+        }
+
+    @Test
+    fun `explicit stop requests the service stop with its own start id`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+
+            env.coordinator.stop(stopSelfStartId = 7)
+
+            assertEquals(listOf<Int?>(7), env.host.stopRequests)
+            assertEquals(0, env.host.stopsAfterQueuedCommands)
+        }
+
+    @Test
+    fun `start queued behind a failure stop proceeds and keeps the service`() =
+        runTest {
+            val env = newEnv()
+            val android = StartedServiceModel()
+            android.deliverAndHandle(1)
+            env.coordinator.start(stopSelfStartId = 1)
+            runCurrent()
+            val stopGate = CompletableDeferred<Unit>()
+            env.coordinator.stopGate = stopGate
+            env.coordinator.installedFailureCallbacks.single()(FailureReason.NativeError("relay exited"))
+            runCurrent()
+
+            // The user taps Connect while the failure stop is still tearing the runtime down.
+            android.deliverAndHandle(2)
+            backgroundScope.launch { env.coordinator.start(stopSelfStartId = 2) }
+            runCurrent()
+            stopGate.complete(Unit)
+            runCurrent()
+            android.forwardStopRequests(env.host)
+            android.settle { env.coordinator.hasRuntimeSession() }
+
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+            assertFalse(android.stopped)
+        }
+
+    @Test
+    fun `start delivered before the failure but still queued keeps the service`() =
+        runTest {
+            val env = newEnv()
+            val android = StartedServiceModel()
+            android.deliverAndHandle(1)
+            env.coordinator.start(stopSelfStartId = 1)
+            runCurrent()
+
+            // The Start is delivered and queued on the shell before the failure is reported; it runs after the stop.
+            android.deliverAndHandle(2)
+            env.coordinator.installedFailureCallbacks.single()(FailureReason.NativeError("relay exited"))
+            runCurrent()
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            env.coordinator.start(stopSelfStartId = 2)
+            runCurrent()
+            android.forwardStopRequests(env.host)
+            android.settle { env.coordinator.hasRuntimeSession() }
+
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertFalse(android.stopped)
+        }
+
+    @Test
+    fun `start delivered while an engine failure waits to retain the barrier keeps the service`() =
+        runTest {
+            val env = newEnv()
+            val android = StartedServiceModel()
+            android.deliverAndHandle(1)
+            env.coordinator.start(stopSelfStartId = 1)
+            runCurrent()
+            env.coordinator.retainsBarrierOnEngineFailure = true
+            val retainGate = CompletableDeferred<Unit>()
+            env.coordinator.handoverRetainGate = retainGate
+            env.coordinator.installedEngineFailureCallbacks.single()(FailureReason.NativeError("relay exited"))
+            runCurrent()
+            assertEquals(1, env.coordinator.handoverRetainCalls)
+
+            // Connect is delivered while the retain step holds the lifecycle mutex; the barrier cannot be kept.
+            android.deliverAndHandle(2)
+            retainGate.complete(Unit)
+            backgroundScope.launch { env.coordinator.start(stopSelfStartId = 2) }
+            runCurrent()
+            android.forwardStopRequests(env.host)
+            android.settle { env.coordinator.hasRuntimeSession() }
+
+            assertEquals(1, env.host.stopsAfterQueuedCommands)
+            assertEquals(2, env.coordinator.startCalls)
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertFalse(android.stopped)
+        }
+
+    @Test
+    fun `command discarded behind a failure stop still stops the service`() =
+        runTest {
+            val env = newEnv()
+            val android = StartedServiceModel()
+            android.deliverAndHandle(1)
+            env.coordinator.start(stopSelfStartId = 1)
+            runCurrent()
+            val stopGate = CompletableDeferred<Unit>()
+            env.coordinator.stopGate = stopGate
+            env.coordinator.installedFailureCallbacks.single()(FailureReason.NativeError("relay exited"))
+            runCurrent()
+
+            // A stale command arrives and is discarded while the failure stop still holds the old session.
+            android.deliverAndHandle(2)
+            assertNull(android.requests.settleStartId())
+            stopGate.complete(Unit)
+            runCurrent()
+            android.forwardStopRequests(env.host)
+            android.settle { env.coordinator.hasRuntimeSession() }
+
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertTrue(android.stopped)
+        }
+}
+
+/** Android's start-id bookkeeping behind a [ServiceStopRequests], driven the way the services drive it. */
+internal class StartedServiceModel {
+    private var lastStartId = 0
+    var stopped = false
+        private set
+    val requests =
+        ServiceStopRequests(
+            stopSelfResult = { startId -> (startId == lastStartId).also { if (it) stopped = true } },
+            stopSelf = { stopped = true },
+            isPaused = { false },
+        )
+
+    /** Delivers a command; its service stage ends at once, after it queued any shell command. */
+    fun deliverAndHandle(startId: Int) {
+        lastStartId = startId
+        requests.commandDelivered(startId)
+        requests.serviceStageEnded()
+    }
+
+    /** Hands the coordinator's recorded stop requests to Android, as the services' overrides do. */
+    fun forwardStopRequests(host: TestProxyServiceHost) {
+        host.stopRequests.forEach { requests.request(it) }
+        repeat(host.stopsAfterQueuedCommands) { requests.requestAfterQueuedCommands() }
+    }
+
+    fun forwardStopRequests(host: TestVpnServiceHost) {
+        host.stopRequests.forEach { requests.request(it) }
+        repeat(host.stopsAfterQueuedCommands) { requests.requestAfterQueuedCommands() }
+    }
+
+    suspend fun settle(hasRuntimeSession: suspend () -> Boolean) {
+        requests.settle(checkNotNull(requests.settleStartId()), hasRuntimeSession)
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -1763,6 +1933,13 @@ private class TestCoordinator(
     ) {
     /** Failure callbacks bound at runtime start, the way supervisor exit handlers are installed. */
     val installedFailureCallbacks = mutableListOf<(FailureReason?) -> Unit>()
+
+    /** Engine-death callbacks bound at runtime start; they keep the barrier while [retainsBarrierOnEngineFailure]. */
+    val installedEngineFailureCallbacks = mutableListOf<(FailureReason) -> Unit>()
+    var retainsBarrierOnEngineFailure: Boolean = false
+
+    override suspend fun shouldRetainBarrierOnEngineFailure(): Boolean = retainsBarrierOnEngineFailure
+
     val reportedCallbackFailures = mutableListOf<FailureReason>()
 
     override suspend fun beforeCallbackFailureStop() {
@@ -1935,6 +2112,9 @@ private class TestCoordinator(
         startLifecycleEvents += "runtime_start"
         startCalls += 1
         installedFailureCallbacks += { reason -> failAndStopFromCallback(session.runtimeId, reason) }
+        installedEngineFailureCallbacks += { reason ->
+            failAndStopFromCallback(session.runtimeId, reason, engineFailure = true)
+        }
         if (failOnStart) {
             error("boom")
         }

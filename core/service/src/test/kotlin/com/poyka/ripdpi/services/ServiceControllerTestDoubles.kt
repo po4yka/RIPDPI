@@ -1328,6 +1328,8 @@ internal class TestProxyServiceHost(
 ) : ServiceCoordinatorHost {
     val notifications = mutableListOf<TunnelStats>()
     val stopRequests = mutableListOf<Int?>()
+    var stopsAfterQueuedCommands = 0
+        private set
 
     override fun updateNotification(
         tunnelStats: TunnelStats,
@@ -1339,6 +1341,10 @@ internal class TestProxyServiceHost(
     override fun requestStopSelf(stopSelfStartId: Int?) {
         stopRequests += stopSelfStartId
     }
+
+    override fun requestStopAfterQueuedCommands() {
+        stopsAfterQueuedCommands += 1
+    }
 }
 
 internal class TestVpnServiceHost(
@@ -1348,6 +1354,8 @@ internal class TestVpnServiceHost(
     private val installedPackagesState = MutableStateFlow<Set<String>>(emptySet())
     val notifications = mutableListOf<TunnelStats>()
     val stopRequests = mutableListOf<Int?>()
+    var stopsAfterQueuedCommands = 0
+        private set
     var vpnConsentRevoked = true
 
     override fun isVpnConsentRevoked(): Boolean = vpnConsentRevoked
@@ -1381,6 +1389,10 @@ internal class TestVpnServiceHost(
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
         stopRequests += stopSelfStartId
+    }
+
+    override fun requestStopAfterQueuedCommands() {
+        stopsAfterQueuedCommands += 1
     }
 
     override fun prepareDirectDnsUnderlay(

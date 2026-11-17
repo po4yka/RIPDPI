@@ -229,7 +229,7 @@ internal class VpnServiceRuntimeCoordinator(
                         )
                     },
                     stopService = { guard ->
-                        stop(guard = guard) !=
+                        stop(guard = guard, afterQueuedCommands = true) !=
                             com.poyka.ripdpi.services.RuntimeStopOutcome.Superseded
                     },
                 ),

@@ -278,7 +278,8 @@ class ProxyServiceRuntimeCoordinatorTest {
 
             assertEquals(1, env.factory.lastRuntime.stopCount)
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
-            assertEquals(listOf(null), env.host.stopRequests)
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+            assertEquals(1, env.host.stopsAfterQueuedCommands)
         }
 
     @Test

@@ -558,6 +558,9 @@ internal class ServiceShellDelegate(
         enqueue(block = revokeHandler)
     }
 
+    /** Runs [block] after every command queued before it has finished. */
+    fun enqueueAfterQueuedCommands(block: suspend () -> Unit) = enqueue(block = block)
+
     @Suppress("TooGenericExceptionCaught")
     private suspend fun executeCommand(block: suspend () -> Unit) {
         try {

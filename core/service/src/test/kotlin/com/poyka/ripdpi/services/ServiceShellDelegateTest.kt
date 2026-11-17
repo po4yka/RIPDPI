@@ -25,6 +25,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -269,14 +270,14 @@ class ServiceShellDelegateTest {
                                 startupFallbackStartAction,
                                 latestStartId,
                             )
-                            requestStopSelfWithFallback(
-                                stopSelfStartId = startId,
+                            ServiceStopRequests(
                                 stopSelfResult = { stoppingStartId ->
                                     if (stoppingStartId == latestStartId) serviceStopped = true
                                     stoppingStartId == latestStartId
                                 },
                                 stopSelf = { serviceStopped = true },
-                            )
+                                isPaused = { false },
+                            ).request(startId)
                         } else {
                             replacementRunning = true
                         }
@@ -297,6 +298,44 @@ class ServiceShellDelegateTest {
 
             assertFalse(serviceStopped)
             assertTrue(replacementRunning)
+        }
+
+    @Test
+    fun `deferred stop settle queued behind a start sees the started session`() =
+        runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val start = fixture.reserveStart()
+            val startGate = CompletableDeferred<Unit>()
+            var sessionRunning = false
+            val android = StartedServiceModel()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceIntentArbiter = fixture.arbiter,
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStartWithId = { _, _ ->
+                        startGate.await()
+                        sessionRunning = true
+                    },
+                    onStop = { _, _ -> },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks = testShellIntentCallbacks(fixture.authority::reference),
+                )
+            android.deliverAndHandle(1)
+            android.requests.requestAfterQueuedCommands()
+            android.deliverAndHandle(2)
+            start.deliver(delegate, startAction, 2)
+
+            android.requests.scheduleSettle(delegate::enqueueAfterQueuedCommands) { sessionRunning }
+            runCurrent()
+            assertFalse(android.stopped)
+            startGate.complete(Unit)
+            runCurrent()
+
+            assertTrue(sessionRunning)
+            assertFalse(android.stopped)
+            assertNull(android.requests.settleStartId())
         }
 
     @Test

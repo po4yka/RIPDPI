@@ -224,6 +224,48 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun relayExitDefersServiceStopBehindQueuedCommandsWhenSettingIsStop() =
+        runTest {
+            val resolution = relayResolution()
+            val env = newEnv(resolutions = listOf(resolution), appSettingsRepository = stopOnEngineFailure(resolution))
+
+            env.startCaptured()
+            runCurrent()
+            env.relayFactory.lastRuntime.complete(17)
+            repeat(3) { runCurrent() }
+
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+            assertEquals(1, env.host.stopsAfterQueuedCommands)
+        }
+
+    @Test
+    fun discardedCommandBehindRefusedStopKeepsRetainedEngineFailureBarrier() =
+        runTest {
+            val resolution = relayResolution()
+            val env = newEnv(resolutions = listOf(resolution))
+            val android = StartedServiceModel()
+            android.deliverAndHandle(1)
+            env.startCaptured()
+            runCurrent()
+            // An earlier stop was refused by a newer command, so a settle is due.
+            android.deliverAndHandle(2)
+            android.requests.request(1)
+
+            env.relayFactory.lastRuntime.complete(17)
+            repeat(3) { runCurrent() }
+            android.deliverAndHandle(3)
+            android.settle { env.coordinator.hasRuntimeSession() }
+
+            assertFalse(android.stopped)
+            assertNull(android.requests.settleStartId())
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertFalse(env.tunnelProvider.session.closed)
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+            assertEquals(0, env.host.stopsAfterQueuedCommands)
+        }
+
+    @Test
     fun relayExitKeepsTunAsBarrierUntilExplicitStopByDefault() =
         runTest {
             val resolution = relayResolution()
