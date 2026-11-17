@@ -1666,6 +1666,29 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun `protect failure keeps the VPN running while the consent is held`() =
+        runTest {
+            val env = newEnv()
+            env.host.vpnConsentRevoked = false
+
+            env.startCaptured()
+            runCurrent()
+
+            env.vpnProtectFailureMonitor.report(
+                VpnProtectFailureEvent(
+                    fd = 42,
+                    reason = FailureReason.PermissionLost("VPN"),
+                    detail = "VpnService.protect() returned false",
+                    detectedAt = 2_000L,
+                ),
+            )
+            repeat(3) { runCurrent() }
+
+            assertTrue(env.store.eventHistory.none { it is ServiceEvent.Failed })
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
     fun vpnProtectFailureImmediatelyAfterStartIsObserved() =
         runTest {
             val env = newEnv()

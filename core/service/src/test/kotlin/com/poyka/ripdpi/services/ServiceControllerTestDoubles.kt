@@ -1348,6 +1348,10 @@ internal class TestVpnServiceHost(
     private val installedPackagesState = MutableStateFlow<Set<String>>(emptySet())
     val notifications = mutableListOf<TunnelStats>()
     val stopRequests = mutableListOf<Int?>()
+    var vpnConsentRevoked = true
+
+    override fun isVpnConsentRevoked(): Boolean = vpnConsentRevoked
+
     var underlyingNetworkSyncs: Int = 0
     var directDnsApplyCount: Int = 0
     var directDnsApplyResult: Boolean = false

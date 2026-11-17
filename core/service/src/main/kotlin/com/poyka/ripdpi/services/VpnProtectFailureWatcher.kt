@@ -42,6 +42,12 @@ internal class VpnProtectFailureWatcher(
         if (state.status() != ServiceStatus.Connected || state.stopping()) {
             return
         }
+        if (!dependencies.host.isVpnConsentRevoked()) {
+            // The native side already failed this one socket. With the consent still held,
+            // one rejected or malformed request is no reason to take the whole tunnel down.
+            Logger.w { "VPN protect failed for one socket, fd=${event.fd}: ${event.detail}" }
+            return
+        }
         val boundary =
             VpnTelemetryFailureBoundary(
                 session = state.runtimeSession(),

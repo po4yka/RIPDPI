@@ -34,6 +34,9 @@ internal interface ServiceCoordinatorHost {
 internal interface VpnCoordinatorHost :
     ServiceCoordinatorHost,
     VpnTunnelBuilderHost {
+    /** True when the system no longer holds this app's VPN consent. */
+    fun isVpnConsentRevoked(): Boolean = true
+
     fun resolveHost(host: String): Array<String> =
         throw java.net.UnknownHostException("VPN underlay resolver unavailable")
 

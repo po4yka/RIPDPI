@@ -455,6 +455,8 @@ class RipDpiVpnService :
 
     /** Resolve bootstrap hostnames on the explicitly selected underlying network. */
     @Keep
+    override fun isVpnConsentRevoked(): Boolean = permissionRevoked || android.net.VpnService.prepare(this) != null
+
     override fun resolveHost(host: String): Array<String> = underlyingNetworkBinder.resolveHost(host)
 
     internal suspend fun createBuilder(
