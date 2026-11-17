@@ -4,6 +4,8 @@ import android.graphics.RuntimeShader
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
@@ -111,6 +113,10 @@ internal class SignalFrame(
     /** How far the line is at rest, from 0 to 1. A resting line is faint and fades out at both ends. */
     val rest: Float = 0f,
     val ripple: SignalRippleFrame = NoRipple,
+    /** How far the wave reaches from the start of the line, as a fraction of the width. */
+    val front: Float = FrontOpen,
+    /** The recoil of the end of a line that has just broken, from 1 at the break to 0 at rest. */
+    val kick: Float = 0f,
 )
 
 /**
@@ -143,6 +149,20 @@ fun RipDpiSignalField(
     val cut by transition.animateFloat({ motion.emphasizedTween() }, "cut") {
         if (it.shape().broken) breakAt.coerceIn(0f, 1f) else NoCut
     }
+    // The wave unrolls from the device end when a path goes live, and drains back to it when the path ends.
+    val front by transition.animateFloat({ motion.emphasizedTween(easing = LinearEasing) }, "front") {
+        if (it.shape().amplitude > 0f) FrontOpen else 0f
+    }
+    val kick = remember { Animatable(0f) }
+    LaunchedEffect(mode) {
+        // A line that is already broken when it appears stays still.
+        if (mode == RipDpiSignalMode.Broken && transition.currentState != RipDpiSignalMode.Broken) {
+            kick.snapTo(1f)
+            kick.animateTo(0f, motion.emphasizedTween())
+        } else {
+            kick.snapTo(0f)
+        }
+    }
     val lineColor by animateColorAsState(color, motion.emphasizedTween(), label = "Signal color")
 
     val time = remember { mutableFloatStateOf(StillTime) }
@@ -151,7 +171,9 @@ fun RipDpiSignalField(
         LaunchedEffect(Unit) {
             // The infinite-animation clock lets a test or a host policy stop the loop, as for any infinite transition.
             // Continue from the last frame, so a restart after an idle or failed state does not jump the phase.
-            val base = time.floatValue
+            // A flat line has no phase to keep, so its first pulse leaves from the pointer.
+            val fromPointer = mode == RipDpiSignalMode.Seeking && amplitude == 0f
+            val base = if (fromPointer) pressAt().coerceIn(0f, 1f) / PulseSpeed else time.floatValue
             val start = withInfiniteAnimationFrameNanos { it }
             while (true) {
                 withInfiniteAnimationFrameNanos {
@@ -179,7 +201,20 @@ fun RipDpiSignalField(
                     // A rippled line is content, not a resting hero line, so it keeps its full strength.
                     val resting = if (ripple == null) rest else 0f
                     val frame =
-                        SignalFrame(now, amplitude, pulse, noise, cut, glow, pressAt(), press(), resting, rippleFrame)
+                        SignalFrame(
+                            now,
+                            amplitude,
+                            pulse,
+                            noise,
+                            cut,
+                            glow,
+                            pressAt(),
+                            press(),
+                            resting,
+                            rippleFrame,
+                            front,
+                            kick.value,
+                        )
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && shader != null) {
                         drawRect(shader.brush(size, frame, lineColor, StrokeWidth.toPx(), GlowSpread.toPx()))
                     } else {
@@ -224,6 +259,8 @@ private class SignalShader {
         val ripple = frame.ripple
         shader.setFloatUniform("ripple", ripple.amplitude, ripple.cycles, ripple.start, ripple.end)
         shader.setFloatUniform("rest", frame.rest)
+        shader.setFloatUniform("front", frame.front)
+        shader.setFloatUniform("kick", frame.kick)
         shader.setFloatUniform("stroke", strokePx / 2f)
         shader.setFloatUniform("spread", spreadPx)
         shader.setColorUniform("color", color.toArgb())
@@ -243,7 +280,9 @@ internal fun SignalFrame.offsetAt(u: Float): Float {
     val bump = pulse * PulseHeight * exp(-p * p) * sin(Tau * Middle * p)
     val d = (u - pressAt) / PressWidth
     val live = if (u <= cut) 1f else 0f
-    val line = edge * live * (amplitude * wave + bump) + PressDepth * press * exp(-d * d)
+    val unrolled = 1f - smoothStep(front - FrontSoft, front, u)
+    val whip = kick * KickHeight * exp((u - cut) / KickWidth) * sin(Tau * KickCycles * kick)
+    val line = edge * live * (amplitude * unrolled * wave + bump + whip) + PressDepth * press * exp(-d * d)
     // The hero has no ripple, so its line keeps the exact value it had before the ripple existed.
     if (ripple.amplitude == 0f) return line
     val window =
@@ -355,6 +394,13 @@ private const val PulseHeight = 0.3f
 private const val PressWidth = 0.12f
 private const val PressDepth = 0.2f
 private const val GapWidth = 0.02f
+
+// The edge of the unrolling wave, and the recoil of a broken end. The shader source repeats these values.
+private const val FrontSoft = 0.12f
+private const val FrontOpen = 1f + FrontSoft
+private const val KickHeight = 0.22f
+private const val KickWidth = 0.12f
+private const val KickCycles = 1.5f
 private const val TailAlpha = 0.3f
 private const val PathGlowAlpha = 0.12f
 private const val PathSteps = 72
@@ -370,6 +416,8 @@ uniform float glow;
 uniform float2 press;
 uniform float4 ripple;
 uniform float rest;
+uniform float front;
+uniform float kick;
 uniform float stroke;
 uniform float spread;
 layout(color) uniform half4 color;
@@ -385,7 +433,9 @@ float offsetAt(float u) {
     float d = (u - press.x) / 0.12;
     float window = smoothstep(ripple.z, ripple.z + 0.18, u) * (1.0 - smoothstep(ripple.w - 0.18, ripple.w, u));
     float standing = ripple.x * window * sin(TAU * ripple.y * (u - 0.5));
-    return edge * step(u, cut) * (amp * w + bump) + 0.2 * press.y * exp(-d * d) + standing;
+    float unrolled = 1.0 - smoothstep(front - 0.12, front, u);
+    float whip = kick * 0.22 * exp(min(u - cut, 0.0) / 0.12) * sin(TAU * 1.5 * kick);
+    return edge * step(u, cut) * (amp * unrolled * w + bump + whip) + 0.2 * press.y * exp(-d * d) + standing;
 }
 
 half4 main(float2 xy) {

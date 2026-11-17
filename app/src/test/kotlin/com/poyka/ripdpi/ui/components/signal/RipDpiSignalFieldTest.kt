@@ -60,6 +60,30 @@ class RipDpiSignalFieldTest {
         assertEquals(0f, oneSided.offsetAt(1f), Tolerance)
     }
 
+    @Test
+    fun `the wave reaches only as far as its front`() {
+        val full = frame(amplitude = 0.16f)
+        val half = SignalFrame(0.9f, 0.16f, 0f, 0f, cut = 2f, glow = 1f, pressAt = 0.5f, press = 0f, front = 0.5f)
+
+        // Behind the soft edge of the front the wave is whole; past the front the line is flat.
+        assertEquals(full.offsetAt(0.3f), half.offsetAt(0.3f), 0f)
+        assertEquals(0f, half.offsetAt(0.5f), 0f)
+        assertEquals(0f, half.offsetAt(0.7f), 0f)
+    }
+
+    @Test
+    fun `a line that has just broken recoils at its end and not far from it`() {
+        fun broken(kick: Float) =
+            SignalFrame(0.9f, 0f, 0f, 0f, cut = 0.5f, glow = 1f, pressAt = 0.5f, press = 0f, kick = kick)
+
+        // At the cut: 0.22 * kick * sin(3 * pi * kick), with kick = 0.5.
+        assertEquals(-0.11f, broken(kick = 0.5f).offsetAt(0.5f), Tolerance)
+        // One recoil width before the cut the same value is smaller by e.
+        assertEquals(-0.11f / Math.E.toFloat(), broken(kick = 0.5f).offsetAt(0.38f), Tolerance)
+        assertEquals(0f, broken(kick = 0.5f).offsetAt(0.6f), 0f)
+        assertEquals(0f, broken(kick = 0f).offsetAt(0.5f), 0f)
+    }
+
     private companion object {
         const val Tolerance = 1e-5f
     }
