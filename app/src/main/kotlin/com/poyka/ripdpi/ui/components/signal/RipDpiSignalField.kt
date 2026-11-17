@@ -7,6 +7,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.foundation.layout.Spacer
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.math.PI
 import kotlin.math.exp
@@ -141,17 +143,28 @@ fun RipDpiSignalField(
 ) {
     val motion = RipDpiThemeTokens.motion
     val transition = updateTransition(targetState = mode, label = "Signal mode")
-    val amplitude by transition.animateFloat({ motion.emphasizedTween() }, "amplitude") { it.shape().amplitude }
+    // The wave has its own animations: a transition that a state change interrupts drops its timing for a spring,
+    // and a session that flips to a warning and back at the lock does interrupt it. The front carries the change:
+    // the wave is at full height before the front has gone far, and keeps its height while the front drains back.
+    val waves = mode.shape().amplitude > 0f
+    val amplitude by animateFloatAsState(
+        targetValue = mode.shape().amplitude,
+        animationSpec =
+            if (waves) motion.quickTween() else motion.emphasizedTween(easing = RipDpiMotion.EmphasizedAccelerate),
+        label = "Signal amplitude",
+    )
+    // It unrolls from the device end when a path goes live, and drains back to it when the path ends.
+    val front by animateFloatAsState(
+        targetValue = if (waves) FrontOpen else 0f,
+        animationSpec = motion.emphasizedTween(easing = LinearEasing),
+        label = "Signal front",
+    )
     val pulse by transition.animateFloat({ motion.emphasizedTween() }, "pulse") { it.shape().pulse }
     val noise by transition.animateFloat({ motion.emphasizedTween() }, "noise") { it.shape().noise }
     val glow by transition.animateFloat({ motion.emphasizedTween() }, "glow") { it.shape().glow }
     val rest by transition.animateFloat({ motion.emphasizedTween() }, "rest") { it.shape().rest }
     val cut by transition.animateFloat({ motion.emphasizedTween() }, "cut") {
         if (it.shape().broken) breakAt.coerceIn(0f, 1f) else NoCut
-    }
-    // The wave unrolls from the device end when a path goes live, and drains back to it when the path ends.
-    val front by transition.animateFloat({ motion.emphasizedTween(easing = LinearEasing) }, "front") {
-        if (it.shape().amplitude > 0f) FrontOpen else 0f
     }
     val kick = remember { Animatable(0f) }
     LaunchedEffect(mode) {
