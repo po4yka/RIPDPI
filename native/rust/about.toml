@@ -1,0 +1,28 @@
+# cargo-about configuration for the in-app third-party notices.
+# :app runs `cargo about generate --format json` against this workspace.
+# deny.toml stays the license policy gate; this list only has to accept what it allows.
+accepted = [
+    "MIT",
+    "AGPL-3.0-only",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "0BSD",
+    "Zlib",
+    "CDLA-Permissive-2.0",
+    "Unicode-3.0",
+    "OpenSSL",
+    "Unlicense",
+    "CC0-1.0",
+    "MPL-2.0",
+]
+targets = [
+    "aarch64-linux-android",
+    "armv7-linux-androideabi",
+    "i686-linux-android",
+    "x86_64-linux-android",
+]
+ignore-build-dependencies = true
+ignore-dev-dependencies = true

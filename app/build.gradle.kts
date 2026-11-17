@@ -5,23 +5,29 @@ import com.android.build.gradle.internal.tasks.FinalizeBundleTask
 import com.android.build.gradle.internal.tasks.PackageBundleTask
 import com.android.build.gradle.tasks.PackageAndroidArtifact
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.testing.Test
+import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
+import javax.inject.Inject
 
 abstract class VerifyEngineBoundaryClasspathTask : DefaultTask() {
     @get:InputFiles
@@ -81,6 +87,114 @@ abstract class VerifyEmbeddedRelayBundleTask : DefaultTask() {
                 "Simple variants require a non-empty src/simple/assets/embedded-relay-bundle.json",
             )
         }
+    }
+}
+
+// Writes notices/rust-crates.json: deduplicated license texts and the crates that use them.
+abstract class GenerateRustNoticesTask
+    @Inject
+    constructor(
+        private val execOperations: ExecOperations,
+    ) : DefaultTask() {
+        @get:InputFile
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val cargoLock: RegularFileProperty
+
+        @get:InputFile
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val aboutConfig: RegularFileProperty
+
+        @get:Input
+        abstract val cargoAbout: Property<String>
+
+        @get:Input
+        abstract val required: Property<Boolean>
+
+        @get:OutputDirectory
+        abstract val outputDir: DirectoryProperty
+
+        @TaskAction
+        fun generate() {
+            val noticesDir = outputDir.get().asFile.resolve("notices")
+            noticesDir.deleteRecursively()
+            noticesDir.mkdirs()
+            val rawJson = temporaryDir.resolve("cargo-about.json")
+            val config = aboutConfig.get().asFile
+            val result =
+                runCatching {
+                    execOperations.exec {
+                        workingDir = config.parentFile
+                        commandLine(
+                            cargoAbout.get(),
+                            "generate",
+                            "--locked",
+                            "--format",
+                            "json",
+                            "-c",
+                            config.absolutePath,
+                            "-o",
+                            rawJson.absolutePath,
+                        )
+                    }
+                }
+            result.exceptionOrNull()?.let { failure ->
+                val message =
+                    "Rust third-party notices need cargo-about 0.9.3 " +
+                        "(cargo install cargo-about@0.9.3 --locked --features cli)."
+                if (required.get()) throw GradleException(message, failure)
+                logger.warn("$message The open-source licenses screen omits Rust crates in this build.")
+                return
+            }
+            noticesDir.resolve("rust-crates.json").writeText(compact(rawJson.readText()))
+        }
+
+        // The workspace's own AGPL crates are covered by the app license in About.
+        @Suppress("UNCHECKED_CAST")
+        private fun compact(rawJson: String): String {
+            val model = JsonSlurper().parseText(rawJson) as Map<String, Any?>
+            val licenses =
+                (model.getValue("licenses") as List<Map<String, Any?>>).filter { it["id"] != "AGPL-3.0-only" }
+            val crates = sortedMapOf<String, Map<String, Any?>>()
+            val crateLicenses = mutableMapOf<String, MutableList<Int>>()
+            licenses.forEachIndexed { index, license ->
+                (license.getValue("used_by") as List<Map<String, Any?>>).forEach { use ->
+                    val crate = use.getValue("crate") as Map<String, Any?>
+                    val key = "${crate["name"]}@${crate["version"]}"
+                    crates[key] = crate
+                    crateLicenses.getOrPut(key) { mutableListOf() } += index
+                }
+            }
+            return JsonOutput.toJson(
+                mapOf(
+                    "licenses" to licenses.map { mapOf("id" to it["id"], "text" to it["text"]) },
+                    "crates" to
+                        crates.map { (key, crate) ->
+                            mapOf(
+                                "name" to crate["name"],
+                                "version" to crate["version"],
+                                "license" to crate["license"],
+                                "licenses" to crateLicenses.getValue(key),
+                            )
+                        },
+                ),
+            )
+        }
+    }
+
+// Gives each variant its own copy of the shared notices, as AGP's generated-asset API requires.
+abstract class CopyRustNoticesTask : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val notices: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val target = outputDir.get().asFile
+        target.deleteRecursively()
+        notices.files.filter(File::isDirectory).forEach { it.copyRecursively(target) }
     }
 }
 
@@ -620,7 +734,44 @@ tasks.withType<FinalizeBundleTask>().configureEach {
 
 aboutLibraries {
     collect {
-        // Native Go components (libXray AAR) that Gradle metadata cannot describe.
+        // Native components (libXray AAR, ripdpi-socks5-core) that Gradle metadata cannot describe.
         configPath = file("config/aboutlibraries")
+    }
+}
+
+val generateRustNotices =
+    tasks.register<GenerateRustNoticesTask>("generateRustNotices") {
+        group = "build"
+        description = "Generates the Rust third-party notices asset with cargo-about."
+        val rustWorkspace = rootProject.layout.projectDirectory.dir("native/rust")
+        cargoLock.set(rustWorkspace.file("Cargo.lock"))
+        aboutConfig.set(rustWorkspace.file("about.toml"))
+        val cargoHome =
+            providers
+                .environmentVariable("CARGO_HOME")
+                .orElse(providers.systemProperty("user.home").map { "$it/.cargo" })
+        val installedCargoAbout =
+            cargoHome.map { home ->
+                File(home, "bin/cargo-about").takeIf(File::canExecute)?.path ?: "cargo-about"
+            }
+        cargoAbout.set(providers.gradleProperty("ripdpi.cargoAbout").orElse(installedCargoAbout))
+        // Release builds run on CI; a local build without cargo-about only warns.
+        required.set(
+            providers
+                .environmentVariable("CI")
+                .map { true }
+                .orElse(providers.gradleProperty("ripdpi.requireRustNotices").map(String::toBoolean))
+                .orElse(false),
+        )
+        outputDir.set(layout.buildDirectory.dir("generated/rustNotices"))
+    }
+
+extensions.configure<ApplicationAndroidComponentsExtension> {
+    onVariants(selector().all()) { variant ->
+        val copyRustNotices =
+            tasks.register<CopyRustNoticesTask>(variant.computeTaskName("copy", "RustNotices")) {
+                notices.from(generateRustNotices.flatMap(GenerateRustNoticesTask::outputDir))
+            }
+        variant.sources.assets?.addGeneratedSourceDirectory(copyRustNotices, CopyRustNoticesTask::outputDir)
     }
 }

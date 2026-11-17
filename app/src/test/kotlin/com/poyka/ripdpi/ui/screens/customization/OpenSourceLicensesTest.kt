@@ -31,4 +31,12 @@ class OpenSourceLicensesTest {
             assertTrue("$title lacks '$expected'", text.contains(expected))
         }
     }
+
+    @Test
+    fun rustCratesCarryTheirLicenseTextsWithoutWorkspaceCrates() {
+        val tokio = notices.first { it.title == "tokio" && it.id.startsWith("crates.io/") }
+        assertTrue(tokio.text.contains("Permission is hereby granted"))
+        val workspaceCrates = notices.filter { it.subtitle.contains("AGPL-3.0-only") }.map { it.title }
+        assertTrue("workspace crates listed: $workspaceCrates", workspaceCrates.isEmpty())
+    }
 }

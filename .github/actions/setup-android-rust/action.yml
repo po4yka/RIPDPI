@@ -175,6 +175,13 @@ runs:
       shell: bash
       run: rustup target add ${{ inputs.rust-targets }}
 
+    # The app build generates the Rust third-party notices with cargo-about.
+    - name: Install cargo-about
+      if: inputs.setup-rust == 'true'
+      uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      with:
+        tool: cargo-about@0.9.3
+
     - name: Install native toolchain via android CLI
       if: inputs.skip-android-sdk-ndk != 'true' && inputs.setup-android-ndk == 'true'
       shell: bash
