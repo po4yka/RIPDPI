@@ -77,6 +77,8 @@ Everything is done through a normal GitHub fork and pull request — no account 
    the complete `values-<qualifier>/` resources for both `:app` and
    `:core:service`, the `locales_config.xml` entry, and the updated
    `LocalesConfigTest`. CI runs the resource and test gates.
+   Add the [Contributor License Agreement](../CLA.md) statement to the
+   pull request description; a translation without it is not merged.
 
 ## String freeze
 

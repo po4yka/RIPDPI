@@ -25,6 +25,7 @@ Choose the row matching the change or failure you are investigating. Read the en
 | Build, sign, or publish a release | [Release workflow](../.agents/skills/ripdpi-release/SKILL.md) | [Signing](../.agents/skills/release-signing/SKILL.md) and [distribution channels](distribution.md) for release inputs and channel behavior |
 | Change agent instructions, skills, mirrors, hooks, or their checks | [Harness maintenance](../.claude/rules/harness-maintenance.md) | [Harness manifests](../scripts/ci/check_harness_manifests.py) and [reference audit](../scripts/ci/check_harness_links.py) for the enforced rules |
 | Create, execute, or close a portfolio task; decide whether OpenSpec is required | [Task management](tasks/README.md) | [Task board workflow](../.agents/skills/repo-task-board/SKILL.md) for the repository CLI and execution routes |
+| Use RIPDPI in a product, redistribute it, or contribute code or translations | [Licensing](../LICENSING.md) (AGPL-3.0-only or a commercial license) | [Contributor License Agreement](../CLA.md); [license text](../LICENSE) |
 
 ## Architecture — start here
 
