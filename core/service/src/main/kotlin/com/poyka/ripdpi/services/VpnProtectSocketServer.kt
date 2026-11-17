@@ -58,7 +58,11 @@ internal class VpnProtectSocketServer(
         private val endpointOwners = ConcurrentHashMap<String, VpnProtectSocketServer>()
         private const val LISTEN_BACKLOG = 5
         private const val ACCEPT_THREAD_JOIN_TIMEOUT_MS = 500L
-        private const val DEFAULT_HANDLER_CONCURRENCY = 2
+
+        // protect() is a binder call that slows down during a network switch, exactly when
+        // every upstream socket reconnects; four handlers keep the queue wait under the
+        // native client's one-second timeout.
+        private const val DEFAULT_HANDLER_CONCURRENCY = 4
 
         // Each protect takes milliseconds, so queue a socket burst (browser, DoH, per-CONNECT
         // helpers) instead of answering it with ack=1, which clients report as a protect denial.

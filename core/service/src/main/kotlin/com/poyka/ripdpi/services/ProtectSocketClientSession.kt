@@ -16,7 +16,9 @@ internal interface ProtectSocketClientSession : AutoCloseable {
 internal class LocalSocketClientSession(
     private val socket: LocalSocket,
 ) : ProtectSocketClientSession {
-    private val handshakeDeadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(1)
+    // Starts at the handler's first read, not at accept: time spent queued behind other
+    // sessions must not use up the client's handshake budget.
+    private val handshakeDeadlineNanos by lazy { System.nanoTime() + TimeUnit.SECONDS.toNanos(1) }
 
     override val ancillaryFileDescriptors: Array<FileDescriptor>?
         get() = socket.ancillaryFileDescriptors
