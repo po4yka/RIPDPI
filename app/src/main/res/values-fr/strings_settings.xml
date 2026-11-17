@@ -109,7 +109,6 @@
     <string name="settings_support_debug_bundle_body">Partagez les journaux récents et les diagnostics dans un fichier ZIP pour l’assistance. Les captures de paquets ne sont pas incluses.</string>
     <string name="settings_tethering_dns_warning_body">Quand le partage de connexion est actif, Android exécute un serveur DNS local qui contourne le VPN. Des applications peuvent l\'utiliser pour envoyer des balises de suivi hors du tunnel.</string>
     <string name="settings_vpn_flag_warning_title">L\'indicateur VPN est visible</string>
-    <string name="about_credits_body">RIPDPI s\'appuie sur le projet open source hufrea/ripdpi et conserve tout le routage et la configuration en local sur cet appareil.</string>
     <string name="about_license_title">Licence</string>
     <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. Distribué sous licence AGPL-3.0-only ; une licence commerciale est également disponible. Fourni sans aucune garantie.</string>
     <string name="about_project_section">Projet</string>
@@ -160,7 +159,6 @@
     <string name="root_mode_strategy_ipfrag2_title">Fragmentation IP</string>
     <string name="root_mode_strategy_ipfrag2_body">Divise les paquets au niveau IP afin que les inspecteurs ne voient jamais la charge utile complète.</string>
     <string name="root_mode_strategies_configure_action">Ouvrir l\'éditeur de stratégies</string>
-    <string name="about_credits_title">Crédits</string>
     <string name="about_version_code">Code de version</string>
     <string name="customization_icon_disintegrate">Désintégrer</string>
     <string name="customization_options_section">Options</string>

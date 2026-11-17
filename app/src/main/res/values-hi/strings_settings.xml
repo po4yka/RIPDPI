@@ -149,8 +149,6 @@
     <string name="about_build_type">बिल्ड प्रकार</string>
     <string name="about_package_name">पैकेज</string>
     <string name="about_project_section">प्रोजेक्ट</string>
-    <string name="about_credits_title">क्रेडिट</string>
-    <string name="about_credits_body">RIPDPI ओपन-सोर्स hufrea/ripdpi प्रोजेक्ट पर आधारित है और सभी रूटिंग और कॉन्फ़िगरेशन को इस उपकरण तक सीमित रखता है।</string>
     <string name="about_license_title">लाइसेंस</string>
     <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. AGPL-3.0-only के तहत लाइसेंस प्राप्त; व्यावसायिक लाइसेंस भी उपलब्ध है। बिना किसी वारंटी के प्रदान किया जाता है।</string>
     <string name="about_links_section">लिंक</string>

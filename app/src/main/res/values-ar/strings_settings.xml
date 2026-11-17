@@ -127,8 +127,6 @@
     <string name="about_build_type">نوع البنية</string>
     <string name="about_package_name">الحزمة</string>
     <string name="about_project_section">المشروع</string>
-    <string name="about_credits_title">الشكر والتقدير</string>
-    <string name="about_credits_body">يعتمد RIPDPI على مشروع hufrea/ripdpi مفتوح المصدر ويحتفظ بجميع عمليات التوجيه والتهيئة محليًا على هذا الجهاز.</string>
     <string name="about_license_title">الترخيص</string>
     <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. مرخّص بموجب AGPL-3.0-only، وتتوفر أيضًا رخصة تجارية. يُقدَّم دون أي ضمان.</string>
     <string name="about_links_section">الروابط</string>

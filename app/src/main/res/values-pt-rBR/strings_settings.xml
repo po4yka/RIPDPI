@@ -138,8 +138,6 @@
     <string name="about_build_type">Tipo de compilação</string>
     <string name="about_package_name">Pacote</string>
     <string name="about_project_section">Projeto</string>
-    <string name="about_credits_title">Créditos</string>
-    <string name="about_credits_body">O RIPDPI se baseia no projeto de código aberto hufrea/ripdpi e mantém todo o roteamento e a configuração locais neste dispositivo.</string>
     <string name="about_license_title">Licença</string>
     <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. Licenciado sob AGPL-3.0-only; uma licença comercial também está disponível. Fornecido sem qualquer garantia.</string>
     <string name="about_links_section">Links</string>

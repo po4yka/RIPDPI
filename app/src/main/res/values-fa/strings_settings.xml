@@ -30,7 +30,6 @@
     <string name="root_mode_strategies_configure_action">باز کردن ویرایشگر راهبرد</string>
     <!-- gap-fill fa: sub-agent translations -->
     <string name="about_build_section">ساخت</string>
-    <string name="about_credits_body">RIPDPI بر پایه پروژه متن‌باز hufrea/ripdpi ساخته شده و تمام مسیریابی و پیکربندی را روی همین دستگاه نگه می‌دارد.</string>
     <string name="about_license_title">مجوز</string>
     <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. تحت مجوز AGPL-3.0-only منتشر شده است؛ مجوز تجاری نیز در دسترس است. بدون هیچ‌گونه ضمانتی ارائه می‌شود.</string>
     <string name="about_links_section">پیوندها</string>
@@ -82,7 +81,6 @@
     <string name="settings_start_on_boot_title">اجرا هنگام روشن شدن</string>
     <string name="settings_start_on_boot_battery_warning">بهینه‌سازی باتری هنوز فعال است. تا زمانی که RIPDPI را از بهینه‌سازی باتری مستثنا نکنید، ممکن است اندروید اجازه ندهد هنگام روشن شدن اجرا شود.</string>
     <string name="about_build_type">نوع ساخت</string>
-    <string name="about_credits_title">اعتبارات</string>
     <string name="about_package_name">بسته</string>
     <string name="advanced_settings_visual_controls_disabled">کنترل‌های بصری در حالی که بازنویسی‌های خط فرمان فعال هستند در دسترس نیستند.</string>
     <string name="customization_available_icons_section">نمادهای موجود</string>

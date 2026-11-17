@@ -109,7 +109,6 @@
     <string name="settings_support_debug_bundle_body">Comparte registros recientes y datos de diagnóstico en un archivo ZIP para soporte. No incluye capturas de paquetes.</string>
     <string name="settings_tethering_dns_warning_body">Cuando el anclaje a red está activo, Android ejecuta un servidor DNS local que evita la VPN. Las apps pueden usarlo para enviar balizas de rastreo fuera del túnel.</string>
     <string name="settings_vpn_flag_warning_title">El indicador de VPN es visible</string>
-    <string name="about_credits_body">RIPDPI se basa en el proyecto de código abierto hufrea/ripdpi y mantiene todo el enrutamiento y la configuración locales en este dispositivo.</string>
     <string name="about_license_title">Licencia</string>
     <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. Licenciado bajo AGPL-3.0-only; también hay una licencia comercial disponible. Se proporciona sin ninguna garantía.</string>
     <string name="about_project_section">Proyecto</string>
@@ -160,7 +159,6 @@
     <string name="root_mode_strategy_ipfrag2_title">Fragmentación IP</string>
     <string name="root_mode_strategy_ipfrag2_body">Divide los paquetes en la capa IP para que los inspectores nunca vean la carga útil completa.</string>
     <string name="root_mode_strategies_configure_action">Abrir el editor de estrategias</string>
-    <string name="about_credits_title">Créditos</string>
     <string name="about_version_code">Código de versión</string>
     <string name="customization_icon_disintegrate">Desintegrar</string>
     <string name="customization_options_section">Opciones</string>

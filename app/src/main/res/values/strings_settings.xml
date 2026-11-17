@@ -139,8 +139,6 @@
     <string name="about_build_type">Build type</string>
     <string name="about_package_name">Package</string>
     <string name="about_project_section">Project</string>
-    <string name="about_credits_title">Credits</string>
-    <string name="about_credits_body">RIPDPI builds on the open-source hufrea/ripdpi project and keeps all routing and configuration local to this device.</string>
     <string name="about_license_title">License</string>
     <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. Licensed under AGPL-3.0-only; a commercial license is also available. Provided without any warranty.</string>
     <string name="about_links_section">Links</string>

@@ -1,8 +1,6 @@
 app:about_build_section
 app:about_build_type
 app:about_category
-app:about_credits_body
-app:about_credits_title
 app:about_description
 app:about_license_body
 app:about_license_title

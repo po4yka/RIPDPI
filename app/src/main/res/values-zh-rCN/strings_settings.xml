@@ -9,7 +9,6 @@
     <string name="settings_detail_placeholder">选择一项设置，在此处打开。</string>
     <!-- gap-fill zh-CN: sub-agent translations -->
     <string name="about_build_section">构建</string>
-    <string name="about_credits_title">致谢</string>
     <string name="about_project_section">项目</string>
     <string name="advanced_settings_command_line_disabled">启用命令行设置以便在此编辑原始 RIPDPI 标志。</string>
     <string name="customization_icon_cracked">裂纹</string>
@@ -133,7 +132,6 @@
     <string name="settings_dynamic_color_title">使用壁纸颜色</string>
     <string name="settings_dynamic_color_body">让应用配色匹配你的壁纸（Android 12 及以上）。</string>
     <string name="settings_warning_backup_pin_body">设置一个四位备用 PIN,以便在生物识别不可用时仍能解锁 RIPDPI。</string>
-    <string name="about_credits_body">RIPDPI 基于开源项目 hufrea/ripdpi 构建,所有路由和配置均保留在本设备上。</string>
     <string name="about_license_title">许可证</string>
     <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev。基于 AGPL-3.0-only 许可发布,也可获取商业许可。不提供任何担保。</string>
     <string name="about_package_name">软件包</string>

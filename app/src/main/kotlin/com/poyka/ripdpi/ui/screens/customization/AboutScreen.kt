@@ -206,18 +206,6 @@ private fun AboutProjectSection() {
         SettingsCategoryHeader(title = stringResource(R.string.about_project_section))
         RipDpiCard {
             Text(
-                text = stringResource(R.string.about_credits_title),
-                style = type.bodyEmphasis,
-                color = colors.foreground,
-            )
-            Text(
-                text = stringResource(R.string.about_credits_body),
-                style = type.body,
-                color = colors.mutedForeground,
-            )
-        }
-        RipDpiCard {
-            Text(
                 text = stringResource(R.string.about_license_title),
                 style = type.bodyEmphasis,
                 color = colors.foreground,
