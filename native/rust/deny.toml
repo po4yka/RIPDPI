@@ -1,3 +1,17 @@
+[graph]
+# Check only the targets RIPDPI builds: the four Android ABIs and the CI/developer
+# hosts that run tests. Dependencies gated to other targets (for example chrono,
+# which russh-util pulls only on wasm32) are never compiled.
+targets = [
+    "aarch64-linux-android",
+    "armv7-linux-androideabi",
+    "i686-linux-android",
+    "x86_64-linux-android",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "aarch64-apple-darwin",
+]
+
 [advisories]
 # Vulnerabilities are denied by default; list specific advisory IDs to ignore.
 # Every entry is mirrored by owner, expiry, rationale, and tracking metadata in
@@ -5,6 +19,7 @@
 # when metadata is missing, stale, or expired.
 ignore = [
     { id = "RUSTSEC-2023-0071", reason = "rsa enters via Arti 0.47.0 -> tor-key-forge -> ssh-key-fork-arti (rsa 0.9.10) and russh 0.65.0 (rsa 0.10.0-rc.18); RIPDPI exposes no RSA private-key service and SSH publickey auth signs the session transcript hash, not attacker-chosen plaintext. No safe upgrade exists on either path." },
+    { id = "RUSTSEC-2026-0542", reason = "humantime (unmaintained, no vulnerability) enters only via Arti 0.48.0, the latest release, through arti-client, tor-config, tor-circmgr, tor-dirmgr and other tor crates plus humantime-serde. It parses and formats durations in Tor config and directory code. Upstream tracks the migration in tpo/core/arti#2882 and ignores the same advisory." },
 ]
 
 # Known RC-crypto exposure -- tracked, documentation only (no advisory ID to ignore).

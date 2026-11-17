@@ -7,3 +7,10 @@ owner = "Native security maintainer"
 reason = "Arti 0.47.0 and russh 0.65.0 still have no safe rsa upgrade (re-checked with cargo-deny on 2026-11-02) and do not expose attacker-chosen RSA private-key operations"
 expires = "2027-01-31"
 tracking = "docs/tasks/issues/unpin-russh-after-rsa-advisory-fix.md"
+
+[[waivers]]
+id = "RUSTSEC-2026-0542"
+owner = "Native security maintainer"
+reason = "humantime is unmaintained (no vulnerability) and enters only via Arti 0.48.0, the latest release; Arti has not migrated yet (tpo/core/arti#2882) and ignores the same advisory upstream"
+expires = "2027-02-28"
+tracking = "docs/tasks/issues/drop-humantime-waiver-after-arti-migration.md"
