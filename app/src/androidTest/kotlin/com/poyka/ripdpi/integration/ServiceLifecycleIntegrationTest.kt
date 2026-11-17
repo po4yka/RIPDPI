@@ -474,9 +474,9 @@ class ServiceLifecycleIntegrationTest {
 
             IntegrationTestOverrides.proxyFactory.lastRuntime.complete(17)
 
-            awaitFailure(Sender.VPN)
+            val failure = awaitFailure(Sender.VPN)
+            assertEquals(FailureReason.NativeError("Proxy exited with code 17"), failure.reason)
             awaitStatus(AppStatus.Halted, Mode.VPN)
-            awaitProxyStopCount(1)
             awaitOrderEventCount("tunnel:stop", 1)
             assertFalse(barrierSession.isClosed)
             assertEquals(0, IntegrationTestOverrides.orderSnapshot().count { it == "vpn:session-close" })
