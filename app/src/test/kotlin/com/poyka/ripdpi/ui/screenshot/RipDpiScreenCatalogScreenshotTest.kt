@@ -34,7 +34,9 @@ import com.poyka.ripdpi.ui.components.RipDpiVpnPermissionDialogPreviewScene
 import com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryScreen
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthScreen
 import com.poyka.ripdpi.ui.screens.health.previewConnectionHealthUiState
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingCompletionPageIndex
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPersona
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingTestPageIndex
@@ -106,6 +108,47 @@ class RipDpiScreenCatalogScreenshotTest {
             OnboardingUiState(
                 currentPage = OnboardingInfoPageCount + 1,
                 selectedMode = Mode.VPN,
+            ),
+        )
+    }
+
+    @Test
+    fun onboardingLocalFirstScreen() {
+        captureOnboardingScreen(OnboardingUiState(currentPage = 1))
+    }
+
+    @Test
+    fun onboardingAdvancedPersonaScreen() {
+        captureOnboardingScreen(
+            OnboardingUiState(currentPage = OnboardingInfoPageCount, selectedPersona = OnboardingPersona.Advanced.id),
+        )
+    }
+
+    @Test
+    fun onboardingProxyDnsScreen() {
+        captureOnboardingScreen(
+            OnboardingUiState(currentPage = OnboardingInfoPageCount + 2, selectedMode = Mode.Proxy),
+        )
+    }
+
+    @Test
+    fun onboardingProxyModeScreen() {
+        captureOnboardingScreen(
+            OnboardingUiState(currentPage = OnboardingInfoPageCount + 1, selectedMode = Mode.Proxy),
+        )
+    }
+
+    @Test
+    fun onboardingBackgroundScreen() {
+        captureOnboardingScreen(OnboardingUiState(currentPage = OnboardingInfoPageCount + 3))
+    }
+
+    @Test
+    fun onboardingCompletionScreen() {
+        captureOnboardingScreen(
+            OnboardingUiState(
+                currentPage = OnboardingCompletionPageIndex,
+                validationState = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = ""),
             ),
         )
     }

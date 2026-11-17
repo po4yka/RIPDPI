@@ -44,19 +44,19 @@ States that the design covers:
 
 The flow is one screen, not eight.
 
-- One step badge stays pinned above the pages. It does not slide with a page. Its icon changes from one step to the next, and the change follows the pager position, so a drag scrubs it.
+- The scene stage stays pinned above the pages. It does not slide with a page. During a drag the scene of the old step fades and moves out and the scene of the new step comes in, with the pager position. [Scene stage](#scene-stage) gives the scenes.
 - Every page puts its title at the same height. During a drag the old page fades and blurs out and the new page comes into focus, and each page moves less than the finger. The titles cross over in place.
 - The indicator widths follow the pager position.
 - A swipe that settles on a new step gives one selection haptic. A button gives its own haptic, so it does not give a second one.
 - Every step works with buttons only. The swipe is an extra path.
 
-On the first launch the page content rises and fades in once. The badge is visible from the first frame, because it stands where the splash icon stood.
+On the first launch the page content rises and fades in once. The stage is visible from the first frame, because it stands where the splash icon stood, and its first scene opens as that icon.
 
 ## Hand-off to the main screen
 
 The app replaces its whole navigation host when onboarding completes, so a route transition or a `SharedTransitionLayout` inside the host cannot join the two screens. `RipDpiHandOffReveal` sits above the host and survives the replacement. The signal line is the shared element: the layer draws it on its way to the cable of the hero link tile, and the tile is hidden until the line lands, then fades in in the quick bucket.
 
-- The badge reports its center and radius to `LocalRipDpiHandOff` as the anchor. The onboarding line reports its bounds and look as `sourceLine`, and the report stays when onboarding leaves the screen.
+- The stage reports its middle to `LocalRipDpiHandOff` as the anchor and no source line, so the main screen opens as a circle from the stage. Where the badge shows, the badge reports its center and radius as the anchor. The onboarding line reports its bounds and look as `sourceLine`, and the report stays when onboarding leaves the screen.
 - The link tile in `RipDpiConnectionActuator` reports its bounds and the look of the line as `targetLine` through `Modifier.ripDpiHandOffTarget`, and it is hidden while the layer draws the line. The line lands on the middle of the tile, where its cable runs. The hero has no other change.
 - `OnboardingHandOffTrigger` starts the reveal in the composition that replaces the content, so the veil and the main screen reach the screen in one frame. No frame shows the main screen without the veil.
 
@@ -83,9 +83,32 @@ One `Confirm` haptic marks the end of the reveal, also for the circle and for th
 
 The layer takes no input. A reveal that is cancelled sets its progress to the end, so nothing stays drawn over the app, and it does not play again.
 
+## Scene stage
+
+The app icon is a ghost in a tombstone: the grave of DPI, and the traffic that passes where DPI stood. Onboarding tells that as eight drawn scenes, one for each step. The ghost is the only character. It floats, leans into its motion, and trails its hem; it does not jump and has no smile. It shows its state with its eyes only, and it turns to a dashed outline to pass through a thing.
+
+| Step | Scene | What it shows |
+|---|---|---|
+| Welcome | Rest in peace, DPI | The scene opens as the app icon. The ghost leaves the stone through its top, the carving shows, the stone cracks and leans, and a crow lands on it. |
+| Local first | Unseen | A camera sweeps a red light. A ghost in the light turns to an outline and loses its shadow, so the camera finds nothing. Data from the phone turns back at a dashed limit. |
+| Persona | The bench | Guided is one dial and one button. Advanced opens the wings of the console and grows faders, dials, a scope, lamps, and a meter. The ghost moves a control without a touch, and the scope and the meter follow. |
+| Scope | The wall | A brick wall with a scanner stands before the open internet. Whole device: every app sends a ghost through the wall. Proxy only: the loop tightens on two apps, and the plain packets of the others are seen by the scanner and stop. |
+| DNS | The checkpoint | A split-flap board shows the resolver. The ghost carries a sealed name through a checkpoint; the stamp goes through the ghost and marks only the ground, and under the gantry the name reads as noise. |
+| Background | The night watch | Night at the grave. The phone sleeps with its tunnel key lit. The ghost keeps its round with a lantern, and the light sends a hand back into the grave. |
+| Connection test | Three barriers | One barrier for each stage of the checklist. A scanner reads the ghost; on a pass the ghost goes through the barrier and the barrier cracks; on a failure the barrier takes `destructive` and the ghost is pushed back. |
+| Completion | Free | After a passed test the barriers fall to rubble, small ghosts drift to the globe, and the seal is the app icon with a new crack. Without a passed test the barriers stand and the seal has no check. |
+
+- The scenes use the roles of the theme only: `foreground` for the dark shapes, `background` for the ghost, `signal` for the path, `destructive` for what the censor does, and mixes of these. The night scene takes its sky from the dark end of the theme. On a dark page the ghost stays light and the tombstone is a step above the page.
+- A scene never carries state alone. The title, the option cards, the checklist, and the banner name each state, and the stage has no semantics.
+- A scene that comes into view plays from its start. The scene of a restored step starts at its still frame; only the welcome scene plays on the first frame, because it opens as the splash icon.
+- With motion off every scene is one still frame of its state, and a new selection gives a new still frame.
+- The stage has no localized text. The carving on the stone is the name of the app, and the resolver on the board is data.
+- The drawing code is `ui/screens/onboarding/scenes`. Its numbers are the coordinates and timings of the drawings in a 300 by 170 frame, so those files turn the magic-number rule off.
+- In a window shorter than 600dp, at a font scale of 150% and above, and in the landscape layout, the content needs the height. The step badge on the signal line then takes the place of the stage, as [Signature moment](#signature-moment) describes.
+
 ## Signature moment
 
-One line runs through the whole first launch. It is `RipDpiSignalField`, and the pinned badge sits on it. The hand-off carries it to the cable of the link tile of the main-screen hero.
+Where the step badge shows, one line runs through the whole first launch. It is `RipDpiSignalField`, and the pinned badge sits on it. The hand-off carries it to the cable of the link tile of the main-screen hero.
 
 | Step or state | Line |
 |---|---|

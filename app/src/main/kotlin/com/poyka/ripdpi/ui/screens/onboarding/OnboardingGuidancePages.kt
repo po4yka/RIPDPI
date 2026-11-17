@@ -191,6 +191,18 @@ internal fun OnboardingBackgroundGuidanceContent(
     }
 }
 
+/** The name of the selected resolver. The default resolver stands for [OnboardingDnsSystemId]. */
+@Composable
+internal fun onboardingDnsName(providerId: String): String {
+    val provider =
+        if (providerId == OnboardingDnsSystemId) {
+            canonicalDefaultDnsProviderDefinition()
+        } else {
+            dnsProviderById(providerId)
+        }
+    return provider?.displayName ?: stringResource(R.string.dns_custom_title)
+}
+
 /** What onboarding set up, shown before every exit to the main screen. */
 @Composable
 internal fun OnboardingCompletionContent(
@@ -200,12 +212,6 @@ internal fun OnboardingCompletionContent(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val components = RipDpiThemeTokens.components
-    val dnsProvider =
-        if (uiState.selectedDnsProviderId == OnboardingDnsSystemId) {
-            canonicalDefaultDnsProviderDefinition()
-        } else {
-            dnsProviderById(uiState.selectedDnsProviderId)
-        }
     Column(
         modifier =
             modifier
@@ -245,7 +251,7 @@ internal fun OnboardingCompletionContent(
         )
         OnboardingSummaryRow(
             labelRes = R.string.onboarding_done_dns,
-            value = dnsProvider?.displayName ?: stringResource(R.string.dns_custom_title),
+            value = onboardingDnsName(uiState.selectedDnsProviderId),
         )
         OnboardingSummaryRow(
             labelRes = R.string.onboarding_done_test,

@@ -89,6 +89,9 @@ private const val AccessibilityOnboardingFontScale = 1.5f
 // Below this window height (a phone in landscape) the step badge moves into the top bar.
 private val OnboardingCompactHeight = 480.dp
 
+// Below this height the pinned element is the step badge, not the scene stage.
+private val OnboardingSceneMinHeight = 600.dp
+
 // Share of the page width that a page gives up while it scrolls, so its content moves less than the finger.
 private const val OnboardingPageParallax = 0.4f
 
@@ -263,6 +266,8 @@ internal fun OnboardingScreen(
     ) {
         // A short and narrow window (split screen) keeps the plain top bar: its action needs the width.
         val compactHeight = maxHeight < OnboardingCompactHeight && maxWidth > maxHeight
+        // The scene stage needs a tall window. A short one keeps the badge, so the content keeps its height.
+        val scenes = maxHeight >= OnboardingSceneMinHeight
         Column(
             modifier =
                 Modifier
@@ -288,7 +293,7 @@ internal fun OnboardingScreen(
 
             // 2) STEP BADGE — pinned: it stays in place while the pages change under it.
             if (!compactHeight) {
-                OnboardingPinnedBadge(pagePosition, signal)
+                OnboardingPinnedBadge(pagePosition, signal, settledPage, uiState.takeIf { scenes })
             }
 
             // 3) CONTENT — weighted; each page renders its own title at the top
@@ -353,17 +358,25 @@ private fun rememberOnboardingPagePosition(
     }
 
 /**
- * The step badge in its pinned place above the pages, on the signal line that runs through every step. It does
- * not scroll, so at large font scales the badge is smaller.
+ * The pinned element above the pages. It is the scene stage, which does not scroll. At large font scales the
+ * content needs the height, so the small step badge on the signal line takes its place.
  */
 @Composable
 private fun OnboardingPinnedBadge(
     pagePosition: () -> Float,
     signal: OnboardingSignal,
+    step: Int,
+    uiState: OnboardingUiState?,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val largeFont = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
+    if (!largeFont && uiState != null) {
+        val statesTest = onboardingLineStatesTest(step, OnboardingTestPageIndex, uiState.validationState)
+        val dns = onboardingDnsName(uiState.selectedDnsProviderId)
+        OnboardingSceneStage(onboardingSceneState(uiState, dns, statesTest), pagePosition, modifier)
+        return
+    }
     Box(
         modifier = modifier.fillMaxWidth().padding(bottom = spacing.md + spacing.sm),
         contentAlignment = Alignment.Center,
