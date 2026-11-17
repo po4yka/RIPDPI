@@ -39,6 +39,7 @@ fn preflight_response_trickle_cannot_extend_the_total_deadline() {
         None,
         "abcdefghijklmnopqrstuvwxyzABCDEF",
         None,
+        super::Timeouts::for_command(CMD_PROTOCOL_PREFLIGHT),
     );
     let elapsed = started.elapsed();
     sender.join().expect("sender");

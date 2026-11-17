@@ -29,7 +29,7 @@ use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock, RwLock};
 use std::time::Instant;
 
-use super::root_helper_client::{RootHelperClient, is_not_delivered};
+use super::root_helper_client::{RootHelperClient, is_injection_paused, is_not_delivered};
 
 /// Monotonic token identifying one [`register_root_helper_versioned`] call.
 ///
@@ -264,6 +264,8 @@ where
         return None;
     }
     match f(&registered.client) {
+        // The client refused on its own; this says nothing new about the helper.
+        Err(error) if is_injection_paused(&error) => Some(Err(error)),
         Err(error) if is_not_delivered(&error) => {
             let cause = FallbackCause::of(&error);
             if registered.health.record_fallback(cause, now_ms()) {

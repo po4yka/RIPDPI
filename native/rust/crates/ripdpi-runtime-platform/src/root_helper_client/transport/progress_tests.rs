@@ -45,6 +45,7 @@ fn helper_reply_for(command: &str, data: Option<serde_json::Value>) -> io::Error
         Some(stream.as_fd()),
         "abcdefghijklmnopqrstuvwxyzABCDEF",
         None,
+        super::Timeouts::for_command(command),
     );
     server.join().expect("helper server");
     std::fs::remove_file(path).expect("remove helper socket");

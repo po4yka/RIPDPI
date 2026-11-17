@@ -7,8 +7,9 @@ use nix::errno::Errno;
 use nix::sys::socket::{AddressFamily, SockFlag, SockType, UnixAddr, connect, socket};
 
 use ripdpi_root_helper_protocol::{
-    CMD_PROTOCOL_PREFLIGHT, CMD_SEND_FAKE_TCP, CMD_SEND_SEQOVL_TCP, HelperRequest, HelperResponse, PROTOCOL_VERSION,
-    send_request_message, valid_session_nonce, validate_request, validate_request_with_peer,
+    CMD_PROTOCOL_PREFLIGHT, CMD_SEND_FAKE_TCP, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP, HelperRequest,
+    HelperResponse, PROTOCOL_VERSION, send_request_message, valid_session_nonce, validate_request,
+    validate_request_with_peer,
 };
 
 /// Upper bound for one connect to the helper socket. A blocking AF_UNIX
@@ -22,6 +23,31 @@ const CONNECT_RETRY_INTERVAL: Duration = Duration::from_millis(5);
 /// queue of other flows' commands. A timeout does not mark the helper as down.
 const PREFLIGHT_READ_TIMEOUT: Duration = Duration::from_secs(2);
 const COMMAND_READ_TIMEOUT: Duration = Duration::from_secs(30);
+/// Raw-packet injection runs synchronously on the tunnel io loop, so its connect, preflight and command each get this short bound instead.
+const INJECTION_CONNECT_TIMEOUT: Duration = Duration::from_millis(200);
+const INJECTION_READ_TIMEOUT: Duration = Duration::from_millis(200);
+
+/// Connect and read bounds for one helper connection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct Timeouts {
+    connect: Duration,
+    read: Duration,
+}
+
+impl Timeouts {
+    pub(super) fn for_command(command: &str) -> Self {
+        if command == CMD_SEND_RAW_IP_PACKET {
+            return Self { connect: INJECTION_CONNECT_TIMEOUT, read: INJECTION_READ_TIMEOUT };
+        }
+        let read = if command == CMD_PROTOCOL_PREFLIGHT { PREFLIGHT_READ_TIMEOUT } else { COMMAND_READ_TIMEOUT };
+        Self { connect: CONNECT_TIMEOUT, read }
+    }
+
+    /// Bounds for the protocol preflight sent ahead of a command with these bounds.
+    fn preflight(self) -> Self {
+        Self { connect: self.connect, read: self.read.min(PREFLIGHT_READ_TIMEOUT) }
+    }
+}
 
 #[cfg(test)]
 mod deadline_tests;
@@ -63,10 +89,18 @@ impl ClientTransport {
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
 
         let session_nonce = load_session_nonce(&self.session_nonce_path()).map_err(not_delivered)?;
+        let timeouts = Timeouts::for_command(command);
         let preflight = if command != CMD_PROTOCOL_PREFLIGHT {
             Some(
-                self.send_command_once(CMD_PROTOCOL_PREFLIGHT, serde_json::Value::Null, None, &session_nonce, None)
-                    .map_err(not_delivered)?,
+                self.send_command_once(
+                    CMD_PROTOCOL_PREFLIGHT,
+                    serde_json::Value::Null,
+                    None,
+                    &session_nonce,
+                    None,
+                    timeouts.preflight(),
+                )
+                .map_err(not_delivered)?,
             )
         } else {
             None
@@ -77,6 +111,7 @@ impl ClientTransport {
             fd,
             &session_nonce,
             preflight.as_ref().map(|(response, _)| &response.data),
+            timeouts,
         )
     }
 
@@ -87,6 +122,7 @@ impl ClientTransport {
         fd: Option<BorrowedFd<'_>>,
         session_nonce: &str,
         preflight: Option<&serde_json::Value>,
+        timeouts: Timeouts,
     ) -> io::Result<(HelperResponse, Option<OwnedFd>)> {
         let descriptor = validate_request(command, fd.is_some(), !params.is_null())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
@@ -105,9 +141,8 @@ impl ClientTransport {
                 .map_err(not_delivered)?;
         }
 
-        let stream = connect_bounded(&self.socket_path, CONNECT_TIMEOUT).map_err(not_delivered)?;
-        let read_timeout =
-            if command == CMD_PROTOCOL_PREFLIGHT { PREFLIGHT_READ_TIMEOUT } else { COMMAND_READ_TIMEOUT };
+        let stream = connect_bounded(&self.socket_path, timeouts.connect).map_err(not_delivered)?;
+        let read_timeout = timeouts.read;
         stream.set_read_timeout(Some(read_timeout)).map_err(not_delivered)?;
         stream.set_write_timeout(Some(Duration::from_secs(10))).map_err(not_delivered)?;
 
@@ -207,7 +242,7 @@ impl std::fmt::Display for NotDelivered {
 
 impl std::error::Error for NotDelivered {}
 
-fn not_delivered(error: io::Error) -> io::Error {
+pub(super) fn not_delivered(error: io::Error) -> io::Error {
     if is_not_delivered(&error) {
         return error;
     }

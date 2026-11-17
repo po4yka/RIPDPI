@@ -56,6 +56,7 @@ fn failure_for(command: &'static str, data: serde_json::Value) -> io::Error {
         Some(stream.as_fd()),
         "abcdefghijklmnopqrstuvwxyzABCDEF",
         None,
+        super::super::Timeouts::for_command(command),
     );
     worker.join().expect("helper fixture");
     std::fs::remove_file(path).expect("remove socket");

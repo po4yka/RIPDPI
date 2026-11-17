@@ -33,14 +33,20 @@ impl RootHelperClient {
         })
     }
 
+    /// Sends one raw IP packet through the helper with the short injection timeouts. After a timeout or transport error, calls fail at once with an error [`is_injection_paused`](super::is_injection_paused) accepts until the injection cooldown ends.
     pub fn send_raw_ip_packet(&self, target: SocketAddr, packet: &[u8]) -> io::Result<()> {
-        let params =
-            serde_json::to_value(RawIpPacketParams { target_addr: target.to_string(), packet: packet.to_vec() })
-                .map_err(|error| io::Error::other(format!("serialize raw IP packet params: {error}")))?;
-        let (_resp, _fd) = self.transport.send_command(CMD_SEND_RAW_IP_PACKET, params, None)?;
-        Ok(())
+        self.injection_breaker.call(|| {
+            let params =
+                serde_json::to_value(RawIpPacketParams { target_addr: target.to_string(), packet: packet.to_vec() })
+                    .map_err(|error| io::Error::other(format!("serialize raw IP packet params: {error}")))?;
+            let (_resp, _fd) = self.transport.send_command(CMD_SEND_RAW_IP_PACKET, params, None)?;
+            Ok(())
+        })
     }
 }
+
+#[cfg(test)]
+mod injection_tests;
 
 #[cfg(test)]
 mod tests {
