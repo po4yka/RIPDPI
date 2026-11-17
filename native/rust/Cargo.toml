@@ -120,7 +120,7 @@ members = [
 [workspace.package]
 edition = "2024"
 version = "0.1.0"
-license = "MIT"
+license = "AGPL-3.0-only"
 
 [workspace.dependencies]
 shadowsocks = { path = "vendor/shadowsocks", version = "=1.25.0", default-features = false, features = ["aead-cipher", "aead-cipher-2022", "security-replay-attack-detect"] }

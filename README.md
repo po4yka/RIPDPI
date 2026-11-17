@@ -197,3 +197,7 @@ RIPDPI aims for the simplicity of Linear or Apple Notes: a simple purpose, a sim
 ## Translate RIPDPI
 
 Translations are community contributions through GitHub pull requests. See [docs/localization.md](docs/localization.md) for how to add or improve a locale and [the provenance ledger](docs/localization-provenance.md) for each locale and review date. Structural checks do not establish linguistic accuracy; Arabic, Hindi, and Brazilian Portuguese still await a native-speaker review.
+
+## License
+
+RIPDPI is dual-licensed: [AGPL-3.0-only](LICENSE) or a commercial license from the author. See [LICENSING.md](LICENSING.md). Contributions require the [CLA](CLA.md).

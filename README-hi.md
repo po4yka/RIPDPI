@@ -199,3 +199,7 @@ RIPDPI का लक्ष्य Linear या Apple Notes जैसी सर�
 ## RIPDPI का अनुवाद करें
 
 अनुवाद GitHub pull requests के माध्यम से समुदाय द्वारा योगदान किए जाते हैं। किसी locale को जोड़ने या सुधारने के लिए [docs/localization.md](docs/localization.md) और review की स्थिति व तारीखों के लिए [provenance ledger](docs/localization-provenance.md) देखें। संरचनात्मक जाँच भाषाई सटीकता सिद्ध नहीं करती; अरबी, हिन्दी और ब्राज़ीलियाई पुर्तगाली अभी native-speaker review की प्रतीक्षा में हैं।
+
+## लाइसेंस
+
+RIPDPI दोहरे लाइसेंस के अंतर्गत है: [AGPL-3.0-only](LICENSE) या लेखक से व्यावसायिक लाइसेंस। विवरण के लिए [LICENSING.md](LICENSING.md) देखें। योगदान के लिए [CLA](CLA.md) स्वीकार करना आवश्यक है।
