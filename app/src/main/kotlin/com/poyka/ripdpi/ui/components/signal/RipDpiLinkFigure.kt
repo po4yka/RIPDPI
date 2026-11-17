@@ -321,6 +321,12 @@ internal class LinkFigure(
         return active || !partsRest(input) || !lampsRest(input) || !lanesEmpty() || effects
     }
 
+    /**
+     * True while only the packets and the lamps move: the plug, the socket, and the cable are at rest and no
+     * finger holds the plug. A steady figure does not need more frames than 60 a second.
+     */
+    fun steady(input: LinkInput): Boolean = input.drag == null && partsRest(input)
+
     private fun partsRest(input: LinkInput): Boolean {
         val plug = abs(pull.rate) < Rest && abs(pull.at - target(input)) < Rest
         val socket = abs(recoil.at) < Rest && abs(click.at) < Rest

@@ -322,6 +322,23 @@ class RipDpiLinkFigureTest {
     }
 
     @Test
+    fun `a figure is steady only while its plug, socket, and cable are at rest`() {
+        val live = input(RipDpiLinkMode.Live, sent = 1f, received = 1f)
+        val figure = figure(input(RipDpiLinkMode.Open))
+
+        // The plug is on its way in.
+        figure.advance(1f / FramesPerSecond, live)
+        assertFalse(figure.steady(live))
+
+        // The plug is seated and the cable has come to rest. Packets still travel.
+        figure.run(4f, live)
+        assertFalse(figure.sent.pulses.isEmpty())
+        assertTrue(figure.steady(live))
+        // A finger on the plug can move it in any frame.
+        assertFalse(figure.steady(LinkInput(RipDpiLinkMode.Live, all(Complete), drag = 0f)))
+    }
+
+    @Test
     fun `a live link with an empty cable rests until its next packet, for one second at most`() {
         val silent = input(RipDpiLinkMode.Live, sent = 0f, received = 0f)
         val figure = figure(input(RipDpiLinkMode.Open))

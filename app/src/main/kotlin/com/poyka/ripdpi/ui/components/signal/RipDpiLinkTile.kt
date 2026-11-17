@@ -173,10 +173,15 @@ private suspend fun LinkFigure.run(
     // One input for each frame, and one callback for the whole run, so a frame allocates only its input.
     var now = input()
     val frame = { time: Long ->
-        now = input()
-        advance(((time - last) / NanosPerSecond).coerceAtMost(LongestStep), now)
-        last = time
-        onFrame()
+        val seconds = (time - last) / NanosPerSecond
+        // Packets look the same at 60 frames a second, so a steady figure lets the frames of a faster display
+        // pass. The time of a frame that passes goes into the next one.
+        if (seconds >= LeastFrame || !steady(now)) {
+            now = input()
+            advance(seconds.coerceAtMost(LongestStep), now)
+            last = time
+            onFrame()
+        }
     }
     while (held() || moving(now)) {
         val quiet = quiet(now)
@@ -382,6 +387,9 @@ private const val MillisPerSecond = 1_000f
 
 // A frame that comes late moves the figure by no more than this, so it does not jump.
 private const val LongestStep = 0.05f
+
+// A steady figure takes a frame only after this time, which is between the frames of a 90 Hz and a 120 Hz display.
+private const val LeastFrame = 0.01f
 
 // A wait shorter than this is not worth a pause of the frame loop.
 private const val QuietWorth = 0.1f
