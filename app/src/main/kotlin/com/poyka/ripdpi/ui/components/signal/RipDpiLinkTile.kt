@@ -170,18 +170,23 @@ private suspend fun LinkFigure.run(
     onFrame: () -> Unit,
 ) {
     var last = withInfiniteAnimationFrameNanos { it }
-    while (held() || moving(input())) {
-        val quiet = quiet(input())
+    // One input for each frame, and one callback for the whole run, so a frame allocates only its input.
+    var now = input()
+    val frame = { time: Long ->
+        now = input()
+        advance(((time - last) / NanosPerSecond).coerceAtMost(LongestStep), now)
+        last = time
+        onFrame()
+    }
+    while (held() || moving(now)) {
+        val quiet = quiet(now)
         if (quiet > QuietWorth) {
             delay((quiet * MillisPerSecond).toLong())
             skip(quiet)
             last = withInfiniteAnimationFrameNanos { it }
+            now = input()
         } else {
-            withInfiniteAnimationFrameNanos { now ->
-                advance(((now - last) / NanosPerSecond).coerceAtMost(LongestStep), input())
-                last = now
-                onFrame()
-            }
+            withInfiniteAnimationFrameNanos(frame)
         }
     }
 }

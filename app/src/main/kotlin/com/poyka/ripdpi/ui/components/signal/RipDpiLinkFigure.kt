@@ -179,7 +179,7 @@ internal class LinkFigure(
             }
 
             RipDpiLinkMode.Seeking -> {
-                LinkDetent * (LinkStageCount - input.stages.count { it == RipDpiLinkStage.Complete }) / LinkStageCount
+                LinkDetent * (LinkStageCount - input.stages.completed()) / LinkStageCount
             }
 
             // A failed plug stops at the socket. The lamp names the stage: a few dp of travel cannot.
@@ -215,7 +215,7 @@ internal class LinkFigure(
             tap()
         }
         seated = nowSeated
-        val done = input.stages.count { it == RipDpiLinkStage.Complete }
+        val done = input.stages.completed()
         if (input.mode == RipDpiLinkMode.Seeking && done > complete) tap()
         complete = done
         ring = (ring + seconds / emphasized).coerceAtMost(1f)
@@ -272,7 +272,7 @@ internal class LinkFigure(
         rope.settle(pose(input))
         charge = if (input.mode.live()) 1f else 0f
         seated = out < LinkSeatedWithin
-        complete = input.stages.count { it == RipDpiLinkStage.Complete }
+        complete = input.stages.completed()
         ring = 1f
         shake = 1f
         flow = 1f
@@ -405,7 +405,10 @@ internal class LinkFigure(
         lane.level = ease(lane.level, if (live) traffic else 0f, seconds, state)
         val step = LinkSpeed * flow * seconds
         for (index in lane.pulses.indices) lane.pulses[index].at += step
-        lane.pulses.removeAll { it.ends(input, live, probes) }
+        // Indexed from the end, so a frame allocates no predicate and a removal skips no packet.
+        for (index in lane.pulses.lastIndex downTo 0) {
+            if (lane.pulses[index].ends(input, live, probes)) lane.pulses.removeAt(index)
+        }
         if (live) {
             lane.wait -= seconds
             lane.until -= step
@@ -516,6 +519,13 @@ private fun LinkPulse.ends(
 }
 
 private fun RipDpiLinkMode.live(): Boolean = this == RipDpiLinkMode.Live || this == RipDpiLinkMode.Unstable
+
+/** How many stages are complete. Indexed, so a frame allocates no iterator. */
+private fun List<RipDpiLinkStage>.completed(): Int {
+    var done = 0
+    for (index in indices) if (this[index] == RipDpiLinkStage.Complete) done++
+    return done
+}
 
 /** How bright the lamp of a stage is. [breath] is where a breathing lamp is in its cycle, from 0 to 1. */
 private fun RipDpiLinkStage.glow(breath: Float): Float =
