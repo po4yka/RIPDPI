@@ -176,7 +176,7 @@ async fn unauthenticated_response_cannot_publish_readiness() {
 /// # Cancel safety:
 /// NOT cancel-safe: the test owns its runtime worker through failure or bounded cleanup.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn peer_expiry_fails_a_previously_ready_runtime() {
+async fn peer_expiry_keeps_a_previously_ready_runtime_running() {
     let peer = UdpSocket::bind("127.0.0.1:0").await.expect("peer");
     let mut config =
         config_for_peer(peer.local_addr().expect("peer address"), PublicKey::from(&StaticSecret::from([9; 32])));
@@ -197,16 +197,11 @@ async fn peer_expiry_fails_a_previously_ready_runtime() {
         readiness.expect("initial readiness");
         return;
     }
-    // The peer remains bound but sends no further authenticated traffic.
+    // The peer remains bound but sends no further authenticated traffic, so the session
+    // expires. The runtime must stay up: the next packet starts a new handshake.
     let result = timeout(Duration::from_secs(6), &mut worker).await;
-    if result.is_err() {
-        stop_and_join(&runtime, worker).await.expect("stop expired worker");
-        panic!("expired peer state must terminate the ready runtime");
-    }
-    let error = result.expect("deadline").expect("worker").expect_err("peer expiry");
-    assert_eq!(error.kind(), io::ErrorKind::ConnectionAborted);
-    assert_eq!(runtime.telemetry().health, "failed");
-    assert!(runtime.telemetry().last_error.as_deref().is_some_and(|error| error.contains("session expired")));
+    assert!(result.is_err(), "an expired peer session must not end the runtime: {result:?}");
+    stop_and_join(&runtime, worker).await.expect("stop running worker");
 }
 
 /// # Cancel safety:

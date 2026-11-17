@@ -189,8 +189,8 @@ impl WarpRuntime {
         let listener = TcpListener::bind(&bind_addr).await?;
         let bind_addr = listener.local_addr()?.to_string();
 
-        // Every tunnel and interface task is supervised: its exit fails the runtime, so the
-        // Kotlin supervisor restarts WARP instead of serving connections that only hang.
+        // Every tunnel and interface task is supervised: its exit fails the runtime, and the
+        // Kotlin supervisor then stops the VPN instead of serving connections that only hang.
         let (failure_tx, mut failure_rx) = unbounded_channel::<String>();
         {
             let (tunnel, bus) = (Arc::clone(&tunnel), bus.clone());
@@ -249,13 +249,9 @@ impl WarpRuntime {
         // Track client tasks so shutdown closes them and resets the session count.
         let mut clients = JoinSet::new();
         let mut accept_failures = 0u32;
+        // An expired peer session is not a failure: the next packet starts a new handshake, so
+        // the runtime survives an outage instead of taking the VPN down with it.
         while runtime_failure.is_none() && !self.stop_requested() {
-            if !tunnel.is_handshake_established() {
-                let message = "WARP peer session expired".to_string();
-                *lock_snapshot(&self.last_error) = Some(message.clone());
-                runtime_failure = Some(io::Error::new(io::ErrorKind::ConnectionAborted, message));
-                break;
-            }
             while clients.try_join_next().is_some() {}
             let accepted = tokio::select! {
                 biased;
