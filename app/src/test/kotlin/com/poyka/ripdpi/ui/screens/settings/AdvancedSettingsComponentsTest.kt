@@ -32,7 +32,7 @@ class AdvancedSettingsComponentsTest {
     // -- AdvancedTextSetting --
 
     @Test
-    fun `text setting save button disabled when value unchanged`() {
+    fun `text setting shows no save button when value unchanged`() {
         composeRule.setContent {
             RipDpiTheme {
                 AdvancedTextSetting(
@@ -44,7 +44,7 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertDoesNotExist()
     }
 
     @Test
@@ -108,7 +108,7 @@ class AdvancedSettingsComponentsTest {
     }
 
     @Test
-    fun `text setting save button disabled when control is disabled`() {
+    fun `text setting shows no save button when control is disabled`() {
         composeRule.setContent {
             RipDpiTheme {
                 AdvancedTextSetting(
@@ -121,7 +121,7 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertDoesNotExist()
     }
 
     @Test

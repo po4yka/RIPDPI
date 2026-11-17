@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -233,21 +232,19 @@ private fun AdvancedTextSettingFooter(
             color = colors.mutedForeground,
         )
     }
+    // A field that has no change shows no Save button, so a long page is not a column of disabled buttons.
+    if (!showUnsaved) return
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (showUnsaved) {
-            Text(
-                text = stringResource(R.string.advanced_settings_unsaved_change),
-                modifier = Modifier.weight(1f),
-                style = type.caption,
-                color = colors.info,
-            )
-        } else {
-            Spacer(Modifier.weight(1f))
-        }
+        Text(
+            text = stringResource(R.string.advanced_settings_unsaved_change),
+            modifier = Modifier.weight(1f),
+            style = type.caption,
+            color = colors.info,
+        )
         RipDpiButton(
             text = stringResource(R.string.config_save),
             onClick = onSave,
