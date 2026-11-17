@@ -32,6 +32,7 @@ import com.poyka.ripdpi.data.ServiceStateStoreModule
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.persistence.AppSettingsRepositoryModule
+import com.poyka.ripdpi.data.setBlocksTrafficOnEngineFailure
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.NetworkHandoverMonitorModule
@@ -63,6 +64,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -444,6 +446,7 @@ class ServiceLifecycleIntegrationTest {
     @Test
     fun vpnServiceProxyFailureEmitsFailureAndStopsTunnel() {
         runBlocking {
+            IntegrationTestOverrides.appSettingsRepository.update { setBlocksTrafficOnEngineFailure(false) }
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
 
@@ -463,11 +466,35 @@ class ServiceLifecycleIntegrationTest {
     }
 
     @Test
+    fun vpnServiceProxyFailureKeepsBarrierUntilExplicitStopByDefault() {
+        runBlocking {
+            startService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Running, Mode.VPN)
+            val barrierSession = IntegrationTestOverrides.vpnTunnelSessionProvider.session
+
+            IntegrationTestOverrides.proxyFactory.lastRuntime.complete(17)
+
+            awaitFailure(Sender.VPN)
+            awaitStatus(AppStatus.Halted, Mode.VPN)
+            awaitProxyStopCount(1)
+            awaitOrderEventCount("tunnel:stop", 1)
+            assertFalse(barrierSession.isClosed)
+            assertEquals(0, IntegrationTestOverrides.orderSnapshot().count { it == "vpn:session-close" })
+
+            stopService()
+            awaitVpnSessionClosed()
+            awaitClearedActivePolicy(Mode.VPN)
+            assertTrue(barrierSession.isClosed)
+        }
+    }
+
+    @Test
     fun vpnServiceUnexpectedTunnelExitEmitsFailureAndStopsProxy() {
         runBlocking {
             IntegrationTestOverrides.appSettingsRepository.update {
                 dnsMode = DnsModePlainUdp
                 dnsIp = "9.9.9.9"
+                setBlocksTrafficOnEngineFailure(false)
             }
 
             startService(RipDpiVpnService::class.java)
@@ -686,8 +713,9 @@ class ServiceLifecycleIntegrationTest {
     }
 
     @Test
-    fun vpnServiceTelemetryFailureFailsClosedAndCleansUpTunnel() {
+    fun vpnServiceTelemetryFailureCleansUpTunnelWhenBlockingDisabled() {
         runBlocking {
+            IntegrationTestOverrides.appSettingsRepository.update { setBlocksTrafficOnEngineFailure(false) }
             IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.telemetryValue =
                 NativeRuntimeSnapshot(
                     source = "tunnel",
