@@ -627,6 +627,8 @@ class RoomNetworkDnsPathPreferenceRecordStore
         }
     }
 
+private const val BlockedDnsPathTtlMs = 24L * 60L * 60L * 1_000L
+
 @Singleton
 class RoomNetworkDnsBlockedPathStore
     @Inject
@@ -634,8 +636,9 @@ class RoomNetworkDnsBlockedPathStore
         private val dao: DiagnosticsDao,
         private val clock: DiagnosticsHistoryClock,
     ) : NetworkDnsBlockedPathStore {
+        // A block observed during a short outage must not lower a resolver on this network forever.
         override suspend fun getBlockedPathKeys(fingerprintHash: String): Set<String> =
-            dao.getBlockedPathKeys(fingerprintHash).toSet()
+            dao.getBlockedPathKeys(fingerprintHash, clock.now() - BlockedDnsPathTtlMs).toSet()
 
         override suspend fun recordBlockedPath(
             fingerprintHash: String,

@@ -39,8 +39,14 @@ interface DiagnosticsNetworkPreferenceDao {
     )
     suspend fun trimNetworkDnsPathPreferencesToCount(retainCount: Int)
 
-    @Query("SELECT pathKey FROM network_dns_blocked_paths WHERE fingerprintHash = :fingerprintHash")
-    suspend fun getBlockedPathKeys(fingerprintHash: String): List<String>
+    @Query(
+        "SELECT pathKey FROM network_dns_blocked_paths " +
+            "WHERE fingerprintHash = :fingerprintHash AND updatedAt >= :minUpdatedAt",
+    )
+    suspend fun getBlockedPathKeys(
+        fingerprintHash: String,
+        minUpdatedAt: Long,
+    ): List<String>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertBlockedPath(entity: NetworkDnsBlockedPathEntity): Long

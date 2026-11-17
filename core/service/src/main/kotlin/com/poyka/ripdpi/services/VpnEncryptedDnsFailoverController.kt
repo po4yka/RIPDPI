@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.toTemporaryResolverOverride
 
 private const val FailoverThreshold = 2
 private const val EagerFailoverMaxQueries = 3
+private const val ExhaustedRetryAfterMs = 10L * 60L * 1_000L
 private const val AutoFailoverReasonPrefix = "vpn_encrypted_dns_auto_failover"
 
 internal class VpnEncryptedDnsFailoverState {
@@ -28,6 +29,7 @@ internal class VpnEncryptedDnsFailoverState {
     var lastObservedDnsFailuresTotal: Long = 0
     var consecutiveFailureEvents: Int = 0
     var exhausted: Boolean = false
+    var exhaustedAt: Long = 0
     var currentPathSelectedByFailover: Boolean = false
     var currentPathPersisted: Boolean = false
     val attemptedPathKeys: LinkedHashSet<String> = linkedSetOf()
@@ -90,6 +92,8 @@ internal class VpnEncryptedDnsFailoverController(
             // ODoH fails closed: every built-in candidate would reveal the client address to the resolver.
             encryptedDns.isOdoh ||
                 isLocalTunnelDnsFailure(lastDnsError) ||
+                // With no network at all, every resolver fails; that says nothing about a path.
+                networkFingerprintProvider.capture() == null ||
                 (dnsUsesSharedProxy && isAmbiguousProxyFailure(lastDnsError))
         return if (keepCurrentPath) {
             // These failures cannot identify a blocked DNS endpoint (or failover is not allowed).
@@ -207,6 +211,13 @@ internal class VpnEncryptedDnsFailoverController(
         telemetry: NativeRuntimeSnapshot,
     ): Boolean {
         val failureObserved = observeFailureThreshold(state, telemetry)
+        if (failureObserved && state.exhausted && clock.nowMillis() - state.exhaustedAt >= ExhaustedRetryAfterMs) {
+            // The candidates may have failed during an outage that is over now; try them again.
+            state.attemptedPathKeys.clear()
+            state.attemptedPathKeys += currentPath.pathKey()
+            state.exhausted = false
+            reloadNetworkPreferences(state, networkScopeKey)
+        }
         if (!failureObserved || state.exhausted) return false
 
         // The session scope lags a deferred (captive-portal) handover; use the live network.
@@ -218,6 +229,7 @@ internal class VpnEncryptedDnsFailoverController(
         return if (nextPath == null) {
             log.w { "all candidates exhausted after ${state.attemptedPathKeys.size} attempts" }
             state.exhausted = true
+            state.exhaustedAt = clock.nowMillis()
             false
         } else {
             activatePath(state, nextPath, telemetry.lastDnsError.orEmpty(), liveScopeKey)

@@ -55,6 +55,54 @@ class VpnEncryptedDnsFailoverControllerTest {
         }
 
     @Test
+    fun `exhausted failover tries the candidates again after the retry window`() =
+        runTest {
+            val env = newEnv()
+            val currentDns = activeDnsSettings(dnsMode = "encrypted", dnsProviderId = DnsProviderAdGuard, dnsIp = "")
+            val signature = dnsSignature(currentDns, overrideReason = null)
+
+            suspend fun observe(
+                queries: Long,
+                failures: Long,
+                error: String?,
+            ) = env.controller.evaluate(
+                env.state,
+                currentDns,
+                signature,
+                env.fingerprint.scopeKey(),
+                dnsTelemetry(queries, failures, error),
+            )
+            observe(0, 0, null)
+            builtInEncryptedDnsPathCandidates().forEach { env.state.attemptedPathKeys += it.pathKey() }
+            assertFalse(observe(1, 1, "Connection refused"))
+            assertTrue(env.state.exhausted)
+
+            env.clock.advanceBy(9 * 60 * 1_000L)
+            assertFalse(observe(2, 2, "Connection refused"))
+            env.clock.advanceBy(60 * 1_000L)
+            assertTrue(observe(3, 3, "Connection refused"))
+            assertFalse(env.state.exhausted)
+        }
+
+    @Test
+    fun `failures without any network do not change the resolver`() =
+        runTest {
+            val env = newEnv()
+            val dns = cloudflareDohDns()
+            val scope = env.fingerprint.scopeKey()
+            env.controller.evaluate(env.state, dns, dnsSignature(dns, null), scope, dnsTelemetry(0, 0, null))
+            env.fingerprintProvider.fingerprint = null
+
+            repeat(3) {
+                val telemetry = dnsTelemetry((it + 1) * 10L, (it + 1).toLong(), "Connection refused")
+                assertFalse(env.controller.evaluate(env.state, dns, dnsSignature(dns, null), scope, telemetry))
+            }
+
+            assertNull(env.overrides.override.value)
+            assertEquals(0, env.state.consecutiveFailureEvents)
+        }
+
+    @Test
     fun `single dns failure event does not trigger failover`() =
         runTest {
             val env = newEnv()
@@ -650,7 +698,9 @@ private fun newEnv(): EncryptedDnsFailoverTestEnv {
     val blockedPaths = TestNetworkDnsBlockedPathStore()
     val fingerprint = sampleFingerprint()
     val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
+    val clock = TestServiceClock(now = 123L)
     return EncryptedDnsFailoverTestEnv(
+        clock = clock,
         fingerprintProvider = fingerprintProvider,
         controller =
             VpnEncryptedDnsFailoverController(
@@ -658,7 +708,7 @@ private fun newEnv(): EncryptedDnsFailoverTestEnv {
                 networkDnsPathPreferenceStore = preferredPaths,
                 networkDnsBlockedPathStore = blockedPaths,
                 networkFingerprintProvider = fingerprintProvider,
-                clock = TestServiceClock(now = 123L),
+                clock = clock,
             ),
         state = VpnEncryptedDnsFailoverState(),
         overrides = overrides,
@@ -719,4 +769,5 @@ private data class EncryptedDnsFailoverTestEnv(
     val blockedPaths: TestNetworkDnsBlockedPathStore,
     val fingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
     val fingerprintProvider: TestNetworkFingerprintProvider,
+    val clock: TestServiceClock,
 )
