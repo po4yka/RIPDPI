@@ -93,7 +93,7 @@ async fn connect_allowed_upstream(
             last_error = io::Error::new(io::ErrorKind::ConnectionRefused, "upstream address is not public");
             continue;
         }
-        match ripdpi_subprocess_protect::protected_tcp_connect(address, protect_path).await {
+        match ripdpi_subprocess_protect::protected_tcp_connect(&[address], protect_path).await {
             Ok(stream) => return Ok(stream),
             Err(error) => last_error = error,
         }

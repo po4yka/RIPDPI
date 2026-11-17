@@ -119,24 +119,26 @@ fn new_tcp_socket(addr: SocketAddr) -> io::Result<Socket> {
     Socket::new(domain, Type::STREAM, Some(Protocol::TCP))
 }
 
-/// Resolve `target`, then create a TCP socket, protect it (when `protect_path`
-/// is set and the target is non-loopback), and connect — async (tokio).
-/// Returns the first candidate that connects. Each candidate but the last is
-/// bounded by [`CONNECT_ATTEMPT_TIMEOUT`], the last by [`LAST_CONNECT_TIMEOUT`].
+/// For each of `addrs` in order, create a TCP socket, protect it (when
+/// `protect_path` is set and the address is non-loopback), and connect — async
+/// (tokio). Returns the first candidate that connects. Each candidate but the
+/// last is bounded by [`CONNECT_ATTEMPT_TIMEOUT`], the last by
+/// [`LAST_CONNECT_TIMEOUT`].
 ///
-/// Drop-in for `tokio::net::TcpStream::connect(target)` that honors the
-/// `VpnService.protect` invariant: the fd is protected *before* `connect`.
+/// Honors the `VpnService.protect` invariant: the fd is protected *before*
+/// `connect`. The caller resolves hostnames: this crate never calls the system
+/// resolver, whose plaintext lookup bypasses the TUN while sockets are
+/// protected (use protected DoH, as `ripdpi_vless::endpoint_resolver` does).
 ///
 /// # Cancel safety
 ///
 /// cancel-safe: no caller-visible state spans an `.await`. A cancelled dial
 /// drops its unconnected socket; a protect exchange already running on the
 /// blocking pool owns its socket and closes it when it finishes.
-pub async fn protected_tcp_connect<A: tokio::net::ToSocketAddrs>(
-    target: A,
+pub async fn protected_tcp_connect(
+    addrs: &[SocketAddr],
     protect_path: Option<&str>,
 ) -> io::Result<tokio::net::TcpStream> {
-    let addrs: Vec<SocketAddr> = tokio::net::lookup_host(target).await?.collect();
     let mut last_err = None;
     for (index, addr) in addrs.iter().copied().enumerate() {
         let limit = connect_timeout_for(index, addrs.len());
@@ -148,7 +150,7 @@ pub async fn protected_tcp_connect<A: tokio::net::ToSocketAddrs>(
             Err(err) => last_err = Some(err),
         }
     }
-    Err(last_err.unwrap_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no addresses resolved")))
+    Err(last_err.unwrap_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no address to connect to")))
 }
 
 /// # Cancel safety
@@ -173,13 +175,11 @@ async fn connect_one_async(addr: SocketAddr, protect_path: Option<&str>) -> io::
 }
 
 /// Blocking (std) counterpart of [`protected_tcp_connect`] for callers not on a
-/// tokio runtime. Drop-in for `std::net::TcpStream::connect(target)`, with the
-/// same per-candidate connect bounds.
-pub fn protected_tcp_connect_blocking<A: std::net::ToSocketAddrs>(
-    target: A,
+/// tokio runtime, with the same per-candidate connect bounds.
+pub fn protected_tcp_connect_blocking(
+    addrs: &[SocketAddr],
     protect_path: Option<&str>,
 ) -> io::Result<std::net::TcpStream> {
-    let addrs: Vec<SocketAddr> = target.to_socket_addrs()?.collect();
     let mut last_err = None;
     for (index, addr) in addrs.iter().copied().enumerate() {
         match connect_one_blocking(addr, protect_path, connect_timeout_for(index, addrs.len())) {
@@ -187,7 +187,7 @@ pub fn protected_tcp_connect_blocking<A: std::net::ToSocketAddrs>(
             Err(err) => last_err = Some(err),
         }
     }
-    Err(last_err.unwrap_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no addresses resolved")))
+    Err(last_err.unwrap_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no address to connect to")))
 }
 
 fn connect_one_blocking(
@@ -325,7 +325,7 @@ mod tests {
         // must skip protect entirely, so the connect still succeeds.
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
         let addr = listener.local_addr().expect("addr");
-        let stream = protected_tcp_connect_blocking(addr, Some("/definitely/not/a/socket"))
+        let stream = protected_tcp_connect_blocking(&[addr], Some("/definitely/not/a/socket"))
             .expect("loopback connect must skip protect and succeed");
         assert_eq!(stream.peer_addr().expect("peer").port(), addr.port());
     }
@@ -334,7 +334,7 @@ mod tests {
     fn no_path_connects_unprotected() {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
         let addr = listener.local_addr().expect("addr");
-        let stream = protected_tcp_connect_blocking(addr, None).expect("no-path connect must succeed");
+        let stream = protected_tcp_connect_blocking(&[addr], None).expect("no-path connect must succeed");
         assert_eq!(stream.peer_addr().expect("peer").port(), addr.port());
     }
 
@@ -348,7 +348,7 @@ mod tests {
         // must skip protect entirely, so the async connect still succeeds.
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
         let addr = listener.local_addr().expect("addr");
-        let stream = protected_tcp_connect(addr, Some("/definitely/not/a/socket"))
+        let stream = protected_tcp_connect(&[addr], Some("/definitely/not/a/socket"))
             .await
             .expect("async loopback connect must skip protect and succeed");
         assert_eq!(stream.peer_addr().expect("peer").port(), addr.port());
@@ -359,7 +359,7 @@ mod tests {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
         let addr = listener.local_addr().expect("addr");
         let stream =
-            protected_tcp_connect(addr, None).await.expect("async no-path connect must succeed (no-op protect)");
+            protected_tcp_connect(&[addr], None).await.expect("async no-path connect must succeed (no-op protect)");
         assert_eq!(stream.peer_addr().expect("peer").port(), addr.port());
     }
 
@@ -388,7 +388,8 @@ mod tests {
         let server = spawn_slow_protect_server(path.clone(), 1, Duration::from_millis(600));
         let path_str = path.to_str().expect("utf-8 path").to_owned();
 
-        let dial = tokio::spawn(async move { protected_tcp_connect("192.0.2.1:9", Some(path_str.as_str())).await });
+        let target: SocketAddr = "192.0.2.1:9".parse().expect("test-net addr");
+        let dial = tokio::spawn(async move { protected_tcp_connect(&[target], Some(path_str.as_str())).await });
         let started = std::time::Instant::now();
         tokio::time::sleep(Duration::from_millis(20)).await;
         let ticked = started.elapsed();
@@ -409,7 +410,7 @@ mod tests {
         let blackholed: SocketAddr = "192.0.2.1:9".parse().expect("test-net addr");
 
         let started = std::time::Instant::now();
-        let stream = protected_tcp_connect_blocking(&[blackholed, reachable][..], None)
+        let stream = protected_tcp_connect_blocking(&[blackholed, reachable], None)
             .expect("second candidate must still be tried");
         assert_eq!(stream.peer_addr().expect("peer"), reachable);
         assert!(started.elapsed() < CONNECT_ATTEMPT_TIMEOUT * 2, "first candidate held the dial for too long");

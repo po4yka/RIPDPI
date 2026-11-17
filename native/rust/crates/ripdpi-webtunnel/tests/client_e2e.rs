@@ -159,3 +159,39 @@ fn tls_identity_normalizes_absolute_dns_name_before_verified_upgrade() {
     stream.read_exact(&mut echoed).expect("echo payload");
     assert_eq!(&echoed, b"root-dot");
 }
+
+/// Bridge config whose `addr` is a hostname the system resolver cannot resolve, dialed with a protect path that fails every protect call.
+fn protected_hostname_bridge() -> WebTunnelBridgeConfig {
+    let mut bridge = parse_bridge_line(
+        "Bridge webtunnel 192.0.2.3:1 url=https://relay.invalid/secret addr=relay.invalid:443 utls=hellochrome_auto",
+    )
+    .expect("bridge line");
+    bridge.protect_path = Some("/definitely/not/a/socket".to_owned());
+    bridge
+}
+
+#[tokio::test]
+async fn webtunnel_async_client_resolves_a_protected_hostname_through_protected_dns() {
+    let error = connect_webtunnel_async(&protected_hostname_bridge()).await.expect_err("bogus protect path must fail");
+
+    let WebTunnelClientError::TcpConnect { source, .. } = error else { panic!("unexpected error: {error}") };
+    assert!(source.to_string().contains("through protected DNS"), "system resolver was used: {source}");
+}
+
+#[test]
+fn webtunnel_client_refuses_a_protected_hostname_without_a_system_lookup() {
+    let error = connect_webtunnel(&protected_hostname_bridge()).expect_err("protected hostname must fail closed");
+
+    let WebTunnelClientError::TcpConnect { source, .. } = error else { panic!("unexpected error: {error}") };
+    assert_eq!(source.kind(), std::io::ErrorKind::Unsupported, "unexpected error: {source}");
+}
+
+#[tokio::test]
+async fn webtunnel_async_client_dials_an_ip_literal_without_a_lookup_while_protected() {
+    let fixture = WebTunnelFixture::start("/secret").expect("start WebTunnel fixture");
+    let mut bridge = trusted_fixture_bridge(&fixture, "localhost");
+    bridge.protect_path = Some("/definitely/not/a/socket".to_owned());
+
+    connect_webtunnel_async(&bridge).await.expect("loopback IP literal needs no DNS and no protect");
+    assert_eq!(fixture.observed_requests().len(), 1);
+}

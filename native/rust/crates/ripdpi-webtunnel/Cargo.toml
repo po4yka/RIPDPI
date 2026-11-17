@@ -9,6 +9,8 @@ boring.workspace = true
 httparse.workspace = true
 ripdpi-subprocess-protect = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
+# Protected DoH for a bridge hostname while sockets are protected (never system DNS).
+ripdpi-vless = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 # Async WebTunnel client (connect_webtunnel_async): tokio TCP + tokio-boring TLS.
