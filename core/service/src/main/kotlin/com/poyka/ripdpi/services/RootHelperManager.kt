@@ -358,7 +358,8 @@ open class RootHelperManager
             backendSession.set(null)
             output?.close()
             removeIpcFiles(socketPath, noncePath)
-            log.i { "root helper stopped" }
+            // Every policy resolution stops an absent helper on a non-rooted device; log real stops only.
+            if (process != null || endpoint != null) log.i { "root helper stopped" }
         }
 
         /** Returns `true` while the launched helper process is still alive. */
