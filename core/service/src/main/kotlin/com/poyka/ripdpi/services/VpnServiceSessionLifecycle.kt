@@ -118,7 +118,7 @@ internal class VpnServiceSessionLifecycle(
                 shouldPrepareUserStart = {
                     stateStore.status.value.first != AppStatus.Running
                 },
-                isStopAllowed = service::isUserStopAllowed,
+                isStopAllowed = { service.refreshHardKillSwitchState().allowsServiceStop(it) },
                 intentCallbacks = intentCallbacks,
                 isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
                 onRevoke = { revokeSession(runtimeCoordinator) },

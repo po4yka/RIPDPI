@@ -36,11 +36,10 @@ internal class VpnTunnelRefreshCoordinator(
                 }
                 return@withLock
             }
-            if (!forceTunnelRebuild &&
-                !latestRefreshPlan.requiresTunnelRebuild &&
-                (!interfacePolicyChangeObserved || !dependencies.vpnTunnelRuntime.requiresInterfacePolicyRebuild())
-            ) {
-                return@withLock
+            if (!forceTunnelRebuild && !latestRefreshPlan.requiresTunnelRebuild) {
+                val interfacePolicyRebuildRequired =
+                    interfacePolicyChangeObserved && dependencies.vpnTunnelRuntime.requiresInterfacePolicyRebuild()
+                if (!interfacePolicyRebuildRequired) return@withLock
             }
             try {
                 callbacks.beginDnsRefresh(refreshSession, latestConnectionPolicy)

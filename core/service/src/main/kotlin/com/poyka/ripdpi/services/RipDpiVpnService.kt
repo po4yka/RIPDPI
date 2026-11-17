@@ -321,7 +321,7 @@ class RipDpiVpnService :
                         }
                     } finally {
                         stopRequests.serviceStageEnded()
-                        scheduleStopSettle()
+                        runtimeCommands.scheduleStopSettle()
                     }
                 }
             }.onFailure { failure ->
@@ -381,21 +381,13 @@ class RipDpiVpnService :
     }
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
-        if (stopRequests.request(stopSelfStartId)) launchStopSettle()
+        if (stopRequests.request(stopSelfStartId)) runtimeCommands.launchStopSettle()
     }
 
     override fun requestStopAfterQueuedCommands() {
         stopRequests.requestAfterQueuedCommands()
-        launchStopSettle()
+        runtimeCommands.launchStopSettle()
     }
-
-    private fun launchStopSettle() = stopRequests.launchSettle(serviceScope, entryMutex, ::scheduleStopSettle)
-
-    /** Called under entryMutex, so the settle queues behind every shell command of the commands handled so far. */
-    private suspend fun scheduleStopSettle() =
-        stopRequests.scheduleSettle(shellDelegate.current?.let { it::enqueueAfterQueuedCommands }) {
-            ::sessionLifecycle.isInitialized && sessionLifecycle.hasRuntimeSession()
-        }
 
     override suspend fun resolveAppRoutingPlan(
         settings: AppSettings,
@@ -424,7 +416,7 @@ class RipDpiVpnService :
     ): VpnTunnelBuilder =
         AndroidVpnTunnelBuilder(
             builder =
-                createBuilder(
+                runtimeCommands.createBuilder(
                     dns,
                     ipv6,
                     appRoutingPlan,
@@ -474,77 +466,11 @@ class RipDpiVpnService :
 
     override fun resolveHost(host: String): Array<String> = underlyingNetworkBinder.resolveHost(host)
 
-    internal suspend fun createBuilder(
-        dns: String,
-        ipv6: Boolean,
-        appRoutingPlan: VpnAppRoutingPlan,
-        interfaceSettings: AppSettings,
-        httpProxyPort: Int? = null,
-        networkParameters: VpnTunnelNetworkParameters = currentTunnelNetworkParameters(),
-        profileInterface: VpnProfileInterface? = null,
-    ): Builder {
-        val dnsServers = vpnBuilderDnsServers(dns, ipv6, profileInterface)
-        Logger.v { "DNS configured" }
-        val builder = Builder()
-        underlyingNetworkBinder.applyToBuilder(builder, preparedDirectDnsUnderlayToken)
-        builder.setSession("RIPDPI")
-        builder.setMtu(networkParameters.tunnelMtu)
-        builder.setConfigureIntent(
-            PendingIntent.getActivity(
-                this,
-                0,
-                packageManager.getLaunchIntentForPackage(packageName),
-                PendingIntent.FLAG_IMMUTABLE,
-            ),
-        )
-
-        builder.applyTunnelRoutePlan(profileInterface?.routePlan(dns) ?: vpnTunnelRoutePlan(ipv6))
-
-        dnsServers.forEach(builder::addDnsServer)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            builder.setMetered(networkParameters.metered)
-            if (httpProxyPort != null) {
-                builder.setHttpProxy(buildHttpProxyInfo(httpProxyPort))
-            }
-        }
-
-        // Android forbids mixing addAllowedApplication and addDisallowedApplication on the same
-        // Builder, so the policy returns exactly one shape. The caller passes the same immutable
-        // plan to this builder and the native UID guard so they cannot observe different generations.
-        when (val plan = appRoutingPlan) {
-            is VpnAppRoutingPlan.Disallow -> {
-                plan.packages.forEach { pkg ->
-                    try {
-                        builder.addDisallowedApplication(pkg)
-                    } catch (_: PackageManager.NameNotFoundException) {
-                        // App not installed, skip silently
-                    }
-                }
-            }
-
-            is VpnAppRoutingPlan.AllowOnly -> {
-                plan.packages.forEach { pkg ->
-                    try {
-                        builder.addAllowedApplication(pkg)
-                    } catch (_: PackageManager.NameNotFoundException) {
-                        // App not installed, skip silently
-                    }
-                }
-            }
-        }
-
-        runtimeCommands.applyDhtMitigation(builder, interfaceSettings)
-        refreshHardKillSwitchState()
-        return builder
-    }
-
     @android.annotation.SuppressLint("MissingPermission")
     override fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters {
         val physical = physicalNetworkObserver.selectedPhysicalSnapshot()
         return VpnTunnelNetworkPolicy.parameters(physical?.links, physical?.capabilities)
     }
-
-    internal fun isUserStopAllowed(action: String): Boolean = refreshHardKillSwitchState().allowsServiceStop(action)
 
     internal fun refreshHardKillSwitchState(): AndroidHardKillSwitchSnapshot {
         val snapshot = AndroidHardKillSwitchStateReader.read(this)
@@ -555,6 +481,78 @@ class RipDpiVpnService :
 
     /** Native session commands retain access only to their owning service instance. */
     private inner class RuntimeCommands {
+        fun launchStopSettle() = stopRequests.launchSettle(serviceScope, entryMutex, ::scheduleStopSettle)
+
+        /** Called under entryMutex, so the settle queues behind every shell command of the commands handled so far. */
+        suspend fun scheduleStopSettle() =
+            stopRequests.scheduleSettle(shellDelegate.current?.let { it::enqueueAfterQueuedCommands }) {
+                ::sessionLifecycle.isInitialized && sessionLifecycle.hasRuntimeSession()
+            }
+
+        suspend fun createBuilder(
+            dns: String,
+            ipv6: Boolean,
+            appRoutingPlan: VpnAppRoutingPlan,
+            interfaceSettings: AppSettings,
+            httpProxyPort: Int?,
+            networkParameters: VpnTunnelNetworkParameters,
+            profileInterface: VpnProfileInterface?,
+        ): Builder {
+            val dnsServers = vpnBuilderDnsServers(dns, ipv6, profileInterface)
+            Logger.v { "DNS configured" }
+            val builder = Builder()
+            underlyingNetworkBinder.applyToBuilder(builder, preparedDirectDnsUnderlayToken)
+            builder.setSession("RIPDPI")
+            builder.setMtu(networkParameters.tunnelMtu)
+            builder.setConfigureIntent(
+                PendingIntent.getActivity(
+                    this@RipDpiVpnService,
+                    0,
+                    packageManager.getLaunchIntentForPackage(packageName),
+                    PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+
+            builder.applyTunnelRoutePlan(profileInterface?.routePlan(dns) ?: vpnTunnelRoutePlan(ipv6))
+
+            dnsServers.forEach(builder::addDnsServer)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                builder.setMetered(networkParameters.metered)
+                if (httpProxyPort != null) {
+                    builder.setHttpProxy(buildHttpProxyInfo(httpProxyPort))
+                }
+            }
+
+            // Android forbids mixing addAllowedApplication and addDisallowedApplication on the same
+            // Builder, so the policy returns exactly one shape. The caller passes the same immutable
+            // plan to this builder and the native UID guard so they cannot observe different generations.
+            when (val plan = appRoutingPlan) {
+                is VpnAppRoutingPlan.Disallow -> {
+                    plan.packages.forEach { pkg ->
+                        try {
+                            builder.addDisallowedApplication(pkg)
+                        } catch (_: PackageManager.NameNotFoundException) {
+                            // App not installed, skip silently
+                        }
+                    }
+                }
+
+                is VpnAppRoutingPlan.AllowOnly -> {
+                    plan.packages.forEach { pkg ->
+                        try {
+                            builder.addAllowedApplication(pkg)
+                        } catch (_: PackageManager.NameNotFoundException) {
+                            // App not installed, skip silently
+                        }
+                    }
+                }
+            }
+
+            applyDhtMitigation(builder, interfaceSettings)
+            refreshHardKillSwitchState()
+            return builder
+        }
+
         suspend fun releaseActiveSession(guard: RuntimeStopGuard): RuntimeStopOutcome =
             when {
                 !guard.isCurrent() -> {
@@ -620,18 +618,19 @@ class RipDpiVpnService :
             alwaysOn: Boolean,
         ): Int {
             if (activeSessionAttached) return START_STICKY
-            if (alwaysOn && android.net.VpnService.prepare(this@RipDpiVpnService) != null) {
-                return discardIdleStart(startId)
+            return if (alwaysOn && android.net.VpnService.prepare(this@RipDpiVpnService) != null) {
+                discardIdleStart(startId)
+            } else {
+                val recovery =
+                    createStickyRecoveryCommand(
+                        this@RipDpiVpnService,
+                        pauseAuthority,
+                        serviceIntentArbiter,
+                        Mode.VPN,
+                        alwaysOn,
+                    )
+                if (recovery == null) discardIdleStart(startId) else dispatchActiveCommand(recovery, startId)
             }
-            val recovery =
-                createStickyRecoveryCommand(
-                    this@RipDpiVpnService,
-                    pauseAuthority,
-                    serviceIntentArbiter,
-                    Mode.VPN,
-                    alwaysOn,
-                )
-            return if (recovery == null) discardIdleStart(startId) else dispatchActiveCommand(recovery, startId)
         }
 
         private fun discardIdleStart(startId: Int): Int {

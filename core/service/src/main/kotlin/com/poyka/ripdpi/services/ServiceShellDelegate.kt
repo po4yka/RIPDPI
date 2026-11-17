@@ -304,15 +304,15 @@ internal class ServiceShellDelegate(
         return if (isStopAllowed(action) && isCompensatingStopCurrent()) {
             val guard =
                 acceptCapturedStop(explicitUserIntentGeneration, durableReference)
-                    ?.takeIf { capturedStopIsCurrent(it, snapshot) }
+                    ?.takeIf { serviceIntentArbiter.capturedStopIsCurrent(it, snapshot) }
                     ?: return android.app.Service.START_STICKY
             enqueue {
-                if (capturedStopIsCurrent(guard, snapshot) && isCompensatingStopCurrent()) {
+                if (serviceIntentArbiter.capturedStopIsCurrent(guard, snapshot) && isCompensatingStopCurrent()) {
                     stopWithProvenance(
                         startId,
                         ServiceStopProvenance.DiagnosticsCompensation,
                         RuntimeStopGuard(isCurrent = {
-                            capturedStopIsCurrent(guard, snapshot) && isCompensatingStopCurrent()
+                            serviceIntentArbiter.capturedStopIsCurrent(guard, snapshot) && isCompensatingStopCurrent()
                         }),
                     )
                 }
@@ -479,11 +479,6 @@ internal class ServiceShellDelegate(
         }
     }
 
-    private fun capturedStopIsCurrent(
-        guard: ExplicitUserStartGuard,
-        snapshot: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot?,
-    ): Boolean = guard.isCurrent() && snapshot != null && serviceIntentArbiter.durableSnapshot() == snapshot
-
     private fun acceptCapturedStop(
         generation: Long?,
         reference: com.poyka.ripdpi.data.PauseAuthorityRef?,
@@ -642,6 +637,11 @@ internal class ServiceShellDelegate(
         }
     }
 }
+
+private fun ServiceIntentArbiter.capturedStopIsCurrent(
+    guard: ExplicitUserStartGuard,
+    snapshot: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot?,
+): Boolean = guard.isCurrent() && snapshot != null && durableSnapshot() == snapshot
 
 internal fun Intent?.durableAuthorityReference(): com.poyka.ripdpi.data.PauseAuthorityRef? =
     this

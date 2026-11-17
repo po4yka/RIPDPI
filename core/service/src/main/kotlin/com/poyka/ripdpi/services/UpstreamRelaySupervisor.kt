@@ -288,16 +288,13 @@ internal class UpstreamRelaySupervisor(
                 requireRelayEgress(checkNotNull(slot.endpoint))
             }
             return slot
-        } catch (readinessError: CancellationException) {
-            cleanupFailedStart(slot)
-            throw readinessError
-        } catch (unreachable: InitialTransportSelectionException) {
-            cleanupFailedStart(slot)
-            throw unreachable
         } catch (
             @Suppress("TooGenericExceptionCaught") readinessError: Exception,
         ) {
             cleanupFailedStart(slot)
+            if (readinessError is CancellationException || readinessError is InitialTransportSelectionException) {
+                throw readinessError
+            }
             val startupCause =
                 (exitCause.await() as? SupervisorExitCause.StartupFailure)
                     ?: SupervisorExitCause.StartupFailure(readinessError)

@@ -553,7 +553,11 @@ class ConnectionPolicyResolverTest {
             assertNull(resolution.rememberedPolicyAppliedByExactMatch)
             assertEquals(1, rememberedStore.failures.size)
         }
+}
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class ConnectionPolicyDnsHintsTest {
     @Test
     fun `resolver derives vpn doh primary path from converged direct path dns hints`() =
         runTest {

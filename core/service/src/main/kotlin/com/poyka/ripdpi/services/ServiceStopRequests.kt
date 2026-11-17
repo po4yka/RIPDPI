@@ -56,9 +56,9 @@ internal class ServiceStopRequests(
             stopSelf()
             return false
         }
-        if (stopSelfResult(startId)) return false
-        deferredStops.incrementAndGet()
-        return true
+        val deferred = !stopSelfResult(startId)
+        if (deferred) deferredStops.incrementAndGet()
+        return deferred
     }
 
     /** Defers a failure stop; the caller must schedule a settle. */
@@ -72,8 +72,7 @@ internal class ServiceStopRequests(
      */
     fun settleStartId(): Int? {
         if (deferredStops.get() <= settledStops.get()) return null
-        val startId = latestStartId ?: return null
-        return startId.takeIf { commandsInServiceStage.get() == 0 }
+        return latestStartId?.takeIf { commandsInServiceStage.get() == 0 }
     }
 
     /**

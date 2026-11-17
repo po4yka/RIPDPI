@@ -38,7 +38,7 @@ import org.junit.Test
 import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class ProxyServiceRuntimeCoordinatorTest {
+class ProxyServiceStartupCancellationTest {
     @Test
     fun `cancelled WARP readiness stops and joins owned runtime without patch or configuration ACK`() =
         runTest {
@@ -247,7 +247,10 @@ class ProxyServiceRuntimeCoordinatorTest {
             assertTrue(env.autolearnReceipts.isEmpty())
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
         }
+}
 
+@OptIn(ExperimentalCoroutinesApi::class)
+class ProxyServiceRuntimeCoordinatorTest {
     @Test
     fun successfulStartPublishesRunningState() =
         runTest {
