@@ -137,6 +137,7 @@ fun StatusScreen(
                     onDiagnoseIssue = onOpenDiagnostics,
                     onViewIssueLog = onOpenLogs,
                     testTag = RipDpiTestTags.ConnectionActuatorButton,
+                    sessionHeld = pause.phase == com.poyka.ripdpi.data.PausePhase.Paused,
                     sessionControls = sessionControls,
                 )
 

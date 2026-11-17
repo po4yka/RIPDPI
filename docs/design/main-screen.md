@@ -4,7 +4,7 @@ This brief covers the Status screen. The tokens and components it adds are share
 
 ## Direction
 
-The screen is an instrument that shows the traffic path. One signal line runs through the hero card and takes its shape from the real connection state. The base stays neutral ink on paper with Geist Sans and Geist Mono. Identity comes from one signal color that appears only where the connection is live, from large mono numerals, and from motion that reports state.
+The screen is an instrument that shows the traffic path. The hero card has one link tile, a plug and a socket, that takes its state from the real connection. The base stays neutral ink on paper with Geist Sans and Geist Mono. Identity comes from one signal color that appears only where the connection is live, from large mono numerals, and from motion that reports state.
 
 ## Palette
 
@@ -13,7 +13,7 @@ The screen is an instrument that shows the traffic path. One signal line runs th
 - With dynamic color on, `signal` is the wallpaper `primary` role, and the wallpaper scheme decides its contrast.
 - `signal` marks a live or connecting path. It is not a status tone. A warning uses `warning` and a failure uses `destructive`, as before.
 - The status marker of the active mode card uses `signal`, so the live mode has the color of the live line. Where `signal` does not hold 3:1 on the selected surface (the light Medium and High contrast levels, whose selected fill is dark), the marker keeps the content color. The selected surface, the dot shape, and the Active label say the same without color.
-- The signal line never carries state alone. The headline icon and text always name the state.
+- The link tile never carries state alone. The headline icon and text always name the state.
 
 ## Type scale
 
@@ -23,7 +23,7 @@ The screen is an instrument that shows the traffic path. One signal line runs th
 
 ## Shape
 
-The hero is the elevated card with the standard card radius. The signal line is a 2dp stroke with a soft glow. No new radii.
+The hero is the elevated card with the standard card radius. The link tile is a `muted` container with the medium radius, and its figure is filled tonal shapes with no outline, glow, or shadow. No new radii.
 
 ## Motion
 
@@ -31,9 +31,9 @@ Each motion has one purpose.
 
 | Motion | Purpose | Spec |
 |---|---|---|
-| Signal line changes shape and color with the connection state | continuity | emphasized bucket, 320ms |
-| Signal line flows while connected, and a pulse travels while connecting | live state | frame clock, stops with reduced motion |
-| Signal line dips under the finger on press | feedback | press spring |
+| The plug seats or comes out, and the tile and lamps change color with the connection state | continuity | spring for the plug, state bucket for color |
+| Packets travel in the cable while connected, and one probe packet travels while connecting | live state | frame clock, stops with reduced motion |
+| A loose plug leans toward the socket on press | feedback | press spring |
 | Measured value cross-fades when it changes | feedback | quick bucket, 120ms |
 | State headline text cross-fades when the state changes | continuity | quick bucket, 120ms |
 | Clock colons take the signal color once per second | live state | emphasized bucket, 320ms, stops with reduced motion |

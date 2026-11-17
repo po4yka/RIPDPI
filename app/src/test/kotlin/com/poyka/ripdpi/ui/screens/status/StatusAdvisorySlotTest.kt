@@ -54,8 +54,8 @@ class StatusAdvisorySlotTest {
         setHome()
 
         // The disclosure names what it hides, not only how many.
-        composeRule.onNodeWithText("1 more notice").assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performClick()
+        composeRule.onNodeWithText("1 more notice").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performScrollTo().performClick()
 
         composeRule.onNodeWithTag(RipDpiTestTags.StatusSetupHealthDetails).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(LOCKDOWN_LABEL).performScrollTo().assertIsDisplayed()
@@ -65,7 +65,7 @@ class StatusAdvisorySlotTest {
     fun `collapsing the card removes the notices it disclosed`() {
         setHome()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performScrollTo().performClick()
 
         composeRule.onAllNodesWithTag(RipDpiTestTags.StatusSetupHealthDetails).assertCountEquals(0)

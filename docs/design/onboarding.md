@@ -54,10 +54,10 @@ On the first launch the page content rises and fades in once. The badge is visib
 
 ## Hand-off to the main screen
 
-The app replaces its whole navigation host when onboarding completes, so a route transition or a `SharedTransitionLayout` inside the host cannot join the two screens. `RipDpiHandOffReveal` sits above the host and survives the replacement. The signal line is the shared element, and the layer draws it on its way.
+The app replaces its whole navigation host when onboarding completes, so a route transition or a `SharedTransitionLayout` inside the host cannot join the two screens. `RipDpiHandOffReveal` sits above the host and survives the replacement. The signal line is the shared element: the layer draws it on its way to the cable of the hero link tile, and the tile is hidden until the line lands.
 
 - The badge reports its center and radius to `LocalRipDpiHandOff` as the anchor. The onboarding line reports its bounds and look as `sourceLine`, and the report stays when onboarding leaves the screen.
-- The hero line in `RipDpiConnectionActuator` reports its bounds and look as `targetLine` through `Modifier.ripDpiHandOffTarget`, and it is hidden while the layer draws the line. The hero has no other change.
+- The link tile in `RipDpiConnectionActuator` reports its bounds and the look of the line as `targetLine` through `Modifier.ripDpiHandOffTarget`, and it is hidden while the layer draws the line. The line lands on the middle of the tile, where its cable runs. The hero has no other change.
 - `OnboardingHandOffTrigger` starts the reveal in the composition that replaces the content, so the veil and the main screen reach the screen in one frame. No frame shows the main screen without the veil.
 
 The reveal has three parts.
@@ -85,7 +85,7 @@ The layer takes no input. A reveal that is cancelled sets its progress to the en
 
 ## Signature moment
 
-One line runs through the whole first launch. It is `RipDpiSignalField`, the line of the main-screen hero, and the pinned badge sits on it.
+One line runs through the whole first launch. It is `RipDpiSignalField`, and the pinned badge sits on it. The hand-off carries it to the cable of the link tile of the main-screen hero.
 
 | Step or state | Line |
 |---|---|
@@ -102,7 +102,7 @@ The ripple states the two choices, not a path. It does not move with time and ke
 
 The three test stages sit at the quarter points of the line, in the order of the checklist under it. A failed test breaks the line only on the test step: the persona and the scope steps have no path to break. On a step after the test step the line stays live for a passed test and is flat for every other state.
 
-When the test passes, the tunnel runs, so the line is live before the user leaves onboarding. The hand-off then opens the main screen, where the hero shows the same live line. The line never carries state alone: the title, the option cards, the checklist, and the banner name each state.
+When the test passes, the tunnel runs, so the line is live before the user leaves onboarding. The hand-off then opens the main screen, where the line lands on the cable of the hero link tile, which shows the same live session. The line never carries state alone: the title, the option cards, the checklist, and the banner name each state.
 
 The result of the test gives one haptic: success when the test passes and error when it fails. A result that is already on the screen gives none, so a rotation or a restored process is silent.
 

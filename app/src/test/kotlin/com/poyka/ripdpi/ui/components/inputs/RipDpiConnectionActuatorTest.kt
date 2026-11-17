@@ -142,7 +142,9 @@ class RipDpiConnectionActuatorTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).assertIsDisplayed().assertHasClickAction()
     }
 
+    // The Status screen scrolls. The screen of this test is tall enough for the whole hero at twice the font size.
     @Test
+    @Config(sdk = [35], qualifiers = "w320dp-h900dp")
     fun `action and route wrap at 320dp with large RTL text`() {
         val route = "Локальная VPN через выбранный сетевой маршрут"
         val action = "Подтвердить отключение соединения"

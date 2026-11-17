@@ -8,8 +8,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,8 +31,8 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -58,11 +56,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.onPlaced
-import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -88,7 +81,9 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiConfirmDisconnectDialog
 import com.poyka.ripdpi.ui.components.feedback.ripDpiHandOffTarget
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
-import com.poyka.ripdpi.ui.components.signal.RipDpiSignalField
+import com.poyka.ripdpi.ui.components.signal.RipDpiLinkMode
+import com.poyka.ripdpi.ui.components.signal.RipDpiLinkStage
+import com.poyka.ripdpi.ui.components.signal.RipDpiLinkTile
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalFieldHeight
 import com.poyka.ripdpi.ui.components.signal.RipDpiSignalMode
 import com.poyka.ripdpi.ui.components.signal.SignalTrafficMeter
@@ -105,20 +100,21 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.actuatorFault
 import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
 import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 
 private const val StackedRouteFontScale = 1.5f
 private const val PressedScale = 0.98f
 private val SessionClockMinSize = 16.sp
-private const val SessionClockShare = 0.6f
-private const val LineMiddle = 0.5f
 
 private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)
 
 /**
- * The Status hero: state headline, route labels, the signal line, the session clock, and the one connection
+ * The Status hero: state headline, route labels, the session clock, the link tile, and the one connection
  * action. Status and route information remain outside the connection action target.
  *
+ * @param sessionHeld true while the session is paused. The link tile then holds its plug at the latch.
  * @param sessionControls what qualifies the session, such as pause and a pending reconnect. It sits under the
  * connection action, so every session action shares the hero surface.
  */
@@ -132,6 +128,7 @@ fun RipDpiConnectionActuator(
     onDiagnoseIssue: (() -> Unit)? = null,
     onViewIssueLog: (() -> Unit)? = null,
     testTag: String? = null,
+    sessionHeld: Boolean = false,
     sessionControls: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val resolved = state.withResolvedLabels()
@@ -173,9 +170,10 @@ fun RipDpiConnectionActuator(
 
     val press = rememberHeroPress()
     RipDpiCard(modifier = modifier, variant = RipDpiCardVariant.Elevated) {
-        Column(modifier = Modifier.fillMaxWidth().then(press.trackPointer)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             ActuatorHeadline(state = resolved, stateStyle = style)
-            ActuatorSignalBand(state = resolved, signal = style.signal, press = press)
+            ActuatorSessionClock(resolved)
+            ActuatorLink(resolved, style.signal, press, sessionHeld, onAction.takeIf { enabled })
             if (resolved.strategyLabel.isNotEmpty()) {
                 RipDpiConnectionStrategyPanel(
                     strategyLabel = resolved.strategyLabel,
@@ -217,47 +215,28 @@ fun RipDpiConnectionActuator(
 
 /**
  * Press feedback of the hero. The hero recomposes once on press and once on release; each frame between reads
- * [amount] and the pointer position in the draw or layer phase.
+ * [amount] in the draw or layer phase.
  */
 private class HeroPress(
     val source: MutableInteractionSource,
+    /** True while the action is pressed. */
+    val pressed: State<Boolean>,
     /** How far the action is pressed, from 0 to 1. */
     val amount: State<Float>,
-) {
-    private val pointerX = mutableFloatStateOf(0f)
-    private var lineStart = 0f
-    private var lineWidth = 1f
-
-    /** Records where a pointer goes down, without consuming it. */
-    val trackPointer: Modifier =
-        Modifier.pointerInput(Unit) {
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                pointerX.floatValue = down.position.x
-            }
-        }
-
-    /** The line can start after the clock, so the pointer position is mapped to the line's own bounds. */
-    val trackLine: Modifier =
-        Modifier.onPlaced {
-            lineStart = it.positionInParent().x
-            lineWidth = maxOf(it.size.width, 1).toFloat()
-        }
-
-    fun positionOnLine(): Float = (pointerX.floatValue - lineStart) / lineWidth
-}
+)
 
 @Composable
 private fun rememberHeroPress(): HeroPress {
     val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
+    val pressedState = source.collectIsPressedAsState()
+    val pressed by pressedState
     val amount =
         animateFloatAsState(
             targetValue = if (pressed) 1f else 0f,
             animationSpec = RipDpiThemeTokens.motion.motionAwareSpring(),
             label = "Hero press",
         )
-    return remember(source, amount) { HeroPress(source, amount) }
+    return remember(source, amount) { HeroPress(source, pressedState, amount) }
 }
 
 /** The one connection action. It shrinks a little while pressed. */
@@ -290,74 +269,65 @@ private fun ActuatorAction(
     )
 }
 
-/** The clock shares the signal band, so the action below does not move when a session starts. */
+/** The link tile: the path as a plug and a socket. A drag of the plug does what the connection action does. */
 @Composable
-private fun ActuatorSignalBand(
+private fun ActuatorLink(
     state: StatusConnectionActuatorUiState,
     signal: Color,
     press: HeroPress,
+    held: Boolean,
+    onPlug: (() -> Unit)?,
 ) {
-    val spacing = RipDpiThemeTokens.spacing
     val traffic = rememberSessionTraffic(state)
-    Layout(
-        modifier = Modifier.fillMaxWidth().padding(top = spacing.sm),
-        content = {
-            ActuatorSessionClock(state)
-            val mode = state.status.toSignalMode()
-            val breakAt = state.failedStageFraction()
-            RipDpiSignalField(
-                mode = mode,
-                color = signal,
-                modifier =
-                    Modifier
-                        .then(press.trackLine)
-                        // The first launch hands its line over to this one.
-                        .ripDpiHandOffTarget(mode, signal, breakAt),
-                breakAt = breakAt,
-                pressAt = press::positionOnLine,
-                press = { press.amount.value },
-                traffic = { traffic.floatValue },
-            )
-        },
-    ) { measurables, constraints ->
-        // The clock takes what it needs, up to its share; the line takes all the rest, so it always reaches the edge.
-        val gap = spacing.md.roundToPx()
-        val width = constraints.maxWidth
-        val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val clock =
-            measurables
-                .dropLast(1)
-                .firstOrNull()
-                ?.measure(loose.copy(maxWidth = ((width - gap) * SessionClockShare).toInt()))
-        val lineStart = clock?.let { it.width + gap } ?: 0
-        val line = measurables.last().measure(loose.copy(minWidth = width - lineStart, maxWidth = width - lineStart))
-        val height = maxOf(line.height, clock?.height ?: 0)
-        layout(width, height) {
-            clock?.placeRelative(0, (height - clock.height) / 2)
-            line.placeRelative(lineStart, (height - line.height) / 2)
-        }
-    }
+    val mode = if (held) RipDpiLinkMode.Held else state.status.toLinkMode()
+    RipDpiLinkTile(
+        mode = mode,
+        stages = remember(state.status, state.stages, held) { state.linkStages(held) },
+        tone = signal,
+        modifier =
+            Modifier
+                .padding(top = RipDpiThemeTokens.spacing.sm)
+                // The first launch hands its line over to the cable of this tile.
+                .ripDpiHandOffTarget(state.status.toSignalMode(), signal),
+        press = { press.amount.value },
+        pressed = press.pressed.value,
+        sent = { traffic.sent.floatValue },
+        received = { traffic.received.floatValue },
+        onPlug = onPlug,
+    )
+}
+
+/** The traffic levels of the running session, from 0 to 1. */
+@Stable
+private class SessionTraffic {
+    val sent = mutableFloatStateOf(0f)
+    val received = mutableFloatStateOf(0f)
 }
 
 /**
- * The traffic level of the running session, sampled once a second from its packet counter. The counter does not
- * change on a quiet line, so the sample runs on a timer and a quiet line reads as no traffic.
+ * The traffic levels of the running session, sampled once a second from its packet counters. The counters do not
+ * change on a quiet link, so the sample runs on a timer and a quiet link reads as no traffic.
  */
 @Composable
-private fun rememberSessionTraffic(state: StatusConnectionActuatorUiState): FloatState {
-    val level = remember { mutableFloatStateOf(0f) }
-    val packets by rememberUpdatedState(state.trafficPackets)
+private fun rememberSessionTraffic(state: StatusConnectionActuatorUiState): SessionTraffic {
+    val traffic = remember { SessionTraffic() }
+    val sentPackets by rememberUpdatedState(state.sentPackets)
+    val receivedPackets by rememberUpdatedState(state.receivedPackets)
     val live =
         state.status == StatusConnectionActuatorStatus.Locked || state.status == StatusConnectionActuatorStatus.Degraded
     LaunchedEffect(live) {
-        val meter = SignalTrafficMeter()
-        level.floatValue = 0f
+        val sent = SignalTrafficMeter()
+        val received = SignalTrafficMeter()
+        traffic.sent.floatValue = 0f
+        traffic.received.floatValue = 0f
         while (live) {
-            level.floatValue = meter.level(packets, SystemClock.elapsedRealtime())
+            val now = SystemClock.elapsedRealtime()
+            traffic.sent.floatValue = sent.level(sentPackets, now)
+            traffic.received.floatValue = received.level(receivedPackets, now)
             delay(TrafficSampleMillis)
         }
     }
-    return level
+    return traffic
 }
 
 private const val TrafficSampleMillis = 1_000L
@@ -371,20 +341,72 @@ private fun StatusConnectionActuatorStatus.toSignalMode(): RipDpiSignalMode =
         StatusConnectionActuatorStatus.Fault -> RipDpiSignalMode.Broken
     }
 
-/** Where the line breaks: the middle of the failed stage's share of the path, or the middle of the line. */
-private fun StatusConnectionActuatorUiState.failedStageFraction(): Float {
-    val failed = stages.indexOfFirst { it.state == StatusConnectionActuatorStageState.Failed }
-    return if (failed < 0) LineMiddle else (failed + LineMiddle) / stages.size
+private fun StatusConnectionActuatorStatus.toLinkMode(): RipDpiLinkMode =
+    when (this) {
+        StatusConnectionActuatorStatus.Open -> RipDpiLinkMode.Open
+        StatusConnectionActuatorStatus.Engaging -> RipDpiLinkMode.Seeking
+        StatusConnectionActuatorStatus.Locked -> RipDpiLinkMode.Live
+        StatusConnectionActuatorStatus.Degraded -> RipDpiLinkMode.Unstable
+        StatusConnectionActuatorStatus.Fault -> RipDpiLinkMode.Broken
+    }
+
+/**
+ * The lamps of the link tile. The app reports no stage progress while it connects, so every lamp is then active.
+ * A live state with no stage detail, such as a seed or a preview, has every stage complete. A fault lights only
+ * the stage that it names, and no lamp when it names none.
+ */
+internal fun StatusConnectionActuatorUiState.linkStages(held: Boolean): ImmutableList<RipDpiLinkStage> {
+    if (held) return stages.map { RipDpiLinkStage.Held }.toImmutableList()
+    val detailed = stages.any { it.state != StatusConnectionActuatorStageState.Pending }
+    val live = status == StatusConnectionActuatorStatus.Locked || status == StatusConnectionActuatorStatus.Degraded
+    return stages
+        .map { stage ->
+            when {
+                detailed -> {
+                    stage.state.toLinkStage()
+                }
+
+                live -> {
+                    RipDpiLinkStage.Complete
+                }
+
+                status == StatusConnectionActuatorStatus.Engaging -> {
+                    RipDpiLinkStage.Active
+                }
+
+                else -> {
+                    RipDpiLinkStage.Pending
+                }
+            }
+        }.toImmutableList()
 }
+
+private fun StatusConnectionActuatorStageState.toLinkStage(): RipDpiLinkStage =
+    when (this) {
+        StatusConnectionActuatorStageState.Pending -> RipDpiLinkStage.Pending
+        StatusConnectionActuatorStageState.Active -> RipDpiLinkStage.Active
+        StatusConnectionActuatorStageState.Complete -> RipDpiLinkStage.Complete
+        StatusConnectionActuatorStageState.Warning -> RipDpiLinkStage.Warning
+        StatusConnectionActuatorStageState.Failed -> RipDpiLinkStage.Failed
+    }
 
 /** The idle duration is a meaningless 00:00:00, so only a live session shows the clock. */
 @Composable
 private fun ActuatorSessionClock(state: StatusConnectionActuatorUiState) {
-    if (state.status != StatusConnectionActuatorStatus.Locked &&
-        state.status != StatusConnectionActuatorStatus.Degraded
+    val motion = RipDpiThemeTokens.motion
+    AnimatedVisibility(
+        visible =
+            state.status == StatusConnectionActuatorStatus.Locked ||
+                state.status == StatusConnectionActuatorStatus.Degraded,
+        enter = motion.sectionEnterTransition(),
+        exit = motion.sectionExitTransition(),
     ) {
-        return
+        SessionClockText(state)
     }
+}
+
+@Composable
+private fun SessionClockText(state: StatusConnectionActuatorUiState) {
     val type = RipDpiThemeTokens.type
     val locale = LocalConfiguration.current.locales[0]
     val text = localizedClockDuration(state.sessionDuration, locale)
@@ -405,7 +427,7 @@ private fun ActuatorSessionClock(state: StatusConnectionActuatorUiState) {
         style = type.heroValue.copy(textDirection = TextDirection.Ltr),
         color = RipDpiThemeTokens.colors.foreground,
         maxLines = 1,
-        // Large font scales shrink the clock to the band; it never wraps or clips.
+        // Large font scales shrink the clock to its row; it never wraps or clips.
         autoSize = TextAutoSize.StepBased(minFontSize = SessionClockMinSize, maxFontSize = type.heroValue.fontSize),
     )
 }

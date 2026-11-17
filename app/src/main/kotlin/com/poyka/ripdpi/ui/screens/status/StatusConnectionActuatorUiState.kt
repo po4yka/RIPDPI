@@ -98,8 +98,9 @@ data class StatusConnectionActuatorUiState(
     val strategyPassage: StrategyPassageScene? = null,
     /** Elapsed time of the running session, shown when the user confirms a disconnect. */
     val sessionDuration: Duration = Duration.ZERO,
-    /** Packets sent and received in the running session. The signal line takes its traffic level from the change. */
-    val trafficPackets: Long = 0L,
+    /** Packets sent and received in the running session. The link tile takes its traffic levels from the change. */
+    val sentPackets: Long = 0L,
+    val receivedPackets: Long = 0L,
     val stages: ImmutableList<StatusConnectionActuatorStageUiState> = DefaultStatusConnectionActuatorStages,
     val activationEnabled: Boolean? = null,
     val deactivationEnabled: Boolean? = null,

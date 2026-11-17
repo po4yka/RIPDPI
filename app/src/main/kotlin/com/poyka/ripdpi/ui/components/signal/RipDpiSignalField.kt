@@ -213,9 +213,10 @@ internal class SignalTrafficMeter {
 }
 
 /**
- * The hero signal line: a straight line from the device to the network, with the packets that travel on it. The
- * packets move only while the app allows infinite motion; otherwise each [mode] shows a still frame. Animated
- * values are read in the draw phase only. The line is decoration and has no semantics; the caller names the state.
+ * The signal line of the first launch: a straight line from the device to the network, with the packets that
+ * travel on it. The packets move only while the app allows infinite motion; otherwise each [mode] shows a still
+ * frame. Animated values are read in the draw phase only. The line is decoration and has no semantics; the caller
+ * names the state.
  *
  * @param breakAt where the line stops in [RipDpiSignalMode.Broken], as a fraction of the width.
  * @param pressAt where the pointer is, as a fraction of the width.
