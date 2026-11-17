@@ -110,6 +110,8 @@
     <string name="settings_tethering_dns_warning_body">Wenn Tethering aktiv ist, führt Android einen lokalen DNS-Server aus, der das VPN umgeht. Apps können dies nutzen, um Tracking-Beacons außerhalb des Tunnels zu senden.</string>
     <string name="settings_vpn_flag_warning_title">VPN-Flag ist sichtbar</string>
     <string name="about_credits_body">RIPDPI baut auf dem Open-Source-Projekt hufrea/ripdpi auf und hält das gesamte Routing und die Konfiguration lokal auf diesem Gerät.</string>
+    <string name="about_license_title">Lizenz</string>
+    <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. Lizenziert unter AGPL-3.0-only; eine kommerzielle Lizenz ist ebenfalls erhältlich. Ohne jegliche Gewährleistung.</string>
     <string name="about_project_section">Projekt</string>
     <string name="customization_icon_cracked">Rissig</string>
     <string name="customization_notice_body">Eine Änderung des App-Symbols kann erfordern, dass Ihr Launcher aktualisiert wird. Die Symbolaktualisierung kann einige Sekunden dauern, bis sie auf Ihrem Startbildschirm erscheint.</string>

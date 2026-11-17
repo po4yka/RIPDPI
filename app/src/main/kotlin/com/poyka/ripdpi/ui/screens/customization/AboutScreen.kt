@@ -216,6 +216,18 @@ private fun AboutProjectSection() {
                 color = colors.mutedForeground,
             )
         }
+        RipDpiCard {
+            Text(
+                text = stringResource(R.string.about_license_title),
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.about_license_body),
+                style = type.body,
+                color = colors.mutedForeground,
+            )
+        }
     }
 }
 

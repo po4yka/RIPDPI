@@ -31,6 +31,8 @@
     <!-- gap-fill fa: sub-agent translations -->
     <string name="about_build_section">ساخت</string>
     <string name="about_credits_body">RIPDPI بر پایه پروژه متن‌باز hufrea/ripdpi ساخته شده و تمام مسیریابی و پیکربندی را روی همین دستگاه نگه می‌دارد.</string>
+    <string name="about_license_title">مجوز</string>
+    <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. تحت مجوز AGPL-3.0-only منتشر شده است؛ مجوز تجاری نیز در دسترس است. بدون هیچ‌گونه ضمانتی ارائه می‌شود.</string>
     <string name="about_links_section">پیوندها</string>
     <string name="about_version_code">کد نسخه</string>
     <string name="advanced_settings_error_oob_data">داده OOB باید خالی یا یک کاراکتر باشد.</string>

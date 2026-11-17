@@ -114,6 +114,8 @@
     <string name="about_project_section">Проект</string>
     <string name="about_credits_title">Авторы</string>
     <string name="about_credits_body">RIPDPI основан на open-source проекте hufrea/ripdpi и хранит всю маршрутизацию и конфигурацию локально на устройстве.</string>
+    <string name="about_license_title">Лицензия</string>
+    <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. Распространяется по лицензии AGPL-3.0-only; также доступна коммерческая лицензия. Предоставляется без каких-либо гарантий.</string>
     <string name="about_links_section">Ссылки</string>
     <string name="settings_data_transparency_body">Что хранится на этом устройстве, как долго и когда данные покидают устройство.</string>
     <string name="data_transparency_what_we_collect_section">Что хранится на этом устройстве</string>

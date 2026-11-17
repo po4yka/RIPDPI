@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="ripdpi_docs" translatable="false">https://github.com/hufrea/ripdpi/blob/v0.13/README.md</string>
+    <string name="ripdpi_docs" translatable="false">https://github.com/po4yka/RIPDPI#readme</string>
     <string name="connection_title">Connection</string>
     <string name="strategy_tuner_open_action">Open strategy tuner</string>
     <string name="strategy_tuner_domains_label">Test domains</string>
@@ -1011,7 +1011,7 @@ Source: %2$s</string>
     <string name="desync_https_category" translatable="false">HTTPS</string>
     <string name="ripdpi_protocols_category">Protocols</string>
     <string name="ripdpi_protocols_hint">Clear HTTP and HTTPS to apply the TCP bypass strategy without a protocol filter. UDP bypass is configured separately.</string>
-    <string name="ripdpi_source" translatable="false">https://github.com/hufrea/ripdpi</string>
+    <string name="ripdpi_source" translatable="false">https://github.com/po4yka/RIPDPI</string>
     <string name="tcp_flag_card_title">TCP flag crafting</string>
     <string name="tcp_flag_card_body">Adjust fake and original TCP flags on the primary send step without dropping into the chain DSL.</string>
     <string name="tcp_flag_card_dsl_only">This chain shape is not editable with the primary-step TCP flag card. Use the chain DSL to change flag masks.</string>

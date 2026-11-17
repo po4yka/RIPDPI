@@ -110,6 +110,8 @@
     <string name="settings_tethering_dns_warning_body">Cuando el anclaje a red está activo, Android ejecuta un servidor DNS local que evita la VPN. Las apps pueden usarlo para enviar balizas de rastreo fuera del túnel.</string>
     <string name="settings_vpn_flag_warning_title">El indicador de VPN es visible</string>
     <string name="about_credits_body">RIPDPI se basa en el proyecto de código abierto hufrea/ripdpi y mantiene todo el enrutamiento y la configuración locales en este dispositivo.</string>
+    <string name="about_license_title">Licencia</string>
+    <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev. Licenciado bajo AGPL-3.0-only; también hay una licencia comercial disponible. Se proporciona sin ninguna garantía.</string>
     <string name="about_project_section">Proyecto</string>
     <string name="customization_icon_cracked">Agrietado</string>
     <string name="customization_notice_body">Cambiar el icono de la aplicación puede requerir que tu lanzador se actualice. La actualización del icono puede tardar unos segundos en aparecer en tu pantalla de inicio.</string>
