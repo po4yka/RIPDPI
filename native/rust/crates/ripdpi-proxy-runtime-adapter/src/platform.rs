@@ -24,6 +24,27 @@ pub mod connect {
 
     use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
+    /// Marks a connect error caused by a failed local VPN socket protection. The network path
+    /// was never tried, so the error says nothing about the route or the host.
+    #[derive(Debug)]
+    struct SocketProtectFailed(io::Error);
+
+    impl std::fmt::Display for SocketProtectFailed {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "VPN socket protection failed: {}", self.0)
+        }
+    }
+
+    impl std::error::Error for SocketProtectFailed {}
+
+    pub fn socket_protect_failure(source: io::Error) -> io::Error {
+        io::Error::new(source.kind(), SocketProtectFailed(source))
+    }
+
+    pub fn is_socket_protect_failure(error: &io::Error) -> bool {
+        error.get_ref().and_then(|inner| inner.downcast_ref::<SocketProtectFailed>()).is_some()
+    }
+
     #[derive(Debug)]
     pub struct TcpConnectError {
         pub source: io::Error,
@@ -147,7 +168,7 @@ pub mod connect {
                         };
                         observer.on_protect_finished(outcome);
                     }
-                    connect_error(source, false)
+                    connect_error(socket_protect_failure(source), false)
                 })?;
         }
         // From here `tfo` means applied on this socket, not requested.

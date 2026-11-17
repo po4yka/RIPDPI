@@ -106,7 +106,7 @@ fn connect_target_with_route_and_egress_mode(
         match first_attempt {
             Ok((stream, guard)) => return Ok((stream, route, guard)),
             Err(mut err) => {
-                if err.is_shutdown_cancelled(state.shutdown_requested()) {
+                if err.is_local_failure(state.shutdown_requested()) {
                     return Err(err.into_io_error());
                 }
                 let mut failure = RuntimeState::classify_connect_transport_error(&err.source);
@@ -124,7 +124,7 @@ fn connect_target_with_route_and_egress_mode(
                     ) {
                         Ok((stream, guard)) => return Ok((stream, route, guard)),
                         Err(fallback_err) => {
-                            if fallback_err.is_shutdown_cancelled(state.shutdown_requested()) {
+                            if fallback_err.is_local_failure(state.shutdown_requested()) {
                                 return Err(fallback_err.into_io_error());
                             }
                             err = fallback_err;
@@ -195,7 +195,7 @@ fn reconnect_target_with_tfo_mode(
         ) {
             Ok((stream, guard)) => return Ok((stream, route, guard)),
             Err(mut err) => {
-                if err.is_shutdown_cancelled(state.shutdown_requested()) {
+                if err.is_local_failure(state.shutdown_requested()) {
                     return Err(err.into_io_error());
                 }
                 let mut failure = RuntimeState::classify_connect_transport_error(&err.source);
@@ -213,7 +213,7 @@ fn reconnect_target_with_tfo_mode(
                     ) {
                         Ok((stream, guard)) => return Ok((stream, route, guard)),
                         Err(fallback_err) => {
-                            if fallback_err.is_shutdown_cancelled(state.shutdown_requested()) {
+                            if fallback_err.is_local_failure(state.shutdown_requested()) {
                                 return Err(fallback_err.into_io_error());
                             }
                             err = fallback_err;
