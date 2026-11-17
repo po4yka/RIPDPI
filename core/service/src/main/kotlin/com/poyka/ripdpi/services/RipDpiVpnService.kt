@@ -305,22 +305,18 @@ class RipDpiVpnService :
         notificationController.refresh()
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
-                entryMutex.withLock {
-                    try {
-                        profileMutationCoordinator.recover()
-                        if (!pauseController.handleShellStart(
-                                pauseHost,
-                                intent,
-                            )
-                        ) {
-                            runtimeCommands.dispatchAfterRecovery(intent, startId)
-                        }
-                    } finally {
-                        // The shell completes a start generation it received; every earlier exit must
-                        // complete it here, or the pending start blocks DoQ saves for the process lifetime.
-                        if (!runtimeCommands.consumeShellStartHandoff()) {
-                            intent.vpnStartGeneration()?.let(serviceIntentArbiter::completeVpnStart)
-                        }
+                runStartCommand(
+                    entryMutex = entryMutex,
+                    consumeShellStartHandoff = runtimeCommands::consumeShellStartHandoff,
+                    completeStart = { intent.vpnStartGeneration()?.let(serviceIntentArbiter::completeVpnStart) },
+                ) {
+                    profileMutationCoordinator.recover()
+                    if (!pauseController.handleShellStart(
+                            pauseHost,
+                            intent,
+                        )
+                    ) {
+                        runtimeCommands.dispatchAfterRecovery(intent, startId)
                     }
                 }
             }.onFailure { failure ->
