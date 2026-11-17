@@ -199,6 +199,52 @@ class RipDpiLinkFigureTest {
     }
 
     @Test
+    fun `lamps come on from the device end and go off from the network end`() {
+        val figure = figure(input(RipDpiLinkMode.Open))
+        val live = input(RipDpiLinkMode.Live)
+        val order = ArrayList<Int>()
+
+        fun record(lit: Boolean) =
+            figure.lamps.forEachIndexed { index, lamp ->
+                if ((lamp.stage == Complete) == lit && index !in order) order += index
+            }
+        figure.run(1f, live) { record(lit = true) }
+        assertEquals(listOf(0, 1, 2, 3, 4), order)
+        // A lamp that comes on swells for a moment, and is its own size again at rest.
+        figure.lamps.forEach { assertEquals(1f, it.size.at, 0.02f) }
+
+        order.clear()
+        figure.run(1f, input(RipDpiLinkMode.Open)) { record(lit = false) }
+        assertEquals(listOf(4, 3, 2, 1, 0), order)
+    }
+
+    @Test
+    fun `a live link lights the cable after the plug seats, and the light goes when the session ends`() {
+        val figure = figure(input(RipDpiLinkMode.Open))
+        val live = input(RipDpiLinkMode.Live)
+
+        figure.advance(1f / FramesPerSecond, live)
+        assertEquals(0f, figure.charge, 0f)
+        figure.run(2f, live)
+        assertEquals(1f, figure.charge, 0f)
+
+        figure.run(1f, input(RipDpiLinkMode.Open))
+        assertEquals(0f, figure.charge, 0f)
+    }
+
+    @Test
+    fun `a plug that falls out bounces once, and a plug on its way in is in line with the socket`() {
+        val figure = figure(input(RipDpiLinkMode.Live))
+        var deepest = 0f
+
+        figure.run(2f, input(RipDpiLinkMode.Open)) { deepest = maxOf(deepest, figure.lie.at) }
+        assertTrue("deepest $deepest", deepest > 1.02f && deepest < 1.4f)
+        assertEquals(1f, figure.lie.at, 0.02f)
+
+        figure.run(2f, input(RipDpiLinkMode.Live)) { assertEquals(figure.loose, figure.lie.at, 0f) }
+    }
+
+    @Test
     fun `a live link with an empty cable rests until its next packet, for one second at most`() {
         val silent = input(RipDpiLinkMode.Live, sent = 0f, received = 0f)
         val figure = figure(input(RipDpiLinkMode.Open))

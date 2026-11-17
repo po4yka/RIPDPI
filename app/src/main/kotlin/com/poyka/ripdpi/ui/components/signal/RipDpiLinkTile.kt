@@ -29,15 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
@@ -46,19 +39,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
-import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
-import kotlin.math.PI
 import kotlin.math.ceil
-import kotlin.math.cos
-import kotlin.math.sin
 
 /**
  * The hero link tile: the path as a plug and a socket. With no session the plug lies out of the socket. A live
@@ -151,7 +139,9 @@ fun RipDpiLinkTile(
                         val taken = widthDp * currentReserve().coerceIn(0f, 1f)
                         // The figure sits in the middle of the width that is left.
                         val shift = taken + (widthDp - taken) / 2f - FigureMiddle
-                        span.from.floatValue = taken - shift + if (taken > 0f) ReserveGap else EdgeFrom
+                        // Beside other content the cable starts at that content, and fades into the tile there.
+                        // Otherwise it starts beyond the start edge of the tile, whatever the width.
+                        span.from.floatValue = if (taken > 0f) taken - shift else -shift - EdgeBeyond
                         span.shift.floatValue = shift
                         span.length.floatValue = widthDp - shift + EdgeBeyond - span.from.floatValue
                         drawRect(container.value)
@@ -161,7 +151,8 @@ fun RipDpiLinkTile(
                         // A right-to-left layout mirrors the figure: the device is at the start edge.
                         scale(if (rtl) -1f else 1f, 1f) {
                             translate(left = shift * shapes.unit) {
-                                drawLink(figure, shapes, palette, pulseColor.value, lamps, span)
+                                val cover = if (taken > 0f) container.value else Color.Unspecified
+                                drawLink(figure, shapes, palette, pulseColor.value, span, cover)
                             }
                         }
                     }
@@ -198,7 +189,7 @@ private suspend fun LinkFigure.run(
 private fun RipDpiLinkMode.live(): Boolean = this == RipDpiLinkMode.Live || this == RipDpiLinkMode.Unstable
 
 /** Where the cable is on the tile, in dp of the design: its start, its length, and the shift of the design. */
-private class LinkSpan {
+internal class LinkSpan {
     val from = mutableFloatStateOf(EdgeFrom)
     val length = mutableFloatStateOf(LinkDefaultLength)
     val shift = mutableFloatStateOf(0f)
@@ -364,356 +355,20 @@ internal fun linkContrast(
     return (maxOf(one, two) + ContrastOffset) / (minOf(one, two) + ContrastOffset)
 }
 
-/** The colors of the figure. Every one is a role of the theme, or a mix of two roles. */
-private class LinkPalette(
-    colors: RipDpiExtendedColors,
-) {
-    // The plug is the strongest shape, a step calmer than the primary action so it does not outweigh the headline.
-    val plug = lerp(colors.primaryAction, colors.card, PlugMix)
-    val plugTop = lerp(plug, colors.card, TopMix)
-    val socket = linkMidTone(plug, colors.card)
-    val socketTop = lerp(socket, colors.card, TopMix)
-    val socketSide = lerp(socket, plug, SideMix)
-    val port = lerp(socket, Color.Black, PortMix)
-    val jacket = socket
-    val track = colors.card
-    val border = colors.cardBorder
-    val lampOff = lerp(colors.card, socket, LampOffMix)
-    val signal = colors.signal
-    val warning = colors.warning
-    val destructive = colors.destructive
-
-    fun lamp(stage: RipDpiLinkStage): Color =
-        when (stage) {
-            RipDpiLinkStage.Pending -> lampOff
-            RipDpiLinkStage.Active, RipDpiLinkStage.Complete, RipDpiLinkStage.Held -> signal
-            RipDpiLinkStage.Warning -> warning
-            RipDpiLinkStage.Failed -> destructive
-        }
-}
-
-/** One face of a box, and whether it is a top face. */
-private class LinkFace(
-    val path: Path,
-    val top: Boolean,
-)
-
-/** The fixed shapes of the figure, in pixels of the design. The draw phase moves the design to its place. */
-private class LinkShapes(
-    density: Density,
-) {
-    val unit = with(density) { 1.dp.toPx() }
-
-    /** One oblique view: x to the right, y down, z into the page and up to the right. */
-    fun at(
-        x: Float,
-        y: Float,
-        z: Float = CableDepth,
-    ) = Offset((x + z * DepthX) * unit, (y - z * DepthY) * unit)
-
-    private fun quad(
-        a: Offset,
-        b: Offset,
-        c: Offset,
-        d: Offset,
-    ) = Path().apply {
-        moveTo(a.x, a.y)
-        lineTo(b.x, b.y)
-        lineTo(c.x, c.y)
-        lineTo(d.x, d.y)
-        close()
-    }
-
-    private fun end(
-        x: Float,
-        above: Float,
-        below: Float,
-        z0: Float,
-        z1: Float,
-    ) = quad(at(x, CableY - above, z0), at(x, CableY - above, z1), at(x, CableY + below, z1), at(x, CableY + below, z0))
-
-    private fun top(
-        x0: Float,
-        x1: Float,
-        above: Float,
-        z0: Float,
-        z1: Float,
-    ): Path {
-        val y = CableY - above
-        return quad(at(x0, y, z0), at(x1, y, z0), at(x1, y, z1), at(x0, y, z1))
-    }
-
-    private fun front(
-        x0: Float,
-        x1: Float,
-        above: Float,
-        below: Float,
-        z: Float,
-    ) = quad(at(x0, CableY - above, z), at(x1, CableY - above, z), at(x1, CableY + below, z), at(x0, CableY + below, z))
-
-    /**
-     * The three faces of a box that this view shows: the end that looks right, the top, and the front. [above] and
-     * [below] are its extent from the middle of the cable.
-     */
-    private fun box(
-        x0: Float,
-        x1: Float,
-        above: Float,
-        below: Float,
-        z0: Float,
-        z1: Float,
-    ) = listOf(
-        LinkFace(end(x1, above, below, z0, z1), top = false),
-        LinkFace(top(x0, x1, above, z0, z1), top = true),
-        LinkFace(front(x0, x1, above, below, z0), top = false),
-    )
-
-    val socketSide = end(SocketEnd, SocketHalf, SocketHalf, 0f, SocketDepth)
-    val port = end(SocketEnd, PortHalf, PortHalf, PortNear, PortFar)
-    val socketTop = top(SocketStart, SocketEnd, SocketHalf, 0f, SocketDepth)
-    val socketFront = front(SocketStart, SocketEnd, SocketHalf, SocketHalf, 0f)
-
-    // The nose, the boot, and the body of the plug, from the back to the front.
-    val plug =
-        box(PlugNose, 150f, 9f, 9f, 5f, 13f) + box(186f, PlugEnd, 11f, 11f, 4f, 14f) +
-            box(148f, 186f, 15f, 15f, 2f, 16f)
-    val latch = box(150f, 172f, 19f, -15f, 6f, 12f)
-    val pivot = Offset(PlugPivot * unit, CableY * unit)
-    val seat = at(SocketEnd, CableY)
-    val windowAt = Offset(lamp(0).x - WindowInset * unit, (CableY - WindowInset) * unit)
-    val windowSize = Size((LampStep * (LinkStageCount - 1) + WindowInset * 2f) * unit, WindowInset * 2f * unit)
-    val lampPath = Path()
-    val leadPath = Path()
-    val jacket = Stroke(JacketWidth * unit, cap = StrokeCap.Round)
-    val track = Stroke(TrackWidth * unit, cap = StrokeCap.Round)
-    val edge = Stroke(FaceStroke * unit, join = StrokeJoin.Round)
-    val ring = Stroke(RingWidth * unit)
-
-    fun lamp(index: Int) = at(FirstLamp + LampStep * index, CableY, 0f)
-}
-
-private fun DrawScope.drawLink(
-    figure: LinkFigure,
-    shapes: LinkShapes,
-    palette: LinkPalette,
-    tone: Color,
-    stages: List<RipDpiLinkStage>,
-    span: LinkSpan,
-) {
-    val unit = shapes.unit
-    val angle = figure.loose * LooseTurn
-    val drop = figure.loose * LooseDrop
-    val shift = figure.out + figure.shakeBy
-    // Where the cable leaves the plug: the plug turns about a point on its cable.
-    val radians = angle * PI.toFloat() / HalfTurn
-    val dx = LeadStart - PlugPivot
-    val leadX = PlugPivot + dx * cos(radians) + shift
-    val leadY = CableY + dx * sin(radians) + drop
-    val from = span.from.floatValue
-    val lead = LinkLead(shapes, leadX, leadY, (leadY + CableY) / 2f + figure.sag.at, span.to)
-
-    val deviceFrom = shapes.at(from, CableY)
-    val deviceTo = shapes.at(DeviceEnd, CableY)
-    drawLine(palette.jacket, deviceFrom, deviceTo, shapes.jacket.width, StrokeCap.Round)
-    drawLine(palette.track, deviceFrom, deviceTo, shapes.track.width, StrokeCap.Round)
-    lead.trace(shapes.leadPath)
-    drawPath(shapes.leadPath, palette.jacket, style = shapes.jacket)
-    drawPath(shapes.leadPath, palette.track, style = shapes.track)
-    drawPulses(figure.sent, forward = true, shapes, lead, tone, from)
-    drawPulses(figure.received, forward = false, shapes, lead, tone, from)
-
-    translate(left = figure.recoil.at * unit) {
-        drawFace(shapes.socketSide, palette.socketSide, shapes)
-        drawFace(shapes.port, palette.port, shapes)
-    }
-    if (figure.ring < 1f) {
-        val radius = (RingFrom + RingGrow * figure.ring) * unit
-        drawCircle(tone, radius, shapes.seat, alpha = (1f - figure.ring) * RingAlpha, style = shapes.ring)
-    }
-    translate(left = shift * unit, top = drop * unit) {
-        rotate(angle, shapes.pivot) {
-            drawFaces(shapes.plug, palette, shapes)
-            translate(top = figure.click.at.coerceAtLeast(0f) * unit) { drawFaces(shapes.latch, palette, shapes) }
-        }
-    }
-    translate(left = figure.recoil.at * unit) {
-        drawFace(shapes.socketTop, palette.socketTop, shapes)
-        drawFace(shapes.socketFront, palette.socket, shapes)
-        drawRoundRect(palette.track, shapes.windowAt, shapes.windowSize, CornerRadius(WindowInset * unit))
-        for (index in stages.indices) drawLamp(figure.lamps[index], shapes, index, palette.lamp(stages[index]))
-    }
-}
-
-/** A face has a stroke of its own color, which rounds its corners. */
-private fun DrawScope.drawFace(
-    path: Path,
-    color: Color,
-    shapes: LinkShapes,
-) {
-    drawPath(path, color)
-    drawPath(path, color, style = shapes.edge)
-}
-
-private fun DrawScope.drawFaces(
-    faces: List<LinkFace>,
-    palette: LinkPalette,
-    shapes: LinkShapes,
-) {
-    // Indexed, so a frame allocates no iterator.
-    for (index in faces.indices) {
-        drawFace(faces[index].path, if (faces[index].top) palette.plugTop else palette.plug, shapes)
-    }
-}
-
-/** A lamp is a circle. A warning gives it four points, and a failure turns the points to a cross. */
-private fun DrawScope.drawLamp(
-    lamp: LinkLamp,
-    shapes: LinkShapes,
-    index: Int,
-    color: Color,
-) {
-    val center = shapes.lamp(index)
-    val path = shapes.lampPath
-    path.rewind()
-    for (step in 0 until LampSteps) {
-        val angle = LinkTau * step / LampSteps
-        val radius = LampRadius * shapes.unit * (1f + lamp.notch * cos(LampPoints * angle + lamp.turn))
-        val x = center.x + radius * cos(angle)
-        val y = center.y + radius * sin(angle)
-        if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)
-    }
-    path.close()
-    drawPath(path, color, alpha = lamp.glow.coerceIn(0f, 1f))
-}
-
-/** The cable behind the plug. It hangs between the plug and the edge of the tile. */
-private class LinkLead(
-    private val shapes: LinkShapes,
-    val startX: Float,
-    private val startY: Float,
-    private val middleY: Float,
-    val to: Float,
-) {
-    fun trace(path: Path) {
-        val start = shapes.at(startX, startY)
-        val middle = shapes.at((startX + to) / 2f, middleY)
-        val end = shapes.at(to, CableY)
-        path.rewind()
-        path.moveTo(start.x, start.y)
-        path.quadraticTo(middle.x, middle.y, end.x, end.y)
-    }
-
-    /** The point of the cable at [x], moved by [lane] across it. */
-    fun at(
-        x: Float,
-        lane: Float,
-    ): Offset {
-        val t = ((x - startX) / (to - startX)).coerceIn(0f, 1f)
-        val u = 1f - t
-        val px = u * u * startX + 2f * u * t * (startX + to) / 2f + t * t * to
-        val py = u * u * startY + 2f * u * t * middleY + t * t * CableY
-        return shapes.at(px, py + lane)
-    }
-}
-
-private fun DrawScope.drawPulses(
-    lane: LinkLane,
-    forward: Boolean,
-    shapes: LinkShapes,
-    lead: LinkLead,
-    color: Color,
-    from: Float,
-) {
-    if (lane.alpha <= 0f) return
-    val width = PulseWidth * shapes.unit
-    val side = if (forward) -LaneOffset else LaneOffset
-    val tone = color.copy(alpha = color.alpha * lane.alpha.coerceIn(0f, 1f))
-    // Indexed, so a frame allocates no iterator.
-    for (index in lane.pulses.indices) {
-        // The distance that a packet has travelled becomes a place on the cable: sent packets start at the device.
-        val travelled = lane.pulses[index].at
-        val a = if (forward) from + travelled - LinkPulseLength else lead.to - travelled
-        val b = a + LinkPulseLength
-        // The socket and the plug hide the middle of the cable.
-        val deviceTo = minOf(b, DeviceEnd - CableCover)
-        val deviceFrom = maxOf(a, from)
-        if (deviceTo - deviceFrom > MinPulse) {
-            val start = shapes.at(deviceFrom, CableY + side)
-            drawLine(tone, start, shapes.at(deviceTo, CableY + side), width, StrokeCap.Round)
-        }
-        val leadFrom = maxOf(a, lead.startX + CableCover)
-        val leadTo = minOf(b, lead.to)
-        if (leadTo - leadFrom > MinPulse) {
-            drawLine(tone, lead.at(leadFrom, side), lead.at(leadTo, side), width, StrokeCap.Round)
-        }
-    }
-}
-
 /** Height of the link tile. */
 val RipDpiLinkTileHeight = 80.dp
-
-// The design, in dp. The cable runs along CableY, and every part is placed from it.
-private const val FigureMiddle = 140f
-private const val EdgeFrom = -24f
-private const val EdgeBeyond = 44f
-private const val ReserveGap = 6f
-private const val TileCorner = 12f
-private const val DepthX = 0.55f
-private const val DepthY = 0.4f
-private const val CableY = 44f
-private const val CableDepth = 9f
-private const val SocketStart = 74f
-private const val SocketEnd = 140f
-private const val SocketHalf = 24f
-private const val SocketDepth = 18f
-private const val PortHalf = 11f
-private const val PortNear = 4f
-private const val PortFar = 14f
-private const val PlugNose = 132f
-private const val PlugEnd = 206f
-private const val PlugPivot = 266f
-private const val DeviceEnd = 78f
-private const val LeadStart = 202f
-private const val CableCover = 3f
-private const val FirstLamp = 83f
-private const val LampStep = 12f
-private const val LampRadius = 4.5f
-private const val LampSteps = 32
-private const val LampPoints = 4f
-private const val WindowInset = 6.5f
-private const val FaceStroke = 3f
-
-// The cable carries two lanes of packets, each 4 dp wide.
-private const val JacketWidth = 16f
-private const val TrackWidth = 12f
-private const val PulseWidth = 4f
-private const val LaneOffset = 3f
-private const val MinPulse = 0.4f
-private const val RingFrom = 6f
-private const val RingGrow = 22f
-private const val RingWidth = 2f
-private const val RingAlpha = 0.6f
-
-// A loose plug lies a little lower and turns.
-private const val LooseDrop = 5f
-private const val LooseTurn = 5f
-private const val HalfTurn = 180f
 
 // A drag: how far in connects, how far out disconnects, the reach of a touch around the plug, and how long a plug
 // that has acted waits for the state to follow.
 private const val PlugInShare = 0.55f
 private const val PlugOutShare = 0.6f
 private const val PlugTouch = 20f
+private const val TileCorner = 12f
 private const val DragHoldMillis = 1_500L
 private const val NudgeDelayMillis = 700L
 private const val StillSteps = 4f
 private const val HalfPress = 0.5f
 
-private const val PlugMix = 0.14f
-private const val TopMix = 0.2f
-private const val SideMix = 0.3f
-private const val PortMix = 0.75f
-private const val LampOffMix = 0.3f
 private const val MidToneSteps = 14
 private const val ContrastOffset = 0.05f
 

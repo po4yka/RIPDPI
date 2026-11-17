@@ -110,6 +110,9 @@ private val SessionClockMinSize = 16.sp
 // The share of the link tile that the session clock takes. The figure keeps the rest.
 private const val SessionClockShare = 0.4f
 
+// The share of the motion of the figure after which the clock starts to show.
+private const val ClockAfter = 0.5f
+
 private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)
 
 /**
@@ -316,7 +319,8 @@ private fun ActuatorLink(
                     Modifier
                         .fillMaxWidth(SessionClockShare)
                         .padding(start = spacing.md)
-                        .graphicsLayer { alpha = clock.value },
+                        // The figure moves aside first, and the clock comes in where it was.
+                        .graphicsLayer { alpha = ((clock.value - ClockAfter) / (1f - ClockAfter)).coerceIn(0f, 1f) },
             )
         }
     }

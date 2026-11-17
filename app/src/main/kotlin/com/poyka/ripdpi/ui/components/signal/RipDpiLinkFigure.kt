@@ -92,6 +92,17 @@ internal class LinkLane {
 
 /** One lamp of the socket. A warning gives it four points, and a failure turns the points to a cross. */
 internal class LinkLamp {
+    /** The stage that the lamp shows. It follows the stage of the path when its turn in the cascade comes. */
+    var stage = RipDpiLinkStage.Pending
+
+    /** The stage that the lamp showed before, and how far its color has changed from it, from 0 to 1. */
+    var before = RipDpiLinkStage.Pending
+    var mix = 1f
+
+    /** The size of the lamp. It swells for a moment when the lamp changes. */
+    val size = LinkSpring(1f)
+    var next = RipDpiLinkStage.Pending
+    var wait = 0f
     var glow = 0f
     var notch = 0f
     var turn = 0f
@@ -123,6 +134,13 @@ internal class LinkFigure(
     /** The slack of the cable behind the plug. */
     val sag = LinkSpring(LinkSlack)
 
+    /** How much the plug lies down, from 0 in line with the socket to 1. A plug that falls out bounces once. */
+    val lie = LinkSpring(1f)
+
+    /** How far the live tint has spread along the cable from the socket, from 0 to 1. */
+    var charge = 0f
+        private set
+
     /** The ring that spreads from the socket when the plug seats, from 0 at the contact to 1. */
     var ring = 1f
         private set
@@ -136,6 +154,7 @@ internal class LinkFigure(
     val lamps = List(LinkStageCount) { LinkLamp() }
 
     private var flow = 1f
+    private var time = 0f
     private var seated = false
     private var mode: RipDpiLinkMode? = null
     private var complete = 0
@@ -179,13 +198,19 @@ internal class LinkFigure(
         input: LinkInput,
     ) {
         enter(input)
-        val want = target(input)
+        time += seconds
+        // A plug that waits for its session presses on the socket and lets go, slowly.
+        val hunts = input.mode == RipDpiLinkMode.Seeking && input.drag == null
+        val want = target(input) + if (hunts) LinkHunt * sin(time / HuntPeriod * LinkTau) else 0f
         if (input.drag != null) {
             pull.snap(want)
         } else {
             // The plug overshoots a little on the way in and does not on the way out.
             pull.step(want, PlugStiffness, if (want < pull.at) SeatDamping else PullDamping, seconds)
         }
+        // On the way in the plug lines up exactly. On the way out it falls, and bounces once.
+        val falls = input.drag == null && pull.rate > 0f
+        if (falls) lie.step(loose, LieStiffness, LieDamping, seconds) else lie.snap(loose)
         recoil.step(0f, RecoilStiffness, RecoilDamping, seconds)
         click.step(0f, ClickStiffness, ClickDamping, seconds)
         // The cable swings when the plug moves.
@@ -204,6 +229,10 @@ internal class LinkFigure(
         complete = done
         ring = (ring + seconds / emphasized).coerceAtMost(1f)
         shake = (shake + seconds / emphasized).coerceAtMost(1f)
+        // A seated live plug lights the cable from the socket to its ends. The light goes back faster than it came.
+        val lit = input.mode.live() && seated
+        val spread = seconds / if (lit) emphasized * ChargeBuckets else state
+        charge = if (lit) (charge + spread).coerceAtMost(1f) else (charge - spread).coerceAtLeast(0f)
 
         // On a failure or a pause the packets slow to a stop; otherwise the ones in the cable run out to its ends.
         val stops = input.mode == RipDpiLinkMode.Broken || input.mode == RipDpiLinkMode.Held
@@ -211,7 +240,7 @@ internal class LinkFigure(
         advance(sent, input.sent, seconds, input, probes = true)
         advance(received, input.received, seconds, input, probes = false)
         // Indexed, so a frame allocates no iterator.
-        for (index in lamps.indices) lamps[index].advance(input.stages[index], seconds)
+        for (index in lamps.indices) lamps[index].advance(index, input.stages[index], seconds)
     }
 
     /** The still frame of a state: nothing in flight, packets at their spacing, lamps steady. */
@@ -221,6 +250,8 @@ internal class LinkFigure(
         recoil.snap(0f)
         click.snap(0f)
         sag.snap(slack())
+        lie.snap(loose)
+        charge = if (input.mode.live()) 1f else 0f
         seated = out < LinkSeatedWithin
         complete = input.stages.count { it == RipDpiLinkStage.Complete }
         ring = 1f
@@ -230,6 +261,12 @@ internal class LinkFigure(
         still(received, input.received, input)
         lamps.forEachIndexed { index, lamp ->
             val stage = input.stages[index]
+            lamp.stage = stage
+            lamp.next = stage
+            lamp.before = stage
+            lamp.mix = 1f
+            lamp.wait = 0f
+            lamp.size.snap(1f)
             lamp.glow = stage.glow(breath = 1f)
             lamp.notch = stage.notch()
             lamp.turn = stage.turn()
@@ -241,7 +278,7 @@ internal class LinkFigure(
      * next packet. Zero when a frame is due. The wait is at most one traffic sample long.
      */
     fun quiet(input: LinkInput): Float {
-        val calm = input.mode == RipDpiLinkMode.Live && input.drag == null && ring >= 1f
+        val calm = input.mode == RipDpiLinkMode.Live && input.drag == null && ring >= 1f && charge >= 1f
         val empty = sent.pulses.isEmpty() && received.pulses.isEmpty()
         val still = partsRest(input) && lampsRest(input)
         if (!(calm && empty && still)) return 0f
@@ -261,21 +298,25 @@ internal class LinkFigure(
         // A press moves the target of a loose plug, so the plug is not at rest while the press changes.
         val pressed = input.mode == RipDpiLinkMode.Open && input.press > Rest
         val active = input.mode == RipDpiLinkMode.Seeking || input.mode.live() || input.drag != null || pressed
-        return active || !partsRest(input) || !lampsRest(input) || !lanesEmpty() || ring < 1f || shake < 1f
+        val effects = ring < 1f || shake < 1f || charge > 0f
+        return active || !partsRest(input) || !lampsRest(input) || !lanesEmpty() || effects
     }
 
     private fun partsRest(input: LinkInput): Boolean {
         val plug = abs(pull.rate) < Rest && abs(pull.at - target(input)) < Rest
         val socket = abs(recoil.at) < Rest && abs(click.at) < Rest
-        return plug && socket && abs(sag.rate) < SagRest && abs(sag.at - slack()) < SagRest
+        val lies = abs(lie.rate) < Rest && abs(lie.at - loose) < Rest
+        return plug && socket && lies && abs(sag.rate) < SagRest && abs(sag.at - slack()) < SagRest
     }
 
     private fun lampsRest(input: LinkInput): Boolean {
         var rests = true
         for (index in lamps.indices) {
             val stage = input.stages[index]
-            val shape = abs(lamps[index].notch - stage.notch()) < Rest
-            rests = rests && shape && abs(lamps[index].glow - stage.glow(1f)) < Rest
+            val lamp = lamps[index]
+            val shape = abs(lamp.notch - stage.notch()) < Rest && abs(lamp.size.at - 1f) < Rest
+            val shown = lamp.stage == stage && lamp.mix >= 1f && abs(lamp.size.rate) < Rest
+            rests = rests && shape && shown && abs(lamp.glow - stage.glow(1f)) < Rest
         }
         return rests
     }
@@ -287,7 +328,12 @@ internal class LinkFigure(
         val before = mode
         if (before == input.mode) return
         mode = input.mode
-        if (input.mode == RipDpiLinkMode.Broken) shake = 0f
+        if (input.mode == RipDpiLinkMode.Broken) {
+            // The socket refuses the plug: it shakes, and it is pushed back a little.
+            shake = 0f
+            pull.rate += KickSpeed
+        }
+        if (input.mode == RipDpiLinkMode.Held) click.rate = ClickSpeed
         if (input.mode.live() && before?.live() != true) {
             // The sent lane starts first and the received lane after it, as a request and its reply.
             for (lane in listOf(sent, received)) {
@@ -367,15 +413,40 @@ internal class LinkFigure(
     }
 
     private fun LinkLamp.advance(
-        stage: RipDpiLinkStage,
+        index: Int,
+        wanted: RipDpiLinkStage,
         seconds: Float,
     ) {
+        follow(index, wanted, seconds)
         phase += seconds
-        // A lamp breathes slowly while its stage comes up or has a warning. It never flashes fast.
-        val period = if (stage == RipDpiLinkStage.Active) ActivePeriod else WarningPeriod
-        glow = ease(glow, stage.glow(breath = 0.5f - 0.5f * cos(phase / period * LinkTau)), seconds, quick / 2f)
+        mix = (mix + seconds / quick).coerceAtMost(1f)
+        size.step(1f, PopStiffness, PopDamping, seconds)
+        // A lamp breathes slowly while its stage comes up or has a warning. It never flashes fast. The lamps of
+        // stages that come up breathe one after the other, so the light travels along the socket.
+        val active = stage == RipDpiLinkStage.Active
+        val cycle = phase / (if (active) ActivePeriod else WarningPeriod) - if (active) index * ChaseLag else 0f
+        glow = ease(glow, stage.glow(breath = 0.5f - 0.5f * cos(cycle * LinkTau)), seconds, quick / 2f)
         notch = ease(notch, stage.notch(), seconds, state / EaseShare)
         turn = ease(turn, stage.turn(), seconds, state / EaseShare)
+    }
+
+    /** Lamps change one after the other: they come on from the device end, and go off from the network end. */
+    private fun LinkLamp.follow(
+        index: Int,
+        wanted: RipDpiLinkStage,
+        seconds: Float,
+    ) {
+        if (wanted != next) {
+            next = wanted
+            wait = LampStagger * if (wanted == RipDpiLinkStage.Pending) LinkStageCount - 1 - index else index
+        }
+        if (wanted == stage) return
+        wait -= seconds
+        if (wait > 0f) return
+        before = stage
+        stage = wanted
+        mix = 0f
+        if (wanted != RipDpiLinkStage.Pending) size.rate = PopSpeed
     }
 }
 
@@ -435,6 +506,8 @@ private const val LinkShakeTurns = 2f
 private const val LinkSlack = 3f
 private const val LinkSlackLoose = 15f
 private const val LinkSeed = 7
+private const val LinkHunt = 0.6f
+private const val HuntPeriod = 1.6f
 
 private const val MillisPerSecond = 1_000f
 private const val RestsWithin = 1f
@@ -455,6 +528,15 @@ private const val ClickDamping = 30f
 private const val SagStiffness = 90f
 private const val SagDamping = 7f
 private const val SagCoupling = 3f
+private const val LieStiffness = 300f
+private const val LieDamping = 14f
+private const val KickSpeed = 140f
+private const val ChargeBuckets = 1.5f
+private const val PopStiffness = 700f
+private const val PopDamping = 22f
+private const val PopSpeed = 9f
+private const val LampStagger = 0.06f
+private const val ChaseLag = 0.18f
 private const val TapSpeed = 26f
 private const val ClickSpeed = 30f
 private const val Rest = 0.02f
