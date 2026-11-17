@@ -254,17 +254,16 @@ internal class LinkShapes(
 
     fun lamp(index: Int) = at(FirstLamp + LampStep * index, CableY, 0f)
 
-    /** Traces the cable behind the plug into [path], as far as the share [upTo] of its length, moved by [lane]. */
+    /** Traces the cable behind the plug into [path], as far as the share [upTo] of its length. */
     fun trace(
         path: Path,
         rope: LinkRope,
         upTo: Float,
-        lane: Float = 0f,
     ) {
         path.rewind()
         for (step in 0..RopeSamples) {
             val t = upTo * step / RopeSamples
-            val point = at(rope.x(t), rope.y(t) + lane)
+            val point = at(rope.x(t), rope.y(t))
             if (step == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
         }
     }
@@ -387,8 +386,9 @@ private fun DrawScope.drawCables(
         val lit = tone.copy(alpha = tone.alpha * ChargeAlpha)
         val reach = DeviceEnd - (DeviceEnd - from) * figure.charge
         drawLine(lit, shapes.at(reach, CableY), deviceTo, shapes.track.width, StrokeCap.Round)
-        shapes.trace(shapes.litPath, rope, upTo = figure.charge)
-        drawPath(shapes.litPath, lit, style = shapes.track)
+        // A full light is on the whole cable, which this frame has traced.
+        if (figure.charge < 1f) shapes.trace(shapes.litPath, rope, upTo = figure.charge)
+        drawPath(if (figure.charge < 1f) shapes.litPath else shapes.leadPath, lit, style = shapes.track)
     }
     drawLane(figure.sent, forward = true, figure, shapes, tone, from)
     drawLane(figure.received, forward = false, figure, shapes, tone, from)
@@ -411,8 +411,8 @@ private fun DrawScope.drawLane(
     if (stream > MinAlpha) {
         val tint = color.copy(alpha = stream)
         drawLine(tint, shapes.at(from, CableY + side), shapes.at(DeviceEnd, CableY + side), shapes.lane.width)
-        shapes.trace(shapes.litPath, rope, upTo = 1f, lane = side)
-        drawPath(shapes.litPath, tint, style = shapes.lane)
+        // A lane is the cable of this frame, moved across it.
+        translate(top = side * shapes.unit) { drawPath(shapes.leadPath, tint, style = shapes.lane) }
     }
     val head = color.copy(alpha = alpha)
     val middle = color.copy(alpha = alpha * MiddleAlpha)
