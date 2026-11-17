@@ -38,7 +38,6 @@ mod udp_errors;
 mod wait;
 
 use self::bridge::enqueue_tun_packet;
-use self::dns_intercept::MapDnsRuntime;
 use self::packet::build_udp_response;
 use self::setup::setup_io_loop;
 use self::wait::{WaitOutcome, wait_for_next_event};
@@ -79,30 +78,30 @@ const LOSS_EMIT_INTERVAL: u32 = 100;
 fn send_dns_servfail(
     device: &mut TunDevice,
     stats: &Arc<Stats>,
-    mapdns: MapDnsRuntime,
     cache: &DnsCache,
     src: SocketAddr,
+    dst: SocketAddr,
     query: &[u8],
     host: Option<&str>,
     reason: &str,
 ) {
     stats.record_dns_failure(host, reason, None);
-    enqueue_dns_servfail(device, stats, mapdns, cache, src, query, reason);
+    enqueue_dns_servfail(device, stats, cache, src, dst, query, reason);
 }
 
 /// SERVFAIL without a resolver-failure record, for answers that never reached a resolver.
 fn enqueue_dns_servfail(
     device: &mut TunDevice,
     stats: &Arc<Stats>,
-    mapdns: MapDnsRuntime,
     cache: &DnsCache,
     src: SocketAddr,
+    dst: SocketAddr,
     query: &[u8],
     reason: &str,
 ) {
     match cache.servfail_response(query) {
         Ok(servfail) => {
-            let raw = build_udp_response(mapdns.intercept_addr, src, &servfail);
+            let raw = build_udp_response(dst, src, &servfail);
             enqueue_tun_packet(device, stats, raw);
         }
         Err(err) => debug!("failed to synthesize SERVFAIL ({reason}): {err}"),

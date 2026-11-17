@@ -1,10 +1,10 @@
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Instant;
 
 use ripdpi_flow_app_attribution::FlowRegistrationId;
 
 use crate::IpClass;
-use crate::classify::classify_ip_packet_with_parse_status;
+use crate::classify::{classify_ip_packet_with_parse_status, is_dns_query, is_public_ipv4};
 use crate::uid_policy::{PROTO_TCP, PROTO_UDP, Verdict};
 
 use super::defrag::Reassembly;
@@ -82,6 +82,13 @@ fn route_tun_packet_inner(
             return;
         }
     }
+    // A resolver reached by its synthetic address would otherwise get the plaintext query relayed to it.
+    let ip_class = match ip_class {
+        IpClass::Udp { src, dst, payload } if is_mapped_public_dns_query(state, dst, payload) => {
+            IpClass::UdpDns { src, dst, payload }
+        }
+        other => other,
+    };
     let is_icmp = matches!(ip_class, IpClass::Icmp);
     if is_icmp {
         state.stats.icmp_ingress_packets.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -201,6 +208,7 @@ fn route_tun_packet_inner(
                 &mut state.dns_req_tx,
                 &mut state.dns_resp_rx,
                 src,
+                dst,
                 payload,
                 host,
             );
@@ -365,6 +373,17 @@ fn retain_pending_uid_packet(
             state.stats.record_tun_queue_drop();
         }
     }
+}
+
+fn is_mapped_public_dns_query(state: &LoopState, dst: SocketAddr, payload: &[u8]) -> bool {
+    let (Some(mapdns), Some(cache), IpAddr::V4(ip)) =
+        (state.runtime.mapdns_runtime, state.dns_cache.as_ref(), dst.ip())
+    else {
+        return false;
+    };
+    dst.port() == mapdns.intercept_port
+        && cache.mapped_real_ip(u32::from(ip)).is_some_and(|real| is_public_ipv4(Ipv4Addr::from(real)))
+        && is_dns_query(payload)
 }
 
 fn is_stun_datagram(payload: &[u8]) -> bool {

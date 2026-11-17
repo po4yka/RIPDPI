@@ -7,7 +7,7 @@ use rustls::pki_types::PrivatePkcs8KeyDer;
 use tokio_util::sync::CancellationToken;
 
 use super::super::{DnsRequest, spawn_dns_worker};
-use super::support::build_query;
+use super::support::{build_query, test_mapdns};
 
 /// A DoQ server that answers every query at once, except queries for `slow.test`, which it never answers.
 fn spawn_doq_server() -> (u16, rustls::pki_types::CertificateDer<'static>) {
@@ -55,6 +55,7 @@ fn spawn_doq_server() -> (u16, rustls::pki_types::CertificateDer<'static>) {
 fn request(port: u16, name: &str) -> DnsRequest {
     DnsRequest {
         src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), port),
+        dst: test_mapdns().intercept_addr,
         query: build_query(name),
         host: Some(name.to_string()),
         direct: None,

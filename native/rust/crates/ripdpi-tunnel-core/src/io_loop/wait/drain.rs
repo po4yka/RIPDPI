@@ -55,15 +55,8 @@ pub(super) async fn recv_dns_response(
 }
 
 pub(super) fn handle_dns_wait_response(state: &mut LoopState, response: DnsResponse) {
-    if let (Some(mapdns), Some(cache)) = (state.runtime.mapdns_runtime, state.dns_cache.as_mut()) {
-        handle_dns_response(
-            &mut state.device,
-            &state.stats,
-            mapdns,
-            cache,
-            &mut state.active_direct_dns_generation,
-            response,
-        );
+    if let (Some(_), Some(cache)) = (state.runtime.mapdns_runtime, state.dns_cache.as_mut()) {
+        handle_dns_response(&mut state.device, &state.stats, cache, &mut state.active_direct_dns_generation, response);
     }
 }
 

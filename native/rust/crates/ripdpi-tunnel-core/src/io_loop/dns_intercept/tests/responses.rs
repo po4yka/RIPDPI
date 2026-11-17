@@ -10,7 +10,6 @@ use super::support::{build_query, build_response, test_dns_cache, test_mapdns};
 
 #[test]
 fn handle_dns_result_queues_response_for_later_tun_flush() {
-    let mapdns = test_mapdns();
     let mut cache = test_dns_cache();
     let mut device = TunDevice::new(1500);
     let stats = Arc::new(Stats::default());
@@ -20,10 +19,10 @@ fn handle_dns_result_queues_response_for_later_tun_flush() {
     handle_dns_result(
         &mut device,
         &stats,
-        mapdns,
         &mut cache,
         DnsResponse {
             src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+            dst: test_mapdns().intercept_addr,
             query,
             host: Some("fixture.test".to_string()),
             upstream: Ok(EncryptedDnsExchangeSuccess {
@@ -43,8 +42,43 @@ fn handle_dns_result_queues_response_for_later_tun_flush() {
 }
 
 #[test]
+fn udp_reply_to_intercepted_public_resolver_comes_from_that_resolver() {
+    let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
+    let resolver = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53);
+    let answer = Ok(EncryptedDnsExchangeSuccess {
+        response_bytes: build_response("public.test", Ipv4Addr::new(203, 0, 113, 10)),
+        endpoint_label: "fixture".to_string(),
+        latency_ms: 1,
+    });
+    for upstream in [answer, Err("upstream down".to_string())] {
+        let mut device = TunDevice::new(1500);
+        handle_dns_result(
+            &mut device,
+            &Arc::new(Stats::default()),
+            &mut test_dns_cache(),
+            DnsResponse {
+                src: client,
+                dst: resolver,
+                query: build_query("public.test"),
+                host: Some("public.test".to_string()),
+                upstream,
+                resolver_error_kind: None,
+                resolver_endpoint_label: None,
+                direct_generation: None,
+                tcp_reply: None,
+            },
+        );
+
+        let packet = device.tx_queue.front().expect("queued reply");
+        let crate::IpClass::Udp { src, dst, .. } = crate::classify_ip_packet(packet, None) else {
+            panic!("reply must be a UDP packet");
+        };
+        assert_eq!((src, dst), (resolver, client));
+    }
+}
+
+#[test]
 fn handle_dns_result_records_endpoint_for_upstream_failure() {
-    let mapdns = test_mapdns();
     let mut cache = test_dns_cache();
     let mut device = TunDevice::new(1500);
     let stats = Arc::new(Stats::default());
@@ -53,10 +87,10 @@ fn handle_dns_result_records_endpoint_for_upstream_failure() {
     handle_dns_result(
         &mut device,
         &stats,
-        mapdns,
         &mut cache,
         DnsResponse {
             src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+            dst: test_mapdns().intercept_addr,
             query,
             host: Some("fixture.test".to_string()),
             upstream: Err("TLS handshake failed unexpected EOF".to_string()),
@@ -76,7 +110,6 @@ fn handle_dns_result_records_endpoint_for_upstream_failure() {
 
 #[test]
 fn handle_dns_result_returns_rewritten_payload_to_tcp_session() {
-    let mapdns = test_mapdns();
     let mut cache = test_dns_cache();
     let mut device = TunDevice::new(1500);
     let stats = Arc::new(Stats::default());
@@ -87,10 +120,10 @@ fn handle_dns_result_returns_rewritten_payload_to_tcp_session() {
     handle_dns_result(
         &mut device,
         &stats,
-        mapdns,
         &mut cache,
         DnsResponse {
             src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+            dst: test_mapdns().intercept_addr,
             query,
             host: Some("tcp.fixture.test".to_string()),
             upstream: Ok(EncryptedDnsExchangeSuccess {
@@ -141,10 +174,10 @@ fn deliver_udp_answer(query: Vec<u8>, upstream: Vec<u8>, mtu: usize) -> hickory_
     handle_dns_result(
         &mut device,
         &Arc::new(Stats::default()),
-        test_mapdns(),
         &mut test_dns_cache(),
         DnsResponse {
             src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+            dst: test_mapdns().intercept_addr,
             query,
             host: Some("big.test".to_string()),
             upstream: Ok(EncryptedDnsExchangeSuccess {
@@ -213,10 +246,10 @@ fn synthesized_servfail_answers_an_opt_request_with_opt_and_copies_do() {
     handle_dns_result(
         &mut device,
         &Arc::new(Stats::default()),
-        test_mapdns(),
         &mut test_dns_cache(),
         DnsResponse {
             src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+            dst: test_mapdns().intercept_addr,
             query: query_with_opt(true),
             host: Some("a.example".to_string()),
             upstream: Err("upstream down".to_string()),

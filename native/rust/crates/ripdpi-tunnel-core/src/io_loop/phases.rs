@@ -58,11 +58,10 @@ pub(super) fn drain_tun(state: &mut LoopState, mut recv: impl FnMut(&mut [u8]) -
 }
 
 pub(in crate::io_loop) fn drain_dns(state: &mut LoopState) {
-    if let (Some(mapdns), Some(cache)) = (state.runtime.mapdns_runtime, state.dns_cache.as_mut()) {
+    if let (Some(_), Some(cache)) = (state.runtime.mapdns_runtime, state.dns_cache.as_mut()) {
         drain_dns_responses(
             &mut state.device,
             &state.stats,
-            mapdns,
             cache,
             &mut state.dns_resp_rx,
             &mut state.dns_req_tx,
@@ -607,6 +606,35 @@ mod tests {
         state.shutdown().await;
     }
 
+    /// # Cancel safety
+    /// Cancel-safe: the sole suspension point is `state.shutdown().await`; the query never
+    /// creates a UDP association, so cancellation cannot strand one.
+    #[tokio::test]
+    async fn plaintext_dns_to_synthetic_public_resolver_is_intercepted() {
+        let mut state =
+            mapdns_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        state.runtime.mapdns_classify = Some((u32::from(Ipv4Addr::new(198, 18, 0, 10)), u32::MAX, 53));
+        let synthetic_ip = state
+            .dns_cache
+            .as_mut()
+            .expect("DNS cache")
+            .find("dns.public.test", u32::from(Ipv4Addr::new(9, 9, 9, 9)))
+            .expect("synthetic mapping")
+            .0;
+        let (tx, mut rx) = mpsc::channel(8);
+        state.dns_req_tx = Some(tx);
+        let mut packet = ipv4_udp_packet(53_104, 53, &mapdns_dns_query());
+        packet[16..20].copy_from_slice(&synthetic_ip.to_be_bytes());
+        fill_ipv4_checksum(&mut packet);
+
+        route_tun_packet(&packet, &mut state);
+
+        let request = rx.try_recv().expect("query goes to the encrypted resolver");
+        assert_eq!(request.dst, SocketAddr::new(Ipv4Addr::from(synthetic_ip).into(), 53));
+        assert!(state.udp_associations.is_empty(), "query must not be relayed in plaintext");
+        state.shutdown().await;
+    }
+
     #[tokio::test]
     async fn mapdns_udp_admission_uses_kernel_visible_synthetic_tuple() {
         let mut state = {
@@ -791,6 +819,7 @@ mod tests {
                     state,
                     WaitEvent::Dns(Some(DnsResponse {
                         src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53_000),
+                        dst: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 53),
                         query: query.clone(),
                         host: Some(host.to_string()),
                         upstream: Err("late direct response".to_string()),

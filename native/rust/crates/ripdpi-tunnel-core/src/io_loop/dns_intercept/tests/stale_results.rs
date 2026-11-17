@@ -43,7 +43,6 @@ fn stale_direct_results_preserve_new_encrypted_mappings() {
             handle_dns_response(
                 &mut device,
                 &stats,
-                test_mapdns(),
                 &mut cache,
                 &mut active_generation,
                 response(src, "fresh.test", None, Ok(build_response("fresh.test", fresh_ip))),
@@ -58,7 +57,6 @@ fn stale_direct_results_preserve_new_encrypted_mappings() {
             handle_dns_response(
                 &mut device,
                 &stats,
-                test_mapdns(),
                 &mut cache,
                 &mut active_generation,
                 response(src, "stale.test", Some(11), upstream),
@@ -85,6 +83,7 @@ fn stale_direct_results_preserve_new_encrypted_mappings() {
 fn response(src: SocketAddr, host: &str, generation: Option<u64>, upstream: Result<Vec<u8>, String>) -> DnsResponse {
     DnsResponse {
         src,
+        dst: test_mapdns().intercept_addr,
         query: build_query(host),
         host: Some(host.to_string()),
         upstream: upstream.map(|response_bytes| EncryptedDnsExchangeSuccess {

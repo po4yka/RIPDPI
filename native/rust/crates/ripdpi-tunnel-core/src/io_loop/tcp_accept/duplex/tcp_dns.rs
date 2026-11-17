@@ -184,7 +184,8 @@ async fn resolve_tcp_query(
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.to_string()));
     };
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-    let request = DnsRequest { src, query, host, direct, tcp_reply: Some(reply_tx) };
+    // `src` is the queried TCP target; the answer returns on this session, not as a UDP packet.
+    let request = DnsRequest { src, dst: src, query, host, direct, tcp_reply: Some(reply_tx) };
     match request_tx.try_send(request) {
         Ok(()) => {}
         Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {

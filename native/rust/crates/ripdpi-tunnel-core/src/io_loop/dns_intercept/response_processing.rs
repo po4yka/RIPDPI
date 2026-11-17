@@ -4,14 +4,11 @@ use crate::dns_cache::DnsCache;
 use crate::{Stats, TunDevice};
 
 use super::super::IO_PHASE_WORK_BUDGET;
-use super::{
-    DnsRequest, DnsResponse, MapDnsRuntime, handle_dns_failure, handle_dns_result, sync_direct_dns_mapping_generation,
-};
+use super::{DnsRequest, DnsResponse, handle_dns_failure, handle_dns_result, sync_direct_dns_mapping_generation};
 
 pub(in crate::io_loop) fn drain_dns_responses(
     device: &mut TunDevice,
     stats: &Arc<Stats>,
-    mapdns: MapDnsRuntime,
     cache: &mut DnsCache,
     dns_resp_rx: &mut Option<tokio::sync::mpsc::Receiver<DnsResponse>>,
     dns_req_tx: &mut Option<tokio::sync::mpsc::Sender<DnsRequest>>,
@@ -34,14 +31,13 @@ pub(in crate::io_loop) fn drain_dns_responses(
         let Some(response) = dns_response else {
             break;
         };
-        handle_dns_response(device, stats, mapdns, cache, active_direct_generation, response);
+        handle_dns_response(device, stats, cache, active_direct_generation, response);
     }
 }
 
 pub(in crate::io_loop) fn handle_dns_response(
     device: &mut TunDevice,
     stats: &Arc<Stats>,
-    mapdns: MapDnsRuntime,
     cache: &mut DnsCache,
     active_direct_generation: &mut Option<u64>,
     response: DnsResponse,
@@ -52,7 +48,7 @@ pub(in crate::io_loop) fn handle_dns_response(
         .is_some_and(|generation| !crate::tunnel_api::direct_dns_binding::is_direct_dns_generation_current(generation))
     {
         stats.record_direct_dns_stale_response();
-        handle_dns_failure(device, stats, mapdns, cache, response, "direct DNS generation stale");
+        handle_dns_failure(device, stats, cache, response, "direct DNS generation stale");
     } else {
         if response.direct_generation.is_some() && response.upstream.is_ok() {
             stats.record_direct_dns_success();
@@ -62,6 +58,6 @@ pub(in crate::io_loop) fn handle_dns_response(
         {
             cache.reset_unleased();
         }
-        handle_dns_result(device, stats, mapdns, cache, response);
+        handle_dns_result(device, stats, cache, response);
     }
 }

@@ -1,4 +1,4 @@
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use etherparse::{IpNumber, NetSlice, SlicedPacket, TransportSlice};
 
@@ -15,7 +15,8 @@ pub enum IpClass<'a> {
 /// Classify a raw IPv4 or IPv6 packet.
 ///
 /// When `mapdns` is `None`, DNS interception is disabled and all UDP packets
-/// are returned as `IpClass::Udp`.
+/// are returned as `IpClass::Udp`. Otherwise IPv4 UDP to the MapDNS port is
+/// `IpClass::UdpDns` when it targets the MapDNS network or a public address.
 pub fn classify_ip_packet<'a>(pkt: &'a [u8], mapdns: Option<(u32, u32, u16)>) -> IpClass<'a> {
     classify_ip_packet_with_parse_status(pkt, mapdns).0
 }
@@ -76,11 +77,11 @@ fn classify_parsed_packet<'a>(
             let src = SocketAddr::new(IpAddr::V4(src_ip), src_port);
             let dst = SocketAddr::new(IpAddr::V4(dst_ip), dst_port);
 
-            if let Some((mapdns_net, mapdns_mask, mapdns_port)) = mapdns {
-                let dst_ip_u32 = u32::from(dst_ip);
-                if dst_ip_u32 & mapdns_mask == mapdns_net && dst_port == mapdns_port {
-                    return IpClass::UdpDns { src, dst, payload };
-                }
+            if let Some((mapdns_net, mapdns_mask, mapdns_port)) = mapdns
+                && dst_port == mapdns_port
+                && (u32::from(dst_ip) & mapdns_mask == mapdns_net || (is_public_ipv4(dst_ip) && is_dns_query(payload)))
+            {
+                return IpClass::UdpDns { src, dst, payload };
             }
 
             IpClass::Udp { src, dst, payload }
@@ -97,6 +98,55 @@ fn classify_parsed_packet<'a>(
         }
         NetSlice::Arp(_) => IpClass::TcpOrOther,
     }
+}
+
+/// Whether DNS sent to `ip` would leave the device for a public resolver and must be intercepted.
+pub(crate) fn is_public_ipv4(ip: Ipv4Addr) -> bool {
+    let [a, b, ..] = ip.octets();
+    // 100.64.0.0/10 is carrier-grade NAT; 198.18.0.0/15 is benchmarking and the default MapDNS synthetic range.
+    let cgnat = a == 100 && (64..128).contains(&b);
+    let benchmarking = a == 198 && (b & 0xFE) == 18;
+    !(a == 0
+        || a >= 240
+        || ip.is_loopback()
+        || ip.is_private()
+        || ip.is_link_local()
+        || ip.is_multicast()
+        || cgnat
+        || benchmarking)
+}
+
+/// Whether `payload` is a DNS query with a well-formed first question, checked without allocating.
+pub(crate) fn is_dns_query(payload: &[u8]) -> bool {
+    const HEADER_LEN: usize = 12;
+    const QR_AND_OPCODE: u8 = 0xF8;
+    let Some(header) = payload.get(..HEADER_LEN) else {
+        return false;
+    };
+    if header[2] & QR_AND_OPCODE != 0 || u16::from_be_bytes([header[4], header[5]]) == 0 {
+        return false;
+    }
+    // A query carries no answer or authority records; random tunnel bytes almost never match.
+    if header[6..10] != [0; 4] {
+        return false;
+    }
+    let mut pos = HEADER_LEN;
+    loop {
+        let Some(&len) = payload.get(pos) else {
+            return false;
+        };
+        pos += 1;
+        if len == 0 {
+            break;
+        }
+        // Compression pointers and reserved label types never start a question name.
+        if len & 0xC0 != 0 || pos - HEADER_LEN + usize::from(len) > 255 {
+            return false;
+        }
+        pos += usize::from(len);
+    }
+    // QTYPE and QCLASS follow the name.
+    payload.len() >= pos + 4
 }
 
 #[cfg(test)]
@@ -438,6 +488,112 @@ mod tests {
             }
             other => panic!("expected IpClass::UdpDns, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn public_ipv4_excludes_local_and_special_ranges() {
+        let not_public = [
+            [0, 0, 0, 0],
+            [0, 1, 2, 3],
+            [240, 0, 0, 1],
+            [254, 1, 2, 3],
+            [127, 0, 0, 1],
+            [10, 1, 2, 3],
+            [172, 16, 0, 1],
+            [172, 31, 255, 254],
+            [192, 168, 1, 1],
+            [169, 254, 0, 1],
+            [100, 64, 0, 1],
+            [100, 127, 255, 254],
+            [224, 0, 0, 251],
+            [239, 255, 255, 250],
+            [255, 255, 255, 255],
+            [198, 18, 0, 53],
+            [198, 19, 255, 254],
+        ];
+        for octets in not_public {
+            assert!(!is_public_ipv4(Ipv4Addr::from(octets)), "{octets:?} must not be public");
+        }
+        let public = [[8, 8, 8, 8], [1, 1, 1, 1], [9, 9, 9, 9], [172, 32, 0, 1], [100, 128, 0, 1], [198, 20, 0, 1]];
+        for octets in public {
+            assert!(is_public_ipv4(Ipv4Addr::from(octets)), "{octets:?} must be public");
+        }
+    }
+
+    /// A standard A query for example.com.
+    const DNS_QUERY: &[u8] = &[
+        0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, b'e', b'x', b'a', b'm', b'p',
+        b'l', b'e', 0x03, b'c', b'o', b'm', 0x00, 0x00, 0x01, 0x00, 0x01,
+    ];
+
+    #[test]
+    fn dns_query_check_accepts_only_well_formed_queries() {
+        assert!(is_dns_query(DNS_QUERY));
+        let mut response = DNS_QUERY.to_vec();
+        response[2] |= 0x80;
+        assert!(!is_dns_query(&response), "QR bit set");
+        let mut no_question = DNS_QUERY.to_vec();
+        no_question[5] = 0;
+        assert!(!is_dns_query(&no_question), "QDCOUNT zero");
+        assert!(!is_dns_query(&DNS_QUERY[..DNS_QUERY.len() - 1]), "truncated question");
+        assert!(!is_dns_query(&DNS_QUERY[..11]), "truncated header");
+        let mut pointer = DNS_QUERY[..12].to_vec();
+        pointer.extend_from_slice(&[0xC0, 0x0C, 0x00, 0x01, 0x00, 0x01]);
+        assert!(!is_dns_query(&pointer), "compression pointer in question");
+        assert!(!is_dns_query(&[0x45; 64]), "non-DNS datagram");
+    }
+
+    #[test]
+    fn udp_to_public_dns_port_is_intercepted_when_enabled() {
+        let pkt = ipv4_udp([10, 0, 0, 1], [8, 8, 8, 8], 12345, 53, DNS_QUERY);
+
+        match classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT))) {
+            IpClass::UdpDns { dst, .. } => assert_eq!(dst, "8.8.8.8:53".parse::<SocketAddr>().expect("addr")),
+            other => panic!("expected IpClass::UdpDns, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn udp_to_private_dns_port_is_not_intercepted() {
+        for dst in [[192, 168, 1, 1], [10, 0, 0, 2]] {
+            let pkt = ipv4_udp([10, 0, 0, 1], dst, 12345, 53, DNS_QUERY);
+
+            let class = classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT)));
+
+            assert!(matches!(class, IpClass::Udp { .. }), "{dst:?}");
+        }
+    }
+
+    #[test]
+    fn udp_to_public_address_on_other_port_is_not_intercepted() {
+        let pkt = ipv4_udp([10, 0, 0, 1], [8, 8, 8, 8], 12345, 443, DNS_QUERY);
+
+        let class = classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT)));
+
+        assert!(matches!(class, IpClass::Udp { .. }));
+    }
+
+    #[test]
+    fn non_dns_or_response_to_public_dns_port_stays_udp() {
+        let mut response = DNS_QUERY.to_vec();
+        response[2] |= 0x80;
+        for payload in [&[0x01, 0x00, 0x00, 0x00, 0xAA, 0xBB, 0xCC, 0xDD][..], &[0u8; 148][..], &response[..]] {
+            let pkt = ipv4_udp([10, 0, 0, 1], [8, 8, 8, 8], 12345, 53, payload);
+
+            let class = classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT)));
+
+            assert!(matches!(class, IpClass::Udp { .. }), "{payload:?}");
+        }
+    }
+
+    #[test]
+    fn synthetic_address_outside_exact_mapdns_host_is_not_intercepted() {
+        // The runtime classifies with an exact-host mask; other 198.18.0.0/15 addresses are mapped hosts.
+        let pkt = ipv4_udp([10, 0, 0, 1], [198, 18, 0, 7], 12345, 53, DNS_QUERY);
+
+        let class = classify_ip_packet(&pkt, Some((u32::from(Ipv4Addr::new(198, 18, 0, 10)), u32::MAX, MAPDNS_PORT)));
+
+        assert!(matches!(class, IpClass::Udp { .. }));
     }
 }
 

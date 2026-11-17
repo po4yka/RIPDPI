@@ -21,6 +21,7 @@ pub(in crate::io_loop) fn route_dns_packet(
     dns_req_tx: &mut Option<tokio::sync::mpsc::Sender<DnsRequest>>,
     dns_resp_rx: &mut Option<tokio::sync::mpsc::Receiver<super::DnsResponse>>,
     src: SocketAddr,
+    dst: SocketAddr,
     payload: &[u8],
     host: Option<String>,
 ) {
@@ -33,10 +34,10 @@ pub(in crate::io_loop) fn route_dns_packet(
         }
         if decision.plane == DnsPolicyPlane::Block {
             stats.record_split_dns_decision(SplitDnsDecisionKind::Block, decision.reason);
-            if let (Some(mapdns), Some(parsed)) = (mapdns_runtime, parsed) {
+            if let (Some(_), Some(parsed)) = (mapdns_runtime, parsed) {
                 match parsed.refused_response() {
                     Ok(refused) => {
-                        let raw = super::super::packet::build_udp_response(mapdns.intercept_addr, src, &refused);
+                        let raw = super::super::packet::build_udp_response(dst, src, &refused);
                         super::super::bridge::enqueue_tun_packet(device, stats, raw);
                     }
                     Err(error) => {
@@ -44,8 +45,7 @@ pub(in crate::io_loop) fn route_dns_packet(
                         if let Some(cache) = dns_cache {
                             match cache.servfail_response(payload) {
                                 Ok(servfail) => {
-                                    let raw =
-                                        super::super::packet::build_udp_response(mapdns.intercept_addr, src, &servfail);
+                                    let raw = super::super::packet::build_udp_response(dst, src, &servfail);
                                     super::super::bridge::enqueue_tun_packet(device, stats, raw);
                                 }
                                 Err(servfail_error) => debug!(%servfail_error, "dropping split DNS block response"),
@@ -69,8 +69,8 @@ pub(in crate::io_loop) fn route_dns_packet(
         if decision.plane == DnsPolicyPlane::Direct && direct.is_none() {
             stats
                 .record_split_dns_decision(SplitDnsDecisionKind::DirectFailClosed, Some("direct_underlay_unavailable"));
-            if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache) {
-                enqueue_dns_servfail(device, stats, mapdns, cache, src, payload, "direct DNS underlay unavailable");
+            if let (Some(_), Some(cache)) = (mapdns_runtime, dns_cache) {
+                enqueue_dns_servfail(device, stats, cache, src, dst, payload, "direct DNS underlay unavailable");
             }
             return;
         }
@@ -80,17 +80,17 @@ pub(in crate::io_loop) fn route_dns_packet(
     }
     match (&mapdns_runtime, dns_cache, dns_req_tx.as_ref()) {
         (Some(_), Some(_), Some(request_tx)) => {
-            let request = DnsRequest { src, query: payload.to_vec(), host, direct, tcp_reply: None };
+            let request = DnsRequest { src, dst, query: payload.to_vec(), host, direct, tcp_reply: None };
             match request_tx.try_send(request) {
                 Ok(()) => {}
                 Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {
-                    if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache) {
+                    if let (Some(_), Some(cache)) = (mapdns_runtime, dns_cache) {
                         send_dns_servfail(
                             device,
                             stats,
-                            mapdns,
                             cache,
                             request.src,
+                            request.dst,
                             &request.query,
                             request.host.as_deref(),
                             "dns worker queue full",
@@ -98,13 +98,13 @@ pub(in crate::io_loop) fn route_dns_packet(
                     }
                 }
                 Err(tokio::sync::mpsc::error::TrySendError::Closed(request)) => {
-                    if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache) {
+                    if let (Some(_), Some(cache)) = (mapdns_runtime, dns_cache) {
                         send_dns_servfail(
                             device,
                             stats,
-                            mapdns,
                             cache,
                             request.src,
+                            request.dst,
                             &request.query,
                             request.host.as_deref(),
                             "dns worker unavailable",
@@ -115,13 +115,13 @@ pub(in crate::io_loop) fn route_dns_packet(
                 }
             }
         }
-        (Some(mapdns), Some(cache), None) => {
+        (Some(_), Some(cache), None) => {
             send_dns_servfail(
                 device,
                 stats,
-                *mapdns,
                 cache,
                 src,
+                dst,
                 payload,
                 host.as_deref(),
                 "encrypted DNS resolver is not configured",

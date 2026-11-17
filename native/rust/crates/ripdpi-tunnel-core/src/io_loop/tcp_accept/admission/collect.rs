@@ -60,11 +60,10 @@ pub(super) fn collect_admissible_sessions(
         // SOCKS session must receive the separately resolved real target.
         let attribution_remote = tcp_target_endpoint(tcp);
         let synthetic_ip = pinned_synthetic_ip(dns_cache, tcp);
-        let dns_intercept = attribution_remote
-            .is_some_and(|target| inputs.mapdns_runtime.is_some_and(|mapdns| target == mapdns.intercept_addr));
-        if dns_intercept {
-            let intercept_addr = attribution_remote.expect("DNS intercept endpoint checked above");
-            let target = ResolvedMappedTarget { addr: intercept_addr, host: None };
+        let dns_target = attribution_remote
+            .filter(|target| inputs.mapdns_runtime.is_some_and(|mapdns| *target == mapdns.intercept_addr));
+        if let Some(dns_target) = dns_target {
+            let target = ResolvedMappedTarget { addr: dns_target, host: None };
             collect_resolved_session(
                 handle,
                 tcp,

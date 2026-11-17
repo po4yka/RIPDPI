@@ -51,6 +51,7 @@ fn route_dns_sends_to_resolver() {
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
+        test_mapdns().intercept_addr,
         &query,
         Some("example.test".to_string()),
     );
@@ -83,6 +84,7 @@ fn route_dns_full_queue_sends_servfail() {
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
+        test_mapdns().intercept_addr,
         &query,
         Some("first.test".to_string()),
     );
@@ -98,6 +100,7 @@ fn route_dns_full_queue_sends_servfail() {
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
+        test_mapdns().intercept_addr,
         &query2,
         Some("second.test".to_string()),
     );
@@ -129,6 +132,7 @@ fn route_dns_closed_channel_nulls_tx_rx() {
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
+        test_mapdns().intercept_addr,
         &query,
         Some("closed.test".to_string()),
     );
@@ -157,11 +161,25 @@ fn route_dns_no_resolver_sends_servfail() {
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
+        public_resolver(),
         &query,
         Some("no-resolver.test".to_string()),
     );
 
     assert!(!device.tx_queue.is_empty(), "SERVFAIL should be sent when no resolver");
+    assert_eq!(queued_reply_endpoints(&device), (public_resolver(), src));
+}
+
+fn public_resolver() -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53)
+}
+
+fn queued_reply_endpoints(device: &TunDevice) -> (SocketAddr, SocketAddr) {
+    let packet = device.tx_queue.front().expect("queued reply");
+    let crate::IpClass::Udp { src, dst, .. } = crate::classify_ip_packet(packet, None) else {
+        panic!("reply must be a UDP packet");
+    };
+    (src, dst)
 }
 
 #[test]
@@ -205,12 +223,14 @@ fn route_dns_block_returns_refused_without_upstream() {
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
+        public_resolver(),
         &query,
         Some("api.blocked.example".to_string()),
     );
 
     assert!(rx.try_recv().is_err(), "blocked DNS must never reach upstream");
     assert_eq!(device.tx_queue.len(), 1, "REFUSED response should be enqueued");
+    assert_eq!(queued_reply_endpoints(&device), (public_resolver(), src));
     let snapshot = stats.dns_snapshot();
     assert_eq!(snapshot.dns_queries_total, 1);
     assert_eq!(snapshot.split_dns_block_decisions, 1);
@@ -258,6 +278,7 @@ fn route_dns_direct_without_underlay_fails_closed_without_proxy_fallback() {
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
+        test_mapdns().intercept_addr,
         &query,
         Some("direct.example".to_string()),
     );
@@ -274,7 +295,6 @@ fn route_dns_direct_without_underlay_fails_closed_without_proxy_fallback() {
 
 #[test]
 fn drain_dns_responses_processes_pending() {
-    let mapdns = test_mapdns();
     let mut cache = test_dns_cache();
     let mut device = TunDevice::new(1500);
     let stats = Arc::new(Stats::default());
@@ -288,6 +308,7 @@ fn drain_dns_responses_processes_pending() {
     resp_tx
         .try_send(DnsResponse {
             src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+            dst: test_mapdns().intercept_addr,
             query,
             host: Some("drain.test".to_string()),
             upstream: Ok(EncryptedDnsExchangeSuccess {
@@ -302,7 +323,7 @@ fn drain_dns_responses_processes_pending() {
         })
         .expect("send response");
 
-    drain_dns_responses(&mut device, &stats, mapdns, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut None);
+    drain_dns_responses(&mut device, &stats, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut None);
 
     assert_eq!(device.tx_queue.len(), 1, "response should have been processed and queued");
     assert!(dns_req_tx.is_some(), "channels should remain open");
@@ -316,7 +337,6 @@ fn stale_direct_responses_are_suppressed_after_generation_replacement() {
 
     let _guard = TEST_BINDER_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
     let registration_a = register_direct_dns_socket_binder(Arc::new(FixedBinder(11))).expect("A registration");
-    let mapdns = test_mapdns();
     let mut cache = test_dns_cache();
     let old_query = build_query("old.test");
     cache
@@ -336,6 +356,7 @@ fn stale_direct_responses_are_suppressed_after_generation_replacement() {
         resp_tx
             .try_send(DnsResponse {
                 src,
+                dst: test_mapdns().intercept_addr,
                 query: build_query(host),
                 host: Some(host.to_string()),
                 upstream: Ok(EncryptedDnsExchangeSuccess {
@@ -353,15 +374,7 @@ fn stale_direct_responses_are_suppressed_after_generation_replacement() {
 
     let registration_b = register_direct_dns_socket_binder(Arc::new(FixedBinder(12))).expect("B registration");
     let mut active_generation = None;
-    drain_dns_responses(
-        &mut device,
-        &stats,
-        mapdns,
-        &mut cache,
-        &mut dns_resp_rx,
-        &mut dns_req_tx,
-        &mut active_generation,
-    );
+    drain_dns_responses(&mut device, &stats, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut active_generation);
 
     assert_eq!(device.tx_queue.len(), 2, "both stale results must become SERVFAIL responses");
     assert_eq!(active_generation, Some(12), "cache generation must advance to the current B binding");
@@ -376,6 +389,7 @@ fn stale_direct_responses_are_suppressed_after_generation_replacement() {
     resp_tx
         .try_send(DnsResponse {
             src,
+            dst: test_mapdns().intercept_addr,
             query: build_query("current.test"),
             host: Some("current.test".to_string()),
             upstream: Ok(EncryptedDnsExchangeSuccess {
@@ -389,15 +403,7 @@ fn stale_direct_responses_are_suppressed_after_generation_replacement() {
             tcp_reply: None,
         })
         .expect("queue current response");
-    drain_dns_responses(
-        &mut device,
-        &stats,
-        mapdns,
-        &mut cache,
-        &mut dns_resp_rx,
-        &mut dns_req_tx,
-        &mut active_generation,
-    );
+    drain_dns_responses(&mut device, &stats, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut active_generation);
     assert_eq!(device.tx_queue.len(), 3);
     assert_eq!(active_generation, Some(12));
     assert_eq!(stats.direct_dns_outcomes(), (1, 2));
@@ -409,7 +415,6 @@ fn stale_direct_responses_are_suppressed_after_generation_replacement() {
 fn drain_dns_responses_yields_after_one_phase_budget() {
     use crate::io_loop::IO_PHASE_WORK_BUDGET;
 
-    let mapdns = test_mapdns();
     let mut cache = test_dns_cache();
     let mut device = TunDevice::new(1500);
     let stats = Arc::new(Stats::default());
@@ -423,6 +428,7 @@ fn drain_dns_responses_yields_after_one_phase_budget() {
         resp_tx
             .try_send(DnsResponse {
                 src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+                dst: test_mapdns().intercept_addr,
                 query: build_query(&host),
                 host: Some(host.clone()),
                 upstream: Ok(EncryptedDnsExchangeSuccess {
@@ -438,7 +444,7 @@ fn drain_dns_responses_yields_after_one_phase_budget() {
             .expect("queue response");
     }
 
-    drain_dns_responses(&mut device, &stats, mapdns, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut None);
+    drain_dns_responses(&mut device, &stats, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut None);
 
     assert_eq!(device.tx_queue.len(), IO_PHASE_WORK_BUDGET, "one io-loop phase must process only its bounded batch");
     assert!(
@@ -453,7 +459,6 @@ fn direct_plane_outcomes_leave_the_encrypted_resolver_counters_unchanged() {
 
     let _guard = TEST_BINDER_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
     let _registration = register_test_direct_dns_socket_binder(Arc::new(FixedBinder(21)));
-    let mapdns = test_mapdns();
     let mut cache = test_dns_cache();
     let mut device = TunDevice::new(1500);
     let stats = Arc::new(Stats::default());
@@ -464,6 +469,7 @@ fn direct_plane_outcomes_leave_the_encrypted_resolver_counters_unchanged() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
     let direct = |host: &str, upstream| DnsResponse {
         src,
+        dst: test_mapdns().intercept_addr,
         query: build_query(host),
         host: Some(host.to_string()),
         upstream,
@@ -484,7 +490,7 @@ fn direct_plane_outcomes_leave_the_encrypted_resolver_counters_unchanged() {
         ))
         .expect("success");
 
-    drain_dns_responses(&mut device, &stats, mapdns, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut None);
+    drain_dns_responses(&mut device, &stats, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut None);
 
     assert_eq!(device.tx_queue.len(), 2, "SERVFAIL and the answer still reach the app");
     let snapshot = stats.dns_snapshot();

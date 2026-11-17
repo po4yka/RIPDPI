@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::dns_cache::DnsCache;
 use crate::{Stats, TunDevice};
 
-use super::{DnsResponse, MapDnsRuntime};
+use super::DnsResponse;
 use delivery::deliver_dns_payload;
 pub(in crate::io_loop) use delivery::handle_dns_failure;
 use outcome::{record_failure, record_success};
@@ -17,7 +17,6 @@ use servfail::servfail_payload;
 pub(in crate::io_loop) fn handle_dns_result(
     device: &mut TunDevice,
     stats: &Arc<Stats>,
-    mapdns: MapDnsRuntime,
     dns_cache: &mut DnsCache,
     mut response: DnsResponse,
 ) {
@@ -45,6 +44,14 @@ pub(in crate::io_loop) fn handle_dns_result(
         }
     };
     if let Some(payload) = payload {
-        deliver_dns_payload(device, stats, mapdns, &response.query, response.src, response.tcp_reply.take(), payload);
+        deliver_dns_payload(
+            device,
+            stats,
+            &response.query,
+            response.src,
+            response.dst,
+            response.tcp_reply.take(),
+            payload,
+        );
     }
 }

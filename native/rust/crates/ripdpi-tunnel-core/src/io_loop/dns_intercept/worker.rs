@@ -20,6 +20,7 @@ pub(super) async fn resolve_request(
             Ok(success) => {
                 return DnsResponse {
                     src: request.src,
+                    dst: request.dst,
                     query: request.query,
                     host: request.host,
                     upstream: Ok(success),
@@ -32,6 +33,7 @@ pub(super) async fn resolve_request(
             Err(error) => {
                 return DnsResponse {
                     src: request.src,
+                    dst: request.dst,
                     query: request.query,
                     host: request.host,
                     upstream: Err(error.to_string()),
@@ -50,6 +52,7 @@ pub(super) async fn resolve_request(
     };
     DnsResponse {
         src: request.src,
+        dst: request.dst,
         query: request.query,
         host: request.host,
         upstream,

@@ -5,6 +5,8 @@ use ripdpi_dns_resolver::{EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess};
 #[derive(Debug)]
 pub(in crate::io_loop) struct DnsRequest {
     pub(in crate::io_loop) src: SocketAddr,
+    /// The resolver address the client queried; UDP replies use it as their source.
+    pub(in crate::io_loop) dst: SocketAddr,
     pub(in crate::io_loop) query: Vec<u8>,
     pub(in crate::io_loop) host: Option<String>,
     pub(in crate::io_loop) direct: Option<DirectDnsRequest>,
@@ -20,6 +22,7 @@ pub(in crate::io_loop) struct DirectDnsRequest {
 #[derive(Debug)]
 pub(in crate::io_loop) struct DnsResponse {
     pub(in crate::io_loop) src: SocketAddr,
+    pub(in crate::io_loop) dst: SocketAddr,
     pub(in crate::io_loop) query: Vec<u8>,
     pub(in crate::io_loop) host: Option<String>,
     pub(in crate::io_loop) upstream: Result<EncryptedDnsExchangeSuccess, String>,

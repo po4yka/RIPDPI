@@ -96,6 +96,11 @@ impl DnsCache {
         ip & self.mask == self.net
     }
 
+    /// The real address behind a live synthetic mapping, without touching LRU order.
+    pub(crate) fn mapped_real_ip(&self, ip: u32) -> Option<u32> {
+        self.rev.get(&ip).map(|entry| entry.real_ip)
+    }
+
     /// Acquire a mapping lease. Returns false for an IP with no live mapping.
     pub fn pin(&mut self, ip: u32) -> bool {
         if !self.rev.contains_key(&ip) {
