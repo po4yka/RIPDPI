@@ -161,7 +161,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 
 ### ✅ Full Implementation Continued
 
-- **Splash Screen** (`android-splash.html`) — Android 12+ SplashScreen API wired via `installSplashScreen()` in MainActivity + `Theme.RIPDPI.Starting` theme (`windowSplashScreenAnimatedIcon = @drawable/ic_launcher_foreground_ripdpi_clean`, day=`@color/white` / night=`@color/black` via values-night override, `postSplashScreenTheme = Theme.RIPDPI`)
+- **Splash Screen** (`android-splash.html`) — Android 12+ SplashScreen API wired via `installSplashScreen()` in MainActivity + `Theme.RIPDPI.Starting` theme (`windowSplashScreenAnimatedIcon = @drawable/ic_splash_ripdpi`, the clean mark in `@color/splash_glyph` on `@color/splash_background`: black on white by day, white on black at night, `postSplashScreenTheme = Theme.RIPDPI`)
 
 ---
 
