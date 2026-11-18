@@ -13,9 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -46,9 +46,11 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -114,10 +116,12 @@ internal fun ConnectionStrategyLanes(
     ) {
         val count = state.lanes.size
         if (count == 0) PlaceholderLaneRows()
-        if (state.lanes.any { it.stage != null }) StrategyGatesHeader(state.lanes)
+        val columns = rememberLaneColumns(state.lanes)
+        if (state.lanes.any { it.stage != null }) StrategyGatesHeader(state.lanes, columns)
         state.lanes.forEachIndexed { index, lane ->
             StrategyLaneRow(
                 lane = lane,
+                columns = columns,
                 stale = state.otherNetwork,
                 progress = { ((sweep.value * (count + StaggerSpan - 1) - index) / StaggerSpan).coerceIn(0f, 1f) },
                 // A skipped lane has nothing more to show than its row.
@@ -197,7 +201,10 @@ private val GateShares = floatArrayOf(0.25f, 0.53f, 0.81f)
  * that is where the blocking acts on this network.
  */
 @Composable
-private fun StrategyGatesHeader(lanes: List<StrategyLaneUiState>) {
+private fun StrategyGatesHeader(
+    lanes: List<StrategyLaneUiState>,
+    columns: LaneColumns,
+) {
     val colors = RipDpiThemeTokens.colors
     val stacked = LocalDensity.current.fontScale >= StackedLaneFontScale
     val dominant =
@@ -226,15 +233,9 @@ private fun StrategyGatesHeader(lanes: List<StrategyLaneUiState>) {
             }
             Spacer(Modifier.weight(1f - GateShares.last()))
         }
-        // shortcut: the header copies the two value columns of a lane row to end at the same edge; a value
-        // wider than its minimum moves that row's gates. Lay the lanes out as one grid if that shows.
-        val sample = lanes.firstOrNull { it.outcome != StrategyLaneOutcome.Skipped } ?: lanes.first()
-        Text(
-            text = "${sample.succeededTargets}/${sample.totalTargets}",
-            style = RipDpiThemeTokens.type.monoSmall,
-            modifier = Modifier.alpha(0f),
-        )
-        Spacer(Modifier.width(ValueMinWidth))
+        // The two value columns of a lane row, so the gate names end at the gates.
+        Spacer(Modifier.width(columns.sites))
+        Spacer(Modifier.width(columns.value))
     }
 }
 
@@ -303,6 +304,7 @@ private fun relativeAge(finishedAt: Long): String =
 @Composable
 private fun StrategyLaneRow(
     lane: StrategyLaneUiState,
+    columns: LaneColumns,
     stale: Boolean,
     progress: () -> Float,
     onClick: (() -> Unit)?,
@@ -349,13 +351,13 @@ private fun StrategyLaneRow(
         Column(modifier = rowModifier) {
             name(Modifier.fillMaxWidth())
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = gap) {
-                StrategyLaneTrack(lane, passes && !stale, stale, progress, Modifier.weight(1f))
+                StrategyLaneTrack(lane, columns, stale, progress, Modifier.weight(1f))
             }
         }
     } else {
         Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = gap) {
             name(Modifier.weight(NameWeight))
-            StrategyLaneTrack(lane, passes && !stale, stale, progress, Modifier.weight(LaneWeight))
+            StrategyLaneTrack(lane, columns, stale, progress, Modifier.weight(LaneWeight))
         }
     }
 }
@@ -364,11 +366,13 @@ private fun StrategyLaneRow(
 @Composable
 private fun RowScope.StrategyLaneTrack(
     lane: StrategyLaneUiState,
-    passes: Boolean,
+    columns: LaneColumns,
     stale: Boolean,
     progress: () -> Float,
     laneModifier: Modifier,
 ) {
+    val passes =
+        !stale && (lane.outcome == StrategyLaneOutcome.Passed || lane.outcome == StrategyLaneOutcome.Partial)
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     // The length of the fill is the result. Colour only names two lanes: the winner and the strategy in use.
@@ -390,13 +394,17 @@ private fun RowScope.StrategyLaneTrack(
         text = sites,
         style = type.monoSmall,
         color = colors.mutedForeground,
+        textAlign = TextAlign.End,
+        maxLines = 1,
         // A skipped lane has no sites, but it keeps the column so every lane ends at one edge.
         modifier =
-            if (skipped) {
-                Modifier.alpha(0f).clearAndSetSemantics {}
-            } else {
-                Modifier.semantics { contentDescription = sitesLabel }
-            },
+            Modifier.width(columns.sites).then(
+                if (skipped) {
+                    Modifier.alpha(0f).clearAndSetSemantics {}
+                } else {
+                    Modifier.semantics { contentDescription = sitesLabel }
+                },
+            ),
     )
     Text(
         text = laneValue(lane),
@@ -411,8 +419,38 @@ private fun RowScope.StrategyLaneTrack(
             },
         textAlign = TextAlign.End,
         maxLines = 1,
-        modifier = Modifier.widthIn(min = ValueMinWidth),
+        modifier = Modifier.width(columns.value),
     )
+}
+
+/** One width for each value column, so every lane starts and ends at the same edges. */
+@Immutable
+private data class LaneColumns(
+    val sites: Dp,
+    val value: Dp,
+)
+
+@Composable
+private fun rememberLaneColumns(lanes: List<StrategyLaneUiState>): LaneColumns {
+    val measurer = rememberTextMeasurer()
+    // The widest style a value takes: the winner's value is semibold.
+    val style = RipDpiThemeTokens.type.monoSmall.copy(fontWeight = FontWeight.SemiBold)
+    val density = LocalDensity.current
+    val values = lanes.map { laneValue(it) }
+    val siteDigits = lanes.maxOfOrNull { "${it.succeededTargets}/${it.totalTargets}".length } ?: 0
+    return remember(measurer, style, density, values, siteDigits) {
+        fun width(text: String) =
+            with(density) {
+                measurer
+                    .measure(text, style, maxLines = 1)
+                    .size.width
+                    .toDp()
+            }
+        LaneColumns(
+            sites = width("0".repeat(siteDigits)),
+            value = maxOf(ValueMinWidth, values.maxOfOrNull(::width) ?: ValueMinWidth),
+        )
+    }
 }
 
 @Composable

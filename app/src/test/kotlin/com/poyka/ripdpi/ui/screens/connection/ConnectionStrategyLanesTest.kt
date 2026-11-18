@@ -346,43 +346,52 @@ class ConnectionStrategyLanesTest {
                     ).observe().collect(states::add)
                 }
 
+            // The engine's three reports: started (no sites, no outcome), not run (no sites, an outcome),
+            // and finished (its site count).
             fun step(
                 id: String,
-                succeeded: Int,
                 completed: Int,
+                succeeded: Int = 0,
+                total: Int = 0,
+                outcome: String? = null,
             ) = ScanProgress(
                 sessionId = "run",
                 phase = "strategy",
                 completedSteps = completed,
                 totalSteps = 4,
                 message = "",
+                latestProbeOutcome = outcome,
                 strategyProbeProgress =
-                    StrategyProbeLiveProgress(
-                        StrategyProbeProgressLane.TCP,
-                        1,
-                        2,
-                        id,
-                        id,
-                        succeeded,
-                        6,
-                    ),
+                    StrategyProbeLiveProgress(StrategyProbeProgressLane.TCP, 1, 2, id, id, succeeded, total),
             )
-            timeline.activeScanProgress.value = step("first", succeeded = 2, completed = 1)
-            timeline.activeScanProgress.value = step("first", succeeded = 6, completed = 2)
-            timeline.activeScanProgress.value = step("second", succeeded = 0, completed = 3)
+            timeline.activeScanProgress.value = step("first", completed = 0)
+            timeline.activeScanProgress.value =
+                step("first", completed = 1, succeeded = 6, total = 6, outcome = "success")
+            timeline.activeScanProgress.value = step("unfit", completed = 2, outcome = "not_applicable")
+            timeline.activeScanProgress.value = step("second", completed = 2)
             // The next test follows with no gap; it must not inherit the lanes of this one.
-            timeline.activeScanProgress.value = step("third", succeeded = 1, completed = 1).copy(sessionId = "next")
+            timeline.activeScanProgress.value =
+                step("third", completed = 1, succeeded = 1, total = 6, outcome = "partial").copy(sessionId = "next")
             timeline.activeScanProgress.value = null
             runCurrent()
 
             assertEquals(5, states.first()?.lanes?.size)
-            val reached = states[3]!!
+            assertEquals(
+                listOf("first" to StrategyLaneOutcome.Running),
+                states[1]?.lanes?.map { it.label to it.outcome },
+            )
+            // A candidate that did not run adds no lane.
+            assertEquals(listOf("first"), states[3]?.lanes?.map { it.label })
+            val reached = states[4]!!
             assertEquals(
                 listOf("first" to StrategyLaneOutcome.Passed, "second" to StrategyLaneOutcome.Running),
                 reached.lanes.map { it.label to it.outcome },
             )
-            assertEquals(StrategyTestProgress(3, 4), reached.progress)
-            assertEquals(listOf("third"), states[4]?.lanes?.map { it.label })
+            assertEquals(StrategyTestProgress(2, 4), reached.progress)
+            assertEquals(
+                listOf("third" to StrategyLaneOutcome.Partial),
+                states[5]?.lanes?.map { it.label to it.outcome },
+            )
             assertNull(states.last()?.progress)
             assertEquals(5, states.last()?.lanes?.size)
             collector.cancel()

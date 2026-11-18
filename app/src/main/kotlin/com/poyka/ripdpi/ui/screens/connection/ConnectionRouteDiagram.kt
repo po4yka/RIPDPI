@@ -6,9 +6,9 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectableGroup
@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -104,9 +105,13 @@ internal fun ConnectionUiState.toRouteDiagram(path: ConnectionPath): RouteDiagra
 
 // The diagram is drawn in these units and scaled to the width it gets.
 private const val ViewWidth = 360f
-private const val LabelTop = 82f
-private const val DirectY = 60f
-private const val RelayY = 160f
+
+// A label starts this far under the centre of its node.
+private const val LabelDrop = 22f
+
+// The top row sits just under the top edge: only the socket tab and a lamp glow rise above a node.
+private const val DirectY = 34f
+private const val RelayY = 134f
 private const val MidY = (DirectY + RelayY) / 2
 private const val DeviceX = 36f
 private const val DnsX = 110f
@@ -271,7 +276,7 @@ internal fun ConnectionRouteDiagram(
         val unit = width / ViewWidth
         val labels = rememberRouteLabels(state, unit.value)
         val labelHeight = with(LocalDensity.current) { labels.height.toDp() }
-        val height = unit * (RelayY + LabelTop - DirectY) + labelHeight
+        val height = unit * (RelayY + LabelDrop) + labelHeight
 
         Box(
             Modifier
@@ -310,16 +315,12 @@ internal fun ConnectionRouteDiagram(
                     onClick = { onPathSelected(path) },
                     modifier =
                         Modifier
-                            .align(if (rtl) Alignment.TopStart else Alignment.TopEnd)
-                            .offset(y = unit * (pathY(path) - TargetHalfHeight))
-                            // A tall label must not push one target over the other.
-                            .size(
-                                unit * TargetWidth,
-                                minOf(
-                                    unit * TargetHalfHeight * 2 + labelHeight,
-                                    unit * (RelayY - DirectY),
-                                ),
-                            ),
+                            // Placed from the left edge in both directions: the drawing mirrors itself.
+                            .align(AbsoluteAlignment.TopLeft)
+                            .absoluteOffset(
+                                x = unit * (if (rtl) ViewWidth - TargetRight else TargetLeft),
+                                y = unit * (pathY(path) - TargetHalfHeight),
+                            ).size(unit * (TargetRight - TargetLeft), unit * TargetHalfHeight * 2),
                 )
             }
         }
@@ -393,10 +394,13 @@ private fun Modifier.plugDrag(
 private const val MaxDiagramWidth = 420f
 private const val PlugDragSlack = 8f
 private const val PlugGrabLeft = 150f
-private const val PlugGrabRight = SocketLeft
 private const val PlugGrabReach = 28f
-private const val TargetWidth = ViewWidth - SocketLeft
-private const val TargetHalfHeight = 30f
+
+// The target covers a socket and its node, and stops where the seated plug begins.
+private const val TargetLeft = 198f
+private const val TargetRight = 294f
+private const val TargetHalfHeight = 24f
+private const val PlugGrabRight = TargetLeft
 
 /** One socket with its node: the whole control for a path, so name, role, state, and action sit in one block. */
 @Composable
@@ -410,8 +414,8 @@ private fun RoutePathTarget(
     val tag = RipDpiTestTags.connectionPath(path.stableKey)
     Box(
         modifier
-            // The press highlight takes the round shape of the parts it covers, not a bare rectangle.
-            .clip(RipDpiThemeTokens.shapes.xl)
+            // The press highlight is a capsule around the socket and its node.
+            .clip(RipDpiThemeTokens.shapes.full)
             .ripDpiClickable(role = Role.Tab, onClick = onClick)
             // One semantics block: a second source on this node would split it into two accessibility nodes.
             .clearAndSetSemantics {
@@ -467,7 +471,7 @@ private fun exitTail(y: Float): Path =
         moveTo(SocketLeft + 32f, y)
         lineTo(ExitX - NodeRadius, y)
         moveTo(ExitX + NodeRadius, y)
-        cubicTo(310f, y, 316f, if (up) 80f else 140f, 322f, if (up) 97f else 123f)
+        cubicTo(310f, y, 316f, MidY + if (up) -30f else 30f, 322f, MidY + if (up) -13f else 13f)
     }
 
 /** Where the plug and the end of its cable are in this frame. */
@@ -526,7 +530,7 @@ private fun DrawScope.drawCables(
     // A reconnect has no settled route, so its cables are dashed.
     val dash = if (state.busy) PathEffect.dashPathEffect(floatArrayOf(2f, 7f), -seconds * 22f) else null
     drawLine(palette.line, Offset(53f, DirectY), Offset(94f, DirectY), 3.2f, StrokeCap.Round, dash)
-    drawRoundRect(palette.line, Offset(125f, 56f), Size(5f, 8f), CornerRadius(1.5f))
+    drawRoundRect(palette.line, Offset(125f, DirectY - 4f), Size(5f, 8f), CornerRadius(1.5f))
     val lead = Path().apply { moveTo(128f, DirectY) }.also(pose::cableTo)
     drawPath(lead, palette.line, style = Stroke(width = 3.2f, cap = StrokeCap.Round, pathEffect = dash))
     listOf(DirectY to pose.direct, RelayY to 1f - pose.direct).forEach { (tailY, share) ->
@@ -556,7 +560,7 @@ private fun DrawScope.drawPower(
             pose.cableTo(this)
             lineTo(pose.x, pose.y)
             lineTo(288f, pose.y)
-            cubicTo(310f, pose.y, 316f, if (up) 80f else 140f, 322f, if (up) 97f else 123f)
+            cubicTo(310f, pose.y, 316f, MidY + if (up) -30f else 30f, 322f, MidY + if (up) -13f else 13f)
         }
     val measure = PathMeasure().apply { setPath(route, false) }
     val length = measure.length
@@ -803,7 +807,7 @@ private fun DrawScope.drawNode(
             drawText(
                 label,
                 color = palette.muted,
-                topLeft = Offset(center.x * scale - label.size.width / 2f, (center.y + 22f) * scale),
+                topLeft = Offset(center.x * scale - label.size.width / 2f, (center.y + LabelDrop) * scale),
                 alpha = alpha,
             )
         }

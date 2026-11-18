@@ -205,8 +205,8 @@ private data class RunningTest(
 
 private fun StrategyLanesUiState.withProgress(progress: ScanProgress): StrategyLanesUiState {
     val step = progress.strategyProbeProgress
-    val known = lanes.filterNot { it.id == step?.candidateId }.map { it.settled() }
-    val all = if (step == null) known else known + step.toRunningLane()
+    val known = lanes.filterNot { it.id == step?.candidateId }
+    val all = known + listOfNotNull(step?.toLane(progress.latestProbeOutcome))
     return copy(
         lanes = all.takeLast(MaxStrategyLanes).toImmutableList(),
         hiddenCount = hiddenCount + (all.size - MaxStrategyLanes).coerceAtLeast(0),
@@ -214,30 +214,30 @@ private fun StrategyLanesUiState.withProgress(progress: ScanProgress): StrategyL
     )
 }
 
-private fun StrategyProbeLiveProgress.toRunningLane() =
-    StrategyLaneUiState(
-        label = candidateLabel,
-        outcome = StrategyLaneOutcome.Running,
-        succeededTargets = succeededTargets.coerceIn(0, totalTargets.coerceAtLeast(0)),
-        totalTargets = totalTargets.coerceAtLeast(0),
-        latencyMs = null,
-        recommended = false,
-        id = candidateId,
-    )
-
-// The test has moved on to another candidate, so the count this lane reached is its result.
-private fun StrategyLaneUiState.settled(): StrategyLaneUiState =
-    // The engine reports some candidates without a site count; such a lane has no result to name.
-    if (outcome != StrategyLaneOutcome.Running || totalTargets <= 0) {
-        this
+/**
+ * The engine reports a candidate three ways: started (no sites, no outcome), not run (no sites, an outcome),
+ * and finished (its site count). A candidate that did not run is no result, so it gets no lane while the
+ * test runs; the stored result lists it as skipped.
+ */
+private fun StrategyProbeLiveProgress.toLane(outcome: String?): StrategyLaneUiState? =
+    if (totalTargets <= 0 && outcome != null) {
+        null
     } else {
-        copy(
+        val opened = succeededTargets.coerceIn(0, totalTargets.coerceAtLeast(0))
+        StrategyLaneUiState(
+            label = candidateLabel,
             outcome =
                 when {
-                    totalTargets > 0 && succeededTargets == totalTargets -> StrategyLaneOutcome.Passed
-                    succeededTargets > 0 -> StrategyLaneOutcome.Partial
+                    totalTargets <= 0 -> StrategyLaneOutcome.Running
+                    opened == totalTargets -> StrategyLaneOutcome.Passed
+                    opened > 0 -> StrategyLaneOutcome.Partial
                     else -> StrategyLaneOutcome.Blocked
                 },
+            succeededTargets = opened,
+            totalTargets = totalTargets.coerceAtLeast(0),
+            latencyMs = null,
+            recommended = false,
+            id = candidateId,
         )
     }
 
