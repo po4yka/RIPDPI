@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-18
+goal: DGN-1795014097920678 Compare selective availability across explicit
+  network sessions
