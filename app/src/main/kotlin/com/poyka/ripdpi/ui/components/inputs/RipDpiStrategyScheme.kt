@@ -1,13 +1,14 @@
 package com.poyka.ripdpi.ui.components.inputs
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
@@ -196,7 +198,12 @@ private class SchemeGlyphs(
 ) {
     private val cache = HashMap<String, TextLayoutResult>()
 
+    private val letters = HashMap<Char, TextLayoutResult>()
+
     fun of(text: String): TextLayoutResult = cache.getOrPut(text) { measurer.measure(text, style, maxLines = 1) }
+
+    // A frame asks for a letter per cell, so this lookup must not build a string.
+    fun of(letter: Char): TextLayoutResult = letters.getOrPut(letter) { of(letter.toString()) }
 }
 
 private class SchemeLaneModel(
@@ -267,9 +274,13 @@ internal fun RipDpiStrategyScheme(
         }
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(LaneGap)) {
         lanes.forEach { lane ->
-            Canvas(Modifier.fillMaxWidth().height(lane.height)) {
-                SchemePainter(this, lane, frame(), colors, glyphs, labels).draw()
-            }
+            // The painter lives as long as the size, so a frame of the flight allocates almost nothing.
+            Spacer(
+                Modifier.fillMaxWidth().height(lane.height).drawWithCache {
+                    val painter = SchemePainter(this, this.size, lane, colors, glyphs, labels)
+                    onDrawBehind { painter.draw(this, frame()) }
+                },
+            )
         }
     }
 }
@@ -283,32 +294,62 @@ private class RowPlace(
     val items: Int,
 )
 
-/** Draws one lane. The sizes come from the width, so the packet on each side has the same cells. */
+/**
+ * Draws one lane. The sizes come from the width, so the packet on each side has the same cells. One painter
+ * draws every frame of a size: it keeps its strokes, effects, and work arrays between frames.
+ */
 private class SchemePainter(
-    private val scope: DrawScope,
+    density: Density,
+    private val size: Size,
     private val lane: SchemeLaneModel,
-    private val frame: SchemeFrame,
     private val colors: SchemeColors,
     private val glyphs: SchemeGlyphs,
     private val labels: SchemeGlyphs,
 ) {
     private val count = lane.grid.cellCount
     private val letters = SchemeSampleHost.length
-    private val displayWidth = with(scope) { DisplayLetter.toPx() * letters + DisplayPad.toPx() * 2 }
+    private lateinit var scope: DrawScope
+    private lateinit var frame: SchemeFrame
+    private val displayWidth = with(density) { DisplayLetter.toPx() * letters + DisplayPad.toPx() * 2 }
     private val cell =
-        with(scope) {
+        with(density) {
             val room = (size.width - displayWidth - DpiMargin.toPx() * 2) / (2 * count)
             room.coerceIn(MinCell.toPx(), MaxCell.toPx())
         }
-    private val cellHeight = with(scope) { CellHeight.toPx() }
-    private val right = scope.size.width - cell * count
-    private val dpi = scope.size.width / 2
-    private val stripTop = with(scope) { HeaderHeight.toPx() }
-    private val firstRow = with(scope) { stripTop + cellHeight + StripGap.toPx() + RowLabelHeight.toPx() }
-    private val pitch = with(scope) { RowLabelHeight.toPx() + cellHeight + RowGap.toPx() }
-    private val margin = with(scope) { DpiMargin.toPx() }
-    private val hair = with(scope) { HairStroke.toPx() }
-    private val places = lane.rows.mapIndexed { index, row -> place(row, index) }
+    private val cellHeight = with(density) { CellHeight.toPx() }
+    private val right = size.width - cell * count
+    private val dpi = size.width / 2
+    private val stripTop = with(density) { HeaderHeight.toPx() }
+    private val firstRow = with(density) { stripTop + cellHeight + StripGap.toPx() + RowLabelHeight.toPx() }
+    private val pitch = with(density) { RowLabelHeight.toPx() + cellHeight + RowGap.toPx() }
+    private val margin = with(density) { DpiMargin.toPx() }
+    private val hair = with(density) { HairStroke.toPx() }
+    private val dashes = with(density) { PathEffect.dashPathEffect(floatArrayOf(DashOn.toPx(), DashOff.toPx())) }
+    private val dotted = PathEffect.dashPathEffect(floatArrayOf(hair, hair * DotSpace))
+    private val hairStroke = Stroke(hair)
+    private val dashStroke = Stroke(hair, pathEffect = dashes)
+    private val markStroke = with(density) { Stroke(MarkStroke.toPx()) }
+    private val diamond = Path()
+    private val places = arrayOfNulls<RowPlace>(lane.rows.size)
+    private val sent = BooleanArray(count)
+    private val got = FloatArray(count)
+    private val lit = arrayOfNulls<SchemeTone>(letters)
+    private val shown = CharArray(letters)
+    private val cuts =
+        lane.rows
+            .filter { it.staged }
+            .flatMap { listOf(it.from, it.to) }
+            .filter { it in 1 until count }
+            .distinct()
+    private val records = lane.rows.flatMap { it.records }.distinct()
+    private val copies =
+        lane.rows.map { row ->
+            row.piece.extraCopies
+                .takeIf { it > 0 }
+                ?.let { labels.of(CopiesPrefix + it) }
+        }
+
+    private fun placeOf(index: Int): RowPlace = checkNotNull(places[index])
 
     private fun rowTop(index: Int) = firstRow + index * pitch
 
@@ -337,16 +378,22 @@ private class SchemePainter(
         )
     }
 
-    fun draw() {
+    fun draw(
+        scope: DrawScope,
+        frame: SchemeFrame,
+    ) {
+        this.scope = scope
+        this.frame = frame
+        for (index in lane.rows.indices) places[index] = place(lane.rows[index], index)
         drawHeader()
         drawStrips()
         drawDisplay()
-        lane.rows.forEachIndexed { index, row -> drawRow(row, index, places[index]) }
+        for (index in lane.rows.indices) drawRow(lane.rows[index], index, placeOf(index))
     }
 
     private fun drawHeader() =
         with(scope) {
-            val stroke = Stroke(hair)
+            val stroke = hairStroke
             val phone = Size(SchemePhoneWidth.toPx(), SchemePhoneHeight.toPx())
             drawRoundRect(colors.muted, Offset(hair, hair), phone, CornerRadius(hair * 2), style = stroke)
             lane.tag?.let { tag ->
@@ -366,22 +413,17 @@ private class SchemePainter(
                 start = Offset(dpi, stripTop + cellHeight + TickOver.toPx()),
                 end = Offset(dpi, size.height),
                 strokeWidth = hair,
-                pathEffect = dash(),
+                pathEffect = dashes,
             )
         }
 
-    private val dashes = with(scope) { PathEffect.dashPathEffect(floatArrayOf(DashOn.toPx(), DashOff.toPx())) }
-    private val dotted = PathEffect.dashPathEffect(floatArrayOf(hair, hair * DotSpace))
-    private val diamond = Path()
-
-    private fun dash() = dashes
-
     /** The packet on the device at the left, and the packet the server has at the right. */
     private fun drawStrips() {
-        val sent = BooleanArray(count)
-        val got = FloatArray(count)
-        lane.rows.forEachIndexed { index, row ->
-            val motion = places[index].motion
+        sent.fill(false)
+        got.fill(0f)
+        for (index in lane.rows.indices) {
+            val row = lane.rows[index]
+            val motion = placeOf(index).motion
             for (cellIndex in row.from until row.to) {
                 if (row.staged && motion.drop > 0f && !frame.engaging) sent[cellIndex] = true
                 if (row.piece.arrives) got[cellIndex] = maxOf(got[cellIndex], motion.landed)
@@ -403,45 +445,44 @@ private class SchemePainter(
     private fun drawTicks() =
         with(scope) {
             val over = TickOver.toPx()
-            val cuts =
-                lane.rows
-                    .filter { it.staged }
-                    .flatMap { listOf(it.from, it.to) }
-                    .filter { it in 1 until count }
-            cuts.distinct().forEach { border ->
-                val x = border * cell
+            for (index in cuts.indices) {
+                val x = cuts[index] * cell
                 val bottom = stripTop + cellHeight + over
-                drawLine(colors.decoy.stroke, Offset(x, stripTop - over), Offset(x, bottom), MarkStroke.toPx())
+                drawLine(colors.decoy.stroke, Offset(x, stripTop - over), Offset(x, bottom), markStroke.width)
             }
-            lane.rows.flatMap { it.records }.distinct().forEach { border ->
-                val x = border * cell
+            for (index in records.indices) {
+                val x = records[index] * cell
                 drawLine(
                     color = colors.content,
                     start = Offset(x, stripTop - over),
                     end = Offset(x, stripTop + cellHeight + over),
                     strokeWidth = hair,
-                    pathEffect = dash(),
+                    pathEffect = dashes,
                 )
             }
         }
 
+    private fun light(
+        row: SchemeRow,
+        place: RowPlace,
+    ) {
+        val reading = row.inspected && !frame.engaging && place.motion.fly > 0f && place.motion.fly < 1f
+        if (!reading) return
+        for (cellIndex in maxOf(row.from, lane.grid.hostStart) until minOf(row.to, lane.grid.hostEnd)) {
+            val x = place.x + (row.lead.size + cellIndex - row.from + CellCenter) * cell
+            if (x <= dpi) continue
+            val letter = cellIndex - lane.grid.hostStart
+            lit[letter] = if (row.decoy) colors.decoy else colors.host
+            if (row.fakeName) shown[letter] = SchemeDecoyHost[letter]
+        }
+    }
+
     /** The name the filter looks for. A letter lights while a row that the filter reads carries it past the line. */
     private fun drawDisplay() =
         with(scope) {
-            val lit = arrayOfNulls<SchemeTone>(letters)
-            val shown = SchemeSampleHost.toCharArray()
-            lane.rows.forEachIndexed { index, row ->
-                val place = places[index]
-                val reading = row.inspected && !frame.engaging && place.motion.fly > 0f && place.motion.fly < 1f
-                if (!reading) return@forEachIndexed
-                for (cellIndex in maxOf(row.from, lane.grid.hostStart) until minOf(row.to, lane.grid.hostEnd)) {
-                    val x = place.x + (row.lead.size + cellIndex - row.from + CellCenter) * cell
-                    if (x <= dpi) continue
-                    val letter = cellIndex - lane.grid.hostStart
-                    lit[letter] = if (row.decoy) colors.decoy else colors.host
-                    if (row.fakeName) shown[letter] = SchemeDecoyHost[letter]
-                }
-            }
+            lit.fill(null)
+            for (index in 0 until letters) shown[index] = SchemeSampleHost[index]
+            for (index in lane.rows.indices) light(lane.rows[index], placeOf(index))
             val top = stripTop - hair
             drawRoundRect(
                 color = colors.plain.fill,
@@ -450,8 +491,8 @@ private class SchemePainter(
                 cornerRadius = CornerRadius(CellRadius.toPx()),
             )
             val step = DisplayLetter.toPx()
-            shown.forEachIndexed { index, char ->
-                val glyph = glyphs.of(char.toString())
+            for (index in 0 until letters) {
+                val glyph = glyphs.of(shown[index])
                 val x = dpi - step * letters / 2 + step * index + (step - glyph.size.width) / 2
                 val y = top + (cellHeight - glyph.size.height) / 2 + hair
                 drawText(glyph, lit[index]?.stroke ?: colors.muted, Offset(x, y))
@@ -481,17 +522,17 @@ private class SchemePainter(
         val startX = (row.from - row.lead.size).coerceAtLeast(0) * cell
         if (place.motion.fly > 0f && place.x > startX) {
             val trail = place.alpha * SpentAlpha
-            drawLine(tone.stroke, Offset(startX, middle), Offset(place.x, middle), MarkStroke.toPx(), alpha = trail)
+            drawLine(tone.stroke, Offset(startX, middle), Offset(place.x, middle), markStroke.width, alpha = trail)
         }
         val crossed = !frame.engaging && !row.early && place.x + place.items * cell > dpi
         if (crossed) drawDiamond(middle, if (row.inspected) tone.stroke else colors.muted, row.inspected)
         drawItems(row, place)
         val after = place.x + place.items * cell + CrossGap.toPx()
         if (!row.piece.arrives && done > 0f) drawCross(after, middle, done)
-        if (row.piece.extraCopies > 0 && place.alpha > 0f) {
-            val copies = labels.of(CopiesPrefix + row.piece.extraCopies)
+        val more = copies[index]
+        if (more != null && place.alpha > 0f) {
             val x = after + if (row.piece.arrives) 0f else CrossSize.toPx() + CrossGap.toPx()
-            drawText(copies, colors.muted, Offset(x, middle - copies.size.height / 2f), alpha = place.alpha)
+            drawText(more, colors.muted, Offset(x, middle - more.size.height / 2f), alpha = place.alpha)
         }
     }
 
@@ -503,8 +544,8 @@ private class SchemePainter(
         val fill = if (row.piece.arrives || frame.engaging) 1f else 1f - place.motion.landed
         val extra = place.alpha * (if (row.staged) place.motion.drop else 1f)
         var x = place.x
-        row.lead.forEach { mark ->
-            drawCell(x, place.y, markTone(mark), markLetter(mark), extra, fill)
+        for (index in row.lead.indices) {
+            drawCell(x, place.y, markTone(row.lead[index]), markLetter(row.lead[index]), extra, fill)
             x += cell
         }
         for (cellIndex in row.from until row.to) {
@@ -518,8 +559,8 @@ private class SchemePainter(
             if (cellIndex in row.records) drawRecord(x, place.y, place.alpha)
             x += cell
         }
-        row.trail.forEach { mark ->
-            drawCell(x, place.y, markTone(mark), markLetter(mark), extra, fill)
+        for (index in row.trail.indices) {
+            drawCell(x, place.y, markTone(row.trail[index]), markLetter(row.trail[index]), extra, fill)
             x += cell
         }
     }
@@ -548,7 +589,7 @@ private class SchemePainter(
     ) = with(scope) {
         val over = TickOver.toPx()
         val bottom = y + cellHeight + over
-        drawLine(colors.content, Offset(x, y - over), Offset(x, bottom), hair, pathEffect = dash(), alpha = alpha)
+        drawLine(colors.content, Offset(x, y - over), Offset(x, bottom), hair, pathEffect = dashes, alpha = alpha)
     }
 
     private fun drawCell(
@@ -566,10 +607,10 @@ private class SchemePainter(
         val box = Size(cell - inset * 2 - hair, cellHeight - inset * 2)
         val radius = CornerRadius(CellRadius.toPx())
         if (fill > 0f) drawRoundRect(tone.fill, topLeft, box, radius, alpha = alpha * fill)
-        val outline = Stroke(hair, pathEffect = if (dashed || fill < 1f) dash() else null)
+        val outline = if (dashed || fill < 1f) dashStroke else hairStroke
         drawRoundRect(tone.stroke, topLeft, box, radius, style = outline, alpha = alpha)
         if (letter != null) {
-            val glyph = glyphs.of(letter.toString())
+            val glyph = glyphs.of(letter)
             val place = Offset(x + (cell - hair - glyph.size.width) / 2, y + (cellHeight - glyph.size.height) / 2)
             drawText(glyph, tone.text, place, alpha = alpha)
         } else if (tone === colors.plain && !dashed && fill > 0f) {
@@ -599,7 +640,7 @@ private class SchemePainter(
             }
         drawPath(path, colors.surface)
         if (filled) drawPath(path, color, alpha = DiamondFill)
-        drawPath(path, color, style = Stroke(MarkStroke.toPx()))
+        drawPath(path, color, style = markStroke)
     }
 
     private fun drawCross(
@@ -608,7 +649,7 @@ private class SchemePainter(
         alpha: Float,
     ) = with(scope) {
         val arm = CrossSize.toPx()
-        val width = MarkStroke.toPx()
+        val width = markStroke.width
         drawLine(colors.muted, Offset(x, y - arm / 2), Offset(x + arm, y + arm / 2), width, alpha = alpha)
         drawLine(colors.muted, Offset(x, y + arm / 2), Offset(x + arm, y - arm / 2), width, alpha = alpha)
     }
