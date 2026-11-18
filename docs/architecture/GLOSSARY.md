@@ -78,6 +78,12 @@ privacy-preserving SHA-256 network fingerprint keys both
 Resolution flows through `ConnectionPolicyResolver` in `:core:service`. See
 [`.claude/rules/network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md).
 
+**preset** — An optional plaintext FULL backup document packaged at
+`app/src/main/assets/preset.json`. `PresetApplier` restores it once, before
+startup readiness, on a fresh install (see
+[`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md#packaged-preset)). Not a **relay
+profile** and not the UI's starter `PresetCard`.
+
 **privileged operation** — A raw-socket, `TCP_REPAIR`, or IP-fragmentation
 operation that requires `uid 0` (FakeRst, MultiDisorder, raw IPv4/IPv6 emit,
 …). Primitives live in `native/rust/crates/ripdpi-privileged-ops`; each is

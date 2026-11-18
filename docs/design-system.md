@@ -340,17 +340,7 @@ The Material 3 readability change updates primary type, icons, settings rows, an
 The app-wide follow-up applies these rules to shared actions and feedback, DNS and relay choices, localized forms, graph headers and diagrams, recovery and import actions, data cards, and history navigation. The relevant RDS previews include `components-warning-banner`, `gesture-long-press-menu`, `components-chips`, `components-accordion`, `components-bottom-nav`, `vpn-dns-picker`, `vpn-relay-picker`, `vpn-throughput-graph`, `vpn-latency-graph`, `vpn-state-machine`, `diagnostic-port-matrix`, `vpn-strategy-import`, `vpn-oom-recovery`, and `android-history`. Their compact HTML layouts remain read-only. Adaptive wrapping and the measured navigation fallback are deliberate accessibility corrections. See [the audit record](design/readability-audit.md).
 
 
-### Simple analysis consequences
+### Measurement messages
 
-- Name the action as checking and configuring the connection. Explain before
-  launch that DNS, bypass and WARP changes can be saved automatically.
-- Show applied settings only from the actual outcome. Cancellation, failure or
-  an unavailable outcome does not imply that earlier changes were not saved.
-- Offer the existing backup/restore surface with reset hidden in Simple. Keep
-  all export privacy and import confirmation safeguards. Explain that FULL
-  restores its saved settings payload, SHARE contains no settings, network
-  memories remain, and Simple startup reselects the bundled connection path.
-- Keep this detailed restoration guidance inside backup/restore. The default
-  Simple action explanation stays short. This is not exact diagnostic Undo.
 - Neutral measurement messages use an information icon. Warning and Critical
   keep warning treatment; bytes or connection state alone do not prove quality.

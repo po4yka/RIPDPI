@@ -54,6 +54,9 @@ Run this matrix before considering a build broadly healthy.
 ## App Shell, Navigation, and Settings
 
 - [ ] First launch renders Home without saved settings.
+- [ ] A fresh install of a build with a packaged preset opens Home with the preset's groups, rules, and settings, and shows no onboarding when the preset marks it complete.
+- [ ] A packaged preset is not applied again after a relaunch, after an app update, or to an install that already completed onboarding.
+- [ ] A full reset on a build with a packaged preset returns the app to the preset.
 - [ ] App returns to the last selected tab after process recreation where that is supported.
 - [ ] Bottom navigation and nested routes preserve expected back-stack behavior.
 - [ ] Settings screens render with all feature flags enabled.
