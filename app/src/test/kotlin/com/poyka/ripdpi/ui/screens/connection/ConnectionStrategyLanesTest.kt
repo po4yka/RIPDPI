@@ -24,6 +24,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -95,6 +96,74 @@ class ConnectionStrategyLanesTest {
             )
 
         assertEquals(listOf(false, false), report.toStrategyLanes(0)?.lanes?.map { it.recommended })
+    }
+
+    @Test
+    fun `the strategy in use follows the winner and survives the lane cap`() {
+        val report =
+            StrategyProbeReport(
+                suiteId = "s",
+                tcpCandidates =
+                    (1..MaxStrategyLanes + 2).map { index ->
+                        candidate("c$index", "Candidate $index", succeeded = 6, latency = index.toLong())
+                    } +
+                        candidate("baseline_current", "Current strategy", succeeded = 0) +
+                        candidate("winner", "Winner", succeeded = 6, latency = 99),
+                recommendation = recommendation(tcpCandidateId = "winner"),
+            )
+
+        val lanes = report.toStrategyLanes(0)!!.lanes
+
+        assertEquals(listOf("Winner", "Current strategy", "Candidate 1"), lanes.take(3).map { it.label })
+        assertEquals(listOf(false, true, false), lanes.take(3).map { it.current })
+    }
+
+    @Test
+    fun `a family names a lane only when it is the only one of its family`() {
+        val report =
+            StrategyProbeReport(
+                suiteId = "s",
+                tcpCandidates =
+                    listOf(
+                        candidate("baseline_current", "Current strategy", succeeded = 6).copy(family = "baseline"),
+                        candidate("baseline_plain_direct", "Plain direct", succeeded = 6).copy(family = "baseline"),
+                        candidate("split_host", "Split Host", succeeded = 6).copy(family = "split"),
+                        candidate("parser_only", "Parser-only", succeeded = 6).copy(family = "parser"),
+                        candidate("parser_hostpad", "Parser + Host Pad", succeeded = 6).copy(family = "parser"),
+                    ),
+            )
+
+        val families = report.toStrategyLanes(0)!!.lanes.associate { it.label to it.family }
+
+        assertEquals(
+            mapOf(
+                // The strategy in use has a name of its own, whatever its family.
+                "Current strategy" to "baseline_current",
+                "Plain direct" to null,
+                "Split Host" to "split",
+                "Parser-only" to null,
+                "Parser + Host Pad" to null,
+            ),
+            families,
+        )
+    }
+
+    @Test
+    fun `a lane shows the translated family name and falls back to the engine label`() {
+        val lanes =
+            report().toStrategyLanes(0)!!.let { state ->
+                state.copy(
+                    lanes =
+                        persistentListOf(
+                            state.lanes[0].copy(label = "Split Host", family = "split"),
+                            state.lanes[1].copy(label = "Engine label", family = "family-the-app-does-not-know"),
+                        ),
+                )
+            }
+        composeRule.setContent { RipDpiTheme { ConnectionStrategyLanes(lanes) } }
+
+        composeRule.onNodeWithText(resource(R.string.diagnostics_strategy_family_host_split), true).assertIsDisplayed()
+        composeRule.onNodeWithText("Engine label", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test

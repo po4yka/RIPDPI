@@ -106,7 +106,8 @@ class ConnectionStrategyLanesScreenshotTest {
                 lanes =
                     persistentListOf(
                         lane("Fake + split", Passed, succeeded = 6, latencyMs = 84, recommended = true),
-                        lane("OOB byte", Passed, succeeded = 6, latencyMs = 110),
+                        lane("Current strategy", Passed, succeeded = 6, latencyMs = 110)
+                            .copy(current = true, family = "baseline_current"),
                         lane("TLS record split at the SNI extension", StrategyLaneOutcome.Partial, 5, latencyMs = 132),
                         lane("Split at SNI", StrategyLaneOutcome.Blocked, succeeded = 1),
                         lane("QUIC drop", StrategyLaneOutcome.Skipped),

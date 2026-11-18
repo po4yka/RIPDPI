@@ -3,6 +3,10 @@ package com.poyka.ripdpi.ui.screens.connection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -65,13 +69,15 @@ private fun DirectSectionRows(
             desyncSummary = desyncSummary,
             onOpenDesyncSettings = onOpenDesyncSettings,
         )
-        uiState.strategyLanes?.let { ConnectionStrategyLanes(it) }
-        LocalBypassStrategyTestRow(onRetestStrategies)
+        // The lanes are the evidence for the strategy row, so no divider stands between them.
+        uiState.strategyLanes?.let { ConnectionStrategyLanes(it) } ?: ConnectionStrategyLanesPlaceholder()
+        LocalBypassStrategyTestAction(onRetestStrategies)
     }
 }
 
+/** An action, not a destination: it has no chevron and does not look like the rows that open a page. */
 @Composable
-private fun LocalBypassStrategyTestRow(onRetestStrategies: () -> Unit) {
+private fun LocalBypassStrategyTestAction(onRetestStrategies: () -> Unit) {
     val title = stringResource(R.string.config_run_strategy_test)
     LocalBypassActionRow(
         testTag = RipDpiTestTags.ConnectionDirectRetest,
@@ -79,7 +85,16 @@ private fun LocalBypassStrategyTestRow(onRetestStrategies: () -> Unit) {
         accessibilityValue = "",
         onClick = onRetestStrategies,
     ) {
-        SettingsRow(title = title, showChevron = true)
+        Text(
+            text = title,
+            style = RipDpiThemeTokens.type.button,
+            color = RipDpiThemeTokens.colors.foreground,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = RipDpiThemeTokens.components.buttons.minHeight)
+                    .wrapContentHeight(),
+        )
     }
 }
 
@@ -143,7 +158,7 @@ private fun LocalBypassDesyncRow(
             value = strategyValue,
             monospaceValue = !isAuto,
             showChevron = true,
-            showDivider = true,
+            showDivider = uiState.draft.defaultTtl.isNotBlank(),
         )
     }
     if (uiState.draft.defaultTtl.isNotBlank()) {
@@ -152,7 +167,6 @@ private fun LocalBypassDesyncRow(
             subtitle = stringResource(R.string.config_default_ttl_summary),
             value = uiState.draft.defaultTtl,
             monospaceValue = true,
-            showDivider = true,
         )
     }
 }

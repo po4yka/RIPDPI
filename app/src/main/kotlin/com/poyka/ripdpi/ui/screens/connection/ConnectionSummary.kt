@@ -33,22 +33,13 @@ internal fun ConnectionSavedConnectionCard(
                 stringResource(titleResForPreset(selectedPreset?.kind ?: ConnectionPresetKind.Custom))
             }
         }
-    val scope = stringResource(modeLabelRes(uiState.activeMode))
-    val path =
-        stringResource(
-            if (uiState.usesRelayPath) {
-                R.string.config_path_relay
-            } else {
-                R.string.config_path_direct
-            },
-        )
     RipDpiCard(
         variant = RipDpiCardVariant.Tonal,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionSummary),
     ) {
         SettingsRow(
+            // No scope or path here: the two controls under this card show them.
             title = profileName,
-            subtitle = "$scope · $path",
             onClick = onChangeProfile,
             showChevron = true,
             testTag = RipDpiTestTags.ConnectionProfileChange,

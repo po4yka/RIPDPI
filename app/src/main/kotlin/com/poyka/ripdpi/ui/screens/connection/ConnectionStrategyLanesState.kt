@@ -30,6 +30,10 @@ data class StrategyLaneUiState(
     val totalTargets: Int,
     val latencyMs: Long?,
     val recommended: Boolean,
+    /** The strategy that was in use when the test ran. */
+    val current: Boolean = false,
+    /** A family token that names this lane alone in the test; null when the engine label must name it. */
+    val family: String? = null,
 )
 
 @Immutable
@@ -83,13 +87,26 @@ internal fun DiagnosticScanSession.toStrategyLanes(currentNetworkScopeKey: Strin
             networkScopeKey != null && currentNetworkScopeKey != null && networkScopeKey != currentNetworkScopeKey,
     )
 
+// The engine tests the strategy in use as a candidate of its own, under this id.
+private const val CurrentStrategyCandidateId = "baseline_current"
+
 internal fun StrategyProbeReport.toStrategyLanes(finishedAt: Long): StrategyLanesUiState? {
+    val candidates = tcpCandidates + quicCandidates
+    // A family names a lane only when no other candidate of the test shares it.
+    val loneFamilies =
+        candidates
+            .groupingBy { it.family }
+            .eachCount()
+            .filterValues { it == 1 }
+            .keys
     val ranked =
         (
-            tcpCandidates.map { it.toLane(recommendation?.tcpCandidateId) } +
-                quicCandidates.map { it.toLane(recommendation?.quicCandidateId) }
+            tcpCandidates.map { it.toLane(recommendation?.tcpCandidateId, loneFamilies) } +
+                quicCandidates.map { it.toLane(recommendation?.quicCandidateId, loneFamilies) }
         ).sortedWith(
+            // The winner and the strategy in use come first, so the cap never hides them.
             compareByDescending<StrategyLaneUiState> { it.recommended }
+                .thenByDescending { it.current }
                 .thenBy { it.outcome }
                 .thenByDescending { it.succeededTargets.toFloat() / it.totalTargets.coerceAtLeast(1) }
                 .thenBy { it.latencyMs ?: Long.MAX_VALUE },
@@ -102,7 +119,10 @@ internal fun StrategyProbeReport.toStrategyLanes(finishedAt: Long): StrategyLane
     )
 }
 
-private fun StrategyProbeCandidateSummary.toLane(recommendedId: String?): StrategyLaneUiState {
+private fun StrategyProbeCandidateSummary.toLane(
+    recommendedId: String?,
+    loneFamilies: Set<String>,
+): StrategyLaneUiState {
     // The engine's outcome is the verdict; the diagnostics screen reads the same values.
     val laneOutcome =
         when {
@@ -131,5 +151,7 @@ private fun StrategyProbeCandidateSummary.toLane(recommendedId: String?): Strate
         latencyMs = averageLatencyMs.takeIf { ran && succeededTargets > 0 },
         // A recommended candidate that did not run is a fallback, not a winner.
         recommended = ran && id == recommendedId,
+        current = id == CurrentStrategyCandidateId,
+        family = if (id == CurrentStrategyCandidateId) id else family.takeIf { it in loneFamilies },
     )
 }

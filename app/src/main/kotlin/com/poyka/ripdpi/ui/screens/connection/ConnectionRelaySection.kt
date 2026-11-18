@@ -116,7 +116,6 @@ private fun VpnProfileList(
             title = stringResource(R.string.config_vpn_profiles_title),
             subtitle = stringResource(R.string.config_vpn_profiles_empty_body),
             value = stringResource(R.string.config_vpn_profiles_empty_value),
-            leadingIcon = RipDpiIcons.Public,
             showDivider = true,
             testTag = RipDpiTestTags.ConnectionRelayProfileList,
         )
@@ -166,7 +165,6 @@ internal fun VpnProfileItem(
             title = profile.selectorLabel,
             subtitle = profile.trustLabel,
             value = profile.kindLabel,
-            leadingIcon = RipDpiIcons.Public,
             onClick =
                 if (isModeEditorRelayKindSupported(profile.kind) ||
                     profile.kind == com.poyka.ripdpi.data.RelayKindMieru ||
@@ -283,7 +281,6 @@ private fun RelaySectionRows(
         if (uiState.activeExternalProvider != null) {
             SettingsRow(
                 title = uiState.activeExternalProvider.displayName,
-                leadingIcon = RipDpiIcons.Public,
                 onClick = onChooseRelay,
                 showChevron = true,
                 showDivider = true,
@@ -345,7 +342,6 @@ private fun VpnRelayOffRow(onChooseRelay: () -> Unit) {
         SettingsRow(
             title = title,
             subtitle = body,
-            leadingIcon = RipDpiIcons.Public,
             showChevron = true,
             showDivider = true,
         )
@@ -389,7 +385,6 @@ private fun VpnProtocolRow(
             title = stringResource(R.string.config_vpn_protocol_title),
             subtitle = stringResource(R.string.config_vpn_protocol_summary),
             value = uiState.draft.relaySummary,
-            leadingIcon = RipDpiIcons.Vpn,
             showChevron = true,
             showDivider = true,
         )
@@ -412,7 +407,6 @@ private fun VpnCredentialsRow(
             title = stringResource(R.string.config_vpn_credentials_title),
             subtitle = credentialsSubtitle(uiState),
             value = credentialsValue(uiState),
-            leadingIcon = RipDpiIcons.Lock,
             showChevron = true,
             showDivider = true,
         )
@@ -434,7 +428,6 @@ private fun VpnDnsRow(
         SettingsRow(
             title = stringResource(R.string.title_dns_settings),
             value = dnsSummary,
-            leadingIcon = RipDpiIcons.Dns,
             showChevron = true,
         )
     }

@@ -12,9 +12,13 @@ internal class StrategyProbeValueLabels(
 
     fun family(value: String): String {
         val token = value.lowercase(Locale.US)
-        return familyResources[token]?.let(stringResolver::getString)
+        return knownFamily(value)
             ?: signatureLabels.lane(if (token == "multi_disorder") "multidisorder" else value)
     }
+
+    /** The translated family name, or null for a family this app has no name for. */
+    fun knownFamily(value: String): String? =
+        familyResources[value.lowercase(Locale.US)]?.let(stringResolver::getString)
 
     fun dnsLane(value: String): String =
         when (value) {

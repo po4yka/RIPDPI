@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -44,6 +45,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.StrategyProbeValueLabels
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -108,6 +111,47 @@ internal fun ConnectionStrategyLanes(
     }
 }
 
+private const val PlaceholderLanes = 3
+private const val PlaceholderSegments = 6
+
+/** Empty lanes for a device with no strategy test yet: the shape of what the test gives. */
+@Composable
+internal fun ConnectionStrategyLanesPlaceholder(modifier: Modifier = Modifier) {
+    val spacing = RipDpiThemeTokens.spacing
+    val track = RipDpiThemeTokens.colors.outlineVariant
+    val empty =
+        StrategyLaneUiState(
+            label = "",
+            outcome = StrategyLaneOutcome.Blocked,
+            succeededTargets = 0,
+            totalTargets = PlaceholderSegments,
+            latencyMs = null,
+            recommended = false,
+        )
+    Column(
+        // Decoration only: the action below it names the test for a screen reader.
+        modifier = modifier.fillMaxWidth().padding(vertical = spacing.sm).clearAndSetSemantics {},
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        repeat(PlaceholderLanes) {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                Canvas(Modifier.weight(NameWeight).height(LaneHeight)) {
+                    scale(scaleX = if (layoutDirection == LayoutDirection.Rtl) -1f else 1f, scaleY = 1f) {
+                        drawLine(
+                            color = track,
+                            start = Offset(LaneStroke.toPx() / 2, size.height / 2),
+                            end = Offset(size.width / 2, size.height / 2),
+                            strokeWidth = LaneStroke.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                    }
+                }
+                Canvas(Modifier.weight(LaneWeight).height(LaneHeight)) { drawLane(empty, 0f, track, track) }
+            }
+        }
+    }
+}
+
 /** The age of the test, whether it is from another network, and how many candidates the lanes leave out. */
 @Composable
 private fun StrategyLanesFooter(state: StrategyLanesUiState) {
@@ -146,13 +190,19 @@ private fun StrategyLaneRow(
     val passes = lane.outcome == StrategyLaneOutcome.Passed || lane.outcome == StrategyLaneOutcome.Partial
     val winner = stringResource(R.string.diagnostics_strategy_selection_winner)
     val stacked = LocalDensity.current.fontScale >= StackedLaneFontScale
+    val context = LocalContext.current
+    // A translated family name where the app has one; the engine label is English only.
+    val laneName =
+        remember(lane, context) {
+            lane.family?.let(StrategyProbeValueLabels(AndroidStringResolver(context))::knownFamily) ?: lane.label
+        }
     val name: @Composable (Modifier) -> Unit = { nameModifier ->
         Text(
-            text = lane.label,
+            text = laneName,
             style = RipDpiThemeTokens.type.caption,
             fontWeight = if (lane.recommended) FontWeight.SemiBold else null,
             color = if (passes && !stale) colors.foreground else colors.mutedForeground,
-            maxLines = if (stacked) 2 else 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = nameModifier,
         )
@@ -188,14 +238,13 @@ private fun RowScope.StrategyLaneTrack(
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    // A blocked candidate can still open a site or two; those are muted so they do not look like a pass.
-    // A result from another network keeps its shape but loses its verdict colours.
+    // The length of the fill is the result. Colour only names two lanes: the winner and the strategy in use.
+    // A result from another network keeps its shape but loses both.
     val fill =
         when {
             stale -> colors.mutedForeground
             lane.recommended -> colors.signal
-            lane.outcome == StrategyLaneOutcome.Passed -> colors.success
-            lane.outcome == StrategyLaneOutcome.Partial -> colors.warning
+            lane.current -> colors.foreground
             else -> colors.mutedForeground
         }
     val track = colors.outlineVariant
@@ -302,7 +351,7 @@ private fun ConnectionStrategyLanesPreview() {
                     lanes =
                         persistentListOf(
                             lane("Fake + split", passed, succeeded = 6, latencyMs = 84, recommended = true),
-                            lane("OOB byte", passed, succeeded = 6, latencyMs = 110),
+                            lane("Current strategy", passed, succeeded = 6, latencyMs = 110).copy(current = true),
                             lane("Disorder", StrategyLaneOutcome.Partial, succeeded = 5, latencyMs = 132),
                             lane("Split at SNI", StrategyLaneOutcome.Blocked, succeeded = 1),
                             lane("QUIC drop", StrategyLaneOutcome.Skipped),

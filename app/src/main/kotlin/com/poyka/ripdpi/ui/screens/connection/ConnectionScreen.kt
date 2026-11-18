@@ -227,36 +227,39 @@ fun ConnectionScreen(
         }
 
         ConnectionScopeSelector(selectedMode = uiState.activeMode, onModeSelected = onModeSelected)
-        ConnectionPathSelector(
-            selectedPath = selectedPath,
-            onPathSelected = { path ->
-                when (path) {
-                    ConnectionPath.Direct -> {
-                        browsingRelay = false
-                        profileActions.selectDirect()
-                    }
+        // The path control stays close to the section it switches.
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+            ConnectionPathSelector(
+                selectedPath = selectedPath,
+                onPathSelected = { path ->
+                    when (path) {
+                        ConnectionPath.Direct -> {
+                            browsingRelay = false
+                            profileActions.selectDirect()
+                        }
 
-                    ConnectionPath.Relay -> {
-                        val lastProfile = uiState.vpnProfiles.firstOrNull { it.id == uiState.activeRelayProfileId }
-                        when {
-                            uiState.activeExternalProvider != null -> Unit
-                            lastProfile != null -> profileActions.select(lastProfile.id)
-                            !uiState.usesRelayPath -> browsingRelay = true
+                        ConnectionPath.Relay -> {
+                            val lastProfile = uiState.vpnProfiles.firstOrNull { it.id == uiState.activeRelayProfileId }
+                            when {
+                                uiState.activeExternalProvider != null -> Unit
+                                lastProfile != null -> profileActions.select(lastProfile.id)
+                                !uiState.usesRelayPath -> browsingRelay = true
+                            }
                         }
                     }
-                }
-            },
-        )
+                },
+            )
 
-        ConnectionSelectedPathSection(
-            path = selectedPath,
-            uiState = uiState,
-            desyncSummary = desyncSummary,
-            onEditCurrent = onEditCurrent,
-            onChooseRelay = { showProfileChoices = true },
-            onOpenConfigEditor = onOpenConfigEditor,
-            onRetestStrategies = onRetestStrategies,
-        )
+            ConnectionSelectedPathSection(
+                path = selectedPath,
+                uiState = uiState,
+                desyncSummary = desyncSummary,
+                onEditCurrent = onEditCurrent,
+                onChooseRelay = { showProfileChoices = true },
+                onOpenConfigEditor = onOpenConfigEditor,
+                onRetestStrategies = onRetestStrategies,
+            )
+        }
     }
 }
 
