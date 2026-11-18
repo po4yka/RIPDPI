@@ -1996,4 +1996,10 @@
     <string name="detection_exposure_incomplete_reason">Algumas verificações não retornaram resultado.</string>
     <string name="detection_exposure_incomplete_hint">Revise os detalhes e execute a verificação novamente.</string>
     <string name="detection_exposure_dns_observation_reason">As sondagens concluídas não relataram sinais de detecção. As configurações de DNS foram observadas sem teste de vazamento.</string>
+    <string name="diagnostics_radar_title">Tempos de resposta</string>
+    <string name="diagnostics_radar_answered">Responderam: %1$d de %2$d</string>
+    <string name="diagnostics_radar_problems">Problemas: %1$d de %2$d</string>
+    <string name="diagnostics_radar_checked">Verificados: %1$d de %2$d</string>
+    <string name="diagnostics_radar_sector_sites">Sites</string>
+    <string name="diagnostics_radar_sector_services">Serviços</string>
 </resources>

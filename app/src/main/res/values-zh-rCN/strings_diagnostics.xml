@@ -1940,4 +1940,10 @@
     <string name="detection_exposure_incomplete_reason">部分检查未返回结果。</string>
     <string name="detection_exposure_incomplete_hint">查看详情并重新运行检查。</string>
     <string name="detection_exposure_dns_observation_reason">已完成的探测未报告检测信号。仅查看了 DNS 设置，未执行泄漏测试。</string>
+    <string name="diagnostics_radar_title">响应时间</string>
+    <string name="diagnostics_radar_answered">已响应:%1$d/%2$d</string>
+    <string name="diagnostics_radar_problems">有问题:%1$d/%2$d</string>
+    <string name="diagnostics_radar_checked">已检查:%1$d/%2$d</string>
+    <string name="diagnostics_radar_sector_sites">网站</string>
+    <string name="diagnostics_radar_sector_services">服务</string>
 </resources>

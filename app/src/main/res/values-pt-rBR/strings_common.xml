@@ -277,6 +277,7 @@
     <string name="vpn_pcap_capture_list_empty_title">Nenhuma captura ainda</string>
     <string name="vpn_pcap_capture_list_read_failed_body">Não foi possível abrir os arquivos de captura salvos.</string>
     <string name="unit_milliseconds_format">%1$d ms</string>
+    <string name="unit_seconds_format">%1$d s</string>
     <string name="title_rule_editor_new">Nova regra</string>
     <string name="scanner_permission_continue">Continuar</string>
     <string name="scanner_series_title">Chave do AmneziaVPN em várias partes</string>

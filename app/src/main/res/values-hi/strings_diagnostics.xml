@@ -1989,4 +1989,10 @@
     <string name="detection_exposure_incomplete_reason">कुछ जाँचों से परिणाम नहीं मिला।</string>
     <string name="detection_exposure_incomplete_hint">विवरण देखें और जाँच फिर से चलाएँ।</string>
     <string name="detection_exposure_dns_observation_reason">पूरी हुई जाँच में पहचान के संकेत नहीं मिले। DNS सेटिंग देखी गईं, रिसाव जाँच नहीं हुई।</string>
+    <string name="diagnostics_radar_title">उत्तर समय</string>
+    <string name="diagnostics_radar_answered">उत्तर मिला: %2$d में से %1$d</string>
+    <string name="diagnostics_radar_problems">समस्याएँ: %2$d में से %1$d</string>
+    <string name="diagnostics_radar_checked">जाँचा गया: %2$d में से %1$d</string>
+    <string name="diagnostics_radar_sector_sites">साइटें</string>
+    <string name="diagnostics_radar_sector_services">सेवाएँ</string>
 </resources>

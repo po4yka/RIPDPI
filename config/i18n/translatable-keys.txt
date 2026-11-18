@@ -2166,6 +2166,12 @@ app:diagnostics_pt_status_invalid_response
 app:diagnostics_pt_status_invalid_target
 app:diagnostics_pt_status_network_error
 app:diagnostics_pt_status_not_configured
+app:diagnostics_radar_answered
+app:diagnostics_radar_checked
+app:diagnostics_radar_problems
+app:diagnostics_radar_sector_services
+app:diagnostics_radar_sector_sites
+app:diagnostics_radar_title
 app:diagnostics_recent_activity_section
 app:diagnostics_region_suite_message
 app:diagnostics_region_suite_title
@@ -4977,6 +4983,7 @@ app:ui_rule_load_failed_title
 app:ui_rule_save_failed_body
 app:ui_rule_save_failed_title
 app:unit_milliseconds_format
+app:unit_seconds_format
 app:unsaved_changes_body
 app:unsaved_changes_discard
 app:unsaved_changes_keep_editing

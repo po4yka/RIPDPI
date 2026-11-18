@@ -290,6 +290,7 @@
     <string name="vpn_pcap_capture_list_empty_title">Захватов пока нет</string>
     <string name="vpn_pcap_capture_list_read_failed_body">Не удалось открыть сохранённые файлы захвата.</string>
     <string name="unit_milliseconds_format">%1$d мс</string>
+    <string name="unit_seconds_format">%1$d с</string>
     <string name="title_rule_editor_new">Новое правило</string>
     <string name="scanner_permission_continue">Продолжить</string>
     <string name="scanner_series_title">Многочастный ключ AmneziaVPN</string>

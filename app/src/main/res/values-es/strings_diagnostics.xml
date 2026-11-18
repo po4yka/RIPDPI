@@ -1998,4 +1998,10 @@
     <string name="detection_exposure_incomplete_reason">Algunas comprobaciones no devolvieron resultados.</string>
     <string name="detection_exposure_incomplete_hint">Revisa los detalles y vuelve a ejecutar la comprobación.</string>
     <string name="detection_exposure_dns_observation_reason">Las pruebas completadas no detectaron señales. Se observaron los ajustes de DNS sin una prueba de fugas.</string>
+    <string name="diagnostics_radar_title">Tiempos de respuesta</string>
+    <string name="diagnostics_radar_answered">Respondieron: %1$d de %2$d</string>
+    <string name="diagnostics_radar_problems">Problemas: %1$d de %2$d</string>
+    <string name="diagnostics_radar_checked">Comprobados: %1$d de %2$d</string>
+    <string name="diagnostics_radar_sector_sites">Sitios</string>
+    <string name="diagnostics_radar_sector_services">Servicios</string>
 </resources>

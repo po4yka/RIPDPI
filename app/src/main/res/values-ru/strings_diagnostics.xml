@@ -2053,4 +2053,10 @@
     <string name="detection_exposure_incomplete_reason">Некоторые проверки не вернули результат.</string>
     <string name="detection_exposure_incomplete_hint">Посмотрите подробности и запустите проверку снова.</string>
     <string name="detection_exposure_dns_observation_reason">Завершённые пробы не выявили признаков обнаружения. Настройки DNS прочитаны без теста на утечку.</string>
+    <string name="diagnostics_radar_title">Время ответа</string>
+    <string name="diagnostics_radar_answered">Ответили: %1$d из %2$d</string>
+    <string name="diagnostics_radar_problems">Проблемы: %1$d из %2$d</string>
+    <string name="diagnostics_radar_checked">Проверено: %1$d из %2$d</string>
+    <string name="diagnostics_radar_sector_sites">Сайты</string>
+    <string name="diagnostics_radar_sector_services">Сервисы</string>
 </resources>

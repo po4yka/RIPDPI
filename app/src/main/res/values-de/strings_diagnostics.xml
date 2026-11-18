@@ -1982,4 +1982,10 @@
     <string name="detection_exposure_incomplete_reason">Einige Prüfungen lieferten kein Ergebnis.</string>
     <string name="detection_exposure_incomplete_hint">Prüfe die Details und starte die Prüfung erneut.</string>
     <string name="detection_exposure_dns_observation_reason">Die abgeschlossenen Prüfungen meldeten keine Erkennungssignale. DNS-Einstellungen wurden ohne Lecktest erfasst.</string>
+    <string name="diagnostics_radar_title">Antwortzeiten</string>
+    <string name="diagnostics_radar_answered">Beantwortet: %1$d von %2$d</string>
+    <string name="diagnostics_radar_problems">Probleme: %1$d von %2$d</string>
+    <string name="diagnostics_radar_checked">Geprüft: %1$d von %2$d</string>
+    <string name="diagnostics_radar_sector_sites">Websites</string>
+    <string name="diagnostics_radar_sector_services">Dienste</string>
 </resources>

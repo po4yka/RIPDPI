@@ -278,6 +278,7 @@
     <string name="vpn_pcap_capture_list_empty_title">尚无捕获</string>
     <string name="vpn_pcap_capture_list_read_failed_body">无法打开已保存的捕获文件。</string>
     <string name="unit_milliseconds_format">%1$d ms</string>
+    <string name="unit_seconds_format">%1$d s</string>
     <string name="title_rule_editor_new">新建规则</string>
     <string name="scanner_permission_continue">继续</string>
     <string name="scanner_series_title">多段式 AmneziaVPN 密钥</string>

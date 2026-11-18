@@ -285,6 +285,7 @@
     <string name="vpn_pcap_capture_list_empty_title">هنوز ضبطی وجود ندارد</string>
     <string name="vpn_pcap_capture_list_read_failed_body">باز کردن فایل‌های ضبط ذخیره‌شده ممکن نشد.</string>
     <string name="unit_milliseconds_format">%1$d ms</string>
+    <string name="unit_seconds_format">%1$d s</string>
     <string name="title_rule_editor_new">قانون جدید</string>
     <string name="scanner_permission_continue">ادامه</string>
     <string name="scanner_series_title">کلید چندبخشی AmneziaVPN</string>

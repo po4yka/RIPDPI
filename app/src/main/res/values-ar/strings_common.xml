@@ -305,6 +305,7 @@
     <string name="vpn_pcap_capture_list_empty_title">لا توجد التقاطات بعد</string>
     <string name="vpn_pcap_capture_list_read_failed_body">تعذّر فتح ملفات الالتقاط المحفوظة.</string>
     <string name="unit_milliseconds_format">%1$d ms</string>
+    <string name="unit_seconds_format">%1$d s</string>
     <string name="title_rule_editor_new">قاعدة جديدة</string>
     <string name="scanner_permission_continue">متابعة</string>
     <string name="scanner_series_title">مفتاح AmneziaVPN متعدد الأجزاء</string>

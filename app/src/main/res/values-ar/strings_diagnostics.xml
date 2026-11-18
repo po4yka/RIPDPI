@@ -2149,4 +2149,10 @@
     <string name="detection_exposure_incomplete_reason">لم تُرجع بعض الفحوص نتيجة.</string>
     <string name="detection_exposure_incomplete_hint">راجع التفاصيل وشغّل الفحص مرة أخرى.</string>
     <string name="detection_exposure_dns_observation_reason">لم تسجل الاختبارات المكتملة إشارات كشف. تمت قراءة إعدادات DNS دون اختبار تسرب.</string>
+    <string name="diagnostics_radar_title">أزمنة الاستجابة</string>
+    <string name="diagnostics_radar_answered">استجاب: %1$d من %2$d</string>
+    <string name="diagnostics_radar_problems">مشاكل: %1$d من %2$d</string>
+    <string name="diagnostics_radar_checked">تم الفحص: %1$d من %2$d</string>
+    <string name="diagnostics_radar_sector_sites">المواقع</string>
+    <string name="diagnostics_radar_sector_services">الخدمات</string>
 </resources>

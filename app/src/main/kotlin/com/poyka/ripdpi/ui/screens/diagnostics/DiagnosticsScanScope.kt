@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.ConnectionStageState
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
@@ -66,9 +68,9 @@ internal enum class ScopeSector(
 ) {
     Dns(R.string.diagnostics_phase_dns),
     Tcp(R.string.diagnostics_phase_tcp),
-    Reach(R.string.diagnostics_phase_reach),
+    Sites(R.string.diagnostics_radar_sector_sites),
     Quic(R.string.diagnostics_phase_quic),
-    Service(R.string.diagnostics_phase_svc),
+    Services(R.string.diagnostics_radar_sector_services),
 }
 
 internal enum class ScopeMarkKind { Answered, Blocked, Silent }
@@ -94,9 +96,10 @@ private fun scopeSector(probeType: String): ScopeSector? =
     when (probeType) {
         "dns_integrity", "dns", "doh_json_survey" -> ScopeSector.Dns
         "tcp_fat_header", "tcp" -> ScopeSector.Tcp
-        "domain_reachability", "strategy_https", "strategy_http" -> ScopeSector.Reach
+        "domain_reachability", "strategy_https", "strategy_http" -> ScopeSector.Sites
         "quic_reachability", "strategy_quic", "http3" -> ScopeSector.Quic
-        "service_reachability", "circumvention_reachability", "telegram_availability", "telegram" -> ScopeSector.Service
+        "service_reachability", "circumvention_reachability" -> ScopeSector.Services
+        "telegram_availability", "telegram" -> ScopeSector.Services
         else -> null
     }
 
@@ -141,6 +144,29 @@ internal fun scopeLayout(results: List<DiagnosticsProbeResultUiModel>): ScopeLay
     return ScopeLayout(marks, starts)
 }
 
+/** The scope in its card, with a title and one line that says what the numbers in the hub mean. */
+@Composable
+internal fun DiagnosticsScanScopeCard(
+    layout: ScopeLayout,
+    progress: Float?,
+    steps: Pair<Int, Int>?,
+    onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val marks = layout.marks.size
+    val problems = layout.marks.count { it.kind != ScopeMarkKind.Answered }
+    val status =
+        when {
+            steps != null -> stringResource(R.string.diagnostics_radar_checked, steps.first, steps.second)
+            problems > 0 -> stringResource(R.string.diagnostics_radar_problems, problems, marks)
+            else -> stringResource(R.string.diagnostics_radar_answered, marks, marks)
+        }
+    RipDpiCard(modifier = modifier) {
+        RipDpiPanelHeader(title = stringResource(R.string.diagnostics_radar_title), supporting = status)
+        DiagnosticsScanScope(layout, progress, steps, onSelectProbe)
+    }
+}
+
 /**
  * The scan scope: each probe is a mark, and its distance from the hub is the measured answer time on a log scale.
  * The outer lane holds the probes with no measured time. While a scan runs, the arm sweeps, the arc at the hub shows
@@ -162,12 +188,18 @@ internal fun DiagnosticsScanScope(
     val performHaptic = rememberRipDpiHapticPerformer()
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val labelStyle = RipDpiThemeTokens.type.smallLabel.copy(color = colors.mutedForeground)
+    // A sector name is a title of a part of the dial; a scale value is a note on a ring.
+    val sectorStyle = RipDpiThemeTokens.type.smallLabel.copy(color = colors.foreground)
+    val scaleStyle = RipDpiThemeTokens.type.monoSmall.copy(color = colors.mutedForeground)
     val sectorTexts = ScopeSector.entries.map { stringResource(it.label) }
-    val scaleTexts = ScaleRingMillis.map { stringResource(R.string.unit_milliseconds_format, it) }
+    val scaleTexts =
+        listOf(
+            stringResource(R.string.unit_milliseconds_format, ScaleRingMillis.first()),
+            stringResource(R.string.unit_seconds_format, 1),
+        )
     val sectorLabels =
-        remember(sectorTexts, labelStyle, density) { sectorTexts.map { measurer.measure(it, labelStyle) } }
-    val scaleLabels = remember(scaleTexts, labelStyle, density) { scaleTexts.map { measurer.measure(it, labelStyle) } }
+        remember(sectorTexts, sectorStyle, density) { sectorTexts.map { measurer.measure(it, sectorStyle) } }
+    val scaleLabels = remember(scaleTexts, scaleStyle, density) { scaleTexts.map { measurer.measure(it, scaleStyle) } }
     val labelBand = remember(layout.sectorStarts, sectorLabels) { labelBand(layout.sectorStarts, sectorLabels) }
     val marks = layout.marks
     val scanning = progress != null
@@ -339,7 +371,13 @@ private fun DrawScope.drawResult(
 ) {
     val frame = face.frame
     if (time > 0f && time < 1f) drawSweep(face, time)
-    marks.forEach { if (time >= it.turn) drawMark(frame.at(it), it, time - it.turn, face.palette) }
+    val shown = marks.filter { time >= it.turn }
+    // A ray joins each mark to the hub, so the angle of a mark reads as its own probe.
+    shown.forEach {
+        val ray = face.palette.of(it.kind).copy(alpha = RayAlpha)
+        drawLine(ray, frame.point(it.turn, frame.hub), frame.at(it), Hairline.toPx())
+    }
+    shown.forEach { drawMark(frame.at(it), it, time - it.turn, face.palette) }
     val pulse = (time - 1f) / (RevealEnd - 1f)
     if (pulse > 0f && pulse < 1f) {
         drawCircle(
@@ -358,7 +396,14 @@ private class ScopePalette(
     val blocked: Color,
     val silent: Color,
     val hub: Color,
-)
+) {
+    fun of(kind: ScopeMarkKind): Color =
+        when (kind) {
+            ScopeMarkKind.Answered -> answered
+            ScopeMarkKind.Blocked -> blocked
+            ScopeMarkKind.Silent -> silent
+        }
+}
 
 /** The frame with the brushes of the face. The arm brushes point to the right; the arm is drawn in a turned canvas. */
 private class ScopeFace(
@@ -384,6 +429,16 @@ private class ScopeFace(
             1f - GlowTurn to palette.arm.copy(alpha = 0f),
             1f to palette.arm.copy(alpha = GlowAlpha),
             center = center,
+        )
+
+    /** A shade that grows toward the rim, so the face reads as a shallow bowl. */
+    val shade =
+        Brush.radialGradient(
+            0f to palette.line.copy(alpha = 0f),
+            ShadeStart to palette.line.copy(alpha = 0f),
+            1f to palette.line.copy(alpha = ShadeAlpha),
+            center = center,
+            radius = frame.rim,
         )
     val arm =
         Brush.horizontalGradient(
@@ -463,6 +518,7 @@ private fun DrawScope.drawScopeFace(
         drawText(label, topLeft = frame.center - Offset(label.size.width / 2f, radius + label.size.height + hair))
     }
     drawCircle(line.copy(alpha = RingAlpha), frame.radius(LaneReach), frame.center, style = Stroke(hair))
+    drawCircle(face.shade, frame.rim, frame.center)
     drawScaleRuler(frame, line, sectorStarts.first(), inward = -1f)
     drawScaleRuler(frame, line, sectorStarts.last(), inward = 1f)
     drawCircle(line, frame.rim, frame.center, style = Stroke(RimWidth.toPx()))
@@ -540,12 +596,7 @@ private fun DrawScope.drawMark(
     age: Float,
     palette: ScopePalette,
 ) {
-    val color =
-        when (mark.kind) {
-            ScopeMarkKind.Answered -> palette.answered
-            ScopeMarkKind.Blocked -> palette.blocked
-            ScopeMarkKind.Silent -> palette.silent
-        }
+    val color = palette.of(mark.kind)
     val ripple = age / RippleSpan
     if (ripple < 1f) {
         drawCircle(
@@ -561,6 +612,8 @@ private fun DrawScope.drawMark(
     val stroke = Stroke(MarkStroke.toPx(), cap = StrokeCap.Round)
     when (mark.kind) {
         ScopeMarkKind.Answered -> {
+            // The edge in the color of the hub keeps two dots apart when they touch.
+            drawCircle(palette.hub, radius * AnsweredShare + MarkEdge.toPx(), at)
             drawCircle(color, radius * AnsweredShare, at)
         }
 
@@ -588,6 +641,7 @@ private fun DrawScope.drawHub(
     val line = face.palette.line
     drawCircle(face.palette.hub, frame.hub, frame.center)
     drawCircle(line, frame.hub, frame.center, style = Stroke(RimWidth.toPx()))
+    drawCircle(line.copy(alpha = FaintAlpha), frame.hub - HubGap.toPx(), frame.center, style = Stroke(Hairline.toPx()))
     if (progress != null) {
         val radius = frame.hub + HubGap.toPx()
         val arc = Stroke(ProgressWidth.toPx(), cap = StrokeCap.Round)
@@ -605,7 +659,8 @@ private fun DrawScope.drawHub(
     if (text == null) {
         drawCircle(line, CenterDot.toPx(), frame.center)
     } else {
-        val fit = ((2 * frame.hub - 2 * HubGap.toPx()) / text.size.width).coerceAtMost(1f)
+        // The number stays inside the inner ring of the hub.
+        val fit = (2 * (frame.hub - 2 * HubGap.toPx()) / text.size.width).coerceAtMost(1f)
         scale(fit, frame.center) {
             drawText(text, topLeft = frame.center - Offset(text.size.width / 2f, text.size.height / 2f))
         }
@@ -647,6 +702,7 @@ private val TipGlow = 9.dp
 private val TipDot = 2.5.dp
 private val MarkRadius = 5.dp
 private val MarkStroke = 2.dp
+private val MarkEdge = 1.5.dp
 private val RippleGrowth = 16.dp
 private val PressRadius = 10.dp
 private val CenterDot = 2.dp
@@ -669,6 +725,9 @@ private const val LaneAlpha = 0.12f
 private const val ArmRootAlpha = 0.25f
 private const val TipAlpha = 0.5f
 private const val HaloAlpha = 0.16f
+private const val RayAlpha = 0.22f
+private const val ShadeStart = 0.7f
+private const val ShadeAlpha = 0.14f
 private const val HaloShare = 1.8f
 private val RulerDecades = listOf(10L, 100L, 1000L)
 private val RulerSteps = 2L..9L

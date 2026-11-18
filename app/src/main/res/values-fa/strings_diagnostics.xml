@@ -1982,4 +1982,10 @@
     <string name="detection_exposure_incomplete_reason">برخی بررسی‌ها نتیجه‌ای برنگرداندند.</string>
     <string name="detection_exposure_incomplete_hint">جزئیات را بررسی کنید و دوباره بررسی را اجرا کنید.</string>
     <string name="detection_exposure_dns_observation_reason">آزمون‌های کامل‌شده نشانه‌ای از شناسایی گزارش نکردند. تنظیمات DNS بدون آزمایش نشت مشاهده شدند.</string>
+    <string name="diagnostics_radar_title">زمان پاسخ</string>
+    <string name="diagnostics_radar_answered">پاسخ داده: %1$d از %2$d</string>
+    <string name="diagnostics_radar_problems">مشکل: %1$d از %2$d</string>
+    <string name="diagnostics_radar_checked">بررسی شده: %1$d از %2$d</string>
+    <string name="diagnostics_radar_sector_sites">سایت‌ها</string>
+    <string name="diagnostics_radar_sector_services">سرویس‌ها</string>
 </resources>
