@@ -5,6 +5,10 @@ import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayProfile
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -73,6 +77,74 @@ class XrayProviderRouteBuilderTest {
             assertFalse(first.renderedConfig.contains("noauth"))
             assertEquals(listOf("edge.example.com", "edge.example.com"), requested)
             assertEquals(profile, store.load("default"))
+        }
+
+    @Test
+    fun `VPN bootstrap supplies every resolved IP to the Xray TCP race`() =
+        runTest {
+            val addresses = listOf("192.0.2.44", "2001:db8::10", "192.0.2.11")
+            val builder = XrayProviderRouteBuilder(resolveEndpoint = { addresses })
+            val host = validProfile.outbound.serverAddress + "."
+            val profile =
+                validProfile.copy(
+                    outbound = validProfile.outbound.copy(serverAddress = host),
+                    dns = validProfile.dns.copy(queryStrategy = "UseIPv4"),
+                )
+            val result = builder.build(profile, sessionCredentials) as XrayProviderRouteBuilder.Result.Resolved
+            val config =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(result.renderedConfig)
+                    .jsonObject
+            val dns = config.getValue("dns").jsonObject
+            assertEquals("UseIP", dns.getValue("queryStrategy").jsonPrimitive.content)
+            dns.getValue("servers").jsonArray.forEach {
+                assertEquals(
+                    "UseIPv4",
+                    it.jsonObject
+                        .getValue("queryStrategy")
+                        .jsonPrimitive.content,
+                )
+            }
+            assertEquals(
+                addresses,
+                config
+                    .getValue("dns")
+                    .jsonObject
+                    .getValue("hosts")
+                    .jsonObject
+                    .getValue("full:${host.removeSuffix(".")}")
+                    .jsonArray
+                    .map { it.jsonPrimitive.content },
+            )
+            val proxy =
+                config
+                    .getValue("outbounds")
+                    .jsonArray
+                    .first()
+                    .jsonObject
+            val server =
+                proxy
+                    .getValue("settings")
+                    .jsonObject
+                    .getValue("vnext")
+                    .jsonArray
+                    .single()
+                    .jsonObject
+            assertEquals(host, server.getValue("address").jsonPrimitive.content)
+            val sockopt =
+                proxy
+                    .getValue("streamSettings")
+                    .jsonObject
+                    .getValue("sockopt")
+                    .jsonObject
+            assertEquals("ForceIP", sockopt.getValue("domainStrategy").jsonPrimitive.content)
+            assertTrue(
+                sockopt
+                    .getValue("happyEyeballs")
+                    .jsonObject
+                    .getValue("tryDelayMs")
+                    .jsonPrimitive.int > 0,
+            )
         }
 
     @Test

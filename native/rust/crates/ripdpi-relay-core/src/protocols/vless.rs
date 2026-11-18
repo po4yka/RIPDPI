@@ -60,10 +60,7 @@ impl RelaySession for VlessRealitySession {
                 }
             };
         }
-        let endpoint =
-            ripdpi_vless::VlessRealityClient::resolve_server_endpoint(&self.config, self.outbound_bind_ip).await?;
-        let stream =
-            self.session_limiter.connect_to_addr(&self.config, self.outbound_bind_ip, target, endpoint).await?;
+        let stream = self.session_limiter.connect(&self.config, self.outbound_bind_ip, target).await?;
         Ok(Box::new(stream))
     }
 
@@ -76,9 +73,7 @@ impl RelaySession for VlessRealitySession {
         if !self.udp_enabled || self.config.flow == ripdpi_vless::addons::VlessFlow::None {
             return Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS Reality XUDP is disabled for this profile"));
         }
-        let endpoint =
-            ripdpi_vless::VlessRealityClient::resolve_server_endpoint(&self.config, self.outbound_bind_ip).await?;
-        self.session_limiter.connect_xudp_to_addr(&self.config, self.outbound_bind_ip, endpoint).await
+        self.session_limiter.connect_xudp(&self.config, self.outbound_bind_ip).await
     }
 
     /// The mux carrier is unusable when yamux closed it, or when the stream
@@ -179,8 +174,7 @@ impl RelaySessionFactory for VlessRealitySessionFactory {
         let config = self.config.clone();
         let outbound_bind_ip = self.outbound_bind_ip;
         let mux = if config.mux.is_some() {
-            let endpoint = ripdpi_vless::VlessRealityClient::resolve_server_endpoint(&config, outbound_bind_ip).await?;
-            Some(self.session_limiter.connect_mux_to(&config, outbound_bind_ip, endpoint).await?)
+            Some(self.session_limiter.connect_mux(&config, outbound_bind_ip).await?)
         } else {
             None
         };

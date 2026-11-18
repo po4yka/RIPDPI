@@ -96,9 +96,7 @@ impl ChainHopConnector {
     ) -> io::Result<Box<dyn ChainAsyncIo>> {
         match self {
             Self::VlessReality(config) => {
-                let endpoint =
-                    ripdpi_vless::VlessRealityClient::resolve_server_endpoint(config, outbound_bind_ip).await?;
-                let stream = vless_session_limiter.connect_to_addr(config, outbound_bind_ip, target, endpoint).await?;
+                let stream = vless_session_limiter.connect(config, outbound_bind_ip, target).await?;
                 Ok(Box::new(stream))
             }
             Self::Masque(config) => {

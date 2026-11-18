@@ -70,10 +70,11 @@ class XrayConfigRenderer(
         upstreamTag: String,
         inboundUsername: String? = null,
         inboundPassword: String? = null,
+        relayAddresses: List<String> = emptyList(),
     ): Result {
         (XrayProfileValidation.error(profile) ?: inboundCredentialsError(inboundUsername, inboundPassword))
             ?.let { return rejectProfile(it) }
-        val config = build(profile, inboundUsername, inboundPassword)
+        val config = build(profile, inboundUsername, inboundPassword, relayAddresses)
         val errors = XrayConfigValidator.validate(config, XrayConfigValidator.Context(upstreamTag))
         return when {
             profile.inbound.listen != "127.0.0.1" || profile.inbound.port !in 1..MaxPort -> {
@@ -145,9 +146,10 @@ class XrayConfigRenderer(
         profile: XrayProfile,
         inboundUsername: String?,
         inboundPassword: String?,
+        relayAddresses: List<String>,
     ): JsonObject =
         buildJsonObject {
-            put("dns", renderDns(profile.dns))
+            put("dns", renderDns(profile, relayAddresses))
             put(
                 "inbounds",
                 buildJsonArray { add(renderInbound(profile.inbound, inboundUsername, inboundPassword)) },
@@ -155,20 +157,52 @@ class XrayConfigRenderer(
             put(
                 "outbounds",
                 buildJsonArray {
-                    add(renderOutbound(profile.outbound))
+                    add(renderOutbound(profile.outbound, relayAddresses.isNotEmpty()))
                     add(renderDirectOutbound())
                 },
             )
             put("routing", renderRouting())
         }
 
-    private fun renderDns(dns: XrayProfile.DnsSettings): JsonObject =
+    private fun renderDns(
+        profile: XrayProfile,
+        relayAddresses: List<String>,
+    ): JsonObject =
         buildJsonObject {
+            val dns = profile.dns
+            // Xray also filters static hosts by the global strategy. Scope the profile's
+            // query policy to its resolvers so the physical relay can use either address family.
+            val scopeToServers = relayAddresses.isNotEmpty() && !dns.queryStrategy.equals("UseIP", ignoreCase = true)
+            val servers = if (scopeToServers) dns.servers.ifEmpty { listOf("localhost") } else dns.servers
             put(
                 "servers",
-                buildJsonArray { dns.servers.forEach { add(JsonPrimitive(it)) } },
+                buildJsonArray {
+                    servers.forEach { server ->
+                        if (scopeToServers) {
+                            add(
+                                buildJsonObject {
+                                    put("address", server)
+                                    put("queryStrategy", dns.queryStrategy)
+                                },
+                            )
+                        } else {
+                            add(JsonPrimitive(server))
+                        }
+                    }
+                },
             )
-            put("queryStrategy", dns.queryStrategy)
+            put("queryStrategy", if (scopeToServers) "UseIP" else dns.queryStrategy)
+            if (relayAddresses.isNotEmpty()) {
+                put(
+                    "hosts",
+                    buildJsonObject {
+                        put(
+                            "full:${profile.outbound.serverAddress.removeSuffix(".").lowercase()}",
+                            buildJsonArray { relayAddresses.forEach { add(JsonPrimitive(it)) } },
+                        )
+                    },
+                )
+            }
         }
 
     private fun renderInbound(
@@ -205,7 +239,10 @@ class XrayConfigRenderer(
             )
         }
 
-    private fun renderOutbound(outbound: XrayProfile.Outbound): JsonObject =
+    private fun renderOutbound(
+        outbound: XrayProfile.Outbound,
+        resolvedRelay: Boolean,
+    ): JsonObject =
         buildJsonObject {
             put("tag", proxyTag)
             put("protocol", "vless")
@@ -237,11 +274,23 @@ class XrayConfigRenderer(
                     )
                 },
             )
-            put("streamSettings", renderStreamSettings(outbound))
+            put("streamSettings", renderStreamSettings(outbound, resolvedRelay))
         }
 
-    private fun renderStreamSettings(outbound: XrayProfile.Outbound): JsonObject =
+    private fun renderStreamSettings(
+        outbound: XrayProfile.Outbound,
+        resolvedRelay: Boolean,
+    ): JsonObject =
         buildJsonObject {
+            if (resolvedRelay) {
+                put(
+                    "sockopt",
+                    buildJsonObject {
+                        put("domainStrategy", "ForceIP")
+                        put("happyEyeballs", buildJsonObject { put("tryDelayMs", 250) })
+                    },
+                )
+            }
             put("network", outbound.network.wire())
             put("security", outbound.security.wire())
             when (outbound.security) {

@@ -19,22 +19,6 @@ const PROTECTED_RELAY_DNS_RESOLVER_IDS: [&str; 2] = ["adguard", "dnssb"];
 
 pub type SocketProtectFn = dyn Fn(RawFd) -> io::Result<()> + Send + Sync + 'static;
 
-/// # Cancel safety
-///
-/// cancel-safe: see [`resolve_server_addrs`].
-pub async fn resolve_server_addr(
-    server: &str,
-    port: u16,
-    bind_ip: Option<IpAddr>,
-    protect: Option<Box<SocketProtectFn>>,
-) -> io::Result<SocketAddr> {
-    resolve_server_addrs(server, port, bind_ip, protect)
-        .await?
-        .into_iter()
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "relay server resolved to no addresses"))
-}
-
 /// Every usable relay server address, in resolver order and never empty. With a
 /// `protect` callback the hostname goes through protected DoH, never system DNS.
 ///
@@ -121,7 +105,33 @@ pub async fn probe_tcp_reachable(
     }
 }
 
-fn matching_family(
+/// Try each relay address within one TCP dial deadline. Each attempt owns a fresh socket.
+///
+/// # Cancel safety:
+/// cancel-safe: dropping the future drops the current socket and its optional admission guard.
+pub async fn connect_candidates<T, F: Future<Output = io::Result<T>>>(
+    candidates: Vec<SocketAddr>,
+    mut dial: impl FnMut(SocketAddr) -> F,
+) -> io::Result<T> {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let mut remaining = candidates.into_iter();
+    let mut last = io::Error::new(io::ErrorKind::InvalidInput, "no matching relay address");
+    while let Some(address) = remaining.next() {
+        let attempts = u32::try_from(remaining.len() + 1).unwrap_or(u32::MAX);
+        let budget = deadline.saturating_duration_since(tokio::time::Instant::now()) / attempts;
+        match tokio::time::timeout(budget, dial(address)).await {
+            Ok(Ok(socket)) => return Ok(socket),
+            Ok(Err(error)) if matches!(error.kind(), io::ErrorKind::PermissionDenied | io::ErrorKind::NotConnected) => {
+                return Err(error);
+            }
+            Ok(Err(error)) => last = error,
+            Err(_) => last = io::Error::new(io::ErrorKind::TimedOut, "relay TCP connect timed out"),
+        }
+    }
+    Err(last)
+}
+
+pub(crate) fn matching_family(
     candidates: impl Iterator<Item = SocketAddr>,
     bind_ip: Option<IpAddr>,
 ) -> io::Result<Vec<SocketAddr>> {
@@ -265,16 +275,33 @@ fn domain_for(address: SocketAddr) -> Domain {
 mod tests {
     use super::*;
 
+    #[tokio::test(start_paused = true)]
+    async fn blackholed_address_leaves_time_to_connect_to_the_next_candidate() {
+        let first = SocketAddr::from(([192, 0, 2, 1], 443));
+        let second = SocketAddr::from(([192, 0, 2, 2], 443));
+        let start = tokio::time::Instant::now();
+        let winner = connect_candidates(vec![first, second], |candidate| async move {
+            if candidate == first {
+                std::future::pending::<()>().await;
+            }
+            Ok(candidate)
+        })
+        .await
+        .expect("reachable address");
+        assert_eq!(winner, second);
+        assert!(start.elapsed() < Duration::from_secs(10));
+    }
+
     #[tokio::test]
     async fn ip_literal_resolution_does_not_require_protector() {
-        let resolved = resolve_server_addr("192.0.2.1", 443, None, None).await.expect("ip literal resolves");
+        let resolved = resolve_server_addrs("192.0.2.1", 443, None, None).await.expect("ip literal resolves");
 
-        assert_eq!(resolved, SocketAddr::new(IpAddr::from([192, 0, 2, 1]), 443));
+        assert_eq!(resolved, vec![SocketAddr::new(IpAddr::from([192, 0, 2, 1]), 443)]);
     }
 
     #[tokio::test]
     async fn hostname_with_required_protector_fails_before_system_dns() {
-        let err = resolve_server_addr(
+        let err = resolve_server_addrs(
             "relay.invalid",
             443,
             None,

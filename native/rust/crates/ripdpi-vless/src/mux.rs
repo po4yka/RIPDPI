@@ -250,7 +250,7 @@ mod tests {
             config.mux = Some(VlessMuxConfig { protocol: VlessMuxProtocol::Yamux, max_concurrent_streams: limit });
             let result = tokio::time::timeout(
                 std::time::Duration::from_secs(1),
-                crate::VlessRealityClient::connect_mux_to_guarded(&config, None, endpoint, ()),
+                crate::VlessRealityCarrierLimiter::default().connect_mux(&config, None),
             )
             .await
             .expect("configuration rejection must not wait for a peer");

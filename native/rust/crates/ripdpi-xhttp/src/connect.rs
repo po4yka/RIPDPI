@@ -101,21 +101,24 @@ pub(super) async fn connect_tcp_stream(
     bind_ip: Option<IpAddr>,
     socket_protector: Option<&XhttpSocketProtector>,
 ) -> io::Result<TcpStream> {
-    let target = match socket_protector {
+    let targets = match socket_protector {
         Some(XhttpSocketProtector::Vpn) => ripdpi_native_protect::SocketProtectionPolicy::VpnRequired
             .resolve_host(server, port)
             .await?
             .into_iter()
-            .find(|address| bind_ip.is_none_or(|ip| address.is_ipv4() == ip.is_ipv4()))
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no matching relay address"))?,
+            .filter(|address| bind_ip.is_none_or(|ip| address.is_ipv4() == ip.is_ipv4()))
+            .collect(),
         other => {
             let protect = other.cloned().map(|protector| {
                 Box::new(move |fd| protector.protect(fd)) as Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>
             });
-            ripdpi_vless::endpoint_resolver::resolve_server_addr(server, port, bind_ip, protect).await?
+            ripdpi_vless::endpoint_resolver::resolve_server_addrs(server, port, bind_ip, protect).await?
         }
     };
-    connect_tcp_target(target, bind_ip, socket_protector).await
+    ripdpi_vless::endpoint_resolver::connect_candidates(targets, |target| {
+        connect_tcp_target(target, bind_ip, socket_protector)
+    })
+    .await
 }
 
 /// # Cancel safety:
@@ -376,7 +379,7 @@ mod tests {
 
             fn resolve_host(&self, hostname: &str) -> io::Result<Vec<IpAddr>> {
                 assert_eq!(hostname, "private-relay.invalid");
-                Ok(vec![IpAddr::from([127, 0, 0, 1])])
+                Ok(vec![IpAddr::from([127, 0, 0, 2]), IpAddr::from([127, 0, 0, 1])])
             }
         }
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");

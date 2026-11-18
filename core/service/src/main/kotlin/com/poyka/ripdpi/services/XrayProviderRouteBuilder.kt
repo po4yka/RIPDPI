@@ -77,8 +77,18 @@ internal class XrayProviderRouteBuilder(
         if (profile == null) return Result.NoProfile
         // Validate before any DNS I/O; use a transient copy so durable identity never changes.
         val initial = render(profile, inboundCredentials)
-        val prepared = if (initial is XrayConfigRenderer.Result.Success) resolveProfileEndpoint(profile) else profile
-        return when (val rendered = render(prepared, inboundCredentials)) {
+        val rendered =
+            if (initial is XrayConfigRenderer.Result.Success && !isNumeric(profile.outbound.serverAddress)) {
+                val addresses = resolveEndpoint(profile.outbound.serverAddress).filter(::isNumeric).distinct()
+                check(addresses.isNotEmpty()) { "Xray relay bootstrap returned no numeric address" }
+                currentCoroutineContext().ensureActive()
+                val address = addresses.singleOrNull()
+                val prepared = withEndpointIdentity(profile, address ?: profile.outbound.serverAddress)
+                render(prepared, inboundCredentials, if (address == null) addresses else emptyList())
+            } else {
+                initial
+            }
+        return when (rendered) {
             is XrayConfigRenderer.Result.Success -> {
                 Result.Resolved(
                     route = routeFor(profile),
@@ -99,22 +109,22 @@ internal class XrayProviderRouteBuilder(
     private fun render(
         profile: XrayProfile,
         inboundCredentials: LocalSocksCredentials,
+        addresses: List<String> = emptyList(),
     ): XrayConfigRenderer.Result =
         renderer.render(
             profile,
             upstreamTag = upstreamTag,
             inboundUsername = inboundCredentials.username,
             inboundPassword = inboundCredentials.password,
+            relayAddresses = addresses,
         )
 
-    private suspend fun resolveProfileEndpoint(profile: XrayProfile): XrayProfile {
+    private fun withEndpointIdentity(
+        profile: XrayProfile,
+        endpoint: String,
+    ): XrayProfile {
         val outbound = profile.outbound
         val original = outbound.serverAddress
-        if (isNumeric(original)) return profile
-        val address =
-            resolveEndpoint(original).firstOrNull { isNumeric(it) }
-                ?: error("Xray relay bootstrap returned no numeric address")
-        currentCoroutineContext().ensureActive()
         val tls =
             if (outbound.security == XrayProfile.Security.TLS) {
                 (outbound.tls ?: XrayProfile.Tls(serverName = original)).let {
@@ -134,7 +144,7 @@ internal class XrayProviderRouteBuilder(
                 if (it.host.isBlank()) it.copy(host = serverName) else it
             }
         return profile.copy(
-            outbound = outbound.copy(serverAddress = address, tls = tls, reality = reality, xhttp = xhttp),
+            outbound = outbound.copy(serverAddress = endpoint, tls = tls, reality = reality, xhttp = xhttp),
         )
     }
 
