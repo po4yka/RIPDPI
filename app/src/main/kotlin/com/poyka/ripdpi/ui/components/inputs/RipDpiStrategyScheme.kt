@@ -42,6 +42,7 @@ import com.poyka.ripdpi.ui.screens.status.arrives
 import com.poyka.ripdpi.ui.screens.status.passageFlightStartMillis
 import com.poyka.ripdpi.ui.screens.status.schemeRows
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlin.math.abs
 import androidx.compose.ui.graphics.lerp as mix
 
 private val MaxCell = 12.dp
@@ -49,9 +50,9 @@ private val MinCell = 4.dp
 private val CellHeight = 16.dp
 private val CellInset = 0.5.dp
 private val CellRadius = 3.dp
-private val HeaderHeight = 15.dp
+private val HeaderHeight = 16.dp
 private val StripGap = 9.dp
-private val RowLabelHeight = 14.dp
+private val RowLabelHeight = 15.dp
 private val RowGap = 5.dp
 private val DisplayPad = 5.dp
 private val DisplayLetter = 7.dp
@@ -64,7 +65,7 @@ private val HairStroke = 1.dp
 private val MarkStroke = 1.5.dp
 private val DotSize = 1.6.dp
 private val DotGap = 3.4.dp
-private val TextSize = 10.dp
+private val TextSize = 11.dp
 private val SchemePhoneWidth = 7.dp
 private val SchemePhoneHeight = 11.dp
 private val SchemeGlobeRadius = 5.dp
@@ -76,6 +77,7 @@ private val DashOff = 2.dp
 private const val CellCenter = 0.5f
 private const val DotSpace = 3
 private const val DropShare = 0.3f
+private const val DropHalf = 0.5f
 private const val EngagingFade = 0.7f
 private const val AccentFill = 0.22f
 private const val AccentStroke = 0.75f
@@ -84,6 +86,7 @@ private const val PlainFill = 0.1f
 private const val PlainStroke = 0.45f
 private const val MarkFill = 0.7f
 private const val FaintTone = 0.26f
+private const val GhostText = 0.4f
 private const val MutedTone = 0.6f
 private const val UnconfirmedAlpha = 0.5f
 private const val SpentAlpha = 0.6f
@@ -115,6 +118,9 @@ internal class SchemeColors(
     val reset = accent(reset)
     val mark = SchemeTone(mix(surface, content, MarkFill), mix(surface, content, MarkFill), surface)
     val faint = mix(surface, content, FaintTone)
+
+    /** A cell whose bytes left the device: the outline and the letter stay, so a cut still has a place. */
+    val ghost = SchemeTone(Color.Transparent, plain.stroke, mix(surface, content, GhostText))
     val muted = mix(surface, content, MutedTone)
 
     private fun accent(color: Color) =
@@ -144,8 +150,9 @@ private fun smooth(value: Float): Float {
 
 internal fun SchemeFrame.motion(index: Int): RowMotion {
     if (timeMillis >= PassageAtRest) {
+        // Without a session the parts wait on their lines before the filter: a plan, not a result.
         val done = if (connected) 1f else 0f
-        return RowMotion(done, done, 1f, done)
+        return RowMotion(1f, done, 1f, done)
     }
     val sinceStart = timeMillis - passageFlightStartMillis(index)
     val progress = (sinceStart / PassageFlightMillis).coerceIn(0f, 1f)
@@ -322,8 +329,9 @@ private class SchemePainter(
             }
         return RowPlace(
             x = lerp(start, end, motion.fly),
-            y = if (row.staged) lerp(stripTop, rowTop(index), motion.drop) else rowTop(index),
-            alpha = (if (row.staged) 1f else motion.drop) * motion.alpha,
+            y = if (row.staged && motion.drop < DropHalf) stripTop else rowTop(index),
+            // A part fades out of the packet and in on its line, so it never crosses a label.
+            alpha = (if (row.staged) abs(2 * motion.drop - 1) else motion.drop) * motion.alpha,
             motion = motion,
             items = items,
         )
@@ -383,7 +391,7 @@ private class SchemePainter(
         for (cellIndex in 0 until count) {
             val tone = if (lane.grid.isHost(cellIndex)) colors.host else colors.plain
             val letter = lane.grid.letter(cellIndex, decoy = false)
-            drawCell(cellIndex * cell, stripTop, colors.plain, null, 1f, fill = 0f, dashed = true)
+            drawCell(cellIndex * cell, stripTop, colors.ghost, letter, 1f, fill = 0f, dashed = true)
             if (!sent[cellIndex]) drawCell(cellIndex * cell, stripTop, tone, letter, 1f)
             drawCell(right + cellIndex * cell, stripTop, colors.plain, null, 1f, fill = 0f)
             val arrived = got[cellIndex] * confirmed

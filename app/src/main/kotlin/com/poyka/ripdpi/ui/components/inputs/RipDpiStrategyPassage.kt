@@ -113,7 +113,8 @@ internal fun RipDpiStrategyPassage(
         colors = colors,
         frame = {
             SchemeFrame(
-                timeMillis = clock.value,
+                // The clock stops one frame after the session ends, so a dead path is at rest at once.
+                timeMillis = if (live) clock.value else PassageAtRest,
                 engaging = status == StatusConnectionActuatorStatus.Engaging,
                 connected = status == StatusConnectionActuatorStatus.Locked || degraded,
                 unconfirmed = degraded,
