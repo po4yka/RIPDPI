@@ -130,10 +130,9 @@ class SubscriptionMemberPersistenceTest {
     }
 
     @Test
-    fun `a refreshed member keeps its prior id so the selector selection survives (P1-14)`() {
+    fun `a unique endpoint keeps its prior id through credential rotation`() {
         val original = group(members = listOf(trojan("kept-id")))
-        // Same endpoint, fresh (random) id — what a re-parse of the same node produces.
-        val refreshed = listOf(trojan("kept-id").copy(id = "fresh-random-id"))
+        val refreshed = listOf(trojan("kept-id").copy(id = "fresh-random-id", password = "rotated"))
 
         val updated = SubscriptionMemberPersistence.apply(original, refreshed)
 
@@ -141,7 +140,7 @@ class SubscriptionMemberPersistenceTest {
     }
 
     @Test
-    fun `duplicate endpoints consume distinct prior ids and preserve refreshed fields`() {
+    fun `ambiguous replacements at a shared endpoint get fresh identities`() {
         val original =
             group(
                 members =
@@ -160,13 +159,38 @@ class SubscriptionMemberPersistenceTest {
         val updated = SubscriptionMemberPersistence.apply(original, refreshed)
         val updatedIds = updated.members.map { it.id }
 
-        assertEquals(listOf("prior-first", "prior-second", "fresh-excess"), updatedIds)
+        assertEquals(refreshed.map { it.id }, updatedIds)
         assertEquals(3, updatedIds.distinct().size)
         assertEquals(refreshed.map { it.displayName }, updated.members.map { it.displayName })
         assertEquals(
             refreshed.map { it.password },
             updated.members.map { (it as ProxyProfile.Trojan).password },
         )
+    }
+
+    @Test
+    fun `reordered REALITY members at one endpoint keep the selected route`() {
+        val a =
+            ProxyProfile.VlessReality(
+                "a",
+                "First",
+                "g1",
+                "shared.example",
+                443,
+                "user",
+                "test-key",
+                "",
+                "first.example",
+            )
+        val b = a.copy(id = "b", displayName = "Second", serverName = "second.example")
+        val original = group(members = listOf(a, b)).copy(initialMemberId = a.id)
+        val refreshed = listOf(b.copy(id = "new-b"), a.copy(id = "new-a", displayName = "Renamed"))
+
+        val updated = SubscriptionMemberPersistence.apply(original, refreshed)
+        val selected = updated.members.single { it.id == updated.initialMemberId } as ProxyProfile.VlessReality
+
+        assertEquals("first.example", selected.serverName)
+        assertEquals(listOf("b", "a"), updated.members.map { it.id })
     }
 
     @Test

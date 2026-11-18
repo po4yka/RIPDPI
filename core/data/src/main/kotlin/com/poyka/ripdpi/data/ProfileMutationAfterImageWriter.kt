@@ -32,6 +32,9 @@ internal class ProfileMutationAfterImageWriter(
                 runtime.database.withAuthority(
                     runtime.pauseAuthority,
                     afterCommit = { committed ->
+                        committed.clearedSelectorChoices.forEach { groupId ->
+                            runtime.activeGroup.publishCommittedChoice(groupId, SelectorChoiceOrigin.Reconstruction)
+                        }
                         if (intent is SelectorSelectIntent) {
                             val reservation = committed.outcome as? ProfileMutationOutcome.Reserved
                             val receipt = reservation?.receipt as? ProfileActivationReceipt
@@ -63,7 +66,7 @@ internal class ProfileMutationAfterImageWriter(
                     } else {
                         writer.apply(intent)
                     }
-                    CommittedMutation(outcome, before, beforeProfile)
+                    CommittedMutation(outcome, before, beforeProfile, writer.clearedSelectorChoices)
                 }
             publishCommittedWarpRevision(runtime.warpRevisions, intent, committed.before, committed.beforeProfile)
             runtime.catalog.publish()
@@ -103,6 +106,7 @@ private data class CommittedMutation(
     val outcome: ProfileMutationOutcome,
     val before: WarpCredentials?,
     val beforeProfile: WarpProfile?,
+    val clearedSelectorChoices: List<String>,
 )
 
 internal fun ProfileMutationIntent.ownsProviderSelection(origin: ProfileMutationOrigin): Boolean =

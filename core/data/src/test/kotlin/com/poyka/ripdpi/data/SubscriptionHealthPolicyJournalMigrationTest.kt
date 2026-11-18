@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import android.content.Context
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonArray
@@ -47,6 +48,12 @@ class SubscriptionHealthPolicyJournalMigrationTest : RoomProfileTest() {
     fun `failed Room import preserves legacy health bytes and retry accepts a quality refresh`() =
         runTest {
             LegacyProfileImportFixture().use { legacy ->
+                val choices = legacy.context.getSharedPreferences("selector_selection_store", Context.MODE_PRIVATE)
+                choices
+                    .edit()
+                    .putString("selected-profile-subscription", "retired-member")
+                    .putBoolean("manual-selection-subscription", true)
+                    .apply()
                 legacy.seedPayload(ProfileMutationFamily.Subscription, LegacyPayload)
                 val source = legacy.legacyBytes()
                 val before = legacy.fixture.snapshot()
@@ -60,6 +67,11 @@ class SubscriptionHealthPolicyJournalMigrationTest : RoomProfileTest() {
                     legacy.fixture.groupCatalog
                         .snapshot()
                         .single()
+                assertNull(
+                    legacy.fixture.selectorSelections
+                        .snapshot(current.id)
+                        .profileId,
+                )
                 assertEquals("captured-owner", current.ownershipGeneration)
                 assertEquals(2, current.failover!!.payloadPolicy!!.schemaVersion)
                 val quality = ProfileQualityPolicy(131_076, 262_152, 300, 20, 100)

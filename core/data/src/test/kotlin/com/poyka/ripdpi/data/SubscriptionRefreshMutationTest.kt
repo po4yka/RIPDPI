@@ -21,6 +21,29 @@ import org.junit.Test
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SubscriptionRefreshMutationTest : RoomProfileTest() {
     @Test
+    fun `refresh retires an unavailable selected member and its pending measurements`() =
+        runTest {
+            val fixture = fixture()
+            val member = ProxyProfile.Trojan("old", "Member", original.id, "relay.example", 443, "password")
+            fixture.groups.add(original.copy(isSelector = true, members = listOf(member)))
+            val captured = fixture.groups.list().single()
+            val selection = fixture.selectorSelections
+            selection.select(original.id, member.id)
+            val before = selection.snapshot(original.id)
+            val replacement = captured.copy(members = listOf(member.copy(id = "new")), initialMemberId = "new")
+
+            assertTrue(
+                fixture.coordinator().commitSubscriptionRefresh(captured) {
+                    PreparedSubscriptionRefresh(replacement, emptyList())
+                },
+            )
+
+            assertNull(selection.snapshot(original.id).profileId)
+            assertNull(selection.manualReceipt(original.id))
+            assertFalse(selection.selectAutomatically(original.id, before, "new"))
+        }
+
+    @Test
     fun `identical delete and recreate rejects captured refresh before preparation`() =
         runTest {
             val fixture = fixture()

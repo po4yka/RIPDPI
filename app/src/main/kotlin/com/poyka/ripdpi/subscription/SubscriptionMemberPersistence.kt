@@ -41,18 +41,7 @@ object SubscriptionMemberPersistence {
         // group's existing members untouched, matching the original empty guard.
         val activatable = members.filterNot { it is ProxyProfile.RawConfig }
         if (activatable.isEmpty()) return group
-        // Parser member ids are random per parse, so a wholesale replace orphaned
-        // any persisted selector selection (keyed by member id) on every refresh
-        // (audit P1-14). Carry each prior member's id onto its structurally-equal
-        // refreshed counterpart so the user's selection survives.
-        val priorIdsByEndpoint = mutableMapOf<String, ArrayDeque<String>>()
-        group.members.forEach { member ->
-            priorIdsByEndpoint.getOrPut(member.endpointKey(), ::ArrayDeque).addLast(member.id)
-        }
-        val remapped =
-            activatable.map { member ->
-                priorIdsByEndpoint[member.endpointKey()]?.removeFirstOrNull()?.let(member::withId) ?: member
-            }
+        val remapped = remapMemberIds(group.members, activatable)
         return group.copy(
             members = remapped,
             failover = if (isSelector) failover else failover ?: group.failover,
@@ -79,6 +68,35 @@ object SubscriptionMemberPersistence {
     }
 }
 
+private fun remapMemberIds(
+    prior: List<ProxyProfile>,
+    refreshed: List<ProxyProfile>,
+): List<ProxyProfile> {
+    val exact = prior.groupBy { it.withIdentity("") }.mapValues { (_, members) -> ArrayDeque(members.map { it.id }) }
+    val byConnection = uniquePriorIds(prior, refreshed) { it.withIdentity("", "") }
+    val byEndpoint = uniquePriorIds(prior, refreshed) { it.endpointKey() }
+    return refreshed.map { member ->
+        // Identical entries are interchangeable. Credential rotation is safe only for a unique endpoint.
+        val id =
+            exact[member.withIdentity("")]?.removeFirstOrNull()
+                ?: byConnection[member.withIdentity("", "")]
+                ?: byEndpoint[member.endpointKey()]
+        id?.let { member.withIdentity(it) } ?: member
+    }
+}
+
+private fun <K> uniquePriorIds(
+    prior: List<ProxyProfile>,
+    refreshed: List<ProxyProfile>,
+    key: (ProxyProfile) -> K,
+): Map<K, String> {
+    val counts = refreshed.groupingBy(key).eachCount()
+    return prior
+        .groupBy(key)
+        .filter { (value, members) -> members.size == 1 && counts[value] == 1 }
+        .mapValues { (_, members) -> members.single().id }
+}
+
 /** Structural identity of a node (protocol + endpoint), stable across refreshes. */
 private fun ProxyProfile.endpointKey(): String =
     when (this) {
@@ -95,18 +113,20 @@ private fun ProxyProfile.endpointKey(): String =
         is ProxyProfile.RawConfig -> "raw|$id"
     }
 
-/** Returns a copy of this profile with [newId] as its id. */
-private fun ProxyProfile.withId(newId: String): ProxyProfile =
+private fun ProxyProfile.withIdentity(
+    newId: String,
+    name: String = displayName,
+): ProxyProfile =
     when (this) {
-        is ProxyProfile.Vless -> copy(id = newId)
-        is ProxyProfile.VlessReality -> copy(id = newId)
-        is ProxyProfile.Shadowsocks -> copy(id = newId)
-        is ProxyProfile.Trojan -> copy(id = newId)
-        is ProxyProfile.Tuic -> copy(id = newId)
-        is ProxyProfile.Hysteria2 -> copy(id = newId)
-        is ProxyProfile.AnyTls -> copy(id = newId)
-        is ProxyProfile.Mieru -> copy(id = newId)
-        is ProxyProfile.Naive -> copy(id = newId)
-        is ProxyProfile.Ssh -> copy(id = newId)
-        is ProxyProfile.RawConfig -> copy(id = newId)
+        is ProxyProfile.Vless -> copy(id = newId, displayName = name)
+        is ProxyProfile.VlessReality -> copy(id = newId, displayName = name)
+        is ProxyProfile.Shadowsocks -> copy(id = newId, displayName = name)
+        is ProxyProfile.Trojan -> copy(id = newId, displayName = name)
+        is ProxyProfile.Tuic -> copy(id = newId, displayName = name)
+        is ProxyProfile.Hysteria2 -> copy(id = newId, displayName = name)
+        is ProxyProfile.AnyTls -> copy(id = newId, displayName = name)
+        is ProxyProfile.Mieru -> copy(id = newId, displayName = name)
+        is ProxyProfile.Naive -> copy(id = newId, displayName = name)
+        is ProxyProfile.Ssh -> copy(id = newId, displayName = name)
+        is ProxyProfile.RawConfig -> copy(id = newId, displayName = name)
     }

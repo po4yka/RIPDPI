@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.persistence
 
 import com.poyka.ripdpi.data.ProfileSelections
+import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.selector.SelectorRecords
 import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
@@ -69,6 +70,13 @@ internal class ProfileSelectionRows(
                 .encodeToString(StoredChoice.serializer(), next)
                 .encodeToByteArray(),
         )
+    }
+
+    fun clearUnavailableChoice(group: ProxyGroup): Boolean {
+        val storedId = decodeChoice(records.read(ChoiceNamespace, group.id)).profileId ?: return false
+        if (group.members.any { it.id == storedId }) return false
+        setChoice(group.id, null, false)
+        return true
     }
 
     override fun clearSelections() {
