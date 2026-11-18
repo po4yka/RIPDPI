@@ -40,6 +40,7 @@ internal fun ConnectionDirectSection(
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
+    onApplyLane: (String) -> Unit = {},
 ) {
     TrackRecomposition("ConnectionDirectSection")
 
@@ -47,7 +48,14 @@ internal fun ConnectionDirectSection(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
     ) {
-        DirectSectionRows(uiState, desyncSummary, onOpenDesyncSettings, onOpenDnsSettings, onRetestStrategies)
+        DirectSectionRows(
+            uiState,
+            desyncSummary,
+            onOpenDesyncSettings,
+            onOpenDnsSettings,
+            onRetestStrategies,
+            onApplyLane,
+        )
     }
 }
 
@@ -58,6 +66,7 @@ private fun DirectSectionRows(
     onOpenDesyncSettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
+    onApplyLane: (String) -> Unit,
 ) {
     RipDpiCard {
         // The mode chips above the tabs show the mode; a row here would repeat it.
@@ -70,15 +79,21 @@ private fun DirectSectionRows(
             onOpenDesyncSettings = onOpenDesyncSettings,
         )
         // The lanes are the evidence for the strategy row, so no divider stands between them.
-        uiState.strategyLanes?.let { ConnectionStrategyLanes(it) } ?: ConnectionStrategyLanesPlaceholder()
-        LocalBypassStrategyTestAction(onRetestStrategies)
+        uiState.strategyLanes?.let { ConnectionStrategyLanes(it, onApplyLane = onApplyLane) }
+            ?: ConnectionStrategyLanesPlaceholder()
+        LocalBypassStrategyTestAction(running = uiState.strategyLanes?.progress != null, onRetestStrategies)
     }
 }
 
 /** An action, not a destination: it has no chevron and does not look like the rows that open a page. */
 @Composable
-private fun LocalBypassStrategyTestAction(onRetestStrategies: () -> Unit) {
-    val title = stringResource(R.string.config_run_strategy_test)
+private fun LocalBypassStrategyTestAction(
+    running: Boolean,
+    onRetestStrategies: () -> Unit,
+) {
+    // The same row starts the test and stops it; the lanes above show how far a running test is.
+    val title =
+        stringResource(if (running) R.string.diagnostics_action_cancel else R.string.config_run_strategy_test)
     LocalBypassActionRow(
         testTag = RipDpiTestTags.ConnectionDirectRetest,
         accessibilityLabel = title,

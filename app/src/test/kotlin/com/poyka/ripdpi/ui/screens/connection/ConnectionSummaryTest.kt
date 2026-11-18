@@ -10,7 +10,9 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,6 +36,17 @@ class ConnectionSummaryTest {
         )
 
         assertNoRuntimeControl()
+    }
+
+    // A running route keeps its traffic dots moving, so the screen is only idle with motion off.
+    @Before
+    fun useStaticMotion() {
+        System.setProperty("ripdpi.staticMotion", "true")
+    }
+
+    @After
+    fun restoreMotion() {
+        System.clearProperty("ripdpi.staticMotion")
     }
 
     @Test

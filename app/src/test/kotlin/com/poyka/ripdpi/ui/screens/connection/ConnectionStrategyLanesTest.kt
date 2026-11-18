@@ -7,8 +7,13 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.FakeAppSettingsRepository
+import com.poyka.ripdpi.activities.StubDiagnosticsScanController
+import com.poyka.ripdpi.activities.StubDiagnosticsTimelineSource
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.NetworkHandoverEvent
@@ -18,7 +23,14 @@ import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
+import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.ProbeResult
+import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.diagnostics.StrategyCandidateApplier
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
+import com.poyka.ripdpi.diagnostics.StrategyProbeLiveProgress
+import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
@@ -28,13 +40,16 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,8 +80,9 @@ class ConnectionStrategyLanesTest {
                 StrategyLaneUiState("Split at SNI", StrategyLaneOutcome.Blocked, 0, 6, null, recommended = false),
                 StrategyLaneUiState("QUIC drop", StrategyLaneOutcome.Skipped, 0, 0, null, recommended = false),
             ),
-            lanes?.lanes,
+            lanes?.lanes?.map { it.copy(id = "") },
         )
+        assertEquals(listOf("fake", "oob", "disorder", "sni", "quic"), lanes?.lanes?.map { it.id })
     }
 
     @Test
@@ -257,6 +273,185 @@ class ConnectionStrategyLanesTest {
             .assertIsDisplayed()
     }
 
+    @Test
+    fun `a blocked lane stops at the stage most of its sites stopped at`() {
+        // The engine's own details: the attempt it reports, and the stage that attempt failed at.
+        fun tls(
+            host: String,
+            stage: String,
+            label: String = "Split at SNI",
+        ) = ProbeResult(
+            probeType = "strategy_https",
+            target = "$label · $host",
+            outcome = "tls_handshake_failed",
+            details =
+                listOf(
+                    ProbeDetail("tlsReportedAttempt", "tls12"),
+                    ProbeDetail("tls13FailureStage", "tcp_connect"),
+                    ProbeDetail("tls12FailureStage", stage),
+                ),
+        )
+        val blockpage =
+            ProbeResult(
+                "strategy_http",
+                "Split at SNI · e.example",
+                "http_blockpage",
+                listOf(ProbeDetail("failureStage", "http")),
+            )
+        val results =
+            listOf(
+                tls("a.example", "tls_handshake"),
+                tls("b.example", "tls_handshake"),
+                tls("c.example", "tcp_connect"),
+                tls("d.example", "none"),
+                blockpage,
+                // A candidate whose label only starts the same, and a passing candidate, name no gate here.
+                tls("a.example", "tcp_connect", label = "Split at SNI · v2"),
+                tls("b.example", "tcp_connect", label = "Split at SNI · v2"),
+                tls("c.example", "tcp_connect", label = "Split at SNI · v2"),
+                tls("a.example", "tcp_connect", label = "Disorder"),
+            )
+
+        val stages = report().toStrategyLanes(0, results)!!.lanes.associate { it.label to it.stage }
+
+        assertEquals(StrategyLaneStage.Tls, stages["Split at SNI"])
+        assertNull(stages["Disorder"])
+        assertNull(
+            report()
+                .toStrategyLanes(0)!!
+                .lanes
+                .first { it.label == "Split at SNI" }
+                .stage,
+        )
+    }
+
+    @Test
+    fun `a running test shows the candidates it has reached and gives way to the stored result`() =
+        runTest {
+            val timeline = StubDiagnosticsTimelineSource()
+            val stored = session("stored", report(), startedAt = 10L)
+            val states = mutableListOf<StrategyLanesUiState?>()
+            val collector =
+                launch(UnconfinedTestDispatcher(testScheduler)) {
+                    strategyLanesSource(
+                        FakeDiagnosticsHistorySource(stored),
+                        timeline = timeline,
+                    ).observe().collect(states::add)
+                }
+
+            fun step(
+                id: String,
+                succeeded: Int,
+                completed: Int,
+            ) = ScanProgress(
+                sessionId = "run",
+                phase = "strategy",
+                completedSteps = completed,
+                totalSteps = 4,
+                message = "",
+                strategyProbeProgress =
+                    StrategyProbeLiveProgress(
+                        StrategyProbeProgressLane.TCP,
+                        1,
+                        2,
+                        id,
+                        id,
+                        succeeded,
+                        6,
+                    ),
+            )
+            timeline.activeScanProgress.value = step("first", succeeded = 2, completed = 1)
+            timeline.activeScanProgress.value = step("first", succeeded = 6, completed = 2)
+            timeline.activeScanProgress.value = step("second", succeeded = 0, completed = 3)
+            // The next test follows with no gap; it must not inherit the lanes of this one.
+            timeline.activeScanProgress.value = step("third", succeeded = 1, completed = 1).copy(sessionId = "next")
+            timeline.activeScanProgress.value = null
+            runCurrent()
+
+            assertEquals(5, states.first()?.lanes?.size)
+            val reached = states[3]!!
+            assertEquals(
+                listOf("first" to StrategyLaneOutcome.Passed, "second" to StrategyLaneOutcome.Running),
+                reached.lanes.map { it.label to it.outcome },
+            )
+            assertEquals(StrategyTestProgress(3, 4), reached.progress)
+            assertEquals(listOf("third"), states[4]?.lanes?.map { it.label })
+            assertNull(states.last()?.progress)
+            assertEquals(5, states.last()?.lanes?.size)
+            collector.cancel()
+        }
+
+    @Test
+    fun `the test action starts the bundled strategy test and stops only that test`() =
+        runTest {
+            val scans = StubDiagnosticsScanController()
+            val timeline = StubDiagnosticsTimelineSource()
+            val source = strategyLanesSource(scans = scans, timeline = timeline)
+
+            assertTrue(source.toggleTest())
+            assertEquals(listOf(ScanPathMode.RAW_PATH to "automatic-probing"), scans.startedRequests)
+
+            // The stub starts every scan as "session", so this progress is the test this screen started.
+            timeline.activeScanProgress.value = ScanProgress("session", "dns", 0, 4, "")
+            assertTrue(source.toggleTest())
+            assertEquals(1, scans.cancelCount)
+
+            // A scan of another kind, started elsewhere, is left alone and handed to Diagnostics.
+            timeline.activeScanProgress.value = ScanProgress("other", "dns", 0, 4, "")
+            assertFalse(source.toggleTest())
+            assertEquals(1, scans.cancelCount)
+            assertEquals(1, scans.startedRequests.size)
+        }
+
+    @Test
+    fun `a scan of another kind does not replace the stored lanes`() =
+        runTest {
+            val timeline = StubDiagnosticsTimelineSource()
+            timeline.activeScanProgress.value = ScanProgress("other", "dns", 1, 4, "")
+            val stored = session("stored", report(), startedAt = 10L)
+
+            val lanes = strategyLanesSource(FakeDiagnosticsHistorySource(stored), timeline = timeline).observe().first()
+
+            assertNull(lanes?.progress)
+            assertEquals(5, lanes?.lanes?.size)
+        }
+
+    @Test
+    fun `a start that the controller refuses is left to the diagnostics screen`() =
+        runTest {
+            val scans = StubDiagnosticsScanController().apply { startFailure = IllegalStateException("consent") }
+            val effects = mutableListOf<ConnectionEffect>()
+            val actions =
+                ConnectionStrategyLaneActions(
+                    strategyLanesSource(scans = scans),
+                    this,
+                    { effects.add(it) },
+                ) { "failed" }
+
+            actions.toggleTest()
+            actions.apply("missing")
+            runCurrent()
+
+            assertEquals(listOf(ConnectionEffect.OpenStrategyTest, ConnectionEffect.Message("failed")), effects)
+        }
+
+    @Test
+    fun `a tapped lane shows its sites and offers its strategy only when it passed`() {
+        val applied = mutableListOf<String>()
+        composeRule.setContent {
+            RipDpiTheme { ConnectionStrategyLanes(report().toStrategyLanes(0)!!, onApplyLane = applied::add) }
+        }
+        val apply = resource(R.string.strategy_tuner_apply)
+
+        composeRule.onNodeWithText("OOB byte", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionStrategyLaneDetail).assertIsDisplayed()
+        composeRule.onNodeWithText(apply).performClick()
+        assertEquals(listOf("oob"), applied)
+
+        composeRule.onNodeWithText("Split at SNI", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText(apply).assertDoesNotExist()
+    }
+
     private fun resource(
         id: Int,
         vararg args: Any,
@@ -350,6 +545,9 @@ internal fun strategyLanesSource(
     history: DiagnosticsHistorySource = FakeDiagnosticsHistorySource(),
     network: NetworkFingerprint? = null,
     handovers: MutableSharedFlow<NetworkHandoverEvent> = MutableSharedFlow(),
+    scans: StubDiagnosticsScanController = StubDiagnosticsScanController(),
+    timeline: StubDiagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
+    settings: AppSettingsRepository = FakeAppSettingsRepository(),
 ): ConnectionStrategyLanesSource {
     val dispatcher = UnconfinedTestDispatcher()
     return ConnectionStrategyLanesSource(
@@ -363,6 +561,9 @@ internal fun strategyLanesSource(
                 override val events = handovers
             },
         dispatchers = AppCoroutineDispatchers(default = dispatcher, io = dispatcher, main = dispatcher),
+        scans = scans,
+        timeline = timeline,
+        applier = StrategyCandidateApplier(settings),
     )
 }
 

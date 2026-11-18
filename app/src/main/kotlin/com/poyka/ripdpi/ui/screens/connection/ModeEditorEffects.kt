@@ -52,6 +52,9 @@ internal fun ModeEditorEffects(
                     duration = SnackbarDuration.Short,
                 )
             }
+
+            // The editor has no strategy test; the Connection screen handles this.
+            ConnectionEffect.OpenStrategyTest -> {}
         }
     }
 }

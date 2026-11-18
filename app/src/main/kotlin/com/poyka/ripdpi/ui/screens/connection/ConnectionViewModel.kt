@@ -107,6 +107,13 @@ class ConnectionViewModel
                 extraBufferCapacity = 1,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
+        internal val laneActions =
+            ConnectionStrategyLaneActions(
+                source = strategyLanesSource,
+                scope = viewModelScope,
+                emit = _effects::emit,
+                applyFailed = { stringResolver.getString(R.string.runtime_config_failed) },
+            )
         internal val naiveProfileCheck =
             ConnectionNaiveProfileCheckRunner(
                 viewModelScope,

@@ -371,6 +371,9 @@ sealed interface ConnectionEffect {
     data class Message(
         val text: String,
     ) : ConnectionEffect
+
+    /** The test could not start in place; its own screen has the dialogs a start can need. */
+    data object OpenStrategyTest : ConnectionEffect
 }
 
 internal enum class ConnectionEditorExitDecision {

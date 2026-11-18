@@ -76,7 +76,7 @@ fun ConnectionRoute(
     runtimeIntegration: ConnectionRuntimeIntegration = ConnectionRuntimeIntegration(),
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
-    val runtime = connectionRuntimePresentation(viewModel, uiState, runtimeIntegration)
+    val runtime = connectionRuntimePresentation(viewModel, uiState, runtimeIntegration, onRetestStrategies)
     val clipboardImportState = clipboardImportViewModel.uiState.collectAsStateWithLifecycle().value
     val navigateTo = clipboardImportState.navigateToConfirm
     if (navigateTo != null) {
@@ -129,7 +129,8 @@ fun ConnectionRoute(
                 ConnectionEditorTarget.SubscriptionFailover -> onOpenRoute(Route.SubscriptionFailover)
             }
         },
-        onRetestStrategies = onRetestStrategies,
+        onRetestStrategies = remember(viewModel) { viewModel.laneActions::toggleTest },
+        onApplyLane = remember(viewModel) { viewModel.laneActions::apply },
         onPasteServerLink = clipboardImportViewModel::onImportFromClipboard,
         profileActions =
             ConnectionProfileActions(
@@ -185,6 +186,7 @@ fun ConnectionScreen(
     onOpenConfigEditor: (ConnectionEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
+    onApplyLane: (String) -> Unit = {},
     profileActions: ConnectionProfileActions = ConnectionProfileActions(),
     modifier: Modifier = Modifier,
     route: Route = Route.Connection,
@@ -227,10 +229,11 @@ fun ConnectionScreen(
         }
 
         ConnectionScopeSelector(selectedMode = uiState.activeMode, onModeSelected = onModeSelected)
-        // The path control stays close to the section it switches.
+        // The diagram is the path control, so it stays close to the section it switches.
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
-            ConnectionPathSelector(
-                selectedPath = selectedPath,
+            ConnectionRouteDiagram(
+                state = uiState.toRouteDiagram(selectedPath),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionSectionNavigation),
                 onPathSelected = { path ->
                     when (path) {
                         ConnectionPath.Direct -> {
@@ -258,6 +261,7 @@ fun ConnectionScreen(
                 onChooseRelay = { showProfileChoices = true },
                 onOpenConfigEditor = onOpenConfigEditor,
                 onRetestStrategies = onRetestStrategies,
+                onApplyLane = onApplyLane,
             )
         }
     }
@@ -290,22 +294,6 @@ private fun ConnectionScopeSelector(
 }
 
 @Composable
-private fun ConnectionPathSelector(
-    selectedPath: ConnectionPath,
-    onPathSelected: (ConnectionPath) -> Unit,
-) {
-    val paths = ConnectionPath.entries
-    RipDpiSegmentedButton(
-        options = paths.map { stringResource(pathTitleRes(it)) }.toImmutableList(),
-        selectedIndex = paths.indexOf(selectedPath),
-        onSelect = { onPathSelected(paths[it]) },
-        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConnectionSectionNavigation),
-        optionTestTags = paths.map { RipDpiTestTags.connectionPath(it.stableKey) }.toImmutableList(),
-        quiet = true,
-    )
-}
-
-@Composable
 private fun ConnectionSelectedPathSection(
     path: ConnectionPath,
     uiState: ConnectionUiState,
@@ -314,6 +302,7 @@ private fun ConnectionSelectedPathSection(
     onChooseRelay: () -> Unit,
     onOpenConfigEditor: (ConnectionEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
+    onApplyLane: (String) -> Unit,
 ) {
     when (path) {
         ConnectionPath.Direct -> {
@@ -323,6 +312,7 @@ private fun ConnectionSelectedPathSection(
                 onOpenDesyncSettings = { onOpenConfigEditor(ConnectionEditorTarget.Bypass) },
                 onOpenDnsSettings = { onOpenConfigEditor(ConnectionEditorTarget.Resolver) },
                 onRetestStrategies = onRetestStrategies,
+                onApplyLane = onApplyLane,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionDirectSummary),
             )
         }
@@ -400,7 +390,7 @@ enum class ConnectionPath(
     Relay("relay"),
 }
 
-private fun pathTitleRes(path: ConnectionPath): Int =
+internal fun pathTitleRes(path: ConnectionPath): Int =
     when (path) {
         ConnectionPath.Direct -> R.string.config_path_direct
         ConnectionPath.Relay -> R.string.config_path_relay

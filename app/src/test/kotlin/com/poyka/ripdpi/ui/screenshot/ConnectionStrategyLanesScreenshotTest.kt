@@ -17,8 +17,10 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import com.poyka.ripdpi.ui.screens.connection.ConnectionDirectSection
 import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
 import com.poyka.ripdpi.ui.screens.connection.StrategyLaneOutcome
+import com.poyka.ripdpi.ui.screens.connection.StrategyLaneStage
 import com.poyka.ripdpi.ui.screens.connection.StrategyLaneUiState
 import com.poyka.ripdpi.ui.screens.connection.StrategyLanesUiState
+import com.poyka.ripdpi.ui.screens.connection.StrategyTestProgress
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
@@ -45,6 +47,12 @@ class ConnectionStrategyLanesScreenshotTest {
     @Test fun maximumFont() = capture(fontScale = 2f)
 
     @Test fun otherNetwork() = capture(lanes = Lanes.copy(otherNetwork = true))
+
+    @Test fun gates() = capture(lanes = Gates)
+
+    @Test fun gatesRightToLeft() = capture(layoutDirection = LayoutDirection.Rtl, lanes = Gates)
+
+    @Test fun running() = capture(lanes = Running)
 
     private fun capture(
         themePreference: String = "light",
@@ -114,6 +122,36 @@ class ConnectionStrategyLanesScreenshotTest {
                     ),
                 finishedAt = FinishedAt,
                 hiddenCount = 4,
+            )
+
+        fun blocked(
+            label: String,
+            stage: StrategyLaneStage,
+        ) = lane(label, StrategyLaneOutcome.Blocked).copy(stage = stage)
+
+        val Gates =
+            StrategyLanesUiState(
+                lanes =
+                    persistentListOf(
+                        lane("Fake + split", Passed, succeeded = 6, latencyMs = 84, recommended = true),
+                        blocked("Split at SNI", StrategyLaneStage.Tls),
+                        blocked("Disorder", StrategyLaneStage.Tls),
+                        blocked("Fake TTL 8", StrategyLaneStage.Tcp),
+                        blocked("Host mixed case", StrategyLaneStage.Http),
+                    ),
+                finishedAt = FinishedAt,
+            )
+
+        val Running =
+            StrategyLanesUiState(
+                lanes =
+                    persistentListOf(
+                        lane("Fake + split", Passed, succeeded = 6),
+                        lane("Split at SNI", StrategyLaneOutcome.Blocked),
+                        lane("Disorder", StrategyLaneOutcome.Running, succeeded = 2),
+                    ),
+                finishedAt = 0L,
+                progress = StrategyTestProgress(completedSteps = 3, totalSteps = 14),
             )
     }
 }

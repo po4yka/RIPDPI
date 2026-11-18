@@ -178,7 +178,7 @@ internal fun captureScreenBothThemes(
     }
 }
 
-private fun withStaticMotion(block: () -> Unit) {
+internal fun withStaticMotion(block: () -> Unit) {
     val previous = System.getProperty(StaticMotionProperty)
     System.setProperty(StaticMotionProperty, "true")
     try {

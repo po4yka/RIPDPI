@@ -18,6 +18,7 @@ internal fun connectionRuntimePresentation(
     viewModel: ConnectionViewModel,
     uiState: ConnectionUiState,
     integration: ConnectionRuntimeIntegration,
+    onOpenStrategyTest: () -> Unit = {},
 ): ConnectionRuntimePresentation {
     LifecycleResumeEffect(viewModel) {
         viewModel.refreshPersistedSnapshot()
@@ -28,6 +29,10 @@ internal fun connectionRuntimePresentation(
         when (effect) {
             is ConnectionEffect.Message -> {
                 feedbackMessage = effect.text
+            }
+
+            ConnectionEffect.OpenStrategyTest -> {
+                onOpenStrategyTest()
             }
 
             else -> {}
