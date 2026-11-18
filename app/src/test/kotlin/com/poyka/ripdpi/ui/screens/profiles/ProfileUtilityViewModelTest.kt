@@ -826,7 +826,7 @@ private class Fixture(
     private val previousCallbacks = connectivity.networkCallbacks.toSet()
     val epoch = PhysicalNetworkObserver(disk)
     private val physical = ShadowNetwork.newInstance(817)
-    private val callback = (connectivity.networkCallbacks.toSet() - previousCallbacks).single()
+    private val callbacks = connectivity.networkCallbacks.toSet() - previousCallbacks
 
     @Volatile private var environment =
         CandidateRelayProbeEnvironment(false, "chrome_stable", emptyMap(), false, false)
@@ -1008,10 +1008,9 @@ private class Fixture(
 
     init {
         assertNull(epoch.capture())
-        callback.onAvailable(physical)
+        callbacks.forEach { it.onAvailable(physical) }
         assertNull(epoch.capture())
-        callback.onCapabilitiesChanged(
-            physical,
+        val capabilities =
             NetworkCapabilities().apply {
                 invokePublic(this, "addTransportType", NetworkCapabilities.TRANSPORT_WIFI)
                 listOf(
@@ -1020,12 +1019,12 @@ private class Fixture(
                     NetworkCapabilities.NET_CAPABILITY_VALIDATED,
                     NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED,
                 ).forEach { invokePublic(this, "addCapability", it) }
-            },
-        )
+            }
+        callbacks.forEach { it.onCapabilitiesChanged(physical, capabilities) }
         assertNull(epoch.capture())
         publishLinks(1_500)
         assertNull(epoch.capture())
-        callback.onBlockedStatusChanged(physical, false)
+        callbacks.forEach { it.onBlockedStatusChanged(physical, false) }
         assertTrue(epoch.capture() != null)
     }
 
@@ -1045,8 +1044,7 @@ private class Fixture(
                     InetAddress.getByName("192.0.2.1"),
                     "unit0",
                 )
-        callback.onLinkPropertiesChanged(
-            physical,
+        val links =
             LinkProperties().apply {
                 interfaceName = "unit0"
                 this.mtu = mtu
@@ -1061,8 +1059,8 @@ private class Fixture(
                 )
                 addRoute(route)
                 setDnsServers(listOf(InetAddress.getByName("192.0.2.53")))
-            },
-        )
+            }
+        callbacks.forEach { it.onLinkPropertiesChanged(physical, links) }
     }
 
     private fun createRequestedCapture(): Any {
@@ -1209,8 +1207,11 @@ private class Fixture(
         failStop = false
         disk.failAuthorityCommit = false
         viewModels.clear()
-        callback.onLost(physical)
-        disk.getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(callback)
+        val manager = disk.getSystemService(ConnectivityManager::class.java)
+        callbacks.forEach {
+            it.onLost(physical)
+            manager.unregisterNetworkCallback(it)
+        }
         persistence.close()
     }
 }

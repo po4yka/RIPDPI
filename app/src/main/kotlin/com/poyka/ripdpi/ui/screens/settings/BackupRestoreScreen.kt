@@ -72,6 +72,7 @@ import java.util.Locale
 
 private const val BackupMimeType = "application/json"
 private const val EncryptedBackupMimeType = "application/vnd.poyka.ripdpi.backup"
+private const val BytesPerMebibyte = 1024 * 1024
 
 /** Builds the default export filename, e.g. `ripdpi-backup-2026-05-29T14-30.json`. */
 internal fun defaultBackupFilename(now: Date = Date()): String {
@@ -611,7 +612,7 @@ private fun launchShareIntent(
 
 @Composable
 private fun backupTooLargeMessage(): String =
-    stringResource(R.string.backup_archive_too_large, BackupMaxArchiveBytes / (1024 * 1024))
+    stringResource(R.string.backup_archive_too_large, BackupMaxArchiveBytes / BytesPerMebibyte)
 
 @Composable
 private fun BackupShareEffectHandler(
