@@ -126,7 +126,7 @@ fn promote_ready_tunnel_start(
         match &*state {
             TunnelSessionState::Starting { cancel: state_cancel } if Arc::ptr_eq(state_cancel, &cancel) => {
                 if cancel.is_cancelled() {
-                    NATIVE_START_CANCELLED
+                    NATIVE_START_CANCELLED.to_string()
                 } else {
                     // The Starting cancel Arc is the startup generation token:
                     // each start creates a fresh Arc, so pointer equality proves
@@ -135,20 +135,25 @@ fn promote_ready_tunnel_start(
                     // A worker that failed right after readiness may have marked telemetry
                     // stopped before the store above. It sets `exited` (SeqCst) before that
                     // stop, so either this load sees it or its stop lands after our start.
-                    if worker_exited.load(Ordering::SeqCst) {
-                        session.telemetry.mark_stopped();
+                    if !worker_exited.load(Ordering::SeqCst) {
+                        *state = TunnelSessionState::Running { cancel, stats, worker };
+                        return Ok(());
                     }
-                    *state = TunnelSessionState::Running { cancel, stats, worker };
-                    return Ok(());
+                    session.telemetry.mark_stopped();
+                    session
+                        .last_error
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .clone()
+                        .unwrap_or_else(|| "native tunnel worker exited immediately after readiness".to_string())
                 }
             }
             TunnelSessionState::Ready
             | TunnelSessionState::Starting { .. }
             | TunnelSessionState::CleanupPending { .. }
             | TunnelSessionState::Running { .. }
-            | TunnelSessionState::Destroyed => NATIVE_START_STATE_CHANGED,
+            | TunnelSessionState::Destroyed => NATIVE_START_STATE_CHANGED.to_string(),
         }
-        .to_string()
     };
 
     defer_failed_tunnel_start_cleanup(session, cancel, worker, message.clone());
@@ -289,15 +294,13 @@ mod tests {
             let _ = release_receiver.recv();
         });
 
-        promote_ready_tunnel_start(&session, Arc::clone(&cancel), Arc::new(Stats::new()), worker, &worker_exited)
-            .expect("promotion");
+        let result =
+            promote_ready_tunnel_start(&session, Arc::clone(&cancel), Arc::new(Stats::new()), worker, &worker_exited);
+        release_sender.send(()).expect("release worker");
+        assert!(result.is_err(), "a dead worker must fail startup");
 
         let snapshot = session.telemetry.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
         assert_ne!(snapshot.state, "running", "a dead worker must not stay reported as running");
-        release_sender.send(()).expect("release worker");
-        let mut state = session.state.lock().expect("state lock");
-        let (_cancel, worker) = take_running_tunnel(&mut state).expect("promoted session is running");
-        drop(state);
-        worker.join().expect("join released worker");
+        assert!(!matches!(*session.state.lock().expect("state lock"), TunnelSessionState::Running { .. }));
     }
 }
