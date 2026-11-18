@@ -44,10 +44,13 @@ class ConnectionStrategyLanesScreenshotTest {
 
     @Test fun maximumFont() = capture(fontScale = 2f)
 
+    @Test fun otherNetwork() = capture(lanes = Lanes.copy(otherNetwork = true))
+
     private fun capture(
         themePreference: String = "light",
         fontScale: Float = 1f,
         layoutDirection: LayoutDirection = LayoutDirection.Ltr,
+        lanes: StrategyLanesUiState = Lanes,
     ) {
         composeRule.setContent {
             val density = LocalDensity.current
@@ -63,7 +66,7 @@ class ConnectionStrategyLanesScreenshotTest {
                             .padding(16.dp),
                     ) {
                         ConnectionDirectSection(
-                            uiState = ConnectionUiState(strategyLanes = Lanes),
+                            uiState = ConnectionUiState(strategyLanes = lanes),
                             desyncSummary = "",
                             onOpenDesyncSettings = {},
                             onOpenDnsSettings = {},

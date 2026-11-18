@@ -24,6 +24,7 @@ internal object DiagnosticsDatabaseMigrations {
             migration11To12,
             migration12To13,
             migration13To14,
+            migration14To15,
         )
 }
 
@@ -205,5 +206,13 @@ private val migration13To14 =
                 }
                 afterId = rows.last().first
             }
+        }
+    }
+
+/** v14 -> v15: record the network a scan ran on, so a later reader can tell that the network changed. */
+private val migration14To15 =
+    object : Migration(14, 15) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN networkScopeKey TEXT")
         }
     }

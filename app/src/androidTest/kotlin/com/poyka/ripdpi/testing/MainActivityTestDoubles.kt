@@ -430,6 +430,8 @@ class StubInstrumentedDiagnosticsHistorySource : DiagnosticsHistorySource {
     override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> =
         MutableStateFlow(emptyList())
 
+    override fun observeLatestStrategyTest(): Flow<DiagnosticScanSession?> = MutableStateFlow(null)
+
     override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> = MutableStateFlow(emptyList())
 
     override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? = null

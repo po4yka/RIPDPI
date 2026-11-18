@@ -100,6 +100,7 @@ internal object DiagnosticsReportPersister {
                 triggerOccurredAt = existing?.triggerOccurredAt,
                 triggerPreviousFingerprintHash = existing?.triggerPreviousFingerprintHash,
                 triggerCurrentFingerprintHash = existing?.triggerCurrentFingerprintHash,
+                networkScopeKey = existing?.networkScopeKey,
             ),
             resultEntities,
         )

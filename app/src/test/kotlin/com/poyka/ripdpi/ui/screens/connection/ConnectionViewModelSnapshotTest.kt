@@ -81,7 +81,7 @@ class ConnectionViewModelSnapshotTest {
     @Test
     fun `the last strategy test reaches the screen state`() =
         runTest {
-            val history = FakeDiagnosticsHistorySource(listOf(strategyTestSession(finishedAt = 9L)))
+            val history = FakeDiagnosticsHistorySource(strategyTestSession(finishedAt = 9L))
             val viewModel = createViewModel(history)
             val collector = launch { viewModel.uiState.collect {} }
             runCurrent()
@@ -95,7 +95,7 @@ class ConnectionViewModelSnapshotTest {
     @Test
     fun `a failing history read leaves the screen usable and without lanes`() =
         runTest {
-            val failing = FakeDiagnosticsHistorySource(sessionFlow = flow { error("corrupt report") })
+            val failing = FakeDiagnosticsHistorySource(latestStrategyTestFlow = flow { error("corrupt report") })
             val viewModel = createViewModel(failing)
             val collector = launch { viewModel.uiState.collect {} }
             runCurrent()
@@ -122,7 +122,7 @@ class ConnectionViewModelSnapshotTest {
         val appSettingsRepository = FakeAppSettingsRepository()
         return ConnectionViewModel(
             savedStateHandle = SavedStateHandle(),
-            diagnosticsHistory = diagnosticsHistory,
+            strategyLanesSource = strategyLanesSource(diagnosticsHistory),
             dependencies =
                 ConnectionViewModelDependencies(
                     reconnectCoordinator = FakeRunningServiceReconnect(),

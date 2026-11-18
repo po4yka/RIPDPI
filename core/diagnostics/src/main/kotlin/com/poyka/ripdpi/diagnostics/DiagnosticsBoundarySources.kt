@@ -44,6 +44,12 @@ class DefaultDiagnosticsHistorySource
                 .map { sessions -> sessions.map(mapper::toDiagnosticScanSession) }
                 .flowOn(Dispatchers.Default)
 
+        override fun observeLatestStrategyTest(): Flow<DiagnosticScanSession?> =
+            scanRecordStore
+                .observeLatestStrategyProbeSession()
+                .map { session -> session?.let(mapper::toDiagnosticScanSession) }
+                .flowOn(Dispatchers.Default)
+
         override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> =
             artifactReadStore.observeNativeEvents(limit).map { events ->
                 events.map(mapper::toDiagnosticEvent)

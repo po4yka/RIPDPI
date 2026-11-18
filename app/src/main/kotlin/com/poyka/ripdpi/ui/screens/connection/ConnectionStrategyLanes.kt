@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -100,6 +99,7 @@ internal fun ConnectionStrategyLanes(
         state.lanes.forEachIndexed { index, lane ->
             StrategyLaneRow(
                 lane = lane,
+                stale = state.otherNetwork,
                 progress = { ((sweep.value * (count + StaggerSpan - 1) - index) / StaggerSpan).coerceIn(0f, 1f) },
             )
         }
@@ -107,7 +107,7 @@ internal fun ConnectionStrategyLanes(
     }
 }
 
-/** The age of the test, and how many candidates the lanes leave out. */
+/** The age of the test, whether it is from another network, and how many candidates the lanes leave out. */
 @Composable
 private fun StrategyLanesFooter(state: StrategyLanesUiState) {
     val age by produceState(relativeAge(state.finishedAt), state.finishedAt) {
@@ -120,15 +120,12 @@ private fun StrategyLanesFooter(state: StrategyLanesUiState) {
     val style = RipDpiThemeTokens.type.caption
     val color = RipDpiThemeTokens.colors.mutedForeground
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        if (state.hiddenCount > 0) {
-            Text(
-                text = stringResource(R.string.config_strategy_lanes_more, state.hiddenCount),
-                style = style,
-                color = color,
+        val notes =
+            listOfNotNull(
+                stringResource(R.string.config_strategy_lanes_other_network).takeIf { state.otherNetwork },
+                stringResource(R.string.config_strategy_lanes_more, state.hiddenCount).takeIf { state.hiddenCount > 0 },
             )
-        } else {
-            Spacer(Modifier)
-        }
+        Text(text = notes.joinToString(" · "), style = style, color = color)
         Text(text = age, style = style, color = color)
     }
 }
@@ -141,6 +138,7 @@ private fun relativeAge(finishedAt: Long): String =
 @Composable
 private fun StrategyLaneRow(
     lane: StrategyLaneUiState,
+    stale: Boolean,
     progress: () -> Float,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -152,7 +150,7 @@ private fun StrategyLaneRow(
             text = lane.label,
             style = RipDpiThemeTokens.type.caption,
             fontWeight = if (lane.recommended) FontWeight.SemiBold else null,
-            color = if (passes) colors.foreground else colors.mutedForeground,
+            color = if (passes && !stale) colors.foreground else colors.mutedForeground,
             maxLines = if (stacked) 2 else 1,
             overflow = TextOverflow.Ellipsis,
             modifier = nameModifier,
@@ -167,13 +165,13 @@ private fun StrategyLaneRow(
         Column(modifier = rowModifier) {
             name(Modifier.fillMaxWidth())
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = gap) {
-                StrategyLaneTrack(lane, passes, progress, Modifier.weight(1f))
+                StrategyLaneTrack(lane, passes && !stale, stale, progress, Modifier.weight(1f))
             }
         }
     } else {
         Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = gap) {
             name(Modifier.weight(NameWeight))
-            StrategyLaneTrack(lane, passes, progress, Modifier.weight(LaneWeight))
+            StrategyLaneTrack(lane, passes && !stale, stale, progress, Modifier.weight(LaneWeight))
         }
     }
 }
@@ -183,14 +181,17 @@ private fun StrategyLaneRow(
 private fun RowScope.StrategyLaneTrack(
     lane: StrategyLaneUiState,
     passes: Boolean,
+    stale: Boolean,
     progress: () -> Float,
     laneModifier: Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     // A blocked candidate can still open a site or two; those are muted so they do not look like a pass.
+    // A result from another network keeps its shape but loses its verdict colours.
     val fill =
         when {
+            stale -> colors.mutedForeground
             lane.recommended -> colors.signal
             lane.outcome == StrategyLaneOutcome.Passed -> colors.success
             lane.outcome == StrategyLaneOutcome.Partial -> colors.warning
@@ -219,6 +220,7 @@ private fun RowScope.StrategyLaneTrack(
         fontWeight = if (lane.recommended) FontWeight.SemiBold else null,
         color =
             when {
+                stale -> colors.mutedForeground
                 lane.recommended -> colors.signal
                 passes -> colors.foreground
                 else -> colors.mutedForeground

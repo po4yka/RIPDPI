@@ -241,6 +241,7 @@ internal class DiagnosticsScanRequestFactory
                 triggerOccurredAt = original.launchTrigger?.occurredAt,
                 triggerPreviousFingerprintHash = original.launchTrigger?.previousFingerprintHash,
                 triggerCurrentFingerprintHash = original.launchTrigger?.currentFingerprintHash,
+                networkScopeKey = scanContext.networkFingerprint?.scopeKey(),
             )
 
         private suspend fun buildReprobeSnapshotEntity(
@@ -389,6 +390,7 @@ internal class DiagnosticsScanRequestFactory
                 triggerOccurredAt = launchTrigger?.occurredAt,
                 triggerPreviousFingerprintHash = launchTrigger?.previousFingerprintHash,
                 triggerCurrentFingerprintHash = launchTrigger?.currentFingerprintHash,
+                networkScopeKey = scanContext.networkFingerprint?.scopeKey(),
             )
 
         private suspend fun buildPreScanSnapshot(

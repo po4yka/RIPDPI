@@ -305,6 +305,9 @@ class DebugAutomationControllerTest {
         override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> =
             sessions.map { values -> values.take(limit) }
 
+        override fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?> =
+            sessions.map { values -> values.firstOrNull { it.reportJson?.contains("strategyProbeReport") == true } }
+
         override suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
             sessions.value.firstOrNull { it.id == sessionId }
 

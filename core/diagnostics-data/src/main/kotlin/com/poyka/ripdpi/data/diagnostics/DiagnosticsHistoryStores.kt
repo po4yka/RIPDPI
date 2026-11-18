@@ -47,6 +47,9 @@ interface DiagnosticsProfileCatalog {
 interface DiagnosticsScanRecordStore {
     fun observeRecentScanSessions(limit: Int = 50): Flow<List<ScanSessionEntity>>
 
+    /** The newest scan whose report holds a strategy test, at any age. */
+    fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?>
+
     suspend fun getScanSession(sessionId: String): ScanSessionEntity?
 
     suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity>
@@ -437,6 +440,9 @@ class RoomDiagnosticsScanRecordStore
     ) : DiagnosticsScanRecordStore {
         override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> =
             dao.observeRecentScanSessions(limit)
+
+        override fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?> =
+            dao.observeLatestStrategyProbeSession()
 
         override suspend fun getScanSession(sessionId: String): ScanSessionEntity? = dao.getScanSession(sessionId)
 

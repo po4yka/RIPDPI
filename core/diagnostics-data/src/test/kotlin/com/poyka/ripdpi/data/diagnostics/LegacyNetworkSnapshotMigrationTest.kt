@@ -136,6 +136,7 @@ class LegacyNetworkSnapshotMigrationTest {
                 "INSERT INTO native_session_events (id, source, level, message, createdAt) " +
                     "VALUES ('unrelated', 'test', 'info', 'keep', 126)",
             )
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
             legacyDb.execSQL("PRAGMA user_version = 13")
         }
     }

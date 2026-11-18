@@ -839,6 +839,7 @@ Quelle: %2$s</string>
     <string name="config_local_bypass_strategy_auto">Auto (empfohlen)</string>
     <string name="config_run_strategy_test">Strategietest starten</string>
     <string name="config_strategy_lanes_more">%1$d weitere</string>
+    <string name="config_strategy_lanes_other_network">Anderes Netzwerk</string>
     <string name="config_strategy_lanes_sites">Geöffnete Seiten: %1$d von %2$d</string>
     <string name="config_network_section">Netzwerk</string>
     <string name="config_placeholder_default_ttl">8</string>

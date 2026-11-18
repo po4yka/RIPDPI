@@ -1079,7 +1079,7 @@ class ConnectionViewModelProviderModeTest {
         val relayCredentialStore = InMemoryRelayCredentialStore()
         return ConnectionViewModel(
             savedStateHandle = SavedStateHandle(),
-            diagnosticsHistory = FakeDiagnosticsHistorySource(),
+            strategyLanesSource = strategyLanesSource(),
             dependencies =
                 ConnectionViewModelDependencies(
                     reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
@@ -2079,7 +2079,7 @@ private fun createConfigViewModel(
 ): ConnectionViewModel =
     ConnectionViewModel(
         savedStateHandle = savedStateHandle,
-        diagnosticsHistory = FakeDiagnosticsHistorySource(),
+        strategyLanesSource = strategyLanesSource(),
         dependencies =
             ConnectionViewModelDependencies(
                 reconnectCoordinator = reconnectCoordinator,

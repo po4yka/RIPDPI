@@ -225,6 +225,7 @@ class DiagnosticsDatabaseMigrationTest {
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportTerminationReason")
             legacyDb.dropStageTelemetryScope()
             legacyDb.dropRelayTraceColumns()
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
             legacyDb.execSQL("PRAGMA user_version = 7")
         }
 
@@ -274,6 +275,7 @@ class DiagnosticsDatabaseMigrationTest {
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportTerminationReason")
             legacyDb.dropStageTelemetryScope()
             legacyDb.dropRelayTraceColumns()
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
             legacyDb.execSQL("PRAGMA user_version = 8")
         }
 
@@ -321,6 +323,7 @@ class DiagnosticsDatabaseMigrationTest {
                     "('legacy-event', NULL, 'connection-1', 'relay', 'warn', 'legacy', 123, '7', " +
                     "NULL, NULL, NULL, 'relay')",
             )
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
             legacyDb.execSQL("PRAGMA user_version = 9")
         }
 
@@ -384,6 +387,7 @@ class DiagnosticsDatabaseMigrationTest {
                 "UPDATE room_master_table SET identity_hash = " +
                     "'7d1612e550929370d50a06d5599258ff' WHERE id = 42",
             )
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
             legacyDb.execSQL("PRAGMA user_version = 10")
         }
 
@@ -427,6 +431,7 @@ class DiagnosticsDatabaseMigrationTest {
                 "UPDATE room_master_table SET identity_hash = " +
                     "'6a1a2a8847bbeaa542e9148c1d09f4e5' WHERE id = 42",
             )
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
             legacyDb.execSQL("PRAGMA user_version = 11")
         }
 
@@ -463,6 +468,7 @@ class DiagnosticsDatabaseMigrationTest {
         context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
             legacyDb.execSQL("DROP INDEX IF EXISTS index_home_diagnostics_runs_updatedAt")
             legacyDb.execSQL("DROP TABLE IF EXISTS home_diagnostics_runs")
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
             legacyDb.execSQL("PRAGMA user_version = 12")
         }
 
@@ -508,6 +514,7 @@ class DiagnosticsDatabaseMigrationTest {
 
         context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
             legacyDb.execSQL("DROP INDEX index_native_session_events_relay_attempt_sequence")
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
             legacyDb.execSQL("PRAGMA user_version = 12")
         }
 
@@ -527,6 +534,39 @@ class DiagnosticsDatabaseMigrationTest {
                     }
                 assertTrue(indexes.contains("index_native_session_events_relay_attempt_sequence"))
             }
+        } finally {
+            migrated.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
+    @Test
+    fun `migration 14 to 15 keeps scan sessions and leaves their network unknown`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-v14-v15-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+        DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false).also { db ->
+            db.openHelper.writableDatabase.execSQL(
+                "INSERT INTO scan_sessions (id, profileId, pathMode, status, summary, startedAt) VALUES " +
+                    "('scan-v14', 'default', 'RAW_PATH', 'completed', 'done', 42)",
+            )
+            db.close()
+        }
+
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
+            legacyDb.execSQL("PRAGMA user_version = 14")
+        }
+
+        val migrated = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false)
+        try {
+            migrated.openHelper.writableDatabase
+                .query("SELECT summary, networkScopeKey FROM scan_sessions WHERE id = 'scan-v14'")
+                .use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals("done", cursor.getString(0))
+                    assertTrue(cursor.isNull(1))
+                }
         } finally {
             migrated.close()
             context.deleteDatabase(dbName)

@@ -51,6 +51,7 @@ class DiagnosticsArchiveRedactor
                 triggerClassification = session.triggerClassification?.let(::redactDiagnosticsArchiveText),
                 triggerPreviousFingerprintHash = null,
                 triggerCurrentFingerprintHash = null,
+                networkScopeKey = null,
             )
 
         fun redact(model: NetworkSnapshotModel): NetworkSnapshotModel =

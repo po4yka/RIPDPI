@@ -10,7 +10,6 @@ import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,8 +23,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -42,7 +39,7 @@ class ConnectionViewModel
         private val dependencies: ConnectionViewModelDependencies,
         importDependencies: ConnectionImportDependencies,
         private val stringResolver: StringResolver,
-        diagnosticsHistory: DiagnosticsHistorySource,
+        strategyLanesSource: ConnectionStrategyLanesSource,
     ) : ViewModel() {
         private val appSettingsRepository = dependencies.appSettingsRepository
         private val relayArtifacts = dependencies.relayArtifacts
@@ -220,10 +217,8 @@ class ConnectionViewModel
                 factory = uiStateFactory,
                 reconnectState = dependencies.reconnectCoordinator.reconnectState,
                 strategyLanes =
-                    diagnosticsHistory
-                        .observeDiagnosticsSessions(StrategyLanesSessionLimit)
-                        .map { sessions -> sessions.latestStrategyLanes() }
-                        .distinctUntilChanged()
+                    strategyLanesSource
+                        .observe()
                         // The screen must not fail with the history query. The read starts again with the
                         // next subscription, so the lanes come back then.
                         .catch { failure ->

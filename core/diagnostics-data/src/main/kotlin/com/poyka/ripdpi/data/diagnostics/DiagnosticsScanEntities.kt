@@ -31,6 +31,8 @@ data class ScanSessionEntity(
     val triggerOccurredAt: Long? = null,
     val triggerPreviousFingerprintHash: String? = null,
     val triggerCurrentFingerprintHash: String? = null,
+    /** `NetworkFingerprint.scopeKey()` of the network the scan started on; null for rows older than schema 15. */
+    val networkScopeKey: String? = null,
 )
 
 @Entity(tableName = "probe_results")

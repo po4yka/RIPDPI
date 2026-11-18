@@ -222,6 +222,11 @@ internal class FakeDiagnosticsHistoryStores :
                 .take(limit)
         }
 
+    override fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?> =
+        sessionsState.map { sessions ->
+            sessions.firstOrNull { session -> session.reportJson?.contains("strategyProbeReport") == true }
+        }
+
     override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> =
         snapshotsState.map { snapshots -> snapshots.take(limit) }
 

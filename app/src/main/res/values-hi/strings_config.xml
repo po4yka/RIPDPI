@@ -19,6 +19,7 @@
     <string name="config_local_bypass_strategy_auto">ऑटो (अनुशंसित)</string>
     <string name="config_run_strategy_test">रणनीति परीक्षण चलाएं</string>
     <string name="config_strategy_lanes_more">%1$d और</string>
+    <string name="config_strategy_lanes_other_network">अन्य नेटवर्क</string>
     <string name="config_strategy_lanes_sites">खुली साइटें: %2$d में से %1$d</string>
     <string name="config_vpn_add_profile_title">प्रोफ़ाइल जोड़ें</string>
     <string name="config_vpn_add_server_paste">लिंक चिपकाएँ</string>

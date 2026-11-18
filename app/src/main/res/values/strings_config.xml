@@ -20,6 +20,7 @@
     <string name="config_local_bypass_strategy_auto">Auto (recommended)</string>
     <string name="config_run_strategy_test">Run strategy test</string>
     <string name="config_strategy_lanes_more">%1$d more</string>
+    <string name="config_strategy_lanes_other_network">Other network</string>
     <string name="config_strategy_lanes_sites">Sites opened: %1$d of %2$d</string>
     <string name="config_vpn_add_profile_title">Add profile</string>
     <string name="config_vpn_add_server_paste">Paste link</string>

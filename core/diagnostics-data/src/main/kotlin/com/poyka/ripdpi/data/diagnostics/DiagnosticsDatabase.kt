@@ -54,7 +54,7 @@ interface DiagnosticsDao :
         DiagnosticsDurableStateEntity::class,
         HomeDiagnosticsRunEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {

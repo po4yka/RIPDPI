@@ -61,6 +61,8 @@ data class DiagnosticScanSession(
     val finishedAt: Long?,
     val launchOrigin: DiagnosticsScanLaunchOrigin = DiagnosticsScanLaunchOrigin.UNKNOWN,
     val launchTrigger: DiagnosticsScanLaunchTrigger? = null,
+    /** Hashed key of the network the scan started on; null when it was not recorded. */
+    val networkScopeKey: String? = null,
 ) {
     constructor(
         id: String,

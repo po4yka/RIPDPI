@@ -71,6 +71,7 @@ class DiagnosticsBoundaryMapper
                             previousFingerprintHash = entity.triggerPreviousFingerprintHash,
                             currentFingerprintHash = entity.triggerCurrentFingerprintHash,
                         ),
+                    networkScopeKey = entity.networkScopeKey,
                 )
             }
 

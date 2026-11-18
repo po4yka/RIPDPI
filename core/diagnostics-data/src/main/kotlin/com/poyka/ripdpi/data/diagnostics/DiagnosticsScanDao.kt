@@ -16,13 +16,35 @@ interface DiagnosticsScanDao {
                CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
                reportCompletionKind, reportTerminationReason,
                startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
-               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey
         FROM scan_sessions
         WHERE launchOrigin IS NULL OR launchOrigin != 'home_detection_local'
         ORDER BY startedAt DESC LIMIT :limit
         """,
     )
     fun observeRecentScanSessions(limit: Int = 50): Flow<List<ScanSessionEntity>>
+
+    // A strategy test can be older than any row limit, so the stored report says which scan was one:
+    // the key is there and is not null, in compact or pretty JSON. The key cannot match inside a JSON
+    // string, where a quote is escaped. The reader still decodes the report and decides.
+    @Query(
+        """
+        SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
+               pathMode, serviceMode, status, summary,
+               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
+               reportCompletionKind, reportTerminationReason,
+               startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey
+        FROM scan_sessions
+        WHERE (launchOrigin IS NULL OR launchOrigin != 'home_detection_local')
+          AND reportJson LIKE '%"strategyProbeReport"%'
+          AND reportJson NOT LIKE '%"strategyProbeReport":null%'
+          AND reportJson NOT LIKE '%"strategyProbeReport": null%'
+          AND length(CAST(reportJson AS BLOB)) <= 1500000
+        ORDER BY startedAt DESC LIMIT 1
+        """,
+    )
+    fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?>
 
     @Query(
         """
@@ -31,7 +53,7 @@ interface DiagnosticsScanDao {
                CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
                reportCompletionKind, reportTerminationReason,
                startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
-               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey
         FROM scan_sessions WHERE id = :sessionId LIMIT 1
         """,
     )

@@ -839,6 +839,7 @@ Origen: %2$s</string>
     <string name="config_local_bypass_strategy_auto">Auto (recomendado)</string>
     <string name="config_run_strategy_test">Probar estrategias</string>
     <string name="config_strategy_lanes_more">%1$d más</string>
+    <string name="config_strategy_lanes_other_network">Otra red</string>
     <string name="config_strategy_lanes_sites">Sitios abiertos: %1$d de %2$d</string>
     <string name="config_network_section">Red</string>
     <string name="config_placeholder_default_ttl">8</string>

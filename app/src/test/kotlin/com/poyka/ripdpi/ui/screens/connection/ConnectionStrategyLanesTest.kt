@@ -8,6 +8,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.NetworkHandoverEvent
+import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
@@ -19,8 +24,14 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -31,6 +42,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w420dp-h900dp-mdpi")
@@ -86,26 +98,58 @@ class ConnectionStrategyLanesTest {
     }
 
     @Test
-    fun `the newest strategy test supplies the lanes`() {
-        val sessions =
-            listOf(
-                session("no-test", report = null, startedAt = 30L),
-                session("newest", report = report(), startedAt = 20L),
-                session("older", report = report(), startedAt = 10L),
-            )
+    fun `a strategy test without candidates gives no lanes`() {
+        val cutShort = session("cut-short", report = StrategyProbeReport(suiteId = "cut-short"), startedAt = 20L)
 
-        assertEquals(20L, sessions.latestStrategyLanes()?.finishedAt)
+        assertNull(cutShort.toStrategyLanes(currentNetworkScopeKey = null))
     }
 
     @Test
-    fun `a newest strategy test without candidates does not fall back to an older test`() {
-        val sessions =
-            listOf(
-                session("cut-short", report = StrategyProbeReport(suiteId = "cut-short"), startedAt = 20L),
-                session("older", report = report(), startedAt = 10L),
-            )
+    fun `lanes are marked only when the test ran on another known network`() {
+        val atHome = session("home", report = report(), startedAt = 20L).copy(networkScopeKey = "home")
 
-        assertNull(sessions.latestStrategyLanes())
+        assertEquals(true, atHome.toStrategyLanes("mobile")?.otherNetwork)
+        assertEquals(false, atHome.toStrategyLanes("home")?.otherNetwork)
+        // No network now, or a row from before the network was recorded: not known, so not marked.
+        assertEquals(false, atHome.toStrategyLanes(null)?.otherNetwork)
+        assertEquals(false, atHome.copy(networkScopeKey = null).toStrategyLanes("mobile")?.otherNetwork)
+    }
+
+    @Test
+    fun `a move to another network marks the lanes and the way back clears the mark`() =
+        runTest {
+            val home = fingerprint(dns = "192.0.2.1")
+            val mobile = fingerprint(dns = "192.0.2.2")
+            val handovers = MutableSharedFlow<NetworkHandoverEvent>()
+            val testAtHome = strategyTestSession(finishedAt = 9L).copy(networkScopeKey = home.scopeKey())
+            val history = FakeDiagnosticsHistorySource(testAtHome)
+            val marks = mutableListOf<Boolean?>()
+            val collector =
+                launch(UnconfinedTestDispatcher(testScheduler)) {
+                    strategyLanesSource(history, network = home, handovers = handovers)
+                        .observe()
+                        .collect { marks += it?.otherNetwork }
+                }
+
+            handovers.emit(NetworkHandoverEvent(home, mobile, "transport_switch", occurredAt = 1L))
+            // A moment without a network keeps the mark of the last known one.
+            handovers.emit(NetworkHandoverEvent(mobile, null, "connectivity_loss", occurredAt = 2L))
+            handovers.emit(NetworkHandoverEvent(null, home, "transport_switch", occurredAt = 3L))
+            runCurrent()
+
+            assertEquals(listOf(false, true, false), marks)
+            collector.cancel()
+        }
+
+    @Test
+    fun `lanes from another network say so`() {
+        composeRule.setContent {
+            RipDpiTheme { ConnectionStrategyLanes(report().toStrategyLanes(0)!!.copy(otherNetwork = true)) }
+        }
+
+        composeRule
+            .onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.config_strategy_lanes_other_network))
+            .assertIsDisplayed()
     }
 
     @Test
@@ -218,17 +262,49 @@ class ConnectionStrategyLanesTest {
 }
 
 internal class FakeDiagnosticsHistorySource(
-    sessions: List<DiagnosticScanSession> = emptyList(),
-    private val sessionFlow: Flow<List<DiagnosticScanSession>> = flowOf(sessions),
+    latestStrategyTest: DiagnosticScanSession? = null,
+    private val latestStrategyTestFlow: Flow<DiagnosticScanSession?> = flowOf(latestStrategyTest),
 ) : DiagnosticsHistorySource {
     override fun observeConnectionSessions(limit: Int): Flow<List<DiagnosticConnectionSession>> = flowOf(emptyList())
 
-    override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> = sessionFlow
+    override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> = flowOf(emptyList())
+
+    override fun observeLatestStrategyTest(): Flow<DiagnosticScanSession?> = latestStrategyTestFlow
 
     override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> = flowOf(emptyList())
 
     override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? = null
 }
+
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun strategyLanesSource(
+    history: DiagnosticsHistorySource = FakeDiagnosticsHistorySource(),
+    network: NetworkFingerprint? = null,
+    handovers: MutableSharedFlow<NetworkHandoverEvent> = MutableSharedFlow(),
+): ConnectionStrategyLanesSource {
+    val dispatcher = UnconfinedTestDispatcher()
+    return ConnectionStrategyLanesSource(
+        history = history,
+        fingerprints =
+            object : NetworkFingerprintProvider {
+                override fun capture(): NetworkFingerprint? = network
+            },
+        handovers =
+            object : NetworkHandoverMonitor {
+                override val events = handovers
+            },
+        dispatchers = AppCoroutineDispatchers(default = dispatcher, io = dispatcher, main = dispatcher),
+    )
+}
+
+private fun fingerprint(dns: String) =
+    NetworkFingerprint(
+        transport = "wifi",
+        networkValidated = true,
+        captivePortalDetected = false,
+        privateDnsMode = "off",
+        dnsServers = listOf(dns),
+    )
 
 internal fun strategyTestSession(finishedAt: Long): DiagnosticScanSession =
     DiagnosticScanSession(

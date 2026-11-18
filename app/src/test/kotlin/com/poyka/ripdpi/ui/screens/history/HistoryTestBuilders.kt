@@ -43,6 +43,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.testDiagnosticsUiCoreSuppor
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 
 internal fun testHistorySessionDetailUiMapper(
     core: DiagnosticsUiCoreSupport = testDiagnosticsUiCoreSupport(),
@@ -392,6 +393,8 @@ internal class FakeDiagnosticsHistorySource : DiagnosticsHistorySource {
     override fun observeConnectionSessions(limit: Int): Flow<List<DiagnosticConnectionSession>> = connectionSessions
 
     override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> = diagnosticsSessions
+
+    override fun observeLatestStrategyTest(): Flow<DiagnosticScanSession?> = flowOf(null)
 
     override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> = nativeEvents
 

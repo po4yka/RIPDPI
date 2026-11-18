@@ -804,6 +804,7 @@ fakeddisorder endhost</string>
     <string name="config_local_bypass_strategy_auto">Авто (рекомендуется)</string>
     <string name="config_run_strategy_test">Запустить тест стратегий</string>
     <string name="config_strategy_lanes_more">Ещё: %1$d</string>
+    <string name="config_strategy_lanes_other_network">Другая сеть</string>
     <string name="config_strategy_lanes_sites">Открыто сайтов: %1$d из %2$d</string>
     <string name="config_relay_body">Направлять прокси-трафик через удалённый сервер реле. Секреты остаются в защищённом хранилище на основе keystore на этом устройстве.</string>
     <string name="config_relay_chain_editor_intro">Создайте упорядоченную цепочку из сохранённых профилей реле. Первый узел — входной, последний — выходной. Удерживайте узел, чтобы перетащить его на место. UDP для цепочек отключён.</string>

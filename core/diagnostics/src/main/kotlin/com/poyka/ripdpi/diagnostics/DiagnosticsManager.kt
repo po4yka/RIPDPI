@@ -65,6 +65,9 @@ interface DiagnosticsHistorySource {
 
     fun observeDiagnosticsSessions(limit: Int = 120): Flow<List<DiagnosticScanSession>>
 
+    /** The newest scan that holds a strategy test, at any age. */
+    fun observeLatestStrategyTest(): Flow<DiagnosticScanSession?>
+
     fun observeNativeEvents(limit: Int = 250): Flow<List<DiagnosticEvent>>
 
     suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail?
