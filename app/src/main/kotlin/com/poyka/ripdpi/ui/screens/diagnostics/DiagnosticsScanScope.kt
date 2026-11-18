@@ -7,6 +7,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,11 +32,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -186,21 +189,7 @@ internal fun DiagnosticsScanScope(
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
     val performHaptic = rememberRipDpiHapticPerformer()
-    val measurer = rememberTextMeasurer()
-    val density = LocalDensity.current
-    // A sector name is a title of a part of the dial; a scale value is a note on a ring.
-    val sectorStyle = RipDpiThemeTokens.type.smallLabel.copy(color = colors.foreground)
-    val scaleStyle = RipDpiThemeTokens.type.monoSmall.copy(color = colors.mutedForeground)
-    val sectorTexts = ScopeSector.entries.map { stringResource(it.label) }
-    val scaleTexts =
-        listOf(
-            stringResource(R.string.unit_milliseconds_format, ScaleRingMillis.first()),
-            stringResource(R.string.unit_seconds_format, 1),
-        )
-    val sectorLabels =
-        remember(sectorTexts, sectorStyle, density) { sectorTexts.map { measurer.measure(it, sectorStyle) } }
-    val scaleLabels = remember(scaleTexts, scaleStyle, density) { scaleTexts.map { measurer.measure(it, scaleStyle) } }
-    val labelBand = remember(layout.sectorStarts, sectorLabels) { labelBand(layout.sectorStarts, sectorLabels) }
+    val labels = rememberScopeLabels(layout.sectorStarts)
     val marks = layout.marks
     val scanning = progress != null
     val hubText = rememberHubText(marks, steps)
@@ -208,23 +197,26 @@ internal fun DiagnosticsScanScope(
     val sweep = rememberScopeSweep(scanning && motion.allowsInfiniteMotion)
     val live = animateFloatAsState((progress ?: 0f).coerceIn(0f, 1f), motion.stateTween(), label = "Scope progress")
     val currentOnSelectProbe by rememberUpdatedState(onSelectProbe)
+    // One palette for a theme, so a progress update does not make the draw caches again.
     val palette =
-        ScopePalette(colors.outline, colors.signal, colors.success, colors.destructive, colors.warning, colors.card)
+        remember(colors) {
+            ScopePalette(colors.outline, colors.signal, colors.success, colors.destructive, colors.warning, colors.card)
+        }
     val scope = rememberCoroutineScope()
     // The ring on a tapped mark: it shows at once and fades, so no mark stays selected.
     val press = remember { Animatable(0f) }
     var pressed by remember { mutableStateOf<ScopeMark?>(null) }
 
-    Spacer(
+    Box(
         modifier
             .fillMaxWidth()
             .wrapContentWidth()
             .widthIn(max = MaxScopeWidth)
             .aspectRatio(1f)
             .semantics { hideFromAccessibility() }
-            .pointerInput(marks, labelBand) {
+            .pointerInput(marks, labels.band) {
                 detectTapGestures { tap ->
-                    val frame = scopeFrame(Size(size.width.toFloat(), size.height.toFloat()), labelBand)
+                    val frame = scopeFrame(Size(size.width.toFloat(), size.height.toFloat()), labels.band)
                     val mark = frame.nearest(marks, tap, TouchRadius.toPx())
                     when {
                         // A tap during the reveal shows the whole result at once.
@@ -243,29 +235,65 @@ internal fun DiagnosticsScanScope(
                         }
                     }
                 }
-            }.drawWithCache {
-                // The face does not change between frames, so its brushes are made once for a size.
-                val face = ScopeFace(scopeFrame(size, labelBand), palette, this)
-                val frame = face.frame
-                onDrawBehind {
-                    drawScopeFace(face, layout.sectorStarts, sectorLabels, scaleLabels)
-                    if (scanning) {
-                        drawSweep(face, if (motion.allowsInfiniteMotion) sweep.floatValue else live.value)
-                    } else {
-                        drawResult(face, marks, reveal.time.value)
-                        pressed?.takeIf { press.value > 0f }?.let {
-                            drawCircle(
-                                colors.foreground.copy(alpha = press.value),
-                                PressRadius.toPx() + RippleGrowth.toPx() * (1f - press.value),
-                                frame.at(it),
-                                style = Stroke(MarkStroke.toPx()),
-                            )
-                        }
-                    }
-                    drawHub(face, hubText, live.value.takeIf { scanning })
-                }
             },
-    )
+    ) {
+        // The face reads no animated value and has its own offscreen layer, so a frame of the arm or of the reveal
+        // draws it again as one picture and does not run its drawing code.
+        Spacer(
+            Modifier
+                .matchParentSize()
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithCache {
+                    val face = ScopeFace(scopeFrame(size, labels.band), palette, this)
+                    onDrawBehind { drawScopeFace(face, layout.sectorStarts, labels.sector, labels.scale) }
+                },
+        )
+        // The moving parts have their own layer: only this layer is recorded again for a frame.
+        Spacer(
+            Modifier
+                .matchParentSize()
+                .graphicsLayer()
+                .drawWithCache {
+                    val face = ScopeFace(scopeFrame(size, labels.band), palette, this)
+                    val places = ScopePlaces(face.frame, marks)
+                    onDrawBehind {
+                        if (scanning) {
+                            drawSweep(face, if (motion.allowsInfiniteMotion) sweep.floatValue else live.value)
+                        } else {
+                            drawResult(face, marks, places, reveal.time.value)
+                            pressed?.let { drawPress(face, it, press.value, colors.foreground) }
+                        }
+                        drawHub(face, hubText, live.value.takeIf { scanning })
+                    }
+                },
+        )
+    }
+}
+
+/** The measured labels of the dial and the room that the sector labels need outside the rim. */
+private class ScopeLabels(
+    val sector: List<TextLayoutResult>,
+    val scale: List<TextLayoutResult>,
+    val band: Float,
+)
+
+@Composable
+private fun rememberScopeLabels(sectorStarts: List<Float>): ScopeLabels {
+    val colors = RipDpiThemeTokens.colors
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    // A sector name is a title of a part of the dial; a scale value is a note on a ring.
+    val sectorStyle = RipDpiThemeTokens.type.smallLabel.copy(color = colors.foreground)
+    val scaleStyle = RipDpiThemeTokens.type.monoSmall.copy(color = colors.mutedForeground)
+    val sectorTexts = ScopeSector.entries.map { stringResource(it.label) }
+    val scaleTexts =
+        listOf(
+            stringResource(R.string.unit_milliseconds_format, ScaleRingMillis.first()),
+            stringResource(R.string.unit_seconds_format, 1),
+        )
+    val sector = remember(sectorTexts, sectorStyle, density) { sectorTexts.map { measurer.measure(it, sectorStyle) } }
+    val scale = remember(scaleTexts, scaleStyle, density) { scaleTexts.map { measurer.measure(it, scaleStyle) } }
+    return remember(sector, scale, sectorStarts) { ScopeLabels(sector, scale, labelBand(sectorStarts, sector)) }
 }
 
 /**
@@ -363,30 +391,71 @@ private fun rememberScopeSweep(moves: Boolean): FloatState {
     return sweep
 }
 
+/** The ring on a tapped mark. It grows and fades as [ring] goes from 1 to 0. */
+private fun DrawScope.drawPress(
+    face: ScopeFace,
+    mark: ScopeMark,
+    ring: Float,
+    color: Color,
+) {
+    if (ring <= 0f) return
+    val radius = PressRadius.toPx() + RippleGrowth.toPx() * (1f - ring)
+    drawCircle(color.copy(alpha = ring), radius, face.frame.at(mark), style = face.mark)
+}
+
 /** The reveal at [time]: the arm on its one turn, the marks it has passed, and the closing pulse. */
 private fun DrawScope.drawResult(
     face: ScopeFace,
     marks: List<ScopeMark>,
+    places: ScopePlaces,
     time: Float,
 ) {
     val frame = face.frame
     if (time > 0f && time < 1f) drawSweep(face, time)
-    val shown = marks.filter { time >= it.turn }
     // A ray joins each mark to the hub, so the angle of a mark reads as its own probe.
-    shown.forEach {
-        val ray = face.palette.of(it.kind).copy(alpha = RayAlpha)
-        drawLine(ray, frame.point(it.turn, frame.hub), frame.at(it), Hairline.toPx())
+    for (index in marks.indices) {
+        val mark = marks[index]
+        if (time < mark.turn) continue
+        val ray = face.palette.of(mark.kind).copy(alpha = RayAlpha)
+        drawLine(ray, places.rayStart(index), places.mark(index), face.hair.width)
     }
-    shown.forEach { drawMark(frame.at(it), it, time - it.turn, face.palette) }
+    for (index in marks.indices) {
+        val mark = marks[index]
+        if (time >= mark.turn) drawMark(places.mark(index), mark, time - mark.turn, face)
+    }
     val pulse = (time - 1f) / (RevealEnd - 1f)
     if (pulse > 0f && pulse < 1f) {
         drawCircle(
             face.palette.arm.copy(alpha = PulseAlpha * (1f - pulse)),
             frame.hub + (frame.rim - frame.hub) * pulse,
             frame.center,
-            style = Stroke(ArmWidth.toPx()),
+            style = face.armStroke,
         )
     }
+}
+
+/** The place of each mark and of the start of its ray, found once for a size and not for each frame. */
+private class ScopePlaces(
+    frame: ScopeFrame,
+    marks: List<ScopeMark>,
+) {
+    private val xs = FloatArray(marks.size * 2)
+    private val ys = FloatArray(marks.size * 2)
+
+    init {
+        marks.forEachIndexed { index, mark ->
+            val at = frame.at(mark)
+            val start = frame.point(mark.turn, frame.hub)
+            xs[index * 2] = at.x
+            ys[index * 2] = at.y
+            xs[index * 2 + 1] = start.x
+            ys[index * 2 + 1] = start.y
+        }
+    }
+
+    fun mark(index: Int): Offset = Offset(xs[index * 2], ys[index * 2])
+
+    fun rayStart(index: Int): Offset = Offset(xs[index * 2 + 1], ys[index * 2 + 1])
 }
 
 private class ScopePalette(
@@ -413,6 +482,14 @@ private class ScopeFace(
 ) {
     private val center = frame.center
     val armTip = center + Offset(frame.rim, 0f)
+
+    // The strokes are made once, so a frame makes no stroke object.
+    val hair = Stroke(with(density) { Hairline.toPx() })
+    val mark = Stroke(with(density) { MarkStroke.toPx() }, cap = StrokeCap.Round)
+    val armStroke = Stroke(with(density) { ArmWidth.toPx() })
+    val rimStroke = Stroke(with(density) { RimWidth.toPx() })
+    val progress = Stroke(with(density) { ProgressWidth.toPx() }, cap = StrokeCap.Round)
+    val glowBand = Stroke(frame.rim - frame.hub)
 
     /** A light under the dial that is strongest at the hub. */
     val disc =
@@ -581,7 +658,7 @@ private fun DrawScope.drawSweep(
             useCenter = false,
             topLeft = frame.center - Offset(middle, middle),
             size = Size(2 * middle, 2 * middle),
-            style = Stroke(frame.rim - frame.hub),
+            style = face.glowBand,
         )
         drawLine(face.arm, frame.center + Offset(frame.hub, 0f), face.armTip, ArmWidth.toPx(), StrokeCap.Round)
         drawCircle(face.tip, TipGlow.toPx(), face.armTip)
@@ -594,36 +671,32 @@ private fun DrawScope.drawMark(
     at: Offset,
     mark: ScopeMark,
     age: Float,
-    palette: ScopePalette,
+    face: ScopeFace,
 ) {
-    val color = palette.of(mark.kind)
+    val color = face.palette.of(mark.kind)
     val ripple = age / RippleSpan
     if (ripple < 1f) {
-        drawCircle(
-            color.copy(alpha = PulseAlpha * (1f - ripple)),
-            MarkRadius.toPx() + RippleGrowth.toPx() * ripple,
-            at,
-            style = Stroke(Hairline.toPx()),
-        )
+        val reach = MarkRadius.toPx() + RippleGrowth.toPx() * ripple
+        drawCircle(color.copy(alpha = PulseAlpha * (1f - ripple)), reach, at, style = face.hair)
     }
     val radius = MarkRadius.toPx() * overshoot(age / PopSpan)
     // A soft disc under the mark lifts it off the bands.
     drawCircle(color.copy(alpha = HaloAlpha), radius * HaloShare, at)
-    val stroke = Stroke(MarkStroke.toPx(), cap = StrokeCap.Round)
     when (mark.kind) {
         ScopeMarkKind.Answered -> {
             // The edge in the color of the hub keeps two dots apart when they touch.
-            drawCircle(palette.hub, radius * AnsweredShare + MarkEdge.toPx(), at)
+            drawCircle(face.palette.hub, radius * AnsweredShare + MarkEdge.toPx(), at)
             drawCircle(color, radius * AnsweredShare, at)
         }
 
         ScopeMarkKind.Blocked -> {
-            drawLine(color, at - Offset(radius, radius), at + Offset(radius, radius), stroke.width, stroke.cap)
-            drawLine(color, at + Offset(radius, -radius), at + Offset(-radius, radius), stroke.width, stroke.cap)
+            val width = face.mark.width
+            drawLine(color, at - Offset(radius, radius), at + Offset(radius, radius), width, StrokeCap.Round)
+            drawLine(color, at + Offset(radius, -radius), at + Offset(-radius, radius), width, StrokeCap.Round)
         }
 
         ScopeMarkKind.Silent -> {
-            drawCircle(color, radius, at, style = stroke)
+            drawCircle(color, radius, at, style = face.mark)
         }
     }
 }
@@ -640,11 +713,11 @@ private fun DrawScope.drawHub(
     val frame = face.frame
     val line = face.palette.line
     drawCircle(face.palette.hub, frame.hub, frame.center)
-    drawCircle(line, frame.hub, frame.center, style = Stroke(RimWidth.toPx()))
-    drawCircle(line.copy(alpha = FaintAlpha), frame.hub - HubGap.toPx(), frame.center, style = Stroke(Hairline.toPx()))
+    drawCircle(line, frame.hub, frame.center, style = face.rimStroke)
+    drawCircle(line.copy(alpha = FaintAlpha), frame.hub - HubGap.toPx(), frame.center, style = face.hair)
     if (progress != null) {
         val radius = frame.hub + HubGap.toPx()
-        val arc = Stroke(ProgressWidth.toPx(), cap = StrokeCap.Round)
+        val arc = face.progress
         drawCircle(line.copy(alpha = FaintAlpha), radius, frame.center, style = arc)
         drawArc(
             face.palette.arm,
