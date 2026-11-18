@@ -14,13 +14,13 @@ The `ripdpi.android.compose` convention plugin enables Compose Compiler reports 
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel)
-cd "$REPO_ROOT" && ./gradlew :app:compileGithubFullDebugKotlin -Pripdpi.composeReports=true --no-daemon
+cd "$REPO_ROOT" && ./gradlew :app:compileGithubDebugKotlin -Pripdpi.composeReports=true --no-daemon
 ```
 
 Alternatively, the convention plugin also enables reports when `CI=true`:
 
 ```bash
-CI=true ./gradlew :app:compileGithubFullDebugKotlin --no-daemon
+CI=true ./gradlew :app:compileGithubDebugKotlin --no-daemon
 ```
 
 Output lands at:
@@ -32,7 +32,7 @@ Output lands at:
 If the convention plugin is unavailable or fails, use the bundled Gradle init script that injects `reportsDestination` / `metricsDestination` into every Compose module without modifying any file in the target repo:
 
 ```bash
-./gradlew :app:compileGithubFullDebugKotlin \
+./gradlew :app:compileGithubDebugKotlin \
     --init-script .agents/skills/compose/scripts/compose-reports.init.gradle \
     --no-daemon --quiet
 ```
@@ -126,7 +126,7 @@ When arriving at the RIPDPI repo, run these in order before scoring:
 1. `rg -n 'androidx\.compose' -g '*.gradle*' -g '*.toml'` -- confirm Compose presence (fast-fail).
 2. `rg -n 'kotlin\s*=\s*"' -g '*.toml'` -- record Kotlin version (Strong Skipping baseline).
 3. `rg -n 'isMinifyEnabled' -g '*.gradle*'` -- release hygiene.
-4. Run the convention plugin build: `./gradlew :app:compileGithubFullDebugKotlin -Pripdpi.composeReports=true --no-daemon`
+4. Run the convention plugin build: `./gradlew :app:compileGithubDebugKotlin -Pripdpi.composeReports=true --no-daemon`
 5. `rg -l 'baselineProfile|ProfileInstaller' -g '*.gradle*' -g '*.kt'` -- baseline-profile presence.
 
 These five checks tell you what kind of evidence is available before any rubric-level reading.

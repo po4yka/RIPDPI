@@ -36,10 +36,7 @@ class AppIdentityReviewTest(unittest.TestCase):
             "versionName": self.review["reviewedRelease"]["versionName"],
             "versionCode": self.review["reviewedRelease"]["versionCode"],
             "variants": [
-                {
-                    key: variant[key]
-                    for key in ("name", "distribution", "experience", "applicationId")
-                }
+                {key: variant[key] for key in ("name", "distribution", "applicationId")}
                 for variant in self.review["variants"]
             ],
         }
@@ -61,7 +58,7 @@ class AppIdentityReviewTest(unittest.TestCase):
         summary = self.validate()
         self.assertEqual("0.2.1", summary["versionName"])
         self.assertEqual(14, summary["versionCode"])
-        self.assertEqual(6, summary["variantCount"])
+        self.assertEqual(3, summary["variantCount"])
         self.assertEqual(3, summary["publishedVariantCount"])
         self.assertEqual([], summary["exactMatches"])
         self.assertEqual(["dpi", "ripdpi"], summary["recognizableTokens"])
@@ -80,7 +77,6 @@ class AppIdentityReviewTest(unittest.TestCase):
             {
                 "name": "githubStealthRelease",
                 "distribution": "github",
-                "experience": "stealth",
                 "applicationId": "com.example.reader",
             }
         )
@@ -90,7 +86,7 @@ class AppIdentityReviewTest(unittest.TestCase):
     def test_application_id_drift_is_rejected(self) -> None:
         resolved = copy.deepcopy(self.resolved)
         resolved["variants"][0]["applicationId"] = "com.example.reader"
-        with self.assertRaisesRegex(ValueError, "release variant drift for fdroidFullRelease"):
+        with self.assertRaisesRegex(ValueError, "release variant drift for fdroidRelease"):
             self.validate(resolved=resolved)
 
     def test_malformed_source_provenance_is_rejected(self) -> None:
@@ -101,8 +97,8 @@ class AppIdentityReviewTest(unittest.TestCase):
 
     def test_release_workflow_drift_is_rejected(self) -> None:
         workflow = self.workflow_text.replace(
-            "assembleGithubFullRelease",
-            "assembleGithubSimpleRelease",
+            "assembleGithubRelease",
+            "assembleGithubBenchmark",
         )
         with self.assertRaisesRegex(ValueError, "release workflow drift"):
             self.validate(workflow=workflow)

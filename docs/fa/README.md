@@ -144,7 +144,7 @@ android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 
 ساخت‌های محلی به‌صورت پیش‌فرض از `host` استفاده می‌کنند (`ripdpi.localNativeAbisDefault`) — ABI از معماری میزبان استخراج می‌شود (مثلاً `arm64-v8a` روی Apple Silicon). برای شبیه‌ساز: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
-خروجی APK در پوشه‌های مخصوص هر variant ساخته می‌شود، برای نمونه `app/build/outputs/apk/githubFull/debug/`؛ برای taskها و مسیرهای release به [distribution.md](../distribution.md) مراجعه کنید.
+خروجی APK در پوشه‌های مخصوص هر variant ساخته می‌شود، برای نمونه `app/build/outputs/apk/github/debug/`؛ برای taskها و مسیرهای release به [distribution.md](../distribution.md) مراجعه کنید.
 
 ساخت debug محلی برای Snowflake، obfs4، WebTunnel و ابزار انتشار Cloudflare از اجراکننده‌های stub استفاده می‌کند. این ابزارها در APK debug پیش‌فرض ترافیک منتقل نمی‌کنند. برای ساخت ابزارهای واقعی، افزون بر Rust/NDK بالا به Go و Git و دسترسی به مخزن‌های تثبیت‌شده و ماژول‌های Go نیاز است. نسخه‌های Go در [مانیفست منبع](../../native/pluggable-transports/sources.json) آمده‌اند. خطاهای سخت‌گیرانه را فعال کنید تا شکست ساخت ابزار، ساخت را متوقف کند:
 
@@ -157,7 +157,7 @@ android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 ## آزمایش
 
 ```bash
-./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator

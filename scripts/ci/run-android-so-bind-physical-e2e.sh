@@ -104,8 +104,8 @@ readonly source_sha
 readonly gradle_bin="${GRADLE_BIN:-$source_root/gradlew}"
 [[ -x "$gradle_bin" ]] || fail "Gradle wrapper is unavailable"
 build-gate -- env -u CARGO_BUILD_JOBS "$gradle_bin" -p "$source_root" --max-workers=4 \
-    :app:assembleGithubFullDebug \
-    :app:assembleGithubFullDebugAndroidTest \
+    :app:assembleGithubDebug \
+    :app:assembleGithubDebugAndroidTest \
     -Pripdpi.localNativeAbis=arm64-v8a \
     -Pripdpi.nativeCpuBudget=2 \
     -Pripdpi.nativeAbiParallelism=1 \
@@ -116,8 +116,8 @@ build-gate -- env -u CARGO_BUILD_JOBS "$gradle_bin" -p "$source_root" --max-work
     fail "source checkout changed during the physical APK build"
 [[ -z "$($git_bin -C "$source_root" status --porcelain=v1 --untracked-files=all)" ]] ||
     fail "physical APK build changed tracked or untracked source inputs"
-readonly app_apk="$source_root/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk"
-readonly test_apk="$source_root/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
+readonly app_apk="$source_root/app/build/outputs/apk/github/debug/app-github-debug.apk"
+readonly test_apk="$source_root/app/build/outputs/apk/androidTest/github/debug/app-github-debug-androidTest.apk"
 [[ -f "$app_apk" ]] || fail "source-bound app APK was not produced"
 [[ -f "$test_apk" ]] || fail "source-bound test APK was not produced"
 app_apk_sha256="$(python3 - "$app_apk" <<'PY'

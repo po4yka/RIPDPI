@@ -63,7 +63,7 @@ jobs:
         if: matrix.language == 'java-kotlin'
         run: >-
           ./gradlew
-          compileDebugKotlin compileKotlin :app:compileGithubFullDebugKotlin
+          compileDebugKotlin compileKotlin :app:compileGithubDebugKotlin
           -Pripdpi.skipNativeBuild=true
           -Pkotlin.compiler.execution.strategy=in-process
           --no-build-cache --no-configuration-cache --no-daemon

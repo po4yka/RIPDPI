@@ -10,14 +10,14 @@ For local emulator suites and failure-artifact capture, read `docs/contributor/a
 Before claims about AndroidJUnitRunner, UiAutomator, Compose tests, or androidx.test, require `android` and use `android docs search '<query>'`, then `android docs fetch '<kb-url>'`.
 
 ## Variants and ABI
-- Tested variant: GithubFullDebug.
+- Tested variant: GithubDebug.
 - Local default: ripdpi.localNativeAbisDefault=host. Use -Pripdpi.localNativeAbis=x86_64 for an x86_64 emulator.
-- Build: ./gradlew :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest
-- Universal debug APK: app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk
+- Build: ./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest
+- Universal debug APK: app/build/outputs/apk/github/debug/app-github-universal-debug.apk
 
 ## Suites
-- Connected: ./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=x86_64
-- Managed group: ./gradlew :app:ciDevicesGroupGithubFullDebugAndroidTest
+- Connected: ./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=x86_64
+- Managed group: ./gradlew :app:ciDevicesGroupGithubDebugAndroidTest
 - Network E2E: bash scripts/ci/run-android-e2e-emulator.sh
 - Kotlin coverage: ./gradlew coverageReport -Pripdpi.skipNativeBuild=true
 - Focus a connected run with android.testInstrumentationRunnerArguments.package or .class.

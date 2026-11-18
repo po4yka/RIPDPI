@@ -32,7 +32,7 @@ This section is the only bless procedure in the repository; other skills, agents
 
 | Fixture family | Location | Narrow bless command |
 |------|-----------------|---------------|
-| Roborazzi screenshots | `app/src/test/screenshots/` | `./gradlew :app:recordRoborazziGithubFullDebug -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true --tests '<FQN>'`. Pixels match CI only when recorded on `ubuntu-latest`; commit only the PNGs of tests that fail verify. |
+| Roborazzi screenshots | `app/src/test/screenshots/` | `./gradlew :app:recordRoborazziGithubDebug -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true --tests '<FQN>'`. Pixels match CI only when recorded on `ubuntu-latest`; commit only the PNGs of tests that fail verify. |
 | Rust telemetry/logging | `native/rust/crates/{crate}/tests/golden/` | `RIPDPI_BLESS_GOLDENS=1 cargo test --locked -p {crate} --manifest-path native/rust/Cargo.toml` |
 | JVM telemetry/logging | `core/{module}/src/test/resources/golden/` | `RIPDPI_BLESS_GOLDENS=1 ./gradlew :{module}:testDebugUnitTest --tests "*.{TestClass}"` |
 | Rust contract_fixtures | `native/rust/crates/{crate}/tests/contract_fixtures/` | `RIPDPI_BLESS_GOLDENS=1 cargo test --locked --manifest-path native/rust/Cargo.toml -p {crate}` |

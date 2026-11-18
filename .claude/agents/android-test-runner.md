@@ -31,10 +31,10 @@ android docs fetch '<kb-url>'
 
 ## Variants and ABI selection
 
-- The tested application variant is `GithubFullDebug`.
+- The tested application variant is `GithubDebug`.
 - Local native ABI defaults to `host` through `ripdpi.localNativeAbisDefault=host`; override with `-Pripdpi.localNativeAbis=x86_64` for an x86_64 emulator.
-- Build with `./gradlew :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest`.
-- The universal debug APK used by automation is `app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk`; scripts may also select another APK under that flavored directory.
+- Build with `./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest`.
+- The universal debug APK used by automation is `app/build/outputs/apk/github/debug/app-github-universal-debug.apk`; scripts may also select another APK under that flavored directory.
 
 ## Suite selection
 
@@ -42,10 +42,10 @@ Use the narrowest suite that covers the request:
 
 ```bash
 # One connected emulator/device
-./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=x86_64
+./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=x86_64
 
 # Managed-device group mirrored by just/CI
-./gradlew :app:ciDevicesGroupGithubFullDebugAndroidTest
+./gradlew :app:ciDevicesGroupGithubDebugAndroidTest
 
 # Network E2E orchestration and fixture arguments
 bash scripts/ci/run-android-e2e-emulator.sh

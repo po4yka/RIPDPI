@@ -189,8 +189,8 @@ class NativeDependencyGraphTest(unittest.TestCase):
         self.assertIn("needs: [change-routing, android-instrumentation-apks]", source)
         self.assertIn("needs.android-instrumentation-apks.result == 'success'", source)
         self.assertIn("name: android-instrumentation-apks", source)
-        self.assertEqual(5, source.count("prebuilt_android_instrumentation.py run"))
-        self.assertEqual(5, source.count('--sha "$GITHUB_SHA"'))
+        self.assertEqual(4, source.count("prebuilt_android_instrumentation.py run"))
+        self.assertEqual(4, source.count('--sha "$GITHUB_SHA"'))
         journeys = job_source("android-ui-journeys")
         self.assertNotIn("./gradlew", journeys)
         self.assertIn("needs: [change-routing, android-instrumentation-apks]", journeys)
@@ -453,9 +453,9 @@ class NativeDependencyGraphTest(unittest.TestCase):
         source = job_source("build-android-debug")
 
         for shard_id, task in (
-            ("github", ":app:assembleGithubFullDebug"),
-            ("fdroid", ":app:assembleFdroidFullDebug"),
-            ("play", ":app:assemblePlayFullDebug"),
+            ("github", ":app:assembleGithubDebug"),
+            ("fdroid", ":app:assembleFdroidDebug"),
+            ("play", ":app:assemblePlayDebug"),
         ):
             self.assertIn(f"id: {shard_id}, task: '{task}'", source)
         self.assertIn('./gradlew "${{ matrix.shard.task }}"', source)
@@ -464,14 +464,14 @@ class NativeDependencyGraphTest(unittest.TestCase):
             source,
         )
         self.assertIn('setup-rust: "false"', source)
-        self.assertNotIn("./gradlew \\\n+            :app:assembleGithubFullDebug", source)
+        self.assertNotIn("./gradlew \\\n+            :app:assembleGithubDebug", source)
 
     def test_pull_requests_skip_store_flavor_apk_shards(self) -> None:
         # A drifted exclude entry matches no shard and silently restores the
         # full matrix, so each entry must equal a declared shard exactly.
         for job, kept in (
             ("build-android-debug", {"github"}),
-            ("release-verification", {"github-full", "github-simple"}),
+            ("release-verification", {"github"}),
         ):
             with self.subTest(job=job):
                 source = job_source(job)
@@ -491,8 +491,8 @@ class NativeDependencyGraphTest(unittest.TestCase):
                 self.assertEqual(kept, {shard["id"] for shard in shards if shard not in excluded})
 
         compile_step = job_source("build-android-tests")
-        self.assertIn(":app:compilePlayFullDebugKotlin", compile_step)
-        self.assertIn(":app:compileFdroidFullDebugKotlin", compile_step)
+        self.assertIn(":app:compilePlayDebugKotlin", compile_step)
+        self.assertIn(":app:compileFdroidDebugKotlin", compile_step)
 
     def test_packaging_matrix_excludes_x86_64(self) -> None:
         packaging = job_source("rust-native-packaging")
@@ -553,7 +553,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
 
         release = job_source("release-verification")
         self.assertIn('setup-rust: "false"', release)
-        self.assertIn("setup-android-ndk: ${{ matrix.shard.id == 'github-full' }}", release)
+        self.assertIn("setup-android-ndk: ${{ matrix.shard.id == 'github' }}", release)
 
     def test_pt_producer_is_source_only_and_consumers_bind_manifest_digest(self) -> None:
         producer = job_source("pluggable-transport-assets")

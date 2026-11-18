@@ -143,7 +143,7 @@ android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 
 Builds locais usam `host` como padrão (`ripdpi.localNativeAbisDefault`), que corresponde à arquitetura da máquina hospedeira (por exemplo, `arm64-v8a` no Apple Silicon). Para emulador: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
-A saída do APK é específica por flavor, por exemplo `app/build/outputs/apk/githubFull/debug/`; consulte [distribution.md](docs/distribution.md) para conhecer as tarefas e os caminhos de release.
+A saída do APK é específica por flavor, por exemplo `app/build/outputs/apk/github/debug/`; consulte [distribution.md](docs/distribution.md) para conhecer as tarefas e os caminhos de release.
 
 Builds debug locais usam launchers stub para Snowflake, obfs4, WebTunnel e o auxiliar de publicação Cloudflare. Esses auxiliares não transmitem tráfego no APK debug padrão. Para gerar auxiliares reais, instale Go e Git além das ferramentas Rust/NDK acima; é preciso acessar os repositórios fixados e os módulos Go. As versões de Go estão no [manifesto de fontes](native/pluggable-transports/sources.json). Ative falhas estritas para interromper o build se um auxiliar não puder ser compilado:
 
@@ -156,7 +156,7 @@ Builds debug locais usam launchers stub para Snowflake, obfs4, WebTunnel e o aux
 ## Testes
 
 ```bash
-./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator

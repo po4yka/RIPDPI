@@ -307,7 +307,7 @@ The design contract is enforced by:
 
 - `npx --yes @google/design.md lint DESIGN.md`
 - `python3 scripts/ci/verify_design_md.py`
-- `./gradlew :app:testGithubFullDebugUnitTest --tests com.poyka.ripdpi.ui.DesignSystemSourceRulesTest`
+- `./gradlew :app:testGithubDebugUnitTest --tests com.poyka.ripdpi.ui.DesignSystemSourceRulesTest`
 
 These checks cover:
 
@@ -322,7 +322,7 @@ These checks cover:
 Roborazzi screenshot baselines live under `app/src/test/screenshots`.
 
 - Record baselines only after explicit user authorization, through the `golden-test-management` skill (`.agents/skills/golden-test-management/SKILL.md`)
-- Verify baselines with `./gradlew :app:verifyRoborazziGithubFullDebug`
+- Verify baselines with `./gradlew :app:verifyRoborazziGithubDebug`
 - Root shortcuts are available as `./gradlew recordScreenshots` and `./gradlew verifyScreenshots`
 
 The curated suite covers:

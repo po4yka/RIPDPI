@@ -39,7 +39,7 @@ Run this matrix before considering a build broadly healthy.
 
 | Area | Checklist | Primary evidence | Required combinations |
 | --- | --- | --- | --- |
-| Startup | App launches, theme loads, navigation root renders, no startup crash | `./gradlew :app:testGithubFullDebugUnitTest` plus manual/emulator launch | Fresh install, migrated install, light/dark |
+| Startup | App launches, theme loads, navigation root renders, no startup crash | `./gradlew :app:testGithubDebugUnitTest` plus manual/emulator launch | Fresh install, migrated install, light/dark |
 | Permissions | VPN consent, notification permission, local-network permission, foreground-service notification, battery optimization guidance | Device run log and UI check | API 27, API 31+, API 35/36, API 37 grant/deny/revoke |
 | Proxy service | Service starts, exposes local SOCKS5 endpoint, handles stop/restart, rejects port conflict cleanly | Unit tests, device curl through proxy, service logs | System DNS, encrypted DNS, relay off/on |
 | VPN service | TUN starts, traffic routes, upstream sockets are protected, service stops cleanly | Device smoke, service logs, debug probe | Wi-Fi, cellular, handover |

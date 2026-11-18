@@ -95,7 +95,7 @@ RIPDPI's design principle: classify each target and each network separately, app
 
 - **Proxy mode**: local SOCKS5 proxy on the configured localhost port.
 - **VPN mode**: routes Android device traffic through a local TUN-to-SOCKS bridge via `VpnService`.
-- **Profile import**: one shared classifier serves the QR scanner (camera or a saved image), the clipboard, and the Android share sheet (full experience). It accepts proxy URIs (`vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://`, `mierus://`, `ssh://`), subscription links (`https://` plus the `ripdpi://`, `sing-box://`, NekoBox `sn://`, Clash, v2rayNG, and Hiddify subscription links), WireGuard / AmneziaWG `.conf` text, `amneziawg://` links, and AmneziaVPN `vpn://` keys, including their multi-code QR series. **Add profile** in VPN settings also opens a subscription-link screen and a `.conf` file picker. Profiles can also be shared as a QR code.
+- **Profile import**: one shared classifier serves the QR scanner (camera or a saved image), the clipboard, and the Android share sheet. It accepts proxy URIs (`vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://`, `mierus://`, `ssh://`), subscription links (`https://` plus the `ripdpi://`, `sing-box://`, NekoBox `sn://`, Clash, v2rayNG, and Hiddify subscription links), WireGuard / AmneziaWG `.conf` text, `amneziawg://` links, and AmneziaVPN `vpn://` keys, including their multi-code QR series. **Add profile** in VPN settings also opens a subscription-link screen and a `.conf` file picker. Profiles can also be shared as a QR code.
 - **Support settings links**: `ripdpi://support-config` and verified HTTPS support links can preview and apply a support-provided patch for any persisted app setting after user confirmation.
 - **Subscriptions**: base64, Clash / Clash.Meta YAML, sing-box JSON, and WireGuard-INI subscription formats with background auto-update, duplicate-profile detection, selector/urltest groups, and multi-mirror delivery.
 - **Server migration receipts**: a replacement subscription can retain an exact delivery identity. In Subscription status, explicitly test a declared replacement path and share a local JSON receipt. Reality/Vision, XHTTP and Hysteria2 use isolated candidate probes; AmneziaWG requires connecting the imported replacement profile first. Received-only and tested receipts are distinct; neither is uploaded automatically.
@@ -142,7 +142,7 @@ android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 
 Local builds default to `host` (`ripdpi.localNativeAbisDefault`), which resolves to the host architecture (e.g. `arm64-v8a` on Apple Silicon). For emulator: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
-APK output is flavor-specific, for example `app/build/outputs/apk/githubFull/debug/`; see [distribution.md](docs/distribution.md) for release tasks and paths.
+APK output is flavor-specific, for example `app/build/outputs/apk/github/debug/`; see [distribution.md](docs/distribution.md) for release tasks and paths.
 
 Local debug builds use stub launchers for Snowflake, obfs4, WebTunnel, and the Cloudflare publish helper. Those helpers cannot carry traffic in the default debug APK. To build real helper assets, install Go and Git in addition to the Rust/NDK tools above; source builds need access to the pinned repositories and Go modules. The Go toolchain versions come from [the source manifest](native/pluggable-transports/sources.json). Use strict failures so a failed helper build stops the build:
 
@@ -155,7 +155,7 @@ Local debug builds use stub launchers for Snowflake, obfs4, WebTunnel, and the C
 ## Testing
 
 ```bash
-./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator

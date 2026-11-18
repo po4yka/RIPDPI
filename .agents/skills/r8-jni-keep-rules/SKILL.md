@@ -86,7 +86,7 @@ The existing rule `-keep class com.poyka.ripdpi.proto.** { *; }` covers everythi
 
 ### Handling `missing_rules.txt` after a failed release build
 
-For `assembleGithubFullRelease`, R8 emits `app/build/outputs/mapping/githubFullRelease/missing_rules.txt` with suggestions. These are **mechanical** — they don't know what's a genuine compatibility boundary vs. a false positive.
+For `assembleGithubRelease`, R8 emits `app/build/outputs/mapping/githubRelease/missing_rules.txt` with suggestions. These are **mechanical** — they don't know what's a genuine compatibility boundary vs. a false positive.
 
 **Review protocol:**
 

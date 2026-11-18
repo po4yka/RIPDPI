@@ -14,7 +14,7 @@ not download them. Read API and ABI requirements from the selected test lane.
 python3 scripts/ci/android-avd-pool.py status
 python3 scripts/ci/android-avd-pool.py run \
   --api 37 --arch arm64-v8a --target google_apis --profile pixel_10_pro_xl \
-  -- ./gradlew :app:connectedGithubFullDebugAndroidTest \
+  -- ./gradlew :app:connectedGithubDebugAndroidTest \
   -Pripdpi.localNativeAbis=arm64-v8a
 ```
 
@@ -58,7 +58,7 @@ profile that cannot use a pool slot. Supply a concrete reason:
 python3 scripts/ci/android-avd-pool.py run \
   --api 37 --arch arm64-v8a --target google_apis --profile pixel_10_pro_xl \
   --temporary --reason 'Test first boot with empty app storage' \
-  -- ./gradlew :app:connectedGithubFullDebugAndroidTest \
+  -- ./gradlew :app:connectedGithubDebugAndroidTest \
   -Pripdpi.localNativeAbis=arm64-v8a
 ```
 

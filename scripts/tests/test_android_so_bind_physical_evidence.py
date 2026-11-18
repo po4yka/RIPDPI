@@ -157,8 +157,8 @@ build-gate -- ''' + build_command, "physical-build-test", str(gradle), directory
                 capture_output=True, text=True, check=False,
             )
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn(":app:assembleGithubFullDebug", result.stdout.splitlines())
-        self.assertIn(":app:assembleGithubFullDebugAndroidTest", result.stdout.splitlines())
+        self.assertIn(":app:assembleGithubDebug", result.stdout.splitlines())
+        self.assertIn(":app:assembleGithubDebugAndroidTest", result.stdout.splitlines())
         self.assertIn("-Pripdpi.nativeCpuBudget=2", result.stdout.splitlines())
         self.assertIn("-Pripdpi.nativeAbiParallelism=1", result.stdout.splitlines())
 

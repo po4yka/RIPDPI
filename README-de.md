@@ -142,7 +142,7 @@ android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 
 Lokale Builds verwenden standardmäßig `host` (`ripdpi.localNativeAbisDefault`) — die ABI wird aus der Host-Architektur abgeleitet (z. B. `arm64-v8a` auf Apple Silicon). Für den Emulator: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
-APK-Ausgaben liegen in variantenspezifischen Verzeichnissen, zum Beispiel `app/build/outputs/apk/githubFull/debug/`; Release-Aufgaben und -Pfade stehen in [distribution.md](docs/distribution.md).
+APK-Ausgaben liegen in variantenspezifischen Verzeichnissen, zum Beispiel `app/build/outputs/apk/github/debug/`; Release-Aufgaben und -Pfade stehen in [distribution.md](docs/distribution.md).
 
 Lokale Debug-Builds verwenden Stub-Starter für Snowflake, obfs4, WebTunnel und den Cloudflare-Publish-Helfer. Diese Helfer können im Standard-Debug-APK keinen Verkehr übertragen. Für echte Helfer sind zusätzlich zu Rust/NDK Go und Git sowie Zugriff auf die festgelegten Repositories und Go-Module erforderlich. Die Go-Versionen stehen im [Quellmanifest](native/pluggable-transports/sources.json). Strikte Fehlerbehandlung stoppt den Build, wenn ein Helfer nicht gebaut werden kann:
 
@@ -155,7 +155,7 @@ Lokale Debug-Builds verwenden Stub-Starter für Snowflake, obfs4, WebTunnel und 
 ## Tests
 
 ```bash
-./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator

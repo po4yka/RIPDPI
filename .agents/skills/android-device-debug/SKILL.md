@@ -35,16 +35,16 @@ adb -s <serial> <command>             # one-off targeting
 
 ```bash
 # Physical device (ARM)
-./gradlew :app:assembleGithubFullDebug -Pripdpi.localNativeAbis=arm64-v8a
+./gradlew :app:assembleGithubDebug -Pripdpi.localNativeAbis=arm64-v8a
 
 # Emulator (x86_64 -- fast path)
-./gradlew :app:assembleGithubFullDebug -Pripdpi.localNativeAbis=x86_64
+./gradlew :app:assembleGithubDebug -Pripdpi.localNativeAbis=x86_64
 ```
 
 ### Install
 
 ```bash
-adb install -r app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk
+adb install -r app/build/outputs/apk/github/debug/app-github-universal-debug.apk
 ```
 
 ### Launch with Automation Extras
@@ -137,26 +137,26 @@ For physical devices set `RIPDPI_FIXTURE_ANDROID_HOST=127.0.0.1` before starting
 
 ```bash
 # Full suite
-./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
+./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
 
 # Integration tests only
-./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a \
+./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a \
   -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration
 
 # E2E tests only
-./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a \
+./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a \
   -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e
 
 # Single test class
-./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a \
+./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a \
   -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.e2e.NativeTelemetryGoldenSmokeTest
 
 # Kaspresso UI journeys for one area
-./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a \
+./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a \
   -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.ui.journeys.settings
 
 # Coverage report
-./gradlew :app:createGithubFullDebugAndroidTestCoverageReport -Pripdpi.localNativeAbis=x86_64
+./gradlew :app:createGithubDebugAndroidTestCoverageReport -Pripdpi.localNativeAbis=x86_64
 ```
 
 Use `-Pripdpi.localNativeAbis=x86_64` for emulator, `arm64-v8a` for physical device.
@@ -286,12 +286,12 @@ authorized cleanup. See the pool document for complete lifecycle rules.
 | Task | Command |
 |------|---------|
 | List devices | `adb devices -l` |
-| Install debug APK | `adb install -r app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk` |
+| Install debug APK | `adb install -r app/build/outputs/apk/github/debug/app-github-universal-debug.apk` |
 | Launch app (clean) | `adb shell am start -n com.poyka.ripdpi/.activities.MainActivity --ez com.poyka.ripdpi.automation.ENABLED true --ez com.poyka.ripdpi.automation.RESET_STATE true` |
 | Native logs | `adb logcat -s ripdpi-native:V ripdpi-tunnel-native:V` |
 | Screenshot | `adb exec-out screencap -p > screenshot.png` |
 | Forward fixture ports | `adb reverse tcp:46090 tcp:46090` (repeat for 46001, 46003, 46053, 46054) |
-| Run integration tests | `./gradlew :app:connectedGithubFullDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration` |
+| Run integration tests | `./gradlew :app:connectedGithubDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration` |
 | Force stop | `adb shell am force-stop com.poyka.ripdpi` |
 | VPN interface check | `adb shell ip addr show tun0` |
 | Crash logs | `adb logcat -b crash -d` |

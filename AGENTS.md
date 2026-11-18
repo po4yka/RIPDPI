@@ -32,17 +32,17 @@ The Android build invokes the `ripdpi.android.rust-native` convention plugin fro
 
 ## Build, test, and verification
 
-`testDebugUnitTest` covers the library modules only; `:app` is flavored, so its unit tests run through `:app:testGithubFullDebugUnitTest`.
+`testDebugUnitTest` covers the library modules only; `:app` is flavored, so its unit tests run through `:app:testGithubDebugUnitTest`.
 
 ```bash
 ./gradlew assembleDebug
 ./gradlew assembleRelease
 ./gradlew testDebugUnitTest
-./gradlew :app:testGithubFullDebugUnitTest
+./gradlew :app:testGithubDebugUnitTest
 ./gradlew :core:data:testDebugUnitTest
 ./gradlew staticAnalysis
 ./gradlew createModuleGraph
-./gradlew :app:ciDevicesGroupGithubFullDebugAndroidTest
+./gradlew :app:ciDevicesGroupGithubDebugAndroidTest
 ```
 
 Use `just` recipes where they mirror CI. For Rust commands, pass `--locked` whenever Cargo resolves the workspace (for example `cargo test -p <crate> --locked` from `native/rust/`).
@@ -86,7 +86,7 @@ Plan before editing only where the approach is genuinely uncertain: cross-module
 The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Any key added to or removed from app or service resources changes every locale in the same commit. A locale may split strings across multiple XML files, so String files are grouped by feature prefix (`strings_<feature>.xml`); put a new key in its feature's file. Validate parity with Android lint rather than a single-file grep:
 
 ```bash
-./gradlew :app:lintGithubFullDebug :core:service:lintDebug
+./gradlew :app:lintGithubDebug :core:service:lintDebug
 ```
 
 Put a new key in the feature's existing string file, then regenerate `config/i18n/translatable-keys.txt` with `scripts/ci/export-strings-for-translation.sh`; the CI export gate fails without it.

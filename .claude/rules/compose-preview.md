@@ -58,13 +58,13 @@ state today:
 
 ```kotlin
 composePreview {
-    variant.set("githubFullDebug") // RIPDPI app variant
+    variant.set("githubDebug") // RIPDPI app variant
     sdkVersion.set(providers.gradleProperty("ripdpi.targetSdk").get().toInt()) // never hardcode; must match ripdpi.targetSdk in gradle.properties
     enabled.set(true)
 }
 ```
 
-Use RIPDPI's `githubFullDebug` app variant and current target SDK. Derive both
+Use RIPDPI's `githubDebug` app variant and current target SDK. Derive both
 from the Gradle model when the plugin or Android configuration changes.
 
 ### Forbidden actions (hard rules for agents)

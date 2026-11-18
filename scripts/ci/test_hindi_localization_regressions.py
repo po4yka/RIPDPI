@@ -145,9 +145,6 @@ class HindiLocalizationRegressionsTest(unittest.TestCase):
                     "status_remediation_browser_relay_step_choose_preset"):
             self.assertNotIn("browser-camouflage", text(self.hi[key]))
         self.assertEqual("RIPDPI ब्राउज़र", text(self.hi["title_owned_stack_browser"]))
-        simple = {e.get("name"): text(e) for e in ET.parse(
-            ROOT / "app/src/simple/res/values-hi/strings.xml").getroot()}
-        self.assertIn(simple["simple_title"], simple["qs_tile_label_connected"])
 
     def test_display_references_reject_missing_empty_and_cyclic_strings(self):
         for reference, catalog in (("@string/missing", {}),

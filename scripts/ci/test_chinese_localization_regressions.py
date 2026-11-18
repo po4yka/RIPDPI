@@ -99,10 +99,6 @@ class ChineseLocalizationRegressionsTest(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertIn(text(self.zh["title_mode_editor"]), text(self.zh[key]))
         self.assertIn(text(self.zh["pause_resume_now"]), text(self.zh["pause_clock_failed"]))
-        root = Path(__file__).resolve().parents[2]
-        simple = {entry.get("name"): text(entry) for entry in ET.parse(
-            root / "app/src/simple/res/values-zh-rCN/strings.xml").getroot()}
-        self.assertIn(simple["simple_title"], simple["qs_tile_label_connected"])
 
 
 if __name__ == "__main__":

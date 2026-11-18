@@ -43,10 +43,10 @@ Three layers of rules, evaluated together at build time:
 Enable with `-Pripdpi.r8Diagnostics=true` to generate analysis files:
 
 ```bash
-./gradlew assembleGithubFullRelease -Pripdpi.r8Diagnostics=true
+./gradlew assembleGithubRelease -Pripdpi.r8Diagnostics=true
 ```
 
-Output in `app/build/outputs/mapping/githubFullRelease/` for that task:
+Output in `app/build/outputs/mapping/githubRelease/` for that task:
 - `usage.txt` -- Classes/methods removed by R8
 - `seeds.txt` -- Classes/methods kept by keep rules
 - `configuration.txt` -- Merged R8 configuration
@@ -90,9 +90,9 @@ The release-candidate workflow builds and uploads:
 
 | Artifact | Path |
 |----------|------|
-| Play AAB | `app/build/outputs/bundle/playFullRelease/*.aab` |
-| F-Droid APK | `app/build/outputs/apk/fdroidFull/release/*.apk` |
-| GitHub APK | `app/build/outputs/apk/githubFull/release/*.apk` |
+| Play AAB | `app/build/outputs/bundle/playRelease/*.aab` |
+| F-Droid APK | `app/build/outputs/apk/fdroid/release/*.apk` |
+| GitHub APK | `app/build/outputs/apk/github/release/*.apk` |
 | R8 Mapping | `app/build/outputs/mapping/*Release/mapping.txt` |
 | Compose Mapping | Compose stability report |
 | Native Symbols | packaged `release-native-symbols/manifest.json` and `release-native-symbols.zip` |
@@ -104,7 +104,7 @@ pinned `softprops/action-gh-release` action without rebuilding app binaries.
 ## Release Verification in CI
 
 The `release-verification` job in `ci.yml` builds all minified release variants
-and, on the GitHub shard, assembles the `GithubFullReleaseAndroidTest` APK with
+and, on the GitHub shard, assembles the `GithubReleaseAndroidTest` APK with
 `testBuildType=release`. It uses prebuilt native inputs and no signing secrets, so
 release-only Hilt, test ownership, and shrinker problems fail in ordinary CI
 before the signed-candidate environment. This catches:

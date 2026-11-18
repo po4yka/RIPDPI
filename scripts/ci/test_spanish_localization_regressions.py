@@ -66,9 +66,6 @@ class SpanishLocalizationRegressionsTest(unittest.TestCase):
         self.assertIn(text(self.es["title_owned_stack_browser"]),
                       text(self.es["diagnostics_remediation_open_owned_stack_action"]))
         self.assertIn(text(self.es["pause_resume_now"]), text(self.es["pause_clock_failed"]))
-        simple = {e.get("name"): text(e) for e in ET.parse(
-            ROOT / "app/src/simple/res/values-es/strings.xml").getroot()}
-        self.assertIn(simple["simple_title"], simple["qs_tile_label_connected"])
 
     def test_strategy_gender_and_duplicate_are_correct(self):
         for key, entry in self.es.items():
@@ -82,8 +79,7 @@ class SpanishLocalizationRegressionsTest(unittest.TestCase):
 
     def test_all_locale_resource_contracts(self):
         argument = re.compile(r"(?<!%)%(?!%)(?:\d+\$)?[-#+0,(]*\d*(?:\.\d+)?[a-zA-Z]")
-        for directory in (ROOT / "app/src/main/res", ROOT / "app/src/simple/res",
-                          ROOT / "core/service/src/main/res"):
+        for directory in (ROOT / "app/src/main/res", ROOT / "core/service/src/main/res"):
             def entries(locale):
                 result = {}
                 for file in (directory / locale).glob("*.xml"):

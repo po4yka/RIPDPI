@@ -683,8 +683,8 @@ def prepare(
                 str(ROOT / "gradlew"),
                 "--max-workers=4",
                 "-Pripdpi.nativeCpuBudget=4",
-                ":app:assembleGithubFullDebug",
-                ":app:assembleGithubFullDebugAndroidTest",
+                ":app:assembleGithubDebug",
+                ":app:assembleGithubDebugAndroidTest",
                 f"-Pripdpi.nativeAbisOverride={abi}",
                 "-Pripdpi.enableAbiSplits=false",
             ]
@@ -707,9 +707,9 @@ def prepare(
         raise RuntimeError("source changed during APK preparation")
     paths = {
         "app": ROOT
-        / "app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk",
+        / "app/build/outputs/apk/github/debug/app-github-debug.apk",
         "test": ROOT
-        / "app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk",
+        / "app/build/outputs/apk/androidTest/github/debug/app-github-debug-androidTest.apk",
     }
     metadata = {
         "source_sha": source,

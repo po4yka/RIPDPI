@@ -36,6 +36,6 @@ The full app already has a format and a restore path that carry servers, routing
 - `:core:service`: the optional `ServiceRecoveryStartGate` seam, which only the Simple flavor binds.
 - `:core:data`: `BackupRestoreUseCase` gains a startup caller; `app_settings.proto` field 410 (`simple_failover_awg_profile_id`) is reserved; `CiRelayBundleFixtureTest` and its fixture are removed.
 - `build-logic`: a preset preparation task; removal of `verifyEmbeddedRelayBundle`.
-- CI and release: `.github/workflows/ci.yml`, `.github/actions/setup-android-rust`, release preflight and identity scripts and their tests, `justfile`, and the secret `RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64`, which a preset secret replaces.
+- CI and release: `.github/workflows/ci.yml`, `.github/actions/setup-android-rust`, release preflight and identity scripts and their tests, `justfile`, and the secret `RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64`, which no job reads after this change.
 - Documentation: `README*.md`, `docs/server-integration.md`, `docs/testing.md`, architecture and contributor documents that name the Simple flavor.
 - Serialized shared files: all locale resource sets, `app_settings.proto`, golden fixtures (deletion only), baseline and architecture-health files.

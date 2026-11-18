@@ -89,13 +89,6 @@ class BrazilianPortugueseLocalizationRegressionsTest(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertIn(canonical, text(self.pt[key]).casefold())
 
-    def test_connected_tile_uses_the_simple_product_name(self):
-        path = ROOT / "app/src/simple/res/values-pt-rBR/strings.xml"
-        catalog = {entry.get("name"): entry for entry in ET.parse(path).getroot()}
-        title = text(catalog["simple_title"])
-        connected = text(catalog["simple_status_connected"])
-        self.assertEqual(title + ": " + connected, text(catalog["qs_tile_label_connected"]))
-
     def test_all_locales_keep_types_formats_and_native_language_names(self):
         argument = re.compile(r"(?<!%)%(?!%)(?:\d+\$)?[-#+0,(]*\d*(?:\.\d+)?[a-zA-Z]")
         for module in ("app", "core/service"):

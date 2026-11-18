@@ -734,7 +734,6 @@ The pass deadline covers HTTP work and native readiness/cleanup. If all candidat
 fail or budget is unavailable, the current encrypted selection remains. Control
 failures alone do not identify censorship.
 
-The embedded Simple seed rejects the extension before storage mutation because its
-initial-race runtime has a separate probe contract. Real native/emulator and
+Real native/emulator and
 filtered-network acceptance are separate from local fixture evidence. PMTU remains
 a manual scoped QUIC diagnostic; quality selection never changes tunnel MTU.

@@ -142,7 +142,7 @@ android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 
 Локальные сборки по умолчанию используют `host` (`ripdpi.localNativeAbisDefault`) — ABI определяется по архитектуре хоста (например, `arm64-v8a` на Apple Silicon). Для эмулятора: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
-APK создаются в каталогах вариантов, например `app/build/outputs/apk/githubFull/debug/`; задачи и пути release-сборок описаны в [distribution.md](docs/distribution.md).
+APK создаются в каталогах вариантов, например `app/build/outputs/apk/github/debug/`; задачи и пути release-сборок описаны в [distribution.md](docs/distribution.md).
 
 Локальная debug-сборка использует заглушки запуска Snowflake, obfs4, WebTunnel и помощника публикации Cloudflare. В таком APK эти помощники не передают трафик. Для настоящих helper assets нужны Go и Git в дополнение к Rust/NDK выше, а также доступ к закреплённым репозиториям и модулям Go. Версии Go заданы в [манифесте исходников](native/pluggable-transports/sources.json). Включите строгую обработку ошибок, чтобы сбой сборки помощника остановил сборку:
 
@@ -155,7 +155,7 @@ APK создаются в каталогах вариантов, наприме�
 ## Тестирование
 
 ```bash
-./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator

@@ -116,8 +116,8 @@ The canonical local mirror is:
 just release-preflight vX.Y.Z <window-start-sha> <window-started-at-utc>
 ```
 
-It must complete all six secret-free full/simple release APK variants, the Play
-Full bundle, the release AndroidTest build, and write
+It must complete all three secret-free release APK variants, the Play
+bundle, the release AndroidTest build, and write
 `build/reports/release/preflight.json`. Its PASS is host-ABI evidence
 only: the receipt explicitly says it did not sign artifacts and does not replace
 hosted exact-SHA CI. Never call a partial manual subset the local preflight.

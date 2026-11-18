@@ -58,7 +58,7 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         self.assertIn("ripdpi.prebuiltPluggableTransportAssetsDir", signing)
         self.assertIn("ripdpi.prebuiltPluggableTransportAssetsManifestSha256", signing)
         self.assertIn("environment: release-signing", signing)
-        self.assertIn(":app:assembleGithubFullReleaseAndroidTest", signing)
+        self.assertIn(":app:assembleGithubReleaseAndroidTest", signing)
         self.assertIn("-Pripdpi.testBuildType=release", signing)
 
         build_step = re.search(
@@ -70,13 +70,13 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         gradle_invocations = build_step.group(0).split("./gradlew ")[1:]
         self.assertEqual(2, len(gradle_invocations))
         bundle_invocation, apk_invocation = gradle_invocations
-        self.assertIn(":app:bundlePlayFullRelease", bundle_invocation)
+        self.assertIn(":app:bundlePlayRelease", bundle_invocation)
         self.assertIn("-Pripdpi.enableAbiSplits=false", bundle_invocation)
-        self.assertNotIn(":app:assembleGithubFullRelease", bundle_invocation)
-        self.assertNotIn(":app:bundlePlayFullRelease", apk_invocation)
-        self.assertIn(":app:assembleFdroidFullRelease", apk_invocation)
-        self.assertIn(":app:assembleGithubFullRelease", apk_invocation)
-        self.assertIn(":app:assembleGithubFullReleaseAndroidTest", apk_invocation)
+        self.assertNotIn(":app:assembleGithubRelease", bundle_invocation)
+        self.assertNotIn(":app:bundlePlayRelease", apk_invocation)
+        self.assertIn(":app:assembleFdroidRelease", apk_invocation)
+        self.assertIn(":app:assembleGithubRelease", apk_invocation)
+        self.assertIn(":app:assembleGithubReleaseAndroidTest", apk_invocation)
         self.assertIn("-Pripdpi.enableAbiSplits=true", apk_invocation)
 
         signing_key = signing.index("Materialize release signing key")
@@ -123,9 +123,9 @@ class ReleaseP0ContractsTest(unittest.TestCase):
     def test_release_instrumentation_is_checked_before_signing_candidate(self) -> None:
         ci_source = workflow("ci.yml")
         candidate_source = workflow("release-candidate.yml")
-        self.assertIn(":app:assembleGithubFullReleaseAndroidTest", ci_source)
+        self.assertIn(":app:assembleGithubReleaseAndroidTest", ci_source)
         self.assertIn("-Pripdpi.testBuildType=release", ci_source)
-        self.assertIn(":app:assembleGithubFullReleaseAndroidTest", candidate_source)
+        self.assertIn(":app:assembleGithubReleaseAndroidTest", candidate_source)
         self.assertIn("-Pripdpi.testBuildType=release", candidate_source)
 
     def test_release_signature_fingerprint_accepts_tool_output_variants(self) -> None:

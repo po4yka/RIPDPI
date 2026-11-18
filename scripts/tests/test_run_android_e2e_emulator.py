@@ -20,8 +20,8 @@ RUNNER = ROOT / "scripts/ci/run-android-e2e-emulator.sh"
 VALIDATOR = ROOT / "scripts/ci/validate_android_junit_results.py"
 WORKFLOW = ROOT / ".github/workflows/ci.yml"
 RESULTS_RELATIVE = Path("app/build/outputs/androidTest-results/connected")
-VARIANT_RESULTS_RELATIVE = RESULTS_RELATIVE / "debug/flavors/githubFull"
-WRONG_VARIANT_RESULTS_RELATIVE = RESULTS_RELATIVE / "githubFullDebug"
+VARIANT_RESULTS_RELATIVE = RESULTS_RELATIVE / "debug/flavors/github"
+WRONG_VARIANT_RESULTS_RELATIVE = RESULTS_RELATIVE / "githubDebug"
 
 FAKE_GRADLE = r'''#!/usr/bin/env python3
 import json
@@ -37,7 +37,7 @@ with (runner_temp / "gradle-args.jsonl").open("a", encoding="utf-8") as output:
     output.write(json.dumps(sys.argv[1:]) + "\n")
 
 results_root = Path(
-    "app/build/outputs/androidTest-results/connected/debug/flavors/githubFull"
+    "app/build/outputs/androidTest-results/connected/debug/flavors/github"
 )
 if results_root.exists():
     print("result directory was not cleaned before Gradle", file=sys.stderr)
@@ -46,7 +46,7 @@ if count == 2 and os.environ.get("OMIT_SECOND_RESULTS") == "1":
     raise SystemExit(0)
 
 if count == 2 and os.environ.get("WRITE_WRONG_VARIANT_ONLY") == "1":
-    results_dir = Path("app/build/outputs/androidTest-results/connected/githubFullDebug")
+    results_dir = Path("app/build/outputs/androidTest-results/connected/githubDebug")
 else:
     results_dir = results_root
 results_dir.mkdir(parents=True)
@@ -240,22 +240,20 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
             assert cleanup_timeout is not None
             self.assertLessEqual(int(cleanup_timeout.group(1)), 10)
 
-    def test_ordinary_instrumented_matrix_validates_full_simple_and_jni_evidence(self) -> None:
+    def test_ordinary_instrumented_matrix_validates_app_and_jni_evidence(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         job_start = workflow.index("  android-instrumented-tests:\n")
         job_end = workflow.index("\n  rust-loom:\n", job_start)
         job = workflow[job_start:job_end]
 
-        self.assertIn("Validate GitHub Full instrumentation evidence", job)
-        self.assertIn("Validate GitHub Simple instrumentation evidence", job)
+        self.assertIn("Validate GitHub instrumentation evidence", job)
         self.assertIn("Run JNI strategy instrumentation", job)
         self.assertIn("Validate JNI strategy instrumentation evidence", job)
         self.assertIn("if: matrix.api == 35", job)
         self.assertIn("StrategyEngineJniInstrumentedTest", job)
         self.assertIn("--expected-total-count 5", job)
         self.assertIn("--minimum-total-count 54", job)
-        self.assertIn("Preserve GitHub Full instrumentation evidence", job)
-        self.assertIn("Preserve GitHub Simple instrumentation evidence", job)
+        self.assertIn("Preserve GitHub instrumentation evidence", job)
         self.assertIn("Preserve JNI strategy instrumentation evidence", job)
         self.assertIn("${{ runner.temp }}/android-instrumented-results/", job)
 

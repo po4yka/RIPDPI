@@ -13,16 +13,16 @@ All channels share the same `versionCode` and `versionName` from `app/build.grad
 Use these release tasks:
 
 ```bash
-./gradlew bundlePlayFullRelease -Pripdpi.enableAbiSplits=false
-./gradlew assembleFdroidFullRelease -Pripdpi.enableAbiSplits=false
-./gradlew assembleGithubFullRelease -Pripdpi.enableAbiSplits=false
+./gradlew bundlePlayRelease -Pripdpi.enableAbiSplits=false
+./gradlew assembleFdroidRelease -Pripdpi.enableAbiSplits=false
+./gradlew assembleGithubRelease -Pripdpi.enableAbiSplits=false
 ```
 
 Outputs:
 
-- Play AAB: `app/build/outputs/bundle/playFullRelease/*.aab`
-- F-Droid APK: `app/build/outputs/apk/fdroidFull/release/*.apk`
-- GitHub APK: `app/build/outputs/apk/githubFull/release/*.apk`
+- Play AAB: `app/build/outputs/bundle/playRelease/*.aab`
+- F-Droid APK: `app/build/outputs/apk/fdroid/release/*.apk`
+- GitHub APK: `app/build/outputs/apk/github/release/*.apk`
 
 ## Channel Behavior
 
@@ -53,7 +53,7 @@ The GitHub updater verifies package name, version code, version name, APK file-n
 
 ## Application Identity Review
 
-Every app release has a blocking package-identity review in `quality/release-gates/app-identity-review.json`. The review covers every resolved `release` variant, including the non-published `simple` variants, and separately records the published `full` variants built by `.github/workflows/release-candidate.yml`. `:app:writeReleaseIdentityManifest` obtains final application IDs from the Android Components API, so the gate does not infer them by parsing Gradle source.
+Every app release has a blocking package-identity review in `quality/release-gates/app-identity-review.json`. The review covers every resolved `release` variant, one for each distribution channel, as built by `.github/workflows/release-candidate.yml`. `:app:writeReleaseIdentityManifest` obtains final application IDs from the Android Components API, so the gate does not infer them by parsing Gradle source.
 
 The current `com.poyka.ripdpi` identity is not an exact match in the reviewed circumvention-tool catalog, but it is not hidden: `ripdpi` and `dpi` are recognizable tokens, and an Android 11+ detector can make the package visible by naming the exact ID in `<queries>`. The accepted baseline therefore classifies the identity as `elevated` and `self-identifying`, not opaque. Changing the application ID would create a different Android app and break in-place Play, F-Droid, and GitHub update continuity even if signing keys remain unchanged.
 
@@ -68,7 +68,7 @@ The default decision is `retain-stable-id` only while the reviewed catalog has n
 
 ## Google Play Flow
 
-1. Build `bundlePlayFullRelease`.
+1. Build `bundlePlayRelease`.
 2. Upload the generated AAB to Google Play.
 3. Let Google Play own update discovery, staging, rollout, and installation.
 
@@ -76,7 +76,7 @@ The Play flavor must not request `android.permission.REQUEST_INSTALL_PACKAGES` a
 
 ## F-Droid Flow
 
-1. Build `assembleFdroidFullRelease`.
+1. Build `assembleFdroidRelease`.
 2. Publish the generated APK through F-Droid metadata or a compatible repository.
 3. Let the client own update discovery, download, verification, and installation.
 
@@ -84,13 +84,13 @@ The F-Droid flavor intentionally disables the GitHub updater because F-Droid cli
 
 ## GitHub Releases Flow
 
-1. Build `assembleGithubFullRelease`.
+1. Build `assembleGithubRelease`.
 2. Generate metadata:
 
    ```bash
    scripts/ci/generate_update_metadata.py \
-     --apk-glob "app/build/outputs/apk/githubFull/release/*.apk" \
-     --output-metadata "app/build/outputs/apk/githubFull/release/output-metadata.json" \
+     --apk-glob "app/build/outputs/apk/github/release/*.apk" \
+     --output-metadata "app/build/outputs/apk/github/release/output-metadata.json" \
      --gradle-properties "gradle.properties" \
      --package-name "com.poyka.ripdpi" \
      --update-json "update.json" \
@@ -124,9 +124,9 @@ The release flow is defined by
 `.github/workflows/release-candidate.yml` on `main` first requires successful
 exact-SHA CI, then builds the signed outputs once:
 
-- `bundlePlayFullRelease`
-- `assembleFdroidFullRelease`
-- `assembleGithubFullRelease`
+- `bundlePlayRelease`
+- `assembleFdroidRelease`
+- `assembleGithubRelease`
 - `update.json`
 - `SHA256SUMS`
 
@@ -154,7 +154,7 @@ just release-preflight vX.Y.Z <window-start-sha> <window-started-at-utc>
 
 The command emits `build/reports/release/preflight.json` only after release
 contract, window, identity, architecture, locked Cargo metadata, TLS snapshot,
-all six full/simple release APK variants, the Play Full bundle, release
+all three release APK variants, the Play bundle, release
 AndroidTest, native ELF, and mapping checks pass. The
 receipt is deliberately bounded: it is host-ABI evidence, does not sign release
 artifacts, and does not replace successful hosted `ci-required` for the exact

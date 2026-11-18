@@ -79,20 +79,17 @@ class ReleasePreflightTest(unittest.TestCase):
             self.assertEqual("v0.1.4", receipt["baseTag"])
             self.assertGreaterEqual(len(observed), 7)
             flattened = "\n".join(" ".join(command) for command in observed)
-            self.assertIn(":app:assembleGithubFullReleaseAndroidTest", flattened)
+            self.assertIn(":app:assembleGithubReleaseAndroidTest", flattened)
             self.assertRegex(flattened, r"ripdpi\.nativeAbisOverride=(arm64-v8a|x86_64)")
             self.assertRegex(
                 flattened,
                 r"verify-local-release-preflight-output\.sh (arm64-v8a|x86_64)",
             )
             for task in (
-                ":app:assembleFdroidFullRelease",
-                ":app:assembleFdroidSimpleRelease",
-                ":app:assembleGithubFullRelease",
-                ":app:assembleGithubSimpleRelease",
-                ":app:assemblePlayFullRelease",
-                ":app:assemblePlaySimpleRelease",
-                ":app:bundlePlayFullRelease",
+                ":app:assembleFdroidRelease",
+                ":app:assembleGithubRelease",
+                ":app:assemblePlayRelease",
+                ":app:bundlePlayRelease",
             ):
                 self.assertIn(task, flattened)
             self.assertIn("check_release_contract.py", flattened)
@@ -168,7 +165,7 @@ class ReleasePreflightTest(unittest.TestCase):
         )
         self.assertIn(
             'lib_dir="app/build/intermediates/merged_native_libs/'
-            'githubFullRelease/mergeGithubFullReleaseNativeLibs/out/lib"',
+            'githubRelease/mergeGithubReleaseNativeLibs/out/lib"',
             source,
         )
         self.assertNotIn("*githubfullrelease*/out/lib", source)
@@ -178,26 +175,23 @@ class ReleasePreflightTest(unittest.TestCase):
 
     def make_release_output_fixture(self, root: Path, native_abis: dict[str, list[str]]) -> None:
         for variant in (
-            "fdroidFull",
-            "fdroidSimple",
-            "githubFull",
-            "githubSimple",
-            "playFull",
-            "playSimple",
+            "fdroid",
+            "github",
+            "play",
         ):
             output = root / "app/build/outputs/apk" / variant / "release" / f"{variant}.apk"
             output.parent.mkdir(parents=True, exist_ok=True)
             output.touch()
-        bundle = root / "app/build/outputs/bundle/playFullRelease/app.aab"
+        bundle = root / "app/build/outputs/bundle/playRelease/app.aab"
         bundle.parent.mkdir(parents=True, exist_ok=True)
         bundle.touch()
-        test_apk = root / "app/build/outputs/apk/androidTest/github-full-release-test.apk"
+        test_apk = root / "app/build/outputs/apk/androidTest/github-release-test.apk"
         test_apk.parent.mkdir(parents=True, exist_ok=True)
         test_apk.touch()
         lib_root = (
             root
-            / "app/build/intermediates/merged_native_libs/githubFullRelease/"
-            "mergeGithubFullReleaseNativeLibs/out/lib"
+            / "app/build/intermediates/merged_native_libs/githubRelease/"
+            "mergeGithubReleaseNativeLibs/out/lib"
         )
         for abi, libraries in native_abis.items():
             for library in libraries:

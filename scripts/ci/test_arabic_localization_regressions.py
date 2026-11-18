@@ -114,12 +114,6 @@ class ArabicLocalizationRegressionsTest(unittest.TestCase):
         self.assertIn("استراتيجية التجاوز لبروتوكول UDP", self.value("quic_fake_profile_udp_disabled_body"))
         self.assertIn("لبروتوكولات HTTP وHTTPS وUDP", self.value("fake_payload_library_protocols_disabled_body"))
 
-    def test_simple_tile_uses_the_translated_feature_name(self):
-        catalog = {entry.get("name"): entry for entry in ET.parse(
-            ROOT / "app/src/simple/res/values-ar/strings.xml").getroot()}
-        self.assertEqual(text(catalog["simple_title"]) + ": " + text(catalog["simple_status_connected"]),
-                         text(catalog["qs_tile_label_connected"]))
-
     def test_home_counts_have_all_arabic_categories_and_keep_count_arguments(self):
         keys = ("status_diagnostics_actionable_detector_count", "status_diagnostics_actionable_dns_count",
                 "status_diagnostics_actionable_bypass_count")

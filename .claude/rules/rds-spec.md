@@ -22,8 +22,8 @@ The persisted deck under `docs/design/rds/` is the visual reference for Android 
 ### Validation
 
 ```bash
-./gradlew :app:testGithubFullDebugUnitTest --tests 'com.poyka.ripdpi.ui.theme.*'
-./gradlew :app:lintGithubFullDebug :core:service:lintDebug
+./gradlew :app:testGithubDebugUnitTest --tests 'com.poyka.ripdpi.ui.theme.*'
+./gradlew :app:lintGithubDebug :core:service:lintDebug
 ```
 
 Roborazzi screenshot fixtures are not generated from preview-render PNGs. Golden updates remain governed by `golden-bless-discipline.md`.

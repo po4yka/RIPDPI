@@ -22,4 +22,5 @@ Decide whether the full application needs an automatic fallback from relay serve
 ## Acceptance criteria
 
 - A written decision: build the fallback, or record why selector and urltest failover is enough.
+- The seams that only the `simple` flavor bound are either reused or removed: `ActiveTransportProvider`, `ExplicitUserStartPreparer`, `InitialRelayRacePolicy`, and the transport-failover apply path in `VpnServiceRuntimeCoordinator`.
 - If the decision is to build it, a feature task with an OpenSpec change exists and this task links to it.
