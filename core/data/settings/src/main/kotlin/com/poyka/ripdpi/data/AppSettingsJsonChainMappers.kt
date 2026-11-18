@@ -51,6 +51,7 @@ internal fun AppSettingsSnapshot.withChainSnapshot(settings: AppSettings): AppSe
 
 internal fun AppSettings.Builder.applyChainSnapshots(snapshot: AppSettingsSnapshot): AppSettings.Builder =
     also { builder ->
+        builder.clearTcpChainSteps().clearUdpChainSteps()
         snapshot.chains.tcpChainSteps.forEach { step -> builder.addTcpChainStepSnapshot(step) }
         snapshot.chains.udpChainSteps.forEach { step -> builder.addUdpChainStepSnapshot(step) }
     }

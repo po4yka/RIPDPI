@@ -38,7 +38,7 @@ class VpnEngineFailureSettingsTest {
         val backup = BackupSettingsConverter.toMap(settings, BackupVariant.FULL)
         assertFalse(requireNotNull(BackupSettingsConverter.fromMap(backup)).blocksTrafficOnEngineFailure())
 
-        val legacy = mapOf(BackupSettingsConverter.SnapshotKey to """{"appTheme":"dark"}""")
+        val legacy = mapOf(BackupSettingsConverter.LegacySnapshotKey to """{"appTheme":"dark"}""")
         assertTrue(requireNotNull(BackupSettingsConverter.fromMap(legacy)).blocksTrafficOnEngineFailure())
     }
 }

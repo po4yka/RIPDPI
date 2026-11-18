@@ -286,11 +286,11 @@ class BackupExportUseCaseTest {
 
             val full = useCase(settings = settings).gather(BackupVariant.FULL, "1.0.0", 0L)
             val share = useCase(settings = settings).gather(BackupVariant.SHARE, "1.0.0", 0L)
-            val fullPayload = full.settings.values.joinToString(separator = "\n")
+            val restoredFullSettings = requireNotNull(BackupSettingsConverter.fromMap(full.settings))
             val sharePayload = share.settings.values.joinToString(separator = "\n")
 
             assertTrue(BackupSettingsConverter.SnapshotKey in full.settings)
-            assertTrue("relay-secret.example" in fullPayload)
+            assertEquals("relay-secret.example", restoredFullSettings.relayServer)
             assertTrue(share.settings.isEmpty())
             assertFalse(BackupSettingsConverter.SnapshotKey in share.settings)
             assertFalse("relay-secret.example" in sharePayload)

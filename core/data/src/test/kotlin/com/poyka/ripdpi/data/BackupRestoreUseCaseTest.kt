@@ -125,6 +125,44 @@ class BackupRestoreUseCaseTest {
             ).gather(variant, "1.0.0", 0L)
 
     @Test
+    fun `full restore preserves portable settings including routing and boot selection`() =
+        runTest {
+            val portable =
+                settings(4242)
+                    .toBuilder()
+                    .setSplitTunnelMode("include")
+                    .addSplitTunnelPackages("example.selected")
+                    .setStartOnBoot(true)
+                    .clearRelayDnsOverTunnelEnabled()
+                    .setUdpAssociateEnabled(false)
+                    .setDetectionCheckPrivacyModeEnabled(true)
+                    .setEncryptedDnsTlsRootsPem("custom root")
+                    .build()
+            val deviceSettings =
+                portable
+                    .toBuilder()
+                    .setBackupPin("local PIN")
+                    .setAppLockResetNoticePending(true)
+                    .build()
+            seed(settings = deviceSettings)
+            val archive = BackupSerializer.encodeToString(snapshot())
+            fixture.coordinator.runReset {}
+
+            assertTrue(fixture.backupRestoreUseCase().restore(archive, all) is RestoreResult.Success)
+            val restored = fixture.settings.snapshot()
+            assertEquals("include", restored.splitTunnelMode)
+            assertEquals(listOf("example.selected"), restored.splitTunnelPackagesList)
+            assertTrue(restored.startOnBoot)
+            assertFalse(restored.hasRelayDnsOverTunnelEnabled())
+            assertTrue(restored.hasUdpAssociateEnabled())
+            assertFalse(restored.udpAssociateEnabled)
+            assertTrue(restored.detectionCheckPrivacyModeEnabled)
+            assertEquals("custom root", restored.encryptedDnsTlsRootsPem)
+            assertEquals("", restored.backupPin)
+            assertFalse(restored.appLockResetNoticePending)
+        }
+
+    @Test
     fun `restore clears a pending app lock reset notice`() =
         runTest {
             seed(settings = settings(1111).toBuilder().setAppLockResetNoticePending(true).build())

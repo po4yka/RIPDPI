@@ -28,12 +28,12 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /** Current schema version for the [BackupV1] document. */
-const val BackupSchemaVersion: Int = 2
+const val BackupSchemaVersion: Int = 3
 
 /**
  * Oldest schema version this app knows how to migrate forward. Versions below this
  * never shipped a real format, so they are rejected outright rather than migrated.
- * v1 is currently both the oldest and the current version.
+ * Versions 1 and 2 store settings as JSON. Version 3 stores the portable settings protobuf.
  */
 const val OldestSupportedBackupVersion: Int = 1
 

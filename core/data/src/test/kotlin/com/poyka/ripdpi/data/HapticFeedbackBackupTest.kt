@@ -32,13 +32,13 @@ class HapticFeedbackBackupTest {
         val backup = BackupSettingsConverter.toMap(settings, BackupVariant.FULL)
         assertTrue(requireNotNull(BackupSettingsConverter.fromMap(backup)).dynamicColorEnabled)
 
-        val legacy = mapOf(BackupSettingsConverter.SnapshotKey to """{"appTheme":"dark"}""")
+        val legacy = mapOf(BackupSettingsConverter.LegacySnapshotKey to """{"appTheme":"dark"}""")
         assertFalse(requireNotNull(BackupSettingsConverter.fromMap(legacy)).dynamicColorEnabled)
     }
 
     @Test
     fun `legacy FULL backup retains system haptic feedback`() {
-        val backup = mapOf(BackupSettingsConverter.SnapshotKey to """{"appTheme":"dark"}""")
+        val backup = mapOf(BackupSettingsConverter.LegacySnapshotKey to """{"appTheme":"dark"}""")
 
         val restored = requireNotNull(BackupSettingsConverter.fromMap(backup))
 
