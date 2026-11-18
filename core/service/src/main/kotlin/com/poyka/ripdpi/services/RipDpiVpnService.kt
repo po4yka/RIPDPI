@@ -20,11 +20,9 @@ import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import java.util.Optional
 import java.util.UUID
 import javax.inject.Inject
@@ -168,12 +166,7 @@ class RipDpiVpnService :
 
     private suspend fun ensureActiveSession() {
         if (activeOwnership.attached) return
-        // A predecessor can still release process singletons. Reject a bounded wait instead of
-        // acquiring them while its cleanup remains active; STOP must not wait without a bound.
-        previousInstanceTeardown.get()?.takeUnless { it === destroyCleanupJob }?.let { previous ->
-            kotlinx.coroutines.withTimeoutOrNull(previousInstanceTeardownTimeoutMillis) { previous.join() }
-                ?: throw RuntimeCleanupPendingException()
-        }
+        teardown.awaitPrevious(destroyCleanupJob)
         runCatching {
             activeOwnership.attach {
                 // Drop a revoke recorded by an earlier attach that failed before its delegate existed.
@@ -274,24 +267,13 @@ class RipDpiVpnService :
         activeRecoveryGeneration = null
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Destroyed)
         pauseController.detach(this)
-        val earlierTeardown = previousInstanceTeardown.get()
         destroyCleanupJob =
-            kotlinx.coroutines
-                .CoroutineScope(
-                    kotlinx.coroutines.Dispatchers.IO,
-                ).launch {
-                    withContext(NonCancellable) {
-                        // Only the latest job is published: chain it after the earlier ones, so a newer
-                        // instance never attaches while an older teardown can still stop shared singletons.
-                        earlierTeardown?.join()
-                        awaitVpnRuntimeRelease(previousInstanceTeardownTimeoutMillis) {
-                            entryMutex.withLock {
-                                if (::sessionLifecycle.isInitialized) sessionLifecycle.closeRefreshReceiver()
-                                runtimeCommands.releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
-                            }
-                        }
-                    }
-                }.also(previousInstanceTeardown::set)
+            teardown.enqueue {
+                entryMutex.withLock {
+                    if (::sessionLifecycle.isInitialized) sessionLifecycle.closeRefreshReceiver()
+                    runtimeCommands.releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
+                }
+            }
         super.onDestroy()
     }
 
@@ -743,13 +725,7 @@ class RipDpiVpnService :
     }
 
     companion object {
-        /** Teardown of the most recently destroyed instance; a new instance attaches after it. */
-        internal val previousInstanceTeardown =
-            java.util.concurrent.atomic
-                .AtomicReference<kotlinx.coroutines.Job?>(null)
-
-        // Covers final telemetry capture (about 4 s at worst) plus native stop; tests shorten it.
-        @Volatile internal var previousInstanceTeardownTimeoutMillis = 10_000L
+        internal val teardown = ServiceInstanceTeardown()
 
         private const val TunnelIpv4PrefixLen = 32
         private const val TunnelIpv6PrefixLen = 128

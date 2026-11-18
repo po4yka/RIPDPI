@@ -16,10 +16,8 @@ import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import dagger.hilt.EntryPoints
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -104,6 +102,7 @@ class RipDpiProxyService :
 
     private suspend fun ensureActiveSession() {
         if (activeOwnership.attached) return
+        teardown.awaitPrevious(destroyCleanupJob)
         runCatching {
             activeOwnership.attach {
                 activeOwnership.own { stateInitializer?.close() }
@@ -241,19 +240,11 @@ class RipDpiProxyService :
         pauseController.detach(this)
         runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Destroyed)
         destroyCleanupJob =
-            kotlinx.coroutines
-                .CoroutineScope(
-                    kotlinx.coroutines.Dispatchers.IO,
-                ).launch {
-                    withContext(NonCancellable) {
-                        entryMutex.withLock {
-                            val outcome = releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
-                            if (outcome != RuntimeStopOutcome.FullyReleased) {
-                                Logger.e { "Proxy destruction retained cleanup ownership" }
-                            }
-                        }
-                    }
+            teardown.enqueue {
+                entryMutex.withLock {
+                    releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
                 }
+            }
         super.onDestroy()
     }
 
@@ -279,6 +270,9 @@ class RipDpiProxyService :
             }.onFailure { failure ->
                 if (failure !is Exception || failure is kotlinx.coroutines.CancellationException) throw failure
                 Logger.e { "Proxy recovery prerequisite failed: ${failure::class.java.simpleName}" }
+                if (failure is RuntimeCleanupPendingException) {
+                    serviceStateStore.emitFailed(Sender.Proxy, RuntimeCleanupIncompleteFailure)
+                }
                 if (activeOwnership.hasOwnership) {
                     pauseController.retainPartialCleanup(pauseHost)
                 } else {
@@ -402,5 +396,9 @@ class RipDpiProxyService :
         sessionStateStore = null
         stateInitializer = null
         sessionComponent = null
+    }
+
+    private companion object {
+        val teardown = ServiceInstanceTeardown()
     }
 }

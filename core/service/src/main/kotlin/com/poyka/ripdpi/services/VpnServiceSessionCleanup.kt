@@ -1,11 +1,8 @@
 package com.poyka.ripdpi.services
 
-import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 
 internal class VpnServiceSessionCleanup {
     private var nativeProtectUnregistered = false
@@ -72,31 +69,3 @@ internal class VpnServiceSessionCleanup {
         }
     }
 }
-
-// Keep protection and the old owner until native teardown is confirmed, including after failure.
-internal suspend fun awaitVpnRuntimeRelease(
-    timeoutMillis: Long,
-    release: suspend () -> RuntimeStopOutcome,
-) {
-    var reportedPending = false
-    while (true) {
-        var pendingFailure: Exception? = null
-        val outcome =
-            try {
-                withTimeoutOrNull(timeoutMillis) { release() }
-            } catch (
-                @Suppress("TooGenericExceptionCaught") failure: Exception,
-            ) {
-                pendingFailure = failure
-                RuntimeStopOutcome.CleanupPending
-            }
-        if (outcome == RuntimeStopOutcome.FullyReleased) return
-        if (!reportedPending) {
-            Logger.e(pendingFailure) { "VPN destruction retained cleanup ownership" }
-            reportedPending = true
-        }
-        delay(VpnDestructionRetryDelayMillis)
-    }
-}
-
-private const val VpnDestructionRetryDelayMillis = 250L

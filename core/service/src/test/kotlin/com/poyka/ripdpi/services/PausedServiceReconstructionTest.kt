@@ -122,7 +122,7 @@ class PausedServiceReconstructionTest {
                 }
             lifecycle.create()
             val previousTeardown = Job()
-            RipDpiVpnService.previousInstanceTeardown.set(previousTeardown)
+            RipDpiVpnService.teardown.latest.set(previousTeardown)
             try {
                 val attach = async(Dispatchers.Default) { runCatching { attachPausedServiceSession(service) } }
                 delay(200)
@@ -231,8 +231,8 @@ class PausedServiceReconstructionTest {
             val attempted = CompletableDeferred<Unit>()
             val allowRelease = CompletableDeferred<Unit>()
             val ownership = ReflectionHelpers.getField<ActiveSessionOwnership>(old, "activeOwnership")
-            val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
-            RipDpiVpnService.previousInstanceTeardownTimeoutMillis = 100L
+            val defaultTimeout = RipDpiVpnService.teardown.timeoutMillis
+            RipDpiVpnService.teardown.timeoutMillis = 100L
             ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { runtime ->
                 ownership.own {
                     attempted.complete(Unit)
@@ -257,7 +257,7 @@ class PausedServiceReconstructionTest {
                     assertEquals(1, constructions.get())
                 } finally {
                     allowRelease.complete(Unit)
-                    RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
+                    RipDpiVpnService.teardown.timeoutMillis = defaultTimeout
                     awaitPausedServiceDestruction(old)
                     replacementLifecycle.destroy()
                     awaitPausedServiceDestruction(replacement)
@@ -276,9 +276,9 @@ class PausedServiceReconstructionTest {
             initializePausedVpnService(service, fixture)
             lifecycle.create()
             val earlierTeardown = Job()
-            val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
-            RipDpiVpnService.previousInstanceTeardownTimeoutMillis = 100L
-            RipDpiVpnService.previousInstanceTeardown.set(earlierTeardown)
+            val defaultTimeout = RipDpiVpnService.teardown.timeoutMillis
+            RipDpiVpnService.teardown.timeoutMillis = 100L
+            RipDpiVpnService.teardown.latest.set(earlierTeardown)
             try {
                 lifecycle.destroy()
                 val teardown = checkNotNull(ReflectionHelpers.getField<Job?>(service, "destroyCleanupJob"))
@@ -288,7 +288,7 @@ class PausedServiceReconstructionTest {
                 earlierTeardown.complete()
                 awaitPausedServiceDestruction(service)
             } finally {
-                RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
+                RipDpiVpnService.teardown.timeoutMillis = defaultTimeout
                 earlierTeardown.complete()
                 awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
@@ -307,9 +307,9 @@ class PausedServiceReconstructionTest {
             service.sessionComponentBuilderProvider = Provider { throw graphFailure }
             lifecycle.create()
             val hungTeardown = Job()
-            val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
-            RipDpiVpnService.previousInstanceTeardownTimeoutMillis = 100L
-            RipDpiVpnService.previousInstanceTeardown.set(hungTeardown)
+            val defaultTimeout = RipDpiVpnService.teardown.timeoutMillis
+            RipDpiVpnService.teardown.timeoutMillis = 100L
+            RipDpiVpnService.teardown.latest.set(hungTeardown)
             try {
                 val failure =
                     withTimeout(5_000) { runCatching { attachPausedServiceSession(service) }.exceptionOrNull() }
@@ -320,7 +320,7 @@ class PausedServiceReconstructionTest {
                 hungTeardown.complete()
                 assertSame(graphFailure, runCatching { attachPausedServiceSession(service) }.exceptionOrNull())
             } finally {
-                RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
+                RipDpiVpnService.teardown.timeoutMillis = defaultTimeout
                 hungTeardown.complete()
                 lifecycle.destroy()
                 awaitPausedServiceDestruction(service)
@@ -337,9 +337,9 @@ class PausedServiceReconstructionTest {
             initializePausedVpnService(service, fixture)
             lifecycle.create()
             val hungTeardown = Job()
-            val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
-            RipDpiVpnService.previousInstanceTeardownTimeoutMillis = 100L
-            RipDpiVpnService.previousInstanceTeardown.set(hungTeardown)
+            val defaultTimeout = RipDpiVpnService.teardown.timeoutMillis
+            RipDpiVpnService.teardown.timeoutMillis = 100L
+            RipDpiVpnService.teardown.latest.set(hungTeardown)
             try {
                 val receipt = fixture.authority.reserveStart(Mode.VPN)
                 val lease = checkNotNull(fixture.arbiter.dispatchExplicit(receipt))
@@ -361,7 +361,7 @@ class PausedServiceReconstructionTest {
                 assertFalse(ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership").hasOwnership)
                 checkNotNull(fixture.arbiter.tryReserveDoqSave { true }).close()
             } finally {
-                RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
+                RipDpiVpnService.teardown.timeoutMillis = defaultTimeout
                 hungTeardown.complete()
                 lifecycle.destroy()
                 awaitPausedServiceDestruction(service)
