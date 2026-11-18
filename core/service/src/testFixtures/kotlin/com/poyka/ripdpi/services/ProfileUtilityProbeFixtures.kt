@@ -59,6 +59,13 @@ class ProfileUtilityProbeFixtures(
         }
 }
 
+/** Returns a controlled successful HTTP result only for the expected probe target. */
+fun reachableCandidateHttpProbe(expectedUrl: String): CandidateHttpPayloadProbe =
+    CandidateHttpPayloadProbe(
+        tcp = { _, url -> RelayTcpProbeResult(url == expectedUrl) },
+        nanoTime = { 0L },
+    )
+
 private fun resolved(
     profile: RelayProfileRecord,
     credentials: RelayCredentialRecord,
