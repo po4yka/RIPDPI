@@ -27,6 +27,7 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.testing.Test
 import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.io.ByteArrayOutputStream
 import java.util.Properties
 import javax.inject.Inject
 
@@ -127,6 +128,9 @@ abstract class GenerateRustNoticesTask
         abstract val prebuiltNotices: RegularFileProperty
 
         @get:Input
+        abstract val cargoAboutVersion: Property<String>
+
+        @get:Input
         abstract val required: Property<Boolean>
 
         @get:OutputDirectory
@@ -147,21 +151,32 @@ abstract class GenerateRustNoticesTask
                 prebuiltNotices.get().asFile.copyTo(target)
                 return
             }
+            val version = cargoAboutVersion.get()
+            val install =
+                "cargo-about $version (cargo install cargo-about@$version --locked --features cli), " +
+                    "or -Pripdpi.prebuiltRustNoticesDir with prebuilt jniLibs"
             if (!cargoAbout.isPresent) {
-                val message =
-                    "Rust third-party notices need cargo-about 0.9.3 " +
-                        "(cargo install cargo-about@0.9.3 --locked --features cli), " +
-                        "or -Pripdpi.prebuiltRustNoticesDir with prebuilt jniLibs."
+                val message = "Rust third-party notices need $install."
                 if (required.get()) throw GradleException(message)
                 logger.warn("$message The open-source licenses screen omits Rust crates in this build.")
                 return
+            }
+            val executable = cargoAbout.get().asFile.absolutePath
+            val versionOutput = ByteArrayOutputStream()
+            execOperations.exec {
+                commandLine(executable, "--version")
+                standardOutput = versionOutput
+            }
+            val installed = versionOutput.toString().trim()
+            if (installed.substringAfterLast(' ') != version) {
+                throw GradleException("$executable reports '$installed'; Rust third-party notices need $install.")
             }
             val rawJson = temporaryDir.resolve("cargo-about.json")
             val config = aboutConfig.get().asFile
             execOperations.exec {
                 workingDir = config.parentFile
                 commandLine(
-                    cargoAbout.get().asFile.absolutePath,
+                    executable,
                     "generate",
                     "--locked",
                     "--format",
@@ -200,12 +215,22 @@ abstract class GenerateRustNoticesTask
                                 "name" to crate["name"],
                                 "version" to crate["version"],
                                 "license" to (crate["license"] ?: ""),
+                                "note" to noticeText(crate.getValue("manifest_path") as String),
                                 "licenses" to crateLicenses.getValue(key),
                             )
                         },
                 ),
             )
         }
+
+        // Apache-2.0 section 4(d): redistributions carry the upstream NOTICE text.
+        private fun noticeText(manifestPath: String): String =
+            File(manifestPath)
+                .parentFile
+                .listFiles { file -> file.isFile && file.name.uppercase().startsWith("NOTICE") }
+                .orEmpty()
+                .sortedBy(File::getName)
+                .joinToString("\n\n") { it.readText().trim() }
     }
 
 // Gives each variant its own copy of the shared notices, as AGP's generated-asset API requires.
@@ -227,7 +252,7 @@ abstract class CopyRustNoticesTask : DefaultTask() {
         target.deleteRecursively()
         notices.files.filter(File::isDirectory).forEach { it.copyRecursively(target) }
         if (required.get() && !target.resolve("notices/${RustNotices.FILE}").isFile) {
-            throw GradleException("$name: release builds need notices/${RustNotices.FILE}; install cargo-about 0.9.3.")
+            throw GradleException("$name: release builds need notices/${RustNotices.FILE}; install cargo-about.")
         }
     }
 }
@@ -800,6 +825,7 @@ val generateRustNotices =
                 .map(::File)
                 .filter(File::canExecute)
         cargoAbout.fileProvider(installedCargoAbout)
+        cargoAboutVersion.set(libs.versions.cargo.about)
         prebuiltNotices.fileProvider(
             providers
                 .gradleProperty("ripdpi.prebuiltRustNoticesDir")

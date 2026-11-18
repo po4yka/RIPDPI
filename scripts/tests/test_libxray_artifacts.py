@@ -115,7 +115,7 @@ class LibXrayArtifactTest(unittest.TestCase):
             ARTIFACTS.create(directory, sources, "arm64-v8a")
             go.assert_called_once_with(["go", "env", "GOVERSION"], cwd=sources, text=True)
 
-    def test_notices_merge_abis_share_texts_and_fill_missing_versions_and_licenses(self) -> None:
+    def test_notices_merge_abis_share_texts_fill_missing_versions_licenses_and_notices(self) -> None:
         versions, _, _ = ARTIFACTS.policy()
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -123,6 +123,7 @@ class LibXrayArtifactTest(unittest.TestCase):
             mit.write_text("MIT text")
             nat.mkdir()
             (nat / "LICENSE").write_text("Apache short form")
+            (nat / "NOTICE").write_text("Nat notice\n")
             tool = directory / "go-licenses"
             tool.write_text(f"#!{sys.executable}\n" +
                             "import os\n" +
@@ -138,7 +139,7 @@ class LibXrayArtifactTest(unittest.TestCase):
             notices = json.loads((directory / ARTIFACTS.NOTICES).read_text())
         self.assertEqual([{"text": "Apache short form"}, {"text": "MIT text"}], notices["licenses"])
         self.assertEqual([
-            {"name": "github.com/jackpal/go-nat-pmp", "version": "v1.1.0", "licenses": [0], "note": "", "license": ""},
+            {"name": "github.com/jackpal/go-nat-pmp", "version": "v1.1.0", "licenses": [0], "note": "Nat notice", "license": ""},
             {"name": "github.com/xtls/libxray", "version": versions["libxray"], "licenses": [1], "note": ARTIFACTS.PATCHED_NOTE,
              "license": "MIT"},
             {"name": "golang.zx2c4.com/wireguard", "version": "v1", "licenses": [1], "note": "", "license": "MIT"},

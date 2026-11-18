@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.customization
 
+import org.json.JSONException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -56,5 +58,12 @@ class OpenSourceLicensesTest {
         assertEquals("Source is available.\n\nMozilla Public License Version 2.0", xrayCore.text)
         assertEquals("Mozilla Public License Version 2.0", parsed.getValue("go/github.com/xtls/reality@0.1.0").text)
         assertEquals("v1.1.0", parsed.getValue("go/github.com/jackpal/go-nat-pmp@v1.1.0").subtitle)
+    }
+
+    @Test
+    fun malformedPackageNoticesFailWithTheCaughtException() {
+        // The screen catches JSONException and drops the file; any other exception would crash it.
+        listOf("""{"licenses":[""", """{"licenses":[]}""", """{"licenses":[],"packages":[{"name":"a"}]}""")
+            .forEach { json -> assertThrows(JSONException::class.java) { parsePackageNotices(json, idPrefix = "go") } }
     }
 }

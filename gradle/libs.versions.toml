@@ -109,6 +109,8 @@ xray-core = "1.260327.1-0.20261109052709-676eaf66f8f0"
 gomobile = "0.0.0-20261011034528-197770444867"
 # Writes the Go module notices that ship with the libXray artifact.
 go-licenses = "2.0.1"
+# Writes the Rust crate notices (:app:generateRustNotices).
+cargo-about = "0.9.3"
 libxray-canary = "main"
 xray-core-canary = "main"
 

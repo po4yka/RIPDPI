@@ -1,6 +1,8 @@
 # cargo-about configuration for the in-app third-party notices.
 # :app runs `cargo about generate --format json` against this workspace.
 # deny.toml stays the license policy gate; this list only has to accept what it allows.
+# The list covers every workspace member with default features. The Android build compiles a subset
+# of those members with default features, so the list can name extra crates but never misses one.
 accepted = [
     "MIT",
     "AGPL-3.0-only",

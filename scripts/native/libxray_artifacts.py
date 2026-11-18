@@ -206,6 +206,12 @@ def module_license(sources: Path, module: str) -> Path:
     return found[0]
 
 
+def notice_files(license_files: list[Path]) -> list[Path]:
+    folders = dict.fromkeys(file.parent for file in license_files)
+    return [path for folder in folders for path in sorted(folder.iterdir())
+            if path.is_file() and path.name.upper().startswith("NOTICE")]
+
+
 def write_notices(directory: Path, sources: Path, abis: str) -> None:
     versions, _, patches = policy()
     # Local replace directives report no version; use the pins they were cloned from.
@@ -228,12 +234,14 @@ def write_notices(directory: Path, sources: Path, abis: str) -> None:
         patched = next((pin for module, pin in replaced.items() if name == module or name.startswith(module + "/")), None)
         if version == "Unknown":
             version = patched
-        indexes = []
-        for path in dict.fromkeys(licenses.values()):
-            text = (module_license(sources, name) if path == "Unknown" else Path(path)).read_text(errors="replace")
-            indexes.append(texts.setdefault(text, len(texts)))
+        files = [module_license(sources, name) if path == "Unknown" else Path(path)
+                 for path in dict.fromkeys(licenses.values())]
+        indexes = [texts.setdefault(file.read_text(errors="replace"), len(texts)) for file in files]
         notes = ([PATCHED_NOTE] if patched else []) + ([MPL_NOTE.format(name=name)] if "MPL-2.0" in licenses else [])
-        packages.append({"name": name, "version": version, "licenses": indexes, "note": " ".join(notes),
+        # Apache-2.0 section 4(d): redistributions carry the upstream NOTICE text.
+        notices = [notice.read_text(errors="replace").strip() for notice in notice_files(files)]
+        packages.append({"name": name, "version": version, "licenses": indexes,
+                         "note": "\n\n".join(filter(None, [" ".join(notes), *notices])),
                          "license": ", ".join(sorted(n for n in licenses if n != "Unknown"))})
     target = directory / NOTICES
     target.parent.mkdir(parents=True, exist_ok=True)

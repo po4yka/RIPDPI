@@ -176,11 +176,17 @@ runs:
       run: rustup target add ${{ inputs.rust-targets }}
 
     # The app build generates the Rust third-party notices with cargo-about.
+    - name: Read cargo-about pin
+      id: cargo-about
+      if: inputs.setup-rust == 'true'
+      shell: bash
+      run: echo "version=$(python3 -c 'import tomllib; print(tomllib.load(open("gradle/libs.versions.toml", "rb"))["versions"]["cargo-about"])')" >> "$GITHUB_OUTPUT"
+
     - name: Install cargo-about
       if: inputs.setup-rust == 'true'
       uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
       with:
-        tool: cargo-about@0.9.3
+        tool: cargo-about@${{ steps.cargo-about.outputs.version }}
 
     - name: Install native toolchain via android CLI
       if: inputs.skip-android-sdk-ndk != 'true' && inputs.setup-android-ndk == 'true'
