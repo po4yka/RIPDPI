@@ -2,7 +2,7 @@
 id: AND-1795015211660121
 title: Preload a preset in the full app and remove the simple flavor
 kind: feature
-status: doing
+status: review
 area: android
 priority: medium
 owner: Implementer
