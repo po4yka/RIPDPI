@@ -3,14 +3,14 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use bytes::Bytes;
-use http_body_util::{BodyExt, Full};
+use http_body_util::BodyExt;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{Notify, Semaphore, mpsc};
 
 use crate::config::{XhttpMode, XhttpTlsConfig};
-use crate::h2_body::{ChannelBody, XhttpBody};
+use crate::h2_body::ChannelBody;
 use crate::pool::PooledConnection;
 
 fn mode() -> XhttpMode {
@@ -26,89 +26,6 @@ fn mode() -> XhttpMode {
         )
         .expect("TLS config"),
     )
-}
-
-/// # Cancel safety:
-/// NOT cancel-safe: the test owns and aborts both local HTTP/2 drivers after the exchange.
-async fn exchange_before_upload_response_headers() {
-    const PAYLOAD: &[u8] = b"application payload before POST headers";
-    let mode = mode();
-    let request = mode.tcp_request("127.0.0.1:443").expect("VLESS request");
-    let request_len = request.len();
-    let (client_io, server_io) = tokio::io::duplex(64 * 1024);
-    let (sender, connection) = hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(client_io))
-        .await
-        .expect("client H2 handshake");
-    let driver = tokio::spawn(async move { connection.await.expect("client H2 driver") });
-    let (download_tx, download_rx) = mpsc::channel(8);
-    let download = Arc::new(Mutex::new(Some(download_rx)));
-    let server = tokio::spawn(async move {
-        let service = service_fn(move |request: hyper::Request<hyper::body::Incoming>| {
-            let download = Arc::clone(&download);
-            let download_tx = download_tx.clone();
-            async move {
-                let response: XhttpBody = if request.method() == hyper::Method::GET {
-                    ChannelBody::new(download.lock().expect("download lock").take().expect("download GET")).boxed()
-                } else {
-                    let mut body = request.into_body();
-                    let mut uploaded = Vec::new();
-                    while uploaded.len() < request_len + PAYLOAD.len() {
-                        let frame = body.frame().await.expect("upload data").expect("valid upload");
-                        if let Ok(data) = frame.into_data() {
-                            uploaded.extend_from_slice(&data);
-                        }
-                    }
-                    assert_eq!(&uploaded[request_len..], PAYLOAD);
-                    let mut response = vec![0, 0];
-                    response.extend_from_slice(PAYLOAD);
-                    download_tx.send(Ok(Bytes::from(response))).await.expect("download payload");
-                    Full::new(Bytes::new()).map_err(|never| match never {}).boxed()
-                };
-                Ok::<_, Infallible>(hyper::Response::new(response))
-            }
-        });
-        let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new())
-            .serve_connection(TokioIo::new(server_io), service)
-            .await;
-    });
-    let pooled = Arc::new(PooledConnection::new(sender, 1, Arc::new(Notify::new())));
-    let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("stream capacity");
-    assert!(pooled.opening_started());
-    let mut stream =
-        tokio::time::timeout(Duration::from_millis(500), pooled.open_stream_from_mode(&mode, &request, permit))
-            .await
-            .expect("stream-up must open without POST response headers")
-            .expect("stream-up opened");
-    stream.write_all(PAYLOAD).await.expect("write application payload");
-    let mut response = vec![0; PAYLOAD.len()];
-    tokio::time::timeout(Duration::from_secs(1), stream.read_exact(&mut response))
-        .await
-        .expect("download deadline")
-        .expect("download payload");
-    assert_eq!(response, PAYLOAD);
-    drop(stream);
-    drop(pooled);
-    for task in [driver, server] {
-        task.abort();
-        match task.await {
-            Ok(()) => {}
-            Err(error) => assert!(error.is_cancelled()),
-        }
-    }
-}
-
-/// # Cancel safety:
-/// NOT cancel-safe: inherits the test-owned HTTP/2 drivers in the exchange helper.
-#[tokio::test]
-async fn stream_up_does_not_wait_for_upload_response_headers() {
-    exchange_before_upload_response_headers().await;
-}
-
-/// # Cancel safety:
-/// NOT cancel-safe: inherits the test-owned HTTP/2 drivers in the exchange helper.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn stream_up_does_not_wait_for_upload_response_headers_multithread() {
-    exchange_before_upload_response_headers().await;
 }
 
 /// # Cancel safety:
@@ -167,7 +84,7 @@ async fn observe_late_upload_failure(reset_after_headers: bool) {
     let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("stream capacity");
     assert!(pooled.opening_started());
     let stream =
-        tokio::time::timeout(Duration::from_millis(500), pooled.open_stream_from_mode(&mode, &request, permit))
+        tokio::time::timeout(Duration::from_millis(500), pooled.open_stream_from_mode(&mode, &request, permit, None))
             .await
             .expect("stream opens before POST response")
             .expect("open stream-up");

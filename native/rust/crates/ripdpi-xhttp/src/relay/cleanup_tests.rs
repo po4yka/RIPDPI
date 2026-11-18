@@ -114,10 +114,13 @@ impl Peer {
         let permit = Arc::clone(&self.permits).acquire_owned().await.expect("stream capacity");
         let request = self.mode.tcp_request("127.0.0.1:443").expect("VLESS request");
         assert!(self.pooled.opening_started());
-        tokio::time::timeout(Duration::from_secs(1), self.pooled.open_stream_from_mode(&self.mode, &request, permit))
-            .await
-            .expect("open deadline")
-            .expect("open stream")
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            self.pooled.open_stream_from_mode(&self.mode, &request, permit, None),
+        )
+        .await
+        .expect("open deadline")
+        .expect("open stream")
     }
 
     /// # Cancel safety:
@@ -289,10 +292,11 @@ async fn dropping_stream_cancels_pending_upload_response_headers() {
     let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("stream capacity");
     let request = mode.tcp_request("127.0.0.1:443").expect("VLESS request");
     assert!(pooled.opening_started());
-    let stream = tokio::time::timeout(Duration::from_secs(1), pooled.open_stream_from_mode(&mode, &request, permit))
-        .await
-        .expect("open without POST response headers")
-        .expect("open stream");
+    let stream =
+        tokio::time::timeout(Duration::from_secs(1), pooled.open_stream_from_mode(&mode, &request, permit, None))
+            .await
+            .expect("open without POST response headers")
+            .expect("open stream");
     tokio::time::timeout(Duration::from_secs(1), seen.notified()).await.expect("POST reached peer");
     drop(stream);
     tokio::time::timeout(Duration::from_secs(1), ended_rx)

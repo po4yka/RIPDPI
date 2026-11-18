@@ -7,17 +7,22 @@ use http::Request;
 use http::header::{CONTENT_TYPE, REFERER};
 use http_body_util::{BodyExt, Empty};
 use hyper::body::{Body, Frame};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 pub(crate) type XhttpBody = http_body_util::combinators::BoxBody<Bytes, io::Error>;
 
 pub(crate) struct ChannelBody {
     receiver: mpsc::Receiver<io::Result<Bytes>>,
+    started: Option<oneshot::Sender<()>>,
 }
 
 impl ChannelBody {
     pub(crate) fn new(receiver: mpsc::Receiver<io::Result<Bytes>>) -> Self {
-        Self { receiver }
+        Self { receiver, started: None }
+    }
+    pub(crate) fn with_start_notice(mut self, started: oneshot::Sender<()>) -> Self {
+        self.started = Some(started);
+        self
     }
 }
 
@@ -30,7 +35,12 @@ impl Body for ChannelBody {
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         match self.receiver.poll_recv(cx) {
-            Poll::Ready(Some(Ok(bytes))) => Poll::Ready(Some(Ok(Frame::data(bytes)))),
+            Poll::Ready(Some(Ok(bytes))) => {
+                if let Some(started) = self.started.take() {
+                    let _ = started.send(());
+                }
+                Poll::Ready(Some(Ok(Frame::data(bytes))))
+            }
             Poll::Ready(Some(Err(error))) => Poll::Ready(Some(Err(error))),
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,

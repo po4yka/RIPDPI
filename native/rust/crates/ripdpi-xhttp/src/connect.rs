@@ -68,7 +68,7 @@ where
     T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
 {
     let owned_tasks = CarrierTaskOwner::new();
-    let (sender, connection) = http2::Builder::new(owned_tasks.executor())
+    let (sender, mut connection) = http2::Builder::new(owned_tasks.executor())
         .timer(TokioTimer::new())
         .keep_alive_interval(H2_KEEP_ALIVE_INTERVAL)
         .keep_alive_timeout(H2_KEEP_ALIVE_TIMEOUT)
@@ -79,16 +79,27 @@ where
 
     let pooled = Arc::new(PooledConnection::new(sender, max_concurrent_streams, pool_changed));
     let pooled_for_task = Arc::downgrade(&pooled);
+    let (limits, mut queries) = tokio::sync::mpsc::unbounded_channel::<tokio::sync::oneshot::Sender<usize>>();
     let driver = tokio::spawn(async move {
-        if let Err(error) = connection.await {
-            tracing::debug!(error = %error, "xHTTP H2 connection closed");
+        loop {
+            tokio::select! {
+                result = &mut connection => {
+                    if let Err(error) = result {
+                        tracing::debug!(error = %error, "xHTTP H2 connection closed");
+                    }
+                    break;
+                }
+                Some(reply) = queries.recv() => {
+                    let _ = reply.send(connection.current_max_send_streams());
+                }
+            }
         }
         owned_tasks.close().await;
         if let Some(pooled) = pooled_for_task.upgrade() {
             pooled.mark_closed();
         }
     });
-    pooled.attach_driver(driver);
+    pooled.attach_driver(driver, limits);
     Ok(pooled)
 }
 

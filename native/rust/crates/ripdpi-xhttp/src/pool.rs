@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::task::Poll;
 
 use hyper::client::conn::http2;
-use tokio::sync::{Mutex, Notify, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{Mutex, Notify, OwnedSemaphorePermit, Semaphore, mpsc, oneshot};
 use tokio::task::JoinHandle;
 
 use crate::client::XhttpClientInner;
@@ -15,6 +15,8 @@ use crate::h2_body::XhttpBody;
 pub(crate) struct PooledConnection {
     pub(crate) sender: Mutex<http2::SendRequest<XhttpBody>>,
     permits: Arc<Semaphore>,
+    capacity: u32,
+    peer_streams: AtomicUsize,
     closed: AtomicBool,
     draining: AtomicBool,
     pool_changed: Arc<Notify>,
@@ -32,6 +34,7 @@ struct StreamState {
 // Abort the owned H2 driver when the pooled connection is dropped.
 struct AbortOnDrop {
     task: JoinHandle<()>,
+    stream_limits: mpsc::UnboundedSender<oneshot::Sender<usize>>,
 }
 
 impl Drop for AbortOnDrop {
@@ -73,9 +76,12 @@ impl PooledConnection {
         max_concurrent_streams: usize,
         pool_changed: Arc<Notify>,
     ) -> Self {
+        let capacity = u32::try_from(max_concurrent_streams).unwrap_or(u32::MAX);
         Self {
+            capacity,
+            peer_streams: AtomicUsize::new(usize::MAX),
             sender: Mutex::new(sender),
-            permits: Arc::new(Semaphore::new(max_concurrent_streams)),
+            permits: Arc::new(Semaphore::new(capacity as usize)),
             closed: AtomicBool::new(false),
             draining: AtomicBool::new(false),
             pool_changed,
@@ -84,10 +90,56 @@ impl PooledConnection {
         }
     }
 
-    pub(crate) fn attach_driver(&self, driver: JoinHandle<()>) {
+    pub(crate) fn attach_driver(
+        &self,
+        driver: JoinHandle<()>,
+        stream_limits: mpsc::UnboundedSender<oneshot::Sender<usize>>,
+    ) {
         let mut guard = self.driver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         debug_assert!(guard.is_none(), "xHTTP connection driver attached twice");
-        *guard = Some(AbortOnDrop { task: driver });
+        *guard = Some(AbortOnDrop { task: driver, stream_limits });
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: dropping the reply discards only a read of the peer settings.
+    pub(crate) async fn check_stream_up_capacity(&self) -> io::Result<()> {
+        let (reply, limit) = oneshot::channel();
+        {
+            let driver = self.driver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let Some(driver) = driver.as_ref() else {
+                // Only in-memory test carriers run their Hyper driver externally.
+                return Ok(());
+            };
+            driver.stream_limits.send(reply).map_err(|_| io::Error::other("xHTTP driver closed"))?;
+        }
+        let limit = limit.await.map_err(|_| io::Error::other("xHTTP driver closed"))?;
+        if self.peer_streams.swap(limit, Ordering::AcqRel) != limit {
+            self.pool_changed.notify_waiters();
+        }
+        if limit < 2 {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "xHTTP stream-up needs two concurrent HTTP/2 streams",
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn needs_split(&self) -> bool {
+        self.peer_streams.load(Ordering::Acquire) < 2
+    }
+
+    fn peer_sessions(&self) -> usize {
+        (self.peer_streams.load(Ordering::Acquire) / 2).max(1)
+    }
+
+    pub(crate) fn active_at_peer_capacity(&self) -> bool {
+        self.stream_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).active >= self.peer_sessions()
+    }
+
+    fn accepts_opening(&self) -> bool {
+        let state = self.stream_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        self.is_usable() && state.active + state.pending < self.peer_sessions()
     }
 
     pub(crate) fn mark_closed(&self) {
@@ -99,7 +151,7 @@ impl PooledConnection {
     // Serialize admission, pending-to-active transitions and retirement.
     pub(crate) fn opening_started(&self) -> bool {
         let mut state = self.stream_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if !self.is_usable() {
+        if !self.is_usable() || state.active + state.pending >= self.peer_sessions() {
             return false;
         }
         state.pending += 1;
@@ -112,6 +164,7 @@ impl PooledConnection {
         state.pending -= 1;
         state.retire_when_idle |= cancelled;
         self.update_retirement(&state);
+        self.pool_changed.notify_waiters();
     }
 
     pub(crate) fn stream_started(&self) {
@@ -125,6 +178,7 @@ impl PooledConnection {
         debug_assert!(state.active > 0, "xHTTP stream finished without a matching start");
         state.active -= 1;
         self.update_retirement(&state);
+        self.pool_changed.notify_waiters();
     }
 
     fn update_retirement(&self, state: &StreamState) {
@@ -166,6 +220,18 @@ impl PooledConnection {
 pub(crate) async fn acquire_connection(
     inner: &XhttpClientInner,
 ) -> io::Result<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
+    acquire_carrier(inner, false, None).await
+}
+
+/// # Cancel safety:
+/// cancel-safe except for fairness: partial reservations and queued acquires drop with the future.
+pub(crate) async fn acquire_carrier(
+    inner: &XhttpClientInner,
+    exclusive: bool,
+    excluded: Option<&Arc<PooledConnection>>,
+) -> io::Result<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
+    let eligible = |connection: &Arc<PooledConnection>| !excluded.is_some_and(|other| Arc::ptr_eq(other, connection));
+    let permits = |connection: &PooledConnection| if exclusive { connection.capacity } else { 1 };
     loop {
         // Registered before any pool check, so a slot released after the
         // checks below still wakes this open instead of being missed.
@@ -173,13 +239,14 @@ pub(crate) async fn acquire_connection(
         tokio::pin!(pool_changed);
         pool_changed.as_mut().enable();
 
-        if let Some((connection, permit)) = try_acquire_existing(inner).await {
-            return Ok((connection, permit));
-        }
-
         let should_create = {
             let mut state = inner.state.lock().await;
             state.connections.retain(|connection| !connection.is_closed());
+            for connection in state.connections.iter().filter(|c| c.accepts_opening() && eligible(c)) {
+                if let Ok(permit) = connection.permits.clone().try_acquire_many_owned(permits(connection)) {
+                    return Ok((Arc::clone(connection), permit));
+                }
+            }
             if state.connections.len() + inner.creating_connections.load(Ordering::Acquire) < inner.max_connections {
                 Some(CreationSlot::reserve(inner.creating_connections.clone(), inner.pool_changed.clone()))
             } else {
@@ -206,7 +273,7 @@ pub(crate) async fn acquire_connection(
                     let permit = connection
                         .permits
                         .clone()
-                        .try_acquire_owned()
+                        .try_acquire_many_owned(permits(&connection))
                         .map_err(|_| io::Error::other("xHTTP connection created without stream capacity"))?;
                     let mut state = inner.state.lock().await;
                     state.connections.push(connection.clone());
@@ -216,24 +283,32 @@ pub(crate) async fn acquire_connection(
                 Err(error) => {
                     let state = inner.state.lock().await;
                     drop(creation_slot);
-                    if state.connections.is_empty() {
+                    if !state.connections.iter().any(eligible) {
                         return Err(error);
                     }
+                    // Recheck existing carriers, then wait for someone else's change.
+                    // Dropping our own creation slot just notified the old future.
+                    pool_changed.set(inner.pool_changed.notified());
+                    pool_changed.as_mut().enable();
                 }
             }
         }
 
-        let (candidates, draining) = {
+        let (candidates, occupied) = {
             let state = inner.state.lock().await;
             (
-                state.connections.iter().filter(|connection| connection.is_usable()).cloned().collect::<Vec<_>>(),
-                state.connections.iter().any(|connection| !connection.is_usable()),
+                state
+                    .connections
+                    .iter()
+                    .filter(|connection| connection.accepts_opening() && eligible(connection))
+                    .cloned()
+                    .collect::<Vec<_>>(),
+                state.connections.iter().any(|connection| eligible(connection) && !connection.is_closed()),
             )
         };
         if candidates.is_empty() {
-            // Only an in-flight creation can change the pool from here; with
-            // none left, the next pass prunes closed carriers and creates one.
-            if draining || inner.creating_connections.load(Ordering::Acquire) > 0 {
+            // Stream completion and carrier creation both wake the queue.
+            if occupied || inner.creating_connections.load(Ordering::Acquire) > 0 {
                 pool_changed.await;
             }
             continue;
@@ -241,7 +316,7 @@ pub(crate) async fn acquire_connection(
         // Queue on every carrier; dropping an unselected acquire releases its reservation.
         let mut acquisitions = candidates
             .iter()
-            .map(|connection| Box::pin(connection.permits.clone().acquire_owned()))
+            .map(|connection| Box::pin(connection.permits.clone().acquire_many_owned(permits(connection))))
             .collect::<Vec<_>>();
         let (index, permit) = tokio::select! {
             () = &mut pool_changed => continue,
@@ -260,24 +335,12 @@ pub(crate) async fn acquire_connection(
             Err(_) if connection.is_closed() => continue,
             Err(_) => return Err(io::Error::other("xHTTP stream permit channel closed")),
         };
-        if !connection.is_usable() {
+        if !connection.accepts_opening() {
             drop(permit);
             continue;
         }
         return Ok((connection, permit));
     }
-}
-
-/// cancel-safe: Tokio mutex and semaphore acquisition are cancel-safe, and a
-/// successfully acquired permit is returned or dropped in this poll cycle.
-async fn try_acquire_existing(inner: &XhttpClientInner) -> Option<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
-    let state = inner.state.lock().await;
-    state.connections.iter().find_map(|connection| {
-        if !connection.is_usable() {
-            return None;
-        }
-        connection.permits.clone().try_acquire_owned().ok().map(|permit| (connection.clone(), permit))
-    })
 }
 
 #[cfg(test)]
@@ -336,11 +399,14 @@ mod tests {
         let pooled = Arc::new(PooledConnection::new(sender, 1, Arc::new(Notify::new())));
         let (started_tx, started_rx) = oneshot::channel();
         let (dropped_tx, dropped_rx) = oneshot::channel();
-        pooled.attach_driver(tokio::spawn(async move {
-            let _notice = DropNotice(Some(dropped_tx));
-            let _ = started_tx.send(());
-            std::future::pending::<()>().await;
-        }));
+        pooled.attach_driver(
+            tokio::spawn(async move {
+                let _notice = DropNotice(Some(dropped_tx));
+                let _ = started_tx.send(());
+                std::future::pending::<()>().await;
+            }),
+            tokio::sync::mpsc::unbounded_channel().0,
+        );
         started_rx.await.expect("driver started");
 
         drop(pooled);
@@ -492,3 +558,6 @@ mod cancellation_tests;
 
 #[cfg(test)]
 mod capacity_tests;
+
+#[cfg(test)]
+mod stream_up_tests;

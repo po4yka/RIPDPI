@@ -28,6 +28,7 @@ pub(crate) struct XhttpClientInner {
     pub(crate) creating_connections: Arc<AtomicUsize>,
     pub(crate) pool_changed: Arc<Notify>,
     pub(crate) state: Mutex<PoolState>,
+    split_admission: Mutex<()>,
 }
 
 /// # Cancel safety:
@@ -82,11 +83,46 @@ impl XhttpClient {
     /// clippy's layout query on the public connect helpers.
     fn open_stream<'a>(&'a self, request: &'a [u8]) -> impl Future<Output = io::Result<XhttpStream>> + 'a {
         establish_with_deadline(STREAM_ESTABLISHMENT_TIMEOUT, async move {
+            let mut split = false;
             loop {
-                // Keep the nested carrier-creation future out of the caller's layout.
-                let (connection, permit) = Box::pin(pool::acquire_connection(&self.inner)).await?;
+                // Reserve both carriers in one order. A competing opener must not
+                // hold the last download carrier while waiting for its upload.
+                let split_admission = if split { Some(self.inner.split_admission.lock().await) } else { None };
+                let (connection, permit) = if split {
+                    Box::pin(pool::acquire_carrier(&self.inner, true, None)).await?
+                } else {
+                    Box::pin(pool::acquire_connection(&self.inner)).await?
+                };
+                if !split && connection.needs_split() {
+                    match connection.check_stream_up_capacity().await {
+                        Err(error) if error.kind() == io::ErrorKind::Unsupported && self.inner.max_connections >= 2 => {
+                            split = true;
+                            continue;
+                        }
+                        result => result?,
+                    }
+                }
+                let upload = if split {
+                    Some(Box::pin(pool::acquire_carrier(&self.inner, true, Some(&connection))).await?)
+                } else {
+                    None
+                };
+                drop(split_admission);
                 if connection.opening_started() {
-                    break connection.open_stream_from_mode(&self.inner.mode, request, permit).await;
+                    let result = connection.open_stream_from_mode(&self.inner.mode, request, permit, upload).await;
+                    if result.as_ref().is_err_and(|error| error.kind() == io::ErrorKind::WouldBlock) {
+                        continue;
+                    }
+                    if !split
+                        && result.as_ref().is_err_and(|error| error.kind() == io::ErrorKind::Unsupported)
+                        && connection.needs_split()
+                        && self.inner.max_connections >= 2
+                    {
+                        // The GET discovered the peer limit. It carried no user bytes.
+                        split = true;
+                        continue;
+                    }
+                    break result;
                 }
             }
         })
@@ -102,6 +138,7 @@ impl XhttpClient {
                 creating_connections: Arc::new(AtomicUsize::new(0)),
                 pool_changed: Arc::new(Notify::new()),
                 state: Mutex::new(PoolState::default()),
+                split_admission: Mutex::new(()),
             }),
         }
     }

@@ -33,6 +33,7 @@ pub struct XhttpStream {
     _tasks: OpenStreamTaskGuard,
     _permit: OwnedSemaphorePermit,
     _carrier: ActiveCarrier,
+    _upload_carrier: Option<(OwnedSemaphorePermit, ActiveCarrier)>,
 }
 
 impl AsyncRead for XhttpStream {
@@ -156,10 +157,11 @@ impl PooledConnection {
         mode: &XhttpMode,
         request: &[u8],
         permit: OwnedSemaphorePermit,
+        upload: Option<(Arc<PooledConnection>, OwnedSemaphorePermit)>,
     ) -> io::Result<XhttpStream> {
         let mut pending = PendingStreamCarrier(Some(self));
         let result = match mode.protocol_mode() {
-            XhttpProtocolMode::StreamUp => self.open_stream_up(mode, request, permit).await,
+            XhttpProtocolMode::StreamUp => self.open_stream_up(mode, request, permit, upload).await,
             XhttpProtocolMode::StreamOne => self.open_stream_one(mode, request, permit).await,
         };
         self.opening_finished(false);
@@ -179,13 +181,20 @@ impl PooledConnection {
         mode: &XhttpMode,
         request: &[u8],
         permit: OwnedSemaphorePermit,
+        upload: Option<(Arc<PooledConnection>, OwnedSemaphorePermit)>,
     ) -> io::Result<XhttpStream> {
         let stream_path = mode.request_path();
         let host_header = mode.host_header();
         // Xray carries request padding only in the Referer query and draws it
         // per request; X-Padding is a response header.
         let get_request = build_get_request(&stream_path, &host_header, &referer_padding(&host_header, &stream_path))?;
-        let get_response = self.send_request(get_request).await.map_err(|error| {
+        // Submit each GET/POST pair in order so concurrent GETs cannot consume every peer stream.
+        let mut sender = self.sender.lock().await;
+        if self.active_at_peer_capacity() {
+            // Another opening learned the peer SETTINGS after our permit was reserved.
+            return Err(io::ErrorKind::WouldBlock.into());
+        }
+        let get_response = sender.send_request(get_request).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP GET request failed: {error}"))
         })?;
         if get_response.status() != StatusCode::OK {
@@ -195,12 +204,21 @@ impl PooledConnection {
             ));
         }
 
+        // Receiving the GET response ensures Hyper has processed the peer's initial SETTINGS.
+        if upload.is_none() {
+            self.check_stream_up_capacity().await?;
+            if self.active_at_peer_capacity() {
+                return Err(io::ErrorKind::WouldBlock.into());
+            }
+        }
+        let upload_carrier = upload.map(|(carrier, permit)| (permit, ActiveCarrier::new(carrier)));
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
+        let (upload_started, admitted) = tokio::sync::oneshot::channel();
         let post_request = build_post_request(
             &stream_path,
             &host_header,
             &referer_padding(&host_header, &stream_path),
-            ChannelBody::new(outgoing_rx),
+            ChannelBody::new(outgoing_rx).with_start_notice(upload_started),
         )?;
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let mut open_tasks = OpenStreamTaskGuard::new();
@@ -221,9 +239,15 @@ impl PooledConnection {
         let abort_download = download.abort_handle();
         open_tasks.push(download);
         // Request submission is synchronous; upload response headers may wait for application payload.
-        let mut sender = self.sender.lock().await.clone();
-        let response = sender.send_request(post_request);
+        let response = match &upload_carrier {
+            Some((_, carrier)) => carrier.0.sender.lock().await.send_request(post_request),
+            None => sender.send_request(post_request),
+        };
         open_tasks.push(spawn_upload_response(response, Arc::clone(&stream_failed), abort_upload, abort_download));
+
+        // Hyper polls the upload body after H2 admits the stream. Its response headers
+        // may depend on application bytes which the caller can only send after open.
+        admitted.await.map_err(|_| io::Error::other("xHTTP upload closed before admission"))?;
 
         // xray-core buffers the VLESS response header until the first
         // downstream payload. Return the writable stream immediately and
@@ -235,7 +259,9 @@ impl PooledConnection {
             _tasks: open_tasks,
             _permit: permit,
             _carrier: ActiveCarrier::new(Arc::clone(self)),
+            _upload_carrier: upload_carrier,
         };
+        drop(sender);
         Ok(stream)
     }
 
@@ -292,6 +318,7 @@ impl PooledConnection {
             _tasks: open_tasks,
             _permit: permit,
             _carrier: ActiveCarrier::new(Arc::clone(self)),
+            _upload_carrier: None,
         };
         Ok(stream)
     }
@@ -599,7 +626,8 @@ mod tests {
         let pooled = Arc::new(PooledConnection::new(sender, 2, Arc::new(tokio::sync::Notify::new())));
         let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
         assert!(pooled.opening_started());
-        let _stream = pooled.open_stream_from_mode(&mode, &tcp_request(&mode), permit).await.expect("open stream");
+        let _stream =
+            pooled.open_stream_from_mode(&mode, &tcp_request(&mode), permit, None).await.expect("open stream");
         let expected = match protocol_mode {
             XhttpProtocolMode::StreamUp => 2,
             XhttpProtocolMode::StreamOne => 1,
@@ -668,6 +696,7 @@ mod tests {
         .expect("client h2 handshake");
         let carrier = Arc::new(PooledConnection::new(sender, 1, Arc::new(tokio::sync::Notify::new())));
         let mut stream = super::XhttpStream {
+            _upload_carrier: None,
             _carrier: super::ActiveCarrier::new(carrier),
             reader: ripdpi_vless::wire::ResponseHeaderStream::new(user_download),
             stream_failed,
@@ -745,7 +774,7 @@ mod tests {
             assert!(pooled.opening_started());
             let result = tokio::time::timeout(
                 Duration::from_millis(500),
-                pooled.open_stream_from_mode(&mode, &tcp_request(&mode), permit),
+                pooled.open_stream_from_mode(&mode, &tcp_request(&mode), permit, None),
             )
             .await;
             assert!(result.is_ok(), "{protocol_mode:?} waited for a POST response before sending its body");
@@ -822,7 +851,7 @@ mod tests {
             let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
             let request = mode.xudp_request().expect("XUDP request");
             assert!(pooled.opening_started());
-            let stream = pooled.open_stream_from_mode(&mode, &request, permit).await.expect("open XUDP stream");
+            let stream = pooled.open_stream_from_mode(&mode, &request, permit, None).await.expect("open XUDP stream");
             let mut session = ripdpi_vless::VlessXudpSession::new(stream, true).expect("XUDP session");
             session.send_to("192.0.2.7:443", b"ping").await.expect("send XUDP datagram");
 
