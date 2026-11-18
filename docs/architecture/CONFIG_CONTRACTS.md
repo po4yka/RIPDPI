@@ -737,3 +737,14 @@ failures alone do not identify censorship.
 Real native/emulator and
 filtered-network acceptance are separate from local fixture evidence. PMTU remains
 a manual scoped QUIC diagnostic; quality selection never changes tunnel MTU.
+
+## Packaged preset
+
+A build can package one preset at `app/src/main/assets/preset.json`. The file is a plaintext `BackupV1` document of the FULL variant (`containsCredentials = true`), in a schema version between `OldestSupportedBackupVersion` and `BackupSchemaVersion`. It has no format of its own: the backup contract above is its contract.
+
+- **Producer.** `:app:preparePreset` (`PreparePresetTask` in `build-logic`) decrypts a FULL export and writes the asset. It rejects a wrong passphrase, an export without credentials, and a schema version outside the checkout's range. Its envelope parsing mirrors `BackupEncryption`; `PreparePresetTaskTest` and `BackupEncryptionTest` decrypt one shared fixture.
+- **Consumer.** `PresetApplier` calls `BackupRestoreUseCase.restore` with all three categories from `AppStartupInitializer`, before startup readiness. It applies only when onboarding is not complete and the applied marker is absent.
+- **Marker.** One boolean in the `preset_state` shared-preferences file. It lives outside `AppSettings` because the restore replaces `AppSettings`. `UserArtifactResetStore` clears it, so a full reset makes the install fresh for the preset again. The deny-all backup and data-extraction rules cover the file.
+- **Failure.** An unreadable, unsupported, or aborted preset writes nothing and leaves the marker unset. The startup report shows `preset_apply` as failed with a reason that names a type or class only; startup is not gated.
+- **Confidentiality.** The asset path is gitignored. Preset contents do not reach logs, the startup report, or diagnostics exports.
+

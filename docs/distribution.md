@@ -117,6 +117,15 @@ The app fetches `https://api.github.com/repos/po4yka/RIPDPI/releases/latest`, lo
 
 The GitHub flavor is the only flavor that declares `android.permission.REQUEST_INSTALL_PACKAGES` and the update APK `FileProvider`. Android 8 and newer may require the user to allow installs from this app before the standard installer UI can open. The app never attempts silent installation and never uses `file://` URIs.
 
+## Preset Builds
+
+Any variant packages `app/src/main/assets/preset.json` when the file exists. The app restores it once, on the first launch of a fresh install. [Shipping a preloaded app](server-integration.md#shipping-a-preloaded-app) describes how to create the file with `:app:preparePreset`.
+
+- A preset build keeps the standard application ID and name. It installs over a standard build and receives the same updates.
+- The preset is plaintext inside the APK, with relay credentials and AmneziaWG device keys. Build it locally and hand it to its recipients directly. Do not publish a preset build to Google Play, F-Droid, or GitHub Releases.
+- No CI job receives a preset, and the asset path is gitignored. The release workflows build without one.
+- The package-identity review and the release preflight do not change for a preset build.
+
 ## Release Automation
 
 The release flow is defined by

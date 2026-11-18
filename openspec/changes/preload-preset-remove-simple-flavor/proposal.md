@@ -29,6 +29,7 @@ The full app already has a format and a restore path that carry servers, routing
 ### Modified Capabilities
 
 - `initial-relay-race-safety`: `REQ-RACE-SCOPE` no longer names the Simple single-profile preflight.
+- `fix-launchedeffect-unit-session-keyed-refresh`: `REQ-UIX-1786264762917972-004` names the Gradle task `:app:testGithubDebugUnitTest`, because `:app:testGithubFullDebugUnitTest` no longer exists.
 
 ## Impact
 

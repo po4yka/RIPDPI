@@ -23,19 +23,27 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-PRESET-APPLY | AND-1795015493323024 | `PresetApplierTest` reads restored groups, rules, and settings through production repositories without a restart; API 35 arm64 emulator, fresh install of a preset APK: log `Packaged preset applied`, first screen is Home | passed |
 | REQ-PRESET-ONCE | AND-1795015493323024 | `PresetApplierTest`: second apply skipped and a deleted group stays deleted; completed onboarding skipped; reset through `DefaultUserArtifactResetStore` re-applies | passed |
 | REQ-PRESET-ABSENT | AND-1795015493323024 | `PresetApplierTest` no-asset case; API 35 arm64 emulator, fresh install of an APK without the asset: `preset_apply=succeeded`, first screen is onboarding; unit, screenshot, and lint runs used no asset or fixture | passed |
-| REQ-PRESET-INVALID | AND-1795015493323024 | `PresetApplierTest`: unsupported version and unreadable text write nothing, and a later valid preset applies. The interrupted-launch scenario relies on the staged, journaled restore and has no dedicated test | passed |
+| REQ-PRESET-INVALID | AND-1795015493323024 | `PresetApplierTest`: unsupported version and unreadable text write nothing, and a later valid preset applies; `AppStartupInitializerFailureTest` shows a rejected preset as a failed `preset_apply` entry whose message omits the document, with readiness reaching Ready. The interrupted-launch scenario relies on the staged, journaled restore and has no dedicated test | passed |
 | REQ-PRESET-CONFIDENTIAL | AND-1795015493323024 | `git check-ignore app/src/main/assets/preset.json` matches; `PresetOutcome.Rejected` carries a type or class name only; emulator logcat shows the outcome line only | passed |
 | REQ-PRESET-PREPARE | AND-1795015495231718 | `./gradlew -p build-logic test`: `PreparePresetTaskTest` (valid export, wrong and missing passphrase, SHARE export, unsupported version) and `BackupEncryptionTest` on the shared fixture | passed |
 | REQ-PRESET-SINGLE-EXPERIENCE | AND-1795015496438291 | `:app:writeReleaseIdentityManifest` lists `fdroidRelease`, `githubRelease`, `playRelease`, all `com.poyka.ripdpi`; `check_app_identity_review.py` PASS; `ImportIntentFilterTest` (14) and `AppExperienceContractTest` (2) | passed |
 | REQ-RACE-PRODUCT-SCOPE | AND-1795015499321399 | Delta spec only; no code names the Simple preflight after `git grep` | passed |
 | REQ-RACE-SCOPE | AND-1795015499321399 | Removed by the delta spec with the Simple flavor | passed |
+| REQ-UIX-1786264762917972-004 | AND-1795015499321399 | Delta spec renames the Gradle task in the criterion to `:app:testGithubDebugUnitTest`; the task exists and ran in the unit-test evidence above | passed |
 
 ## Review
 
-`pr-reviewer` reviewed `origin/main...a37c45156`. It found the manifest merge and the service gate removal clean and reported eleven minor findings on the preset path; `6b1924898` fixes the ones that change behavior. It did not finish the CI, script, and leftover-reference areas. Those were checked by hand with repository-wide searches and the script test suites, not by an independent reviewer.
+Four `pr-reviewer` passes covered `origin/main...HEAD`, limited to this change.
+
+- Preset path, manifest merge, service gate removal: clean apart from minor findings on the preset path, fixed in `6b1924898`.
+- Kotlin and Gradle: the `MainNavHost` extraction passes the same arguments as the deleted seam; the build file, the lint-property rename, and the tests that lost a flavor branch are clean. One gap found: no test for a rejected preset at startup. The test is added.
+- CI and scripts: both matrix `exclude` lists equal their shards; artifact names and paths are consistent; `--minimum-total-count 54` stays satisfiable, because the validator counts skipped tests and the integration package has 100 test methods.
+- Leftovers: one stale skill line and one deleted path in a screenshot input list, both fixed.
+
+Areas the reviewers did not reach were checked by script: no string in `app/src/main/res` lost its last reference, every renamed screenshot baseline maps to a test in its class file, and `core/service` has no reference to the removed parameters.
 
 ## Open items
 
-- Remote CI has not run. The instrumented job keeps `--minimum-total-count 54` after one Simple-only instrumented test was deleted; the count is unverified.
+- Remote CI stops at the preflight barrier for reasons that come from `main`, so the unit, screenshot, release, and device jobs have not run on this branch.
 - An install that has not finished onboarding, has data, and then updates to a preset build has that data replaced. The specification accepts this.
 - `AND-1795015500558064` stays open until remote CI reports.

@@ -50,7 +50,7 @@ For every proposed highlight:
 1. Identify the implementing commit or commits.
 2. Inspect the final source at the target SHA, not only the patch or task note.
 3. Locate the relevant test, contract fixture, migration, or UI evidence.
-4. Determine whether the behavior is enabled and user-reachable in a published `FullRelease` variant.
+4. Determine whether the behavior is enabled and user-reachable in a published release variant.
 5. Record compatibility, migration, security, privacy, distribution, and root/non-root implications.
 6. Omit or qualify any claim that lacks final-tree evidence.
 
