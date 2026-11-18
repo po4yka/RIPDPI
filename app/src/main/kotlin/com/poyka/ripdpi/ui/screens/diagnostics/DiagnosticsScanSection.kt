@@ -187,6 +187,19 @@ internal fun ScanSection(
                 )
             }
         }
+        if (scan.activeProgress != null || scopeLayout.marks.isNotEmpty()) {
+            item(key = "scope", contentType = "scope") {
+                RipDpiCard {
+                    DiagnosticsScanScope(
+                        layout = if (scan.activeProgress == null) scopeLayout else emptyScopeLayout,
+                        progress = scan.activeProgress?.fraction,
+                        steps = scan.activeProgress?.let { it.completedSteps to it.totalSteps },
+                        onSelectProbe = onSelectProbe,
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanScope),
+                    )
+                }
+            }
+        }
         selectedProfile?.let { profile ->
             item {
                 DiagnosticsScanWorkflowCard(
@@ -226,19 +239,6 @@ internal fun ScanSection(
                     enabled = !effectiveBusy,
                     onInputChanged = onSelectiveMatrixHostsChanged,
                 )
-            }
-        }
-        if (scan.activeProgress != null || scopeLayout.marks.isNotEmpty()) {
-            item(key = "scope", contentType = "scope") {
-                RipDpiCard {
-                    DiagnosticsScanScope(
-                        layout = if (scan.activeProgress == null) scopeLayout else emptyScopeLayout,
-                        progress = scan.activeProgress?.fraction,
-                        scanLabel = scan.activeProgress?.let { "${it.completedSteps}/${it.totalSteps}" },
-                        onSelectProbe = onSelectProbe,
-                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanScope),
-                    )
-                }
             }
         }
         scan.activeProgress?.let { progress ->

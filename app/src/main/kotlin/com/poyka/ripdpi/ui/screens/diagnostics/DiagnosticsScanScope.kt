@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
@@ -28,18 +29,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.TextMeasurer
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
@@ -53,6 +52,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.coroutines.launch
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.log10
 import kotlin.math.sin
@@ -76,10 +76,8 @@ internal data class ScopeMark(
     val kind: ScopeMarkKind,
     /** Clockwise from the top, as a fraction of the turn. */
     val turn: Float,
-    /** From the hub (0) to the rim (1). Distance is the measured time; [SilentReach] means no measured answer. */
+    /** From the hub (0) to the rim (1). Distance is the measured time; [UnmeasuredReach] is the lane with no time. */
     val reach: Float,
-    /** How many probes the mark stands for. The silent probes of a sector share one mark when there are many. */
-    val count: Int = 1,
 )
 
 /** The marks and the turn at which each sector starts, with the end of the last sector as the final value. */
@@ -99,48 +97,41 @@ private fun scopeSector(probeType: String): ScopeSector? =
         else -> null
     }
 
-/** The place of [millis] on the log time scale, from the hub to just inside the rim. */
+/** The place of [millis] on the log time scale, from the hub to the last measured place. */
 internal fun scopeReach(millis: Long): Float =
     MaxMeasuredReach *
         log10(millis.coerceIn(MinScaleMillis, MaxScaleMillis) / MinScaleMillis.toFloat()) /
         log10(MaxScaleMillis / MinScaleMillis.toFloat())
 
-private fun DiagnosticsProbeResultUiModel.toScopeMark(): ScopeMark? {
+/** Every probe gets a mark. A probe with no measured time goes to the outer lane, whether it answered or not. */
+private fun DiagnosticsProbeResultUiModel.toScopeMark(): ScopeMark {
     val stages = connectionStages?.lanes.orEmpty().flatMap { it.stages }
     val millis = stages.mapNotNull { it.elapsedMs ?: it.durationMs }.maxOrNull()
     val failed = tone == DiagnosticsTone.Negative || tone == DiagnosticsTone.Warning
-    return when {
-        failed && (millis == null || stages.any { it.state == ConnectionStageState.TIMED_OUT }) -> {
-            ScopeMark(this, ScopeMarkKind.Silent, 0f, SilentReach)
+    val kind =
+        when {
+            !failed -> ScopeMarkKind.Answered
+            millis == null || stages.any { it.state == ConnectionStageState.TIMED_OUT } -> ScopeMarkKind.Silent
+            else -> ScopeMarkKind.Blocked
         }
-
-        // An answer with no measured time has no honest place on the scale; the results list still shows it.
-        millis == null -> {
-            null
-        }
-
-        else -> {
-            ScopeMark(this, if (failed) ScopeMarkKind.Blocked else ScopeMarkKind.Answered, 0f, scopeReach(millis))
-        }
-    }
+    val measured = millis?.takeIf { kind != ScopeMarkKind.Silent }
+    return ScopeMark(this, kind, 0f, measured?.let(::scopeReach) ?: UnmeasuredReach)
 }
 
 /**
- * Places the probes that have a sector. A sector with more probes gets a wider part of the turn, and a sector with
- * many silent probes shows them as one mark with a count.
+ * Places the probes that have a sector. A sector with more probes gets a wider part of the turn. The sectors leave
+ * [ScaleGap] free at the top, where the scale labels stand, so that no mark covers a label.
  */
 internal fun scopeLayout(results: List<DiagnosticsProbeResultUiModel>): ScopeLayout {
-    val shown =
+    val sectors =
         ScopeSector.entries.map { sector ->
-            val all = results.filter { scopeSector(it.probeType) == sector }.mapNotNull { it.toScopeMark() }
-            val silent = all.filter { it.kind == ScopeMarkKind.Silent }
-            val stack = silent.firstOrNull()?.takeIf { silent.size > MaxSoloSilentMarks }?.copy(count = silent.size)
-            if (stack == null) all else all - silent.toSet() + stack
+            results.filter { scopeSector(it.probeType) == sector }.map { it.toScopeMark() }
         }
-    val weights = shown.map { it.size + SectorBaseWeight }
-    val starts = weights.runningFold(0f) { start, weight -> start + weight / weights.sum().toFloat() }
+    val weights = sectors.map { it.size + SectorBaseWeight }
+    val starts =
+        weights.runningFold(ScaleGap / 2) { start, weight -> start + (1f - ScaleGap) * weight / weights.sum() }
     val marks =
-        shown.flatMapIndexed { index, sector ->
+        sectors.flatMapIndexed { index, sector ->
             val span = starts[index + 1] - starts[index]
             sector.mapIndexed { slot, mark -> mark.copy(turn = starts[index] + span * (slot + 1f) / (sector.size + 1)) }
         }
@@ -148,17 +139,18 @@ internal fun scopeLayout(results: List<DiagnosticsProbeResultUiModel>): ScopeLay
 }
 
 /**
- * The scan scope: each probe is a mark, its distance from the hub is the measured answer time on a log scale, and
- * the band at the rim holds the probes with no answer. While a scan runs, the arm sweeps and the arc at the hub shows
- * [progress]. When results arrive, the arm turns once and the marks land as it passes; after that the scope is still.
- * The hub shows [scanLabel] during a scan and the number of probes with a problem after it. The results list under
- * the scope is the accessible form of the same data, so the drawing has no semantics.
+ * The scan scope: each probe is a mark, and its distance from the hub is the measured answer time on a log scale.
+ * The outer lane holds the probes with no measured time. While a scan runs, the arm sweeps, the arc at the hub shows
+ * [progress], and the hub shows [steps]. When results arrive, the arm turns once and the marks land as it passes;
+ * after that the scope is still, and the hub shows the probes with a problem out of all marks, or the number of
+ * marks when none has a problem. The results list is the accessible form of the same data, so the drawing has no
+ * semantics.
  */
 @Composable
 internal fun DiagnosticsScanScope(
     layout: ScopeLayout,
     progress: Float?,
-    scanLabel: String?,
+    steps: Pair<Int, Int>?,
     onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -166,36 +158,26 @@ internal fun DiagnosticsScanScope(
     val motion = RipDpiThemeTokens.motion
     val performHaptic = rememberRipDpiHapticPerformer()
     val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
     val labelStyle = RipDpiThemeTokens.type.smallLabel.copy(color = colors.mutedForeground)
     val sectorTexts = ScopeSector.entries.map { stringResource(it.label) }
     val scaleTexts = ScaleRingMillis.map { stringResource(R.string.unit_milliseconds_format, it) }
-    val sectorLabels = remember(sectorTexts, labelStyle) { sectorTexts.map { measurer.measure(it, labelStyle) } }
-    val labelHeight = sectorLabels.maxOf { it.size.height }
+    val sectorLabels =
+        remember(sectorTexts, labelStyle, density) { sectorTexts.map { measurer.measure(it, labelStyle) } }
+    val scaleLabels = remember(scaleTexts, labelStyle, density) { scaleTexts.map { measurer.measure(it, labelStyle) } }
+    val labelBand = remember(layout.sectorStarts, sectorLabels) { labelBand(layout.sectorStarts, sectorLabels) }
     val marks = layout.marks
-    val scope = rememberCoroutineScope()
-    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
-    val scaleLabels = remember(scaleTexts, labelStyle) { scaleTexts.map { measurer.measure(it, labelStyle) } }
-
-    val resultKey = remember(marks) { marks.map { it.probe.id } }
-    // The saved value names the results that were revealed, so new results get their own reveal.
-    var revealedKey by rememberSaveable { mutableIntStateOf(0) }
-    val reveal =
-        remember(resultKey) {
-            Animatable(if (revealedKey == resultKey.hashCode() || !motion.allowsInfiniteMotion) RevealEnd else 0f)
-        }
     val scanning = progress != null
-    LaunchedEffect(resultKey, scanning) {
-        if (!scanning && marks.isNotEmpty()) {
-            reveal.animateTo(RevealEnd, motion.durationTween(RevealMillis, LinearEasing))
-            revealedKey = resultKey.hashCode()
-        }
-    }
+    val hubText = rememberHubText(marks, steps)
+    val reveal = rememberScopeReveal(marks, scanning)
     val sweep = rememberScopeSweep(scanning && motion.allowsInfiniteMotion)
     val live = animateFloatAsState((progress ?: 0f).coerceIn(0f, 1f), motion.stateTween(), label = "Scope progress")
     val currentOnSelectProbe by rememberUpdatedState(onSelectProbe)
     val palette = ScopePalette(colors.outline, colors.signal, colors.success, colors.destructive, colors.warning)
-    val hubStyle = RipDpiThemeTokens.type.monoValue
-    val problems = remember(marks) { marks.filter { it.kind != ScopeMarkKind.Answered }.sumOf { it.count } }
+    val scope = rememberCoroutineScope()
+    // The ring on a tapped mark: it shows at once and fades, so no mark stays selected.
+    val press = remember { Animatable(0f) }
+    var pressed by remember { mutableStateOf<ScopeMark?>(null) }
 
     Canvas(
         modifier
@@ -204,39 +186,127 @@ internal fun DiagnosticsScanScope(
             .widthIn(max = MaxScopeWidth)
             .aspectRatio(1f)
             .semantics { hideFromAccessibility() }
-            .pointerInput(marks, labelHeight) {
+            .pointerInput(marks, labelBand) {
                 detectTapGestures { tap ->
-                    if (reveal.value < RevealEnd) {
+                    val frame = scopeFrame(Size(size.width.toFloat(), size.height.toFloat()), labelBand)
+                    val mark = frame.nearest(marks, tap, TouchRadius.toPx())
+                    when {
                         // A tap during the reveal shows the whole result at once.
-                        scope.launch { reveal.snapTo(RevealEnd) }
-                        revealedKey = resultKey.hashCode()
-                        return@detectTapGestures
-                    }
-                    val frame = scopeFrame(Size(size.width.toFloat(), size.height.toFloat()), labelHeight)
-                    marks
-                        .minByOrNull { (frame.at(it) - tap).getDistance() }
-                        ?.takeIf { (frame.at(it) - tap).getDistance() <= TouchRadius.toPx() }
-                        ?.let {
-                            performHaptic(RipDpiHapticFeedback.Selection)
-                            selectedId = it.probe.id
-                            currentOnSelectProbe(it.probe)
+                        marks.isNotEmpty() && reveal.time.value < RevealEnd -> {
+                            reveal.finish()
                         }
+
+                        mark != null -> {
+                            performHaptic(RipDpiHapticFeedback.Selection)
+                            pressed = mark
+                            scope.launch {
+                                press.snapTo(1f)
+                                press.animateTo(0f, motion.durationTween(PressMillis))
+                            }
+                            currentOnSelectProbe(mark.probe)
+                        }
+                    }
                 }
             },
     ) {
-        val frame = scopeFrame(size, labelHeight)
+        val frame = scopeFrame(size, labelBand)
         drawScopeFace(frame, palette.line, layout.sectorStarts, sectorLabels, scaleLabels)
         if (scanning) {
             drawSweep(frame, if (motion.allowsInfiniteMotion) sweep.floatValue else live.value, palette.arm)
             drawProgressArc(frame, live.value, palette.arm)
         } else {
-            drawResult(frame, marks, reveal.value, palette)
-            drawMarkNotes(frame, marks, reveal.value, selectedId, measurer, labelStyle)
+            drawResult(frame, marks, reveal.time.value, palette)
+            pressed?.takeIf { press.value > 0f }?.let {
+                drawCircle(
+                    colors.foreground.copy(alpha = press.value),
+                    PressRadius.toPx() + RippleGrowth.toPx() * (1f - press.value),
+                    frame.at(it),
+                    style = Stroke(MarkStroke.toPx()),
+                )
+            }
         }
-        val hubLabel = if (scanning) scanLabel else problems.takeIf { it > 0 }?.let { "%d".format(it) }
-        val hubColor = if (scanning) colors.foreground else palette.blocked
-        drawHub(frame, palette.line, hubLabel, measurer, hubStyle.copy(color = hubColor))
+        drawHub(frame, palette.line, hubText)
     }
+}
+
+/**
+ * The number in the hub: the steps during a scan, then the probes with a problem out of all marks, or the number of
+ * marks when none has a problem. One format gives the digits, so they do not change script between the states.
+ */
+@Composable
+private fun rememberHubText(
+    marks: List<ScopeMark>,
+    steps: Pair<Int, Int>?,
+): TextLayoutResult? {
+    val colors = RipDpiThemeTokens.colors
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val problems = remember(marks) { marks.count { it.kind != ScopeMarkKind.Answered } }
+    val label =
+        when {
+            steps != null -> "%d/%d".format(steps.first, steps.second)
+            marks.isEmpty() -> null
+            problems > 0 -> "%d/%d".format(problems, marks.size)
+            else -> "%d".format(marks.size)
+        }
+    val color =
+        when {
+            steps != null -> colors.foreground
+            problems > 0 -> colors.destructive
+            else -> colors.success
+        }
+    val style = RipDpiThemeTokens.type.monoValue.copy(color = color)
+    return remember(label, style, density) { label?.let { measurer.measure(it, style) } }
+}
+
+/** The one-off reveal of new results. [finish] shows the whole result at once. */
+private class ScopeReveal(
+    val time: Animatable<Float, AnimationVector1D>,
+    val finish: () -> Unit,
+)
+
+@Composable
+private fun rememberScopeReveal(
+    marks: List<ScopeMark>,
+    scanning: Boolean,
+): ScopeReveal {
+    val motion = RipDpiThemeTokens.motion
+    val scope = rememberCoroutineScope()
+    val resultKey = remember(marks) { marks.map { it.probe.id }.hashCode() }
+    // The saved value names the results that were revealed, so new results get their own reveal.
+    var revealedKey by rememberSaveable { mutableIntStateOf(0) }
+    val time =
+        remember(resultKey) {
+            Animatable(if (revealedKey == resultKey || !motion.allowsInfiniteMotion) RevealEnd else 0f)
+        }
+    LaunchedEffect(resultKey, scanning) {
+        if (!scanning && marks.isNotEmpty()) {
+            time.animateTo(RevealEnd, motion.durationTween(RevealMillis, LinearEasing))
+            revealedKey = resultKey
+        }
+    }
+    return remember(time) {
+        ScopeReveal(time) {
+            scope.launch { time.snapTo(RevealEnd) }
+            revealedKey = resultKey
+        }
+    }
+}
+
+/** The room that the upright sector labels need outside the rim, from the widest label at its own angle. */
+private fun labelBand(
+    sectorStarts: List<Float>,
+    labels: List<TextLayoutResult>,
+): Float = labels.indices.maxOf { labelExtent(sectorStarts, labels, it) }
+
+/** How far label [index] reaches along the ray through the middle of its sector. */
+private fun labelExtent(
+    sectorStarts: List<Float>,
+    labels: List<TextLayoutResult>,
+    index: Int,
+): Float {
+    val angle = ((sectorStarts[index] + sectorStarts[index + 1]) / 2 - QuarterTurn) * 2 * PI
+    return (abs(cos(angle)) * labels[index].size.width + abs(sin(angle)) * labels[index].size.height).toFloat()
 }
 
 /** The turn of the arm while a scan runs. It stays at 0 when [moves] is false. */
@@ -291,27 +361,6 @@ private fun DrawScope.drawResult(
     }
 }
 
-/** The count of a shared mark and the ring on the mark that was opened last. */
-private fun DrawScope.drawMarkNotes(
-    frame: ScopeFrame,
-    marks: List<ScopeMark>,
-    time: Float,
-    selectedId: String?,
-    measurer: TextMeasurer,
-    style: TextStyle,
-) {
-    marks.filter { time >= it.turn }.forEach { mark ->
-        if (mark.count > 1) {
-            val count = measurer.measure("%d".format(mark.count), style)
-            val at = frame.point(mark.turn, frame.radius(mark.reach) - CountOffset.toPx())
-            drawText(count, topLeft = at - Offset(count.size.width / 2f, count.size.height / 2f))
-        }
-        if (mark.probe.id == selectedId) {
-            drawCircle(style.color, SelectedRadius.toPx(), frame.at(mark), style = Stroke(Hairline.toPx()))
-        }
-    }
-}
-
 private class ScopePalette(
     val line: Color,
     val arm: Color,
@@ -336,14 +385,21 @@ private class ScopeFrame(
     fun radius(reach: Float): Float = hub + (rim - hub) * (HubClearance + (1f - HubClearance) * reach)
 
     fun at(mark: ScopeMark): Offset = point(mark.turn, radius(mark.reach))
+
+    /** The mark that is closest to [tap], when it is within [touch]. */
+    fun nearest(
+        marks: List<ScopeMark>,
+        tap: Offset,
+        touch: Float,
+    ): ScopeMark? = marks.minByOrNull { (at(it) - tap).getDistance() }?.takeIf { (at(it) - tap).getDistance() <= touch }
 }
 
-/** The label band is as high as the text, so a large font takes room from the dial and is not cut. */
+/** The labels stand outside the rim, so a long or large label takes room from the dial and is not cut. */
 private fun Density.scopeFrame(
     size: Size,
-    labelHeight: Int,
+    labelBand: Float,
 ): ScopeFrame {
-    val rim = size.minDimension / 2 - MajorTick.toPx() - labelHeight - LabelGap.toPx()
+    val rim = (size.minDimension / 2 - labelBand - LabelGap.toPx()).coerceAtLeast(MinRim.toPx())
     return ScopeFrame(Offset(size.width / 2, size.height / 2), rim * HubShare, rim)
 }
 
@@ -354,40 +410,24 @@ private fun DrawScope.drawScopeFace(
     sectorLabels: List<TextLayoutResult>,
     scaleLabels: List<TextLayoutResult>,
 ) {
-    val hair = Hairline.toPx()
-    val dots = PathEffect.dashPathEffect(floatArrayOf(hair, DotGap.toPx()))
-    MinorRingMillis.forEach {
-        val radius = frame.radius(scopeReach(it))
-        drawCircle(line.copy(alpha = FaintAlpha), radius, frame.center, style = Stroke(hair, pathEffect = dots))
-    }
+    val hair = Stroke(Hairline.toPx())
     ScaleRingMillis.forEachIndexed { index, millis ->
         val radius = frame.radius(scopeReach(millis.toLong()))
-        drawCircle(line.copy(alpha = RingAlpha), radius, frame.center, style = Stroke(hair))
+        drawCircle(line.copy(alpha = RingAlpha), radius, frame.center, style = hair)
         val label = scaleLabels[index]
-        drawText(label, topLeft = frame.center + Offset(LabelGap.toPx(), -radius - label.size.height))
+        drawText(label, topLeft = frame.center - Offset(label.size.width / 2f, radius + label.size.height))
     }
-    val dashes = PathEffect.dashPathEffect(floatArrayOf(RimDash.toPx(), RimDash.toPx()))
-    drawCircle(line.copy(alpha = RimAlpha), frame.rim, frame.center, style = Stroke(hair, pathEffect = dashes))
-    for (tick in 0 until TickCount) {
-        val major = tick % MajorTickEvery == 0
-        val turn = tick / TickCount.toFloat()
-        drawLine(
-            line.copy(alpha = if (major) RimAlpha else RingAlpha),
-            frame.point(turn, frame.rim + TickStart.toPx()),
-            frame.point(turn, frame.rim + (if (major) MajorTick else MinorTick).toPx()),
-            hair,
-        )
+    // Outside this line a mark has no measured time.
+    drawCircle(line.copy(alpha = FaintAlpha), frame.radius(LaneReach), frame.center, style = hair)
+    drawCircle(line.copy(alpha = RimAlpha), frame.rim, frame.center, style = hair)
+    sectorStarts.forEach {
+        drawLine(line.copy(alpha = FaintAlpha), frame.point(it, frame.hub), frame.point(it, frame.rim), hair.width)
     }
     sectorLabels.forEachIndexed { index, label ->
         val start = sectorStarts[index]
-        drawLine(line.copy(alpha = FaintAlpha), frame.point(start, frame.hub), frame.point(start, frame.rim), hair)
-        // The label lies along the rim. In the lower half it turns over so that it reads from the left.
-        val turn = (start + sectorStarts[index + 1]) / 2
-        val middle = frame.point(turn, frame.rim + MajorTick.toPx() + label.size.height / 2f)
-        val lower = turn > QuarterTurn && turn < 1f - QuarterTurn
-        rotate(turn * FullTurn + if (lower) FullTurn / 2 else 0f, middle) {
-            drawText(label, topLeft = middle - Offset(label.size.width / 2f, label.size.height / 2f))
-        }
+        val extent = labelExtent(sectorStarts, sectorLabels, index)
+        val middle = frame.point((start + sectorStarts[index + 1]) / 2, frame.rim + LabelGap.toPx() + extent / 2)
+        drawText(label, topLeft = middle - Offset(label.size.width / 2f, label.size.height / 2f))
     }
 }
 
@@ -413,13 +453,7 @@ private fun DrawScope.drawSweep(
             style = Stroke(frame.rim - frame.hub),
         )
     }
-    drawLine(
-        color,
-        frame.point(turn, frame.hub),
-        frame.point(turn, frame.rim + MajorTick.toPx()),
-        ArmWidth.toPx(),
-        StrokeCap.Round,
-    )
+    drawLine(color, frame.point(turn, frame.hub), frame.point(turn, frame.rim), ArmWidth.toPx(), StrokeCap.Round)
 }
 
 /** One mark. [age] is the part of the turn since the arm passed it; a new mark pops in and sends one ripple. */
@@ -444,14 +478,11 @@ private fun DrawScope.drawMark(
             style = Stroke(Hairline.toPx()),
         )
     }
-    val scale = overshoot(age / PopSpan)
-    val radius = MarkRadius.toPx() * scale
+    val radius = MarkRadius.toPx() * overshoot(age / PopSpan)
     val stroke = Stroke(MarkStroke.toPx(), cap = StrokeCap.Round)
     when (mark.kind) {
         ScopeMarkKind.Answered -> {
-            // A fresh mark is bright, then settles so that the blocked marks lead.
-            val settle = (age / RippleSpan).coerceIn(0f, 1f)
-            drawCircle(color.copy(alpha = 1f - (1f - AnsweredAlpha) * settle), radius * AnsweredShare, at)
+            drawCircle(color, radius * AnsweredShare, at)
         }
 
         ScopeMarkKind.Blocked -> {
@@ -465,19 +496,20 @@ private fun DrawScope.drawMark(
     }
 }
 
+/** The hub with its number. A number that is wider than the hub is drawn smaller, so it stays inside. */
 private fun DrawScope.drawHub(
     frame: ScopeFrame,
     line: Color,
-    label: String?,
-    measurer: TextMeasurer,
-    style: TextStyle,
+    text: TextLayoutResult?,
 ) {
     drawCircle(line.copy(alpha = RimAlpha), frame.hub, frame.center, style = Stroke(Hairline.toPx()))
-    if (label == null) {
+    if (text == null) {
         drawCircle(line, CenterDot.toPx(), frame.center)
     } else {
-        val text = measurer.measure(label, style)
-        drawText(text, topLeft = frame.center - Offset(text.size.width / 2f, text.size.height / 2f))
+        val fit = ((2 * frame.hub - 2 * HubGap.toPx()) / text.size.width).coerceAtMost(1f)
+        scale(fit, frame.center) {
+            drawText(text, topLeft = frame.center - Offset(text.size.width / 2f, text.size.height / 2f))
+        }
     }
 }
 
@@ -488,47 +520,41 @@ private fun overshoot(fraction: Float): Float {
 }
 
 private val ScaleRingMillis = listOf(100, 1000)
-private val MinorRingMillis = listOf(30L, 300L, 3000L)
 private const val MinScaleMillis = 8L
 private const val MaxScaleMillis = 5000L
-private const val MaxMeasuredReach = 0.8f
+private const val MaxMeasuredReach = 0.78f
+private const val LaneReach = 0.84f
 
-/** The band between the last measured time and the rim. */
-internal const val SilentReach = 0.9f
+/** The lane between the last measured time and the rim. */
+internal const val UnmeasuredReach = 0.92f
 private const val SectorBaseWeight = 2
-private const val MaxSoloSilentMarks = 2
+
+/** The part of the turn at the top that holds the scale labels and no marks. */
+internal const val ScaleGap = 0.12f
 
 private val MaxScopeWidth = 360.dp
-private val CountOffset = 16.dp
-private val SelectedRadius = 11.dp
-private val LabelGap = 4.dp
+private val MinRim = 48.dp
+private val LabelGap = 6.dp
 private val TouchRadius = 24.dp
 private val Hairline = 1.dp
-private val DotGap = 5.dp
-private val RimDash = 4.dp
-private val TickStart = 4.dp
-private val MinorTick = 7.dp
-private val MajorTick = 10.dp
 private val ArmWidth = 2.dp
 private val HubGap = 4.dp
 private val MarkRadius = 5.dp
 private val MarkStroke = 2.dp
 private val RippleGrowth = 16.dp
+private val PressRadius = 10.dp
 private val CenterDot = 2.dp
 
-private const val HubShare = 0.2f
+private const val HubShare = 0.22f
 private const val HubClearance = 0.06f
-private const val TickCount = 60
-private const val MajorTickEvery = 6
 private const val QuarterTurn = 0.25f
 private const val FullTurn = 360f
 private const val TopDegrees = -90f
 
-private const val FaintAlpha = 0.25f
-private const val RingAlpha = 0.45f
-private const val RimAlpha = 0.7f
+private const val FaintAlpha = 0.3f
+private const val RingAlpha = 0.5f
+private const val RimAlpha = 0.75f
 private const val PulseAlpha = 0.6f
-private const val AnsweredAlpha = 0.85f
 private const val AnsweredShare = 0.8f
 private const val GlowSlices = 12
 private const val GlowSliceDegrees = 4f
@@ -537,6 +563,7 @@ private const val GlowAlpha = 0.18f
 // The reveal runs from 0 to RevealEnd: one arm turn, then the closing pulse.
 private const val RevealEnd = 1.3f
 private const val RevealMillis = 3200
+private const val PressMillis = 600
 private const val SweepNanos = 4_000_000_000L
 private const val PopSpan = 0.08f
 private const val RippleSpan = 0.2f
