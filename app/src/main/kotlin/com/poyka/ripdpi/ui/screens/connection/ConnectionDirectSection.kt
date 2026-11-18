@@ -66,6 +66,7 @@ private fun DirectSectionRows(
             desyncSummary = desyncSummary,
             onOpenDesyncSettings = onOpenDesyncSettings,
         )
+        uiState.strategyLanes?.let { ConnectionStrategyLanes(it) }
         LocalBypassStrategyTestRow(onRetestStrategies)
     }
 }

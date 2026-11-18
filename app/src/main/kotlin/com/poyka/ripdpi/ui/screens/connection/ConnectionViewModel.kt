@@ -10,6 +10,7 @@ import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,6 +22,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -36,6 +40,7 @@ class ConnectionViewModel
         private val dependencies: ConnectionViewModelDependencies,
         importDependencies: ConnectionImportDependencies,
         private val stringResolver: StringResolver,
+        diagnosticsHistory: DiagnosticsHistorySource,
     ) : ViewModel() {
         private val appSettingsRepository = dependencies.appSettingsRepository
         private val relayArtifacts = dependencies.relayArtifacts
@@ -212,6 +217,13 @@ class ConnectionViewModel
                 runtimeSnapshots = runtimeSnapshots,
                 factory = uiStateFactory,
                 reconnectState = dependencies.reconnectCoordinator.reconnectState,
+                strategyLanes =
+                    diagnosticsHistory
+                        .observeDiagnosticsSessions(StrategyLanesSessionLimit)
+                        .map { sessions -> sessions.latestStrategyLanes() }
+                        .distinctUntilChanged()
+                        // The rest of the screen must not wait for the history query.
+                        .onStart { emit(null) },
             )
 
         init {

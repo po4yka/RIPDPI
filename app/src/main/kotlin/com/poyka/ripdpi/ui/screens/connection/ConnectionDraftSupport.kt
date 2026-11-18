@@ -341,6 +341,7 @@ data class ConnectionUiState(
     val isEditorImporting: Boolean = false,
     val hasEditorRecoveryPersistenceError: Boolean = false,
     val isLoading: Boolean = false,
+    val strategyLanes: StrategyLanesUiState? = null,
 ) {
     val usesRelayPath: Boolean
         get() = activeRelayEnabled || activeExternalProvider != null

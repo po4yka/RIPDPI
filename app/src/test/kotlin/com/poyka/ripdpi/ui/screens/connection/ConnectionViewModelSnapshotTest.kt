@@ -82,6 +82,7 @@ class ConnectionViewModelSnapshotTest {
         val appSettingsRepository = FakeAppSettingsRepository()
         return ConnectionViewModel(
             savedStateHandle = SavedStateHandle(),
+            diagnosticsHistory = FakeDiagnosticsHistorySource(),
             dependencies =
                 ConnectionViewModelDependencies(
                     reconnectCoordinator = FakeRunningServiceReconnect(),

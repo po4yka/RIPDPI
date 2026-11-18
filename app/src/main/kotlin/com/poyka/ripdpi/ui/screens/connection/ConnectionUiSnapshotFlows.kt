@@ -91,6 +91,7 @@ internal fun configUiStateFlow(
     runtimeSnapshots: Flow<ConnectionRuntimeSnapshot>,
     factory: ConnectionUiStateFactory,
     reconnectState: Flow<RunningReconnectState> = flowOf(RunningReconnectState.Idle),
+    strategyLanes: Flow<StrategyLanesUiState?> = flowOf(null),
 ): StateFlow<ConnectionUiState> =
     combine(
         persistedSnapshots,
@@ -118,11 +119,12 @@ internal fun configUiStateFlow(
         } else {
             state
         }
-    }.stateIn(
-        scope = scope,
-        started = SharingStarted.WhileSubscribed(ConnectionUiStateStopTimeoutMillis),
-        initialValue = ConnectionUiState(isLoading = true),
-    )
+    }.combine(strategyLanes) { state, lanes -> state.copy(strategyLanes = lanes) }
+        .stateIn(
+            scope = scope,
+            started = SharingStarted.WhileSubscribed(ConnectionUiStateStopTimeoutMillis),
+            initialValue = ConnectionUiState(isLoading = true),
+        )
 
 internal fun configEditorStateFlow(
     editorSession: Flow<ConnectionEditorSession>,

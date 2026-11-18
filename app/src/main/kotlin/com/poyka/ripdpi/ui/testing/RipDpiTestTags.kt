@@ -114,6 +114,7 @@ internal object RipDpiTestTags {
     const val ConnectionDnsSettings = "connection-dns-settings"
     const val ConnectionDirectSummary = "connection-direct-summary"
     const val ConnectionDirectRetest = "connection-direct-retest"
+    const val ConnectionStrategyLanes = "connection-strategy-lanes"
     const val ConnectionDirectListenAddress = "connection-direct-listen-address"
     const val ConnectionDirectDesync = "connection-direct-desync"
     const val ConnectionRelaySummary = "connection-relay-summary"
