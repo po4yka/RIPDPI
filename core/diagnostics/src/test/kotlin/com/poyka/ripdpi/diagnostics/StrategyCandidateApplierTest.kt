@@ -35,6 +35,7 @@ class StrategyCandidateApplierTest {
             val before = repository.snapshot()
             val applier = StrategyCandidateApplier(repository)
 
+            assertEquals(setOf("tcp-pass"), applier.applicableIds(report()))
             assertFalse(applier.apply(report(), "tcp-blocked"))
             assertFalse(applier.apply(report(), "missing"))
             assertEquals(before, repository.snapshot())

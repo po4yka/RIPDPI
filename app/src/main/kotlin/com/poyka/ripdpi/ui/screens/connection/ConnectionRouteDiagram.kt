@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -409,6 +410,8 @@ private fun RoutePathTarget(
     val tag = RipDpiTestTags.connectionPath(path.stableKey)
     Box(
         modifier
+            // The press highlight takes the round shape of the parts it covers, not a bare rectangle.
+            .clip(RipDpiThemeTokens.shapes.xl)
             .ripDpiClickable(role = Role.Tab, onClick = onClick)
             // One semantics block: a second source on this node would split it into two accessibility nodes.
             .clearAndSetSemantics {

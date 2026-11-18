@@ -9,6 +9,15 @@ class StrategyCandidateApplier
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
     ) {
+        /** The candidates of [report] that [apply] accepts with the settings as they are now. */
+        suspend fun applicableIds(report: StrategyProbeReport): Set<String> {
+            val settings = appSettingsRepository.snapshot()
+            return (report.tcpCandidates.map { it to true } + report.quicCandidates.map { it to false })
+                .filter { (candidate, tcpLane) ->
+                    DiagnosticsScanWorkflow.candidateStrategySettings(candidate, tcpLane, settings) != null
+                }.mapTo(mutableSetOf()) { (candidate, _) -> candidate.id }
+        }
+
         /** Returns false, and changes nothing, when the candidate is not in the test or did not pass. */
         suspend fun apply(
             report: StrategyProbeReport,

@@ -59,6 +59,8 @@ data class StrategyLaneUiState(
     val id: String = "",
     /** The stage most of this blocked candidate's sites stopped at; null when the test did not record it. */
     val stage: StrategyLaneStage? = null,
+    /** The engine's rules for a winner accept this candidate, so its strategy can be applied. */
+    val applicable: Boolean = false,
 )
 
 @Immutable
@@ -105,8 +107,17 @@ class ConnectionStrategyLanesSource
                 network,
                 running,
                 ->
-                running ?: session?.toStrategyLanes(currentNetworkScopeKey = network)
+                running ?: session?.toStrategyLanes(currentNetworkScopeKey = network)?.let { lanes ->
+                    // A lane offers its strategy only when applying it can succeed.
+                    val applicable =
+                        session.report
+                            ?.strategyProbeReport
+                            ?.let { applier.applicableIds(it) }
+                            .orEmpty()
+                    lanes.copy(lanes = lanes.lanes.map { it.copy(applicable = it.id in applicable) }.toImmutableList())
+                }
             }.distinctUntilChanged()
+                .flowOn(dispatchers.default)
 
         // The session this screen started. A scan of another kind, started elsewhere, is not this screen's
         // to show or to stop.
@@ -216,7 +227,8 @@ private fun StrategyProbeLiveProgress.toRunningLane() =
 
 // The test has moved on to another candidate, so the count this lane reached is its result.
 private fun StrategyLaneUiState.settled(): StrategyLaneUiState =
-    if (outcome != StrategyLaneOutcome.Running) {
+    // The engine reports some candidates without a site count; such a lane has no result to name.
+    if (outcome != StrategyLaneOutcome.Running || totalTargets <= 0) {
         this
     } else {
         copy(

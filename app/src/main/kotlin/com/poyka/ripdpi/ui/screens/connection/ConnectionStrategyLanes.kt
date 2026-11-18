@@ -116,7 +116,6 @@ internal fun ConnectionStrategyLanes(
         if (count == 0) PlaceholderLaneRows()
         if (state.lanes.any { it.stage != null }) StrategyGatesHeader(state.lanes)
         state.lanes.forEachIndexed { index, lane ->
-            val passes = lane.outcome == StrategyLaneOutcome.Passed || lane.outcome == StrategyLaneOutcome.Partial
             StrategyLaneRow(
                 lane = lane,
                 stale = state.otherNetwork,
@@ -129,8 +128,13 @@ internal fun ConnectionStrategyLanes(
             if (inspected == index) {
                 StrategyLaneDetail(
                     lane = lane,
-                    // Only a strategy that passed on this network, and is not already in use, can be applied.
-                    onApply = { onApplyLane(lane.id) }.takeIf { passes && !lane.current && !state.otherNetwork },
+                    // A result from another network, and the strategy already in use, offer nothing to apply.
+                    onApply =
+                        {
+                            onApplyLane(
+                                lane.id,
+                            )
+                        }.takeIf { lane.applicable && !lane.current && !state.otherNetwork },
                 )
             }
         }
@@ -379,7 +383,7 @@ private fun RowScope.StrategyLaneTrack(
     val track = colors.outlineVariant
     val stop = if (stale) colors.mutedForeground else colors.foreground
     Canvas(laneModifier.height(LaneHeight)) { drawLane(lane, progress(), fill, track, stop) }
-    val skipped = lane.outcome == StrategyLaneOutcome.Skipped
+    val skipped = lane.outcome == StrategyLaneOutcome.Skipped || lane.totalTargets <= 0
     val sites = "${lane.succeededTargets}/${lane.totalTargets}"
     val sitesLabel = stringResource(R.string.config_strategy_lanes_sites, lane.succeededTargets, lane.totalTargets)
     Text(

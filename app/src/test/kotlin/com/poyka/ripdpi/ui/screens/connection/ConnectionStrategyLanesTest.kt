@@ -37,12 +37,14 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -211,8 +213,12 @@ class ConnectionStrategyLanesTest {
             val marks = mutableListOf<Boolean?>()
             val collector =
                 launch(UnconfinedTestDispatcher(testScheduler)) {
-                    strategyLanesSource(history, network = home, handovers = handovers)
-                        .observe()
+                    strategyLanesSource(
+                        history,
+                        network = home,
+                        handovers = handovers,
+                        dispatcher = UnconfinedTestDispatcher(testScheduler),
+                    ).observe()
                         .collect { marks += it?.otherNetwork }
                 }
 
@@ -336,6 +342,7 @@ class ConnectionStrategyLanesTest {
                     strategyLanesSource(
                         FakeDiagnosticsHistorySource(stored),
                         timeline = timeline,
+                        dispatcher = UnconfinedTestDispatcher(testScheduler),
                     ).observe().collect(states::add)
                 }
 
@@ -410,7 +417,12 @@ class ConnectionStrategyLanesTest {
             timeline.activeScanProgress.value = ScanProgress("other", "dns", 1, 4, "")
             val stored = session("stored", report(), startedAt = 10L)
 
-            val lanes = strategyLanesSource(FakeDiagnosticsHistorySource(stored), timeline = timeline).observe().first()
+            val lanes =
+                strategyLanesSource(
+                    FakeDiagnosticsHistorySource(stored),
+                    timeline = timeline,
+                    dispatcher = UnconfinedTestDispatcher(testScheduler),
+                ).observe().first()
 
             assertNull(lanes?.progress)
             assertEquals(5, lanes?.lanes?.size)
@@ -436,10 +448,12 @@ class ConnectionStrategyLanesTest {
         }
 
     @Test
-    fun `a tapped lane shows its sites and offers its strategy only when it passed`() {
+    fun `a tapped lane shows its sites and offers its strategy only when it can be applied`() {
         val applied = mutableListOf<String>()
         composeRule.setContent {
-            RipDpiTheme { ConnectionStrategyLanes(report().toStrategyLanes(0)!!, onApplyLane = applied::add) }
+            val lanes = report().toStrategyLanes(0)!!
+            val marked = lanes.lanes.map { it.copy(applicable = it.id == "oob") }.toImmutableList()
+            RipDpiTheme { ConnectionStrategyLanes(lanes.copy(lanes = marked), onApplyLane = applied::add) }
         }
         val apply = resource(R.string.strategy_tuner_apply)
 
@@ -548,9 +562,10 @@ internal fun strategyLanesSource(
     scans: StubDiagnosticsScanController = StubDiagnosticsScanController(),
     timeline: StubDiagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
     settings: AppSettingsRepository = FakeAppSettingsRepository(),
-): ConnectionStrategyLanesSource {
-    val dispatcher = UnconfinedTestDispatcher()
-    return ConnectionStrategyLanesSource(
+    // A test that collects the lanes passes a dispatcher on its own scheduler.
+    dispatcher: TestDispatcher = UnconfinedTestDispatcher(),
+): ConnectionStrategyLanesSource =
+    ConnectionStrategyLanesSource(
         history = history,
         fingerprints =
             object : NetworkFingerprintProvider {
@@ -565,7 +580,6 @@ internal fun strategyLanesSource(
         timeline = timeline,
         applier = StrategyCandidateApplier(settings),
     )
-}
 
 private fun fingerprint(dns: String) =
     NetworkFingerprint(
