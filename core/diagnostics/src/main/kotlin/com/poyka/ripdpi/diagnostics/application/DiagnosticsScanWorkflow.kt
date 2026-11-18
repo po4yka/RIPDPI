@@ -27,6 +27,10 @@ import com.poyka.ripdpi.data.strategyLabel
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson as RememberedPolicy
 
 @Suppress("detekt.TooManyFunctions")
@@ -498,8 +502,33 @@ internal object DiagnosticsScanWorkflow {
         candidate
             .takeIf { it.isPromotableStrategyWinner(settings) }
             ?.proxyConfigJson
+            ?.let(::withoutExplicitNulls)
             ?.let(::decodeRipDpiProxyUiPreferences)
             ?.applyStrategyToSettings(settings, applyTcp = tcpLane, applyQuic = !tcpLane)
+
+    // The engine writes an unset option of a candidate as an explicit null. The app's config model reads a
+    // missing key as unset and rejects a null, so the nulls are dropped before the config is decoded.
+    private fun withoutExplicitNulls(configJson: String): String? =
+        runCatching { Json.parseToJsonElement(configJson).withoutNulls().toString() }.getOrNull()
+
+    private fun JsonElement.withoutNulls(): JsonElement =
+        when (this) {
+            is JsonObject -> {
+                JsonObject(
+                    filterValues { it !is JsonNull }.mapValues { (_, value) ->
+                        value.withoutNulls()
+                    },
+                )
+            }
+
+            is JsonArray -> {
+                JsonArray(map { it.withoutNulls() })
+            }
+
+            else -> {
+                this
+            }
+        }
 
     private fun recommendationLaneIsValid(
         recommendation: StrategyProbeRecommendation,

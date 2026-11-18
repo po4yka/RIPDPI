@@ -29,6 +29,26 @@ class StrategyCandidateApplierTest {
         }
 
     @Test
+    fun `a candidate config with explicit nulls, as the engine writes it, is applied`() =
+        runTest {
+            val repository = FakeAppSettingsRepository(defaultDiagnosticsAppSettings())
+            val before = repository.snapshot()
+            // The engine marks an unset option with a null; the app's own encoder leaves the key out.
+            val engineConfig = config.replaceFirst("\"fakePackets\":{", "\"fakePackets\":{\"entropyPaddingMax\":null,")
+            assertTrue(engineConfig != config)
+            val report = report(candidate("tcp-pass", "success", succeeded = 4).copy(proxyConfigJson = engineConfig))
+
+            assertEquals(setOf("tcp-pass"), StrategyCandidateApplier(repository).applicableIds(report))
+            assertTrue(StrategyCandidateApplier(repository).apply(report, "tcp-pass"))
+            assertEquals(
+                decodeRipDpiProxyUiPreferences(
+                    config,
+                )!!.applyStrategyToSettings(before, applyTcp = true, applyQuic = false),
+                repository.snapshot(),
+            )
+        }
+
+    @Test
     fun `a blocked or unknown candidate changes nothing`() =
         runTest {
             val repository = FakeAppSettingsRepository(defaultDiagnosticsAppSettings())
@@ -41,14 +61,10 @@ class StrategyCandidateApplierTest {
             assertEquals(before, repository.snapshot())
         }
 
-    private fun report() =
+    private fun report(pass: StrategyProbeCandidateSummary = candidate("tcp-pass", "success", succeeded = 4)) =
         StrategyProbeReport(
             suiteId = "full_matrix_v1",
-            tcpCandidates =
-                listOf(
-                    candidate("tcp-pass", "success", succeeded = 4),
-                    candidate("tcp-blocked", "failed", 0),
-                ),
+            tcpCandidates = listOf(pass, candidate("tcp-blocked", "failed", 0)),
             quicCandidates = emptyList(),
             recommendation = null,
         )
