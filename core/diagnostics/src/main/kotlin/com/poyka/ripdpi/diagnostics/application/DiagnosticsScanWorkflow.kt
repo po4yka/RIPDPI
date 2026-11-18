@@ -486,6 +486,21 @@ internal object DiagnosticsScanWorkflow {
                     )
             }
 
+    /**
+     * The settings with one candidate's strategy applied to its own lane, or null when the candidate did not
+     * pass under the rules a recommended winner must meet.
+     */
+    fun candidateStrategySettings(
+        candidate: StrategyProbeCandidateSummary,
+        tcpLane: Boolean,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ): com.poyka.ripdpi.proto.AppSettings? =
+        candidate
+            .takeIf { it.isPromotableStrategyWinner(settings) }
+            ?.proxyConfigJson
+            ?.let(::decodeRipDpiProxyUiPreferences)
+            ?.applyStrategyToSettings(settings, applyTcp = tcpLane, applyQuic = !tcpLane)
+
     private fun recommendationLaneIsValid(
         recommendation: StrategyProbeRecommendation,
         candidate: StrategyProbeCandidateSummary?,
