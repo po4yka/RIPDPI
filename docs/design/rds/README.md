@@ -49,7 +49,8 @@ colors_and_type.css              ← all tokens as CSS custom properties + @font
 
 fonts/                           ← Geist Sans, Geist Mono
 assets/
-  ic_launcher.png                ← brand mark (raster)
+  ic_launcher.png                ← brand mark (raster, = app/src/main/ic_launcher-playstore.png)
+  ic_launcher.svg                ← vector master of ic_launcher.png (512 px, full bleed)
   icons/                         ← Android vector drawables converted to SVG
     ic_launcher_foreground_ripdpi_clean.svg        ← canonical brand mark
     ic_launcher_foreground_ripdpi_cracked.svg      ← variant: "cracked"
@@ -64,6 +65,7 @@ assets/
     ic_vpn_key_outline.svg
     ic_article_outline.svg
     ic_notification.svg
+    ripdpi_wordmark.svg                            ← About card wordmark
   raw/                           ← Android vector drawable XML sources (kept for parity)
 
 preview/                         ← Design System cards — one foundational concept each
