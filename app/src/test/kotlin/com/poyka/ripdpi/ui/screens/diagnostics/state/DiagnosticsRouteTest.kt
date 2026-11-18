@@ -177,6 +177,30 @@ class DiagnosticsRouteTest {
     }
 
     @Test
+    fun `route strategy test starts the strategy profile and keeps the selected one`() {
+        val manager = FakeDiagnosticsManager()
+        var startedProfileId: String? = null
+        manager.scanController.onStartScan = { _, profileId ->
+            startedProfileId = profileId
+            DiagnosticsManualScanStartResult.Started("session-strategy")
+        }
+        val selectedProfiles = mutableListOf<String>()
+        manager.scanController.onSetActiveProfile = { selectedProfiles += it }
+        createDiagnosticsViewModel(
+            appContext = RuntimeEnvironment.getApplication(),
+            diagnosticsManager = manager,
+            appSettingsRepository = FakeAppSettingsRepository(),
+            autoStartScan = true,
+            autoStartStrategyTest = true,
+        )
+
+        composeRule.waitUntil(timeoutMillis = 5_000) { startedProfileId != null }
+
+        assertEquals(AutomaticProbingProfileId, startedProfileId)
+        assertEquals(emptyList<String>(), selectedProfiles)
+    }
+
+    @Test
     fun `advanced dashboard run scan button is enabled and starts raw-path scan`() {
         val manager = FakeDiagnosticsManager()
         var startedPathMode: ScanPathMode? = null

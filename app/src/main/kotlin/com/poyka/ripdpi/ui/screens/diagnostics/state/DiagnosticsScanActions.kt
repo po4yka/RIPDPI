@@ -253,10 +253,21 @@ internal class DiagnosticsScanActions(
         }
     }
 
-    fun startRawScan() {
+    /**
+     * [strategyTest] runs the bundled strategy test instead of the selected profile. It works before the profile
+     * list has loaded, and it leaves the user's selected profile as it is.
+     */
+    fun startRawScan(strategyTest: Boolean = false) {
+        val scan = mutations.currentUiState().scan
         startManualScan(
             pathMode = ScanPathMode.RAW_PATH,
-            selectedProfile = mutations.currentUiState().scan.selectedProfile,
+            selectedProfile =
+                if (strategyTest) {
+                    scan.profiles.firstOrNull { it.id == AutomaticProbingProfileId }
+                } else {
+                    scan.selectedProfile
+                },
+            strategyTest = strategyTest,
         )
     }
 
@@ -398,10 +409,18 @@ internal class DiagnosticsScanActions(
         pathMode: ScanPathMode,
         selectedProfile: DiagnosticsProfileOptionUiModel?,
         allowSensitiveProfileStart: Boolean = false,
+        strategyTest: Boolean = false,
     ) {
         if (manualStartInFlight) return
+        val profileId = if (strategyTest) AutomaticProbingProfileId else selectedProfile?.id
         val command =
-            mutations.prepareManualScan(scanLifecycle, pathMode, selectedProfile, allowSensitiveProfileStart) ?: return
+            mutations.prepareManualScan(
+                scanLifecycle = scanLifecycle,
+                pathMode = pathMode,
+                profile = selectedProfile,
+                allowSensitiveProfileStart = allowSensitiveProfileStart,
+                fallbackKind = if (strategyTest) ScanKind.STRATEGY_PROBE else ScanKind.CONNECTIVITY,
+            ) ?: return
         val request = command.request
         manualStartInFlight = true
         mutations.launch {
@@ -412,12 +431,12 @@ internal class DiagnosticsScanActions(
                 return@launch
             }
             try {
-                selectedProfile?.id?.let { diagnosticsScanController.setActiveProfile(it) }
+                if (!strategyTest) profileId?.let { diagnosticsScanController.setActiveProfile(it) }
                 when (
                     val result =
                         diagnosticsScanController.startScan(
                             pathMode = pathMode,
-                            selectedProfileId = selectedProfile?.id,
+                            selectedProfileId = profileId,
                             allowSensitiveProfileStart = allowSensitiveProfileStart,
                             targetOverrides =
                                 if (selectedProfile?.id == SelectiveMatrixProfileId) {
@@ -676,6 +695,7 @@ private fun DiagnosticsMutationRunner.prepareManualScan(
     pathMode: ScanPathMode,
     profile: DiagnosticsProfileOptionUiModel?,
     allowSensitiveProfileStart: Boolean,
+    fallbackKind: ScanKind,
 ): PreparedManualScan? {
     if (diagnosticsScanController.hasActiveHomeRun() ||
         diagnosticsTimelineSource.activeScanProgress.value != null
@@ -693,7 +713,7 @@ private fun DiagnosticsMutationRunner.prepareManualScan(
             ManualScanUiRequest(
                 profileName = profile?.name ?: "Scan",
                 pathMode = pathMode,
-                scanKind = profile?.kind ?: ScanKind.CONNECTIVITY,
+                scanKind = profile?.kind ?: fallbackKind,
                 isFullAudit = profile?.isFullAudit == true,
             )
         if (profile?.requiresExplicitConsent == true && !allowSensitiveProfileStart) {

@@ -43,6 +43,8 @@ class DiagnosticsViewModel
     ) : ViewModel() {
         private val autoStartScan: Boolean =
             savedStateHandle.get<Boolean>("auto_start_scan") ?: false
+        private val autoStartStrategyTest: Boolean =
+            savedStateHandle.get<Boolean>("auto_start_strategy_test") ?: false
         private var initialized = false
         private var autoStartScanHandled = false
         private val selectionState = MutableStateFlow(SelectionState())
@@ -221,7 +223,7 @@ class DiagnosticsViewModel
             scanActions.initialize()
             if (autoStartScan && !autoStartScanHandled) {
                 autoStartScanHandled = true
-                runScan()
+                scanActions.startRawScan(strategyTest = autoStartStrategyTest)
             }
         }
 

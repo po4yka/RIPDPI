@@ -80,6 +80,9 @@ sealed class Route {
     data class Diagnostics(
         @SerialName("auto_start_scan")
         val autoStartScan: Boolean = false,
+        /** The auto-started scan is the strategy test, not the selected profile. */
+        @SerialName("auto_start_strategy_test")
+        val autoStartStrategyTest: Boolean = false,
     ) : Route() {
         @kotlinx.serialization.Transient
         override val stableRoute = "diagnostics"

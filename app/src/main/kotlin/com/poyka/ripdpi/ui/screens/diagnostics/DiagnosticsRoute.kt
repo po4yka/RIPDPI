@@ -377,7 +377,7 @@ private fun rememberDiagnosticsScreenActions(
         onSelectProfile = remember(selection) { selection::selectProfile },
         onSelectiveMatrixHostsChanged = remember(selection) { selection::updateSelectiveMatrixHosts },
         onRunScan = remember(viewModel) { viewModel::runScan },
-        onRunRawScan = remember(scan) { scan::startRawScan },
+        onRunRawScan = remember(scan) { { scan.startRawScan() } },
         onRunInPathScan = remember(scan) { scan::startInPathScan },
         onWaitForHiddenProbeAndRun = remember(scan) { scan::waitForHiddenProbeAndRun },
         onCancelHiddenProbeAndRun = remember(scan) { scan::cancelHiddenProbeAndRun },

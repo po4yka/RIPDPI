@@ -61,6 +61,7 @@ internal fun createDiagnosticsViewModel(
     serviceStateStore: ServiceStateStore = FakeServiceStateStore(),
     probeDependencies: DiagnosticsProbeDependencies = defaultDiagnosticsProbeDependencies(appContext),
     autoStartScan: Boolean = false,
+    autoStartStrategyTest: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
     DiagnosticsUiFactorySupport(appContext).let { support ->
@@ -81,7 +82,7 @@ internal fun createDiagnosticsViewModel(
         DiagnosticsViewModel(
             savedStateHandle =
                 SavedStateHandle(
-                    mapOf("auto_start_scan" to autoStartScan),
+                    mapOf("auto_start_scan" to autoStartScan, "auto_start_strategy_test" to autoStartStrategyTest),
                 ),
             diagnosticsInteractionDependencies =
                 DiagnosticsInteractionDependencies(
@@ -127,6 +128,7 @@ internal fun createDiagnosticsViewModel(
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
     serviceStateStore: ServiceStateStore = FakeServiceStateStore(),
     autoStartScan: Boolean = false,
+    autoStartStrategyTest: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
     createDiagnosticsViewModel(
@@ -141,6 +143,7 @@ internal fun createDiagnosticsViewModel(
         activeConnectionPolicySource = activeConnectionPolicySource,
         serviceStateStore = serviceStateStore,
         autoStartScan = autoStartScan,
+        autoStartStrategyTest = autoStartStrategyTest,
         initialize = initialize,
     )
 

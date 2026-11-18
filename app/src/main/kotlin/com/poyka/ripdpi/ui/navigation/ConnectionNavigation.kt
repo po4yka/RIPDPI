@@ -30,7 +30,9 @@ private fun ConnectionDestination(
         onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
         onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
         onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
-        onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
+        onRetestStrategies = {
+            navController.navigate(Route.Diagnostics(autoStartScan = true, autoStartStrategyTest = true))
+        },
         onScanServer = { navController.navigate(Route.QrScanner) },
         onOpenRoute = { destination -> navController.navigate(destination) },
         route = route,

@@ -26,6 +26,9 @@ internal fun BypassApproachSummary.localizedDisplayName(strings: StringResolver)
         displayName
     }
 
+/** The bundled quick strategy test: the profile that "Run strategy test" on the Connection screen starts. */
+internal const val AutomaticProbingProfileId = "automatic-probing"
+
 private val bundledProfileTitles =
     mapOf(
         "default" to ("Default diagnostics" to R.string.diagnostics_profile_connectivity_title),
@@ -34,7 +37,7 @@ private val bundledProfileTitles =
         "ip-family-connectivity" to ("IPv4, IPv6 and NAT64 connectivity" to R.string.diagnostics_ip_title),
         "http3-connectivity" to ("HTTP/3 connectivity" to R.string.diagnostics_http3_title),
         "pmtu-connectivity" to ("Active packet sizes / PMTU" to R.string.diagnostics_pmtu_title),
-        "automatic-probing" to ("Automatic probing" to R.string.diagnostics_scan_automatic_probing),
+        AutomaticProbingProfileId to ("Automatic probing" to R.string.diagnostics_scan_automatic_probing),
         "automatic-audit" to ("Automatic audit" to R.string.diagnostics_scan_automatic_audit),
         "dpi-detector-full" to ("DPI Detector Full" to R.string.diagnostics_profile_dpi_detector_full_title),
         "ru-web-connectivity" to ("Russia Web Connectivity" to R.string.diagnostics_profile_ru_web_connectivity_title),
