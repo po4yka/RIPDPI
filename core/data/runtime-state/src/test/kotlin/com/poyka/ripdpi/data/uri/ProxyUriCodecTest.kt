@@ -8,6 +8,22 @@ import org.junit.Test
 
 class ProxyUriCodecTest {
     @Test
+    fun `VLESS identity survives sharing with reserved characters`() {
+        for (security in listOf("tls", "reality&pbk=key")) {
+            val link = "vless://alice%40work+%2540@edge.test:443?security=$security"
+            val imported = requireNotNull(ProxyUriCodec.parse(link))
+            val shared = ProxyUriCodec.parse(ProxyUriCodec.encode(imported))
+            val identity =
+                when (shared) {
+                    is ProxyProfile.Vless -> shared.uuid
+                    is ProxyProfile.VlessReality -> shared.uuid
+                    else -> null
+                }
+            assertEquals("alice@work+%40", identity)
+        }
+    }
+
+    @Test
     fun `URI rejects malformed UTF-8 without discarding a valid replacement character`() {
         val base = "trojan://%s@example.com:443"
         assertNull(ProxyUriCodec.parse(base.format("a%FFb")))

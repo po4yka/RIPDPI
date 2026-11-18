@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.data.xray
 
 import com.poyka.ripdpi.data.XrayConfigValidator
+import com.poyka.ripdpi.data.uri.hasValidUriEncoding
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.json.JsonObject
+import java.net.URI
 import java.net.URLDecoder
 
 /**
@@ -379,24 +381,14 @@ class XrayImportParser(
 
     @Suppress("ReturnCount")
     private fun parseVlessUri(link: String): VlessUri? {
-        val body = link.substring(VLESS_SCHEME.length)
-        val afterFragment = body.substringBefore('#')
-        val beforeQuery = afterFragment.substringBefore('?')
-        val query = afterFragment.substringAfter('?', "")
-
-        val atIndex = beforeQuery.indexOf('@')
-        if (atIndex <= 0) return null
-        val uuid = beforeQuery.substring(0, atIndex)
-        val hostPort = beforeQuery.substring(atIndex + 1)
-        if (uuid.isBlank() || hostPort.isBlank()) return null
-
-        val colonIndex = hostPort.lastIndexOf(':')
-        if (colonIndex <= 0 || colonIndex == hostPort.length - 1) return null
-        val host = hostPort.substring(0, colonIndex)
-        val port = hostPort.substring(colonIndex + 1).toIntOrNull() ?: return null
-        if (host.isBlank() || port !in 1..PORT_MAX) return null
-
-        val params = parseQuery(query) ?: return null
+        val beforeFragment = link.substringBefore('#')
+        if (!beforeFragment.hasValidUriEncoding()) return null
+        val authority = runCatching { URI(beforeFragment.substringBefore('?')) }.getOrNull() ?: return null
+        val uuid = authority.userInfo?.takeIf(String::isNotBlank) ?: return null
+        val host = authority.host?.removeSurrounding("[", "]") ?: return null
+        val port = authority.port
+        if (authority.rawPath.isNotEmpty() || port !in 1..PORT_MAX) return null
+        val params = parseQuery(beforeFragment.substringAfter('?', "")) ?: return null
         return VlessUri(uuid = uuid, host = host, port = port, params = params)
     }
 

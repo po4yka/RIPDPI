@@ -157,7 +157,7 @@ object ProxyUriCodec {
                     add("mode=${encodeQueryValue(profile.xhttpMode)}")
                 }
             }.joinToString("&")
-        return "vless://${profile.uuid}@${bracketIpv6(profile.server)}:${profile.serverPort}" +
+        return "vless://${encodeQueryValue(profile.uuid)}@${bracketIpv6(profile.server)}:${profile.serverPort}" +
             "?$params#${encodeFragment(profile.displayName)}"
     }
 
@@ -175,7 +175,7 @@ object ProxyUriCodec {
                     add("mode=${encodeQueryValue(profile.xhttpMode)}")
                 }
             }.joinToString("&")
-        return "vless://${profile.uuid}@${bracketIpv6(profile.server)}:${profile.serverPort}" +
+        return "vless://${encodeQueryValue(profile.uuid)}@${bracketIpv6(profile.server)}:${profile.serverPort}" +
             "?$params#${encodeFragment(profile.displayName)}"
     }
 

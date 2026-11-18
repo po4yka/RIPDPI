@@ -86,6 +86,15 @@ class XrayImportParserTest {
     }
 
     @Test
+    fun `VLESS userinfo decodes percent escapes once and preserves plus`() {
+        val query = "security=reality&pbk=$pbk&sni=fixture.test&flow=xtls-rprx-vision"
+        val result = accepted(parser.parse("vless://alice%40work+%2540@edge.test:443?$query", stableTag))
+
+        assertEquals("alice@work+%40", result.profile.outbound.uuid)
+        rejected(parser.parse("vless://alice%FF@edge.test:443?$query", stableTag))
+    }
+
+    @Test
     fun realityVlessLinkImportsToTypedProfile() {
         val link =
             "vless://$uuid@edge.example.com:443" +
