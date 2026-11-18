@@ -16,7 +16,7 @@ if [[ -n "${RIPDPI_PREBUILT_PT_DIR:-}" || -n "${RIPDPI_PREBUILT_PT_MANIFEST_SHA2
   )
 fi
 TARGET_FILE="${RUNNER_TEMP:-/tmp}/android-instrumented-target.txt"
-RESULTS_DIR="app/build/outputs/androidTest-results/connected/debug/flavors/githubFull"
+RESULTS_DIR="app/build/outputs/androidTest-results/connected/debug/flavors/github"
 RESULT_VALIDATOR="$script_dir/validate_android_junit_results.py"
 PREFLIGHT_CLASS="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
 PREFLIGHT_TEST="$PREFLIGHT_CLASS#environmentSupportsFixtureReachabilityAndVpnConsent"
@@ -40,7 +40,7 @@ run_target() {
     echo "Failed to clear Android JUnit results: $RESULTS_DIR" >&2
     return 1
   fi
-  if ! ./gradlew :app:connectedGithubFullDebugAndroidTest \
+  if ! ./gradlew :app:connectedGithubDebugAndroidTest \
     --profile \
     "$GRADLE_ABI" \
     "${PT_GRADLE_ARGS[@]}" \

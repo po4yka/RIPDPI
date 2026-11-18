@@ -129,7 +129,7 @@ Before starting the audit:
 
 1. **Read `.agents/skills/compose-performance/SKILL.md`** to absorb the known quick-wins list, existing `TrackRecomposition` instrumentation, and annotation conventions. Issues already tracked there should appear in "Known Open Items", not as new findings, unless they remain unfixed.
 
-2. **Compiler reports**: use `./gradlew :app:compileGithubFullDebugKotlin -Pripdpi.composeReports=true` (NOT the init.gradle script). This non-signing compile task writes `app/build/compose-reports/` and `app/build/compose-metrics/` through `ripdpi.android.compose.gradle.kts`.
+2. **Compiler reports**: use `./gradlew :app:compileGithubDebugKotlin -Pripdpi.composeReports=true` (NOT the init.gradle script). This non-signing compile task writes `app/build/compose-reports/` and `app/build/compose-metrics/` through `ripdpi.android.compose.gradle.kts`.
 
 3. **Module scope**: `:app` is the only Compose module. Do not search `:core:data`, `:core:diagnostics`, `:core:engine`, `:core:service`, or `:core:detection` for `@Composable` definitions.
 
@@ -160,7 +160,7 @@ If subagents are available, parallelize category scans and merge findings.
 **Primary path:**
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel)
-cd "$REPO_ROOT" && ./gradlew :app:compileGithubFullDebugKotlin -Pripdpi.composeReports=true --no-daemon
+cd "$REPO_ROOT" && ./gradlew :app:compileGithubDebugKotlin -Pripdpi.composeReports=true --no-daemon
 ```
 Use a 600-second timeout.
 
@@ -174,7 +174,7 @@ Extract: unstable classes, non-skippable named composables, module-wide skippabi
 
 **Fallback if convention plugin fails:**
 ```bash
-./gradlew :app:compileGithubFullDebugKotlin \
+./gradlew :app:compileGithubDebugKotlin \
     --init-script .agents/skills/compose/scripts/compose-reports.init.gradle \
     --no-daemon --quiet
 ```

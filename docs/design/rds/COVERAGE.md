@@ -100,7 +100,7 @@ Row totals are a recount of the audited bullets in this file: 30 components + 36
 - **Home/Connect Screen** (`vpn-*`) — `HomeScreen.kt`; connection toggle, status, metrics
 - **Profile Switcher** (`vpn-profile-switcher.html`) — profile selection UI
 - **Presets Gallery** (`vpn-presets-gallery.html`) — preset card grid and selection
-- **Guided vs Advanced** (`vpn-quick-vs-advanced.html`) — full-app interface mode toggle; the separate stripped distribution is named **RIPDPI Quick Connect**
+- **Guided vs Advanced** (`vpn-quick-vs-advanced.html`) — full-app interface mode toggle
 - **History** (`vpn-state-history.html`) — `HistoryScreen.kt`; session list, filtering
 - **DNS Picker** (`vpn-dns-picker.html`) — `DnsSettingsScreen.kt`; DNS server selection
 - **Configuration** (`vpn-awg-editor.html`) — `ConfigScreen.kt`; WireGuard, Amnesia config UI

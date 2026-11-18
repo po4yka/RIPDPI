@@ -255,7 +255,7 @@ class SourceCaptureTests(unittest.TestCase):
                     output.write_bytes(data)
                     images[path] = sha256(output)
         self.data = {"schemaVersion": 1, "locales": list(LOCALES), "builtFromRevision": "a" * 40,
-                     "apk": {"variant": "githubFullDebug", "sha256": "b" * 64},
+                     "apk": {"variant": "githubDebug", "sha256": "b" * 64},
                      "libXray": {"manifestSha256": "c" * 64, "aarSha256": "d" * 64},
                      "device": {"screen": "1080x1800", "densityDpi": DENSITY_DPI, "api": 37},
                      "state": {"servicePreset": "live", "displayProfiles": DISPLAY_PROFILES, "statusBar": STATUS_BAR, "homeScrollPixels": HOME_SCROLL_PIXELS}, "runReceipts": {"vpn": {"service": "RipDpiVpnService", "transport": "VPN CONNECTED; owner com.poyka.ripdpi", "observedAtUtc": "2026-10-10T00:00:00+00:00", "stoppedNormallyAtUtc": "2026-10-10T00:00:01+00:00"}, "diagnostics": {"id": "new", "previousSessionId": "old", "profileId": "default", "status": "completed", "clickedAt": 1000, "startedAt": 2000, "finishedAt": 3000, "resultCount": 21, "reportBytes": 1024, "reportSha256": "f" * 64, "outcomes": {"healthy": 21}}},

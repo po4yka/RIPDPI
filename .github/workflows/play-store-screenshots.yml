@@ -137,7 +137,7 @@ jobs:
       - name: Build actual current app before booting emulator
         if: inputs.reuse_capture_run == ''
         run: >-
-          ./gradlew :app:assembleGithubFullDebug
+          ./gradlew :app:assembleGithubDebug
           -Pripdpi.nativeAbisOverride=x86_64
           -Pripdpi.prebuiltXrayAarDir=${{ github.workspace }}/native/xray/artifacts
           -Pripdpi.pluggableTransportAssetsMode=source
@@ -148,7 +148,7 @@ jobs:
         run: |
           bash scripts/native/verify-libxray-artifacts.sh --release
           python3 play-store-screenshots/scripts/capture_build.py seal "$RUNNER_TEMP/android-capture-build" \
-            --apk app/build/outputs/apk/githubFull/debug/app-github-full-x86_64-debug.apk \
+            --apk app/build/outputs/apk/github/debug/app-github-x86_64-debug.apk \
             --xray-artifacts native/xray/artifacts
 
       - name: Verify sealed bytes, build inputs, and toolchain equivalence

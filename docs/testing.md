@@ -93,7 +93,7 @@ To inspect which tasks a command runs, use `--dry-run`. `./gradlew :app:tasks --
 Main command (`testDebugUnitTest` skips the flavored `:app` module, so name its task too):
 
 ```bash
-./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubDebugUnitTest
 ```
 
 Focused command set:
@@ -517,8 +517,8 @@ Android instrumentation is split into two practical layers:
 Common commands:
 
 ```bash
-./gradlew :app:assembleGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=x86_64
-./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
+./gradlew :app:assembleGithubDebugAndroidTest -Pripdpi.localNativeAbis=x86_64
+./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
 ```
 
 CI runs `:app` integration tests on **Gradle Managed Devices** across the
@@ -538,7 +538,7 @@ Useful runner filters:
 For local debug builds you can narrow native compilation to one ABI:
 
 ```bash
-./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
+./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
 ```
 
 For physical devices, expose the host fixture over `adb reverse` and point the fixture manifest at loopback before running the E2E package:
@@ -552,7 +552,7 @@ adb reverse tcp:46001 tcp:46001
 adb reverse tcp:46003 tcp:46003
 adb reverse tcp:46053 tcp:46053
 adb reverse tcp:46054 tcp:46054
-./gradlew :app:connectedGithubFullDebugAndroidTest \
+./gradlew :app:connectedGithubDebugAndroidTest \
   -Pripdpi.localNativeAbis=arm64-v8a \
   -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e
 ```
@@ -601,7 +601,7 @@ selector policy live under `docs/automation/`.
 Run one journey area on a leased emulator:
 
 ```bash
-./gradlew :app:connectedGithubFullDebugAndroidTest \
+./gradlew :app:connectedGithubDebugAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.ui.journeys.diagnostics
 ```
 
@@ -841,9 +841,9 @@ The live `nfqueue` mode is documented with the emulator harness. Phase-16 now di
 PR CI includes:
 
 - `build-android-debug` / `build-android-tests` -- Android compilation and unit-test artifacts
-- `gradle-static-analysis` -- detekt + ktlint + Android lint. Pull requests lint only the GitHub Full app variant and skip test sources (`-Pripdpi.lintSimpleAndTestSources=false`). Pushes to main also lint the Simple variant and test sources
-- `release-verification` -- one R8 release variant per shard. Pull requests build GitHub Full and Simple; main builds all six. Only the github-full shard skips lintVital (`-Pripdpi.lintReleaseBuilds=false`)
-- `release-instrumentation-apk` -- the GitHub Full release instrumentation APK, in its own job
+- `gradle-static-analysis` -- detekt + ktlint + Android lint. Pull requests lint the GitHub app variant and skip test sources (`-Pripdpi.lintTestSources=false`). Pushes to main also lint test sources
+- `release-verification` -- one R8 release variant per shard. Pull requests build the GitHub variant; main builds all three. Only the github shard skips lintVital (`-Pripdpi.lintReleaseBuilds=false`)
+- `release-instrumentation-apk` -- the GitHub release instrumentation APK, in its own job
 - `rust-lint` -- Rust fmt/clippy, policy scanners, and the `ripdpi-diagnostics-probes` compat-facade feature checks
 - `rust-workspace-tests` / `rust-workspace-test-shards` -- one job builds the workspace test binaries into a nextest archive; two shards run them with `--partition slice:K/2` (`scripts/ci/run-rust-workspace-tests.sh archive` / `shard`)
 - `rust-network-e2e` -- native architecture checks, socket-filter tests, host-side proxy E2E against local fixture, and deterministic turmoil fault-injection tests

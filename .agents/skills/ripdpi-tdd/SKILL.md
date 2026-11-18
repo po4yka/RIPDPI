@@ -34,7 +34,7 @@ Run the gate that `AGENTS.md` assigns to the change once, after the last cycle o
 ./gradlew :core:engine:testDebugUnitTest
 ```
 
-Replace `:core:engine` with the target module (`:core:service`, `:core:data`, `:core:diagnostics`). `:app` tasks are flavor-qualified (`:app:testGithubFullDebugUnitTest`).
+Replace `:core:engine` with the target module (`:core:service`, `:core:data`, `:core:diagnostics`). `:app` tasks are flavor-qualified (`:app:testGithubDebugUnitTest`).
 
 ### Rust
 
@@ -90,8 +90,8 @@ bindings.faults.enqueue(
 |--------------|----------|--------|
 | Kotlin business logic | `core/*/src/test/` | `./gradlew :core:*:testDebugUnitTest` |
 | Rust native logic | `native/rust/crates/*/tests/` | `cargo nextest run --locked -p crate` |
-| JNI integration | `app/src/androidTest/.../integration/` | `connectedGithubFullDebugAndroidTest` |
-| Network E2E | `app/src/androidTest/.../e2e/` | `connectedGithubFullDebugAndroidTest` |
+| JNI integration | `app/src/androidTest/.../integration/` | `connectedGithubDebugAndroidTest` |
+| Network E2E | `app/src/androidTest/.../e2e/` | `connectedGithubDebugAndroidTest` |
 | Rust network E2E | `native/rust/crates/*/tests/` | `bash scripts/ci/run-rust-network-e2e.sh` |
 
 ## Rules

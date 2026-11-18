@@ -177,7 +177,7 @@ def seal(bundle: Path, apk: Path, xray_artifacts: Path, root: Path = ROOT) -> di
     revision = command(["git", "rev-parse", "HEAD"], root)
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
         raise ValueError("unknown original build revision")
-    metadata = {"schemaVersion": 1, "variant": "githubFullDebug", "abi": "x86_64",
+    metadata = {"schemaVersion": 1, "variant": "githubDebug", "abi": "x86_64",
                 "builtFromRevision": revision, "inputs": input_hashes(root), "toolchains": toolchains(root)}
     # Exclusive mkdir: never overwrite or delete an existing bundle, even on error.
     bundle.mkdir()
@@ -194,7 +194,7 @@ def verify(bundle: Path, root: Path = ROOT, expected_revision: str | None = None
     bundle, root = Path(bundle), Path(root)
     files = inventory(bundle)
     metadata = json.loads((bundle / MANIFEST).read_text())
-    if (metadata.get("schemaVersion"), metadata.get("variant"), metadata.get("abi")) != (1, "githubFullDebug", "x86_64"):
+    if (metadata.get("schemaVersion"), metadata.get("variant"), metadata.get("abi")) != (1, "githubDebug", "x86_64"):
         raise ValueError("unsupported capture build metadata")
     if not re.fullmatch(r"[0-9a-f]{40}", metadata.get("builtFromRevision", "")):
         raise ValueError("missing original build revision")

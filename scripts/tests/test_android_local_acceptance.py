@@ -380,7 +380,7 @@ class EvidenceTests(unittest.TestCase):
             out = Path(temporary)
             (out / "build.log").write_text(
                 "private-token=do-not-export\nNo space left on device\n"
-                "> Task :app:compileGithubFullDebugKotlin FAILED\n"
+                "> Task :app:compileGithubDebugKotlin FAILED\n"
             )
             result = runner.preparation_summary(
                 out, {"status": "failed", "error": "private exception"}

@@ -142,7 +142,7 @@ android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 
 Les compilations locales utilisent par défaut `host` (`ripdpi.localNativeAbisDefault`) : l'ABI est dérivée de l'architecture de l'hôte (par ex. `arm64-v8a` sur Apple Silicon). Pour l'émulateur : `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
-Les APK sont produits dans des répertoires propres aux variantes, par exemple `app/build/outputs/apk/githubFull/debug/` ; consultez [distribution.md](docs/distribution.md) pour les tâches et chemins de release.
+Les APK sont produits dans des répertoires propres aux variantes, par exemple `app/build/outputs/apk/github/debug/` ; consultez [distribution.md](docs/distribution.md) pour les tâches et chemins de release.
 
 Les builds debug locaux utilisent des lanceurs stub pour Snowflake, obfs4, WebTunnel et le helper de publication Cloudflare. Ces helpers ne transmettent pas de trafic dans cet APK debug. Pour produire les vrais helpers, installez Go et Git en plus des outils Rust/NDK ci-dessus ; il faut accéder aux dépôts fixés et aux modules Go. Les versions de Go sont dans [le manifeste des sources](native/pluggable-transports/sources.json). Activez les erreurs strictes pour arrêter le build si un helper ne peut pas être compilé :
 
@@ -155,7 +155,7 @@ Les builds debug locaux utilisent des lanceurs stub pour Snowflake, obfs4, WebTu
 ## Tests
 
 ```bash
-./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator

@@ -17,7 +17,7 @@ esac
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 cd "$repo_root"
 
-for variant in fdroidFull fdroidSimple githubFull githubSimple playFull playSimple; do
+for variant in fdroid github play; do
   variant_dir="app/build/outputs/apk/$variant/release"
   apks=()
   while IFS= read -r path; do
@@ -32,24 +32,24 @@ done
 bundles=()
 while IFS= read -r path; do
   bundles+=("$path")
-done < <(find app/build/outputs/bundle/playFullRelease -maxdepth 1 -type f -name '*.aab' | sort)
+done < <(find app/build/outputs/bundle/playRelease -maxdepth 1 -type f -name '*.aab' | sort)
 [[ "${#bundles[@]}" -eq 1 ]] || {
-  echo "Expected exactly one Play Full release bundle, found ${#bundles[@]}" >&2
+  echo "Expected exactly one Play release bundle, found ${#bundles[@]}" >&2
   exit 1
 }
 
 test_apks=()
 while IFS= read -r path; do
   test_apks+=("$path")
-done < <(find app/build/outputs/apk/androidTest -type f -iname '*github*full*release*.apk' | sort)
+done < <(find app/build/outputs/apk/androidTest -type f -iname '*github*release*.apk' | sort)
 [[ "${#test_apks[@]}" -eq 1 ]] || {
   echo "Expected exactly one release AndroidTest APK, found ${#test_apks[@]}" >&2
   exit 1
 }
 
-lib_dir="app/build/intermediates/merged_native_libs/githubFullRelease/mergeGithubFullReleaseNativeLibs/out/lib"
+lib_dir="app/build/intermediates/merged_native_libs/githubRelease/mergeGithubReleaseNativeLibs/out/lib"
 [[ -d "$lib_dir" ]] || {
-  echo "Missing GithubFullRelease native lib directory: $lib_dir" >&2
+  echo "Missing GithubRelease native lib directory: $lib_dir" >&2
   exit 1
 }
 native_abis=()

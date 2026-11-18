@@ -264,13 +264,13 @@ jobs:
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
           )
           ./gradlew \
-            :app:bundlePlayFullRelease \
+            :app:bundlePlayRelease \
             -Pripdpi.enableAbiSplits=false \
             "${common_args[@]}"
           ./gradlew \
-            :app:assembleFdroidFullRelease \
-            :app:assembleGithubFullRelease \
-            :app:assembleGithubFullReleaseAndroidTest \
+            :app:assembleFdroidRelease \
+            :app:assembleGithubRelease \
+            :app:assembleGithubReleaseAndroidTest \
             -Pripdpi.enableAbiSplits=true \
             "${common_args[@]}"
 
@@ -289,15 +289,15 @@ jobs:
         run: |
           set -euo pipefail
           scripts/ci/generate_update_metadata.py \
-            --apk-glob "app/build/outputs/apk/fdroidFull/release/*.apk" \
-            --output-metadata "app/build/outputs/apk/fdroidFull/release/output-metadata.json" \
+            --apk-glob "app/build/outputs/apk/fdroid/release/*.apk" \
+            --output-metadata "app/build/outputs/apk/fdroid/release/output-metadata.json" \
             --gradle-properties gradle.properties \
             --package-name com.poyka.ripdpi \
             --artifact-prefix app-fdroid-release \
             --size-report fdroid-apk-size-report.md
           scripts/ci/generate_update_metadata.py \
-            --apk-glob "app/build/outputs/apk/githubFull/release/*.apk" \
-            --output-metadata "app/build/outputs/apk/githubFull/release/output-metadata.json" \
+            --apk-glob "app/build/outputs/apk/github/release/*.apk" \
+            --output-metadata "app/build/outputs/apk/github/release/output-metadata.json" \
             --gradle-properties gradle.properties \
             --package-name com.poyka.ripdpi \
             --artifact-prefix app-github-release \
@@ -311,11 +311,11 @@ jobs:
           set -euo pipefail
           candidate="$RUNNER_TEMP/release-candidate"
           mkdir -p "$candidate"
-          mapfile -t bundles < <(find app/build/outputs/bundle/playFullRelease -maxdepth 1 -type f -name '*.aab')
+          mapfile -t bundles < <(find app/build/outputs/bundle/playRelease -maxdepth 1 -type f -name '*.aab')
           test "${#bundles[@]}" -eq 1
-          cp "${bundles[0]}" "$candidate/app-play-full-release.aab"
-          cp app/build/outputs/apk/fdroidFull/release/app-fdroid-release-*.apk "$candidate/"
-          cp app/build/outputs/apk/githubFull/release/app-github-release-*.apk "$candidate/"
+          cp "${bundles[0]}" "$candidate/app-play-release.aab"
+          cp app/build/outputs/apk/fdroid/release/app-fdroid-release-*.apk "$candidate/"
+          cp app/build/outputs/apk/github/release/app-github-release-*.apk "$candidate/"
           mapfile -t test_apks < <(find app/build/outputs/apk/androidTest -type f -name '*.apk')
           test "${#test_apks[@]}" -eq 1
           cp "${test_apks[0]}" "$candidate/app-github-release-androidTest.apk"
@@ -364,23 +364,23 @@ jobs:
             fi
             echo "Verified APK signature: $name"
           done
-          aab="$candidate/app-play-full-release.aab"
+          aab="$candidate/app-play-release.aab"
           if ! jarsigner -J-Duser.language=en -verify -strict \
             -keystore "$RUNNER_TEMP/release-verification-truststore.p12" \
             -storepass ripdpi-public-cert \
             "$aab" ripdpi-release >/dev/null 2>&1; then
-            echo "::error file=app-play-full-release.aab::AAB signature verification failed."
+            echo "::error file=app-play-release.aab::AAB signature verification failed."
             exit 1
           fi
           actual_aab="$(keytool -J-Duser.language=en -printcert -jarfile "$aab" | python3 scripts/ci/release_signature_fingerprint.py)" || {
-            echo "::error file=app-play-full-release.aab::Could not extract the AAB signer SHA-256 digest."
+            echo "::error file=app-play-release.aab::Could not extract the AAB signer SHA-256 digest."
             exit 1
           }
           if [ "$actual_aab" != "$EXPECTED_RELEASE_CERT_SHA256" ]; then
-            echo "::error file=app-play-full-release.aab::AAB signer does not match the published signer continuity fingerprint."
+            echo "::error file=app-play-release.aab::AAB signer does not match the published signer continuity fingerprint."
             exit 1
           fi
-          echo "Verified AAB signature: app-play-full-release.aab"
+          echo "Verified AAB signature: app-play-release.aab"
 
       - name: Remove release verification certificate
         if: always()

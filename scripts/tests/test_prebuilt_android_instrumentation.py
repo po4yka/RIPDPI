@@ -83,7 +83,7 @@ INSTRUMENTATION_CODE: -1
                 instrumentations.append(command)
             return subprocess.CompletedProcess(command, 0, output, "")
 
-        manifest = {"variants": {"githubFullDebug": {
+        manifest = {"variants": {"githubDebug": {
             "package": "com.poyka.ripdpi", "app": "app.apk", "test": "test.apk",
         }}, "utilities": ["orchestrator.apk", "services.apk"]}
         return calls, instrumentations, manifest, adb
@@ -95,7 +95,7 @@ INSTRUMENTATION_CODE: -1
                 (root / name).write_bytes(b"install input")
             calls, instrumentations, manifest, adb = self.sequenced_runner(root, [CRASH, test_output()])
             args = Namespace(bundle=root, sha="a" * 40, results=root / "results", api=35,
-                             variant="githubFullDebug", test_class="example.Test", test_package=None, xray_port=1234)
+                             variant="githubDebug", test_class="example.Test", test_package=None, xray_port=1234)
             with patch("scripts.ci.prebuilt_android_instrumentation.verify", return_value=manifest), \
                  patch("subprocess.check_output", return_value="List of devices attached\nemulator-5554\tdevice\n"), \
                  patch("scripts.ci.prebuilt_android_instrumentation.CRASH_RETRY_DELAY_SECONDS", 0), \
@@ -115,7 +115,7 @@ INSTRUMENTATION_CODE: -1
                 (root / name).write_bytes(b"install input")
             calls, instrumentations, manifest, adb = self.sequenced_runner(root, [CRASH, CRASH, CRASH])
             args = Namespace(bundle=root, sha="a" * 40, results=root / "results", api=35,
-                             variant="githubFullDebug", test_class="example.Test", test_package=None, xray_port=1234)
+                             variant="githubDebug", test_class="example.Test", test_package=None, xray_port=1234)
             with patch("scripts.ci.prebuilt_android_instrumentation.verify", return_value=manifest), \
                  patch("subprocess.check_output", return_value="List of devices attached\nemulator-5554\tdevice\n"), \
                  patch("scripts.ci.prebuilt_android_instrumentation.CRASH_RETRY_DELAY_SECONDS", 0), \
@@ -139,7 +139,7 @@ INSTRUMENTATION_CODE: -1
                     (root / name).write_bytes(b"install input")
                 calls, instrumentations, manifest, adb = self.sequenced_runner(root, [protocol])
                 args = Namespace(bundle=root, sha="a" * 40, results=root / "results", api=35,
-                                 variant="githubFullDebug", test_class="example.Test", test_package=None, xray_port=1234)
+                                 variant="githubDebug", test_class="example.Test", test_package=None, xray_port=1234)
                 with patch("scripts.ci.prebuilt_android_instrumentation.verify", return_value=manifest), \
                      patch("subprocess.check_output", return_value="List of devices attached\nemulator-5554\tdevice\n"), \
                      patch("scripts.ci.prebuilt_android_instrumentation.CRASH_RETRY_DELAY_SECONDS", 0), \
@@ -169,7 +169,7 @@ INSTRUMENTATION_CODE: -1
         class_index = tokens.index("class")
         self.assertEqual(["-e", "class", selected], tokens[class_index - 1:class_index + 2])
 
-    def test_bundle_binds_both_apk_pairs_and_utilities_to_source_sha(self):
+    def test_bundle_binds_the_apk_pair_and_utilities_to_source_sha(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for variant, package in VARIANTS.items():
@@ -186,7 +186,7 @@ INSTRUMENTATION_CODE: -1
                 (root / "utilities" / name).write_bytes(name.encode())
             seal(root, "a" * 40)
             manifest = verify(root, "a" * 40)
-            self.assertEqual(6, len(manifest["files"]))
+            self.assertEqual(4, len(manifest["files"]))
             with self.assertRaisesRegex(ValueError, "source SHA"):
                 verify(root, "b" * 40)
             (root / "utilities/orchestrator-1.6.1.apk").write_bytes(b"changed")
@@ -213,7 +213,7 @@ INSTRUMENTATION_CODE: -1
             root = Path(temporary)
             for name in ("app.apk", "test.apk", "orchestrator.apk", "services.apk"):
                 (root / name).write_bytes(b"install input")
-            manifest = {"variants": {"githubFullDebug": {
+            manifest = {"variants": {"githubDebug": {
                 "package": "com.poyka.ripdpi", "app": "app.apk", "test": "test.apk",
             }}, "utilities": ["orchestrator.apk", "services.apk"]}
             calls = []
@@ -231,7 +231,7 @@ INSTRUMENTATION_CODE: -1
                 return subprocess.CompletedProcess(command, 0, output, "")
 
             args = Namespace(bundle=root, sha="a" * 40, results=root / "results", api=35,
-                             variant="githubFullDebug", test_class="example.Test", test_package=None, xray_port=1234)
+                             variant="githubDebug", test_class="example.Test", test_package=None, xray_port=1234)
             with patch("scripts.ci.prebuilt_android_instrumentation.verify", return_value=manifest), \
                  patch("subprocess.check_output", return_value="List of devices attached\nemulator-5554\tdevice\n"), \
                  patch("subprocess.run", side_effect=adb):

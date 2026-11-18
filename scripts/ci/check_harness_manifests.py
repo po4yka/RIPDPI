@@ -369,9 +369,9 @@ def validate_specialist_ground_truth() -> None:
             "core/engine/src/main/kotlin",
         ),
         "android-test-runner": (
-            "connectedGithubFullDebugAndroidTest",
+            "connectedGithubDebugAndroidTest",
             "ripdpi.localNativeAbisDefault=host",
-            "app-github-full-universal-debug.apk",
+            "app-github-universal-debug.apk",
         ),
         "native-verifier": (
             "libripdpi-relay.so",
@@ -435,7 +435,7 @@ def validate_skill_portability() -> None:
             raise ValueError(f".agents/skills/compose: non-portable contract {forbidden!r}")
     for required in (
         "git rev-parse --show-toplevel",
-        ":app:compileGithubFullDebugKotlin",
+        ":app:compileGithubDebugKotlin",
         "build/reports/compose/compose-audit-<YYYY-MM-DD>.md",
     ):
         if required not in compose_content:

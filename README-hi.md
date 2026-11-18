@@ -97,7 +97,7 @@ RIPDPI का डिज़ाइन सिद्धांत: प्रत्य
 
 - **Proxy मोड**: कॉन्फ़िगर किए गए localhost पोर्ट पर स्थानीय SOCKS5 proxy।
 - **VPN मोड**: `VpnService` के माध्यम से Android डिवाइस ट्रैफ़िक को स्थानीय TUN-to-SOCKS ब्रिज से होकर रूट करता है।
-- **Profile import**: एक साझा classifier QR scanner (कैमरा या सहेजी गई इमेज), clipboard और Android share sheet (full experience) को संभालता है। यह proxy URI (`vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://`, `ssh://`), subscription link (`https://` तथा `ripdpi://`, `sing-box://`, NekoBox `sn://`, Clash, v2rayNG और Hiddify के subscription link), WireGuard / AmneziaWG `.conf` टेक्स्ट, `amneziawg://` link और AmneziaVPN `vpn://` key स्वीकार करता है, जिसमें कई QR कोड वाली series भी शामिल है। VPN settings में **प्रोफ़ाइल जोड़ें** एक subscription-link स्क्रीन और `.conf` file picker भी खोलता है। प्रोफ़ाइल को QR कोड के रूप में भी साझा किया जा सकता है।
+- **Profile import**: एक साझा classifier QR scanner (कैमरा या सहेजी गई इमेज), clipboard और Android share sheet को संभालता है। यह proxy URI (`vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://`, `ssh://`), subscription link (`https://` तथा `ripdpi://`, `sing-box://`, NekoBox `sn://`, Clash, v2rayNG और Hiddify के subscription link), WireGuard / AmneziaWG `.conf` टेक्स्ट, `amneziawg://` link और AmneziaVPN `vpn://` key स्वीकार करता है, जिसमें कई QR कोड वाली series भी शामिल है। VPN settings में **प्रोफ़ाइल जोड़ें** एक subscription-link स्क्रीन और `.conf` file picker भी खोलता है। प्रोफ़ाइल को QR कोड के रूप में भी साझा किया जा सकता है।
 - **समर्थन सेटिंग्स लिंक**: `ripdpi://support-config` और सत्यापित HTTPS समर्थन लिंक उपयोगकर्ता की पुष्टि के बाद किसी भी संग्रहीत ऐप सेटिंग के लिए समर्थन-प्रदत्त पैच का पूर्वावलोकन और उसे लागू कर सकते हैं।
 - **सदस्यताएँ (Subscriptions)**: पृष्ठभूमि स्वचालित-अद्यतन, डुप्लिकेट-profile पहचान, selector/urltest समूह, और बहु-mirror वितरण के साथ base64, Clash / Clash.Meta YAML, sing-box JSON, और WireGuard-INI सदस्यता प्रारूप।
 - **सर्वर माइग्रेशन रसीदें**: प्रतिस्थापन सदस्यता एक सटीक वितरण पहचान बनाए रख सकती है। Subscription status में घोषित प्रतिस्थापन पथ का स्पष्ट रूप से परीक्षण करें और स्थानीय JSON रसीद साझा करें। Reality/Vision, XHTTP और Hysteria2 अलग-थलग candidate probes का उपयोग करते हैं; AmneziaWG के लिए पहले आयातित प्रतिस्थापन profile से कनेक्ट करना ज़रूरी है। केवल-प्राप्त और परीक्षित रसीदें अलग हैं; कोई भी स्वतः अपलोड नहीं होती।
@@ -144,7 +144,7 @@ android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 
 स्थानीय builds डिफ़ॉल्ट रूप से `host` (`ripdpi.localNativeAbisDefault`) पर सेट होते हैं, जो host आर्किटेक्चर पर रिज़ॉल्व होता है (जैसे Apple Silicon पर `arm64-v8a`)। एमुलेटर के लिए: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`।
 
-APK आउटपुट variant-विशिष्ट directories में बनते हैं, उदाहरण के लिए `app/build/outputs/apk/githubFull/debug/`; release tasks और paths के लिए [distribution.md](docs/distribution.md) देखें।
+APK आउटपुट variant-विशिष्ट directories में बनते हैं, उदाहरण के लिए `app/build/outputs/apk/github/debug/`; release tasks और paths के लिए [distribution.md](docs/distribution.md) देखें।
 
 स्थानीय debug builds Snowflake, obfs4, WebTunnel और Cloudflare publish helper के लिए stub launchers का उपयोग करते हैं। ये helpers डिफ़ॉल्ट debug APK में ट्रैफ़िक नहीं भेज सकते। वास्तविक helpers के लिए ऊपर दिए Rust/NDK tools के साथ Go और Git तथा pinned repositories और Go modules तक पहुँच चाहिए। Go versions [source manifest](native/pluggable-transports/sources.json) में हैं। Strict failures सक्षम करें ताकि helper build विफल होने पर build रुक जाए:
 
@@ -157,7 +157,7 @@ APK आउटपुट variant-विशिष्ट directories में ब�
 ## Testing
 
 ```bash
-./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator

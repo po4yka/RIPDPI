@@ -21,7 +21,7 @@ from xml.etree import ElementTree
 from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, BACKUP_SCROLL_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 PACKAGE = "com.poyka.ripdpi"
-VARIANT = "githubFullDebug"
+VARIANT = "githubDebug"
 
 
 def is_new_completed_scan(receipt: dict | None, previous_id: str | None, clicked_at: int) -> bool:
@@ -842,12 +842,12 @@ def main() -> None:
     else:
         xray_artifacts = args.xray_artifacts.resolve()
         revision = run(["git", "rev-parse", "HEAD"])
-        build_args = ["./gradlew", ":app:assembleGithubFullDebug", f"-Pripdpi.nativeAbisOverride={abi}",
+        build_args = ["./gradlew", ":app:assembleGithubDebug", f"-Pripdpi.nativeAbisOverride={abi}",
                       f"-Pripdpi.prebuiltXrayAarDir={xray_artifacts}"]
         if args.prebuilt_jni_libs:
             build_args.append(f"-Pripdpi.prebuiltJniLibsDir={args.prebuilt_jni_libs.resolve()}")
         subprocess.run(build_args, cwd=ROOT, check=True)
-        apk = ROOT / f"app/build/outputs/apk/githubFull/debug/app-github-full-{abi}-debug.apk"
+        apk = ROOT / f"app/build/outputs/apk/github/debug/app-github-{abi}-debug.apk"
     subprocess.run(["bash", "scripts/native/verify-libxray-artifacts.sh", "--release"],
                    cwd=ROOT, env={**os.environ, "RIPDPI_XRAY_AAR_DIR": str(xray_artifacts)}, check=True)
     device.adb("install", "-r", str(apk))

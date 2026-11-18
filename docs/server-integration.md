@@ -32,6 +32,29 @@ The target is percent-decoded and must be `https://`. Malformed or non-https inp
 
 RIPDPI does not import a sing-box / RIPDPI bundle JSON from a local file or the clipboard; deliver bundles through a subscription URL.
 
+## Shipping a preloaded app
+
+A build can carry a preset so that a recipient installs the standard app and finds servers, routing rules, and settings already in place. The preset is a FULL backup document; the app restores it once, on the first launch of a fresh install, before the first screen appears.
+
+1. Configure the app on a device or emulator the way the recipient must find it: import the subscription or profiles, set routing rules and settings, and complete onboarding.
+2. Export a backup with credentials (Settings → Backup → Full) and copy the archive to the build machine.
+3. Convert the archive into the preset asset. The passphrase is read from the environment and is not stored:
+
+   ```bash
+   RIPDPI_PRESET_PASSPHRASE='<export passphrase>' ./gradlew :app:preparePreset -Pripdpi.presetArchive=<path to archive>
+   ```
+
+4. Build the app as usual. Every variant packages `app/src/main/assets/preset.json` when the file exists.
+
+Rules the app follows:
+
+- The preset applies only when onboarding is not complete and no preset was applied before. An existing install that updates to a preset build keeps its data.
+- The app never applies a preset twice and never overwrites user edits. To change servers after delivery, include a subscription in the preset; the app refreshes it in the background.
+- A full reset returns the install to the preset.
+- A preset the app cannot read is ignored whole. The app records a startup warning and opens as a build without a preset.
+
+The preset is plaintext inside the APK. Anyone who holds the APK can read its credentials, and every recipient of one APK shares the same credentials and AmneziaWG device key. The asset path is gitignored; do not attach a preset build to a public release.
+
 ## What each artifact carries
 
 | Capability | `vless://` line | sing-box subscription | RIPDPI bundle |

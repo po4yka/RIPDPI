@@ -97,10 +97,6 @@ def normalize_resolved_variants(resolved: dict) -> dict[str, dict[str, str]]:
                 variant.get("distribution"),
                 f"resolved variant {name}.distribution",
             ),
-            "experience": require_string(
-                variant.get("experience"),
-                f"resolved variant {name}.experience",
-            ),
             "applicationId": validate_package_id(
                 variant.get("applicationId"),
                 f"resolved variant {name}.applicationId",
@@ -127,10 +123,6 @@ def normalize_review_variants(review: dict) -> dict[str, dict]:
             "distribution": require_string(
                 variant.get("distribution"),
                 f"review variant {name}.distribution",
-            ),
-            "experience": require_string(
-                variant.get("experience"),
-                f"review variant {name}.experience",
             ),
             "applicationId": validate_package_id(
                 variant.get("applicationId"),

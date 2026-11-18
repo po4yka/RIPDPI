@@ -19,7 +19,7 @@ ABIS = ("arm64-v8a", "armeabi-v7a", "universal", "x86", "x86_64")
 EVIDENCE_CLIENT = "app-github-release-x86_64.apk"
 EVIDENCE_TEST = "app-github-release-androidTest.apk"
 EXPECTED_FILES = {
-    "app-play-full-release.aab",
+    "app-play-release.aab",
     EVIDENCE_TEST,
     "fdroid-apk-size-report.md",
     "github-apk-size-report.md",

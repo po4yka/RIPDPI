@@ -47,12 +47,12 @@ class CiToolPinningTest(unittest.TestCase):
         source = (ROOT / "justfile").read_text(encoding="utf-8")
 
         self.assertIn(
-            "build:\n    ./gradlew :app:assembleGithubFullDebug",
+            "build:\n    ./gradlew :app:assembleGithubDebug",
             source,
         )
         self.assertNotIn("build:\n    ./gradlew assembleDebug", source)
         for command in (
-            "./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest -Pripdpi.skipNativeBuild=true",
+            "./gradlew testDebugUnitTest :app:testGithubDebugUnitTest -Pripdpi.skipNativeBuild=true",
             '"testDebugUnitTest" } }} -Pripdpi.skipNativeBuild=true',
             '"testDebugUnitTest" } }} --tests "{{class}}" -Pripdpi.skipNativeBuild=true',
             "./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true",
@@ -91,48 +91,6 @@ class CiToolPinningTest(unittest.TestCase):
             "a ~/.android cache hit is not installation evidence",
             action,
         )
-
-    def test_ci_materializes_private_bundle_for_every_simple_variant_gate(self) -> None:
-        action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
-            encoding="utf-8"
-        )
-        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-
-        self.assertIn("embedded-relay-bundle-base64:\n    description:", action)
-        self.assertIn('base64 --decode > "$bundle_path"', action)
-        self.assertIn('test -s "$bundle_path"', action)
-
-        # Secret-less (dependabot) pull_request runs materialize the committed
-        # CI fixture bundle; every other event still requires the secret.
-        self.assertIn(
-            "if: inputs.embedded-relay-bundle-base64 == '' && github.event_name == 'pull_request'",
-            action,
-        )
-        self.assertIn(
-            "scripts/fixtures/embedded-relay-bundle/ci-fixture.json",
-            action,
-        )
-        self.assertTrue(
-            (ROOT / "scripts/fixtures/embedded-relay-bundle/ci-fixture.json").is_file(),
-            "the CI fixture bundle must be committed next to the action that copies it",
-        )
-
-        secret_bundle = "${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}"
-        simple_shard_bundle = (
-            "${{ matrix.shard.experience == 'simple' && "
-            "secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 || '' }}"
-        )
-        for job_name, expected in (
-            ("build-android-tests", secret_bundle),
-            ("verify-roborazzi", secret_bundle),
-            ("release-verification", simple_shard_bundle),
-            ("android-instrumentation-apks", secret_bundle),
-        ):
-            with self.subTest(job_name=job_name):
-                job = re.search(rf"(?ms)^  {job_name}:\n.*?(?=^  [\w-]+:\n|\Z)", ci)
-                self.assertIsNotNone(job)
-                assert job is not None
-                self.assertIn(f"embedded-relay-bundle-base64: {expected}", job.group(0))
 
     def test_jni_symbol_guard_uses_shared_android_rust_setup(self) -> None:
         source = (ROOT / ".github/workflows/jni-symbol-diff.yml").read_text(
@@ -295,29 +253,12 @@ class CiToolPinningTest(unittest.TestCase):
                     "github.event_name != 'push' || github.ref != 'refs/heads/main' }}"
                 ),
                 ("ci.yml", "release-verification"): (
-                    "${{ matrix.shard.id != 'github-full' || "
+                    "${{ matrix.shard.id != 'github' || "
                     "github.event_name != 'push' || github.ref != 'refs/heads/main' }}"
                 ),
             },
             writers,
         )
-        # Pull requests can restore caches written on main, so a writer must
-        # never see the embedded relay bundle secret.
-        for _, name in writers:
-            with self.subTest(writer=name):
-                bundle = re.findall(
-                    r"(?m)^          embedded-relay-bundle-base64: (.+)$", ci_jobs(ci)[name]
-                )
-                if name == "release-verification":
-                    self.assertEqual(
-                        [
-                            "${{ matrix.shard.experience == 'simple' && "
-                            "secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 || '' }}"
-                        ],
-                        bundle,
-                    )
-                else:
-                    self.assertEqual([], bundle)
 
     def test_gradle_cache_writers_persist_configuration_cache(self) -> None:
         # setup-gradle saves configuration-cache data only with an encryption

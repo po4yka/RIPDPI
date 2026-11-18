@@ -15,7 +15,7 @@ fi
 
 bash scripts/ci/wait-for-android-package-manager.sh
 
-./gradlew :app:connectedGithubFullDebugAndroidTest \
+./gradlew :app:connectedGithubDebugAndroidTest \
   --profile \
   "$GRADLE_ABI" \
   "${PT_GRADLE_ARGS[@]}" \

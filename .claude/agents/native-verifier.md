@@ -44,7 +44,7 @@ oracle from one library to every packaged ELF. Run:
 python3 scripts/ci/verify_native_elfs.py --lib-dir <path>
 ```
 
-Typical GitHub Full debug lib-dir: `app/build/intermediates/merged_native_libs/githubFullDebug/mergeGithubFullDebugNativeLibs/out/lib`; resolve the current path from the flavored task output.
+Typical GitHub debug lib-dir: `app/build/intermediates/merged_native_libs/githubDebug/mergeGithubDebugNativeLibs/out/lib`; resolve the current path from the flavored task output.
 
 Failures here mean: wrong linker flags, extra shared dependencies linked, or
 misaligned ELF segments (Android 15+ requires 16 KiB page alignment).
@@ -100,7 +100,7 @@ with security fixes, intentional code addition). Never extend baselines to
 suppress regressions from unintended bloat.
 
 Steps:
-1. Build native libraries: `./gradlew :app:mergeGithubFullDebugNativeLibs`
+1. Build native libraries: `./gradlew :app:mergeGithubDebugNativeLibs`
 2. Update size baseline: `python3 scripts/ci/verify_native_sizes.py --dump-current > scripts/ci/native-size-baseline.json`
 3. Update bloat baseline: `python3 scripts/ci/verify_native_bloat.py --dump-current > scripts/ci/native-bloat-baseline.json`
 4. Commit with message: `chore: update native size baseline after <reason>`

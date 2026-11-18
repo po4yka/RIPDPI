@@ -43,7 +43,7 @@ device run needs the native build (`-Pripdpi.skipNativeBuild=true` is compile-on
 
 ```bash
 python3 scripts/ci/android-avd-pool.py run --api 37 --arch arm64-v8a --target google_apis \
-  --profile pixel_10_pro_xl -- ./gradlew :app:connectedGithubFullDebugAndroidTest \
+  --profile pixel_10_pro_xl -- ./gradlew :app:connectedGithubDebugAndroidTest \
   -Pripdpi.localNativeAbis=arm64-v8a \
   -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.ui.journeys.settings
 ```

@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
-VARIANTS = {"githubFullDebug": "com.poyka.ripdpi", "githubSimpleDebug": "com.poyka.ripdpi.simple"}
+VARIANTS = {"githubDebug": "com.poyka.ripdpi"}
 
 # Emulator-level instrumentation crashes are transient: the target process can
 # die during GMS post-boot memory pressure (CI run 33967607861, API 37
@@ -74,7 +74,7 @@ def verify(root, sha):
         if entry["package"] != expected:
             raise ValueError("Unexpected application ID")
         files.extend(entry[kind] for kind in ("app", "test"))
-    if len(set(files)) != 6 or set(files) != set(manifest["files"]):
+    if len(set(files)) != 4 or set(files) != set(manifest["files"]):
         raise ValueError("APK bundle file inventory differs")
     for name in files:
         if digest(bundle_file(root, name)) != manifest["files"][name]:

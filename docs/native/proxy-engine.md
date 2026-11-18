@@ -774,7 +774,7 @@ bytes do not restart the budget.
 
 ### Runtime adaptation
 
-The shared runtime layer now also adds the items below. The native runtime does not do relay failover. The Kotlin layer does it: see [`FailoverCoordinator`](../../app/src/simple/kotlin/com/poyka/ripdpi/failover/FailoverCoordinator.kt) and [`InitialRelayRaceRunner`](../../core/service/src/main/kotlin/com/poyka/ripdpi/services/InitialRelayRaceRunner.kt).
+The shared runtime layer now also adds the items below. The native runtime does not do relay failover. The Kotlin layer does it through selector and urltest groups; see also [`InitialRelayRaceRunner`](../../core/service/src/main/kotlin/com/poyka/ripdpi/services/InitialRelayRaceRunner.kt).
 
 - Geneva-style strategy evolution (`StrategyEvolver`) with epsilon-greedy + UCB1 selection across combo dimensions, configurable via `strategy_evolution` (bool) and `evolution_epsilon_permil` (default 100 = 10% exploration rate)
 - host autolearn and per-host preferred group promotion scoped by `networkScopeKey`, with configurable `penalty_ttl_secs` (default 21600 -- 6h), `max_hosts` (default 512), and optional `store_path` for persistence

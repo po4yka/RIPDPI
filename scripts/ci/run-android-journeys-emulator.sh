@@ -40,10 +40,10 @@ adb wait-for-device
 
 # --- Install the app under test -------------------------------------------
 # Use a prebuilt APK when RIPDPI_JOURNEYS_APK is set; otherwise assemble the
-# githubFull/debug variant (the variant exercised by the connected test lanes).
+# github/debug variant (the variant exercised by the connected test lanes).
 apk="${RIPDPI_JOURNEYS_APK:-}"
 if [[ -z "$apk" ]]; then
-  echo "Assembling :app:assembleGithubFullDebug ..."
+  echo "Assembling :app:assembleGithubDebug ..."
   pt_gradle_args=()
   if [[ -n "${RIPDPI_PREBUILT_PT_DIR:-}" || -n "${RIPDPI_PREBUILT_PT_MANIFEST_SHA256:-}" ]]; then
     : "${RIPDPI_PREBUILT_PT_DIR:?RIPDPI_PREBUILT_PT_DIR is required with a prebuilt PT digest}"
@@ -53,11 +53,11 @@ if [[ -z "$apk" ]]; then
       "-Pripdpi.prebuiltPluggableTransportAssetsManifestSha256=$RIPDPI_PREBUILT_PT_MANIFEST_SHA256"
     )
   fi
-  ( cd "$ROOT_DIR" && ./gradlew --no-daemon --profile :app:assembleGithubFullDebug "${pt_gradle_args[@]}" )
-  apk_dir="$ROOT_DIR/app/build/outputs/apk/githubFull/debug"
-  apk="$apk_dir/app-github-full-universal-debug.apk"
+  ( cd "$ROOT_DIR" && ./gradlew --no-daemon --profile :app:assembleGithubDebug "${pt_gradle_args[@]}" )
+  apk_dir="$ROOT_DIR/app/build/outputs/apk/github/debug"
+  apk="$apk_dir/app-github-universal-debug.apk"
   # ABI splits off (-Pripdpi.enableAbiSplits=false) produce a single unsuffixed APK.
-  [[ -f "$apk" ]] || apk="$apk_dir/app-github-full-debug.apk"
+  [[ -f "$apk" ]] || apk="$apk_dir/app-github-debug.apk"
 fi
 if [[ -z "$apk" || ! -f "$apk" ]]; then
   echo "Could not locate the app APK to install (set RIPDPI_JOURNEYS_APK)." >&2

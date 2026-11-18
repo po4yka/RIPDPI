@@ -68,8 +68,8 @@ Everything is done through a normal GitHub fork and pull request — no account 
 5. **Run Android lint for both resource owners and the locale registry test.** `MissingTranslation` is configured as an error, understands every XML file in a locale directory, and ignores source entries marked `translatable="false"`:
 
    ```bash
-   ./gradlew :app:lintGithubFullDebug :core:service:lintDebug
-   ./gradlew :app:testGithubFullDebugUnitTest \
+   ./gradlew :app:lintGithubDebug :core:service:lintDebug
+   ./gradlew :app:testGithubDebugUnitTest \
      --tests com.poyka.ripdpi.platform.LocalesConfigTest
    ```
 

@@ -25,8 +25,8 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
         errors.append("Capture all seven marketing locales.")
     if not re.fullmatch(r"[a-f0-9]{40}", manifest.get("builtFromRevision", "")):
         errors.append("Missing build revision provenance.")
-    if manifest.get("apk", {}).get("variant") != "githubFullDebug":
-        errors.append("The capture APK must be githubFullDebug.")
+    if manifest.get("apk", {}).get("variant") != "githubDebug":
+        errors.append("The capture APK must be githubDebug.")
     for section, key in (("apk", "sha256"), ("libXray", "manifestSha256"), ("libXray", "aarSha256")):
         if not re.fullmatch(r"[a-f0-9]{64}", manifest.get(section, {}).get(key, "")):
             errors.append(f"Missing producer hash: {section}.{key}")

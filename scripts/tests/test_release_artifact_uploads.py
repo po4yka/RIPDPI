@@ -38,28 +38,22 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
         job = release_verification_job(source)
         self.assertIn("matrix:\n        shard:", job)
         shards = re.findall(
-            r"(?m)^          - \{ id: ([\w-]+), store: (\w+), experience: (\w+), task: '([^']+)' \}$",
+            r"(?m)^          - \{ id: ([\w-]+), store: (\w+), task: '([^']+)' \}$",
             job,
         )
-        self.assertEqual(6, len(shards))
-        self.assertEqual(6, job.count("id: "))
-        for shard_id, store, experience, task in shards:
+        self.assertEqual(3, len(shards))
+        self.assertEqual(3, job.count("id: "))
+        for shard_id, store, task in shards:
             with self.subTest(shard=shard_id):
-                self.assertEqual(f"{store}-{experience}", shard_id)
-                self.assertEqual(
-                    f":app:assemble{store.capitalize()}{experience.capitalize()}Release",
-                    task,
-                )
+                self.assertEqual(store, shard_id)
+                self.assertEqual(f":app:assemble{store.capitalize()}Release", task)
         # The pull-request exclude list repeats shard objects verbatim; the
         # native dependency graph test checks that it matches these shards.
         steps = re.sub(r"(?m)^        exclude: .+\n", "", job)
         for task in (
-            ":app:assembleFdroidFullRelease",
-            ":app:assembleFdroidSimpleRelease",
-            ":app:assembleGithubFullRelease",
-            ":app:assembleGithubSimpleRelease",
-            ":app:assemblePlayFullRelease",
-            ":app:assemblePlaySimpleRelease",
+            ":app:assembleFdroidRelease",
+            ":app:assembleGithubRelease",
+            ":app:assemblePlayRelease",
         ):
             self.assertEqual(1, len(re.findall(rf"{re.escape(task)}(?![A-Za-z])", steps)))
         self.assertIn('task="${{ matrix.shard.task }}"', job)
@@ -96,12 +90,12 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
         self.assertIsNotNone(job)
         assert job is not None
         release_test = job.group(0)
-        self.assertIn(":app:assembleGithubFullReleaseAndroidTest", release_test)
+        self.assertIn(":app:assembleGithubReleaseAndroidTest", release_test)
         self.assertIn("-Pripdpi.testBuildType=release", release_test)
         self.assertIn("test \"${#test_apks[@]}\" -eq 1", release_test)
-        for secret in ("KEYSTORE_", "RIPDPI_SIGNING_", "RIPDPI_EMBEDDED_RELAY_BUNDLE"):
+        for secret in ("KEYSTORE_", "RIPDPI_SIGNING_"):
             self.assertNotIn(secret, release_test)
-        self.assertNotIn(":app:assembleGithubFullReleaseAndroidTest", release_verification_job(source))
+        self.assertNotIn(":app:assembleGithubReleaseAndroidTest", release_verification_job(source))
         self.assertIn("      - release-instrumentation-apk\n", source)
 
     def test_retrace_uploads_are_variant_aware_and_fail_closed(self) -> None:
@@ -127,7 +121,7 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertEqual(1, ci_source.count("name: release-native-symbols\n"))
-        self.assertIn("matrix.shard.id == 'github-full'", ci_source)
+        self.assertIn("matrix.shard.id == 'github'", ci_source)
         for source in (ci_source, candidate_source):
             self.assertIn("python3 scripts/ci/package_native_symbols.py", source)
             block = upload_block(source, "Upload release native symbols")

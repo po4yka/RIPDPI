@@ -42,7 +42,7 @@ fetch-naive-upstream:
 # Build the representative GitHub full debug APK (includes native code)
 [group('build')]
 build:
-    ./gradlew :app:assembleGithubFullDebug
+    ./gradlew :app:assembleGithubDebug
 
 # Build release APK
 [group('build')]
@@ -69,17 +69,17 @@ test-relay-config-contract:
 # Run all Kotlin unit tests (library modules and the flavored :app module)
 [group('test')]
 test:
-    ./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest -Pripdpi.skipNativeBuild=true
+    ./gradlew testDebugUnitTest :app:testGithubDebugUnitTest -Pripdpi.skipNativeBuild=true
 
 # Run unit tests for a single module (e.g., just test-module core:engine)
 [group('test')]
 test-module mod:
-    ./gradlew :{{mod}}:{{ if mod == "app" { "testGithubFullDebugUnitTest" } else { "testDebugUnitTest" } }} -Pripdpi.skipNativeBuild=true
+    ./gradlew :{{mod}}:{{ if mod == "app" { "testGithubDebugUnitTest" } else { "testDebugUnitTest" } }} -Pripdpi.skipNativeBuild=true
 
 # Run a single test class (e.g., just test-class core:engine RipDpiProxyPreferencesTest)
 [group('test')]
 test-class mod class:
-    ./gradlew :{{mod}}:{{ if mod == "app" { "testGithubFullDebugUnitTest" } else { "testDebugUnitTest" } }} --tests "{{class}}" -Pripdpi.skipNativeBuild=true
+    ./gradlew :{{mod}}:{{ if mod == "app" { "testGithubDebugUnitTest" } else { "testDebugUnitTest" } }} --tests "{{class}}" -Pripdpi.skipNativeBuild=true
 
 # Run all Rust workspace tests
 [group('test')]
@@ -171,8 +171,7 @@ verify-spec-versions:
 # Run :app instrumented tests on all CI managed devices (GMD)
 [group('test')]
 test-instrumented:
-    ./gradlew :app:ciDevicesGroupGithubFullDebugAndroidTest
-    ./gradlew :app:pixel6Api37GoogleGithubSimpleDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel
+    ./gradlew :app:ciDevicesGroupGithubDebugAndroidTest
 
 # Install supplied APKs and mutate LAN grants only on an explicitly disposable API-37 device.
 [group('test')]

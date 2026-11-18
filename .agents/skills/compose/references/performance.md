@@ -34,7 +34,7 @@ composeCompiler {
 }
 ```
 
-After compiling with reports enabled (`./gradlew :app:compileGithubFullDebugKotlin -Pripdpi.composeReports=true`), check the generated files in `app/build/compose-reports/` and `app/build/compose-metrics/`:
+After compiling with reports enabled (`./gradlew :app:compileGithubDebugKotlin -Pripdpi.composeReports=true`), check the generated files in `app/build/compose-reports/` and `app/build/compose-metrics/`:
 
 - **`*_composables.txt`** — shows each composable's restartability and skippability:
   ```
