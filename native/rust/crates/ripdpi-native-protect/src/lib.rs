@@ -50,9 +50,10 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::os::fd::RawFd;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use tokio::sync::{Semaphore, oneshot};
 
 pub trait ProtectCallback: Send + Sync {
     fn protect(&self, fd: RawFd) -> io::Result<()>;
@@ -110,15 +111,11 @@ impl SocketProtectionPolicy {
         }
         let addresses = match self {
             Self::Inactive => tokio::net::lookup_host((host, port)).await?.collect::<Vec<_>>(),
-            Self::VpnRequired => {
-                let host = host.to_owned();
-                tokio::task::spawn_blocking(move || resolve_host_via_callback_within(host, PROTECTED_RESOLVE_TIMEOUT))
-                    .await
-                    .map_err(|error| io::Error::other(format!("protected DNS task failed: {error}")))??
-                    .into_iter()
-                    .map(|ip| SocketAddr::new(ip, port))
-                    .collect()
-            }
+            Self::VpnRequired => resolve_host_via_callback_within(host.to_owned(), PROTECTED_RESOLVE_TIMEOUT)
+                .await?
+                .into_iter()
+                .map(|ip| SocketAddr::new(ip, port))
+                .collect(),
         };
         if addresses.is_empty() {
             Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "relay hostname resolved to no addresses"))
@@ -310,55 +307,23 @@ const PROTECTED_RESOLVE_TIMEOUT: Duration = Duration::from_secs(10);
 /// would otherwise add one stuck thread (and JNI attachment) per attempt.
 const MAX_PROTECTED_RESOLVE_THREADS: usize = 4;
 
-static PROTECTED_RESOLVE_THREADS: AtomicUsize = AtomicUsize::new(0);
+static RESOLVE_SLOTS: Semaphore = Semaphore::const_new(MAX_PROTECTED_RESOLVE_THREADS);
 
-/// Releases one [`PROTECTED_RESOLVE_THREADS`] slot on drop, also on unwind.
-struct ResolveThreadSlot;
-
-impl ResolveThreadSlot {
-    fn acquire() -> Option<Self> {
-        // Relaxed: the counter only bounds the thread count; it publishes no data.
-        PROTECTED_RESOLVE_THREADS
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
-                (count < MAX_PROTECTED_RESOLVE_THREADS).then_some(count + 1)
-            })
-            .ok()
-            .map(|_| Self)
-    }
-}
-
-impl Drop for ResolveThreadSlot {
-    fn drop(&mut self) {
-        PROTECTED_RESOLVE_THREADS.fetch_sub(1, Ordering::Relaxed);
-    }
-}
-
-/// Run [`resolve_host_via_callback`] on a detached thread and wait at most
-/// `limit` for it. The caller's thread (a blocking-pool thread in
-/// [`SocketProtectionPolicy::resolve_host`]) is released at the deadline even
-/// when the platform lookup keeps running. At most
-/// [`MAX_PROTECTED_RESOLVE_THREADS`] lookup threads exist at once; when all
-/// are still stuck, the call fails fast with [`io::ErrorKind::TimedOut`].
-fn resolve_host_via_callback_within(host: String, limit: Duration) -> io::Result<Vec<IpAddr>> {
-    let slot = ResolveThreadSlot::acquire().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::TimedOut, "earlier protected DNS lookups are still running; not starting another")
-    })?;
-    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
-    // On a spawn error the closure, and with it the slot, is dropped here.
-    std::thread::Builder::new().name("ripdpi-protect-dns".to_string()).spawn(move || {
-        let _slot = slot;
-        // A send error means the waiter timed out and left; nothing to report.
-        let _ = sender.send(resolve_host_via_callback(&host));
-    })?;
-    match receiver.recv_timeout(limit) {
-        Ok(result) => result,
-        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-            Err(io::Error::new(io::ErrorKind::TimedOut, format!("protected DNS lookup timed out after {limit:?}")))
-        }
-        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-            Err(io::Error::other("protected DNS lookup thread exited without a result"))
-        }
-    }
+/// # Cancel safety:
+/// cancel-safe: queued callers release their place on drop. After dispatch the
+/// detached platform worker holds its own permit until the blocking lookup exits.
+async fn resolve_host_via_callback_within(host: String, limit: Duration) -> io::Result<Vec<IpAddr>> {
+    tokio::time::timeout(limit, async move {
+        let slot = RESOLVE_SLOTS.acquire().await.map_err(|_| io::Error::other("protected DNS workers closed"))?;
+        let (sender, receiver) = oneshot::channel();
+        std::thread::Builder::new().name("ripdpi-protect-dns".to_string()).spawn(move || {
+            let _slot = slot;
+            let _ = sender.send(resolve_host_via_callback(&host));
+        })?;
+        receiver.await.map_err(|_| io::Error::other("protected DNS worker exited without a result"))?
+    })
+    .await
+    .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "protected DNS lookup timed out"))?
 }
 
 fn protect_callback_snapshot() -> Option<Arc<dyn ProtectCallback>> {
@@ -388,7 +353,15 @@ pub fn has_protect_callback() -> bool {
 mod tests {
     use super::*;
     use std::sync::Mutex;
-    use std::sync::atomic::AtomicI32;
+    use std::sync::atomic::{AtomicI32, AtomicUsize};
+
+    fn resolve_within(limit: Duration) -> io::Result<Vec<IpAddr>> {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .expect("runtime")
+            .block_on(resolve_host_via_callback_within("relay.example".to_string(), limit))
+    }
 
     static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
@@ -447,7 +420,7 @@ mod tests {
         unregister_protect_callback();
         register_protect_callback(Arc::new(TestCallback::new()));
 
-        let runtime = tokio::runtime::Builder::new_current_thread().build().expect("runtime");
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_time().build().expect("runtime");
         let addresses = runtime
             .block_on(SocketProtectionPolicy::VpnRequired.resolve_host("relay.example", 443))
             .expect("protected resolution");
@@ -479,8 +452,7 @@ mod tests {
         register_protect_callback(Arc::new(StalledResolverCallback { release: Mutex::new(stalled) }));
 
         let started = std::time::Instant::now();
-        let error = resolve_host_via_callback_within("relay.example".to_string(), Duration::from_millis(50))
-            .expect_err("a stalled lookup must time out");
+        let error = resolve_within(Duration::from_millis(50)).expect_err("a stalled lookup must time out");
 
         assert_eq!(error.kind(), io::ErrorKind::TimedOut);
         assert!(started.elapsed() < Duration::from_secs(2), "waited {:?}", started.elapsed());
@@ -506,13 +478,13 @@ mod tests {
             self.peak.fetch_max(now, Ordering::SeqCst);
             let _ = self.release.lock().expect("release lock").recv();
             self.active.fetch_sub(1, Ordering::SeqCst);
-            Ok(Vec::new())
+            Ok(vec![IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)])
         }
     }
 
     fn wait_for_no_lookup_threads() {
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        while PROTECTED_RESOLVE_THREADS.load(Ordering::SeqCst) != 0 {
+        while RESOLVE_SLOTS.available_permits() != MAX_PROTECTED_RESOLVE_THREADS {
             assert!(std::time::Instant::now() < deadline, "lookup threads did not exit");
             std::thread::sleep(Duration::from_millis(5));
         }
@@ -532,15 +504,11 @@ mod tests {
         register_protect_callback(callback.clone());
 
         let attempts = 12;
-        let mut fast_failures = 0;
         for _ in 0..attempts {
             let started = std::time::Instant::now();
-            let error = resolve_host_via_callback_within("relay.example".to_string(), Duration::from_millis(30))
-                .expect_err("every lookup stalls");
+            let error = resolve_within(Duration::from_millis(30)).expect_err("every lookup stalls");
             assert_eq!(error.kind(), io::ErrorKind::TimedOut);
-            if started.elapsed() < Duration::from_millis(30) {
-                fast_failures += 1;
-            }
+            assert!(started.elapsed() >= Duration::from_millis(30), "expired before the deadline");
         }
         // Let each stuck lookup reach the callback before reading the counters.
         std::thread::sleep(Duration::from_millis(50));
@@ -548,12 +516,28 @@ mod tests {
         let started_threads = callback.entered.load(Ordering::SeqCst);
         assert_eq!(started_threads, 4, "only 4 lookup threads may run at once");
         assert!(callback.peak.load(Ordering::SeqCst) <= 4);
-        assert_eq!(fast_failures, attempts - 4, "calls over the cap must fail without waiting");
 
+        let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(0);
+        let (resolved_tx, resolved_rx) = std::sync::mpsc::channel();
+        let queued = std::thread::spawn(move || {
+            ready_tx.send(()).expect("announce queued lookup");
+            let result = resolve_within(Duration::from_secs(2));
+            resolved_tx.send(result).expect("report queued lookup");
+        });
+        ready_rx.recv().expect("queued lookup started");
+        assert!(matches!(
+            resolved_rx.recv_timeout(Duration::from_millis(30)),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+        ));
+        drop(release);
+        let addresses = resolved_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("queued lookup completed")
+            .expect("queued lookup succeeded");
+        assert_eq!(addresses, [IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)]);
+        queued.join().expect("lookup thread");
+        assert_eq!(callback.entered.load(Ordering::SeqCst), started_threads + 1);
         unregister_protect_callback();
-        for _ in 0..started_threads {
-            let _ = release.send(());
-        }
         wait_for_no_lookup_threads();
     }
 
@@ -562,7 +546,7 @@ mod tests {
         let _lock = TEST_MUTEX.lock().expect("test mutex");
         unregister_protect_callback();
 
-        let runtime = tokio::runtime::Builder::new_current_thread().build().expect("runtime");
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_time().build().expect("runtime");
         let error = runtime
             .block_on(SocketProtectionPolicy::VpnRequired.resolve_host("relay.example", 443))
             .expect_err("missing resolver callback must fail closed");
