@@ -91,7 +91,8 @@ internal fun ConnectionStrategyLanes(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = spacing.sm)
+                // No side padding: the lanes share the left and right edges of the rows around them.
+                .padding(vertical = spacing.sm)
                 .ripDpiTestTag(RipDpiTestTags.ConnectionStrategyLanes),
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {

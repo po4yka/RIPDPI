@@ -25,7 +25,6 @@ import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPersona
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -80,7 +79,7 @@ private fun LocalBypassStrategyTestRow(onRetestStrategies: () -> Unit) {
         accessibilityValue = "",
         onClick = onRetestStrategies,
     ) {
-        SettingsRow(title = title, leadingIcon = RipDpiIcons.Refresh, showChevron = true)
+        SettingsRow(title = title, showChevron = true)
     }
 }
 
@@ -116,7 +115,6 @@ private fun LocalBypassDnsRow(
         SettingsRow(
             title = stringResource(R.string.title_dns_settings),
             value = dnsSummary,
-            leadingIcon = RipDpiIcons.Dns,
             showChevron = true,
             showDivider = true,
         )
@@ -143,7 +141,6 @@ private fun LocalBypassDesyncRow(
         SettingsRow(
             title = stringResource(R.string.ripdpi_desync_method_setting),
             value = strategyValue,
-            leadingIcon = RipDpiIcons.Shield,
             monospaceValue = !isAuto,
             showChevron = true,
             showDivider = true,
@@ -154,7 +151,6 @@ private fun LocalBypassDesyncRow(
             title = stringResource(R.string.ripdpi_default_ttl_setting),
             subtitle = stringResource(R.string.config_default_ttl_summary),
             value = uiState.draft.defaultTtl,
-            leadingIcon = RipDpiIcons.Timer,
             monospaceValue = true,
             showDivider = true,
         )
