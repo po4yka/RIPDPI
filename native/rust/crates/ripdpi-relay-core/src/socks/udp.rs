@@ -210,9 +210,10 @@ where
     };
     tokio::pin!(control_closed);
 
+    let mut prefer_downlink = false;
     let result = loop {
         let idle_deadline = last_activity + config.timeouts.udp_idle;
-        tokio::select! {
+        let datagram = tokio::select! {
             biased;
             () = cancel.cancelled() => {
                 termination_reason = "runtime_cancelled";
@@ -222,7 +223,15 @@ where
                 termination_reason = "control_closed";
                 break Ok(());
             },
-            recv = udp_socket.recv_from(&mut udp_buffer) => {
+            datagram = next_datagram(udp_socket.recv_from(&mut udp_buffer), udp_session.recv_from(), prefer_downlink) => datagram,
+            () = tokio::time::sleep_until(idle_deadline) => {
+                termination_reason = "idle_timeout";
+                break Ok(());
+            }
+        };
+        prefer_downlink = matches!(&datagram, Datagram::Uplink(_));
+        match datagram {
+            Datagram::Uplink(recv) => {
                 let (received, source) = match recv {
                     Ok(datagram) => datagram,
                     Err(error) => break Err(error),
@@ -262,13 +271,14 @@ where
                 // carry DNS lookups and arbitrary endpoints; only aggregate
                 // session counters describe them. The user-visible last-target
                 // marker is reserved for CONNECT authorities (see auth.rs).
-                let sent = match send_uplink(udp_session, &target, payload, config, &cancel, control_closed.as_mut()).await {
-                    UplinkSend::Done(sent) => sent,
-                    UplinkSend::TornDown(reason) => {
-                        termination_reason = reason;
-                        break Ok(());
-                    }
-                };
+                let sent =
+                    match send_uplink(udp_session, &target, payload, config, &cancel, control_closed.as_mut()).await {
+                        UplinkSend::Done(sent) => sent,
+                        UplinkSend::TornDown(reason) => {
+                            termination_reason = reason;
+                            break Ok(());
+                        }
+                    };
                 if let Err(error) = sent
                     && uplink_send_is_fatal(&error, payload.len(), is_xudp, telemetry, &mut termination_reason)
                 {
@@ -278,7 +288,7 @@ where
                     telemetry.record_xudp_uplink(payload.len(), udp_session.queue_high_water_mark());
                 }
             }
-            result = udp_session.recv_from() => {
+            Datagram::Downlink(result) => {
                 let (target, payload) = match result {
                     Ok(datagram) => datagram,
                     // A single undecodable DOWNLINK datagram (the carrier gave
@@ -286,9 +296,7 @@ where
                     // down the association — the uplink side already drops
                     // malformed frames the same way. Genuine carrier death
                     // (reset, timeout) stays fatal.
-                    Err(error)
-                        if matches!(error.kind(), io::ErrorKind::InvalidInput | io::ErrorKind::InvalidData) =>
-                    {
+                    Err(error) if matches!(error.kind(), io::ErrorKind::InvalidInput | io::ErrorKind::InvalidData) => {
                         tracing::debug!(
                             ring = "relay",
                             subsystem = "relay",
@@ -301,11 +309,8 @@ where
                     }
                     Err(error) => {
                         if is_xudp {
-                            termination_reason = if error.kind() == io::ErrorKind::TimedOut {
-                                "read_timeout"
-                            } else {
-                                "read_error"
-                            };
+                            termination_reason =
+                                if error.kind() == io::ErrorKind::TimedOut { "read_timeout" } else { "read_error" };
                             telemetry.record_xudp_read_failure(error.kind() == io::ErrorKind::TimedOut);
                         }
                         break Err(error);
@@ -337,14 +342,43 @@ where
                     );
                 }
             }
-            () = tokio::time::sleep_until(idle_deadline) => {
-                termination_reason = "idle_timeout";
-                break Ok(());
-            }
         }
     };
 
     UdpPumpOutcome { result, termination_reason }
+}
+
+enum Datagram {
+    Uplink(io::Result<(usize, SocketAddr)>),
+    Downlink(io::Result<(RelayTargetAddr, Vec<u8>)>),
+}
+
+/// # Cancel safety:
+/// cancel-safe: dropping either pending receive preserves the next valid datagram.
+async fn next_datagram(
+    uplink: impl Future<Output = io::Result<(usize, SocketAddr)>>,
+    downlink: impl Future<Output = io::Result<(RelayTargetAddr, Vec<u8>)>>,
+    mut prefer_downlink: bool,
+) -> Datagram {
+    let mut uplink = std::pin::pin!(uplink);
+    let mut downlink = std::pin::pin!(downlink);
+    std::future::poll_fn(|cx| {
+        let downlink_first = prefer_downlink;
+        // A pending receive can spend the cooperative budget discarding invalid frames.
+        prefer_downlink = !prefer_downlink;
+        if downlink_first {
+            if let std::task::Poll::Ready(reply) = downlink.as_mut().poll(cx) {
+                return std::task::Poll::Ready(Datagram::Downlink(reply));
+            }
+            uplink.as_mut().poll(cx).map(Datagram::Uplink)
+        } else {
+            if let std::task::Poll::Ready(frame) = uplink.as_mut().poll(cx) {
+                return std::task::Poll::Ready(Datagram::Uplink(frame));
+            }
+            downlink.as_mut().poll(cx).map(Datagram::Downlink)
+        }
+    })
+    .await
 }
 
 enum UplinkSend {
@@ -776,6 +810,44 @@ mod tests {
         assert_eq!("runtime_cancelled", outcome.termination_reason);
         drop(control_peer);
     }
+    #[tokio::test]
+    async fn queued_client_datagrams_do_not_starve_a_ready_reply() {
+        let (control, _peer) = duplex(64);
+        let (sent, _sent_rx) = mpsc::unbounded_channel();
+        let (replies, downlink) = mpsc::unbounded_channel();
+        let (client, uplink) = mpsc::unbounded_channel();
+        let sends_attempted = Arc::new(AtomicU64::new(0));
+        let socket = FailingDownlinkSocket {
+            uplink: tokio::sync::Mutex::new(uplink),
+            sends_attempted: Arc::clone(&sends_attempted),
+        };
+        let mut carrier = RecordingUdpCarrier { sent, downlink: tokio::sync::Mutex::new(downlink) };
+        let source = SocketAddr::from((Ipv4Addr::LOCALHOST, 40_000));
+        let target = RelayTargetAddr::Domain("echo.example".into(), 9);
+        let frame = encode_udp_frame(&target, b"ping").expect("encode");
+        for _ in 0..8 {
+            client.send((frame.clone(), source)).expect("enqueue");
+        }
+        drop(client);
+        replies.send((target, b"reply".to_vec())).expect("enqueue reply");
+        let outcome = pump_udp_association(
+            control,
+            source.ip(),
+            socket,
+            &mut carrier,
+            &silent_session_config(Duration::from_secs(5)),
+            &FakeSocksTelemetry::default(),
+            CancellationToken::new(),
+        )
+        .await;
+        assert!(outcome.result.is_err(), "scripted client input ended");
+        assert_eq!(
+            sends_attempted.load(Ordering::Relaxed),
+            1,
+            "reply must reach the pinned client before its input ends"
+        );
+    }
+
     #[tokio::test]
     async fn udp_pump_keeps_serving_after_a_failed_downlink_delivery() {
         let (control, control_peer) = duplex(64);
