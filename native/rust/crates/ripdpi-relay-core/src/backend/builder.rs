@@ -31,7 +31,7 @@ pub(crate) async fn build_backend_with_socket_protector(
     let socket_protection: SocketProtectionPolicy = config.common.socket_protection.into();
     let socket_protector = socket_protector.or_else(|| match socket_protection {
         SocketProtectionPolicy::Inactive => None,
-        SocketProtectionPolicy::VpnRequired => Some(XhttpSocketProtector::new(move |fd| socket_protection.protect(fd))),
+        SocketProtectionPolicy::VpnRequired => Some(XhttpSocketProtector::Vpn),
     });
     let outbound_bind_ip = parse_outbound_bind_ip(&config.common.outbound_bind_ip)?;
     let context = BuildContext {

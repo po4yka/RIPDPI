@@ -16,8 +16,9 @@ pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 
 #[derive(Clone)]
-pub struct XhttpSocketProtector {
-    protect: Arc<dyn Fn(RawFd) -> io::Result<()> + Send + Sync>,
+pub enum XhttpSocketProtector {
+    Vpn,
+    Custom(Arc<dyn Fn(RawFd) -> io::Result<()> + Send + Sync>),
 }
 
 impl XhttpSocketProtector {
@@ -25,11 +26,14 @@ impl XhttpSocketProtector {
     where
         P: Fn(RawFd) -> io::Result<()> + Send + Sync + 'static,
     {
-        Self { protect: Arc::new(protect) }
+        Self::Custom(Arc::new(protect))
     }
 
     pub(crate) fn protect(&self, fd: RawFd) -> io::Result<()> {
-        (self.protect)(fd)
+        match self {
+            Self::Vpn => ripdpi_native_protect::SocketProtectionPolicy::VpnRequired.protect(fd),
+            Self::Custom(protect) => protect(fd),
+        }
     }
 }
 

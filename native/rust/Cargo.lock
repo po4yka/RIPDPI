@@ -7148,6 +7148,7 @@ dependencies = [
  "prost",
  "rand 0.10.3",
  "rcgen",
+ "ripdpi-native-protect",
  "ripdpi-tls-profiles",
  "ripdpi-vless",
  "sha2 0.11.1",

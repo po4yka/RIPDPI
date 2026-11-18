@@ -101,10 +101,20 @@ pub(super) async fn connect_tcp_stream(
     bind_ip: Option<IpAddr>,
     socket_protector: Option<&XhttpSocketProtector>,
 ) -> io::Result<TcpStream> {
-    let protect = socket_protector.cloned().map(|protector| {
-        Box::new(move |fd| protector.protect(fd)) as Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>
-    });
-    let target = ripdpi_vless::endpoint_resolver::resolve_server_addr(server, port, bind_ip, protect).await?;
+    let target = match socket_protector {
+        Some(XhttpSocketProtector::Vpn) => ripdpi_native_protect::SocketProtectionPolicy::VpnRequired
+            .resolve_host(server, port)
+            .await?
+            .into_iter()
+            .find(|address| bind_ip.is_none_or(|ip| address.is_ipv4() == ip.is_ipv4()))
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no matching relay address"))?,
+        other => {
+            let protect = other.cloned().map(|protector| {
+                Box::new(move |fd| protector.protect(fd)) as Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>
+            });
+            ripdpi_vless::endpoint_resolver::resolve_server_addr(server, port, bind_ip, protect).await?
+        }
+    };
     connect_tcp_target(target, bind_ip, socket_protector).await
 }
 
@@ -354,6 +364,27 @@ mod tests {
 
         assert_eq!(err.kind(), io::ErrorKind::PermissionDenied, "protector error must precede bind failure");
         assert!(protect_ran.load(Ordering::SeqCst), "the socket protector must run before outbound bind");
+    }
+
+    #[tokio::test]
+    async fn vpn_hostname_uses_the_underlying_network_resolver() {
+        struct PrivateNetwork;
+        impl ripdpi_native_protect::ProtectCallback for PrivateNetwork {
+            fn protect(&self, _fd: std::os::fd::RawFd) -> io::Result<()> {
+                Ok(())
+            }
+
+            fn resolve_host(&self, hostname: &str) -> io::Result<Vec<IpAddr>> {
+                assert_eq!(hostname, "private-relay.invalid");
+                Ok(vec![IpAddr::from([127, 0, 0, 1])])
+            }
+        }
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");
+        let port = listener.local_addr().expect("listener address").port();
+        let registration = ripdpi_native_protect::register_protect_callback_versioned(Arc::new(PrivateNetwork));
+        let stream = connect_tcp_stream("private-relay.invalid", port, None, Some(&XhttpSocketProtector::Vpn)).await;
+        assert!(ripdpi_native_protect::unregister_protect_callback_if(registration));
+        assert_eq!(stream.expect("private hostname connects").peer_addr().expect("peer").port(), port);
     }
 
     #[tokio::test]
