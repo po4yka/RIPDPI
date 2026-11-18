@@ -197,6 +197,10 @@ class CandidateRelayNetworkEpochTest {
         observer.links(registration, "only", "route", true)
         assertEquals(selected, observer.selectedSnapshot())
         assertNotEquals(probe, observer.capture())
+        val afterLinks = observer.capture()
+        observer.defaultAvailable(registration, "vpn")
+        assertEquals(selected, observer.selectedSnapshot())
+        assertEquals(afterLinks, observer.capture())
         observer.available(registration, "other", false)
         assertNull(observer.selectedSnapshot())
     }

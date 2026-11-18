@@ -21,6 +21,7 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
     private var activeRegistration: Long? = null
     private val entries = linkedMapOf<T, Entry>()
     private var selected: T? = null
+    private var defaultNetwork: T? = null
     private var callbackSelected: T? = null
     private val epoch = MutableStateFlow(0L)
     val changes = epoch.asStateFlow()
@@ -28,6 +29,7 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
     @Synchronized fun beginRegistration(): Long {
         registration = Math.addExact(registration, 1)
         activeRegistration = registration
+        defaultNetwork = null
         entries.clear()
         selected = null
         callbackSelected = null
@@ -38,6 +40,7 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
     @Synchronized fun endRegistration(expected: Long) {
         if (activeRegistration != expected) return
         activeRegistration = null
+        defaultNetwork = null
         entries.clear()
         selected = null
         callbackSelected = null
@@ -113,11 +116,37 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
         if (callbackSelected == network) callbackSelected = null
     }
 
+    @Synchronized fun defaultAvailable(
+        expected: Long,
+        network: T,
+    ) {
+        if (activeRegistration != expected || defaultNetwork == network) return
+        updateDefault(network)
+    }
+
+    @Synchronized fun defaultLost(
+        expected: Long,
+        network: T,
+    ) {
+        if (activeRegistration != expected || defaultNetwork != network) return
+        updateDefault(null)
+    }
+
+    private fun updateDefault(network: T?) {
+        val before = selectedSnapshot()
+        defaultNetwork = network
+        if (before != selectedSnapshot()) advance()
+    }
+
     /** Handover uses selected semantics; probe epochs still include all callback invalidations. */
     @Synchronized fun selectedSnapshot(): SelectedPhysicalNetwork<T>? {
         val current = activeRegistration ?: return null
         val network =
-            if (entries.values.any { it.preferred }) callbackSelected else entries.keys.singleOrNull()
+            when {
+                entries.values.any { it.preferred } -> callbackSelected
+                defaultNetwork in entries -> defaultNetwork
+                else -> entries.keys.singleOrNull()
+            }
         return entries[network]?.takeIf { it.ready() }?.let { entry ->
             SelectedPhysicalNetwork(
                 current,

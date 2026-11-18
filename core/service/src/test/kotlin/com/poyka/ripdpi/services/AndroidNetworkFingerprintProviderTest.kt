@@ -29,6 +29,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.shadows.ShadowConnectivityManager
 import org.robolectric.shadows.ShadowNetwork
 import java.net.InetAddress
 
@@ -75,6 +78,7 @@ class AndroidNetworkFingerprintProviderTest {
         val physical: Network,
         val capabilities: NetworkCapabilities,
         val links: LinkProperties,
+        val defaultCallback: ConnectivityManager.NetworkCallback?,
     )
 
     private fun physicalAndVpnNetworks(ready: Boolean = true): PhysicalAndVpnNetworks {
@@ -89,7 +93,8 @@ class AndroidNetworkFingerprintProviderTest {
         connectivity.setLinkProperties(overlay, overlayLinks)
         val before = connectivity.networkCallbacks.toSet()
         val observer = PhysicalNetworkObserver(context)
-        val callback = (connectivity.networkCallbacks - before).single()
+        val defaultCallback = (connectivity as? LegacyConnectivityShadow)?.defaultCallback
+        val callback = (connectivity.networkCallbacks - before).single { it !== defaultCallback }
         val physical = ShadowNetwork.newInstance(42)
         val capabilities = physicalNetworkTestCapabilities()
         val links = physicalNetworkTestLinks()
@@ -107,6 +112,7 @@ class AndroidNetworkFingerprintProviderTest {
             physical,
             capabilities,
             links,
+            defaultCallback,
         )
     }
 
@@ -158,8 +164,8 @@ class AndroidNetworkFingerprintProviderTest {
     }
 
     @Test
-    @Config(sdk = [28])
-    fun `legacy multiple candidates are unavailable until only one remains`() {
+    @Config(sdk = [28], shadows = [LegacyConnectivityShadow::class])
+    fun `legacy handover uses a physical default while both candidates remain available`() {
         val fixture = physicalAndVpnNetworks()
         val source = source(fixture)
         assertNotNull(source.capture())
@@ -169,8 +175,30 @@ class AndroidNetworkFingerprintProviderTest {
         fixture.callback.onCapabilitiesChanged(other, physicalNetworkTestCapabilities())
         fixture.callback.onLinkPropertiesChanged(other, physicalNetworkTestLinks())
         assertNull(source.capture())
+        val default = checkNotNull(fixture.defaultCallback)
+        default.onAvailable(fixture.physical)
+        assertEquals(fixture.physical, fixture.observer.selectedPhysicalSnapshot()?.network)
+        default.onAvailable(other)
+        default.onLost(fixture.physical)
+        assertEquals(other, fixture.observer.selectedPhysicalSnapshot()?.network)
+        val overlay = ShadowNetwork.newInstance(44)
+        default.onAvailable(overlay)
+        assertNull(source.capture())
+        default.onLost(overlay)
+        assertNull(source.capture())
         fixture.callback.onLost(other)
         assertNotNull(source.capture())
+    }
+
+    @Test
+    @Config(sdk = [28], shadows = [LegacyConnectivityShadow::class])
+    fun `failed default registration preserves a single observed physical path`() {
+        val manager = RuntimeEnvironment.getApplication().getSystemService(ConnectivityManager::class.java)
+        (shadowOf(manager) as LegacyConnectivityShadow).rejectDefault = true
+        val fixture = physicalAndVpnNetworks()
+        assertEquals(fixture.physical, fixture.observer.selectedPhysicalSnapshot()?.network)
+        fixture.callback.onAvailable(ShadowNetwork.newInstance(43))
+        assertNull(fixture.observer.selectedPhysicalSnapshot())
     }
 
     @Test
@@ -378,3 +406,17 @@ internal fun physicalNetworkTestLinks(): LinkProperties =
         addRoute(physicalNetworkTestRoute("192.0.2.1"))
         setDnsServers(listOf(InetAddress.getByName("192.0.2.53")))
     }
+
+@Implements(ConnectivityManager::class)
+class LegacyConnectivityShadow : ShadowConnectivityManager() {
+    var rejectDefault = false
+    var defaultCallback: ConnectivityManager.NetworkCallback? = null
+        private set
+
+    @Implementation
+    override fun registerDefaultNetworkCallback(callback: ConnectivityManager.NetworkCallback) {
+        check(!rejectDefault) { "Default registration unavailable" }
+        super.registerDefaultNetworkCallback(callback)
+        defaultCallback = callback
+    }
+}

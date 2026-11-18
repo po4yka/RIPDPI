@@ -180,6 +180,11 @@ class PhysicalNetworkObserver
                     )
                 } else {
                     manager.registerNetworkCallback(request, callback)
+                    try {
+                        manager.registerDefaultNetworkCallback(legacyDefaultCallback())
+                    } catch (_: RuntimeException) {
+                        // A single observed physical path is still unambiguous without a default hint.
+                    }
                 }
                 true
             } catch (_: RuntimeException) {
@@ -190,6 +195,14 @@ class PhysicalNetworkObserver
                 false
             }
         }
+
+        // The app excludes itself from its VPN. Only a matching physical callback supplies evidence.
+        private fun legacyDefaultCallback() =
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) = state.defaultAvailable(registration, network)
+
+                override fun onLost(network: Network) = state.defaultLost(registration, network)
+            }
     }
 
 internal class PhysicalNetworkSnapshot(
