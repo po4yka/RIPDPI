@@ -287,7 +287,7 @@ class XrayConfigRenderer(
                     "sockopt",
                     buildJsonObject {
                         put("domainStrategy", "ForceIP")
-                        put("happyEyeballs", buildJsonObject { put("tryDelayMs", 250) })
+                        put("happyEyeballs", buildJsonObject { put("tryDelayMs", HappyEyeballsTryDelayMs) })
                     },
                 )
             }
@@ -373,6 +373,7 @@ class XrayConfigRenderer(
         }
 
     private companion object {
+        const val HappyEyeballsTryDelayMs = 250
         const val MaxPort = 65_535
     }
 }
