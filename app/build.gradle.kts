@@ -90,7 +90,8 @@ abstract class VerifyEmbeddedRelayBundleTask : DefaultTask() {
     }
 }
 
-// Writes notices/rust-crates.json: deduplicated license texts and the crates that use them.
+// Writes notices/rust-crates.json in the same shape as the libXray notices/go-modules.json:
+// deduplicated license texts and the packages that use them.
 abstract class GenerateRustNoticesTask
     @Inject
     constructor(
@@ -167,7 +168,7 @@ abstract class GenerateRustNoticesTask
             return JsonOutput.toJson(
                 mapOf(
                     "licenses" to licenses.map { mapOf("id" to it["id"], "text" to it["text"]) },
-                    "crates" to
+                    "packages" to
                         crates.map { (key, crate) ->
                             mapOf(
                                 "name" to crate["name"],
@@ -755,13 +756,18 @@ val generateRustNotices =
                 File(home, "bin/cargo-about").takeIf(File::canExecute)?.path ?: "cargo-about"
             }
         cargoAbout.set(providers.gradleProperty("ripdpi.cargoAbout").orElse(installedCargoAbout))
-        // Release builds run on CI; a local build without cargo-about only warns.
+        // CI builds that package native code must ship the notices; a local build without
+        // cargo-about and a native-less validation build (no Rust code shipped) only warn.
+        val nativeLessValidation = providers.gradleProperty("ripdpi.skipNativeBuild").map { it == "true" }
         required.set(
             providers
-                .environmentVariable("CI")
-                .map { true }
-                .orElse(providers.gradleProperty("ripdpi.requireRustNotices").map(String::toBoolean))
-                .orElse(false),
+                .gradleProperty("ripdpi.requireRustNotices")
+                .map(String::toBoolean)
+                .orElse(
+                    providers
+                        .environmentVariable("CI")
+                        .zip(nativeLessValidation.orElse(false)) { _, nativeLess -> !nativeLess },
+                ).orElse(false),
         )
         outputDir.set(layout.buildDirectory.dir("generated/rustNotices"))
     }

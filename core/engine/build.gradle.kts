@@ -77,6 +77,11 @@ extensions.configure<LibraryExtension> {
             .getByName("main")
             .kotlin.directories
             .add("src/xrayLinked/kotlin")
+        // The verified artifact carries the notices of the Go modules linked into libXray.
+        sourceSets
+            .getByName("main")
+            .assets.directories
+            .add(xrayArtifactDir.get().resolve("assets").path)
         // Gated unit tests for the real impl's pure logic (CallResponse parsing,
         // protect adapter). They need libXray.DialerController on the unit-test
         // classpath but must NEVER classload libXray.LibXray (gojni). AGP's

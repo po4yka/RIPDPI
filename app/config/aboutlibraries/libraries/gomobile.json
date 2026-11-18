@@ -1,8 +1,0 @@
-{
-  "uniqueId": "golang.org/x/mobile",
-  "name": "gomobile",
-  "description": "Copyright 2009 The Go Authors.",
-  "website": "https://github.com/golang/mobile",
-  "developers": [{ "name": "The Go Authors", "organisationUrl": "https://go.dev" }],
-  "licenses": ["BSD-3-Clause"]
-}

@@ -19,6 +19,12 @@ ROOT = Path(__file__).resolve().parents[2]
 PATCHES = ROOT / "native/xray/patches"
 BUDGET = 167772160
 MACHINES = {"armeabi-v7a": (1, 40), "arm64-v8a": (2, 183), "x86": (1, 3), "x86_64": (2, 62)}
+GOARCHES = {"armeabi-v7a": "arm", "arm64-v8a": "arm64", "x86": "386", "x86_64": "amd64"}
+# The app merges this directory into its assets; the licenses screen reads the file.
+NOTICES = Path("assets/notices/go-modules.json")
+# gomobile bind links its runtime packages next to libXray itself.
+NOTICE_PACKAGES = ("github.com/xtls/libxray", "golang.org/x/mobile/bind", "golang.org/x/mobile/bind/seq")
+NOTICE_TEMPLATE = "{{range .}}{{.Name}}\t{{.Version}}\t{{.LicenseName}}\t{{.LicensePath}}\n{{end}}"
 
 
 def digest(path: Path) -> str:
@@ -140,7 +146,7 @@ def inspect_api(classes: bytes) -> None:
 
 def verify(directory: Path, abis: str | None = None, release: bool = False) -> dict:
     versions, properties, patches = policy()
-    for name in ("libxray.aar", "libxray-artifact.json", "build-go.mod", "build-go.sum"):
+    for name in ("libxray.aar", "libxray-artifact.json", "build-go.mod", "build-go.sum", NOTICES):
         regular(directory / name)
     metadata = json.loads((directory / "libxray-artifact.json").read_text())
     fields = {"schemaVersion": 2, "channel": "stable", "libxray": versions["libxray"],
@@ -154,7 +160,8 @@ def verify(directory: Path, abis: str | None = None, release: bool = False) -> d
     for key, value in fields.items():
         if metadata.get(key) != value:
             raise ValueError(f"artifact provenance mismatch: {key}")
-    for name, key in (("libxray.aar", "aarSha256"), ("build-go.mod", "goModSha256"), ("build-go.sum", "goSumSha256")):
+    for name, key in (("libxray.aar", "aarSha256"), ("build-go.mod", "goModSha256"), ("build-go.sum", "goSumSha256"),
+                      (NOTICES, "noticesSha256")):
         if digest(directory / name) != metadata.get(key):
             raise ValueError(f"artifact content digest mismatch: {name}")
     if metadata.get("goVersion") != patches["goVersion"]:
@@ -187,8 +194,50 @@ def verify(directory: Path, abis: str | None = None, release: bool = False) -> d
     return metadata
 
 
+def module_license(sources: Path, module: str) -> Path:
+    # go-licenses misses short-form notices (for example an Apache-2.0 header-only LICENSE).
+    root = Path(subprocess.check_output(["go", "list", "-m", "-f", "{{.Dir}}", module], cwd=sources, text=True).strip())
+    found = sorted(path for path in root.iterdir() if path.name.upper().startswith(("LICENSE", "COPYING")))
+    if not found:
+        raise ValueError(f"no license file for Go module {module}")
+    return found[0]
+
+
+def write_notices(directory: Path, sources: Path, abis: str) -> None:
+    versions, _, patches = policy()
+    # Local replace directives report no version; use the pins they were cloned from.
+    replaced = {"github.com/xtls/libxray": versions["libxray"], "github.com/xtls/xray-core": versions["xray-core"],
+                "google.golang.org/grpc": patches["grpc"], "github.com/pion/stun/v3": patches["stun"]}
+    libraries: dict[str, tuple[str, dict[str, str]]] = {}
+    with tempfile.TemporaryDirectory() as temporary:
+        template = Path(temporary) / "notices.tpl"
+        template.write_text(NOTICE_TEMPLATE)
+        for abi in abis.split(","):
+            environment = dict(os.environ, GOOS="android", GOARCH=GOARCHES[abi], CGO_ENABLED="1")
+            report = subprocess.run(["go-licenses", "report", "--template", str(template), *NOTICE_PACKAGES],
+                                    cwd=sources, env=environment, stdout=subprocess.PIPE, text=True, check=True).stdout
+            for line in filter(None, report.splitlines()):
+                name, version, license_name, path = line.split("\t")
+                libraries.setdefault(name, (version, {}))[1][license_name] = path
+    texts: dict[str, int] = {}
+    packages = []
+    for name, (version, licenses) in sorted(libraries.items()):
+        if version == "Unknown":
+            version = next(pin for module, pin in replaced.items() if name == module or name.startswith(module + "/"))
+        indexes = []
+        for path in dict.fromkeys(licenses.values()):
+            text = (module_license(sources, name) if path == "Unknown" else Path(path)).read_text(errors="replace")
+            indexes.append(texts.setdefault(text, len(texts)))
+        packages.append({"name": name, "version": version, "licenses": indexes,
+                         "license": ", ".join(sorted(n for n in licenses if n != "Unknown"))})
+    target = directory / NOTICES
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps({"licenses": [{"text": text} for text in texts], "packages": packages}) + "\n")
+
+
 def create(directory: Path, sources: Path, abis: str) -> None:
     versions, properties, patches = policy()
+    write_notices(directory, sources, abis)
     for name in ("go.mod", "go.sum"):
         (directory / ("build-" + name)).write_bytes((sources / name).read_bytes())
     metadata = {"schemaVersion": 2, "channel": "stable", "libxray": versions["libxray"],
@@ -201,7 +250,7 @@ def create(directory: Path, sources: Path, abis: str) -> None:
                 "buildRecipeSha256": digest(ROOT / "scripts/native/build-libxray.sh"),
                 "goVersion": subprocess.check_output(["go", "env", "GOVERSION"], cwd=sources, text=True).strip(),
                 "aarSha256": digest(directory / "libxray.aar"), "goModSha256": digest(directory / "build-go.mod"),
-                "goSumSha256": digest(directory / "build-go.sum")}
+                "goSumSha256": digest(directory / "build-go.sum"), "noticesSha256": digest(directory / NOTICES)}
     (directory / "libxray-artifact.json").write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
 
 

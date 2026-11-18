@@ -13,7 +13,7 @@ gate, the version pins, and the license/notice obligations live in the repo.
 
 | Pin | Meaning | Upstream | License |
 | --- | --- | --- | --- |
-| `libxray` | gomobile wrapper release tag | https://github.com/XTLS/libXray | Apache-2.0 |
+| `libxray` | gomobile wrapper release tag | https://github.com/XTLS/libXray | MIT |
 | `xray-core` | xray-core release vendored by libXray | https://github.com/XTLS/Xray-core | MPL-2.0 |
 | `gomobile` | `golang.org/x/mobile` pseudo-version | https://github.com/golang/mobile | BSD-3-Clause |
 | `libxray-canary` / `xray-core-canary` | opt-in upstream-watch refs (never shipped) | — | — |
@@ -129,6 +129,7 @@ export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/$ndk_version"
 mkdir -p "$GOBIN"
 go install "golang.org/x/mobile/cmd/gomobile@v$gomobile_version"
 go install "golang.org/x/mobile/cmd/gobind@v$gomobile_version"
+go install "github.com/google/go-licenses/v2@v$(python3 -c 'import tomllib; print(tomllib.load(open("gradle/libs.versions.toml", "rb"))["versions"]["go-licenses"])')"
 export PATH="$GOBIN:$PATH"
 # Do not run gomobile init: it can replace the pinned gobind with latest.
 bash scripts/native/build-libxray.sh --check-toolchain
@@ -160,6 +161,7 @@ Output (gitignored) lands in `native/xray/artifacts/`:
 - `libxray.aar` — gomobile AAR with `jni/<abi>/*.so`
 - `libxray-artifact.json` — schema-2 provenance and content digests
 - `build-go.mod` and `build-go.sum` — verified build dependency records
+- `assets/notices/go-modules.json` — license texts of the linked Go modules, written by go-licenses and shown on the in-app licenses screen
 
 Override the producer/standalone verifier output directory with
 `RIPDPI_XRAY_AAR_DIR=...`. It must be new or empty for each build; an existing

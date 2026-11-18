@@ -69,7 +69,8 @@ def artifact_fixture(directory: Path) -> dict:
     with zipfile.ZipFile(directory / "libxray.aar", "w") as archive:
         archive.writestr("jni/arm64-v8a/libgojni.so", elf_fixture("arm64-v8a"))
         archive.writestr("classes.jar", b"unit-api")
-    for name, key in (("build-go.mod", "goModSha256"), ("build-go.sum", "goSumSha256")):
+    (directory / ARTIFACTS.NOTICES).parent.mkdir(parents=True)
+    for name, key in (("build-go.mod", "goModSha256"), ("build-go.sum", "goSumSha256"), (ARTIFACTS.NOTICES, "noticesSha256")):
         (directory / name).write_bytes(b"unit-module")
         metadata[key] = ARTIFACTS.digest(directory / name)
     metadata["aarSha256"] = ARTIFACTS.digest(directory / "libxray.aar")
@@ -103,7 +104,8 @@ class LibXrayArtifactTest(unittest.TestCase):
                     ARTIFACTS.inspect_api(payload.getvalue())
 
     def test_go_provenance_uses_the_compiled_module_toolchain(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary, patch.object(ARTIFACTS.subprocess, "check_output", return_value="go1.27.0\n") as go:
+        with tempfile.TemporaryDirectory() as temporary, patch.object(ARTIFACTS.subprocess, "check_output", return_value="go1.27.0\n") as go, \
+                patch.object(ARTIFACTS, "write_notices", side_effect=lambda directory, *_: (directory / ARTIFACTS.NOTICES).parent.mkdir(parents=True) or (directory / ARTIFACTS.NOTICES).write_text("{}")):
             directory = Path(temporary)
             sources = directory / "sources"
             sources.mkdir()
@@ -112,6 +114,34 @@ class LibXrayArtifactTest(unittest.TestCase):
             (directory / "libxray.aar").write_bytes(b"unit-artifact")
             ARTIFACTS.create(directory, sources, "arm64-v8a")
             go.assert_called_once_with(["go", "env", "GOVERSION"], cwd=sources, text=True)
+
+    def test_notices_merge_abis_share_texts_and_fill_missing_versions_and_licenses(self) -> None:
+        versions, _, _ = ARTIFACTS.policy()
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            mit, nat = directory / "MIT", directory / "nat"
+            mit.write_text("MIT text")
+            nat.mkdir()
+            (nat / "LICENSE").write_text("Apache short form")
+            tool = directory / "go-licenses"
+            tool.write_text(f"#!{sys.executable}\n" +
+                            "import os\n" +
+                            f"rows = ['github.com/xtls/libxray\\tUnknown\\tMIT\\t{mit}', 'github.com/jackpal/go-nat-pmp\\tv1.1.0\\tUnknown\\tUnknown']\n" +
+                            f"if os.environ['GOARCH'] == 'arm': rows.append('golang.zx2c4.com/wireguard\\tv1\\tMIT\\t{mit}')\n" +
+                            "print('\\n'.join(rows))\n")
+            tool.chmod(0o755)
+            environment = dict(os.environ, PATH=str(directory) + os.pathsep + os.environ["PATH"])
+            with patch.dict(os.environ, environment), \
+                    patch.object(ARTIFACTS.subprocess, "check_output", return_value=f"{nat}\n") as go:
+                ARTIFACTS.write_notices(directory, directory, "armeabi-v7a,arm64-v8a")
+            go.assert_called_once_with(["go", "list", "-m", "-f", "{{.Dir}}", "github.com/jackpal/go-nat-pmp"], cwd=directory, text=True)
+            notices = json.loads((directory / ARTIFACTS.NOTICES).read_text())
+        self.assertEqual([{"text": "Apache short form"}, {"text": "MIT text"}], notices["licenses"])
+        self.assertEqual([
+            {"name": "github.com/jackpal/go-nat-pmp", "version": "v1.1.0", "licenses": [0], "license": ""},
+            {"name": "github.com/xtls/libxray", "version": versions["libxray"], "licenses": [1], "license": "MIT"},
+            {"name": "golang.zx2c4.com/wireguard", "version": "v1", "licenses": [1], "license": "MIT"},
+        ], notices["packages"])
 
     def test_unattested_archive_is_rejected(self) -> None:
         # This is a malformed packaging fixture, never native runtime evidence.
@@ -234,7 +264,7 @@ class LibXrayArtifactTest(unittest.TestCase):
             ndk = directory / "ndk"
             ndk.mkdir()
             (ndk / "source.properties").write_text("Pkg.Revision = " + properties["ripdpi.nativeNdkVersion"] + "\n")
-            for name in ("gomobile", "gobind"):
+            for name in ("gomobile", "gobind", "go-licenses"):
                 tool = directory / name
                 tool.write_text("#!/bin/sh\nexit 90\n")
                 tool.chmod(0o755)
@@ -242,7 +272,7 @@ class LibXrayArtifactTest(unittest.TestCase):
             go.write_text(f"#!{sys.executable}\n" +
                           "import os,sys\n" +
                           "if sys.argv[1] == 'env': print(os.environ['TEST_GO_' + sys.argv[2]])\n" +
-                          f"else: print('v{versions['gomobile']}')\n")
+                          f"else: print('v{versions['gomobile']} v{versions['go-licenses']}')\n")
             go.chmod(0o755)
             for version, host, arch, expected in (("go1.27.4", "darwin", "arm64", 0),
                                                    ("go1.27.4", "linux", "amd64", 0),

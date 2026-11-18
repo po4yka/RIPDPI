@@ -23,6 +23,8 @@ runs:
         export GOBIN="$RUNNER_TEMP/xray-go-bin"
         go install "golang.org/x/mobile/cmd/gomobile@v$gomobile_version"
         go install "golang.org/x/mobile/cmd/gobind@v$gomobile_version"
+        go_licenses_version="$(python3 -c 'import tomllib; print(tomllib.load(open("gradle/libs.versions.toml", "rb"))["versions"]["go-licenses"])')"
+        go install "github.com/google/go-licenses/v2@v$go_licenses_version"
         export PATH="$GOBIN:$PATH"
         # Android binding needs these binaries, not OpenAL initialization.
         # Pinned gomobile init would overwrite gobind with gobind@latest.

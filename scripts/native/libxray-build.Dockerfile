@@ -54,9 +54,12 @@ ENV ANDROID_NDK_HOME="${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" \
 # Keep this version aligned with native/xray/patches/manifest.json.
 # Keep the public checksum database enabled.
 ARG GOMOBILE_VERSION=v0.0.0-20261011034528-197770444867
+# Pinned to gradle/libs.versions.toml `go-licenses`.
+ARG GO_LICENSES_VERSION=v2.0.1
 ENV GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOTOOLCHAIN=go1.27.4
 RUN retry go install golang.org/x/mobile/cmd/gomobile@${GOMOBILE_VERSION} \
-    && retry go install golang.org/x/mobile/cmd/gobind@${GOMOBILE_VERSION}
+    && retry go install golang.org/x/mobile/cmd/gobind@${GOMOBILE_VERSION} \
+    && retry go install github.com/google/go-licenses/v2@${GO_LICENSES_VERSION}
 ENV PATH="/go/bin:${PATH}"
 # Do not run gomobile init: it can replace the pinned gobind.
 

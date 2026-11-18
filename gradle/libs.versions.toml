@@ -82,7 +82,7 @@ glance = "1.2.0"
 # on any drift between these pins and the produced artifact manifest.
 #
 # Upstream repositories:
-#   libXray   https://github.com/XTLS/libXray        (Apache-2.0) — gomobile wrapper
+#   libXray   https://github.com/XTLS/libXray        (MIT)        — gomobile wrapper
 #   xray-core https://github.com/XTLS/Xray-core      (MPL-2.0)    — transitive dep of libXray
 #   gomobile  https://github.com/golang/mobile       (BSD-3-Clause) — Go bind toolchain
 #   geoip.dat https://github.com/Loyalsoldier/v2ray-rules-dat (CC-BY-SA-4.0; MaxMind GeoLite2 derivative)
@@ -107,6 +107,8 @@ glance = "1.2.0"
 libxray = "v26.11.9"
 xray-core = "1.260327.1-0.20261109052709-676eaf66f8f0"
 gomobile = "0.0.0-20261011034528-197770444867"
+# Writes the Go module notices that ship with the libXray artifact.
+go-licenses = "2.0.1"
 libxray-canary = "main"
 xray-core-canary = "main"
 

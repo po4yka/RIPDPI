@@ -23,10 +23,11 @@ read_pin() { sed -nE "s/^$1 = \"([^\"]*)\".*/\1/p" "$repo_root/gradle/libs.versi
 read_property() { sed -n "s/^$1=//p" "$repo_root/gradle.properties"; }
 libxray_ref="$(read_pin libxray)"
 gomobile_ref="$(read_pin gomobile)"
+go_licenses_ref="$(read_pin go-licenses)"
 ndk_version="$(read_property ripdpi.nativeNdkVersion)"
 min_sdk="$(read_property ripdpi.minSdk)"
 abis_csv="${abis_override:-$(read_property ripdpi.nativeAbis)}"
-for tool in go gomobile gobind git python3; do
+for tool in go gomobile gobind go-licenses git python3; do
     command -v "$tool" >/dev/null || { echo "Required tool unavailable: $tool" >&2; exit 69; }
 done
 go_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["goVersion"])' "$repo_root/native/xray/patches/manifest.json")"
@@ -50,6 +51,9 @@ for tool in gomobile gobind; do
         echo "$tool does not match the pinned gomobile module" >&2; exit 69;
     }
 done
+go version -m "$(command -v go-licenses)" | grep -F "v$go_licenses_ref" >/dev/null || {
+    echo "go-licenses does not match the pinned version" >&2; exit 69;
+}
 python3 -c 'import sys; sys.path.insert(0,sys.argv[1]); from libxray_artifacts import policy; policy()' "$repo_root/scripts/native"
 echo "Toolchain OK: $(go version); libXray=$libxray_ref; gomobile=$gomobile_ref; NDK=$ndk_version; ABIs=$abis_csv"
 [[ "$check_only" == 0 ]] || exit 0

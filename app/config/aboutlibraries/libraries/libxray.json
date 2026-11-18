@@ -1,8 +1,0 @@
-{
-  "uniqueId": "github.com/XTLS/libXray",
-  "name": "libXray",
-  "description": "Copyright XTLS. Built with repository patches listed in native/xray/patches/manifest.json.",
-  "website": "https://github.com/XTLS/libXray",
-  "developers": [{ "name": "XTLS", "organisationUrl": "https://github.com/XTLS" }],
-  "licenses": ["Apache-2.0"]
-}

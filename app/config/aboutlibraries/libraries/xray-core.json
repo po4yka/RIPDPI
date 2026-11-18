@@ -1,8 +1,0 @@
-{
-  "uniqueId": "github.com/xtls/xray-core",
-  "name": "Xray-core",
-  "description": "Copyright Project X (XTLS). Source code of the covered files, including modified files, is available at the website and in the RIPDPI source repository.",
-  "website": "https://github.com/XTLS/Xray-core",
-  "developers": [{ "name": "XTLS", "organisationUrl": "https://github.com/XTLS" }],
-  "licenses": ["MPL-2.0"]
-}
