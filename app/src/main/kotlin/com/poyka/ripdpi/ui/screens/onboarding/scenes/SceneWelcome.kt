@@ -3,6 +3,7 @@
 
 package com.poyka.ripdpi.ui.screens.onboarding.scenes
 
+import androidx.compose.ui.geometry.Offset
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -10,6 +11,10 @@ import kotlin.math.sign
 import kotlin.math.sin
 
 private const val Pi = PI.toFloat()
+
+/** The tombstone of the welcome scene in the design frame, as the splash icon lands on it. */
+internal val IconCenter = Offset(150f, Ground - 43f)
+internal const val IconRadius = 50f
 
 /**
  * Rest in peace, DPI. The scene opens as the app icon: the ghost inside the tombstone. The ghost leaves the stone
@@ -50,7 +55,7 @@ internal class WelcomeScene(
         // The stone trembles before the ghost leaves it.
         val tremble = if (since > 1f && since < 1.4f) sin(since * 90f) * 0.9f else 0f
         at(tremble, bob.x) {
-            tomb(150f, Ground + 1f, 70f, 88f, tilt.x, carving = ease((since - 1.6f) / 0.9f), cracked = cracked)
+            tomb(IconCenter.x, Ground + 1f, 70f, 88f, tilt.x, carving = ease((since - 1.6f) / 0.9f), cracked = cracked)
             val hollow = if (out > 0f) cl(1f - out * 1.5f) * 0.55f else 0f
             ghost(Ghost(150f, Ground - 21f, 1.42f, a = hollow, still = true, id = 1))
         }

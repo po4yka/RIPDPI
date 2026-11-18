@@ -181,7 +181,7 @@ internal class NightScene(
         val up = cl(hand.x, 0f, 1.1f)
         if (cycle > 2.2f && stirred != round) {
             stirred = round
-            parts.chips(HandX, NightGround + 1f, colors.tone(0.38f))
+            parts.chips(HandX, NightGround + 1f, colors.tone(0.38f), floor = NightGround + 2f)
         }
         if (cycle > 4.3f && cycle < 4.6f && settled != round) {
             settled = round

@@ -10,10 +10,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -41,6 +44,8 @@ import com.poyka.ripdpi.ui.screens.onboarding.scenes.BarrierScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.BenchScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.CheckpointScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.Frame
+import com.poyka.ripdpi.ui.screens.onboarding.scenes.IconCenter
+import com.poyka.ripdpi.ui.screens.onboarding.scenes.IconRadius
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.NightScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.Parts
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.Pen
@@ -49,6 +54,8 @@ import com.poyka.ripdpi.ui.screens.onboarding.scenes.SceneColors
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.SceneHeight
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.SceneTextBase
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.SceneWidth
+import com.poyka.ripdpi.ui.screens.onboarding.scenes.SealCenter
+import com.poyka.ripdpi.ui.screens.onboarding.scenes.SealRadius
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.UnseenScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.WallScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.WelcomeScene
@@ -58,7 +65,8 @@ import kotlin.math.floor
 import kotlin.random.Random
 
 private val StageMaxWidth = 420.dp
-private const val FadeSide = 0.07f
+private const val FadeSide = 0.04f
+private const val FadeTop = 0.035f
 private const val FadeBottom = 0.9f
 private val SideFade =
     Brush.horizontalGradient(
@@ -67,7 +75,13 @@ private val SideFade =
         1f - FadeSide to Color.Black,
         1f to Color.Transparent,
     )
-private val BottomFade = Brush.verticalGradient(FadeBottom to Color.Black, 1f to Color.Transparent)
+private val EndFade =
+    Brush.verticalGradient(
+        0f to Color.Transparent,
+        FadeTop to Color.Black,
+        FadeBottom to Color.Black,
+        1f to Color.Transparent,
+    )
 private const val NanosPerSecond = 1_000_000_000f
 private const val LongestStep = 0.05f
 private const val SettleStep = 1f / 30f
@@ -129,7 +143,7 @@ internal fun onboardingSceneState(
         }
 
         is OnboardingValidationState.Failed -> {
-            val at = (test.failedStep ?: OnboardingValidationStep.Dns).ordinal
+            val at = (test.failedStep ?: OnboardingValidationStep.Tunnel).ordinal
             choices.copy(failedAt = at, stage = at)
         }
     }
@@ -192,8 +206,9 @@ private class SceneStage {
         }
         started = true
         pen.time = time
-        drawScene(pen, base, 1f - next, -SceneSlide * next, dt)
-        if (next > 0f) drawScene(pen, base + 1, next, SceneSlide * (1f - next), dt)
+        // The scene that goes is almost out before the scene that comes shows, so the two do not mix.
+        drawScene(pen, base, 1f - ease(next / FadeSpan), -SceneSlide * next, dt)
+        if (next > 0f) drawScene(pen, base + 1, ease((next - 1f + FadeSpan) / FadeSpan), SceneSlide * (1f - next), dt)
     }
 
     private fun Frame.take(
@@ -262,6 +277,7 @@ private class SceneStage {
 
     private companion object {
         const val HalfWay = 0.5f
+        const val FadeSpan = 0.6f
     }
 }
 
@@ -276,6 +292,7 @@ private class SceneStage {
 internal fun OnboardingSceneStage(
     state: OnboardingSceneState,
     pagePosition: () -> Float,
+    sealed: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -317,6 +334,20 @@ internal fun OnboardingSceneStage(
     val handOff = LocalRipDpiHandOff.current
     val splash = LocalOnboardingBadgeAnchor.current
     val radius = with(density) { OnboardingStepBadgeSize.toPx() } / 2f
+    var placed by remember { mutableStateOf<Pair<Rect, Rect>?>(null) }
+    placed?.let { (root, window) ->
+        SideEffect {
+            val unit = root.width / SceneWidth
+            if (handOff != null) {
+                // The main screen opens from the seal of the last scene, or from the middle of the stage.
+                handOff.anchor = if (sealed) root.topLeft + SealCenter * unit else root.center
+                handOff.anchorRadius = if (sealed) SealRadius * unit else radius
+                handOff.sourceLine = null
+            }
+            // The splash icon lands on the tombstone of the welcome scene.
+            splash?.bounds = Rect(window.topLeft + IconCenter * unit, IconRadius * unit)
+        }
+    }
     Box(modifier = modifier.fillMaxWidth().padding(bottom = spacing.md), contentAlignment = Alignment.Center) {
         Spacer(
             modifier =
@@ -324,16 +355,10 @@ internal fun OnboardingSceneStage(
                     .widthIn(max = StageMaxWidth)
                     .fillMaxWidth()
                     .aspectRatio(SceneWidth / SceneHeight)
-                    .onGloballyPositioned { coordinates ->
-                        if (handOff != null) {
-                            handOff.anchor = coordinates.boundsInRoot().center
-                            handOff.anchorRadius = radius
-                            handOff.sourceLine = null
-                        }
-                        splash?.bounds = Rect(coordinates.boundsInWindow().center, radius)
-                    }.clearAndSetSemantics {}
+                    .onGloballyPositioned { placed = it.boundsInRoot() to it.boundsInWindow() }
+                    .clearAndSetSemantics {}
                     .clipToBounds()
-                    // The stage fades into the page at its sides and at its bottom, so it has no edge.
+                    // The stage fades into the page at each side, so it has no edge.
                     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                     .drawBehind {
                         // Each frame of the loop draws the stage again.
@@ -344,7 +369,7 @@ internal fun OnboardingSceneStage(
                             stage.draw(pen, currentState, pagePosition(), moves)
                         }
                         drawRect(SideFade, blendMode = BlendMode.DstIn)
-                        drawRect(BottomFade, blendMode = BlendMode.DstIn)
+                        drawRect(EndFade, blendMode = BlendMode.DstIn)
                     },
         )
     }

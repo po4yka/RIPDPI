@@ -236,9 +236,6 @@ internal class BenchScene(
             }
         }
         stroke(colors.ink, s * 0.8f, 1.6f)
-        // A tally on the side of the console.
-        repeat(4) { k -> seg(41f + k * 3.4f, BodyY + 56f, 41f + k * 3.4f, BodyY + 64f, colors.ink, 0.55f * a, 1.1f) }
-        seg(38.5f, BodyY + 63f, 54f, BodyY + 57f, colors.ink, 0.55f * a, 1.1f)
     }
 
     private fun Pen.ghostAtWork(

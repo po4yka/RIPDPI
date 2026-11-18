@@ -3,6 +3,7 @@
 
 package com.poyka.ripdpi.ui.screens.onboarding.scenes
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import kotlin.math.PI
 import kotlin.math.abs
@@ -12,6 +13,10 @@ import kotlin.math.sin
 
 private const val Pi = PI.toFloat()
 private const val Gates = 3
+
+/** The seal of the last scene, in the design frame. The main screen opens from it. */
+internal val SealCenter = Offset(150f, 30f)
+internal const val SealRadius = 19f
 private const val Fallen = 9
 private val GateX = floatArrayOf(84f, 146f, 208f)
 private val DoorCrack = floatArrayOf(1f, -46f, -4f, -36f, 3f, -27f, -3f, -17f, 2f, -8f, -2f, 0f)
@@ -183,13 +188,13 @@ internal class BarrierScene(
         val step = marks[index] - 1
         if (step in steps.indices && k > steps[step]) {
             marks[index]++
-            parts.chips(x + (step - 1) * 3f, y - 40f + step * 13f, colors.ink, 3)
+            parts.chips(x + (step - 1) * 3f, y - 40f + step * 13f, colors.ink, 3, y + 3f)
         }
         if (fall > 0f && marks[index] < Fallen) {
             marks[index] = Fallen
             parts.dust(x - 6f, y, colors.mid)
             parts.dust(x + 6f, y, colors.mid)
-            parts.chips(x, y - 20f, colors.ink, 7)
+            parts.chips(x, y - 20f, colors.ink, 7, y + 3f)
         }
     }
 
@@ -398,15 +403,18 @@ internal class BarrierScene(
         val tint = if (passed) colors.signal else colors.mid
         if (k > 0.9f && !sealed) {
             sealed = true
-            parts.ring(150f, 30f, tint, 22f)
+            parts.ring(SealCenter.x, SealCenter.y, tint, 22f)
         }
         if (k <= 0.02f) return
-        at(150f, 30f, 0f, k, k) {
+        at(SealCenter.x, SealCenter.y, 0f, k, k) {
+            // The seal covers the sky behind it.
+            circ(0f, 0f, 24f)
+            fill(colors.paper)
             at(0f, 0f, time * 0.3f) {
                 circ(0f, 0f, 24f)
                 stroke(tint, 0.6f, 1.3f, dash = 3f, gap = 4f)
             }
-            circ(0f, 0f, 19f)
+            circ(0f, 0f, SealRadius)
             fill(colors.paper)
             stroke(colors.ink, 0.9f, 1.5f)
             tomb(0f, 13f, 22f, 27f, cracked = if (passed) cl((since - 2.6f) / 0.8f) else 0f)

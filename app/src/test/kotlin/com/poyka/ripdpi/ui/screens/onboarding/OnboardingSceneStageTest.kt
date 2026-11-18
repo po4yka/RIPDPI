@@ -38,7 +38,7 @@ class OnboardingSceneStageTest {
     }
 
     @Test
-    fun `a failed test stops at its stage, and a failure with no stage is a DNS failure`() {
+    fun `a failed test stops at its stage, and a failure with no stage is a tunnel failure`() {
         fun failedAt(step: OnboardingValidationStep?) =
             scene(OnboardingValidationState.Failed(reason = "", failedStep = step))
 
@@ -50,7 +50,7 @@ class OnboardingSceneStageTest {
             OnboardingSceneState(dns = "Resolver", failedAt = 1, stage = 1),
             failedAt(OnboardingValidationStep.Dns),
         )
-        assertEquals(OnboardingSceneState(dns = "Resolver", failedAt = 1, stage = 1), failedAt(null))
+        assertEquals(OnboardingSceneState(dns = "Resolver", failedAt = 0, stage = 0), failedAt(null))
         assertEquals(
             OnboardingSceneState(dns = "Resolver", failedAt = 2, stage = 2),
             failedAt(OnboardingValidationStep.Connectivity),

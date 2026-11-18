@@ -24,6 +24,7 @@ private class Part(
     val color: Color,
     var rot: Float = 0f,
     val spin: Float = 0f,
+    val floor: Float = Float.MAX_VALUE,
 ) {
     var t = 0f
 }
@@ -80,6 +81,7 @@ internal class Parts(
         y: Float,
         color: Color,
         count: Int = 4,
+        floor: Float = Ground + 2f,
     ) = repeat(count) {
         val part =
             Part(
@@ -93,6 +95,7 @@ internal class Parts(
                 color = color,
                 rot = rnd(6f),
                 spin = 9f,
+                floor = floor,
             )
         add(part)
     }
@@ -120,8 +123,12 @@ internal class Parts(
         dt: Float,
     ) {
         val u = part.t / part.life
-        part.x += part.vx * dt
-        part.y += part.vy * dt
+        // A chip that falls to the ground stays on it.
+        val lies = part.vy > 0f && part.y >= part.floor
+        if (!lies) {
+            part.x += part.vx * dt
+            part.y += part.vy * dt
+        }
         when (part.kind) {
             PartKind.Dust -> {
                 part.vx *= 0.94f
@@ -137,8 +144,10 @@ internal class Parts(
             }
 
             PartKind.Chip -> {
-                part.vy += 330f * dt
-                part.rot += part.spin * dt
+                if (!lies) {
+                    part.vy += 330f * dt
+                    part.rot += part.spin * dt
+                }
                 at(part.x, part.y, part.rot) {
                     rr(-part.r, -part.r * 0.6f, part.r * 2f, part.r * 1.2f, 0.6f)
                     fill(part.color, cl((1f - u) * 3f))

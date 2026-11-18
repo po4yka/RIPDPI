@@ -374,7 +374,12 @@ private fun OnboardingPinnedBadge(
     if (!largeFont && uiState != null) {
         val statesTest = onboardingLineStatesTest(step, OnboardingTestPageIndex, uiState.validationState)
         val dns = onboardingDnsName(uiState.selectedDnsProviderId)
-        OnboardingSceneStage(onboardingSceneState(uiState, dns, statesTest), pagePosition, modifier)
+        OnboardingSceneStage(
+            state = onboardingSceneState(uiState, dns, statesTest),
+            pagePosition = pagePosition,
+            sealed = step == OnboardingCompletionPageIndex,
+            modifier = modifier,
+        )
         return
     }
     Box(
