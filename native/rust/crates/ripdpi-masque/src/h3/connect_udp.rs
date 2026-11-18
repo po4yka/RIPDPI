@@ -95,7 +95,7 @@ pub(crate) async fn attempt_h3_connect_udp(
                     Ok(datagram) if datagram.stream_id() == stream_id => (vec![datagram.into_payload()], false),
                     Ok(_) => continue,
                     Err(error) => {
-                        tracing::debug!(error = %error, target = %target_label, "MASQUE UDP datagram reader closed");
+                        tracing::debug!(error = %error, "MASQUE UDP datagram reader closed");
                         break;
                     }
                 },
@@ -129,18 +129,18 @@ pub(crate) async fn attempt_h3_connect_udp(
                         }
                     }
                     Ok(None) => {
-                        tracing::debug!(target = %target_label, "ignored MASQUE UDP datagram for unsupported context id");
+                        tracing::debug!("ignored MASQUE UDP datagram for unsupported context id");
                     }
                     // RFC 9297 3.3 and RFC 9114 4.1.2 require H3_MESSAGE_ERROR for malformed capsules.
                     Err(error) if from_capsules => {
-                        tracing::debug!(error = %error, target = %target_label, "aborting MASQUE UDP flow on a malformed capsule");
+                        tracing::debug!(error = %error, "aborting MASQUE UDP flow on a malformed capsule");
                         // Reset only our side: h3-quinn 0.0.10 panics on stop_sending while h3's
                         // read-ahead holds the receive stream; dropping it stops the receive side.
                         stream.stop_stream(Code::H3_MESSAGE_ERROR);
                         break 'flow;
                     }
                     Err(error) => {
-                        tracing::debug!(error = %error, target = %target_label, "ignored malformed MASQUE UDP datagram");
+                        tracing::debug!(error = %error, "ignored malformed MASQUE UDP datagram");
                     }
                 }
             }

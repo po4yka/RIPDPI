@@ -92,7 +92,7 @@ impl MasqueUdpRelay {
             Err(error) if error.kind() != io::ErrorKind::InvalidInput => {
                 // The carrier is dead (for example an idle QUIC timeout): replace the
                 // flow so one broken tunnel does not fail the whole association.
-                tracing::debug!(target, error = %error, "MASQUE UDP flow failed, reopening it");
+                tracing::debug!(reason = classify_attempt_failure(&error), "MASQUE UDP flow failed, reopening it");
                 self.flows.remove(target);
                 let mut flow = self.open_flow(target).await?;
                 let result = flow.send(payload);
@@ -115,7 +115,7 @@ impl MasqueUdpRelay {
         if self.flows.get(target).is_some_and(MasqueUdpFlow::is_dead)
             && let Some(dead) = self.flows.remove(target)
         {
-            tracing::debug!(target, dropped = dead.dropped_datagrams, "replacing a dead or stalled MASQUE UDP flow");
+            tracing::debug!(dropped = dead.dropped_datagrams, "replacing a dead or stalled MASQUE UDP flow");
         }
         if !self.flows.contains_key(target) {
             let flow = self.open_flow(target).await?;
@@ -201,7 +201,10 @@ impl MasqueUdpRelay {
                 self.client.record_quic_migration_status("failed", Some(&reason)).await;
                 return Err(error);
             }
-            tracing::info!(target, error = %error, "MASQUE H3 UDP connect failed, falling back to HTTP/2");
+            tracing::info!(
+                reason = classify_attempt_failure(&error),
+                "MASQUE H3 UDP connect failed, falling back to HTTP/2"
+            );
             if is_h3_transport_failure(&error) {
                 self.client.arm_h3_udp_cooldown().await;
             }

@@ -1160,20 +1160,31 @@ mod tests {
         let relay_addr = relay_socket.local_addr().expect("relay socket addr");
         let cancel = CancellationToken::new();
         let pump_cancel = cancel.clone();
-        let pump = tokio::spawn(async move {
-            let mut carrier = MasqueCarrier(client.udp_session());
-            let telemetry = FakeSocksTelemetry::default();
-            pump_udp_association(
-                control,
-                IpAddr::V4(Ipv4Addr::LOCALHOST),
-                relay_socket,
-                &mut carrier,
-                &config,
-                &telemetry,
-                cancel,
-            )
-            .await
-        });
+        use std::io::Read as _;
+        use tracing::instrument::WithSubscriber as _;
+
+        let (mut log_reader, log_writer) = std::io::pipe().expect("log pipe");
+        let subscriber = tracing_subscriber::fmt()
+            .with_env_filter("ripdpi_masque=info")
+            .with_writer(std::sync::Mutex::new(log_writer))
+            .finish();
+        let pump = tokio::spawn(
+            async move {
+                let mut carrier = MasqueCarrier(client.udp_session());
+                let telemetry = FakeSocksTelemetry::default();
+                pump_udp_association(
+                    control,
+                    IpAddr::V4(Ipv4Addr::LOCALHOST),
+                    relay_socket,
+                    &mut carrier,
+                    &config,
+                    &telemetry,
+                    cancel,
+                )
+                .await
+            }
+            .with_subscriber(subscriber),
+        );
 
         let socks_client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind SOCKS client socket");
         let target = RelayTargetAddr::from_authority(&fixture.udp_echo_target()).expect("echo target");
@@ -1195,6 +1206,10 @@ mod tests {
             .expect("pump task hung after cancellation")
             .expect("pump task panicked");
         outcome.result.expect("the association ends gracefully on cancel");
+        let mut log = String::new();
+        log_reader.read_to_string(&mut log).expect("read MASQUE events");
+        assert!(log.contains("falling back to HTTP/2"));
+        assert!(!log.contains(&fixture.udp_echo_target()), "UDP destination appeared in fallback log");
         drop(control_peer);
     }
 }
