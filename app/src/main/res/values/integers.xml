@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The platform starts the splash icon animation about 400ms before the launch animation has opened the window. -->
+    <integer name="splash_entry_delay_millis">400</integer>
+    <!-- The emphasized bucket of RipDpiMotion. -->
+    <integer name="splash_entry_duration_millis">320</integer>
+    <!-- The delay and the rise together; the platform limit is 1000ms. -->
+    <integer name="splash_icon_animation_millis">720</integer>
+</resources>

@@ -4,6 +4,7 @@
     <style name="Theme.RIPDPI.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_ripdpi</item>
         <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimationDuration">@integer/splash_icon_animation_millis</item>
         <item name="postSplashScreenTheme">@style/Theme.RIPDPI</item>
     </style>
 </resources>
