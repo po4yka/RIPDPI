@@ -53,6 +53,10 @@ impl UdpSession {
         }
     }
 
+    /// # Cancel safety:
+    ///
+    /// cancel-safe: cancellation during readiness or registration sends no datagram.
+    /// Once rebound, enqueue and transfer of the migration guard do not yield.
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> Result<()> {
         // Refuse a malformed message before it costs a settle wait, a session id or a migration.
         check_udp_message(address, payload)?;
@@ -66,7 +70,7 @@ impl UdpSession {
         match send_udp_payload(&self.client, session_id, address, payload).await {
             Ok(()) => {
                 if let Some(migration) = migration {
-                    migration.complete("path_validated_after_datagram_send");
+                    migration.confirm_datagram_path(Arc::downgrade(&self.client));
                 }
                 Ok(())
             }

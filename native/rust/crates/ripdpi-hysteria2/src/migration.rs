@@ -1,10 +1,12 @@
-use std::sync::{Mutex, MutexGuard, TryLockError};
+use std::sync::{Arc, Mutex, MutexGuard, TryLockError, Weak};
 use std::time::{Duration, Instant};
 
 use crate::client::ClientInner;
 use crate::error::Result;
 use crate::tls_quic::{build_client_udp_socket, rebind_endpoint};
 
+const PATH_EVIDENCE_TIMEOUT: Duration = Duration::from_secs(3);
+const PATH_EVIDENCE_POLL: Duration = Duration::from_millis(20);
 const MIGRATION_COOLDOWN: Duration = Duration::from_secs(30);
 
 pub(crate) struct QuicMigration {
@@ -50,21 +52,47 @@ impl QuicMigration {
     }
 }
 
-type CompleteAction<'a> = Box<dyn FnOnce(&str) + Send + 'a>;
-type RollbackAction<'a> = Box<dyn FnOnce(&str) -> Result<()> + Send + 'a>;
+type CompleteAction = Box<dyn FnOnce(&str) + Send>;
+type RollbackAction = Box<dyn FnOnce(&str) -> Result<()> + Send>;
 
-pub(crate) struct MigrationAttempt<'a> {
-    complete: Option<CompleteAction<'a>>,
-    rollback: Option<RollbackAction<'a>>,
+pub(crate) struct MigrationAttempt {
+    path_challenges_before: u64,
+    complete: Option<CompleteAction>,
+    rollback: Option<RollbackAction>,
 }
 
-impl<'a> MigrationAttempt<'a> {
-    fn new<C, R>(complete: C, rollback: R) -> Self
+impl MigrationAttempt {
+    fn new<C, R>(path_challenges_before: u64, complete: C, rollback: R) -> Self
     where
-        C: FnOnce(&str) + Send + 'a,
-        R: FnOnce(&str) -> Result<()> + Send + 'a,
+        C: FnOnce(&str) + Send + 'static,
+        R: FnOnce(&str) -> Result<()> + Send + 'static,
     {
-        Self { complete: Some(Box::new(complete)), rollback: Some(Box::new(rollback)) }
+        Self { path_challenges_before, complete: Some(Box::new(complete)), rollback: Some(Box::new(rollback)) }
+    }
+
+    pub(crate) fn confirm_datagram_path(self, client: Weak<ClientInner>) {
+        tokio::spawn(async move {
+            // A PATH_CHALLENGE shows that the peer received traffic from the rebound address.
+            // Quinn can still receive ordinary frames through the previous socket.
+            let deadline = tokio::time::Instant::now() + PATH_EVIDENCE_TIMEOUT;
+            loop {
+                let Some(challenges) = client.upgrade().map(|inner| inner.connection.stats().frame_rx.path_challenge)
+                else {
+                    return;
+                };
+                if challenges != self.path_challenges_before {
+                    self.complete("path_validated_after_datagram_send");
+                    return;
+                }
+                if tokio::time::Instant::now() >= deadline {
+                    if let Err(error) = self.rollback("path_unconfirmed_after_rebind") {
+                        tracing::debug!(%error, "Hysteria UDP migration rollback failed");
+                    }
+                    return;
+                }
+                tokio::time::sleep(PATH_EVIDENCE_POLL).await;
+            }
+        });
     }
 
     pub(crate) fn complete(mut self, reason: &str) {
@@ -80,7 +108,7 @@ impl<'a> MigrationAttempt<'a> {
     }
 }
 
-impl Drop for MigrationAttempt<'_> {
+impl Drop for MigrationAttempt {
     fn drop(&mut self) {
         if let Some(rollback) = self.rollback.take() {
             let _ = rollback("operation_cancelled_after_rebind");
@@ -93,7 +121,7 @@ impl ClientInner {
     /// an optional optimisation: any setup failure (protect callback gone,
     /// fd exhaustion, rebind error) is recorded with a cooldown and the caller
     /// keeps using the healthy current path.
-    pub(crate) fn begin_quic_migration(&self) -> Option<MigrationAttempt<'_>> {
+    pub(crate) fn begin_quic_migration(self: &Arc<Self>) -> Option<MigrationAttempt> {
         let mut state = self.migration.lock();
         if !self.should_attempt_quic_migration(&state) {
             return None;
@@ -121,6 +149,7 @@ impl ClientInner {
                 return None;
             }
         };
+        let path_challenges_before = self.connection.stats().frame_rx.path_challenge;
         match rebind_endpoint(&self.endpoint, &self.socket_spec, new_socket, self.hopping_socket.as_deref()) {
             Ok(()) => {
                 state.current_socket = self.hopping_socket.is_none().then_some(new_socket_clone);
@@ -128,12 +157,20 @@ impl ClientInner {
                 state.reason = Some("path_challenge_pending".to_string());
                 state.previous_socket = Some(old_socket);
                 drop(state);
+                let complete_client = Arc::downgrade(self);
+                let rollback_client = complete_client.clone();
                 Some(MigrationAttempt::new(
-                    move |reason| self.complete_quic_migration(reason),
+                    path_challenges_before,
                     move |reason| {
-                        let result = self.rollback_quic_migration(reason);
+                        if let Some(client) = complete_client.upgrade() {
+                            client.complete_quic_migration(reason);
+                        }
+                    },
+                    move |reason| {
+                        let Some(client) = rollback_client.upgrade() else { return Ok(()) };
+                        let result = client.rollback_quic_migration(reason);
                         if result.is_err() {
-                            self.mark_migration_failed("rollback_failed");
+                            client.mark_migration_failed("rollback_failed");
                         }
                         result
                     },
@@ -206,6 +243,58 @@ mod tests {
 
     use super::*;
 
+    #[tokio::test]
+    async fn udp_migration_validates_a_reachable_new_source_port() {
+        use crate::test_server::{ServerOptions, TestServer};
+        let server = TestServer::start(ServerOptions::default()).expect("server");
+        let mut config = server.client_config();
+        config.quic_migrate_after_handshake = true;
+        let client = crate::connect(&config).await.expect("connect");
+        let mut session = client.udp_session().await.expect("session");
+        session.send_to("echo.example:53", b"migrated").await.expect("send");
+        let (_, reply) = tokio::time::timeout(Duration::from_secs(3), session.recv_from())
+            .await
+            .expect("echo deadline")
+            .expect("echo");
+        assert_eq!(reply, b"migrated");
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while session.quic_migration_snapshot().0.as_deref() != Some("validated") {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("validated reachable path");
+    }
+
+    #[tokio::test]
+    async fn udp_migration_rolls_back_when_the_new_source_port_cannot_reach_the_server() {
+        use crate::test_server::{ServerOptions, TestServer};
+        let server = TestServer::start(ServerOptions::default()).expect("server");
+        let (config, relay) = server.original_source_port_only().await;
+        let client = crate::connect(&config).await.expect("connect through original port");
+        let mut session = client.udp_session().await.expect("session");
+        session.send_to("echo.example:53", b"initial").await.expect("local send");
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let (status, _) = session.quic_migration_snapshot();
+                assert_ne!(status.as_deref(), Some("validated"), "local send cannot validate the new port");
+                if status.as_deref() == Some("reverted") {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("rollback");
+        session.send_to("echo.example:53", b"recovered").await.expect("send after rollback");
+        let (_, reply) = tokio::time::timeout(Duration::from_secs(3), session.recv_from())
+            .await
+            .expect("echo deadline")
+            .expect("echo");
+        assert_eq!(reply, b"recovered");
+        relay.abort();
+    }
+
     /// Accepts the first protect call (the connection's carrier) and rejects
     /// every later one, like a protect callback that fails mid-session.
     struct RejectAfterFirst(AtomicUsize);
@@ -255,6 +344,7 @@ mod tests {
         let rollbacks = Arc::new(AtomicUsize::new(0));
         let captured = Arc::clone(&rollbacks);
         let attempt = MigrationAttempt::new(
+            0,
             |_| {},
             move |_| {
                 captured.fetch_add(1, Ordering::Relaxed);
@@ -274,6 +364,7 @@ mod tests {
         let captured_completions = Arc::clone(&completions);
         let captured_rollbacks = Arc::clone(&rollbacks);
         let attempt = MigrationAttempt::new(
+            0,
             move |_| {
                 captured_completions.fetch_add(1, Ordering::Relaxed);
             },

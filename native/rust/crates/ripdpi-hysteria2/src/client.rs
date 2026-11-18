@@ -252,6 +252,28 @@ mod tests {
         assert_eq!(echoed, b"ping");
     }
 
+    #[tokio::test]
+    async fn dropping_the_last_udp_session_releases_a_pending_migration() {
+        use std::{sync::Arc, time::Duration};
+        let server = TestServer::start(ServerOptions::default()).expect("server");
+        let (config, relay) = server.original_source_port_only().await;
+        let client = crate::connect(&config).await.expect("connect");
+        let session = client.udp_session().await.expect("session");
+        let inner = Arc::downgrade(&client.inner);
+        drop(client);
+        session.send_to("echo.example:53", b"pending").await.expect("local send");
+        assert_eq!(session.quic_migration_snapshot().1.as_deref(), Some("path_challenge_pending"));
+        drop(session);
+        tokio::time::timeout(Duration::from_millis(500), async {
+            while inner.upgrade().is_some() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("last session should release the client before the migration deadline");
+        relay.abort();
+    }
+
     /// A refused message costs no migration attempt and sends no datagram.
     #[tokio::test]
     async fn refused_udp_message_leaves_migration_untouched() {

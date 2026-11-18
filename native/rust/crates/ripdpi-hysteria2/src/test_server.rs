@@ -87,6 +87,35 @@ impl TestServer {
         config
     }
 
+    /// Provides a UDP relay that forwards only the original client source port.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the relay is spawned only after the socket has been bound.
+    pub(crate) async fn original_source_port_only(&self) -> (crate::Config, tokio::task::JoinHandle<()>) {
+        let server_addr = self.addr();
+        let socket = tokio::net::UdpSocket::bind("127.0.0.1:0").await.expect("relay socket");
+        let mut config = self.client_config();
+        config.server_addr = socket.local_addr().expect("relay address").to_string();
+        config.quic_migrate_after_handshake = true;
+        let relay = tokio::spawn(async move {
+            let mut first_client = None;
+            let mut buffer = vec![0; 65_535];
+            while let Ok((len, source)) = socket.recv_from(&mut buffer).await {
+                let destination = if source == server_addr {
+                    first_client
+                } else {
+                    (*first_client.get_or_insert(source) == source).then_some(server_addr)
+                };
+                if let Some(destination) = destination {
+                    socket.send_to(&buffer[..len], destination).await.expect("relay packet");
+                }
+            }
+        });
+
+        (config, relay)
+    }
+
     /// Closes every connection, as a dead server or lost path would.
     pub(crate) fn close(&self) {
         self.endpoint.close(0u32.into(), b"test server closed");
