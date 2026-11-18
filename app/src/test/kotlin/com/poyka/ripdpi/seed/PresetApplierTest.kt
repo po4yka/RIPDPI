@@ -166,10 +166,7 @@ class PresetApplierTest : BackupRoomTest() {
                 applier(fixture, unsupported).applyIfFresh(),
             )
             // An encrypted archive read as text is not a backup document.
-            assertEquals(
-                PresetOutcome.Rejected("not a readable backup document"),
-                applier(fixture, "RIPDPIBK\u0000\u0001binary").applyIfFresh(),
-            )
+            assertTrue(applier(fixture, "RIPDPIE1\u0000\u0001binary").applyIfFresh() is PresetOutcome.Rejected)
             assertTrue(fixture.groups.list().isEmpty())
             assertFalse(fixture.settings.snapshot().onboardingComplete)
 

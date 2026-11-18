@@ -689,7 +689,6 @@ plugins.withId("com.android.application") {
         group = "build setup"
         description = "Writes src/main/assets/preset.json from a FULL backup export (-Pripdpi.presetArchive=<file>)."
         archive.set(layout.file(providers.gradleProperty("ripdpi.presetArchive").map(rootProject::file)))
-        passphrase.set(providers.environmentVariable("RIPDPI_PRESET_PASSPHRASE"))
         schemaSource.set(
             rootProject.file("core/data/src/main/kotlin/com/poyka/ripdpi/data/backup/BackupV1.kt"),
         )
