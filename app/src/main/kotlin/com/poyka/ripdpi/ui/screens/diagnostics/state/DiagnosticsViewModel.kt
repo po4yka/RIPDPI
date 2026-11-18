@@ -23,12 +23,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val AutoStartScanHandledKey = "auto_start_scan_handled"
+
 @Suppress("TooManyFunctions")
 @HiltViewModel
 class DiagnosticsViewModel
     @Inject
     internal constructor(
-        savedStateHandle: SavedStateHandle,
+        private val savedStateHandle: SavedStateHandle,
         private val diagnosticsInteractionDependencies: DiagnosticsInteractionDependencies,
         private val diagnosticsContextDependencies: DiagnosticsContextDependencies,
         private val diagnosticsBootstrapper: DiagnosticsBootstrapper,
@@ -46,7 +48,6 @@ class DiagnosticsViewModel
         private val autoStartStrategyTest: Boolean =
             savedStateHandle.get<Boolean>("auto_start_strategy_test") ?: false
         private var initialized = false
-        private var autoStartScanHandled = false
         private val selectionState = MutableStateFlow(SelectionState())
         private val filterState = MutableStateFlow(FilterState())
         private val sessionDetailState = MutableStateFlow(SessionDetailState())
@@ -221,8 +222,9 @@ class DiagnosticsViewModel
             initialized = true
             viewModelScope.launch { diagnosticsBootstrapper.initialize() }
             scanActions.initialize()
-            if (autoStartScan && !autoStartScanHandled) {
-                autoStartScanHandled = true
+            // Kept in saved state: a screen restored after process death must not run the scan again.
+            if (autoStartScan && savedStateHandle.get<Boolean>(AutoStartScanHandledKey) != true) {
+                savedStateHandle[AutoStartScanHandledKey] = true
                 scanActions.startRawScan(strategyTest = autoStartStrategyTest)
             }
         }

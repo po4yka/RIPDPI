@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.SavedStateHandle
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.StubDiagnosticsBootstrapper
 import com.poyka.ripdpi.activities.StubDiagnosticsTimelineSource
@@ -198,6 +199,33 @@ class DiagnosticsRouteTest {
 
         assertEquals(AutomaticProbingProfileId, startedProfileId)
         assertEquals(emptyList<String>(), selectedProfiles)
+    }
+
+    @Test
+    fun `a screen restored from saved state does not run the route scan again`() {
+        val manager = FakeDiagnosticsManager()
+        var starts = 0
+        manager.scanController.onStartScan = { _, _ ->
+            starts += 1
+            DiagnosticsManualScanStartResult.Started("session-$starts")
+        }
+        val savedState = SavedStateHandle(mapOf("auto_start_scan" to true, "auto_start_strategy_test" to true))
+
+        fun openScreen() =
+            createDiagnosticsViewModel(
+                appContext = RuntimeEnvironment.getApplication(),
+                diagnosticsManager = manager,
+                appSettingsRepository = FakeAppSettingsRepository(),
+                savedStateHandle = savedState,
+            )
+
+        openScreen()
+        composeRule.waitUntil(timeoutMillis = 5_000) { starts == 1 }
+        // Process death keeps the saved state and builds a new view model from it.
+        openScreen()
+        composeRule.waitForIdle()
+
+        assertEquals(1, starts)
     }
 
     @Test

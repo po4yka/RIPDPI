@@ -60,8 +60,7 @@ internal fun createDiagnosticsViewModel(
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
     serviceStateStore: ServiceStateStore = FakeServiceStateStore(),
     probeDependencies: DiagnosticsProbeDependencies = defaultDiagnosticsProbeDependencies(appContext),
-    autoStartScan: Boolean = false,
-    autoStartStrategyTest: Boolean = false,
+    savedStateHandle: SavedStateHandle = SavedStateHandle(),
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
     DiagnosticsUiFactorySupport(appContext).let { support ->
@@ -80,10 +79,7 @@ internal fun createDiagnosticsViewModel(
                 performanceFactory = DiagnosticsPerformanceUiStateFactory(),
             )
         DiagnosticsViewModel(
-            savedStateHandle =
-                SavedStateHandle(
-                    mapOf("auto_start_scan" to autoStartScan, "auto_start_strategy_test" to autoStartStrategyTest),
-                ),
+            savedStateHandle = savedStateHandle,
             diagnosticsInteractionDependencies =
                 DiagnosticsInteractionDependencies(
                     diagnosticsTimelineSource = diagnosticsTimelineSource,
@@ -129,6 +125,10 @@ internal fun createDiagnosticsViewModel(
     serviceStateStore: ServiceStateStore = FakeServiceStateStore(),
     autoStartScan: Boolean = false,
     autoStartStrategyTest: Boolean = false,
+    savedStateHandle: SavedStateHandle =
+        SavedStateHandle(
+            mapOf("auto_start_scan" to autoStartScan, "auto_start_strategy_test" to autoStartStrategyTest),
+        ),
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
     createDiagnosticsViewModel(
@@ -142,8 +142,7 @@ internal fun createDiagnosticsViewModel(
         rememberedPolicySource = rememberedPolicySource,
         activeConnectionPolicySource = activeConnectionPolicySource,
         serviceStateStore = serviceStateStore,
-        autoStartScan = autoStartScan,
-        autoStartStrategyTest = autoStartStrategyTest,
+        savedStateHandle = savedStateHandle,
         initialize = initialize,
     )
 
