@@ -4,7 +4,13 @@ import com.poyka.ripdpi.serialization.RipDpiBackupJson
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.encodeToStream
 import java.io.FilterOutputStream
+import java.io.IOException
 import java.io.OutputStream
+
+/** Maximum size of a complete backup file, including any encryption envelope. */
+const val BackupMaxArchiveBytes: Int = 8 * 1024 * 1024
+
+class BackupArchiveTooLargeException : IOException()
 
 /**
  * Public serializer for the [BackupV1] document.
@@ -37,8 +43,9 @@ object BackupSerializer {
     fun encodeToStream(
         document: BackupV1,
         output: OutputStream,
+        maxBytes: Int = BackupMaxArchiveBytes,
     ): Long {
-        val counting = CountingOutputStream(output)
+        val counting = CountingOutputStream(output, maxBytes)
         json.encodeToStream(BackupV1.serializer(), document, counting)
         counting.flush()
         return counting.bytesWritten
@@ -55,11 +62,13 @@ object BackupSerializer {
  */
 private class CountingOutputStream(
     delegate: OutputStream,
+    private val maxBytes: Int,
 ) : FilterOutputStream(delegate) {
     var bytesWritten: Long = 0L
         private set
 
     override fun write(b: Int) {
+        if (bytesWritten >= maxBytes) throw BackupArchiveTooLargeException()
         out.write(b)
         bytesWritten += 1
     }
@@ -69,6 +78,7 @@ private class CountingOutputStream(
         off: Int,
         len: Int,
     ) {
+        if (len > maxBytes - bytesWritten) throw BackupArchiveTooLargeException()
         // Bypass FilterOutputStream's byte-at-a-time default for throughput.
         out.write(b, off, len)
         bytesWritten += len

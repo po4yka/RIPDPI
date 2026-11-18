@@ -246,6 +246,7 @@
     <string name="backup_restore_action">Импортировать копию</string>
     <string name="backup_restore_success">Резервная копия восстановлена</string>
     <string name="backup_restore_unsupported_version">Эта копия (версия %1$d) новее, чем поддерживает приложение (версия %2$d)</string>
+    <string name="backup_archive_too_large">Размер резервной копии превышает %1$d МиБ.</string>
     <string name="backup_restore_malformed">Этот файл не является корректной резервной копией</string>
     <string name="backup_restore_nothing_selected">Выберите хотя бы одну категорию для восстановления</string>
     <string name="backup_import_preview_title">Просмотр копии</string>

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.backup.AwgBackupProfile
+import com.poyka.ripdpi.data.backup.BackupArchiveTooLargeException
 import com.poyka.ripdpi.data.backup.BackupExportResult
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupImporter
@@ -203,6 +204,25 @@ class BackupExportUseCaseTest {
                     .members
                     .isEmpty(),
             )
+        }
+
+    @Test
+    fun `oversized encrypted and share exports both fail before reporting success`() =
+        runTest {
+            val exporter = useCase()
+            val domains = "example.net\n".repeat(16_384)
+            repeat(48) { ruleDao.insert(RuleEntity(name = "rule-$it", domains = domains)) }
+
+            for (variant in BackupVariant.entries) {
+                val result =
+                    exporter.export(
+                        variant,
+                        ByteArrayOutputStream(),
+                        "1.0.0",
+                        passphrase = "archive-test".toCharArray(),
+                    )
+                assertTrue((result as BackupExportResult.WriteFailed).cause is BackupArchiveTooLargeException)
+            }
         }
 
     @Test

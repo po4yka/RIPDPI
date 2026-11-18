@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.backup
 
+import com.poyka.ripdpi.data.backup.BackupArchiveTooLargeException
 import com.poyka.ripdpi.data.backup.BackupExportResult
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupVariant
@@ -81,7 +82,11 @@ internal class BackupExportCoordinator(
 
                         is BackupExportResult.WriteFailed -> {
                             onWriteFailed()
-                            BackupExportEffect.WriteFailed
+                            if (result.cause is BackupArchiveTooLargeException) {
+                                BackupArchiveTooLarge
+                            } else {
+                                BackupExportEffect.WriteFailed
+                            }
                         }
                     },
                 )
@@ -128,8 +133,17 @@ internal class BackupExportCoordinator(
             updateState { it.copy(sharing = false) }
             emitShareEffect(
                 when (result) {
-                    is BackupExportResult.Success -> BackupShareEffect.Ready
-                    is BackupExportResult.WriteFailed -> BackupShareEffect.Failed
+                    is BackupExportResult.Success -> {
+                        BackupShareEffect.Ready
+                    }
+
+                    is BackupExportResult.WriteFailed -> {
+                        if (result.cause is BackupArchiveTooLargeException) {
+                            BackupArchiveTooLarge
+                        } else {
+                            BackupShareEffect.Failed
+                        }
+                    }
                 },
             )
         }

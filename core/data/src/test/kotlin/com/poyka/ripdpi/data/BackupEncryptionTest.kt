@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.backup.BackupArchiveTooLargeException
 import com.poyka.ripdpi.data.backup.BackupDecryptionException
 import com.poyka.ripdpi.data.backup.BackupEncryption
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupImporter
+import com.poyka.ripdpi.data.backup.BackupMaxArchiveBytes
 import com.poyka.ripdpi.data.backup.BackupVariant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -44,6 +46,27 @@ class BackupEncryptionTest {
         assertTrue(BackupEncryption.isEncrypted(archive))
         assertFalse(archive.toString(Charsets.UTF_8).contains(SensitiveValue))
         assertEquals(document, BackupImporter.import(BackupEncryption.decryptToString(archive, ArchivePhrase)))
+    }
+
+    @Test
+    fun `encrypted size limit includes header and authentication tag`() {
+        val output = ByteArrayOutputStream()
+        val empty = document.copy(settings = mapOf("padding" to ""))
+        BackupEncryption.encryptToStream(empty, ArchivePhrase, output)
+        val padding = "a".repeat(BackupMaxArchiveBytes - output.size())
+
+        output.reset()
+        BackupEncryption.encryptToStream(document.copy(settings = mapOf("padding" to padding)), ArchivePhrase, output)
+        assertEquals(BackupMaxArchiveBytes, output.size())
+
+        output.reset()
+        assertThrows(BackupArchiveTooLargeException::class.java) {
+            BackupEncryption.encryptToStream(
+                document.copy(settings = mapOf("padding" to padding + "a")),
+                ArchivePhrase,
+                output,
+            )
+        }
     }
 
     @Test

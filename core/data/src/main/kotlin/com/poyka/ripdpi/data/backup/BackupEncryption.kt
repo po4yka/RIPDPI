@@ -75,7 +75,9 @@ object BackupEncryption {
             cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(keyBytes, "AES"), GCMParameterSpec(GcmTagBits, nonce))
             cipher.updateAAD(header)
             CipherOutputStream(NonClosingOutputStream(counting), cipher).use { encrypted ->
-                BackupSerializer.encodeToStream(document, encrypted)
+                // GCM ciphertext has the same length as its plaintext plus the authentication tag.
+                val maxPlaintextBytes = BackupMaxArchiveBytes - HeaderBytes - GcmTagBits / Byte.SIZE_BITS
+                BackupSerializer.encodeToStream(document, encrypted, maxPlaintextBytes)
             }
             counting.flush()
             return counting.bytesWritten

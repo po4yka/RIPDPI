@@ -249,6 +249,7 @@
     <string name="backup_restore_action">Sicherung importieren</string>
     <string name="backup_restore_success">Sicherung wiederhergestellt</string>
     <string name="backup_restore_unsupported_version">Diese Sicherung (Version %1$d) ist neuer als von dieser App unterstützt (Version %2$d)</string>
+    <string name="backup_archive_too_large">Die Sicherung überschreitet die Grenze von %1$d MiB.</string>
     <string name="backup_restore_malformed">Diese Datei ist keine gültige Sicherung</string>
     <string name="backup_restore_nothing_selected">Wählen Sie mindestens eine Kategorie zum Wiederherstellen aus</string>
     <string name="backup_import_preview_title">Sicherung prüfen</string>

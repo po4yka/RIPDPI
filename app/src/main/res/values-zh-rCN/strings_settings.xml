@@ -250,6 +250,7 @@
     <string name="backup_restore_action">导入备份</string>
     <string name="backup_restore_success">备份已恢复</string>
     <string name="backup_restore_unsupported_version">此备份（版本 %1$d）比本应用支持的版本（版本 %2$d）更新</string>
+    <string name="backup_archive_too_large">备份超过 %1$d MiB 的大小限制。</string>
     <string name="backup_restore_malformed">此文件不是有效的备份</string>
     <string name="backup_restore_nothing_selected">请至少选择一个要恢复的类别</string>
     <string name="backup_import_preview_title">查看备份</string>

@@ -344,6 +344,7 @@ app:awg_section_obfuscation
 app:awg_section_peer
 app:awg_v3_help
 app:awg_v3_title
+app:backup_archive_too_large
 app:backup_encryption_confirm_passphrase
 app:backup_encryption_create_action
 app:backup_encryption_create_body

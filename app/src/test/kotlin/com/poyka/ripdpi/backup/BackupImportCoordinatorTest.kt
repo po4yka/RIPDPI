@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.backup.BackupEncryption
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupImporter
+import com.poyka.ripdpi.data.backup.BackupMaxArchiveBytes
 import com.poyka.ripdpi.data.backup.BackupSerializer
 import com.poyka.ripdpi.data.backup.BackupSettingsConverter
 import com.poyka.ripdpi.data.backup.BackupVariant
@@ -124,7 +125,7 @@ class BackupImportCoordinatorTest : BackupRoomTest() {
             assertFalse(h.state.value.importing)
             assertNull(h.state.value.importPreview)
             assertTrue(input.closed)
-            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Malformed), h.restoreEffects)
+            assertEquals(listOf<BackupRestoreEffect>(BackupArchiveTooLarge), h.restoreEffects)
         }
 
     @Test
@@ -620,7 +621,7 @@ class BackupImportCoordinatorTest : BackupRoomTest() {
     )
 
     private suspend fun TestScope.harness(
-        maxImportBytes: Int = BackupMaxImportBytes,
+        maxImportBytes: Int = BackupMaxArchiveBytes,
         beforeSeal: (() -> Unit)? = null,
         dispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler),
     ): Harness {

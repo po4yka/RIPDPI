@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.backup
 
+import com.poyka.ripdpi.data.backup.BackupArchiveTooLargeException
 import com.poyka.ripdpi.data.backup.BackupDecryptionException
 import com.poyka.ripdpi.data.backup.BackupEncryption
+import com.poyka.ripdpi.data.backup.BackupMaxArchiveBytes
 import com.poyka.ripdpi.data.backup.BackupPreviewResult
 import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.RestoreResult
@@ -18,8 +20,6 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
-
-internal const val BackupMaxImportBytes: Int = 8 * 1024 * 1024
 
 /**
  * Owns the import-preview, selection editing, and confirmed-restore workflows.
@@ -39,7 +39,7 @@ internal class BackupImportCoordinator(
     private val emitRestoreEffect: (BackupRestoreEffect) -> Unit,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
-    private val maxImportBytes: Int = BackupMaxImportBytes,
+    private val maxImportBytes: Int = BackupMaxArchiveBytes,
 ) {
     private var pendingEncryptedArchive: ByteArray? = null
     private var unlockJob: Job? = null
@@ -76,6 +76,8 @@ internal class BackupImportCoordinator(
                 } catch (cancelled: CancellationException) {
                     updateState { it.copy(importing = false) }
                     throw cancelled
+                } catch (_: BackupArchiveTooLargeException) {
+                    OpenImportOutcome.TooLarge
                 } catch (_: Exception) {
                     OpenImportOutcome.Malformed
                 }
@@ -223,6 +225,11 @@ internal class BackupImportCoordinator(
                 emitRestoreEffect(BackupRestoreEffect.UnsupportedVersion(outcome.found, outcome.supported))
             }
 
+            OpenImportOutcome.TooLarge -> {
+                updateState { it.copy(importing = false, encryptedImportPending = encryptedImportPending) }
+                emitRestoreEffect(BackupArchiveTooLarge)
+            }
+
             OpenImportOutcome.Malformed -> {
                 updateState { it.copy(importing = false, encryptedImportPending = encryptedImportPending) }
                 emitRestoreEffect(BackupRestoreEffect.Malformed)
@@ -286,6 +293,8 @@ private sealed interface OpenImportOutcome {
         val supported: Int,
     ) : OpenImportOutcome
 
+    data object TooLarge : OpenImportOutcome
+
     data object Malformed : OpenImportOutcome
 }
 
@@ -309,7 +318,7 @@ private fun readBoundedBytes(
     while (true) {
         val read = input.read(buffer)
         if (read == -1) break
-        if (read > maxBytes - total) throw BackupImportTooLargeException()
+        if (read > maxBytes - total) throw BackupArchiveTooLargeException()
         output.write(buffer, 0, read)
         total += read
     }
@@ -324,5 +333,3 @@ private fun decodeUtf8(bytes: ByteArray): String =
         .onUnmappableCharacter(CodingErrorAction.REPORT)
         .decode(ByteBuffer.wrap(bytes))
         .toString()
-
-private class BackupImportTooLargeException : Exception()

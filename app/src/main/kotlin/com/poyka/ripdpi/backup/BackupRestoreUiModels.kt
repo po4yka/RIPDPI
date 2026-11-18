@@ -4,6 +4,11 @@ import com.poyka.ripdpi.data.backup.BackupPreview
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.backup.RestoreSelection
 
+data object BackupArchiveTooLarge :
+    BackupExportEffect,
+    BackupShareEffect,
+    BackupRestoreEffect
+
 /**
  * One-shot effect surfaced after an export attempt; the screen renders it as a
  * snackbar and (for SHARE only) an optional follow-up share action, then clears it.

@@ -258,6 +258,7 @@
     <string name="backup_restore_action">बैकअप इम्पोर्ट करें</string>
     <string name="backup_restore_success">बैकअप पुनर्स्थापित हुआ</string>
     <string name="backup_restore_unsupported_version">यह बैकअप (संस्करण %1$d) इस ऐप द्वारा समर्थित संस्करण (%2$d) से नया है</string>
+    <string name="backup_archive_too_large">बैकअप का आकार %1$d MiB की सीमा से अधिक है।</string>
     <string name="backup_restore_malformed">यह फ़ाइल एक मान्य बैकअप नहीं है</string>
     <string name="backup_restore_nothing_selected">पुनर्स्थापित करने के लिए कम से कम एक श्रेणी चुनें</string>
     <string name="backup_import_preview_title">बैकअप की समीक्षा करें</string>

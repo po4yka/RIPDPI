@@ -249,6 +249,7 @@
     <string name="backup_restore_action">Importar copia</string>
     <string name="backup_restore_success">Copia de seguridad restaurada</string>
     <string name="backup_restore_unsupported_version">Esta copia (versión %1$d) es más reciente de lo que admite la aplicación (versión %2$d)</string>
+    <string name="backup_archive_too_large">La copia de seguridad supera el límite de %1$d MiB.</string>
     <string name="backup_restore_malformed">Este archivo no es una copia de seguridad válida</string>
     <string name="backup_restore_nothing_selected">Selecciona al menos una categoría para restaurar</string>
     <string name="backup_import_preview_title">Revisar copia</string>

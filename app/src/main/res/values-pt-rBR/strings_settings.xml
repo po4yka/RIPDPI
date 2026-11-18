@@ -246,6 +246,7 @@
     <string name="backup_restore_action">Importar backup</string>
     <string name="backup_restore_success">Backup restaurado</string>
     <string name="backup_restore_unsupported_version">Este backup (versão %1$d) é mais recente do que este app suporta (versão %2$d)</string>
+    <string name="backup_archive_too_large">O backup excede o limite de %1$d MiB.</string>
     <string name="backup_restore_malformed">Este arquivo não é um backup válido</string>
     <string name="backup_restore_nothing_selected">Selecione pelo menos uma categoria para restaurar</string>
     <string name="backup_import_preview_title">Revisar backup</string>

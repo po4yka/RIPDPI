@@ -36,11 +36,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.jakewharton.processphoenix.ProcessPhoenix
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.backup.BackupArchiveTooLarge
 import com.poyka.ripdpi.backup.BackupExportEffect
 import com.poyka.ripdpi.backup.BackupImportPreview
 import com.poyka.ripdpi.backup.BackupRestoreEffect
 import com.poyka.ripdpi.backup.BackupRestoreUiState
 import com.poyka.ripdpi.backup.BackupRestoreViewModel
+import com.poyka.ripdpi.data.backup.BackupMaxArchiveBytes
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.security.BiometricAuthManager
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -397,6 +399,7 @@ internal fun BackupRestoreEffectHandler(
     onRestart: () -> Unit,
 ) {
     val restoredMessage = stringResource(R.string.backup_restore_success)
+    val tooLargeMessage = backupTooLargeMessage()
     val malformedMessage = stringResource(R.string.backup_restore_malformed)
     val decryptionFailedMessage = stringResource(R.string.backup_encryption_unlock_failed)
     val nothingSelectedMessage = stringResource(R.string.backup_restore_nothing_selected)
@@ -426,9 +429,9 @@ internal fun BackupRestoreEffectHandler(
                 )
             }
 
-            BackupRestoreEffect.Malformed -> {
+            BackupRestoreEffect.Malformed, BackupArchiveTooLarge -> {
                 snackbarHostState.showRipDpiSnackbar(
-                    message = malformedMessage,
+                    message = if (effect == BackupArchiveTooLarge) tooLargeMessage else malformedMessage,
                     tone = RipDpiSnackbarTone.Error,
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )
@@ -607,12 +610,17 @@ private fun launchShareIntent(
 }
 
 @Composable
+private fun backupTooLargeMessage(): String =
+    stringResource(R.string.backup_archive_too_large, BackupMaxArchiveBytes / (1024 * 1024))
+
+@Composable
 private fun BackupShareEffectHandler(
     flow: Flow<com.poyka.ripdpi.backup.BackupShareEffect>,
     snackbarHostState: SnackbarHostState,
     onReady: () -> Unit,
     onFailed: () -> Unit,
 ) {
+    val tooLargeMessage = backupTooLargeMessage()
     val failedMessage = stringResource(R.string.backup_export_failed)
     BackupEffectCollector(flow) { effect ->
         when (effect) {
@@ -620,10 +628,10 @@ private fun BackupShareEffectHandler(
                 onReady()
             }
 
-            com.poyka.ripdpi.backup.BackupShareEffect.Failed -> {
+            com.poyka.ripdpi.backup.BackupShareEffect.Failed, BackupArchiveTooLarge -> {
                 onFailed()
                 snackbarHostState.showRipDpiSnackbar(
-                    message = failedMessage,
+                    message = if (effect == BackupArchiveTooLarge) tooLargeMessage else failedMessage,
                     tone = RipDpiSnackbarTone.Error,
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )
@@ -668,6 +676,7 @@ private fun BackupExportEffectHandler(
 ) {
     val exportSuccessTemplate = stringResource(R.string.backup_export_success)
     val shareActionLabel = stringResource(R.string.backup_export_share_action)
+    val tooLargeMessage = backupTooLargeMessage()
     val failedMessage = stringResource(R.string.backup_export_failed)
     BackupEffectCollector(flow) { effect ->
         when (effect) {
@@ -692,9 +701,9 @@ private fun BackupExportEffectHandler(
                 }
             }
 
-            BackupExportEffect.WriteFailed -> {
+            BackupExportEffect.WriteFailed, BackupArchiveTooLarge -> {
                 snackbarHostState.showRipDpiSnackbar(
-                    message = failedMessage,
+                    message = if (effect == BackupArchiveTooLarge) tooLargeMessage else failedMessage,
                     tone = RipDpiSnackbarTone.Error,
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )
