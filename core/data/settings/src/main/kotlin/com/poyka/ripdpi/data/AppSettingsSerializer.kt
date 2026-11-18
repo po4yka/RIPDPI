@@ -130,7 +130,6 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setRelayAppsScriptVerifySsl(DefaultRelayAppsScriptVerifySsl)
             .setAppIconVariant("default")
             .setAppIconStyle("themed")
-            .setSimpleFailoverAwgProfileId("")
             .setWsTunnelWorkerUrl("")
             .setWsTunnelWorkerCredentialRef("")
             .setDiagnosticsMonitorEnabled(true)

@@ -76,22 +76,6 @@ abstract class VerifyReleaseVersionTask : DefaultTask() {
     }
 }
 
-abstract class VerifyEmbeddedRelayBundleTask : DefaultTask() {
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val bundleFiles: ConfigurableFileCollection
-
-    @TaskAction
-    fun verify() {
-        val bundleFile = bundleFiles.singleFile
-        if (!bundleFile.isFile || bundleFile.length() == 0L) {
-            throw GradleException(
-                "Simple variants require a non-empty src/simple/assets/embedded-relay-bundle.json",
-            )
-        }
-    }
-}
-
 object RustNotices {
     const val FILE = "rust-crates.json"
 }
@@ -270,16 +254,12 @@ abstract class WriteReleaseIdentityManifestTask : DefaultTask() {
     @get:Input
     abstract val distributions: MapProperty<String, String>
 
-    @get:Input
-    abstract val experiences: MapProperty<String, String>
-
     @get:OutputFile
     abstract val outputFile: RegularFileProperty
 
     @TaskAction
     fun writeManifest() {
         val distributionByVariant = distributions.get()
-        val experienceByVariant = experiences.get()
         val variants =
             applicationIds
                 .get()
@@ -288,7 +268,6 @@ abstract class WriteReleaseIdentityManifestTask : DefaultTask() {
                     mapOf(
                         "name" to variantName,
                         "distribution" to distributionByVariant.getValue(variantName),
-                        "experience" to experienceByVariant.getValue(variantName),
                         "applicationId" to applicationId,
                     )
                 }
@@ -329,7 +308,7 @@ val stageCiInstrumentationApks =
 
 extensions.configure<ApplicationAndroidComponentsExtension> {
     onVariants(selector().withBuildType("debug")) { variant ->
-        if (variant.name in setOf("githubFullDebug", "githubSimpleDebug")) {
+        if (variant.name == "githubDebug") {
             val androidTest = variant.androidTest ?: return@onVariants
             stageCiInstrumentationApks.configure {
                 from(variant.artifacts.get(SingleArtifact.APK)) {
@@ -479,11 +458,7 @@ extensions.configure<ApplicationExtension> {
         buildConfig = true
     }
 
-    // Two orthogonal dimensions: "distribution" is the store channel; "experience"
-    // is the UI surface. "full" is the standard app; "simple" is a stripped-down
-    // two-action build (connect + diagnostic report) with a compiled-in config.
-    // distribution is declared first so variants read e.g. githubSimpleDebug.
-    flavorDimensions += listOf("distribution", "experience")
+    flavorDimensions += "distribution"
     productFlavors {
         create("play") {
             dimension = "distribution"
@@ -502,17 +477,6 @@ extensions.configure<ApplicationExtension> {
             buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"github\"")
             buildConfigField("String", "GITHUB_UPDATE_OWNER", "\"po4yka\"")
             buildConfigField("String", "GITHUB_UPDATE_REPO", "\"RIPDPI\"")
-        }
-        create("full") {
-            dimension = "experience"
-            buildConfigField("String", "APP_EXPERIENCE", "\"full\"")
-        }
-        create("simple") {
-            dimension = "experience"
-            // Side-by-side install with the standard build for field testing.
-            applicationIdSuffix = ".simple"
-            versionNameSuffix = "-simple"
-            buildConfigField("String", "APP_EXPERIENCE", "\"simple\"")
         }
     }
 
@@ -721,12 +685,16 @@ tasks.register<VerifyEngineBoundaryClasspathTask>("verifyEngineBoundaryClasspath
 }
 
 plugins.withId("com.android.application") {
-    val verifyEmbeddedRelayBundle =
-        tasks.register<VerifyEmbeddedRelayBundleTask>("verifyEmbeddedRelayBundle") {
-            group = "verification"
-            description = "Fails simple builds when the required embedded relay bundle is missing or empty."
-            bundleFiles.from(layout.projectDirectory.file("src/simple/assets/embedded-relay-bundle.json"))
-        }
+    tasks.register<PreparePresetTask>("preparePreset") {
+        group = "build setup"
+        description = "Writes src/main/assets/preset.json from a FULL backup export (-Pripdpi.presetArchive=<file>)."
+        archive.set(layout.file(providers.gradleProperty("ripdpi.presetArchive").map(rootProject::file)))
+        passphrase.set(providers.environmentVariable("RIPDPI_PRESET_PASSPHRASE"))
+        schemaSource.set(
+            rootProject.file("core/data/src/main/kotlin/com/poyka/ripdpi/data/backup/BackupV1.kt"),
+        )
+        presetFile.set(layout.projectDirectory.file("src/main/assets/preset.json"))
+    }
 
     tasks.register<VerifyReleaseVersionTask>("verifyReleaseVersion") {
         group = "verification"
@@ -751,23 +719,11 @@ plugins.withId("com.android.application") {
         }
 
     extensions.configure<ApplicationAndroidComponentsExtension> {
-        onVariants(selector().all()) { variant ->
-            if (variant.productFlavors.toMap()["experience"] == "simple") {
-                val mergeAssetsTaskName = variant.computeTaskName("merge", "Assets")
-                tasks.configureEach {
-                    if (name == mergeAssetsTaskName) {
-                        dependsOn(verifyEmbeddedRelayBundle)
-                    }
-                }
-            }
-        }
-
         onVariants(selector().withBuildType("release")) { variant ->
             val flavors = variant.productFlavors.toMap()
             writeReleaseIdentityManifest.configure {
                 applicationIds.put(variant.name, variant.applicationId)
                 distributions.put(variant.name, flavors.getValue("distribution"))
-                experiences.put(variant.name, flavors.getValue("experience"))
             }
         }
     }

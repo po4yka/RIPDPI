@@ -199,7 +199,6 @@ internal class ProfileMutationRowWriter(
         rows.settings.update {
             setRipdpiMode(intent.mode)
             setWarpEnabled(false)
-            setSimpleFailoverAwgProfileId("")
         }
         rows.selection.setXray(XrayProviderSelectionRecord())
         rows.selection.setAwg(null)

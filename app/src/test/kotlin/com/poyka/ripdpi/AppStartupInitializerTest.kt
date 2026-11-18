@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.PersistedEchEntry
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
@@ -23,9 +24,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.seed.SimpleFlavorSeeder
-import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
-import com.poyka.ripdpi.seed.SimpleFlavorStartupHooks
+import com.poyka.ripdpi.seed.PresetApplier
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
@@ -57,7 +56,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import java.util.Optional
 import javax.inject.Provider
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -96,8 +94,7 @@ class AppStartupInitializerTest {
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchWorkerEnqueue.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.subscriptionWorkerEnqueue.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.bootSessionRecorderRegistration.status)
-            assertEquals(AppStartupSubsystemStatus.Succeeded, report.simpleConfigSeed.status)
-            assertEquals(AppStartupSubsystemStatus.Succeeded, report.simpleSessionWatcherBind.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.presetApply.status)
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)
             assertEquals(1, diagnosticsBootstrapper.calls)
@@ -110,7 +107,7 @@ class AppStartupInitializerTest {
                     "cdn_ech_seed_from_cache=succeeded, cdn_ech_refresh_worker_enqueue=succeeded, " +
                     "subscription_auto_update_worker_enqueue=succeeded, " +
                     "boot_session_recorder_registration=succeeded, " +
-                    "simple_config_seed=succeeded, simple_session_watcher_bind=succeeded",
+                    "preset_apply=succeeded",
                 report.toLogMessage(),
             )
         }
@@ -600,162 +597,6 @@ class AppStartupInitializerFailureTest {
     }
 
     @Test
-    fun `simple seed failure keeps startup gated and skips session watcher`() =
-        runTest {
-            var watcherBindCalls = 0
-            val hooks =
-                SimpleFlavorStartupHooks(
-                    Optional.of(
-                        object : SimpleFlavorSeeder {
-                            override suspend fun seed() {
-                                error("required-seed-failed")
-                            }
-                        },
-                    ),
-                    Optional.of(
-                        object : SimpleFlavorSessionWatcher {
-                            override fun bind(scope: CoroutineScope) {
-                                watcherBindCalls++
-                            }
-                        },
-                    ),
-                )
-            val initializer =
-                createInitializer(
-                    compatibilityResetter = RecordingAppCompatibilityResetter(),
-                    strategyPackService = RecordingStrategyPackService(),
-                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
-                    startupOverrides = StartupTestOverrides(simpleFlavorStartupHooks = hooks),
-                    scope = backgroundScope,
-                )
-
-            initializer.initialize()
-            initializer.readiness.first { it != AppStartupReadinessState.Pending }
-            runCurrent()
-
-            assertEquals(AppStartupReadinessState.Failed, initializer.readiness.value)
-            assertEquals(0, watcherBindCalls)
-        }
-
-    @Test
-    fun `simple session watcher binds before startup readiness is published`() =
-        runTest {
-            var readinessAtBind: AppStartupReadinessState? = null
-            lateinit var initializer: AppStartupInitializer
-            val hooks =
-                SimpleFlavorStartupHooks(
-                    Optional.of(
-                        object : SimpleFlavorSeeder {
-                            override suspend fun seed() = Unit
-                        },
-                    ),
-                    Optional.of(
-                        object : SimpleFlavorSessionWatcher {
-                            override fun bind(scope: CoroutineScope) {
-                                readinessAtBind = initializer.readiness.value
-                            }
-                        },
-                    ),
-                )
-            initializer =
-                createInitializer(
-                    compatibilityResetter = RecordingAppCompatibilityResetter(),
-                    strategyPackService = RecordingStrategyPackService(),
-                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
-                    startupOverrides = StartupTestOverrides(simpleFlavorStartupHooks = hooks),
-                    scope = backgroundScope,
-                )
-
-            initializer.initialize()
-            initializer.readiness.first { it == AppStartupReadinessState.Ready }
-
-            assertEquals(AppStartupReadinessState.Pending, readinessAtBind)
-        }
-
-    @Test
-    fun `simple session watcher failure keeps startup gated`() =
-        runTest {
-            val hooks =
-                SimpleFlavorStartupHooks(
-                    Optional.of(
-                        object : SimpleFlavorSeeder {
-                            override suspend fun seed() = Unit
-                        },
-                    ),
-                    Optional.of(
-                        object : SimpleFlavorSessionWatcher {
-                            override fun bind(scope: CoroutineScope) {
-                                error("required-watcher-bind-failed")
-                            }
-                        },
-                    ),
-                )
-            val initializer =
-                createInitializer(
-                    compatibilityResetter = RecordingAppCompatibilityResetter(),
-                    strategyPackService = RecordingStrategyPackService(),
-                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
-                    startupOverrides = StartupTestOverrides(simpleFlavorStartupHooks = hooks),
-                    scope = backgroundScope,
-                )
-
-            initializer.initialize()
-            initializer.readiness.first { it != AppStartupReadinessState.Pending }
-            runCurrent()
-
-            assertEquals(AppStartupReadinessState.Failed, initializer.readiness.value)
-        }
-
-    @Test
-    fun `simple seed retry does not duplicate one-time startup registrations`() =
-        runTest {
-            var seedAttempts = 0
-            var watcherBindCalls = 0
-            val bootSessionRecorder = RecordingBootSessionRecorder()
-            val dnsPathPreferenceInvalidator = RecordingDnsPathPreferenceInvalidator(application)
-            val hooks =
-                SimpleFlavorStartupHooks(
-                    Optional.of(
-                        object : SimpleFlavorSeeder {
-                            override suspend fun seed() {
-                                seedAttempts++
-                                if (seedAttempts == 1) error("transient-seed-failure")
-                            }
-                        },
-                    ),
-                    Optional.of(
-                        object : SimpleFlavorSessionWatcher {
-                            override fun bind(scope: CoroutineScope) {
-                                watcherBindCalls++
-                            }
-                        },
-                    ),
-                )
-            val initializer =
-                createInitializer(
-                    compatibilityResetter = RecordingAppCompatibilityResetter(),
-                    strategyPackService = RecordingStrategyPackService(),
-                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
-                    dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
-                    bootSessionRecorder = bootSessionRecorder,
-                    startupOverrides = StartupTestOverrides(simpleFlavorStartupHooks = hooks),
-                    scope = backgroundScope,
-                )
-
-            initializer.initialize()
-            initializer.readiness.first { it == AppStartupReadinessState.Failed }
-
-            initializer.retryRecovery()
-            initializer.readiness.first { it == AppStartupReadinessState.Ready }
-            runCurrent()
-
-            assertEquals(2, seedAttempts)
-            assertEquals(1, dnsPathPreferenceInvalidator.registerCalls)
-            assertEquals(1, bootSessionRecorder.registerCalls)
-            assertEquals(1, watcherBindCalls)
-        }
-
-    @Test
     fun `detection observation failure is swallowed after successful subsystem initialization`() =
         runTest {
             val compatibilityResetter = RecordingAppCompatibilityResetter()
@@ -1019,8 +860,6 @@ class AppStartupInitializerFailureTest {
 
 private data class StartupTestOverrides(
     val profileMutations: ProfileMutationCoordinator = NoOpProfileMutationCoordinator,
-    val simpleFlavorStartupHooks: SimpleFlavorStartupHooks =
-        SimpleFlavorStartupHooks(Optional.empty(), Optional.empty()),
 )
 
 private fun createInitializer(
@@ -1058,7 +897,12 @@ private fun createInitializer(
                 memoryProfilingRegistrar = memoryProfilingRegistrar,
                 remoteDeviceAcceptanceStartupReconciler = remoteDeviceAcceptanceStartupReconciler,
             ),
-        simpleFlavorStartupHooks = startupOverrides.simpleFlavorStartupHooks,
+        presetApplier =
+            PresetApplier(
+                application,
+                NoOpAppSettingsRepository,
+                BackupRestoreUseCase(startupOverrides.profileMutations),
+            ),
         appShortcutsPublisher =
             AppShortcutsPublisher(
                 context = application,

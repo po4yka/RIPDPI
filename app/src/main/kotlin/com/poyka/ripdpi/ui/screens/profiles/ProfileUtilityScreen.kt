@@ -44,7 +44,7 @@ internal class ProfileUtilityActions(
     val probeUrl: (String) -> Unit,
     val checkFastest: () -> Unit,
     val retryCatalog: () -> Unit = {},
-    // Null where the host has no import entry, such as the Simple flavor.
+    // Null where the host has no import entry.
     val importProfile: (() -> Unit)? = null,
 )
 

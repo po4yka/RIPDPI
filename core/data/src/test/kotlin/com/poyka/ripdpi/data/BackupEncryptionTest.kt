@@ -37,6 +37,20 @@ class BackupEncryptionTest {
         )
 
     @Test
+    fun `shared preset fixture decrypts to its plaintext`() {
+        // PreparePresetTaskTest in build-logic decrypts the same archive with the build's copy of the envelope.
+        fun fixture(name: String) = requireNotNull(javaClass.getResourceAsStream("/backup/$name")).readBytes()
+
+        assertEquals(
+            fixture("preset-fixture.json").toString(Charsets.UTF_8),
+            BackupEncryption.decryptToString(
+                fixture("preset-fixture.ripdpibackup"),
+                "fixture-passphrase".toCharArray(),
+            ),
+        )
+    }
+
+    @Test
     fun `FULL archive is authenticated ciphertext and round trips`() {
         val output = ByteArrayOutputStream()
         val written = BackupEncryption.encryptToStream(document, ArchivePhrase, output)

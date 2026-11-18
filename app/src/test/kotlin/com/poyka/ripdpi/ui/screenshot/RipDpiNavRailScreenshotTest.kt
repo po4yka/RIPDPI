@@ -50,7 +50,7 @@ class RipDpiNavRailScreenshotTest {
         connectionActuator: StatusConnectionActuatorUiState =
             statusPreviewActuatorState(StatusConnectionActuatorStatus.Locked),
     ) {
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = name,
             testClassFqn = FQN,
             widthDp = widthDp,

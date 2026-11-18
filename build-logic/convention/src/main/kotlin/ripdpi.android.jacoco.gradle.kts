@@ -26,7 +26,7 @@ val jacocoExcludes =
         "**/com/poyka/ripdpi/data/schemas/**",
     )
 
-val coverageVariantName = if (project.path == ":app") "githubFullDebug" else "debug"
+val coverageVariantName = if (project.path == ":app") "githubDebug" else "debug"
 val coverageVariantTaskSuffix = coverageVariantName.replaceFirstChar(Char::uppercaseChar)
 val coverageUnitTestTaskName = "test${coverageVariantTaskSuffix}UnitTest"
 val transformedCoverageClasses =

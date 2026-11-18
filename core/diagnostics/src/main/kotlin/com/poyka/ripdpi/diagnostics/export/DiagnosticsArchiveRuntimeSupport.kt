@@ -457,7 +457,7 @@ private fun resolveEnvironmentConfig(
 // Redacts the network *addresses* on a runtime summary. `protocolKind` is deliberately
 // NOT redacted: it is a privacy-safe transport-kind enum (e.g. "vless_reality",
 // "hysteria2", "amneziawg"), not an address or identifier, and is the active-protocol
-// signal the simple flavor exists to surface in the diagnostic report (see M5 /
+// signal the diagnostic report surfaces (see M5 /
 // network-fingerprint-privacy.md, which classes relay-kind strings as safe to record).
 private fun RuntimeComponentSummary.redactedRuntimeAddresses(): RuntimeComponentSummary =
     copy(

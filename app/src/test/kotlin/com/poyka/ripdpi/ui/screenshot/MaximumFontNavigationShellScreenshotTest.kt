@@ -38,8 +38,7 @@ class MaximumFontNavigationShellScreenshotTest {
         selectedRoute: Route,
         scene: @Composable () -> Unit,
     ) {
-        assumeFullExperienceScreenshot()
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = name,
             testClassFqn = javaClass.name,
             widthDp = 411,

@@ -20,9 +20,7 @@ import com.github.takahirom.roborazzi.fontScale
 import com.github.takahirom.roborazzi.inspectionMode
 import com.github.takahirom.roborazzi.registerRoborazziActivityToRobolectricIfNeeded
 import com.github.takahirom.roborazzi.size
-import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import org.junit.Assume.assumeTrue
 import kotlin.math.roundToInt
 
 // 0.1% of the frame: Linux CI and macOS renders differ by under 0.05%, while a moved button is about 0.4%.
@@ -56,7 +54,7 @@ internal fun captureRipDpiScreenshot(
 }
 
 @OptIn(ExperimentalRoborazziApi::class)
-internal fun captureExperienceRipDpiScreenshot(
+internal fun captureNamedRipDpiScreenshot(
     name: String,
     testClassFqn: String,
     widthDp: Int,
@@ -64,11 +62,10 @@ internal fun captureExperienceRipDpiScreenshot(
     fontScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
-    assumeFullExperienceScreenshot()
     val moduleRoot = System.getProperty("user.dir")
     captureStaticRoboImage(
         filePath =
-            "$moduleRoot/src/test/screenshots/$testClassFqn.${name}_${BuildConfig.APP_EXPERIENCE}.png",
+            "$moduleRoot/src/test/screenshots/$testClassFqn.$name.png",
         widthDp = widthDp,
         heightDp = heightDp,
         roborazziOptions = CROSS_PLATFORM_OPTIONS,
@@ -159,18 +156,13 @@ internal fun captureScreenBothThemes(
     heightDp: Int,
     testClassFqn: String,
     fontScale: Float = 1f,
-    isolateByExperience: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    if (isolateByExperience) {
-        assumeFullExperienceScreenshot()
-    }
     val moduleRoot = System.getProperty("user.dir")
-    val experienceSuffix = if (isolateByExperience) "_${BuildConfig.APP_EXPERIENCE}" else ""
     listOf("light", "dark").forEach { themePreference ->
         captureStaticRoboImage(
             filePath =
-                "$moduleRoot/src/test/screenshots/$testClassFqn.${name}${experienceSuffix}_$themePreference.png",
+                "$moduleRoot/src/test/screenshots/$testClassFqn.${name}_$themePreference.png",
             widthDp = widthDp,
             heightDp = heightDp,
             roborazziOptions = CROSS_PLATFORM_OPTIONS,
@@ -201,7 +193,3 @@ private fun withStaticMotion(block: () -> Unit) {
 }
 
 private const val StaticMotionProperty = "ripdpi.staticMotion"
-
-internal fun assumeFullExperienceScreenshot() {
-    assumeTrue("Full-experience preview is covered by githubFull", BuildConfig.APP_EXPERIENCE == "full")
-}

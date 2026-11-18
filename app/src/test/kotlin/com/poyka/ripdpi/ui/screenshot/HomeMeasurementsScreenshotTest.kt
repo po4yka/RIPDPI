@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.ui.unit.LayoutDirection
-import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.resolveConnectionQuality
@@ -86,7 +85,7 @@ class HomeMeasurementsScreenshotTest {
                 ),
             )
         captureSingle(
-            "${name}_${BuildConfig.APP_EXPERIENCE}",
+            name,
             widthDp = 420,
             heightDp =
                 if (fontScale >

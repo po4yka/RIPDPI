@@ -211,7 +211,6 @@ internal fun initializePausedVpnService(
         )
     service.transportFailoverApplyTracker = TransportFailoverApplyTracker()
     service.explicitUserStartPreparer = Optional.empty()
-    service.serviceRecoveryStartGate = Optional.empty()
     service.serviceStopProvenanceRecorder = pausedServiceStopProvenanceRecorder()
     service.sessionComponentBuilderProvider = fixture.forbidden("VPN graph")
     service.selectorRuntimeLifecycleListenersProvider = fixture.forbidden("selectors")
@@ -260,7 +259,7 @@ internal suspend fun attachPausedServiceSession(service: Service) {
 }
 
 internal fun skipPausedServiceInjection(service: Service) {
-    // Unit construction supplies the shell explicitly; Full/Simple Hilt compilation verifies production injection.
+    // Unit construction supplies the shell explicitly; Hilt compilation verifies production injection.
     ReflectionHelpers.setField(service, "injected", true)
 }
 

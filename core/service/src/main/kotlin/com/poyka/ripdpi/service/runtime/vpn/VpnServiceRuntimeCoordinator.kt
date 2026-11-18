@@ -446,7 +446,7 @@ internal class VpnServiceRuntimeCoordinator(
     }
 
     /**
-     * Applies a Simple-flavor transport failover inside the active VPN session.
+     * Applies a transport failover inside the active VPN session.
      *
      * The installed TUN remains the fail-closed barrier while the proxy/relay stack is
      * replaced, so Android lockdown never has to permit a user-style service Stop.

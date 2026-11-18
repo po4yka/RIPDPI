@@ -319,7 +319,4 @@
     <string name="ui_app_picker_no_matches">No hay aplicaciones coincidentes</string>
     <string name="ui_app_picker_clear_search">Borrar búsqueda</string>
     <string name="ui_profile_catalog_retry">Volver a cargar perfiles</string>
-    <string name="simple_analysis_changes_body">Esta comprobación puede guardar automáticamente la configuración de DNS, la estrategia de evasión y WARP.</string>
-    <string name="simple_analysis_saved_changes_body">Esta comprobación puede haber guardado cambios. Restaure la configuración anterior desde una copia completa guardada (FULL).</string>
-    <string name="simple_backup_restore_body">Antes de comprobar, exporte una copia completa (FULL). Para restaurarla, seleccione Ajustes. Las copias SHARE no contienen ajustes. Se conservan las preferencias de red. Al reiniciar, Simple selecciona su perfil integrado, el modo VPN y desactiva las opciones de CLI.</string>
 </resources>

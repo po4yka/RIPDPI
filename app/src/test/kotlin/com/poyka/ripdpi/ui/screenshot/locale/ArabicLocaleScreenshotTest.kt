@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screenshot.locale
 
-import com.poyka.ripdpi.ui.screenshot.assumeFullExperienceScreenshot
 import com.poyka.ripdpi.ui.screenshot.captureRipDpiScreenshot
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,7 +24,6 @@ import org.robolectric.annotation.GraphicsMode
 class ArabicLocaleScreenshotTest {
     @Test
     fun home() {
-        assumeFullExperienceScreenshot()
         captureRipDpiScreenshot(LocaleScreenshotScenes.HOME_W, LocaleScreenshotScenes.HOME_H) {
             MaybeRtl(rtl = true) { HomeScene() }
         }

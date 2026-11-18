@@ -5,13 +5,13 @@ class ApplicationPackagingPolicyTest {
     @Test
     fun `finds qualified and unqualified app bundle tasks`() {
         assertEquals(
-            listOf("bundlePlayFullRelease", ":app:bundlePlaySimpleRelease"),
+            listOf("bundlePlayRelease", ":app:bundlePlayBenchmark"),
             requestedApplicationBundleTasks(
                 taskNames =
                     listOf(
-                        "bundlePlayFullRelease",
-                        ":app:bundlePlaySimpleRelease",
-                        ":app:assembleGithubFullRelease",
+                        "bundlePlayRelease",
+                        ":app:bundlePlayBenchmark",
+                        ":app:assembleGithubRelease",
                     ),
                 projectPath = ":app",
             ),

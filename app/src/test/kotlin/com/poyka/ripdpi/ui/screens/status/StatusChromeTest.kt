@@ -30,8 +30,8 @@ class StatusChromeTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `simple app name remains complete at Pixel 7 maximum font`() {
-        val title = "RIPDPI Quick Connect"
+    fun `long title remains complete at Pixel 7 maximum font`() {
+        val title = "RIPDPI Long App Name"
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
                 RipDpiTheme {

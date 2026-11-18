@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screenshot
 
-import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.resolveConnectionQuality
@@ -49,7 +48,7 @@ class HomeStatusCardsScreenshotTest {
         dark: Boolean = false,
     ) = withUtcScreenshotTime {
         captureSingle(
-            "${name}_${BuildConfig.APP_EXPERIENCE}",
+            name,
             widthDp = 411,
             heightDp = 800,
             darkMode = dark,
@@ -104,8 +103,7 @@ class HomeStatusCardsScreenshotTest {
             )
         val selected = resolveConnectionQuality(telemetry)!!
         captureSingle(
-            // Both flavors render Home, with different titles.
-            "${name}_${BuildConfig.APP_EXPERIENCE}",
+            name,
             widthDp = 411,
             heightDp = if (fontScale > 1f) 3000 else 1500,
             darkMode = dark,

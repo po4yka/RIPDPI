@@ -57,7 +57,7 @@ class StandaloneAmneziaWgActivatorTest {
         }
 
     @Test
-    fun `explicit standalone selection precedes simple flavor selection`() {
+    fun `explicit standalone selection keeps its priority`() {
         val activator =
             newActivator(
                 serviceController = RecordingServiceController(),

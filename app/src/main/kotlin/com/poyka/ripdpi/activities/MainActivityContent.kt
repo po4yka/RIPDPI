@@ -39,6 +39,9 @@ import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.debug.RecompositionReportEffect
+import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
+import com.poyka.ripdpi.ui.navigation.RipDpiNavHostActions
+import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.crash.CrashReportDialog
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
@@ -178,9 +181,7 @@ private fun ReadyMainActivityContent(
                 startupState.startDestination,
                 navigationStateKey(startupState.startDestination, viewModel.navigationSessionKey),
             ) {
-                // Flavor seam: the "full" source set renders the full nav host;
-                // the "simple" source set renders the two-action SimpleHomeScreen.
-                AppExperienceContent(
+                MainNavHost(
                     startDestination = startupState.startDestination,
                     viewModel = viewModel,
                     pauseViewModel = pauseViewModel,
@@ -349,4 +350,48 @@ private fun MainActivityDialogs(
             onDismiss = { viewModel.crashReports.dismiss() },
         )
     }
+}
+
+@Composable
+private fun MainNavHost(
+    startDestination: Route,
+    viewModel: MainViewModel,
+    pauseViewModel: StatusPauseViewModel,
+    controller: MainActivityShellController,
+    shellState: MainActivityShellState,
+    snackbarHostState: SnackbarHostState,
+    onExportEligibilityChanged: (Boolean) -> Unit,
+    exportPreviewContent: @Composable () -> Unit,
+) {
+    RipDpiNavHost(
+        startDestination = startDestination,
+        mainViewModel = viewModel,
+        pauseViewModel = pauseViewModel,
+        actions =
+            RipDpiNavHostActions(
+                onSaveLogs = controller::requestSaveLogs,
+                onShareDebugBundle = controller::requestShareDebugBundle,
+                onPrepareDiagnosticsExport = controller::requestPrepareDiagnosticsExport,
+                onShareText = controller::requestShareText,
+                onRepairPermission = { permission ->
+                    viewModel.onRepairPermissionRequested(permission)
+                },
+            ),
+        launchRequests =
+            RipDpiNavHostLaunchRequests(
+                launchHomeRequested = shellState.launchHomeRequested,
+                onLaunchHomeHandled = controller::consumeLaunchHomeRequest,
+                launchRouteRequested = shellState.launchRouteRequested,
+                onLaunchRouteHandled = controller::consumeLaunchRouteRequest,
+                sharedDiagnosticFragmentRequested = shellState.sharedDiagnosticFragmentRequested,
+                onSharedDiagnosticFragmentHandled = controller::consumeDiagnosticShareFragmentRequest,
+                importRouteRequested = shellState.importRouteRequested,
+                onImportRouteHandled = controller::consumeImportRouteRequest,
+                relockRequested = shellState.relockRequested,
+                onRelockHandled = controller::consumeRelockRequest,
+            ),
+        snackbarHostState = snackbarHostState,
+        onExportEligibilityChanged = onExportEligibilityChanged,
+        exportPreviewContent = exportPreviewContent,
+    )
 }

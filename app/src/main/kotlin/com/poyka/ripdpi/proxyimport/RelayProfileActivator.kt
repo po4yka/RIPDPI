@@ -25,8 +25,7 @@ import javax.inject.Singleton
  * [activate] returns `true` when [profile] is a relay-activatable kind and was
  * applied, `false` (a no-op) for kinds that are not relay outbounds. The optional
  * `profileId` defaults to [DefaultRelayProfileId] (the single active-relay slot);
- * callers that must keep several relay profiles side by side in the store — e.g.
- * the simple-flavor seeder building a multi-transport failover set — pass a
+ * callers that must keep several relay profiles side by side in the store pass a
  * distinct stable id per profile so they do not overwrite one another.
  */
 @Singleton

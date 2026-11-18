@@ -12,10 +12,8 @@ import com.poyka.ripdpi.data.awg.AwgActivationRequest
  * [AwgActivationObfuscation] defaults, matching the existing
  * `AwgProfileForm.toActivationRequest` mapper.
  *
- * Lives in `:core:data:runtime-state` (which both the `simple` flavor's
- * `ConfigSeeder` and the `main` source set's `SubscriptionAutoUpdateWorker`
- * depend on) so a subscription-imported AmneziaWG/WireGuard profile is persisted
- * in every flavor through one shared mapper, not a flavor-local copy.
+ * Lives in `:core:data:runtime-state` so a subscription-imported AmneziaWG/WireGuard
+ * profile is persisted through one shared mapper.
  */
 fun AmneziaWgSubscriptionProfile.toActivationRequest(): AwgActivationRequest =
     AwgActivationRequest(

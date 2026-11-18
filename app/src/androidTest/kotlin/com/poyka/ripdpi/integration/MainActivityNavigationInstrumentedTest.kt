@@ -3,23 +3,15 @@ package com.poyka.ripdpi.integration
 import android.content.Intent
 import androidx.compose.ui.test.ComposeUiTestConfig
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
-import com.poyka.ripdpi.BuildConfig
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.activities.MainActivityHost
-import com.poyka.ripdpi.activities.MainActivityHostCommand
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
@@ -37,7 +29,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule
@@ -48,7 +39,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock
-import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
@@ -104,9 +94,6 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import kotlinx.serialization.json.Json
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
@@ -169,15 +156,6 @@ private fun AndroidComposeTestRule<*, MainActivity>.waitForTag(
 
 private fun AndroidComposeTestRule<*, MainActivity>.scrollToTag(tag: String) {
     onNode(hasScrollToNodeAction()).performScrollToNode(hasTestTag(tag))
-}
-
-private fun AndroidComposeTestRule<*, MainActivity>.waitForActionLabel(
-    tag: String,
-    label: String,
-) {
-    waitUntil(timeoutMillis = 5_000) {
-        onAllNodes(hasTestTag(tag).and(hasText(label))).fetchSemanticsNodes().isNotEmpty()
-    }
 }
 
 private fun AndroidComposeTestRule<*, MainActivity>.assertScreenVisible(route: Route) {
@@ -499,76 +477,6 @@ class MainActivityNavigationInstrumentedTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Profiles))
             .assertIsDisplayed()
-    }
-
-    @Test
-    fun simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel() {
-        assumeTrue("githubSimple only", BuildConfig.APP_EXPERIENCE == "simple")
-        val runs = diagnosticsHomeCompositeRunService as StubInstrumentedDiagnosticsHomeCompositeRunService
-        val host = mainActivityHost as RecordingMainActivityHost
-        val fullRunAction = RipDpiTestTags.HomeDiagnosticsRunAnalysis
-        // This shared test source also compiles for Full, which has no Simple resources.
-        val reportLabelId =
-            composeRule.activity.resources.getIdentifier(
-                "simple_run_report",
-                "string",
-                composeRule.activity.packageName,
-            )
-        assertTrue("Simple report label resource must exist", reportLabelId != 0)
-        val reportLabel = composeRule.activity.getString(reportLabelId)
-
-        composeRule.waitForTag(RipDpiTestTags.ConnectionActuatorStrategyPanel)
-        composeRule.onNodeWithTag(fullRunAction).performScrollTo()
-        composeRule
-            .onNodeWithTag(fullRunAction)
-            .assertTextEquals(reportLabel)
-            .assertIsEnabled()
-            .performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) { runs.startedRunIds.size == 1 }
-        val cancelledRunId = runs.startedRunIds.single()
-        assertTrue("Report must start the full pipeline", cancelledRunId.startsWith("test-run-"))
-        val cancelLabel = composeRule.activity.getString(R.string.diagnostics_action_cancel)
-        composeRule.waitForActionLabel(fullRunAction, cancelLabel)
-        composeRule.onNodeWithTag(fullRunAction).performScrollTo()
-        composeRule.onNodeWithTag(fullRunAction).assertIsEnabled().performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            runs.cancelledRunIds == listOf(cancelledRunId)
-        }
-        composeRule.waitForActionLabel(fullRunAction, reportLabel)
-
-        composeRule.onNodeWithTag(fullRunAction).performScrollTo()
-        composeRule
-            .onNodeWithTag(fullRunAction)
-            .assertTextEquals(reportLabel)
-            .assertIsEnabled()
-            .performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) { runs.startedRunIds.size == 2 }
-        val completedRunId = runs.startedRunIds.last()
-        assertTrue("Full Analysis must start the full pipeline", completedRunId.startsWith("test-run-"))
-        runs.completeRun(
-            DiagnosticsHomeCompositeOutcome(
-                runId = completedRunId,
-                actionable = false,
-                headline = "Network analysis complete",
-                summary = "Report ready",
-                bundleSessionIds = listOf("session-1"),
-            ),
-        )
-
-        composeRule.waitForTag(RipDpiTestTags.StatusDiagnosticsShareAction)
-        composeRule.onNodeWithText("Network analysis complete").assertIsDisplayed()
-        composeRule.onNodeWithText("Report ready").assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsShareAction).performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            host.commands.any { it is MainActivityHostCommand.PrepareDiagnosticsExport }
-        }
-        val preparation =
-            (host.commands.filterIsInstance<MainActivityHostCommand.PrepareDiagnosticsExport>().single())
-                .preparation as com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation.Archive
-        assertEquals(completedRunId, preparation.request.homeRunId)
-        assertEquals(listOf("session-1"), preparation.request.sessionIds)
-        assertEquals(DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS, preparation.request.reason)
-        assertEquals(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareArchive, preparation.purpose)
     }
 }
 

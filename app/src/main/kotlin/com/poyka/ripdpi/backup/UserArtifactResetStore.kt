@@ -46,7 +46,8 @@ class DefaultUserArtifactResetStore
         }
 
         private companion object {
-            val PreferenceStores = listOf("pin_lockout", "app_lock", "detection_check_prefs", "backup_share_prefs")
+            val PreferenceStores =
+                listOf("pin_lockout", "app_lock", "detection_check_prefs", "backup_share_prefs", "preset_state")
             val RelativeArtifacts = listOf("probe_result_cache.json", "crash-reports", "logs", "native_panics")
         }
     }

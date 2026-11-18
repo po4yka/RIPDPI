@@ -8,7 +8,6 @@ internal fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             AppSettingsRootUiRuntimeSnapshot(
                 appTheme = appTheme,
                 mode = Mode.fromString(ripdpiMode.ifEmpty { AppSettingsSerializer.defaultValue.ripdpiMode }),
-                simpleFailoverAwgProfileId = simpleFailoverAwgProfileId,
             ),
     ).withDnsSnapshot(toSettingsSections().dns, ipv6Enable)
         .withProxyDesyncSnapshot(this)
