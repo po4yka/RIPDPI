@@ -520,13 +520,16 @@ class RipDpiVpnService :
                 }
 
                 is VpnAppRoutingPlan.AllowOnly -> {
+                    var registered = false
                     plan.packages.forEach { pkg ->
                         try {
                             builder.addAllowedApplication(pkg)
+                            registered = true
                         } catch (_: PackageManager.NameNotFoundException) {
                             // App not installed, skip silently
                         }
                     }
+                    check(registered) { "No selected VPN application is installed" }
                 }
             }
 
