@@ -17,38 +17,36 @@ class DiagnosticsScanScopeTest {
     @Test
     fun `a slower answer lands farther from the hub and stays inside the rim`() {
         val marks =
-            scopeMarks(
+            scopeLayout(
                 listOf(
                     probe("fast", "domain_reachability", DiagnosticsTone.Positive, elapsedMs = 40),
                     probe("slow", "domain_reachability", DiagnosticsTone.Positive, elapsedMs = 900),
                 ),
-            )
+            ).marks
 
         assertEquals(listOf(ScopeMarkKind.Answered, ScopeMarkKind.Answered), marks.map { it.kind })
         assertTrue(marks[0].reach < marks[1].reach)
-        assertTrue(marks[1].reach < 1f)
-        // Both marks stay inside the third sector of five.
-        assertTrue(marks.all { it.turn > 2f / 5 && it.turn < 3f / 5 })
+        assertTrue(marks[1].reach < SilentReach)
         assertTrue(marks[0].turn < marks[1].turn)
     }
 
     @Test
     fun `a failure with a measured time is blocked and a timeout sits on the rim`() {
         val marks =
-            scopeMarks(
+            scopeLayout(
                 listOf(
                     probe("reset", "dns_integrity", DiagnosticsTone.Negative, elapsedMs = 200),
                     probe("timeout", "dns_integrity", DiagnosticsTone.Negative, 5000, ConnectionStageState.TIMED_OUT),
                     probe("unmeasured", "dns_integrity", DiagnosticsTone.Warning, elapsedMs = null),
                 ),
-            )
+            ).marks
 
         assertEquals(
             listOf(ScopeMarkKind.Blocked, ScopeMarkKind.Silent, ScopeMarkKind.Silent),
             marks.map { it.kind },
         )
-        assertEquals(listOf(1f, 1f), marks.drop(1).map { it.reach })
-        assertTrue(marks[0].reach < 1f)
+        assertEquals(listOf(SilentReach, SilentReach), marks.drop(1).map { it.reach })
+        assertTrue(marks[0].reach < SilentReach)
     }
 
     @Test
@@ -56,21 +54,27 @@ class DiagnosticsScanScopeTest {
         val silent = (1..4).map { probe("dc$it", "service_reachability", DiagnosticsTone.Negative, elapsedMs = null) }
         val answered = probe("ok", "service_reachability", DiagnosticsTone.Positive, elapsedMs = 120)
 
-        val marks = scopeMarks(silent + answered)
+        val layout = scopeLayout(silent + answered)
+        val marks = layout.marks
 
         assertEquals(listOf("ok", "dc1"), marks.map { it.probe.id })
-        assertEquals(listOf(false, true), marks.map { it.stacked })
+        assertEquals(listOf(1, 4), marks.map { it.count })
+        // Weights 2, 2, 2, 2 and 4: the sector with marks is wider and the marks stay inside it.
+        val starts = listOf(0f, 1f / 6, 2f / 6, 3f / 6, 4f / 6, 1f)
+        assertEquals(starts.size, layout.sectorStarts.size)
+        starts.zip(layout.sectorStarts).forEach { (expected, actual) -> assertEquals(expected, actual, 1e-4f) }
+        assertTrue(marks.all { it.turn > 4f / 6 && it.turn < 1f })
     }
 
     @Test
     fun `a probe with no sector or no measured answer has no mark`() {
         val marks =
-            scopeMarks(
+            scopeLayout(
                 listOf(
                     probe("env", "network_environment", DiagnosticsTone.Positive, elapsedMs = 10),
                     probe("untimed", "tcp", DiagnosticsTone.Positive, elapsedMs = null),
                 ),
-            )
+            ).marks
 
         assertTrue(marks.isEmpty())
     }
