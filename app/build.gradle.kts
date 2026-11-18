@@ -17,6 +17,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
@@ -90,8 +91,13 @@ abstract class VerifyEmbeddedRelayBundleTask : DefaultTask() {
     }
 }
 
+object RustNotices {
+    const val FILE = "rust-crates.json"
+}
+
 // Writes notices/rust-crates.json in the same shape as the libXray notices/go-modules.json:
-// deduplicated license texts and the packages that use them.
+// deduplicated license texts and the packages that use them. CI jobs that build the app from
+// prebuilt jniLibs pass the file generated next to those libraries instead of running cargo-about.
 abstract class GenerateRustNoticesTask
     @Inject
     constructor(
@@ -105,8 +111,20 @@ abstract class GenerateRustNoticesTask
         @get:PathSensitive(PathSensitivity.RELATIVE)
         abstract val aboutConfig: RegularFileProperty
 
-        @get:Input
-        abstract val cargoAbout: Property<String>
+        @get:InputFiles
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val cargoManifests: ConfigurableFileCollection
+
+        // Absent when cargo-about is not installed; installing or upgrading it reruns the task.
+        @get:InputFile
+        @get:Optional
+        @get:PathSensitive(PathSensitivity.NONE)
+        abstract val cargoAbout: RegularFileProperty
+
+        @get:InputFile
+        @get:Optional
+        @get:PathSensitive(PathSensitivity.NONE)
+        abstract val prebuiltNotices: RegularFileProperty
 
         @get:Input
         abstract val required: Property<Boolean>
@@ -114,39 +132,47 @@ abstract class GenerateRustNoticesTask
         @get:OutputDirectory
         abstract val outputDir: DirectoryProperty
 
+        init {
+            // A build without cargo-about must not be reused once it is installed.
+            outputs.upToDateWhen { cargoAbout.isPresent || prebuiltNotices.isPresent }
+        }
+
         @TaskAction
         fun generate() {
             val noticesDir = outputDir.get().asFile.resolve("notices")
             noticesDir.deleteRecursively()
             noticesDir.mkdirs()
-            val rawJson = temporaryDir.resolve("cargo-about.json")
-            val config = aboutConfig.get().asFile
-            val result =
-                runCatching {
-                    execOperations.exec {
-                        workingDir = config.parentFile
-                        commandLine(
-                            cargoAbout.get(),
-                            "generate",
-                            "--locked",
-                            "--format",
-                            "json",
-                            "-c",
-                            config.absolutePath,
-                            "-o",
-                            rawJson.absolutePath,
-                        )
-                    }
-                }
-            result.exceptionOrNull()?.let { failure ->
+            val target = noticesDir.resolve(RustNotices.FILE)
+            if (prebuiltNotices.isPresent) {
+                prebuiltNotices.get().asFile.copyTo(target)
+                return
+            }
+            if (!cargoAbout.isPresent) {
                 val message =
                     "Rust third-party notices need cargo-about 0.9.3 " +
-                        "(cargo install cargo-about@0.9.3 --locked --features cli)."
-                if (required.get()) throw GradleException(message, failure)
+                        "(cargo install cargo-about@0.9.3 --locked --features cli), " +
+                        "or -Pripdpi.prebuiltRustNoticesDir with prebuilt jniLibs."
+                if (required.get()) throw GradleException(message)
                 logger.warn("$message The open-source licenses screen omits Rust crates in this build.")
                 return
             }
-            noticesDir.resolve("rust-crates.json").writeText(compact(rawJson.readText()))
+            val rawJson = temporaryDir.resolve("cargo-about.json")
+            val config = aboutConfig.get().asFile
+            execOperations.exec {
+                workingDir = config.parentFile
+                commandLine(
+                    cargoAbout.get().asFile.absolutePath,
+                    "generate",
+                    "--locked",
+                    "--format",
+                    "json",
+                    "-c",
+                    config.absolutePath,
+                    "-o",
+                    rawJson.absolutePath,
+                )
+            }
+            target.writeText(compact(rawJson.readText()))
         }
 
         // The workspace's own AGPL crates are covered by the app license in About.
@@ -173,7 +199,7 @@ abstract class GenerateRustNoticesTask
                             mapOf(
                                 "name" to crate["name"],
                                 "version" to crate["version"],
-                                "license" to crate["license"],
+                                "license" to (crate["license"] ?: ""),
                                 "licenses" to crateLicenses.getValue(key),
                             )
                         },
@@ -188,6 +214,10 @@ abstract class CopyRustNoticesTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val notices: ConfigurableFileCollection
 
+    // Release variants ship native code and must carry its notices, also in local builds.
+    @get:Input
+    abstract val required: Property<Boolean>
+
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
@@ -196,6 +226,9 @@ abstract class CopyRustNoticesTask : DefaultTask() {
         val target = outputDir.get().asFile
         target.deleteRecursively()
         notices.files.filter(File::isDirectory).forEach { it.copyRecursively(target) }
+        if (required.get() && !target.resolve("notices/${RustNotices.FILE}").isFile) {
+            throw GradleException("$name: release builds need notices/${RustNotices.FILE}; install cargo-about 0.9.3.")
+        }
     }
 }
 
@@ -735,10 +768,13 @@ tasks.withType<FinalizeBundleTask>().configureEach {
 
 aboutLibraries {
     collect {
-        // Native components (libXray AAR, ripdpi-socks5-core) that Gradle metadata cannot describe.
+        // Components that Gradle metadata cannot describe (Go standard library, ripdpi-socks5-core).
         configPath = file("config/aboutlibraries")
     }
 }
+
+// A native-less validation build ships no Rust code, so it needs no Rust notices.
+val nativeLessValidation = providers.gradleProperty("ripdpi.skipNativeBuild").orNull == "true"
 
 val generateRustNotices =
     tasks.register<GenerateRustNoticesTask>("generateRustNotices") {
@@ -747,27 +783,38 @@ val generateRustNotices =
         val rustWorkspace = rootProject.layout.projectDirectory.dir("native/rust")
         cargoLock.set(rustWorkspace.file("Cargo.lock"))
         aboutConfig.set(rustWorkspace.file("about.toml"))
+        cargoManifests.from(
+            fileTree(rustWorkspace) {
+                include("**/Cargo.toml")
+                exclude("**/target/**")
+            },
+        )
         val cargoHome =
             providers
                 .environmentVariable("CARGO_HOME")
                 .orElse(providers.systemProperty("user.home").map { "$it/.cargo" })
         val installedCargoAbout =
-            cargoHome.map { home ->
-                File(home, "bin/cargo-about").takeIf(File::canExecute)?.path ?: "cargo-about"
-            }
-        cargoAbout.set(providers.gradleProperty("ripdpi.cargoAbout").orElse(installedCargoAbout))
-        // CI builds that package native code must ship the notices; a local build without
-        // cargo-about and a native-less validation build (no Rust code shipped) only warn.
-        val nativeLessValidation = providers.gradleProperty("ripdpi.skipNativeBuild").map { it == "true" }
+            providers
+                .gradleProperty("ripdpi.cargoAbout")
+                .orElse(cargoHome.map { "$it/bin/cargo-about" })
+                .map(::File)
+                .filter(File::canExecute)
+        cargoAbout.fileProvider(installedCargoAbout)
+        prebuiltNotices.fileProvider(
+            providers
+                .gradleProperty("ripdpi.prebuiltRustNoticesDir")
+                .filter(String::isNotBlank)
+                .map { File(it, RustNotices.FILE) },
+        )
+        // CI builds that package native code must ship the notices; a local debug build without
+        // cargo-about only warns. Release variants enforce the file in their copy task.
+        val ciRequiresNotices = !nativeLessValidation
         required.set(
             providers
                 .gradleProperty("ripdpi.requireRustNotices")
                 .map(String::toBoolean)
-                .orElse(
-                    providers
-                        .environmentVariable("CI")
-                        .zip(nativeLessValidation.orElse(false)) { _, nativeLess -> !nativeLess },
-                ).orElse(false),
+                .orElse(providers.environmentVariable("CI").map { ciRequiresNotices })
+                .orElse(false),
         )
         outputDir.set(layout.buildDirectory.dir("generated/rustNotices"))
     }
@@ -777,6 +824,7 @@ extensions.configure<ApplicationAndroidComponentsExtension> {
         val copyRustNotices =
             tasks.register<CopyRustNoticesTask>(variant.computeTaskName("copy", "RustNotices")) {
                 notices.from(generateRustNotices.flatMap(GenerateRustNoticesTask::outputDir))
+                required.set(variant.buildType == "release" && !nativeLessValidation)
             }
         variant.sources.assets?.addGeneratedSourceDirectory(copyRustNotices, CopyRustNoticesTask::outputDir)
     }

@@ -43,7 +43,7 @@ class OpenSourceLicensesTest {
             """
             {"licenses":[{"text":"Mozilla Public License Version 2.0"},{"text":"Copyright (c) 2013 John Howard Palevich"}],
              "packages":[
-               {"name":"github.com/xtls/xray-core","version":"1.2.3","license":"MPL-2.0","licenses":[0]},
+               {"name":"github.com/xtls/xray-core","version":"1.2.3","license":"MPL-2.0","note":"Source is available.","licenses":[0]},
                {"name":"github.com/xtls/reality","version":"0.1.0","license":"MPL-2.0","licenses":[0]},
                {"name":"github.com/jackpal/go-nat-pmp","version":"v1.1.0","license":"","licenses":[1]}]}
             """.trimIndent()
@@ -53,8 +53,8 @@ class OpenSourceLicensesTest {
         val xrayCore = parsed.getValue("go/github.com/xtls/xray-core@1.2.3")
         assertEquals("github.com/xtls/xray-core", xrayCore.title)
         assertEquals("1.2.3 · MPL-2.0", xrayCore.subtitle)
-        assertEquals("Mozilla Public License Version 2.0", xrayCore.text)
-        assertEquals(xrayCore.text, parsed.getValue("go/github.com/xtls/reality@0.1.0").text)
+        assertEquals("Source is available.\n\nMozilla Public License Version 2.0", xrayCore.text)
+        assertEquals("Mozilla Public License Version 2.0", parsed.getValue("go/github.com/xtls/reality@0.1.0").text)
         assertEquals("v1.1.0", parsed.getValue("go/github.com/jackpal/go-nat-pmp@v1.1.0").subtitle)
     }
 }

@@ -24,6 +24,9 @@ GOARCHES = {"armeabi-v7a": "arm", "arm64-v8a": "arm64", "x86": "386", "x86_64": 
 NOTICES = Path("assets/notices/go-modules.json")
 # gomobile bind links its runtime packages next to libXray itself.
 NOTICE_PACKAGES = ("github.com/xtls/libxray", "golang.org/x/mobile/bind", "golang.org/x/mobile/bind/seq")
+PATCHED_NOTE = "Built from patched source; the patches are listed in native/xray/patches/manifest.json in the RIPDPI source repository."
+# MPL-2.0 section 3.2: say where the Source Code Form of the covered files is available.
+MPL_NOTE = "Source code of the covered files, including modified files, is available at https://{name} and in the RIPDPI source repository."
 NOTICE_TEMPLATE = "{{range .}}{{.Name}}\t{{.Version}}\t{{.LicenseName}}\t{{.LicensePath}}\n{{end}}"
 
 
@@ -222,13 +225,15 @@ def write_notices(directory: Path, sources: Path, abis: str) -> None:
     texts: dict[str, int] = {}
     packages = []
     for name, (version, licenses) in sorted(libraries.items()):
+        patched = next((pin for module, pin in replaced.items() if name == module or name.startswith(module + "/")), None)
         if version == "Unknown":
-            version = next(pin for module, pin in replaced.items() if name == module or name.startswith(module + "/"))
+            version = patched
         indexes = []
         for path in dict.fromkeys(licenses.values()):
             text = (module_license(sources, name) if path == "Unknown" else Path(path)).read_text(errors="replace")
             indexes.append(texts.setdefault(text, len(texts)))
-        packages.append({"name": name, "version": version, "licenses": indexes,
+        notes = ([PATCHED_NOTE] if patched else []) + ([MPL_NOTE.format(name=name)] if "MPL-2.0" in licenses else [])
+        packages.append({"name": name, "version": version, "licenses": indexes, "note": " ".join(notes),
                          "license": ", ".join(sorted(n for n in licenses if n != "Unknown"))})
     target = directory / NOTICES
     target.parent.mkdir(parents=True, exist_ok=True)

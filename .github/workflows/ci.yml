@@ -488,6 +488,7 @@ jobs:
             :core:engine:buildRustRootHelper \
             :core:engine:buildRustNaiveProxy \
             :core:engine:buildRustCloudflareOrigin \
+            :app:generateRustNotices \
             --profile \
             -Pripdpi.nativeAbisOverride=${{ matrix.abi.name }}
 
@@ -534,6 +535,9 @@ jobs:
           stage_asset \
             "core/engine/build/generated/cloudflareOriginAssets/bin/${{ matrix.abi.name }}" \
             "ripdpi-cloudflare-origin" "$assets_dir"
+          # APK jobs that reuse these libraries take their Rust notices from here.
+          mkdir -p "$RUNNER_TEMP/native-shard/notices"
+          cp app/build/generated/rustNotices/notices/rust-crates.json "$RUNNER_TEMP/native-shard/notices/"
           ls -la "$RUNNER_TEMP/native-shard"
 
       - name: Check packaged JNI export inventories
@@ -596,6 +600,7 @@ jobs:
             :core:engine:buildRustRootHelper \
             :core:engine:buildRustNaiveProxy \
             :core:engine:buildRustCloudflareOrigin \
+            :app:generateRustNotices \
             --profile \
             -Pripdpi.nativeAbisOverride=x86_64
 
@@ -642,6 +647,9 @@ jobs:
           stage_asset \
             "core/engine/build/generated/cloudflareOriginAssets/bin/x86_64" \
             "ripdpi-cloudflare-origin" "$assets_dir"
+          # APK jobs that reuse these libraries take their Rust notices from here.
+          mkdir -p "$RUNNER_TEMP/native-shard/notices"
+          cp app/build/generated/rustNotices/notices/rust-crates.json "$RUNNER_TEMP/native-shard/notices/"
           ls -la "$RUNNER_TEMP/native-shard"
 
       - name: Upload native artifacts for x86_64
@@ -886,6 +894,8 @@ jobs:
               abi="${d##*/assetsBin-}"
               cp -r "$d" "$assets_root/$abi"
             done
+            # Every shard carries the same workspace-wide Rust notices.
+            cp -r "$shard/notices" "${jni_root%/jniLibs}/"
           done
           echo "JNI staging:"
           ls -la "$jni_root" || true
@@ -898,6 +908,7 @@ jobs:
             --no-parallel
             --max-workers=2
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt/jniLibs"
+            -Pripdpi.prebuiltRustNoticesDir="$RUNNER_TEMP/prebuilt/notices"
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt/assetsBin"
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt/assetsBin"
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt/assetsBin"
@@ -1240,6 +1251,8 @@ jobs:
               abi="${d##*/assetsBin-}"
               cp -r "$d" "$assets_root/$abi"
             done
+            # Every shard carries the same workspace-wide Rust notices.
+            cp -r "$shard/notices" "${jni_root%/jniLibs}/"
           done
           echo "JNI staging:"
           ls -la "$jni_root" || true
@@ -1260,6 +1273,7 @@ jobs:
             -Pripdpi.enableAbiSplits=false
             -Pripdpi.nativeAbiParallelism=1
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-release/jniLibs"
+            -Pripdpi.prebuiltRustNoticesDir="$RUNNER_TEMP/prebuilt-release/notices"
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
@@ -1428,6 +1442,8 @@ jobs:
               abi="${d##*/assetsBin-}"
               cp -r "$d" "$assets_root/$abi"
             done
+            # Every shard carries the same workspace-wide Rust notices.
+            cp -r "$shard/notices" "${jni_root%/jniLibs}/"
           done
 
       - name: Build GitHub Full release instrumentation APK
@@ -1438,6 +1454,7 @@ jobs:
             -Pripdpi.enableAbiSplits=false \
             -Pripdpi.nativeAbiParallelism=1 \
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-release/jniLibs" \
+            -Pripdpi.prebuiltRustNoticesDir="$RUNNER_TEMP/prebuilt-release/notices" \
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-release/assetsBin" \
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-release/assetsBin" \
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-release/assetsBin" \
@@ -2533,6 +2550,7 @@ jobs:
           mkdir -p "$jni_root" "$assets_root"
           cp -r "$RUNNER_TEMP/native-shard-x86_64/jniLibs-x86_64" "$jni_root/x86_64"
           cp -r "$RUNNER_TEMP/native-shard-x86_64/assetsBin-x86_64" "$assets_root/x86_64"
+          cp -r "$RUNNER_TEMP/native-shard-x86_64/notices" "$RUNNER_TEMP/prebuilt-integration/"
           find "$RUNNER_TEMP/prebuilt-integration" -maxdepth 3 -type f -print
 
       - name: Build instrumentation APK bundle
@@ -2540,6 +2558,7 @@ jobs:
           ./gradlew :app:stageCiInstrumentationApks \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
+            -Pripdpi.prebuiltRustNoticesDir="$RUNNER_TEMP/prebuilt-integration/notices" \
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \

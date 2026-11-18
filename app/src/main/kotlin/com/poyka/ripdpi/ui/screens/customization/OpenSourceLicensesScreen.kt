@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import co.touchlab.kermit.Logger
 import com.mikepenz.aboutlibraries.Libs
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -28,6 +29,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONException
 import org.json.JSONObject
 
 internal data class LicenseNotice(
@@ -90,10 +92,15 @@ private fun packageNotices(
     idPrefix: String,
 ): List<LicenseNotice> {
     if (fileName !in context.assets.list(PackageNoticeAssetDir).orEmpty()) return emptyList()
-    return parsePackageNotices(context.assets.readText("$PackageNoticeAssetDir/$fileName"), idPrefix)
+    return try {
+        parsePackageNotices(context.assets.readText("$PackageNoticeAssetDir/$fileName"), idPrefix)
+    } catch (error: JSONException) {
+        Logger.w(error) { "Unreadable license notices: $fileName" }
+        emptyList()
+    }
 }
 
-// Reads {"licenses":[{"text"}],"packages":[{"name","version","license","licenses":[index]}]}.
+// Reads {"licenses":[{"text"}],"packages":[{"name","version","license","note"?,"licenses":[index]}]}.
 internal fun parsePackageNotices(
     json: String,
     idPrefix: String,
@@ -111,7 +118,12 @@ internal fun parsePackageNotices(
             id = "$idPrefix/$name@$version",
             title = name,
             subtitle = listOf(version, item.optString("license")).filter { it.isNotBlank() }.joinToString(" · "),
-            text = List(licenseIndexes.length()) { licenseTexts[licenseIndexes.getInt(it)] }.joinToString("\n\n"),
+            text =
+                (
+                    listOf(item.optString("note")) +
+                        List(licenseIndexes.length()) { licenseTexts.getOrNull(licenseIndexes.getInt(it)) }
+                ).filterNot { it.isNullOrBlank() }
+                    .joinToString("\n\n"),
         )
     }
 }

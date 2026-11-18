@@ -126,7 +126,7 @@ class LibXrayArtifactTest(unittest.TestCase):
             tool = directory / "go-licenses"
             tool.write_text(f"#!{sys.executable}\n" +
                             "import os\n" +
-                            f"rows = ['github.com/xtls/libxray\\tUnknown\\tMIT\\t{mit}', 'github.com/jackpal/go-nat-pmp\\tv1.1.0\\tUnknown\\tUnknown']\n" +
+                            f"rows = ['github.com/xtls/libxray\\tUnknown\\tMIT\\t{mit}', 'github.com/jackpal/go-nat-pmp\\tv1.1.0\\tUnknown\\tUnknown', 'layeh.com/gopher-luar\\tv1.0.11\\tMPL-2.0\\t{mit}']\n" +
                             f"if os.environ['GOARCH'] == 'arm': rows.append('golang.zx2c4.com/wireguard\\tv1\\tMIT\\t{mit}')\n" +
                             "print('\\n'.join(rows))\n")
             tool.chmod(0o755)
@@ -138,9 +138,13 @@ class LibXrayArtifactTest(unittest.TestCase):
             notices = json.loads((directory / ARTIFACTS.NOTICES).read_text())
         self.assertEqual([{"text": "Apache short form"}, {"text": "MIT text"}], notices["licenses"])
         self.assertEqual([
-            {"name": "github.com/jackpal/go-nat-pmp", "version": "v1.1.0", "licenses": [0], "license": ""},
-            {"name": "github.com/xtls/libxray", "version": versions["libxray"], "licenses": [1], "license": "MIT"},
-            {"name": "golang.zx2c4.com/wireguard", "version": "v1", "licenses": [1], "license": "MIT"},
+            {"name": "github.com/jackpal/go-nat-pmp", "version": "v1.1.0", "licenses": [0], "note": "", "license": ""},
+            {"name": "github.com/xtls/libxray", "version": versions["libxray"], "licenses": [1], "note": ARTIFACTS.PATCHED_NOTE,
+             "license": "MIT"},
+            {"name": "golang.zx2c4.com/wireguard", "version": "v1", "licenses": [1], "note": "", "license": "MIT"},
+            {"name": "layeh.com/gopher-luar", "version": "v1.0.11", "licenses": [1], "license": "MPL-2.0",
+             "note": "Source code of the covered files, including modified files, is available at "
+                     "https://layeh.com/gopher-luar and in the RIPDPI source repository."},
         ], notices["packages"])
 
     def test_unattested_archive_is_rejected(self) -> None:
