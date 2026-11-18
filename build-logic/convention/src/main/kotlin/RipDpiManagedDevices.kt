@@ -66,7 +66,7 @@ internal val ripDpiManagedDeviceSpecs =
  *  - pixel6Api37Google  Pixel 6, API 37, Google APIs   targetSdk compatibility smoke
  *  - ciDevices          API 27/33/35/36/37 smoke matrix
  *
- * GMD generates one task per device, e.g. `:app:pixel6Api27AospGithubFullDebugAndroidTest`,
+ * GMD generates one task per device, e.g. `:app:pixel6Api27AospGithubDebugAndroidTest`,
  * plus `:app:ciDevicesGroup<Variant>AndroidTest` for the group.
  */
 internal fun CommonExtension.configureRipDpiManagedDevices(includeCiDevices: Boolean = true) {

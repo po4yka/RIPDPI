@@ -41,7 +41,7 @@ class ComposeStylesBenchmark {
         @Suppress("DEPRECATION")
         val application = packageManager.getApplicationInfo(TargetPackage, 0)
         check(application.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) {
-            "Use the release-derived GithubFullBenchmark APK, not a debug APK"
+            "Use the release-derived GithubBenchmark APK, not a debug APK"
         }
         check(application.isProfileableByShell) { "The target APK must be profileable by shell" }
     }

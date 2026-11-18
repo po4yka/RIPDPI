@@ -229,14 +229,10 @@ val qualityModulePaths =
         .map { it.path }
         .filter { modulePath -> modulePath == ":app" || modulePath.startsWith(":core:") }
         .sorted()
-// Pull requests pass false and lint only the GitHub Full app variant. Pushes to
-// main also lint the Simple variant. ripdpi.android.lint skips test sources.
-val lintSimpleAndTestSources: Boolean =
-    providers.gradleProperty("ripdpi.lintSimpleAndTestSources").map(String::toBoolean).getOrElse(true)
 val lintTaskPaths =
     qualityModulePaths.flatMap { modulePath ->
         if (modulePath == ":app") {
-            listOfNotNull(":app:lintGithubFullDebug", ":app:lintGithubSimpleDebug".takeIf { lintSimpleAndTestSources })
+            listOf(":app:lintGithubDebug")
         } else {
             listOf("$modulePath:lintDebug")
         }
@@ -246,7 +242,7 @@ fun moduleRelativePath(modulePath: String): String = modulePath.removePrefix(":"
 
 fun moduleBuildDir(modulePath: String) = layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("build")
 
-fun coverageVariantName(modulePath: String): String = if (modulePath == ":app") "githubFullDebug" else "debug"
+fun coverageVariantName(modulePath: String): String = if (modulePath == ":app") "githubDebug" else "debug"
 
 fun coverageVariantTaskSuffix(modulePath: String): String =
     coverageVariantName(modulePath).replaceFirstChar(Char::uppercaseChar)
@@ -473,11 +469,11 @@ tasks.matching { it.name == "prepareKotlinBuildScriptModel" }.configureEach {
 tasks.register("recordScreenshots") {
     group = "verification"
     description = "Records Roborazzi screenshot baselines for the app module"
-    dependsOn(":app:recordRoborazziGithubFullDebug")
+    dependsOn(":app:recordRoborazziGithubDebug")
 }
 
 tasks.register("verifyScreenshots") {
     group = "verification"
     description = "Verifies Roborazzi screenshot baselines for the app module"
-    dependsOn(":app:verifyRoborazziGithubFullDebug")
+    dependsOn(":app:verifyRoborazziGithubDebug")
 }

@@ -26,7 +26,8 @@ class UserArtifactResetStoreTest {
                     mode: Int,
                 ) = baseContext.getSharedPreferences("$preferencePrefix$name", mode)
             }
-        val preferences = listOf("pin_lockout", "app_lock", "detection_check_prefs", "backup_share_prefs")
+        val preferences =
+            listOf("pin_lockout", "app_lock", "detection_check_prefs", "backup_share_prefs", "preset_state")
         try {
             val keylog =
                 context.filesDir.resolve("diagnostics/tls.keys").apply {

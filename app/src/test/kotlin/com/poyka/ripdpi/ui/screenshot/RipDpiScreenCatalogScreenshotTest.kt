@@ -63,7 +63,7 @@ import org.robolectric.annotation.GraphicsMode
 class RipDpiScreenCatalogScreenshotTest {
     @Test
     fun homeExpandedScreen() {
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = "homeExpandedScreen",
             testClassFqn = FQN,
             widthDp = 1040,
@@ -237,7 +237,7 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeCompactScreen() {
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = "homeCompactScreen",
             testClassFqn = FQN,
             widthDp = 390,
@@ -249,7 +249,7 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeDarkScreen() {
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = "homeDarkScreen",
             testClassFqn = FQN,
             widthDp = 720,
@@ -360,7 +360,7 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeDisconnectedScreen() {
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = "homeDisconnectedScreen",
             testClassFqn = FQN,
             widthDp = 420,
@@ -372,7 +372,7 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeConnectingScreen() {
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = "homeConnectingScreen",
             testClassFqn = FQN,
             widthDp = 420,
@@ -384,7 +384,7 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeErrorScreen() {
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = "homeErrorScreen",
             testClassFqn = FQN,
             widthDp = 420,
@@ -431,7 +431,6 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun aboutScreen() {
-        assumeFullExperienceScreenshot()
         captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
             RipDpiAboutPreviewScene()
         }
@@ -533,7 +532,7 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeHighContrastScreen() {
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = "homeHighContrastScreen",
             testClassFqn = FQN,
             widthDp = 420,
@@ -545,7 +544,7 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeLargeFontScreen() {
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = "homeLargeFontScreen",
             testClassFqn = FQN,
             widthDp = 420,

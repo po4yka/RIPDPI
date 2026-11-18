@@ -17,5 +17,4 @@ internal data class AppSettingsRootUiRuntimeSnapshot(
     val backupPin: String = "",
     val appIconVariant: String = defaultSettings.appIconVariant,
     val appIconStyle: String = defaultSettings.appIconStyle,
-    val simpleFailoverAwgProfileId: String = defaultSettings.simpleFailoverAwgProfileId,
 )

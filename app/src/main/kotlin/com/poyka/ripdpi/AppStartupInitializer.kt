@@ -10,7 +10,8 @@ import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsRetentionWorker
-import com.poyka.ripdpi.seed.SimpleFlavorStartupHooks
+import com.poyka.ripdpi.seed.PresetApplier
+import com.poyka.ripdpi.seed.PresetOutcome
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
@@ -72,7 +73,7 @@ class AppStartupInitializer
         private val appShortcutsPublisher: AppShortcutsPublisher,
         private val resetEventRecorder: ResetEventRecorder,
         private val startupDiagnosticsProbes: StartupDiagnosticsProbes,
-        private val simpleFlavorStartupHooks: SimpleFlavorStartupHooks,
+        private val presetApplier: PresetApplier,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : AppStartupReadiness {
         private val readinessState = MutableStateFlow(AppStartupReadinessState.Pending)
@@ -232,20 +233,15 @@ class AppStartupInitializer
             }
 
         private suspend fun initializeSubsystemsAfterRecovery(startupRecovery: AppStartupRecovery): AppStartupReport {
-            val simpleConfigSeed =
-                runSubsystem(AppStartupSubsystem.SimpleConfigSeed) {
-                    simpleFlavorStartupHooks.seeder.orElse(null)?.seed()
+            // Before readiness: no screen or runtime consumer has read the stores yet.
+            val presetApply =
+                runSubsystem(AppStartupSubsystem.PresetApply) {
+                    when (val outcome = presetApplier.applyIfFresh()) {
+                        PresetOutcome.Skipped -> Unit
+                        PresetOutcome.Applied -> Logger.i { "Packaged preset applied" }
+                        is PresetOutcome.Rejected -> Logger.w { "Packaged preset rejected: ${outcome.reason}" }
+                    }
                 }
-            check(simpleConfigSeed.status == AppStartupSubsystemStatus.Succeeded) {
-                "Required simple configuration seed failed"
-            }
-            val simpleSessionWatcherBind =
-                runSubsystem(AppStartupSubsystem.SimpleSessionWatcherBind) {
-                    simpleFlavorStartupHooks.sessionWatcher.orElse(null)?.bind(applicationScope)
-                }
-            check(simpleSessionWatcherBind.status == AppStartupSubsystemStatus.Succeeded) {
-                "Required simple session watcher failed to bind"
-            }
             val resetEventConsume =
                 runSubsystem(AppStartupSubsystem.ResetEventConsume) {
                     // The reset wipe recorded this BEFORE deleting everything; it
@@ -310,8 +306,7 @@ class AppStartupInitializer
                 cdnEchWorkerEnqueue = cdnEchWorkerEnqueue,
                 subscriptionWorkerEnqueue = subscriptionWorkerEnqueue,
                 bootSessionRecorderRegistration = bootSessionRecorderRegistration,
-                simpleConfigSeed = simpleConfigSeed,
-                simpleSessionWatcherBind = simpleSessionWatcherBind,
+                presetApply = presetApply,
             )
         }
 
@@ -366,8 +361,7 @@ internal data class AppStartupReport(
     val cdnEchWorkerEnqueue: AppStartupSubsystemResult,
     val subscriptionWorkerEnqueue: AppStartupSubsystemResult,
     val bootSessionRecorderRegistration: AppStartupSubsystemResult,
-    val simpleConfigSeed: AppStartupSubsystemResult,
-    val simpleSessionWatcherBind: AppStartupSubsystemResult,
+    val presetApply: AppStartupSubsystemResult,
 ) {
     fun toLogMessage(): String =
         "App startup report: " +
@@ -383,8 +377,7 @@ internal data class AppStartupReport(
                 cdnEchWorkerEnqueue,
                 subscriptionWorkerEnqueue,
                 bootSessionRecorderRegistration,
-                simpleConfigSeed,
-                simpleSessionWatcherBind,
+                presetApply,
             ).joinToString(separator = ", ") { result ->
                 buildString {
                     append(result.subsystem.logLabel)
@@ -419,8 +412,7 @@ internal enum class AppStartupSubsystem(
     CdnEchRefreshWorkerEnqueue("cdn_ech_refresh_worker_enqueue"),
     SubscriptionAutoUpdateWorkerEnqueue("subscription_auto_update_worker_enqueue"),
     BootSessionRecorderRegistration("boot_session_recorder_registration"),
-    SimpleConfigSeed("simple_config_seed"),
-    SimpleSessionWatcherBind("simple_session_watcher_bind"),
+    PresetApply("preset_apply"),
 }
 
 internal enum class AppStartupSubsystemStatus {

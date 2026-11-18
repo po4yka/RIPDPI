@@ -55,6 +55,9 @@ enum VpnEngineFailureAction {
 }
 
 message AppSettings {
+  // Removed with the simple flavor.
+  reserved 410;
+  reserved "simple_failover_awg_profile_id";
   reserved 15, 16, 17, 29, 30, 31, 32, 64, 69, 71, 93, 94, 118, 120, 121, 130, 190, 208, 209, 215, 216;
   reserved
       "diagnostics_default_scan_path_mode",
@@ -487,9 +490,6 @@ message AppSettings {
 
   // UI persona: "simple" | "advanced". Simple is the default user-facing surface.
   string ui_persona = 409;
-
-  // Simple-flavor failover-selected AWG profile id. Empty means no AWG failover egress is selected.
-  string simple_failover_awg_profile_id = 410;
 
   // Optional Cloudflare Worker route for the Telegram WS tunnel. The bearer is
   // stored only in the Android-Keystore-backed credential store.

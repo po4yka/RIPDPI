@@ -51,7 +51,7 @@ class HomeDisclosureScreenshotTest {
         heightDp: Int,
         fontScale: Float = 1f,
     ) {
-        captureExperienceRipDpiScreenshot(
+        captureNamedRipDpiScreenshot(
             name = name,
             testClassFqn = FQN,
             widthDp = widthDp,
@@ -108,8 +108,7 @@ private fun captureLocalizedHomeDisclosure(
     testClassFqn: String,
     layoutDirection: LayoutDirection = LayoutDirection.Ltr,
 ) {
-    assumeFullExperienceScreenshot()
-    captureExperienceRipDpiScreenshot(
+    captureNamedRipDpiScreenshot(
         name = "expandedLargeFont",
         testClassFqn = testClassFqn,
         widthDp = 411,

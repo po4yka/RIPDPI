@@ -7,9 +7,8 @@ import java.io.File
 
 class TerminologyCanonTest {
     @Test
-    fun `guided persona and quick connect distribution use distinct user vocabulary`() {
+    fun `guided persona keeps its user vocabulary in every locale`() {
         val resourcesDir = File("src/main/res")
-        val simpleResourcesDir = File("src/simple/res")
         val expectedGuidedLabels =
             mapOf(
                 "values" to "Guided",
@@ -23,38 +22,11 @@ class TerminologyCanonTest {
                 "values-hi" to "निर्देशित",
                 "values-pt-rBR" to "Guiado",
             )
-        val expectedDistributionTitles =
-            mapOf(
-                "values" to "RIPDPI Quick Connect",
-                "values-ru" to "RIPDPI Быстрое подключение",
-                "values-es" to "RIPDPI Conexión rápida",
-                "values-de" to "RIPDPI Schnellverbindung",
-                "values-fr" to "RIPDPI Connexion rapide",
-                "values-fa" to "RIPDPI اتصال سریع",
-                "values-ar" to "RIPDPI اتصال سريع",
-                "values-zh-rCN" to "RIPDPI 快速连接",
-                "values-hi" to "RIPDPI त्वरित कनेक्ट",
-                "values-pt-rBR" to "RIPDPI Conexão rápida",
-            )
 
         expectedGuidedLabels.forEach { (directory, expected) ->
             val values = featureStringValues(File(resourcesDir, directory))
             assertEquals("$directory persona label", expected, values.getValue("persona_guided"))
         }
-        expectedDistributionTitles.forEach { (directory, expected) ->
-            val values = stringValues(File(simpleResourcesDir, "$directory/strings.xml"))
-            assertEquals("$directory distribution title", expected, values.getValue("simple_title"))
-        }
-
-        val simpleEnglishStrings = File(simpleResourcesDir, "values/strings.xml")
-        val simpleEnglishValues = stringValues(simpleEnglishStrings)
-        assertEquals("RIPDPI Quick Connect", simpleEnglishValues.getValue("app_name"))
-        assertTrue(
-            "Quick Connect application label must stay locale-independent",
-            simpleEnglishStrings.readText().contains(
-                "<string name=\"app_name\" translatable=\"false\">RIPDPI Quick Connect</string>",
-            ),
-        )
 
         val englishValues = featureStringValues(File(resourcesDir, "values"))
         assertEquals("Interface mode", englishValues.getValue("settings_persona_title"))

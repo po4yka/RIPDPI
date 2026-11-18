@@ -73,52 +73,28 @@
   },
   "variants": [
     {
-      "name": "fdroidFullRelease",
+      "name": "fdroidRelease",
       "distribution": "fdroid",
-      "experience": "full",
       "applicationId": "com.poyka.ripdpi",
       "published": true
     },
     {
-      "name": "fdroidSimpleRelease",
-      "distribution": "fdroid",
-      "experience": "simple",
-      "applicationId": "com.poyka.ripdpi.simple",
-      "published": false
-    },
-    {
-      "name": "githubFullRelease",
+      "name": "githubRelease",
       "distribution": "github",
-      "experience": "full",
       "applicationId": "com.poyka.ripdpi",
       "published": true
     },
     {
-      "name": "githubSimpleRelease",
-      "distribution": "github",
-      "experience": "simple",
-      "applicationId": "com.poyka.ripdpi.simple",
-      "published": false
-    },
-    {
-      "name": "playFullRelease",
+      "name": "playRelease",
       "distribution": "play",
-      "experience": "full",
       "applicationId": "com.poyka.ripdpi",
       "published": true
-    },
-    {
-      "name": "playSimpleRelease",
-      "distribution": "play",
-      "experience": "simple",
-      "applicationId": "com.poyka.ripdpi.simple",
-      "published": false
     }
   ],
   "publishedReleaseTasks": [
-    "assembleFdroidFullRelease",
-    "assembleGithubFullRelease",
-    "bundlePlayFullRelease"
+    "assembleFdroidRelease",
+    "assembleGithubRelease",
+    "bundlePlayRelease"
   ],
   "assessment": {
     "riskLevel": "elevated",
