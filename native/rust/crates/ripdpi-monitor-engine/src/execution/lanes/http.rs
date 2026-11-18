@@ -41,6 +41,11 @@ pub(super) fn run_http_strategy_probe(
     // An ISP block stub is commonly a 302 to another site, so only a same-site redirect proves the
     // candidate reached the origin.
     let off_site_redirect = location.is_some_and(|location| redirect_leaves_site(&target.host, location));
+    let success = outcome == "http_ok" || (outcome == "http_redirect" && !off_site_redirect);
+    // A response that is not the origin's means the request passed TCP and was answered by a middlebox.
+    if !success && observation.response.is_some() {
+        details.push(ProbeDetail { key: "failureStage".to_string(), value: "http".to_string() });
+    }
     ProbeSample {
         result: ProbeResult {
             probe_type: "strategy_http".to_string(),
@@ -48,7 +53,7 @@ pub(super) fn run_http_strategy_probe(
             outcome: outcome.clone(),
             details,
         },
-        success: outcome == "http_ok" || (outcome == "http_redirect" && !off_site_redirect),
+        success,
         weight: 1,
         domain: Some(target.host.clone()),
         is_control: target.is_control,
@@ -115,6 +120,11 @@ mod tests {
         assert_eq!(same_site.result.outcome, "http_redirect");
         assert!(same_site.success);
         assert!(same_site.quality > off_site.quality);
+        let stage = |sample: &crate::execution::scoring::ProbeSample| {
+            sample.result.details.iter().find(|detail| detail.key == "failureStage").map(|detail| detail.value.clone())
+        };
+        assert_eq!(stage(&off_site).as_deref(), Some("http"));
+        assert_eq!(stage(&same_site), None);
     }
 
     #[test]
