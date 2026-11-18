@@ -35,6 +35,8 @@ abstract class PreparePresetTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val archive: RegularFileProperty
 
+    // Test seam. The build reads the environment in the task action, so the value
+    // stays out of the configuration cache.
     @get:Internal
     abstract val passphrase: Property<String>
 
@@ -48,6 +50,8 @@ abstract class PreparePresetTask : DefaultTask() {
 
     @TaskAction
     fun prepare() {
+        // A failed run must not leave an older preset to be packaged.
+        presetFile.get().asFile.delete()
         val bytes = archive.get().asFile.readBytes()
         val json = if (bytes.startsWithMagic()) decrypt(bytes) else bytes.toString(Charsets.UTF_8)
         val document =
@@ -83,11 +87,12 @@ abstract class PreparePresetTask : DefaultTask() {
     private fun decrypt(bytes: ByteArray): String {
         if (bytes.size <= HEADER_BYTES) throw GradleException("The archive is truncated")
         val secret =
-            passphrase.orNull?.takeIf(String::isNotEmpty)
-                ?: throw GradleException("Set RIPDPI_PRESET_PASSPHRASE to the export passphrase")
+            (passphrase.orNull ?: System.getenv(PASSPHRASE_ENV))?.takeIf(String::isNotEmpty)
+                ?: throw GradleException("Set $PASSPHRASE_ENV to the export passphrase")
         val input = DataInputStream(ByteArrayInputStream(bytes))
         input.skipBytes(MAGIC.size)
         val iterations = input.readInt()
+        if (iterations != ITERATIONS) throw GradleException("Unsupported archive header")
         val salt = ByteArray(SALT_BYTES).also(input::readFully)
         val nonce = ByteArray(NONCE_BYTES).also(input::readFully)
         return try {
@@ -110,6 +115,8 @@ abstract class PreparePresetTask : DefaultTask() {
 
     private companion object {
         val MAGIC = "RIPDPIE1".toByteArray(Charsets.US_ASCII)
+        const val PASSPHRASE_ENV = "RIPDPI_PRESET_PASSPHRASE"
+        const val ITERATIONS = 210_000
         const val SALT_BYTES = 16
         const val NONCE_BYTES = 12
         const val KEY_BITS = 256

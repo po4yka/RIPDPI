@@ -238,8 +238,11 @@ class AppStartupInitializer
                 runSubsystem(AppStartupSubsystem.PresetApply) {
                     when (val outcome = presetApplier.applyIfFresh()) {
                         PresetOutcome.Skipped -> Unit
+
                         PresetOutcome.Applied -> Logger.i { "Packaged preset applied" }
-                        is PresetOutcome.Rejected -> Logger.w { "Packaged preset rejected: ${outcome.reason}" }
+
+                        // Reported as a failed, non-gating subsystem: the app continues without a preset.
+                        is PresetOutcome.Rejected -> error("Packaged preset rejected: ${outcome.reason}")
                     }
                 }
             val resetEventConsume =

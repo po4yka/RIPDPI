@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 
 internal const val PresetAssetName = "preset.json"
 internal const val PresetPrefsName = "preset_state"
@@ -47,8 +48,19 @@ open class PresetApplier
             return if (json == null) PresetOutcome.Skipped else restore(json)
         }
 
-        private suspend fun restore(json: String): PresetOutcome =
-            when (val result = backupRestore.restore(json, RestoreSelection(true, true, true))) {
+        private suspend fun restore(json: String): PresetOutcome {
+            val result =
+                try {
+                    backupRestore.restore(json, RestoreSelection(true, true, true))
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") error: Exception,
+                ) {
+                    // The message can quote the document, so only the type leaves this class.
+                    return PresetOutcome.Rejected("unexpected ${error::class.simpleName}")
+                }
+            return when (result) {
                 is RestoreResult.Success -> {
                     check(prefs.edit().putBoolean(PresetKeyApplied, true).commit()) {
                         "Failed to persist preset state"
@@ -60,10 +72,15 @@ open class PresetApplier
                     PresetOutcome.Rejected("unsupported backup version ${result.found}")
                 }
 
-                is RestoreResult.Aborted, RestoreResult.NothingSelected -> {
-                    PresetOutcome.Rejected("not a readable backup document")
+                is RestoreResult.Aborted -> {
+                    PresetOutcome.Rejected("restore aborted: ${result.reason}")
+                }
+
+                RestoreResult.NothingSelected -> {
+                    PresetOutcome.Rejected("nothing selected")
                 }
             }
+        }
 
         protected open fun readPreset(): String? =
             try {
