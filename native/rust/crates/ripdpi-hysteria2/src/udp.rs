@@ -258,8 +258,10 @@ fn reassemble_fragment(
     payload: Vec<u8>,
 ) -> ReassemblyResult {
     let key = (session_id, packet_id, address);
-    // A fragment count that differs from the stored one belongs to another packet: start again.
-    if partials.get(&key).is_some_and(|partial| partial.fragments.len() != usize::from(fragment_count)) {
+    // The peer can reuse a packet ID before the next cleanup pass.
+    if partials.get(&key).is_some_and(|partial| {
+        partial.started_at.elapsed() >= REASSEMBLY_TIMEOUT || partial.fragments.len() != usize::from(fragment_count)
+    }) {
         partials.remove(&key);
     }
     if !partials.contains_key(&key) {
@@ -691,6 +693,27 @@ mod tests {
             (peer_b, b"B0B1".to_vec())
         );
         assert!(partials.is_empty());
+    }
+
+    #[test]
+    fn reassembly_restarts_when_a_peer_reuses_an_expired_packet_id() {
+        let mut partials = HashMap::new();
+        let key = (7, 42);
+        let peer = "echo.example:53".to_string();
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 0, 2, peer.clone(), b"old".to_vec()),
+            ReassemblyResult::Pending
+        ));
+        partials.get_mut(&(key.0, key.1, peer.clone())).expect("first fragment").started_at -= REASSEMBLY_TIMEOUT;
+
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 1, 2, peer.clone(), b"last".to_vec()),
+            ReassemblyResult::Pending
+        ));
+        assert_eq!(
+            complete_payload(reassemble_fragment(&mut partials, key, 0, 2, peer.clone(), b"new".to_vec())),
+            (peer, b"newlast".to_vec())
+        );
     }
 
     #[test]
