@@ -113,6 +113,7 @@ internal fun ScanSection(
                     !it.probeType.startsWith("selective_availability")
             }
         }
+    val scopeMarks = remember(visibleResults) { scopeMarks(visibleResults) }
     val scanStateTag =
         when {
             scan.activeProgress != null -> RipDpiTestTags.DiagnosticsScanStateProgress
@@ -224,6 +225,18 @@ internal fun ScanSection(
                     enabled = !effectiveBusy,
                     onInputChanged = onSelectiveMatrixHostsChanged,
                 )
+            }
+        }
+        if (scan.activeProgress != null || scopeMarks.isNotEmpty()) {
+            item(key = "scope", contentType = "scope") {
+                RipDpiCard {
+                    DiagnosticsScanScope(
+                        marks = if (scan.activeProgress == null) scopeMarks else emptyList(),
+                        progress = scan.activeProgress?.fraction,
+                        onSelectProbe = onSelectProbe,
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanScope),
+                    )
+                }
             }
         }
         scan.activeProgress?.let { progress ->
