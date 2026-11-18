@@ -73,8 +73,8 @@ internal class ProfileSelectionRows(
     }
 
     fun clearUnavailableChoice(group: ProxyGroup): Boolean {
-        val storedId = decodeChoice(records.read(ChoiceNamespace, group.id)).profileId ?: return false
-        if (group.members.any { it.id == storedId }) return false
+        val storedId = decodeChoice(records.read(ChoiceNamespace, group.id)).profileId
+        if (storedId == null || group.members.any { it.id == storedId }) return false
         setChoice(group.id, null, false)
         return true
     }

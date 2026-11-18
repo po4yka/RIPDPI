@@ -145,15 +145,19 @@ internal class ProfileMutationRowWriter(
             }
 
             is SubscriptionRefreshIntent -> {
-                rows.groups.list()
-                intent.awgProfiles.forEach(::saveAwg)
-                rows.groups.replace(intent.groups)
-                clearedSelectorChoices =
-                    intent.groups.mapNotNull { group ->
-                        group.id.takeIf { group.subscription != null && rows.selection.clearUnavailableChoice(group) }
-                    }
+                refreshSubscriptions(intent)
             }
         }
+    }
+
+    private fun refreshSubscriptions(intent: SubscriptionRefreshIntent) {
+        rows.groups.list()
+        intent.awgProfiles.forEach(::saveAwg)
+        rows.groups.replace(intent.groups)
+        clearedSelectorChoices =
+            intent.groups.mapNotNull { group ->
+                group.id.takeIf { group.subscription != null && rows.selection.clearUnavailableChoice(group) }
+            }
     }
 
     private fun selectXray(intent: XrayProviderSelectIntent) {
