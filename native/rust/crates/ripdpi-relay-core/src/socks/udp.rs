@@ -279,10 +279,11 @@ where
                             break Ok(());
                         }
                     };
-                if let Err(error) = sent
-                    && uplink_send_is_fatal(&error, payload.len(), is_xudp, telemetry, &mut termination_reason)
-                {
-                    break Err(error);
+                if let Err(error) = sent {
+                    if uplink_send_is_fatal(&error, payload.len(), is_xudp, telemetry, &mut termination_reason) {
+                        break Err(error);
+                    }
+                    continue;
                 }
                 if is_xudp {
                     telemetry.record_xudp_uplink(payload.len(), udp_session.queue_high_water_mark());
@@ -533,12 +534,17 @@ mod tests {
     #[derive(Default)]
     struct FakeSocksTelemetry {
         handshake_errors: Arc<AtomicU64>,
+        xudp_bytes: Arc<AtomicUsize>,
         targets: std::sync::Mutex<Vec<String>>,
     }
 
     impl SocksTelemetry for FakeSocksTelemetry {
         fn next_attempt_id(&self) -> u64 {
             0
+        }
+
+        fn record_xudp_uplink(&self, bytes: usize, _high_water_mark: usize) {
+            self.xudp_bytes.fetch_add(bytes, Ordering::Relaxed);
         }
 
         fn record_target(&self, target: String) {
@@ -981,7 +987,9 @@ mod tests {
         let (sent_tx, mut sent_rx) = mpsc::unbounded_channel();
         let mut carrier = RejectFirstUplinkCarrier { rejected: false, sent: sent_tx };
         let telemetry = FakeSocksTelemetry::default();
-        let config = silent_session_config(Duration::from_secs(300));
+        let xudp_bytes = Arc::clone(&telemetry.xudp_bytes);
+        let mut config = silent_session_config(Duration::from_secs(300));
+        config.backend_kind = "vless_reality".into();
         let cancel = CancellationToken::new();
         let pump_cancel = cancel.clone();
 
@@ -1016,6 +1024,7 @@ mod tests {
             .expect("pump task panicked");
         outcome.result.expect("a rejected datagram must not end the association as an error");
         assert_eq!("runtime_cancelled", outcome.termination_reason);
+        assert_eq!(xudp_bytes.load(Ordering::Relaxed), b"after-reject".len());
         drop(control_peer);
     }
 
