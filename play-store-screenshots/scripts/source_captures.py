@@ -21,7 +21,7 @@ SCREENS = {
     "backup": ("backup_restore", "backup"),
 }
 INPUT_PATHS = (
-    "app/src/main", "app/src/full", "app/src/debug", "app/src/github", "core",
+    "app/src/main", "app/src/debug", "app/src/github", "core",
     "app/build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
     "build-logic/convention/src/main",
 )
