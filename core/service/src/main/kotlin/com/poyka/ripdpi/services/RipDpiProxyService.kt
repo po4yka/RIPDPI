@@ -293,7 +293,13 @@ class RipDpiProxyService :
         }
         return when {
             intent.hasStaleServiceCommand(serviceIntentArbiter) -> {
-                START_STICKY
+                if (pauseAuthority.snapshot()?.mode ==
+                    Mode.Proxy.preferenceValue
+                ) {
+                    START_STICKY
+                } else {
+                    discardIdleStart(startId)
+                }
             }
 
             action == TimedPauseController.PauseRestoreAction ||
