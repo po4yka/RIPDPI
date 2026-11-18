@@ -597,6 +597,33 @@ class AppStartupInitializerFailureTest {
     }
 
     @Test
+    fun `rejected preset is reported as failed and does not gate startup`() =
+        runTest {
+            fun initializer() =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    startupOverrides = StartupTestOverrides(presetAsset = "not a backup document"),
+                    scope = backgroundScope,
+                )
+
+            val report = initializer().initializeSubsystems()
+
+            assertEquals(AppStartupSubsystemStatus.Failed, report.presetApply.status)
+            val message = report.presetApply.errorMessage.orEmpty()
+            assertTrue(message.startsWith("Packaged preset rejected: "))
+            assertFalse(message.contains("not a backup document"))
+
+            val gated = initializer()
+            gated.initialize()
+            assertEquals(
+                AppStartupReadinessState.Ready,
+                gated.readiness.first { it != AppStartupReadinessState.Pending },
+            )
+        }
+
+    @Test
     fun `detection observation failure is swallowed after successful subsystem initialization`() =
         runTest {
             val compatibilityResetter = RecordingAppCompatibilityResetter()
@@ -860,6 +887,7 @@ class AppStartupInitializerFailureTest {
 
 private data class StartupTestOverrides(
     val profileMutations: ProfileMutationCoordinator = NoOpProfileMutationCoordinator,
+    val presetAsset: String? = null,
 )
 
 private fun createInitializer(
@@ -898,11 +926,13 @@ private fun createInitializer(
                 remoteDeviceAcceptanceStartupReconciler = remoteDeviceAcceptanceStartupReconciler,
             ),
         presetApplier =
-            PresetApplier(
+            object : PresetApplier(
                 application,
                 NoOpAppSettingsRepository,
                 BackupRestoreUseCase(startupOverrides.profileMutations),
-            ),
+            ) {
+                override fun readPreset(): String? = startupOverrides.presetAsset
+            },
         appShortcutsPublisher =
             AppShortcutsPublisher(
                 context = application,
