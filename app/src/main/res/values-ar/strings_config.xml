@@ -18,6 +18,8 @@
     <string name="config_local_bypass_strategy_title">استراتيجية التجاوز</string>
     <string name="config_local_bypass_strategy_auto">تلقائي (موصى به)</string>
     <string name="config_run_strategy_test">تشغيل اختبار الاستراتيجيات</string>
+    <string name="config_strategy_lanes_more">%1$d أخرى</string>
+    <string name="config_strategy_lanes_sites">المواقع المفتوحة: %1$d من %2$d</string>
     <string name="config_vpn_add_profile_title">إضافة ملف تعريف</string>
     <string name="config_vpn_add_server_paste">لصق الرابط</string>
     <string name="config_vpn_add_server_scan">مسح QR</string>

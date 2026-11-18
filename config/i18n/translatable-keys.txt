@@ -804,6 +804,8 @@ app:config_run_strategy_test
 app:config_save
 app:config_scope_title
 app:config_split_marker_helper
+app:config_strategy_lanes_more
+app:config_strategy_lanes_sites
 app:config_tls_record_marker_helper
 app:config_udp_chain_hint
 app:config_validation_banner_body

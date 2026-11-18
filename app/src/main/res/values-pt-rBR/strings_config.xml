@@ -18,6 +18,8 @@
     <string name="config_local_bypass_strategy_title">Estratégia de desvio</string>
     <string name="config_local_bypass_strategy_auto">Automático (recomendado)</string>
     <string name="config_run_strategy_test">Executar teste de estratégias</string>
+    <string name="config_strategy_lanes_more">Mais %1$d</string>
+    <string name="config_strategy_lanes_sites">Sites abertos: %1$d de %2$d</string>
     <string name="config_vpn_add_profile_title">Adicionar perfil</string>
     <string name="config_vpn_add_server_paste">Colar link</string>
     <string name="config_vpn_add_server_scan">Escanear QR</string>

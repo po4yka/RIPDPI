@@ -43,6 +43,7 @@ class ConnectionStrategyLanesTest {
         val lanes = report().toStrategyLanes(finishedAt = 7L)
 
         assertEquals(7L, lanes?.finishedAt)
+        assertEquals(0, lanes?.hiddenCount)
         assertEquals(
             listOf(
                 StrategyLaneUiState("Fake + split", StrategyLaneOutcome.Passed, 6, 6, 141, recommended = true),
@@ -65,10 +66,10 @@ class ConnectionStrategyLanesTest {
                 recommendation = recommendation(tcpCandidateId = "c12"),
             )
 
-        assertEquals(
-            listOf("Candidate 12") + (1..7).map { "Candidate $it" },
-            report.toStrategyLanes(0)?.lanes?.map { it.label },
-        )
+        val lanes = report.toStrategyLanes(0)
+
+        assertEquals(listOf("Candidate 12") + (1..7).map { "Candidate $it" }, lanes?.lanes?.map { it.label })
+        assertEquals(4, lanes?.hiddenCount)
     }
 
     @Test
@@ -126,7 +127,7 @@ class ConnectionStrategyLanesTest {
         composeRule
             .onNode(
                 hasText("Fake + split") and
-                    hasContentDescription(resource(R.string.diagnostics_strategy_metric_targets) + " 6/6") and
+                    hasContentDescription(resource(R.string.config_strategy_lanes_sites, 6, 6)) and
                     hasText(resource(R.string.unit_milliseconds_format, 141L)) and
                     hasStateDescription(resource(R.string.diagnostics_strategy_selection_winner)),
             ).assertIsDisplayed()
@@ -217,13 +218,48 @@ class ConnectionStrategyLanesTest {
 }
 
 internal class FakeDiagnosticsHistorySource(
-    private val sessions: List<DiagnosticScanSession> = emptyList(),
+    sessions: List<DiagnosticScanSession> = emptyList(),
+    private val sessionFlow: Flow<List<DiagnosticScanSession>> = flowOf(sessions),
 ) : DiagnosticsHistorySource {
     override fun observeConnectionSessions(limit: Int): Flow<List<DiagnosticConnectionSession>> = flowOf(emptyList())
 
-    override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> = flowOf(sessions)
+    override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> = sessionFlow
 
     override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> = flowOf(emptyList())
 
     override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? = null
 }
+
+internal fun strategyTestSession(finishedAt: Long): DiagnosticScanSession =
+    DiagnosticScanSession(
+        id = "strategy-test",
+        profileId = "automatic-probing",
+        pathMode = "RAW_PATH",
+        serviceMode = null,
+        status = "completed",
+        summary = "",
+        report =
+            DiagnosticsSessionProjection(
+                strategyProbeReport =
+                    StrategyProbeReport(
+                        suiteId = "quick_v1",
+                        tcpCandidates =
+                            listOf(
+                                StrategyProbeCandidateSummary(
+                                    id = "split",
+                                    label = "Split",
+                                    family = "tcp",
+                                    outcome = "success",
+                                    rationale = "",
+                                    succeededTargets = 3,
+                                    totalTargets = 3,
+                                    weightedSuccessScore = 3,
+                                    totalWeight = 3,
+                                    qualityScore = 3,
+                                ),
+                            ),
+                    ),
+            ),
+        startedAt = finishedAt - 1,
+        finishedAt = finishedAt,
+    )

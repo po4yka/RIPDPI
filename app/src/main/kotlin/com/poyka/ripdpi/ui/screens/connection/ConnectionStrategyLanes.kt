@@ -6,6 +6,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -13,7 +15,12 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -25,6 +32,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -33,12 +41,16 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.delay
 
 private const val NameWeight = 0.42f
 private const val LaneWeight = 0.58f
@@ -46,6 +58,9 @@ private const val MaxLaneSegments = 12
 
 // Each lane starts one step after the lane above it and takes this many steps to fill.
 private const val StaggerSpan = 3f
+
+// From this font scale a name no longer fits beside its lane, so it moves above it.
+private const val StackedLaneFontScale = 1.3f
 private val LaneHeight = 12.dp
 private val LaneStroke = 3.dp
 private val RecommendedLaneStroke = 4.dp
@@ -63,15 +78,16 @@ internal fun ConnectionStrategyLanes(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
-    // The sweep runs when the lanes appear and again for a new result, not on recomposition.
-    val sweep = remember(state.finishedAt) { Animatable(if (motion.animationsEnabled) 0f else 1f) }
-    LaunchedEffect(sweep) { sweep.animateTo(1f, motion.signatureTween()) }
-    val age =
+    // The sweep plays once for each result. Coming back to the screen must not replay it.
+    var sweptResult by rememberSaveable { mutableLongStateOf(Long.MIN_VALUE) }
+    val sweep =
         remember(state.finishedAt) {
-            DateUtils
-                .getRelativeTimeSpanString(state.finishedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
-                .toString()
+            Animatable(if (motion.animationsEnabled && sweptResult != state.finishedAt) 0f else 1f)
         }
+    LaunchedEffect(sweep) {
+        sweep.animateTo(1f, motion.signatureTween())
+        sweptResult = state.finishedAt
+    }
     Column(
         modifier =
             modifier
@@ -87,14 +103,40 @@ internal fun ConnectionStrategyLanes(
                 progress = { ((sweep.value * (count + StaggerSpan - 1) - index) / StaggerSpan).coerceIn(0f, 1f) },
             )
         }
-        Text(
-            text = age,
-            style = RipDpiThemeTokens.type.caption,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-            modifier = Modifier.align(Alignment.End),
-        )
+        StrategyLanesFooter(state)
     }
 }
+
+/** The age of the test, and how many candidates the lanes leave out. */
+@Composable
+private fun StrategyLanesFooter(state: StrategyLanesUiState) {
+    val age by produceState(relativeAge(state.finishedAt), state.finishedAt) {
+        while (true) {
+            // First, so a new result does not keep the age of the result before it.
+            value = relativeAge(state.finishedAt)
+            delay(DateUtils.MINUTE_IN_MILLIS)
+        }
+    }
+    val style = RipDpiThemeTokens.type.caption
+    val color = RipDpiThemeTokens.colors.mutedForeground
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        if (state.hiddenCount > 0) {
+            Text(
+                text = stringResource(R.string.config_strategy_lanes_more, state.hiddenCount),
+                style = style,
+                color = color,
+            )
+        } else {
+            Spacer(Modifier)
+        }
+        Text(text = age, style = style, color = color)
+    }
+}
+
+private fun relativeAge(finishedAt: Long): String =
+    DateUtils
+        .getRelativeTimeSpanString(finishedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
+        .toString()
 
 @Composable
 private fun StrategyLaneRow(
@@ -102,61 +144,89 @@ private fun StrategyLaneRow(
     progress: () -> Float,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
     val passes = lane.outcome == StrategyLaneOutcome.Passed || lane.outcome == StrategyLaneOutcome.Partial
+    val winner = stringResource(R.string.diagnostics_strategy_selection_winner)
+    val stacked = LocalDensity.current.fontScale >= StackedLaneFontScale
+    val name: @Composable (Modifier) -> Unit = { nameModifier ->
+        Text(
+            text = lane.label,
+            style = RipDpiThemeTokens.type.caption,
+            fontWeight = if (lane.recommended) FontWeight.SemiBold else null,
+            color = if (passes) colors.foreground else colors.mutedForeground,
+            maxLines = if (stacked) 2 else 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = nameModifier,
+        )
+    }
+    val rowModifier =
+        Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+            if (lane.recommended) stateDescription = winner
+        }
+    val gap = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)
+    if (stacked) {
+        Column(modifier = rowModifier) {
+            name(Modifier.fillMaxWidth())
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = gap) {
+                StrategyLaneTrack(lane, passes, progress, Modifier.weight(1f))
+            }
+        }
+    } else {
+        Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = gap) {
+            name(Modifier.weight(NameWeight))
+            StrategyLaneTrack(lane, passes, progress, Modifier.weight(LaneWeight))
+        }
+    }
+}
+
+/** The lane, the sites it opened, and its time or state. */
+@Composable
+private fun RowScope.StrategyLaneTrack(
+    lane: StrategyLaneUiState,
+    passes: Boolean,
+    progress: () -> Float,
+    laneModifier: Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    // A blocked candidate can still open a site or two; those are muted so they do not look like a pass.
     val fill =
         when {
             lane.recommended -> colors.signal
+            lane.outcome == StrategyLaneOutcome.Passed -> colors.success
             lane.outcome == StrategyLaneOutcome.Partial -> colors.warning
-            else -> colors.success
+            else -> colors.mutedForeground
         }
-    val textColor = if (passes) colors.foreground else colors.mutedForeground
-    val weight = if (lane.recommended) FontWeight.SemiBold else null
-    val winner = stringResource(R.string.diagnostics_strategy_selection_winner)
+    val track = colors.outlineVariant
+    Canvas(laneModifier.height(LaneHeight)) { drawLane(lane, progress(), fill, track) }
+    val skipped = lane.outcome == StrategyLaneOutcome.Skipped
     val sites = "${lane.succeededTargets}/${lane.totalTargets}"
-    val sitesLabel = stringResource(R.string.diagnostics_strategy_metric_targets) + " " + sites
-    Row(
+    val sitesLabel = stringResource(R.string.config_strategy_lanes_sites, lane.succeededTargets, lane.totalTargets)
+    Text(
+        text = sites,
+        style = type.monoSmall,
+        color = colors.mutedForeground,
+        // A skipped lane has no sites, but it keeps the column so every lane ends at one edge.
         modifier =
-            Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-                if (lane.recommended) stateDescription = winner
+            if (skipped) {
+                Modifier.alpha(0f).clearAndSetSemantics {}
+            } else {
+                Modifier.semantics { contentDescription = sitesLabel }
             },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-    ) {
-        Text(
-            text = lane.label,
-            style = type.caption,
-            fontWeight = weight,
-            color = textColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(NameWeight),
-        )
-        val track = colors.outlineVariant
-        Canvas(Modifier.weight(LaneWeight).height(LaneHeight)) { drawLane(lane, progress(), fill, track) }
-        val skipped = lane.outcome == StrategyLaneOutcome.Skipped
-        Text(
-            text = sites,
-            style = type.monoSmall,
-            color = colors.mutedForeground,
-            // A skipped lane has no sites, but it keeps the column so every lane ends at one edge.
-            modifier =
-                if (skipped) {
-                    Modifier.alpha(0f).clearAndSetSemantics {}
-                } else {
-                    Modifier.semantics { contentDescription = sitesLabel }
-                },
-        )
-        Text(
-            text = laneValue(lane),
-            style = type.monoSmall,
-            fontWeight = weight,
-            color = if (lane.recommended) colors.signal else textColor,
-            textAlign = TextAlign.End,
-            maxLines = 1,
-            modifier = Modifier.widthIn(min = ValueMinWidth),
-        )
-    }
+    )
+    Text(
+        text = laneValue(lane),
+        style = type.monoSmall,
+        fontWeight = if (lane.recommended) FontWeight.SemiBold else null,
+        color =
+            when {
+                lane.recommended -> colors.signal
+                passes -> colors.foreground
+                else -> colors.mutedForeground
+            },
+        textAlign = TextAlign.End,
+        maxLines = 1,
+        modifier = Modifier.widthIn(min = ValueMinWidth),
+    )
 }
 
 @Composable
@@ -203,3 +273,42 @@ private fun DrawScope.drawLane(
         }
     }
 }
+
+@Preview(showBackground = true)
+@Composable
+private fun ConnectionStrategyLanesPreview() {
+    fun lane(
+        label: String,
+        outcome: StrategyLaneOutcome,
+        succeeded: Int = 0,
+        latencyMs: Long? = null,
+        recommended: Boolean = false,
+    ) = StrategyLaneUiState(
+        label = label,
+        outcome = outcome,
+        succeededTargets = succeeded,
+        totalTargets = if (outcome == StrategyLaneOutcome.Skipped) 0 else PreviewTargets,
+        latencyMs = latencyMs,
+        recommended = recommended,
+    )
+    val passed = StrategyLaneOutcome.Passed
+    RipDpiTheme {
+        ConnectionStrategyLanes(
+            state =
+                StrategyLanesUiState(
+                    lanes =
+                        persistentListOf(
+                            lane("Fake + split", passed, succeeded = 6, latencyMs = 84, recommended = true),
+                            lane("OOB byte", passed, succeeded = 6, latencyMs = 110),
+                            lane("Disorder", StrategyLaneOutcome.Partial, succeeded = 5, latencyMs = 132),
+                            lane("Split at SNI", StrategyLaneOutcome.Blocked, succeeded = 1),
+                            lane("QUIC drop", StrategyLaneOutcome.Skipped),
+                        ),
+                    finishedAt = System.currentTimeMillis(),
+                    hiddenCount = 4,
+                ),
+        )
+    }
+}
+
+private const val PreviewTargets = 6

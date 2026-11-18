@@ -537,6 +537,8 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_local_bypass_strategy_title">绕过策略</string>
     <string name="config_local_bypass_strategy_auto">自动（推荐）</string>
     <string name="config_run_strategy_test">运行策略测试</string>
+    <string name="config_strategy_lanes_more">另有 %1$d 个</string>
+    <string name="config_strategy_lanes_sites">已打开的网站：%1$d / %2$d</string>
     <string name="config_placeholder_chain_dsl">[tcp]
 tlsrec extlen
 hostfake endhost+8 midhost=midsld host=googlevideo.com

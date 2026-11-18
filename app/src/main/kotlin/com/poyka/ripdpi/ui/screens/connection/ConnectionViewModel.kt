@@ -20,11 +20,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -222,8 +224,15 @@ class ConnectionViewModel
                         .observeDiagnosticsSessions(StrategyLanesSessionLimit)
                         .map { sessions -> sessions.latestStrategyLanes() }
                         .distinctUntilChanged()
-                        // The rest of the screen must not wait for the history query.
-                        .onStart { emit(null) },
+                        // The screen must not fail with the history query. The read starts again with the
+                        // next subscription, so the lanes come back then.
+                        .catch { failure ->
+                            log.e(failure) { "Failed to read the last strategy test" }
+                            emit(null)
+                        }
+                        // Its own state: the screen does not wait for the query, and a return to the screen
+                        // shows the last lanes at once, not an empty step.
+                        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(StrategyLanesStopTimeoutMillis), null),
             )
 
         init {

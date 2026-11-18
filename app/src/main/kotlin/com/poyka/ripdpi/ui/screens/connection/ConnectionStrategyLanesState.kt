@@ -24,12 +24,15 @@ data class StrategyLaneUiState(
 data class StrategyLanesUiState(
     val lanes: ImmutableList<StrategyLaneUiState>,
     val finishedAt: Long,
+    /** Candidates of the test that the lanes leave out. */
+    val hiddenCount: Int = 0,
 )
 
 internal const val MaxStrategyLanes = 8
 
 // shortcut: only the newest sessions are searched, raise the limit if the last strategy test falls out of it.
 internal const val StrategyLanesSessionLimit = 8
+internal const val StrategyLanesStopTimeoutMillis = 5_000L
 
 /**
  * Sessions arrive newest first. The newest strategy test wins even when it has no candidates:
@@ -41,7 +44,7 @@ internal fun List<DiagnosticScanSession>.latestStrategyLanes(): StrategyLanesUiS
     }
 
 internal fun StrategyProbeReport.toStrategyLanes(finishedAt: Long): StrategyLanesUiState? {
-    val lanes =
+    val ranked =
         (
             tcpCandidates.map { it.toLane(recommendation?.tcpCandidateId) } +
                 quicCandidates.map { it.toLane(recommendation?.quicCandidateId) }
@@ -50,8 +53,13 @@ internal fun StrategyProbeReport.toStrategyLanes(finishedAt: Long): StrategyLane
                 .thenBy { it.outcome }
                 .thenByDescending { it.succeededTargets.toFloat() / it.totalTargets.coerceAtLeast(1) }
                 .thenBy { it.latencyMs ?: Long.MAX_VALUE },
-        ).take(MaxStrategyLanes)
-    return if (lanes.isEmpty()) null else StrategyLanesUiState(lanes.toImmutableList(), finishedAt)
+        )
+    if (ranked.isEmpty()) return null
+    return StrategyLanesUiState(
+        lanes = ranked.take(MaxStrategyLanes).toImmutableList(),
+        finishedAt = finishedAt,
+        hiddenCount = (ranked.size - MaxStrategyLanes).coerceAtLeast(0),
+    )
 }
 
 private fun StrategyProbeCandidateSummary.toLane(recommendedId: String?): StrategyLaneUiState {

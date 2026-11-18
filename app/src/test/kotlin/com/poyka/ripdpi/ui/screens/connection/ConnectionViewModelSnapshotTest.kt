@@ -13,14 +13,18 @@ import com.poyka.ripdpi.data.RelayPresetCatalog
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
 import com.poyka.ripdpi.services.NaiveProxyCheckOutcome
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -74,15 +78,51 @@ class ConnectionViewModelSnapshotTest {
             collector.cancel()
         }
 
+    @Test
+    fun `the last strategy test reaches the screen state`() =
+        runTest {
+            val history = FakeDiagnosticsHistorySource(listOf(strategyTestSession(finishedAt = 9L)))
+            val viewModel = createViewModel(history)
+            val collector = launch { viewModel.uiState.collect {} }
+            runCurrent()
+
+            val lanes = viewModel.uiState.value.strategyLanes
+
+            assertEquals(9L, lanes?.finishedAt)
+            collector.cancel()
+        }
+
+    @Test
+    fun `a failing history read leaves the screen usable and without lanes`() =
+        runTest {
+            val failing = FakeDiagnosticsHistorySource(sessionFlow = flow { error("corrupt report") })
+            val viewModel = createViewModel(failing)
+            val collector = launch { viewModel.uiState.collect {} }
+            runCurrent()
+
+            assertFalse(viewModel.uiState.value.isLoading)
+            assertNull(viewModel.uiState.value.strategyLanes)
+            collector.cancel()
+        }
+
+    private fun createViewModel(diagnosticsHistory: DiagnosticsHistorySource): ConnectionViewModel =
+        createViewModel(
+            serviceStateStore = FakeServiceStateStore(),
+            networkSnapshotProvider = CountingNativeNetworkSnapshotProvider(),
+            relayProfileStore = CountingRelayProfileStore(),
+            diagnosticsHistory = diagnosticsHistory,
+        )
+
     private fun createViewModel(
         serviceStateStore: FakeServiceStateStore,
         networkSnapshotProvider: NativeNetworkSnapshotProvider,
         relayProfileStore: RelayProfileStore,
+        diagnosticsHistory: DiagnosticsHistorySource = FakeDiagnosticsHistorySource(),
     ): ConnectionViewModel {
         val appSettingsRepository = FakeAppSettingsRepository()
         return ConnectionViewModel(
             savedStateHandle = SavedStateHandle(),
-            diagnosticsHistory = FakeDiagnosticsHistorySource(),
+            diagnosticsHistory = diagnosticsHistory,
             dependencies =
                 ConnectionViewModelDependencies(
                     reconnectCoordinator = FakeRunningServiceReconnect(),
