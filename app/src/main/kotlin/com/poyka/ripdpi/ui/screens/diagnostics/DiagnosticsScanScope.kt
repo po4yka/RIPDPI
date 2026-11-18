@@ -6,8 +6,8 @@ import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
@@ -26,12 +26,15 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -173,13 +176,14 @@ internal fun DiagnosticsScanScope(
     val sweep = rememberScopeSweep(scanning && motion.allowsInfiniteMotion)
     val live = animateFloatAsState((progress ?: 0f).coerceIn(0f, 1f), motion.stateTween(), label = "Scope progress")
     val currentOnSelectProbe by rememberUpdatedState(onSelectProbe)
-    val palette = ScopePalette(colors.outline, colors.signal, colors.success, colors.destructive, colors.warning)
+    val palette =
+        ScopePalette(colors.outline, colors.signal, colors.success, colors.destructive, colors.warning, colors.card)
     val scope = rememberCoroutineScope()
     // The ring on a tapped mark: it shows at once and fades, so no mark stays selected.
     val press = remember { Animatable(0f) }
     var pressed by remember { mutableStateOf<ScopeMark?>(null) }
 
-    Canvas(
+    Spacer(
         modifier
             .fillMaxWidth()
             .wrapContentWidth()
@@ -207,26 +211,29 @@ internal fun DiagnosticsScanScope(
                         }
                     }
                 }
+            }.drawWithCache {
+                // The face does not change between frames, so its brushes are made once for a size.
+                val face = ScopeFace(scopeFrame(size, labelBand), palette, this)
+                val frame = face.frame
+                onDrawBehind {
+                    drawScopeFace(face, layout.sectorStarts, sectorLabels, scaleLabels)
+                    if (scanning) {
+                        drawSweep(face, if (motion.allowsInfiniteMotion) sweep.floatValue else live.value)
+                    } else {
+                        drawResult(face, marks, reveal.time.value)
+                        pressed?.takeIf { press.value > 0f }?.let {
+                            drawCircle(
+                                colors.foreground.copy(alpha = press.value),
+                                PressRadius.toPx() + RippleGrowth.toPx() * (1f - press.value),
+                                frame.at(it),
+                                style = Stroke(MarkStroke.toPx()),
+                            )
+                        }
+                    }
+                    drawHub(face, hubText, live.value.takeIf { scanning })
+                }
             },
-    ) {
-        val frame = scopeFrame(size, labelBand)
-        drawScopeFace(frame, palette.line, layout.sectorStarts, sectorLabels, scaleLabels)
-        if (scanning) {
-            drawSweep(frame, if (motion.allowsInfiniteMotion) sweep.floatValue else live.value, palette.arm)
-            drawProgressArc(frame, live.value, palette.arm)
-        } else {
-            drawResult(frame, marks, reveal.time.value, palette)
-            pressed?.takeIf { press.value > 0f }?.let {
-                drawCircle(
-                    colors.foreground.copy(alpha = press.value),
-                    PressRadius.toPx() + RippleGrowth.toPx() * (1f - press.value),
-                    frame.at(it),
-                    style = Stroke(MarkStroke.toPx()),
-                )
-            }
-        }
-        drawHub(frame, palette.line, hubText)
-    }
+    )
 }
 
 /**
@@ -324,36 +331,19 @@ private fun rememberScopeSweep(moves: Boolean): FloatState {
     return sweep
 }
 
-private fun DrawScope.drawProgressArc(
-    frame: ScopeFrame,
-    progress: Float,
-    color: Color,
-) {
-    val radius = frame.hub + HubGap.toPx()
-    drawArc(
-        color,
-        TopDegrees,
-        FullTurn * progress,
-        useCenter = false,
-        topLeft = frame.center - Offset(radius, radius),
-        size = Size(2 * radius, 2 * radius),
-        style = Stroke(ArmWidth.toPx(), cap = StrokeCap.Round),
-    )
-}
-
 /** The reveal at [time]: the arm on its one turn, the marks it has passed, and the closing pulse. */
 private fun DrawScope.drawResult(
-    frame: ScopeFrame,
+    face: ScopeFace,
     marks: List<ScopeMark>,
     time: Float,
-    palette: ScopePalette,
 ) {
-    if (time > 0f && time < 1f) drawSweep(frame, time, palette.arm)
-    marks.forEach { if (time >= it.turn) drawMark(frame.at(it), it, time - it.turn, palette) }
+    val frame = face.frame
+    if (time > 0f && time < 1f) drawSweep(face, time)
+    marks.forEach { if (time >= it.turn) drawMark(frame.at(it), it, time - it.turn, face.palette) }
     val pulse = (time - 1f) / (RevealEnd - 1f)
     if (pulse > 0f && pulse < 1f) {
         drawCircle(
-            palette.arm.copy(alpha = PulseAlpha * (1f - pulse)),
+            face.palette.arm.copy(alpha = PulseAlpha * (1f - pulse)),
             frame.hub + (frame.rim - frame.hub) * pulse,
             frame.center,
             style = Stroke(ArmWidth.toPx()),
@@ -367,7 +357,47 @@ private class ScopePalette(
     val answered: Color,
     val blocked: Color,
     val silent: Color,
+    val hub: Color,
 )
+
+/** The frame with the brushes of the face. The arm brushes point to the right; the arm is drawn in a turned canvas. */
+private class ScopeFace(
+    val frame: ScopeFrame,
+    val palette: ScopePalette,
+    density: Density,
+) {
+    private val center = frame.center
+    val armTip = center + Offset(frame.rim, 0f)
+
+    /** A light under the dial that is strongest at the hub. */
+    val disc =
+        Brush.radialGradient(
+            listOf(palette.arm.copy(alpha = DiscAlpha), palette.arm.copy(alpha = 0f)),
+            center,
+            frame.rim,
+        )
+
+    /** The afterglow: it ends at the arm and fades over [GlowTurn] behind it. */
+    val glow =
+        Brush.sweepGradient(
+            0f to palette.arm.copy(alpha = 0f),
+            1f - GlowTurn to palette.arm.copy(alpha = 0f),
+            1f to palette.arm.copy(alpha = GlowAlpha),
+            center = center,
+        )
+    val arm =
+        Brush.horizontalGradient(
+            listOf(palette.arm.copy(alpha = ArmRootAlpha), palette.arm),
+            center.x + frame.hub,
+            center.x + frame.rim,
+        )
+    val tip =
+        Brush.radialGradient(
+            listOf(palette.arm.copy(alpha = TipAlpha), palette.arm.copy(alpha = 0f)),
+            armTip,
+            with(density) { TipGlow.toPx() },
+        )
+}
 
 private class ScopeFrame(
     val center: Offset,
@@ -399,61 +429,108 @@ private fun Density.scopeFrame(
     size: Size,
     labelBand: Float,
 ): ScopeFrame {
-    val rim = (size.minDimension / 2 - labelBand - LabelGap.toPx()).coerceAtLeast(MinRim.toPx())
+    val outside = labelBand + LabelGap.toPx() + RimGap.toPx()
+    val rim = (size.minDimension / 2 - outside).coerceAtLeast(MinRim.toPx())
     return ScopeFrame(Offset(size.width / 2, size.height / 2), rim * HubShare, rim)
 }
 
+/**
+ * The face: a lit disc, bands between the scale rings, a ruler of the log scale at both sides of the label gap, and
+ * a double rim with a notch at each sector edge.
+ */
 private fun DrawScope.drawScopeFace(
-    frame: ScopeFrame,
-    line: Color,
+    face: ScopeFace,
     sectorStarts: List<Float>,
     sectorLabels: List<TextLayoutResult>,
     scaleLabels: List<TextLayoutResult>,
 ) {
-    val hair = Stroke(Hairline.toPx())
+    val frame = face.frame
+    val line = face.palette.line
+    val hair = Hairline.toPx()
+    drawCircle(face.disc, frame.rim, frame.center)
+    // Every second band is tinted, so the rings read as steps of the scale and not as lone lines.
+    val rings = ScaleRingMillis.map { frame.radius(scopeReach(it.toLong())) }
+    val edges = listOf(frame.hub) + rings + frame.radius(LaneReach)
+    edges.zipWithNext().forEachIndexed { index, (inner, outer) ->
+        if (index % 2 == 0) drawBand(line.copy(alpha = BandAlpha), frame, inner, outer)
+    }
+    // The lane with no measured time is one tone darker than the bands.
+    drawBand(line.copy(alpha = LaneAlpha), frame, frame.radius(LaneReach), frame.rim)
     ScaleRingMillis.forEachIndexed { index, millis ->
         val radius = frame.radius(scopeReach(millis.toLong()))
-        drawCircle(line.copy(alpha = RingAlpha), radius, frame.center, style = hair)
+        drawCircle(line.copy(alpha = RingAlpha), radius, frame.center, style = Stroke(hair))
         val label = scaleLabels[index]
-        drawText(label, topLeft = frame.center - Offset(label.size.width / 2f, radius + label.size.height))
+        drawText(label, topLeft = frame.center - Offset(label.size.width / 2f, radius + label.size.height + hair))
     }
-    // Outside this line a mark has no measured time.
-    drawCircle(line.copy(alpha = FaintAlpha), frame.radius(LaneReach), frame.center, style = hair)
-    drawCircle(line.copy(alpha = RimAlpha), frame.rim, frame.center, style = hair)
+    drawCircle(line.copy(alpha = RingAlpha), frame.radius(LaneReach), frame.center, style = Stroke(hair))
+    drawScaleRuler(frame, line, sectorStarts.first(), inward = -1f)
+    drawScaleRuler(frame, line, sectorStarts.last(), inward = 1f)
+    drawCircle(line, frame.rim, frame.center, style = Stroke(RimWidth.toPx()))
+    drawCircle(line.copy(alpha = RingAlpha), frame.rim + RimGap.toPx(), frame.center, style = Stroke(hair))
     sectorStarts.forEach {
-        drawLine(line.copy(alpha = FaintAlpha), frame.point(it, frame.hub), frame.point(it, frame.rim), hair.width)
+        drawLine(line.copy(alpha = FaintAlpha), frame.point(it, frame.hub), frame.point(it, frame.rim), hair)
+        drawLine(line, frame.point(it, frame.rim), frame.point(it, frame.rim + RimGap.toPx()), RimWidth.toPx())
     }
     sectorLabels.forEachIndexed { index, label ->
-        val start = sectorStarts[index]
         val extent = labelExtent(sectorStarts, sectorLabels, index)
-        val middle = frame.point((start + sectorStarts[index + 1]) / 2, frame.rim + LabelGap.toPx() + extent / 2)
+        val turn = (sectorStarts[index] + sectorStarts[index + 1]) / 2
+        val middle = frame.point(turn, frame.rim + RimGap.toPx() + LabelGap.toPx() + extent / 2)
         drawText(label, topLeft = middle - Offset(label.size.width / 2f, label.size.height / 2f))
     }
 }
 
-/** The arm at [turn] with the afterglow behind it. */
-private fun DrawScope.drawSweep(
-    frame: ScopeFrame,
-    turn: Float,
+private fun DrawScope.drawBand(
     color: Color,
+    frame: ScopeFrame,
+    inner: Float,
+    outer: Float,
 ) {
+    drawCircle(color, (inner + outer) / 2, frame.center, style = Stroke(outer - inner))
+}
+
+/** Ticks of the log scale along the spoke at [turn]: 20 to 90, 200 to 900, and 2000 to 5000 milliseconds. */
+private fun DrawScope.drawScaleRuler(
+    frame: ScopeFrame,
+    line: Color,
+    turn: Float,
+    inward: Float,
+) {
+    for (decade in RulerDecades) {
+        for (step in RulerSteps) {
+            val millis = decade * step
+            if (millis > MaxScaleMillis) break
+            val length = (if (step == RulerMiddleStep) RulerLongTick else RulerTick).toPx()
+            val radius = frame.radius(scopeReach(millis))
+            // The tick lies across the spoke, on the side of the label gap.
+            val along = frame.point(turn, radius)
+            val across = (frame.point(turn + inward * QuarterTurn, 1f) - frame.center) * length
+            drawLine(line.copy(alpha = RingAlpha), along, along + across, Hairline.toPx())
+        }
+    }
+}
+
+/** The arm at [turn] with its afterglow and a light at the tip. The canvas turns, so the brushes stay fixed. */
+private fun DrawScope.drawSweep(
+    face: ScopeFace,
+    turn: Float,
+) {
+    val frame = face.frame
     val middle = (frame.rim + frame.hub) / 2
-    val arm = turn * FullTurn
-    for (slice in 0 until GlowSlices) {
-        val end = arm - slice * GlowSliceDegrees
-        if (end <= 0f) break
-        val start = (end - GlowSliceDegrees).coerceAtLeast(0f)
+    rotate(turn * FullTurn + TopDegrees, frame.center) {
+        val glow = (GlowTurn.coerceAtMost(turn)) * FullTurn
         drawArc(
-            color.copy(alpha = GlowAlpha * (1f - slice / GlowSlices.toFloat())),
-            TopDegrees + start,
-            end - start,
+            face.glow,
+            -glow,
+            glow,
             useCenter = false,
             topLeft = frame.center - Offset(middle, middle),
             size = Size(2 * middle, 2 * middle),
             style = Stroke(frame.rim - frame.hub),
         )
+        drawLine(face.arm, frame.center + Offset(frame.hub, 0f), face.armTip, ArmWidth.toPx(), StrokeCap.Round)
+        drawCircle(face.tip, TipGlow.toPx(), face.armTip)
+        drawCircle(face.palette.arm, TipDot.toPx(), face.armTip)
     }
-    drawLine(color, frame.point(turn, frame.hub), frame.point(turn, frame.rim), ArmWidth.toPx(), StrokeCap.Round)
 }
 
 /** One mark. [age] is the part of the turn since the arm passed it; a new mark pops in and sends one ripple. */
@@ -479,6 +556,8 @@ private fun DrawScope.drawMark(
         )
     }
     val radius = MarkRadius.toPx() * overshoot(age / PopSpan)
+    // A soft disc under the mark lifts it off the bands.
+    drawCircle(color.copy(alpha = HaloAlpha), radius * HaloShare, at)
     val stroke = Stroke(MarkStroke.toPx(), cap = StrokeCap.Round)
     when (mark.kind) {
         ScopeMarkKind.Answered -> {
@@ -496,13 +575,33 @@ private fun DrawScope.drawMark(
     }
 }
 
-/** The hub with its number. A number that is wider than the hub is drawn smaller, so it stays inside. */
+/**
+ * The hub: a cap over the middle of the face with its number and, during a scan, the [progress] arc on a track.
+ * A number that is wider than the hub is drawn smaller, so it stays inside.
+ */
 private fun DrawScope.drawHub(
-    frame: ScopeFrame,
-    line: Color,
+    face: ScopeFace,
     text: TextLayoutResult?,
+    progress: Float?,
 ) {
-    drawCircle(line.copy(alpha = RimAlpha), frame.hub, frame.center, style = Stroke(Hairline.toPx()))
+    val frame = face.frame
+    val line = face.palette.line
+    drawCircle(face.palette.hub, frame.hub, frame.center)
+    drawCircle(line, frame.hub, frame.center, style = Stroke(RimWidth.toPx()))
+    if (progress != null) {
+        val radius = frame.hub + HubGap.toPx()
+        val arc = Stroke(ProgressWidth.toPx(), cap = StrokeCap.Round)
+        drawCircle(line.copy(alpha = FaintAlpha), radius, frame.center, style = arc)
+        drawArc(
+            face.palette.arm,
+            TopDegrees,
+            FullTurn * progress,
+            useCenter = false,
+            topLeft = frame.center - Offset(radius, radius),
+            size = Size(2 * radius, 2 * radius),
+            style = arc,
+        )
+    }
     if (text == null) {
         drawCircle(line, CenterDot.toPx(), frame.center)
     } else {
@@ -522,11 +621,11 @@ private fun overshoot(fraction: Float): Float {
 private val ScaleRingMillis = listOf(100, 1000)
 private const val MinScaleMillis = 8L
 private const val MaxScaleMillis = 5000L
-private const val MaxMeasuredReach = 0.78f
-private const val LaneReach = 0.84f
+private const val MaxMeasuredReach = 0.72f
+private const val LaneReach = 0.78f
 
 /** The lane between the last measured time and the rim. */
-internal const val UnmeasuredReach = 0.92f
+internal const val UnmeasuredReach = 0.89f
 private const val SectorBaseWeight = 2
 
 /** The part of the turn at the top that holds the scale labels and no marks. */
@@ -538,7 +637,14 @@ private val LabelGap = 6.dp
 private val TouchRadius = 24.dp
 private val Hairline = 1.dp
 private val ArmWidth = 2.dp
-private val HubGap = 4.dp
+private val HubGap = 5.dp
+private val ProgressWidth = 3.dp
+private val RimWidth = 2.dp
+private val RimGap = 4.dp
+private val RulerTick = 3.dp
+private val RulerLongTick = 5.dp
+private val TipGlow = 9.dp
+private val TipDot = 2.5.dp
 private val MarkRadius = 5.dp
 private val MarkStroke = 2.dp
 private val RippleGrowth = 16.dp
@@ -553,12 +659,20 @@ private const val TopDegrees = -90f
 
 private const val FaintAlpha = 0.3f
 private const val RingAlpha = 0.5f
-private const val RimAlpha = 0.75f
 private const val PulseAlpha = 0.6f
 private const val AnsweredShare = 0.8f
-private const val GlowSlices = 12
-private const val GlowSliceDegrees = 4f
-private const val GlowAlpha = 0.18f
+private const val GlowTurn = 0.16f
+private const val GlowAlpha = 0.32f
+private const val DiscAlpha = 0.1f
+private const val BandAlpha = 0.07f
+private const val LaneAlpha = 0.12f
+private const val ArmRootAlpha = 0.25f
+private const val TipAlpha = 0.5f
+private const val HaloAlpha = 0.16f
+private const val HaloShare = 1.8f
+private val RulerDecades = listOf(10L, 100L, 1000L)
+private val RulerSteps = 2L..9L
+private const val RulerMiddleStep = 5L
 
 // The reveal runs from 0 to RevealEnd: one arm turn, then the closing pulse.
 private const val RevealEnd = 1.3f
