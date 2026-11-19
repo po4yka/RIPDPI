@@ -245,7 +245,6 @@
     <string name="diagnostics_passive_events_section">पैसिव रनटाइम इवेंट</string>
     <string name="diagnostics_sensitive_show">संवेदनशील विवरण दिखाएँ</string>
     <string name="diagnostics_sensitive_hide">संवेदनशील विवरण छिपाएँ</string>
-    <string name="diagnostics_search_label">खोजें</string>
     <string name="diagnostics_search_placeholder">सत्र खोजें</string>
     <string name="diagnostics_events_search_placeholder">इवेंट खोजें</string>
     <string name="diagnostics_history_background_probe_badge">पृष्ठभूमि स्वचालित प्रोबिंग</string>

@@ -219,7 +219,7 @@ class HistoryScreenTest {
                 FilterCard(
                     title = "Diagnostics",
                     searchValue = "",
-                    searchPlaceholder = "Search",
+                    searchLabel = "Search",
                     onSearch = {},
                     searchTestTag = RipDpiTestTags.HistoryDiagnosticsSearch,
                     primaryFilter =

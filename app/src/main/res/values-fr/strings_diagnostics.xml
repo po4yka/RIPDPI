@@ -235,7 +235,6 @@
     <string name="diagnostics_scan_termination_worker_panicked">Échec du processus de travail</string>
     <string name="diagnostics_scan_policy_notice">Certaines cibles ont été exclues pour la politique locale de sécurité juridique.</string>
     <string name="diagnostics_scan_trigger_policy_handover">Transfert réseau</string>
-    <string name="diagnostics_search_label">Rechercher</string>
     <string name="diagnostics_section_transport">Transport</string>
     <string name="diagnostics_sensitive_profile_consent_dismiss">Pas maintenant</string>
     <string name="diagnostics_share_archive_body">Créez une archive ZIP contenant la session sélectionnée, la matrice des stratégies, la télémétrie récente, la configuration d’exécution, la provenance de l’archive, les notes d’exhaustivité, les empreintes d’intégrité et un instantané logcat limité à l’application. Les captures de paquets restent des artefacts bruts locaux distincts.</string>

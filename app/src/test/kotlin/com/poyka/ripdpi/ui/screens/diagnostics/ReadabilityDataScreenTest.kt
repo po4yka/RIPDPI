@@ -120,7 +120,7 @@ class ReadabilityDataScreenTest {
             FilterCard(
                 title = "مرشحات السجل والتشخيص",
                 searchValue = "TLS",
-                searchPlaceholder = "بحث",
+                searchLabel = "بحث",
                 onSearch = {},
                 searchTestTag = "search",
                 primaryFilter = config,

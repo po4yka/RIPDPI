@@ -2349,7 +2349,6 @@ app:diagnostics_scope_resume_enabled
 app:diagnostics_scope_strategy_blocked_format
 app:diagnostics_scope_strategy_format
 app:diagnostics_scope_title
-app:diagnostics_search_label
 app:diagnostics_search_placeholder
 app:diagnostics_section_carrier
 app:diagnostics_section_device

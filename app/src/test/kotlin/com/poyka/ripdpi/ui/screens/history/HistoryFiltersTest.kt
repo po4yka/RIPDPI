@@ -29,7 +29,7 @@ class HistoryFiltersTest {
                 FilterCard(
                     title = "Filters",
                     searchValue = "handshake",
-                    searchPlaceholder = "Search",
+                    searchLabel = "Search",
                     onSearch = {},
                     searchTestTag = "history-search",
                     primaryFilter = emptyFilterConfig(),

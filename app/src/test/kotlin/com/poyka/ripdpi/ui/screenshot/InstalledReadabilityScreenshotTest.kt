@@ -144,7 +144,7 @@ class InstalledReadabilityScreenshotTest {
             FilterCard(
                 title = stringResource(R.string.history_diagnostics_section),
                 searchValue = "",
-                searchPlaceholder = stringResource(R.string.diagnostics_search_placeholder),
+                searchLabel = stringResource(R.string.diagnostics_search_placeholder),
                 onSearch = {},
                 searchTestTag = "history-search",
                 primaryFilter = HistoryFilterChipsConfig(emptyList(), null, {}, { it }),

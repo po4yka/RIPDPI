@@ -206,7 +206,6 @@
     <string name="diagnostics_passive_events_section">Пассивные события среды выполнения</string>
     <string name="diagnostics_sensitive_show">Показать чувствительные данные</string>
     <string name="diagnostics_sensitive_hide">Скрыть чувствительные данные</string>
-    <string name="diagnostics_search_label">Поиск</string>
     <string name="diagnostics_search_placeholder">Поиск сессий</string>
     <string name="diagnostics_events_search_placeholder">Поиск событий</string>
     <string name="diagnostics_history_background_probe_badge">Фоновое автозондирование</string>

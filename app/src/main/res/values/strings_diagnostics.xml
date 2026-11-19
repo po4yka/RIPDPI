@@ -250,7 +250,6 @@
     <string name="diagnostics_passive_events_section">Passive runtime events</string>
     <string name="diagnostics_sensitive_show">Show sensitive details</string>
     <string name="diagnostics_sensitive_hide">Hide sensitive details</string>
-    <string name="diagnostics_search_label">Search</string>
     <string name="diagnostics_search_placeholder">Search sessions</string>
     <string name="diagnostics_events_search_placeholder">Search events</string>
     <string name="diagnostics_history_background_probe_badge">Background automatic probing</string>

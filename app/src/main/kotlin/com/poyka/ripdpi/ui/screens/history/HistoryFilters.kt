@@ -58,7 +58,7 @@ internal fun FilterCard(
     modifier: Modifier = Modifier,
     title: String,
     searchValue: String,
-    searchPlaceholder: String,
+    searchLabel: String,
     onSearch: (String) -> Unit,
     searchTestTag: String,
     primaryFilter: HistoryFilterChipsConfig,
@@ -87,8 +87,7 @@ internal fun FilterCard(
             onValueChange = onSearch,
             decoration =
                 RipDpiTextFieldDecoration(
-                    label = stringResource(R.string.diagnostics_search_label),
-                    placeholder = searchPlaceholder,
+                    label = searchLabel,
                     testTag = searchTestTag,
                 ),
             behavior =

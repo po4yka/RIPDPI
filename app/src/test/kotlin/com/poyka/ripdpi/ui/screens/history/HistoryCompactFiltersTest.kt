@@ -30,7 +30,7 @@ class HistoryCompactFiltersTest {
                 FilterCard(
                     title = "Events",
                     searchValue = "",
-                    searchPlaceholder = "Search",
+                    searchLabel = "Search",
                     onSearch = {},
                     searchTestTag = "history-search",
                     primaryFilter =
@@ -65,7 +65,7 @@ class HistoryCompactFiltersTest {
                 FilterCard(
                     title = "Events",
                     searchValue = query.value,
-                    searchPlaceholder = "Search",
+                    searchLabel = "Search",
                     onSearch = { query.value = it },
                     searchTestTag = "history-search",
                     primaryFilter =
@@ -103,7 +103,7 @@ class HistoryCompactFiltersTest {
                 FilterCard(
                     title = "Events",
                     searchValue = "",
-                    searchPlaceholder = "Search",
+                    searchLabel = "Search",
                     onSearch = {},
                     searchTestTag = "history-search",
                     primaryFilter = HistoryFilterChipsConfig(listOf("warn"), null, {}, { "severity-$it" }),
@@ -123,7 +123,7 @@ class HistoryCompactFiltersTest {
                 FilterCard(
                     title = "Connections",
                     searchValue = "handshake",
-                    searchPlaceholder = "Search",
+                    searchLabel = "Search",
                     onSearch = {},
                     searchTestTag = "history-search",
                     primaryFilter = HistoryFilterChipsConfig(emptyList(), null, {}, { it }),

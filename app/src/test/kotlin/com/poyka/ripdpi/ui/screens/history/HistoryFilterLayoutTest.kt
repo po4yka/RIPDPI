@@ -70,7 +70,7 @@ class HistoryFilterLayoutTest {
                             modifier = Modifier.ripDpiTestTag("history-filter-card"),
                             title = "Фильтры",
                             searchValue = "",
-                            searchPlaceholder = "Поиск",
+                            searchLabel = "Поиск",
                             onSearch = {},
                             searchTestTag = "search",
                             primaryFilter = HistoryFilterChipsConfig(emptyList(), null, {}, { it }),

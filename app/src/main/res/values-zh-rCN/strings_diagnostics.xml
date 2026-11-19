@@ -244,7 +244,6 @@
     <string name="diagnostics_passive_events_section">被动运行时事件</string>
     <string name="diagnostics_sensitive_show">显示敏感详情</string>
     <string name="diagnostics_sensitive_hide">隐藏敏感详情</string>
-    <string name="diagnostics_search_label">搜索</string>
     <string name="diagnostics_search_placeholder">搜索会话</string>
     <string name="diagnostics_events_search_placeholder">搜索事件</string>
     <string name="diagnostics_history_background_probe_badge">后台自动探测</string>

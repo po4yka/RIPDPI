@@ -140,7 +140,7 @@ internal fun ConnectionsSection(
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryConnectionsStateContent),
                     title = stringResource(R.string.history_connections_section),
                     searchValue = uiState.connections.filters.query,
-                    searchPlaceholder = stringResource(R.string.history_connection_search_placeholder),
+                    searchLabel = stringResource(R.string.history_connection_search_placeholder),
                     onSearch = onSearch,
                     searchTestTag = RipDpiTestTags.HistoryConnectionsSearch,
                     primaryFilter =
@@ -212,7 +212,7 @@ internal fun DiagnosticsSection(
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryDiagnosticsStateContent),
                     title = stringResource(R.string.history_diagnostics_section),
                     searchValue = uiState.diagnostics.filters.query,
-                    searchPlaceholder = stringResource(R.string.diagnostics_search_placeholder),
+                    searchLabel = stringResource(R.string.diagnostics_search_placeholder),
                     onSearch = onSearch,
                     searchTestTag = RipDpiTestTags.HistoryDiagnosticsSearch,
                     primaryFilter =
@@ -462,7 +462,7 @@ private fun HistoryEventsFilterCard(
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryEventsStateContent),
         title = stringResource(R.string.history_events_section),
         searchValue = uiState.events.filters.search,
-        searchPlaceholder = stringResource(R.string.diagnostics_events_search_placeholder),
+        searchLabel = stringResource(R.string.diagnostics_events_search_placeholder),
         onSearch = onSearch,
         searchTestTag = RipDpiTestTags.HistoryEventsSearch,
         primaryFilter =

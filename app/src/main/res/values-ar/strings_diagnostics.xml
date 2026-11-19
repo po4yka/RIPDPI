@@ -241,7 +241,6 @@
     <string name="diagnostics_passive_events_section">أحداث التشغيل السلبية</string>
     <string name="diagnostics_sensitive_show">إظهار التفاصيل الحساسة</string>
     <string name="diagnostics_sensitive_hide">إخفاء التفاصيل الحساسة</string>
-    <string name="diagnostics_search_label">بحث</string>
     <string name="diagnostics_search_placeholder">بحث في الجلسات</string>
     <string name="diagnostics_events_search_placeholder">بحث في الأحداث</string>
     <string name="diagnostics_history_background_probe_badge">فحص تلقائي في الخلفية</string>

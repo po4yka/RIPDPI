@@ -42,7 +42,7 @@ class HistoryFilterLocaleTest {
                 FilterCard(
                     title = "Фильтры",
                     searchValue = "",
-                    searchPlaceholder = "Поиск",
+                    searchLabel = "Поиск",
                     onSearch = {},
                     searchTestTag = "search",
                     primaryFilter = empty,

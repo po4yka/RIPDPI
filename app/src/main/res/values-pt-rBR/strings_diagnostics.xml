@@ -245,7 +245,6 @@
     <string name="diagnostics_passive_events_section">Eventos passivos de execução</string>
     <string name="diagnostics_sensitive_show">Mostrar detalhes sensíveis</string>
     <string name="diagnostics_sensitive_hide">Ocultar detalhes sensíveis</string>
-    <string name="diagnostics_search_label">Pesquisar</string>
     <string name="diagnostics_search_placeholder">Pesquisar sessões</string>
     <string name="diagnostics_events_search_placeholder">Pesquisar eventos</string>
     <string name="diagnostics_history_background_probe_badge">Sondagem automática em segundo plano</string>

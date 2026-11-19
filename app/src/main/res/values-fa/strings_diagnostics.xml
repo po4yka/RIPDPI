@@ -245,7 +245,6 @@
     <string name="diagnostics_passive_events_section">رویدادهای زمان اجرای منفعل</string>
     <string name="diagnostics_sensitive_show">نمایش جزئیات حساس</string>
     <string name="diagnostics_sensitive_hide">پنهان کردن جزئیات حساس</string>
-    <string name="diagnostics_search_label">جستجو</string>
     <string name="diagnostics_search_placeholder">جستجوی نشست‌ها</string>
     <string name="diagnostics_events_search_placeholder">جستجوی رویدادها</string>
     <string name="diagnostics_history_background_probe_badge">کاوش خودکار پس‌زمینه</string>

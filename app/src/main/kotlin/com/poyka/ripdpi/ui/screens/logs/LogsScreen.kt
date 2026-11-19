@@ -235,8 +235,7 @@ private fun LogsContent(
                 modifier = Modifier.fillMaxWidth(),
                 decoration =
                     RipDpiTextFieldDecoration(
-                        label = stringResource(R.string.diagnostics_search_label),
-                        placeholder = stringResource(R.string.logs_search_placeholder),
+                        label = stringResource(R.string.logs_search_placeholder),
                         testTag = RipDpiTestTags.LogsSearch,
                     ),
                 behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)),
@@ -704,7 +703,8 @@ private const val ShortIdLength = 8
 
 internal fun metadataChips(entry: LogEntry): ImmutableList<String> =
     buildList {
-        add(entry.source.lowercase())
+        // The badge already names the subsystem, so a source with the same name is not a chip.
+        if (!entry.source.equals(entry.subsystem.name, ignoreCase = true)) add(entry.source.lowercase())
         add(severityLabelValue(entry.severity))
         // A short id prefix is enough to tell sessions apart on screen.
         entry.runtimeId?.let { add("runtime:${it.take(ShortIdLength)}") }

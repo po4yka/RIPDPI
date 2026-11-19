@@ -160,7 +160,7 @@ class UiActionClarityInstrumentedTest {
                     FilterCard(
                         title = "Events",
                         searchValue = query,
-                        searchPlaceholder = "Search",
+                        searchLabel = "Search",
                         onSearch = { query = it },
                         searchTestTag = "clarity-search",
                         primaryFilter =

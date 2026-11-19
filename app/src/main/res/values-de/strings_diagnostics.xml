@@ -235,7 +235,6 @@
     <string name="diagnostics_scan_termination_worker_panicked">Worker-Prozess fehlgeschlagen</string>
     <string name="diagnostics_scan_policy_notice">Einige Ziele wurden aufgrund lokaler rechtlicher Sicherheitsrichtlinien ausgeschlossen.</string>
     <string name="diagnostics_scan_trigger_policy_handover">Netzwerkwechsel</string>
-    <string name="diagnostics_search_label">Suche</string>
     <string name="diagnostics_section_transport">Transport</string>
     <string name="diagnostics_sensitive_profile_consent_dismiss">Nicht jetzt</string>
     <string name="diagnostics_share_archive_body">Erstellen Sie eine ZIP-Datei mit der ausgewählten Sitzung, der Strategiematrix, aktueller Telemetrie, Laufzeitkonfiguration, Angaben zur Herkunft des Archivs, Vollständigkeitshinweisen, Integritäts-Hashes und einem auf die App beschränkten Logcat-Schnappschuss. Paketmitschnitte bleiben separate lokale Rohdaten-Artefakte.</string>

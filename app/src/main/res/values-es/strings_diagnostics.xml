@@ -235,7 +235,6 @@
     <string name="diagnostics_scan_termination_worker_panicked">Fallo del proceso de trabajo</string>
     <string name="diagnostics_scan_policy_notice">Algunos objetivos se excluyeron por política local de seguridad legal.</string>
     <string name="diagnostics_scan_trigger_policy_handover">Traspaso de red</string>
-    <string name="diagnostics_search_label">Buscar</string>
     <string name="diagnostics_section_transport">Transporte</string>
     <string name="diagnostics_sensitive_profile_consent_dismiss">Ahora no</string>
     <string name="diagnostics_share_archive_body">Crea un archivo ZIP con la sesión seleccionada, la matriz de estrategias, la telemetría reciente, la configuración de ejecución, la procedencia del archivo, las notas de completitud, los hashes de integridad y una instantánea de logcat limitada a la app. Las capturas de paquetes se conservan como artefactos locales sin procesar independientes.</string>
