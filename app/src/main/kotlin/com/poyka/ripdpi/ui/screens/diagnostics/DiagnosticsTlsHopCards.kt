@@ -238,7 +238,10 @@ private fun TlsHopResultsPreview() {
                     ),
                 controlSni = "control.example",
                 testSni = "test.example",
-                attempts = persistentListOf(TlsHopAttempt(5, "TEST", 0, "RST", 41)),
+                attempts =
+                    persistentListOf(
+                        TlsHopAttempt(ttl = 5, role = "TEST", repetition = 0, outcome = "RST", elapsedMs = 41),
+                    ),
             ),
         )
     }

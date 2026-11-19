@@ -193,10 +193,6 @@ private fun ColumnScope.SessionDetailContent(
     if (detail.capabilityEvidence.isNotEmpty()) {
         CapabilityEvidenceCard(evidence = detail.capabilityEvidence)
     }
-    val matrixResults = detail.probeGroups.flatMap { it.items }.filter { it.isSelectiveMatrixProbe() }
-    if (matrixResults.isNotEmpty()) {
-        SelectiveMatrixResultsCard(matrixResults)
-    }
     DedicatedProbeEvidenceCards(detail.probeGroups.flatMap { it.items })
     detail.strategyProbeReport?.let { report ->
         StrategyProbeReportCard(

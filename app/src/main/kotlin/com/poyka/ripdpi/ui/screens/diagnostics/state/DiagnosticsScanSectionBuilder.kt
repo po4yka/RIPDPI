@@ -48,18 +48,24 @@ internal data class BuildScanUiModelParams(
     val queuedManualScanRequest: QueuedManualScanRequest? = null,
 )
 
+/** False while a profile that takes user-entered targets has missing or invalid input. */
+private fun BuildScanUiModelParams.manualInputValid(
+    profileId: String?,
+    matrixInputValid: Boolean,
+): Boolean =
+    when (profileId) {
+        SelectiveMatrixProfileId -> matrixInputValid
+        TlsHopComparisonProfileId -> tlsHopComparisonInput.isValid()
+        QuicVersionMatrixProfileId -> quicVersionMatrixInput.isValid()
+        else -> true
+    }
+
 internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiModelParams): DiagnosticsScanUiModel {
     val selectedProfile = params.activeProfile?.let(::toProfileOptionUiModel)
     val strategyProbeSelected = selectedProfile?.isStrategyProbe == true
     val serviceRunning = params.serviceStatus == AppStatus.Running
     val matrixInputValid = parseSelectiveMatrixHosts(params.selectiveMatrixHostsInput) != null
-    val inputAllowed =
-        when (selectedProfile?.id) {
-            SelectiveMatrixProfileId -> matrixInputValid
-            TlsHopComparisonProfileId -> params.tlsHopComparisonInput.isValid()
-            QuicVersionMatrixProfileId -> params.quicVersionMatrixInput.isValid()
-            else -> true
-        }
+    val inputAllowed = params.manualInputValid(selectedProfile?.id, matrixInputValid)
     val runRawEnabled = params.progress == null && !(strategyProbeSelected && params.rawArgsEnabled) && inputAllowed
     val runInPathEnabled = params.progress == null && !strategyProbeSelected && serviceRunning && inputAllowed
     val workflowRestriction = buildWorkflowRestriction(params, selectedProfile, strategyProbeSelected)
