@@ -42,6 +42,8 @@ internal fun ConnectionDetailSheet(
 @Composable
 internal fun DiagnosticsDetailSheet(
     detail: DiagnosticsSessionDetailUiModel,
+    matrixPairing: SelectiveMatrixPairingUiModel?,
+    onCompareMatrixSession: (String) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
     RipDpiBottomSheet(
@@ -51,7 +53,7 @@ internal fun DiagnosticsDetailSheet(
         icon = RipDpiIcons.Search,
         testTag = RipDpiTestTags.HistoryDiagnosticsDetailSheet,
     ) {
-        DiagnosticsDetailContent(detail)
+        DiagnosticsDetailContent(detail, matrixPairing, onCompareMatrixSession)
     }
 }
 
@@ -109,7 +111,11 @@ internal fun ConnectionDetailContent(detail: HistoryConnectionDetailUiModel) {
 }
 
 @Composable
-internal fun DiagnosticsDetailContent(detail: DiagnosticsSessionDetailUiModel) {
+internal fun DiagnosticsDetailContent(
+    detail: DiagnosticsSessionDetailUiModel,
+    matrixPairing: SelectiveMatrixPairingUiModel?,
+    onCompareMatrixSession: (String) -> Unit,
+) {
     StatusIndicator(
         label = detail.session.completionLabel ?: detail.session.status,
         tone = statusTone(detail.session.tone),
@@ -131,6 +137,7 @@ internal fun DiagnosticsDetailContent(detail: DiagnosticsSessionDetailUiModel) {
         }
     }
     DedicatedProbeEvidenceCards(detail.probeGroups.flatMap { it.items })
+    matrixPairing?.let { SelectiveMatrixPairCard(it, onCompareMatrixSession) }
     detail.contextGroups.forEach { group ->
         ContextGroupCard(group = group)
     }

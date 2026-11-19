@@ -34,6 +34,13 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixComparison
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixLegSummary
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixPairMismatch
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixPairRow
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixPairVerdict
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixTargetLegOutcome
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixTargetStage
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsFieldUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
@@ -41,12 +48,16 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.SelectiveMatrixTargetUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.parseSelectiveMatrixHosts
 import com.poyka.ripdpi.ui.screens.history.DiagnosticsDetailContent
+import com.poyka.ripdpi.ui.screens.history.SelectiveMatrixPairCandidateUiModel
+import com.poyka.ripdpi.ui.screens.history.SelectiveMatrixPairCard
+import com.poyka.ripdpi.ui.screens.history.SelectiveMatrixPairingUiModel
 import com.poyka.ripdpi.ui.screens.history.historyDiagnosticsDetailUi
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -184,7 +195,7 @@ class DiagnosticsSelectiveMatrixComposeTest {
                     ),
             )
         composeRule.setContent {
-            MatrixViewport { DiagnosticsDetailContent(detail) }
+            MatrixViewport { DiagnosticsDetailContent(detail, matrixPairing = null, onCompareMatrixSession = {}) }
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSelectiveMatrixResults).assertExists()
@@ -192,6 +203,58 @@ class DiagnosticsSelectiveMatrixComposeTest {
         composeRule.onNodeWithText("matrix_target_available").assertDoesNotExist()
         composeRule.onNodeWithText("matrix_inconclusive").assertDoesNotExist()
         composeRule.onNodeWithText("selective_availability").assertDoesNotExist()
+    }
+
+    @Test
+    fun pairCardShowsPerLegOutcomesAndNamesUnavailableReasons() {
+        val compared =
+            SelectiveMatrixComparison.Compared(
+                first = SelectiveMatrixLegSummary("wifi", 0L, 1L, valid = true, controlsValid = true),
+                second = SelectiveMatrixLegSummary("cellular", 60_000L, 61_000L, valid = true, controlsValid = true),
+                rows =
+                    listOf(
+                        SelectiveMatrixPairRow(
+                            "site",
+                            SelectiveMatrixPairVerdict.PATH_SPECIFIC,
+                            SelectiveMatrixTargetLegOutcome(SelectiveMatrixTargetStage.AVAILABLE, null, 2, 2),
+                            SelectiveMatrixTargetLegOutcome(SelectiveMatrixTargetStage.FAILED, "tls", 2, 0),
+                        ),
+                    ),
+            )
+        val pairing =
+            mutableStateOf(
+                SelectiveMatrixPairingUiModel(
+                    candidates = persistentListOf(SelectiveMatrixPairCandidateUiModel("cell", "cellular", "Jan 1")),
+                    targetLabels = persistentMapOf("site" to "example.org"),
+                    pairedSessionId = "cell",
+                    comparison = compared,
+                ),
+            )
+        var requested: String? = null
+        composeRule.setContent {
+            MatrixViewport { SelectiveMatrixPairCard(pairing.value) { requested = it } }
+        }
+        val wifi = text(R.string.remembered_networks_transport_wifi)
+        val cellular = text(R.string.remembered_networks_transport_cellular)
+
+        assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_pair_count, 1, 1)))
+        assertComplete(
+            composeRule.onNodeWithText("example.org · ${text(R.string.diagnostics_matrix_pair_path_specific)}"),
+        )
+        assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_pair_leg_available, wifi, 2, 2)))
+        assertComplete(
+            composeRule.onNodeWithText(text(R.string.diagnostics_matrix_pair_leg_failed, cellular, "TLS", 0, 2)),
+        )
+        capture("selective-matrix-pair-compared")
+        composeRule.onNodeWithText("$cellular · Jan 1").performScrollTo().performClick()
+        assertEquals("cell", requested)
+
+        pairing.value =
+            pairing.value.copy(
+                comparison = SelectiveMatrixComparison.Unavailable(listOf(SelectiveMatrixPairMismatch.AGE_LIMIT)),
+            )
+        assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_pair_age_limit)))
+        composeRule.onNodeWithText(text(R.string.diagnostics_matrix_pair_count, 1, 1)).assertDoesNotExist()
     }
 
     private fun showResults(

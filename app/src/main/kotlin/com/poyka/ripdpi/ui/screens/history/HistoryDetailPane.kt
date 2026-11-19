@@ -30,6 +30,7 @@ internal fun HistoryDetailPane(
     onDismissConnectionDetail: () -> Unit,
     onDismissDiagnosticsDetail: () -> Unit,
     onDismissEventDetail: () -> Unit,
+    onCompareMatrixSession: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val connection = uiState.selectedConnectionDetail.takeIf { uiState.selectedSection == HistorySection.Connections }
@@ -82,9 +83,17 @@ internal fun HistoryDetailPane(
                     )
                 }
                 when {
-                    connection != null -> ConnectionDetailContent(connection)
-                    diagnostics != null -> DiagnosticsDetailContent(diagnostics)
-                    event != null -> EventDetailContent(event)
+                    connection != null -> {
+                        ConnectionDetailContent(connection)
+                    }
+
+                    diagnostics != null -> {
+                        DiagnosticsDetailContent(diagnostics, uiState.selectedMatrixPairing, onCompareMatrixSession)
+                    }
+
+                    event != null -> {
+                        EventDetailContent(event)
+                    }
                 }
             }
         }
