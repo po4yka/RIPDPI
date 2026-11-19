@@ -2,6 +2,8 @@
 
 Define consent, on-device aggregation, suppression, network labelling, and tunnel-only upload for anonymous aggregated field reports.
 
+Scope limit: attempts are counted only where a relay member probe measures a bundle endpoint (`RelayPayloadMemberLatencyProbe` through `CandidateRelayPayloadProbe`). AmneziaWG endpoints and local desync have no per-endpoint probe seam, so `amneziawg` and `local-desync` buckets are never produced by this change, although the contract allows them. Covering them needs a measurement seam in those runtimes (follow-up).
+
 ## ADDED Requirements
 
 ### Requirement: REQ-DGN-1795085498592630-001 — Consent is off by default and revocable
