@@ -2,7 +2,7 @@
 id: AND-1795015211660121
 title: Preload a preset in the full app and remove the simple flavor
 kind: feature
-status: review
+status: done
 area: android
 priority: medium
 owner: Implementer
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: preload-preset-remove-simple-flavor
 created: 2026-11-18
-updated: 2026-11-18
+updated: 2026-11-19
+closed_at: "2026-11-19T11:48:15Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Local: :app:testGithubDebugUnitTest (3764 tests, 0 failures) and :app:detekt pass on main fd00bf493. Remote CI: run 44369551319 on main 885a098d1 succeeded, including unit coverage, Roborazzi, three release variants, and instrumented tests on API 27-37. Device: fresh installs with and without a preset on the API 35 pool emulator."
 ---
 
 ## Goal

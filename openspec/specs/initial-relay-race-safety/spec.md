@@ -42,15 +42,6 @@ The service MUST preserve physical network changes that occur after initial poli
 - **WHEN** startup captures network A and network B replaces it before startup finishes
 - **THEN** the first connected session observes the A-to-B change and runs the current handover path
 
-### Requirement: REQ-RACE-SCOPE — Describe the connected product scope
-
-The specifications MUST distinguish the core one-or-two-candidate API from the Simple single-profile preflight. They MUST NOT promise an unbound winner cache or product race.
-
-#### Scenario: Simple starts its selected profile
-
-- **WHEN** the Simple flavor starts a seeded profile
-- **THEN** its contract describes one configured candidate and explicit inconclusive verification without promising two concurrent product candidates
-
 ### Requirement: REQ-RACE-FRESH-EVIDENCE — Keep initial evidence within its runtime race
 
 A new initial race MUST NOT use successful initial-probe evidence from a stopped runtime to mark its current failed probe healthy. Recent successful evidence from the same live runtime MUST retain its existing meaning.
@@ -68,3 +59,12 @@ A race MUST reject a resolved kind or profile identity that differs from its cap
 
 - **WHEN** the resolver returns a different kind or profile ID for the captured candidate
 - **THEN** no runtime starts for that attempt and no selected result is published for it
+
+### Requirement: REQ-RACE-PRODUCT-SCOPE — Describe the connected product scope without a flavor
+
+The specifications MUST describe the core one-or-two-candidate API and the single selected profile that the product starts. They MUST NOT promise an unbound winner cache or product race.
+
+#### Scenario: The application starts its selected profile
+
+- **WHEN** the application starts a selected relay profile, whether imported or preloaded
+- **THEN** its contract describes one configured candidate and explicit inconclusive verification without promising two concurrent product candidates

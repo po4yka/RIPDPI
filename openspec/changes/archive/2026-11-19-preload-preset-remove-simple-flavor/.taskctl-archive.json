@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-19T11:48:15Z",
+  "change": "preload-preset-remove-simple-flavor",
+  "commit_sha": "fd00bf4939538fb3fff5e391ff802b42979a2caf",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "AND-1795015211660121"
+}

@@ -1,11 +1,11 @@
 ---
 task_id: AND-1795015211660121
 change: preload-preset-remove-simple-flavor
-commit_sha: 6b1924898
-local: blocked
-local_evidence: Focused suites pass on 6b1924898 (PresetApplierTest 6, AppStartupInitializerTest 14, ImportIntentFilterTest 14, VpnServiceSessionLifecycleTest 9, BackupEncryptionTest 5); build-logic tests pass; verifyRoborazziGithubDebug with the screenshot filter passes 313 tests; ktlint and Android lint pass for app and core service; all eleven ci-gates scripts exit 0. The full app unit run has 23 failures in ProfileUtilityViewModelTest and ProfileUtilityCatalogRecoveryTest that come from main commit 8bce25db4, and app detekt reports two magic numbers in the untouched BackupRestoreScreen.kt, so a clean full local run is blocked on main.
-remote_ci: required
-remote_ci_evidence: null
+commit_sha: fd00bf4939538fb3fff5e391ff802b42979a2caf
+local: passed
+local_evidence: Focused suites pass on 6b1924898 (PresetApplierTest 6, AppStartupInitializerTest 14, ImportIntentFilterTest 14, VpnServiceSessionLifecycleTest 9, BackupEncryptionTest 5); build-logic tests pass; verifyRoborazziGithubDebug with the screenshot filter passes 313 tests; ktlint and Android lint pass for app and core service; all eleven ci-gates scripts exit 0. On main fd00bf493, which contains this change, `./gradlew :app:testGithubDebugUnitTest :app:detekt` passes with 3764 tests and 0 failures; the earlier main-side failures in ProfileUtility tests and BackupRestoreScreen.kt detekt are gone.
+remote_ci: passed
+remote_ci_evidence: CI run 44369551319 on main 885a098d1, which contains this change, concluded success with ci-required green - kotlin-coverage, gradle-static-analysis, verify-roborazzi, debug builds and release-verification for fdroid, github, and play, release-gates, and android-instrumented-tests on API 27, 33, 35, 36, and 37. The change route skipped android-ui-journeys and the Rust lanes for that commit.
 device: passed
 device_evidence: Pool emulator RIPDPI_Pool_2, API 35 arm64-v8a, githubDebug built with localNativeAbis arm64-v8a. Fresh install without a preset opens onboarding. Fresh install with a test preset logs "Packaged preset applied" and opens Home with no restart. Connected instrumentation suites were not run locally.
 artifact: passed
@@ -44,6 +44,4 @@ Areas the reviewers did not reach were checked by script: no string in `app/src/
 
 ## Open items
 
-- Remote CI stops at the preflight barrier for reasons that come from `main`, so the unit, screenshot, release, and device jobs have not run on this branch.
 - An install that has not finished onboarding, has data, and then updates to a preset build has that data replaced. The specification accepts this.
-- `AND-1795015500558064` stays open until remote CI reports.

@@ -24,7 +24,7 @@ Serialized shared-file lane: all locale resource sets and `config/i18n/translata
 - [x] AND-1795015496438291 Remove the experience flavor dimension, delete the simple source sets, strings, and baselines, and fold app/src/full into main #feature !high @item:AND-1795015211660121
 - [x] AND-1795015498183385 Remove ServiceRecoveryStartGate, reserve app_settings.proto field 410, and delete the embedded-bundle fixture and its test #feature !high @item:AND-1795015211660121
 - [x] AND-1795015499321399 Rename variants and remove Simple lanes in CI, release scripts, justfile, agent rules, and documents #feature !high @item:AND-1795015211660121
-- [ ] AND-1795015500558064 Run combined gates, fresh-install emulator runs with and without a preset, pr-reviewer pass, and record evidence #feature !high @item:AND-1795015211660121
+- [x] AND-1795015500558064 Run combined gates, fresh-install emulator runs with and without a preset, pr-reviewer pass, and record evidence #feature !high @item:AND-1795015211660121
 
 ## Step details
 

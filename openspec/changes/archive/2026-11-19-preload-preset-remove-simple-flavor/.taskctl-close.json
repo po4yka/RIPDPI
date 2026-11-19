@@ -1,0 +1,11 @@
+{
+  "change": "preload-preset-remove-simple-flavor",
+  "evidence_summary": "Local: :app:testGithubDebugUnitTest (3764 tests, 0 failures) and :app:detekt pass on main fd00bf493. Remote CI: run 44369551319 on main 885a098d1 succeeded, including unit coverage, Roborazzi, three release variants, and instrumented tests on API 27-37. Device: fresh installs with and without a preset on the API 35 pool emulator.",
+  "execution_sha256": "d9140dfa5f7df9593b4ae89a679f2a9bb4af6876f65ee4fa94ecaef8b5735bf7",
+  "issue_sha256": "f169eb576317628462898afb29cb7f49aaae778ddba3a49ad4215c42c088b5f8",
+  "outcome": "done",
+  "prepared_at": "2026-11-19T11:48:15Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "AND-1795015211660121"
+}
