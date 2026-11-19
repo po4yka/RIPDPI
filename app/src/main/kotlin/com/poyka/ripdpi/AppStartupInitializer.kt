@@ -17,6 +17,7 @@ import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.services.SharedPriorsRefreshWorker
+import com.poyka.ripdpi.services.fieldreport.FieldReportConsentFollower
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateWorker
@@ -74,6 +75,7 @@ class AppStartupInitializer
         private val resetEventRecorder: ResetEventRecorder,
         private val startupDiagnosticsProbes: StartupDiagnosticsProbes,
         private val presetApplier: PresetApplier,
+        private val fieldReportConsentFollower: FieldReportConsentFollower,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : AppStartupReadiness {
         private val readinessState = MutableStateFlow(AppStartupReadinessState.Pending)
@@ -293,6 +295,10 @@ class AppStartupInitializer
                         }
                     }
                 }
+            val fieldReportConsent =
+                runSubsystem(AppStartupSubsystem.FieldReportConsentFollower) {
+                    applicationScope.launch { fieldReportConsentFollower.follow() }
+                }
             val bootSessionRecorderRegistration =
                 runSubsystem(AppStartupSubsystem.BootSessionRecorderRegistration) {
                     bootSessionRecorder.register()
@@ -308,6 +314,7 @@ class AppStartupInitializer
                 cdnEchSeed = cdnEchSeed,
                 cdnEchWorkerEnqueue = cdnEchWorkerEnqueue,
                 subscriptionWorkerEnqueue = subscriptionWorkerEnqueue,
+                fieldReportConsent = fieldReportConsent,
                 bootSessionRecorderRegistration = bootSessionRecorderRegistration,
                 presetApply = presetApply,
             )
@@ -363,6 +370,7 @@ internal data class AppStartupReport(
     val cdnEchSeed: AppStartupSubsystemResult,
     val cdnEchWorkerEnqueue: AppStartupSubsystemResult,
     val subscriptionWorkerEnqueue: AppStartupSubsystemResult,
+    val fieldReportConsent: AppStartupSubsystemResult,
     val bootSessionRecorderRegistration: AppStartupSubsystemResult,
     val presetApply: AppStartupSubsystemResult,
 ) {
@@ -379,6 +387,7 @@ internal data class AppStartupReport(
                 cdnEchSeed,
                 cdnEchWorkerEnqueue,
                 subscriptionWorkerEnqueue,
+                fieldReportConsent,
                 bootSessionRecorderRegistration,
                 presetApply,
             ).joinToString(separator = ", ") { result ->
@@ -414,6 +423,7 @@ internal enum class AppStartupSubsystem(
     CdnEchSeedFromCache("cdn_ech_seed_from_cache"),
     CdnEchRefreshWorkerEnqueue("cdn_ech_refresh_worker_enqueue"),
     SubscriptionAutoUpdateWorkerEnqueue("subscription_auto_update_worker_enqueue"),
+    FieldReportConsentFollower("field_report_consent_follower"),
     BootSessionRecorderRegistration("boot_session_recorder_registration"),
     PresetApply("preset_apply"),
 }

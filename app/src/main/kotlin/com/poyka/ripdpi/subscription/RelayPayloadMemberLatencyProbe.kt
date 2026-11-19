@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.mapRelayProfile
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
 import com.poyka.ripdpi.services.CandidateRelayPayloadProbe
+import com.poyka.ripdpi.services.fieldreport.FieldReportLedger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -13,6 +14,7 @@ class RelayPayloadMemberLatencyProbe
     @Inject
     constructor(
         private val payloadProbe: CandidateRelayPayloadProbe,
+        private val fieldReports: FieldReportLedger,
     ) : MemberLatencyProbe {
         override suspend fun measure(
             profile: ProxyProfile,
@@ -24,6 +26,7 @@ class RelayPayloadMemberLatencyProbe
                 } catch (_: IllegalArgumentException) {
                     null
                 } ?: return null
+            val startedNanos = System.nanoTime()
             val measured =
                 when (target) {
                     is MemberProbeTarget.Reachability -> {
@@ -42,6 +45,7 @@ class RelayPayloadMemberLatencyProbe
                         )
                     }
                 }
+            fieldReports.recordProbe(profile, measured, (System.nanoTime() - startedNanos) / NanosPerMilli)
             return when (measured) {
                 is CandidateRelayMeasurement.Succeeded -> {
                     MemberProbeResult(measured.latencyMillis, measured.quality)
@@ -61,3 +65,5 @@ class RelayPayloadMemberLatencyProbe
             }
         }
     }
+
+private const val NanosPerMilli = 1_000_000L

@@ -4,12 +4,14 @@ import com.poyka.ripdpi.data.ProfileQualityReason
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.services.CandidateRelayProbeEnvironment
 import com.poyka.ripdpi.services.ProfileUtilityProbeFixtures
+import com.poyka.ripdpi.services.fieldreport.FieldReportLedger
 import com.poyka.ripdpi.services.reachableCandidateHttpProbe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.File
 
 class RelayPayloadMemberLatencyProbeTest {
     @Test
@@ -39,9 +41,13 @@ class RelayPayloadMemberLatencyProbeTest {
 
             val result =
                 withContext(Dispatchers.IO) {
-                    RelayPayloadMemberLatencyProbe(probes.relay).measure(member, MemberProbeTarget.Reachability(url))
+                    RelayPayloadMemberLatencyProbe(probes.relay, noConsentFieldReports())
+                        .measure(member, MemberProbeTarget.Reachability(url))
                 }
 
             assertEquals(MemberProbeResult(0L, reason = ProfileQualityReason.Verified), result)
         }
 }
+
+private fun noConsentFieldReports(): FieldReportLedger =
+    FieldReportLedger(File.createTempFile("field-report", ".json").apply { delete() }, { false }, { 0L })
