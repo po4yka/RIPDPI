@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,6 +26,7 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
@@ -59,7 +61,7 @@ internal fun SettingsConnectivitySection(
     batteryOptimizationIgnored: Boolean = true,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-        SettingsSection(title = stringResource(R.string.settings_connectivity_section)) {
+        SettingsSection(title = stringResource(R.string.settings_connectivity_section), singleRow = true) {
             SettingsRow(
                 title = stringResource(R.string.settings_start_on_boot_title),
                 checked = uiState.startOnBootEnabled,
@@ -529,13 +531,20 @@ private fun biometricSubtitleRes(uiState: SettingsUiState): Int =
 @Composable
 private fun SettingsSection(
     title: String,
+    singleRow: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
+    val cardPadding = RipDpiThemeTokens.layout.cardPadding
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         SettingsCategoryHeader(title = title)
-        RipDpiCard(variant = RipDpiCardVariant.Tonal, content = { content() })
+        RipDpiCard(
+            variant = RipDpiCardVariant.Tonal,
+            // A row has its own vertical padding, so a card of one row adds none.
+            paddingValues = PaddingValues(horizontal = cardPadding, vertical = if (singleRow) 0.dp else cardPadding),
+            content = { content() },
+        )
     }
 }
 
