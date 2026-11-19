@@ -51,3 +51,5 @@ use parse::parse_quic_initial_header;
 mod synthetic_seed_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod v2_kat_tests;
