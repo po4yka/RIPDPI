@@ -77,7 +77,7 @@ The RIPDPI bundle is a normal sing-box JSON document with one additional top-lev
 ```jsonc
 { /* standard sing-box: log, dns, inbounds, outbounds, route */
   "ripdpi": {
-    "schema_version": 1,
+    "schema_version": 3,
     "amneziawg": [
       { "tag": "p2-awg-phone", "address": ["10.66.66.2/32"], "dns": ["1.1.1.1", "1.0.0.1"],
         "mtu": 1420, "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100,
@@ -88,14 +88,25 @@ The RIPDPI bundle is a normal sing-box JSON document with one additional top-lev
     "hysteria_extras": {
       "p2-hysteria2-<host>": { "obfs": { "type": "salamander", "password": "…" },
                                "insecure": false }
-    }
+    },
+    "endpoints": {
+      "p2-hysteria2-<host>": { "health": { "status": "degraded",
+                                           "observed_at": "2026-11-19T10:00:00Z", "ttl_seconds": 900 } }
+    },
+    "field_report": { "endpoint": "https://reports.example.test/v1/field-report",
+                      "cohort_token": "…", "max_reports_per_day": 4 }
   }
 }
 ```
 
-`SingBoxSubscriptionParser` parses the standard outbounds first, then reads the `ripdpi` block when `schema_version == 1`. `amneziawg[]` entries become AmneziaWG profiles; `hysteria_extras` entries are matched to their Hysteria2 outbound by `tag` and carry the salamander obfs password onto that profile. An unknown `schema_version` is ignored unless migration metadata is present; migration deliveries reject unsupported extension versions. Compatibility with other clients depends on their version and supported outbound types. Validate a bundle for its intended recipient; clients that ignore the `ripdpi` key cannot activate its AmneziaWG profiles.
+`SingBoxSubscriptionParser` parses the standard outbounds first, then reads the `ripdpi` block, which must declare `schema_version == 3`. `amneziawg[]` entries become AmneziaWG profiles; `hysteria_extras` entries are matched to their Hysteria2 outbound by `tag` and carry the salamander obfs password onto that profile. Any other `schema_version`, including 2, and a missing one reject the whole bundle with the typed `UNSUPPORTED_SCHEMA_VERSION` error; there is no compatibility path for version 2 bundles, so regenerate them with the current deployer. The nested `payload_failover` object keeps its own `schema_version` 2. Compatibility with other clients depends on their version and supported outbound types. Validate a bundle for its intended recipient; clients that ignore the `ripdpi` key cannot activate its AmneziaWG profiles.
 
-The deploy repository owns the **executable JSON Schema** `contract/ripdpi-bundle.schema.json` (prose companion: `docs/RIPDPI-BUNDLE.md`). A copy is vendored at `core/data/src/test/resources/contract/` and validated locally by `RipdpiBundleContractTest`. The repositories do not compare their copies in every CI run, so a release update must verify byte identity or run the cross-repository emit/validate/app-parse gate. `schema_version` stays `1`: post-1 fields are additive and optional. The parser surfaces them too:
+The deploy repository owns the **executable JSON Schema** `contract/ripdpi-bundle.schema.json` (prose companion: `docs/RIPDPI-BUNDLE.md`). A copy is vendored at `core/data/src/test/resources/contract/` and validated locally by `RipdpiBundleContractTest`. The repositories do not compare their copies in every CI run, so a release update must verify byte identity or run the cross-repository emit/validate/app-parse gate. Version 3 adds two optional blocks:
+
+- **`endpoints.<server_ref>.health`** — server-observed `status` (`healthy`, `degraded`, `down`, `unknown`), `observed_at` (RFC 3339 UTC) and `ttl_seconds` (60 to 86400), keyed by the opaque `server_ref`, which is an outbound or AWG tag of the same bundle. Selector import orders failover candidates by it: an unexpired `down` endpoint is excluded, `degraded` moves after the neutral candidates, and `healthy`, `unknown`, missing, and expired health (`observed_at + ttl_seconds` has passed at import time) are neutral and keep the declared order. When every candidate is down the import fails with "every selector candidate is down". An entry with an invalid key, status, instant, or ttl is dropped, so that endpoint stays neutral. Health is evaluated when the bundle is imported, so a server-client clock skew up to the ttl is tolerated and the next refresh re-evaluates it.
+- **`field_report`** — `endpoint` (an `https://` URL), `cohort_token`, and `max_reports_per_day` (1 to 24) for the opt-in field-report client. An invalid block rejects the bundle with the typed `INVALID_FIELD_REPORT` error that names the field.
+
+The parser also surfaces these optional fields:
 
 - **`amneziawg[].cohort_fingerprint`** — `"sha256:…"` over the resolved obfuscation params; `AmneziaWgParameters.cohortFingerprint()` recomputes it, so a bundle whose params have drifted from the server's current cohort is detectable up front instead of stalling the AWG handshake.
 - **`hysteria_extras.<tag>.salamander_upstream_tag`** — the server's Hysteria2 release; compare to the bundled obfuscator version to warn on a Salamander skew.
