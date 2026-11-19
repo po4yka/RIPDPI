@@ -13,6 +13,10 @@ import com.poyka.ripdpi.data.PersistedEchEntry
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.Subscription
+import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
@@ -20,10 +24,12 @@ import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.proxyimport.FakeProxyGroupRepository
 import com.poyka.ripdpi.seed.PresetApplier
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
@@ -37,6 +43,7 @@ import com.poyka.ripdpi.services.fieldreport.FieldReportNetwork
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.strategy.StrategyPackService
+import com.poyka.ripdpi.subscription.PendingBootstrapProvisioner
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import kotlinx.coroutines.CancellationException
@@ -50,6 +57,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -99,6 +108,7 @@ class AppStartupInitializerTest {
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.subscriptionWorkerEnqueue.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.bootSessionRecorderRegistration.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.presetApply.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.pendingBootstrapProvision.status)
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)
             assertEquals(1, diagnosticsBootstrapper.calls)
@@ -112,7 +122,8 @@ class AppStartupInitializerTest {
                     "subscription_auto_update_worker_enqueue=succeeded, " +
                     "field_report_consent_follower=succeeded, " +
                     "boot_session_recorder_registration=succeeded, " +
-                    "preset_apply=succeeded",
+                    "preset_apply=succeeded, " +
+                    "pending_bootstrap_provision=succeeded",
                 report.toLogMessage(),
             )
         }
@@ -658,6 +669,46 @@ class AppStartupInitializerFailureTest {
         }
 
     @Test
+    fun `startup provisions a pending bootstrap token without gating readiness`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(MockResponse.Builder().body("trojan://fixture-secret@relay.example:443#relay").build())
+                server.start()
+                val repository = FakeProxyGroupRepository()
+                repository.add(
+                    ProxyGroup(
+                        "slot",
+                        "Preset relay",
+                        ProxyGroupType.SUBSCRIPTION,
+                        0,
+                        false,
+                        subscription =
+                            Subscription(
+                                link = server.url("/bootstrap/fixture").toString(),
+                                kind = SubscriptionKind.BOOTSTRAP,
+                            ),
+                    ),
+                )
+                val initializer =
+                    createInitializer(
+                        compatibilityResetter = RecordingAppCompatibilityResetter(),
+                        strategyPackService = RecordingStrategyPackService(),
+                        diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                        proxyGroupRepository = repository,
+                        scope = backgroundScope,
+                    )
+
+                initializer.initialize()
+                initializer.readiness.first { it == AppStartupReadinessState.Ready }
+                val provisioned = repository.groups().first { groups -> groups.single().members.isNotEmpty() }
+
+                assertEquals("fixture-secret", (provisioned.single().members.single() as ProxyProfile.Trojan).password)
+                assertTrue(provisioned.single().subscription?.consumedAt != null)
+                assertEquals(1, server.requestCount)
+            }
+        }
+
+    @Test
     fun `initializeSubsystems preserves subsystem ordering`() =
         runTest {
             val callOrder = mutableListOf<String>()
@@ -949,6 +1000,8 @@ private fun createInitializer(
                     { FieldReportNetwork("none", "other") },
                 ),
             ),
+        pendingBootstrapProvisioner =
+            PendingBootstrapProvisioner(proxyGroupRepository, BootstrapConsumer()) { _, _ -> emptyList() },
         appShortcutsPublisher =
             AppShortcutsPublisher(
                 context = application,
