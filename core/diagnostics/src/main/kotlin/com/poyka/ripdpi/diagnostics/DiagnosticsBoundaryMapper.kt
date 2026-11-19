@@ -72,6 +72,13 @@ class DiagnosticsBoundaryMapper
                             currentFingerprintHash = entity.triggerCurrentFingerprintHash,
                         ),
                     networkScopeKey = entity.networkScopeKey,
+                    networkTransport = entity.networkTransport,
+                    matrixRevisions =
+                        entity.matrixTargetSetRevision?.let { targetSet ->
+                            val probe = entity.matrixProbeRevision ?: return@let null
+                            val config = entity.matrixConfigRevision ?: return@let null
+                            SelectiveMatrixRevisions(targetSet, probe, config)
+                        },
                 )
             }
 

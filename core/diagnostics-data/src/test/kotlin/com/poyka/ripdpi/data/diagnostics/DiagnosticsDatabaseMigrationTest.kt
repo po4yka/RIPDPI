@@ -226,6 +226,7 @@ class DiagnosticsDatabaseMigrationTest {
             legacyDb.dropStageTelemetryScope()
             legacyDb.dropRelayTraceColumns()
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
+            legacyDb.dropMatrixPairingColumns()
             legacyDb.execSQL("PRAGMA user_version = 7")
         }
 
@@ -276,6 +277,7 @@ class DiagnosticsDatabaseMigrationTest {
             legacyDb.dropStageTelemetryScope()
             legacyDb.dropRelayTraceColumns()
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
+            legacyDb.dropMatrixPairingColumns()
             legacyDb.execSQL("PRAGMA user_version = 8")
         }
 
@@ -324,6 +326,7 @@ class DiagnosticsDatabaseMigrationTest {
                     "NULL, NULL, NULL, 'relay')",
             )
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
+            legacyDb.dropMatrixPairingColumns()
             legacyDb.execSQL("PRAGMA user_version = 9")
         }
 
@@ -388,6 +391,7 @@ class DiagnosticsDatabaseMigrationTest {
                     "'7d1612e550929370d50a06d5599258ff' WHERE id = 42",
             )
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
+            legacyDb.dropMatrixPairingColumns()
             legacyDb.execSQL("PRAGMA user_version = 10")
         }
 
@@ -432,6 +436,7 @@ class DiagnosticsDatabaseMigrationTest {
                     "'6a1a2a8847bbeaa542e9148c1d09f4e5' WHERE id = 42",
             )
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
+            legacyDb.dropMatrixPairingColumns()
             legacyDb.execSQL("PRAGMA user_version = 11")
         }
 
@@ -469,6 +474,7 @@ class DiagnosticsDatabaseMigrationTest {
             legacyDb.execSQL("DROP INDEX IF EXISTS index_home_diagnostics_runs_updatedAt")
             legacyDb.execSQL("DROP TABLE IF EXISTS home_diagnostics_runs")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
+            legacyDb.dropMatrixPairingColumns()
             legacyDb.execSQL("PRAGMA user_version = 12")
         }
 
@@ -515,6 +521,7 @@ class DiagnosticsDatabaseMigrationTest {
         context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
             legacyDb.execSQL("DROP INDEX index_native_session_events_relay_attempt_sequence")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
+            legacyDb.dropMatrixPairingColumns()
             legacyDb.execSQL("PRAGMA user_version = 12")
         }
 
@@ -555,6 +562,7 @@ class DiagnosticsDatabaseMigrationTest {
 
         context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
+            legacyDb.dropMatrixPairingColumns()
             legacyDb.execSQL("PRAGMA user_version = 14")
         }
 
@@ -573,6 +581,41 @@ class DiagnosticsDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `migration 15 to 16 keeps scan sessions and leaves them unpairable`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-v15-v16-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+        DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false).also { db ->
+            db.openHelper.writableDatabase.execSQL(
+                "INSERT INTO scan_sessions (id, profileId, pathMode, status, summary, startedAt, networkScopeKey) " +
+                    "VALUES ('scan-v15', 'matrix', 'RAW_PATH', 'completed', 'done', 42, 'scope')",
+            )
+            db.close()
+        }
+
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.dropMatrixPairingColumns()
+            legacyDb.execSQL("PRAGMA user_version = 15")
+        }
+
+        val migrated = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false)
+        try {
+            migrated.openHelper.writableDatabase
+                .query(
+                    "SELECT networkScopeKey, networkTransport, matrixTargetSetRevision, matrixProbeRevision, " +
+                        "matrixConfigRevision FROM scan_sessions WHERE id = 'scan-v15'",
+                ).use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals("scope", cursor.getString(0))
+                    (1..4).forEach { column -> assertTrue(cursor.isNull(column)) }
+                }
+        } finally {
+            migrated.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
     /** Inserts one telemetry row using only the columns that exist in schema 4. */
     private fun SupportSQLiteDatabase.insertVersion4TelemetrySample() {
         execSQL(
@@ -584,6 +627,11 @@ class DiagnosticsDatabaseMigrationTest {
                 "('v4-telemetry', 'connected', 'wifi', 'unknown', 'unknown', 0, 0, 0, 0, 'idle', 'idle', " +
                 "'idle', 'idle', 8, 4096, 16, 8192, 1700000000000)",
         )
+    }
+
+    private fun android.database.sqlite.SQLiteDatabase.dropMatrixPairingColumns() {
+        listOf("networkTransport", "matrixTargetSetRevision", "matrixProbeRevision", "matrixConfigRevision")
+            .forEach { column -> execSQL("ALTER TABLE scan_sessions DROP COLUMN $column") }
     }
 
     private fun android.database.sqlite.SQLiteDatabase.dropRelayTraceColumns() {

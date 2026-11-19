@@ -137,6 +137,8 @@ class LegacyNetworkSnapshotMigrationTest {
                     "VALUES ('unrelated', 'test', 'info', 'keep', 126)",
             )
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN networkScopeKey")
+            listOf("networkTransport", "matrixTargetSetRevision", "matrixProbeRevision", "matrixConfigRevision")
+                .forEach { column -> legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN $column") }
             legacyDb.execSQL("PRAGMA user_version = 13")
         }
     }

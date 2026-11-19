@@ -45,6 +45,7 @@ import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogPathValidator
 import com.poyka.ripdpi.diagnostics.prepareScanEndpoints
+import com.poyka.ripdpi.diagnostics.selectiveMatrixRevisions
 import com.poyka.ripdpi.diagnostics.withUserHosts
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.Json
@@ -354,7 +355,7 @@ internal class DiagnosticsScanRequestFactory
                 networkScope = networkScope,
                 preferredDnsPath = scanContext.preferredDnsPath,
                 initialSession =
-                    buildInitialSession(sessionId, profile, scanContext, pathMode, scanOrigin, launchTrigger, now),
+                    buildInitialSession(sessionId, profile, plan, pathMode, scanOrigin, launchTrigger, now),
                 preScanSnapshot = buildPreScanSnapshot(sessionId, now, scanOrigin),
                 preScanContext = buildPreScanContext(sessionId, scanContext, now),
             )
@@ -363,13 +364,15 @@ internal class DiagnosticsScanRequestFactory
         private fun buildInitialSession(
             sessionId: String,
             profile: DiagnosticProfileEntity,
-            scanContext: ScanContext,
+            plan: ScanPlan,
             pathMode: ScanPathMode,
             scanOrigin: DiagnosticsScanOrigin,
             launchTrigger: DiagnosticsScanLaunchTrigger?,
             now: Long,
-        ): ScanSessionEntity =
-            ScanSessionEntity(
+        ): ScanSessionEntity {
+            val scanContext = plan.context
+            val revisions = plan.selectiveMatrix?.let { selectiveMatrixRevisions(it, pathMode, scanContext.settings) }
+            return ScanSessionEntity(
                 id = sessionId,
                 profileId = profile.id,
                 approachProfileId = scanContext.approachSnapshot.profileId,
@@ -391,7 +394,12 @@ internal class DiagnosticsScanRequestFactory
                 triggerPreviousFingerprintHash = launchTrigger?.previousFingerprintHash,
                 triggerCurrentFingerprintHash = launchTrigger?.currentFingerprintHash,
                 networkScopeKey = scanContext.networkFingerprint?.scopeKey(),
+                networkTransport = scanContext.networkFingerprint?.transport,
+                matrixTargetSetRevision = revisions?.targetSet,
+                matrixProbeRevision = revisions?.probeParameters,
+                matrixConfigRevision = revisions?.appConfiguration,
             )
+        }
 
         private suspend fun buildPreScanSnapshot(
             sessionId: String,

@@ -25,6 +25,7 @@ internal object DiagnosticsDatabaseMigrations {
             migration12To13,
             migration13To14,
             migration14To15,
+            migration15To16,
         )
 }
 
@@ -214,5 +215,14 @@ private val migration14To15 =
     object : Migration(14, 15) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE scan_sessions ADD COLUMN networkScopeKey TEXT")
+        }
+    }
+
+/** v15 -> v16: record the transport and selective matrix revisions so two matrix scans can be paired. */
+private val migration15To16 =
+    object : Migration(15, 16) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            listOf("networkTransport", "matrixTargetSetRevision", "matrixProbeRevision", "matrixConfigRevision")
+                .forEach { column -> db.execSQL("ALTER TABLE scan_sessions ADD COLUMN $column TEXT") }
         }
     }

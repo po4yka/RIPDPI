@@ -16,7 +16,8 @@ interface DiagnosticsScanDao {
                CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
                reportCompletionKind, reportTerminationReason,
                startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
-               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey,
+               networkTransport, matrixTargetSetRevision, matrixProbeRevision, matrixConfigRevision
         FROM scan_sessions
         WHERE launchOrigin IS NULL OR launchOrigin != 'home_detection_local'
         ORDER BY startedAt DESC LIMIT :limit
@@ -34,7 +35,8 @@ interface DiagnosticsScanDao {
                CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
                reportCompletionKind, reportTerminationReason,
                startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
-               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey,
+               networkTransport, matrixTargetSetRevision, matrixProbeRevision, matrixConfigRevision
         FROM scan_sessions
         WHERE (launchOrigin IS NULL OR launchOrigin != 'home_detection_local')
           AND reportJson LIKE '%"strategyProbeReport"%'
@@ -53,7 +55,8 @@ interface DiagnosticsScanDao {
                CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
                reportCompletionKind, reportTerminationReason,
                startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
-               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey,
+               networkTransport, matrixTargetSetRevision, matrixProbeRevision, matrixConfigRevision
         FROM scan_sessions WHERE id = :sessionId LIMIT 1
         """,
     )
