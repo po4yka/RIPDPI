@@ -41,6 +41,9 @@ private val AppVersionPattern = Regex("(0|[1-9][0-9]{0,3})\\.(0|[1-9][0-9]{0,3})
 private val VersionNamePrefix = Regex("((?:0|[1-9][0-9]{0,3})\\.(?:0|[1-9][0-9]{0,3}))(?:[^0-9].*)?")
 private val Protocols = setOf("vless-reality", "xhttp", "hysteria2", "amneziawg", "naiveproxy", "local-desync")
 private val NetworkTypes = setOf("wifi", "cellular", "other")
+private val OperatorCodePattern = Regex("([0-9]{3})([0-9]{2,3})")
+private val MccPattern = Regex("[0-9]{3}")
+private val MncPattern = Regex("[0-9]{2,3}")
 
 /** One remote connection attempt to the bundle endpoint [serverRef]; [failureStage] is null on success. */
 internal data class FieldReportAttempt(
@@ -50,12 +53,56 @@ internal data class FieldReportAttempt(
     val latencyMillis: Long,
 )
 
-/** Coarse network context of a report. */
+internal const val SourceSim = "sim"
+internal const val SourceServerHint = "server_hint"
+internal const val SourceNone = "none"
+
+/**
+ * The contract `network` object of the network an hour was measured on. [source] names where the identity came
+ * from: [SourceSim] carries the operator MCC and MNC, [SourceServerHint] the hint ASN and country, [SourceNone]
+ * neither. [isContractValid] enforces those rules.
+ */
+@Serializable
 data class FieldReportNetwork(
-    val asn: Long,
-    val country: String,
+    val source: String,
     val networkType: String,
+    val mcc: String? = null,
+    val mnc: String? = null,
+    val asn: Long? = null,
+    val country: String? = null,
 )
+
+/** The `sim` network of an MCC+MNC [operatorCode] (5 or 6 digits), or null when the code is not one. */
+internal fun simNetwork(operatorCode: String?): FieldReportNetwork? =
+    operatorCode?.let(OperatorCodePattern::matchEntire)?.let { match ->
+        FieldReportNetwork(SourceSim, "cellular", mcc = match.groupValues[1], mnc = match.groupValues[2])
+    }
+
+internal fun FieldReportNetwork.isContractValid(): Boolean {
+    val hasOperator = mcc != null || mnc != null
+    val sourceRules =
+        when (source) {
+            SourceSim -> {
+                networkType == "cellular" &&
+                    mcc?.let(MccPattern::matches) == true &&
+                    mnc?.let(MncPattern::matches) == true &&
+                    asn == null
+            }
+
+            SourceServerHint -> {
+                asn != null && asn in 1..MaxAsn && !hasOperator
+            }
+
+            SourceNone -> {
+                asn == null && !hasOperator
+            }
+
+            else -> {
+                false
+            }
+        }
+    return sourceRules && networkType in NetworkTypes && (country == null || CountryPattern.matches(country))
+}
 
 @Serializable
 internal data class FieldReportBucket(
@@ -67,10 +114,13 @@ internal data class FieldReportBucket(
     val attempts: Long get() = histogram.sum()
 }
 
+/** One hour on one [network]; an hour whose network changed holds one entry per network. */
 @Serializable
 internal data class FieldReportHour(
     val startEpochMillis: Long,
     val buckets: List<FieldReportBucket> = emptyList(),
+    /** Null only in a file written before the network was recorded; such an hour is never sent. */
+    val network: FieldReportNetwork? = null,
 )
 
 @Serializable
@@ -131,13 +181,16 @@ private fun remoteFailure(
 ): Pair<FieldFailureStage, Long>? =
     if (stage == CandidateMeasurementStage.Http) FieldFailureStage.Unknown to elapsedMillis else null
 
-/** Adds [attempt] to the bucket of the hour that holds [nowMillis]. */
+/** Adds [attempt], measured on [network], to the bucket of the hour that holds [nowMillis]. */
 internal fun FieldReportState.record(
     attempt: FieldReportAttempt,
+    network: FieldReportNetwork,
     nowMillis: Long,
 ): FieldReportState {
     val start = hourStart(nowMillis)
-    val hour = hours.firstOrNull { it.startEpochMillis == start } ?: FieldReportHour(start)
+    val hour =
+        hours.firstOrNull { it.startEpochMillis == start && it.network == network }
+            ?: FieldReportHour(start, network = network)
     val stage = attempt.failureStage?.wireValue
     val existing =
         hour.buckets.firstOrNull {
@@ -152,7 +205,7 @@ internal fun FieldReportState.record(
                 },
         )
     val updatedHour = hour.copy(buckets = hour.buckets.filterNot { it == existing } + counted)
-    return copy(hours = hours.filterNot { it.startEpochMillis == start } + updatedHour).pruned(nowMillis)
+    return copy(hours = hours.filterNot { it === hour } + updatedHour).pruned(nowMillis)
 }
 
 /** Drops hours and upload instants older than 24 hours and keeps at most 24 pending hours. */
@@ -187,22 +240,20 @@ private fun FieldReportBucket.isReportable(serverRefs: Set<String>): Boolean =
 internal fun buildFieldReport(
     hour: FieldReportHour,
     appVersion: String,
-    network: FieldReportNetwork,
     serverRefs: Set<String>,
 ): JsonObject? {
+    val network = hour.network
     val validContext =
         hour.startEpochMillis >= 0 &&
             hour.startEpochMillis % MillisPerHour == 0L &&
             AppVersionPattern.matches(appVersion) &&
-            network.asn in 1..MaxAsn &&
-            CountryPattern.matches(network.country) &&
-            network.networkType in NetworkTypes
+            network?.isContractValid() == true
     val buckets =
         hour.buckets
             .filter { it.isReportable(serverRefs) }
             .sortedByDescending { it.attempts }
             .take(MaxBuckets)
-    if (!validContext || buckets.isEmpty()) return null
+    if (network == null || !validContext || buckets.isEmpty()) return null
     return buildJsonObject {
         put("schema_version", ClientFieldReportContractVersion)
         putJsonObject("window") {
@@ -214,8 +265,15 @@ internal fun buildFieldReport(
             put("platform", "android")
         }
         putJsonObject("network") {
-            put("asn", network.asn)
-            put("country", network.country)
+            put("source", network.source)
+            if (network.mcc != null && network.mnc != null) {
+                putJsonObject("operator") {
+                    put("mcc", network.mcc)
+                    put("mnc", network.mnc)
+                }
+            }
+            network.asn?.let { put("asn", it) }
+            network.country?.let { put("country", it) }
             put("network_type", network.networkType)
         }
         putJsonArray("buckets") {

@@ -41,10 +41,12 @@ import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import com.poyka.ripdpi.data.subscription.withUserinfoHeader
 import com.poyka.ripdpi.data.validateNativeRelayProfileResult
 import com.poyka.ripdpi.proxyimport.subscriptionHost
+import com.poyka.ripdpi.services.fieldreport.FieldReportNetworkContext
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -91,6 +93,7 @@ class SubscriptionRefreshCoordinator private constructor(
     private val signalPublisher: SubscriptionSignalPublisher,
     private val httpClient: OkHttpClient,
     private val clockMillis: () -> Long,
+    private val refreshNetworkHint: suspend (List<RipdpiFieldReport>) -> Unit,
 ) {
     @Inject
     internal constructor(
@@ -98,12 +101,14 @@ class SubscriptionRefreshCoordinator private constructor(
         awgProfileRepository: AwgProfileRepository,
         signalPublisher: SubscriptionStatusNotifier,
         expiryClock: SubscriptionExpiryClock,
+        networkContext: FieldReportNetworkContext,
     ) : this(
         repository = repository,
         awgProfileRepository = awgProfileRepository,
         signalPublisher = signalPublisher,
         httpClient = OkHttpClient(),
         clockMillis = expiryClock::nowMillis,
+        refreshNetworkHint = { networkContext.refreshHint(it) },
     )
 
     @Suppress("LongParameterList")
@@ -114,7 +119,7 @@ class SubscriptionRefreshCoordinator private constructor(
         httpClient: OkHttpClient,
         clockMillis: () -> Long,
         @Suppress("UNUSED_PARAMETER") testOnly: Unit,
-    ) : this(repository, awgProfileRepository, signalPublisher, httpClient, clockMillis)
+    ) : this(repository, awgProfileRepository, signalPublisher, httpClient, clockMillis, {})
 
     private val log = Logger.withTag("subscription-auto-update")
     private val deliveryHttpClient =
@@ -140,7 +145,16 @@ class SubscriptionRefreshCoordinator private constructor(
                 is SubscriptionRefreshResult.Failed -> retry = retry || result.retryable
             }
         }
-        signalPublisher.publish(repository.list(), clockMillis())
+        val refreshed = repository.list()
+        // The field-report network hint is fetched with the scheduled bundle refresh; it never fails the refresh.
+        try {
+            refreshNetworkHint(refreshed.mapNotNull { it.fieldReport })
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (ignored: Exception) {
+            log.w { "network hint refresh failed: ${ignored.javaClass.simpleName}" }
+        }
+        signalPublisher.publish(refreshed, clockMillis())
         return if (retry) SubscriptionRefreshRunResult.RETRY else SubscriptionRefreshRunResult.SUCCESS
     }
 

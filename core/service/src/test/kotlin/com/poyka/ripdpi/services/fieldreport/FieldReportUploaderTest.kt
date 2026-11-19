@@ -32,18 +32,17 @@ class FieldReportUploaderTest {
         var consent: Boolean = true,
         var now: Long = 0,
         var tunnel: LocalSocksRoute? = null,
-        var network: FieldReportNetwork? = FieldReportNetwork(64500, "ZZ", "wifi"),
+        var network: FieldReportNetwork = FieldReportNetwork("server_hint", "wifi", asn = 64500, country = "ZZ"),
         var targets: List<FieldReportTarget> = emptyList(),
         var accept: Boolean = true,
     ) {
         val requests = mutableListOf<Pair<String, String>>()
-        val ledger = FieldReportLedger(file, { consent }, { now })
+        val ledger = FieldReportLedger(file, { consent }, { now }, { network })
         val uploader =
             FieldReportUploader(
                 ledger = ledger,
                 consent = { consent },
                 targets = { targets },
-                network = { network },
                 appVersion = "1.4",
                 tunnelRoute = { tunnel },
                 poster = { _, target, body -> accept.also { requests += target.endpoint to body } },
@@ -59,7 +58,9 @@ class FieldReportUploaderTest {
         repeat(hours) { hour ->
             harness.now = recordedAt + hour * MillisPerHour
             repeat(attempts) {
-                harness.ledger.update { it.record(FieldReportAttempt(reality, "vless-reality", null, 80), harness.now) }
+                harness.ledger.update {
+                    it.record(FieldReportAttempt(reality, "vless-reality", null, 80), harness.network, harness.now)
+                }
             }
         }
         harness.now = recordedAt + hours * MillisPerHour
@@ -81,6 +82,35 @@ class FieldReportUploaderTest {
             assertTrue(body.contains("\"start_utc\":\"2026-11-19T10:00:00Z\""))
             assertEquals(emptyList<FieldReportHour>(), harness.ledger.snapshot().hours)
         }
+
+    @Test
+    fun `an hour on two networks sends one report per network with its own source`() =
+        runTest {
+            val harness = Harness(tunnel = route, targets = listOf(FieldReportTarget(config, setOf(reality))))
+            harness.now = recordedAt
+            repeat(5) { harness.ledger.recordAttempt(harness) }
+            harness.network = FieldReportNetwork("sim", "cellular", mcc = "001", mnc = "01")
+            repeat(5) { harness.ledger.recordAttempt(harness) }
+            harness.now = nextHour
+
+            harness.uploader.uploadCompletedHours()
+
+            assertEquals(2, harness.requests.size)
+            val networks = harness.requests.map { (_, body) -> contractJsonOf(body).getValue("network").toString() }
+            assertEquals(
+                listOf(
+                    "{\"source\":\"server_hint\",\"asn\":64500,\"country\":\"ZZ\",\"network_type\":\"wifi\"}",
+                    "{\"source\":\"sim\",\"operator\":{\"mcc\":\"001\",\"mnc\":\"01\"},\"network_type\":\"cellular\"}",
+                ),
+                networks,
+            )
+            harness.requests.forEach { (_, body) ->
+                assertEquals(emptyList<String>(), ClientFieldReportSchema().errors(contractJsonOf(body)))
+            }
+        }
+
+    private suspend fun FieldReportLedger.recordAttempt(harness: Harness) =
+        update { it.record(FieldReportAttempt(reality, "vless-reality", null, 80), harness.network, harness.now) }
 
     @Test
     fun `the current hour is never sent`() =
@@ -147,6 +177,7 @@ class FieldReportUploaderTest {
                 harness.ledger.update {
                     it.record(
                         FieldReportAttempt(reality, "vless-reality", null, 80),
+                        harness.network,
                         harness.now,
                     )
                 }
@@ -162,6 +193,7 @@ class FieldReportUploaderTest {
                 harness.ledger.update {
                     it.record(
                         FieldReportAttempt(reality, "vless-reality", null, 80),
+                        harness.network,
                         harness.now,
                     )
                 }
@@ -196,7 +228,7 @@ class FieldReportUploaderTest {
         }
 
     @Test
-    fun `no request without an https target or a network context`() =
+    fun `no request without an https target or for an hour without a recorded network`() =
         runTest {
             val plainHttp = harnessWithHours(1)
             plainHttp.targets =
@@ -209,9 +241,9 @@ class FieldReportUploaderTest {
             noTarget.uploader.uploadCompletedHours()
             assertEquals(0, noTarget.requests.size)
 
-            // Production has no ASN source yet: the hour is dropped unsent.
+            // An hour from a file written before the network was recorded is dropped unsent.
             val noNetwork = harnessWithHours(1)
-            noNetwork.network = null
+            noNetwork.ledger.update { state -> state.copy(hours = state.hours.map { it.copy(network = null) }) }
             noNetwork.uploader.uploadCompletedHours()
             assertEquals(0, noNetwork.requests.size)
             assertEquals(emptyList<FieldReportHour>(), noNetwork.ledger.snapshot().hours)
