@@ -60,6 +60,11 @@ The implementation MUST send a report only while the tunnel is active, only to `
 - **WHEN** the tunnel is not active at upload time
 - **THEN** no request is made and the report stays pending until the next hour or is dropped by age
 
+#### Scenario: Tunnel exits elsewhere
+
+- **WHEN** the active VPN configuration exits through local desync, another group's relay, or a runtime whose applied configuration is unknown
+- **THEN** no report goes to a target whose groups do not own the active upstream, and the hours stay pending until a later run or age out
+
 #### Scenario: Report host name stays inside the tunnel
 
 - **WHEN** an upload runs
