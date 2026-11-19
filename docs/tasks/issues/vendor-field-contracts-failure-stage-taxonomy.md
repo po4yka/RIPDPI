@@ -2,7 +2,7 @@
 id: DGN-1795085357320979
 title: Vendor field analytics contracts and unify the failure-stage taxonomy
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics engineer
