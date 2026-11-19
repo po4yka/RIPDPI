@@ -2,13 +2,12 @@
 id: DAT-1795085420746769
 title: Consume ripdpi-bundle v3 and feed endpoint health into failover
 kind: feature
-status: backlog
+status: doing
 area: data
 priority: high
 owner: Android data engineer
 parent: EPC-1795085162356362
-blocked_by:
-  - DGN-1795085357320979
+blocked_by: [DGN-1795085357320979]
 spec_mode: required
 openspec_change: dat-1795085420746769-consume-bundle-v3-endpoint-health
 created: 2026-11-19
