@@ -321,7 +321,11 @@ entry records no new maintainer or native-speaker sign-off. Resource tests
 do not prove device acceptance or full linguistic correctness of other
 locales.
 
-## Font & glyph coverage
+## Field-report consent copy — 2026-11-19
+
+`settings_field_report_title`, `settings_field_report_body`, and the changed `data_transparency_no_external_servers` value are AI-authored in all nine translated locales (ru, es, de, fr, fa, ar, zh-CN, hi, pt-BR) for the opt-in field report (DGN-1795085498592630). The body now names the on-device operator code (MCC-MNC) on mobile data and the report-server network hint (ASN and country), fetched outside the tunnel, on Wi-Fi. Native-speaker review is pending for these three keys in every translated locale; the maintainer sign-off above does not cover them.
+
+
 
 The brand typeface (Geist Sans / Geist Mono, bundled under
 `app/src/main/res/font/`) covers Latin and Cyrillic — so `en`, `ru`, and the
