@@ -36,10 +36,13 @@ import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.services.FlowAppAttributionStore
 import com.poyka.ripdpi.services.FlowAttribution
+import com.poyka.ripdpi.services.OwnedTlsClientFactory
+import com.poyka.ripdpi.services.OwnedTlsFingerprintSelection
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceStartupReconciler
 import com.poyka.ripdpi.services.fieldreport.FieldReportConsentFollower
 import com.poyka.ripdpi.services.fieldreport.FieldReportLedger
 import com.poyka.ripdpi.services.fieldreport.FieldReportNetwork
+import com.poyka.ripdpi.services.fieldreport.FieldReportNetworkContext
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.strategy.StrategyPackService
@@ -59,6 +62,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import okhttp3.OkHttpClient
+import okhttp3.TlsVersion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -999,6 +1004,7 @@ private fun createInitializer(
                     { 0L },
                     { FieldReportNetwork("none", "other") },
                 ),
+                FieldReportNetworkContext(application, NoOpAppSettingsRepository, UnusedTlsClientFactory),
             ),
         pendingBootstrapProvisioner =
             PendingBootstrapProvisioner(proxyGroupRepository, BootstrapConsumer()) { _, _ -> emptyList() },
@@ -1282,6 +1288,25 @@ private class RecordingDnsPathPreferenceInvalidator(
     override fun unregister() {
         // No-op for tests; the real receiver was never registered.
     }
+}
+
+/** Startup never sends a request in these tests, so any client creation is a test failure. */
+private object UnusedTlsClientFactory : OwnedTlsClientFactory {
+    override fun currentProfile(): String = OwnedTlsFingerprintSelection().profileId
+
+    override fun selectionForAuthority(authority: String?): OwnedTlsFingerprintSelection =
+        OwnedTlsFingerprintSelection()
+
+    override fun create(
+        forcedTlsVersions: List<TlsVersion>?,
+        configure: OkHttpClient.Builder.() -> Unit,
+    ): OkHttpClient = error("startup must not open an HTTP client")
+
+    override fun createForAuthority(
+        authority: String?,
+        forcedTlsVersions: List<TlsVersion>?,
+        configure: OkHttpClient.Builder.() -> Unit,
+    ): OkHttpClient = error("startup must not open an HTTP client")
 }
 
 private object NoOpAppSettingsRepository : AppSettingsRepository {

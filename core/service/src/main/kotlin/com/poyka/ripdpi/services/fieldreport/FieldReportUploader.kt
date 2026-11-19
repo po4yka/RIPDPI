@@ -272,7 +272,7 @@ class FieldReportWorker
         }
     }
 
-/** Keeps the hourly upload scheduled exactly while consent is on; revoking consent deletes unsent reports. */
+/** Keeps the hourly upload scheduled exactly while consent is on; revoking consent deletes unsent reports and the hint. */
 @Singleton
 class FieldReportConsentFollower
     @Inject
@@ -280,6 +280,7 @@ class FieldReportConsentFollower
         @param:ApplicationContext private val context: Context,
         private val settings: AppSettingsRepository,
         private val ledger: FieldReportLedger,
+        private val networkContext: FieldReportNetworkContext,
     ) {
         suspend fun follow() {
             // It runs in the handler-less application scope, so no failure may escape: neither the settings flow
@@ -298,7 +299,10 @@ class FieldReportConsentFollower
 
         private suspend fun apply(enabled: Boolean) {
             contained("scheduling") { schedule(enabled) }
-            if (!enabled) ledger.clear()
+            if (!enabled) {
+                networkContext.clearHint()
+                ledger.clear()
+            }
         }
 
         private suspend fun contained(
