@@ -99,8 +99,60 @@ class ShippedAssetSecretsTest(unittest.TestCase):
         self.assertEqual([], self.violations())
 
     def test_numeric_code_constant_named_like_a_key_passes(self) -> None:
-        self.write("core/engine/src/main/assets/lua/lib.lua", "local TLS_EXT_PRE_SHARED_KEY = 41\n")
+        self.write("core/engine/src/main/assets/lua/lib.lua", "local TLS_EXT_PRE_SHARED_KEY = 41\nRESET_TOKEN=0x02\n")
         self.assertEqual([], self.violations())
+
+    def test_vless_user_id_uuid_auth_token_secret_and_obfs_are_rejected(self) -> None:
+        self.write(
+            "app/src/main/assets/bundle.json",
+            "{"
+            f'"outbounds":[{{"protocol":"vless","settings":{{"vnext":[{{"users":[{{"id":"{FAKE}"}}]}}]}}}},'
+            f'{{"type":"vless","uuid":"{FAKE}"}},{{"type":"hysteria","auth_str":"{FAKE}","obfs":"{FAKE}"}},'
+            f'{{"type":"hysteria2","auth":"{FAKE}"}}],'
+            f'"field_report":{{"cohort_token":"{FAKE}"}},"api":{{"client_secret":"{FAKE}"}}'
+            "}",
+        )
+        self.assertEqual(
+            {
+                "$.outbounds[0].settings.vnext[0].users[0].id",
+                "$.outbounds[1].uuid",
+                "$.outbounds[2].auth_str",
+                "$.outbounds[2].obfs",
+                "$.outbounds[3].auth",
+                "$.field_report.cohort_token",
+                "$.api.client_secret",
+            },
+            {v.rsplit(" at ", 1)[1] for v in self.violations()},
+        )
+
+    def test_non_credential_ids_and_object_valued_keys_pass(self) -> None:
+        self.write(
+            "app/src/main/assets/catalog.json",
+            '{"profiles":[{"id":"profile-1","type":"trojan"}],"targets":[{"id":"cdn-check"}],'
+            '"outbounds":[{"type":"hysteria2","obfs":{"type":"salamander"}}],'
+            '"tokens_total":3,"token_expires_at":0}',
+        )
+        self.assertEqual([], self.violations())
+
+    def test_undecodable_asset_fails_without_its_bytes(self) -> None:
+        path = self.root / "app/src/main/assets/blob.bin"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"\xff\xfe\x00secret")
+        self.assertEqual(
+            ["app/src/main/assets/blob.bin: shipped asset is not UTF-8 text and cannot be scanned"],
+            self.violations(),
+        )
+
+    def test_only_exact_test_source_set_names_are_skipped(self) -> None:
+        secret = f'{{"password":"{FAKE}"}}'
+        self.write("app/src/testGithubDebug/assets/fixture.json", secret)
+        self.write("app/src/testFixtures/assets/fixture.json", secret)
+        self.write("app/src/latest/assets/preset.json", secret)
+        self.write("app/src/contest/assets/preset.json", secret)
+        self.assertEqual(
+            {"app/src/latest/assets/preset.json", "app/src/contest/assets/preset.json"},
+            {v.split(":", 1)[0] for v in self.violations()},
+        )
 
 
 if __name__ == "__main__":

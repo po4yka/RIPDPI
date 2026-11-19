@@ -5,8 +5,10 @@ Scans every file under every shipped ``src/<source-set>/assets`` directory
 (``main``, flavors, build types), tracked or not, so an ignored operator file
 such as ``app/src/main/assets/preset.json`` is covered too. Test source sets do
 not ship and are skipped. Detection is by content, never by file name: PEM
-private-key blocks, and any non-empty value under a private-key, preshared-key,
-PSK, or password key. Violations name the file and key path, never the value.
+private-key blocks; any non-empty value under a private-key, preshared-key, PSK,
+password, token, secret, UUID, auth, or obfs key; and a VLESS/VMess user ``id``.
+An asset that is not UTF-8 text cannot be scanned and fails. Violations name the
+file and key path, never the value.
 """
 from __future__ import annotations
 
@@ -22,8 +24,13 @@ from _common import REPO_ROOT as ROOT
 PEM_PRIVATE_KEY_RE = re.compile(r"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----")
 
 # Key names are compared after lowercasing and dropping `_`, `-`, and `.`.
-SECRET_KEY_SUFFIXES = ("privatekey", "presharedkey", "password", "passwd", "passphrase")
-SECRET_KEYS_EXACT = {"psk"}
+SECRET_KEY_SUFFIXES = ("privatekey", "presharedkey", "password", "passwd", "passphrase", "token", "secret")
+SECRET_KEYS_EXACT = {"psk", "uuid", "auth", "authstr", "obfs"}
+# An `id` is a credential only as the user id of a VLESS or VMess outbound; other ids are names.
+USER_ID_PROTOCOLS = {"vless", "vmess"}
+BARE_INTEGER_RE = re.compile(r"\d+|0[xX][0-9a-fA-F]+")
+# Gradle test source sets (`test`, `androidTest`, `testFixtures`, and their variant names such as `testGithubDebug`).
+TEST_SOURCE_SET_RE = re.compile(r"(?:test|androidTest|testFixtures)(?:[A-Z][A-Za-z0-9]*)?")
 
 # `key = value` / `key: value` / `"key": "value"` outside JSON (WireGuard INI, YAML, Lua, ...).
 TEXT_ASSIGNMENT_RE = re.compile(
@@ -38,7 +45,7 @@ def is_secret_key(name: str) -> bool:
 
 
 def is_test_source_set(name: str) -> bool:
-    return "test" in name.lower()
+    return TEST_SOURCE_SET_RE.fullmatch(name) is not None
 
 
 def iter_asset_files(repo_root: Path) -> list[Path]:
@@ -65,17 +72,23 @@ def _is_secret_value(value: object) -> bool:
     return isinstance(value, (int, float))
 
 
-def _json_secret_paths(node: object, path: str = "$") -> list[str]:
+def _declares_user_id_protocol(node: dict) -> bool:
+    return any(str(node.get(field, "")).lower() in USER_ID_PROTOCOLS for field in ("type", "protocol"))
+
+
+def _json_secret_paths(node: object, path: str = "$", in_user_id_outbound: bool = False) -> list[str]:
     found: list[str] = []
     if isinstance(node, dict):
+        in_user_id_outbound = in_user_id_outbound or _declares_user_id_protocol(node)
         for key, value in node.items():
             child = f"{path}.{key}"
-            if is_secret_key(str(key)) and _is_secret_value(value):
+            user_id = in_user_id_outbound and str(key).lower() == "id"
+            if (is_secret_key(str(key)) or user_id) and _is_secret_value(value):
                 found.append(child)
-            found.extend(_json_secret_paths(value, child))
+            found.extend(_json_secret_paths(value, child, in_user_id_outbound))
     elif isinstance(node, list):
         for index, value in enumerate(node):
-            found.extend(_json_secret_paths(value, f"{path}[{index}]"))
+            found.extend(_json_secret_paths(value, f"{path}[{index}]", in_user_id_outbound))
     return found
 
 
@@ -85,9 +98,10 @@ def _text_secret_keys(text: str) -> list[str]:
         if not is_secret_key(match.group("key")):
             continue
         bare = match.group("bare")
-        # shortcut: a bare integer in code is an ID constant (Lua `TLS_EXT_PRE_SHARED_KEY = 41`), so an
-        # all-digit unquoted password in an INI/YAML asset passes; quote-aware parsing per format would close it.
-        if bare is not None and bare.isdigit():
+        # shortcut: a bare decimal or hex integer in code is an ID constant (Lua `TLS_EXT_PRE_SHARED_KEY = 41`,
+        # `..._STATELESS_RESET_TOKEN=0x02`), so such an unquoted password in an INI/YAML asset passes; quote-aware
+        # parsing per format would close it.
+        if bare is not None and BARE_INTEGER_RE.fullmatch(bare):
             continue
         value = next((g for g in (match.group("dq"), match.group("sq"), bare) if g is not None), "")
         if value.strip() and value not in {"null", "nil", "None", "~"}:
@@ -111,6 +125,7 @@ def validate_no_shipped_asset_secrets(repo_root: Path = ROOT) -> list[str]:
         try:
             text = (repo_root / relative_path).read_text(encoding="utf-8")
         except UnicodeDecodeError:
+            violations.append(f"{relative_path.as_posix()}: shipped asset is not UTF-8 text and cannot be scanned")
             continue
         for finding in secret_findings(text):
             violations.append(f"{relative_path.as_posix()}: shipped asset carries secret material at {finding}")
