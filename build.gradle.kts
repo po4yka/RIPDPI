@@ -429,6 +429,20 @@ tasks.register<Exec>("checkAsnExposureDenylistAssets") {
     commandLine("python3", "scripts/ci/check_asn_exposure_denylist_assets.py")
 }
 
+tasks.register<Exec>("checkShippedAssetSecrets") {
+    group = "verification"
+    description = "Fails when a shipped asset carries a private key, preshared key, or password."
+    inputs.file(layout.projectDirectory.file("scripts/ci/check_shipped_asset_secrets.py"))
+    inputs.files(
+        fileTree(layout.projectDirectory) {
+            include("**/src/*/assets/**")
+            exclude("**/build/**")
+        },
+    )
+    workingDir = rootDir
+    commandLine("python3", "scripts/ci/check_shipped_asset_secrets.py")
+}
+
 tasks.register("staticAnalysis") {
     group = "verification"
     description = "Runs detekt, ktlint, Android Lint, and file LoC checks across all modules"
@@ -436,6 +450,7 @@ tasks.register("staticAnalysis") {
         ":quality:detekt-rules:test",
         tasks.named("checkFileLocLimits"),
         tasks.named("checkAsnExposureDenylistAssets"),
+        tasks.named("checkShippedAssetSecrets"),
         tasks.named("checkNoTrackedJavaSources"),
         tasks.named("verifyAppEngineBoundary"),
         ":app:verifyEngineBoundaryClasspath",

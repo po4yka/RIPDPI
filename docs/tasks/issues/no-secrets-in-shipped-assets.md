@@ -2,7 +2,7 @@
 id: DAT-1795085279367518
 title: Keep secrets out of shipped app assets
 kind: feature
-status: backlog
+status: doing
 area: data
 priority: critical
 owner: Android data engineer
@@ -11,8 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: dat-1795085279367518-no-secrets-in-shipped-assets
 created: 2026-11-19
-linked_task: AND-1795015211660121
 updated: 2026-11-19
+linked_task: AND-1795015211660121
 ---
 
 ## Goal
