@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
+import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsCollectionStatus
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsContext
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsSource
@@ -305,10 +307,9 @@ internal class DefaultDiagnosticsArchiveExporter
                 )
             return runCatching { developerAnalyticsSource.collect(analyticsContext) }
                 .getOrElse { error ->
-                    if (error is CancellationException) throw error
-                    DeveloperAnalyticsPayload(
-                        notes = listOf("Developer analytics collection failed — payload is empty."),
-                    )
+                    if (error is CancellationException || error is Error) throw error
+                    Logger.w(error) { "Developer analytics collection failed; exporting a typed failure outcome" }
+                    DeveloperAnalyticsPayload(collectionStatus = DeveloperAnalyticsCollectionStatus.FAILED)
                 }
         }
     }

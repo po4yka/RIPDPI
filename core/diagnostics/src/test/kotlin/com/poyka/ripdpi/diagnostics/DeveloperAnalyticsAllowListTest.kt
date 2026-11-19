@@ -19,6 +19,7 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveZipWriter
 import com.poyka.ripdpi.diagnostics.export.ReplayArchiveEntryBuilder
 import com.poyka.ripdpi.diagnostics.export.ReplayArchiveRedactor
 import com.poyka.ripdpi.diagnostics.replay.ReplayResultStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -26,6 +27,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -85,6 +87,7 @@ class DeveloperAnalyticsAllowListTest {
             "deviceState",
             "baselineDelta",
             "notes",
+            "collectionStatus",
         )
 
     private val deniedTopLevelKeys = setOf("pcapManifest", "breadcrumbs")
@@ -421,6 +424,57 @@ class DeveloperAnalyticsAllowListTest {
             )
         return session
     }
+
+    @Test
+    fun `failed developer analytics collection exports a typed failure outcome`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session = seedSession(stores, "session-da-failed")
+            val failingSource =
+                object : DeveloperAnalyticsSource {
+                    override suspend fun collect(context: DeveloperAnalyticsContext): DeveloperAnalyticsPayload =
+                        throw IllegalStateException("collector broke")
+                }
+            val exporter = createExporter(stores, failingSource)
+
+            val archive =
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 205L,
+                    ),
+                )
+
+            val obj = readDeveloperAnalyticsJson(archive.absolutePath)
+            assertEquals("FAILED", obj["collectionStatus"]?.jsonPrimitive?.content)
+        }
+
+    @Test
+    fun `cancelled developer analytics collection propagates cancellation`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session = seedSession(stores, "session-da-cancelled")
+            val cancellingSource =
+                object : DeveloperAnalyticsSource {
+                    override suspend fun collect(context: DeveloperAnalyticsContext): DeveloperAnalyticsPayload =
+                        throw CancellationException("export cancelled")
+                }
+            val exporter = createExporter(stores, cancellingSource)
+
+            val failure =
+                runCatching {
+                    exporter.createArchive(
+                        DiagnosticsArchiveRequest(
+                            requestedSessionId = session.id,
+                            reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                            requestedAt = 206L,
+                        ),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue("expected cancellation but got $failure", failure is CancellationException)
+        }
 
     @Test
     fun `developer analytics excludes undisclosed fields from share archive`() =
