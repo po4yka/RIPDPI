@@ -101,6 +101,7 @@ class PendingBootstrapProvisioner internal constructor(
                                 isSelector = result.isSelector,
                                 initialMemberId = result.initialMemberId,
                                 memberHealth = result.memberHealth,
+                                fieldReport = result.fieldReport,
                             ).copy(
                                 packageRoutingRules = result.packageRoutingRules,
                                 subscription =

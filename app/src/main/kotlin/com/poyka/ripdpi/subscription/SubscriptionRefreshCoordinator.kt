@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
 import com.poyka.ripdpi.data.subscription.EndpointHealth
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
 import com.poyka.ripdpi.data.subscription.MigrationMetadata
+import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
@@ -246,6 +247,7 @@ class SubscriptionRefreshCoordinator private constructor(
                     cloudflareMemberIds = emptySet(),
                     initialMemberId = null,
                     memberHealth = emptyMap(),
+                    fieldReport = null,
                 )
             } else {
                 SubscriptionMemberPersistence.apply(
@@ -256,6 +258,7 @@ class SubscriptionRefreshCoordinator private constructor(
                     isSelector = outcome.isSelector,
                     initialMemberId = outcome.initialMemberId,
                     memberHealth = outcome.memberHealth,
+                    fieldReport = outcome.fieldReport,
                 )
             }
         // A server-given title replaces only the host fallback name, never a name the user chose.
@@ -544,6 +547,7 @@ class SubscriptionRefreshCoordinator private constructor(
                     isSelector = selector.group != null,
                     initialMemberId = selector.group?.initialMemberId,
                     memberHealth = selector.group?.memberHealth.orEmpty(),
+                    fieldReport = selector.group?.fieldReport,
                     tokenExpiresAtEpochMillis = singBox?.tokenExpiresAtEpochMillis,
                     packageRoutingRules = singBox?.packageRoutingRules.orEmpty(),
                 )
@@ -644,6 +648,7 @@ class SubscriptionRefreshCoordinator private constructor(
             val isSelector: Boolean = false,
             val initialMemberId: String? = null,
             val memberHealth: Map<String, EndpointHealth> = emptyMap(),
+            val fieldReport: RipdpiFieldReport? = null,
             val migration: MigrationMetadata? = null,
             val payloadSha256: String = "",
         ) : RefreshOutcome

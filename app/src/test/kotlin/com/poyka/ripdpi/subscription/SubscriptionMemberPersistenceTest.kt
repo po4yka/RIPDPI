@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.subscription.EndpointHealth
 import com.poyka.ripdpi.data.subscription.EndpointHealthStatus
+import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -72,6 +73,21 @@ class SubscriptionMemberPersistenceTest {
             )
 
         assertEquals(mapOf("b" to fresh), updated.memberHealth)
+    }
+
+    @Test
+    fun `a refreshed bundle replaces or removes the field-report target`() {
+        val stored =
+            group(members = listOf(trojan("a"))).copy(
+                fieldReport = RipdpiFieldReport("https://old.example.test/v1/field-report", "old", 2),
+            )
+        val fresh = RipdpiFieldReport("https://new.example.test/v1/field-report", "new", 4)
+
+        assertEquals(
+            fresh,
+            SubscriptionMemberPersistence.apply(stored, listOf(trojan("a")), fieldReport = fresh).fieldReport,
+        )
+        assertNull(SubscriptionMemberPersistence.apply(stored, listOf(trojan("a"))).fieldReport)
     }
 
     @Test

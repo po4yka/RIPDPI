@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.subscription.EndpointHealth
+import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 
 /**
  * Pure mapping that folds the profiles parsed from a subscription refresh back
@@ -35,6 +36,7 @@ object SubscriptionMemberPersistence {
         isSelector: Boolean = false,
         initialMemberId: String? = null,
         memberHealth: Map<String, EndpointHealth> = emptyMap(),
+        fieldReport: RipdpiFieldReport? = null,
     ): ProxyGroup {
         // Drop non-activatable nodes (RawConfig: tuic/vmess/wireguard, or a
         // blank-credential node mapped to RawConfig upstream) so the user never
@@ -48,6 +50,7 @@ object SubscriptionMemberPersistence {
             members = remapped,
             // Health is keyed by member tag, which the id remap keeps; the refreshed bundle replaces it wholesale.
             memberHealth = memberHealth,
+            fieldReport = fieldReport,
             failover = if (isSelector) failover else failover ?: group.failover,
             isSelector = isSelector || group.isSelector,
             initialMemberId =

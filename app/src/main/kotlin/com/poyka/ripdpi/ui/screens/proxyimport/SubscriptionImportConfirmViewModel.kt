@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.data.subscription.EndpointHealth
+import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.proxyimport.subscriptionHost
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateScheduler
@@ -361,6 +362,7 @@ class SubscriptionImportConfirmViewModel
                                     isSelector = result.isSelector,
                                     initialMemberId = result.initialMemberId,
                                     memberHealth = result.memberHealth,
+                                    fieldReport = result.fieldReport,
                                     failover = result.failover,
                                 ),
                             )
@@ -439,6 +441,7 @@ class SubscriptionImportConfirmViewModel
             failover: SelectorFailover? = existing?.failover,
             initialMemberId: String? = existing?.initialMemberId,
             memberHealth: Map<String, EndpointHealth> = existing?.memberHealth.orEmpty(),
+            fieldReport: RipdpiFieldReport? = existing?.fieldReport,
         ): ProxyGroup =
             ProxyGroup(
                 id = groupId,
@@ -451,6 +454,7 @@ class SubscriptionImportConfirmViewModel
                 failover = failover,
                 initialMemberId = initialMemberId,
                 memberHealth = memberHealth,
+                fieldReport = fieldReport,
                 cloudflareMemberIds = cloudflareMemberIds,
                 packageRoutingRules = packageRoutingRules,
             )
