@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,6 +51,9 @@ class FieldReportLedger(
     private var cached: FieldReportState? = null
     private var flushedAt: Long? = null
 
+    /** Bumped by every [clear]: a probe counted under an older epoch raced a revocation and is discarded. */
+    private val consentEpoch = AtomicLong()
+
     /**
      * Counts one member probe of [profile] while consent is on, in the hour of the current network; a probe that
      * never reached the server is ignored. Without consent, nothing else runs, not even the network lookup.
@@ -60,9 +64,12 @@ class FieldReportLedger(
         elapsedMillis: Long,
     ) {
         val attempt = fieldReportAttempt(profile, measured, elapsedMillis) ?: return
+        val epoch = consentEpoch.get()
         if (!consent()) return
         val measuredOn = network()
         mutex.withLock {
+            // The cheap check above ran outside the lock; a revocation may have cleared the state since.
+            if (epoch != consentEpoch.get() || !consent()) return@withLock
             withContext(Dispatchers.IO) {
                 val now = clock()
                 cached = current().record(attempt, measuredOn, now)
@@ -75,7 +82,10 @@ class FieldReportLedger(
     suspend fun clear() =
         mutex.withLock {
             withContext(Dispatchers.IO) {
+                consentEpoch.incrementAndGet()
                 cached = FieldReportState()
+                // The first count after a new consent writes through, with its own consent check.
+                flushedAt = null
                 if (file.exists() && !file.delete()) log.w { "field report store delete failed" }
             }
         }

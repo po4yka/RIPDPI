@@ -42,6 +42,29 @@ class FieldReportLedgerTest {
         }
 
     @Test
+    fun `a revocation between the consent check and the lock discards the count`() =
+        runTest {
+            val file = tempFile()
+            var checks = 0
+            lateinit var ledger: FieldReportLedger
+            // Revoked and granted again while the probe is between its first check and the lock.
+            ledger =
+                FieldReportLedger(file, {
+                    if (checks++ == 0) ledger.clear()
+                    true
+                }, { 0L }, { network })
+            ledger.recordProbe(member, failed, 10)
+            assertEquals(0L, ledger.attempts())
+
+            // Revoked after the first check and still off when the lock is taken, inside a flush interval.
+            val answers = ArrayDeque(listOf(true, true, true, true, false))
+            val revoked = FieldReportLedger(tempFile(), { answers.removeFirstOrNull() ?: false }, { 0L }, { network })
+            revoked.recordProbe(member, failed, 10)
+            revoked.recordProbe(member, failed, 10)
+            assertEquals(1L, revoked.attempts())
+        }
+
+    @Test
     fun `probes are counted in memory and written at most once per flush interval`() =
         runTest {
             val file = tempFile()
