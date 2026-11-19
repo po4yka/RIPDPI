@@ -83,12 +83,16 @@ fun orderByEndpointHealth(
 fun ProxyGroup.membersByHealth(nowEpochMillis: Long): EndpointHealthOrder =
     orderByEndpointHealth(members, memberHealth, nowEpochMillis)
 
-/** `ripdpi.field_report`: where and how often the opt-in field-report client may upload. */
+/**
+ * `ripdpi.field_report`: where and how often the opt-in field-report client may upload, and the optional
+ * `network_hint_endpoint` the client asks for its network's ASN when the default network is not cellular.
+ */
 @Serializable
 data class RipdpiFieldReport(
     val endpoint: String,
     val cohortToken: String,
     val maxReportsPerDay: Int,
+    val networkHintEndpoint: String? = null,
 ) {
     override fun toString() = "RipdpiFieldReport([REDACTED])"
 }
@@ -139,20 +143,34 @@ internal fun ripdpiContractError(extension: JsonObject?): SingBoxParseResult.Err
 private fun invalidFieldReportField(value: JsonElement?): String? {
     if (value == null) return null
     val block = value as? JsonObject ?: return "field_report"
-    val endpoint = block.text("endpoint")
     val maxReports = block.integer("max_reports_per_day")
     return when {
-        endpoint == null ||
-            endpoint.length !in MinFieldReportEndpointLength..MaxFieldReportEndpointLength ||
-            !FieldReportEndpointPattern.matches(endpoint) -> "field_report.endpoint"
+        !isHttpsEndpoint(block.text("endpoint")) -> {
+            "field_report.endpoint"
+        }
 
-        block.text("cohort_token")?.let(CohortTokenPattern::matches) != true -> "field_report.cohort_token"
+        "network_hint_endpoint" in block && !isHttpsEndpoint(block.text("network_hint_endpoint")) -> {
+            "field_report.network_hint_endpoint"
+        }
 
-        maxReports == null || maxReports !in 1..MaxReportsPerDay -> "field_report.max_reports_per_day"
+        block.text("cohort_token")?.let(CohortTokenPattern::matches) != true -> {
+            "field_report.cohort_token"
+        }
 
-        else -> null
+        maxReports == null || maxReports !in 1..MaxReportsPerDay -> {
+            "field_report.max_reports_per_day"
+        }
+
+        else -> {
+            null
+        }
     }
 }
+
+private fun isHttpsEndpoint(value: String?): Boolean =
+    value != null &&
+        value.length in MinFieldReportEndpointLength..MaxFieldReportEndpointLength &&
+        FieldReportEndpointPattern.matches(value)
 
 /** Maps a `field_report` block that [invalidFieldReportField] has already accepted. */
 internal fun parseFieldReport(block: JsonObject?): RipdpiFieldReport? =
@@ -161,6 +179,7 @@ internal fun parseFieldReport(block: JsonObject?): RipdpiFieldReport? =
             endpoint = requireNotNull(it.text("endpoint")),
             cohortToken = requireNotNull(it.text("cohort_token")),
             maxReportsPerDay = requireNotNull(it.integer("max_reports_per_day")),
+            networkHintEndpoint = it.text("network_hint_endpoint"),
         )
     }
 

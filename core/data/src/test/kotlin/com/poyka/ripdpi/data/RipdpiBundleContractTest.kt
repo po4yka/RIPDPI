@@ -183,6 +183,7 @@ class RipdpiBundleContractTest {
         assertEquals("https://reports.example.test/v1/field-report", fieldReport.endpoint)
         assertEquals("EXAMPLE-cohort-token-not-real", fieldReport.cohortToken)
         assertEquals(4, fieldReport.maxReportsPerDay)
+        assertEquals("https://reports.example.test/v1/network-hint", fieldReport.networkHintEndpoint)
     }
 
     // -------------------------------------------------------------------------
@@ -232,6 +233,21 @@ class RipdpiBundleContractTest {
             ),
             result.endpointHealth,
         )
+        assertEquals(4, result.fieldReport?.maxReportsPerDay)
+        assertEquals("https://reports.example.test/v1/network-hint", result.fieldReport?.networkHintEndpoint)
+    }
+
+    @Test
+    fun `field report without a network hint endpoint imports with no hint`() {
+        val result =
+            SingBoxSubscriptionParser.parse(
+                goldenFullWithRipdpi { ripdpi ->
+                    val block = ripdpi["field_report"]!!.jsonObject
+                    JsonObject(ripdpi + ("field_report" to JsonObject(block - "network_hint_endpoint")))
+                },
+                "no-hint",
+            ) as SingBoxParseResult.Success
+        assertEquals(null, result.fieldReport?.networkHintEndpoint)
         assertEquals(4, result.fieldReport?.maxReportsPerDay)
     }
 
@@ -330,6 +346,7 @@ class RipdpiBundleContractTest {
         listOf(
             "endpoint" to "https://reports.example.test/v1/field-report\n",
             "cohort_token" to "EXAMPLE-cohort-token-not-real\n",
+            "network_hint_endpoint" to "https://reports.example.test/v1/network-hint\n",
         ).forEach { (field, value) ->
             val result =
                 SingBoxSubscriptionParser.parse(
@@ -440,11 +457,20 @@ class RipdpiBundleContractTest {
                     assertEquals(SingBoxBundleErrorCode.UNSUPPORTED_SCHEMA_VERSION, result.code)
                 }
 
-                "neg-field-report-http-endpoint.json" -> {
+                "neg-field-report-http-endpoint.json",
+                "neg-field-report-hint-http-endpoint.json",
+                "neg-field-report-token-trailing-newline.json",
+                -> {
                     assertTrue("${f.name}: expected refusal", result is SingBoxParseResult.Error)
                     result as SingBoxParseResult.Error
                     assertEquals(SingBoxBundleErrorCode.INVALID_FIELD_REPORT, result.code)
-                    assertTrue(result.message.contains("field_report.endpoint"))
+                    val field =
+                        when (f.name) {
+                            "neg-field-report-hint-http-endpoint.json" -> "field_report.network_hint_endpoint"
+                            "neg-field-report-token-trailing-newline.json" -> "field_report.cohort_token"
+                            else -> "field_report.endpoint"
+                        }
+                    assertTrue("${f.name}: ${result.message}", result.message.contains(field))
                 }
 
                 else -> {

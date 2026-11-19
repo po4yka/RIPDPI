@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "window": {
+    "start_utc": "2026-11-19T10:00:00Z",
+    "duration_hours": 6
+  },
+  "client": {
+    "app_version": "1.4",
+    "platform": "android"
+  },
+  "network": {
+    "source": "sim",
+    "operator": {
+      "mcc": "001",
+      "mnc": "0101"
+    },
+    "network_type": "cellular"
+  },
+  "buckets": [
+    {
+      "server_ref": "p0-reality-upcloud-prod",
+      "protocol": "vless-reality",
+      "outcome": "success",
+      "attempts": 42,
+      "latency_ms_histogram": [
+        0,
+        3,
+        18,
+        12,
+        6,
+        2,
+        1,
+        0
+      ]
+    },
+    {
+      "server_ref": "p0-reality-upcloud-prod",
+      "protocol": "vless-reality",
+      "outcome": "failure",
+      "failure_stage": "tls_handshake",
+      "attempts": 7,
+      "latency_ms_histogram": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        2,
+        1,
+        3
+      ]
+    },
+    {
+      "server_ref": "p2-hysteria2-upcloud-prod",
+      "protocol": "hysteria2",
+      "outcome": "failure",
+      "failure_stage": "quic_handshake",
+      "attempts": 5,
+      "latency_ms_histogram": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5
+      ]
+    }
+  ]
+}

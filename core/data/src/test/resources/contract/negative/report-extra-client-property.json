@@ -10,6 +10,7 @@
     "build": "1.4.2"
   },
   "network": {
+    "source": "server_hint",
     "asn": 64500,
     "country": "ZZ",
     "network_type": "cellular"
