@@ -65,7 +65,6 @@
     <string name="settings_permissions_always_on_title">Always-on VPN</string>
     <string name="settings_permissions_always_on_ready">Android is configured to keep RIPDPI selected as the always-on VPN.</string>
     <string name="settings_permissions_always_on_needed">Enable Always-on VPN for RIPDPI in Android VPN settings when you need hard leak prevention.</string>
-    <string name="settings_permissions_always_on_unknown">Android has not reported the Always-on VPN state yet. Open VPN settings to verify it.</string>
     <string name="settings_advanced_body">Low-level RIPDPI flags, proxy listeners, and protocol overrides</string>
     <string name="settings_security_section">Privacy</string>
     <string name="settings_webrtc_title">WebRTC protection</string>
@@ -104,10 +103,8 @@
     <string name="settings_backup_pin_save">Save PIN</string>
     <string name="settings_backup_pin_clear">Clear PIN</string>
     <string name="settings_appearance_section">Interface</string>
-    <string name="settings_theme_body">Choose whether the app follows the system theme or stays fixed.</string>
     <string name="settings_dynamic_color_title">Use wallpaper colors</string>
-    <string name="settings_dynamic_color_body">Match app colors to your wallpaper (Android 12+).</string>
-    <string name="settings_customization_body">App icon, adaptive shape, and themed icon options.</string>
+    <string name="settings_dynamic_color_body">Match app colors to your wallpaper.</string>
     <string name="settings_support_section">Support</string>
     <string name="settings_support_debug_bundle_title">Share support bundle</string>
     <string name="settings_support_debug_bundle_body">Share recent logs and diagnostics as a ZIP file for support. Packet captures are not included.</string>
@@ -221,7 +218,6 @@
     <string name="settings_permissions_lockdown_needed">Enable Block connections without VPN in Android VPN settings for hard kill-switch behavior.</string>
     <string name="settings_permissions_lockdown_ready">Android is blocking traffic when the RIPDPI VPN is not connected.</string>
     <string name="settings_permissions_lockdown_title">Block without VPN</string>
-    <string name="settings_permissions_lockdown_unknown">Android has not reported the block-without-VPN state yet. Open VPN settings to verify it.</string>
     <string name="settings_domain_bypass_body">Keep chosen domains off the proxy (direct)</string>
     <string name="settings_routing_rules_body">Create and order custom routing rules</string>
     <string name="settings_split_tunnel_body">Choose which apps use the VPN, per app</string>

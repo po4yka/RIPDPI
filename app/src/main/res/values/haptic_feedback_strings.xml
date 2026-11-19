@@ -3,6 +3,5 @@
     <string name="haptic_feedback_title">Haptic feedback</string>
     <string name="haptic_feedback_system">System default</string>
     <string name="haptic_feedback_off">Off</string>
-    <string name="haptic_feedback_body">System default follows device settings. Off disables app feedback.</string>
     <string name="haptic_feedback_accessibility">%1$s: %2$s</string>
 </resources>

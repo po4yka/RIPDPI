@@ -51,7 +51,6 @@
     <string name="settings_permissions_always_on_title">Постоянный VPN</string>
     <string name="settings_permissions_always_on_ready">Android настроен держать RIPDPI выбранным постоянным VPN.</string>
     <string name="settings_permissions_always_on_needed">Включите Постоянный VPN для RIPDPI в настройках Android VPN, если нужна жесткая защита от утечек.</string>
-    <string name="settings_permissions_always_on_unknown">Android еще не сообщил состояние постоянного VPN. Откройте настройки VPN, чтобы проверить его.</string>
     <string name="settings_advanced_body">Низкоуровневые флаги RIPDPI, слушатели прокси и переопределения протоколов</string>
     <string name="settings_security_section">Конфиденциальность</string>
     <string name="settings_webrtc_title">Защита WebRTC</string>
@@ -83,10 +82,8 @@
     <string name="settings_backup_pin_save">Сохранить PIN</string>
     <string name="settings_backup_pin_clear">Удалить PIN</string>
     <string name="settings_appearance_section">Интерфейс</string>
-    <string name="settings_theme_body">Выберите, следует ли приложение системной теме или остаётся фиксированным.</string>
     <string name="settings_dynamic_color_title">Цвета обоев</string>
-    <string name="settings_dynamic_color_body">Подбирать цвета приложения по обоям (Android 12+).</string>
-    <string name="settings_customization_body">Значок приложения, адаптивная форма и параметры тематического значка.</string>
+    <string name="settings_dynamic_color_body">Подбирать цвета приложения по обоям.</string>
     <string name="settings_support_section">Поддержка</string>
     <string name="settings_support_debug_bundle_title">Поделиться пакетом поддержки</string>
     <string name="settings_support_debug_bundle_body">Отправьте недавние журналы и данные диагностики в ZIP-файле для поддержки. Захваты пакетов не включаются.</string>
@@ -212,7 +209,6 @@
     <string name="settings_permissions_lockdown_needed">Включите Блокировать подключения без VPN в настройках Android VPN для жесткого kill switch.</string>
     <string name="settings_permissions_lockdown_ready">Android блокирует трафик, когда VPN RIPDPI не подключен.</string>
     <string name="settings_permissions_lockdown_title">Блокировать без VPN</string>
-    <string name="settings_permissions_lockdown_unknown">Android еще не сообщил состояние блокировки без VPN. Откройте настройки VPN, чтобы проверить его.</string>
     <string name="settings_domain_bypass_body">Держать выбранные домены вне прокси (напрямую)</string>
     <string name="settings_routing_rules_body">Создавайте и упорядочивайте свои правила маршрутизации</string>
     <string name="settings_split_tunnel_body">Выберите, какие приложения используют VPN</string>

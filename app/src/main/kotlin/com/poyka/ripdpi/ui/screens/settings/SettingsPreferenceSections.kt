@@ -35,11 +35,11 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
-import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
+import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownLabels
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -49,7 +49,6 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
 
@@ -76,8 +75,8 @@ internal fun SettingsConnectivitySection(
                 tone = WarningBannerTone.Warning,
             )
         }
-        SettingsPermissionsSection(permissionSummary = permissionSummary, actions = actions)
         SettingsAdvancedConnectivitySection(uiState = uiState, actions = actions)
+        SettingsPermissionsSection(permissionSummary = permissionSummary, actions = actions)
     }
 }
 
@@ -149,7 +148,6 @@ internal fun SettingsSecuritySection(
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         SettingsCategoryHeader(title = stringResource(R.string.settings_security_section))
-        SettingsVpnSecurityWarnings(visible = uiState.isVpn)
         AnimatedVisibility(
             visible = uiState.biometricEnabled && !uiState.hasBackupPin && localState.backupPinDraft.isBlank(),
             enter = motion.sectionEnterTransition(),
@@ -175,23 +173,26 @@ internal fun SettingsSecuritySection(
                 onClick = actions.onOpenDataTransparency,
                 variant = settingsDetailVariant(Route.DataTransparency),
                 showChevron = true,
+                showDivider = uiState.isVpn,
                 testTag = RipDpiTestTags.SettingsDataTransparency,
             )
+            SettingsVpnSecurityNotes(visible = uiState.isVpn)
         }
     }
 }
 
 @Composable
-private fun SettingsVpnSecurityWarnings(visible: Boolean) {
+private fun SettingsVpnSecurityNotes(visible: Boolean) {
     if (!visible) return
-    // Static VPN caveats, not live conditions: neutral notes instead of tinted banners.
-    RipDpiPanelHeader(
+    // Static VPN caveats, not live conditions: plain rows after the controls instead of tinted banners.
+    SettingsRow(
         title = stringResource(R.string.settings_vpn_flag_warning_title),
-        supporting = stringResource(R.string.settings_vpn_flag_warning_body),
+        subtitle = stringResource(R.string.settings_vpn_flag_warning_body),
+        showDivider = true,
     )
-    RipDpiPanelHeader(
+    SettingsRow(
         title = stringResource(R.string.settings_tethering_dns_warning_title),
-        supporting = stringResource(R.string.settings_tethering_dns_warning_body),
+        subtitle = stringResource(R.string.settings_tethering_dns_warning_body),
     )
 }
 
@@ -328,13 +329,18 @@ internal fun SettingsAppearanceSection(
     SettingsSection(title = stringResource(R.string.settings_appearance_section)) {
         SettingsLanguagePreference()
         HorizontalDivider(color = colors.divider)
-        // Same label/helper typography as the adjacent haptic feedback dropdown.
         RipDpiDropdown(
             options = themeOptions,
             selectedValue = uiState.appTheme,
             onValueSelected = actions.onThemeSelected,
-            label = stringResource(R.string.theme_settings),
-            helperText = stringResource(R.string.settings_theme_body),
+            labels =
+                stringResource(R.string.theme_settings).let { label ->
+                    val selected = themeOptions.firstOrNull { it.value == uiState.appTheme }?.label.orEmpty()
+                    RipDpiDropdownLabels(
+                        label = label,
+                        accessibilityLabel = stringResource(R.string.haptic_feedback_accessibility, label, selected),
+                    )
+                },
             testTag = RipDpiTestTags.SettingsThemeDropdown,
             optionTagForValue = { value ->
                 RipDpiTestTags.dropdownOption(RipDpiTestTags.SettingsThemeDropdown, value)
@@ -359,7 +365,6 @@ internal fun SettingsAppearanceSection(
         SettingsPersonaPreference(persona = uiState.uiPersona, onPersonaSelected = actions.onPersonaSelected)
         SettingsRow(
             title = stringResource(R.string.title_app_customization),
-            subtitle = stringResource(R.string.settings_customization_body),
             value = stringResource(LauncherIconManager.resolveOption(uiState.appIconVariant).labelRes),
             showChevron = true,
             onClick = actions.onOpenCustomization,
@@ -390,27 +395,23 @@ internal fun SettingsPermissionsSection(
             exit = motion.sectionExitTransition(),
         ) {
             permissionSummary.backgroundGuidance?.let { guidance ->
-                Column {
-                    WarningBanner(
-                        title = guidance.title,
-                        message = guidance.message,
-                        tone = WarningBannerTone.Info,
-                        testTag = RipDpiTestTags.SettingsBackgroundGuidanceBanner,
-                        onDismiss = actions.onDismissBackgroundGuidance,
-                    )
-                    HorizontalDivider(color = colors.divider)
-                }
+                WarningBanner(
+                    title = guidance.title,
+                    message = guidance.message,
+                    tone = WarningBannerTone.Info,
+                    testTag = RipDpiTestTags.SettingsBackgroundGuidanceBanner,
+                    onDismiss = actions.onDismissBackgroundGuidance,
+                )
             }
         }
         permissionSummary.items.forEachIndexed { index, item ->
+            // The third line is always the state; a settled row needs no explanation, and the chevron is the action.
+            val actionable = item.actionLabel != null
             SettingsRow(
                 title = item.title,
-                subtitle = item.subtitle,
-                value = item.actionLabel ?: item.statusLabel,
-                onClick =
-                    item.actionLabel?.let {
-                        { actions.onRepairPermission(item.kind) }
-                    },
+                subtitle = item.subtitle.takeIf { actionable },
+                value = item.statusLabel,
+                onClick = if (actionable) ({ actions.onRepairPermission(item.kind) }) else null,
                 enabled = item.enabled,
                 showDivider = index != permissionSummary.items.lastIndex,
                 testTag = RipDpiTestTags.settingsPermission(item.kind),
@@ -495,9 +496,7 @@ private fun SettingsMaintenanceRows(
     RipDpiButton(
         text = stringResource(R.string.settings_reset_action),
         onClick = onResetClick,
-        modifier = Modifier.fillMaxWidth(),
-        variant = RipDpiButtonVariant.Destructive,
-        leadingIcon = RipDpiIcons.Warning,
+        variant = RipDpiButtonVariant.DestructiveGhost,
     )
 }
 

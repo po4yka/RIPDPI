@@ -55,7 +55,6 @@
     <string name="settings_biometric_pin_required_ok">باشد</string>
     <string name="settings_biometric_unavailable">سخت‌افزار بیومتریک روی این دستگاه در دسترس نیست.</string>
     <string name="settings_community_api_url_label">URL API جامعه</string>
-    <string name="settings_customization_body">آیکن برنامه، شکل تطبیقی و گزینه‌های آیکن تم‌دار.</string>
     <string name="settings_exclude_russian_apps_body">برنامه‌های بانکی، تحویل و دولتی برای جلوگیری از مشکلات شناسایی، VPN را دور می‌زنند.</string>
     <string name="settings_manage_action">مدیریت</string>
     <string name="settings_permission_action_review">بازبینی</string>
@@ -64,15 +63,13 @@
     <string name="settings_permissions_always_on_title">VPN همیشه روشن</string>
     <string name="settings_permissions_always_on_ready">Android تنظیم شده است تا RIPDPI را به عنوان VPN همیشه روشن نگه دارد.</string>
     <string name="settings_permissions_always_on_needed">برای جلوگیری سخت‌گیرانه از نشت، VPN همیشه روشن را برای RIPDPI در تنظیمات VPN Android فعال کنید.</string>
-    <string name="settings_permissions_always_on_unknown">Android هنوز وضعیت VPN همیشه روشن را گزارش نکرده است. برای بررسی، تنظیمات VPN را باز کنید.</string>
     <string name="settings_permissions_notifications_ready">اعلان‌های سرویس پیش‌زمینه برای RIPDPI در دسترس هستند.</string>
     <string name="settings_permissions_vpn_needed">قبل از اینکه RIPDPI بتواند مسیر VPN محلی را شروع کند، رضایت VPN Android را اعطا کنید.</string>
     <string name="settings_reset_body">بازگرداندن همه تنظیمات به مقادیر پیش‌فرض. نمایه‌ها، گروه‌ها، قوانین مسیریابی و تاریخچهٔ عیب‌یابی حفظ می‌شوند.</string>
     <string name="settings_reset_dialog_title">تنظیمات بازنشانی شود؟</string>
     <string name="settings_support_section">پشتیبانی</string>
-    <string name="settings_theme_body">انتخاب کنید آیا برنامه از تم سیستم پیروی کند یا ثابت بماند.</string>
     <string name="settings_dynamic_color_title">استفاده از رنگ‌های تصویر زمینه</string>
-    <string name="settings_dynamic_color_body">هماهنگ کردن رنگ‌های برنامه با تصویر زمینه (Android 12 به بعد).</string>
+    <string name="settings_dynamic_color_body">هماهنگ کردن رنگ‌های برنامه با تصویر زمینه.</string>
     <string name="settings_vpn_flag_warning_title">پرچم VPN قابل‌مشاهده است</string>
     <string name="settings_webrtc_body">نشت‌های کشف peer که می‌توانند تونل محلی را دور بزنند کاهش دهید.</string>
     <string name="settings_engine_failure_block_title">مسدود کردن ترافیک در صورت خرابی اتصال</string>
@@ -216,7 +213,6 @@
     <string name="settings_permissions_lockdown_needed">برای رفتار kill switch سخت‌گیرانه، گزینه مسدود کردن اتصال‌ها بدون VPN را در تنظیمات VPN Android فعال کنید.</string>
     <string name="settings_permissions_lockdown_ready">وقتی VPN مربوط به RIPDPI وصل نباشد، Android ترافیک را مسدود می‌کند.</string>
     <string name="settings_permissions_lockdown_title">مسدود کردن بدون VPN</string>
-    <string name="settings_permissions_lockdown_unknown">Android هنوز وضعیت مسدودسازی بدون VPN را گزارش نکرده است. برای بررسی، تنظیمات VPN را باز کنید.</string>
     <string name="settings_domain_bypass_body">نگه داشتن دامنه‌های انتخابی خارج از پراکسی (مستقیم)</string>
     <string name="settings_routing_rules_body">قوانین مسیریابی سفارشی بسازید و مرتب کنید</string>
     <string name="settings_split_tunnel_body">برای هر برنامه انتخاب کنید کدام برنامه‌ها از VPN استفاده کنند</string>

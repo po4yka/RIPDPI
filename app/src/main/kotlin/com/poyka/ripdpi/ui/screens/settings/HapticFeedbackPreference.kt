@@ -35,7 +35,6 @@ internal fun HapticFeedbackPreference(
         labels =
             RipDpiDropdownLabels(
                 label = title,
-                helperText = stringResource(R.string.haptic_feedback_body),
                 accessibilityLabel = stringResource(R.string.haptic_feedback_accessibility, title, selectedLabel),
             ),
         testTag = RipDpiTestTags.SettingsHapticFeedback,

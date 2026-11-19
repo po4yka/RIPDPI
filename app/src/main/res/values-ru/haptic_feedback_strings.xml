@@ -3,6 +3,5 @@
     <string name="haptic_feedback_title">Тактильный отклик</string>
     <string name="haptic_feedback_system">Как в системе</string>
     <string name="haptic_feedback_off">Выключен</string>
-    <string name="haptic_feedback_body">Системный режим учитывает настройки устройства. «Выключен» отключает отклик приложения.</string>
     <string name="haptic_feedback_accessibility">%1$s: %2$s</string>
 </resources>

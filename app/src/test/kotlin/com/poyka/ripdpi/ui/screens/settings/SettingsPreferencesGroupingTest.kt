@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
@@ -27,10 +28,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LauncherIconManager
+import com.poyka.ripdpi.permissions.PermissionItemUiState
+import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -284,6 +288,70 @@ class SettingsPreferencesGroupingTest {
         }
         assertTrue(openedCustomization)
         assertTrue(openedBackup)
+    }
+
+    @Test
+    fun `clearing the community cache asks first`() {
+        var cleared = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                Column {
+                    CommunityStatsSettingsRows(
+                        communityApiUrl = "",
+                        communityApiUrlDraft = "",
+                        onCommunityApiUrlDraftChanged = {},
+                        onCommunityApiUrlChanged = {},
+                        onClearCommunityCache = { cleared++ },
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText(resource(R.string.settings_clear_community_cache)).performClick()
+        assertEquals(0, cleared)
+        composeRule.onNodeWithText(resource(R.string.confirm_clear_remembered_networks_confirm)).performClick()
+        assertEquals(1, cleared)
+    }
+
+    @Test
+    fun `a settled permission shows its state only and is not a button`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                Column {
+                    SettingsPermissionsSection(
+                        permissionSummary =
+                            PermissionSummaryUiState(
+                                items =
+                                    persistentListOf(
+                                        PermissionItemUiState(
+                                            kind = PermissionKind.VpnConsent,
+                                            title = "VPN permission",
+                                            subtitle = "Why it is needed.",
+                                            statusLabel = "Granted",
+                                        ),
+                                        PermissionItemUiState(
+                                            kind = PermissionKind.BatteryOptimization,
+                                            title = "Battery optimization",
+                                            subtitle = "Doze can pause the app.",
+                                            statusLabel = "Recommended",
+                                            actionLabel = "Review",
+                                        ),
+                                    ),
+                            ),
+                        actions = noOpActions(),
+                    )
+                }
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.settingsPermission(PermissionKind.VpnConsent))
+            .assertContentDescriptionEquals("VPN permission, Granted")
+            .assertHasNoClickAction()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.settingsPermission(PermissionKind.BatteryOptimization))
+            .assertContentDescriptionEquals("Battery optimization, Doze can pause the app., Recommended")
+            .assertHasClickAction()
     }
 
     private fun resource(id: Int): String = RuntimeEnvironment.getApplication().getString(id)

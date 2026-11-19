@@ -21,6 +21,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -37,6 +38,7 @@ internal fun CommunityStatsSettingsRows(
     onClearCommunityCache: () -> Unit,
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
+    var showClearConfirm by rememberSaveable { mutableStateOf(false) }
     SettingsRow(
         title = stringResource(R.string.settings_community_source_title),
         subtitle = stringResource(R.string.settings_community_source_body),
@@ -49,9 +51,34 @@ internal fun CommunityStatsSettingsRows(
     SettingsRow(
         title = stringResource(R.string.settings_clear_community_cache),
         subtitle = stringResource(R.string.settings_clear_community_cache_body),
-        onClick = onClearCommunityCache,
+        onClick = { showClearConfirm = true },
         showDivider = true,
     )
+    if (showClearConfirm) {
+        RipDpiDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = stringResource(R.string.settings_clear_community_cache),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = stringResource(R.string.settings_clear_community_cache_body),
+                    tone = RipDpiDialogTone.Destructive,
+                ),
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.config_cancel),
+                    onClick = { showClearConfirm = false },
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.confirm_clear_remembered_networks_confirm),
+                    onClick = {
+                        showClearConfirm = false
+                        onClearCommunityCache()
+                    },
+                    destructive = true,
+                ),
+        )
+    }
     if (!showEditor) return
     val close = {
         onCommunityApiUrlDraftChanged(communityApiUrl)

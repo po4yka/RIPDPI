@@ -75,7 +75,6 @@
     <string name="settings_permissions_always_on_title">हमेशा चालू VPN</string>
     <string name="settings_permissions_always_on_ready">Android को RIPDPI को हमेशा चालू VPN के रूप में चयनित रखने हेतु कॉन्फ़िगर किया गया है।</string>
     <string name="settings_permissions_always_on_needed">जब आपको पुख्ता लीक रोकथाम की आवश्यकता हो, तो Android VPN सेटिंग्स में RIPDPI के लिए हमेशा चालू VPN सक्षम करें।</string>
-    <string name="settings_permissions_always_on_unknown">Android ने अभी तक हमेशा चालू VPN स्थिति की रिपोर्ट नहीं की है। इसकी पुष्टि के लिए VPN सेटिंग्स खोलें।</string>
     <string name="settings_advanced_body">निम्न-स्तरीय RIPDPI फ़्लैग, प्रॉक्सी लिसनर, और प्रोटोकॉल ओवरराइड</string>
     <string name="settings_security_section">गोपनीयता</string>
     <string name="settings_webrtc_title">WebRTC सुरक्षा</string>
@@ -114,10 +113,8 @@
     <string name="settings_backup_pin_save">PIN सहेजें</string>
     <string name="settings_backup_pin_clear">PIN साफ़ करें</string>
     <string name="settings_appearance_section">इंटरफ़ेस</string>
-    <string name="settings_theme_body">चुनें कि ऐप सिस्टम थीम का अनुसरण करे या स्थिर रहे।</string>
     <string name="settings_dynamic_color_title">वॉलपेपर के रंग इस्तेमाल करें</string>
-    <string name="settings_dynamic_color_body">ऐप के रंग वॉलपेपर से मिलाएँ (Android 12 और बाद के संस्करण)।</string>
-    <string name="settings_customization_body">ऐप आइकन, अनुकूली आकार, और थीम वाले आइकन विकल्प।</string>
+    <string name="settings_dynamic_color_body">ऐप के रंग वॉलपेपर से मिलाएँ।</string>
     <string name="settings_support_section">सहायता</string>
     <string name="settings_support_debug_bundle_title">सहायता बंडल साझा करें</string>
     <string name="settings_support_debug_bundle_body">सहायता के लिए हाल के लॉग और निदान जानकारी ZIP फ़ाइल में साझा करें। पैकेट कैप्चर शामिल नहीं होते।</string>
@@ -224,7 +221,6 @@
     <string name="settings_permissions_lockdown_needed">हार्ड किल-स्विच व्यवहार के लिए Android VPN सेटिंग्स में \"VPN के बिना कनेक्शन अवरुद्ध करें\" सक्षम करें।</string>
     <string name="settings_permissions_lockdown_ready">जब RIPDPI VPN कनेक्ट नहीं होता तब Android ट्रैफ़िक को अवरुद्ध कर रहा है।</string>
     <string name="settings_permissions_lockdown_title">VPN के बिना अवरुद्ध करें</string>
-    <string name="settings_permissions_lockdown_unknown">Android ने अभी तक VPN-के-बिना-अवरुद्ध स्थिति की रिपोर्ट नहीं दी है। इसे सत्यापित करने के लिए VPN सेटिंग्स खोलें।</string>
     <string name="settings_domain_bypass_body">चुने गए डोमेन को प्रॉक्सी से बाहर रखें (सीधा)</string>
     <string name="settings_routing_rules_body">कस्टम रूटिंग नियम बनाएँ और क्रमबद्ध करें</string>
     <string name="settings_split_tunnel_body">चुनें कि कौन-से ऐप VPN का उपयोग करें, प्रति ऐप</string>

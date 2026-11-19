@@ -141,7 +141,6 @@
     <string name="settings_permissions_always_on_title">Immer-aktives VPN</string>
     <string name="settings_permissions_always_on_ready">Android ist so konfiguriert, dass RIPDPI als immer aktives VPN ausgewählt bleibt.</string>
     <string name="settings_permissions_always_on_needed">Aktivieren Sie Immer-aktives VPN für RIPDPI in den Android-VPN-Einstellungen, wenn Sie harten Leckschutz benötigen.</string>
-    <string name="settings_permissions_always_on_unknown">Android hat den Status des immer aktiven VPN noch nicht gemeldet. Öffnen Sie die VPN-Einstellungen zur Prüfung.</string>
     <string name="settings_permissions_vpn_active">Für den aktuell gewählten lokalen VPN-Modus erforderlich.</string>
     <string name="settings_reset_confirm">Zurücksetzen</string>
     <string name="settings_seqovl_unsupported_reason">Sequenzüberlappung erfordert Raw-Socket-Zugriff, der auf diesem Gerät nicht verfügbar ist. Aktivieren Sie den Root-Modus in den Einstellungen, um diese Funktion zu nutzen.</string>
@@ -174,16 +173,14 @@
     <string name="settings_biometric_confirm_title">Authentifizierung aktivieren?</string>
     <string name="settings_biometric_title">Authentifizierung erforderlich</string>
     <string name="settings_community_api_url_reset">Auf Standard zurücksetzen</string>
-    <string name="settings_customization_body">App-Icon, adaptive Form und Optionen für Themen-Icons.</string>
     <string name="settings_manage_action">Verwalten</string>
     <string name="settings_permission_status_not_needed">Nicht erforderlich</string>
     <string name="settings_permissions_battery_ready">Android erlaubt RIPDPI bereits, die Doze-Akkuoptimierung zu ignorieren.</string>
     <string name="settings_permissions_vpn_needed">Erteilen Sie die Android-VPN-Zustimmung, bevor RIPDPI den lokalen VPN-Pfad starten kann.</string>
     <string name="settings_reset_dialog_body">Dies stellt alle Einstellungen auf ihre Standardwerte zurück, und alle Anpassungen gehen verloren. Profile, Gruppen, Routing-Regeln und der Diagnoseverlauf bleiben erhalten.</string>
     <string name="settings_support_section">Support</string>
-    <string name="settings_theme_body">Wählen Sie, ob die App dem Systemdesign folgt oder fest bleibt.</string>
     <string name="settings_dynamic_color_title">Hintergrundfarben verwenden</string>
-    <string name="settings_dynamic_color_body">App-Farben an das Hintergrundbild anpassen (Android 12+).</string>
+    <string name="settings_dynamic_color_body">App-Farben an das Hintergrundbild anpassen.</string>
     <string name="settings_warning_backup_pin_title">Backup-PIN empfohlen</string>
     <string name="theme_settings">Design</string>
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
@@ -215,7 +212,6 @@
     <string name="settings_permissions_lockdown_needed">Aktivieren Sie Verbindungen ohne VPN blockieren in den Android-VPN-Einstellungen für einen harten Kill-Switch.</string>
     <string name="settings_permissions_lockdown_ready">Android blockiert Verkehr, wenn das RIPDPI-VPN nicht verbunden ist.</string>
     <string name="settings_permissions_lockdown_title">Ohne VPN blockieren</string>
-    <string name="settings_permissions_lockdown_unknown">Android hat den Blockierungsstatus ohne VPN noch nicht gemeldet. Öffnen Sie die VPN-Einstellungen zur Prüfung.</string>
     <string name="settings_domain_bypass_body">Ausgewählte Domains am Proxy vorbei (direkt) leiten</string>
     <string name="settings_routing_rules_body">Eigene Routing-Regeln erstellen und sortieren</string>
     <string name="settings_split_tunnel_body">Legen Sie pro App fest, welche Apps das VPN nutzen</string>

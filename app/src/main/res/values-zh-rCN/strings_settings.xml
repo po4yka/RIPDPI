@@ -37,7 +37,6 @@
     <string name="settings_permissions_always_on_title">始终开启 VPN</string>
     <string name="settings_permissions_always_on_ready">Android 已配置为将 RIPDPI 保持为始终开启 VPN。</string>
     <string name="settings_permissions_always_on_needed">需要强制防泄漏时,请在 Android VPN 设置中为 RIPDPI 启用始终开启 VPN。</string>
-    <string name="settings_permissions_always_on_unknown">Android 尚未报告始终开启 VPN 状态。打开 VPN 设置进行确认。</string>
     <string name="settings_permissions_section">权限</string>
     <string name="settings_reset_action">重置</string>
     <string name="settings_reset_dialog_title">重置设置？</string>
@@ -68,7 +67,6 @@
     <string name="settings_biometric_pin_required_ok">确定</string>
     <string name="settings_clear_community_cache">清除社区缓存</string>
     <string name="settings_community_api_url_save">保存</string>
-    <string name="settings_customization_body">应用图标、自适应形状和主题图标选项。</string>
     <string name="settings_diagnostics_export_history_title">在诊断归档中包含历史记录</string>
     <string name="settings_diagnostics_retention_body">指定已保存的连接会话、采样、诊断报告和导出记录在应用存储中的保留时间，超过期限后清理功能会将其删除。保存在其他位置的归档或日志文件会一直保留，直到你自行删除。</string>
     <string name="settings_exclude_russian_apps_body">银行、配送和政府应用绕过 VPN,以避免检测问题。</string>
@@ -126,9 +124,8 @@
     <string name="settings_security_section">隐私</string>
     <string name="settings_strategy_pack_allow_rollback_override_title">允许策略包回滚</string>
     <string name="settings_telemetry_salt_reset_action">重置遥测盐值</string>
-    <string name="settings_theme_body">选择应用是跟随系统主题还是保持固定。</string>
     <string name="settings_dynamic_color_title">使用壁纸颜色</string>
-    <string name="settings_dynamic_color_body">让应用配色匹配你的壁纸（Android 12 及以上）。</string>
+    <string name="settings_dynamic_color_body">让应用配色匹配你的壁纸。</string>
     <string name="settings_warning_backup_pin_body">设置一个四位备用 PIN,以便在生物识别不可用时仍能解锁 RIPDPI。</string>
     <string name="about_license_title">许可证</string>
     <string name="about_license_body">Copyright (c) 2026 Nikita Pochaev。基于 AGPL-3.0-only 许可发布,也可获取商业许可。不提供任何担保。</string>
@@ -216,7 +213,6 @@
     <string name="settings_permissions_lockdown_needed">请在 Android VPN 设置中启用无 VPN 时阻止连接,以获得强制 kill switch 行为。</string>
     <string name="settings_permissions_lockdown_ready">当 RIPDPI VPN 未连接时,Android 会阻止流量。</string>
     <string name="settings_permissions_lockdown_title">无 VPN 时阻止</string>
-    <string name="settings_permissions_lockdown_unknown">Android 尚未报告无 VPN 阻止状态。打开 VPN 设置进行确认。</string>
     <string name="settings_domain_bypass_body">让所选域名绕过代理(直连)</string>
     <string name="settings_routing_rules_body">创建并排序自定义路由规则</string>
     <string name="settings_split_tunnel_body">按应用选择哪些应用使用 VPN</string>

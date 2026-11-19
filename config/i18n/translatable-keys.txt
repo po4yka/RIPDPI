@@ -2909,7 +2909,6 @@ app:fake_payload_profile_summary_label_current
 app:fake_payload_profile_summary_label_interaction
 app:fake_payload_profile_summary_label_when_used
 app:haptic_feedback_accessibility
-app:haptic_feedback_body
 app:haptic_feedback_off
 app:haptic_feedback_system
 app:haptic_feedback_title
@@ -4063,7 +4062,6 @@ app:settings_community_source_body
 app:settings_community_source_default
 app:settings_community_source_title
 app:settings_connectivity_section
-app:settings_customization_body
 app:settings_data_transparency_body
 app:settings_detail_placeholder
 app:settings_diagnostics_export_history_title
@@ -4123,13 +4121,11 @@ app:settings_permission_status_unknown
 app:settings_permissions_always_on_needed
 app:settings_permissions_always_on_ready
 app:settings_permissions_always_on_title
-app:settings_permissions_always_on_unknown
 app:settings_permissions_battery_needed
 app:settings_permissions_battery_ready
 app:settings_permissions_lockdown_needed
 app:settings_permissions_lockdown_ready
 app:settings_permissions_lockdown_title
-app:settings_permissions_lockdown_unknown
 app:settings_permissions_notifications_needed
 app:settings_permissions_notifications_ready
 app:settings_permissions_section
@@ -4167,7 +4163,6 @@ app:settings_telemetry_salt_reset_action
 app:settings_telemetry_salt_reset_body
 app:settings_tethering_dns_warning_body
 app:settings_tethering_dns_warning_title
-app:settings_theme_body
 app:settings_vpn_flag_warning_body
 app:settings_vpn_flag_warning_title
 app:settings_warning_backup_pin_body

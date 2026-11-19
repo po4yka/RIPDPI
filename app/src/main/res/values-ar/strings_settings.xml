@@ -53,7 +53,6 @@
     <string name="settings_permissions_always_on_title">VPN دائم التشغيل</string>
     <string name="settings_permissions_always_on_ready">تم ضبط Android لإبقاء RIPDPI محدداً كـ VPN دائم التشغيل.</string>
     <string name="settings_permissions_always_on_needed">فعّل VPN دائم التشغيل لـ RIPDPI في إعدادات VPN بنظام Android عند الحاجة إلى منع التسريب بشكل صارم.</string>
-    <string name="settings_permissions_always_on_unknown">لم يُبلّغ Android عن حالة VPN دائم التشغيل بعد. افتح إعدادات VPN للتحقق.</string>
     <string name="settings_advanced_body">أعلام RIPDPI المتقدمة، مستمعو الوكيل، وتجاوزات البروتوكول</string>
     <string name="settings_security_section">الخصوصية</string>
     <string name="settings_webrtc_title">حماية WebRTC</string>
@@ -92,10 +91,8 @@
     <string name="settings_backup_pin_save">حفظ رمز PIN</string>
     <string name="settings_backup_pin_clear">مسح رمز PIN</string>
     <string name="settings_appearance_section">الواجهة</string>
-    <string name="settings_theme_body">اختر ما إذا كان التطبيق يتبع سمة النظام أم يبقى ثابتًا.</string>
     <string name="settings_dynamic_color_title">استخدام ألوان الخلفية</string>
-    <string name="settings_dynamic_color_body">مطابقة ألوان التطبيق مع خلفية الشاشة (Android 12 والأحدث).</string>
-    <string name="settings_customization_body">خيارات أيقونة التطبيق والشكل التكيفي والأيقونة ذات السمة.</string>
+    <string name="settings_dynamic_color_body">مطابقة ألوان التطبيق مع خلفية الشاشة.</string>
     <string name="settings_support_section">الدعم</string>
     <string name="settings_support_debug_bundle_title">مشاركة حزمة الدعم</string>
     <string name="settings_support_debug_bundle_body">شارك السجلات الحديثة وبيانات التشخيص في ملف ZIP للدعم. لا تُضمَّن التقاطات الحزم.</string>
@@ -201,7 +198,6 @@
     <string name="settings_permissions_lockdown_needed">فعّل \"حجب الاتصالات بدون VPN\" في إعدادات VPN بـ Android لتفعيل مفتاح الإيقاف الصارم.</string>
     <string name="settings_permissions_lockdown_ready">Android يحجب الحركة عندما لا يكون RIPDPI VPN متصلاً.</string>
     <string name="settings_permissions_lockdown_title">الحجب بدون VPN</string>
-    <string name="settings_permissions_lockdown_unknown">لم يُبلّغ Android بعد عن حالة الحجب بدون VPN. افتح إعدادات VPN للتحقق منها.</string>
     <string name="settings_domain_bypass_body">إبقاء النطاقات المختارة خارج الوكيل (مباشر)</string>
     <string name="settings_routing_rules_body">إنشاء قواعد توجيه مخصصة وترتيبها</string>
     <string name="settings_split_tunnel_body">اختر التطبيقات التي تستخدم VPN، لكل تطبيق</string>
