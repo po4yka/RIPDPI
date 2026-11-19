@@ -3,10 +3,12 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.core.localSocksCredentialsOrNull
+import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.failureClassFromNativeCode
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import dagger.Binds
@@ -201,7 +203,7 @@ open class NaiveProxyManager
                 failureClass = failureClass,
                 message = message,
             )
-            throw NaiveProxyCompatibilityException(message)
+            throw NaiveProxyCompatibilityException(message, failureClass)
         }
 
         open suspend fun waitForExit(): Int = launchDelegate.waitForExit()
@@ -221,7 +223,13 @@ open class NaiveProxyManager
 
 internal class NaiveProxyCompatibilityException(
     message: String,
-) : ServiceStartupRejectedException(FailureReason.RelayConfigRejected(message))
+    failureCode: String,
+) : ServiceStartupRejectedException(
+        FailureReason.RelayConfigRejected(
+            message = message,
+            failureClass = failureClassFromNativeCode(failureCode) ?: FailureClass.NativeIo,
+        ),
+    )
 
 internal interface NaiveProxyLaunchDelegate {
     fun resolveBinary(binaryName: String): NaiveProxyBinaryRef

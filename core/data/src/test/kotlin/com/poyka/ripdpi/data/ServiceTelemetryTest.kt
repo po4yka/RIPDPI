@@ -16,7 +16,7 @@ class ServiceTelemetryTest {
                 proxyTelemetry =
                     NativeRuntimeSnapshot(
                         source = "proxy",
-                        lastError = "tls handshake timeout",
+                        lastFailureClass = "tls_handshake_failure",
                         capturedAt = 605_000,
                     ),
                 relayTelemetry = NativeRuntimeSnapshot(source = "relay", capturedAt = 605_000),
@@ -46,7 +46,7 @@ class ServiceTelemetryTest {
                 proxyTelemetry =
                     NativeRuntimeSnapshot(
                         source = "proxy",
-                        lastError = "tls handshake timeout",
+                        lastFailureClass = "tls_handshake_failure",
                         capturedAt = 1_500_000,
                     ),
                 relayTelemetry = NativeRuntimeSnapshot(source = "relay", capturedAt = 1_500_000),
