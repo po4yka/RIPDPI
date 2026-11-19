@@ -1,6 +1,7 @@
 mod certs;
 mod classification;
 mod config;
+pub(crate) mod hop_ladder;
 mod key_log;
 mod probe;
 mod types;
