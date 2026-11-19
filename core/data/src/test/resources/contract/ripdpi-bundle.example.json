@@ -74,6 +74,7 @@
   "field_report": {
     "endpoint": "https://reports.example.test/v1/field-report",
     "cohort_token": "EXAMPLE-cohort-token-not-real",
-    "max_reports_per_day": 4
+    "max_reports_per_day": 4,
+    "network_hint_endpoint": "https://reports.example.test/v1/network-hint"
   }
 }

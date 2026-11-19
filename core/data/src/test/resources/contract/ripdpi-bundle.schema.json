@@ -41,7 +41,11 @@
           "type": "string",
           "pattern": "^[A-Za-z0-9_-]{22,64}$"
         },
-        "max_reports_per_day": { "type": "integer", "minimum": 1, "maximum": 24 }
+        "max_reports_per_day": { "type": "integer", "minimum": 1, "maximum": 24 },
+        "network_hint_endpoint": {
+          "description": "Optional HTTPS URL of the network hint (contract/client-network-hint.schema.json). The client sends GET with the same Authorization: Bearer cohort_token directly, outside the tunnel, and discards a hint fetched through the tunnel. Absent: the client sends network.source sim or none only.",
+          "type": "string", "minLength": 9, "maxLength": 2048, "pattern": "^https://[^\\s/?#@]+(/[^\\s#]*)?$"
+        }
       }
     },
     "payload_failover": {

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vpn-deploy/client-field-report.schema.json",
   "title": "RIPDPI anonymous client field report",
-  "description": "Version 1 contract for one opt-in, anonymous, aggregated client field report. A report covers one hour-aligned window and holds per-endpoint outcome buckets. It carries no IP address, device or user identifier, subscription token, hostname or sub-hour timestamp. The client suppresses every bucket with fewer than 5 attempts. scripts/validate-field-report.py adds one check the schema cannot express: each latency histogram sums to its bucket's attempts.",
+  "description": "Version 1 contract for one opt-in, anonymous, aggregated client field report. A report covers one hour-aligned window and holds per-endpoint outcome buckets. It carries no IP address, device or user identifier, subscription token, hostname or sub-hour timestamp. The network identity is the SIM operator code or the server network hint, never an ASN that the device looked up. The client suppresses every bucket with fewer than 5 attempts. scripts/validate-field-report.py adds one check the schema cannot express: each latency histogram sums to its bucket's attempts.",
   "$comment": "Canonical source: ripdpi-vpn-deploy/contract/client-field-report.schema.json. Keep the client vendored copy byte-identical. x-contract-version is the cross-repo drift pin.",
   "x-contract-version": 1,
   "x-latency-bounds-ms": [50, 100, 250, 500, 1000, 2500, 5000, "+Inf"],
@@ -38,10 +38,22 @@
       }
     },
     "network": {
+      "description": "The network the window was measured on. The client looks up nothing over the network for this object. source names where the network identity came from: sim is the SIM or registered network operator (MCC and MNC) read on the device, valid on cellular only; server_hint is the ASN and country from contract/client-network-hint.schema.json, fetched outside the tunnel; none is no identity. Each source carries only its own identity.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["asn", "country", "network_type"],
+      "required": ["source", "network_type"],
       "properties": {
+        "source": { "enum": ["sim", "server_hint", "none"] },
+        "operator": {
+          "description": "Mobile network operator as ITU-T E.212 MCC and MNC digit strings. Leading zeros are significant.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mcc", "mnc"],
+          "properties": {
+            "mcc": { "type": "string", "pattern": "^[0-9]{3}$" },
+            "mnc": { "type": "string", "pattern": "^[0-9]{2,3}$" }
+          }
+        },
         "asn": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
         "country": {
           "description": "ISO 3166-1 alpha-2 code in upper case.",
@@ -49,7 +61,21 @@
           "pattern": "^[A-Z]{2}$"
         },
         "network_type": { "enum": ["wifi", "cellular", "other"] }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "sim" } }, "required": ["source"] },
+          "then": { "required": ["operator"], "properties": { "network_type": { "const": "cellular" } }, "not": { "required": ["asn"] } }
+        },
+        {
+          "if": { "properties": { "source": { "const": "server_hint" } }, "required": ["source"] },
+          "then": { "required": ["asn"], "not": { "required": ["operator"] } }
+        },
+        {
+          "if": { "properties": { "source": { "const": "none" } }, "required": ["source"] },
+          "then": { "not": { "anyOf": [{ "required": ["asn"] }, { "required": ["operator"] }] } }
+        }
+      ]
     },
     "buckets": {
       "type": "array",

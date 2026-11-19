@@ -23,8 +23,10 @@ MANIFEST_NAME = "vendored-deploy-contracts.sha256"
 VENDORED_PATTERNS = (
     "ripdpi-bundle.*.json",
     "client-field-report.*.json",
+    "client-network-hint.*.json",
     "negative/neg-*.json",
     "negative/report-*.json",
+    "negative/hint-*.json",
     "negative/README.md",
 )
 SOURCE_PREFIX = "# source: "
