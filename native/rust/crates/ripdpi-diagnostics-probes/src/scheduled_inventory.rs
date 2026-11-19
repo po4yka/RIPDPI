@@ -31,6 +31,7 @@ use crate::probes::selective_availability::SELECTIVE_AVAILABILITY_PROBE_ID;
 use crate::probes::service_reachability::SERVICE_REACHABILITY_PROBE_ID;
 use crate::probes::tcp_fat_header::TCP_FAT_HEADER_PROBE_ID;
 use crate::probes::throughput::THROUGHPUT_PROBE_ID;
+use crate::probes::tls_hop_comparison::TLS_HOP_COMPARISON_PROBE_ID;
 
 /// Whether a scheduled stage has a backing [`crate::Probe`] implementation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,6 +131,11 @@ pub const SCHEDULED_PROBE_INVENTORY: &[ScheduledProbeStage] = &[
     },
     ScheduledProbeStage { probe_type: "pmtu", runner: "PmtuRunner", backing: ProbeTraitBacking::Backed(PMTU_PROBE_ID) },
     ScheduledProbeStage {
+        probe_type: "tls_hop_comparison",
+        runner: "TlsHopComparisonRunner",
+        backing: ProbeTraitBacking::Backed(TLS_HOP_COMPARISON_PROBE_ID),
+    },
+    ScheduledProbeStage {
         probe_type: "doh_json_survey",
         runner: "DohJsonSurveyRunner",
         backing: ProbeTraitBacking::Backed(DOH_JSON_SURVEY_PROBE_ID),
@@ -174,8 +180,8 @@ mod tests {
     }
 
     #[test]
-    fn inventory_has_exactly_fourteen_rows() {
-        assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 14);
+    fn inventory_has_exactly_fifteen_rows() {
+        assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 15);
     }
 
     #[test]

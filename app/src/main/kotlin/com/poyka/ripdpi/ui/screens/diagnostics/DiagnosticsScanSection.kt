@@ -24,6 +24,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -52,6 +54,7 @@ internal fun ScanSection(
     scan: DiagnosticsScanUiModel,
     onSelectProfile: (String) -> Unit,
     onSelectiveMatrixHostsChanged: (String) -> Unit = {},
+    onTlsHopComparisonChanged: (TlsHopComparisonConfig) -> Unit = {},
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
@@ -109,8 +112,8 @@ internal fun ScanSection(
     val visibleResults =
         remember(scan.latestResults, expertMode) {
             scan.latestResults.filter {
-                expertMode ||
-                    !it.probeType.startsWith("selective_availability")
+                !it.isTlsHopProbe() &&
+                    (expertMode || !it.probeType.startsWith("selective_availability"))
             }
         }
     val scopeLayout = remember(visibleResults) { scopeLayout(visibleResults) }
@@ -239,6 +242,15 @@ internal fun ScanSection(
                 )
             }
         }
+        if (selectedProfile?.id == TlsHopComparisonProfileId) {
+            item {
+                TlsHopInputCard(
+                    input = scan.tlsHopComparisonInput,
+                    enabled = !effectiveBusy,
+                    onInputChanged = onTlsHopComparisonChanged,
+                )
+            }
+        }
         scan.activeProgress?.let { progress ->
             item {
                 ScanProgressCard(
@@ -309,6 +321,9 @@ internal fun ScanSection(
         }
         if (scan.latestResults.any { it.isSelectiveMatrixProbe() }) {
             item { SelectiveMatrixResultsCard(scan.latestResults) }
+        }
+        scan.latestResults.mapNotNull { it.tlsHop }.forEach { tlsHop ->
+            item { TlsHopResultsCard(tlsHop) }
         }
         scan.latestResults.mapNotNull { it.transferEvidence }.forEach { transfer ->
             item { DiagnosticsTransferCard(transfer = transfer) }

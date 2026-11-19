@@ -8,6 +8,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.ui.screens.diagnostics.toScopeLabel
 import com.poyka.ripdpi.ui.screens.onboarding.isBusy
@@ -15,6 +17,7 @@ import kotlinx.collections.immutable.toImmutableList
 
 internal data class BuildScanUiModelParams(
     val selectiveMatrixHostsInput: String = "",
+    val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
     val profiles: List<DiagnosticProfile>,
     val omittedProfileCount: Int = 0,
     val activeProfile: DiagnosticProfile?,
@@ -47,7 +50,12 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
     val strategyProbeSelected = selectedProfile?.isStrategyProbe == true
     val serviceRunning = params.serviceStatus == AppStatus.Running
     val matrixInputValid = parseSelectiveMatrixHosts(params.selectiveMatrixHostsInput) != null
-    val inputAllowed = selectedProfile?.id != SelectiveMatrixProfileId || matrixInputValid
+    val inputAllowed =
+        when (selectedProfile?.id) {
+            SelectiveMatrixProfileId -> matrixInputValid
+            TlsHopComparisonProfileId -> params.tlsHopComparisonInput.isValid()
+            else -> true
+        }
     val runRawEnabled = params.progress == null && !(strategyProbeSelected && params.rawArgsEnabled) && inputAllowed
     val runInPathEnabled = params.progress == null && !strategyProbeSelected && serviceRunning && inputAllowed
     val workflowRestriction = buildWorkflowRestriction(params, selectedProfile, strategyProbeSelected)
@@ -67,6 +75,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
     return DiagnosticsScanUiModel(
         selectiveMatrixHostsInput = params.selectiveMatrixHostsInput,
         selectiveMatrixInputValid = matrixInputValid,
+        tlsHopComparisonInput = params.tlsHopComparisonInput,
         selectiveMatrixTargets = params.activeProfileRequest.matrixTargetRows(),
         profiles = params.profiles.map(::toProfileOptionUiModel).toImmutableList(),
         selectedProfileId = params.activeProfile?.id,

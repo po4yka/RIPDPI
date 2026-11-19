@@ -235,6 +235,15 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
             .expect("PMTU source");
     let pmtu_production = pmtu_source.split("#[cfg(test)]").next().expect("production source");
     tokens.extend(quoted_outcome_tokens(pmtu_production).into_iter().filter(|token| token.starts_with("pmtu_")));
+    let tls_hop_source =
+        fs::read_to_string(repo.join("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/tls_hop.rs"))
+            .expect("TLS hop source");
+    let tls_hop_production = tls_hop_source.split("#[cfg(test)]").next().expect("production source");
+    tokens.extend(
+        quoted_outcome_tokens(tls_hop_production)
+            .into_iter()
+            .filter(|token| token.starts_with("tls_hop_") && token != "tls_hop_comparison"),
+    );
     // The current engine no longer emits this token. Retain its taxonomy for
     // persisted reports from older engines and verify its conservative meaning.
     assert_eq!(

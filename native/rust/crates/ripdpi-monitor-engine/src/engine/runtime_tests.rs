@@ -72,6 +72,7 @@ fn test_plan() -> ExecutionPlan {
             ip_family_probe: None,
             http3_probe: None,
             pmtu_probe: None,
+            tls_hop_comparison: None,
             whitelist_sni: Vec::new(),
             telegram_target: None,
             strategy_probe: None,
@@ -118,6 +119,7 @@ fn strategy_test_plan() -> ExecutionPlan {
             ip_family_probe: None,
             http3_probe: None,
             pmtu_probe: None,
+            tls_hop_comparison: None,
             whitelist_sni: Vec::new(),
             telegram_target: None,
             strategy_probe: Some(StrategyProbeRequest {

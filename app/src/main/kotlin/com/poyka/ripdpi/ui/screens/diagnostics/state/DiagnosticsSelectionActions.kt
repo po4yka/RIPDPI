@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -55,6 +56,17 @@ internal class DiagnosticsSelectionActions(
             return
         }
         selection.update { it.copy(selectiveMatrixHostsInput = input) }
+    }
+
+    fun updateTlsHopComparison(input: TlsHopComparisonConfig) {
+        if ((
+                mutations.diagnosticsTimelineSource.activeScanProgress.value != null ||
+                    mutations.diagnosticsScanController.hasActiveHomeRun()
+            )
+        ) {
+            return
+        }
+        selection.update { it.copy(tlsHopComparisonInput = input) }
     }
 
     fun selectProfile(profileId: String) {

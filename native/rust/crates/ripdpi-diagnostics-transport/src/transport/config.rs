@@ -69,6 +69,7 @@ mod tests {
             ip_family_probe: None,
             http3_probe: None,
             pmtu_probe: None,
+            tls_hop_comparison: None,
             whitelist_sni: vec![],
             telegram_target: None,
             strategy_probe: None,

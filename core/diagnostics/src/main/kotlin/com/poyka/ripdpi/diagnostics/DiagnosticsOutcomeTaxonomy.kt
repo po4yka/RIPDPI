@@ -120,6 +120,7 @@ private fun bucketForProbeOutcome(
         "ip_family" -> bucketIpFamily(outcome)
         "http3" -> bucketHttp3(outcome)
         "pmtu" -> bucketPmtu(outcome)
+        TlsHopComparisonProbeType -> bucketTlsHopComparison(outcome)
         "network_environment" -> bucketNetworkEnvironment(outcome)
         "dns_integrity" -> bucketDnsIntegrity(pathMode, outcome)
         "domain_reachability" -> bucketDomainReachability(outcome)

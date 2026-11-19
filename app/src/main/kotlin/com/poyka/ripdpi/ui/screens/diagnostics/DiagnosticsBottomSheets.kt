@@ -197,6 +197,10 @@ private fun ColumnScope.SessionDetailContent(
     if (matrixResults.isNotEmpty()) {
         SelectiveMatrixResultsCard(matrixResults)
     }
+    detail.probeGroups
+        .flatMap { it.items }
+        .mapNotNull { it.tlsHop }
+        .forEach { TlsHopResultsCard(it) }
     detail.strategyProbeReport?.let { report ->
         StrategyProbeReportCard(
             report = report,
@@ -207,7 +211,7 @@ private fun ColumnScope.SessionDetailContent(
         ContextGroupCard(group = group)
     }
     detail.probeGroups.forEach { group ->
-        val probes = group.items.filterNot { it.isSelectiveMatrixProbe() }
+        val probes = group.items.filterNot { it.isSelectiveMatrixProbe() || it.isTlsHopProbe() }
         if (probes.isEmpty()) return@forEach
         Text(
             text = group.title,

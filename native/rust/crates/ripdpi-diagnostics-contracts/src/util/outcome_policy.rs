@@ -61,6 +61,10 @@ fn event_level_override(probe_type: &str, outcome: &str) -> Option<&'static str>
 
 fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &str) -> ProbeOutcomeBucket {
     match probe_type {
+        "tls_hop_comparison" => match outcome {
+            "tls_hop_divergence" => ProbeOutcomeBucket::Attention,
+            _ => ProbeOutcomeBucket::Inconclusive,
+        },
         "pmtu" => match outcome {
             "pmtu_observed" => ProbeOutcomeBucket::Healthy,
             _ => ProbeOutcomeBucket::Inconclusive,

@@ -39,7 +39,7 @@ import kotlinx.collections.immutable.toImmutableList
  * behind the edits. Shows each edit at once, ignores a late echo of an earlier edit, and adopts any
  * other new value.
  */
-private class LaggingInputText(
+internal class LaggingInputText(
     initial: String,
 ) {
     var text by mutableStateOf(initial)

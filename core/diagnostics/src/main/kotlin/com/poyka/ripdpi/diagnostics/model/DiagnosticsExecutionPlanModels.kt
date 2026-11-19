@@ -50,6 +50,7 @@ enum class ExecutionPlanProbeTaskFamily {
     IP_FAMILY,
     HTTP3,
     PMTU,
+    TLS_HOP_COMPARISON,
 }
 
 @Serializable

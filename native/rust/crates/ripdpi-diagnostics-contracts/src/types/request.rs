@@ -1,5 +1,7 @@
 mod pmtu;
+mod tls_hop;
 pub use pmtu::{PmtuEvidence, PmtuProbeConfig};
+pub use tls_hop::{TlsHopAttempt, TlsHopComparisonConfig, TlsHopComparisonEvidence, TlsHopComparisonLocal};
 mod http3;
 pub use http3::{Http3Evidence, Http3ProbeConfig};
 mod ip_family;

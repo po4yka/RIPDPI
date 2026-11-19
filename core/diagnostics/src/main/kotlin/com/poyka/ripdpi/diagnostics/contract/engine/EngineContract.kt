@@ -32,6 +32,7 @@ import com.poyka.ripdpi.diagnostics.StrategyRecommendation
 import com.poyka.ripdpi.diagnostics.TcpTarget
 import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.TransferProgress
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
@@ -39,7 +40,7 @@ import kotlinx.serialization.Serializable
 
 // v10: makes TCP and QUIC recommendation lanes optional. Must stay in sync
 // with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
-const val DiagnosticsEngineSchemaVersion = 10
+const val DiagnosticsEngineSchemaVersion = 11
 
 @Serializable
 enum class EngineProbeTaskFamily {
@@ -56,6 +57,7 @@ enum class EngineProbeTaskFamily {
     IP_FAMILY,
     HTTP3,
     PMTU,
+    TLS_HOP_COMPARISON,
 }
 
 @Serializable
@@ -117,6 +119,8 @@ data class EngineScanRequestWire(
     val http3Probe: Http3ProbeConfig? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val pmtuProbe: PmtuProbeConfig? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val tlsHopComparison: TlsHopComparisonConfig? = null,
     val nativeLogLevel: String? = null,
     val logContext: RipDpiLogContext? = null,
     val scanDeadlineMs: Long? = null,

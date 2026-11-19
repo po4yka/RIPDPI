@@ -29,6 +29,8 @@ internal object RipDpiTestTags {
     const val DiagnosticsSelectiveMatrixInput = "diagnostics-selective-matrix-input"
     const val DiagnosticsSelectiveMatrixHosts = "diagnostics-selective-matrix-hosts"
     const val DiagnosticsSelectiveMatrixResults = "diagnostics-selective-matrix-results"
+    const val DiagnosticsTlsHopInput = "diagnostics-tls-hop-input"
+    const val DiagnosticsTlsHopResults = "diagnostics-tls-hop-results"
     const val VpnPermissionDialog = "vpn-permission-dialog"
     const val VpnPermissionDialogContinue = "vpn-permission-dialog-continue"
     const val VpnPermissionDialogDismiss = "vpn-permission-dialog-dismiss"

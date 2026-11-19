@@ -44,6 +44,8 @@ internal class DiagnosticsSessionDetailUiFactory
                             title =
                                 if (title == "pmtu") {
                                     support.context.getString(R.string.diagnostics_pmtu_title)
+                                } else if (title == "tls_hop_comparison") {
+                                    support.context.getString(R.string.diagnostics_tls_hop_title)
                                 } else if (title == "http3") {
                                     support.context.getString(R.string.diagnostics_http3_title)
                                 } else if (title ==

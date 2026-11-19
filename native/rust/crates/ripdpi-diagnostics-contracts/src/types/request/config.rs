@@ -96,6 +96,8 @@ pub struct ScanRequest {
     pub http3_probe: Option<super::Http3ProbeConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pmtu_probe: Option<super::PmtuProbeConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_hop_comparison: Option<super::TlsHopComparisonConfig>,
     pub whitelist_sni: Vec<String>,
     #[serde(default)]
     pub telegram_target: Option<TelegramTarget>,

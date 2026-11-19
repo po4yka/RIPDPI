@@ -87,6 +87,7 @@ class DiagnosticsTargetOptimizer
                     intent.selectiveMatrix,
                     intent.http3Probe,
                     intent.pmtuProbe,
+                    intent.tlsHopComparison,
                     intent.ipFamilyProbe,
                 ).isNotEmpty()
             return if (origin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND && fingerprint != null &&

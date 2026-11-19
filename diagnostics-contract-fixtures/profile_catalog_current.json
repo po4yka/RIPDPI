@@ -351,6 +351,39 @@
       }
     },
     {
+      "id": "tls-hop-comparison",
+      "name": "TLS hop comparison",
+      "version": 1,
+      "request": {
+        "profileId": "tls-hop-comparison",
+        "displayName": "TLS hop comparison",
+        "kind": "CONNECTIVITY",
+        "family": "GENERAL",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": true,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": [],
+        "tlsHopComparison": {
+          "host": "",
+          "controlSni": "",
+          "testSni": ""
+        }
+      }
+    },
+    {
       "id": "automatic-probing",
       "name": "Automatic probing",
       "version": 5,

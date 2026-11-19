@@ -18,8 +18,9 @@ pub use types::{
     StrategyProbeProtocol, StrategyProbeRecommendation, StrategyProbeReport, StrategyProbeRequest, StrategyProbeStatus,
     StrategyProbeTargetSelection, TcpObservationFact, TcpProbeStatus, TcpTarget, TelegramDcEndpoint,
     TelegramObservationFact, TelegramTarget, TelegramTransferStatus, TelegramVerdict, ThroughputObservationFact,
-    ThroughputProbeStatus, ThroughputTarget, TlsProbeStatus, TransferEvidence, TransferMeasurement, TransferProgress,
-    TransferSample, TransportFailureKind,
+    ThroughputProbeStatus, ThroughputTarget, TlsHopAttempt, TlsHopComparisonConfig, TlsHopComparisonEvidence,
+    TlsHopComparisonLocal, TlsProbeStatus, TransferEvidence, TransferMeasurement, TransferProgress, TransferSample,
+    TransportFailureKind,
 };
 
 pub use wire::{

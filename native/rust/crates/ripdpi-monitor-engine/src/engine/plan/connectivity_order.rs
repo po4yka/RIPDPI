@@ -19,6 +19,9 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
             if task.family == crate::types::ProbeTaskFamily::Pmtu && request.pmtu_probe.is_none() {
                 continue;
             }
+            if task.family == crate::types::ProbeTaskFamily::TlsHopComparison && request.tls_hop_comparison.is_none() {
+                continue;
+            }
             if task.family == crate::types::ProbeTaskFamily::Http3 && request.http3_probe.is_none() {
                 continue;
             }
@@ -41,6 +44,7 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
                 | ExecutionStageId::IpFamily
                 | ExecutionStageId::Http3
                 | ExecutionStageId::Pmtu
+                | ExecutionStageId::TlsHopComparison
         ) {
             continue;
         }

@@ -125,6 +125,15 @@ private class LocalNetworkScanFilter(
                     requireDirectEndpoint(it.connectIpv4 ?: it.host, it.port)
                     requireDirectEndpoint(it.connectIpv6 ?: it.host, it.port)
                 }.singleOrNull(),
+            tlsHopComparison =
+                allowed(
+                    listOfNotNull(request.tlsHopComparison),
+                    EngineProbeTaskFamily.TLS_HOP_COMPARISON,
+                    "tls_hop_comparison",
+                    { it.host },
+                ) {
+                    requireDirectEndpoint(it.host, TlsHopComparisonPort)
+                }.singleOrNull(),
             telegramTarget = admitTelegramTarget(request.telegramTarget, telegramMedia),
         )
 

@@ -3,10 +3,10 @@
 //! Each attempt opens a fresh protected TCP connection at the default TTL, sets the outbound TTL to k,
 //! sends one ClientHello, and records the first reaction inside a fixed window. Without root, the probe
 //! never sees router addresses: the result is a hop interval, never an identified device.
-#![cfg_attr(not(test), expect(dead_code, reason = "wired into the scan runner with the wire contract"))]
-
+use std::cell::Cell;
 use std::io::{self, Read, Write};
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -19,16 +19,16 @@ use crate::platform_ttl::{set_abortive_close, set_outbound_ttl};
 use crate::transport::{connect_direct_address_with_abort, protected_tcp_socket};
 use crate::util::CONNECT_TIMEOUT;
 
-pub(crate) const MAX_LADDER_TTL: u8 = 32;
-pub(crate) const REPETITIONS: u8 = 2;
-pub(crate) const ATTEMPT_WINDOW: Duration = Duration::from_millis(1000);
+pub const MAX_LADDER_TTL: u8 = 32;
+pub const REPETITIONS: u8 = 2;
+pub const ATTEMPT_WINDOW: Duration = Duration::from_millis(1000);
 /// A silent k costs four windows plus connects, so this reaches k of about 30 on a fast-connecting path.
-pub(crate) const TOTAL_DEADLINE: Duration = Duration::from_secs(150);
+pub const TOTAL_DEADLINE: Duration = Duration::from_secs(150);
 /// Cancellation latency inside one attempt window.
 const READ_SLICE: Duration = Duration::from_millis(50);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum SniRole {
+pub enum SniRole {
     Control,
     Test,
 }
@@ -36,7 +36,7 @@ pub(crate) enum SniRole {
 /// First reaction to one TTL-limited ClientHello. Below the path length an RST, FIN or alert cannot come from
 /// the server, because the ClientHello never reached it.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum AttemptOutcome {
+pub enum AttemptOutcome {
     Rst,
     Fin,
     TlsAlert,
@@ -62,17 +62,17 @@ impl AttemptOutcome {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct LadderAttempt {
-    pub(crate) ttl: u8,
-    pub(crate) role: SniRole,
-    pub(crate) repetition: u8,
-    pub(crate) outcome: AttemptOutcome,
+pub struct LadderAttempt {
+    pub ttl: u8,
+    pub role: SniRole,
+    pub repetition: u8,
+    pub outcome: AttemptOutcome,
     /// Local history only; the ordinary export must not carry per-attempt timings.
-    pub(crate) elapsed_ms: u64,
+    pub elapsed_ms: u64,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum LadderLimit {
+pub enum LadderLimit {
     ControlNeverReachedServer,
     ControlReactsLikeTest,
     /// ServerHello at k of 1 or 2: a local proxy or interception answers.
@@ -85,14 +85,14 @@ pub(crate) enum LadderLimit {
 
 /// The socket step that failed and made the ladder unsupported.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum UnsupportedReason {
+pub enum UnsupportedReason {
     Protect,
     TtlSetter,
     Linger,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum LadderStop {
+pub enum LadderStop {
     Completed,
     Cancelled,
     DeadlineExceeded,
@@ -101,7 +101,7 @@ pub(crate) enum LadderStop {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum LadderVerdict {
+pub enum LadderVerdict {
     /// The test SNI draws a reaction between these hops (inclusive) while the control is silent.
     Divergence {
         first_hop: u8,
@@ -112,18 +112,18 @@ pub(crate) enum LadderVerdict {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct LadderReport {
-    pub(crate) verdict: LadderVerdict,
-    pub(crate) path_length: Option<u8>,
-    pub(crate) limits: Vec<LadderLimit>,
-    pub(crate) attempts: Vec<LadderAttempt>,
-    pub(crate) stop: LadderStop,
+pub struct LadderReport {
+    pub verdict: LadderVerdict,
+    pub path_length: Option<u8>,
+    pub limits: Vec<LadderLimit>,
+    pub attempts: Vec<LadderAttempt>,
+    pub stop: LadderStop,
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct LadderConfig {
-    pub(crate) attempt_window: Duration,
-    pub(crate) total_deadline: Duration,
+pub struct LadderConfig {
+    pub attempt_window: Duration,
+    pub total_deadline: Duration,
 }
 
 impl Default for LadderConfig {
@@ -133,13 +133,13 @@ impl Default for LadderConfig {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum AttemptError {
+pub enum AttemptError {
     Unsupported(UnsupportedReason),
     Aborted,
 }
 
 /// One TTL-limited ClientHello on a fresh connection to the selected endpoint.
-pub(crate) trait LadderProbe {
+pub trait LadderProbe {
     fn attempt(
         &mut self,
         role: SniRole,
@@ -151,7 +151,7 @@ pub(crate) trait LadderProbe {
 
 /// Run the ladder: ascending k up to [`MAX_LADDER_TTL`], [`REPETITIONS`] rounds per k, control and test
 /// alternating inside each round. Stops after the k at which the control first gets a ServerHello.
-pub(crate) fn run_ladder(
+pub fn run_ladder(
     probe: &mut dyn LadderProbe,
     config: LadderConfig,
     should_abort: &dyn Fn() -> bool,
@@ -277,16 +277,18 @@ fn analyze(attempts: Vec<LadderAttempt>, stop: LadderStop) -> LadderReport {
 
 /// Real probe against the one endpoint the user selected, through the protected direct connector that the TLS
 /// probe uses.
-pub(crate) struct SocketLadderProbe {
+pub struct SocketLadderProbe {
     target: SocketAddr,
     control_hello: Vec<u8>,
     test_hello: Vec<u8>,
+    local_ip: Option<IpAddr>,
+    network_changed: Rc<Cell<bool>>,
 }
 
 impl SocketLadderProbe {
     /// Fails with [`UnsupportedReason::Protect`] when a registered protect callback rejects a socket for
     /// `target`. Callback-free RAW_PATH runs stay supported.
-    pub(crate) fn new(target: SocketAddr, control_sni: &str, test_sni: &str) -> Result<Self, LadderSetupError> {
+    pub fn new(target: SocketAddr, control_sni: &str, test_sni: &str) -> Result<Self, LadderSetupError> {
         let config = build_standard_client_config_with_key_log(
             TlsClientProfile::Auto,
             None,
@@ -299,7 +301,14 @@ impl SocketLadderProbe {
         let control_hello = client_hello(&config, control_sni)?;
         let test_hello = client_hello(&config, test_sni)?;
         protected_tcp_socket(target).map_err(|_| LadderSetupError::Unsupported(UnsupportedReason::Protect))?;
-        Ok(Self { target, control_hello, test_hello })
+        Ok(Self { target, control_hello, test_hello, local_ip: None, network_changed: Rc::default() })
+    }
+
+    /// Set once an attempt connects from a different local address than the first one.
+    // shortcut: a new local address is the only network-change signal; a switch that keeps the address goes
+    // unnoticed. Upgrade to the Android network handle if the engine ever passes one down.
+    pub fn network_change_flag(&self) -> Rc<Cell<bool>> {
+        self.network_changed.clone()
     }
 }
 
@@ -320,7 +329,7 @@ fn client_hello(config: &Arc<ClientConfig>, sni: &str) -> Result<Vec<u8>, Ladder
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum LadderSetupError {
+pub enum LadderSetupError {
     InvalidSni(String),
     Unsupported(UnsupportedReason),
 }
@@ -348,6 +357,13 @@ impl LadderProbe for SocketLadderProbe {
             }
             Err(_) => return Ok(AttemptOutcome::HandshakeFailed),
         };
+        if let Ok(local) = stream.local_addr() {
+            match self.local_ip {
+                None => self.local_ip = Some(local.ip()),
+                Some(first) if first != local.ip() => self.network_changed.set(true),
+                Some(_) => {}
+            }
+        }
         // Every exit below drops `stream` after this, so each close is abortive and no socket is reused.
         set_abortive_close(&stream).map_err(|_| AttemptError::Unsupported(UnsupportedReason::Linger))?;
         set_outbound_ttl(&stream, ttl).map_err(|_| AttemptError::Unsupported(UnsupportedReason::TtlSetter))?;

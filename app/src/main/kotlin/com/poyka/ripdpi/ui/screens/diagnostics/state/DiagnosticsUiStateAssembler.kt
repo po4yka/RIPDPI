@@ -336,6 +336,7 @@ internal class DiagnosticsUiStateAssembler
                     controls.selection.selectedProfileId
                         ?: config.settings.diagnosticsActiveProfileId.takeIf { it.isNotBlank() },
                 selectiveMatrixHostsInput = controls.selection.selectiveMatrixHostsInput,
+                tlsHopComparisonInput = controls.selection.tlsHopComparisonInput,
                 selectedApproachMode = controls.selection.selectedApproachMode,
                 selectedProbe = controls.selection.selectedProbe,
                 selectedEventId = controls.selection.selectedEventId,

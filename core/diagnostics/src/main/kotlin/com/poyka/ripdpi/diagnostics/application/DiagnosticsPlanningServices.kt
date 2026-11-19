@@ -34,7 +34,7 @@ import javax.inject.Named
 import javax.inject.Singleton
 
 private fun ProfileSpecWire.hasIndependentProbe(): Boolean =
-    listOf(selectiveMatrix, ipFamilyProbe, http3Probe, pmtuProbe).any { it != null }
+    listOf(selectiveMatrix, ipFamilyProbe, http3Probe, pmtuProbe, tlsHopComparison).any { it != null }
 
 private const val DefaultDiagnosticsProxyPort = 1080
 private val DefaultRouteProbeConfig =
@@ -111,6 +111,7 @@ internal class DefaultDiagnosticsIntentResolver
                 ipFamilyProbe = spec.ipFamilyProbe,
                 http3Probe = spec.http3Probe,
                 pmtuProbe = spec.pmtuProbe,
+                tlsHopComparison = spec.tlsHopComparison,
                 whitelistSni = spec.whitelistSni,
                 telegramTarget = spec.telegramTarget,
                 strategyProbe = spec.strategyProbe,
@@ -226,6 +227,9 @@ internal class DefaultDiagnosticsPlanner
                     intent.pmtuProbe?.let {
                         add(ProbeTask(ProbeFamily.PMTU, it.host, "PMTU"))
                     }
+                    intent.tlsHopComparison?.let {
+                        add(ProbeTask(ProbeFamily.TLS_HOP_COMPARISON, it.host, "TLS hop comparison"))
+                    }
                     intent.ipFamilyProbe?.let {
                         add(ProbeTask(ProbeFamily.IP_FAMILY, "ip_family", "IPv4, IPv6 and NAT64"))
                     }
@@ -258,6 +262,7 @@ internal class DefaultDiagnosticsPlanner
                 ipFamilyProbe = intent.ipFamilyProbe,
                 http3Probe = intent.http3Probe,
                 pmtuProbe = intent.pmtuProbe,
+                tlsHopComparison = intent.tlsHopComparison,
                 probeTasks = probeTasks,
                 confirmGoodDpiEvidence = context.confirmGoodDpiEvidence,
             )

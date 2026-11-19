@@ -30,6 +30,7 @@ use crate::probes::selective_availability::SELECTIVE_AVAILABILITY_PROBE_ID;
 use crate::probes::service_reachability::SERVICE_REACHABILITY_PROBE_ID;
 use crate::probes::tcp_fat_header::TCP_FAT_HEADER_PROBE_ID;
 use crate::probes::throughput::THROUGHPUT_PROBE_ID;
+use crate::probes::tls_hop_comparison::TLS_HOP_COMPARISON_PROBE_ID;
 
 /// The scan path mode a probe stage requires.
 ///
@@ -182,6 +183,14 @@ pub const PROBE_DESCRIPTORS: &[ProbeDescriptor] = &[
         label: "Active UDP payload size",
     },
     ProbeDescriptor {
+        id: TLS_HOP_COMPARISON_PROBE_ID,
+        family: ProbeTaskFamily::TlsHopComparison,
+        scheduled_probe_type: "tls_hop_comparison",
+        runner: "TlsHopComparisonRunner",
+        path_requirement: ProbePathRequirement::RawPath,
+        label: "Control and test SNI hop comparison",
+    },
+    ProbeDescriptor {
         id: DOH_JSON_SURVEY_PROBE_ID,
         family: ProbeTaskFamily::DohJsonSurvey,
         scheduled_probe_type: "doh_json_survey",
@@ -277,7 +286,7 @@ mod tests {
 
     #[test]
     fn strategy_runners_remain_out_of_scope() {
-        assert_eq!(PROBE_DESCRIPTORS.len(), 14, "descriptor table must cover only the 14 connectivity stages");
+        assert_eq!(PROBE_DESCRIPTORS.len(), 15, "descriptor table must cover only the 15 connectivity stages");
         for descriptor in PROBE_DESCRIPTORS {
             assert!(
                 !STRATEGY_RUNNERS.contains(&descriptor.runner),

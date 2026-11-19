@@ -70,6 +70,7 @@ pub enum ProbeTaskFamily {
     IpFamily,
     Http3,
     Pmtu,
+    TlsHopComparison,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
