@@ -22,7 +22,15 @@ data class DeveloperAnalyticsPayload(
     val breadcrumbs: List<DeveloperBreadcrumb> = emptyList(),
     val baselineDelta: DeveloperBaselineDelta? = null,
     val notes: List<String> = emptyList(),
+    val collectionStatus: DeveloperAnalyticsCollectionStatus = DeveloperAnalyticsCollectionStatus.COLLECTED,
 )
+
+/** Whether the developer-analytics source produced the payload or failed and left it empty. */
+@Serializable
+enum class DeveloperAnalyticsCollectionStatus {
+    COLLECTED,
+    FAILED,
+}
 
 @Serializable
 data class DeveloperStageTimingEntry(

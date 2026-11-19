@@ -26,6 +26,7 @@ internal object DeveloperAnalyticsAllowListFilter {
             "deviceState",
             "baselineDelta",
             "notes",
+            "collectionStatus",
         )
     private val stageTimingKeys =
         setOf("stageKey", "wallClockMs", "cpuMs", "dnsMs", "tcpHandshakeMs", "tlsHandshakeMs", "ttfbMs", "notes")
