@@ -1,33 +1,25 @@
 ## Context
 
-Existing DIA-07 explicitly excludes QUIC v2 and provides Initial-response evidence, not application reachability; existing version-negotiation decoys are not a valid QUIC v2 comparator. A controlled version matrix and explicit flow-state isolation complement these owners.
+`ripdpi-packets` already derives Initial keys for v1 and v2 (`src/quic/crypto.rs` holds `QUIC_V2_SALT`), builds Initials for a given version (`build_quic_initial_from_tls`, `build_realistic_quic_initial` in `src/quic/build.rs` and `src/quic/fake_initial.rs`), and has v1 and v2 regression vectors in `tests/fixtures/quic-initial/`. DIA-07 (`DGN-1794734098746391`) owns the QUIC Initial probe, its response validator, and its UDP transport; its design lists QUIC v2, handshake, and HTTP/3 as non-goals.
 
 ## Goals / Non-Goals
 
-Goal: reproducible bounded evidence with honest capability and inference limits. Non-goals: automatic background scanning, public measurement upload, mandatory backend, country-wide guarantees or production transport changes.
+Goal: tell a version-specific or flow-state-specific QUIC failure from a general one, at the Initial stage.
+
+Non-goals: QUIC handshake completion, HTTP/3, endpoint authentication, background runs, upload, automatic relay or strategy changes. Handshake-level evidence needs a separate change.
 
 ## Decisions
 
-Construct valid integrity-protected QUIC v1 and v2 Initials with matching SNI/control intent and independent known-answer fixtures, using the correct version-specific salts and packet semantics. Unknown-version decoys MUST NOT count as a v2 test.
+Packets. Build v1 and v2 Initials with the existing `ripdpi-packets` builders and the same ClientHello except for the SNI. Add a known-answer test that checks the v2 Initial key derivation against the RFC 9369 Appendix A vectors, so the v2 test does not depend on the builder under test. Unknown-version decoys are never counted as v2.
 
-Use fresh sockets and disjoint local UDP ports for independent matrix cells, record execution order and isolate any deliberate same-flow residual experiment as opt-in. Local port separation does not prove distinct external NAT tuples.
+Matrix. Four cells: {v1, v2} by {control SNI, test SNI}, two repetitions each, in a recorded order that alternates versions. Each cell uses a fresh UDP socket on a new local port. Local port separation does not prove separate NAT mappings; the result says so. The residual cell (a test-SNI Initial followed by a control-SNI Initial on the same socket) runs only when the user enables it and is reported apart from the matrix.
 
-Compare control/test names against an authorized known-capable endpoint with bounded repetitions, bytes and cancellation. Require a valid control for inference and keep network and transport scope attached.
+Response stages. Each cell records one of: valid Initial response (validated by the DIA-07 validator), Version Negotiation only, other response, or timeout. A valid Initial response is not endpoint authentication: Initial keys come from public inputs.
 
-Separate Initial response, handshake, and verified application payload evidence. A version difference is a diagnostic observation and MUST NOT automatically change production relay settings.
+Inference. A version difference is reported only when both control cells get a valid Initial response. If any control cell fails, the result is inconclusive. If the endpoint answers v2 with Version Negotiation, v2 is `unsupported by endpoint`.
 
-## Contracts and ownership
-
-One implementation owner serializes native diagnostics contracts, Kotlin engine contracts, persistence and export changes, locales and generated artifacts. This specification-only branch owns these three task records and OpenSpec directories plus taskctl-generated board; no production files.
-
-Implementation must use existing protection callbacks for outbound sockets, explicit network binding and cancellation/deadline ownership. Validate schema revisions from current source before altering wire or persistence. Extend existing tests where possible.
-
-## Risks / Trade-offs
-
-Controlled targets can still fail and mobile paths change. Preserve unknown/unsupported states, stable controls and local-only identity. External sources motivate methods but are not trusted configuration or executable code. No source code is copied in this proposal; check exact licenses before future reuse.
+Bounds. One endpoint, fixed byte budget per cell, one total deadline, cancellation between and during cells. Sockets are protected and bound to the selected network.
 
 ## Migration Plan
 
-Add an opt-in manual capability, retaining old saved diagnostics. New optional evidence is versioned through existing contracts; older records remain readable with unknown fields. Roll back by disabling the capability, not rewriting past evidence. Field acceptance requires separately authorized owned endpoints and devices; local tests alone cannot prove Russian-network effectiveness.
-
-Initial protection uses public derivation inputs and does not authenticate the endpoint. Endpoint authentication requires a successful TLS handshake and certificate verification; Initial-only observations must never receive that status.
+The result is a new optional field in the diagnostics contract. Older saved reports stay readable. Validate the current schema version in Rust and Kotlin before changing the contract.

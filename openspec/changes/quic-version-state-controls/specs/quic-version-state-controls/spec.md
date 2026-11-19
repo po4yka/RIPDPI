@@ -1,41 +1,41 @@
 ## Purpose
 
-Provide bounded reproducible network comparison evidence without overstating censorship attribution or exposing private network identities.
+Show whether QUIC Initial responses differ by version or by earlier packets on the same flow, without claiming handshake or application reachability.
 
 ## ADDED Requirements
 
 ### Requirement: REQ-QUIC-VERSION-STATE-CONTROLS-VERSION — Version
 
-The implementation MUST construct valid integrity-protected QUIC v1 and v2 Initials with matching SNI/control intent and independent known-answer fixtures, using the correct version-specific salts and packet semantics. Unknown-version decoys MUST NOT count as a v2 test.
+The probe MUST build v1 and v2 Initials with the `ripdpi-packets` builders, and the v2 key derivation MUST pass the RFC 9369 Appendix A known-answer vectors. Unknown-version packets MUST NOT count as a v2 test.
 
-#### Scenario: Version evidence
+#### Scenario: Endpoint without v2
 
-- **WHEN** a receiver does not support v2 or only sends Version Negotiation
-- **THEN** record protocol unsupported or partial evidence, never successful circumvention
+- **WHEN** the endpoint answers the v2 Initial with Version Negotiation only
+- **THEN** v2 is recorded as unsupported by the endpoint, not as blocked and not as a success
 
 ### Requirement: REQ-QUIC-VERSION-STATE-CONTROLS-ISOLATION — Isolation
 
-The implementation MUST use fresh sockets and disjoint local UDP ports for independent matrix cells, record execution order and isolate any deliberate same-flow residual experiment as opt-in. Local port separation does not prove distinct external NAT tuples.
+Each matrix cell MUST use a fresh socket on a new local port, and the result MUST record the execution order. The same-flow residual cell MUST run only when the user enables it and MUST be reported apart from the matrix. The result MUST state that local port separation does not prove separate NAT mappings.
 
-#### Scenario: Isolation evidence
+#### Scenario: Residual cell disabled
 
-- **WHEN** NAT mapping is unobservable or a prior flow may contaminate a run
-- **THEN** include the isolation limit and do not assert a clean causal comparison
+- **WHEN** the user runs the matrix without enabling the residual cell
+- **THEN** no two cells share a socket
 
 ### Requirement: REQ-QUIC-VERSION-STATE-CONTROLS-CONTROL — Control
 
-The implementation MUST compare control/test names against an authorized known-capable endpoint with bounded repetitions, bytes and cancellation. Require a valid control for inference and keep network and transport scope attached.
+The probe MUST run control and test SNI cells against one user-authorized endpoint with bounded repetitions, bytes, and deadline. A version difference MUST be reported only when both control cells get a valid Initial response.
 
-#### Scenario: Control evidence
+#### Scenario: Control fails
 
-- **WHEN** both versions or both controls time out
-- **THEN** return inconclusive rather than label QUIC broadly blocked
+- **WHEN** a control cell times out
+- **THEN** the result is inconclusive and does not say that QUIC is blocked
 
 ### Requirement: REQ-QUIC-VERSION-STATE-CONTROLS-CLAIMS — Claims
 
-The implementation MUST separate Initial response, handshake, and verified application payload evidence. A version difference is a diagnostic observation and MUST NOT automatically change production relay settings.
+The result MUST report Initial-stage evidence only and MUST NOT present a valid Initial response as endpoint authentication, handshake success, or HTTP/3 success. A version difference MUST NOT change relay or strategy settings.
 
-#### Scenario: Claims evidence
+#### Scenario: v1 blocked, v2 answered
 
-- **WHEN** only Initial-level v2 evidence exists
-- **THEN** display that limited stage and no working-VPN or HTTP/3 success claim
+- **WHEN** the test SNI times out on v1 and gets a valid Initial response on v2, and both controls succeed
+- **THEN** the result shows a version difference at the Initial stage, and strategy settings are unchanged

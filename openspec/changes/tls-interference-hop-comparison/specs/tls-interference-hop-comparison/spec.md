@@ -1,43 +1,51 @@
 ## Purpose
 
-Provide bounded reproducible network comparison evidence without overstating censorship attribution or exposing private network identities.
+Bound the hop distance of a middlebox that reacts to a test SNI, using TTL-limited ClientHello attempts that need no root and no ICMP capture.
 
 ## ADDED Requirements
 
 ### Requirement: REQ-TLS-INTERFERENCE-HOP-COMPARISON-CAPABILITY — Capability
 
-The implementation MUST probe only when platform capabilities and the selected direct network are verified; unsupported ICMP capture or socket TTL operations return unsupported without root escalation or fabricated hops.
+The probe MUST run only on a protected socket bound to the selected direct network after the TTL setter succeeds. If any of these fails, the run MUST be `unsupported`, MUST NOT ask for root, and MUST NOT report hops.
 
-#### Scenario: Capability evidence
+#### Scenario: TTL setter fails
 
-- **WHEN** a non-root Android device cannot observe the required responses
-- **THEN** the run remains explicitly unsupported and ordinary diagnostics still work
+- **WHEN** setting the outbound TTL on the connected socket returns an error
+- **THEN** the run is `unsupported` and other diagnostics in the same scan still complete
 
-### Requirement: REQ-TLS-INTERFERENCE-HOP-COMPARISON-PAIR — Pair
+### Requirement: REQ-TLS-INTERFERENCE-HOP-COMPARISON-PAIR — Paired TTL ladder
 
-The implementation MUST use a bounded user-started control/test SNI experiment against the same user-authorized endpoint with ordered TTL values, fresh connections, repeated controls and a total cancellation deadline. Do not scan arbitrary address ranges.
+The probe MUST complete the TCP handshake with the default TTL, then send one ClientHello at TTL k on a fresh socket, for control and test SNI alternately, for ordered k up to 32, with two repetitions per cell and one total deadline. It MUST probe only the user-selected endpoint.
 
-#### Scenario: Pair evidence
+#### Scenario: Test SNI reacts before the server
 
-- **WHEN** control and test differ with usable controls and stable path evidence
-- **THEN** report an observed divergence interval with uncertainty, not an identified TSPU device or definitive censor location
+- **WHEN** the test SNI receives an injected RST at k = 5, both SNIs are silent at k = 4, the control is silent at k = 5, and the control receives a ServerHello at k = 9
+- **THEN** the result is a divergence interval of hops 5 to 5 with path length 9, labeled as an observation and not as an identified device
+
+#### Scenario: Reaction only at the server
+
+- **WHEN** the test SNI first reacts at the same k at which the control receives a ServerHello
+- **THEN** the result is inconclusive
+
+#### Scenario: Cancellation
+
+- **WHEN** the user cancels during the ladder
+- **THEN** the probe closes the current socket, stops, and keeps the attempts already recorded
 
 ### Requirement: REQ-TLS-INTERFERENCE-HOP-COMPARISON-PRIVACY — Privacy
 
-The implementation MUST keep path addresses and timings local; redact raw hops, public IPs and precise timing from ordinary exports. Any diagnostic detail export requires a separate visible choice and disclosure.
+The ordinary diagnostic export MUST contain only the interval, the path length, the limits, and the endpoint label. It MUST NOT contain per-attempt timings.
 
-#### Scenario: Privacy evidence
+#### Scenario: Ordinary export
 
-- **WHEN** the normal diagnostic archive is exported
-- **THEN** it contains no raw route identifiers or detailed timing vector
+- **WHEN** a report with a completed ladder is exported
+- **THEN** the archive contains no per-attempt timing vector
 
 ### Requirement: REQ-TLS-INTERFERENCE-HOP-COMPARISON-LIMITS — Limits
 
-The implementation MUST report missing ICMP, asymmetric paths, load balancing, invalid control, proxy interception and network changes as measurement limits, never proof of no censorship.
+The result MUST list each detected limit (control never reaches the server, control reacts like the test, ServerHello at k of 1 or 2, network change, inconsistent repetitions) and MUST NOT state that no interference exists.
 
-#### Scenario: Limits evidence
+#### Scenario: Network change
 
-- **WHEN** a control fails or the network changes
-- **THEN** inference is invalidated while bounded observations remain available
-
-The TTL experiment MUST establish TCP normally, then apply the bounded outbound TTL to ClientHello transmission, not to the initial SYN. Retransmissions and socket reuse MUST remain isolated within the per-attempt budget. If the platform cannot enforce this lifecycle or observe the necessary responses, it MUST return unsupported or inconclusive without a hop-location inference.
+- **WHEN** the selected network changes during the ladder
+- **THEN** the interval is withdrawn, the attempts stay visible, and the limit names the network change

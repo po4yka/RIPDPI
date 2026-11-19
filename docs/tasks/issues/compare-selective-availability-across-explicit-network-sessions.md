@@ -11,23 +11,23 @@ blocked_by: []
 spec_mode: required
 openspec_change: paired-network-availability
 created: 2026-11-18
-updated: 2026-11-18
+updated: 2026-11-19
 ---
 
 ## Goal
 
-The selective availability matrix DGN-1791519134625558 already measures bounded target cohorts and payloads; ComparisonScanCoordinator compares raw versus in-path runs. Extend those existing owners with explicit user-selected cross-network session pairing rather than add another scanner.
+Compare two explicit selective-matrix sessions from different networks to separate path-specific failures from unavailable endpoints.
 
 ## Acceptance criteria
 
-- Pair two explicit manual sessions only when target set, endpoint identity, probe parameters and app configuration revisions match, recording elapsed age and transport labels without retaining SIM, SSID or public-IP identifiers.
-- Use verified TLS and bounded complete application payload observations as eligibility controls, retaining control-failed and unmeasured rows outside the denominator of path-specific failures.
-- Reuse the existing matrix result and history models; network transitions during either leg invalidate that leg. Do not switch networks automatically or disable VPN protection to force a result.
-- Present descriptive differences only, preserving per-leg stage outcomes and bounded repetition evidence in redacted exports. Do not infer permitted prefixes, ASN-wide availability or nationwide effectiveness.
+- `REQ-PAIRED-NETWORK-AVAILABILITY-PAIR` in [the spec](../../../openspec/changes/paired-network-availability/specs/paired-network-availability/spec.md) passes its scenarios.
+- `REQ-PAIRED-NETWORK-AVAILABILITY-CONTROL` in [the spec](../../../openspec/changes/paired-network-availability/specs/paired-network-availability/spec.md) passes its scenarios.
+- `REQ-PAIRED-NETWORK-AVAILABILITY-SCOPE` in [the spec](../../../openspec/changes/paired-network-availability/specs/paired-network-availability/spec.md) passes its scenarios.
+- `REQ-PAIRED-NETWORK-AVAILABILITY-EVIDENCE` in [the spec](../../../openspec/changes/paired-network-availability/specs/paired-network-availability/spec.md) passes its scenarios.
 
 ## Ownership
 
-One implementation owner serializes native diagnostics contracts, Kotlin engine contracts, persistence and export changes, locales and generated artifacts. This specification-only branch owns these three task records and OpenSpec directories plus taskctl-generated board; no production files.
+One writer owns the wire contract, `EngineContract.kt`, persistence, export, and locale changes for this task. Design and steps: [openspec/changes/paired-network-availability](../../../openspec/changes/paired-network-availability/design.md).
 
 ## Sources and scope
 
