@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.FreshNativeFailureMillis
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
@@ -133,6 +134,7 @@ class FieldTelemetryTest {
             val actual =
                 classifyFailureClass(
                     failureReason = null,
+                    failureAtMillis = null,
                     proxyTelemetry = NativeRuntimeSnapshot(source = "proxy"),
                     relayTelemetry = NativeRuntimeSnapshot(source = "relay", lastFailureClass = code),
                     warpTelemetry = NativeRuntimeSnapshot(source = "warp"),
@@ -147,6 +149,7 @@ class FieldTelemetryTest {
         fun classify(tunnel: NativeRuntimeSnapshot) =
             classifyFailureClass(
                 failureReason = null,
+                failureAtMillis = null,
                 proxyTelemetry = NativeRuntimeSnapshot(source = "proxy"),
                 relayTelemetry = NativeRuntimeSnapshot(source = "relay"),
                 warpTelemetry = NativeRuntimeSnapshot(source = "warp"),
@@ -171,6 +174,55 @@ class FieldTelemetryTest {
     }
 
     @Test
+    fun `a raised failure takes a native class only from an event just before it`() {
+        val failureAt = 1_000_000L
+
+        fun classify(
+            relay: NativeRuntimeSnapshot,
+            at: Long? = failureAt,
+        ) = classifyFailureClass(
+            failureReason = FailureReason.NativeError("relay exited"),
+            failureAtMillis = at,
+            proxyTelemetry = NativeRuntimeSnapshot(source = "proxy"),
+            relayTelemetry = relay,
+            warpTelemetry = NativeRuntimeSnapshot(source = "warp"),
+            tunnelTelemetry = NativeRuntimeSnapshot(source = "tunnel"),
+        )
+
+        fun event(createdAt: Long) =
+            NativeRuntimeEvent(
+                source = "relay",
+                level = "error",
+                message = "",
+                createdAt = createdAt,
+                failureClass = "dns_tampering",
+            )
+
+        // The session-long lastFailureClass is stale for a raised reason.
+        assertEquals(
+            FailureClass.NativeIo,
+            classify(NativeRuntimeSnapshot(source = "relay", lastFailureClass = "tcp_reset")),
+        )
+        assertEquals(
+            FailureClass.DnsInterference,
+            classify(NativeRuntimeSnapshot(source = "relay", nativeEvents = listOf(event(failureAt - 1_000)))),
+        )
+        assertEquals(
+            FailureClass.NativeIo,
+            classify(
+                NativeRuntimeSnapshot(
+                    source = "relay",
+                    nativeEvents = listOf(event(failureAt - FreshNativeFailureMillis - 1)),
+                ),
+            ),
+        )
+        assertEquals(
+            FailureClass.NativeIo,
+            classify(NativeRuntimeSnapshot(source = "relay", nativeEvents = listOf(event(failureAt))), at = null),
+        )
+    }
+
+    @Test
     fun `message text never changes the failure class`() {
         val messages = listOf("tls handshake timeout", "connection reset by peer", "dns blocked by upstream")
 
@@ -178,6 +230,7 @@ class FieldTelemetryTest {
             val actual =
                 classifyFailureClass(
                     failureReason = FailureReason.NativeError(message),
+                    failureAtMillis = null,
                     proxyTelemetry = NativeRuntimeSnapshot(source = "proxy"),
                     relayTelemetry = NativeRuntimeSnapshot(source = "relay"),
                     warpTelemetry = NativeRuntimeSnapshot(source = "warp"),
@@ -192,6 +245,7 @@ class FieldTelemetryTest {
         val actual =
             classifyFailureClass(
                 failureReason = FailureReason.TunnelEstablishmentFailed,
+                failureAtMillis = null,
                 proxyTelemetry =
                     NativeRuntimeSnapshot(
                         source = "proxy",

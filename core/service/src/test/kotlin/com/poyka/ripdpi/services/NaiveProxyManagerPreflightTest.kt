@@ -139,6 +139,7 @@ class NaiveProxyManagerPreflightTest {
                 FailureClass.Compatibility,
                 classifyFailureClass(
                     failureReason = error.reason,
+                    failureAtMillis = null,
                     proxyTelemetry = NativeRuntimeSnapshot(source = "proxy"),
                     relayTelemetry = NativeRuntimeSnapshot(source = "relay"),
                     warpTelemetry = NativeRuntimeSnapshot(source = "warp"),
