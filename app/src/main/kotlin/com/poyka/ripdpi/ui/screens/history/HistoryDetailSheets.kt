@@ -10,12 +10,15 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
+import com.poyka.ripdpi.ui.screens.diagnostics.SelectiveMatrixResultsCard
+import com.poyka.ripdpi.ui.screens.diagnostics.isSelectiveMatrixProbe
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.toImmutableList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,11 +129,16 @@ internal fun DiagnosticsDetailContent(detail: DiagnosticsSessionDetailUiModel) {
             }
         }
     }
+    val matrixResults = detail.probeGroups.flatMap { it.items }.filter { it.isSelectiveMatrixProbe() }
+    if (matrixResults.isNotEmpty()) {
+        SelectiveMatrixResultsCard(matrixResults)
+    }
     detail.contextGroups.forEach { group ->
         ContextGroupCard(group = group)
     }
     detail.probeGroups.forEach { group ->
-        ProbeGroupCard(group = group)
+        val probes = group.items.filterNot { it.isSelectiveMatrixProbe() }
+        if (probes.isNotEmpty()) ProbeGroupCard(group = group.copy(items = probes.toImmutableList()))
     }
     detail.snapshots.forEach { snapshot ->
         HistorySnapshotCard(snapshot = snapshot)

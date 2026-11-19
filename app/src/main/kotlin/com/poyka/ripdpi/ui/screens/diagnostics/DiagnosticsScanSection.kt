@@ -307,7 +307,7 @@ internal fun ScanSection(
                 )
             }
         }
-        if (scan.latestResults.any { it.probeType.startsWith("selective_availability") }) {
+        if (scan.latestResults.any { it.isSelectiveMatrixProbe() }) {
             item { SelectiveMatrixResultsCard(scan.latestResults) }
         }
         scan.latestResults.mapNotNull { it.transferEvidence }.forEach { transfer ->

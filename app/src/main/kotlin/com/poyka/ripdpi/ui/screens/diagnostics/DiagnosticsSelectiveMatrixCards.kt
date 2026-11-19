@@ -126,6 +126,10 @@ internal fun SelectiveMatrixInputCard(
     }
 }
 
+/** Matrix rows belong to [SelectiveMatrixResultsCard]; generic probe lists skip them. */
+internal fun DiagnosticsProbeResultUiModel.isSelectiveMatrixProbe(): Boolean =
+    probeType.startsWith("selective_availability")
+
 @Composable
 internal fun SelectiveMatrixResultsCard(results: List<DiagnosticsProbeResultUiModel>) {
     val attempts = remember(results) { results.mapNotNull { it.toSelectiveMatrixAttempt() } }

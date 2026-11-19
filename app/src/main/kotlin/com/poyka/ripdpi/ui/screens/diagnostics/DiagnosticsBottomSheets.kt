@@ -193,8 +193,8 @@ private fun ColumnScope.SessionDetailContent(
     if (detail.capabilityEvidence.isNotEmpty()) {
         CapabilityEvidenceCard(evidence = detail.capabilityEvidence)
     }
-    val matrixResults = detail.probeGroups.flatMap { it.items }
-    if (matrixResults.any { it.probeType.startsWith("selective_availability") }) {
+    val matrixResults = detail.probeGroups.flatMap { it.items }.filter { it.isSelectiveMatrixProbe() }
+    if (matrixResults.isNotEmpty()) {
         SelectiveMatrixResultsCard(matrixResults)
     }
     detail.strategyProbeReport?.let { report ->
@@ -207,12 +207,14 @@ private fun ColumnScope.SessionDetailContent(
         ContextGroupCard(group = group)
     }
     detail.probeGroups.forEach { group ->
+        val probes = group.items.filterNot { it.isSelectiveMatrixProbe() }
+        if (probes.isEmpty()) return@forEach
         Text(
             text = group.title,
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
-        group.items.forEach { probe ->
+        probes.forEach { probe ->
             ProbeResultRow(
                 probe = probe,
                 onClick = { onSelectProbe(probe) },

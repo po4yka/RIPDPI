@@ -35,14 +35,18 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsFieldUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.SelectiveMatrixTargetUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.parseSelectiveMatrixHosts
+import com.poyka.ripdpi.ui.screens.history.DiagnosticsDetailContent
+import com.poyka.ripdpi.ui.screens.history.historyDiagnosticsDetailUi
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -165,6 +169,29 @@ class DiagnosticsSelectiveMatrixComposeTest {
         assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_selective)))
         assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_target_unstable)))
         assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_target_coverage, 1, 2, "2")))
+    }
+
+    @Test
+    fun historyReportShowsTheMatrixCardInsteadOfRawOutcomeKeys() {
+        val detail =
+            historyDiagnosticsDetailUi().copy(
+                probeGroups =
+                    persistentListOf(
+                        DiagnosticsProbeGroupUiModel(
+                            title = "Probes",
+                            items = persistentListOf(attempt(1, true), attempt(2, false), summary()),
+                        ),
+                    ),
+            )
+        composeRule.setContent {
+            MatrixViewport { DiagnosticsDetailContent(detail) }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSelectiveMatrixResults).assertExists()
+        assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_inconclusive)))
+        composeRule.onNodeWithText("matrix_target_available").assertDoesNotExist()
+        composeRule.onNodeWithText("matrix_inconclusive").assertDoesNotExist()
+        composeRule.onNodeWithText("selective_availability").assertDoesNotExist()
     }
 
     private fun showResults(
