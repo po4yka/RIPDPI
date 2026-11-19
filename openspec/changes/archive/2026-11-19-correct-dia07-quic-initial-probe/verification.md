@@ -4,8 +4,8 @@ change: correct-dia07-quic-initial-probe
 commit_sha: 4fc28312d29f78d949b7131384c18e924f51bed8
 local: passed
 local_evidence: "Locked Rust packet, transport, classification, runner and monitor suites passed. The pinned Quinn and Rustls loopback confirmed first-flight reply types, the full 3000-byte datagram, and Initial packet numbers 0 and 1. All 105 focused JVM tests, shared taxonomy checks in Rust and Kotlin, and just ci-gates passed."
-remote_ci: required
-remote_ci_evidence: Integration CI is pending.
+remote_ci: passed
+remote_ci_evidence: "Both CI runs contain 4fc28312d. Run 44246104060 at 32a08390b passed rust-workspace-tests and both rust-workspace-test-shards; it failed only gradle-static-analysis. Run 44369551319 at 885a098d1 passed in full, including gradle-static-analysis, kotlin-coverage, Android debug and release builds, native packaging and instrumented tests on API 27, 33, 35, 36 and 37; its change route skipped the Rust workspace tests."
 device: not_applicable
 device_evidence: Host loopback and JVM tests cover the changed probe and state decisions. External and physical-device acceptance is outside this correction.
 artifact: not_applicable

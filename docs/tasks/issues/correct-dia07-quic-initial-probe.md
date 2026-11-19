@@ -2,7 +2,7 @@
 id: DGN-1794734098746391
 title: Correct QUIC Initial connectivity evidence and transport
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: Diagnostics repair team
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: correct-dia07-quic-initial-probe
 created: 2026-11-15
-updated: 2026-11-15
+updated: 2026-11-19
 status_detail: Local validation passed; integration CI remains required.
+closed_at: "2026-11-19T10:37:49Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Local Rust packet, transport, runner and monitor suites, 105 JVM tests and just ci-gates passed at 4fc28312d. CI run 44246104060 passed the Rust workspace tests and run 44369551319 passed the Kotlin, Android build and instrumented lanes; both contain 4fc28312d.
 ---
 
 ## Goal

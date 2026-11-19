@@ -1,0 +1,11 @@
+{
+  "change": "correct-dia07-quic-initial-probe",
+  "evidence_summary": "Local Rust packet, transport, runner and monitor suites, 105 JVM tests and just ci-gates passed at 4fc28312d. CI run 44246104060 passed the Rust workspace tests and run 44369551319 passed the Kotlin, Android build and instrumented lanes; both contain 4fc28312d.",
+  "execution_sha256": "71c8ea638ee6e11dfbe6fa641818ab872b9f592bb56d5e1ded1b145354924f89",
+  "issue_sha256": "e84ee2cb3e81c65d9ecbc5b73672bac35ac76ee6222aabc4855b95d709502f56",
+  "outcome": "done",
+  "prepared_at": "2026-11-19T10:37:49Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1794734098746391"
+}
