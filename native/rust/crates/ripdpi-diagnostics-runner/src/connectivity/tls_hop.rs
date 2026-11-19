@@ -6,7 +6,9 @@ use ripdpi_diagnostics_tls::tls::hop_ladder::{
     AttemptOutcome, LadderConfig, LadderLimit, LadderReport, LadderSetupError, LadderStop, LadderVerdict, SniRole,
     SocketLadderProbe, UnsupportedReason, run_ladder,
 };
-use ripdpi_diagnostics_transport::transport::{TargetAddress, TransportConfig, resolve_addresses_with_cancel};
+use ripdpi_diagnostics_transport::transport::{
+    TargetAddress, TransportConfig, first_routable_address, resolve_addresses_with_cancel,
+};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
@@ -34,7 +36,11 @@ pub fn run_tls_hop_comparison(
         match resolve_addresses_with_cancel(&target, TlsHopComparisonConfig::PORT, &cancelled) {
             Err(_) if cancelled() => (stopped("CANCELLED", "cancelled"), Vec::new()),
             Ok(addresses) if !addresses.is_empty() => {
-                match SocketLadderProbe::new(addresses[0], &config.control_sni, &config.test_sni) {
+                match SocketLadderProbe::new(
+                    first_routable_address(&addresses).unwrap_or(addresses[0]),
+                    &config.control_sni,
+                    &config.test_sni,
+                ) {
                     Ok(mut probe) => {
                         let mut ladder = LadderConfig::default();
                         if let Some(deadline) = active_scan_io_deadline() {
