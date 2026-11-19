@@ -154,6 +154,11 @@ class FieldReportNetworkContext internal constructor(
     private val lock = Any()
     private var cached: CachedHint? = null
 
+    /** Drops the cached hint; consent revocation calls it so no hint outlives the consent it was fetched under. */
+    fun clearHint() {
+        synchronized(lock) { cached = null }
+    }
+
     /** The label for an attempt measured now. */
     fun current(): FieldReportNetwork {
         val network = defaultNetwork()
@@ -193,7 +198,7 @@ class FieldReportNetworkContext internal constructor(
         val target = targets.firstOrNull { it.networkHintEndpoint != null } ?: return
         val endpoint = target.networkHintEndpoint ?: return
         if (!consent()) {
-            synchronized(lock) { cached = null }
+            clearHint()
             return
         }
         val before = defaultNetwork()
