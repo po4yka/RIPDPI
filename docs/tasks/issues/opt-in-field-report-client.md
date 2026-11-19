@@ -2,14 +2,12 @@
 id: DGN-1795085498592630
 title: Send opt-in anonymous aggregated field reports
 kind: feature
-status: backlog
+status: doing
 area: diagnostics
 priority: high
 owner: Diagnostics engineer
 parent: EPC-1795085162356362
-blocked_by:
-  - DGN-1795085357320979
-  - DAT-1795085420746769
+blocked_by: [DGN-1795085357320979, DAT-1795085420746769]
 spec_mode: required
 openspec_change: dgn-1795085498592630-opt-in-field-report-client
 created: 2026-11-19
