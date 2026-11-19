@@ -108,8 +108,6 @@
     <string name="customization_themed_icon_body">Следовать системной теме Material You</string>
     <string name="about_description">Офлайн-инструменты для диагностики сети и настройки соединения на Android.</string>
     <string name="about_build_section">Сборка</string>
-    <string name="about_version_code">Код версии</string>
-    <string name="about_build_type">Тип сборки</string>
     <string name="about_package_name">Пакет</string>
     <string name="about_project_section">Проект</string>
     <string name="about_license_title">Лицензия</string>

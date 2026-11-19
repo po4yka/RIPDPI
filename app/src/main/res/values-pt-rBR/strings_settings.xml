@@ -134,8 +134,6 @@
     <string name="customization_icon_stitch">Costurado</string>
     <string name="about_description">Ferramentas offline de diagnóstico de rede e ajuste de conexão para Android.</string>
     <string name="about_build_section">Compilação</string>
-    <string name="about_version_code">Código da versão</string>
-    <string name="about_build_type">Tipo de compilação</string>
     <string name="about_package_name">Pacote</string>
     <string name="about_project_section">Projeto</string>
     <string name="about_license_title">Licença</string>

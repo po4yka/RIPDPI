@@ -1,5 +1,4 @@
 app:about_build_section
-app:about_build_type
 app:about_category
 app:about_description
 app:about_license_body
@@ -7,7 +6,6 @@ app:about_license_title
 app:about_links_section
 app:about_package_name
 app:about_project_section
-app:about_version_code
 app:action_dismiss
 app:action_learn_more
 app:action_show_less

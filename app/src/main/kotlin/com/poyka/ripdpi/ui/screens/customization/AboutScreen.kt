@@ -154,17 +154,7 @@ private fun AboutBuildSection() {
         ) {
             SettingsRow(
                 title = stringResource(R.string.version),
-                value = BuildConfig.VERSION_NAME,
-                showDivider = true,
-            )
-            SettingsRow(
-                title = stringResource(R.string.about_version_code),
-                value = BuildConfig.VERSION_CODE.toString(),
-                showDivider = true,
-            )
-            SettingsRow(
-                title = stringResource(R.string.about_build_type),
-                value = BuildConfig.BUILD_TYPE,
+                value = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 showDivider = true,
             )
             AboutPackageRow()

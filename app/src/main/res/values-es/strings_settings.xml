@@ -37,7 +37,6 @@
     <string name="settings_engine_failure_block_body">Sin internet hasta que detengas la VPN. Si está desactivado, la VPN se detiene y el tráfico sale directo.</string>
     <string name="settings_start_on_boot_title">Iniciar al arrancar</string>
     <string name="settings_start_on_boot_battery_warning">La optimización de batería sigue activa. Android podría impedir que RIPDPI se inicie al arrancar hasta que lo excluyas de la optimización de batería.</string>
-    <string name="about_build_type">Tipo de compilación</string>
     <string name="about_links_section">Enlaces</string>
     <string name="advanced_settings_error_oob_data">Los datos OOB deben estar vacíos o ser un solo carácter.</string>
     <string name="customization_current_icon_caption">Ícono actual</string>
@@ -159,7 +158,6 @@
     <string name="root_mode_strategy_ipfrag2_title">Fragmentación IP</string>
     <string name="root_mode_strategy_ipfrag2_body">Divide los paquetes en la capa IP para que los inspectores nunca vean la carga útil completa.</string>
     <string name="root_mode_strategies_configure_action">Abrir el editor de estrategias</string>
-    <string name="about_version_code">Código de versión</string>
     <string name="customization_icon_disintegrate">Desintegrar</string>
     <string name="customization_options_section">Opciones</string>
     <string name="customization_shape_sheet_point_two">Si la ilustración del icono cambia, es posible que el lanzador necesite actualizarse antes de que aparezca la nueva vista previa de la máscara.</string>

@@ -135,8 +135,6 @@
     <string name="customization_icon_stitch">Stitch</string>
     <string name="about_description">Offline network diagnostics and connection toolkit for Android.</string>
     <string name="about_build_section">Build</string>
-    <string name="about_version_code">Version code</string>
-    <string name="about_build_type">Build type</string>
     <string name="about_package_name">Package</string>
     <string name="about_project_section">Project</string>
     <string name="about_license_title">License</string>

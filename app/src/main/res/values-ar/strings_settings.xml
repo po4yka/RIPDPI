@@ -123,8 +123,6 @@
     <string name="customization_icon_stitch">خيوط</string>
     <string name="about_description">أدوات دون اتصال لتشخيص الشبكة وضبط الاتصال على Android.</string>
     <string name="about_build_section">البنية</string>
-    <string name="about_version_code">رمز الإصدار</string>
-    <string name="about_build_type">نوع البنية</string>
     <string name="about_package_name">الحزمة</string>
     <string name="about_project_section">المشروع</string>
     <string name="about_license_title">الترخيص</string>
