@@ -23,42 +23,50 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-DGN-1795085498592630-001 | DGN-1795085529327828 | `field_report_enabled = 432` defaults off (`FieldReportConsentBackupTest`, which also shows a FULL backup restore clears it); `FieldReportUploaderTest` revoked consent sends nothing and deletes the store; `FieldReportTest` a write after revocation deletes the store; awaiting the owner Gradle run and the device consent flow | required |
-| REQ-DGN-1795085498592630-002 | DGN-1795085530879631 | `FieldReportTest`: the test-only validator accepts the vendored golden and rejects all 19 vendored `negative/report-*.json`; an hour of attempts builds exactly the vendored golden buckets (one-hour window) and validates; the probe input's host, UUID, SNI, short id and profile/group ids are absent; app version is `major.minor`; the uploaded body validates (`FieldReportUploaderTest`); awaiting the owner Gradle run | required |
+| REQ-DGN-1795085498592630-002 | DGN-1795085530879631 | `FieldReportTest`: the test-only validator (now with `allOf`/`anyOf` for the source rules) accepts the vendored `golden` and `golden-sim` and rejects all 34 vendored `negative/report-*.json`; an hour of attempts builds exactly the vendored golden (`server_hint`) and the vendored `golden-sim` (`sim`) with a one-hour window and validates; a network that breaks a source rule (sim on Wi-Fi, sim with asn, server_hint without asn or with operator, none with asn or operator, an unknown source) and an hour without a recorded network build no report; the probe input's host, UUID, SNI, short id and profile/group ids are absent; app version is `major.minor`; the uploaded body validates (`FieldReportUploaderTest`); awaiting the owner Gradle run | required |
 | REQ-DGN-1795085498592630-003 | DGN-1795085530879631 | `FieldReportTest` (a 4-attempt bucket is absent, an all-suppressed hour builds no report) and `FieldReportUploaderTest` (no request for an all-suppressed hour); awaiting the owner Gradle run | required |
-| REQ-DGN-1795085498592630-004 | DGN-1795085532504090 | `FieldReportUploaderTest`: no request without the tunnel route (the hour stays pending and ages out after 24 hours), without an https target, or without a target; the poster sends `Authorization: Bearer <cohort_token>` and JSON through the local SOCKS route with no proxy fallback, no redirects and no connection retry; awaiting the owner Gradle run. Production sends nothing yet: no ASN source (see Open items) | required |
+| REQ-DGN-1795085498592630-004 | DGN-1795085532504090 | `FieldReportUploaderTest`: no request without the tunnel route (the hour stays pending and ages out after 24 hours), without an https target, or without a target; the poster sends `Authorization: Bearer <cohort_token>` and JSON through the local SOCKS route with no proxy fallback, no redirects and no connection retry; awaiting the owner Gradle run | required |
 | REQ-DGN-1795085498592630-005 | DGN-1795085532504090 | `FieldReportUploaderTest`: the cap of 2 allows 2 of 3 due hours, blocks a later hour inside 24 hours and resumes after 24 hours; a failed request drops the report and a second run sends nothing; only 202 counts as accepted; awaiting the owner Gradle run | required |
+| REQ-DGN-1795085498592630-007 | DGN-1795107223542717 | `FieldReportNetworkContextTest`: a cellular network is labelled `sim` with mcc `250`, mnc `01` and never fetches a hint, and an unusable operator code gives `none`; a VPN default network gives `none`/`other`; `FieldReportTest`: operator codes split into MCC and MNC with leading zeros kept and malformed codes refused; one hour on two networks keeps two entries; `FieldReportUploaderTest`: an hour on two networks sends one report per network with `server_hint` and `sim`, each valid; the operator getters need no runtime permission (see design); awaiting the owner Gradle run | required |
+| REQ-DGN-1795085498592630-008 | DGN-1795107223542717 | `FieldReportNetworkContextTest`: a 200 golden hint labels the network as `server_hint`; a network change during the request discards it; no request without consent, without a hint endpoint, on a VPN network, or on cellular; a non-200 or a `negative/hint-*` body gives no hint; a connection to a proxy or a loopback address counts as tunnelled; `FieldReportTest`: the hint parser accepts the vendored hint golden and discards all 6 vendored `negative/hint-*.json`, and the validator agrees; `RipdpiBundleContractTest`: `network_hint_endpoint` is parsed when present, absent is no hint, a non-https or trailing-newline value is refused; awaiting the owner Gradle run | required |
+| REQ-DGN-1795085498592630-009 | DGN-1795107223542717 | `FieldReportNetworkContextTest`: the hint is used until `observed_at` + `ttl_seconds`; a network change drops it and it is not reused when the earlier network returns; a second fetch waits `ttl_seconds` plus jitter; after no hint the next fetch waits one hour plus jitter; awaiting the owner Gradle run | required |
 | REQ-DGN-1795085498592630-006 | DGN-1795085536438726 | `client-legal-safety`: review below, outcome `needs_local_counsel`, live sources not consulted. `legal-check`: not present in this checkout, recorded as a gap, not a pass | required |
 
 ## Checks run in this session
 
-Logs are under `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-r3/`.
+The network-source amendment's logs are under `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-r3-net/`; the first pass's logs are under `runs-r3/` beside it.
 
-- `ktlint` 1.8.0 on every changed Kotlin file: exit 0 (`ktlint-final.log`)
-- `scripts/ci/export-strings-for-translation.sh`: exit 0, 2 keys added (`export-strings.log`)
-- `just ci-gates`: every step from architecture health through the translation export passed (architecture health, shipped-asset secrets, LoC limits 0 new violations, native hotspot budgets, cross-language contracts, vendored deploy contracts, protocol fixtures, diagnostics boundary 0 violations, route coverage, localized settings options, locale parity in all 9 translated locales, translation export in sync). The last step, `check_rust_api_snapshots.py`, was stopped by the session's 20-minute timeout while it built rustdoc in a cold target directory (exit by signal 15). This change touches no Rust, so the owner can rerun that step alone (`ci-gates.log`)
-- `./taskctl validate` and `just task-check`: exit 0 after `./taskctl generate-board` (`taskctl-validate.log`, `task-check.log`)
-- A Python mirror of the test-only schema validator accepted the vendored golden and rejected all 19 vendored negative reports, which confirms the keyword semantics the Kotlin validator implements; it is not a substitute for the Kotlin test run.
+No Gradle build ran (owner build policy), so no Kotlin source in this amendment was compiled or executed. Checks at `caa170dd1` plus the documentation commit:
+
+- Re-vendor: `python3 scripts/ci/check_vendored_deploy_contracts.py --source <deploy>/contract --update 60a05950b11c`, then the check with and without `--source`: exit 0 (`revendor.log`, `check-vendored-source.log`, `check-vendored-final.log`); `python3 -m unittest scripts.tests.test_vendored_deploy_contracts`: exit 0 (`test-vendored-final.log`)
+- `ktlint` on every changed Kotlin file, after `ktlint -F`: exit 0 (`ktlint-2.log`)
+- A Python mirror of the test-only schema validator (`allOf`, `anyOf`, Java `$` semantics) accepted both report goldens and the hint golden and rejected all 34 `negative/report-*.json` and all 6 `negative/hint-*.json` (`validator-mirror.log`); it is not a substitute for the Kotlin test run
+- `scripts/ci/export-strings-for-translation.sh`: exit 0, no key change (`export-strings.log`)
+- `just ci-gates`: exit 0, including Rust API snapshots (`ci-gates.log`)
+- `./taskctl validate` after `./taskctl generate-board`, and `just task-check`: exit 0 (`taskctl-validate.log`, `task-check.log`)
 
 ## Gradle gates left for the owner
 
 ```bash
 ./gradlew :core:service:testDebugUnitTest --tests 'com.poyka.ripdpi.services.fieldreport.*' -Pripdpi.skipNativeBuild=true
 ./gradlew :core:data:testDebugUnitTest --tests 'com.poyka.ripdpi.data.FieldReportConsentBackupTest' --tests 'com.poyka.ripdpi.data.RipdpiBundleContractTest' -Pripdpi.skipNativeBuild=true
-./gradlew :app:testGithubDebugUnitTest --tests 'com.poyka.ripdpi.AppStartupInitializerTest' --tests 'com.poyka.ripdpi.subscription.RelayPayloadMemberLatencyProbeTest' --tests 'com.poyka.ripdpi.subscription.SubscriptionMemberPersistenceTest' -Pripdpi.skipNativeBuild=true
+./gradlew :app:testGithubDebugUnitTest --tests 'com.poyka.ripdpi.AppStartupInitializerTest' --tests 'com.poyka.ripdpi.subscription.RelayPayloadMemberLatencyProbeTest' --tests 'com.poyka.ripdpi.subscription.SubscriptionMemberPersistenceTest' --tests 'com.poyka.ripdpi.subscription.*Refresh*' -Pripdpi.skipNativeBuild=true
 ./gradlew :core:diagnostics:testDebugUnitTest :core:service:testDebugUnitTest :core:data:testDebugUnitTest :app:testGithubDebugUnitTest
 ./gradlew :app:lintGithubDebug :core:service:lintDebug
 ./gradlew staticAnalysis
 ```
 
-The settings screen and the data transparency text changed, so the Settings Roborazzi baselines are expected to change; blessing them needs explicit approval under `golden-bless-discipline.md`. The consent flow on a device uses the emulator pool lease.
+The settings screen, the data transparency text, and the longer consent body changed, so the Settings Roborazzi baselines are expected to change; blessing them needs explicit approval under `golden-bless-discipline.md`. The consent flow on a device uses the emulator pool lease.
 
 ## client-legal-safety review
 
 | Item | Classification | Basis | Product action |
 |---|---|---|---|
 | Upload endpoint | `sensitive` | Not shipped in the app: the subscription operator supplies `field_report.endpoint` in the bundle, and the client accepts only https. The request goes only through the active tunnel, so the underlying network sees no request to it | keep, opt-in only |
+| Direct network-hint request | `needs_local_counsel` | With consent on, the app sends one GET to the operator-supplied https `network_hint_endpoint` outside the tunnel, no more often than the hint `ttl_seconds` with jitter and only on a non-cellular network. The underlying network sees a TLS connection to the report host, and the host sees the source address, maps it to an ASN and country, and (per the deploy contract) does not return, log, or store it. The consent body discloses the direct request | keep, opt-in only; owner or counsel to confirm |
+| Operator code | `sensitive` | MCC-MNC is read on the device with no network request and no runtime permission, and names only the mobile operator; it is sent only in an opt-in report through the tunnel | keep, opt-in only |
 | Automatic transmission | `needs_local_counsel` | An automatic, unattended upload of data about relay connections is a new client action. In restrictive jurisdictions the user may be exposed by the fact of use, not by the data; the data has no IP, device, account or host identifiers and buckets under 5 attempts are suppressed | keep off by default; neutral copy; revocation deletes unsent data |
-| Consent copy (10 locales) | `safe` | Neutral technical wording: "report server", "tunnel", "connection counts"; no circumvention or advertising framing | keep; translations need native review |
+| Consent copy (10 locales) | `safe` | Neutral technical wording: "report server", "tunnel", "connection counts", "operator code", "outside the tunnel"; no circumvention or advertising framing | keep; translations need native review (recorded in `docs/localization-provenance.md`) |
 
 Live primary sources (`publication.pravo.gov.ru`, `rkn.gov.ru`) were not consulted in this session, which the skill requires before calling a workflow safe, so no item is classified `safe` on legal grounds beyond the copy wording. The owner or local counsel must confirm the `needs_local_counsel` item before acceptance.
 
@@ -66,11 +74,13 @@ Live primary sources (`publication.pravo.gov.ru`, `rkn.gov.ru`) were not consult
 
 AGENTS.md says "user data leaves the device only through explicit export". The opt-in field report is a second path. This change does not edit AGENTS.md. Proposed wording for the owner to approve:
 
-> Do not add a required backend service. Product features work offline and locally; external data is bundled or fetched from static user-visible sources, and user data leaves the device only through explicit export or the opt-in anonymous field report (`field_report_enabled`, off by default, sent only through the active tunnel).
+> Do not add a required backend service. Product features work offline and locally; external data is bundled or fetched from static user-visible sources, and user data leaves the device only through explicit export or the opt-in anonymous field report (`field_report_enabled`, off by default; reports go only through the active tunnel, and its network-hint request goes directly to the subscription's report host).
 
 ## Open items
 
-- ASN source: no on-device source gives the ASN without a public IP lookup, so production drops every completed hour unsent (a `shortcut:` in `FieldReportUploader`). The upload path is implemented and tested with an injected network context, but it stays inactive in production until the owner approves a source or the deploy D1 contract makes `asn` optional. Country and network type are not wired for the same reason.
+- The hint is fetched only with the scheduled bundle refresh (`refreshAll`), so a network joined between refreshes reports `source` `none` until the next refresh; a manual refresh does not fetch. Owner decision if a fetch on network change is wanted.
+- `Network.getNetworkHandle()` identifies a network for the hint cache; Android may reuse a netId only after a long churn, which the `ttl_seconds` bound limits.
+- The OkHttp hint fetcher on a real `android.net.Network` (socket and DNS binding) has no unit test; only its tunnel-detection listener and the cache rules do. A device run on Wi-Fi with the VPN on should confirm the request leaves on the underlying network.
 - Failure stage: a remote probe failure reports `unknown`; wiring the typed native failure into `CandidateRelayMeasurement` is a follow-up.
 - Translations for 9 locales were written in this session and need native-speaker review.
 - Live acceptance needs deploy D2 (ingest) and D7 (cross-repo e2e).

@@ -12,6 +12,7 @@ The app measures connections and blocking locally (`FieldTelemetrySummary`, `Dev
 - Hourly on-device aggregation into `client-field-report` v1 buckets (server_ref, protocol, outcome, failure_stage, attempts, latency histogram) on top of `FieldTelemetrySummary`, passed through the allow-list and redactor.
 - Suppress buckets with attempts below 5.
 - Upload only through the active tunnel to `field_report.endpoint` with `cohort_token`, at most `max_reports_per_day`; drop on failure with no retry storm.
+- Label each hour with the contract `network.source` (owner decision, deploy contract at `60a05950`): `sim` with the operator MCC-MNC read on the device on cellular; `server_hint` with the ASN and country from the optional bundle `field_report.network_hint_endpoint` on other networks; else `none`. The hint is fetched directly, outside the tunnel, with the bundle refresh and only while consent is on.
 - Legal review through `client-legal-safety` and `legal-check` before this change is accepted.
 
 ## Capabilities
@@ -26,7 +27,8 @@ The app measures connections and blocking locally (`FieldTelemetrySummary`, `Dev
 
 ## Impact
 
-- Kotlin: `core/diagnostics-data/src/main/kotlin/com/poyka/ripdpi/data/diagnostics/FieldTelemetrySummary.kt`, `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DeveloperAnalyticsAllowListFilter.kt` and `DiagnosticsArchiveRedactor.kt`, `core/service` (scheduling beside `SharedPriorsRefreshWorker.kt`, tunnel-bound upload), `core/data/model/.../app_settings.proto`, `app/.../ui/screens/settings/`, all 10 locales.
+- Contracts: re-vendored deploy `contract/` at `60a05950b11c` (field-report `network.source`, `client-network-hint` v1, bundle `field_report.network_hint_endpoint`).
+- Kotlin: `core/diagnostics-data/src/main/kotlin/com/poyka/ripdpi/data/diagnostics/FieldTelemetrySummary.kt`, `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DeveloperAnalyticsAllowListFilter.kt` and `DiagnosticsArchiveRedactor.kt`, `core/service` (scheduling beside `SharedPriorsRefreshWorker.kt`, tunnel-bound upload, `FieldReportNetworkContext` for the operator code and the network hint), `core/data/runtime-state` (bundle parsing), `app/.../subscription/SubscriptionRefreshCoordinator.kt` (hint refresh), `core/data/model/.../app_settings.proto`, `app/.../ui/screens/settings/`, all 10 locales.
 - Blocked by R2 (DGN-1795085357320979, taxonomy) and R4 (DAT-1795085420746769, `server_ref`, `field_report`).
 - Policy: AGENTS.md says user data leaves the device only through explicit export and no required backend exists. Opt-in upload is an owner decision that deviates from that sentence; this change must update AGENTS.md wording through its owner and keep the app fully functional with opt-in off.
 - Overlap: `correct-dia*` and `connection-stage-scale` (review) change telemetry sources; `svc-1786264762917506-wire-naiveproxy-probe-into-manager-startup` (review) adds a protocol source; `device-server-migration` (review) must not leak identifiers into reports. Rebase on each.
