@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services.fieldreport
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.diagnostics.ClientFieldReportContractVersion
 import com.poyka.ripdpi.data.diagnostics.FieldFailureStage
+import com.poyka.ripdpi.data.subscription.ServerRefPattern
 import com.poyka.ripdpi.services.CandidateMeasurementStage
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
 import kotlinx.serialization.Serializable
@@ -35,8 +36,8 @@ private const val MaxBuckets = 256
 private const val MaxPendingHours = 24
 private const val MaxAsn = 4_294_967_295L
 
-private val ServerRefPattern = Regex("[A-Za-z0-9_-]{1,64}")
-private val CountryPattern = Regex("[A-Z]{2}")
+/** An ISO 3166-1 alpha-2 country code, shared by the report `network` object and the network hint. */
+internal val CountryPattern = Regex("[A-Z]{2}")
 private val AppVersionPattern = Regex("(0|[1-9][0-9]{0,3})\\.(0|[1-9][0-9]{0,3})")
 private val VersionNamePrefix = Regex("((?:0|[1-9][0-9]{0,3})\\.(?:0|[1-9][0-9]{0,3}))(?:[^0-9].*)?")
 private val Protocols = setOf("vless-reality", "xhttp", "hysteria2", "amneziawg", "naiveproxy", "local-desync")

@@ -97,13 +97,15 @@ data class RipdpiFieldReport(
     override fun toString() = "RipdpiFieldReport([REDACTED])"
 }
 
+/** A bundle `server_ref` (outbound tag), as the bundle and field-report contracts define it. */
+val ServerRefPattern = Regex("[A-Za-z0-9_-]{1,64}")
+
 private const val MillisPerSecond = 1_000L
 private const val MinHealthTtlSeconds = 60
 private const val MaxHealthTtlSeconds = 86_400
 private const val MinFieldReportEndpointLength = 9
 private const val MaxFieldReportEndpointLength = 2_048
 private const val MaxReportsPerDay = 24
-private val ServerRefPattern = Regex("[A-Za-z0-9_-]{1,64}")
 private val FieldReportEndpointPattern = Regex("https://[^\\s/?#@]+(/[^\\s#]*)?")
 private val CohortTokenPattern = Regex("[A-Za-z0-9_-]{22,64}")
 
