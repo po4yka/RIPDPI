@@ -294,7 +294,10 @@ internal class DiagnosticsScanRequestFactory
                     sessionId = sessionId,
                     intent =
                         targetOptimizer.compact(
-                            intentResolver.resolve(profile.id, pathMode).copy(settings = settings),
+                            intentResolver
+                                .resolve(profile.id, pathMode)
+                                .copy(settings = settings)
+                                .applyEndpointOverrides(targetOverrides),
                             networkFingerprintProvider.capture()?.scopeKey(),
                             scanOrigin,
                             activeProbeSafetyPolicy,
@@ -438,18 +441,27 @@ internal class DiagnosticsScanRequestFactory
             )
     }
 
+// The catalog's endpoint templates are empty, so user endpoints must replace them before any budget validation.
+private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyEndpointOverrides(
+    targetOverrides: DiagnosticsScanTargetOverrides?,
+): com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent {
+    val overrides = targetOverrides ?: return this
+    require(overrides.tlsHopComparison == null || tlsHopComparison != null)
+    require(overrides.quicVersionMatrix == null || quicVersionMatrix != null)
+    return copy(
+        tlsHopComparison = overrides.tlsHopComparison ?: tlsHopComparison,
+        quicVersionMatrix = overrides.quicVersionMatrix ?: quicVersionMatrix,
+    )
+}
+
 private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyTargetOverrides(
     targetOverrides: DiagnosticsScanTargetOverrides?,
     pathMode: ScanPathMode,
 ): com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent {
     val overrides = targetOverrides ?: return this
     require(overrides.selectiveMatrixHosts.isEmpty() || selectiveMatrix != null)
-    require(overrides.tlsHopComparison == null || tlsHopComparison != null)
-    require(overrides.quicVersionMatrix == null || quicVersionMatrix != null)
     return copy(
         selectiveMatrix = selectiveMatrix?.withUserHosts(overrides.selectiveMatrixHosts),
-        tlsHopComparison = overrides.tlsHopComparison ?: tlsHopComparison,
-        quicVersionMatrix = overrides.quicVersionMatrix ?: quicVersionMatrix,
         domainTargets = overrides.domainTargets ?: domainTargets,
         serviceTargets = overrides.serviceTargets ?: serviceTargets,
         circumventionTargets = overrides.circumventionTargets ?: circumventionTargets,
