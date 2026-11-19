@@ -55,6 +55,13 @@ two halves make the contract machine-checkable so it cannot drift silently
 between the repos.
 
 **When the server contract changes, re-copy the listed files in the same PR.**
+The bundle and field-report files (`ripdpi-bundle.*`, `client-field-report.*`,
+`negative/neg-*`, `negative/report-*`, `negative/README.md`) are pinned by
+SHA-256 in `vendored-deploy-contracts.sha256`, which also names the deployer
+commit. `scripts/ci/check_vendored_deploy_contracts.py` fails on an edited,
+missing, or unlisted copy; with `--source <ripdpi-vpn-deploy>/contract` it also
+fails on a deployer fixture that was not re-vendored, and
+`--source <dir> --update <commit>` re-copies the set and rewrites the pin.
 The `x-contract-version` integer in the schema is the drift pin:
 `RipdpiBundleContractTest` asserts it equals
 `SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION`, so an out-of-date vendored

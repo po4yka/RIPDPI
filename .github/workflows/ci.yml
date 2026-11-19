@@ -418,6 +418,12 @@ jobs:
       - name: Run cross-language runtime contract policy check
         run: python3 scripts/ci/check_cross_language_runtime_contracts.py
 
+      - name: Run vendored deploy contract drift unit tests
+        run: python3 -m unittest scripts.tests.test_vendored_deploy_contracts
+
+      - name: Check vendored deploy contracts against their pinned manifest
+        run: python3 scripts/ci/check_vendored_deploy_contracts.py
+
       - name: Run REALITY BoringSSL hook vector guard unit tests
         run: python3 -m unittest scripts.tests.test_reality_boring_vector
 
