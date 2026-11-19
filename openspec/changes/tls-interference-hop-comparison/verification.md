@@ -25,4 +25,4 @@ Implementation is not started. Planned local gates: owning Rust crates with --lo
 | REQ-TLS-INTERFERENCE-HOP-COMPARISON-CAPABILITY | DGN-1795014094363681 | Pending implementation and observable regression tests | pending |
 | REQ-TLS-INTERFERENCE-HOP-COMPARISON-PAIR | DGN-1795014095035306 | Pending implementation and observable regression tests | pending |
 | REQ-TLS-INTERFERENCE-HOP-COMPARISON-PRIVACY | DGN-1795014095646908 | Pending implementation and observable regression tests | pending |
-| REQ-TLS-INTERFERENCE-HOP-COMPARISON-LIMITS | DGN-1795014095646908 | Pending implementation and observable regression tests | pending |
+| REQ-TLS-INTERFERENCE-HOP-COMPARISON-LIMITS | DGN-1795083686784867 | Pending implementation and observable regression tests | pending |

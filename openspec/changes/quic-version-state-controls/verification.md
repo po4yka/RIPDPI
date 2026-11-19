@@ -24,5 +24,5 @@ Implementation is not started. Planned local gates: owning Rust crates with --lo
 |---|---|---|---|
 | REQ-QUIC-VERSION-STATE-CONTROLS-VERSION | DGN-1795014102533538 | Pending implementation and observable regression tests | pending |
 | REQ-QUIC-VERSION-STATE-CONTROLS-ISOLATION | DGN-1795014103091464 | Pending implementation and observable regression tests | pending |
-| REQ-QUIC-VERSION-STATE-CONTROLS-CONTROL | DGN-1795014103668973 | Pending implementation and observable regression tests | pending |
+| REQ-QUIC-VERSION-STATE-CONTROLS-CONTROL | DGN-1795083688813560 | Pending implementation and observable regression tests | pending |
 | REQ-QUIC-VERSION-STATE-CONTROLS-CLAIMS | DGN-1795014103668973 | Pending implementation and observable regression tests | pending |

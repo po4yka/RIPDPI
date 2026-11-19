@@ -1,41 +1,46 @@
 ## Purpose
 
-Provide bounded reproducible network comparison evidence without overstating censorship attribution or exposing private network identities.
+Compare two explicit selective-matrix sessions from different networks to separate path-specific failures from unavailable endpoints.
 
 ## ADDED Requirements
 
-### Requirement: REQ-PAIRED-NETWORK-AVAILABILITY-PAIR — Pair
+### Requirement: REQ-PAIRED-NETWORK-AVAILABILITY-PAIR — Pairing
 
-The implementation MUST pair two explicit manual sessions only when target set, endpoint identity, probe parameters and app configuration revisions match, recording elapsed age and transport labels without retaining SIM, SSID or public-IP identifiers.
+Two sessions MUST be compared only when their target set, probe parameter, and app configuration revisions match, their transport labels differ, and the second started no more than 30 minutes after the first. The comparison MUST NOT store SIM, SSID, or public IP identifiers.
 
-#### Scenario: Pair evidence
+#### Scenario: Revision mismatch
 
-- **WHEN** a user selects a Wi-Fi reference and a later mobile session with mismatched target revisions
-- **THEN** show comparison unavailable and identify the mismatch rather than produce a blocking verdict
+- **WHEN** the user selects a Wi-Fi session and a later cellular session with different target set revisions
+- **THEN** the result is comparison unavailable and names the target set mismatch
 
-### Requirement: REQ-PAIRED-NETWORK-AVAILABILITY-CONTROL — Control
+#### Scenario: Stale reference
 
-The implementation MUST use verified TLS and bounded complete application payload observations as eligibility controls, retaining control-failed and unmeasured rows outside the denominator of path-specific failures.
+- **WHEN** the second session started 45 minutes after the first
+- **THEN** the result is comparison unavailable and names the age limit
 
-#### Scenario: Control evidence
+### Requirement: REQ-PAIRED-NETWORK-AVAILABILITY-CONTROL — Control rows
 
-- **WHEN** a target fails on both paths or the reference is stale
-- **THEN** classify it as inconclusive rather than blocked by an allowlist
+A row MUST count as path-specific only when one leg has a verified TLS result and a complete bounded payload result and the other leg fails. Rows that fail on both legs, fail their control, or are not measured MUST be inconclusive and MUST stay out of the denominator.
 
-### Requirement: REQ-PAIRED-NETWORK-AVAILABILITY-SCOPE — Scope
+#### Scenario: Fails on both
 
-The implementation MUST reuse the existing matrix result and history models; network transitions during either leg invalidate that leg. Do not switch networks automatically or disable VPN protection to force a result.
+- **WHEN** a target fails on both legs
+- **THEN** the row is inconclusive and is not counted as blocked
 
-#### Scenario: Scope evidence
+### Requirement: REQ-PAIRED-NETWORK-AVAILABILITY-SCOPE — Leg validity
 
-- **WHEN** the OS changes the selected underlying network during a leg
-- **THEN** the comparison marks the leg invalid and does not silently substitute another path
+A leg during which the selected underlying network changed MUST be invalid. The comparison MUST NOT switch networks, MUST NOT disable VPN protection, and MUST NOT replace an invalid leg with another session.
+
+#### Scenario: Network change during a leg
+
+- **WHEN** the OS changes the selected network during the second leg
+- **THEN** the comparison marks that leg invalid and shows no path-specific rows
 
 ### Requirement: REQ-PAIRED-NETWORK-AVAILABILITY-EVIDENCE — Evidence
 
-The implementation MUST present descriptive differences only, preserving per-leg stage outcomes and bounded repetition evidence in redacted exports. Do not infer permitted prefixes, ASN-wide availability or nationwide effectiveness.
+The result and the redacted export MUST show per-leg stage outcomes and repetition counts as observed differences, and MUST NOT claim permitted prefixes, ASN-wide availability, or nationwide results.
 
-#### Scenario: Evidence evidence
+#### Scenario: One path succeeds
 
-- **WHEN** a complete controlled payload succeeds on one path only
-- **THEN** display a path-specific observed difference with timestamp, limitations and no universal allowlist claim
+- **WHEN** a target completes its payload on Wi-Fi and fails on cellular with valid controls
+- **THEN** the row shows a path-specific difference with both timestamps and no allowlist claim

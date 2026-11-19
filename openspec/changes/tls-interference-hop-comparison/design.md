@@ -1,33 +1,31 @@
 ## Context
 
-Current platform_ttl reads the local configured outbound TTL, not router responses or interference location. An opt-in paired control/test SNI hop experiment is a distinct diagnostic, not a reinterpretation of that value.
+The TLS probe in `ripdpi-diagnostics-tls` records `local_socket_ttl` from `platform_ttl::get_local_socket_ttl` (`src/tls/probe/stream.rs`). That value is the configured outbound TTL. No code sets a probe TTL, and no code locates a middlebox.
+
+Non-root Android cannot observe ICMP Time Exceeded for TCP: raw sockets need root, and the Linux socket error queue (`MSG_ERRQUEUE`, used by `ripdpi-proxy-runtime-adapter/src/platform/udp_error_queue.rs`) reports ICMP only for UDP and raw sockets. A design that needs router addresses would be unsupported on almost every target device.
 
 ## Goals / Non-Goals
 
-Goal: reproducible bounded evidence with honest capability and inference limits. Non-goals: automatic background scanning, public measurement upload, mandatory backend, country-wide guarantees or production transport changes.
+Goal: a bounded hop interval for a middlebox that reacts to the test SNI, from non-root measurements on the selected direct network.
+
+Non-goals: router addresses or traceroute output, root-only capture, background runs, upload, automatic strategy changes.
 
 ## Decisions
 
-Probe only when platform capabilities and the selected direct network are verified; unsupported ICMP capture or socket TTL operations return unsupported without root escalation or fabricated hops.
+Primary signal. For each TTL value k in an ordered ladder, open a fresh TCP connection with the default TTL, then set the outbound TTL to k (`TcpStream::set_ttl` for IPv4, `socket2::Socket::set_unicast_hops_v6` for IPv6) and send one ClientHello. Record what returns within the attempt window: injected RST, injected FIN, TLS alert, ServerHello, or silence. The control SNI and the test SNI alternate at each k.
 
-Use a bounded user-started control/test SNI experiment against the same user-authorized endpoint with ordered TTL values, fresh connections, repeated controls and a total cancellation deadline. Do not scan arbitrary address ranges.
+Interval. The path length is the smallest k at which the control receives a ServerHello. The divergence upper bound is the smallest k at which the test receives a reaction and the control at the same k is silent. The lower bound is the largest smaller k at which both are silent. A test reaction first seen at the path length cannot be told apart from server behavior and is inconclusive.
 
-Keep path addresses and timings local; redact raw hops, public IPs and precise timing from ordinary exports. Any diagnostic detail export requires a separate visible choice and disclosure.
+Lifecycle. The TTL change applies only after the TCP handshake, so the SYN uses the default TTL. TCP retransmits the ClientHello with the same TTL inside the attempt window; this is expected. After the window, close the socket with `SO_LINGER` 0. Do not reuse a socket across attempts.
 
-Report missing ICMP, asymmetric paths, load balancing, invalid control, proxy interception and network changes as measurement limits, never proof of no censorship.
+Bounds. Maximum TTL 32, two repetitions per (k, SNI) cell, one fixed attempt window, and one total deadline for the run. Cancellation stops the ladder at the current attempt. Only the endpoint the user selected is probed; no address ranges.
 
-## Contracts and ownership
+Capability. The probe is supported only when the socket is protected through the existing protection callback, bound to the selected direct network, and the TTL setter succeeds. Otherwise the run is `unsupported` and other diagnostics are not affected. There is no root path.
 
-One implementation owner serializes native diagnostics contracts, Kotlin engine contracts, persistence and export changes, locales and generated artifacts. This specification-only branch owns these three task records and OpenSpec directories plus taskctl-generated board; no production files.
+Limits. The run reports these as limits, never as proof of no interference: control never reaches the server, control reacts like the test, ServerHello at k of 1 or 2 (local proxy or interception), network change during the run, reactions that vary across repetitions (load balancing or asymmetric paths).
 
-Implementation must use existing protection callbacks for outbound sockets, explicit network binding and cancellation/deadline ownership. Validate schema revisions from current source before altering wire or persistence. Extend existing tests where possible.
-
-## Risks / Trade-offs
-
-Controlled targets can still fail and mobile paths change. Preserve unknown/unsupported states, stable controls and local-only identity. External sources motivate methods but are not trusted configuration or executable code. No source code is copied in this proposal; check exact licenses before future reuse.
+Privacy. The non-root path collects no hop addresses. Per-attempt timings stay in local history. The ordinary export contains the interval, the limits, and the endpoint label only. A detailed per-attempt export is out of scope for this change.
 
 ## Migration Plan
 
-Add an opt-in manual capability, retaining old saved diagnostics. New optional evidence is versioned through existing contracts; older records remain readable with unknown fields. Roll back by disabling the capability, not rewriting past evidence. Field acceptance requires separately authorized owned endpoints and devices; local tests alone cannot prove Russian-network effectiveness.
-
-The TTL experiment MUST establish TCP normally, then apply the bounded outbound TTL to ClientHello transmission, not to the initial SYN. Retransmissions and socket reuse MUST remain isolated within the per-attempt budget. If the platform cannot enforce this lifecycle or observe the necessary responses, it MUST return unsupported or inconclusive without a hop-location inference.
+The result is a new optional field in the diagnostics contract. Older saved reports stay readable. Validate the current schema version in Rust and Kotlin before changing the contract.

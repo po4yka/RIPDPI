@@ -22,7 +22,7 @@ Implementation is not started. Planned local gates: owning Rust crates with --lo
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-PAIRED-NETWORK-AVAILABILITY-PAIR | DGN-1795014098706951 | Pending implementation and observable regression tests | pending |
-| REQ-PAIRED-NETWORK-AVAILABILITY-CONTROL | DGN-1795014099307713 | Pending implementation and observable regression tests | pending |
-| REQ-PAIRED-NETWORK-AVAILABILITY-SCOPE | DGN-1795014099895795 | Pending implementation and observable regression tests | pending |
-| REQ-PAIRED-NETWORK-AVAILABILITY-EVIDENCE | DGN-1795014099895795 | Pending implementation and observable regression tests | pending |
+| REQ-PAIRED-NETWORK-AVAILABILITY-PAIR | DGN-1795014099307713 | Pending implementation and observable regression tests | pending |
+| REQ-PAIRED-NETWORK-AVAILABILITY-CONTROL | DGN-1795014099895795 | Pending implementation and observable regression tests | pending |
+| REQ-PAIRED-NETWORK-AVAILABILITY-SCOPE | DGN-1795083687796000 | Pending implementation and observable regression tests | pending |
+| REQ-PAIRED-NETWORK-AVAILABILITY-EVIDENCE | DGN-1795083687292151 | Pending implementation and observable regression tests | pending |

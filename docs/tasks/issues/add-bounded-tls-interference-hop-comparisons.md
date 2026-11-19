@@ -11,23 +11,23 @@ blocked_by: []
 spec_mode: required
 openspec_change: tls-interference-hop-comparison
 created: 2026-11-18
-updated: 2026-11-18
+updated: 2026-11-19
 ---
 
 ## Goal
 
-Current platform_ttl reads the local configured outbound TTL, not router responses or interference location. An opt-in paired control/test SNI hop experiment is a distinct diagnostic, not a reinterpretation of that value.
+Bound the hop distance of a middlebox that reacts to a test SNI with TTL-limited ClientHello attempts on non-root Android. The existing `platform_ttl` getter only reads the local outbound TTL and keeps that meaning.
 
 ## Acceptance criteria
 
-- Probe only when platform capabilities and the selected direct network are verified; unsupported ICMP capture or socket TTL operations return unsupported without root escalation or fabricated hops.
-- Use a bounded user-started control/test SNI experiment against the same user-authorized endpoint with ordered TTL values, fresh connections, repeated controls and a total cancellation deadline. Do not scan arbitrary address ranges.
-- Keep path addresses and timings local; redact raw hops, public IPs and precise timing from ordinary exports. Any diagnostic detail export requires a separate visible choice and disclosure.
-- Report missing ICMP, asymmetric paths, load balancing, invalid control, proxy interception and network changes as measurement limits, never proof of no censorship.
+- `REQ-TLS-INTERFERENCE-HOP-COMPARISON-CAPABILITY` in [the spec](../../../openspec/changes/tls-interference-hop-comparison/specs/tls-interference-hop-comparison/spec.md) passes its scenarios.
+- `REQ-TLS-INTERFERENCE-HOP-COMPARISON-PAIR` in [the spec](../../../openspec/changes/tls-interference-hop-comparison/specs/tls-interference-hop-comparison/spec.md) passes its scenarios.
+- `REQ-TLS-INTERFERENCE-HOP-COMPARISON-PRIVACY` in [the spec](../../../openspec/changes/tls-interference-hop-comparison/specs/tls-interference-hop-comparison/spec.md) passes its scenarios.
+- `REQ-TLS-INTERFERENCE-HOP-COMPARISON-LIMITS` in [the spec](../../../openspec/changes/tls-interference-hop-comparison/specs/tls-interference-hop-comparison/spec.md) passes its scenarios.
 
 ## Ownership
 
-One implementation owner serializes native diagnostics contracts, Kotlin engine contracts, persistence and export changes, locales and generated artifacts. This specification-only branch owns these three task records and OpenSpec directories plus taskctl-generated board; no production files.
+One writer owns the wire contract, `EngineContract.kt`, persistence, export, and locale changes for this task. Design and steps: [openspec/changes/tls-interference-hop-comparison](../../../openspec/changes/tls-interference-hop-comparison/design.md).
 
 ## Sources and scope
 
