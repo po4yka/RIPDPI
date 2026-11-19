@@ -161,7 +161,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 
 ### ✅ Full Implementation Continued
 
-- **Splash Screen** (`android-splash.html`) — Android 12+ SplashScreen API wired via `installSplashScreen()` in MainActivity + `Theme.RIPDPI.Starting` theme (`windowSplashScreenAnimatedIcon = @drawable/ic_splash_ripdpi`, the clean mark in `@color/splash_glyph` on `@color/splash_background`: black on white by day, white on black at night, an entry on API 31+ (after a 400ms wait: a ground line draws, the stone rises out of it, the ghost appears, the line fades; 920ms in all), `postSplashScreenTheme = Theme.RIPDPI`)
+- **Splash Screen** (`android-splash.html`) — Android 12+ SplashScreen API wired via `installSplashScreen()` in MainActivity + `Theme.RIPDPI.Starting` theme (`windowSplashScreenAnimatedIcon = @drawable/splash_window_icon`: `ic_splash_ripdpi` on API 31+, empty below, the clean mark in `@color/splash_glyph` on `@color/splash_background`: black on white by day, white on black at night, an entry on API 31+ (after a 400ms wait: a ground line draws, the stone rises out of it, the ghost appears, the line fades; 920ms in all), and below API 31 the same entry with no wait on the onboarding start only, `postSplashScreenTheme = Theme.RIPDPI`)
 
 ---
 

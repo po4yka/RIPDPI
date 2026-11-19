@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The launch animation opens the window about 400ms after the icon animation starts, so each part waits for it. -->
+    <integer name="splash_entry_ground_start_millis">400</integer>
+    <integer name="splash_entry_stone_start_millis">460</integer>
+    <integer name="splash_entry_ghost_start_millis">700</integer>
+    <integer name="splash_entry_ground_fade_millis">780</integer>
+</resources>

@@ -3,15 +3,17 @@
 The splash icon: ic_launcher_foreground_ripdpi_clean in colors that follow night mode, with the ghost as its own
 shape in the background color instead of a hole in the stone. Keep the paths equal to the launcher foreground.
 
-On API 31 and later the entry plays once the launch animation has opened the window, which the platform does
-about 400ms after it starts the icon animation (measured on an API 35 emulator). Times are from that start:
+The entry plays once the window shows. On API 31 and later that is the launch animation, which opens the window
+about 400ms after the platform starts the icon animation (measured on an API 35 emulator). Below API 31 the app
+starts this drawable itself, on a window that is already open, so the wait is 0ms. The splash_entry_*_millis
+integers carry the wait for each API level. Times on API 31 and later:
   400-520  the ground line draws out from the middle
   460-780  the stone rises out of the ground
   700-920  the ghost appears in the stone
   780-900  the ground line fades
 Every animated value is held from 0ms, so no part shows its end value early. The total is
-splash_icon_animation_millis; the platform limit is 1000ms. The vector is the end pose, so the static icon below
-API 31 and a splash screen with animations off show the plain mark.
+splash_icon_animation_millis; the platform limit is 1000ms. The vector is the end pose, so a splash screen with
+animations off shows the plain mark.
 -->
 <animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt">
@@ -68,7 +70,7 @@ API 31 and a splash screen with animations off show the plain mark.
             <set android:ordering="together">
                 <set android:ordering="sequentially">
                     <objectAnimator
-                        android:duration="400"
+                        android:duration="@integer/splash_entry_ground_start_millis"
                         android:propertyName="trimPathStart"
                         android:valueFrom="0.5"
                         android:valueTo="0.5"
@@ -83,7 +85,7 @@ API 31 and a splash screen with animations off show the plain mark.
                 </set>
                 <set android:ordering="sequentially">
                     <objectAnimator
-                        android:duration="400"
+                        android:duration="@integer/splash_entry_ground_start_millis"
                         android:propertyName="trimPathEnd"
                         android:valueFrom="0.5"
                         android:valueTo="0.5"
@@ -98,7 +100,7 @@ API 31 and a splash screen with animations off show the plain mark.
                 </set>
                 <set android:ordering="sequentially">
                     <objectAnimator
-                        android:duration="780"
+                        android:duration="@integer/splash_entry_ground_fade_millis"
                         android:propertyName="strokeAlpha"
                         android:valueFrom="1"
                         android:valueTo="1"
@@ -120,7 +122,7 @@ API 31 and a splash screen with animations off show the plain mark.
             <set android:ordering="together">
                 <set android:ordering="sequentially">
                     <objectAnimator
-                        android:duration="460"
+                        android:duration="@integer/splash_entry_stone_start_millis"
                         android:propertyName="translateY"
                         android:valueFrom="664"
                         android:valueTo="664"
@@ -142,7 +144,7 @@ API 31 and a splash screen with animations off show the plain mark.
             <set android:ordering="together">
                 <set android:ordering="sequentially">
                     <objectAnimator
-                        android:duration="700"
+                        android:duration="@integer/splash_entry_ghost_start_millis"
                         android:propertyName="scaleX"
                         android:valueFrom="0.8"
                         android:valueTo="0.8"
@@ -157,7 +159,7 @@ API 31 and a splash screen with animations off show the plain mark.
                 </set>
                 <set android:ordering="sequentially">
                     <objectAnimator
-                        android:duration="700"
+                        android:duration="@integer/splash_entry_ghost_start_millis"
                         android:propertyName="scaleY"
                         android:valueFrom="0.8"
                         android:valueTo="0.8"
@@ -179,7 +181,7 @@ API 31 and a splash screen with animations off show the plain mark.
             <set android:ordering="together">
                 <set android:ordering="sequentially">
                     <objectAnimator
-                        android:duration="700"
+                        android:duration="@integer/splash_entry_ghost_start_millis"
                         android:propertyName="fillAlpha"
                         android:valueFrom="0"
                         android:valueTo="0"

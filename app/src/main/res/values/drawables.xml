@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Below API 31 the window draws a still icon before the app runs. It stays empty, so the mark first shows in
+         the entry that the app plays when it starts on onboarding (SplashExitAnimation.kt). -->
+    <item name="splash_window_icon" type="drawable">@android:color/transparent</item>
+</resources>

@@ -2,4 +2,9 @@
 <resources>
     <!-- The end of the last animation in ic_splash_ripdpi; the platform limit is 1000ms. -->
     <integer name="splash_icon_animation_millis">920</integer>
+    <!-- When each part of the ic_splash_ripdpi entry starts. Below API 31 the window is open when the entry starts. -->
+    <integer name="splash_entry_ground_start_millis">0</integer>
+    <integer name="splash_entry_stone_start_millis">60</integer>
+    <integer name="splash_entry_ghost_start_millis">300</integer>
+    <integer name="splash_entry_ground_fade_millis">380</integer>
 </resources>

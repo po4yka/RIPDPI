@@ -4,11 +4,17 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
+import android.graphics.drawable.Animatable2
+import android.graphics.drawable.AnimatedVectorDrawable
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.SystemClock
+import android.widget.ImageView
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.ui.geometry.Rect
 import androidx.core.splashscreen.SplashScreen
 import androidx.core.splashscreen.SplashScreenViewProvider
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingBadgeAnchor
 import com.poyka.ripdpi.ui.theme.DefaultRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
@@ -37,6 +43,7 @@ internal fun splashHoldForBadge(badgeAnchor: OnboardingBadgeAnchor): (Boolean) -
 /**
  * Sets how the splash screen leaves. When the app starts on onboarding, the splash icon moves to the place of the
  * onboarding step badge and shrinks to its size while the splash screen fades, so the icon becomes the badge.
+ * Below API 31 the window icon is empty, so the icon first plays the entry that the platform plays on API 31 and later.
  *
  * Android 12 and later must know about the listener before the activity resumes, which is before the start
  * destination is known. The listener therefore also owns the exit for every other start destination: a short
@@ -50,12 +57,19 @@ internal fun SplashScreen.setRipDpiExit(
     setOnExitAnimationListener { splash ->
         when {
             !ValueAnimator.areAnimatorsEnabled() -> splash.remove()
-            startsOnOnboarding() -> badgeAnchor.bounds?.let(splash::moveIconTo) ?: splash.fadeOut()
+            startsOnOnboarding() -> splash.joinBadge(badgeAnchor.bounds)
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> splash.fadeOut()
             else -> splash.remove()
         }
     }
 }
+
+private fun SplashScreenViewProvider.joinBadge(badge: Rect?) =
+    when {
+        badge == null -> fadeOut()
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> moveIconTo(badge)
+        else -> enterThenMoveTo(badge)
+    }
 
 private fun SplashScreenViewProvider.moveIconTo(badge: Rect) {
     // A splash screen with no icon has no icon view on API 31 and later.
@@ -83,6 +97,22 @@ private fun SplashScreenViewProvider.moveIconTo(badge: Rect) {
         .setStartDelay(duration / 2)
         .setDuration(duration / 2)
         .setListener(removeAtEnd())
+}
+
+private fun SplashScreenViewProvider.enterThenMoveTo(badge: Rect) {
+    val icon = iconView as? ImageView
+    val entry = icon?.context?.let { AppCompatResources.getDrawable(it, R.drawable.ic_splash_ripdpi) }
+    if (icon == null || entry !is AnimatedVectorDrawable) {
+        fadeOut()
+        return
+    }
+    entry.registerAnimationCallback(
+        object : Animatable2.AnimationCallback() {
+            override fun onAnimationEnd(drawable: Drawable) = moveIconTo(badge)
+        },
+    )
+    icon.setImageDrawable(entry)
+    entry.start()
 }
 
 private fun SplashScreenViewProvider.fadeOut() {

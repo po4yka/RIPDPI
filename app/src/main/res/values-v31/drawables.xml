@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- On API 31 and later the platform plays the entry. -->
+    <item name="splash_window_icon" type="drawable">@drawable/ic_splash_ripdpi</item>
+</resources>
