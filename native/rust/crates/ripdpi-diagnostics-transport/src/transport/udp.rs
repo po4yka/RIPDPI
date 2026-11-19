@@ -13,6 +13,9 @@ use super::socks5::relay_udp_via_socks5_matching;
 use super::tcp::candidate_address_groups;
 use super::types::{TargetAddress, TransportConfig, TransportError, UdpRelayResult};
 
+#[path = "udp/quic_version_matrix.rs"]
+pub(super) mod quic_version_matrix;
+
 pub fn relay_udp_payload_observed(
     targets: &[TargetAddress],
     port: u16,
