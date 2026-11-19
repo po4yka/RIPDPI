@@ -18,6 +18,15 @@ Inputs: `FieldTelemetrySummary` (core/diagnostics-data), filters in `core/diagno
 - Assumption: AGENTS.md "no data leaves the device except explicit export" is amended by the owner decision; this change proposes the wording and does not edit AGENTS.md silently.
 - Assumption: ASN and country come from existing network-fingerprint code and are coarse only; `network-fingerprint-privacy.md` rules apply and the implementation checks that no remembered-network key is sent.
 
+## Implementation decisions
+
+- Attempt source: `FieldTelemetrySummary` and its telemetry rows carry no server_ref and only latency bands, so they cannot build a v1 bucket. The source is the selector member probe (`RelayPayloadMemberLatencyProbe`), the one on-device measurement per bundle endpoint with a latency in milliseconds. The server_ref is the member tag, checked against `^[A-Za-z0-9_-]{1,64}$`. A failure before the probe's HTTP stage belongs to the local candidate runtime and is not counted. The probe does not report which remote handshake failed, so a remote failure reports `unknown`; wiring the typed native failure (`nativeFieldFailureStage`) into the candidate measurement is a follow-up.
+- Allow-list and redaction: the report is a positive projection built from typed, pattern-checked values (`buildFieldReport`), so no other field of the probe input can reach it. `DeveloperAnalyticsAllowListFilter` and `DiagnosticsArchiveRedactor` project diagnostics archives and have no fields in common with the report, so they are not reused.
+- Network context: no on-device source gives the ASN without a public IP lookup, and automatic work must not make one (`avoid-public-ip-lookup-in-automatic-diagnostics`); `ConnectionPolicyRuntimeContextAssembler` records the same gap. The schema requires `asn`, so production passes no network context and every completed hour is dropped unsent. Owner decision needed: an offline ASN source, a D1 contract change that makes `asn` optional, or another approved source.
+- Transport: the app UID is excluded from its own VPN, so a socket bound to the VPN network cannot carry the report. The report goes through the tunnel's local SOCKS listener (`ServiceRuntimeHandle.tunnelSocksRoute`, the onboarding validation path) with `OwnedTlsClientFactory`, no redirects and no connection retry. Without a VPN runtime nothing is sent.
+- Persistence and lifecycle: pending hours and request instants live in one fsynced, atomically renamed file under `noBackupFilesDir` (at most 24 hours). Every write re-checks consent under the lock and deletes the file when consent is off. `FieldReportConsentFollower` (app startup) schedules the hourly `FieldReportWorker` while consent is on, and on revocation cancels it and deletes the file. A backup restore clears the consent.
+- Cap and failure: every request counts toward `max_reports_per_day` in the rolling 24 hours, a failed request drops its report, and the worker always returns success so WorkManager never retries.
+
 ## Contracts and ownership
 
 - Writers: single owner for `app_settings.proto`, locale resources, and the vendored contract lane (after R2 and R4).
