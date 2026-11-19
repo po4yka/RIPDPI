@@ -2,7 +2,7 @@
 id: DGN-1795085357320979
 title: Vendor field analytics contracts and unify the failure-stage taxonomy
 kind: feature
-status: review
+status: doing
 area: diagnostics
 priority: high
 owner: Diagnostics engineer
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795085357320979-vendor-field-contracts-failure-stage-taxonomy
 created: 2026-11-19
 updated: 2026-11-19
-status_detail: Canonical client-field-report v1 schema and fixtures are published by ripdpi-vpn-deploy D1 contracts and vendored byte-identical.
+status_detail: Addressing independent review of fd922df2b..HEAD (REQUEST CHANGES)
 ---
 
 ## Goal

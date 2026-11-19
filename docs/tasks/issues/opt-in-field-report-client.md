@@ -2,7 +2,7 @@
 id: DGN-1795085498592630
 title: Send opt-in anonymous aggregated field reports
 kind: feature
-status: review
+status: doing
 area: diagnostics
 priority: high
 owner: Diagnostics engineer
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795085498592630-opt-in-field-report-client
 created: 2026-11-19
 updated: 2026-11-19
-status_detail: Network source amendment implemented; owner Gradle gates, device run, and legal confirmation pending
+status_detail: Addressing independent review of fd922df2b..HEAD (REQUEST CHANGES)
 ---
 
 ## Goal
