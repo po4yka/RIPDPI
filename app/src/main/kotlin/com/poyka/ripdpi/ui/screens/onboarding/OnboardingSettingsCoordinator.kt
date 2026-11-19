@@ -72,11 +72,9 @@ class OnboardingSettingsCoordinator
             persona: String,
             extra: AppSettings.Builder.() -> Unit = {},
         ) {
-            // After a preset no step offers a choice. Only a mode that the test step changed is written, so
-            // the preset keeps its provider, its DNS settings, and its interface.
-            val keepPreset = presetApplied
-            val storedMode = appSettingsRepository.snapshot().ripdpiMode.ifEmpty { Mode.VPN.preferenceValue }
-            if (mode == Mode.Proxy && !(keepPreset && storedMode == mode.preferenceValue)) {
+            // After a preset no step offers a choice, so the preset keeps its mode, provider, DNS, and interface.
+            if (presetApplied) return
+            if (mode == Mode.Proxy) {
                 xrayNativeProviderSelection.selectNativeMode(
                     com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
                     mode,
@@ -85,10 +83,8 @@ class OnboardingSettingsCoordinator
             appSettingsRepository.update {
                 extra()
                 setRipdpiMode(mode.preferenceValue)
-                if (!keepPreset) {
-                    applyOnboardingDnsProvider(dnsProviderId)
-                    setUiPersona(normalizePersona(persona))
-                }
+                applyOnboardingDnsProvider(dnsProviderId)
+                setUiPersona(normalizePersona(persona))
             }
         }
     }

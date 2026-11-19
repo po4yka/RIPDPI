@@ -106,7 +106,13 @@ internal val OnboardingValidationState.isBusy: Boolean
 
 internal fun OnboardingUiState.withValidationState(validationState: OnboardingValidationState): OnboardingUiState =
     copy(
-        validationState = validationState,
+        // A preset holds its mode and provider. A mode switch would drop the provider, so none is offered.
+        validationState =
+            if (presetApplied && validationState is OnboardingValidationState.Failed) {
+                validationState.copy(suggestedMode = null)
+            } else {
+                validationState
+            },
         canFinishAnyway = !validationState.isBusy,
         canFinishKeepingRunning = validationState is OnboardingValidationState.Success,
         canFinishDisconnected = validationState is OnboardingValidationState.Success,

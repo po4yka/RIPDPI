@@ -134,6 +134,34 @@ class OnboardingViewModelTest {
         }
 
     @Test
+    fun `preset flow offers no mode switch after a failed test`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val xrayNativeProviderSelection = RecordingXrayNativeProviderSelection(repository)
+            val runner =
+                FakeOnboardingModeValidationRunner().apply {
+                    result = OnboardingValidationResult.Failed(reason = "No route", suggestedMode = Mode.Proxy)
+                }
+            val vm =
+                createOnboardingViewModel(
+                    repository = repository,
+                    validationRunner = runner,
+                    xrayNativeProviderSelection = xrayNativeProviderSelection,
+                    presetApplied = true,
+                )
+
+            vm.runValidation()
+            advanceUntilIdle()
+            val failed = vm.uiState.value.validationState as OnboardingValidationState.Failed
+            vm.acceptSuggestedMode()
+            advanceUntilIdle()
+
+            assertNull(failed.suggestedMode)
+            assertEquals(Mode.VPN, vm.uiState.value.selectedMode)
+            assertEquals(emptyList<Mode>(), xrayNativeProviderSelection.selectedModes)
+        }
+
+    @Test
     fun `setCurrentPage updates current page`() =
         runTest {
             val vm = createOnboardingViewModel()
