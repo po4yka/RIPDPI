@@ -43,12 +43,14 @@ import com.poyka.ripdpi.ui.components.feedback.LocalRipDpiHandOff
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.BarrierScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.BenchScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.CheckpointScene
+import com.poyka.ripdpi.ui.screens.onboarding.scenes.ConnectScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.Frame
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.IconCenter
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.IconRadius
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.NightScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.Parts
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.Pen
+import com.poyka.ripdpi.ui.screens.onboarding.scenes.ReadyScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.Scene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.SceneColors
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.SceneHeight
@@ -56,6 +58,7 @@ import com.poyka.ripdpi.ui.screens.onboarding.scenes.SceneTextBase
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.SceneWidth
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.SealCenter
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.SealRadius
+import com.poyka.ripdpi.ui.screens.onboarding.scenes.TroubleScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.UnseenScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.WallScene
 import com.poyka.ripdpi.ui.screens.onboarding.scenes.WelcomeScene
@@ -149,20 +152,34 @@ internal fun onboardingSceneState(
     }
 }
 
-/** The scenes of the stage, one for each step in [OnboardingPages], and the time that they share. */
-private class SceneStage {
+/** The scenes of the stage, one for each step in [pages], and the time that they share. */
+private class SceneStage(
+    pages: List<OnboardingPage>,
+) {
     private val parts = Parts(Random(SceneSeed))
     private val scenes: List<Scene> =
-        OnboardingPages.map { page ->
-            when ((page as? OnboardingPage.Setup)?.kind) {
-                null -> UnseenScene(parts)
-                SetupPageKind.Welcome -> WelcomeScene(parts)
-                SetupPageKind.PersonaSelection -> BenchScene(parts)
-                SetupPageKind.ModeSelection -> WallScene(parts)
-                SetupPageKind.DnsSelection -> CheckpointScene(parts)
-                SetupPageKind.BackgroundGuidance -> NightScene(parts)
-                SetupPageKind.ConnectionTest -> BarrierScene(parts, arrival = false)
-                SetupPageKind.Completion -> BarrierScene(parts, arrival = true)
+        pages.map { page ->
+            when (page) {
+                is OnboardingPage.Informational -> {
+                    when (page.kind) {
+                        InfoPageKind.Privacy -> UnseenScene(parts)
+                        InfoPageKind.PresetReady -> ReadyScene(parts)
+                        InfoPageKind.PresetConnect -> ConnectScene(parts)
+                        InfoPageKind.PresetTrouble -> TroubleScene(parts)
+                    }
+                }
+
+                is OnboardingPage.Setup -> {
+                    when (page.kind) {
+                        SetupPageKind.Welcome -> WelcomeScene(parts)
+                        SetupPageKind.PersonaSelection -> BenchScene(parts)
+                        SetupPageKind.ModeSelection -> WallScene(parts)
+                        SetupPageKind.DnsSelection -> CheckpointScene(parts)
+                        SetupPageKind.BackgroundGuidance -> NightScene(parts)
+                        SetupPageKind.ConnectionTest -> BarrierScene(parts, arrival = false)
+                        SetupPageKind.Completion -> BarrierScene(parts, arrival = true)
+                    }
+                }
             }
         }
     private val shown = BooleanArray(scenes.size)
@@ -294,6 +311,7 @@ internal fun OnboardingSceneStage(
     pagePosition: () -> Float,
     sealed: Boolean,
     modifier: Modifier = Modifier,
+    presetApplied: Boolean = false,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
@@ -315,7 +333,7 @@ internal fun OnboardingSceneStage(
                     ),
             )
         }
-    val stage = remember { SceneStage() }
+    val stage = remember(presetApplied) { SceneStage(onboardingPages(presetApplied)) }
     val frames = remember { mutableIntStateOf(0) }
     val currentState by rememberUpdatedState(state)
     if (moves) {

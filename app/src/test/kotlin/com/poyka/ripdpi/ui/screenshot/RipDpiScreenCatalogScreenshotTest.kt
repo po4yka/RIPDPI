@@ -139,6 +139,21 @@ class RipDpiScreenCatalogScreenshotTest {
     }
 
     @Test
+    fun onboardingPresetReadyScreen() {
+        captureOnboardingScreen(OnboardingUiState(currentPage = OnboardingInfoPageCount, presetApplied = true))
+    }
+
+    @Test
+    fun onboardingPresetConnectScreen() {
+        captureOnboardingScreen(OnboardingUiState(currentPage = OnboardingInfoPageCount + 1, presetApplied = true))
+    }
+
+    @Test
+    fun onboardingPresetTroubleScreen() {
+        captureOnboardingScreen(OnboardingUiState(currentPage = OnboardingInfoPageCount + 2, presetApplied = true))
+    }
+
+    @Test
     fun onboardingBackgroundScreen() {
         captureOnboardingScreen(OnboardingUiState(currentPage = OnboardingInfoPageCount + 3))
     }

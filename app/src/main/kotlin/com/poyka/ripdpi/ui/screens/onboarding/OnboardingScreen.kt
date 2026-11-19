@@ -376,6 +376,7 @@ private fun OnboardingPinnedBadge(
         val dns = onboardingDnsName(uiState.selectedDnsProviderId)
         OnboardingSceneStage(
             state = onboardingSceneState(uiState, dns, statesTest),
+            presetApplied = uiState.presetApplied,
             pagePosition = pagePosition,
             sealed = step == OnboardingCompletionPageIndex,
             modifier = modifier,
@@ -807,7 +808,7 @@ private fun OnboardingInfoPageScene(
         )
     }
     val grid = @Composable { gridModifier: Modifier ->
-        if (pageModel.guarantees) {
+        if (pageModel.kind == InfoPageKind.Privacy) {
             OnboardingGuaranteeGrid(
                 privacyLabels =
                     listOf(

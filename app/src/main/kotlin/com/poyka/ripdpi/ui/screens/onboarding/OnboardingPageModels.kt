@@ -12,11 +12,10 @@ internal sealed interface OnboardingPage {
 
     data class Informational(
         override val icon: ImageVector,
+        val kind: InfoPageKind,
         @param:StringRes override val titleRes: Int,
         @param:StringRes val descriptionRes: Int,
         @param:StringRes override val buttonLabelRes: Int,
-        /** The privacy and on-device guarantee lists under the header. */
-        val guarantees: Boolean = false,
     ) : OnboardingPage
 
     data class Setup(
@@ -26,6 +25,14 @@ internal sealed interface OnboardingPage {
         @param:StringRes override val buttonLabelRes: Int,
         @param:StringRes val descriptionRes: Int? = null,
     ) : OnboardingPage
+}
+
+/** The scene of an informational step. The privacy step also has the guarantee lists under its header. */
+internal enum class InfoPageKind {
+    Privacy,
+    PresetReady,
+    PresetConnect,
+    PresetTrouble,
 }
 
 internal enum class SetupPageKind {
@@ -50,10 +57,10 @@ internal val OnboardingPages: List<OnboardingPage> =
         ),
         OnboardingPage.Informational(
             icon = RipDpiIcons.Shield,
+            kind = InfoPageKind.Privacy,
             titleRes = R.string.onboarding_local_first_title,
             descriptionRes = R.string.onboarding_local_first_body,
             buttonLabelRes = R.string.onboarding_continue,
-            guarantees = true,
         ),
         // -- Setup wizard pages --
         OnboardingPage.Setup(
@@ -98,21 +105,39 @@ internal val OnboardingPages: List<OnboardingPage> =
 
 /**
  * A packaged preset already made the three choices, so each choice step explains the app instead. The list
- * keeps its length, its order, and its icons, so the step indexes, the badge, and the scenes serve both lists.
+ * keeps its length, its order, and its icons, so the step indexes and the badge serve both lists.
  */
 private val PresetOnboardingPages: List<OnboardingPage> =
     OnboardingPages.map { page ->
         when ((page as? OnboardingPage.Setup)?.kind) {
             SetupPageKind.PersonaSelection -> {
-                presetPage(page.icon, R.string.onboarding_preset_ready_title, R.string.onboarding_preset_ready_body)
+                OnboardingPage.Informational(
+                    icon = page.icon,
+                    kind = InfoPageKind.PresetReady,
+                    titleRes = R.string.onboarding_preset_ready_title,
+                    descriptionRes = R.string.onboarding_preset_ready_body,
+                    buttonLabelRes = R.string.onboarding_continue,
+                )
             }
 
             SetupPageKind.ModeSelection -> {
-                presetPage(page.icon, R.string.onboarding_preset_connect_title, R.string.onboarding_preset_connect_body)
+                OnboardingPage.Informational(
+                    icon = page.icon,
+                    kind = InfoPageKind.PresetConnect,
+                    titleRes = R.string.onboarding_preset_connect_title,
+                    descriptionRes = R.string.onboarding_preset_connect_body,
+                    buttonLabelRes = R.string.onboarding_continue,
+                )
             }
 
             SetupPageKind.DnsSelection -> {
-                presetPage(page.icon, R.string.onboarding_preset_trouble_title, R.string.onboarding_preset_trouble_body)
+                OnboardingPage.Informational(
+                    icon = page.icon,
+                    kind = InfoPageKind.PresetTrouble,
+                    titleRes = R.string.onboarding_preset_trouble_title,
+                    descriptionRes = R.string.onboarding_preset_trouble_body,
+                    buttonLabelRes = R.string.onboarding_continue,
+                )
             }
 
             else -> {
@@ -120,12 +145,6 @@ private val PresetOnboardingPages: List<OnboardingPage> =
             }
         }
     }
-
-private fun presetPage(
-    icon: ImageVector,
-    @StringRes titleRes: Int,
-    @StringRes descriptionRes: Int,
-) = OnboardingPage.Informational(icon, titleRes, descriptionRes, R.string.onboarding_continue)
 
 internal fun onboardingPages(presetApplied: Boolean): List<OnboardingPage> =
     if (presetApplied) PresetOnboardingPages else OnboardingPages
