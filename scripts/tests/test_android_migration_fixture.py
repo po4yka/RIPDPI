@@ -44,7 +44,7 @@ class AndroidMigrationFixtureTest(unittest.TestCase):
         def factory(port, token):
             self.payloads = tuple(json.dumps({
                 "outbounds": [{"type": "direct", "tag": f"revision-{revision}"}],
-                "ripdpi": {"schema_version": 2, "subscription_mirrors": [{
+                "ripdpi": {"schema_version": 3, "subscription_mirrors": [{
                     "id": "owned", "url": f"https://fixture.test:{port}/mirror",
                     "token": token, "transport": "direct",
                 }]},
@@ -170,7 +170,8 @@ class AndroidMigrationFixtureTest(unittest.TestCase):
 
     def test_schema_and_size_admission(self):
         for value in (b"{}", b"[]", b'{"ripdpi":{"schema_version":true}}',
-                      b'{"ripdpi":{"schema_version":2.0}}', b" " * (MODULE.MAX_PAYLOAD + 1)):
+                      b'{"ripdpi":{"schema_version":3.0}}', b'{"ripdpi":{"schema_version":2}}',
+                      b" " * (MODULE.MAX_PAYLOAD + 1)):
             with self.subTest(value=value[:60]):
                 with self.assertRaises(ValueError):
                     MODULE.admitted_payload(value)

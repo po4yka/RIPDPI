@@ -118,7 +118,7 @@ abstract class SubscriptionRefreshTestSupport {
             {"type":"shadowsocks","tag":"Fresh","server":"fresh.example","server_port":443,
              "method":"aes-256-gcm","password":"fixture"}
           ],
-          "ripdpi": {"schema_version":2,"amneziawg":[],"hysteria_extras":{},"expires":"2026-12-31T23:59:59Z"}
+          "ripdpi": {"schema_version":3,"amneziawg":[],"hysteria_extras":{},"expires":"2026-12-31T23:59:59Z"}
         }
         """.trimIndent()
 }

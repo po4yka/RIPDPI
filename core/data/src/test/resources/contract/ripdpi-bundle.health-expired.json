@@ -1,0 +1,169 @@
+{
+  "_comment": "Expiry case for endpoint health. Evaluate with the clock at _evaluated_at: every health.observed_at plus ttl_seconds is earlier, so the client MUST treat each endpoint as unknown whatever its status says. The schema accepts the document; expiry is a client rule (docs/reference/ripdpi-bundle.md, ripdpi.endpoints).",
+  "log": {
+    "level": "warn"
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "cloudflare",
+        "address": "1.1.1.1"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "stack": "system"
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "p0-reality-upcloud-prod",
+      "server": "203.0.113.7",
+      "server_port": 443,
+      "uuid": "12345678-1234-4234-8234-123456789abc",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "mirror.example.com",
+        "reality": {
+          "enabled": true,
+          "public_key": "EXAMPLErealityPublicKeyBase64xxxxxxxxxxxxx",
+          "short_id": "aabbccdd"
+        },
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "p2-hysteria2-upcloud-prod",
+      "server": "203.0.113.7",
+      "server_port": 443,
+      "password": "EXAMPLEhysteriaClientPassword"
+    },
+    {
+      "type": "selector",
+      "tag": "select",
+      "outbounds": [
+        "p0-reality-upcloud-prod",
+        "p2-hysteria2-upcloud-prod"
+      ]
+    },
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": [
+        "p0-reality-upcloud-prod",
+        "p2-hysteria2-upcloud-prod"
+      ]
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff"
+      }
+    ],
+    "final": "select"
+  },
+  "ripdpi": {
+    "schema_version": 3,
+    "amneziawg": [
+      {
+        "tag": "p2-awg-phone",
+        "address": [
+          "10.66.66.2/32",
+          "fd42:42:42::2/128"
+        ],
+        "dns": [
+          "1.1.1.1",
+          "1.0.0.1"
+        ],
+        "mtu": 1420,
+        "jc": 3,
+        "jmin": 20,
+        "jmax": 50,
+        "s1": 10,
+        "s2": 20,
+        "h1": "1000-1999",
+        "h2": "2000-2999",
+        "h3": "3000-3999",
+        "h4": "4000-4999",
+        "i1": "<b 0xdeadbeef><r 4><rd 2><rc 2><t>",
+        "i3": "<b 0xcafebabe>",
+        "cohort_fingerprint": "sha256:51912e328885b16e0c4053a7ed93f786996b98c75a4d4a151de370d08b5db57d",
+        "private_key_placeholder": true,
+        "peer": {
+          "public_key": "ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=",
+          "preshared_key": "ISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISE=",
+          "endpoint": "203.0.113.7:51820",
+          "allowed_ips": [
+            "0.0.0.0/0",
+            "::/0"
+          ],
+          "persistent_keepalive": 25
+        },
+        "wire_profile": "awg-3.1-ranges-v1"
+      }
+    ],
+    "hysteria_extras": {
+      "p2-hysteria2-upcloud-prod": {
+        "insecure": false,
+        "obfs": {
+          "type": "salamander",
+          "password": "EXAMPLEsalamanderPassword"
+        },
+        "salamander_upstream_tag": "v2.9.0",
+        "port_hopping": {
+          "ports": "20000:50000",
+          "interval": "30s"
+        }
+      }
+    },
+    "topology": {
+      "split_hop_egress": true,
+      "hysteria_realm": "realm-a"
+    },
+    "expires": "2026-12-31T23:59:59Z",
+    "endpoints": {
+      "p0-reality-upcloud-prod": {
+        "health": {
+          "status": "healthy",
+          "observed_at": "2026-11-19T11:00:00Z",
+          "ttl_seconds": 600
+        }
+      },
+      "p2-hysteria2-upcloud-prod": {
+        "health": {
+          "status": "degraded",
+          "observed_at": "2026-11-19T11:00:00Z",
+          "ttl_seconds": 600
+        }
+      },
+      "p2-awg-phone": {
+        "health": {
+          "status": "down",
+          "observed_at": "2026-11-19T11:00:00Z",
+          "ttl_seconds": 600
+        }
+      }
+    },
+    "field_report": {
+      "endpoint": "https://reports.example.test/v1/field-report",
+      "cohort_token": "EXAMPLE-cohort-token-not-real",
+      "max_reports_per_day": 4
+    }
+  },
+  "_evaluated_at": "2026-11-19T12:00:00Z",
+  "_expected_effective_status": {
+    "p0-reality-upcloud-prod": "unknown",
+    "p2-hysteria2-upcloud-prod": "unknown",
+    "p2-awg-phone": "unknown"
+  }
+}

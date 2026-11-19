@@ -1,0 +1,13 @@
+{
+  "outbounds": [],
+  "ripdpi": {
+    "schema_version": 3,
+    "amneziawg": [],
+    "hysteria_extras": {},
+    "field_report": {
+      "endpoint": "http://reports.example.test/v1/field-report",
+      "cohort_token": "EXAMPLE-cohort-token-not-real",
+      "max_reports_per_day": 4
+    }
+  }
+}

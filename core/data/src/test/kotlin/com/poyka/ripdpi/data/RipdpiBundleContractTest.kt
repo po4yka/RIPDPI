@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.subscription.EndpointHealth
+import com.poyka.ripdpi.data.subscription.EndpointHealthStatus
+import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
+import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
+import com.poyka.ripdpi.data.subscription.SingBoxBundleErrorCode
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
@@ -19,6 +24,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.time.Instant
 
 /**
  * Client half of the cross-repo bundle contract test. The server repo
@@ -155,6 +161,25 @@ class RipdpiBundleContractTest {
         assertEquals(false, result.topology!!.splitHopEgress)
         assertEquals(null, result.topology!!.hysteriaRealm)
         assertEquals(1_798_761_599_000L, result.tokenExpiresAtEpochMillis)
+
+        // Per-endpoint health keyed by server_ref, and the field-report block.
+        assertEquals(
+            mapOf(
+                "p2-awg-phone" to
+                    EndpointHealth(
+                        EndpointHealthStatus.HEALTHY,
+                        epochMillis("2026-11-19T10:00:00Z"),
+                        900,
+                    ),
+                "p2-hysteria2-upcloud-prod" to
+                    EndpointHealth(EndpointHealthStatus.DEGRADED, epochMillis("2026-11-19T10:00:00Z"), 900),
+            ),
+            result.endpointHealth,
+        )
+        val fieldReport = requireNotNull(result.fieldReport)
+        assertEquals("https://reports.example.test/v1/field-report", fieldReport.endpoint)
+        assertEquals("EXAMPLE-cohort-token-not-real", fieldReport.cohortToken)
+        assertEquals(4, fieldReport.maxReportsPerDay)
     }
 
     // -------------------------------------------------------------------------
@@ -193,6 +218,54 @@ class RipdpiBundleContractTest {
         assertEquals(true, result.topology!!.splitHopEgress)
         assertEquals("realm-a", result.topology!!.hysteriaRealm)
         assertEquals(1_798_761_599_000L, result.tokenExpiresAtEpochMillis)
+
+        // Health for every proxy and AWG tag, plus the field-report block.
+        val observedAt = epochMillis("2026-11-19T10:00:00Z")
+        assertEquals(
+            mapOf(
+                "p0-reality-upcloud-prod" to EndpointHealth(EndpointHealthStatus.HEALTHY, observedAt, 900),
+                "p2-hysteria2-upcloud-prod" to EndpointHealth(EndpointHealthStatus.DOWN, observedAt, 900),
+                "p2-awg-phone" to EndpointHealth(EndpointHealthStatus.UNKNOWN, observedAt, 900),
+            ),
+            result.endpointHealth,
+        )
+        assertEquals(4, result.fieldReport?.maxReportsPerDay)
+    }
+
+    // -------------------------------------------------------------------------
+    // Health-driven failover ordering on the vendored bundles. Unexpired down is
+    // excluded; once observed_at + ttl_seconds has passed, the same endpoint is
+    // neutral again and keeps its declared position.
+    // -------------------------------------------------------------------------
+    @Test
+    fun `unexpired down endpoint is excluded from the golden-full selector`() {
+        assertEquals(
+            listOf("p0-reality-upcloud-prod"),
+            selectorMembers(GOLDEN_FULL, epochMillis("2026-11-19T10:05:00Z")),
+        )
+    }
+
+    @Test
+    fun `expired down endpoint returns to its neutral position`() {
+        assertEquals(
+            listOf("p0-reality-upcloud-prod", "p2-hysteria2-upcloud-prod"),
+            selectorMembers(GOLDEN_FULL, epochMillis("2026-11-19T10:15:00Z")),
+        )
+    }
+
+    @Test
+    fun `health-expired bundle is neutral at its evaluation time`() {
+        val document = json.parseToJsonElement(resource(HEALTH_EXPIRED)).jsonObject
+        val evaluatedAt = epochMillis(document["_evaluated_at"]!!.jsonPrimitive.content)
+        val health =
+            (SingBoxSubscriptionParser.parse(resource(HEALTH_EXPIRED), "expired") as SingBoxParseResult.Success)
+                .endpointHealth
+        assertTrue(health.isNotEmpty())
+        health.values.forEach { assertEquals(EndpointHealthStatus.UNKNOWN, it.statusAt(evaluatedAt)) }
+        assertEquals(
+            listOf("p0-reality-upcloud-prod", "p2-hysteria2-upcloud-prod"),
+            selectorMembers(HEALTH_EXPIRED, evaluatedAt),
+        )
     }
 
     @Test
@@ -231,19 +304,51 @@ class RipdpiBundleContractTest {
 
         for (f in files) {
             val result = SingBoxSubscriptionParser.parse(f.readText(), "neg")
-            if (f.name in setOf("neg-schema-version-3.json", "neg-missing-schema-version.json")) {
-                assertTrue("${f.name}: expected recognized refusal", result is SingBoxParseResult.Error)
-                assertTrue((result as SingBoxParseResult.Error).recognizedBundle)
-            } else {
-                assertTrue("${f.name}: expected Success but got $result", result is SingBoxParseResult.Success)
-                if (f.name in
-                    setOf("neg-peer-missing-public-key.json", "neg-awg-missing-h1.json", "neg-awg-unknown-field.json")
-                ) {
-                    assertTrue((result as SingBoxParseResult.Success).amneziaWgProfiles.isEmpty())
+            when (f.name) {
+                "neg-schema-version-2.json", "neg-missing-schema-version.json" -> {
+                    assertTrue("${f.name}: expected recognized refusal", result is SingBoxParseResult.Error)
+                    result as SingBoxParseResult.Error
+                    assertTrue(result.recognizedBundle)
+                    assertEquals(SingBoxBundleErrorCode.UNSUPPORTED_SCHEMA_VERSION, result.code)
+                }
+
+                "neg-field-report-http-endpoint.json" -> {
+                    assertTrue("${f.name}: expected refusal", result is SingBoxParseResult.Error)
+                    result as SingBoxParseResult.Error
+                    assertEquals(SingBoxBundleErrorCode.INVALID_FIELD_REPORT, result.code)
+                    assertTrue(result.message.contains("field_report.endpoint"))
+                }
+
+                else -> {
+                    assertTrue("${f.name}: expected Success but got $result", result is SingBoxParseResult.Success)
+                    result as SingBoxParseResult.Success
+                    if (f.name in
+                        setOf(
+                            "neg-peer-missing-public-key.json",
+                            "neg-awg-missing-h1.json",
+                            "neg-awg-unknown-field.json",
+                        )
+                    ) {
+                        assertTrue(result.amneziaWgProfiles.isEmpty())
+                    }
+                    if (f.name in setOf("neg-health-unknown-status.json", "neg-endpoint-ref-hostname.json")) {
+                        assertTrue("${f.name}: invalid health must stay neutral", result.endpointHealth.isEmpty())
+                    }
                 }
             }
         }
     }
+
+    private fun selectorMembers(
+        path: String,
+        nowEpochMillis: Long,
+    ): List<String> {
+        val imported = SelectorUrltestGroupImport.import(resource(path), "health", nowEpochMillis)
+        assertTrue("expected Success but got $imported", imported is SelectorUrltestImportResult.Success)
+        return requireNotNull((imported as SelectorUrltestImportResult.Success).group).members.map { it.displayName }
+    }
+
+    private fun epochMillis(instant: String): Long = Instant.parse(instant).toEpochMilli()
 
     private fun paramsFrom(obj: JsonObject): AmneziaWgParameters =
         AmneziaWgParameters(
@@ -268,6 +373,7 @@ class RipdpiBundleContractTest {
         const val EXAMPLE = "/contract/ripdpi-bundle.example.json"
         const val GOLDEN = "/contract/cohort-fingerprint.golden.json"
         const val GOLDEN_FULL = "/contract/ripdpi-bundle.golden-full.json"
+        const val HEALTH_EXPIRED = "/contract/ripdpi-bundle.health-expired.json"
         const val AWG_ARM64_FLOOR = "/contract/amneziawg-arm64-version-floor.json"
         const val NEGATIVE_DIR = "/contract/negative"
     }

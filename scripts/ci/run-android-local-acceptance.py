@@ -355,7 +355,7 @@ def migration_payloads(
             outbound("reserve", reserve),
         ],
         "ripdpi": {
-            "schema_version": 2,
+            "schema_version": 3,
             "subscription_mirrors": [
                 {
                     "id": "independent",

@@ -9,7 +9,7 @@
     }
   ],
   "ripdpi": {
-    "schema_version": 2,
+    "schema_version": 3,
     "amneziawg": [],
     "hysteria_extras": {
       "hy2-main": {

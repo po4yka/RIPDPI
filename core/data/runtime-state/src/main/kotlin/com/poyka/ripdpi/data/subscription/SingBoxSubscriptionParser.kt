@@ -56,6 +56,10 @@ sealed interface SingBoxParseResult {
         val subscriptionMirrors: SubscriptionMirrorSet? = null,
         val cloudflareMemberIds: Set<String>? = null,
         val migration: MigrationMetadata? = null,
+        /** Server-observed health from `ripdpi.endpoints`, keyed by server_ref (an outbound or AWG tag). */
+        val endpointHealth: Map<String, EndpointHealth> = emptyMap(),
+        /** Opt-in field-report upload configuration from `ripdpi.field_report`, or `null` when absent. */
+        val fieldReport: RipdpiFieldReport? = null,
     ) : SingBoxParseResult
 
     /** Parsing failed; [message] carries a human-readable, location-aware reason. */
@@ -63,6 +67,8 @@ sealed interface SingBoxParseResult {
         val message: String,
         /** A recognized bundle cannot silently downgrade through another subscription parser. */
         val recognizedBundle: Boolean = false,
+        /** Typed cause for a rejected `ripdpi` contract; `null` for other parse failures. */
+        val code: SingBoxBundleErrorCode? = null,
     ) : SingBoxParseResult
 }
 
@@ -122,11 +128,12 @@ object SingBoxSubscriptionParser {
     val NON_PROFILE_OUTBOUND_TYPES: Set<String> = setOf("selector", "urltest", "direct", "block", "dns")
 
     /**
-     * The only supported bundle version. Version 2 requires the named AWG wire
-     * profile and canonical string headers. It changes with the server contract. Must equal `x-contract-version` in
-     * `contract/ripdpi-bundle.schema.json` — `RipdpiBundleContractTest` pins it.
+     * The only supported bundle version. Version 3 requires the named AWG wire
+     * profile and canonical string headers and adds per-endpoint health and the
+     * field-report block; other versions, including 2, are rejected. It changes with the server contract. Must equal
+     * `x-contract-version` in `contract/ripdpi-bundle.schema.json` — `RipdpiBundleContractTest` pins it.
      */
-    const val RIPDPI_SCHEMA_VERSION: Int = 2
+    const val RIPDPI_SCHEMA_VERSION: Int = 3
 
     /**
      * Parses [payload] into a [SingBoxParseResult]. Every produced
@@ -180,10 +187,7 @@ object SingBoxSubscriptionParser {
         groupId: String,
     ): SingBoxParseResult {
         if (rootElement is JsonObject && "ripdpi" in rootElement) {
-            val extension = rootElement["ripdpi"] as? JsonObject
-            require(extension?.get("schema_version") == JsonPrimitive(RIPDPI_SCHEMA_VERSION)) {
-                "Unsupported RIPDPI bundle schema version"
-            }
+            ripdpiContractError(rootElement["ripdpi"] as? JsonObject)?.let { return it }
         }
         val routeResult =
             if (rootElement is JsonObject) {
@@ -241,6 +245,8 @@ object SingBoxSubscriptionParser {
                     skipped = skipped + ripdpi.skipped,
                     subscriptionMirrors = ripdpi.subscriptionMirrors,
                     cloudflareMemberIds = ripdpi.cloudflareMemberIds,
+                    endpointHealth = ripdpi.endpointHealth,
+                    fieldReport = ripdpi.fieldReport,
                     migration =
                         parseMigrationMetadata(
                             rootElement,
@@ -642,6 +648,8 @@ private data class RipdpiBlockResult(
     val tokenExpiresAtEpochMillis: Long? = null,
     val subscriptionMirrors: SubscriptionMirrorSet? = null,
     val cloudflareMemberIds: Set<String>? = null,
+    val endpointHealth: Map<String, EndpointHealth> = emptyMap(),
+    val fieldReport: RipdpiFieldReport? = null,
 )
 
 /**
@@ -678,6 +686,8 @@ private fun processRipdpiBlock(
         tokenExpiresAtEpochMillis = parseRipdpiExpiry(versioned.string("expires")),
         subscriptionMirrors = mirrors,
         cloudflareMemberIds = parseCloudflareMemberIds(versioned, patchedProfiles),
+        endpointHealth = parseEndpointHealth(versioned["endpoints"] as? JsonObject),
+        fieldReport = parseFieldReport(versioned["field_report"] as? JsonObject),
     )
 }
 

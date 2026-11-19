@@ -3,6 +3,9 @@
   "ripdpi": {
     "schema_version": 3,
     "amneziawg": [],
-    "hysteria_extras": {}
+    "hysteria_extras": {},
+    "some_future_field": {
+      "anything": 1
+    }
   }
 }

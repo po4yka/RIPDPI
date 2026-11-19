@@ -1,0 +1,17 @@
+{
+  "outbounds": [],
+  "ripdpi": {
+    "schema_version": 3,
+    "amneziawg": [],
+    "hysteria_extras": {},
+    "endpoints": {
+      "p0-reality": {
+        "health": {
+          "status": "blocked",
+          "observed_at": "2026-11-19T10:00:00Z",
+          "ttl_seconds": 900
+        }
+      }
+    }
+  }
+}
