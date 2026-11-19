@@ -515,6 +515,27 @@ class SelectorUrltestProberTest {
         }
 
     @Test
+    fun `a neutral member wins a latency tie with a degraded member declared first`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            val group =
+                selectorTestGroup(listOf(selectorTestMember("degraded"), selectorTestMember("neutral"))).copy(
+                    memberHealth = mapOf("degraded" to EndpointHealth(EndpointHealthStatus.DEGRADED, 1_000_000L, 60)),
+                )
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    FixedMemberLatencyProbe(mapOf("degraded" to 100L, "neutral" to 100L)),
+                    SelectorProbeScopeProvider { selectorTestScope(it) },
+                    wallClockMillis = { 1_000_000L },
+                )
+
+            prober.runProbePass(group, "https://probe", toleranceMs = 50)
+
+            assertEquals("neutral", store.selectedProfileId("g").value)
+        }
+
+    @Test
     fun `the run loop probes on each interval`() =
         runTest {
             val store = ProbeTestSelectionStore()
