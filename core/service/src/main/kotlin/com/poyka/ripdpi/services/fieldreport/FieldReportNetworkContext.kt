@@ -51,7 +51,6 @@ private const val MaxStartJitterMillis = 30_000L
 private const val JitterDivisor = 4L
 
 private val HintKeys = setOf("schema_version", "asn", "country", "observed_at", "ttl_seconds")
-private val HintCountryPattern = Regex("[A-Z]{2}")
 private val HintObservedAtPattern =
     Regex("[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):00:00Z")
 
@@ -93,7 +92,7 @@ internal fun parseNetworkHint(
             ?.takeIf { it.keys == HintKeys && it.integer("schema_version") == HintSchemaVersion }
             ?: return null
     val asn = hint.integer("asn")?.takeIf { it in 1..MaxHintAsn }
-    val country = hint.text("country")?.takeIf(HintCountryPattern::matches)
+    val country = hint.text("country")?.takeIf(CountryPattern::matches)
     val ttl = hint.integer("ttl_seconds")?.takeIf { it in MinHintTtlSeconds..MaxHintTtlSeconds }
     val observedAt =
         hint
