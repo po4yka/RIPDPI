@@ -1,9 +1,9 @@
 ---
 task_id: DGN-1795014097920678
 change: paired-network-availability
-commit_sha: f0c265575
+commit_sha: fbf450077
 local: passed
-local_evidence: On f0c265575 (macOS) with -Pripdpi.skipNativeBuild=true, :core:diagnostics:testDebugUnitTest (1843 tests), :core:diagnostics-data:testDebugUnitTest (104 tests) and :app:testGithubDebugUnitTest (3774 tests) passed with 0 failures; :app:lintGithubDebug and :core:service:lintDebug passed; just ci-gates passed (architecture health, LoC and hotspot budgets, contracts, locale parity, translation export, Rust API snapshots).
+local_evidence: On fbf450077 (rebased on 6f7ee46b1, macOS) with -Pripdpi.skipNativeBuild=true, staticAnalysis --continue passed; :core:diagnostics:testDebugUnitTest (1843 tests), :core:diagnostics-data:testDebugUnitTest (104 tests) and :app:testGithubDebugUnitTest (3774 tests) passed with 0 failures; :app:lintGithubDebug and :core:service:lintDebug passed; just ci-gates passed (architecture health, LoC and hotspot budgets, contracts, locale parity, translation export, Rust API snapshots).
 remote_ci: required
 remote_ci_evidence: null
 device: required
