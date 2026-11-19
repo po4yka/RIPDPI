@@ -312,6 +312,7 @@ ci-gates:
     python3 scripts/ci/check_file_loc_limits.py
     python3 scripts/ci/check_native_hotspot_budgets.py
     python3 scripts/ci/check_cross_language_runtime_contracts.py
+    python3 scripts/ci/check_vendored_deploy_contracts.py
     python3 scripts/ci/check_protocol_fixture_versions.py
     python3 scripts/ci/verify_diagnostics_boundary.py
     python3 scripts/ci/kaspresso_route_coverage.py
