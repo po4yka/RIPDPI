@@ -18,8 +18,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * The pending hourly aggregates and the upload history, in one app-private file outside backups. Every write
- * re-checks the consent under the lock, so a write that races a revocation deletes the file instead of keeping it.
+ * The pending hourly aggregates and the upload history, in one app-private file outside backups. Probes count into
+ * an in-memory copy that is flushed at most every [FlushIntervalMillis]; [update] and [clear] write through at once.
+ * Every write re-checks the consent under the lock, so a write that races a revocation deletes the file instead of
+ * keeping it. A crash loses at most one flush interval of counts, which only lowers them.
  */
 @Singleton
 class FieldReportLedger(
@@ -44,9 +46,13 @@ class FieldReportLedger(
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
 
+    /** The current state once read from [file]; null until the first access. Guarded by [mutex]. */
+    private var cached: FieldReportState? = null
+    private var flushedAt: Long? = null
+
     /**
      * Counts one member probe of [profile] while consent is on, in the hour of the current network; a probe that
-     * never reached the server is ignored.
+     * never reached the server is ignored. Without consent, nothing else runs, not even the network lookup.
      */
     suspend fun recordProbe(
         profile: ProxyProfile,
@@ -54,34 +60,58 @@ class FieldReportLedger(
         elapsedMillis: Long,
     ) {
         val attempt = fieldReportAttempt(profile, measured, elapsedMillis) ?: return
+        if (!consent()) return
         val measuredOn = network()
-        update { state -> state.record(attempt, measuredOn, clock()) }
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                val now = clock()
+                cached = current().record(attempt, measuredOn, now)
+                if (flushedAt.let { it == null || now - it >= FlushIntervalMillis }) persist(now)
+            }
+        }
     }
 
     /** Deletes every pending aggregate and the upload history. */
     suspend fun clear() =
         mutex.withLock {
             withContext(Dispatchers.IO) {
+                cached = FieldReportState()
                 if (file.exists() && !file.delete()) log.w { "field report store delete failed" }
             }
         }
 
     internal suspend fun snapshot(): FieldReportState =
         mutex.withLock {
-            withContext(Dispatchers.IO) { read().pruned(clock()) }
+            withContext(Dispatchers.IO) { current().pruned(clock()) }
         }
 
+    /** Applies [transform] and writes the result through at once. */
     internal suspend fun update(transform: (FieldReportState) -> FieldReportState) =
         mutex.withLock {
             withContext(Dispatchers.IO) {
-                try {
-                    if (consent()) write(transform(read()).pruned(clock())) else file.delete()
-                } catch (error: IOException) {
-                    // Losing an aggregate only lowers the counts; it must never fail the probe or the upload run.
-                    log.w { "field report store write failed: ${error.javaClass.simpleName}" }
-                }
+                cached = transform(current())
+                persist(clock())
             }
         }
+
+    private fun current(): FieldReportState = cached ?: read().also { cached = it }
+
+    private suspend fun persist(now: Long) {
+        try {
+            if (consent()) {
+                val state = current().pruned(now)
+                write(state)
+                cached = state
+            } else {
+                cached = FieldReportState()
+                file.delete()
+            }
+            flushedAt = now
+        } catch (error: IOException) {
+            // Losing an aggregate only lowers the counts; it must never fail the probe or the upload run.
+            log.w { "field report store write failed: ${error.javaClass.simpleName}" }
+        }
+    }
 
     private fun read(): FieldReportState =
         try {
@@ -113,3 +143,6 @@ class FieldReportLedger(
         if (!temporary.renameTo(file)) throw IOException("rename failed")
     }
 }
+
+/** The longest a counted probe waits in memory before it is written to the file. */
+internal const val FlushIntervalMillis = 5 * 60_000L

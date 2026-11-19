@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.subscription
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ProfileQualityReason
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.mapRelayProfile
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
 import com.poyka.ripdpi.services.CandidateRelayPayloadProbe
 import com.poyka.ripdpi.services.fieldreport.FieldReportLedger
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,7 +47,17 @@ class RelayPayloadMemberLatencyProbe
                         )
                     }
                 }
-            fieldReports.recordProbe(profile, measured, (System.nanoTime() - startedNanos) / NanosPerMilli)
+            val elapsedMillis = (System.nanoTime() - startedNanos) / NanosPerMilli
+            // An opt-in count must never fail the selector probe that it observes.
+            try {
+                fieldReports.recordProbe(profile, measured, elapsedMillis)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (
+                @Suppress("TooGenericExceptionCaught") ignored: Exception,
+            ) {
+                Logger.withTag("field-report").w { "field report count failed: ${ignored.javaClass.simpleName}" }
+            }
             return when (measured) {
                 is CandidateRelayMeasurement.Succeeded -> {
                     MemberProbeResult(measured.latencyMillis, measured.quality)
