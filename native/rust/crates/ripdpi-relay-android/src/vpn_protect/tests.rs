@@ -93,7 +93,7 @@ fn registered_relay_callback_survives_stale_unregister_and_fails_closed_after_re
     let stale = register_vpn_protect(vm, callback().vpn_service);
     let current = register_vpn_protect(vm, callback().vpn_service);
     unregister_entry(stale);
-    let runtime = tokio::runtime::Builder::new_current_thread().build().expect("runtime");
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_time().build().expect("runtime");
     let policy = SocketProtectionPolicy::VpnRequired;
     let addresses = runtime.block_on(policy.resolve_host("relay.invalid", 443)).expect("registered resolver");
     assert_eq!(addresses, vec!["203.0.113.7:443".parse().unwrap(), "[2001:db8::7]:443".parse().unwrap()]);
