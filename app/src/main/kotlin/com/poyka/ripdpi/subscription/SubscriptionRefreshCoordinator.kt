@@ -560,8 +560,8 @@ class SubscriptionRefreshCoordinator private constructor(
                     cloudflareMemberIds = selector.cloudflareMemberIds,
                     isSelector = selector.group != null,
                     initialMemberId = selector.group?.initialMemberId,
-                    memberHealth = selector.group?.memberHealth.orEmpty(),
-                    fieldReport = selector.group?.fieldReport,
+                    memberHealth = selector.memberHealth,
+                    fieldReport = selector.fieldReport,
                     tokenExpiresAtEpochMillis = singBox?.tokenExpiresAtEpochMillis,
                     packageRoutingRules = singBox?.packageRoutingRules.orEmpty(),
                 )
