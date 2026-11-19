@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-19
+goal: DAT-1795085420746769 Consume ripdpi-bundle v3 and feed endpoint health
+  into failover
