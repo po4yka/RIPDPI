@@ -54,6 +54,8 @@ sealed interface OnboardingValidationState {
 data class OnboardingUiState(
     val currentPage: Int = 0,
     val totalPages: Int = DefaultOnboardingPageCount,
+    // A packaged preset made the choices: the steps come from the preset page list.
+    val presetApplied: Boolean = false,
     val selectedMode: Mode = Mode.VPN,
     val selectedPersona: String = "simple",
     val selectedDnsProviderId: String = OnboardingDnsSystemId,

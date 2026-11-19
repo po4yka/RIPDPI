@@ -5,6 +5,12 @@
     <string name="biometric_prompt_pin_label">PIN de respaldo</string>
     <string name="biometric_prompt_title">Desbloquear RIPDPI</string>
     <string name="onboarding_local_first_body">Todo se ejecuta en tu dispositivo.</string>
+    <string name="onboarding_preset_ready_title">Lista para usar</string>
+    <string name="onboarding_preset_ready_body">Esta app ya incluye servidores, reglas y ajustes. Puedes cambiarlos más tarde en las pestañas «Conexión» y «Ajustes».</string>
+    <string name="onboarding_preset_connect_title">Cómo conectarte</string>
+    <string name="onboarding_preset_connect_body">Toca «Conectar» en la pestaña «Estado». Android puede pedir permiso para crear una VPN local. Toca el botón otra vez para desconectarte.</string>
+    <string name="onboarding_preset_trouble_title">Si no funciona</string>
+    <string name="onboarding_preset_trouble_body">Abre la pestaña «Diagnóstico» e inicia un análisis. Muestra dónde falla la conexión. Puedes compartir el informe con la persona que te dio esta app.</string>
     <string name="onboarding_setup_finish">Finalizar</string>
     <string name="permissions_background_activity_body_huawei">Los dispositivos Huawei pueden detener RIPDPI en segundo plano. Ve a Ajustes &gt; Batería &gt; Inicio de apps, busca RIPDPI, desactiva la gestión automática y activa Inicio automático, Inicio secundario y Ejecutar en segundo plano.</string>
     <string name="permissions_battery_body">Permite que RIPDPI ignore la optimización de batería de Android para que Doze interrumpa con menos probabilidad la VPN local o el proxy en segundo plano.</string>

@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.canonicalDefaultDnsProviderDefinition
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.seed.PresetStatus
 import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -26,7 +27,10 @@ class OnboardingSettingsCoordinator
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val xrayNativeProviderSelection: XrayNativeProviderSelection,
+        private val presetStatus: PresetStatus,
     ) {
+        val presetApplied: Boolean get() = presetStatus.applied()
+
         fun observeSelections(
             scope: CoroutineScope,
             onSelectionChanged: (Mode, String, String) -> Unit,
@@ -52,6 +56,11 @@ class OnboardingSettingsCoordinator
         }
 
         suspend fun complete(state: OnboardingUiState) {
+            if (presetApplied) {
+                // The state can still hold its defaults here. A mode from the test step is already saved.
+                appSettingsRepository.update { setOnboardingComplete(true) }
+                return
+            }
             persist(state.selectedMode, state.selectedDnsProviderId, state.selectedPersona) {
                 setOnboardingComplete(true)
             }
@@ -63,7 +72,11 @@ class OnboardingSettingsCoordinator
             persona: String,
             extra: AppSettings.Builder.() -> Unit = {},
         ) {
-            if (mode == Mode.Proxy) {
+            // After a preset no step offers a choice. Only a mode that the test step changed is written, so
+            // the preset keeps its provider, its DNS settings, and its interface.
+            val keepPreset = presetApplied
+            val storedMode = appSettingsRepository.snapshot().ripdpiMode.ifEmpty { Mode.VPN.preferenceValue }
+            if (mode == Mode.Proxy && !(keepPreset && storedMode == mode.preferenceValue)) {
                 xrayNativeProviderSelection.selectNativeMode(
                     com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
                     mode,
@@ -72,8 +85,10 @@ class OnboardingSettingsCoordinator
             appSettingsRepository.update {
                 extra()
                 setRipdpiMode(mode.preferenceValue)
-                applyOnboardingDnsProvider(dnsProviderId)
-                setUiPersona(normalizePersona(persona))
+                if (!keepPreset) {
+                    applyOnboardingDnsProvider(dnsProviderId)
+                    setUiPersona(normalizePersona(persona))
+                }
             }
         }
     }

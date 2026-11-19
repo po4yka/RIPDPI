@@ -31,6 +31,7 @@ class OnboardingViewModel
             MutableStateFlow(
                 OnboardingUiState(
                     currentPage = (savedStateHandle.get<Int>(SavedPageKey) ?: 0).coerceIn(0, OnboardingPages.lastIndex),
+                    presetApplied = settingsCoordinator.presetApplied,
                     completionReturnPage = savedStateHandle.get<Int>(SavedReturnPageKey),
                     notificationsNoteVisible = permissionCoordinator.notificationsPromptExpected(),
                 ),

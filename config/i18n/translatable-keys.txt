@@ -3268,6 +3268,12 @@ app:onboarding_local_first_title
 app:onboarding_persona_advanced_body
 app:onboarding_persona_guided_body
 app:onboarding_persona_title
+app:onboarding_preset_connect_body
+app:onboarding_preset_connect_title
+app:onboarding_preset_ready_body
+app:onboarding_preset_ready_title
+app:onboarding_preset_trouble_body
+app:onboarding_preset_trouble_title
 app:onboarding_setup_finish
 app:onboarding_setup_mode_proxy_body
 app:onboarding_setup_mode_vpn_body

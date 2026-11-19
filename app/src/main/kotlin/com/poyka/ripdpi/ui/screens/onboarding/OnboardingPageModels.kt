@@ -15,6 +15,8 @@ internal sealed interface OnboardingPage {
         @param:StringRes override val titleRes: Int,
         @param:StringRes val descriptionRes: Int,
         @param:StringRes override val buttonLabelRes: Int,
+        /** The privacy and on-device guarantee lists under the header. */
+        val guarantees: Boolean = false,
     ) : OnboardingPage
 
     data class Setup(
@@ -51,6 +53,7 @@ internal val OnboardingPages: List<OnboardingPage> =
             titleRes = R.string.onboarding_local_first_title,
             descriptionRes = R.string.onboarding_local_first_body,
             buttonLabelRes = R.string.onboarding_continue,
+            guarantees = true,
         ),
         // -- Setup wizard pages --
         OnboardingPage.Setup(
@@ -92,6 +95,40 @@ internal val OnboardingPages: List<OnboardingPage> =
             buttonLabelRes = R.string.app_picker_done,
         ),
     )
+
+/**
+ * A packaged preset already made the three choices, so each choice step explains the app instead. The list
+ * keeps its length, its order, and its icons, so the step indexes, the badge, and the scenes serve both lists.
+ */
+private val PresetOnboardingPages: List<OnboardingPage> =
+    OnboardingPages.map { page ->
+        when ((page as? OnboardingPage.Setup)?.kind) {
+            SetupPageKind.PersonaSelection -> {
+                presetPage(page.icon, R.string.onboarding_preset_ready_title, R.string.onboarding_preset_ready_body)
+            }
+
+            SetupPageKind.ModeSelection -> {
+                presetPage(page.icon, R.string.onboarding_preset_connect_title, R.string.onboarding_preset_connect_body)
+            }
+
+            SetupPageKind.DnsSelection -> {
+                presetPage(page.icon, R.string.onboarding_preset_trouble_title, R.string.onboarding_preset_trouble_body)
+            }
+
+            else -> {
+                page
+            }
+        }
+    }
+
+private fun presetPage(
+    icon: ImageVector,
+    @StringRes titleRes: Int,
+    @StringRes descriptionRes: Int,
+) = OnboardingPage.Informational(icon, titleRes, descriptionRes, R.string.onboarding_continue)
+
+internal fun onboardingPages(presetApplied: Boolean): List<OnboardingPage> =
+    if (presetApplied) PresetOnboardingPages else OnboardingPages
 
 /** The welcome and the privacy step, which come before the first choice. */
 internal const val OnboardingInfoPageCount = 2

@@ -5,7 +5,11 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.RestoreResult
 import com.poyka.ripdpi.data.backup.RestoreSelection
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,10 +30,23 @@ sealed interface PresetOutcome {
     ) : PresetOutcome
 }
 
+/** Tells onboarding that a packaged preset already made the setup choices. */
+fun interface PresetStatus {
+    fun applied(): Boolean
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class PresetStatusModule {
+    @Binds
+    abstract fun bindPresetStatus(applier: PresetApplier): PresetStatus
+}
+
 /**
  * Restores the optional packaged preset (a plaintext FULL backup document) once, on a
  * fresh install. A build without the asset, an install that completed onboarding, and
- * an install that already applied a preset are left untouched.
+ * an install that already applied a preset are left untouched. Onboarding stays open after the
+ * restore, so the recipient sees the steps that explain the preloaded app.
  */
 @Singleton
 open class PresetApplier
@@ -38,12 +55,14 @@ open class PresetApplier
         @param:ApplicationContext private val context: Context,
         private val settingsRepository: AppSettingsRepository,
         private val backupRestore: BackupRestoreUseCase,
-    ) {
+    ) : PresetStatus {
         // Lives outside AppSettings because the restore replaces AppSettings.
         private val prefs by lazy { context.getSharedPreferences(PresetPrefsName, Context.MODE_PRIVATE) }
 
+        override fun applied(): Boolean = prefs.getBoolean(PresetKeyApplied, false)
+
         suspend fun applyIfFresh(): PresetOutcome {
-            val fresh = !prefs.getBoolean(PresetKeyApplied, false) && !settingsRepository.snapshot().onboardingComplete
+            val fresh = !applied() && !settingsRepository.snapshot().onboardingComplete
             val json = if (fresh) readPreset() else null
             return if (json == null) PresetOutcome.Skipped else restore(json)
         }
@@ -62,6 +81,10 @@ open class PresetApplier
                 }
             return when (result) {
                 is RestoreResult.Success -> {
+                    // The source install completed onboarding. Before the marker: a crash between the two
+                    // writes repeats the restore. A crash between the restore and this write leaves the
+                    // preset applied without its onboarding.
+                    settingsRepository.update { setOnboardingComplete(false) }
                     check(prefs.edit().putBoolean(PresetKeyApplied, true).commit()) {
                         "Failed to persist preset state"
                     }

@@ -236,7 +236,7 @@ internal fun OnboardingScreen(
     val pagePosition = rememberOnboardingPagePosition(pagerState, scrub)
 
     val settledPage = pagerState.settledPage.coerceIn(0, OnboardingPages.lastIndex)
-    val currentPage = OnboardingPages[settledPage]
+    val currentPage = onboardingPages(uiState.presetApplied)[settledPage]
     val isTestPage = settledPage == OnboardingTestPageIndex
     val isCompletionPage = settledPage == OnboardingCompletionPageIndex
     val validationState = uiState.validationState
@@ -480,7 +480,7 @@ private fun OnboardingPagerContent(
                 } else {
                     Modifier.fillMaxSize()
                 }
-            when (val pageModel = OnboardingPages[page]) {
+            when (val pageModel = onboardingPages(uiState.presetApplied)[page]) {
                 is OnboardingPage.Informational -> {
                     OnboardingInfoPageScene(
                         pageModel = pageModel,
@@ -807,21 +807,23 @@ private fun OnboardingInfoPageScene(
         )
     }
     val grid = @Composable { gridModifier: Modifier ->
-        OnboardingGuaranteeGrid(
-            privacyLabels =
-                listOf(
-                    R.string.onboarding_chip_no_account,
-                    R.string.onboarding_chip_no_telemetry,
-                    R.string.onboarding_chip_no_cloud_sync,
-                ),
-            localLabels =
-                listOf(
-                    R.string.onboarding_chip_local_vpn,
-                    R.string.onboarding_chip_local_proxy,
-                    R.string.onboarding_chip_local_config,
-                ),
-            modifier = gridModifier,
-        )
+        if (pageModel.guarantees) {
+            OnboardingGuaranteeGrid(
+                privacyLabels =
+                    listOf(
+                        R.string.onboarding_chip_no_account,
+                        R.string.onboarding_chip_no_telemetry,
+                        R.string.onboarding_chip_no_cloud_sync,
+                    ),
+                localLabels =
+                    listOf(
+                        R.string.onboarding_chip_local_vpn,
+                        R.string.onboarding_chip_local_proxy,
+                        R.string.onboarding_chip_local_config,
+                    ),
+                modifier = gridModifier,
+            )
+        }
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {

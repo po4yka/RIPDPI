@@ -49,6 +49,7 @@ A build can carry a preset so that a recipient installs the standard app and fin
 Rules the app follows:
 
 - The preset applies only when onboarding is not complete and no preset was applied before. An existing install that updates to a preset build keeps its data.
+- The recipient still sees onboarding. The interface, mode, and DNS steps do not appear, because the preset holds those choices. Three steps take their place: they tell the recipient that the app is ready, how to connect, and what to do when the connection fails. Onboarding does not change the preset settings, unless the recipient accepts a different mode after a failed connection test.
 - The app never applies a preset twice and never overwrites user edits. To change servers after delivery, include a subscription in the preset; the app refreshes it in the background.
 - A full reset returns the install to the preset.
 - A preset the app cannot read is ignored whole. The app records a startup warning and opens as a build without a preset.

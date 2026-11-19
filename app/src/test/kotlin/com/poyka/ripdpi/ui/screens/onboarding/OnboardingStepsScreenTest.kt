@@ -22,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.Mode
@@ -61,6 +62,19 @@ class OnboardingStepsScreenTest {
             ),
             kinds,
         )
+        // After a preset the three choice steps explain the app, and every other step keeps its place.
+        val presetPages = onboardingPages(presetApplied = true)
+        assertEquals(
+            listOf(
+                R.string.onboarding_preset_ready_title,
+                R.string.onboarding_preset_connect_title,
+                R.string.onboarding_preset_trouble_title,
+            ),
+            presetPages.subList(OnboardingInfoPageCount, OnboardingInfoPageCount + 3).map {
+                (it as OnboardingPage.Informational).titleRes
+            },
+        )
+        assertEquals(OnboardingPages - presetPages.toSet(), OnboardingPages.subList(2, 5))
 
         renderOnboarding(OnboardingUiState(currentPage = 0))
 
