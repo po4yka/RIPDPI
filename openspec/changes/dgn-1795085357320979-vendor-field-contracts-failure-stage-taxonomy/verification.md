@@ -16,32 +16,27 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 # Verification
 
-`local_evidence` stays null until the owner runs the Gradle gates below; the Rust and Python gates passed in the implementing session.
+`local_evidence` stays null until the owner runs the Gradle gates below; the Rust, Python and ktlint gates passed in the implementing sessions. Logs are in `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-r2r4-fix/`.
 
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-DGN-1795085357320979-001 | DGN-1795085386045842 | Rust `types::field_failure_stage::tests::enum_values_equal_vendored_schema_enum` passes; Kotlin `FieldFailureStageContractTest.enum values equal the vendored schema enum` awaits the owner Gradle run | required |
-| REQ-DGN-1795085357320979-002 | DGN-1795085386910727 | Rust `field_failure_stage` mapping tests in `ripdpi-diagnostics-classification` pass; Kotlin `FieldFailureStageContractTest` DpiProbeError, ProbeStage and FailureClass tables await the owner Gradle run | required |
+| REQ-DGN-1795085357320979-002 | DGN-1795085386910727 | Rust `every_class_and_stage_maps_as_the_shared_table_states` and `shared_table_names_only_native_codes` pass against `contract-fixtures/native_failure_stage_mapping.tsv`; Kotlin `FieldFailureStageContractTest` (same table, DpiProbeError sealed-subclass enumeration, ProbeStage) awaits the owner Gradle run | required |
 | REQ-DGN-1795085357320979-003 | DGN-1795085387814161 | `classifyFailureText` removed (`git grep classifyFailureText` finds no code); Rust `evidence_text_does_not_change_the_stage` passes; Kotlin `FieldTelemetryTest.message text never changes the failure class` awaits the owner Gradle run | required |
 | REQ-DGN-1795085357320979-004 | DGN-1795085388657402 | Kotlin `DeveloperAnalyticsAllowListTest` failure-outcome and cancellation tests await the owner Gradle run | required |
-| REQ-DGN-1795085357320979-005 | DGN-1795085389411523 | Vendored files are byte-identical to deployer commit `e917cf5b`; Rust contract-version, golden and negative-fixture tests pass; `check_cross_language_runtime_contracts.py` passes; Kotlin contract tests await the owner Gradle run | required |
+| REQ-DGN-1795085357320979-005 | DGN-1795085389411523 | Vendored files match `vendored-deploy-contracts.sha256` and deployer commit `e84aec57d824` (`check_vendored_deploy_contracts.py --source`, exit 0); Rust contract-version, golden and negative-fixture tests pass; `check_cross_language_runtime_contracts.py` passes; Kotlin contract tests await the owner Gradle run | required |
 
-## Checks run in the implementing session
+## Checks run in the implementing sessions
 
-- `cargo test -p ripdpi-diagnostics-contracts --locked field_failure_stage` (from `native/rust/`): 4 passed
-- `cargo test -p ripdpi-diagnostics-classification --locked field_failure_stage`: 3 passed
-- `cargo fmt -p ripdpi-diagnostics-contracts -p ripdpi-diagnostics-classification`
-- `ktlint` 1.8.0 on every changed Kotlin file: clean
-- `python3 scripts/ci/check_cross_language_runtime_contracts.py`: valid, 5 surfaces, 30 gates
-- `./taskctl validate`
-
-Not run: `cargo clippy` for the two crates and the `ripdpi-diagnostics-contracts/api-snapshot.txt` regeneration. Every cargo invocation queued on the machine-wide build gate behind another session's stalled build, so `cargo public-api` never started. `api-snapshot.txt` therefore does not yet list `FieldFailureStage` and `CLIENT_FIELD_REPORT_CONTRACT_VERSION`, and `check_rust_api_snapshots.py` fails until the owner regenerates it.
-
-## Uncommitted Rust stage
-
-The Rust half (`ripdpi-diagnostics-contracts/src/types/field_failure_stage.rs`, `ripdpi-diagnostics-classification/src/classification/field_failure_stage.rs`, their module wiring, and the `quality/release-gates/cross-language-runtime-contracts.json` gate entries) is written and tested but not committed: the lefthook `rust-clippy` pre-commit hook queued for 940 s on the machine-wide build gate behind another session's stalled build and was stopped. Commit it once the gate is free; the hook then runs clippy for the two crates.
+- `bash scripts/ci/cargo-guarded.sh cargo test --locked -p ripdpi-diagnostics-classification -p ripdpi-diagnostics-contracts --lib field_failure_stage` (from `native/rust/`): exit 0, 3 + 4 passed (`cargo-test-field-failure-stage.log`)
+- `bash scripts/ci/cargo-guarded.sh cargo clippy --locked -p ripdpi-diagnostics-classification -p ripdpi-diagnostics-contracts --no-deps --all-targets -- -D warnings`: exit 0 (`cargo-clippy.log`)
+- `check_rust_api_snapshots.check_snapshot(..., update=True)` for `ripdpi-diagnostics-contracts` only, with `CARGO_TARGET_DIR` in the session scratchpad because the shared target directory was locked by another session's stalled `cargo check`: exit 0; the diff adds only `FieldFailureStage` and `CLIENT_FIELD_REPORT_CONTRACT_VERSION` items (`api-snapshot-contracts-update.log`). The full `python3 scripts/ci/check_rust_api_snapshots.py` check: see `api-snapshot-check.log`
+- The lefthook `rust-clippy` pre-commit hook passed on the Rust commit (`commit-rust.log`)
+- `ktlint` 1.8.0 on every changed Kotlin file: exit 0 (`ktlint.log`)
+- `python3 scripts/ci/check_cross_language_runtime_contracts.py` and `python3 -m unittest scripts.tests.test_cross_language_runtime_contracts`: exit 0 (`cross-lang.log`, `cross-lang-unittest.log`)
+- `./taskctl validate` and `just task-check`: exit 0 (`taskctl-validate.log`, `task-check.log`)
 
 ## Gradle gates left for the owner
 
@@ -53,8 +48,6 @@ Gradle was not run (owner build policy). Run:
 ./gradlew :core:data:testDebugUnitTest --tests 'com.poyka.ripdpi.data.ServiceTelemetryTest' -Pripdpi.skipNativeBuild=true
 ./gradlew :core:diagnostics:testDebugUnitTest :core:service:testDebugUnitTest :core:data:testDebugUnitTest :core:detection:testDebugUnitTest :app:testGithubDebugUnitTest
 ./gradlew staticAnalysis
-(cd native/rust && cargo clippy -p ripdpi-diagnostics-contracts -p ripdpi-diagnostics-classification --all-targets --locked -- -D warnings)
-python3 scripts/ci/check_rust_api_snapshots.py --update   # then commit native/rust/crates/ripdpi-diagnostics-contracts/api-snapshot.txt
 just ci-gates
 ```
 
