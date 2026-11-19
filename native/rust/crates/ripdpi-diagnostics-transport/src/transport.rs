@@ -29,6 +29,12 @@ pub use types::{
     ConnectionStream, RouteExperimentConfig, RouteExperimentReport, Socks5Credentials, TargetAddress, TransportConfig,
     TransportConnectError, TransportConnectResult, TransportError, TransportFailureStage, UdpRelayResult,
 };
+pub use udp::quic_version_matrix::{
+    QUIC_MATRIX_LIMITS, QUIC_MATRIX_REPETITIONS, QuicCellOutcome, QuicCellStage, QuicInitialCodec, QuicMatrixCell,
+    QuicMatrixLimit, QuicMatrixSni, QuicMatrixStop, QuicMatrixVersion, QuicReply, QuicResidualCell,
+    QuicVersionMatrixReport, QuicVersionMatrixRequest, QuicVersionStatus, quic_version_difference, quic_version_status,
+    run_quic_version_matrix,
+};
 pub use udp::{
     relay_quic_probe_observed, relay_udp_direct, relay_udp_payload_matching_observed, relay_udp_payload_observed,
 };
