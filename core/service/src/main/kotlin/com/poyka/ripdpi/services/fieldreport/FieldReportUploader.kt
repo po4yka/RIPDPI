@@ -282,24 +282,39 @@ class FieldReportConsentFollower
         private val ledger: FieldReportLedger,
     ) {
         suspend fun follow() {
-            settings.settings
-                .map { it.fieldReportEnabled }
-                .distinctUntilChanged()
-                .collect { enabled ->
-                    // It runs in the handler-less application scope, so a scheduling failure must not escape.
-                    try {
-                        schedule(enabled)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (ignored: Exception) {
-                        Logger
-                            .withTag(
-                                "field-report",
-                            ).w { "field report scheduling failed: ${ignored.javaClass.simpleName}" }
-                    }
-                    if (!enabled) ledger.clear()
-                }
+            // It runs in the handler-less application scope, so no failure may escape: neither the settings flow
+            // nor a step for one value. A failed step leaves the flow running for the next value.
+            try {
+                settings.settings
+                    .map { it.fieldReportEnabled }
+                    .distinctUntilChanged()
+                    .collect { enabled -> contained("consent change") { apply(enabled) } }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (ignored: Exception) {
+                log.w { "field report consent follower stopped: ${ignored.javaClass.simpleName}" }
+            }
         }
+
+        private suspend fun apply(enabled: Boolean) {
+            contained("scheduling") { schedule(enabled) }
+            if (!enabled) ledger.clear()
+        }
+
+        private suspend fun contained(
+            step: String,
+            block: suspend () -> Unit,
+        ) {
+            try {
+                block()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (ignored: Exception) {
+                log.w { "field report $step failed: ${ignored.javaClass.simpleName}" }
+            }
+        }
+
+        private val log = Logger.withTag("field-report")
 
         private fun schedule(enabled: Boolean) {
             val workManager = WorkManager.getInstance(context)
