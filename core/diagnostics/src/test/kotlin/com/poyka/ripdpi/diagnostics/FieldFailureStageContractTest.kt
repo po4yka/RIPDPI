@@ -3,10 +3,10 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.core.detection.dpi.DpiProbeError
 import com.poyka.ripdpi.core.detection.dpi.ProbeStage
 import com.poyka.ripdpi.core.detection.dpi.fieldFailureStage
-import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.diagnostics.ClientFieldReportContractVersion
 import com.poyka.ripdpi.data.diagnostics.FieldFailureStage
-import com.poyka.ripdpi.data.diagnostics.fieldFailureStage
+import com.poyka.ripdpi.data.diagnostics.nativeFieldFailureStage
+import com.poyka.ripdpi.data.failureClassFromNativeCode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
@@ -14,6 +14,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -130,30 +131,51 @@ class FieldFailureStageContractTest {
         assertEquals(FieldFailureStage.Dns, fieldFailureStage(DpiProbeError.DnsFail, ProbeStage.TLS_HANDSHAKE))
     }
 
+    /** `(class, stage or "*") -> failure_stage` rows of the table the Rust mapping is tested against. */
+    private fun nativeMappingRows(): Map<Pair<String, String>, String> =
+        repoFixture(NativeMappingFixture)
+            .readLines()
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
+            .associate { line ->
+                val (failureClass, stage, fieldStage) = line.split("\t")
+                (failureClass to stage) to fieldStage
+            }
+
     @Test
-    fun `every connection failure class maps to one stage`() {
-        val expected =
-            mapOf(
-                FailureClass.TunnelEstablish to FieldFailureStage.Unknown,
-                FailureClass.WarpProvisioning to FieldFailureStage.Unknown,
-                FailureClass.WarpEndpoint to FieldFailureStage.Unknown,
-                FailureClass.FingerprintPolicy to FieldFailureStage.Unknown,
-                FailureClass.DnsInterference to FieldFailureStage.Dns,
-                FailureClass.TlsInterference to FieldFailureStage.TlsHandshake,
-                FailureClass.Timeout to FieldFailureStage.TcpConnect,
-                FailureClass.ResetAbort to FieldFailureStage.TcpReset,
-                FailureClass.NetworkHandover to FieldFailureStage.Unknown,
-                FailureClass.Compatibility to FieldFailureStage.ProtocolError,
-                FailureClass.NativeIo to FieldFailureStage.Unknown,
-                FailureClass.Unexpected to FieldFailureStage.Unknown,
-            )
-        assertEquals(FailureClass.entries.toSet(), expected.keys)
-        expected.forEach { (failureClass, stage) ->
-            assertEquals(failureClass.name, stage, failureClass.fieldFailureStage)
+    fun `native failure codes map as the shared table states`() {
+        val rows = nativeMappingRows()
+        val stages =
+            rows.keys
+                .map { it.second }
+                .filter { it != "*" }
+                .toSet()
+        assertEquals(10, stages.size)
+        rows.keys.map { it.first }.toSet().forEach { failureClass ->
+            stages.forEach { stage ->
+                val expected = rows[failureClass to stage] ?: rows.getValue(failureClass to "*")
+                assertEquals(
+                    "$failureClass at $stage",
+                    expected,
+                    nativeFieldFailureStage(failureClass, stage).wireValue,
+                )
+            }
         }
+    }
+
+    @Test
+    fun `every native class decodes and an unknown code or stage reports unknown`() {
+        val classes = nativeMappingRows().keys.map { it.first }.toSet()
+        assertEquals(19, classes.size)
+        // NativeRuntimeSnapshot.lastFailureClass carries these codes; only "unknown" has no service class.
+        (classes - "unknown").forEach { assertNotNull(it, failureClassFromNativeCode(it)) }
+        assertEquals(FieldFailureStage.Unknown, nativeFieldFailureStage("not_a_native_code", "connect"))
+        assertEquals(FieldFailureStage.Unknown, nativeFieldFailureStage("silent_drop", null))
+        assertEquals(FieldFailureStage.Unknown, nativeFieldFailureStage("silent_drop", "not_a_stage"))
+        assertEquals(FieldFailureStage.QuicHandshake, nativeFieldFailureStage("quic_breakage", null))
     }
 
     private companion object {
         const val ContractDir = "core/data/src/test/resources/contract"
+        const val NativeMappingFixture = "contract-fixtures/native_failure_stage_mapping.tsv"
     }
 }

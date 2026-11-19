@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.data.diagnostics
 
-import com.poyka.ripdpi.data.FailureClass
-
 /** Version of the vendored `client-field-report` contract (its `x-contract-version`). */
 const val ClientFieldReportContractVersion = 1
 
@@ -30,26 +28,57 @@ enum class FieldFailureStage(
     }
 }
 
-/** Connection-path mapping: each service failure class reports exactly one field failure stage. */
-val FailureClass.fieldFailureStage: FieldFailureStage
-    get() =
-        when (this) {
-            FailureClass.DnsInterference -> FieldFailureStage.Dns
+/**
+ * Connection-path mapping from the typed native failure: [failureClass] is a Rust `FailureClass::as_str` code
+ * (`NativeRuntimeSnapshot.lastFailureClass`) and [failureStage] a Rust `FailureStage::as_str` code. It equals
+ * the Rust `field_failure_stage`; both are tested against `contract-fixtures/native_failure_stage_mapping.tsv`.
+ * An unknown code, and a stage-dependent class without a known stage, report [FieldFailureStage.Unknown].
+ */
+fun nativeFieldFailureStage(
+    failureClass: String,
+    failureStage: String?,
+): FieldFailureStage =
+    if (failureClass == SilentDropCode) {
+        failureStage?.let(SilentDropStageByNativeStage::get) ?: FieldFailureStage.Unknown
+    } else {
+        StageByNativeClass[failureClass] ?: FieldFailureStage.Unknown
+    }
 
-            FailureClass.TlsInterference -> FieldFailureStage.TlsHandshake
+private const val SilentDropCode = "silent_drop"
 
-            FailureClass.Timeout -> FieldFailureStage.TcpConnect
+private val StageByNativeClass =
+    mapOf(
+        "unknown" to FieldFailureStage.Unknown,
+        "dns_tampering" to FieldFailureStage.Dns,
+        "dns_resolution_failure" to FieldFailureStage.Dns,
+        "tcp_reset" to FieldFailureStage.TcpReset,
+        "tls_alert" to FieldFailureStage.TlsHandshake,
+        "http_blockpage" to FieldFailureStage.ProtocolError,
+        "quic_breakage" to FieldFailureStage.QuicHandshake,
+        "redirect" to FieldFailureStage.ProtocolError,
+        "tls_handshake_failure" to FieldFailureStage.TlsHandshake,
+        "connect_failure" to FieldFailureStage.TcpConnect,
+        "strategy_execution_failure" to FieldFailureStage.Unknown,
+        "connection_freeze" to FieldFailureStage.IdleTimeout,
+        "capability_skipped" to FieldFailureStage.Unknown,
+        "tuic_version_unsupported" to FieldFailureStage.ProtocolError,
+        "shadowtls_version_mismatch" to FieldFailureStage.ProtocolError,
+        "ip_block_suspect" to FieldFailureStage.TcpConnect,
+        "masque_h3_tcp_unsupported" to FieldFailureStage.ProtocolError,
+        "confirm_good_dpi_suspected" to FieldFailureStage.IdleTimeout,
+    )
 
-            FailureClass.ResetAbort -> FieldFailureStage.TcpReset
-
-            FailureClass.Compatibility -> FieldFailureStage.ProtocolError
-
-            FailureClass.TunnelEstablish,
-            FailureClass.WarpProvisioning,
-            FailureClass.WarpEndpoint,
-            FailureClass.FingerprintPolicy,
-            FailureClass.NetworkHandover,
-            FailureClass.NativeIo,
-            FailureClass.Unexpected,
-            -> FieldFailureStage.Unknown
-        }
+/** A silent drop is reported at the stage where the traffic stopped. */
+private val SilentDropStageByNativeStage =
+    mapOf(
+        "dns" to FieldFailureStage.Dns,
+        "connect" to FieldFailureStage.TcpConnect,
+        "first_write" to FieldFailureStage.IdleTimeout,
+        "first_response" to FieldFailureStage.IdleTimeout,
+        "tls_handshake" to FieldFailureStage.TlsHandshake,
+        "http_response" to FieldFailureStage.IdleTimeout,
+        "quic_probe" to FieldFailureStage.QuicHandshake,
+        "diagnostic" to FieldFailureStage.Unknown,
+        "relay" to FieldFailureStage.IdleTimeout,
+        "post_handshake" to FieldFailureStage.IdleTimeout,
+    )
