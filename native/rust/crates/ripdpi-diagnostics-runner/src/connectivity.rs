@@ -1,6 +1,8 @@
 mod pmtu;
+mod quic_version;
 mod tls_hop;
 pub use pmtu::run_pmtu_probe;
+pub use quic_version::{QUIC_VERSION_EVIDENCE_KEY, run_quic_version_matrix_probe};
 pub use tls_hop::{TLS_HOP_EVIDENCE_KEY, TLS_HOP_LOCAL_KEY, run_tls_hop_comparison};
 mod http3;
 pub use http3::run_http3_probe;

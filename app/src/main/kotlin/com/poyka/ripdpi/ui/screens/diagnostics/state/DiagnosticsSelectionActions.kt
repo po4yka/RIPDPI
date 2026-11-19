@@ -1,14 +1,23 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
+import androidx.compose.runtime.Immutable
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+
+/** Input changes of the profiles that take user-entered targets. */
+@Immutable
+data class DiagnosticsManualProbeInputActions(
+    val onTlsHopComparisonChanged: (TlsHopComparisonConfig) -> Unit = {},
+    val onQuicVersionMatrixChanged: (QuicVersionMatrixConfig) -> Unit = {},
+)
 
 internal class DiagnosticsSelectionActions(
     private val mutations: DiagnosticsMutationRunner,
@@ -58,6 +67,8 @@ internal class DiagnosticsSelectionActions(
         selection.update { it.copy(selectiveMatrixHostsInput = input) }
     }
 
+    val manualProbeInput = DiagnosticsManualProbeInputActions(::updateTlsHopComparison, ::updateQuicVersionMatrix)
+
     fun updateTlsHopComparison(input: TlsHopComparisonConfig) {
         if ((
                 mutations.diagnosticsTimelineSource.activeScanProgress.value != null ||
@@ -67,6 +78,17 @@ internal class DiagnosticsSelectionActions(
             return
         }
         selection.update { it.copy(tlsHopComparisonInput = input) }
+    }
+
+    fun updateQuicVersionMatrix(input: QuicVersionMatrixConfig) {
+        if ((
+                mutations.diagnosticsTimelineSource.activeScanProgress.value != null ||
+                    mutations.diagnosticsScanController.hasActiveHomeRun()
+            )
+        ) {
+            return
+        }
+        selection.update { it.copy(quicVersionMatrixInput = input) }
     }
 
     fun selectProfile(profileId: String) {

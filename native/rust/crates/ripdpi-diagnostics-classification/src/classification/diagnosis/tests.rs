@@ -114,6 +114,7 @@ fn connectivity_request() -> ScanRequest {
         http3_probe: None,
         pmtu_probe: None,
         tls_hop_comparison: None,
+        quic_version_matrix: None,
         whitelist_sni: vec![],
         telegram_target: None,
         strategy_probe: None,

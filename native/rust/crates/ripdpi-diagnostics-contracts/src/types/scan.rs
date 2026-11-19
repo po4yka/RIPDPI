@@ -71,6 +71,7 @@ pub enum ProbeTaskFamily {
     Http3,
     Pmtu,
     TlsHopComparison,
+    QuicVersionMatrix,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

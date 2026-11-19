@@ -126,6 +126,10 @@ private fun phaseToConnectivityProbeType(phase: String): String? =
             "tls_hop_comparison"
         }
 
+        "quic_version_matrix" -> {
+            "quic_version_matrix"
+        }
+
         "http3" -> {
             "http3"
         }

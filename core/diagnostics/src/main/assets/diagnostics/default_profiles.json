@@ -384,6 +384,39 @@
       }
     },
     {
+      "id": "quic-version-matrix",
+      "name": "QUIC version matrix",
+      "version": 1,
+      "request": {
+        "profileId": "quic-version-matrix",
+        "displayName": "QUIC version matrix",
+        "kind": "CONNECTIVITY",
+        "family": "GENERAL",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": true,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": [],
+        "quicVersionMatrix": {
+          "host": "",
+          "controlSni": "",
+          "testSni": ""
+        }
+      }
+    },
+    {
       "id": "automatic-probing",
       "name": "Automatic probing",
       "version": 5,

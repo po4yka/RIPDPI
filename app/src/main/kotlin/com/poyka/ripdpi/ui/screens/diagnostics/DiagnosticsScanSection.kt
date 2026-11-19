@@ -24,7 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -37,6 +37,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDiagnosisUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsManualProbeInputActions
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateDetailUiModel
@@ -54,7 +55,7 @@ internal fun ScanSection(
     scan: DiagnosticsScanUiModel,
     onSelectProfile: (String) -> Unit,
     onSelectiveMatrixHostsChanged: (String) -> Unit = {},
-    onTlsHopComparisonChanged: (TlsHopComparisonConfig) -> Unit = {},
+    manualProbeInput: DiagnosticsManualProbeInputActions = DiagnosticsManualProbeInputActions(),
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
@@ -112,7 +113,7 @@ internal fun ScanSection(
     val visibleResults =
         remember(scan.latestResults, expertMode) {
             scan.latestResults.filter {
-                !it.isTlsHopProbe() &&
+                !it.hasDedicatedEvidenceCard() &&
                     (expertMode || !it.probeType.startsWith("selective_availability"))
             }
         }
@@ -247,7 +248,16 @@ internal fun ScanSection(
                 TlsHopInputCard(
                     input = scan.tlsHopComparisonInput,
                     enabled = !effectiveBusy,
-                    onInputChanged = onTlsHopComparisonChanged,
+                    onInputChanged = manualProbeInput.onTlsHopComparisonChanged,
+                )
+            }
+        }
+        if (selectedProfile?.id == QuicVersionMatrixProfileId) {
+            item {
+                QuicVersionInputCard(
+                    input = scan.quicVersionMatrixInput,
+                    enabled = !effectiveBusy,
+                    onInputChanged = manualProbeInput.onQuicVersionMatrixChanged,
                 )
             }
         }
@@ -325,6 +335,10 @@ internal fun ScanSection(
         scan.latestResults.mapNotNull { it.tlsHop }.forEach { tlsHop ->
             item { TlsHopResultsCard(tlsHop) }
         }
+        scan.latestResults
+            .mapNotNull { it.quicVersion }
+            .takeIf { it.isNotEmpty() }
+            ?.let { rows -> item { QuicVersionResultsCard(rows) } }
         scan.latestResults.mapNotNull { it.transferEvidence }.forEach { transfer ->
             item { DiagnosticsTransferCard(transfer = transfer) }
         }

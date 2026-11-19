@@ -17,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.IpFamilyProbeConfig
 import com.poyka.ripdpi.diagnostics.PmtuProbeConfig
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.QuicTarget
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.RouteProbeConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -45,6 +46,7 @@ internal enum class ProbeFamily {
     HTTP3,
     PMTU,
     TLS_HOP_COMPARISON,
+    QUIC_VERSION_MATRIX,
 }
 
 internal data class ProbeTask(
@@ -95,6 +97,7 @@ internal data class DiagnosticsIntent(
     val http3Probe: Http3ProbeConfig? = null,
     val pmtuProbe: PmtuProbeConfig? = null,
     val tlsHopComparison: TlsHopComparisonConfig? = null,
+    val quicVersionMatrix: QuicVersionMatrixConfig? = null,
     val requestedPathMode: ScanPathMode,
 )
 
@@ -126,6 +129,7 @@ internal data class ScanPlan(
     val http3Probe: Http3ProbeConfig? = null,
     val pmtuProbe: PmtuProbeConfig? = null,
     val tlsHopComparison: TlsHopComparisonConfig? = null,
+    val quicVersionMatrix: QuicVersionMatrixConfig? = null,
     val probeTasks: List<ProbeTask>,
     val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
 )

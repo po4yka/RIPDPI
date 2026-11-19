@@ -157,6 +157,7 @@ class DiagnosticsSummaryProjector
                 addAll(report?.results.orEmpty().http3SummaryLines())
                 addAll(report?.results.orEmpty().pmtuSummaryLines())
                 addAll(report?.results.orEmpty().tlsHopComparisonSummaryLines())
+                addAll(report?.results.orEmpty().quicVersionMatrixSummaryLines())
                 addAll(transferEvidenceSummaryLines(report?.results.orEmpty()))
                 addAll(dnsSemanticsSummaryLines(report?.results.orEmpty()))
                 addAll(

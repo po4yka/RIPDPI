@@ -1,6 +1,8 @@
 mod pmtu;
+mod quic_version;
 mod tls_hop;
 pub(super) use pmtu::PmtuRunner;
+pub(super) use quic_version::QuicVersionMatrixRunner;
 pub(super) use tls_hop::TlsHopComparisonRunner;
 mod http3;
 pub(super) use http3::Http3Runner;

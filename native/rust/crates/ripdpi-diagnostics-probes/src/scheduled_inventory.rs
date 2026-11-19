@@ -27,6 +27,7 @@ use crate::probes::ip_family::IP_FAMILY_PROBE_ID;
 use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
 use crate::probes::pmtu::PMTU_PROBE_ID;
 use crate::probes::quic_probe::QUIC_PROBE_OFFLINE_PROBE_ID;
+use crate::probes::quic_version_matrix::QUIC_VERSION_MATRIX_PROBE_ID;
 use crate::probes::selective_availability::SELECTIVE_AVAILABILITY_PROBE_ID;
 use crate::probes::service_reachability::SERVICE_REACHABILITY_PROBE_ID;
 use crate::probes::tcp_fat_header::TCP_FAT_HEADER_PROBE_ID;
@@ -136,6 +137,11 @@ pub const SCHEDULED_PROBE_INVENTORY: &[ScheduledProbeStage] = &[
         backing: ProbeTraitBacking::Backed(TLS_HOP_COMPARISON_PROBE_ID),
     },
     ScheduledProbeStage {
+        probe_type: "quic_version_matrix",
+        runner: "QuicVersionMatrixRunner",
+        backing: ProbeTraitBacking::Backed(QUIC_VERSION_MATRIX_PROBE_ID),
+    },
+    ScheduledProbeStage {
         probe_type: "doh_json_survey",
         runner: "DohJsonSurveyRunner",
         backing: ProbeTraitBacking::Backed(DOH_JSON_SURVEY_PROBE_ID),
@@ -180,8 +186,8 @@ mod tests {
     }
 
     #[test]
-    fn inventory_has_exactly_fifteen_rows() {
-        assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 15);
+    fn inventory_has_exactly_sixteen_rows() {
+        assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 16);
     }
 
     #[test]

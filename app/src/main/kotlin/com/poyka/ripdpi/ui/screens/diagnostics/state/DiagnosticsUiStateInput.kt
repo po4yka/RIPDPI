@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
@@ -42,6 +43,7 @@ internal data class DiagnosticsUiStateInput(
     val selectedProfileId: String?,
     val selectiveMatrixHostsInput: String = "",
     val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
+    val quicVersionMatrixInput: QuicVersionMatrixConfig = QuicVersionMatrixConfig(),
     val selectedApproachMode: DiagnosticsApproachMode,
     val selectedProbe: DiagnosticsProbeResultUiModel?,
     val selectedEventId: String?,

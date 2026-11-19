@@ -60,6 +60,7 @@ mod tests {
             http3_probe: None,
             pmtu_probe: None,
             tls_hop_comparison: None,
+            quic_version_matrix: None,
             whitelist_sni: Vec::new(),
             telegram_target: None,
             strategy_probe: None,
@@ -226,13 +227,15 @@ mod tests {
     #[test]
     fn configured_only_probes_require_matching_task_and_config() {
         use crate::types::{
-            Http3ProbeConfig, IpFamilyProbeConfig, PmtuProbeConfig, ProbeTask, ProbeTaskFamily, TlsHopComparisonConfig,
+            Http3ProbeConfig, IpFamilyProbeConfig, PmtuProbeConfig, ProbeTask, ProbeTaskFamily,
+            QuicVersionMatrixConfig, TlsHopComparisonConfig,
         };
 
         for (family, field) in [
             (ProbeTaskFamily::Http3, "http3Probe"),
             (ProbeTaskFamily::Pmtu, "pmtuProbe"),
             (ProbeTaskFamily::TlsHopComparison, "tlsHopComparison"),
+            (ProbeTaskFamily::QuicVersionMatrix, "quicVersionMatrix"),
             (ProbeTaskFamily::IpFamily, "ipFamilyProbe"),
         ] {
             let mut wire = request();
@@ -250,6 +253,15 @@ mod tests {
                         host: "192.0.2.1".into(),
                         control_sni: "control.example".into(),
                         test_sni: "test.example".into(),
+                    });
+                }
+                ProbeTaskFamily::QuicVersionMatrix => {
+                    wire.quic_version_matrix = Some(QuicVersionMatrixConfig {
+                        host: "quic.example".into(),
+                        connect_ip: None,
+                        control_sni: "control.example".into(),
+                        test_sni: "test.example".into(),
+                        residual_version: None,
                     });
                 }
                 ProbeTaskFamily::IpFamily => {

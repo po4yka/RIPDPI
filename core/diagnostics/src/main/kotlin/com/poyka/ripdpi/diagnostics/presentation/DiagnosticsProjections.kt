@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.PmtuProbeConfig
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ProbeResult
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -47,6 +48,7 @@ data class DiagnosticsProfileProjection(
     val http3Probe: Http3ProbeConfig? = null,
     val pmtuProbe: PmtuProbeConfig? = null,
     val tlsHopComparison: TlsHopComparisonConfig? = null,
+    val quicVersionMatrix: QuicVersionMatrixConfig? = null,
 )
 
 @Serializable

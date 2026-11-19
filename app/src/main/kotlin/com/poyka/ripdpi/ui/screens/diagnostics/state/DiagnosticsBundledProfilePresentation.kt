@@ -38,6 +38,7 @@ private val bundledProfileTitles =
         "http3-connectivity" to ("HTTP/3 connectivity" to R.string.diagnostics_http3_title),
         "pmtu-connectivity" to ("Active packet sizes / PMTU" to R.string.diagnostics_pmtu_title),
         "tls-hop-comparison" to ("TLS hop comparison" to R.string.diagnostics_tls_hop_title),
+        "quic-version-matrix" to ("QUIC version matrix" to R.string.diagnostics_quic_version_title),
         AutomaticProbingProfileId to ("Automatic probing" to R.string.diagnostics_scan_automatic_probing),
         "automatic-audit" to ("Automatic audit" to R.string.diagnostics_scan_automatic_audit),
         "dpi-detector-full" to ("DPI Detector Full" to R.string.diagnostics_profile_dpi_detector_full_title),

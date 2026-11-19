@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
-import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
@@ -12,11 +11,11 @@ import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
-import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
@@ -541,6 +540,7 @@ data class DiagnosticsProbeResultUiModel(
     val http3: DiagnosticsContextGroupUiModel? = null,
     val pmtu: DiagnosticsContextGroupUiModel? = null,
     val tlsHop: TlsHopResultUiModel? = null,
+    val quicVersion: QuicVersionRowUiModel? = null,
 )
 
 @Stable
@@ -787,6 +787,7 @@ data class DiagnosticsScanUiModel(
     val selectiveMatrixHostsInput: String = "",
     val selectiveMatrixInputValid: Boolean = true,
     val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
+    val quicVersionMatrixInput: QuicVersionMatrixConfig = QuicVersionMatrixConfig(),
     val selectiveMatrixTargets: ImmutableList<SelectiveMatrixTargetUiModel> = persistentListOf(),
     val profiles: ImmutableList<DiagnosticsProfileOptionUiModel> = persistentListOf(),
     val selectedProfileId: String? = null,
@@ -994,31 +995,6 @@ internal data class ArchiveActionState(
     val tone: DiagnosticsTone = DiagnosticsTone.Neutral,
     val isBusy: Boolean = false,
     val latestArchiveFileName: String? = null,
-)
-
-internal data class SelectionState(
-    val selectedSectionRequest: DiagnosticsSection = DiagnosticsSection.Dashboard,
-    val selectedProfileId: String? = null,
-    val selectiveMatrixHostsInput: String = "",
-    val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
-    val selectedApproachMode: DiagnosticsApproachMode = DiagnosticsApproachMode.Profiles,
-    val selectedApproachDetail: BypassApproachDetail? = null,
-    val selectedProbe: DiagnosticsProbeResultUiModel? = null,
-    val selectedEventId: String? = null,
-    val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel? = null,
-)
-
-internal data class FilterState(
-    val sessionSearch: String = "",
-    val eventSourceFilter: String? = null,
-    val eventSeverityFilter: String? = null,
-    val eventSearch: String = "",
-    val eventAutoScroll: Boolean = true,
-)
-
-internal data class SessionDetailState(
-    val selectedSessionDetail: DiagnosticSessionDetail? = null,
-    val sensitiveSessionDetailsVisible: Boolean = false,
 )
 
 internal data class ScanLifecycleState(

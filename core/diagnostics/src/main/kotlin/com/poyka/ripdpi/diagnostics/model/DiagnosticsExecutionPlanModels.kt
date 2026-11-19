@@ -51,6 +51,7 @@ enum class ExecutionPlanProbeTaskFamily {
     HTTP3,
     PMTU,
     TLS_HOP_COMPARISON,
+    QUIC_VERSION_MATRIX,
 }
 
 @Serializable

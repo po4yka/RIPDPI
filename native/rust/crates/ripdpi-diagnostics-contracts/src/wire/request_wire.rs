@@ -50,6 +50,8 @@ pub struct EngineScanRequestWire {
     pub pmtu_probe: Option<crate::types::PmtuProbeConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tls_hop_comparison: Option<crate::types::TlsHopComparisonConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quic_version_matrix: Option<crate::types::QuicVersionMatrixConfig>,
     pub whitelist_sni: Vec<String>,
     #[serde(default)]
     pub telegram_target: Option<TelegramTarget>,
