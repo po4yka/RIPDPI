@@ -111,6 +111,12 @@ class FieldFailureStageContractTest {
                 DpiProbeError.HostUnreach to FieldFailureStage.TcpConnect,
                 DpiProbeError.Unknown to FieldFailureStage.Unknown,
             )
+        // Every sealed subclass is a nested object, so the nested classes enumerate them.
+        val subclasses =
+            DpiProbeError::class.java.declaredClasses
+                .filter { DpiProbeError::class.java.isAssignableFrom(it) }
+                .map { it.getField("INSTANCE").get(null) as DpiProbeError }
+        assertEquals(subclasses.toSet(), expected.keys)
         expected.forEach { (error, stage) -> assertEquals(error.label, stage, error.fieldFailureStage) }
     }
 
