@@ -154,10 +154,9 @@ internal fun JourneyRule.reveal(matcher: SemanticsMatcher): Boolean {
 
 internal fun JourneyRule.revealTag(tag: String): Boolean = reveal(hasTestTag(tag))
 
-internal fun JourneyRule.requireTag(tag: String) {
-    if (!revealTag(tag)) waitForTag(tag)
-    check(revealTag(tag)) { "Expected a node with test tag '$tag'" }
-}
+// Reveal on every poll: an off-screen lazy item is never composed by waiting alone, and a list that
+// is still loading or shifting (banners, async rows) can defeat a single scroll attempt.
+internal fun JourneyRule.requireTag(tag: String) = waitWithTree("tag $tag never appeared") { revealTag(tag) }
 
 internal fun JourneyRule.clickTag(tag: String) {
     requireTag(tag)
