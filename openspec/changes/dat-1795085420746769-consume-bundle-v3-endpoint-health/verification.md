@@ -52,3 +52,11 @@ The full `:core:data`, `:core:data:runtime-state` and `:app` unit runs are neede
 
 - `core/data/src/test/resources/deployment-generated/metadata.json` records the pre-v3 `payload_sha256`; regenerate the deployment fixtures with the deploy D4 generator.
 - Live acceptance against a real v3 bundle needs deploy D4.
+
+## Review fixes
+
+Findings of the independent review of `fd922df2b..HEAD`. Each Kotlin regression test below was written to fail before its fix; none was compiled or run (owner build policy: no Gradle).
+
+| Finding | Fix and regression test | Result |
+|---|---|---|
+| M4 fail-open judged before the Cloudflare filter | With every direct member down and a Cloudflare member up, health ranking returned only the Cloudflare member, which the pass then filtered out, leaving an empty round. The prober now ranks only the probe-eligible members, so they fail open. `SelectorUrltestProberTest` `direct members all down fail open while a Cloudflare member is up` | written, owner Gradle run pending |
