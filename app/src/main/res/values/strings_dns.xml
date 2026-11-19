@@ -18,7 +18,6 @@
     <string name="dns_protocol_custom_only">Custom only</string>
     <string name="dns_resolvers_section">Resolvers</string>
     <string name="dns_custom_section">Custom server</string>
-    <string name="dns_custom_section_body">Use custom fields when you need your own endpoint, hostname, TLS name, or DNSCrypt credentials.</string>
     <string name="dns_custom_title">Custom DNS</string>
     <string name="dns_custom_body">Set a specific resolver address for the local VPN path and keep it stored on this device.</string>
     <string name="dns_custom_doh_title">Custom DoH</string>

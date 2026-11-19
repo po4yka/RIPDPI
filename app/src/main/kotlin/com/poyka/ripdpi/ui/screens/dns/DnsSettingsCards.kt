@@ -99,25 +99,13 @@ internal fun DnsActiveConfigurationCard(
                     Modifier
                         .align(Alignment.CenterVertically)
                         .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
-                        .ripDpiFeatureSurface(
-                            if (uiState.dns.dnsMode == DnsModeEncrypted) {
-                                colors.infoContainer
-                            } else {
-                                colors.inputBackground
-                            },
-                            RipDpiThemeTokens.shapes.full,
-                        ),
+                        .ripDpiFeatureSurface(colors.inputBackground, RipDpiThemeTokens.shapes.full),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = if (uiState.dns.dnsMode == DnsModeEncrypted) RipDpiIcons.Lock else RipDpiIcons.Dns,
                     contentDescription = null,
-                    tint =
-                        if (uiState.dns.dnsMode == DnsModeEncrypted) {
-                            colors.infoContainerForeground
-                        } else {
-                            colors.foreground
-                        },
+                    tint = colors.foreground,
                     modifier = Modifier.size(RipDpiIconSizes.Large),
                 )
             }
@@ -272,16 +260,13 @@ private fun DnsOptionLeading(
             modifier =
                 Modifier
                     .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
-                    .ripDpiFeatureSurface(
-                        if (selected) colors.infoContainer else colors.inputBackground,
-                        RipDpiThemeTokens.shapes.full,
-                    ),
+                    .ripDpiFeatureSurface(colors.inputBackground, RipDpiThemeTokens.shapes.full),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (selected) colors.infoContainerForeground else colors.mutedForeground,
+                tint = if (selected) colors.foreground else colors.mutedForeground,
                 modifier = Modifier.size(RipDpiIconSizes.Large),
             )
         }

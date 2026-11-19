@@ -16,7 +16,6 @@
     <string name="dns_protocol_custom_only">Только пользовательские</string>
     <string name="dns_resolvers_section">Резолверы</string>
     <string name="dns_custom_section">Пользовательский сервер</string>
-    <string name="dns_custom_section_body">Используйте пользовательские поля, если вам нужны собственный адрес, имя хоста, TLS-имя или учётные данные DNSCrypt.</string>
     <string name="dns_custom_title">Пользовательский DNS</string>
     <string name="dns_custom_body">Укажите конкретный адрес резолвера для локального VPN-пути и сохраните его на этом устройстве.</string>
     <string name="dns_custom_doh_title">Пользовательский DoH</string>

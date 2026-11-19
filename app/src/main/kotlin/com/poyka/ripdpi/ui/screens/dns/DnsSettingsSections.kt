@@ -181,16 +181,9 @@ internal fun DnsCustomResolverSettingsSection(
     onSaveCustomOdoh: (OdohResolverFields, List<String>) -> Unit,
     onSavePlainDns: (String) -> Unit,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         SettingsCategoryHeader(title = stringResource(R.string.dns_custom_section))
-        Text(
-            text = stringResource(R.string.dns_custom_section_body),
-            style = type.body,
-            color = colors.mutedForeground,
-        )
         RipDpiCard(variant = RipDpiCardVariant.Tonal, animateContentSize = true) {
             when (uiState.dns.dnsMode) {
                 DnsModePlainUdp -> {

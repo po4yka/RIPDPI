@@ -6,7 +6,6 @@
     <string name="dns_custom_dnscrypt_public_key_label">Clave pública</string>
     <string name="dns_custom_doh_url_helper">Usa un endpoint HTTPS que acepte mensajes DNS según RFC 8484.</string>
     <string name="dns_custom_dot_tls_helper">Nombre de servidor usado durante la verificación del certificado TLS.</string>
-    <string name="dns_custom_section_body">Usa los campos personalizados cuando necesites tu propio endpoint, nombre de host, nombre TLS o credenciales DNSCrypt.</string>
     <string name="dns_mode_doh">DNS cifrado</string>
     <string name="dns_mode_section">Modo</string>
     <string name="dns_placeholder_public_key">0123abcd\u2026</string>

@@ -16,7 +16,6 @@
     <string name="dns_protocol_custom_only">مخصص فقط</string>
     <string name="dns_resolvers_section">المحللات</string>
     <string name="dns_custom_section">خادم مخصص</string>
-    <string name="dns_custom_section_body">استخدم الحقول المخصصة عند الحاجة إلى نقطة نهاية خاصة أو اسم مضيف أو اسم TLS أو بيانات اعتماد DNSCrypt.</string>
     <string name="dns_custom_title">DNS مخصص</string>
     <string name="dns_custom_body">تعيين عنوان محلل محدد لمسار VPN المحلي وحفظه على هذا الجهاز.</string>
     <string name="dns_custom_doh_title">DoH مخصص</string>

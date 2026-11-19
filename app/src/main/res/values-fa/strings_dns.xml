@@ -59,7 +59,6 @@
     <string name="dns_custom_doh_url_helper">از یک نقطه پایانی HTTPS استفاده کنید که پیام‌های DNS مطابق RFC 8484 را می‌پذیرد.</string>
     <string name="dns_custom_dot_host_helper">نام میزبان یا IP برای نقطه پایانی DNS-over-TLS.</string>
     <string name="dns_custom_host_label">میزبان</string>
-    <string name="dns_custom_section_body">وقتی به نقطه پایانی، نام میزبان، نام TLS یا اعتبارنامه DNSCrypt خود نیاز دارید، از فیلدهای سفارشی استفاده کنید.</string>
     <string name="dns_custom_title">DNS سفارشی</string>
     <string name="dns_mode_doh">DNS رمزنگاری‌شده</string>
     <string name="dns_mode_plain_body">DNS را مستقیماً به IP تحلیل‌گر ارسال کنید بدون رهگیری رمزنگاری‌شده یا راه‌اندازی bootstrap.</string>

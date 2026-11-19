@@ -16,7 +16,6 @@
     <string name="dns_protocol_custom_only">Apenas personalizado</string>
     <string name="dns_resolvers_section">Resolvedores</string>
     <string name="dns_custom_section">Servidor personalizado</string>
-    <string name="dns_custom_section_body">Use os campos personalizados quando precisar do seu próprio endpoint, hostname, nome TLS ou credenciais DNSCrypt.</string>
     <string name="dns_custom_title">DNS personalizado</string>
     <string name="dns_custom_body">Define um endereço de resolvedor específico para o caminho VPN local e o mantém armazenado neste dispositivo.</string>
     <string name="dns_custom_doh_title">DoH personalizado</string>

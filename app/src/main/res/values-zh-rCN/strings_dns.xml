@@ -25,7 +25,6 @@
     <string name="dns_custom_doh_body">使用带有显式引导 IP 的自定义 DoH 端点,使隧道解析不依赖于明文 DNS。</string>
     <string name="dns_custom_doh_url_label">DoH 地址</string>
     <string name="dns_custom_dot_tls_helper">TLS 证书验证期间使用的服务器名。</string>
-    <string name="dns_custom_section_body">当您需要自己的端点、主机名、TLS 名称或 DNSCrypt 凭据时,请使用自定义字段。</string>
     <string name="dns_custom_tls_server_name_label">TLS 服务器名</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
     <string name="dns_placeholder_public_key">0123abcd…</string>

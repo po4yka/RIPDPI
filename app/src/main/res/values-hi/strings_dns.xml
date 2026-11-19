@@ -16,7 +16,6 @@
     <string name="dns_protocol_custom_only">केवल कस्टम</string>
     <string name="dns_resolvers_section">रिज़ॉल्वर</string>
     <string name="dns_custom_section">कस्टम सर्वर</string>
-    <string name="dns_custom_section_body">जब आपको अपना स्वयं का एंडपॉइंट, होस्टनाम, TLS नाम, या DNSCrypt क्रेडेंशियल चाहिए तब कस्टम फ़ील्ड का उपयोग करें।</string>
     <string name="dns_custom_title">कस्टम DNS</string>
     <string name="dns_custom_body">स्थानीय VPN पथ के लिए एक विशिष्ट रिज़ॉल्वर पता सेट करें और उसे इस डिवाइस पर संग्रहीत रखें।</string>
     <string name="dns_custom_doh_title">कस्टम DoH</string>

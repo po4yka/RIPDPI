@@ -2772,7 +2772,6 @@ app:dns_custom_port_helper
 app:dns_custom_port_label
 app:dns_custom_save_requirements_hint
 app:dns_custom_section
-app:dns_custom_section_body
 app:dns_custom_switch_hint
 app:dns_custom_title
 app:dns_custom_tls_server_name_label
