@@ -8,7 +8,7 @@ The parser supports only bundle v2 (`SingBoxSubscriptionParser.RIPDPI_SCHEMA_VER
 
 ## What Changes
 
-- Parse `ripdpi-bundle` v3: v2 plus per-endpoint `health` {status healthy|degraded|down|unknown, observed_at RFC3339, ttl_seconds} and top-level `field_report` {endpoint https URL, cohort_token, max_reports_per_day}.
+- Parse `ripdpi-bundle` v3: v2 plus the `ripdpi.endpoints` map keyed by `server_ref` (outbound or AWG tag), each entry `{health: {status healthy|degraded|down|unknown, observed_at RFC3339, ttl_seconds 60..86400}}`, and top-level `field_report` {endpoint https URL, cohort_token, max_reports_per_day 1..24}.
 - BREAKING: reject v2 bundles with a typed error; no shim and no dual parser.
 - Health feeds selector failover (`PayloadFailoverPolicy` and its import path): down is excluded, degraded is deprioritised, unknown and expired (observed_at + ttl_seconds passed) are neutral.
 - Golden tests for parsing and ordering.
