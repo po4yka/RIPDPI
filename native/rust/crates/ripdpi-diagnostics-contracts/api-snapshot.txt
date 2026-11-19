@@ -62,6 +62,21 @@ pub ripdpi_diagnostics_contracts::types::EndpointProbeStatus::Blocked
 pub ripdpi_diagnostics_contracts::types::EndpointProbeStatus::Failed
 pub ripdpi_diagnostics_contracts::types::EndpointProbeStatus::NotRun
 pub ripdpi_diagnostics_contracts::types::EndpointProbeStatus::Ok
+pub enum ripdpi_diagnostics_contracts::types::FieldFailureStage
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::Dns
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::IdleTimeout
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::ProtocolError
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::ProxyAuth
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::QuicHandshake
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::RealityAuth
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::TcpConnect
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::TcpReset
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::Throttled
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::TlsHandshake
+pub ripdpi_diagnostics_contracts::types::FieldFailureStage::Unknown
+impl ripdpi_diagnostics_contracts::types::FieldFailureStage
+pub const ripdpi_diagnostics_contracts::types::FieldFailureStage::ALL: [Self; 11]
+pub const fn ripdpi_diagnostics_contracts::types::FieldFailureStage::as_str(self) -> &'static str
 pub enum ripdpi_diagnostics_contracts::types::HttpProbeStatus
 pub ripdpi_diagnostics_contracts::types::HttpProbeStatus::Blockpage
 pub ripdpi_diagnostics_contracts::types::HttpProbeStatus::NotRun
@@ -1136,6 +1151,7 @@ pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::preferred
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::reason_code: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::selected_relay_role: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::viability: ripdpi_diagnostics_contracts::types::TransportPivotViability
+pub const ripdpi_diagnostics_contracts::types::CLIENT_FIELD_REPORT_CONTRACT_VERSION: u32
 pub const ripdpi_diagnostics_contracts::types::CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str
 pub const ripdpi_diagnostics_contracts::types::EXECUTION_PLAN_VERSION: &str
 pub const ripdpi_diagnostics_contracts::types::STRATEGY_PROBE_METHODOLOGY_VERSION: &str
@@ -1361,6 +1377,21 @@ pub ripdpi_diagnostics_contracts::EndpointProbeStatus::Blocked
 pub ripdpi_diagnostics_contracts::EndpointProbeStatus::Failed
 pub ripdpi_diagnostics_contracts::EndpointProbeStatus::NotRun
 pub ripdpi_diagnostics_contracts::EndpointProbeStatus::Ok
+pub enum ripdpi_diagnostics_contracts::FieldFailureStage
+pub ripdpi_diagnostics_contracts::FieldFailureStage::Dns
+pub ripdpi_diagnostics_contracts::FieldFailureStage::IdleTimeout
+pub ripdpi_diagnostics_contracts::FieldFailureStage::ProtocolError
+pub ripdpi_diagnostics_contracts::FieldFailureStage::ProxyAuth
+pub ripdpi_diagnostics_contracts::FieldFailureStage::QuicHandshake
+pub ripdpi_diagnostics_contracts::FieldFailureStage::RealityAuth
+pub ripdpi_diagnostics_contracts::FieldFailureStage::TcpConnect
+pub ripdpi_diagnostics_contracts::FieldFailureStage::TcpReset
+pub ripdpi_diagnostics_contracts::FieldFailureStage::Throttled
+pub ripdpi_diagnostics_contracts::FieldFailureStage::TlsHandshake
+pub ripdpi_diagnostics_contracts::FieldFailureStage::Unknown
+impl ripdpi_diagnostics_contracts::types::FieldFailureStage
+pub const ripdpi_diagnostics_contracts::types::FieldFailureStage::ALL: [Self; 11]
+pub const fn ripdpi_diagnostics_contracts::types::FieldFailureStage::as_str(self) -> &'static str
 pub enum ripdpi_diagnostics_contracts::HttpProbeStatus
 pub ripdpi_diagnostics_contracts::HttpProbeStatus::Blockpage
 pub ripdpi_diagnostics_contracts::HttpProbeStatus::NotRun
@@ -2227,6 +2258,7 @@ pub ripdpi_diagnostics_contracts::TransferProgress::target: alloc::string::Strin
 pub struct ripdpi_diagnostics_contracts::TransferSample
 pub ripdpi_diagnostics_contracts::TransferSample::body_byte_count: u64
 pub ripdpi_diagnostics_contracts::TransferSample::elapsed_ms: u64
+pub const ripdpi_diagnostics_contracts::CLIENT_FIELD_REPORT_CONTRACT_VERSION: u32
 pub const ripdpi_diagnostics_contracts::DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32
 pub type ripdpi_diagnostics_contracts::EngineObservationWire = ripdpi_diagnostics_contracts::ProbeObservation
 pub type ripdpi_diagnostics_contracts::EngineProbeTaskFamily = ripdpi_diagnostics_contracts::types::ProbeTaskFamily
