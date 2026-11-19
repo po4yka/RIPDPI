@@ -61,6 +61,11 @@ The implementation MUST store every selector member with its health and evaluate
 - **WHEN** every direct endpoint is down and unexpired and a Cloudflare member, which never wins automatically, is healthy
 - **THEN** the direct members fail open and stay candidates, so the probe round is not empty
 
+#### Scenario: Latency tie with a degraded member
+
+- **WHEN** a degraded member and a neutral member measure the same latency and no member is selected
+- **THEN** the neutral member wins
+
 ### Requirement: REQ-DAT-1795085420746769-004 — Vendored v3 contract is drift-pinned
 
 The implementation MUST test against byte-identical vendored v3 schema and fixtures pinned by a SHA-256 manifest, and the tests MUST fail when the schema's `x-contract-version` differs from the parser's supported version or when a vendored file differs from, or is missing from, the manifest.
