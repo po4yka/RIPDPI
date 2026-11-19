@@ -31,6 +31,8 @@ import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.services.FlowAppAttributionStore
 import com.poyka.ripdpi.services.FlowAttribution
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceStartupReconciler
+import com.poyka.ripdpi.services.fieldreport.FieldReportConsentFollower
+import com.poyka.ripdpi.services.fieldreport.FieldReportLedger
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.strategy.StrategyPackService
@@ -106,6 +108,7 @@ class AppStartupInitializerTest {
                     "shared_priors_refresh_worker_enqueue=succeeded, " +
                     "cdn_ech_seed_from_cache=succeeded, cdn_ech_refresh_worker_enqueue=succeeded, " +
                     "subscription_auto_update_worker_enqueue=succeeded, " +
+                    "field_report_consent_follower=succeeded, " +
                     "boot_session_recorder_registration=succeeded, " +
                     "preset_apply=succeeded",
                 report.toLogMessage(),
@@ -933,6 +936,12 @@ private fun createInitializer(
             ) {
                 override fun readPreset(): String? = startupOverrides.presetAsset
             },
+        fieldReportConsentFollower =
+            FieldReportConsentFollower(
+                application,
+                NoOpAppSettingsRepository,
+                FieldReportLedger(application, NoOpAppSettingsRepository),
+            ),
         appShortcutsPublisher =
             AppShortcutsPublisher(
                 context = application,
