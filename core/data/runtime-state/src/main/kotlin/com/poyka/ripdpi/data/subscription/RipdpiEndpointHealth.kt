@@ -84,6 +84,7 @@ fun ProxyGroup.membersByHealth(nowEpochMillis: Long): EndpointHealthOrder =
     orderByEndpointHealth(members, memberHealth, nowEpochMillis)
 
 /** `ripdpi.field_report`: where and how often the opt-in field-report client may upload. */
+@Serializable
 data class RipdpiFieldReport(
     val endpoint: String,
     val cohortToken: String,

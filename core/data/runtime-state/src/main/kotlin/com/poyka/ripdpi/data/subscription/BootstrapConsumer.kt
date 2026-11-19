@@ -45,6 +45,7 @@ sealed interface BootstrapConsumeResult {
         val payloadSha256: String = "",
         val initialMemberId: String? = null,
         val memberHealth: Map<String, EndpointHealth> = emptyMap(),
+        val fieldReport: RipdpiFieldReport? = null,
     ) : BootstrapConsumeResult
 
     /**
@@ -318,6 +319,7 @@ class BootstrapConsumer(
                 isSelector = selector.group != null,
                 initialMemberId = selector.group?.initialMemberId,
                 memberHealth = selector.group?.memberHealth.orEmpty(),
+                fieldReport = selector.group?.fieldReport,
                 failover = selector.failoverPolicy.toSelectorFailover(),
             )
         }

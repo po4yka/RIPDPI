@@ -267,6 +267,20 @@ class RipdpiBundleContractTest {
     }
 
     @Test
+    fun `import stores the field-report target and a SHARE backup drops it`() {
+        val parsed = SingBoxSubscriptionParser.parse(resource(GOLDEN_FULL), "golden-full") as SingBoxParseResult.Success
+        val group = importedGroup(resource(GOLDEN_FULL))
+        assertEquals("https://reports.example.test/v1/field-report", group.fieldReport?.endpoint)
+        assertEquals(requireNotNull(parsed.fieldReport), group.fieldReport)
+        assertEquals(
+            null,
+            com.poyka.ripdpi.data.backup.BackupGroupRedactor
+                .redact(group)
+                .fieldReport,
+        )
+    }
+
+    @Test
     fun `all-down selector imports and fails open with a typed outcome`() {
         val document = json.parseToJsonElement(resource(GOLDEN_FULL)).jsonObject
         val ripdpi = document["ripdpi"]!!.jsonObject

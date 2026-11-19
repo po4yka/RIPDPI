@@ -245,6 +245,7 @@ object SelectorUrltestGroupImport {
                             ),
                         memberHealth =
                             parsed.endpointHealth.filterKeys { tag -> memberProfiles.any { it.displayName == tag } },
+                        fieldReport = parsed.fieldReport,
                     ),
             memberOrder = memberProfiles.map { it.displayName },
             defaultMemberTag = selectorEntry.string("default"),
