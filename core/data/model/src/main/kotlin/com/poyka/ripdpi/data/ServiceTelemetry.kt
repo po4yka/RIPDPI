@@ -85,9 +85,11 @@ fun deriveRuntimeFieldTelemetry(
     tunnelTelemetry: NativeRuntimeSnapshot,
     tunnelRecoveryRetryCount: Long,
     failureReason: FailureReason? = null,
+    failureAtMillis: Long? = null,
 ): RuntimeFieldTelemetry =
     classifyFailureClass(
         failureReason = failureReason,
+        failureAtMillis = failureAtMillis,
         proxyTelemetry = proxyTelemetry,
         relayTelemetry = relayTelemetry,
         warpTelemetry = warpTelemetry,
@@ -209,14 +211,21 @@ fun aggregateRttBand(
         .maxByOrNull { it.ordinal }
         ?: RttBand.Unknown
 
+/**
+ * [failureAtMillis] is when [failureReason] was raised. A runtime's `lastFailureClass` lasts for its whole session,
+ * so it describes only the live state; a raised reason takes a native class only from a native event recorded
+ * within [FreshNativeFailureMillis] before it.
+ */
 fun classifyFailureClass(
     failureReason: FailureReason?,
+    failureAtMillis: Long?,
     proxyTelemetry: NativeRuntimeSnapshot,
     relayTelemetry: NativeRuntimeSnapshot,
     warpTelemetry: NativeRuntimeSnapshot,
     tunnelTelemetry: NativeRuntimeSnapshot,
 ): FailureClass? {
     val nativeClass = latestNativeFailureClass(proxyTelemetry, relayTelemetry, warpTelemetry)
+    val freshNativeClass = freshNativeFailureClass(failureAtMillis, proxyTelemetry, relayTelemetry, warpTelemetry)
     return when (failureReason) {
         null -> {
             nativeClass ?: tunnelFailureClass(tunnelTelemetry) ?: tunnelTelemetry.networkHandoverClass
@@ -251,11 +260,11 @@ fun classifyFailureClass(
         is FailureReason.WarpRuntimeFailed,
         is FailureReason.NativeError,
         -> {
-            nativeClass ?: FailureClass.NativeIo
+            freshNativeClass ?: FailureClass.NativeIo
         }
 
         is FailureReason.Unexpected -> {
-            nativeClass ?: FailureClass.Unexpected
+            freshNativeClass ?: FailureClass.Unexpected
         }
 
         is FailureReason.PermissionLost -> {
@@ -321,6 +330,22 @@ private fun latestNativeFailureClass(
     listOf(relayTelemetry, warpTelemetry, proxyTelemetry).firstNotNullOfOrNull { snapshot ->
         snapshot.lastFailureClass?.trim()?.let(::failureClassFromNativeCode)
     }
+
+/** How long before a raised failure reason a native failure event still belongs to it. */
+const val FreshNativeFailureMillis = 30_000L
+
+private fun freshNativeFailureClass(
+    failureAtMillis: Long?,
+    proxyTelemetry: NativeRuntimeSnapshot,
+    relayTelemetry: NativeRuntimeSnapshot,
+    warpTelemetry: NativeRuntimeSnapshot,
+): FailureClass? {
+    if (failureAtMillis == null) return null
+    return (relayTelemetry.nativeEvents + warpTelemetry.nativeEvents + proxyTelemetry.nativeEvents)
+        .filter { it.createdAt in (failureAtMillis - FreshNativeFailureMillis)..failureAtMillis }
+        .sortedByDescending { it.createdAt }
+        .firstNotNullOfOrNull { event -> event.failureClass?.trim()?.let(::failureClassFromNativeCode) }
+}
 
 private fun hasRecentDhtTriggerCorrelation(
     proxyTelemetry: NativeRuntimeSnapshot,

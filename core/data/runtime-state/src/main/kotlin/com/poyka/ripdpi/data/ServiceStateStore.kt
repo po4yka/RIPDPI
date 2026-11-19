@@ -450,6 +450,7 @@ class DefaultServiceStateStore
                                             tunnelTelemetry = resetTelemetry.tunnelTelemetry,
                                             tunnelRecoveryRetryCount = 0,
                                             failureReason = reason,
+                                            failureAtMillis = resetTelemetry.lastFailureAt,
                                         )
                                     } else {
                                         RuntimeFieldTelemetry(
@@ -503,6 +504,7 @@ class DefaultServiceStateStore
                                     tunnelRecoveryRetryCount =
                                         currentTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
                                     failureReason = reason,
+                                    failureAtMillis = now,
                                 ),
                             lastFailureSender = sender,
                             lastFailureAt = now,
