@@ -52,3 +52,11 @@ just ci-gates
 ```
 
 The full unit-test runs are needed because classification no longer reads message text: any test that relied on `lastError` or native-event text to select a `FailureClass` now gets the typed result.
+
+## Review fixes
+
+Findings of the independent review of `fd922df2b..HEAD`. Each Kotlin regression test below was written to fail before its fix; none was compiled or run (owner build policy: no Gradle).
+
+| Finding | Fix and regression test | Result |
+|---|---|---|
+| M1 tunnel and DNS signals lost | Removing text classification dropped the tunnel `lastError` and resolver-fallback signals that drive the Status DNS and tunnel stages (`MainStateResolvers`, `RecentWarningTracker`, `RoutingProtectionPresenter`). Without a failure reason, the tunnel's typed fields now map explicitly: a recorded tunnel worker error (presence only) is `TunnelEstablish` and `resolverFallbackActive` is `DnsInterference`; no Rust field was needed. `FieldTelemetryTest` `typed tunnel signals still classify DNS and tunnel failures` | written, owner Gradle run pending |
