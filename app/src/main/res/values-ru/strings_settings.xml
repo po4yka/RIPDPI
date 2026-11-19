@@ -121,8 +121,10 @@
     <string name="data_transparency_what_we_do_not_collect_section">Что мы НЕ собираем</string>
     <string name="data_transparency_no_browsing">Никакой истории просмотров, содержимого URL, payload пакетов, учётных данных или TLS-секретов в обычной диагностике</string>
     <string name="data_transparency_no_personal_data">Никаких аккаунтов: приложение работает без входа</string>
-    <string name="data_transparency_no_external_servers">Данные не отправляются на внешние серверы автоматически</string>
+    <string name="data_transparency_no_external_servers">Данные не отправляются на внешние серверы автоматически, кроме анонимных отчётов о подключениях, если вы их включили</string>
     <string name="data_transparency_no_analytics">Нет аналитики, отчётов об ошибках или рекламных SDK</string>
+    <string name="settings_field_report_title">Отправлять анонимные отчёты о подключениях</string>
+    <string name="settings_field_report_body">По умолчанию выключено. Если включено, приложение раз в час отправляет сводку на сервер отчётов из вашей подписки, только через активный туннель. В сводке — число подключений к каждому серверу: результат, этап сбоя, диапазон задержки, тип сети, страна и оператор сети (ASN). В ней нет IP-адресов, идентификаторов и посещённых сайтов. При выключении приложение удаляет неотправленные сводки.</string>
     <string name="data_transparency_how_stored_section">Как хранятся данные</string>
     <string name="data_transparency_local_database">Все данные остаются на вашем устройстве в локальной базе данных</string>
     <string name="data_transparency_retention_period">Настраиваемый срок хранения (1\u2013365 дней)</string>

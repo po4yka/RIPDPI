@@ -46,6 +46,8 @@
     <string name="data_transparency_disable_monitoring">Vous pouvez désactiver la surveillance passive dans les paramètres avancés</string>
     <string name="data_transparency_export_redaction">Les résumés, manifestes et rapports exportés masquent les adresses IP, les identifiants Wi-Fi et le contexte d’assistance. Les captures de paquets brutes sont stockées et exportées séparément, et ne sont jamais intégrées aux archives de diagnostic expurgées.</string>
     <string name="data_transparency_no_analytics">Pas d\'analytique, de rapport de plantage ni de SDK publicitaire</string>
+    <string name="settings_field_report_title">Envoyer des rapports de terrain anonymes</string>
+    <string name="settings_field_report_body">Désactivé par défaut. Si vous l\'activez, l\'app envoie chaque heure un résumé au serveur de rapports de votre abonnement, uniquement via le tunnel actif. Le résumé contient le nombre de connexions par serveur : résultat, étape de l\'échec, plage de latence, type de réseau, pays et opérateur réseau (ASN). Il ne contient ni adresse IP, ni identifiant, ni site visité. Si vous le désactivez, l\'app supprime les résumés non envoyés.</string>
     <string name="data_transparency_performance_metrics">Métriques de performance : mesures de RTT, nombre de nouvelles tentatives, statistiques de trafic</string>
     <string name="language_name_es">Español</string>
     <string name="language_picker_native_format">%1$s</string>
@@ -117,7 +119,7 @@
     <string name="customization_themed_icon_body">Suivre le thème Material You du système</string>
     <string name="data_transparency_export_control">Vous contrôlez les données enregistrées ou partagées, leurs destinataires et la suppression des exports enregistrés hors du stockage de l’application</string>
     <string name="data_transparency_local_database">Toutes les données restent sur votre appareil dans une base de données locale</string>
-    <string name="data_transparency_no_external_servers">Aucune donnée n\'est envoyée automatiquement à des serveurs externes</string>
+    <string name="data_transparency_no_external_servers">Aucune donnée n\'est envoyée automatiquement à des serveurs externes, sauf les rapports de terrain anonymes si vous les activez</string>
     <string name="data_transparency_what_we_collect_section">Ce qui est stocké sur cet appareil</string>
     <string name="language_name_fr">Français</string>
     <string name="persona_guided">Guidé</string>

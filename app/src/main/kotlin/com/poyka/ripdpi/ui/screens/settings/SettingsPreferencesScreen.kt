@@ -113,6 +113,7 @@ fun SettingsRoute(
                 onFullTunnelModeChanged = remember(customization) { customization::setFullTunnelMode },
                 onBlockTrafficOnEngineFailureChanged =
                     remember(customization) { customization::setBlockTrafficOnEngineFailure },
+                onFieldReportChanged = remember(customization) { customization::setFieldReportEnabled },
                 onStartOnBootChanged = remember(customization) { customization::setStartOnBootEnabled },
                 onBiometricChanged = remember(customization) { customization::setBiometricEnabled },
                 onSaveBackupPin = remember(customization) { customization::setBackupPin },
@@ -211,6 +212,7 @@ internal data class SettingsScreenActions(
     val onExcludeRussianAppsChanged: (Boolean) -> Unit,
     val onFullTunnelModeChanged: (Boolean) -> Unit,
     val onBlockTrafficOnEngineFailureChanged: (Boolean) -> Unit = {},
+    val onFieldReportChanged: (Boolean) -> Unit = {},
     val onStartOnBootChanged: (Boolean) -> Unit,
     val onBiometricChanged: (Boolean) -> Unit,
     val onSaveBackupPin: (String) -> Unit,

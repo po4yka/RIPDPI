@@ -89,7 +89,7 @@
     <string name="data_transparency_export_explicit">بایگانی‌های خروجی، فایل‌های گزارش و موارد اشتراک‌گذاری فقط با درخواست صریح شما ساخته می‌شوند</string>
     <string name="data_transparency_how_stored_section">داده‌ها چگونه ذخیره می‌شوند</string>
     <string name="data_transparency_network_identity">شناسه شبکه: اثر انگشت هش‌شده از ویژگی‌های شبکه (Wi-Fi SSID، اطلاعات اپراتور)</string>
-    <string name="data_transparency_no_external_servers">هیچ داده‌ای به‌طور خودکار به سرورهای خارجی ارسال نمی‌شود</string>
+    <string name="data_transparency_no_external_servers">هیچ داده‌ای به‌طور خودکار به سرورهای خارجی ارسال نمی‌شود، مگر گزارش‌های میدانی ناشناس وقتی آن‌ها را روشن کنید</string>
     <string name="data_transparency_performance_metrics">معیارهای عملکرد: اندازه‌گیری RTT، تعداد تلاش‌های مجدد، آمار ترافیک</string>
     <string name="data_transparency_what_we_do_not_collect_section">آنچه ما جمع‌آوری نمی‌کنیم</string>
     <string name="settings_mixed_inbound_title">ورودی ترکیبی (SOCKS5 + HTTP)</string>
@@ -142,6 +142,8 @@
     <string name="data_transparency_export_privacy_section">حریم خصوصی صدور</string>
     <string name="data_transparency_local_database">تمام داده‌ها در پایگاه‌داده محلی روی دستگاه شما باقی می‌مانند</string>
     <string name="data_transparency_no_analytics">بدون SDKهای تحلیلی، گزارش خرابی یا تبلیغاتی</string>
+    <string name="settings_field_report_title">ارسال گزارش‌های میدانی ناشناس</string>
+    <string name="settings_field_report_body">به‌طور پیش‌فرض خاموش است. وقتی روشن باشد، برنامه هر ساعت یک خلاصه را فقط از طریق تونل فعال به سرور گزارش اشتراک شما می‌فرستد. خلاصه شامل شمار اتصال‌ها برای هر سرور است: نتیجه، مرحلهٔ خطا، بازهٔ تأخیر، نوع شبکه، کشور و اپراتور شبکه (ASN). نشانی IP، شناسه یا سایت‌های بازدیدشده در آن نیست. با خاموش کردن، برنامه خلاصه‌های ارسال‌نشده را حذف می‌کند.</string>
     <string name="data_transparency_no_personal_data">بدون حساب کاربری: برنامه بدون ورود به حساب کار می‌کند</string>
     <string name="data_transparency_retention_period">دوره نگه‌داری قابل پیکربندی (1–365 روز)</string>
     <string name="settings_advanced_body">پرچم‌های سطح پایین RIPDPI، شنوندگان پراکسی و بازنویسی‌های پروتکل</string>

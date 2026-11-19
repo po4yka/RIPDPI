@@ -508,4 +508,7 @@ message AppSettings {
 
   // Unset is BLOCK, so existing installs keep traffic blocked after an engine failure.
   VpnEngineFailureAction vpn_engine_failure_action = 431;
+
+  // Opt-in anonymous field reports (client-field-report v1). Off by default; a local consent that a backup never restores.
+  bool field_report_enabled = 432;
 }
