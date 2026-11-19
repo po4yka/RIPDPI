@@ -1,5 +1,12 @@
 package com.poyka.ripdpi.services.fieldreport
 
+import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RuntimeConfigurationApplication
+import com.poyka.ripdpi.data.RuntimeConfigurationApplyReason
+import com.poyka.ripdpi.data.RuntimeConfigurationDns
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
+import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 import com.poyka.ripdpi.services.LocalSocksRoute
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
@@ -28,6 +35,8 @@ class FieldReportUploaderTest {
     private val route = LocalSocksRoute("127.0.0.1", 1080)
     private val config = RipdpiFieldReport("https://reports.example.test/v1/field-report", "cohort-a", 2)
 
+    private fun target() = FieldReportTarget(config, setOf(reality), setOf("bundle-group"), setOf("bundle-member"))
+
     private class Harness(
         val file: File = File.createTempFile("field-report", ".json").apply { delete() },
         var consent: Boolean = true,
@@ -36,6 +45,7 @@ class FieldReportUploaderTest {
         var network: FieldReportNetwork = FieldReportNetwork("server_hint", "wifi", asn = 64500, country = "ZZ"),
         var targets: List<FieldReportTarget> = emptyList(),
         var accept: Boolean = true,
+        var upstream: FieldReportUpstream? = FieldReportUpstream("bundle-group", "bundle-member"),
     ) {
         val requests = mutableListOf<Pair<String, String>>()
         val ledger = FieldReportLedger(file, { consent }, { now }, { network })
@@ -46,6 +56,7 @@ class FieldReportUploaderTest {
                 targets = { targets },
                 appVersion = "1.4",
                 tunnelRoute = { tunnel },
+                activeUpstream = { upstream },
                 poster = { _, target, body -> accept.also { requests += target.endpoint to body } },
                 clock = { now },
             )
@@ -55,7 +66,7 @@ class FieldReportUploaderTest {
         hours: Int,
         attempts: Int = 5,
     ): Harness {
-        val harness = Harness(tunnel = route, targets = listOf(FieldReportTarget(config, setOf(reality))))
+        val harness = Harness(tunnel = route, targets = listOf(target()))
         repeat(hours) { hour ->
             harness.now = recordedAt + hour * MillisPerHour
             repeat(attempts) {
@@ -87,7 +98,7 @@ class FieldReportUploaderTest {
     @Test
     fun `an hour on two networks sends one report per network with its own source`() =
         runTest {
-            val harness = Harness(tunnel = route, targets = listOf(FieldReportTarget(config, setOf(reality))))
+            val harness = Harness(tunnel = route, targets = listOf(target()))
             harness.now = recordedAt
             repeat(5) { harness.ledger.recordAttempt(harness) }
             harness.network = FieldReportNetwork("sim", "cellular", mcc = "001", mnc = "01")
@@ -150,6 +161,53 @@ class FieldReportUploaderTest {
             harness.uploader.uploadCompletedHours()
             assertEquals(emptyList<FieldReportHour>(), harness.ledger.snapshot().hours)
         }
+
+    @Test
+    fun `a report is sent only while the tunnel exits through a member of the target`() =
+        runTest {
+            val harness = harnessWithHours(1)
+            for (other in listOf(null, FieldReportUpstream(null, null), FieldReportUpstream("other", "foreign"))) {
+                harness.upstream = other
+                harness.uploader.uploadCompletedHours()
+                assertEquals(0, harness.requests.size)
+                assertEquals(
+                    1,
+                    harness.ledger
+                        .snapshot()
+                        .hours.size,
+                )
+            }
+
+            // A non-selector relay names only its member (profile) id.
+            harness.upstream = FieldReportUpstream(null, "bundle-member")
+            harness.uploader.uploadCompletedHours()
+            assertEquals(1, harness.requests.size)
+        }
+
+    @Test
+    fun `the upstream is read only from the applied configuration of the current runtime`() {
+        val selection =
+            RuntimeConfigurationSelection("relay", selectorGroupId = "bundle-group", selectorMemberId = "m1")
+        val applied =
+            RuntimeConfigurationApplication.Applied(
+                AppliedRuntimeConfiguration(
+                    runtimeId = "runtime-1",
+                    revision = 1,
+                    appliedAt = 0,
+                    mode = Mode.VPN,
+                    requestedSelection = selection,
+                    effectiveSelection = selection,
+                    dns = RuntimeConfigurationDns("plain", "system"),
+                    strategy = RuntimeConfigurationStrategy(enabled = false),
+                    reason = RuntimeConfigurationApplyReason.InitialStart,
+                ),
+            )
+
+        assertEquals(FieldReportUpstream("bundle-group", "m1"), fieldReportUpstream(applied, "runtime-1"))
+        assertNull(fieldReportUpstream(applied, "runtime-2"))
+        assertNull(fieldReportUpstream(applied, null))
+        assertNull(fieldReportUpstream(RuntimeConfigurationApplication.Unknown, "runtime-1"))
+    }
 
     @Test
     fun `revoked consent sends nothing and deletes the pending hours`() =
@@ -233,7 +291,7 @@ class FieldReportUploaderTest {
         runTest {
             val plainHttp = harnessWithHours(1)
             plainHttp.targets =
-                listOf(FieldReportTarget(config.copy(endpoint = "http://reports.example.test/v1"), setOf(reality)))
+                listOf(target().copy(config = config.copy(endpoint = "http://reports.example.test/v1")))
             plainHttp.uploader.uploadCompletedHours()
             assertEquals(0, plainHttp.requests.size)
 

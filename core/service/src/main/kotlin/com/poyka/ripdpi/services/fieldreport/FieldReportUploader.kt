@@ -11,8 +11,10 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 import com.poyka.ripdpi.services.LocalSocksRoute
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
@@ -38,11 +40,33 @@ private const val HttpAccepted = 202
 private const val RequestTimeoutSeconds = 30L
 private val JsonMediaType = "application/json".toMediaType()
 
-/** One `field_report` upload target and the server_refs (member tags) its groups own. */
+/** One `field_report` upload target, the server_refs (member tags) its groups own, and those groups and members. */
 internal data class FieldReportTarget(
     val config: RipdpiFieldReport,
     val serverRefs: Set<String>,
+    val groupIds: Set<String>,
+    val memberIds: Set<String>,
+) {
+    /** True when the tunnel exits through one of this target's own members, so the report never leaves elsewhere. */
+    fun isServedBy(upstream: FieldReportUpstream): Boolean =
+        upstream.groupId in groupIds || upstream.memberId in memberIds
+}
+
+/** The selector group and member (or relay profile id) the active VPN tunnel exits through. */
+internal data class FieldReportUpstream(
+    val groupId: String?,
+    val memberId: String?,
 )
+
+/** The upstream of the applied VPN configuration of [runtimeId], or null when none is known for that runtime. */
+internal fun fieldReportUpstream(
+    application: RuntimeConfigurationApplication?,
+    runtimeId: String?,
+): FieldReportUpstream? {
+    val applied = (application as? RuntimeConfigurationApplication.Applied)?.configuration
+    val selection = applied?.takeIf { runtimeId != null && it.runtimeId == runtimeId }?.effectiveSelection
+    return selection?.let { FieldReportUpstream(it.selectorGroupId, it.selectorMemberId ?: it.profileId) }
+}
 
 /** Sends one report through the tunnel listener [route]; true only when the server accepted it. */
 internal fun interface FieldReportPoster {
@@ -65,6 +89,7 @@ class FieldReportUploader internal constructor(
     private val targets: suspend () -> List<FieldReportTarget>,
     private val appVersion: String?,
     private val tunnelRoute: suspend () -> LocalSocksRoute?,
+    private val activeUpstream: suspend () -> FieldReportUpstream?,
     private val poster: FieldReportPoster,
     private val clock: () -> Long,
 ) {
@@ -75,6 +100,7 @@ class FieldReportUploader internal constructor(
         settings: AppSettingsRepository,
         groups: ProxyGroupRepository,
         runtimes: ServiceRuntimeRegistry,
+        configurations: AppliedRuntimeConfigurationSource,
         tlsClientFactory: OwnedTlsClientFactory,
     ) : this(
         ledger = ledger,
@@ -82,10 +108,17 @@ class FieldReportUploader internal constructor(
         targets = {
             groups
                 .list()
-                .mapNotNull { group ->
-                    group.fieldReport?.let { it to group.members.map { member -> member.displayName } }
-                }.groupBy({ it.first }, { it.second })
-                .map { (config, tags) -> FieldReportTarget(config, tags.flatten().toSet()) }
+                .filter { it.fieldReport != null }
+                .groupBy { checkNotNull(it.fieldReport) }
+                .map { (config, owners) ->
+                    val members = owners.flatMap { it.members }
+                    FieldReportTarget(
+                        config,
+                        members.mapTo(mutableSetOf()) { it.displayName },
+                        owners.mapTo(mutableSetOf()) { it.id },
+                        members.mapTo(mutableSetOf()) { it.id },
+                    )
+                }
         },
         appVersion =
             fieldReportAppVersion(
@@ -94,6 +127,9 @@ class FieldReportUploader internal constructor(
         // The app's own UID bypasses the VPN, so the report enters the listener the tunnel forwards into.
         tunnelRoute = {
             fieldReportTunnelRoute(runtimes.current(Mode.VPN)?.tunnelSocksRoute, settings.snapshot().noDomain)
+        },
+        activeUpstream = {
+            fieldReportUpstream(configurations.applications.value[Mode.VPN], runtimes.current(Mode.VPN)?.runtimeId)
         },
         poster = OkHttpFieldReportPoster(tlsClientFactory),
         clock = System::currentTimeMillis,
@@ -109,10 +145,19 @@ class FieldReportUploader internal constructor(
         val due = state.hours.filter { it.startEpochMillis < hourStart(now) }
         // Without the tunnel nothing is sent; the hours wait for a later run and age out after 24 hours.
         val route = if (due.isEmpty()) null else tunnelRoute()
+        // The tunnel may exit from the real address (no relay) or through another operator's relay, so a
+        // report goes only to a target whose own member carries the tunnel; otherwise the hours wait as above.
+        val upstream = route?.let { activeUpstream() }
+        val reportTargets =
+            if (upstream == null) {
+                emptyList()
+            } else {
+                targets().filter { it.config.endpoint.startsWith("https://") && it.isServedBy(upstream) }
+            }
         if (!consent()) {
             ledger.clear()
-        } else if (route != null) {
-            upload(due, state.uploads, route, now)
+        } else if (route != null && reportTargets.isNotEmpty()) {
+            upload(due, state.uploads, route, reportTargets, now)
         }
     }
 
@@ -120,10 +165,10 @@ class FieldReportUploader internal constructor(
         due: List<FieldReportHour>,
         history: Map<String, List<Long>>,
         route: LocalSocksRoute,
+        reportTargets: List<FieldReportTarget>,
         now: Long,
     ) {
         val version = appVersion
-        val reportTargets = targets().filter { it.config.endpoint.startsWith("https://") }
         val reports =
             if (version == null) {
                 emptyList()
@@ -161,7 +206,7 @@ class FieldReportUploader internal constructor(
 
 /**
  * The listener route for an upload, or null when none may be used. The app's own UID is outside the VPN, so a
- * locally resolved name would leak the report host to system DNS; with noDomain the listener cannot resolve names,
+ * name looked up on the device would leave outside the tunnel; with noDomain the listener cannot look up names,
  * so the upload is skipped instead.
  */
 internal fun fieldReportTunnelRoute(
@@ -184,7 +229,7 @@ internal class OkHttpFieldReportPoster(
                     followRedirects(false)
                     followSslRedirects(false)
                     retryOnConnectionFailure(false)
-                    // The listener resolves the report host inside the tunnel, never system DNS.
+                    // The listener, not the system, looks up the report host, inside the tunnel.
                     localSocksProxy(route.copy(resolveNamesLocally = false))
                 }
             val request =
