@@ -60,6 +60,7 @@ internal fun OnboardingStepBadge(
     val colors = RipDpiThemeTokens.colors
     val handOff = LocalRipDpiHandOff.current
     val splashAnchor = LocalOnboardingBadgeAnchor.current
+    val pages = LocalOnboardingPages.current
     Box(
         modifier =
             modifier
@@ -80,7 +81,7 @@ internal fun OnboardingStepBadge(
                 .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
-        OnboardingPages.forEachIndexed { index, page ->
+        pages.forEachIndexed { index, page ->
             Icon(
                 imageVector = page.icon,
                 contentDescription = null,

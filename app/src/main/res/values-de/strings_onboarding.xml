@@ -8,9 +8,9 @@
     <string name="onboarding_preset_ready_title">Bereit zur Nutzung</string>
     <string name="onboarding_preset_ready_body">Diese App enthält bereits Server, Regeln und Einstellungen. Sie können sie später in den Tabs „Verbindung“ und „Einstellungen“ ändern.</string>
     <string name="onboarding_preset_connect_title">So verbinden Sie sich</string>
-    <string name="onboarding_preset_connect_body">Tippen Sie im Tab „Status“ auf „Verbinden“. Android fragt möglicherweise nach der Berechtigung, ein lokales VPN zu erstellen. Tippen Sie erneut auf die Schaltfläche, um die Verbindung zu trennen.</string>
-    <string name="onboarding_preset_trouble_title">Wenn es nicht funktioniert</string>
-    <string name="onboarding_preset_trouble_body">Öffnen Sie den Tab „Diagnose“ und starten Sie eine Prüfung. Sie zeigt, wo die Verbindung scheitert. Sie können den Bericht mit der Person teilen, von der Sie diese App erhalten haben.</string>
+    <string name="onboarding_preset_connect_body">Tippen Sie im Tab „Status“ auf „Verbinden“. Android fragt eventuell nach der Berechtigung für ein lokales VPN. Zum Trennen tippen Sie erneut und bestätigen.</string>
+    <string name="onboarding_preset_trouble_title">Bei Problemen</string>
+    <string name="onboarding_preset_trouble_body">Öffnen Sie den Tab „Diagnose“ und tippen Sie auf „Netz prüfen“. Die Prüfung zeigt, wo die Verbindung scheitert. Die Zusammenfassung können Sie mit der Person teilen, von der Sie die App haben.</string>
     <string name="onboarding_setup_finish">Fertigstellen</string>
     <string name="permissions_background_activity_body_huawei">Huawei-Geräte können RIPDPI im Hintergrund stoppen. Gehen Sie zu Einstellungen &gt; Akku &gt; App-Start, suchen Sie RIPDPI, deaktivieren Sie die automatische Verwaltung und aktivieren Sie Automatischer Start, Sekundärer Start und Im Hintergrund ausführen.</string>
     <string name="permissions_battery_body">Erlauben Sie RIPDPI, die Android-Akkuoptimierung zu ignorieren, damit Doze das lokale VPN oder den Proxy im Hintergrund seltener unterbricht.</string>

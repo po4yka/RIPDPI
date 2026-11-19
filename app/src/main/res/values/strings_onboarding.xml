@@ -10,9 +10,9 @@
     <string name="onboarding_preset_ready_title">Ready to use</string>
     <string name="onboarding_preset_ready_body">This app comes with servers, rules, and settings in place. You can change them later on the Connection and Settings tabs.</string>
     <string name="onboarding_preset_connect_title">How to connect</string>
-    <string name="onboarding_preset_connect_body">Tap Connect on the Status tab. Android may ask for permission to create a local VPN. Tap the button again to disconnect.</string>
+    <string name="onboarding_preset_connect_body">Tap Connect on the Status tab. Android may ask for permission to create a local VPN. To disconnect, tap the button again and confirm.</string>
     <string name="onboarding_preset_trouble_title">If it does not work</string>
-    <string name="onboarding_preset_trouble_body">Open the Diagnostics tab and run a scan. It shows where the connection fails. You can share the report with the person who gave you this app.</string>
+    <string name="onboarding_preset_trouble_body">Open the Diagnostics tab and tap Check network. It shows where the connection fails. You can share the summary with the person who gave you this app.</string>
     <string name="onboarding_setup_mode_vpn_body">Routes all apps through an on-device VPN. Android asks for permission first.</string>
     <string name="onboarding_setup_mode_proxy_body">Runs a local proxy for apps or clients that support manual proxy configuration.</string>
     <string name="onboarding_setup_validate_title">Test connection</string>

@@ -18,9 +18,9 @@ private const val DeviceX = 206f
 private const val GhostX = 142f
 
 /**
- * Ready. A crate stands open beside the device. A server, a route, and a pair of controls leave the crate one
- * after the other and take their rows on the screen, and each row gets its mark. The ghost watches each one go
- * and has nothing to do. Then the crate closes on the next delivery.
+ * Ready. A crate beside the device opens. A server, a route, and a pair of controls leave the crate one after
+ * the other and take their rows on the screen, and each row gets its mark. The ghost watches each one go and has
+ * nothing to do. Then the rows clear, the crate closes, and the next delivery starts.
  */
 internal class ReadyScene(
     parts: Parts,
@@ -35,8 +35,10 @@ internal class ReadyScene(
     override fun enter(frame: Frame) {
         super.enter(frame)
         loop.reset()
-        lid.x = 0f
-        lid.v = 0f
+        (docks + lid + glad).forEach { spring ->
+            spring.x = 0f
+            spring.v = 0f
+        }
     }
 
     private fun launch(item: Int): Float = 1.2f + item * 0.7f
@@ -98,8 +100,9 @@ internal class ReadyScene(
     ) {
         if (u <= 0f || u >= 1f) return
         val x = itemX(u)
-        val size = 0.7f + sin(u * Pi) * 0.55f
-        val color = lerp(colors.ink, colors.nightLight, cl((x - 170f) / 8f))
+        // It lands at the size of its row, and it takes the light of the screen only over the screen.
+        val size = mix(0.7f, 1f, ease(u)) + sin(u * Pi) * 0.4f
+        val color = lerp(colors.ink, colors.nightLight, cl((x - 178f) / 4f))
         at(x, itemY(item, u), (1f - ease(u)) * 4f, size, size) { glyph(item, color, cl(u * 6f)) }
     }
 
@@ -189,9 +192,9 @@ internal class ReadyScene(
             }
 
             else -> {
-                listOf(-3f to -2f, 3f to 3f).forEach { (y, x) ->
+                listOf(-3f, 3f).forEach { y ->
                     seg(-6f, y, 6f, y, color, a, 1.3f)
-                    circ(x, y, 2f)
+                    circ(if (y < 0f) -2f else 3f, y, 2f)
                     fill(color, a)
                 }
             }

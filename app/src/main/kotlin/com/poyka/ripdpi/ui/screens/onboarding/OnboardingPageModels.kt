@@ -1,9 +1,16 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
 import androidx.annotation.StringRes
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+
+/** A tab or an action of the app, with the icon and the name that it has there. */
+internal data class OnboardingPlace(
+    val icon: ImageVector,
+    @param:StringRes val labelRes: Int,
+)
 
 internal sealed interface OnboardingPage {
     val icon: ImageVector
@@ -16,6 +23,8 @@ internal sealed interface OnboardingPage {
         @param:StringRes override val titleRes: Int,
         @param:StringRes val descriptionRes: Int,
         @param:StringRes override val buttonLabelRes: Int,
+        /** The tabs and the actions that the text names, in the order in which the user reaches them. */
+        val places: List<OnboardingPlace> = emptyList(),
     ) : OnboardingPage
 
     data class Setup(
@@ -105,7 +114,7 @@ internal val OnboardingPages: List<OnboardingPage> =
 
 /**
  * A packaged preset already made the three choices, so each choice step explains the app instead. The list
- * keeps its length, its order, and its icons, so the step indexes and the badge serve both lists.
+ * keeps its length and its order, so the step indexes serve both lists.
  */
 private val PresetOnboardingPages: List<OnboardingPage> =
     OnboardingPages.map { page ->
@@ -117,6 +126,11 @@ private val PresetOnboardingPages: List<OnboardingPage> =
                     titleRes = R.string.onboarding_preset_ready_title,
                     descriptionRes = R.string.onboarding_preset_ready_body,
                     buttonLabelRes = R.string.onboarding_continue,
+                    places =
+                        listOf(
+                            OnboardingPlace(RipDpiIcons.Config, R.string.connection_title),
+                            OnboardingPlace(RipDpiIcons.Settings, R.string.settings),
+                        ),
                 )
             }
 
@@ -127,16 +141,27 @@ private val PresetOnboardingPages: List<OnboardingPage> =
                     titleRes = R.string.onboarding_preset_connect_title,
                     descriptionRes = R.string.onboarding_preset_connect_body,
                     buttonLabelRes = R.string.onboarding_continue,
+                    places =
+                        listOf(
+                            OnboardingPlace(RipDpiIcons.Dashboard, R.string.home),
+                            OnboardingPlace(RipDpiIcons.Vpn, R.string.vpn_connect),
+                        ),
                 )
             }
 
             SetupPageKind.DnsSelection -> {
                 OnboardingPage.Informational(
-                    icon = page.icon,
+                    icon = RipDpiIcons.NetworkCheck,
                     kind = InfoPageKind.PresetTrouble,
                     titleRes = R.string.onboarding_preset_trouble_title,
                     descriptionRes = R.string.onboarding_preset_trouble_body,
                     buttonLabelRes = R.string.onboarding_continue,
+                    places =
+                        listOf(
+                            OnboardingPlace(RipDpiIcons.NetworkCheck, R.string.diagnostics),
+                            OnboardingPlace(RipDpiIcons.Search, R.string.diagnostics_simple_funnel_check_action),
+                            OnboardingPlace(RipDpiIcons.Share, R.string.diagnostics_share_summary_action),
+                        ),
                 )
             }
 
@@ -154,6 +179,9 @@ internal const val OnboardingInfoPageCount = 2
 
 internal fun onboardingPageIndex(kind: SetupPageKind): Int =
     OnboardingPages.indexOfFirst { it is OnboardingPage.Setup && it.kind == kind }
+
+/** The steps of the screen that is shown. The step badge reads its icons from them. */
+internal val LocalOnboardingPages = staticCompositionLocalOf { OnboardingPages }
 
 internal val OnboardingTestPageIndex = onboardingPageIndex(SetupPageKind.ConnectionTest)
 internal val OnboardingCompletionPageIndex = onboardingPageIndex(SetupPageKind.Completion)

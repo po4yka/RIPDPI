@@ -20,8 +20,8 @@ private const val WallShare = 0.69f
 
 /**
  * Connect. The ghost presses the one button of the device. The button lights, a key shows on the screen, and a
- * tunnel grows from the device through the wall to the open internet; small ghosts ride it and turn to outlines
- * in the wall. The second press takes the tunnel back.
+ * tunnel grows from the device through the wall to the open internet; small ghosts leave the device one after
+ * the other, ride the tunnel, and turn to outlines in the wall. The second press takes the tunnel back.
  */
 internal class ConnectScene(
     parts: Parts,
@@ -33,14 +33,21 @@ internal class ConnectScene(
     private val riders = FloatArray(Riders)
     private var grown = 0f
 
-    override val stillAt = 4f
+    // Seconds for which the tunnel has been whole. The riders follow it, so they start at the device.
+    private var open = 0f
+
+    override val stillAt = 5f
 
     override fun enter(frame: Frame) {
         super.enter(frame)
         loop.reset()
         grown = 0f
-        lit.x = 0f
-        lit.v = 0f
+        open = 0f
+        riders.fill(0f)
+        listOf(press, lit, arrive).forEach { spring ->
+            spring.x = 0f
+            spring.v = 0f
+        }
     }
 
     override fun Pen.draw(frame: Frame) {
@@ -55,6 +62,7 @@ internal class ConnectScene(
         lit.step(if (on) 1f else 0f, 120f, 14f, dt)
         arrive.step(0f, 160f, 9f, dt)
         grown = cl(grown + if (on) dt else -dt * 2f)
+        open = if (grown >= 1f) open + dt else 0f
         sky(0.7f)
         rise(0f) { device(cl(lit.x)) }
         rise(4f) { globe(GlobeX, GlobeY, 13f, arrive.x, 0.3f + grown * 0.7f) }
@@ -84,7 +92,8 @@ internal class ConnectScene(
         circ(ButtonX, ButtonY, 13f * pressed)
         fill(colors.tone(0.42f))
         fill(colors.signal, k)
-        circ(ButtonX, ButtonY, 13f + abs(press.x) * 20f)
+        // The ring of a press stays on the device.
+        circ(ButtonX, ButtonY, 13f + cl(abs(press.x)) * 9f)
         stroke(colors.glow, cl(abs(press.x) * 1.4f), 1.4f)
         arc(ButtonX, ButtonY, 5.5f * pressed, -1f, 4.1f)
         stroke(colors.nightLight, 1f, 1.6f)
@@ -95,10 +104,7 @@ internal class ConnectScene(
     }
 
     private fun Pen.tunnel(on: Boolean) {
-        if (grown <= 0.01f) {
-            riders.fill(0f)
-            return
-        }
+        if (grown <= 0.01f) return
         if (grown > WallShare) {
             val k = cl((grown - WallShare) * 8f)
             circ(tubeX(WallShare), tubeY(WallShare), 7.5f * k)
@@ -123,7 +129,10 @@ internal class ConnectScene(
             return
         }
         repeat(Riders) { j ->
-            val u = fract(time * 0.26f + j / Riders.toFloat())
+            // A rider that has not left the device yet does not show.
+            val ride = open * 0.26f - j / Riders.toFloat()
+            if (ride < 0f) return@repeat
+            val u = fract(ride)
             if (u < riders[j]) {
                 arrive.v += 4f
                 parts.ring(tubeX(1f), tubeY(1f), colors.signal, 3f)

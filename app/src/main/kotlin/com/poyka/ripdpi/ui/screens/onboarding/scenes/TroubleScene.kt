@@ -8,7 +8,7 @@ import kotlin.math.abs
 import kotlin.math.sin
 
 private const val Pi = PI.toFloat()
-private const val Home = 50f
+private const val Home = 56f
 private const val PostTop = Ground - 34f
 private const val LampY = Ground - 40f
 private const val Checks = 3
@@ -35,6 +35,10 @@ internal class TroubleScene(
         loop.reset()
         lensX.x = Home
         lensX.v = 0f
+        lamps.forEach { lamp ->
+            lamp.x = 0f
+            lamp.v = 0f
+        }
     }
 
     override fun Pen.draw(frame: Frame) {
@@ -55,7 +59,10 @@ internal class TroubleScene(
                 parts.ring(PostX[i], LampY, if (i == Checks - 1) colors.danger else colors.signal, 3f)
             }
         }
-        if (loop.passed(2.6f) || loop.passed(7.4f)) parts.spark(PostX[2] + 14f, PostTop + 20f, colors.danger, 3, 30f)
+        val sway = sin(time * 2.1f) * 2.5f
+        if (loop.passed(2.6f) || loop.passed(7.4f)) {
+            parts.spark(PostX[2] + 14f + sway, PostTop + 20f, colors.danger, 3, 30f)
+        }
         sky(0.7f)
         rise(0f) {
             shadow(30f, Ground + 1f, 14f)
@@ -66,7 +73,8 @@ internal class TroubleScene(
             stroke(colors.danger, 0.4f, 1f)
         }
         rise(5f) { globe(270f, Ground - 28f, 12f, 0f, 0.2f) }
-        line()
+        // The line comes in with the posts that hold it.
+        rise(3f) { line(sway) }
         repeat(PostX.size) { i -> rise(1f + i) { post(i) } }
         inspector(p, target)
         report(p)
@@ -83,26 +91,24 @@ internal class TroubleScene(
     }
 
     /** The signal runs along the line as far as the break. Past the break the line is dead. */
-    private fun Pen.line() {
-        val shown = inn(3f)
+    private fun Pen.line(sway: Float) {
         for (i in -1..1) {
             if (i < 0) span(40f, Ground - 38f, PostX[0], PostTop) else span(PostX[i], PostTop, PostX[i + 1], PostTop)
-            stroke(colors.ink, 0.7f * shown, 1.3f)
-            stroke(colors.signal, 0.8f * shown, 1.3f, dash = 2f, gap = 5f, phase = -time * 14f)
+            stroke(colors.ink, 0.7f, 1.3f)
+            stroke(colors.signal, 0.8f, 1.3f, dash = 2f, gap = 5f, phase = -time * 14f)
         }
-        val sway = sin(time * 2.1f) * 2.5f
         shape {
             moveTo(PostX[2], PostTop)
             quadraticTo(PostX[2] + 10f, PostTop + 2f, PostX[2] + 14f + sway, PostTop + 20f)
         }
-        stroke(colors.ink, 0.7f * shown, 1.3f)
+        stroke(colors.ink, 0.7f, 1.3f)
         shape {
             moveTo(PostX[3], PostTop)
             quadraticTo(PostX[3] - 9f, PostTop + 2f, PostX[3] - 12f - sway * 0.6f, PostTop + 17f)
         }
-        stroke(colors.ink, 0.35f * shown, 1.3f)
+        stroke(colors.ink, 0.35f, 1.3f)
         span(PostX[3], PostTop, 259f, Ground - 32f)
-        stroke(colors.ink, 0.35f * shown, 1.3f)
+        stroke(colors.ink, 0.35f, 1.3f)
     }
 
     private fun Pen.post(index: Int) {
