@@ -2,7 +2,7 @@
 id: DGN-1795085498592630
 title: Send opt-in anonymous aggregated field reports
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics engineer
