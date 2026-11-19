@@ -162,6 +162,7 @@ internal class DiagnosticsCatalogValidator(
             profile.validateIpFamilyProbe()
             profile.validateHttp3Probe()
             profile.validatePmtuProbe()
+            profile.validateTlsHopComparison()
             profile.packRefs.forEach { reference ->
                 val (packId, version) = parsePackRef(reference)
                 val pack =
@@ -361,6 +362,7 @@ private fun DiagnosticsProfileDefinition.toRequestJson(): JsonObject =
         ipFamilyProbe?.let { put("ipFamilyProbe", it.toJson()) }
         http3Probe?.let { put("http3Probe", it.toJson()) }
         pmtuProbe?.let { put("pmtuProbe", it.toJson()) }
+        tlsHopComparison?.let { put("tlsHopComparison", it.toJson()) }
     }
 
 private fun ProfileExecutionPolicyDefinition.toJson(): JsonObject =

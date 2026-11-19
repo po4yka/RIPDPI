@@ -17,6 +17,8 @@ import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanTerminationReason
+import com.poyka.ripdpi.diagnostics.TlsHopEvidenceKey
+import com.poyka.ripdpi.diagnostics.TlsHopLocalKey
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import com.poyka.ripdpi.diagnostics.toConnectionStageScale
 import com.poyka.ripdpi.platform.StringResolver
@@ -311,6 +313,8 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
                             "ipFamilyEvidence",
                             "http3Evidence",
                             "pmtuEvidence",
+                            TlsHopEvidenceKey,
+                            TlsHopLocalKey,
                         )
                 }.map { DiagnosticsFieldUiModel(it.key, it.value) }
                 .toImmutableList(),
@@ -320,6 +324,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         ipFamily = result.toIpFamilyGroup(strings, networkScopeUnverified),
         http3 = result.toHttp3Group(strings, networkScopeUnverified),
         pmtu = result.toPmtuGroup(strings, networkScopeUnverified),
+        tlsHop = result.toTlsHopResult(),
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =

@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.proto.AppSettings
 
 internal data class DiagnosticsUiStateInput(
@@ -40,6 +41,7 @@ internal data class DiagnosticsUiStateInput(
     val selectedSectionRequest: DiagnosticsSection,
     val selectedProfileId: String?,
     val selectiveMatrixHostsInput: String = "",
+    val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
     val selectedApproachMode: DiagnosticsApproachMode,
     val selectedProbe: DiagnosticsProbeResultUiModel?,
     val selectedEventId: String?,

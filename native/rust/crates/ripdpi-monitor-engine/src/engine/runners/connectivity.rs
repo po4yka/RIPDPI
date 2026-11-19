@@ -1,5 +1,7 @@
 mod pmtu;
+mod tls_hop;
 pub(super) use pmtu::PmtuRunner;
+pub(super) use tls_hop::TlsHopComparisonRunner;
 mod http3;
 pub(super) use http3::Http3Runner;
 mod ip_family;

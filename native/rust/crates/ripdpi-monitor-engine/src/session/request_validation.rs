@@ -62,6 +62,7 @@ pub fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), Stri
         (ProbeTaskFamily::SelectiveAvailability, request.selective_matrix.is_some(), "selectiveMatrix"),
         (ProbeTaskFamily::Http3, request.http3_probe.is_some(), "http3Probe"),
         (ProbeTaskFamily::Pmtu, request.pmtu_probe.is_some(), "pmtuProbe"),
+        (ProbeTaskFamily::TlsHopComparison, request.tls_hop_comparison.is_some(), "tlsHopComparison"),
         (ProbeTaskFamily::IpFamily, request.ip_family_probe.is_some(), "ipFamilyProbe"),
     ] {
         if configured != request.probe_tasks.iter().any(|task| task.family == family) {
@@ -83,6 +84,12 @@ pub fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), Stri
     if let Some(config) = &request.pmtu_probe {
         if request.kind != ScanKind::Connectivity {
             return Err("pmtuProbe requires a connectivity scan".into());
+        }
+        config.validate().map_err(str::to_owned)?;
+    }
+    if let Some(config) = &request.tls_hop_comparison {
+        if request.kind != ScanKind::Connectivity {
+            return Err("tlsHopComparison requires a connectivity scan".into());
         }
         config.validate().map_err(str::to_owned)?;
     }

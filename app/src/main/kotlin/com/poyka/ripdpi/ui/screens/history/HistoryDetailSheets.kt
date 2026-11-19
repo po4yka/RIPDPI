@@ -11,7 +11,9 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.screens.diagnostics.SelectiveMatrixResultsCard
+import com.poyka.ripdpi.ui.screens.diagnostics.TlsHopResultsCard
 import com.poyka.ripdpi.ui.screens.diagnostics.isSelectiveMatrixProbe
+import com.poyka.ripdpi.ui.screens.diagnostics.isTlsHopProbe
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -133,11 +135,15 @@ internal fun DiagnosticsDetailContent(detail: DiagnosticsSessionDetailUiModel) {
     if (matrixResults.isNotEmpty()) {
         SelectiveMatrixResultsCard(matrixResults)
     }
+    detail.probeGroups
+        .flatMap { it.items }
+        .mapNotNull { it.tlsHop }
+        .forEach { TlsHopResultsCard(it) }
     detail.contextGroups.forEach { group ->
         ContextGroupCard(group = group)
     }
     detail.probeGroups.forEach { group ->
-        val probes = group.items.filterNot { it.isSelectiveMatrixProbe() }
+        val probes = group.items.filterNot { it.isSelectiveMatrixProbe() || it.isTlsHopProbe() }
         if (probes.isNotEmpty()) ProbeGroupCard(group = group.copy(items = probes.toImmutableList()))
     }
     detail.snapshots.forEach { snapshot ->

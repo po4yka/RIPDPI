@@ -151,6 +151,7 @@ data class DiagnosticsScanTargetOverrides(
     val serviceTargets: List<ServiceTarget>? = null,
     val circumventionTargets: List<CircumventionTarget>? = null,
     val selectiveMatrixHosts: List<String> = emptyList(),
+    val tlsHopComparison: TlsHopComparisonConfig? = null,
 )
 
 interface DiagnosticsDetailLoader {

@@ -17,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.toScanReport
 import com.poyka.ripdpi.diagnostics.withoutHttp3ScopeAuthority
 import com.poyka.ripdpi.diagnostics.withoutIpFamilyScopeAuthority
 import com.poyka.ripdpi.diagnostics.withoutPmtuScopeAuthority
+import com.poyka.ripdpi.diagnostics.withoutTlsHopScopeAuthority
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -106,6 +107,10 @@ internal suspend fun revokePersistedNetworkScope(
 
 private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeResultWire =
     when {
+        probeType == "tls_hop_comparison" && outcome == "tls_hop_divergence" -> {
+            copy(outcome = "tls_hop_inconclusive", details = details.withoutTlsHopScopeAuthority())
+        }
+
         probeType == "pmtu" -> {
             copy(outcome = "pmtu_not_observed", details = details.withoutPmtuScopeAuthority())
         }
@@ -140,7 +145,14 @@ private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeRes
 
 private fun ProbeResultEntity.withoutNetworkScopeAuthority(json: Json): ProbeResultEntity {
     if (probeType !in
-        setOf("selective_availability_summary", "throughput_window", "ip_family", "http3", "pmtu")
+        setOf(
+            "selective_availability_summary",
+            "throughput_window",
+            "ip_family",
+            "http3",
+            "pmtu",
+            "tls_hop_comparison",
+        )
     ) {
         return this
     }

@@ -51,7 +51,8 @@ private fun validateDiagnosticsSchemaVersion(progress: EngineProgressWire) {
     }
 }
 
-private val StoredDiagnosticsReportSchemaVersions = setOf(8, DiagnosticsEngineSchemaVersion)
+// v11 only adds an optional request field, so v10 reports decode unchanged.
+private val StoredDiagnosticsReportSchemaVersions = setOf(8, 10, DiagnosticsEngineSchemaVersion)
 
 internal fun ProfileSpecWire.normalizedExecutionPolicy(): ProfileExecutionPolicyWire =
     requireNotNull(executionPolicy) {
@@ -101,6 +102,7 @@ internal fun ProbeTask.toEngineProbeTaskWire(): EngineProbeTaskWire =
             when (family) {
                 ProbeFamily.HTTP3 -> EngineProbeTaskFamily.HTTP3
                 ProbeFamily.PMTU -> EngineProbeTaskFamily.PMTU
+                ProbeFamily.TLS_HOP_COMPARISON -> EngineProbeTaskFamily.TLS_HOP_COMPARISON
                 ProbeFamily.IP_FAMILY -> EngineProbeTaskFamily.IP_FAMILY
                 ProbeFamily.SELECTIVE_AVAILABILITY -> EngineProbeTaskFamily.SELECTIVE_AVAILABILITY
                 ProbeFamily.DNS -> EngineProbeTaskFamily.DNS
@@ -138,6 +140,7 @@ internal fun DiagnosticsIntent.toProfileProjection(): DiagnosticsProfileProjecti
         ipFamilyProbe = ipFamilyProbe,
         http3Probe = http3Probe,
         pmtuProbe = pmtuProbe,
+        tlsHopComparison = tlsHopComparison,
     )
 
 internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection =
@@ -163,6 +166,7 @@ internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection
             ipFamilyProbe = ipFamilyProbe,
             http3Probe = http3Probe,
             pmtuProbe = pmtuProbe,
+            tlsHopComparison = tlsHopComparison,
         )
     }
 
@@ -195,6 +199,7 @@ internal fun ScanPlan.toEngineScanRequestWire(): EngineScanRequestWire =
         ipFamilyProbe = ipFamilyProbe,
         http3Probe = http3Probe,
         pmtuProbe = pmtuProbe,
+        tlsHopComparison = tlsHopComparison,
         nativeLogLevel = diagnosticsNativeLogLevel(context.pathMode),
     )
 

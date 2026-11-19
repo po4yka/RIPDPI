@@ -20,6 +20,7 @@ import com.poyka.ripdpi.diagnostics.ScanTerminationReason
 import com.poyka.ripdpi.diagnostics.SelectiveMatrixConfig
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyRecommendation
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -45,6 +46,7 @@ data class DiagnosticsProfileProjection(
     val ipFamilyProbe: IpFamilyProbeConfig? = null,
     val http3Probe: Http3ProbeConfig? = null,
     val pmtuProbe: PmtuProbeConfig? = null,
+    val tlsHopComparison: TlsHopComparisonConfig? = null,
 )
 
 @Serializable

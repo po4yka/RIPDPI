@@ -48,6 +48,8 @@ pub struct EngineScanRequestWire {
     pub http3_probe: Option<crate::types::Http3ProbeConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pmtu_probe: Option<crate::types::PmtuProbeConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_hop_comparison: Option<crate::types::TlsHopComparisonConfig>,
     pub whitelist_sni: Vec<String>,
     #[serde(default)]
     pub telegram_target: Option<TelegramTarget>,

@@ -13,10 +13,13 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
+import com.poyka.ripdpi.diagnostics.TlsHopEvidenceKey
+import com.poyka.ripdpi.diagnostics.TlsHopLocalKey
 import com.poyka.ripdpi.diagnostics.canonicalDnsResponseSemantics
 import com.poyka.ripdpi.diagnostics.canonicalHttp3ProbeEvidence
 import com.poyka.ripdpi.diagnostics.canonicalIpFamilyProbeEvidence
 import com.poyka.ripdpi.diagnostics.canonicalPmtuProbeEvidence
+import com.poyka.ripdpi.diagnostics.canonicalTlsHopComparisonEvidence
 import com.poyka.ripdpi.diagnostics.canonicalTransferEvidence
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.sanitizeVpnRouteEvidenceForArchive
@@ -353,7 +356,12 @@ private fun projectStructuredArchiveJson(
         }
 
         element is JsonArray -> {
-            JsonArray(element.map { projectStructuredArchiveJson(it, fieldName) })
+            // Per-attempt TLS hop timings stay in local history.
+            JsonArray(
+                element
+                    .filterNot { (it as? JsonObject)?.get("key") == JsonPrimitive(TlsHopLocalKey) }
+                    .map { projectStructuredArchiveJson(it, fieldName) },
+            )
         }
 
         element is JsonPrimitive && element.isString -> {
@@ -370,6 +378,12 @@ private fun projectArchiveObject(element: JsonObject): JsonObject {
     return JsonObject(
         element.mapValues { (key, value) ->
             when {
+                key == "value" && declaredField == TlsHopEvidenceKey -> {
+                    JsonPrimitive(
+                        canonicalTlsHopComparisonEvidence((value as? JsonPrimitive)?.content) ?: "unavailable",
+                    )
+                }
+
                 key == "value" && declaredField == "pmtuEvidence" -> {
                     JsonPrimitive(canonicalPmtuProbeEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
                 }

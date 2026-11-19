@@ -122,6 +122,10 @@ private fun phaseToConnectivityProbeType(phase: String): String? =
             "pmtu"
         }
 
+        "tls_hop_comparison" -> {
+            "tls_hop_comparison"
+        }
+
         "http3" -> {
             "http3"
         }

@@ -18,6 +18,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.TcpTarget
 import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import kotlinx.serialization.Serializable
 
 const val BundledDiagnosticsCatalogSchemaVersion = 2
@@ -76,6 +77,8 @@ data class ProfileSpecWire(
     val http3Probe: Http3ProbeConfig? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val pmtuProbe: PmtuProbeConfig? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val tlsHopComparison: TlsHopComparisonConfig? = null,
 )
 
 @Serializable

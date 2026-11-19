@@ -566,3 +566,9 @@ the actual packet size. This is a lower bound, not exact PMTU or a VPN MTU
 recommendation. Partial and failed searches give no numeric advice. Revoked
 network scope labels retained payload facts as historical and removes the
 derived current-network bound. The UI never changes the configured MTU.
+
+### TLS hop comparison
+
+The manual `tls-hop-comparison` profile probes one endpoint that the user enters (port 443) with a control SNI and a test SNI. The catalog bundles no target. The `tls_hop_comparison` stage runs only on the direct RAW_PATH network: it completes each TCP handshake at the default TTL on a fresh protected socket, sets the outbound TTL to k, sends one ClientHello, and records the first reaction. A proxy path, a failed protect, or a failed TTL or linger setter gives an `unsupported` row, not an error. It does not need root and collects no router addresses.
+
+The row's `tlsHopEvidence` detail holds the verdict, the hop interval, the path length, the limits, and attempt counts. The interval is an observation, not an identified device. The `tlsHopLocal` detail holds the SNIs and per-attempt timings for local history; redacted export drops it. Cancellation keeps the attempts and claims no interval. A new local address during the run, or network-scope invalidation afterwards, withdraws the interval and adds the `network_changed` limit.

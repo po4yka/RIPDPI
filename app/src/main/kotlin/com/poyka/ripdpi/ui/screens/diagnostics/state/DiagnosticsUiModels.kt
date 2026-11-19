@@ -21,6 +21,7 @@ import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
@@ -539,6 +540,7 @@ data class DiagnosticsProbeResultUiModel(
     val ipFamily: DiagnosticsContextGroupUiModel? = null,
     val http3: DiagnosticsContextGroupUiModel? = null,
     val pmtu: DiagnosticsContextGroupUiModel? = null,
+    val tlsHop: TlsHopResultUiModel? = null,
 )
 
 @Stable
@@ -784,6 +786,7 @@ data class DiagnosticsRememberedNetworkUiModel(
 data class DiagnosticsScanUiModel(
     val selectiveMatrixHostsInput: String = "",
     val selectiveMatrixInputValid: Boolean = true,
+    val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
     val selectiveMatrixTargets: ImmutableList<SelectiveMatrixTargetUiModel> = persistentListOf(),
     val profiles: ImmutableList<DiagnosticsProfileOptionUiModel> = persistentListOf(),
     val selectedProfileId: String? = null,
@@ -997,6 +1000,7 @@ internal data class SelectionState(
     val selectedSectionRequest: DiagnosticsSection = DiagnosticsSection.Dashboard,
     val selectedProfileId: String? = null,
     val selectiveMatrixHostsInput: String = "",
+    val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
     val selectedApproachMode: DiagnosticsApproachMode = DiagnosticsApproachMode.Profiles,
     val selectedApproachDetail: BypassApproachDetail? = null,
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,

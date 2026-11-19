@@ -66,3 +66,6 @@ pub mod ip_family;
 pub mod http3;
 #[path = "pmtu.rs"]
 pub mod pmtu;
+
+#[path = "tls_hop_comparison.rs"]
+pub mod tls_hop_comparison;

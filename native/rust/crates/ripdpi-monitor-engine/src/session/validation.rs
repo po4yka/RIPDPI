@@ -59,6 +59,7 @@ mod tests {
             ip_family_probe: None,
             http3_probe: None,
             pmtu_probe: None,
+            tls_hop_comparison: None,
             whitelist_sni: Vec::new(),
             telegram_target: None,
             strategy_probe: None,
@@ -224,11 +225,14 @@ mod tests {
 
     #[test]
     fn configured_only_probes_require_matching_task_and_config() {
-        use crate::types::{Http3ProbeConfig, IpFamilyProbeConfig, PmtuProbeConfig, ProbeTask, ProbeTaskFamily};
+        use crate::types::{
+            Http3ProbeConfig, IpFamilyProbeConfig, PmtuProbeConfig, ProbeTask, ProbeTaskFamily, TlsHopComparisonConfig,
+        };
 
         for (family, field) in [
             (ProbeTaskFamily::Http3, "http3Probe"),
             (ProbeTaskFamily::Pmtu, "pmtuProbe"),
+            (ProbeTaskFamily::TlsHopComparison, "tlsHopComparison"),
             (ProbeTaskFamily::IpFamily, "ipFamilyProbe"),
         ] {
             let mut wire = request();
@@ -241,6 +245,13 @@ mod tests {
             match family {
                 ProbeTaskFamily::Http3 => wire.http3_probe = Some(Http3ProbeConfig::default()),
                 ProbeTaskFamily::Pmtu => wire.pmtu_probe = Some(PmtuProbeConfig::default()),
+                ProbeTaskFamily::TlsHopComparison => {
+                    wire.tls_hop_comparison = Some(TlsHopComparisonConfig {
+                        host: "192.0.2.1".into(),
+                        control_sni: "control.example".into(),
+                        test_sni: "test.example".into(),
+                    });
+                }
                 ProbeTaskFamily::IpFamily => {
                     wire.ip_family_probe = Some(IpFamilyProbeConfig {
                         version: 1,

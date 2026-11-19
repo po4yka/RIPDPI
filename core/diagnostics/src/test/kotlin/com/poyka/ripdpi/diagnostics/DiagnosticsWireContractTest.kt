@@ -126,6 +126,26 @@ class DiagnosticsWireContractTest {
     }
 
     @Test
+    fun `stored schema ten report stays readable after the schema eleven bump`() {
+        val current = repoFixture("diagnostics-contract-fixtures/engine_report_current.json").readText()
+        val schemaTen =
+            current.replaceFirst(
+                "\"schemaVersion\": $DiagnosticsEngineSchemaVersion,",
+                "\"schemaVersion\": 10,",
+            )
+
+        assertEquals(10, contractJson.decodeStoredEngineScanReportWire(schemaTen).schemaVersion)
+        assertFalse(runCatching { contractJson.decodeEngineScanReportWire(schemaTen) }.isSuccess)
+        assertFalse(
+            runCatching {
+                contractJson.decodeStoredEngineScanReportWire(
+                    schemaTen.replaceFirst("\"schemaVersion\": 10,", "\"schemaVersion\": 9,"),
+                )
+            }.isSuccess,
+        )
+    }
+
+    @Test
     fun `stored schema eight strategy candidate without receipts remains unverified`() {
         val current = contractJson.encodeToJsonElement(buildSampleReportForFieldExtraction()) as JsonObject
         val strategy = current.getValue("strategyProbeReport") as JsonObject

@@ -438,12 +438,7 @@ internal class DiagnosticsScanActions(
                             pathMode = pathMode,
                             selectedProfileId = profileId,
                             allowSensitiveProfileStart = allowSensitiveProfileStart,
-                            targetOverrides =
-                                if (selectedProfile?.id == SelectiveMatrixProfileId) {
-                                    DiagnosticsScanTargetOverrides(selectiveMatrixHosts = command.matrixHosts)
-                                } else {
-                                    null
-                                },
+                            targetOverrides = command.targetOverrides,
                         )
                 ) {
                     is DiagnosticsManualScanStartResult.Started -> {
@@ -687,7 +682,7 @@ private fun requestSensitiveProfileConsent(
 
 private data class PreparedManualScan(
     val request: ManualScanUiRequest,
-    val matrixHosts: List<String>,
+    val targetOverrides: DiagnosticsScanTargetOverrides?,
 )
 
 private fun DiagnosticsMutationRunner.prepareManualScan(
@@ -702,26 +697,19 @@ private fun DiagnosticsMutationRunner.prepareManualScan(
     ) {
         return null
     }
-    val hosts =
-        if (profile?.id == SelectiveMatrixProfileId) {
-            parseSelectiveMatrixHosts(currentUiState().scan.selectiveMatrixHostsInput)
-        } else {
-            emptyList()
-        }
-    return hosts?.let { matrixHosts ->
-        val request =
-            ManualScanUiRequest(
-                profileName = profile?.name ?: "Scan",
-                pathMode = pathMode,
-                scanKind = profile?.kind ?: fallbackKind,
-                isFullAudit = profile?.isFullAudit == true,
-            )
-        if (profile?.requiresExplicitConsent == true && !allowSensitiveProfileStart) {
-            requestSensitiveProfileConsent(scanLifecycle, profile.id, request)
-            null
-        } else {
-            PreparedManualScan(request, matrixHosts)
-        }
+    val targets = currentUiState().scan.manualScanTargets(profile?.id) ?: return null
+    val request =
+        ManualScanUiRequest(
+            profileName = profile?.name ?: "Scan",
+            pathMode = pathMode,
+            scanKind = profile?.kind ?: fallbackKind,
+            isFullAudit = profile?.isFullAudit == true,
+        )
+    return if (profile?.requiresExplicitConsent == true && !allowSensitiveProfileStart) {
+        requestSensitiveProfileConsent(scanLifecycle, profile.id, request)
+        null
+    } else {
+        PreparedManualScan(request, targets.overrides)
     }
 }
 

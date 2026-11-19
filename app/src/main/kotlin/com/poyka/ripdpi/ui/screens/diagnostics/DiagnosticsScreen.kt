@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -67,6 +68,7 @@ data class DiagnosticsScreenActions(
     val onSelectSection: (DiagnosticsSection) -> Unit = {},
     val onSelectProfile: (String) -> Unit = {},
     val onSelectiveMatrixHostsChanged: (String) -> Unit = {},
+    val onTlsHopComparisonChanged: (TlsHopComparisonConfig) -> Unit = {},
     val onRunScan: () -> Unit = {},
     val onRunRawScan: () -> Unit = {},
     val onRunInPathScan: () -> Unit = {},
@@ -388,6 +390,7 @@ private fun DiagnosticsScreenPager(
                     scan = uiState.scan,
                     onSelectProfile = actions.onSelectProfile,
                     onSelectiveMatrixHostsChanged = actions.onSelectiveMatrixHostsChanged,
+                    onTlsHopComparisonChanged = actions.onTlsHopComparisonChanged,
                     onRunRawScan = actions.onRunRawScan,
                     onRunInPathScan = actions.onRunInPathScan,
                     onCancelScan = actions.onCancelScan,

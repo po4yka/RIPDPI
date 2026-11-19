@@ -27,6 +27,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.TcpTarget
 import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 
 internal enum class ProbeFamily {
@@ -43,6 +44,7 @@ internal enum class ProbeFamily {
     IP_FAMILY,
     HTTP3,
     PMTU,
+    TLS_HOP_COMPARISON,
 }
 
 internal data class ProbeTask(
@@ -92,6 +94,7 @@ internal data class DiagnosticsIntent(
     val ipFamilyProbe: IpFamilyProbeConfig? = null,
     val http3Probe: Http3ProbeConfig? = null,
     val pmtuProbe: PmtuProbeConfig? = null,
+    val tlsHopComparison: TlsHopComparisonConfig? = null,
     val requestedPathMode: ScanPathMode,
 )
 
@@ -122,6 +125,7 @@ internal data class ScanPlan(
     val ipFamilyProbe: IpFamilyProbeConfig? = null,
     val http3Probe: Http3ProbeConfig? = null,
     val pmtuProbe: PmtuProbeConfig? = null,
+    val tlsHopComparison: TlsHopComparisonConfig? = null,
     val probeTasks: List<ProbeTask>,
     val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
 )
