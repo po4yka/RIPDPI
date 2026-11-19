@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixComparison
 
 internal data class HistoryConnectionFilterState(
     val modeFilter: String? = null,
@@ -28,6 +29,8 @@ internal data class HistoryEventFilterState(
 internal data class HistoryDetailState(
     val selectedConnectionDetail: DiagnosticConnectionDetail? = null,
     val selectedDiagnosticsDetail: DiagnosticSessionDetail? = null,
+    /** The selected diagnostics session compared with a second selective matrix session. */
+    val matrixPair: HistoryMatrixPairState? = null,
     val selectedEventId: String? = null,
 )
 
@@ -35,4 +38,9 @@ internal data class HistoryRepositorySnapshot(
     val connectionSessions: List<DiagnosticConnectionSession> = emptyList(),
     val scanSessions: List<DiagnosticScanSession> = emptyList(),
     val nativeEvents: List<DiagnosticEvent> = emptyList(),
+)
+
+internal data class HistoryMatrixPairState(
+    val pairedSessionId: String,
+    val comparison: SelectiveMatrixComparison,
 )

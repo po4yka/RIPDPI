@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.screens.history
 
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
+import com.poyka.ripdpi.diagnostics.compareSelectiveMatrixSessions
+import com.poyka.ripdpi.diagnostics.toSelectiveMatrixLeg
 import com.poyka.ripdpi.ui.screens.diagnostics.state.loadSessionDetail
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,19 +73,43 @@ internal class HistoryDiagnosticsActions(
     }
 
     private var detailRequest = 0
+    private var pairRequest = 0
 
     fun selectSession(sessionId: String) {
         val request = ++detailRequest
+        pairRequest++
         scope.launch {
             val detail = loadSessionDetail(sessionId)
             if (request != detailRequest) return@launch
-            detailState.update { it.copy(selectedDiagnosticsDetail = detail) }
+            detailState.update { it.copy(selectedDiagnosticsDetail = detail, matrixPair = null) }
+        }
+    }
+
+    /** Compares the open session with [sessionId]; never runs a scan or switches networks. */
+    fun compareMatrixSession(sessionId: String) {
+        val current = detailState.value.selectedDiagnosticsDetail ?: return
+        // A separate counter, so a compare never drops a selection that is still loading.
+        val request = ++pairRequest
+        scope.launch {
+            val other = loadSessionDetail(sessionId) ?: return@launch
+            val open =
+                detailState.value.selectedDiagnosticsDetail
+                    ?.session
+                    ?.id
+            if (request != pairRequest || open != current.session.id) return@launch
+            val comparison =
+                compareSelectiveMatrixSessions(
+                    current.session.toSelectiveMatrixLeg(current.results),
+                    other.session.toSelectiveMatrixLeg(other.results),
+                )
+            detailState.update { it.copy(matrixPair = HistoryMatrixPairState(sessionId, comparison)) }
         }
     }
 
     fun dismissDetail() {
         detailRequest++
-        detailState.update { it.copy(selectedDiagnosticsDetail = null) }
+        pairRequest++
+        detailState.update { it.copy(selectedDiagnosticsDetail = null, matrixPair = null) }
     }
 }
 

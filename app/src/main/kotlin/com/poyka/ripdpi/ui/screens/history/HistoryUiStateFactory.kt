@@ -106,6 +106,15 @@ internal class HistoryUiStateFactory
                         }.toImmutableList(),
                 selectedConnectionDetail = selectedConnection,
                 selectedDiagnosticsDetail = selectedDiagnostics,
+                selectedMatrixPairing =
+                    detailState.selectedDiagnosticsDetail?.let {
+                        selectiveMatrixPairing(
+                            it,
+                            repositorySnapshot.scanSessions,
+                            diagnosticsRows,
+                            detailState.matrixPair,
+                        )
+                    },
                 selectedEvent = eventModels.firstOrNull { it.id == detailState.selectedEventId },
             )
         }

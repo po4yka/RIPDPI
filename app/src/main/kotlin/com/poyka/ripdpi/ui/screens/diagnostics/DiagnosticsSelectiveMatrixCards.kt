@@ -282,7 +282,7 @@ private fun cohortLabel(cohort: String): String =
     )
 
 @Composable
-private fun stageLabel(stage: String): String =
+internal fun stageLabel(stage: String): String =
     if (stage == "body") stringResource(R.string.diagnostics_matrix_body) else stage.uppercase()
 
 @Composable
@@ -298,7 +298,7 @@ private fun stageStatus(status: String): String =
     )
 
 @Composable
-private fun MatrixHeading(text: String) {
+internal fun MatrixHeading(text: String) {
     Text(
         text = text,
         modifier = Modifier.fillMaxWidth(),
@@ -308,7 +308,7 @@ private fun MatrixHeading(text: String) {
 }
 
 @Composable
-private fun MatrixText(text: String) {
+internal fun MatrixText(text: String) {
     Text(
         text = text,
         modifier = Modifier.fillMaxWidth(),

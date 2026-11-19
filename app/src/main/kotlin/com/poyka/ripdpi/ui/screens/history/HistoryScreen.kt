@@ -79,6 +79,7 @@ fun HistoryRoute(
         onClearDiagnosticsFilters = remember(viewModel) { viewModel::clearDiagnosticsFilters },
         onSelectDiagnosticsSession = remember(viewModel) { viewModel::selectDiagnosticsSession },
         onDismissDiagnosticsDetail = remember(viewModel) { viewModel::dismissDiagnosticsDetail },
+        onCompareMatrixSession = remember(viewModel) { viewModel::compareMatrixSession },
         onToggleEventFilter = remember(viewModel) { viewModel::toggleEventFilter },
         onEventSearch = remember(viewModel) { viewModel::setEventSearch },
         onClearEventFilters = remember(viewModel) { viewModel::clearEventFilters },
@@ -118,6 +119,7 @@ internal fun HistoryScreen(
     modifier: Modifier = Modifier,
     onOpenConnection: () -> Unit = {},
     onOpenDiagnostics: () -> Unit = {},
+    onCompareMatrixSession: (String) -> Unit = {},
 ) {
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
@@ -260,6 +262,7 @@ internal fun HistoryScreen(
                 onDismissConnectionDetail = onDismissConnectionDetail,
                 onDismissDiagnosticsDetail = onDismissDiagnosticsDetail,
                 onDismissEventDetail = onDismissEventDetail,
+                onCompareMatrixSession = onCompareMatrixSession,
             )
         },
     )
@@ -275,6 +278,8 @@ internal fun HistoryScreen(
     uiState.selectedDiagnosticsDetail?.let { detail ->
         DiagnosticsDetailSheet(
             detail = detail,
+            matrixPairing = uiState.selectedMatrixPairing,
+            onCompareMatrixSession = onCompareMatrixSession,
             onDismissRequest = onDismissDiagnosticsDetail,
         )
     }

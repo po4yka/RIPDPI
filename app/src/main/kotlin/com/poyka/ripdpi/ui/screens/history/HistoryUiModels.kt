@@ -82,6 +82,7 @@ data class HistoryUiState(
     val eventTimeline: ImmutableList<HistoryEventIdentityUiModel> = persistentListOf(),
     val selectedConnectionDetail: HistoryConnectionDetailUiModel? = null,
     val selectedDiagnosticsDetail: DiagnosticsSessionDetailUiModel? = null,
+    val selectedMatrixPairing: SelectiveMatrixPairingUiModel? = null,
     val selectedEvent: DiagnosticsEventUiModel? = null,
     val isRefreshing: Boolean = false,
     /** True until the first repository snapshot arrives, so the empty state does not flash on a cold open. */

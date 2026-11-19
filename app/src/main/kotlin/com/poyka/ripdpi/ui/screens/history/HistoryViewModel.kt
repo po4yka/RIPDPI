@@ -163,6 +163,8 @@ class HistoryViewModel
 
         fun dismissDiagnosticsDetail() = diagnosticsActions.dismissDetail()
 
+        fun compareMatrixSession(sessionId: String) = diagnosticsActions.compareMatrixSession(sessionId)
+
         fun selectEvent(eventId: String) = eventActions.selectEvent(eventId)
 
         fun dismissEventDetail() = eventActions.dismissDetail()
