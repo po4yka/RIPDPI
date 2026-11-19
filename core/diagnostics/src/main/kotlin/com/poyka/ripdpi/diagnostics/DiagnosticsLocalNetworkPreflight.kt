@@ -134,6 +134,15 @@ private class LocalNetworkScanFilter(
                 ) {
                     requireDirectEndpoint(it.host, TlsHopComparisonPort)
                 }.singleOrNull(),
+            quicVersionMatrix =
+                allowed(
+                    listOfNotNull(request.quicVersionMatrix),
+                    EngineProbeTaskFamily.QUIC_VERSION_MATRIX,
+                    QuicVersionMatrixProbeType,
+                    { it.host },
+                ) {
+                    requireDirectEndpoint(it.connectIp ?: it.host, QuicVersionMatrixPort)
+                }.singleOrNull(),
             telegramTarget = admitTelegramTarget(request.telegramTarget, telegramMedia),
         )
 

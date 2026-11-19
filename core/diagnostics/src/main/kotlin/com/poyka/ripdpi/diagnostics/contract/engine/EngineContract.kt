@@ -19,6 +19,7 @@ import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.PmtuProbeConfig
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.QuicTarget
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.RouteProbeConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -58,6 +59,7 @@ enum class EngineProbeTaskFamily {
     HTTP3,
     PMTU,
     TLS_HOP_COMPARISON,
+    QUIC_VERSION_MATRIX,
 }
 
 @Serializable
@@ -121,6 +123,8 @@ data class EngineScanRequestWire(
     val pmtuProbe: PmtuProbeConfig? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val tlsHopComparison: TlsHopComparisonConfig? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val quicVersionMatrix: QuicVersionMatrixConfig? = null,
     val nativeLogLevel: String? = null,
     val logContext: RipDpiLogContext? = null,
     val scanDeadlineMs: Long? = null,

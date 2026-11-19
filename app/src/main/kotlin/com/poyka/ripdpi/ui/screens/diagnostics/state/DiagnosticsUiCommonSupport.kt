@@ -151,6 +151,7 @@ private fun String.toPhaseLabel(ctx: StringResolver): String =
         "environment" -> ctx.getString(R.string.history_detail_section_environment)
         "pmtu" -> ctx.getString(R.string.diagnostics_pmtu_title)
         "tls_hop_comparison" -> ctx.getString(R.string.diagnostics_tls_hop_title)
+        "quic_version_matrix" -> ctx.getString(R.string.diagnostics_quic_version_title)
         "http3" -> ctx.getString(R.string.diagnostics_http3_title)
         "ip_family" -> ctx.getString(R.string.diagnostics_ip_title)
         "dns" -> ctx.getString(R.string.diagnostics_phase_dns)

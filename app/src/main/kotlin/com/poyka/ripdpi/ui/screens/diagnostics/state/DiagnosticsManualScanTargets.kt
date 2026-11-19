@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 
 /** User-entered targets for a manual scan; [overrides] is null for profiles that take no input. */
@@ -20,6 +21,12 @@ internal fun DiagnosticsScanUiModel.manualScanTargets(profileId: String?): Manua
             tlsHopComparisonInput
                 .takeIf { it.isValid() }
                 ?.let { ManualScanTargets(DiagnosticsScanTargetOverrides(tlsHopComparison = it)) }
+        }
+
+        QuicVersionMatrixProfileId -> {
+            quicVersionMatrixInput
+                .takeIf { it.isValid() }
+                ?.let { ManualScanTargets(DiagnosticsScanTargetOverrides(quicVersionMatrix = it)) }
         }
 
         else -> {

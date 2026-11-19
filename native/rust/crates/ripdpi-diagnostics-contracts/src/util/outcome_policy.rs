@@ -61,6 +61,17 @@ fn event_level_override(probe_type: &str, outcome: &str) -> Option<&'static str>
 
 fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &str) -> ProbeOutcomeBucket {
     match probe_type {
+        "quic_version_v1"
+        | "quic_version_v2"
+        | "quic_version_comparison"
+        | "quic_version_residual"
+        | "quic_version_matrix" => match outcome {
+            "quic_version_test_answered" => ProbeOutcomeBucket::Healthy,
+            "quic_version_test_not_answered"
+            | "quic_version_difference_observed"
+            | "quic_version_residual_suspected" => ProbeOutcomeBucket::Attention,
+            _ => ProbeOutcomeBucket::Inconclusive,
+        },
         "tls_hop_comparison" => match outcome {
             "tls_hop_divergence" => ProbeOutcomeBucket::Attention,
             _ => ProbeOutcomeBucket::Inconclusive,

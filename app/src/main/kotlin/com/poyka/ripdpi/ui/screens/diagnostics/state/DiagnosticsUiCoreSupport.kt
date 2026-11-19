@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket
 import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTaxonomy
 import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTone
 import com.poyka.ripdpi.diagnostics.ProbeResult
+import com.poyka.ripdpi.diagnostics.QuicVersionEvidenceKey
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanTerminationReason
@@ -315,6 +316,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
                             "pmtuEvidence",
                             TlsHopEvidenceKey,
                             TlsHopLocalKey,
+                            QuicVersionEvidenceKey,
                         )
                 }.map { DiagnosticsFieldUiModel(it.key, it.value) }
                 .toImmutableList(),
@@ -325,6 +327,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         http3 = result.toHttp3Group(strings, networkScopeUnverified),
         pmtu = result.toPmtuGroup(strings, networkScopeUnverified),
         tlsHop = result.toTlsHopResult(),
+        quicVersion = result.toQuicVersionRow(),
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =

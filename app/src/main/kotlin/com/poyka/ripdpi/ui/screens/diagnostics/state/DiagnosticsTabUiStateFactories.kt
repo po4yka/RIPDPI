@@ -48,6 +48,7 @@ internal class DiagnosticsScanUiStateFactory
                 BuildScanUiModelParams(
                     selectiveMatrixHostsInput = input.selectiveMatrixHostsInput,
                     tlsHopComparisonInput = input.tlsHopComparisonInput,
+                    quicVersionMatrixInput = input.quicVersionMatrixInput,
                     profiles = resolvedInput.visibleProfiles,
                     omittedProfileCount = resolvedInput.omittedProfileCount,
                     activeProfile = resolvedInput.activeProfile,

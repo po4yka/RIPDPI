@@ -69,3 +69,6 @@ pub mod pmtu;
 
 #[path = "tls_hop_comparison.rs"]
 pub mod tls_hop_comparison;
+
+#[path = "quic_version_matrix.rs"]
+pub mod quic_version_matrix;

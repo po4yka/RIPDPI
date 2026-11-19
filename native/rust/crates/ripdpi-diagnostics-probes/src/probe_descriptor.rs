@@ -26,6 +26,7 @@ use crate::probes::ip_family::IP_FAMILY_PROBE_ID;
 use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
 use crate::probes::pmtu::PMTU_PROBE_ID;
 use crate::probes::quic_probe::QUIC_PROBE_OFFLINE_PROBE_ID;
+use crate::probes::quic_version_matrix::QUIC_VERSION_MATRIX_PROBE_ID;
 use crate::probes::selective_availability::SELECTIVE_AVAILABILITY_PROBE_ID;
 use crate::probes::service_reachability::SERVICE_REACHABILITY_PROBE_ID;
 use crate::probes::tcp_fat_header::TCP_FAT_HEADER_PROBE_ID;
@@ -191,6 +192,14 @@ pub const PROBE_DESCRIPTORS: &[ProbeDescriptor] = &[
         label: "Control and test SNI hop comparison",
     },
     ProbeDescriptor {
+        id: QUIC_VERSION_MATRIX_PROBE_ID,
+        family: ProbeTaskFamily::QuicVersionMatrix,
+        scheduled_probe_type: "quic_version_matrix",
+        runner: "QuicVersionMatrixRunner",
+        path_requirement: ProbePathRequirement::RawPath,
+        label: "QUIC v1 and v2 Initial matrix",
+    },
+    ProbeDescriptor {
         id: DOH_JSON_SURVEY_PROBE_ID,
         family: ProbeTaskFamily::DohJsonSurvey,
         scheduled_probe_type: "doh_json_survey",
@@ -286,7 +295,7 @@ mod tests {
 
     #[test]
     fn strategy_runners_remain_out_of_scope() {
-        assert_eq!(PROBE_DESCRIPTORS.len(), 15, "descriptor table must cover only the 15 connectivity stages");
+        assert_eq!(PROBE_DESCRIPTORS.len(), 16, "descriptor table must cover only the 16 connectivity stages");
         for descriptor in PROBE_DESCRIPTORS {
             assert!(
                 !STRATEGY_RUNNERS.contains(&descriptor.runner),

@@ -244,6 +244,21 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
             .into_iter()
             .filter(|token| token.starts_with("tls_hop_") && token != "tls_hop_comparison"),
     );
+    let quic_version_source =
+        fs::read_to_string(repo.join("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/quic_version.rs"))
+            .expect("QUIC version source");
+    let quic_version_production = quic_version_source.split("#[cfg(test)]").next().expect("production source");
+    tokens.extend(quoted_outcome_tokens(quic_version_production).into_iter().filter(|token| {
+        token.starts_with("quic_version_")
+            && !matches!(
+                token.as_str(),
+                "quic_version_v1"
+                    | "quic_version_v2"
+                    | "quic_version_comparison"
+                    | "quic_version_residual"
+                    | "quic_version_matrix"
+            )
+    }));
     // The current engine no longer emits this token. Retain its taxonomy for
     // persisted reports from older engines and verify its conservative meaning.
     assert_eq!(

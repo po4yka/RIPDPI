@@ -15,6 +15,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             http3ConnectivityProfile(),
             pmtuConnectivityProfile(),
             tlsHopComparisonProfile(),
+            quicVersionMatrixProfile(),
             automaticProbingProfile(index),
             automaticAuditProfile(index),
             dpiDetectorFullProfile(),

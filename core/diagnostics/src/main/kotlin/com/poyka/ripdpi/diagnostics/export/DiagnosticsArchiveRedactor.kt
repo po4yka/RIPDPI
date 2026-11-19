@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.ConnectivityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
+import com.poyka.ripdpi.diagnostics.QuicVersionEvidenceKey
 import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
 import com.poyka.ripdpi.diagnostics.TlsHopEvidenceKey
 import com.poyka.ripdpi.diagnostics.TlsHopLocalKey
@@ -19,6 +20,7 @@ import com.poyka.ripdpi.diagnostics.canonicalDnsResponseSemantics
 import com.poyka.ripdpi.diagnostics.canonicalHttp3ProbeEvidence
 import com.poyka.ripdpi.diagnostics.canonicalIpFamilyProbeEvidence
 import com.poyka.ripdpi.diagnostics.canonicalPmtuProbeEvidence
+import com.poyka.ripdpi.diagnostics.canonicalQuicVersionMatrixEvidence
 import com.poyka.ripdpi.diagnostics.canonicalTlsHopComparisonEvidence
 import com.poyka.ripdpi.diagnostics.canonicalTransferEvidence
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
@@ -375,33 +377,12 @@ private fun projectStructuredArchiveJson(
 
 private fun projectArchiveObject(element: JsonObject): JsonObject {
     val declaredField = (element["key"] as? JsonPrimitive)?.content
+    val canonicalize = declaredField?.let(ArchiveCanonicalEvidence::get)
     return JsonObject(
         element.mapValues { (key, value) ->
             when {
-                key == "value" && declaredField == TlsHopEvidenceKey -> {
-                    JsonPrimitive(
-                        canonicalTlsHopComparisonEvidence((value as? JsonPrimitive)?.content) ?: "unavailable",
-                    )
-                }
-
-                key == "value" && declaredField == "pmtuEvidence" -> {
-                    JsonPrimitive(canonicalPmtuProbeEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
-                }
-
-                key == "value" && declaredField == "http3Evidence" -> {
-                    JsonPrimitive(canonicalHttp3ProbeEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
-                }
-
-                key == "value" && declaredField == "ipFamilyEvidence" -> {
-                    JsonPrimitive(canonicalIpFamilyProbeEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
-                }
-
-                key == "value" && declaredField in DnsSemanticsDetailFields -> {
-                    JsonPrimitive(canonicalDnsResponseSemantics((value as? JsonPrimitive)?.content) ?: "unavailable")
-                }
-
-                key == "value" && declaredField == "transferEvidence" -> {
-                    JsonPrimitive(canonicalTransferEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
+                key == "value" && canonicalize != null -> {
+                    JsonPrimitive(canonicalize((value as? JsonPrimitive)?.content) ?: "unavailable")
                 }
 
                 key == "value" && declaredField.isArchiveSensitiveField() -> {
@@ -767,3 +748,14 @@ private const val JsonEndpointFieldValuePattern =
 
 private val DnsSemanticsObservationFields = setOf("udpResponse", "encryptedResponse")
 private val DnsSemanticsDetailFields = setOf("udpDnsResponse", "encryptedDnsResponse")
+
+// Evidence details are exported only in their validated, re-encoded form.
+private val ArchiveCanonicalEvidence: Map<String, (String?) -> String?> =
+    mapOf(
+        QuicVersionEvidenceKey to ::canonicalQuicVersionMatrixEvidence,
+        TlsHopEvidenceKey to ::canonicalTlsHopComparisonEvidence,
+        "pmtuEvidence" to ::canonicalPmtuProbeEvidence,
+        "http3Evidence" to ::canonicalHttp3ProbeEvidence,
+        "ipFamilyEvidence" to ::canonicalIpFamilyProbeEvidence,
+        "transferEvidence" to ::canonicalTransferEvidence,
+    ) + DnsSemanticsDetailFields.associateWith { ::canonicalDnsResponseSemantics }

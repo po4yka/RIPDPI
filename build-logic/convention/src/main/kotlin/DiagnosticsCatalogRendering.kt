@@ -163,6 +163,7 @@ internal class DiagnosticsCatalogValidator(
             profile.validateHttp3Probe()
             profile.validatePmtuProbe()
             profile.validateTlsHopComparison()
+            profile.validateQuicVersionMatrix()
             profile.packRefs.forEach { reference ->
                 val (packId, version) = parsePackRef(reference)
                 val pack =
@@ -363,6 +364,7 @@ private fun DiagnosticsProfileDefinition.toRequestJson(): JsonObject =
         http3Probe?.let { put("http3Probe", it.toJson()) }
         pmtuProbe?.let { put("pmtuProbe", it.toJson()) }
         tlsHopComparison?.let { put("tlsHopComparison", it.toJson()) }
+        quicVersionMatrix?.let { put("quicVersionMatrix", it.toJson()) }
     }
 
 private fun ProfileExecutionPolicyDefinition.toJson(): JsonObject =

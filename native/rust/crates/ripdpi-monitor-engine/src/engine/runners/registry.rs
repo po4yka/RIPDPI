@@ -46,8 +46,8 @@ use crate::engine::runtime::{ExecutionStageId, ExecutionStageRunner};
 
 use super::connectivity::{
     CircumventionRunner, DnsRunner, DohJsonSurveyRunner, EnvironmentRunner, Http3Runner, IpFamilyRunner, PmtuRunner,
-    QuicRunner, SelectiveMatrixRunner, ServiceRunner, TcpRunner, TelegramRunner, ThroughputRunner,
-    TlsHopComparisonRunner, WebRunner,
+    QuicRunner, QuicVersionMatrixRunner, SelectiveMatrixRunner, ServiceRunner, TcpRunner, TelegramRunner,
+    ThroughputRunner, TlsHopComparisonRunner, WebRunner,
 };
 
 /// Factory function for a connectivity stage runner.
@@ -218,6 +218,15 @@ pub(in crate::engine) const PROBE_STAGE_REGISTRATIONS: &[ProbeStageRegistration]
         make_runner: || Box::new(TlsHopComparisonRunner),
     },
     ProbeStageRegistration {
+        probe_type: "quic_version_matrix",
+        probe_id: "quic_version_matrix_probe",
+        stage_id: ExecutionStageId::QuicVersionMatrix,
+        task_family_selector: Some(ProbeTaskFamily::QuicVersionMatrix),
+        runner_name: "QuicVersionMatrixRunner",
+        label: "QUIC v1 and v2 Initial matrix",
+        make_runner: || Box::new(QuicVersionMatrixRunner),
+    },
+    ProbeStageRegistration {
         probe_type: "doh_json_survey",
         probe_id: "doh_json_survey",
         stage_id: ExecutionStageId::DohJsonSurvey,
@@ -313,16 +322,17 @@ mod tests {
         ("http3", "Http3Runner", "http3_probe"),
         ("pmtu", "PmtuRunner", "pmtu_probe"),
         ("tls_hop_comparison", "TlsHopComparisonRunner", "tls_hop_comparison_probe"),
+        ("quic_version_matrix", "QuicVersionMatrixRunner", "quic_version_matrix_probe"),
         ("doh_json_survey", "DohJsonSurveyRunner", "doh_json_survey"),
     ];
 
-    /// The registry has exactly 15 connectivity stages — the 4 strategy
+    /// The registry has exactly 16 connectivity stages — the 4 strategy
     /// runners are intentionally excluded.
     #[test]
     fn strategy_runners_remain_out_of_scope() {
         const STRATEGY_RUNNER_NAMES: &[&str] =
             &["StrategyDnsBaselineRunner", "StrategyTcpRunner", "StrategyQuicRunner", "StrategyRecommendationRunner"];
-        assert_eq!(PROBE_STAGE_REGISTRATIONS.len(), 15, "registry must cover only the 15 connectivity stages");
+        assert_eq!(PROBE_STAGE_REGISTRATIONS.len(), 16, "registry must cover only the 16 connectivity stages");
         for registration in PROBE_STAGE_REGISTRATIONS {
             assert!(
                 !STRATEGY_RUNNER_NAMES.contains(&registration.runner_name),

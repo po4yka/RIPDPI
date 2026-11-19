@@ -121,6 +121,7 @@ private fun bucketForProbeOutcome(
         "http3" -> bucketHttp3(outcome)
         "pmtu" -> bucketPmtu(outcome)
         TlsHopComparisonProbeType -> bucketTlsHopComparison(outcome)
+        in QuicVersionMatrixProbeTypes -> bucketQuicVersionMatrix(outcome)
         "network_environment" -> bucketNetworkEnvironment(outcome)
         "dns_integrity" -> bucketDnsIntegrity(pathMode, outcome)
         "domain_reachability" -> bucketDomainReachability(outcome)

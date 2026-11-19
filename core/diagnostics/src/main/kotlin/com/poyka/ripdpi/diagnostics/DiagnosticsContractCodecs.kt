@@ -103,6 +103,7 @@ internal fun ProbeTask.toEngineProbeTaskWire(): EngineProbeTaskWire =
                 ProbeFamily.HTTP3 -> EngineProbeTaskFamily.HTTP3
                 ProbeFamily.PMTU -> EngineProbeTaskFamily.PMTU
                 ProbeFamily.TLS_HOP_COMPARISON -> EngineProbeTaskFamily.TLS_HOP_COMPARISON
+                ProbeFamily.QUIC_VERSION_MATRIX -> EngineProbeTaskFamily.QUIC_VERSION_MATRIX
                 ProbeFamily.IP_FAMILY -> EngineProbeTaskFamily.IP_FAMILY
                 ProbeFamily.SELECTIVE_AVAILABILITY -> EngineProbeTaskFamily.SELECTIVE_AVAILABILITY
                 ProbeFamily.DNS -> EngineProbeTaskFamily.DNS
@@ -141,6 +142,7 @@ internal fun DiagnosticsIntent.toProfileProjection(): DiagnosticsProfileProjecti
         http3Probe = http3Probe,
         pmtuProbe = pmtuProbe,
         tlsHopComparison = tlsHopComparison,
+        quicVersionMatrix = quicVersionMatrix,
     )
 
 internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection =
@@ -167,6 +169,7 @@ internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection
             http3Probe = http3Probe,
             pmtuProbe = pmtuProbe,
             tlsHopComparison = tlsHopComparison,
+            quicVersionMatrix = quicVersionMatrix,
         )
     }
 
@@ -200,6 +203,7 @@ internal fun ScanPlan.toEngineScanRequestWire(): EngineScanRequestWire =
         http3Probe = http3Probe,
         pmtuProbe = pmtuProbe,
         tlsHopComparison = tlsHopComparison,
+        quicVersionMatrix = quicVersionMatrix,
         nativeLogLevel = diagnosticsNativeLogLevel(context.pathMode),
     )
 

@@ -195,4 +195,5 @@ internal data class DiagnosticsProfileDefinition(
     val http3Probe: Http3ProbeDefinition? = null,
     val pmtuProbe: PmtuProbeDefinition? = null,
     val tlsHopComparison: TlsHopComparisonDefinition? = null,
+    val quicVersionMatrix: QuicVersionMatrixDefinition? = null,
 )

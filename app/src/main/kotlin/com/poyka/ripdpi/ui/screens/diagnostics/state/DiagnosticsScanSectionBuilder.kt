@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
@@ -18,6 +20,7 @@ import kotlinx.collections.immutable.toImmutableList
 internal data class BuildScanUiModelParams(
     val selectiveMatrixHostsInput: String = "",
     val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
+    val quicVersionMatrixInput: QuicVersionMatrixConfig = QuicVersionMatrixConfig(),
     val profiles: List<DiagnosticProfile>,
     val omittedProfileCount: Int = 0,
     val activeProfile: DiagnosticProfile?,
@@ -54,6 +57,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         when (selectedProfile?.id) {
             SelectiveMatrixProfileId -> matrixInputValid
             TlsHopComparisonProfileId -> params.tlsHopComparisonInput.isValid()
+            QuicVersionMatrixProfileId -> params.quicVersionMatrixInput.isValid()
             else -> true
         }
     val runRawEnabled = params.progress == null && !(strategyProbeSelected && params.rawArgsEnabled) && inputAllowed
@@ -76,6 +80,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         selectiveMatrixHostsInput = params.selectiveMatrixHostsInput,
         selectiveMatrixInputValid = matrixInputValid,
         tlsHopComparisonInput = params.tlsHopComparisonInput,
+        quicVersionMatrixInput = params.quicVersionMatrixInput,
         selectiveMatrixTargets = params.activeProfileRequest.matrixTargetRows(),
         profiles = params.profiles.map(::toProfileOptionUiModel).toImmutableList(),
         selectedProfileId = params.activeProfile?.id,

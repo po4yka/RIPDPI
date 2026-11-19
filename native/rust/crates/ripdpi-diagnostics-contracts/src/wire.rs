@@ -14,7 +14,7 @@ pub use report_wire::{EngineProbeResultWire, EngineScanReportWire};
 pub use request_wire::EngineScanRequestWire;
 pub use resolver_recommendation::ResolverRecommendationWire;
 
-// v11: adds the optional TLS hop comparison request and its TLS_HOP_COMPARISON probe family.
+// v11: adds the optional TLS hop comparison and QUIC version matrix requests and their probe families.
 pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 11;
 
 pub type EngineProbeTaskFamily = ProbeTaskFamily;

@@ -445,9 +445,11 @@ private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyTargetOve
     val overrides = targetOverrides ?: return this
     require(overrides.selectiveMatrixHosts.isEmpty() || selectiveMatrix != null)
     require(overrides.tlsHopComparison == null || tlsHopComparison != null)
+    require(overrides.quicVersionMatrix == null || quicVersionMatrix != null)
     return copy(
         selectiveMatrix = selectiveMatrix?.withUserHosts(overrides.selectiveMatrixHosts),
         tlsHopComparison = overrides.tlsHopComparison ?: tlsHopComparison,
+        quicVersionMatrix = overrides.quicVersionMatrix ?: quicVersionMatrix,
         domainTargets = overrides.domainTargets ?: domainTargets,
         serviceTargets = overrides.serviceTargets ?: serviceTargets,
         circumventionTargets = overrides.circumventionTargets ?: circumventionTargets,

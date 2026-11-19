@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.Http3ProbeConfig
 import com.poyka.ripdpi.diagnostics.IpFamilyProbeConfig
 import com.poyka.ripdpi.diagnostics.PmtuProbeConfig
 import com.poyka.ripdpi.diagnostics.QuicTarget
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.RouteProbeConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.SelectiveMatrixConfig
@@ -79,6 +80,8 @@ data class ProfileSpecWire(
     val pmtuProbe: PmtuProbeConfig? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val tlsHopComparison: TlsHopComparisonConfig? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val quicVersionMatrix: QuicVersionMatrixConfig? = null,
 )
 
 @Serializable

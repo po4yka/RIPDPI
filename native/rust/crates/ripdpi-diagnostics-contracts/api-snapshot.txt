@@ -86,6 +86,7 @@ pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Http3
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::IpFamily
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Pmtu
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Quic
+pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::QuicVersionMatrix
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::SelectiveAvailability
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Service
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Tcp
@@ -662,11 +663,41 @@ pub struct ripdpi_diagnostics_contracts::types::QuicObservationFact
 pub ripdpi_diagnostics_contracts::types::QuicObservationFact::host: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::QuicObservationFact::status: ripdpi_diagnostics_contracts::QuicProbeStatus
 pub ripdpi_diagnostics_contracts::types::QuicObservationFact::transport_failure: ripdpi_diagnostics_contracts::types::TransportFailureKind
+pub struct ripdpi_diagnostics_contracts::types::QuicResidualEvidence
+pub ripdpi_diagnostics_contracts::types::QuicResidualEvidence::control_stage: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::QuicResidualEvidence::test_stage: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::types::QuicTarget
 pub ripdpi_diagnostics_contracts::types::QuicTarget::connect_ip: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::QuicTarget::connect_ips: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::QuicTarget::host: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::QuicTarget::port: u16
+pub struct ripdpi_diagnostics_contracts::types::QuicVersionCellEvidence
+pub ripdpi_diagnostics_contracts::types::QuicVersionCellEvidence::bytes_received: u32
+pub ripdpi_diagnostics_contracts::types::QuicVersionCellEvidence::bytes_sent: u32
+pub ripdpi_diagnostics_contracts::types::QuicVersionCellEvidence::repetition: u32
+pub ripdpi_diagnostics_contracts::types::QuicVersionCellEvidence::sequence: u32
+pub ripdpi_diagnostics_contracts::types::QuicVersionCellEvidence::sni: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::QuicVersionCellEvidence::stage: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::types::QuicVersionMatrixConfig
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixConfig::connect_ip: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixConfig::control_sni: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixConfig::host: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixConfig::residual_version: core::option::Option<u8>
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixConfig::test_sni: alloc::string::String
+impl ripdpi_diagnostics_contracts::QuicVersionMatrixConfig
+pub const ripdpi_diagnostics_contracts::QuicVersionMatrixConfig::PORT: u16
+pub fn ripdpi_diagnostics_contracts::QuicVersionMatrixConfig::validate(&self) -> core::result::Result<(), &'static str>
+pub struct ripdpi_diagnostics_contracts::types::QuicVersionMatrixEvidence
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixEvidence::cells: alloc::vec::Vec<ripdpi_diagnostics_contracts::QuicVersionCellEvidence>
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixEvidence::limits: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixEvidence::reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixEvidence::residual: core::option::Option<ripdpi_diagnostics_contracts::QuicResidualEvidence>
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixEvidence::status: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixEvidence::stop: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::QuicVersionMatrixEvidence::version: core::option::Option<alloc::string::String>
+impl ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence
+pub fn ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::from_detail_json(&str) -> core::result::Result<Self, serde_json::error::Error>
+pub fn ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::to_detail_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
 pub struct ripdpi_diagnostics_contracts::types::RouteProbeConfig
 pub ripdpi_diagnostics_contracts::types::RouteProbeConfig::diversity_buckets: usize
 pub ripdpi_diagnostics_contracts::types::RouteProbeConfig::diversity_on_failure_only: bool
@@ -729,6 +760,7 @@ pub ripdpi_diagnostics_contracts::types::ScanRequest::profile_id: alloc::string:
 pub ripdpi_diagnostics_contracts::types::ScanRequest::proxy_host: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::proxy_port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::quic_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::QuicTarget>
+pub ripdpi_diagnostics_contracts::types::ScanRequest::quic_version_matrix: core::option::Option<ripdpi_diagnostics_contracts::QuicVersionMatrixConfig>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::region_tag: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::route_probe: core::option::Option<ripdpi_diagnostics_contracts::types::RouteProbeConfig>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::scan_deadline_ms: core::option::Option<u64>
@@ -1256,6 +1288,7 @@ pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::profile_id: alloc
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::proxy_host: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::proxy_port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::quic_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::QuicTarget>
+pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::quic_version_matrix: core::option::Option<ripdpi_diagnostics_contracts::QuicVersionMatrixConfig>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::region_tag: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::route_probe: core::option::Option<ripdpi_diagnostics_contracts::types::RouteProbeConfig>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::scan_deadline_ms: core::option::Option<u64>
@@ -1352,6 +1385,7 @@ pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Http3
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::IpFamily
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Pmtu
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Quic
+pub ripdpi_diagnostics_contracts::ProbeTaskFamily::QuicVersionMatrix
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::SelectiveAvailability
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Service
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Tcp
@@ -1630,6 +1664,7 @@ pub ripdpi_diagnostics_contracts::EngineScanRequestWire::profile_id: alloc::stri
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::proxy_host: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::proxy_port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::quic_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::QuicTarget>
+pub ripdpi_diagnostics_contracts::EngineScanRequestWire::quic_version_matrix: core::option::Option<ripdpi_diagnostics_contracts::QuicVersionMatrixConfig>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::region_tag: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::route_probe: core::option::Option<ripdpi_diagnostics_contracts::types::RouteProbeConfig>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::scan_deadline_ms: core::option::Option<u64>
@@ -1791,11 +1826,41 @@ pub struct ripdpi_diagnostics_contracts::QuicObservationFact
 pub ripdpi_diagnostics_contracts::QuicObservationFact::host: alloc::string::String
 pub ripdpi_diagnostics_contracts::QuicObservationFact::status: ripdpi_diagnostics_contracts::QuicProbeStatus
 pub ripdpi_diagnostics_contracts::QuicObservationFact::transport_failure: ripdpi_diagnostics_contracts::types::TransportFailureKind
+pub struct ripdpi_diagnostics_contracts::QuicResidualEvidence
+pub ripdpi_diagnostics_contracts::QuicResidualEvidence::control_stage: alloc::string::String
+pub ripdpi_diagnostics_contracts::QuicResidualEvidence::test_stage: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::QuicTarget
 pub ripdpi_diagnostics_contracts::QuicTarget::connect_ip: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::QuicTarget::connect_ips: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::QuicTarget::host: alloc::string::String
 pub ripdpi_diagnostics_contracts::QuicTarget::port: u16
+pub struct ripdpi_diagnostics_contracts::QuicVersionCellEvidence
+pub ripdpi_diagnostics_contracts::QuicVersionCellEvidence::bytes_received: u32
+pub ripdpi_diagnostics_contracts::QuicVersionCellEvidence::bytes_sent: u32
+pub ripdpi_diagnostics_contracts::QuicVersionCellEvidence::repetition: u32
+pub ripdpi_diagnostics_contracts::QuicVersionCellEvidence::sequence: u32
+pub ripdpi_diagnostics_contracts::QuicVersionCellEvidence::sni: alloc::string::String
+pub ripdpi_diagnostics_contracts::QuicVersionCellEvidence::stage: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::QuicVersionMatrixConfig
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixConfig::connect_ip: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixConfig::control_sni: alloc::string::String
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixConfig::host: alloc::string::String
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixConfig::residual_version: core::option::Option<u8>
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixConfig::test_sni: alloc::string::String
+impl ripdpi_diagnostics_contracts::QuicVersionMatrixConfig
+pub const ripdpi_diagnostics_contracts::QuicVersionMatrixConfig::PORT: u16
+pub fn ripdpi_diagnostics_contracts::QuicVersionMatrixConfig::validate(&self) -> core::result::Result<(), &'static str>
+pub struct ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::cells: alloc::vec::Vec<ripdpi_diagnostics_contracts::QuicVersionCellEvidence>
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::limits: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::residual: core::option::Option<ripdpi_diagnostics_contracts::QuicResidualEvidence>
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::status: alloc::string::String
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::stop: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::version: core::option::Option<alloc::string::String>
+impl ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence
+pub fn ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::from_detail_json(&str) -> core::result::Result<Self, serde_json::error::Error>
+pub fn ripdpi_diagnostics_contracts::QuicVersionMatrixEvidence::to_detail_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
 pub struct ripdpi_diagnostics_contracts::ResolverRecommendationWire
 pub ripdpi_diagnostics_contracts::ResolverRecommendationWire::applied_temporarily: bool
 pub ripdpi_diagnostics_contracts::ResolverRecommendationWire::persistable: bool
@@ -1869,6 +1934,7 @@ pub ripdpi_diagnostics_contracts::ScanRequest::profile_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::ScanRequest::proxy_host: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ScanRequest::proxy_port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::ScanRequest::quic_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::QuicTarget>
+pub ripdpi_diagnostics_contracts::ScanRequest::quic_version_matrix: core::option::Option<ripdpi_diagnostics_contracts::QuicVersionMatrixConfig>
 pub ripdpi_diagnostics_contracts::ScanRequest::region_tag: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ScanRequest::route_probe: core::option::Option<ripdpi_diagnostics_contracts::types::RouteProbeConfig>
 pub ripdpi_diagnostics_contracts::ScanRequest::scan_deadline_ms: core::option::Option<u64>

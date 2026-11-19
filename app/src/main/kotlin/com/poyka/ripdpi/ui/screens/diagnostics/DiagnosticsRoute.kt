@@ -376,7 +376,7 @@ private fun rememberDiagnosticsScreenActions(
         onSelectSection = remember(selection) { selection::selectSection },
         onSelectProfile = remember(selection) { selection::selectProfile },
         onSelectiveMatrixHostsChanged = remember(selection) { selection::updateSelectiveMatrixHosts },
-        onTlsHopComparisonChanged = remember(selection) { selection::updateTlsHopComparison },
+        manualProbeInput = selection.manualProbeInput,
         onRunScan = remember(viewModel) { viewModel::runScan },
         onRunRawScan = remember(scan) { { scan.startRawScan() } },
         onRunInPathScan = remember(scan) { scan::startInPathScan },

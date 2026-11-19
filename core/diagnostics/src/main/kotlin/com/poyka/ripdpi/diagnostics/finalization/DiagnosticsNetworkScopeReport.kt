@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProbeTypes
 import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
@@ -12,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.decodeEngineScanReportWire
 import com.poyka.ripdpi.diagnostics.hasAuthoritativeManualConflictCancellation
+import com.poyka.ripdpi.diagnostics.quicVersionWithoutScopeAuthority
 import com.poyka.ripdpi.diagnostics.toEngineScanReportWire
 import com.poyka.ripdpi.diagnostics.toScanReport
 import com.poyka.ripdpi.diagnostics.withoutHttp3ScopeAuthority
@@ -111,6 +113,12 @@ private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeRes
             copy(outcome = "tls_hop_inconclusive", details = details.withoutTlsHopScopeAuthority())
         }
 
+        probeType in QuicVersionMatrixProbeTypes -> {
+            quicVersionWithoutScopeAuthority(probeType, details)?.let { (scopedOutcome, scopedDetails) ->
+                copy(outcome = scopedOutcome, details = scopedDetails)
+            } ?: this
+        }
+
         probeType == "pmtu" -> {
             copy(outcome = "pmtu_not_observed", details = details.withoutPmtuScopeAuthority())
         }
@@ -152,7 +160,7 @@ private fun ProbeResultEntity.withoutNetworkScopeAuthority(json: Json): ProbeRes
             "http3",
             "pmtu",
             "tls_hop_comparison",
-        )
+        ) && probeType !in QuicVersionMatrixProbeTypes
     ) {
         return this
     }
