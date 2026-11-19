@@ -68,18 +68,7 @@ internal class HistoryUiStateFactory
                         focusedSessionId = detailState.selectedConnectionDetail?.session?.id,
                     ),
                 diagnostics =
-                    DiagnosticsSessionsUiModel(
-                        filters =
-                            DiagnosticsSessionFiltersUiModel(
-                                pathMode = diagnosticsFilters.pathModeFilter,
-                                status = diagnosticsFilters.statusFilter,
-                                query = diagnosticsFilters.search,
-                            ),
-                        sessions = filteredDiagnostics.toImmutableList(),
-                        pathModes = diagnosticsRows.map { it.pathMode }.distinct().toImmutableList(),
-                        statuses = diagnosticsRows.map { it.status }.distinct().toImmutableList(),
-                        focusedSessionId = detailState.selectedDiagnosticsDetail?.session?.id,
-                    ),
+                    diagnosticsSessions(diagnosticsFilters, diagnosticsRows, filteredDiagnostics, detailState),
                 events =
                     DiagnosticsEventsUiModel(
                         filters =
@@ -119,6 +108,25 @@ internal class HistoryUiStateFactory
             )
         }
     }
+
+private fun diagnosticsSessions(
+    filters: HistoryDiagnosticsFilterState,
+    rows: List<DiagnosticsSessionRowUiModel>,
+    filtered: List<DiagnosticsSessionRowUiModel>,
+    detailState: HistoryDetailState,
+): DiagnosticsSessionsUiModel =
+    DiagnosticsSessionsUiModel(
+        filters =
+            DiagnosticsSessionFiltersUiModel(
+                pathMode = filters.pathModeFilter,
+                status = filters.statusFilter,
+                query = filters.search,
+            ),
+        sessions = filtered.toImmutableList(),
+        pathModes = rows.map { it.pathMode }.distinct().toImmutableList(),
+        statuses = rows.map { it.status }.distinct().toImmutableList(),
+        focusedSessionId = detailState.selectedDiagnosticsDetail?.session?.id,
+    )
 
 private fun HistoryConnectionRowUiModel.matches(filters: HistoryConnectionFilterState): Boolean =
     (filters.modeFilter == null || serviceMode == filters.modeFilter) &&
