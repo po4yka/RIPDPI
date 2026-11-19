@@ -20,6 +20,7 @@ import com.poyka.ripdpi.services.SharedPriorsRefreshWorker
 import com.poyka.ripdpi.services.fieldreport.FieldReportConsentFollower
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
+import com.poyka.ripdpi.subscription.PendingBootstrapProvisioner
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateWorker
 import com.poyka.ripdpi.subscription.followSubscriptionAutoUpdates
 import dagger.Binds
@@ -76,6 +77,7 @@ class AppStartupInitializer
         private val startupDiagnosticsProbes: StartupDiagnosticsProbes,
         private val presetApplier: PresetApplier,
         private val fieldReportConsentFollower: FieldReportConsentFollower,
+        private val pendingBootstrapProvisioner: PendingBootstrapProvisioner,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : AppStartupReadiness {
         private val readinessState = MutableStateFlow(AppStartupReadinessState.Pending)
@@ -247,6 +249,11 @@ class AppStartupInitializer
                         is PresetOutcome.Rejected -> error("Packaged preset rejected: ${outcome.reason}")
                     }
                 }
+            val pendingBootstrapProvision =
+                runSubsystem(AppStartupSubsystem.PendingBootstrapProvision) {
+                    // Network-bound up to the bootstrap call timeout, so it must not gate readiness.
+                    applicationScope.launch { provisionPendingBootstraps() }
+                }
             val resetEventConsume =
                 runSubsystem(AppStartupSubsystem.ResetEventConsume) {
                     // The reset wipe recorded this BEFORE deleting everything; it
@@ -317,7 +324,23 @@ class AppStartupInitializer
                 fieldReportConsent = fieldReportConsent,
                 bootSessionRecorderRegistration = bootSessionRecorderRegistration,
                 presetApply = presetApply,
+                pendingBootstrapProvision = pendingBootstrapProvision,
             )
+        }
+
+        private suspend fun provisionPendingBootstraps() {
+            try {
+                pendingBootstrapProvisioner.provisionPending().forEach { outcome ->
+                    Logger.i { "Pending bootstrap provision: $outcome" }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (
+                @Suppress("TooGenericExceptionCaught") error: Exception,
+            ) {
+                // The class name only: a transport message can carry the token URL.
+                Logger.w { "Pending bootstrap provisioning failed: ${error::class.simpleName}" }
+            }
         }
 
         private suspend fun runSubsystem(
@@ -373,6 +396,7 @@ internal data class AppStartupReport(
     val fieldReportConsent: AppStartupSubsystemResult,
     val bootSessionRecorderRegistration: AppStartupSubsystemResult,
     val presetApply: AppStartupSubsystemResult,
+    val pendingBootstrapProvision: AppStartupSubsystemResult,
 ) {
     fun toLogMessage(): String =
         "App startup report: " +
@@ -390,6 +414,7 @@ internal data class AppStartupReport(
                 fieldReportConsent,
                 bootSessionRecorderRegistration,
                 presetApply,
+                pendingBootstrapProvision,
             ).joinToString(separator = ", ") { result ->
                 buildString {
                     append(result.subsystem.logLabel)
@@ -426,6 +451,7 @@ internal enum class AppStartupSubsystem(
     FieldReportConsentFollower("field_report_consent_follower"),
     BootSessionRecorderRegistration("boot_session_recorder_registration"),
     PresetApply("preset_apply"),
+    PendingBootstrapProvision("pending_bootstrap_provision"),
 }
 
 internal enum class AppStartupSubsystemStatus {
