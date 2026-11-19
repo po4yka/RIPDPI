@@ -101,6 +101,10 @@ internal object DiagnosticsReportPersister {
                 triggerPreviousFingerprintHash = existing?.triggerPreviousFingerprintHash,
                 triggerCurrentFingerprintHash = existing?.triggerCurrentFingerprintHash,
                 networkScopeKey = existing?.networkScopeKey,
+                networkTransport = existing?.networkTransport,
+                matrixTargetSetRevision = existing?.matrixTargetSetRevision,
+                matrixProbeRevision = existing?.matrixProbeRevision,
+                matrixConfigRevision = existing?.matrixConfigRevision,
             ),
             resultEntities,
         )
