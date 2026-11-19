@@ -56,5 +56,10 @@ The implementation MUST test against byte-identical vendored `client-field-repor
 
 #### Scenario: Valid and invalid fixtures
 
-- **WHEN** the parser reads vendored valid and negative fixtures
-- **THEN** valid fixtures parse and negative fixtures (unknown stage, missing failure_stage on failure) are rejected
+- **WHEN** the Rust and Kotlin failure-stage contract tests read the vendored golden report and the negative report fixtures
+- **THEN** every golden bucket stage decodes, and the negative fixtures (unknown stage, missing failure_stage on failure, failure_stage on success) are rejected
+
+#### Scenario: Version pin
+
+- **WHEN** the vendored schema declares an `x-contract-version` other than the supported contract version constant
+- **THEN** the Rust and Kotlin contract tests fail
