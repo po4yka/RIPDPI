@@ -80,8 +80,14 @@ internal fun interface NetworkHintFetcher {
     ): String?
 }
 
-/** Parses a `client-network-hint` v1 body with every schema rule, or returns null when one fails. */
-internal fun parseNetworkHint(body: String): NetworkHint? {
+/**
+ * Parses a `client-network-hint` v1 body with every schema rule, or returns null when one fails. An `observed_at`
+ * after [nowMillis] (server clock ahead) counts from [nowMillis], so a hint never outlives its ttl on this device.
+ */
+internal fun parseNetworkHint(
+    body: String,
+    nowMillis: Long,
+): NetworkHint? {
     val hint =
         (runCatching { Json.parseToJsonElement(body) }.getOrNull() as? JsonObject)
             ?.takeIf { it.keys == HintKeys && it.integer("schema_version") == HintSchemaVersion }
@@ -95,7 +101,7 @@ internal fun parseNetworkHint(body: String): NetworkHint? {
             ?.takeIf(HintObservedAtPattern::matches)
             ?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
     return if (asn != null && country != null && ttl != null && observedAt != null) {
-        NetworkHint(asn, country, ttl, observedAt + ttl * MillisPerSecond)
+        NetworkHint(asn, country, ttl, minOf(observedAt, nowMillis) + ttl * MillisPerSecond)
     } else {
         null
     }
@@ -200,7 +206,7 @@ class FieldReportNetworkContext internal constructor(
         val body = fetcher.fetch(endpoint, target.cohortToken, before)
         val sameNetwork = defaultNetwork() == before
         val now = clock()
-        val hint = body?.let(::parseNetworkHint)?.takeIf { sameNetwork && now < it.expiresAtMillis }
+        val hint = body?.let { parseNetworkHint(it, now) }?.takeIf { sameNetwork && now < it.expiresAtMillis }
         val intervalMillis = (hint?.ttlSeconds ?: NoHintIntervalSeconds) * MillisPerSecond
         val nextFetchAt = now + intervalMillis + random.nextLong(intervalMillis / JitterDivisor + 1)
         synchronized(lock) { cached = CachedHint(before.handle, hint, nextFetchAt) }
