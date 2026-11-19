@@ -1,0 +1,31 @@
+# Native failure code -> client-field-report failure_stage. The one mapping table for Rust and Kotlin.
+# Columns: Rust FailureClass::as_str, Rust FailureStage::as_str or * (any stage), failure_stage wire value.
+# Rust: ripdpi-diagnostics-classification field_failure_stage tests. Kotlin: FieldFailureStageContractTest.
+unknown	*	unknown
+dns_tampering	*	dns
+dns_resolution_failure	*	dns
+tcp_reset	*	tcp_reset
+silent_drop	dns	dns
+silent_drop	connect	tcp_connect
+silent_drop	first_write	idle_timeout
+silent_drop	first_response	idle_timeout
+silent_drop	tls_handshake	tls_handshake
+silent_drop	http_response	idle_timeout
+silent_drop	quic_probe	quic_handshake
+silent_drop	diagnostic	unknown
+silent_drop	relay	idle_timeout
+silent_drop	post_handshake	idle_timeout
+tls_alert	*	tls_handshake
+http_blockpage	*	protocol_error
+quic_breakage	*	quic_handshake
+redirect	*	protocol_error
+tls_handshake_failure	*	tls_handshake
+connect_failure	*	tcp_connect
+strategy_execution_failure	*	unknown
+connection_freeze	*	idle_timeout
+capability_skipped	*	unknown
+tuic_version_unsupported	*	protocol_error
+shadowtls_version_mismatch	*	protocol_error
+ip_block_suspect	*	tcp_connect
+masque_h3_tcp_unsupported	*	protocol_error
+confirm_good_dpi_suspected	*	idle_timeout
