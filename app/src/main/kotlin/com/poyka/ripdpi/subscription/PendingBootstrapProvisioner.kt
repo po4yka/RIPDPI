@@ -100,6 +100,7 @@ class PendingBootstrapProvisioner internal constructor(
                                 cloudflareMemberIds = result.cloudflareMemberIds,
                                 isSelector = result.isSelector,
                                 initialMemberId = result.initialMemberId,
+                                memberHealth = result.memberHealth,
                             ).copy(
                                 packageRoutingRules = result.packageRoutingRules,
                                 subscription =

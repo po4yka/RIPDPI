@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import android.content.Context
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.subscription.EndpointHealth
 import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
 import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
@@ -126,6 +127,8 @@ data class ProxyGroup(
     val ownershipGeneration: String = "",
     /** Imported preference used only until a local choice is stored; it never starts a connection. */
     val initialMemberId: String? = null,
+    /** Bundle `ripdpi.endpoints` health by server_ref (member tag); evaluated when failover selects, never at import. */
+    val memberHealth: Map<String, EndpointHealth> = emptyMap(),
 )
 
 /**

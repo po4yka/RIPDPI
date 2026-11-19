@@ -75,6 +75,8 @@ sealed interface SelectorUrltestImportResult {
      * @param memberOrder the selector member tags in declared order, urltest tag removed.
      * @param defaultMemberTag the selector `default`, or `null`.
      * @param failoverPolicy [FailoverPolicy.Urltest] when a urltest was present, else [FailoverPolicy.Manual].
+     * @param endpointHealth the selector members ranked by health at import time, or `null` without a selector;
+     *   [EndpointHealthOrder.AllDownFailOpen] tells the caller every member was reported down.
      */
     data class Success(
         val profiles: List<ProxyProfile>,
@@ -84,6 +86,7 @@ sealed interface SelectorUrltestImportResult {
         val failoverPolicy: FailoverPolicy,
         val skipped: List<SingBoxSkippedNode> = emptyList(),
         val cloudflareMemberIds: Set<String>? = null,
+        val endpointHealth: EndpointHealthOrder? = null,
     ) : SelectorUrltestImportResult
 
     /** Import was rejected as a unit (e.g. a selector named a missing tag, or the JSON was malformed). */
@@ -111,8 +114,8 @@ sealed interface SelectorUrltestImportResult {
 object SelectorUrltestGroupImport {
     /**
      * Imports [payload] into a [SelectorUrltestImportResult]. Concrete profiles
-     * and the generated group are stamped with [groupId]. Selector members are
-     * ordered by their `ripdpi.endpoints` health evaluated at [nowEpochMillis].
+     * and the generated group are stamped with [groupId]. Every selector member is
+     * stored with its `ripdpi.endpoints` health; [nowEpochMillis] only picks the initial member.
      */
     @Suppress("ReturnCount", "LongMethod")
     fun import(
@@ -200,30 +203,19 @@ object SelectorUrltestGroupImport {
         ) {
             return SelectorUrltestImportResult.Error("selector has no supported candidate for its selection")
         }
-        val healthyMembers =
-            when (
-                val order =
-                    orderByEndpointHealth(memberProfiles.map { it.displayName }, parsed.endpointHealth, nowEpochMillis)
-            ) {
-                EndpointHealthOrder.NoUsableEndpoint -> {
-                    return SelectorUrltestImportResult.Error("every selector candidate is down")
-                }
-
-                is EndpointHealthOrder.Candidates -> {
-                    val memberByTag = memberProfiles.associateBy { it.displayName }
-                    order.serverRefs.map(memberByTag::getValue)
-                }
-            }
-        val usableTags = healthyMembers.mapTo(mutableSetOf()) { it.displayName }
+        // Every member is stored with its health; failover re-evaluates it at selection time, so an expired
+        // down observation becomes neutral again without a refresh. Only the initial preference uses it now.
+        val endpointHealth = orderByEndpointHealth(memberProfiles, parsed.endpointHealth, nowEpochMillis)
+        val candidateTags = endpointHealth.members.mapTo(mutableSetOf()) { it.displayName }
 
         return importedSelector(
             parsed,
             groupId,
             selectorEntry,
-            healthyMembers,
+            memberProfiles,
             failoverPolicy,
-            topology.defaultTags.firstOrNull { it in usableTags },
-        )
+            topology.defaultTags.firstOrNull { it in candidateTags },
+        ).copy(endpointHealth = endpointHealth)
     }
 
     private fun isDeviceOnlyAwg(
@@ -251,6 +243,8 @@ object SelectorUrltestGroupImport {
                             parsed.cloudflareMemberIds.orEmpty().intersect(
                                 memberProfiles.map { it.id }.toSet(),
                             ),
+                        memberHealth =
+                            parsed.endpointHealth.filterKeys { tag -> memberProfiles.any { it.displayName == tag } },
                     ),
             memberOrder = memberProfiles.map { it.displayName },
             defaultMemberTag = selectorEntry.string("default"),

@@ -28,29 +28,3 @@ internal object PayloadFailoverImport {
         }
     }
 }
-
-/** Selector failover candidates after applying `ripdpi.endpoints` health. */
-sealed interface EndpointHealthOrder {
-    /** Usable candidates: neutral (healthy, unknown, expired, or no health) first, degraded last, declared order kept. */
-    data class Candidates(
-        val serverRefs: List<String>,
-    ) : EndpointHealthOrder
-
-    /** Every candidate is down with unexpired health. */
-    data object NoUsableEndpoint : EndpointHealthOrder
-}
-
-/** Orders [serverRefs] by their health at [nowEpochMillis]: unexpired down is excluded, degraded is deprioritised. */
-fun orderByEndpointHealth(
-    serverRefs: List<String>,
-    health: Map<String, EndpointHealth>,
-    nowEpochMillis: Long,
-): EndpointHealthOrder {
-    val statusByRef = serverRefs.associateWith { health[it]?.statusAt(nowEpochMillis) }
-    val usable = serverRefs.filterNot { statusByRef[it] == EndpointHealthStatus.DOWN }
-    return if (usable.isEmpty() && serverRefs.isNotEmpty()) {
-        EndpointHealthOrder.NoUsableEndpoint
-    } else {
-        EndpointHealthOrder.Candidates(usable.sortedBy { statusByRef[it] == EndpointHealthStatus.DEGRADED })
-    }
-}

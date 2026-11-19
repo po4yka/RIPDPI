@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.data.SelectorFailover
+import com.poyka.ripdpi.data.subscription.EndpointHealth
+import com.poyka.ripdpi.data.subscription.EndpointHealthStatus
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -439,6 +441,55 @@ class SelectorUrltestProberTest {
             )
 
             assertEquals("up", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `stored down health excludes a member only until its ttl expires`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            store.select("g", "slow")
+            var wallClock = 1_000_000L
+            val group =
+                selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast"))).copy(
+                    memberHealth = mapOf("fast" to EndpointHealth(EndpointHealthStatus.DOWN, wallClock, 60)),
+                )
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)),
+                    SelectorProbeScopeProvider { selectorTestScope(it) },
+                    wallClockMillis = { wallClock },
+                )
+
+            prober.runProbePass(group, "https://probe", toleranceMs = 50)
+            assertEquals("slow", store.selectedProfileId("g").value)
+
+            wallClock += 60_000
+            prober.runProbePass(group, "https://probe", toleranceMs = 50)
+            assertEquals("fast", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `every member down keeps failover running on all members`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            store.select("g", "slow")
+            val down = EndpointHealth(EndpointHealthStatus.DOWN, 1_000_000L, 60)
+            val group =
+                selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast"))).copy(
+                    memberHealth = mapOf("slow" to down, "fast" to down),
+                )
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)),
+                    SelectorProbeScopeProvider { selectorTestScope(it) },
+                    wallClockMillis = { 1_000_000L },
+                )
+
+            prober.runProbePass(group, "https://probe", toleranceMs = 50)
+
+            assertEquals("fast", store.selectedProfileId("g").value)
         }
 
     @Test

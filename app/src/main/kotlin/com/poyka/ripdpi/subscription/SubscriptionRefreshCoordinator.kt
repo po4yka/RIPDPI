@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.awg.toMigrationTarget
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
 import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
+import com.poyka.ripdpi.data.subscription.EndpointHealth
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
 import com.poyka.ripdpi.data.subscription.MigrationMetadata
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
@@ -240,7 +241,12 @@ class SubscriptionRefreshCoordinator private constructor(
         val subscription = checkNotNull(expected.subscription)
         val withMembers =
             if (outcome.clearRelayMembers) {
-                expected.copy(members = emptyList(), cloudflareMemberIds = emptySet(), initialMemberId = null)
+                expected.copy(
+                    members = emptyList(),
+                    cloudflareMemberIds = emptySet(),
+                    initialMemberId = null,
+                    memberHealth = emptyMap(),
+                )
             } else {
                 SubscriptionMemberPersistence.apply(
                     group = expected,
@@ -249,6 +255,7 @@ class SubscriptionRefreshCoordinator private constructor(
                     cloudflareMemberIds = outcome.cloudflareMemberIds,
                     isSelector = outcome.isSelector,
                     initialMemberId = outcome.initialMemberId,
+                    memberHealth = outcome.memberHealth,
                 )
             }
         // A server-given title replaces only the host fallback name, never a name the user chose.
@@ -536,6 +543,7 @@ class SubscriptionRefreshCoordinator private constructor(
                     cloudflareMemberIds = selector.cloudflareMemberIds,
                     isSelector = selector.group != null,
                     initialMemberId = selector.group?.initialMemberId,
+                    memberHealth = selector.group?.memberHealth.orEmpty(),
                     tokenExpiresAtEpochMillis = singBox?.tokenExpiresAtEpochMillis,
                     packageRoutingRules = singBox?.packageRoutingRules.orEmpty(),
                 )
@@ -635,6 +643,7 @@ class SubscriptionRefreshCoordinator private constructor(
             val cloudflareMemberIds: Set<String>? = null,
             val isSelector: Boolean = false,
             val initialMemberId: String? = null,
+            val memberHealth: Map<String, EndpointHealth> = emptyMap(),
             val migration: MigrationMetadata? = null,
             val payloadSha256: String = "",
         ) : RefreshOutcome
