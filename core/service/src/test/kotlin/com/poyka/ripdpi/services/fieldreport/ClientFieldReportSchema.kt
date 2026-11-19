@@ -27,10 +27,11 @@ internal fun contractFile(name: String): File {
 internal fun contractJson(name: String): JsonObject = Json.parseToJsonElement(contractFile(name).readText()).jsonObject
 
 /**
- * Validates against the vendored `client-field-report.schema.json` with the keywords that schema uses, plus the two
- * server checks the schema cannot express (`scripts/validate-field-report.py` in the deploy repository): no string
- * holds a newline, and each latency histogram sums to its bucket's attempts. The validator proves itself against
- * the vendored golden and every vendored negative report fixture.
+ * Validates against the vendored `client-field-report.schema.json` (or, with [root], `client-network-hint.schema.json`)
+ * with the keywords those schemas use, plus the two server checks the schema cannot express
+ * (`scripts/validate-field-report.py` in the deploy repository): no string holds a newline, and each latency
+ * histogram sums to its bucket's attempts. The validator proves itself against the vendored goldens and every
+ * vendored negative report and hint fixture.
  */
 internal class ClientFieldReportSchema(
     private val root: JsonObject = contractJson("client-field-report.schema.json"),
@@ -94,6 +95,10 @@ internal class ClientFieldReportSchema(
             branch?.jsonObject?.let { validate(it, value, path, errors) }
         }
         schema["not"]?.jsonObject?.let { if (matches(it, value)) errors += "$path not" }
+        schema["allOf"]?.jsonArray?.forEach { validate(it.jsonObject, value, path, errors) }
+        schema["anyOf"]?.jsonArray?.let { options ->
+            if (options.none { matches(it.jsonObject, value) }) errors += "$path anyOf"
+        }
     }
 
     private fun hasType(

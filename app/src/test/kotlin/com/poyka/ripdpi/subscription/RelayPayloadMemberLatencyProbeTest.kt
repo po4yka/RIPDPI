@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.services.CandidateRelayProbeEnvironment
 import com.poyka.ripdpi.services.ProfileUtilityProbeFixtures
 import com.poyka.ripdpi.services.fieldreport.FieldReportLedger
+import com.poyka.ripdpi.services.fieldreport.FieldReportNetwork
 import com.poyka.ripdpi.services.reachableCandidateHttpProbe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -50,4 +51,9 @@ class RelayPayloadMemberLatencyProbeTest {
 }
 
 private fun noConsentFieldReports(): FieldReportLedger =
-    FieldReportLedger(File.createTempFile("field-report", ".json").apply { delete() }, { false }, { 0L })
+    FieldReportLedger(
+        File.createTempFile("field-report", ".json").apply { delete() },
+        { false },
+        { 0L },
+        { FieldReportNetwork("none", "other") },
+    )

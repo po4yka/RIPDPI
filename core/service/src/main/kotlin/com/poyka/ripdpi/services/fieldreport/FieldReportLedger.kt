@@ -26,29 +26,36 @@ class FieldReportLedger(
     private val file: File,
     private val consent: suspend () -> Boolean,
     private val clock: () -> Long,
+    private val network: () -> FieldReportNetwork,
 ) {
     @Inject
     constructor(
         @ApplicationContext context: Context,
         settings: AppSettingsRepository,
+        networkContext: FieldReportNetworkContext,
     ) : this(
         File(context.noBackupFilesDir, "field_report_pending.json"),
         { settings.snapshot().fieldReportEnabled },
         System::currentTimeMillis,
+        networkContext::current,
     )
 
     private val log = Logger.withTag("field-report")
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Counts one member probe of [profile] while consent is on; a probe that never reached the server is ignored. */
+    /**
+     * Counts one member probe of [profile] while consent is on, in the hour of the current network; a probe that
+     * never reached the server is ignored.
+     */
     suspend fun recordProbe(
         profile: ProxyProfile,
         measured: CandidateRelayMeasurement?,
         elapsedMillis: Long,
     ) {
         val attempt = fieldReportAttempt(profile, measured, elapsedMillis) ?: return
-        update { state -> state.record(attempt, clock()) }
+        val measuredOn = network()
+        update { state -> state.record(attempt, measuredOn, clock()) }
     }
 
     /** Deletes every pending aggregate and the upload history. */

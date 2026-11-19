@@ -63,7 +63,6 @@ class FieldReportUploader internal constructor(
     private val ledger: FieldReportLedger,
     private val consent: suspend () -> Boolean,
     private val targets: suspend () -> List<FieldReportTarget>,
-    private val network: () -> FieldReportNetwork?,
     private val appVersion: String?,
     private val tunnelRoute: suspend () -> LocalSocksRoute?,
     private val poster: FieldReportPoster,
@@ -88,10 +87,6 @@ class FieldReportUploader internal constructor(
                 }.groupBy({ it.first }, { it.second })
                 .map { (config, tags) -> FieldReportTarget(config, tags.flatten().toSet()) }
         },
-        // shortcut: no on-device source gives the network ASN without a public IP lookup, which automatic work
-        // must not make (avoid-public-ip-lookup-in-automatic-diagnostics). Until the owner approves a source, every
-        // completed hour is dropped unsent. See the DGN-1795085498592630 design.
-        network = { null },
         appVersion =
             fieldReportAppVersion(
                 runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull(),
@@ -131,15 +126,14 @@ class FieldReportUploader internal constructor(
         now: Long,
     ) {
         val version = appVersion
-        val context = network()
         val reportTargets = targets().filter { it.config.endpoint.startsWith("https://") }
         val reports =
-            if (version == null || context == null) {
+            if (version == null) {
                 emptyList()
             } else {
                 due.flatMap { hour ->
                     reportTargets.mapNotNull { target ->
-                        buildFieldReport(hour, version, context, target.serverRefs)?.let { target to it }
+                        buildFieldReport(hour, version, target.serverRefs)?.let { target to it }
                     }
                 }
             }
@@ -155,10 +149,10 @@ class FieldReportUploader internal constructor(
                 }
             }
         }
-        val handled = due.mapTo(mutableSetOf()) { it.startEpochMillis }
+        val handled = due.mapTo(mutableSetOf()) { it.startEpochMillis to it.network }
         ledger.update { current ->
             current.copy(
-                hours = current.hours.filterNot { it.startEpochMillis in handled },
+                hours = current.hours.filterNot { (it.startEpochMillis to it.network) in handled },
                 uploads =
                     (current.uploads.keys + requests.keys).associateWith {
                         current.uploads[it].orEmpty() + requests[it].orEmpty()

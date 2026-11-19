@@ -33,6 +33,7 @@ import com.poyka.ripdpi.services.FlowAttribution
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceStartupReconciler
 import com.poyka.ripdpi.services.fieldreport.FieldReportConsentFollower
 import com.poyka.ripdpi.services.fieldreport.FieldReportLedger
+import com.poyka.ripdpi.services.fieldreport.FieldReportNetwork
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.strategy.StrategyPackService
@@ -58,6 +59,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.File
 import javax.inject.Provider
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -940,7 +942,12 @@ private fun createInitializer(
             FieldReportConsentFollower(
                 application,
                 NoOpAppSettingsRepository,
-                FieldReportLedger(application, NoOpAppSettingsRepository),
+                FieldReportLedger(
+                    File(application.noBackupFilesDir, "field_report_pending.json"),
+                    { false },
+                    { 0L },
+                    { FieldReportNetwork("none", "other") },
+                ),
             ),
         appShortcutsPublisher =
             AppShortcutsPublisher(
