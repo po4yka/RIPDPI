@@ -26,7 +26,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.io.IOException
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.Proxy
+import java.net.ServerSocket
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 class FieldReportUploaderTest {
     private val reality = "p0-reality-upcloud-prod"
@@ -346,6 +352,24 @@ class FieldReportUploaderTest {
             val resolved = requireNotNull(tls.client).dns.lookup("reports.example.test").single()
             assertEquals("reports.example.test", resolved.hostName)
             assertTrue(resolved.address.all { it == 0.toByte() })
+        }
+
+    @Test
+    fun `the poster connects only to the tunnel listener and speaks SOCKS5 there`() =
+        runTest {
+            ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { listener ->
+                val greeting = CompletableFuture<Int>()
+                thread { listener.accept().use { greeting.complete(it.getInputStream().read()) } }
+                val tls = InterceptingTlsClientFactory(code = 202)
+                OkHttpFieldReportPoster(tls).post(LocalSocksRoute("127.0.0.1", listener.localPort), config, "{}")
+
+                val socket = requireNotNull(tls.client).socketFactory.createSocket()
+                runCatching { socket.connect(InetSocketAddress.createUnresolved("reports.example.test", 443), 2_000) }
+                socket.close()
+
+                // The SOCKS5 version byte reached the listener, so the report host is a CONNECT target there.
+                assertEquals(5, greeting.get(5, TimeUnit.SECONDS))
+            }
         }
 
     /** Builds the poster's client as configured and answers at the application layer, so no socket opens. */
