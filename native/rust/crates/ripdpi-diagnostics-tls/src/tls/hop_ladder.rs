@@ -3,10 +3,8 @@
 //! Each attempt opens a fresh protected TCP connection at the default TTL, sets the outbound TTL to k,
 //! sends one ClientHello, and records the first reaction inside a fixed window. Without root, the probe
 //! never sees router addresses: the result is a hop interval, never an identified device.
-use std::cell::Cell;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr};
-use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -147,16 +145,16 @@ pub trait LadderProbe {
         window: Duration,
         should_abort: &dyn Fn() -> bool,
     ) -> Result<AttemptOutcome, AttemptError>;
+
+    /// True once the network under the probe changed since the first attempt.
+    fn network_changed(&self) -> bool {
+        false
+    }
 }
 
 /// Run the ladder: ascending k up to [`MAX_LADDER_TTL`], [`REPETITIONS`] rounds per k, control and test
 /// alternating inside each round. Stops after the k at which the control first gets a ServerHello.
-pub fn run_ladder(
-    probe: &mut dyn LadderProbe,
-    config: LadderConfig,
-    should_abort: &dyn Fn() -> bool,
-    network_changed: &dyn Fn() -> bool,
-) -> LadderReport {
+pub fn run_ladder(probe: &mut dyn LadderProbe, config: LadderConfig, should_abort: &dyn Fn() -> bool) -> LadderReport {
     let started = Instant::now();
     let mut attempts = Vec::new();
     let stop = 'ladder: {
@@ -181,7 +179,7 @@ pub fn run_ladder(
                         Err(AttemptError::Aborted) => break 'ladder LadderStop::Cancelled,
                         Err(AttemptError::Unsupported(reason)) => break 'ladder LadderStop::Unsupported(reason),
                     }
-                    if network_changed() {
+                    if probe.network_changed() {
                         break 'ladder LadderStop::NetworkChanged;
                     }
                 }
@@ -282,7 +280,10 @@ pub struct SocketLadderProbe {
     control_hello: Vec<u8>,
     test_hello: Vec<u8>,
     local_ip: Option<IpAddr>,
-    network_changed: Rc<Cell<bool>>,
+    /// Set once an attempt connects from a different local address than the first one.
+    // shortcut: a new local address is the only network-change signal; a switch that keeps the address goes
+    // unnoticed. Upgrade to the Android network handle if the engine ever passes one down.
+    network_changed: bool,
 }
 
 impl SocketLadderProbe {
@@ -301,14 +302,7 @@ impl SocketLadderProbe {
         let control_hello = client_hello(&config, control_sni)?;
         let test_hello = client_hello(&config, test_sni)?;
         protected_tcp_socket(target).map_err(|_| LadderSetupError::Unsupported(UnsupportedReason::Protect))?;
-        Ok(Self { target, control_hello, test_hello, local_ip: None, network_changed: Rc::default() })
-    }
-
-    /// Set once an attempt connects from a different local address than the first one.
-    // shortcut: a new local address is the only network-change signal; a switch that keeps the address goes
-    // unnoticed. Upgrade to the Android network handle if the engine ever passes one down.
-    pub fn network_change_flag(&self) -> Rc<Cell<bool>> {
-        self.network_changed.clone()
+        Ok(Self { target, control_hello, test_hello, local_ip: None, network_changed: false })
     }
 }
 
@@ -335,6 +329,10 @@ pub enum LadderSetupError {
 }
 
 impl LadderProbe for SocketLadderProbe {
+    fn network_changed(&self) -> bool {
+        self.network_changed
+    }
+
     fn attempt(
         &mut self,
         role: SniRole,
@@ -360,7 +358,7 @@ impl LadderProbe for SocketLadderProbe {
         if let Ok(local) = stream.local_addr() {
             match self.local_ip {
                 None => self.local_ip = Some(local.ip()),
-                Some(first) if first != local.ip() => self.network_changed.set(true),
+                Some(first) if first != local.ip() => self.network_changed = true,
                 Some(_) => {}
             }
         }

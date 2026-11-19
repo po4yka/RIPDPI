@@ -41,8 +41,7 @@ pub fn run_tls_hop_comparison(
                             ladder.total_deadline =
                                 ladder.total_deadline.min(deadline.saturating_duration_since(Instant::now()));
                         }
-                        let changed = probe.network_change_flag();
-                        summarize(run_ladder(&mut probe, ladder, &cancelled, &|| changed.get()))
+                        summarize(run_ladder(&mut probe, ladder, &cancelled))
                     }
                     Err(LadderSetupError::InvalidSni(_)) => (stopped("INCONCLUSIVE", "invalid_sni"), Vec::new()),
                     Err(LadderSetupError::Unsupported(reason)) => {
