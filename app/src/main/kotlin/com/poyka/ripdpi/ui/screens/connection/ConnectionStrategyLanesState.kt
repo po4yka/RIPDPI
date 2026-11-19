@@ -24,10 +24,13 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -102,22 +105,24 @@ class ConnectionStrategyLanesSource
     ) {
         /** The running scan while one runs, the last stored strategy test otherwise. */
         fun observe(): Flow<StrategyLanesUiState?> =
-            combine(history.observeLatestStrategyTest(), currentNetworkScopeKey(), runningTest()) {
-                session,
-                network,
-                running,
-                ->
+            combine(storedTest(), currentNetworkScopeKey(), runningTest()) { (session, applicable), network, running ->
                 running ?: session?.toStrategyLanes(currentNetworkScopeKey = network)?.let { lanes ->
-                    // A lane offers its strategy only when applying it can succeed.
-                    val applicable =
-                        session.report
-                            ?.strategyProbeReport
-                            ?.let { applier.applicableIds(it) }
-                            .orEmpty()
                     lanes.copy(lanes = lanes.lanes.map { it.copy(applicable = it.id in applicable) }.toImmutableList())
                 }
             }.distinctUntilChanged()
                 .flowOn(dispatchers.default)
+
+        // A lane offers its strategy only when applying it can succeed and would change the settings.
+        @OptIn(ExperimentalCoroutinesApi::class)
+        private fun storedTest(): Flow<Pair<DiagnosticScanSession?, Set<String>>> =
+            history.observeLatestStrategyTest().flatMapLatest { session ->
+                val report = session?.report?.strategyProbeReport
+                if (report == null) {
+                    flowOf(session to emptySet())
+                } else {
+                    applier.applicableIds(report).map { session to it }
+                }
+            }
 
         // The session this screen started. A scan of another kind, started elsewhere, is not this screen's
         // to show or to stop.

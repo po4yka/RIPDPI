@@ -33,6 +33,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeLiveProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
+import com.poyka.ripdpi.diagnostics.StrategyProbeRuntimeTerminalStatus
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -454,6 +455,41 @@ class ConnectionStrategyLanesTest {
             runCurrent()
 
             assertEquals(listOf(ConnectionEffect.OpenStrategyTest, ConnectionEffect.Message("failed")), effects)
+        }
+
+    @Test
+    fun `a lane stops offering its strategy once it is applied`() =
+        runTest {
+            // :core:engine stays off the app's classpath, so the config is written by hand.
+            val config =
+                """{"kind":"ui","chains":{"tcpSteps":[{"kind":"hostfake","marker":"endhost+8","midhostMarker":"",""" +
+                    """"fakeHostTemplate":"googlevideo.com","fragmentCount":0,"minFragmentSize":0,""" +
+                    """"maxFragmentSize":0}]},"schemaVersion":2}"""
+            val passing =
+                candidate("oob", "OOB byte", succeeded = 6, latency = 110).copy(
+                    proxyConfigJson = config,
+                    desyncExecutionRequired = false,
+                    runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
+                )
+            val stored = session("stored", report().copy(tcpCandidates = listOf(passing)), startedAt = 10L)
+            val source =
+                strategyLanesSource(
+                    FakeDiagnosticsHistorySource(stored),
+                    settings = FakeAppSettingsRepository(),
+                    dispatcher = UnconfinedTestDispatcher(testScheduler),
+                )
+            val offered = mutableListOf<Boolean>()
+            val collecting =
+                backgroundScope.launch {
+                    source.observe().collect { lanes -> offered += lanes!!.lanes.single { it.id == "oob" }.applicable }
+                }
+            runCurrent()
+
+            assertTrue(source.applyLane("oob"))
+            runCurrent()
+
+            assertEquals(listOf(true, false), offered)
+            collecting.cancel()
         }
 
     @Test

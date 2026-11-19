@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.applyStrategyToSettings
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -38,7 +39,7 @@ class StrategyCandidateApplierTest {
             assertTrue(engineConfig != config)
             val report = report(candidate("tcp-pass", "success", succeeded = 4).copy(proxyConfigJson = engineConfig))
 
-            assertEquals(setOf("tcp-pass"), StrategyCandidateApplier(repository).applicableIds(report))
+            assertEquals(setOf("tcp-pass"), StrategyCandidateApplier(repository).applicableIds(report).first())
             assertTrue(StrategyCandidateApplier(repository).apply(report, "tcp-pass"))
             assertEquals(
                 decodeRipDpiProxyUiPreferences(
@@ -49,13 +50,25 @@ class StrategyCandidateApplierTest {
         }
 
     @Test
+    fun `an applied candidate is no longer offered`() =
+        runTest {
+            val repository = FakeAppSettingsRepository(defaultDiagnosticsAppSettings())
+            val applier = StrategyCandidateApplier(repository)
+            assertEquals(setOf("tcp-pass"), applier.applicableIds(report()).first())
+
+            assertTrue(applier.apply(report(), "tcp-pass"))
+
+            assertEquals(emptySet<String>(), applier.applicableIds(report()).first())
+        }
+
+    @Test
     fun `a blocked or unknown candidate changes nothing`() =
         runTest {
             val repository = FakeAppSettingsRepository(defaultDiagnosticsAppSettings())
             val before = repository.snapshot()
             val applier = StrategyCandidateApplier(repository)
 
-            assertEquals(setOf("tcp-pass"), applier.applicableIds(report()))
+            assertEquals(setOf("tcp-pass"), applier.applicableIds(report()).first())
             assertFalse(applier.apply(report(), "tcp-blocked"))
             assertFalse(applier.apply(report(), "missing"))
             assertEquals(before, repository.snapshot())
