@@ -1,4 +1,5 @@
 pub mod diagnosis;
+pub mod field_failure_stage;
 pub mod ip_block_suspect;
 pub mod strategy;
 
@@ -8,6 +9,7 @@ pub use strategy::{
 };
 
 pub use diagnosis::classify_strategy_probe_baseline_results;
+pub use field_failure_stage::field_failure_stage;
 
 use std::collections::BTreeMap;
 

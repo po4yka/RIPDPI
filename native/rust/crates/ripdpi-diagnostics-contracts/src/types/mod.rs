@@ -1,5 +1,6 @@
 mod confirm_good;
 mod execution_plan;
+mod field_failure_stage;
 mod observation;
 mod request;
 mod scan;
@@ -8,6 +9,7 @@ mod target;
 
 pub use confirm_good::*;
 pub use execution_plan::*;
+pub use field_failure_stage::*;
 pub use observation::*;
 pub use request::*;
 pub use scan::*;

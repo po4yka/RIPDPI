@@ -10,7 +10,9 @@
       "changeTriggers": [
         "Rust diagnostics wire field or serde default changes",
         "Kotlin EngineContract field or kotlinx.serialization default changes",
-        "Diagnostics schemaVersion, outcome token, or profile catalog fixture changes"
+        "Diagnostics schemaVersion, outcome token, or profile catalog fixture changes",
+        "client-field-report schema failure_stage enum or x-contract-version changes",
+        "Native FailureClass or FailureStage variant, or native failure-stage mapping changes"
       ],
       "sourcePaths": [
         "native/rust/crates/ripdpi-diagnostics-contracts/src/types/strategy.rs",
@@ -20,7 +22,12 @@
         "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/contract/engine/EngineContract.kt",
         "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsEngineSchemaValidationTest.kt",
         "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsWireContractTest.kt",
-        "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContractGovernanceTest.kt"
+        "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContractGovernanceTest.kt",
+        "native/rust/crates/ripdpi-diagnostics-contracts/src/types/field_failure_stage.rs",
+        "native/rust/crates/ripdpi-diagnostics-classification/src/classification/field_failure_stage.rs",
+        "core/diagnostics-data/src/main/kotlin/com/poyka/ripdpi/data/diagnostics/FieldFailureStage.kt",
+        "core/detection/src/main/kotlin/com/poyka/ripdpi/core/detection/dpi/DpiFieldFailureStage.kt",
+        "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/FieldFailureStageContractTest.kt"
       ],
       "fixturePaths": [
         "diagnostics-contract-fixtures/engine_request_current.json",
@@ -31,7 +38,13 @@
         "diagnostics-contract-fixtures/outcome_taxonomy_current.json",
         "contract-fixtures/diagnostics_schema_version.json",
         "contract-fixtures/diagnostics_progress_fields.json",
-        "contract-fixtures/diagnostics_scan_report_fields.json"
+        "contract-fixtures/diagnostics_scan_report_fields.json",
+        "contract-fixtures/native_failure_stage_mapping.tsv",
+        "core/data/src/test/resources/contract/client-field-report.schema.json",
+        "core/data/src/test/resources/contract/client-field-report.golden.json",
+        "core/data/src/test/resources/contract/negative/report-unknown-failure-stage.json",
+        "core/data/src/test/resources/contract/negative/report-failure-without-stage.json",
+        "core/data/src/test/resources/contract/negative/report-success-with-stage.json"
       ],
       "gateTests": [
         {
@@ -58,13 +71,25 @@
           "id": "kotlin-diagnostics-schema-contract",
           "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsEngineSchemaValidationTest.kt",
           "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsEngineSchemaValidationTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
+          "id": "rust-field-failure-stage-mapping",
+          "path": "native/rust/crates/ripdpi-diagnostics-classification/src/classification/field_failure_stage.rs",
+          "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-classification --lib field_failure_stage"
+        },
+        {
+          "id": "kotlin-field-failure-stage-contract",
+          "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/FieldFailureStageContractTest.kt",
+          "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.FieldFailureStageContractTest' -Pripdpi.skipNativeBuild=true"
         }
       ],
       "invariants": [
         "DiagnosticsEngineSchemaVersion equals DIAGNOSTICS_ENGINE_SCHEMA_VERSION.",
         "Kotlin and Rust both decode the same shared diagnostics contract fixtures.",
         "Field manifests cover progress and report fields when new diagnostics JSON fields or defaults are added.",
-        "Native emitted outcome tokens are covered by the committed outcome taxonomy."
+        "Native emitted outcome tokens are covered by the committed outcome taxonomy.",
+        "Rust and Kotlin FieldFailureStage values equal the vendored client-field-report failure_stage enum, and CLIENT_FIELD_REPORT_CONTRACT_VERSION equals its x-contract-version.",
+        "Rust field_failure_stage and Kotlin nativeFieldFailureStage map every native FailureClass and FailureStage code as contract-fixtures/native_failure_stage_mapping.tsv states."
       ]
     },
     {
