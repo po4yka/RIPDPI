@@ -8,11 +8,17 @@ These files are **vendored byte-identical** from the server repo
 | `ripdpi-bundle.schema.json` | `ripdpi-vpn-deploy/contract/ripdpi-bundle.schema.json` |
 | `ripdpi-bundle.example.json` | `ripdpi-vpn-deploy/contract/ripdpi-bundle.example.json` |
 | `ripdpi-bundle.golden-full.json` | `ripdpi-vpn-deploy/contract/ripdpi-bundle.golden-full.json` |
+| `ripdpi-bundle.health-expired.json` | `ripdpi-vpn-deploy/contract/ripdpi-bundle.health-expired.json` |
+| `ripdpi-bundle.hysteria-port-hopping.json`, `ripdpi-bundle.payload-failover.json` | `ripdpi-vpn-deploy/contract/` |
+| `negative/neg-*.json` | `ripdpi-vpn-deploy/contract/negative/` |
 | `device-migration-metadata.schema.json` | `ripdpi-vpn-deploy/contract/device-migration-metadata.schema.json` |
 | `device-migration-receipt.schema.json` | `ripdpi-vpn-deploy/contract/device-migration-receipt.schema.json` |
 | `device-migration.golden.json` | `ripdpi-vpn-deploy/contract/device-migration.golden.json` |
 | `cohort-fingerprint.golden.json` | `ripdpi-vpn-deploy/contract/cohort-fingerprint.golden.json` |
 | `amneziawg-arm64-version-floor.json` | `ripdpi-vpn-deploy/contract/amneziawg-arm64-version-floor.json` |
+| `client-field-report.schema.json` | `ripdpi-vpn-deploy/contract/client-field-report.schema.json` |
+| `client-field-report.golden.json` | `ripdpi-vpn-deploy/contract/client-field-report.golden.json` |
+| `negative/README.md`, `negative/report-*.json` | `ripdpi-vpn-deploy/contract/negative/` |
 
 Other files in this directory are contract schemas, examples, and fixtures that
 tests read. They are listed here by purpose:
@@ -20,6 +26,7 @@ tests read. They are listed here by purpose:
 | File | Purpose |
 |------|---------|
 | `ripdpi-bundle.hysteria-port-hopping.json` | Sing-box document with a Hysteria2 port-hopping outbound |
+| `ripdpi-bundle.health-expired.json` | Bundle whose endpoint health is expired at its `_evaluated_at` clock; the client must treat every endpoint as unknown |
 | `ripdpi-bundle.payload-failover.json` | Deterministic deployer output for the explicit payload-failover policy |
 | `cascade-asn-attestation.schema.json` | Schema: RU cascade candidate ASN attestation |
 | `cascade-leg-health.schema.json` | Schema: cascade ingress-to-egress leg health evidence |
@@ -38,7 +45,7 @@ tests read. They are listed here by purpose:
 | `protocol-liveness.schema.json` | Schema: protocol liveness sentinel policy |
 | `real-vps-awg-nat-evidence.schema.json` | Schema: real VPS AmneziaWG NAT evidence (v4) |
 | `snell-refinement-result.schema.json` | Schema: Snell refinement result |
-| `negative/` | Invalid bundle documents that the bundle schema must reject (see `negative/README.md`) |
+| `negative/` | Invalid bundle (`neg-*`) and field-report (`report-*`) documents that the schemas must reject (see `negative/README.md`) |
 
 The server emits the `ripdpi` object; this client parses it
 (`SingBoxSubscriptionParser`). The schema is the single source of truth for
@@ -62,3 +69,5 @@ Python emit-side and the Kotlin parse-side can never disagree on the algorithm.
 HTTP entity-byte hashing, receipt fields and HMAC framing. The receipt is an
 explicit offline export; the shared key is retained only in sealed subscription
 state and is never included in that export.
+
+`client-field-report.schema.json` is the v1 opt-in field report. Its `failure_stage` enum is the one failure-stage vocabulary of the client: the Rust `FieldFailureStage` (`ripdpi-diagnostics-contracts`) and the Kotlin `FieldFailureStage` (`core/diagnostics-data`) are tested against this vendored copy, and both pin its `x-contract-version` to their supported version. The Rust test reads this directory through the repository root, so there is one vendored copy.
