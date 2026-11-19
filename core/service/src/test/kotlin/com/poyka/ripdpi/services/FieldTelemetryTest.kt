@@ -118,29 +118,44 @@ class FieldTelemetryTest {
     }
 
     @Test
-    fun `failure class text mapping covers supported classes`() {
+    fun `failure class comes from typed native failure codes`() {
         val cases =
             mapOf(
-                "tunnel establishment failed" to FailureClass.TunnelEstablish,
-                "dns blocked by upstream" to FailureClass.DnsInterference,
-                "tls handshake timeout" to FailureClass.TlsInterference,
-                "operation timed out" to FailureClass.Timeout,
-                "connection reset by peer" to FailureClass.ResetAbort,
-                "network handover detected" to FailureClass.NetworkHandover,
-                "unsupported NaiveProxy probe schema_version 2" to FailureClass.Compatibility,
-                "socket write failed" to FailureClass.NativeIo,
+                "dns_tampering" to FailureClass.DnsInterference,
+                "tls_alert" to FailureClass.TlsInterference,
+                "silent_drop" to FailureClass.Timeout,
+                "tcp_reset" to FailureClass.ResetAbort,
+                "relay_compatibility" to FailureClass.Compatibility,
+                "quic_breakage" to FailureClass.NativeIo,
             )
 
-        cases.forEach { (message, expected) ->
+        cases.forEach { (code, expected) ->
             val actual =
                 classifyFailureClass(
                     failureReason = null,
+                    proxyTelemetry = NativeRuntimeSnapshot(source = "proxy"),
+                    relayTelemetry = NativeRuntimeSnapshot(source = "relay", lastFailureClass = code),
+                    warpTelemetry = NativeRuntimeSnapshot(source = "warp"),
+                    tunnelTelemetry = NativeRuntimeSnapshot(source = "tunnel"),
+                )
+            assertEquals("Unexpected mapping for `$code`", expected, actual)
+        }
+    }
+
+    @Test
+    fun `message text never changes the failure class`() {
+        val messages = listOf("tls handshake timeout", "connection reset by peer", "dns blocked by upstream")
+
+        messages.forEach { message ->
+            val actual =
+                classifyFailureClass(
+                    failureReason = FailureReason.NativeError(message),
                     proxyTelemetry = NativeRuntimeSnapshot(source = "proxy"),
                     relayTelemetry = NativeRuntimeSnapshot(source = "relay"),
                     warpTelemetry = NativeRuntimeSnapshot(source = "warp"),
                     tunnelTelemetry = NativeRuntimeSnapshot(source = "tunnel", lastError = message),
                 )
-            assertEquals("Unexpected mapping for `$message`", expected, actual)
+            assertEquals("Unexpected mapping for `$message`", FailureClass.NativeIo, actual)
         }
     }
 

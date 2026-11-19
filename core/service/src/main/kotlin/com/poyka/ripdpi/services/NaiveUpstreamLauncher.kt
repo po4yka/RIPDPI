@@ -225,6 +225,6 @@ internal class NaiveUpstreamLauncher
             failureClass: String,
         ): Nothing {
             launchDelegate.notePrelaunchFailure(config, spec, failureClass, message)
-            throw NaiveProxyCompatibilityException(message)
+            throw NaiveProxyCompatibilityException(message, failureClass)
         }
     }

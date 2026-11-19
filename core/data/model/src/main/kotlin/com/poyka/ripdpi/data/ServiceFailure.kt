@@ -25,6 +25,8 @@ sealed interface FailureReason {
 
     data class RelayConfigRejected(
         val message: String,
+        // Typed at the rejection site so telemetry never classifies by message text.
+        val failureClass: FailureClass = FailureClass.NativeIo,
     ) : FailureReason
 
     data class InitialTransportSelectionFailed(

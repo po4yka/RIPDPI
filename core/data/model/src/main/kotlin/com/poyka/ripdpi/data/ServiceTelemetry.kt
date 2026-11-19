@@ -209,7 +209,6 @@ fun aggregateRttBand(
         .maxByOrNull { it.ordinal }
         ?: RttBand.Unknown
 
-@Suppress("ReturnCount")
 fun classifyFailureClass(
     failureReason: FailureReason?,
     proxyTelemetry: NativeRuntimeSnapshot,
@@ -217,19 +216,12 @@ fun classifyFailureClass(
     warpTelemetry: NativeRuntimeSnapshot,
     tunnelTelemetry: NativeRuntimeSnapshot,
 ): FailureClass? {
-    classifyFailureReasonDirectly(failureReason)?.let { return it }
-    latestFailureText(proxyTelemetry, relayTelemetry, warpTelemetry, tunnelTelemetry)?.let { text ->
-        classifyFailureText(text)?.let { return it }
-    }
-    return tunnelTelemetry.networkHandoverClass
-        ?.takeIf { it.isNotBlank() }
-        ?.let { FailureClass.NetworkHandover }
-}
-
-private fun classifyFailureReasonDirectly(failureReason: FailureReason?): FailureClass? =
-    when (failureReason) {
+    val nativeClass = latestNativeFailureClass(proxyTelemetry, relayTelemetry, warpTelemetry)
+    return when (failureReason) {
         null -> {
-            null
+            nativeClass ?: tunnelTelemetry.networkHandoverClass
+                ?.takeIf { it.isNotBlank() }
+                ?.let { FailureClass.NetworkHandover }
         }
 
         FailureReason.TunnelEstablishmentFailed -> {
@@ -244,64 +236,80 @@ private fun classifyFailureReasonDirectly(failureReason: FailureReason?): Failur
             FailureClass.WarpEndpoint
         }
 
-        is FailureReason.WarpRuntimeFailed -> {
-            classifyFailureText(failureReason.message) ?: FailureClass.NativeIo
-        }
-
         is FailureReason.RelayFingerprintPolicyRejected -> {
             FailureClass.FingerprintPolicy
         }
 
         is FailureReason.RelayConfigRejected -> {
-            classifyFailureText(failureReason.message) ?: FailureClass.NativeIo
+            failureReason.failureClass
         }
 
         is FailureReason.InitialTransportSelectionFailed -> {
             FailureClass.Timeout
         }
 
-        is FailureReason.NativeError -> {
-            classifyFailureText(failureReason.message) ?: FailureClass.NativeIo
+        is FailureReason.WarpRuntimeFailed,
+        is FailureReason.NativeError,
+        -> {
+            nativeClass ?: FailureClass.NativeIo
         }
 
         is FailureReason.Unexpected -> {
-            failureReason.cause.message
-                ?.let(::classifyFailureText)
-                ?: FailureClass.Unexpected
+            nativeClass ?: FailureClass.Unexpected
         }
 
         is FailureReason.PermissionLost -> {
             FailureClass.Unexpected
         }
     }
+}
 
-private fun latestFailureText(
+/**
+ * Decodes a typed failure code reported in `NativeRuntimeSnapshot.lastFailureClass`: the Rust
+ * `ripdpi_failure_classifier::FailureClass::as_str` values plus the Kotlin relay prelaunch codes.
+ * Only exact codes are accepted; message text never selects a class.
+ */
+fun failureClassFromNativeCode(code: String): FailureClass? =
+    when (code) {
+        "dns", "dns_tampering", "dns_resolution_failure" -> {
+            FailureClass.DnsInterference
+        }
+
+        "tls_alert", "tls_handshake_failure", "http_blockpage", "redirect", "confirm_good_dpi_suspected" -> {
+            FailureClass.TlsInterference
+        }
+
+        "tcp_reset" -> {
+            FailureClass.ResetAbort
+        }
+
+        "silent_drop", "connection_freeze", "connect_failure", "ip_block_suspect" -> {
+            FailureClass.Timeout
+        }
+
+        "relay_compatibility", "tuic_version_unsupported", "shadowtls_version_mismatch",
+        "masque_h3_tcp_unsupported",
+        -> {
+            FailureClass.Compatibility
+        }
+
+        "quic_breakage", "strategy_execution_failure", "capability_skipped" -> {
+            FailureClass.NativeIo
+        }
+
+        else -> {
+            null
+        }
+    }
+
+private fun latestNativeFailureClass(
     proxyTelemetry: NativeRuntimeSnapshot,
     relayTelemetry: NativeRuntimeSnapshot,
     warpTelemetry: NativeRuntimeSnapshot,
-    tunnelTelemetry: NativeRuntimeSnapshot,
-): String? {
-    val latestEvent =
-        (
-            proxyTelemetry.nativeEvents + relayTelemetry.nativeEvents + warpTelemetry.nativeEvents +
-                tunnelTelemetry.nativeEvents
-        ).filter { event ->
-            event.level.equals("error", ignoreCase = true) ||
-                event.level.equals("warn", ignoreCase = true)
-        }.maxByOrNull { it.createdAt }
-            ?.message
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-    return latestEvent
-        ?: relayTelemetry.lastFailureClass?.trim()?.takeIf { it.isNotEmpty() }
-        ?: warpTelemetry.lastFailureClass?.trim()?.takeIf { it.isNotEmpty() }
-        ?: proxyTelemetry.lastFailureClass?.trim()?.takeIf { it.isNotEmpty() }
-        ?: relayTelemetry.lastError?.trim()?.takeIf { it.isNotEmpty() }
-        ?: warpTelemetry.lastError?.trim()?.takeIf { it.isNotEmpty() }
-        ?: tunnelTelemetry.lastError?.trim()?.takeIf { it.isNotEmpty() }
-        ?: proxyTelemetry.lastError?.trim()?.takeIf { it.isNotEmpty() }
-        ?: tunnelTelemetry.resolverFallbackReason?.trim()?.takeIf { it.isNotEmpty() }
-}
+): FailureClass? =
+    listOf(relayTelemetry, warpTelemetry, proxyTelemetry).firstNotNullOfOrNull { snapshot ->
+        snapshot.lastFailureClass?.trim()?.let(::failureClassFromNativeCode)
+    }
 
 private fun hasRecentDhtTriggerCorrelation(
     proxyTelemetry: NativeRuntimeSnapshot,
@@ -349,74 +357,6 @@ private fun isDhtCorrelationFailureClass(failureClass: FailureClass): Boolean =
             FailureClass.WarpEndpoint,
             FailureClass.FingerprintPolicy,
         )
-
-@Suppress("CyclomaticComplexMethod")
-private fun classifyFailureText(text: String): FailureClass? {
-    val normalized = text.trim().lowercase()
-    return when {
-        normalized.contains("relay_compatibility") ||
-            normalized.contains("naiveproxy pre-launch probe") ||
-            normalized.contains("naiveproxy probe schema_version") ||
-            normalized.contains("naiveproxy helper does not support the required probe") -> {
-            FailureClass.Compatibility
-        }
-
-        normalized.contains("tunnel establishment") ||
-            normalized.contains("vpn field not null") ||
-            normalized.contains("tun fd") -> {
-            FailureClass.TunnelEstablish
-        }
-
-        normalized.contains("dns_substitution") ||
-            normalized.contains("dns_expected_mismatch") ||
-            normalized.contains("udp dns") ||
-            normalized.contains("resolver override") ||
-            normalized.contains("dns failure") ||
-            normalized.contains("dns blocked") -> {
-            FailureClass.DnsInterference
-        }
-
-        normalized.contains("tls") ||
-            normalized.contains("ssl") ||
-            normalized.contains("mitm") ||
-            normalized.contains("handshake") ||
-            normalized.contains("whitelist_sni") ||
-            normalized.contains("sni block") -> {
-            FailureClass.TlsInterference
-        }
-
-        normalized.contains("timeout") ||
-            normalized.contains("timed out") -> {
-            FailureClass.Timeout
-        }
-
-        normalized.contains("connection reset") ||
-            normalized.contains("connection aborted") ||
-            normalized.contains("broken pipe") ||
-            normalized.contains("reset") ||
-            normalized.contains("abort") -> {
-            FailureClass.ResetAbort
-        }
-
-        normalized.contains("transport_switch") ||
-            normalized.contains("connectivity_loss") ||
-            normalized.contains("link_refresh") ||
-            normalized.contains("handover") -> {
-            FailureClass.NetworkHandover
-        }
-
-        normalized.contains("i/o") ||
-            normalized.contains("socket") ||
-            normalized.contains("proxy exited") ||
-            normalized.contains("native error") -> {
-            FailureClass.NativeIo
-        }
-
-        else -> {
-            null
-        }
-    }
-}
 
 fun RttBand.Companion.fromLatencyMs(latencyMs: Long?): RttBand =
     when {
