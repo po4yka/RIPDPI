@@ -6,7 +6,7 @@ One failure_stage enum shared by Rust and Kotlin, typed classification instead o
 
 ## Ownership
 
-native/rust/crates/ripdpi-diagnostics-contracts, ripdpi-diagnostics-classification, ripdpi-monitor-engine; core/diagnostics-data, core/detection/src/main/kotlin/com/poyka/ripdpi/core/detection/dpi/, core/data/model/src/main/kotlin/com/poyka/ripdpi/data/ServiceTelemetry.kt, core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveExporter.kt, core/data/src/test/resources/contract/. Serialized lane: schema-version constants, wire.rs, vendored fixtures (single writer; R4 follows).
+native/rust/crates/ripdpi-diagnostics-contracts, ripdpi-diagnostics-classification (production wiring in ripdpi-monitor-engine is R3); contract-fixtures/native_failure_stage_mapping.tsv; core/diagnostics-data, core/detection/src/main/kotlin/com/poyka/ripdpi/core/detection/dpi/, core/data/model/src/main/kotlin/com/poyka/ripdpi/data/ServiceTelemetry.kt, core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveExporter.kt, core/data/src/test/resources/contract/. Serialized lane: schema-version constants, wire.rs, vendored fixtures (single writer; R4 follows).
 
 ## Execution
 
@@ -19,4 +19,4 @@ native/rust/crates/ripdpi-diagnostics-contracts, ripdpi-diagnostics-classificati
 
 ## Verification
 
-cargo test -p ripdpi-diagnostics-contracts --locked; ./gradlew :core:diagnostics:testDebugUnitTest :core:data:testDebugUnitTest; python3 scripts/ci/check_cross_language_runtime_contracts.py; just ci-gates; ./taskctl validate.
+cargo test -p ripdpi-diagnostics-contracts -p ripdpi-diagnostics-classification --locked field_failure_stage; cargo clippy -p ripdpi-diagnostics-contracts -p ripdpi-diagnostics-classification --locked --all-targets -- -D warnings; python3 scripts/ci/check_rust_api_snapshots.py; ./gradlew :core:diagnostics:testDebugUnitTest :core:data:testDebugUnitTest; python3 scripts/ci/check_cross_language_runtime_contracts.py; just ci-gates; ./taskctl validate.

@@ -15,12 +15,17 @@ The implementation MUST define `failure_stage` with exactly the values dns, tcp_
 
 ### Requirement: REQ-DGN-1795085357320979-002 — Total mapping from probe and connection failures
 
-The implementation MUST map every `DpiProbeError`, every `ProbeStage`, and each connection-path failure to exactly one `failure_stage`, and MUST map any unmapped case to `unknown`.
+The implementation MUST map every `DpiProbeError`, every `ProbeStage`, and each connection-path failure (a native `FailureClass` code with its `FailureStage` code) to exactly one `failure_stage`, and MUST map any unmapped case to `unknown`. Rust and Kotlin MUST map native codes from one shared table.
 
 #### Scenario: Every DpiProbeError maps
 
 - **WHEN** a test enumerates all `DpiProbeError` subclasses
-- **THEN** each yields a stage and no subclass throws or is skipped
+- **THEN** each yields a stage and no subclass throws or is skipped, and a subclass missing from the expected table fails the test
+
+#### Scenario: Rust and Kotlin agree on native failures
+
+- **WHEN** the Rust and Kotlin tests evaluate every row of `contract-fixtures/native_failure_stage_mapping.tsv`
+- **THEN** both return the row's `failure_stage`, and the Rust test covers every `FailureClass` at every `FailureStage`
 
 #### Scenario: TLS reset maps to tcp_reset or tls_handshake as specified
 
