@@ -32,6 +32,7 @@ struct StreamState {
 }
 
 // Abort the owned H2 driver when the pooled connection is dropped.
+// Drop order: task drops before stream_limits; the Drop body aborts the driver before any field drops, so closing the stream-limit query channel afterwards is never observed by a live driver and the order carries no other obligation.
 struct AbortOnDrop {
     task: JoinHandle<()>,
     stream_limits: mpsc::UnboundedSender<oneshot::Sender<usize>>,
