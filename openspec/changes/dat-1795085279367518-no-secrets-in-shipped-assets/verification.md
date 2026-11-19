@@ -37,3 +37,11 @@ Gradle was not run in this implementation (owner rule). Run these and record the
 
 - Conflict with AND-1795015211660121: its preset is a plaintext FULL backup with `privateData` credentials, so the guard fails `staticAnalysis` and `just ci-gates` in any checkout that holds `app/src/main/assets/preset.json`. This change's design assumed the preset carries no credentials; the preset change must narrow to a `BOOTSTRAP` token slot, or the owner must decide otherwise.
 - Server side: `/bootstrap/<token>` must deliver the relay credentials (deploy D4). The client parses the existing bootstrap payload formats; no new endpoint is assumed.
+
+## Review fixes
+
+Findings of the independent review of `fd922df2b..HEAD`. Each Kotlin regression test below was written to fail before its fix; none was compiled or run (owner build policy: no Gradle).
+
+| Finding | Fix and regression test | Result |
+|---|---|---|
+| M9 guard gaps | The guard now also rejects token, secret, uuid, auth/auth_str and obfs values and a VLESS/VMess user `id` (other ids pass), fails on an asset that is not UTF-8, and skips only exact test source-set names (`test`, `androidTest`, `testFixtures` and variants), so a flavor such as `latest` is scanned; hex integer constants in code pass like decimal ones. `python3 -m unittest scripts.tests.test_shipped_asset_secrets`: 13 tests OK, 3 of the new ones fail against the previous script (`runs-final-fix/m9-before.log`); the tree scan exits 0 | passed |
