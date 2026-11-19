@@ -43,12 +43,23 @@ class FieldReportTest {
     fun `the hint parser accepts the vendored golden and discards every vendored negative hint`() {
         assertEquals(
             NetworkHint(64500, "ZZ", 21_600, epoch("2026-11-19T16:00:00Z")),
-            parseNetworkHint(contractFile("client-network-hint.golden.json").readText()),
+            parseNetworkHint(contractFile("client-network-hint.golden.json").readText(), epoch("2026-11-19T10:30:00Z")),
         )
         negatives("hint-").forEach { name ->
-            assertNull(name, parseNetworkHint(contractFile("negative/$name").readText()))
+            assertNull(name, parseNetworkHint(contractFile("negative/$name").readText(), epoch("2026-11-19T10:30:00Z")))
         }
-        assertNull(parseNetworkHint("not json"))
+        assertNull(parseNetworkHint("not json", 0))
+    }
+
+    @Test
+    fun `a hint observed in the future expires one ttl after it was received`() {
+        // The golden says 10:00; the device clock reads 06:00, so the server clock is ahead.
+        val received = epoch("2026-11-19T06:00:00Z")
+
+        assertEquals(
+            epoch("2026-11-19T12:00:00Z"),
+            parseNetworkHint(contractFile("client-network-hint.golden.json").readText(), received)?.expiresAtMillis,
+        )
     }
 
     @Test
