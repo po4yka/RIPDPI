@@ -2,7 +2,7 @@
 id: DAT-1795085420746769
 title: Consume ripdpi-bundle v3 and feed endpoint health into failover
 kind: feature
-status: doing
+status: review
 area: data
 priority: high
 owner: Android data engineer
