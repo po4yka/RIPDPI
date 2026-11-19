@@ -16,6 +16,16 @@ internal fun diagnosticProfileTextResources(profile: DiagnosticsProfileOptionUiM
             stringResource(R.string.diagnostics_ip_title) to stringResource(R.string.diagnostics_ip_caution)
         }
 
+        profile.id == com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId -> {
+            stringResource(R.string.diagnostics_profile_connectivity_badge) to
+                stringResource(R.string.diagnostics_tls_hop_observation)
+        }
+
+        profile.id == com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId -> {
+            stringResource(R.string.diagnostics_profile_connectivity_badge) to
+                stringResource(R.string.diagnostics_quic_version_limit_initial_stage)
+        }
+
         profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> {
             stringResource(R.string.diagnostics_profile_badge_ru_web) to
                 stringResource(R.string.diagnostics_profile_desc_web_connectivity)
