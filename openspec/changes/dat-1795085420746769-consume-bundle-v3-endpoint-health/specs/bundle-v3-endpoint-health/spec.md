@@ -6,12 +6,12 @@ Define how the client parses ripdpi-bundle v3, rejects v2, and uses per-endpoint
 
 ### Requirement: REQ-DAT-1795085420746769-001 — Parse bundle v3
 
-The implementation MUST parse a v3 bundle including each endpoint's `health` and the top-level `field_report` block, and MUST expose endpoint ids and `field_report` in the parse result.
+The implementation MUST parse a v3 bundle including the `ripdpi.endpoints` health map keyed by `server_ref` and the top-level `field_report` block, and MUST expose the health by `server_ref` and `field_report` in the parse result.
 
 #### Scenario: Golden v3 bundle
 
-- **WHEN** the vendored v3 example bundle is parsed
-- **THEN** each endpoint carries its health status, observed_at, and ttl_seconds, and `field_report` carries endpoint, cohort_token, and max_reports_per_day
+- **WHEN** the vendored v3 example and golden-full bundles are parsed
+- **THEN** each `server_ref` in `ripdpi.endpoints` carries its health status, observed_at, and ttl_seconds, and `field_report` carries endpoint, cohort_token, and max_reports_per_day
 
 #### Scenario: Invalid field_report endpoint
 
