@@ -9,11 +9,11 @@ Field analytics needs one failure-stage vocabulary shared by the native crates a
 ## What Changes
 
 - Vendor `client-field-report` v1 schema and fixtures from `ripdpi-vpn-deploy` into `core/data/src/test/resources/contract/` with a drift pin, the way `ripdpi-bundle` is vendored.
-- Add one `failure_stage` enum (dns, tcp_connect, tcp_reset, tls_handshake, reality_auth, quic_handshake, proxy_auth, protocol_error, idle_timeout, throttled, unknown) in Rust (`ripdpi-diagnostics-contracts`) and Kotlin (`core/diagnostics-data`), with a total mapping from `DpiProbeError`, `ProbeStage`, and connection-path failures.
+- Add one `failure_stage` enum (`FieldFailureStage`) (dns, tcp_connect, tcp_reset, tls_handshake, reality_auth, quic_handshake, proxy_auth, protocol_error, idle_timeout, throttled, unknown) in Rust (`ripdpi-diagnostics-contracts`) and Kotlin (`core/diagnostics-data`), with a total mapping from `DpiProbeError`, `ProbeStage`, and connection-path failures.
 - Replace text-matching classification with typed stage values at the source of each failure.
 - Stop swallowing errors on the diagnostics export data path: log and return a typed outcome.
 - BREAKING: the text-based classifier is removed; callers consume typed stages.
-- External dependency: `ripdpi-vpn-deploy` D1 contracts must publish the schema before vendoring is final; local fixtures are provisional until then.
+- External dependency: `ripdpi-vpn-deploy` D1 contracts publish the schema (deployer commit `e917cf5b`); the vendored copies are byte-identical to it.
 
 ## Capabilities
 
