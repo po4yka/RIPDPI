@@ -1,0 +1,11 @@
+{
+  "change": "selective-availability-matrix",
+  "evidence_summary": "Local native and Kotlin matrix suites, staticAnalysis and lint passed. The History report fix 8ba24a296 has a regression test that failed before the fix. Emulator RIPDPI_Pool_1 completed a 12-attempt matrix session with localized Scan and History reports. CI run 44515168809 passed static analysis, Kotlin unit tests and Roborazzi on fd00bf493, which contains the fix.",
+  "execution_sha256": "a3799ee5447e9c164b0a4b4474b8972b280e03dd76c5af6d10dc51757e2f6a5e",
+  "issue_sha256": "6ee379ec066c4e63bf124b8d58c7117e203f82bfa2163dcfcc9496e304aa47bd",
+  "outcome": "done",
+  "prepared_at": "2026-11-19T11:54:48Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1791519134625558"
+}

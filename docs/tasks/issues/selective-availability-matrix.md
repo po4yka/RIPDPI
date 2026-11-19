@@ -2,7 +2,7 @@
 id: DGN-1791519134625558
 title: Add a selective availability diagnostic matrix
 kind: feature
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: matrix-integration
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: selective-availability-matrix
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-11-19
 status_detail: Implementation and local gates passed; approved shared fixtures now pass Kotlin and Rust contract checks. Remote CI and device evidence remain pending.
+closed_at: "2026-11-19T11:54:48Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Local native and Kotlin matrix suites, staticAnalysis and lint passed. The History report fix 8ba24a296 has a regression test that failed before the fix. Emulator RIPDPI_Pool_1 completed a 12-attempt matrix session with localized Scan and History reports. CI run 44515168809 passed static analysis, Kotlin unit tests and Roborazzi on fd00bf493, which contains the fix.
 ---
 
 ## Goal

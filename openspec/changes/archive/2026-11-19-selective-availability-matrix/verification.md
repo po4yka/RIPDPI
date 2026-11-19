@@ -4,8 +4,8 @@ change: selective-availability-matrix
 commit_sha: 8ba24a296410a0c48e0e21c49798b304de7907f7
 local: passed
 local_evidence: Native matrix 20 tests and affected native suites 276 tests passed; Kotlin matrix 20 tests passed, including three Robolectric Compose tests. Full staticAnalysis, app/service locale lint, workspace Clippy and architecture checks passed. The approved catalog and taxonomy fixtures pass 23 Kotlin tests and four Rust contract tests.
-remote_ci: required
-remote_ci_evidence: "CI runs 44246104060 (Rust workspace tests) and 44369551319 (Kotlin, Android builds, instrumented tests) passed on commits that contain aa9d6821b. CI for the History fix at 8ba24a296 is pending."
+remote_ci: passed
+remote_ci_evidence: "CI runs 44246104060 (Rust workspace tests) and 44369551319 (Kotlin, Android builds, instrumented tests) passed on commits that contain aa9d6821b. CI run 44515168809 at fd00bf493, which contains the History fix 8ba24a296, passed gradle-static-analysis, kotlin-coverage, verify-roborazzi, build-android-tests, rust-workspace-tests and Rust shard 2/2 before a later push cancelled it."
 device: passed
 device_evidence: "On 2026-11-19, pool emulator RIPDPI_Pool_1 (API 35, arm64) ran a GitHub debug build at 8ba24a296. A localhost host disabled the run. Session f87a4989 completed 12 of 12 attempts on the direct network. The Scan tab and the History report both showed the localized matrix card with cohorts, repeat counts, catalog version, limits and per-stage states. Before the fix, the History report showed raw outcome keys. Export was not exercised on the device."
 artifact: passed
@@ -20,11 +20,11 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-MATRIX-CATALOG | DGN-1791519312778863 | Four catalog definition, rendering, bounds and legal registry tests | Passed, including approved fixture equality |
-| REQ-MATRIX-PROBES | DGN-1791519311924988 | 20 matrix tests and 276 affected native tests | Passed locally |
-| REQ-MATRIX-EVIDENCE | DGN-1791519311924988 | Conservative aggregate tests; atomic persisted scope regression | Passed locally |
-| REQ-MATRIX-UI | DGN-1791519313591507 | Eight mapping/input tests; four Compose tests, including the History report regression; five inspected render artifacts; emulator Scan and History reports | Passed, including 360 dp and RTL at font scale 1.5 |
-| REQ-MATRIX-STORAGE | DGN-1791519312778863 | Kotlin contract, planning and persisted scope tests | Passed locally |
+| REQ-MATRIX-CATALOG | DGN-1791519312778863 | Four catalog definition, rendering, bounds and legal registry tests; including approved fixture equality | Passed |
+| REQ-MATRIX-PROBES | DGN-1791519311924988 | 20 matrix tests and 276 affected native tests; locally | Passed |
+| REQ-MATRIX-EVIDENCE | DGN-1791519311924988 | Conservative aggregate tests; atomic persisted scope regression; locally | Passed |
+| REQ-MATRIX-UI | DGN-1791519313591507 | Eight mapping/input tests; four Compose tests, including the History report regression; five inspected render artifacts; emulator Scan and History reports; including 360 dp and RTL at font scale 1.5 | Passed |
+| REQ-MATRIX-STORAGE | DGN-1791519312778863 | Kotlin contract, planning and persisted scope tests; locally | Passed |
 
 ## Review and remaining gates
 
@@ -46,4 +46,4 @@ deployment_evidence: No deployment is owned by this change.
 - `cargo test --locked -p ripdpi-monitor-engine --test contract_fixtures` passed (four tests).
 - `check_architecture_health.py`, `check_native_architecture_contracts.py`, `check_harness_links.py --strict`, `check_harness_cargo_locked.py`, locked Cargo metadata, and `taskctl validate` passed.
 
-The approved shared fixtures are applied. Catalog equality, shared decoding and complete outcome coverage passed. Main integration and push are complete at aa9d6821b. Device and artifact evidence passed on 2026-11-19 after the History report fix. Remote CI for that fix is the remaining gate; the task remains in review.
+The approved shared fixtures are applied. Catalog equality, shared decoding and complete outcome coverage passed. Main integration and push are complete at aa9d6821b. Device and artifact evidence passed on 2026-11-19 after the History report fix. Remote CI lanes that cover that fix passed in run 44515168809.
