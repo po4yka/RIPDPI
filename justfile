@@ -308,6 +308,7 @@ ci: task-check lint lint-rust test test-rust ci-gates
 [group('ci')]
 ci-gates:
     python3 scripts/ci/check_architecture_health.py --check
+    python3 scripts/ci/check_shipped_asset_secrets.py
     python3 scripts/ci/check_file_loc_limits.py
     python3 scripts/ci/check_native_hotspot_budgets.py
     python3 scripts/ci/check_cross_language_runtime_contracts.py
