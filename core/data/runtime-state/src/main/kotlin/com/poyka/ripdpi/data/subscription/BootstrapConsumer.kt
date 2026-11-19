@@ -318,8 +318,8 @@ class BootstrapConsumer(
                 cloudflareMemberIds = selector.group?.cloudflareMemberIds ?: selector.cloudflareMemberIds.orEmpty(),
                 isSelector = selector.group != null,
                 initialMemberId = selector.group?.initialMemberId,
-                memberHealth = selector.group?.memberHealth.orEmpty(),
-                fieldReport = selector.group?.fieldReport,
+                memberHealth = selector.memberHealth,
+                fieldReport = selector.fieldReport,
                 failover = selector.failoverPolicy.toSelectorFailover(),
             )
         }

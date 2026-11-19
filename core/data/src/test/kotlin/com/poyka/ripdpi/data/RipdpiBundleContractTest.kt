@@ -297,6 +297,25 @@ class RipdpiBundleContractTest {
     }
 
     @Test
+    fun `a bundle without a selector keeps member health and the field-report target`() {
+        val payload = """{"outbounds":[
+            {"type":"trojan","tls":{"enabled":true},"tag":"solo","server":"solo.example","server_port":443,"password":"fixture"}
+            ],"ripdpi":{"schema_version":3,
+            "endpoints":{"solo":{"health":{"status":"degraded","observed_at":"2026-11-19T10:00:00Z","ttl_seconds":900}}},
+            "field_report":{"endpoint":"https://reports.example.test/v1/field-report",
+            "cohort_token":"EXAMPLE-cohort-token-not-real","max_reports_per_day":4}}}"""
+
+        val imported = SelectorUrltestGroupImport.import(payload, "solo-group") as SelectorUrltestImportResult.Success
+
+        assertEquals(null, imported.group)
+        assertEquals(
+            mapOf("solo" to EndpointHealth(EndpointHealthStatus.DEGRADED, epochMillis("2026-11-19T10:00:00Z"), 900)),
+            imported.memberHealth,
+        )
+        assertEquals("https://reports.example.test/v1/field-report", imported.fieldReport?.endpoint)
+    }
+
+    @Test
     fun `all-down selector imports and fails open with a typed outcome`() {
         val document = json.parseToJsonElement(resource(GOLDEN_FULL)).jsonObject
         val ripdpi = document["ripdpi"]!!.jsonObject

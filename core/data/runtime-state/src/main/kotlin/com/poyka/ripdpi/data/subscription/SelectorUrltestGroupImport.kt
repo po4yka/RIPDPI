@@ -87,6 +87,10 @@ sealed interface SelectorUrltestImportResult {
         val skipped: List<SingBoxSkippedNode> = emptyList(),
         val cloudflareMemberIds: Set<String>? = null,
         val endpointHealth: EndpointHealthOrder? = null,
+        /** Bundle health of the imported relay members by server_ref, with or without a selector. */
+        val memberHealth: Map<String, EndpointHealth> = emptyMap(),
+        /** The bundle `field_report` target, with or without a selector. */
+        val fieldReport: RipdpiFieldReport? = null,
     ) : SelectorUrltestImportResult
 
     /** Import was rejected as a unit (e.g. a selector named a missing tag, or the JSON was malformed). */
@@ -172,6 +176,8 @@ object SelectorUrltestGroupImport {
                 failoverPolicy = FailoverPolicy.Manual,
                 skipped = parsed.skipped,
                 cloudflareMemberIds = parsed.cloudflareMemberIds,
+                memberHealth = parsed.endpointHealth.filterKeys { it in profileTags },
+                fieldReport = parsed.fieldReport,
             )
         }
 
@@ -232,8 +238,9 @@ object SelectorUrltestGroupImport {
         memberProfiles: List<ProxyProfile>,
         failoverPolicy: FailoverPolicy,
         initialMemberTag: String?,
-    ): SelectorUrltestImportResult.Success =
-        SelectorUrltestImportResult.Success(
+    ): SelectorUrltestImportResult.Success {
+        val memberHealth = parsed.endpointHealth.filterKeys { tag -> memberProfiles.any { it.displayName == tag } }
+        return SelectorUrltestImportResult.Success(
             profiles = parsed.profiles,
             group =
                 selectorGroup(groupId, selectorEntry, memberProfiles, failoverPolicy, parsed.packageRoutingRules)
@@ -243,8 +250,7 @@ object SelectorUrltestGroupImport {
                             parsed.cloudflareMemberIds.orEmpty().intersect(
                                 memberProfiles.map { it.id }.toSet(),
                             ),
-                        memberHealth =
-                            parsed.endpointHealth.filterKeys { tag -> memberProfiles.any { it.displayName == tag } },
+                        memberHealth = memberHealth,
                         fieldReport = parsed.fieldReport,
                     ),
             memberOrder = memberProfiles.map { it.displayName },
@@ -252,7 +258,10 @@ object SelectorUrltestGroupImport {
             failoverPolicy = failoverPolicy,
             skipped = parsed.skipped,
             cloudflareMemberIds = parsed.cloudflareMemberIds,
+            memberHealth = memberHealth,
+            fieldReport = parsed.fieldReport,
         )
+    }
 
     private fun missingSelectorMemberError(
         missing: List<String>,
