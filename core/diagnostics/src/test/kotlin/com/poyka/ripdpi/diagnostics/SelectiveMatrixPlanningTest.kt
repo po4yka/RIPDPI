@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
@@ -9,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor
 import com.poyka.ripdpi.serialization.RipDpiJson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -40,6 +42,32 @@ class SelectiveMatrixPlanningTest {
                 ?.sourceDate,
         )
         assertTrue(projection.executionPolicy.manualOnly)
+    }
+
+    @Test
+    fun `redacted session drops the target set hash and keeps pairing labels`() {
+        val session =
+            ScanSessionEntity(
+                id = "session",
+                profileId = "selective-availability",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                serviceMode = null,
+                status = "completed",
+                summary = "",
+                reportJson = null,
+                startedAt = 10L,
+                finishedAt = 20L,
+                networkTransport = "wifi",
+                matrixTargetSetRevision = "hash-of-user-hosts",
+                matrixProbeRevision = "probe",
+                matrixConfigRevision = "config",
+            )
+
+        val redacted = requireNotNull(DiagnosticsArchiveRedactor(RipDpiJson).redactSession(session))
+
+        assertNull(redacted.matrixTargetSetRevision)
+        assertEquals("wifi", redacted.networkTransport)
+        assertEquals("probe" to "config", redacted.matrixProbeRevision to redacted.matrixConfigRevision)
     }
 
     @Test

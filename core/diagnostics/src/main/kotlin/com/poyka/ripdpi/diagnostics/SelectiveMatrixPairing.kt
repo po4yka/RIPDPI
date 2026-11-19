@@ -61,6 +61,7 @@ enum class SelectiveMatrixPairMismatch {
 enum class SelectiveMatrixTargetStage { AVAILABLE, FAILED, UNMEASURED }
 
 /** What one leg observed for one target, with its repetition counts. */
+@Serializable
 data class SelectiveMatrixTargetLegOutcome(
     val stage: SelectiveMatrixTargetStage,
     val failureStage: String?,
@@ -79,6 +80,7 @@ enum class SelectiveMatrixPairVerdict {
     INCONCLUSIVE_UNMEASURED,
 }
 
+@Serializable
 data class SelectiveMatrixPairRow(
     val targetId: String,
     val verdict: SelectiveMatrixPairVerdict,
@@ -86,6 +88,7 @@ data class SelectiveMatrixPairRow(
     val second: SelectiveMatrixTargetLegOutcome,
 )
 
+@Serializable
 data class SelectiveMatrixLegSummary(
     val transport: String,
     val startedAt: Long,
@@ -183,9 +186,15 @@ private fun SelectiveMatrixLeg.summaryDetails(): Map<String, String> =
 
 private fun SelectiveMatrixLeg.targetOutcomes(): List<Pair<String, TargetOnLeg>> {
     val repetitions = summaryDetails()["repetitionsPerTarget"]?.toIntOrNull()
+    // Rows key on the opaque target id only; an attempt without one is not paired, so no hostname becomes a key.
     return results
         .filter { it.probeType == MatrixAttemptProbeType && it.outcome !in MatrixUnobservedOutcomes }
-        .groupBy { result -> result.details.firstOrNull { it.key == "targetId" }?.value ?: result.target }
+        .mapNotNull { result ->
+            result.details
+                .firstOrNull { it.key == "targetId" }
+                ?.value
+                ?.let { it to result }
+        }.groupBy({ it.first }, { it.second })
         .map { (targetId, attempts) ->
             val details = attempts.map { attempt -> attempt.details.associate { it.key to it.value } }
             val failureStages = details.map { it["failureStage"] }.distinct()

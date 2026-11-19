@@ -5,7 +5,11 @@ import com.poyka.ripdpi.diagnostics.SelectiveMatrixPairVerdict.CONTROL
 import com.poyka.ripdpi.diagnostics.SelectiveMatrixPairVerdict.INCONCLUSIVE_FAILED_ON_BOTH
 import com.poyka.ripdpi.diagnostics.SelectiveMatrixPairVerdict.INCONCLUSIVE_LEG_INVALID
 import com.poyka.ripdpi.diagnostics.SelectiveMatrixPairVerdict.PATH_SPECIFIC
+import com.poyka.ripdpi.diagnostics.export.SelectiveMatrixPairExport
+import com.poyka.ripdpi.diagnostics.export.encodePairExport
+import com.poyka.ripdpi.diagnostics.export.toPairExport
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -93,6 +97,46 @@ class SelectiveMatrixPairingTest {
         assertEquals(CONTROL, result.row("control").verdict)
         assertEquals(1, result.pathSpecificCount)
         assertEquals(1, result.comparableCount)
+    }
+
+    @Test
+    fun `export keeps per-leg stages and repetition counts without labels or revisions`() {
+        val comparison =
+            compareSelectiveMatrixSessions(
+                leg("wifi", startedAt = MINUTE * 2, target = available()),
+                leg("cellular", startedAt = MINUTE * 20, target = failed("tls")),
+            )
+
+        val encoded = comparison.encodePairExport()
+        val decoded = Json.decodeFromString<SelectiveMatrixPairExport>(encoded)
+
+        assertTrue(decoded.comparable)
+        assertEquals(listOf("wifi", "cellular"), decoded.legs.map { it.transport })
+        assertEquals(listOf(MINUTE * 2, MINUTE * 20), decoded.legs.map { it.startedAt })
+        val site = decoded.rows.single { it.targetId == "site" }
+        assertEquals(PATH_SPECIFIC, site.verdict)
+        assertEquals(SelectiveMatrixTargetLegOutcome(SelectiveMatrixTargetStage.AVAILABLE, null, 2, 2), site.first)
+        assertEquals(SelectiveMatrixTargetLegOutcome(SelectiveMatrixTargetStage.FAILED, "tls", 2, 0), site.second)
+        assertEquals(1 to 1, decoded.pathSpecificCount to decoded.comparableCount)
+        // Probe targets carry the hostname label; the export keeps only the opaque target id.
+        assertFalse(encoded.contains("label-site"))
+        assertFalse(encoded.contains(Revisions.targetSet))
+
+        // An attempt without a target id is not paired, so its hostname never becomes a row key.
+        val unkeyed =
+            ProbeResult("selective_availability", "host.example", "matrix_target_available", emptyList())
+        val withUnkeyed =
+            compareSelectiveMatrixSessions(
+                leg("wifi", 0).let { it.copy(results = it.results + unkeyed) },
+                leg("cellular", MINUTE),
+            )
+        assertFalse(withUnkeyed.encodePairExport().contains("host.example"))
+
+        val unavailable =
+            compareSelectiveMatrixSessions(leg("wifi", 0), leg("cellular", MINUTE * 45)).toPairExport()
+        assertFalse(unavailable.comparable)
+        assertEquals(listOf(SelectiveMatrixPairMismatch.AGE_LIMIT), unavailable.mismatches)
+        assertTrue(unavailable.rows.isEmpty())
     }
 
     @Test
