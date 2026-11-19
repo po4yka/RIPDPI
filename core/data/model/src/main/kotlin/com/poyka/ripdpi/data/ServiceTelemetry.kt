@@ -219,7 +219,7 @@ fun classifyFailureClass(
     val nativeClass = latestNativeFailureClass(proxyTelemetry, relayTelemetry, warpTelemetry)
     return when (failureReason) {
         null -> {
-            nativeClass ?: tunnelTelemetry.networkHandoverClass
+            nativeClass ?: tunnelFailureClass(tunnelTelemetry) ?: tunnelTelemetry.networkHandoverClass
                 ?.takeIf { it.isNotBlank() }
                 ?.let { FailureClass.NetworkHandover }
         }
@@ -300,6 +300,17 @@ fun failureClassFromNativeCode(code: String): FailureClass? =
         else -> {
             null
         }
+    }
+
+/**
+ * The tunnel's own typed signals: a recorded tunnel worker error (its presence, never its text) is a tunnel failure,
+ * and an active resolver fallback (the DNS override the service applied after DNS failures) is DNS interference.
+ */
+private fun tunnelFailureClass(tunnelTelemetry: NativeRuntimeSnapshot): FailureClass? =
+    when {
+        !tunnelTelemetry.lastError.isNullOrBlank() -> FailureClass.TunnelEstablish
+        tunnelTelemetry.resolverFallbackActive -> FailureClass.DnsInterference
+        else -> null
     }
 
 private fun latestNativeFailureClass(

@@ -143,6 +143,34 @@ class FieldTelemetryTest {
     }
 
     @Test
+    fun `typed tunnel signals still classify DNS and tunnel failures`() {
+        fun classify(tunnel: NativeRuntimeSnapshot) =
+            classifyFailureClass(
+                failureReason = null,
+                proxyTelemetry = NativeRuntimeSnapshot(source = "proxy"),
+                relayTelemetry = NativeRuntimeSnapshot(source = "relay"),
+                warpTelemetry = NativeRuntimeSnapshot(source = "warp"),
+                tunnelTelemetry = tunnel,
+            )
+
+        assertEquals(
+            FailureClass.DnsInterference,
+            classify(
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    resolverFallbackActive = true,
+                    resolverFallbackReason = "any reason text",
+                ),
+            ),
+        )
+        assertEquals(
+            FailureClass.TunnelEstablish,
+            classify(NativeRuntimeSnapshot(source = "tunnel", lastError = "readiness timed out")),
+        )
+        assertEquals(null, classify(NativeRuntimeSnapshot(source = "tunnel")))
+    }
+
+    @Test
     fun `message text never changes the failure class`() {
         val messages = listOf("tls handshake timeout", "connection reset by peer", "dns blocked by upstream")
 
