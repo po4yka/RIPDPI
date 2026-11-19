@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.LogWriter
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
 import com.poyka.ripdpi.data.NoopStartupJournal
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -448,6 +451,46 @@ class DeveloperAnalyticsAllowListTest {
 
             val obj = readDeveloperAnalyticsJson(archive.absolutePath)
             assertEquals("FAILED", obj["collectionStatus"]?.jsonPrimitive?.content)
+        }
+
+    @Test
+    fun `a failed developer analytics collection logs no host or address`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session = seedSession(stores, "session-da-redacted")
+            val failingSource =
+                object : DeveloperAnalyticsSource {
+                    override suspend fun collect(context: DeveloperAnalyticsContext): DeveloperAnalyticsPayload =
+                        throw java.net.UnknownHostException("edge.example.test/198.51.100.7")
+                }
+            val logged = mutableListOf<String>()
+            val writer =
+                object : LogWriter() {
+                    override fun log(
+                        severity: Severity,
+                        message: String,
+                        tag: String,
+                        throwable: Throwable?,
+                    ) {
+                        logged += message + (throwable?.stackTraceToString().orEmpty())
+                    }
+                }
+            val previousWriters = Logger.mutableConfig.logWriterList
+            try {
+                Logger.setLogWriters(writer)
+                createExporter(stores, failingSource).createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 206L,
+                    ),
+                )
+            } finally {
+                Logger.setLogWriters(previousWriters)
+            }
+
+            assertTrue(logged.any { it.contains("UnknownHostException") })
+            assertTrue(logged.none { it.contains("edge.example.test") || it.contains("198.51.100.7") })
         }
 
     @Test

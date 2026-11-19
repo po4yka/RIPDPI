@@ -308,7 +308,11 @@ internal class DefaultDiagnosticsArchiveExporter
             return runCatching { developerAnalyticsSource.collect(analyticsContext) }
                 .getOrElse { error ->
                     if (error is CancellationException || error is Error) throw error
-                    Logger.w(error) { "Developer analytics collection failed; exporting a typed failure outcome" }
+                    // The class name only: a collector error message or trace can name hosts or addresses.
+                    Logger.w {
+                        "Developer analytics collection failed (${error.javaClass.simpleName}); " +
+                            "exporting a typed failure outcome"
+                    }
                     DeveloperAnalyticsPayload(collectionStatus = DeveloperAnalyticsCollectionStatus.FAILED)
                 }
         }
