@@ -93,10 +93,7 @@ class FieldReportUploader internal constructor(
             ),
         // The app's own UID bypasses the VPN, so the report enters the listener the tunnel forwards into.
         tunnelRoute = {
-            runtimes
-                .current(Mode.VPN)
-                ?.tunnelSocksRoute
-                ?.copy(resolveNamesLocally = settings.snapshot().noDomain)
+            fieldReportTunnelRoute(runtimes.current(Mode.VPN)?.tunnelSocksRoute, settings.snapshot().noDomain)
         },
         poster = OkHttpFieldReportPoster(tlsClientFactory),
         clock = System::currentTimeMillis,
@@ -162,6 +159,16 @@ class FieldReportUploader internal constructor(
     }
 }
 
+/**
+ * The listener route for an upload, or null when none may be used. The app's own UID is outside the VPN, so a
+ * locally resolved name would leak the report host to system DNS; with noDomain the listener cannot resolve names,
+ * so the upload is skipped instead.
+ */
+internal fun fieldReportTunnelRoute(
+    route: LocalSocksRoute?,
+    noDomain: Boolean,
+): LocalSocksRoute? = route?.takeUnless { noDomain }
+
 internal class OkHttpFieldReportPoster(
     private val tlsClientFactory: OwnedTlsClientFactory,
 ) : FieldReportPoster {
@@ -177,7 +184,8 @@ internal class OkHttpFieldReportPoster(
                     followRedirects(false)
                     followSslRedirects(false)
                     retryOnConnectionFailure(false)
-                    localSocksProxy(route)
+                    // The listener resolves the report host inside the tunnel, never system DNS.
+                    localSocksProxy(route.copy(resolveNamesLocally = false))
                 }
             val request =
                 Request

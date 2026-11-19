@@ -14,6 +14,7 @@ import okhttp3.TlsVersion
 import okio.Buffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -273,6 +274,20 @@ class FieldReportUploaderTest {
                     InterceptingTlsClientFactory(failure = IOException("reset")),
                 ).post(route, config, "{}"),
             )
+        }
+
+    @Test
+    fun `the report host is resolved by the tunnel listener and never by system DNS`() =
+        runTest {
+            assertNull(fieldReportTunnelRoute(route, noDomain = true))
+            assertEquals(route, fieldReportTunnelRoute(route, noDomain = false))
+
+            // Even a route that asks for local resolution sends the host name to the listener.
+            val tls = InterceptingTlsClientFactory(code = 202)
+            OkHttpFieldReportPoster(tls).post(route.copy(resolveNamesLocally = true), config, "{}")
+            val resolved = requireNotNull(tls.client).dns.lookup("reports.example.test").single()
+            assertEquals("reports.example.test", resolved.hostName)
+            assertTrue(resolved.address.all { it == 0.toByte() })
         }
 
     /** Builds the poster's client as configured and answers at the application layer, so no socket opens. */
