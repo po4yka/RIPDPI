@@ -16,35 +16,37 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 # Verification
 
-`local_evidence` stays null until the owner runs the Gradle gates below. All new and changed assertions are Kotlin unit tests, which the implementing session did not compile or run (owner build policy).
+`local_evidence` stays null until the owner runs the Gradle gates below. Every new and changed assertion except the vendored-contract drift check is a Kotlin unit test, which no session compiled or ran (owner build policy).
 
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-DAT-1795085420746769-001 | DAT-1795085445713982 | `RipdpiBundleContractTest` example and golden-full health and `field_report` assertions, and the `neg-field-report-http-endpoint.json` typed rejection, await the owner Gradle run | required |
+| REQ-DAT-1795085420746769-001 | DAT-1795085445713982 | `RipdpiBundleContractTest` example and golden-full health and `field_report` assertions, the `neg-field-report-http-endpoint.json` typed rejection, and the trailing-newline tests (field_report endpoint and cohort_token refused, server_ref health entry dropped) await the owner Gradle run | required |
 | REQ-DAT-1795085420746769-002 | DAT-1795085445713982 | `RipdpiBundleContractTest` `neg-schema-version-2.json` / `neg-missing-schema-version.json` and `SingBoxRipdpiExtensionParserTest` versions 1, 2, 4, 99 assert `UNSUPPORTED_SCHEMA_VERSION`; awaiting the owner Gradle run | required |
-| REQ-DAT-1795085420746769-003 | DAT-1795085447701237 | `EndpointHealthOrderTest` (down, expired, degraded, healthy-neutral, all-down) and the `RipdpiBundleContractTest` golden-full and health-expired selector-ordering tests await the owner Gradle run | required |
-| REQ-DAT-1795085420746769-004 | DAT-1795085444740643 | Bundle schema, examples, health-expired fixture and `negative/neg-*.json` are byte-identical to deployer commit `e917cf5b` (checked with `cmp`); the `x-contract-version` pin test awaits the owner Gradle run | required |
+| REQ-DAT-1795085420746769-003 | DAT-1795085447701237 | `EndpointHealthOrderTest` (down, expired, degraded, healthy-neutral, all-down fail-open, stored health re-evaluated after ttl), `RipdpiBundleContractTest` (stored members with health, golden-full and health-expired selection, all-down import with `AllDownFailOpen`), `SelectorUrltestProberTest` (down member excluded until its ttl expires, all-down keeps failover on all members) and `SubscriptionMemberPersistenceTest` (refresh replaces health) await the owner Gradle run | required |
+| REQ-DAT-1795085420746769-004 | DAT-1795085444740643 | `python3 scripts/ci/check_vendored_deploy_contracts.py --source <ripdpi-vpn-deploy>/contract` exit 0 against deployer commit `e84aec57d824` (log `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-r2r4-fix/vendored-contracts-check.log`); `python3 -m unittest scripts.tests.test_vendored_deploy_contracts` 5 passed (log `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-r2r4-fix/py-vendored-contracts.log`); the `x-contract-version` pin test awaits the owner Gradle run | required |
 
-## Checks run in the implementing session
+## Checks run in the implementing sessions
 
-- `cmp` of every vendored bundle file against `ripdpi-vpn-deploy/.worktrees/field-analytics/contract/`
-- `ktlint` 1.8.0 on every changed Kotlin file
-- `python3 -m unittest scripts/tests/test_android_migration_fixture.py scripts/tests/test_android_local_acceptance.py scripts/tests/test_android_migration_receipt.py`
-- `./taskctl validate`
+- `python3 scripts/ci/check_vendored_deploy_contracts.py --source /Users/po4yka/GitRep/ripdpi-vpn-deploy/.worktrees/field-analytics/contract`: exit 0
+- `python3 -m unittest scripts.tests.test_vendored_deploy_contracts`: 5 passed, exit 0
+- `ktlint` 1.8.0 on every changed Kotlin file: exit 0 (log `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-r2r4-fix/ktlint.log`)
+- `python3 -m unittest scripts/tests/test_android_migration_fixture.py scripts/tests/test_android_local_acceptance.py scripts/tests/test_android_migration_receipt.py` (first session)
+- `./taskctl validate` and `just task-check`: exit 0 (logs `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-r2r4-fix/taskctl-validate.log`, `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-r2r4-fix/task-check.log`)
 
 ## Gradle gates left for the owner
 
 ```bash
 ./gradlew :core:data:testDebugUnitTest --tests 'com.poyka.ripdpi.data.RipdpiBundleContractTest' --tests 'com.poyka.ripdpi.data.SingBoxRipdpiExtensionParserTest' --tests 'com.poyka.ripdpi.data.DeviceMigrationContractTest' --tests 'com.poyka.ripdpi.data.PayloadFailoverImportTest' --tests 'com.poyka.ripdpi.data.FleetCompatGoldenFileTest' -Pripdpi.skipNativeBuild=true
 ./gradlew :core:data:runtime-state:testDebugUnitTest --tests 'com.poyka.ripdpi.data.subscription.EndpointHealthOrderTest' -Pripdpi.skipNativeBuild=true
+./gradlew :app:testGithubDebugUnitTest --tests 'com.poyka.ripdpi.subscription.SelectorUrltestProberTest' --tests 'com.poyka.ripdpi.subscription.SubscriptionMemberPersistenceTest' -Pripdpi.skipNativeBuild=true
 ./gradlew :core:data:testDebugUnitTest :core:data:runtime-state:testDebugUnitTest :app:testGithubDebugUnitTest
 ./gradlew staticAnalysis
 just ci-gates
 ```
 
-The full `:core:data`, `:core:data:runtime-state` and `:app` unit runs are needed because every inline test bundle moved from `ripdpi.schema_version` 2 to 3.
+The full `:core:data`, `:core:data:runtime-state` and `:app` unit runs are needed because every inline test bundle moved from `ripdpi.schema_version` 2 to 3, `ProxyGroup` gained `memberHealth`, and an all-down bundle now imports instead of failing.
 
 ## Open items
 
