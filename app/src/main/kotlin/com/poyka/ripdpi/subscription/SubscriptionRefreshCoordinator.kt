@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.subscription
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -47,7 +48,9 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -102,13 +105,25 @@ class SubscriptionRefreshCoordinator private constructor(
         signalPublisher: SubscriptionStatusNotifier,
         expiryClock: SubscriptionExpiryClock,
         networkContext: FieldReportNetworkContext,
+        @ApplicationScope applicationScope: CoroutineScope,
     ) : this(
         repository = repository,
         awgProfileRepository = awgProfileRepository,
         signalPublisher = signalPublisher,
         httpClient = OkHttpClient(),
         clockMillis = expiryClock::nowMillis,
-        refreshNetworkHint = { networkContext.refreshHint(it) },
+        // The fetch waits a random jitter plus its own timeout, so it runs beside the refresh, not inside it.
+        refreshNetworkHint = { targets ->
+            applicationScope.launch {
+                try {
+                    networkContext.refreshHint(targets)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (ignored: Exception) {
+                    Logger.withTag("field-report").w { "network hint refresh failed: ${ignored.javaClass.simpleName}" }
+                }
+            }
+        },
     )
 
     @Suppress("LongParameterList")
