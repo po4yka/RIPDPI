@@ -14,7 +14,7 @@ scripts/ci/check_shipped_asset_secrets.py, scripts/tests/test_shipped_asset_secr
 - [x] DAT-1795085326567906 Add scripts/tests/test_shipped_asset_secrets.py with rejecting and passing fixtures including preset.json #feature !crit @item:DAT-1795085279367518
 - [x] DAT-1795085327471398 Register the guard in build.gradle.kts beside the ASN denylist task and in just ci-gates #feature !crit @item:DAT-1795085279367518
 - [ ] DAT-1795085328294027 Provision relay credentials via /bootstrap token into Keystore-backed storage with typed failure #feature !crit @item:DAT-1795085279367518
-- [ ] DAT-1795085329212733 Write the rotation note of shipped key kinds and versions, without secret values #feature !crit @item:DAT-1795085279367518
+- [x] DAT-1795085329212733 Write the rotation note of shipped key kinds and versions, without secret values #feature !crit @item:DAT-1795085279367518
 
 ## Verification
 
