@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.diagnostics.FieldFailureStage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -161,6 +162,30 @@ class CandidateRelayPayloadProbeTest {
                 assertEquals(1, runtime.stops)
                 assertTrue(runtime.finished)
             }
+        }
+
+    @Test
+    fun `a failed request carries the typed stage of the probe, else of the native runtime`() =
+        runTest {
+            val typed =
+                create(
+                    FakeCandidateRuntime(lastFailureClass = "tls_handshake_failure"),
+                    capabilities { _, _ -> RelayTcpProbeResult(false, failureStage = FieldFailureStage.Dns) },
+                )
+            assertEquals(
+                CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Http, FieldFailureStage.Dns),
+                typed.measure(Profile, Credentials, "https://probe"),
+            )
+
+            val native =
+                create(
+                    FakeCandidateRuntime(lastFailureClass = "tls_handshake_failure"),
+                    capabilities { _, _ -> RelayTcpProbeResult(false) },
+                )
+            assertEquals(
+                CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Http, FieldFailureStage.TlsHandshake),
+                native.measure(Profile, Credentials, "https://probe"),
+            )
         }
 
     @Test
@@ -408,6 +433,7 @@ private class FakeCandidateRuntime(
     private val stopRelease: CompletableDeferred<Unit>? = null,
     private val readyDelayMillis: Long = 0,
     var stopFailsAfterRelease: Boolean = false,
+    private val lastFailureClass: String? = null,
 ) : RipDpiRelayRuntime {
     var config: ResolvedRipDpiRelayConfig? = null
     var stops = 0
@@ -437,5 +463,6 @@ private class FakeCandidateRuntime(
         check(!stopFailsAfterRelease) { "Native stop failed after its task completed" }
     }
 
-    override suspend fun pollTelemetry() = NativeRuntimeSnapshot(source = "relay", listenerAddress = "127.0.0.1:1234")
+    override suspend fun pollTelemetry() =
+        NativeRuntimeSnapshot(source = "relay", listenerAddress = "127.0.0.1:1234", lastFailureClass = lastFailureClass)
 }

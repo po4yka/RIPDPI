@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
 import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.diagnostics.DnsMessages
+import com.poyka.ripdpi.data.diagnostics.FieldFailureStage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -68,6 +69,8 @@ internal data class RelayTcpProbeResult(
     val succeeded: Boolean,
     val statusCode: Int? = null,
     val failure: RelayProbeFailure? = null,
+    /** The field-report stage of a failed request, when its exception type names one. */
+    val failureStage: FieldFailureStage? = null,
 )
 
 internal fun interface RelayTcpProbe {
@@ -246,8 +249,12 @@ internal class OkHttpRelayTcpProbe(
                                 }
                             }
                         }
-                    } catch (_: IOException) {
-                        RelayTcpProbeResult(succeeded = false, failure = RelayProbeFailure.TcpConnect)
+                    } catch (error: IOException) {
+                        RelayTcpProbeResult(
+                            succeeded = false,
+                            failure = RelayProbeFailure.TcpConnect,
+                            failureStage = relayProbeFailureStage(error),
+                        )
                     }
                 }
             try {

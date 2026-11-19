@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.ProfileQualityMeasurement
+import com.poyka.ripdpi.data.diagnostics.FieldFailureStage
 import javax.inject.Inject
 
 /** Uses the canonical cancellable full-body HTTP verifier with the candidate's independent HTTP budget. */
@@ -23,7 +24,11 @@ class CandidateHttpPayloadProbe internal constructor(
     ): CandidateHttpPayloadEvidence {
         val started = nanoTime()
         val result = tcp.probe(endpoint, url)
-        return CandidateHttpPayloadEvidence(result.succeeded, (nanoTime() - started) / NanosecondsPerMillisecond)
+        return CandidateHttpPayloadEvidence(
+            result.succeeded,
+            (nanoTime() - started) / NanosecondsPerMillisecond,
+            failureStage = result.failureStage,
+        )
     }
 
     suspend fun probePayload(
@@ -31,6 +36,7 @@ class CandidateHttpPayloadProbe internal constructor(
         policy: PayloadFailoverPolicy,
     ): CandidateHttpPayloadEvidence {
         val started = nanoTime()
+        var failureStage: FieldFailureStage? = null
         for ((index, control) in policy.probes.withIndex()) {
             val result =
                 if (policy.quality != null) {
@@ -46,11 +52,20 @@ class CandidateHttpPayloadProbe internal constructor(
                     val health =
                         strictProbe(control, policy.timeoutSeconds * MillisecondsPerSecond)
                             .probe(endpoint, control.url)
-                    CandidateHttpPayloadEvidence(health.succeeded, (nanoTime() - started) / NanosecondsPerMillisecond)
+                    CandidateHttpPayloadEvidence(
+                        health.succeeded,
+                        (nanoTime() - started) / NanosecondsPerMillisecond,
+                        failureStage = health.failureStage,
+                    )
                 }
             if (result.succeeded) return result
+            failureStage = result.failureStage ?: failureStage
         }
-        return CandidateHttpPayloadEvidence(false, (nanoTime() - started) / NanosecondsPerMillisecond)
+        return CandidateHttpPayloadEvidence(
+            false,
+            (nanoTime() - started) / NanosecondsPerMillisecond,
+            failureStage = failureStage,
+        )
     }
 }
 
@@ -58,6 +73,8 @@ data class CandidateHttpPayloadEvidence(
     val succeeded: Boolean,
     val latencyMillis: Long,
     val quality: ProfileQualityMeasurement? = null,
+    /** The field-report stage of a failed probe, when the failure named one. */
+    val failureStage: FieldFailureStage? = null,
 )
 
 private const val CandidateHttpTimeoutMillis = 15_000L
