@@ -2,7 +2,7 @@
 id: DAT-1795085279367518
 title: Keep secrets out of shipped app assets
 kind: feature
-status: doing
+status: review
 area: data
 priority: critical
 owner: Android data engineer
