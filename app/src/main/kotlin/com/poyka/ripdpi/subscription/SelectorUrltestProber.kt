@@ -14,6 +14,8 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import com.poyka.ripdpi.data.subscription.EndpointHealthOrder
+import com.poyka.ripdpi.data.subscription.membersByHealth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -57,6 +59,8 @@ class SelectorUrltestProber internal constructor(
             ProfileQualityReason.BudgetUnavailable,
         )
     },
+    /** Wall clock for bundle health expiry (`observed_at + ttl_seconds` is an absolute instant). */
+    private val wallClockMillis: () -> Long = System::currentTimeMillis,
 ) {
     private val log = Logger.withTag("selector-urltest")
     private val payloadStates = ConcurrentHashMap<String, ScopedPayloadState>()
@@ -113,6 +117,19 @@ class SelectorUrltestProber internal constructor(
         }
     }
 
+    /** Members that may win this pass: bundle health is evaluated now, so expired down health is neutral again. */
+    private fun healthCandidates(group: ProxyGroup): List<ProxyProfile> =
+        when (val order = group.membersByHealth(wallClockMillis())) {
+            is EndpointHealthOrder.Ranked -> {
+                order.members
+            }
+
+            is EndpointHealthOrder.AllDownFailOpen -> {
+                log.i { "urltest group ${group.id}: every member reported down; health ignored" }
+                order.members
+            }
+        }
+
     // A storage or capture failure (failed prefs commit, Room error) skips this round only. Uncaught,
     // it would reach the handler-less reload scope and kill the app together with its VPN service.
     private suspend fun contained(
@@ -167,7 +184,7 @@ class SelectorUrltestProber internal constructor(
         val selection = selectionStore.snapshot(group.id)
         if (selection.isManual && selection.profileId in group.cloudflareMemberIds) return
         val latencies =
-            group.members.filterNot { it.id in group.cloudflareMemberIds }.map { member ->
+            healthCandidates(group).filterNot { it.id in group.cloudflareMemberIds }.map { member ->
                 MemberLatency(
                     profileId = member.id,
                     latencyMillis =
@@ -253,7 +270,7 @@ class SelectorUrltestProber internal constructor(
             currentCoroutineContext().ensureActive()
             val now = monotonicMillis()
             val eligibleReserves =
-                group.members.count {
+                healthCandidates(group).count {
                     it.id !in group.cloudflareMemberIds && it.id != selection.profileId
                 }
             if (results.any {
@@ -363,7 +380,7 @@ class SelectorUrltestProber internal constructor(
         scoped: ScopedPayloadState,
         policy: PayloadFailoverPolicy,
     ): List<MemberLatency> {
-        val eligible = group.members.filterNot { it.id in group.cloudflareMemberIds }
+        val eligible = healthCandidates(group).filterNot { it.id in group.cloudflareMemberIds }
         val active = eligible.firstOrNull { it.id == scoped.selection.profileId }
         val target = MemberProbeTarget.Payload(policy)
         val activeResult = active?.let { measureMember(it, target) }

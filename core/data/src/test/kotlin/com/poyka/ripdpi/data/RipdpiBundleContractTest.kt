@@ -1,16 +1,19 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.subscription.EndpointHealth
+import com.poyka.ripdpi.data.subscription.EndpointHealthOrder
 import com.poyka.ripdpi.data.subscription.EndpointHealthStatus
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.SingBoxBundleErrorCode
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
+import com.poyka.ripdpi.data.subscription.membersByHealth
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -254,6 +257,59 @@ class RipdpiBundleContractTest {
     }
 
     @Test
+    fun `import stores every selector member with its health`() {
+        val group = importedGroup(resource(GOLDEN_FULL))
+        assertEquals(
+            listOf("p0-reality-upcloud-prod", "p2-hysteria2-upcloud-prod"),
+            group.members.map { it.displayName },
+        )
+        assertEquals(setOf("p0-reality-upcloud-prod", "p2-hysteria2-upcloud-prod"), group.memberHealth.keys)
+    }
+
+    @Test
+    fun `all-down selector imports and fails open with a typed outcome`() {
+        val document = json.parseToJsonElement(resource(GOLDEN_FULL)).jsonObject
+        val ripdpi = document["ripdpi"]!!.jsonObject
+        val endpoints = ripdpi["endpoints"]!!.jsonObject
+        val allDown =
+            JsonObject(
+                document +
+                    (
+                        "ripdpi" to
+                            JsonObject(
+                                ripdpi +
+                                    (
+                                        "endpoints" to
+                                            JsonObject(
+                                                endpoints.mapValues { (_, entry) ->
+                                                    val health = entry.jsonObject["health"]!!.jsonObject
+                                                    JsonObject(
+                                                        mapOf(
+                                                            "health" to
+                                                                JsonObject(
+                                                                    health + ("status" to JsonPrimitive("down")),
+                                                                ),
+                                                        ),
+                                                    )
+                                                },
+                                            )
+                                    ),
+                            )
+                    ),
+            ).toString()
+        val imported =
+            SelectorUrltestGroupImport.import(allDown, "health", epochMillis("2026-11-19T10:05:00Z"))
+                as SelectorUrltestImportResult.Success
+        val group = requireNotNull(imported.group)
+        assertTrue(imported.endpointHealth is EndpointHealthOrder.AllDownFailOpen)
+        assertEquals(group.members, imported.endpointHealth?.members)
+        assertEquals(
+            listOf("p0-reality-upcloud-prod", "p2-hysteria2-upcloud-prod"),
+            group.membersByHealth(epochMillis("2026-11-19T10:05:00Z")).members.map { it.displayName },
+        )
+    }
+
+    @Test
     fun `health-expired bundle is neutral at its evaluation time`() {
         val document = json.parseToJsonElement(resource(HEALTH_EXPIRED)).jsonObject
         val evaluatedAt = epochMillis(document["_evaluated_at"]!!.jsonPrimitive.content)
@@ -339,14 +395,17 @@ class RipdpiBundleContractTest {
         }
     }
 
+    private fun importedGroup(payload: String): ProxyGroup {
+        val imported = SelectorUrltestGroupImport.import(payload, "health", epochMillis("2026-11-19T10:05:00Z"))
+        assertTrue("expected Success but got $imported", imported is SelectorUrltestImportResult.Success)
+        return requireNotNull((imported as SelectorUrltestImportResult.Success).group)
+    }
+
+    /** Failover candidates of the stored group, with health evaluated at selection time [nowEpochMillis]. */
     private fun selectorMembers(
         path: String,
         nowEpochMillis: Long,
-    ): List<String> {
-        val imported = SelectorUrltestGroupImport.import(resource(path), "health", nowEpochMillis)
-        assertTrue("expected Success but got $imported", imported is SelectorUrltestImportResult.Success)
-        return requireNotNull((imported as SelectorUrltestImportResult.Success).group).members.map { it.displayName }
-    }
+    ): List<String> = importedGroup(resource(path)).membersByHealth(nowEpochMillis).members.map { it.displayName }
 
     private fun epochMillis(instant: String): Long = Instant.parse(instant).toEpochMilli()
 

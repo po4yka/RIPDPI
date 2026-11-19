@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.data.subscription
 
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyProfile
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -16,6 +19,7 @@ enum class SingBoxBundleErrorCode {
     INVALID_FIELD_REPORT,
 }
 
+@Serializable
 enum class EndpointHealthStatus(
     val wireValue: String,
 ) {
@@ -26,6 +30,7 @@ enum class EndpointHealthStatus(
 }
 
 /** One `ripdpi.endpoints.<server_ref>.health` observation. */
+@Serializable
 data class EndpointHealth(
     val status: EndpointHealthStatus,
     val observedAtEpochMillis: Long,
@@ -39,6 +44,44 @@ data class EndpointHealth(
             status
         }
 }
+
+/** Selector members ordered by their `ripdpi.endpoints` health at one instant. */
+sealed interface EndpointHealthOrder {
+    val members: List<ProxyProfile>
+
+    /** Unexpired down members are excluded; neutral (healthy, unknown, expired, or no health) first, degraded last. */
+    data class Ranked(
+        override val members: List<ProxyProfile>,
+    ) : EndpointHealthOrder
+
+    /** Every member is down with unexpired health: all stay candidates in declared order, as with no health. */
+    data class AllDownFailOpen(
+        override val members: List<ProxyProfile>,
+    ) : EndpointHealthOrder
+}
+
+/**
+ * Orders [members] by the health of their server_ref (the outbound tag, [ProxyProfile.displayName]) at
+ * [nowEpochMillis]. Declared order is kept inside each rank. Health is advisory, so an all-down selector
+ * fails open instead of leaving no candidate.
+ */
+fun orderByEndpointHealth(
+    members: List<ProxyProfile>,
+    health: Map<String, EndpointHealth>,
+    nowEpochMillis: Long,
+): EndpointHealthOrder {
+    val statusByMember = members.associateWith { health[it.displayName]?.statusAt(nowEpochMillis) }
+    val usable = members.filterNot { statusByMember[it] == EndpointHealthStatus.DOWN }
+    return if (usable.isEmpty() && members.isNotEmpty()) {
+        EndpointHealthOrder.AllDownFailOpen(members)
+    } else {
+        EndpointHealthOrder.Ranked(usable.sortedBy { statusByMember[it] == EndpointHealthStatus.DEGRADED })
+    }
+}
+
+/** The group's failover candidates at [nowEpochMillis]; stored health is re-evaluated on every call. */
+fun ProxyGroup.membersByHealth(nowEpochMillis: Long): EndpointHealthOrder =
+    orderByEndpointHealth(members, memberHealth, nowEpochMillis)
 
 /** `ripdpi.field_report`: where and how often the opt-in field-report client may upload. */
 data class RipdpiFieldReport(

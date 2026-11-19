@@ -3,6 +3,7 @@ package com.poyka.ripdpi.subscription
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
+import com.poyka.ripdpi.data.subscription.EndpointHealth
 
 /**
  * Pure mapping that folds the profiles parsed from a subscription refresh back
@@ -33,6 +34,7 @@ object SubscriptionMemberPersistence {
         cloudflareMemberIds: Set<String>? = null,
         isSelector: Boolean = false,
         initialMemberId: String? = null,
+        memberHealth: Map<String, EndpointHealth> = emptyMap(),
     ): ProxyGroup {
         // Drop non-activatable nodes (RawConfig: tuic/vmess/wireguard, or a
         // blank-credential node mapped to RawConfig upstream) so the user never
@@ -44,6 +46,8 @@ object SubscriptionMemberPersistence {
         val remapped = remapMemberIds(group.members, activatable)
         return group.copy(
             members = remapped,
+            // Health is keyed by member tag, which the id remap keeps; the refreshed bundle replaces it wholesale.
+            memberHealth = memberHealth,
             failover = if (isSelector) failover else failover ?: group.failover,
             isSelector = isSelector || group.isSelector,
             initialMemberId =

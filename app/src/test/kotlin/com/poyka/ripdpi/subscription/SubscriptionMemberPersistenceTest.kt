@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.Subscription
+import com.poyka.ripdpi.data.subscription.EndpointHealth
+import com.poyka.ripdpi.data.subscription.EndpointHealthStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -54,6 +56,23 @@ class SubscriptionMemberPersistenceTest {
     )
 
     private fun rawConfig(id: String) = ProxyProfile.RawConfig(id = id, displayName = id, groupId = "g1", config = "{}")
+
+    @Test
+    fun `refreshed member health replaces the stored health`() {
+        val stale = EndpointHealth(EndpointHealthStatus.DOWN, 0L, 60)
+        val fresh = EndpointHealth(EndpointHealthStatus.DEGRADED, 1_000L, 60)
+        val stored = group(members = listOf(trojan("a"))).copy(memberHealth = mapOf("a" to stale))
+
+        val updated =
+            SubscriptionMemberPersistence.apply(
+                stored,
+                listOf(trojan("a"), trojan("b")),
+                memberHealth =
+                    mapOf("b" to fresh),
+            )
+
+        assertEquals(mapOf("b" to fresh), updated.memberHealth)
+    }
 
     @Test
     fun `parsed members are persisted onto the group`() {

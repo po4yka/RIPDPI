@@ -148,7 +148,7 @@ class SelectorUrltestCoordinator(
     ) {
         fun policyChanged(updated: ProxyGroup): Boolean =
             group.members != updated.members || group.failover != updated.failover ||
-                group.cloudflareMemberIds != updated.cloudflareMemberIds
+                group.cloudflareMemberIds != updated.cloudflareMemberIds || group.memberHealth != updated.memberHealth
     }
 
     private companion object {

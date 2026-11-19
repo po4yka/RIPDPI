@@ -44,6 +44,7 @@ sealed interface BootstrapConsumeResult {
         val migration: MigrationMetadata? = null,
         val payloadSha256: String = "",
         val initialMemberId: String? = null,
+        val memberHealth: Map<String, EndpointHealth> = emptyMap(),
     ) : BootstrapConsumeResult
 
     /**
@@ -316,6 +317,7 @@ class BootstrapConsumer(
                 cloudflareMemberIds = selector.group?.cloudflareMemberIds ?: selector.cloudflareMemberIds.orEmpty(),
                 isSelector = selector.group != null,
                 initialMemberId = selector.group?.initialMemberId,
+                memberHealth = selector.group?.memberHealth.orEmpty(),
                 failover = selector.failoverPolicy.toSelectorFailover(),
             )
         }
