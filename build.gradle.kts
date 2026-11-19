@@ -431,16 +431,23 @@ tasks.register<Exec>("checkAsnExposureDenylistAssets") {
 
 tasks.register<Exec>("checkShippedAssetSecrets") {
     group = "verification"
-    description = "Fails when a shipped asset carries a private key, preshared key, or password."
-    inputs.file(layout.projectDirectory.file("scripts/ci/check_shipped_asset_secrets.py"))
+    description = "Fails when a shipped asset carries credential material or cannot be scanned."
+    inputs.files(
+        layout.projectDirectory.file("scripts/ci/check_shipped_asset_secrets.py"),
+        layout.projectDirectory.file("scripts/ci/_common.py"),
+    )
     inputs.files(
         fileTree(layout.projectDirectory) {
             include("**/src/*/assets/**")
-            exclude("**/build/**")
+            // The script skips nested checkouts, tool state, and build outputs; they are not inputs either.
+            exclude("**/build/**", "**/target/**", ".*/**", "**/.*/**")
         },
     )
+    val stamp = layout.buildDirectory.file("checkShippedAssetSecrets/passed.stamp")
+    outputs.file(stamp)
     workingDir = rootDir
     commandLine("python3", "scripts/ci/check_shipped_asset_secrets.py")
+    doLast { stamp.get().asFile.writeText("passed\n") }
 }
 
 tasks.register("staticAnalysis") {
