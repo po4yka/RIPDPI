@@ -13,11 +13,13 @@ struct FakeProbe<'a> {
     script: &'a Script,
     calls: RefCell<Vec<(SniRole, u8)>>,
     cells: HashMap<(u8, bool), u8>,
+    /// Report a network change once this many attempts ran.
+    network_change_after: Option<usize>,
 }
 
 impl<'a> FakeProbe<'a> {
     fn new(script: &'a Script) -> Self {
-        Self { script, calls: RefCell::new(Vec::new()), cells: HashMap::new() }
+        Self { script, calls: RefCell::new(Vec::new()), cells: HashMap::new(), network_change_after: None }
     }
 }
 
@@ -35,6 +37,10 @@ impl LadderProbe for FakeProbe<'_> {
         *nth += 1;
         result
     }
+
+    fn network_changed(&self) -> bool {
+        self.network_change_after.is_some_and(|after| self.calls.borrow().len() >= after)
+    }
 }
 
 /// Spec scenario: test RST from k = 5, both silent at k = 4, control ServerHello at k = 9.
@@ -47,7 +53,7 @@ fn spec_path(role: SniRole, ttl: u8, _nth: u8) -> Result<AttemptOutcome, Attempt
 }
 
 fn run(probe: &mut FakeProbe<'_>) -> LadderReport {
-    run_ladder(probe, LadderConfig::default(), &|| false, &|| false)
+    run_ladder(probe, LadderConfig::default(), &|| false)
 }
 
 #[test]
@@ -83,13 +89,9 @@ fn reaction_first_seen_at_the_path_length_is_inconclusive() {
 
 #[test]
 fn network_change_withdraws_the_interval_and_keeps_the_attempts() {
-    let mut probe = FakeProbe::new(&spec_path);
-    let calls = Cell::new(0);
-    let report = run_ladder(&mut probe, LadderConfig::default(), &|| false, &|| {
-        calls.set(calls.get() + 1);
-        // The last attempt of the spec scenario, after the control reached the server at k = 9.
-        calls.get() == 36
-    });
+    // The last attempt of the spec scenario, after the control reached the server at k = 9.
+    let mut probe = FakeProbe { network_change_after: Some(36), ..FakeProbe::new(&spec_path) };
+    let report = run_ladder(&mut probe, LadderConfig::default(), &|| false);
 
     assert_eq!(report.verdict, LadderVerdict::Inconclusive);
     assert_eq!(report.path_length, None);
@@ -118,15 +120,10 @@ fn test_server_hello_before_the_control_path_length_is_no_divergence() {
 fn cancellation_stops_and_keeps_recorded_attempts() {
     let mut probe = FakeProbe::new(&spec_path);
     let checks = Cell::new(0);
-    let report = run_ladder(
-        &mut probe,
-        LadderConfig::default(),
-        &|| {
-            checks.set(checks.get() + 1);
-            checks.get() > 10
-        },
-        &|| false,
-    );
+    let report = run_ladder(&mut probe, LadderConfig::default(), &|| {
+        checks.set(checks.get() + 1);
+        checks.get() > 10
+    });
 
     assert_eq!(report.stop, LadderStop::Cancelled);
     assert_eq!(report.attempts.len(), 10);
@@ -231,7 +228,7 @@ fn failed_handshakes_below_the_reaction_do_not_narrow_the_interval() {
 fn deadline_that_cannot_fit_one_window_records_nothing() {
     let mut probe = FakeProbe::new(&spec_path);
     let config = LadderConfig { attempt_window: Duration::from_secs(1), total_deadline: Duration::ZERO };
-    let report = run_ladder(&mut probe, config, &|| false, &|| false);
+    let report = run_ladder(&mut probe, config, &|| false);
 
     assert_eq!(report.stop, LadderStop::DeadlineExceeded);
     assert!(report.attempts.is_empty());
