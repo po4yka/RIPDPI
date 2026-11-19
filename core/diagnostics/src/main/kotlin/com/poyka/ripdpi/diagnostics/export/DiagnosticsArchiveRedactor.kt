@@ -57,6 +57,8 @@ class DiagnosticsArchiveRedactor
                 triggerPreviousFingerprintHash = null,
                 triggerCurrentFingerprintHash = null,
                 networkScopeKey = null,
+                // A hash of the ordered targets, which include user-entered hostnames.
+                matrixTargetSetRevision = null,
             )
 
         fun redact(model: NetworkSnapshotModel): NetworkSnapshotModel =
