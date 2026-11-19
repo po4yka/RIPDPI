@@ -188,16 +188,44 @@ class FieldReportTest {
             assertFalse(it, report.contains(it))
         }
         assertTrue(report.contains("\"latency_ms_histogram\":[0,0,5,0,0,0,0,0]"))
-        // A tag that is a hostname is never a server_ref, and a local failure before the relay is not an attempt.
+        // A tag that is a hostname is never a server_ref, and a local configuration failure is not an attempt.
         assertNull(fieldReportAttempt(profile.copy(displayName = "edge.example.test"), success, 10))
-        assertNull(fieldReportAttempt(profile, CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Ready), 10))
+        assertNull(
+            fieldReportAttempt(profile, CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Configuration), 10),
+        )
+    }
+
+    @Test
+    fun `a remote failure reports its typed stage and a pre-HTTP failure is an attempt`() {
+        val profile =
+            ProxyProfile.Hysteria2(
+                id = "member",
+                displayName = reality,
+                groupId = "group",
+                server = "198.51.100.7",
+                serverPort = 443,
+                password = "fixture",
+            )
+
+        fun stageOf(measured: CandidateRelayMeasurement) = fieldReportAttempt(profile, measured, 10)?.failureStage
+
+        assertEquals(
+            FieldFailureStage.QuicHandshake,
+            stageOf(
+                CandidateRelayMeasurement.TimedOut(CandidateMeasurementStage.Ready, FieldFailureStage.QuicHandshake),
+            ),
+        )
         assertEquals(
             FieldFailureStage.Unknown,
-            fieldReportAttempt(
-                profile,
-                CandidateRelayMeasurement.TimedOut(CandidateMeasurementStage.Http),
-                10,
-            )?.failureStage,
+            stageOf(CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Ready)),
+        )
+        assertEquals(
+            FieldFailureStage.Dns,
+            stageOf(CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Http, FieldFailureStage.Dns)),
+        )
+        assertEquals(
+            FieldFailureStage.Unknown,
+            stageOf(CandidateRelayMeasurement.TimedOut(CandidateMeasurementStage.Http)),
         )
     }
 

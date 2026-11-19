@@ -8,6 +8,8 @@ import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.diagnostics.FieldFailureStage
+import com.poyka.ripdpi.data.diagnostics.nativeFieldFailureStage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -188,9 +190,9 @@ class CandidateRelayPayloadProbe internal constructor(
                 } == true
             outcome =
                 if (!ready) {
-                    CandidateRelayMeasurement.TimedOut(stage)
+                    CandidateRelayMeasurement.TimedOut(stage, runtime.nativeFailureStage())
                 } else if (!job.isActive) {
-                    CandidateRelayMeasurement.Failed(stage)
+                    CandidateRelayMeasurement.Failed(stage, runtime.nativeFailureStage())
                 } else {
                     val endpoint = resolveLocalProxyEndpoint(runtime.pollTelemetry(), authToken = null)
                     require(endpoint.host == "127.0.0.1" || endpoint.host == "::1")
@@ -206,7 +208,7 @@ class CandidateRelayPayloadProbe internal constructor(
                         }
                     when {
                         result == null -> {
-                            CandidateRelayMeasurement.TimedOut(stage)
+                            CandidateRelayMeasurement.TimedOut(stage, runtime.nativeFailureStage())
                         }
 
                         before != captureEnvironment() -> {
@@ -214,7 +216,7 @@ class CandidateRelayPayloadProbe internal constructor(
                         }
 
                         !result.succeeded || !job.isActive -> {
-                            CandidateRelayMeasurement.Failed(stage)
+                            CandidateRelayMeasurement.Failed(stage, result.failureStage ?: runtime.nativeFailureStage())
                         }
 
                         else -> {
@@ -236,6 +238,19 @@ class CandidateRelayPayloadProbe internal constructor(
         currentCoroutineContext().ensureActive()
         return if (released) outcome else CandidateRelayMeasurement.CleanupPending
     }
+
+    /**
+     * The typed native failure of this attempt's own runtime, mapped by the shared stage table. It is never stale:
+     * the runtime exists only for this attempt.
+     */
+    private suspend fun RipDpiRelayRuntime.nativeFailureStage(): FieldFailureStage? =
+        try {
+            pollTelemetry().lastFailureClass?.let { nativeFieldFailureStage(it, failureStage = null) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
 
     /** Failed or incomplete stop retains the exact native handle; subsequent checks retry it first. */
     private suspend fun stopSession(session: CandidateSession): Boolean {

@@ -150,10 +150,11 @@ internal fun fieldReportProtocol(profile: ProxyProfile): String? =
     }
 
 /**
- * The attempt that one member probe of [profile] represents, or null when the probe never reached the server.
- * The server_ref is the member tag. Only the HTTP stage goes through the relay to the server; a failure before it
- * belongs to the local candidate runtime. The probe does not report which handshake failed, so a remote failure
- * reports [FieldFailureStage.Unknown]. A failure counts the time until the probe gave up.
+ * The attempt that one member probe of [profile] represents, or null when the probe never left the device. The
+ * server_ref is the member tag. A configuration failure is local and is not counted; a failure while the candidate
+ * runtime gets ready (it may already dial the server) or during the HTTP request through it is counted with the
+ * typed stage the probe or the native runtime named, else [FieldFailureStage.Unknown]. A failure counts the time
+ * until the probe gave up.
  */
 internal fun fieldReportAttempt(
     profile: ProxyProfile,
@@ -164,8 +165,8 @@ internal fun fieldReportAttempt(
     val outcome: Pair<FieldFailureStage?, Long>? =
         when (measured) {
             is CandidateRelayMeasurement.Succeeded -> null to measured.latencyMillis
-            is CandidateRelayMeasurement.Failed -> remoteFailure(measured.stage, elapsedMillis)
-            is CandidateRelayMeasurement.TimedOut -> remoteFailure(measured.stage, elapsedMillis)
+            is CandidateRelayMeasurement.Failed -> remoteFailure(measured.stage, measured.failureStage, elapsedMillis)
+            is CandidateRelayMeasurement.TimedOut -> remoteFailure(measured.stage, measured.failureStage, elapsedMillis)
             else -> null
         }
     return if (protocol == null || outcome == null) {
@@ -177,9 +178,14 @@ internal fun fieldReportAttempt(
 
 private fun remoteFailure(
     stage: CandidateMeasurementStage,
+    failureStage: FieldFailureStage?,
     elapsedMillis: Long,
 ): Pair<FieldFailureStage, Long>? =
-    if (stage == CandidateMeasurementStage.Http) FieldFailureStage.Unknown to elapsedMillis else null
+    if (stage == CandidateMeasurementStage.Configuration) {
+        null
+    } else {
+        (failureStage ?: FieldFailureStage.Unknown) to elapsedMillis
+    }
 
 /** Adds [attempt], measured on [network], to the bucket of the hour that holds [nowMillis]. */
 internal fun FieldReportState.record(
