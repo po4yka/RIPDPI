@@ -2,7 +2,7 @@
 id: DAT-1795085279367518
 title: Keep secrets out of shipped app assets
 kind: feature
-status: review
+status: doing
 area: data
 priority: critical
 owner: Android data engineer
@@ -13,6 +13,7 @@ openspec_change: dat-1795085279367518-no-secrets-in-shipped-assets
 created: 2026-11-19
 updated: 2026-11-19
 linked_task: AND-1795015211660121
+status_detail: Addressing independent review of fd922df2b..HEAD (REQUEST CHANGES)
 ---
 
 ## Goal
