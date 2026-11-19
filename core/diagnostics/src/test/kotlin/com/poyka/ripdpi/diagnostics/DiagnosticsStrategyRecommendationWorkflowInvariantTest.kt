@@ -103,6 +103,26 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
     }
 
     @Test
+    fun `a recommendation whose config has explicit nulls, as the engine writes it, is valid`() {
+        val config = invariantValidRecommendedProxyConfigJson()
+        // The engine marks an unset option with a null; the app's own encoder leaves the key out.
+        val engineConfig = config.replaceFirst("\"fakePackets\":{", "\"fakePackets\":{\"entropyPaddingMax\":null,")
+        org.junit.Assert.assertNotEquals(config, engineConfig)
+
+        fun applied(proxyConfigJson: String) =
+            DiagnosticsScanWorkflow.validatedRecommendationSettings(
+                requireNotNull(
+                    invariantScanReportWithStrategyProbe(proxyConfigJson, "hostfake", "quic_realistic_burst")
+                        .strategyProbeReport,
+                ),
+                settings,
+            )
+
+        assertNotNull(applied(config))
+        assertEquals(applied(config), applied(engineConfig))
+    }
+
+    @Test
     fun `incomplete strategy cannot be validated or persisted despite high confidence`() {
         val report =
             invariantScanReportWithStrategyProbe(

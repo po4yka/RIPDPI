@@ -181,7 +181,7 @@ internal object DiagnosticsScanWorkflow {
     ): StrategyProbeRecommendation {
         val confirmed = assessment?.takeIf { it.verdict == ConnectionConcurrencyVerdict.CONJUNCTION_CONFIRMED }
         val selectedProfile = confirmed?.selectedProfileId
-        val preferences = decodeRipDpiProxyUiPreferences(recommendedProxyConfigJson)
+        val preferences = decodeEngineConfig(recommendedProxyConfigJson)
         return if (confirmed != null && selectedProfile != null && preferences != null) {
             copy(
                 recommendedProxyConfigJson =
@@ -354,7 +354,7 @@ internal object DiagnosticsScanWorkflow {
             if (concurrencyPolicy == null) {
                 recommendation.recommendation.recommendedProxyConfigJson
             } else {
-                decodeRipDpiProxyUiPreferences(recommendation.recommendation.recommendedProxyConfigJson)
+                decodeEngineConfig(recommendation.recommendation.recommendedProxyConfigJson)
                     ?.withConnectionConcurrencyPolicy(
                         RipDpiConnectionConcurrencyPolicy(
                             selectedProfileId = concurrencyPolicy.selectedProfileId,
@@ -412,7 +412,7 @@ internal object DiagnosticsScanWorkflow {
         val winningQuicCandidate =
             strategyProbe.quicCandidates.firstOrNull { it.id == baseRecommendation.quicCandidateId }
         val suppression = detectTlsPathSuppression(settings, winningTcpCandidate)
-        val preferences = decodeRipDpiProxyUiPreferences(baseRecommendation.recommendedProxyConfigJson)
+        val preferences = decodeEngineConfig(baseRecommendation.recommendedProxyConfigJson)
 
         val validInputs =
             baseRecommendation.transportPivot == null && preferences != null &&
@@ -482,7 +482,7 @@ internal object DiagnosticsScanWorkflow {
         resolveValidatedStrategyProbeRecommendation(strategyProbe, settings)
             ?.takeIf { it.isValid }
             ?.let { validated ->
-                decodeRipDpiProxyUiPreferences(validated.recommendation.recommendedProxyConfigJson)
+                decodeEngineConfig(validated.recommendation.recommendedProxyConfigJson)
                     ?.applyStrategyToSettings(
                         settings,
                         applyTcp = validated.winningTcpCandidate != null,
@@ -502,14 +502,16 @@ internal object DiagnosticsScanWorkflow {
         candidate
             .takeIf { it.isPromotableStrategyWinner(settings) }
             ?.proxyConfigJson
-            ?.let(::withoutExplicitNulls)
-            ?.let(::decodeRipDpiProxyUiPreferences)
+            ?.let(::decodeEngineConfig)
             ?.applyStrategyToSettings(settings, applyTcp = tcpLane, applyQuic = !tcpLane)
 
-    // The engine writes an unset option of a candidate as an explicit null. The app's config model reads a
-    // missing key as unset and rejects a null, so the nulls are dropped before the config is decoded.
-    private fun withoutExplicitNulls(configJson: String): String? =
-        runCatching { Json.parseToJsonElement(configJson).withoutNulls().toString() }.getOrNull()
+    // The engine writes an unset option of a strategy config as an explicit null. The app's config model reads a
+    // missing key as unset and rejects a null, so the nulls are dropped before an engine config is decoded. A config
+    // the user supplies keeps the strict decoder, which rejects an explicit null.
+    private fun decodeEngineConfig(configJson: String): com.poyka.ripdpi.core.RipDpiProxyUIPreferences? =
+        runCatching { Json.parseToJsonElement(configJson).withoutNulls().toString() }
+            .getOrNull()
+            ?.let(::decodeRipDpiProxyUiPreferences)
 
     private fun JsonElement.withoutNulls(): JsonElement =
         when (this) {
@@ -553,7 +555,7 @@ internal object DiagnosticsScanWorkflow {
             )
         val measured =
             candidate.proxyConfigJson?.let { measuredConfig ->
-                decodeRipDpiProxyUiPreferences(
+                decodeEngineConfig(
                     recommendation
                         .copy(recommendedProxyConfigJson = measuredConfig)
                         .withConnectionConcurrencyAssessment(concurrencyAssessment)
