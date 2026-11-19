@@ -60,6 +60,11 @@ The implementation MUST send a report only while the tunnel is active, only to `
 - **WHEN** the tunnel is not active at upload time
 - **THEN** no request is made and the report stays pending until the next hour or is dropped by age
 
+#### Scenario: Report host name stays inside the tunnel
+
+- **WHEN** an upload runs
+- **THEN** the report host name goes to the tunnel listener for resolution, never to system DNS, and with the noDomain setting on (the listener cannot resolve names) no upload is made
+
 #### Scenario: Non-https or missing endpoint
 
 - **WHEN** the bundle has no valid `field_report.endpoint`

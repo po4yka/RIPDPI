@@ -84,3 +84,11 @@ AGENTS.md says "user data leaves the device only through explicit export". The o
 - Failure stage: a remote probe failure reports `unknown`; wiring the typed native failure into `CandidateRelayMeasurement` is a follow-up.
 - Translations for 9 locales were written in this session and need native-speaker review.
 - Live acceptance needs deploy D2 (ingest) and D7 (cross-repo e2e).
+
+## Review fixes
+
+Findings of the independent review of `fd922df2b..HEAD`. Each Kotlin regression test below was written to fail before its fix; none was compiled or run (owner build policy: no Gradle).
+
+| Finding | Fix and regression test | Result |
+|---|---|---|
+| B3 DNS outside the tunnel | With noDomain on, the upload used system DNS for the report host, outside the tunnel. `fieldReportTunnelRoute` skips the upload under noDomain (the listener cannot resolve names), and the poster always sends the host name to the listener. `FieldReportUploaderTest` `the report host is resolved by the tunnel listener and never by system DNS` | written, owner Gradle run pending |
