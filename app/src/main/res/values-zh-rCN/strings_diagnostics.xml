@@ -395,7 +395,6 @@
     <string name="detection_check_subtitle">检查您的 VPN/代理设置的可见性。</string>
     <string name="detection_community_avg_score">平均隐匿评分:%d/100</string>
     <string name="detection_community_local_title">您的统计数据</string>
-    <string name="detection_empty_history">尚无检查记录</string>
     <string name="detection_finding_review">需要审查</string>
     <string name="detection_onboarding_body">检测可能会向 Android 请求电话和位置权限，因为 Wi-Fi 和蜂窝网络身份有助于区分网络行为。RIPDPI 不会将其用于跟踪，原始标识符不会被保存，诊断导出也会将敏感标识符脱敏。</string>
     <string name="detection_permission_rationale">Android 将这些权限归类为位置权限，因为 Wi-Fi 和蜂窝网络身份可能透露你所在的位置。RIPDPI 不会将其用于跟踪；检查仅用它区分网络行为，原始标识符不会被保存，诊断导出也会将敏感标识符脱敏。</string>

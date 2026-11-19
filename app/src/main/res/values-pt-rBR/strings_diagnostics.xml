@@ -618,7 +618,6 @@
     <string name="detection_status_ok">OK</string>
     <string name="detection_status_review">Revisar</string>
     <string name="detection_status_detected">Detectado</string>
-    <string name="detection_empty_history">Nenhuma verificação ainda</string>
     <string name="detection_error_retry">Tentar novamente</string>
     <string name="detection_permission_title">Permissões</string>
     <string name="detection_methodology_info">Informações da metodologia</string>

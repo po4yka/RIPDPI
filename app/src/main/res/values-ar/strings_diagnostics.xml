@@ -614,7 +614,6 @@
     <string name="detection_status_ok">حسناً</string>
     <string name="detection_status_review">مراجعة</string>
     <string name="detection_status_detected">مكتشف</string>
-    <string name="detection_empty_history">لا توجد فحوصات بعد</string>
     <string name="detection_error_retry">إعادة المحاولة</string>
     <string name="detection_permission_title">الأذونات</string>
     <string name="detection_methodology_info">معلومات المنهجية</string>

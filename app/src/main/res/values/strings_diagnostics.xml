@@ -643,7 +643,6 @@
     <string name="detection_status_ok">OK</string>
     <string name="detection_status_review">Review</string>
     <string name="detection_status_detected">Detected</string>
-    <string name="detection_empty_history">No checks yet</string>
     <string name="detection_error_retry">Retry</string>
     <string name="detection_permission_title">Permissions</string>
     <string name="detection_methodology_info">Methodology info</string>

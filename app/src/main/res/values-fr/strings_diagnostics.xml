@@ -9,7 +9,6 @@
     <string name="detection_check_share">Partager</string>
     <string name="detection_check_verdict_needs_review">À examiner</string>
     <string name="detection_community_loading">Chargement des statistiques de la communauté…</string>
-    <string name="detection_empty_history">Aucune vérification pour le moment</string>
     <string name="detection_history_title">Historique</string>
     <string name="detection_onboarding_title">Vérification de détection</string>
     <string name="detection_privacy_mode">Mode confidentialité</string>

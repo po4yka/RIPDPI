@@ -9,7 +9,6 @@
     <string name="detection_check_share">Teilen</string>
     <string name="detection_check_verdict_needs_review">Prüfung erforderlich</string>
     <string name="detection_community_loading">Community-Statistiken werden geladen…</string>
-    <string name="detection_empty_history">Noch keine Prüfungen</string>
     <string name="detection_history_title">Verlauf</string>
     <string name="detection_onboarding_title">Erkennungsprüfung</string>
     <string name="detection_privacy_mode">Datenschutzmodus</string>

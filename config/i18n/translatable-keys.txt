@@ -1010,7 +1010,6 @@ app:detection_dns_provider_jurisdiction_ru_warning
 app:detection_dns_provider_label
 app:detection_dns_route_through_proxy_subtitle
 app:detection_dns_route_through_proxy_title
-app:detection_empty_history
 app:detection_error_retry
 app:detection_exposure_additional
 app:detection_exposure_app_artifact_hint

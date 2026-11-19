@@ -297,8 +297,6 @@ private fun DetectionCheckScreenContent(
         )
         DetectionHistoryCommunitySection(
             history = uiState.history,
-            hasResult = uiState.result != null,
-            isRunning = uiState.isRunning,
             communityStatsLoading = uiState.communityStatsLoading,
             communityStatsError = uiState.communityStatsError,
             communityStats = uiState.communityStats,
@@ -779,45 +777,19 @@ private fun DetectionNarrativeSummary(
 @Composable
 private fun DetectionHistoryCommunitySection(
     history: List<DetectionHistoryEntry>,
-    hasResult: Boolean,
-    isRunning: Boolean,
     communityStatsLoading: Boolean,
     @StringRes communityStatsError: Int?,
     communityStats: CommunityStats?,
     onReload: () -> Unit,
 ) {
-    DetectionHistorySection(
-        history = history,
-        hasResult = hasResult,
-        isRunning = isRunning,
-    )
+    // The community section below states the empty case, so an empty history shows nothing.
+    if (history.isNotEmpty()) HistoryCard(history)
     DetectionCommunityStatsSection(
         isLoading = communityStatsLoading,
         error = communityStatsError,
         stats = communityStats,
         onReload = onReload,
     )
-}
-
-@Composable
-private fun DetectionHistorySection(
-    history: List<DetectionHistoryEntry>,
-    hasResult: Boolean,
-    isRunning: Boolean,
-) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    if (history.isNotEmpty()) {
-        HistoryCard(history)
-    } else if (!hasResult && !isRunning) {
-        RipDpiCard(variant = RipDpiCardVariant.Tonal) {
-            Text(
-                text = stringResource(R.string.detection_empty_history),
-                style = type.secondaryBody,
-                color = colors.mutedForeground,
-            )
-        }
-    }
 }
 
 @Composable

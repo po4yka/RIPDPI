@@ -652,7 +652,6 @@
     <string name="detection_status_ok">ठीक है</string>
     <string name="detection_status_review">समीक्षा</string>
     <string name="detection_status_detected">पकड़ा गया</string>
-    <string name="detection_empty_history">अभी तक कोई जाँच नहीं</string>
     <string name="detection_error_retry">पुनः प्रयास करें</string>
     <string name="detection_permission_title">अनुमतियाँ</string>
     <string name="detection_methodology_info">कार्यप्रणाली जानकारी</string>

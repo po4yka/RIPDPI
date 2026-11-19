@@ -1017,7 +1017,6 @@
     <string name="detection_status_ok">ОК</string>
     <string name="detection_status_review">Проверить</string>
     <string name="detection_status_detected">Обнаружено</string>
-    <string name="detection_empty_history">Проверок пока нет</string>
     <string name="detection_error_retry">Повторить</string>
     <string name="detection_permission_title">Разрешения</string>
     <string name="detection_methodology_info">О методике</string>

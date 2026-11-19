@@ -321,7 +321,6 @@
     <string name="detection_check_subtitle">بررسی کنید پیکربندی VPN/پروکسی شما چقدر قابل‌مشاهده است.</string>
     <string name="detection_check_verdict_not_detected">شناسایی نشد</string>
     <string name="detection_community_error">بارگیری آمار جامعه ممکن نشد</string>
-    <string name="detection_empty_history">هنوز بررسی‌ای انجام نشده</string>
     <string name="detection_finding_ok">مناسب</string>
     <string name="detection_methodology_info">اطلاعات روش‌شناسی</string>
     <string name="detection_onboarding_skip">رد کردن</string>
