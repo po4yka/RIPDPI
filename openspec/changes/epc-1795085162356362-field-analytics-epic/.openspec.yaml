@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-19
+goal: EPC-1795085162356362 Deliver opt-in anonymous field analytics for network,
+  blocking, and server health
