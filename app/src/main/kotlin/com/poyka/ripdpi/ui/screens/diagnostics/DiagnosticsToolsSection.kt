@@ -260,7 +260,7 @@ private fun LazyListScope.shareItems(
                 ),
             buttonLabel = stringResource(R.string.diagnostics_save_archive_action),
             onClick = { onSaveArchive(share.targetSessionId) },
-            iconTint = RipDpiThemeTokens.colors.info,
+            iconTint = RipDpiThemeTokens.colors.foreground,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveArchive),
             variant = RipDpiButtonVariant.Outline,
             enabled = !share.isArchiveBusy,
@@ -272,7 +272,7 @@ private fun LazyListScope.shareItems(
             body = stringResource(R.string.diagnostics_share_summary_body),
             buttonLabel = stringResource(R.string.diagnostics_share_summary_action),
             onClick = { onShareSummary(share.targetSessionId) },
-            iconTint = RipDpiThemeTokens.colors.info,
+            iconTint = RipDpiThemeTokens.colors.foreground,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareSummary),
             variant = RipDpiButtonVariant.Outline,
         )
@@ -294,7 +294,7 @@ private fun LazyListScope.shareItems(
             body = stringResource(R.string.diagnostics_open_logs_body),
             buttonLabel = stringResource(R.string.settings_manage_action),
             onClick = onOpenLogs,
-            iconTint = RipDpiThemeTokens.colors.info,
+            iconTint = RipDpiThemeTokens.colors.foreground,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsOpenLogs),
             variant = RipDpiButtonVariant.Outline,
         )
