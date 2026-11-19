@@ -1,6 +1,5 @@
 {
-  "_comment": "Representative `ripdpi` object exercising every field including the additive ones (cohort_fingerprint, salamander_upstream_tag, topology, expires). Validated against ripdpi-bundle.schema.json by tests/unit/test_bundle_schema.py and, vendored, by the client RipdpiBundleContractTest. Values are illustrative placeholders; the AWG params and cohort_fingerprint match contract/cohort-fingerprint.golden.json (narrow-junk-sequential).",
-  "schema_version": 2,
+  "schema_version": 3,
   "amneziawg": [
     {
       "tag": "p2-awg-phone",
@@ -55,5 +54,26 @@
     "split_hop_egress": false,
     "hysteria_realm": null
   },
-  "expires": "2026-12-31T23:59:59Z"
+  "expires": "2026-12-31T23:59:59Z",
+  "endpoints": {
+    "p2-awg-phone": {
+      "health": {
+        "status": "healthy",
+        "observed_at": "2026-11-19T10:00:00Z",
+        "ttl_seconds": 900
+      }
+    },
+    "p2-hysteria2-upcloud-prod": {
+      "health": {
+        "status": "degraded",
+        "observed_at": "2026-11-19T10:00:00Z",
+        "ttl_seconds": 900
+      }
+    }
+  },
+  "field_report": {
+    "endpoint": "https://reports.example.test/v1/field-report",
+    "cohort_token": "EXAMPLE-cohort-token-not-real",
+    "max_reports_per_day": 4
+  }
 }

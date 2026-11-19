@@ -18,7 +18,7 @@ class BootstrapSelectorMembershipTest {
             val payload =
                 """{"outbounds":[${node("a")},${node("b")},
                   {"type":"selector","tag":"select","outbounds":["b"],"default":"b"}],
-                  "ripdpi":{"schema_version":2,"cloudflare_outbound_tags":["a","b"],
+                  "ripdpi":{"schema_version":3,"cloudflare_outbound_tags":["a","b"],
                     "migration":{"schema_version":1,"migration_id":"11111111-1111-1111-1111-111111111111",
                     "delivery_id":"22222222-2222-2222-2222-222222222222","target_tags":["b"],
                     "receipt_key":"${"a".repeat(64)}","awg_previous_tags":{}}}}"""

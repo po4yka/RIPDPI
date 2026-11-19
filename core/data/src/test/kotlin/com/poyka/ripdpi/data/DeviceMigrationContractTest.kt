@@ -89,7 +89,7 @@ class DeviceMigrationContractTest {
         assertEquals(JsonPrimitive(1), valid["schema_version"])
         assertTrue(
             SingBoxSubscriptionParser.parse(
-                bundle(valid).replace("\"schema_version\":2", "\"schema_version\":1"),
+                bundle(valid).replace("\"schema_version\":3", "\"schema_version\":2"),
                 "group",
             ) is SingBoxParseResult.Error,
         )
@@ -124,7 +124,7 @@ class DeviceMigrationContractTest {
         }"""
         return """{
             "outbounds":[$outbound${if (duplicate) ",$outbound" else ""}],
-            "ripdpi":{"schema_version":2,"migration":$value}
+            "ripdpi":{"schema_version":3,"migration":$value}
         }"""
     }
 }

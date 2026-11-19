@@ -25,9 +25,9 @@ def admitted_payload(value: bytes) -> bytes:
         not isinstance(document, dict)
         or not isinstance(document.get("ripdpi"), dict)
         or type(document["ripdpi"].get("schema_version")) is not int
-        or document["ripdpi"]["schema_version"] != 2
+        or document["ripdpi"]["schema_version"] != 3
     ):
-        raise ValueError("migration fixture requires bundle version 2")
+        raise ValueError("migration fixture requires bundle version 3")
     return value
 
 

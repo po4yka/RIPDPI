@@ -40,7 +40,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 8443, "password": "hy2-secret" }
               ],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "amneziawg": [
                   {
                     "tag": "p2-awg-moscow",
@@ -112,7 +112,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "amneziawg": [
                   {
                     "tag": "p2-awg-spb",
@@ -153,7 +153,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "amneziawg": [
                   {
                     "tag": "broken",
@@ -178,7 +178,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "amneziawg": [
                   {
                     "tag": "padded",
@@ -226,7 +226,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 8443, "password": "hy2-secret" }
               ],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "hysteria_extras": {
                   "hy2-main": {
                     "obfs": { "type": "salamander", "password": "my-salamander-key" },
@@ -262,7 +262,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 8443, "password": "hy2-pass" }
               ],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "hysteria_extras": {
                   "hy2-node": {
                     "obfs": { "type": "unknown-future-type", "password": "irrelevant" }
@@ -288,7 +288,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 8443, "password": "hy2-pass" }
               ],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "hysteria_extras": {
                   "hy2-other": {
                     "obfs": { "type": "salamander", "password": "key" }
@@ -365,7 +365,7 @@ class SingBoxRipdpiExtensionParserTest {
             }
             """.trimIndent()
 
-        for (version in listOf(1, 3, 99)) {
+        for (version in listOf(1, 2, 4, 99)) {
             val result =
                 SingBoxSubscriptionParser.parse(
                     json.replace("\"schema_version\": 99", "\"schema_version\": $version"),
@@ -377,7 +377,7 @@ class SingBoxRipdpiExtensionParserTest {
     }
 
     // -------------------------------------------------------------------------
-    // Versioned contract fields (schema_version 2)
+    // Versioned contract fields (schema_version 3)
     // -------------------------------------------------------------------------
 
     @Test
@@ -387,7 +387,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "amneziawg": [
                   {
                     "tag": "p2-awg-x",
@@ -424,7 +424,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 8443, "password": "hy2-secret" }
               ],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "hysteria_extras": {
                   "hy2-main": {
                     "insecure": false,
@@ -448,7 +448,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "topology": { "split_hop_egress": true, "hysteria_realm": "realm-a" }
               }
             }
@@ -467,7 +467,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "expires": "2026-12-31T23:59:59Z"
               }
             }
@@ -484,7 +484,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "expires": "2026-12-31"
               }
             }
@@ -501,7 +501,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 2,
+                "schema_version": 3,
                 "expires": "not-a-date"
               }
             }

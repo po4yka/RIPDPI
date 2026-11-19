@@ -1,5 +1,5 @@
 {
-  "_comment": "A realistic FULL bundle (sing-box document + ripdpi object) shaped exactly like emit-bundle.sh output, used as the cross-repo emit->parse golden: the server validates its ripdpi object against the schema (tests/unit/test_bundle_schema.py) and the RIPDPI client parses the WHOLE document through SingBoxSubscriptionParser (RipdpiBundleContractTest). It deliberately exercises what the bare example omits: a populated outbounds list with a hysteria2 tag that the hysteria_extras attaches to, i1..i5 values, salamander_upstream_tag, and a non-default topology. Regenerate from a real `make emit-bundle` if the emit format changes; the cohort_fingerprint must match the AWG params (sha256 over jc..h4 + i1..i5).",
+  "_comment": "A realistic FULL bundle (sing-box document + ripdpi object) shaped exactly like emit-bundle.sh output, used as the cross-repo emit->parse golden: the server validates its ripdpi object against the schema (tests/unit/test_bundle_schema.py) and the RIPDPI client parses the WHOLE document through SingBoxSubscriptionParser (RipdpiBundleContractTest). It deliberately exercises what the bare example omits: a populated outbounds list with a hysteria2 tag that the hysteria_extras attaches to, i1..i5 values, salamander_upstream_tag, a non-default topology, per-endpoint health for every proxy and AWG tag, and the field_report block. Regenerate from a real `make emit-bundle` if the emit format changes; the cohort_fingerprint must match the AWG params (sha256 over jc..h4 + i1..i5).",
   "log": {
     "level": "warn"
   },
@@ -73,7 +73,7 @@
     "final": "select"
   },
   "ripdpi": {
-    "schema_version": 2,
+    "schema_version": 3,
     "amneziawg": [
       {
         "tag": "p2-awg-phone",
@@ -130,6 +130,34 @@
       "split_hop_egress": true,
       "hysteria_realm": "realm-a"
     },
-    "expires": "2026-12-31T23:59:59Z"
+    "expires": "2026-12-31T23:59:59Z",
+    "endpoints": {
+      "p0-reality-upcloud-prod": {
+        "health": {
+          "status": "healthy",
+          "observed_at": "2026-11-19T10:00:00Z",
+          "ttl_seconds": 900
+        }
+      },
+      "p2-hysteria2-upcloud-prod": {
+        "health": {
+          "status": "down",
+          "observed_at": "2026-11-19T10:00:00Z",
+          "ttl_seconds": 900
+        }
+      },
+      "p2-awg-phone": {
+        "health": {
+          "status": "unknown",
+          "observed_at": "2026-11-19T10:00:00Z",
+          "ttl_seconds": 900
+        }
+      }
+    },
+    "field_report": {
+      "endpoint": "https://reports.example.test/v1/field-report",
+      "cohort_token": "EXAMPLE-cohort-token-not-real",
+      "max_reports_per_day": 4
+    }
   }
 }

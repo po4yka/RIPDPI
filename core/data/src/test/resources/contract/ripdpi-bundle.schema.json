@@ -2,13 +2,48 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vpn-deploy/ripdpi-bundle.schema.json",
   "title": "RIPDPI bundle `ripdpi` object schema",
-  "description": "Executable version 2 contract for the top-level ripdpi object. AWG entries require the awg-3.1-ranges-v1 wire profile, canonical header range strings and bounded signature programs. Version 1 is not supported. Keep the client vendored copy byte-identical and update producers and consumers together.",
+  "description": "Executable version 3 contract for the top-level ripdpi object. Version 3 adds per-endpoint server-observed health and the optional anonymous field-report configuration, and rejects unknown top-level fields. AWG entries require the awg-3.1-ranges-v1 wire profile, canonical header range strings and bounded signature programs. Versions 1 and 2 are not supported. Keep the client vendored copy byte-identical and update producers and consumers together.",
   "$comment": "Canonical source: ripdpi-vpn-deploy/contract/ripdpi-bundle.schema.json — keep the client vendored copy byte-identical. The integer below is the cross-repo drift pin: both repos assert it equals their supported schema_version.",
-  "x-contract-version": 2,
+  "x-contract-version": 3,
   "type": "object",
   "required": ["schema_version", "amneziawg", "hysteria_extras"],
-  "additionalProperties": true,
+  "additionalProperties": false,
   "$defs": {
+    "server_ref": {
+      "description": "Opaque endpoint id: the outbound or AWG tag the endpoint carries in this bundle. Client field reports quote it as server_ref. The pattern admits no dot or colon, so it cannot carry an IP address or hostname.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "health": {
+      "description": "Server-observed endpoint health. The client treats a health whose observed_at plus ttl_seconds is in the past as unknown.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "observed_at", "ttl_seconds"],
+      "properties": {
+        "status": { "enum": ["healthy", "degraded", "down", "unknown"] },
+        "observed_at": {
+          "description": "RFC 3339 UTC instant of the observation the status derives from.",
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+        },
+        "ttl_seconds": { "type": "integer", "minimum": 60, "maximum": 86400 }
+      }
+    },
+    "field_report": {
+      "description": "Opt-in anonymous field-report upload configuration. Absent when the operator has not enabled field reports. Reports follow contract/client-field-report.schema.json.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoint", "cohort_token", "max_reports_per_day"],
+      "properties": {
+        "endpoint": { "type": "string", "minLength": 9, "maxLength": 2048, "pattern": "^https://[^\\s/?#@]+(/[^\\s#]*)?$" },
+        "cohort_token": {
+          "description": "Base64url token shared by every device of one cohort. It never derives from a device identity.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{22,64}$"
+        },
+        "max_reports_per_day": { "type": "integer", "minimum": 1, "maximum": 24 }
+      }
+    },
     "payload_failover": {
       "description": "Version 2 opt-in useful-data verification and optional quality comparison in the existing RIPDPI selector. Both HTTPS origins must be distinct; timeout must not exceed interval and maximum backoff must not be shorter than interval. Quality window_seconds must cover interval_seconds, max_window_bytes must cover max_pass_bytes, and max_pass_bytes must cover twice the sum of both expected_bytes + 1 allowances. Producer and consumer enforce these semantic constraints.",
       "type": "object",
@@ -154,9 +189,9 @@
   },
   "properties": {
     "schema_version": {
-      "description": "Contract version 2 requires the named AWG wire profile. The client rejects other versions.",
+      "description": "Contract version 3 requires the named AWG wire profile. The client rejects other versions, including 2.",
       "type": "integer",
-      "const": 2
+      "const": 3
     },
     "amneziawg": {
       "description": "AWG device-VPN entries. Empty array when AmneziaWG is not enabled for the cohort.",
@@ -169,6 +204,19 @@
       "additionalProperties": { "$ref": "#/$defs/hysteria_extras_entry" }
     },
     "topology": { "$ref": "#/$defs/topology" },
+    "endpoints": {
+      "description": "Per-endpoint metadata keyed by server_ref. Each key names an outbound or AWG tag of the same bundle.",
+      "type": "object",
+      "maxProperties": 128,
+      "propertyNames": { "$ref": "#/$defs/server_ref" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["health"],
+        "properties": { "health": { "$ref": "#/$defs/health" } }
+      }
+    },
+    "field_report": { "$ref": "#/$defs/field_report" },
     "payload_failover": { "$ref": "#/$defs/payload_failover" },
     "migration": {
       "type": "object",

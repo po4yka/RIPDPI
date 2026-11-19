@@ -111,12 +111,14 @@ sealed interface SelectorUrltestImportResult {
 object SelectorUrltestGroupImport {
     /**
      * Imports [payload] into a [SelectorUrltestImportResult]. Concrete profiles
-     * and the generated group are stamped with [groupId].
+     * and the generated group are stamped with [groupId]. Selector members are
+     * ordered by their `ripdpi.endpoints` health evaluated at [nowEpochMillis].
      */
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "LongMethod")
     fun import(
         payload: String,
         groupId: String,
+        nowEpochMillis: Long = System.currentTimeMillis(),
     ): SelectorUrltestImportResult {
         val outbounds =
             when (val extracted = SingBoxSubscriptionParser.extractOutbounds(payload)) {
@@ -198,14 +200,29 @@ object SelectorUrltestGroupImport {
         ) {
             return SelectorUrltestImportResult.Error("selector has no supported candidate for its selection")
         }
+        val healthyMembers =
+            when (
+                val order =
+                    orderByEndpointHealth(memberProfiles.map { it.displayName }, parsed.endpointHealth, nowEpochMillis)
+            ) {
+                EndpointHealthOrder.NoUsableEndpoint -> {
+                    return SelectorUrltestImportResult.Error("every selector candidate is down")
+                }
+
+                is EndpointHealthOrder.Candidates -> {
+                    val memberByTag = memberProfiles.associateBy { it.displayName }
+                    order.serverRefs.map(memberByTag::getValue)
+                }
+            }
+        val usableTags = healthyMembers.mapTo(mutableSetOf()) { it.displayName }
 
         return importedSelector(
             parsed,
             groupId,
             selectorEntry,
-            memberProfiles,
+            healthyMembers,
             failoverPolicy,
-            topology.defaultTags.firstOrNull { it in supportedTags },
+            topology.defaultTags.firstOrNull { it in usableTags },
         )
     }
 

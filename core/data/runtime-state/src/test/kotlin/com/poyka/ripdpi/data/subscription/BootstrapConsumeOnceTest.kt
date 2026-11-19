@@ -168,7 +168,7 @@ class BootstrapConsumeOnceTest {
         {
           "outbounds": [],
           "ripdpi": {
-            "schema_version": 2,
+            "schema_version": 3,
             "amneziawg": [{
               "tag": "fixture-awg",
               "wire_profile": "awg-3.1-ranges-v1",
