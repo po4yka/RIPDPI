@@ -20,12 +20,13 @@ data class TlsHopResultUiModel(
 
 internal fun ProbeResult.toTlsHopResult(): TlsHopResultUiModel? {
     if (probeType != TlsHopComparisonProbeType) return null
-    val evidence = parseTlsHopComparisonEvidence(details) ?: return null
     val local = parseTlsHopComparisonLocal(details)
-    return TlsHopResultUiModel(
-        evidence = evidence,
-        controlSni = local?.controlSni,
-        testSni = local?.testSni,
-        attempts = local?.attempts.orEmpty().toImmutableList(),
-    )
+    return parseTlsHopComparisonEvidence(details)?.let { evidence ->
+        TlsHopResultUiModel(
+            evidence = evidence,
+            controlSni = local?.controlSni,
+            testSni = local?.testSni,
+            attempts = local?.attempts.orEmpty().toImmutableList(),
+        )
+    }
 }

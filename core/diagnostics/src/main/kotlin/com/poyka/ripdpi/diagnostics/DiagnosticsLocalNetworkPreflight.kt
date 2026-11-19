@@ -53,7 +53,9 @@ private class LocalNetworkScanFilter(
     suspend fun admit(
         request: EngineScanRequestWire,
         telegramMedia: URI?,
-    ): EngineScanRequestWire =
+    ): EngineScanRequestWire = admitSingleEndpointProbes(admitTargetLists(request), telegramMedia)
+
+    private suspend fun admitTargetLists(request: EngineScanRequestWire): EngineScanRequestWire =
         request.copy(
             tcpTargets =
                 allowed(request.tcpTargets, EngineProbeTaskFamily.TCP, "tcp_connect", { it.id }) {
@@ -106,6 +108,14 @@ private class LocalNetworkScanFilter(
                     val uri = URI(it.url)
                     requireHosts(it.connectIps, it.connectIp, uri.host.orEmpty(), it.port ?: uri.networkPort())
                 },
+        )
+
+    /** Probes that carry one endpoint each; admitted after the target lists so deferred rows keep their order. */
+    private suspend fun admitSingleEndpointProbes(
+        request: EngineScanRequestWire,
+        telegramMedia: URI?,
+    ): EngineScanRequestWire =
+        request.copy(
             http3Probe =
                 allowed(
                     listOfNotNull(request.http3Probe),

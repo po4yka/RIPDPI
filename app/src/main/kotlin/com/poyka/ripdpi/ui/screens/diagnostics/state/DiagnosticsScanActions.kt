@@ -692,12 +692,12 @@ private fun DiagnosticsMutationRunner.prepareManualScan(
     allowSensitiveProfileStart: Boolean,
     fallbackKind: ScanKind,
 ): PreparedManualScan? {
-    if (diagnosticsScanController.hasActiveHomeRun() ||
+    val targets = currentUiState().scan.manualScanTargets(profile?.id)
+    if (targets == null || diagnosticsScanController.hasActiveHomeRun() ||
         diagnosticsTimelineSource.activeScanProgress.value != null
     ) {
         return null
     }
-    val targets = currentUiState().scan.manualScanTargets(profile?.id) ?: return null
     val request =
         ManualScanUiRequest(
             profileName = profile?.name ?: "Scan",
