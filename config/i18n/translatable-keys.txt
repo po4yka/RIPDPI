@@ -4173,6 +4173,8 @@ app:settings_engine_failure_block_title
 app:settings_exclude_russian_apps_body
 app:settings_exclude_russian_apps_full_tunnel_body
 app:settings_exclude_russian_apps_title
+app:settings_field_report_body
+app:settings_field_report_title
 app:settings_full_tunnel_body
 app:settings_full_tunnel_helper
 app:settings_full_tunnel_title

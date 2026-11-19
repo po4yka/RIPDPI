@@ -213,6 +213,7 @@ internal object RipDpiTestTags {
     const val SettingsAdvancedSettings = "settings-advanced-settings"
     const val SettingsWebRtcProtection = "settings-webrtc-protection"
     const val SettingsBlockTrafficOnEngineFailure = "settings-block-traffic-on-engine-failure"
+    const val SettingsFieldReport = "settings-field-report"
     const val SettingsExcludeRussianApps = "settings-exclude-russian-apps"
     const val SettingsStartOnBoot = "settings-start-on-boot"
     const val SettingsBiometric = "settings-biometric"

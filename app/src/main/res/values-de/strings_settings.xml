@@ -46,6 +46,8 @@
     <string name="data_transparency_disable_monitoring">Sie können die passive Überwachung in den erweiterten Einstellungen deaktivieren</string>
     <string name="data_transparency_export_redaction">Exportierte Zusammenfassungen, Manifeste und Berichte machen IP-Adressen, WLAN-Kennungen und Support-Kontext unkenntlich. Rohe Paketmitschnitte werden separat gespeichert und exportiert und niemals in Diagnosearchive mit unkenntlich gemachten Angaben eingebettet.</string>
     <string name="data_transparency_no_analytics">Keine Analyse-, Absturzberichts- oder Werbe-SDKs</string>
+    <string name="settings_field_report_title">Anonyme Feldberichte senden</string>
+    <string name="settings_field_report_body">Standardmäßig aus. Wenn aktiv, sendet die App stündlich eine Zusammenfassung an den Berichtsserver aus Ihrem Abonnement, nur über den aktiven Tunnel. Sie enthält Verbindungszahlen je Server: Ergebnis, Fehlerphase, Latenzbereich, Netzwerktyp, Land und Netzbetreiber (ASN). Sie enthält keine IP-Adressen, Kennungen oder besuchten Websites. Beim Ausschalten löscht die App nicht gesendete Zusammenfassungen.</string>
     <string name="data_transparency_performance_metrics">Leistungsmetriken: RTT-Messungen, Wiederholungszähler, Verkehrsstatistiken</string>
     <string name="language_name_es">Español</string>
     <string name="language_picker_native_format">%1$s</string>
@@ -117,7 +119,7 @@
     <string name="customization_themed_icon_body">Material-You-Systemdesign folgen</string>
     <string name="data_transparency_export_control">Sie bestimmen, was gespeichert oder geteilt wird, wer es erhält und wann gespeicherte Exporte außerhalb des App-Speichers gelöscht werden</string>
     <string name="data_transparency_local_database">Alle Daten verbleiben auf Ihrem Gerät in einer lokalen Datenbank</string>
-    <string name="data_transparency_no_external_servers">Es werden keine Daten automatisch an externe Server gesendet</string>
+    <string name="data_transparency_no_external_servers">Es werden keine Daten automatisch an externe Server gesendet, außer anonymen Feldberichten, wenn Sie diese aktivieren</string>
     <string name="data_transparency_what_we_collect_section">Was auf diesem Gerät gespeichert wird</string>
     <string name="language_name_fr">Français</string>
     <string name="persona_guided">Geführt</string>

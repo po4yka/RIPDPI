@@ -45,8 +45,9 @@ object BackupSettingsConverter {
             .clearBackupPin()
             .clearProxyLanAuthToken()
             .clearAppLockResetNoticePending()
-            // Privileged mode and traffic recording require a local opt-in.
+            // Privileged mode, traffic recording and field reports require a local opt-in.
             .clearRootModeEnabled()
+            .clearFieldReportEnabled()
             .clearPcapCaptureEnabled()
             .clearDetectionDiagnosticTlsKeylogPath()
             // Restoring a preference does not restore downloaded GeoIP or GeoSite files.

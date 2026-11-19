@@ -124,6 +124,7 @@ is a **persisted-data** change.
   persisted bytes are decoded strictly according to the current protobuf.
   Standard protobuf unknown-field preservation remains enabled.
 - `app_lock_reset_notice_pending = 425` is set in the same Room transaction that wipes `backup_pin` and turns biometrics off after the PIN keystore key is lost. The Settings list shows the reset notice while it is set. It clears when the user acknowledges the notice or saves a new PIN. It is a local device fact and is **never exported**: the backup snapshot has no entry for it, and a restore replaces the settings with the flag off. A restore also wipes the PIN (backups never carry it) and so clears the notice.
+- `field_report_enabled = 432` is the opt-in consent for anonymous field reports (`client-field-report` v1). It defaults to off, and a backup restore clears it, so only a local choice turns it on. Turning it off deletes unsent reports.
 
 Use the `protobuf-schema-evolution` and `protobuf-datastore` skills.
 

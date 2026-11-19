@@ -19,6 +19,8 @@
     <string name="data_transparency_export_control">由你决定保存或分享哪些内容、谁可以接收，以及何时删除保存在应用存储之外的导出文件</string>
     <string name="data_transparency_how_stored_section">数据如何存储</string>
     <string name="data_transparency_no_analytics">无分析、崩溃报告或广告 SDK</string>
+    <string name="settings_field_report_title">发送匿名现场报告</string>
+    <string name="settings_field_report_body">默认关闭。开启后，应用每小时仅通过当前隧道向订阅中的报告服务器发送一份摘要。摘要包含每台服务器的连接计数：结果、失败阶段、延迟范围、网络类型、国家/地区和网络运营商（ASN）。摘要不含 IP 地址、标识符或访问过的网站。关闭后，应用会删除未发送的摘要。</string>
     <string name="data_transparency_optional_ip">可选:公共 IP 地址(仅在手动诊断扫描期间)</string>
     <string name="data_transparency_what_we_do_not_collect_section">我们不收集的内容</string>
     <string name="settings_about_body">版本、致谢和项目文档。</string>
@@ -94,7 +96,7 @@
     <string name="data_transparency_disable_monitoring">您可以在高级设置中禁用被动监测</string>
     <string name="data_transparency_export_privacy_section">导出隐私</string>
     <string name="data_transparency_network_diagnostics">网络诊断:传输类型、信号强度、DNS 配置</string>
-    <string name="data_transparency_no_external_servers">不会自动向外部服务器发送任何数据</string>
+    <string name="data_transparency_no_external_servers">不会自动向外部服务器发送任何数据，开启匿名现场报告时除外</string>
     <string name="data_transparency_retention_period">可配置保留期(1–365 天)</string>
     <string name="settings_mixed_inbound_title">混合入站 (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">SOCKS5 和 HTTP CONNECT 使用同一个代理端口。</string>

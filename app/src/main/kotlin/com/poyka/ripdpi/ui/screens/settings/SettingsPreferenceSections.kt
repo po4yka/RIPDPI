@@ -168,6 +168,14 @@ internal fun SettingsSecuritySection(
             )
             HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
             SettingsRow(
+                title = stringResource(R.string.settings_field_report_title),
+                subtitle = stringResource(R.string.settings_field_report_body),
+                checked = uiState.settings.fieldReportEnabled,
+                onCheckedChange = actions.onFieldReportChanged,
+                showDivider = true,
+                testTag = RipDpiTestTags.SettingsFieldReport,
+            )
+            SettingsRow(
                 title = stringResource(R.string.title_data_transparency),
                 subtitle = stringResource(R.string.settings_data_transparency_body),
                 onClick = actions.onOpenDataTransparency,
