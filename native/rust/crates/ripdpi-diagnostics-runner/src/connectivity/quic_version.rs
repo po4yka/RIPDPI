@@ -6,7 +6,7 @@ use ripdpi_diagnostics_contracts::{
 use ripdpi_diagnostics_transport::transport::{
     QuicCellStage, QuicInitialCodec, QuicMatrixLimit, QuicMatrixSni, QuicMatrixStop, QuicMatrixVersion, QuicReply,
     QuicVersionMatrixReport, QuicVersionMatrixRequest, QuicVersionStatus, TargetAddress, TransportConfig,
-    TransportError, resolve_addresses_with_cancel, run_quic_version_matrix,
+    TransportError, first_routable_address, resolve_addresses_with_cancel, run_quic_version_matrix,
 };
 use ripdpi_packets::{QuicProbeResponseKind, build_probe_quic_initial, validate_quic_probe_response};
 use std::io;
@@ -68,7 +68,7 @@ pub fn run_quic_version_matrix_probe(
         _ => {
             let target = TargetAddress::Host(config.host.clone());
             match resolve_addresses_with_cancel(&target, QuicVersionMatrixConfig::PORT, &cancelled) {
-                Ok(addresses) if !addresses.is_empty() => addresses[0],
+                Ok(addresses) if !addresses.is_empty() => first_routable_address(&addresses).unwrap_or(addresses[0]),
                 Err(_) if cancelled() => return vec![matrix_row(config, "CANCELLED", "cancelled")],
                 _ => return vec![matrix_row(config, "INCONCLUSIVE", "dns_error")],
             }

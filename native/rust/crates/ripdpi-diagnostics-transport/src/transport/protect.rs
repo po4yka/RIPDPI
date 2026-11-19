@@ -146,6 +146,24 @@ pub fn protected_udp_bind(bind_addr: SocketAddr, server: SocketAddr) -> io::Resu
     Ok(socket.into())
 }
 
+/// The first of `addresses` the device has a route to, found by connecting a protected UDP socket, which
+/// sends no packet. Without this a probe that pins one address can pick an AAAA record on an IPv4-only
+/// network and fail every attempt locally. Falls back to the first address when none is routable.
+pub fn first_routable_address(addresses: &[SocketAddr]) -> Option<SocketAddr> {
+    addresses
+        .iter()
+        .copied()
+        .find(|&address| {
+            let bind = if address.is_ipv4() {
+                SocketAddr::from((std::net::Ipv4Addr::UNSPECIFIED, 0))
+            } else {
+                SocketAddr::from((std::net::Ipv6Addr::UNSPECIFIED, 0))
+            };
+            protected_udp_bind(bind, address).and_then(|socket| socket.connect(address)).is_ok()
+        })
+        .or_else(|| addresses.first().copied())
+}
+
 fn domain_for(addr: SocketAddr) -> Domain {
     if addr.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 }
 }
@@ -331,5 +349,14 @@ mod tests {
         // No VPN callback registered (desktop / VPN down): protecting a
         // non-loopback target is a no-op and must not error.
         protect_for_target(&sock, non_loopback(443)).expect("no-callback path must be a no-op");
+    }
+
+    #[test]
+    fn routable_address_skips_a_peer_without_a_route() {
+        // A link-local IPv6 peer without a scope id has no route on any host.
+        let unroutable: SocketAddr = "[fe80::1]:443".parse().unwrap();
+        assert_eq!(first_routable_address(&[unroutable, loopback(443)]), Some(loopback(443)));
+        assert_eq!(first_routable_address(&[unroutable]), Some(unroutable));
+        assert_eq!(first_routable_address(&[]), None);
     }
 }
