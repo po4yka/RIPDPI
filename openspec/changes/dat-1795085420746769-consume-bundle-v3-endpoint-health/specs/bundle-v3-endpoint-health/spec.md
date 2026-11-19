@@ -29,7 +29,7 @@ The implementation MUST reject a bundle whose contract version is 2 or any versi
 
 ### Requirement: REQ-DAT-1795085420746769-003 — Health drives failover ordering
 
-The implementation MUST exclude endpoints with unexpired status `down`, MUST deprioritise `degraded`, and MUST treat `unknown` and expired health as neutral.
+The implementation MUST store every selector member with its health and evaluate the health at failover selection time. It MUST exclude endpoints with unexpired status `down`, MUST deprioritise `degraded`, and MUST treat `unknown` and expired health as neutral. When every endpoint is down it MUST fail open: keep all members as candidates in declared order and report a typed all-down outcome.
 
 #### Scenario: Down endpoint is excluded
 
@@ -41,6 +41,11 @@ The implementation MUST exclude endpoints with unexpired status `down`, MUST dep
 - **WHEN** endpoint B is down with observed_at plus ttl_seconds before the evaluation time
 - **THEN** B is treated as unknown and keeps its neutral position
 
+#### Scenario: Down health expires after import
+
+- **WHEN** a group was imported while endpoint B was down and B's ttl expires before the next refresh
+- **THEN** the next failover selection treats B as a neutral candidate
+
 #### Scenario: Degraded is deprioritised
 
 - **WHEN** endpoint A is degraded and endpoint B is unknown
@@ -49,13 +54,18 @@ The implementation MUST exclude endpoints with unexpired status `down`, MUST dep
 #### Scenario: All endpoints down
 
 - **WHEN** every endpoint is down and unexpired
-- **THEN** the candidate list is empty and the typed outcome reports no usable endpoint
+- **THEN** the import succeeds, every member stays a candidate in declared order, and the typed outcome is `EndpointHealthOrder.AllDownFailOpen`
 
 ### Requirement: REQ-DAT-1795085420746769-004 — Vendored v3 contract is drift-pinned
 
-The implementation MUST test against byte-identical vendored v3 schema and fixtures, and the tests MUST fail when the schema's `x-contract-version` differs from the parser's supported version.
+The implementation MUST test against byte-identical vendored v3 schema and fixtures pinned by a SHA-256 manifest, and the tests MUST fail when the schema's `x-contract-version` differs from the parser's supported version or when a vendored file differs from, or is missing from, the manifest.
 
 #### Scenario: Version pin
 
 - **WHEN** the vendored schema declares `x-contract-version` other than the parser constant
 - **THEN** `RipdpiBundleContractTest` fails
+
+#### Scenario: Hash pin
+
+- **WHEN** a vendored bundle or field-report file is edited, removed, or added without updating `vendored-deploy-contracts.sha256`, or the deployer `contract/` set differs from it
+- **THEN** `scripts/ci/check_vendored_deploy_contracts.py` fails

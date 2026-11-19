@@ -6,7 +6,7 @@ The client parses bundle v3, rejects v2, and orders failover candidates by endpo
 
 ## Ownership
 
-core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/SingBoxSubscriptionParser.kt and PayloadFailoverImport.kt, core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/PayloadFailoverPolicy.kt, core/data/src/test/kotlin/com/poyka/ripdpi/data/RipdpiBundleContractTest.kt, core/data/src/test/resources/contract/, docs/server-integration.md. Serialized lane: vendored contract files and schema-version constants (after R2).
+core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/SingBoxSubscriptionParser.kt and PayloadFailoverImport.kt, core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/PayloadFailoverPolicy.kt, core/data/src/test/kotlin/com/poyka/ripdpi/data/RipdpiBundleContractTest.kt, core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/RipdpiEndpointHealth.kt, SelectorUrltestGroupImport.kt and BootstrapConsumer.kt, core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/ProxyGroupStores.kt, app/src/main/kotlin/com/poyka/ripdpi/subscription/ (SelectorUrltestProber.kt, SelectorUrltestCoordinator.kt, SubscriptionMemberPersistence.kt, SubscriptionRefreshCoordinator.kt, PendingBootstrapProvisioner.kt), app/src/main/kotlin/com/poyka/ripdpi/ui/screens/proxyimport/SubscriptionImportConfirmViewModel.kt, core/data/src/test/resources/contract/, scripts/ci/check_vendored_deploy_contracts.py, docs/server-integration.md. Serialized lane: vendored contract files and schema-version constants (after R2).
 
 ## Execution
 
@@ -18,4 +18,4 @@ core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/SingB
 
 ## Verification
 
-./gradlew :core:data:testDebugUnitTest; just ci-gates; ./taskctl validate. Live acceptance against a real v3 bundle needs deploy D4.
+./gradlew :core:data:testDebugUnitTest :core:data:runtime-state:testDebugUnitTest :app:testGithubDebugUnitTest; python3 scripts/ci/check_vendored_deploy_contracts.py; just ci-gates; ./taskctl validate. Live acceptance against a real v3 bundle needs deploy D4.
