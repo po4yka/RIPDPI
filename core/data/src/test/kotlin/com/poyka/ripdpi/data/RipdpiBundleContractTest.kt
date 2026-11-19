@@ -309,6 +309,64 @@ class RipdpiBundleContractTest {
         )
     }
 
+    // Contract patterns must match the whole string: a value with a trailing line terminator is invalid, as the
+    // deployer schema states. Kotlin Regex.matches already requires a full match, unlike a `$`-anchored find.
+    @Test
+    fun `field report values with a trailing newline are rejected`() {
+        listOf(
+            "endpoint" to "https://reports.example.test/v1/field-report\n",
+            "cohort_token" to "EXAMPLE-cohort-token-not-real\n",
+        ).forEach { (field, value) ->
+            val result =
+                SingBoxSubscriptionParser.parse(
+                    goldenFullWithRipdpi { it.withField("field_report", field, value) },
+                    "nl",
+                )
+            assertTrue("$field: expected refusal but got $result", result is SingBoxParseResult.Error)
+            result as SingBoxParseResult.Error
+            assertEquals(SingBoxBundleErrorCode.INVALID_FIELD_REPORT, result.code)
+            assertTrue(result.message.contains("field_report.$field"))
+        }
+    }
+
+    @Test
+    fun `endpoint health keyed by a server_ref with a trailing newline is dropped`() {
+        val payload =
+            goldenFullWithRipdpi { ripdpi ->
+                val endpoints = ripdpi["endpoints"]!!.jsonObject
+                JsonObject(
+                    ripdpi +
+                        (
+                            "endpoints" to
+                                JsonObject(
+                                    endpoints.mapKeys { (key, _) ->
+                                        if (key ==
+                                            "p0-reality-upcloud-prod"
+                                        ) {
+                                            "$key\n"
+                                        } else {
+                                            key
+                                        }
+                                    },
+                                )
+                        ),
+                )
+            }
+        val result = SingBoxSubscriptionParser.parse(payload, "nl") as SingBoxParseResult.Success
+        assertEquals(setOf("p2-hysteria2-upcloud-prod", "p2-awg-phone"), result.endpointHealth.keys)
+    }
+
+    private fun goldenFullWithRipdpi(transform: (JsonObject) -> JsonObject): String {
+        val document = json.parseToJsonElement(resource(GOLDEN_FULL)).jsonObject
+        return JsonObject(document + ("ripdpi" to transform(document["ripdpi"]!!.jsonObject))).toString()
+    }
+
+    private fun JsonObject.withField(
+        block: String,
+        field: String,
+        value: String,
+    ): JsonObject = JsonObject(this + (block to JsonObject(this[block]!!.jsonObject + (field to JsonPrimitive(value)))))
+
     @Test
     fun `health-expired bundle is neutral at its evaluation time`() {
         val document = json.parseToJsonElement(resource(HEALTH_EXPIRED)).jsonObject
