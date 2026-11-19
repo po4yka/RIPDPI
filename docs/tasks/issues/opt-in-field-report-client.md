@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795085498592630-opt-in-field-report-client
 created: 2026-11-19
 updated: 2026-11-19
-status_detail: Addressing independent review of fd922df2b..HEAD (REQUEST CHANGES)
+status_detail: Review fixes committed; waits on owner gates - REQ-006 legal review (legal-check skill absent, client-legal-safety needs_local_counsel), the owner decision on the AGENTS.md data-leaves-device wording, and owner Gradle and device runs
 ---
 
 ## Goal
