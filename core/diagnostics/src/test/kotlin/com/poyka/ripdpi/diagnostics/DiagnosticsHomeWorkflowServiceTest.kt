@@ -54,7 +54,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                         ).homeStrategyConfigJson(),
                                 ).toEngineScanReportWire(),
                             ),
-                    ).copy(triggerCurrentFingerprintHash = "fp-audit"),
+                    ).copy(networkScopeKey = CurrentNetwork, triggerCurrentFingerprintHash = "fp-audit"),
                 )
 
             val outcome =
@@ -118,7 +118,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                         ).homeStrategyConfigJson(),
                                 ).toEngineScanReportWire(),
                             ),
-                    ),
+                    ).copy(networkScopeKey = CurrentNetwork),
                 )
 
             val outcome =
@@ -155,7 +155,10 @@ class DiagnosticsHomeWorkflowServiceTest {
                                     .serializer(),
                                 strategyAuditReport("capability-session").toEngineScanReportWire(),
                             ),
-                    ).copy(triggerCurrentFingerprintHash = fingerprint.scopeKey()),
+                    ).copy(
+                        networkScopeKey = fingerprint.scopeKey(),
+                        triggerCurrentFingerprintHash = fingerprint.scopeKey(),
+                    ),
                 )
             capabilityStore.rememberDirectPathObservation(
                 fingerprint = fingerprint,
@@ -225,7 +228,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                         ).homeStrategyConfigJson(),
                                 ).toEngineScanReportWire(),
                             ),
-                    ),
+                    ).copy(networkScopeKey = CurrentNetwork),
                 )
 
             val outcome =
@@ -277,7 +280,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                     .serializer(),
                                 resolverOnlyAuditReport("resolver-session").toEngineScanReportWire(),
                             ),
-                    ),
+                    ).copy(networkScopeKey = CurrentNetwork),
                 )
 
             val outcome =
@@ -316,7 +319,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                     sessionId = "strategy-recommendation-session",
                                 ).toEngineScanReportWire(),
                             ),
-                    ),
+                    ).copy(networkScopeKey = CurrentNetwork),
                 )
 
             val outcome =
@@ -357,7 +360,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                     confidenceLevel = StrategyProbeAuditConfidenceLevel.MEDIUM,
                                 ).toEngineScanReportWire(),
                             ),
-                    ),
+                    ).copy(networkScopeKey = CurrentNetwork),
                 )
 
             val outcome =
@@ -410,7 +413,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                         ),
                                 ).toEngineScanReportWire(),
                             ),
-                    ),
+                    ).copy(networkScopeKey = CurrentNetwork),
                 )
 
             val outcome =
@@ -467,6 +470,35 @@ class DiagnosticsHomeWorkflowServiceTest {
         }
 
     @Test
+    fun `Home applies nothing when the device left the network the audit measured`() =
+        runTest {
+            val report = strategyAuditReport("moved-audit")
+            val repository = FakeAppSettingsRepository()
+            val initial = repository.snapshot()
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = report.sessionId,
+                    profileId = report.profileId,
+                    pathMode = report.pathMode.name,
+                    summary = report.summary,
+                    reportJson = json.encodeToString(report.toEngineScanReportWire()),
+                )
+            val service = createHomeWorkflowService(stores, repository)
+
+            for (measured in listOf("another-network", null)) {
+                stores.sessionsState.value = listOf(session.copy(networkScopeKey = measured))
+
+                val outcome = service.finalizeHomeAudit(report.sessionId)
+
+                assertTrue(outcome.networkChanged)
+                assertFalse(outcome.actionable)
+                assertTrue(outcome.appliedSettings.isEmpty())
+                assertEquals(initial, repository.snapshot())
+            }
+        }
+
+    @Test
     fun `Home does not apply strategy from an incomplete audit`() =
         runTest {
             val report = strategyAuditReport("incomplete-audit")
@@ -488,9 +520,14 @@ class DiagnosticsHomeWorkflowServiceTest {
                     status = status,
                     summary = report.summary,
                     reportJson = json.encodeToString(report.toEngineScanReportWire()),
-                ),
+                ).copy(networkScopeKey = CurrentNetwork),
             )
         return createHomeWorkflowService(stores, FakeAppSettingsRepository()).finalizeHomeAudit(report.sessionId)
+    }
+
+    private companion object {
+        // The network that createHomeWorkflowService's default fingerprint provider reports.
+        val CurrentNetwork = requireNotNull(MutableNetworkFingerprintProvider().fingerprint).scopeKey()
     }
 
     private fun fingerprint(scopeKey: String) =

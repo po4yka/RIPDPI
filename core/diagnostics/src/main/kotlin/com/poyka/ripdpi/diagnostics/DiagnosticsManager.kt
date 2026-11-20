@@ -208,6 +208,8 @@ data class DiagnosticsHomeAuditOutcome(
     val capabilityEvidence: List<DiagnosticsCapabilityEvidence> = emptyList(),
     val strategyAdequacy: StrategyAdequacy? = null,
     val directModeVerdict: DirectModeVerdict? = null,
+    /** The device is not on the network the audit measured (or that network is unknown), so nothing was applied. */
+    val networkChanged: Boolean = false,
 )
 
 data class DiagnosticsHomeVerificationOutcome(

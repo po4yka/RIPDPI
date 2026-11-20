@@ -406,11 +406,15 @@ internal class DefaultDiagnosticsHomeWorkflowService
                 val strategyProbe = report.strategyProbeReport
                 val resolverRecommendation = report.resolverRecommendation
                 val strategyRecommendation = report.strategyRecommendation
-                val complete = session.hasCompleteHomeReport(sessionId, report)
+                // Settings measured on one network must not be applied on another; an old row without its
+                // network key cannot show where it was measured.
+                val networkChanged =
+                    session.networkScopeKey.let { measured -> measured == null || measured != currentFingerprintHash() }
+                val applicable = session.hasCompleteHomeReport(sessionId, report) && !networkChanged
                 val strategyApplied =
-                    if (complete) recommendationApplier.applyValidatedRecommendation(strategyProbe) else null
+                    if (applicable) recommendationApplier.applyValidatedRecommendation(strategyProbe) else null
                 val resolverApplied =
-                    if (complete) {
+                    if (applicable) {
                         resolverActionCoordinator.applyResolverRecommendation(
                             sessionId = sessionId,
                             strategyApplied = strategyApplied,
@@ -421,18 +425,19 @@ internal class DefaultDiagnosticsHomeWorkflowService
                     }
                 val capabilityEvidence = capabilityEvidenceSummarizer.summarize(fingerprintHash)
 
-                auditOutcomeBuilder.build(
-                    sessionId = sessionId,
-                    fingerprintHash = fingerprintHash,
-                    session = session,
-                    report = report,
-                    strategyProbe = strategyProbe,
-                    strategyApplied = strategyApplied,
-                    strategyRecommendation = strategyRecommendation,
-                    resolverRecommendation = resolverRecommendation,
-                    resolverApplied = resolverApplied,
-                    capabilityEvidence = capabilityEvidence,
-                )
+                auditOutcomeBuilder
+                    .build(
+                        sessionId = sessionId,
+                        fingerprintHash = fingerprintHash,
+                        session = session,
+                        report = report,
+                        strategyProbe = strategyProbe,
+                        strategyApplied = strategyApplied,
+                        strategyRecommendation = strategyRecommendation,
+                        resolverRecommendation = resolverRecommendation,
+                        resolverApplied = resolverApplied,
+                        capabilityEvidence = capabilityEvidence,
+                    ).copy(networkChanged = networkChanged)
             }
 
         override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
