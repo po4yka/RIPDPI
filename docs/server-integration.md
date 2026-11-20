@@ -34,27 +34,37 @@ RIPDPI does not import a sing-box / RIPDPI bundle JSON from a local file or the 
 
 ## Shipping a preloaded app
 
-A build can carry a preset so that a recipient installs the standard app and finds servers, routing rules, and settings already in place. The preset is a FULL backup document; the app restores it once, on the first launch of a fresh install, before the first screen appears.
+A build can carry a preset so that a recipient installs the standard app and finds servers, routing rules, and settings already in place. The preset is a backup document without credentials. It carries one or more bootstrap token slots: groups whose subscription is a `/bootstrap/<token>` link that the app has not consumed. The app restores the preset once, on the first launch of a fresh install, before the first screen appears. Then it consumes each slot and stores the delivered servers in Keystore-sealed storage.
 
-1. Configure the app on a device or emulator the way the recipient must find it: import the subscription or profiles, set routing rules and settings, and complete onboarding.
-2. Export a backup with credentials (Settings → Backup → Full) and copy the archive to the build machine.
-3. Convert the archive into the preset asset. The passphrase is read from the environment and is not stored:
+1. Configure the app on a device or emulator the way the recipient must find it: set routing rules and settings, and complete onboarding. Do not add servers or subscriptions; the preparation step refuses them because they carry credentials.
+2. Export a backup with credentials (Settings → Backup → Full) and copy the archive to the build machine. A FULL export is the only export that keeps a subscription link.
+3. Add the token slot. The app consumes a `/bootstrap/<token>` link when you import it, so the slot cannot come from the app. Get a new bootstrap link from the server, and put a group like this in the `groups` list of the plaintext document:
+
+   ```json
+   {"id": "preset-relay", "name": "Relay", "type": "SUBSCRIPTION", "order": 0, "isSelector": false,
+    "subscription": {"link": "https://<server>/bootstrap/<token>", "kind": "BOOTSTRAP"}}
+   ```
+
+   The archive can be the plaintext JSON document. A document with only `schemaVersion`, `createdAtEpochMillis`, `appVersion`, `profiles: []`, `groups`, `rules: []`, and `settings: {}` is also valid; an empty `settings` map keeps the default settings.
+4. Convert the archive into the preset asset. The passphrase is read from the environment and is not stored; a plaintext archive needs no passphrase:
 
    ```bash
    RIPDPI_PRESET_PASSPHRASE='<export passphrase>' ./gradlew :app:preparePreset -Pripdpi.presetArchive=<path to archive>
    ```
 
-4. Build the app as usual. Every variant packages `app/src/main/assets/preset.json` when the file exists.
+   The task removes `privateData` and writes `containsCredentials: false`. It writes nothing when the document has profiles, group members, a subscription that is not an unconsumed `BOOTSTRAP` link, or no token slot.
+5. Build the app as usual. Every variant packages `app/src/main/assets/preset.json` when the file exists.
 
 Rules the app follows:
 
 - The preset applies only when onboarding is not complete and no preset was applied before. An existing install that updates to a preset build keeps its data.
 - The recipient still sees onboarding. The interface, mode, and DNS steps do not appear, because the preset holds those choices. Three steps take their place: they tell the recipient that the app is ready, how to connect, and what to do when the connection fails. Onboarding does not change the preset settings, unless the recipient accepts a different mode after a failed connection test.
-- The app never applies a preset twice and never overwrites user edits. To change servers after delivery, include a subscription in the preset; the app refreshes it in the background.
+- The app never applies a preset twice and never overwrites user edits. The app does not refresh a consumed bootstrap slot; to change servers after delivery, give the recipient a long-lived subscription link.
+- If the server cannot be reached on the first launch, the slot stays unconsumed and the app tries again on the next launch.
 - A full reset returns the install to the preset.
 - A preset the app cannot read is ignored whole. The app records a startup warning and opens as a build without a preset.
 
-The preset is plaintext inside the APK. Anyone who holds the APK can read its credentials, and every recipient of one APK shares the same credentials and AmneziaWG device key. The asset path is gitignored; do not attach a preset build to a public release.
+The preset is plaintext inside the APK and carries no credentials, but anyone who holds the APK can read its bootstrap links. Each link works once: the first install that consumes it gets the servers, and later installs get an "already consumed" result. One APK therefore serves one recipient per token slot. The asset path is gitignored; do not attach a preset build to a public release.
 
 ## What each artifact carries
 

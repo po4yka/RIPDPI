@@ -10,10 +10,10 @@ The full app already has a format and a restore path that carry servers, routing
 
 ## What Changes
 
-- A build MAY package a preset: a FULL backup document at a fixed asset path. On the first launch of a fresh install the app restores the preset's groups, profiles, credentials, routing rules, and settings before the first screen appears.
-- The preset is applied once. Later launches and app updates never re-apply it and never overwrite user edits. Server changes reach the user through the subscription stored in the preset.
+- A build MAY package a preset: a backup document without credentials at a fixed asset path. On the first launch of a fresh install the app restores the preset's groups, routing rules, and settings before the first screen appears. Servers arrive through a bootstrap token slot: a group whose subscription is an unconsumed `/bootstrap/<token>` link, which the app consumes after the restore (owner decision, 2026-11-20).
+- The preset is applied once. Later launches and app updates never re-apply it and never overwrite user edits. A consumed bootstrap slot is not refreshed; later server changes need a long-lived subscription.
 - A build without a preset behaves exactly as the full app does today.
-- An operator converts an encrypted FULL export into the preset asset with one repository command.
+- An operator converts a FULL export that holds a bootstrap token slot into the preset asset with one repository command. The command removes `privateData`, marks the document as without credentials, and refuses profiles, group members, and any other subscription.
 - **BREAKING**: the `experience` flavor dimension is removed. Variants are named by distribution only (for example `githubDebug`, `playRelease`), so every task, script, and CI lane that names a `Full` or `Simple` variant changes.
 - **BREAKING**: the "RIPDPI Quick Connect" application (`.simple` application ID) is discontinued. Installed copies do not migrate; a recipient installs the standard application.
 - **BREAKING**: the two-action Simple home screen is removed. A preset selects the guided persona through its settings.

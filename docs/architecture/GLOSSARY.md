@@ -78,7 +78,7 @@ privacy-preserving SHA-256 network fingerprint keys both
 Resolution flows through `ConnectionPolicyResolver` in `:core:service`. See
 [`.claude/rules/network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md).
 
-**preset** — An optional plaintext FULL backup document packaged at
+**preset** — An optional plaintext backup document without credentials, packaged at
 `app/src/main/assets/preset.json`. `PresetApplier` restores it once, before
 startup readiness, on a fresh install (see
 [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md#packaged-preset)). Not a **relay
