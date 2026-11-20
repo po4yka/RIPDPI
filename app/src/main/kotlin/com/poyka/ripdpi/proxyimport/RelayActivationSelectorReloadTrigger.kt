@@ -1,12 +1,17 @@
 package com.poyka.ripdpi.proxyimport
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.services.RuntimePolicyReloadIntent
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.selector.SelectorReloadTrigger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -15,11 +20,14 @@ import javax.inject.Singleton
 
 /** Applies profile changes through the running session; only explicit teardown stops the service. */
 interface RunningRelayRefresher {
-    /** Re-pins the running runtime onto the newly-active relay profile. No-op when halted. */
+    /**
+     * Re-pins the running runtime onto the newly-active relay profile. No-op when halted. Returns false when a
+     * running session rejected the reload and kept its previous configuration.
+     */
     suspend fun refresh(
         intent: com.poyka.ripdpi.services.RuntimePolicyReloadIntent,
         isCurrent: suspend () -> Boolean,
-    )
+    ): Boolean
 
     /** Stops the runtime entirely. */
     suspend fun teardown()
@@ -46,6 +54,7 @@ class RelayActivationSelectorReloadTrigger
         private val stateStore: ServiceStateStore,
         private val relayRefresher: RunningRelayRefresher,
         private val selectionProvider: ActiveSelectorSelectionProvider,
+        private val applied: AppliedRuntimeConfigurationSource,
     ) : SelectorReloadTrigger {
         private val activationMutex = Mutex()
         private var preparedProfile: ProxyProfile? = null
@@ -69,10 +78,17 @@ class RelayActivationSelectorReloadTrigger
                     memberProfile(request.groupId, request.memberId) !=
                         preparedProfile
                 }
-            if (needsReload) hotReload(request)
+            // The started stack used another profile than the one now selected, even under the same member id.
+            if (needsReload) reload(request, skipApplied = false)
         }
 
-        override suspend fun hotReload(request: com.poyka.ripdpi.services.selector.SelectorReloadRequest) {
+        override suspend fun hotReload(request: com.poyka.ripdpi.services.selector.SelectorReloadRequest) =
+            reload(request, skipApplied = true)
+
+        private suspend fun reload(
+            request: com.poyka.ripdpi.services.selector.SelectorReloadRequest,
+            skipApplied: Boolean,
+        ) {
             val group = request.groupId
             val profileId = request.memberId
             val profile =
@@ -85,11 +101,57 @@ class RelayActivationSelectorReloadTrigger
                 }
             if (profile == null) return
             val intent = reloadIntent(request) ?: return
-            relayRefresher.refresh(intent) {
-                selectionProvider.activeGroupId() == group &&
-                    selections.snapshot(group).profileId == profileId && memberProfile(group, profileId) == profile
+            // An automatic selection that names the member already carrying traffic needs no stack replacement.
+            if (skipApplied && intent == RuntimePolicyReloadIntent.Automatic &&
+                appliedMember(group) == profileId
+            ) {
+                return
             }
+            val reason =
+                try {
+                    if (relayRefresher.refresh(intent) { isCurrent(group, profileId, profile) }) null else "rejected"
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Stable code only: the message can name the server, and R8 renames exception classes.
+                    "failed"
+                }
+            if (reason != null) restoreLiveMember(group, profileId, reason)
         }
+
+        private suspend fun isCurrent(
+            group: String,
+            profileId: String,
+            profile: ProxyProfile,
+        ) = selectionProvider.activeGroupId() == group &&
+            selections.snapshot(group).profileId == profileId && memberProfile(group, profileId) == profile
+
+        /**
+         * A rejected reload leaves traffic on the member the confirmed configuration names. An automatic selection is
+         * put back on that member, so the store and the next probe pass never treat the rejected one as live. A manual
+         * pick stays: the store refuses an automatic write over it.
+         */
+        private suspend fun restoreLiveMember(
+            group: String,
+            rejected: String,
+            reason: String,
+        ) {
+            val live = appliedMember(group)
+            val selection = selections.snapshot(group)
+            val restored =
+                live != null && live != rejected && selection.profileId == rejected &&
+                    selections.selectAutomatically(group, selection, live)
+            Logger.w { "Selector reload $reason; selection restored to the live member: $restored" }
+        }
+
+        private fun appliedMember(group: String): String? =
+            applied.applications.value.values.firstNotNullOfOrNull { application ->
+                (application as? RuntimeConfigurationApplication.Applied)
+                    ?.configuration
+                    ?.effectiveSelection
+                    ?.takeIf { it.selectorGroupId == group }
+                    ?.selectorMemberId
+            }
 
         private fun reloadIntent(
             request: com.poyka.ripdpi.services.selector.SelectorReloadRequest,
@@ -140,9 +202,10 @@ class ServiceControllerRunningRelayRefresher
         override suspend fun refresh(
             intent: com.poyka.ripdpi.services.RuntimePolicyReloadIntent,
             isCurrent: suspend () -> Boolean,
-        ) {
+        ): Boolean {
             val (status, mode) = serviceStateStore.status.value
-            if (status == AppStatus.Running) runtimeRegistry.current(mode)?.reloadConnectionPolicy(intent, isCurrent)
+            if (status != AppStatus.Running) return true
+            return runtimeRegistry.current(mode)?.reloadConnectionPolicy(intent, isCurrent) ?: true
         }
 
         override suspend fun teardown() {

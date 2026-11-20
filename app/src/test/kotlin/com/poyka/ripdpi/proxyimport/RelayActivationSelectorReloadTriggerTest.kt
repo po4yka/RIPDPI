@@ -83,6 +83,69 @@ class RelayActivationSelectorReloadTriggerTest {
     )
 
     @Test
+    fun `a rejected automatic reload puts the selection back on the member carrying traffic`() =
+        runTest {
+            val fixture = fixture(listOf(selectorGroup(listOf(member("a"), member("b")))), "a")
+            fixture.selections.resumeAutomatic("selector")
+            fixture.applied.applications.value =
+                mapOf(
+                    Mode.VPN to
+                        com.poyka.ripdpi.data.RuntimeConfigurationApplication.Applied(
+                            com.poyka.ripdpi.data.AppliedRuntimeConfiguration(
+                                runtimeId = "runtime",
+                                revision = 1,
+                                appliedAt = 1,
+                                mode = Mode.VPN,
+                                requestedSelection = liveSelection("a"),
+                                effectiveSelection = liveSelection("a"),
+                                dns =
+                                    com.poyka.ripdpi.data
+                                        .RuntimeConfigurationDns("plain", "system"),
+                                strategy =
+                                    com.poyka.ripdpi.data
+                                        .RuntimeConfigurationStrategy(false),
+                                reason = com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.InitialStart,
+                            ),
+                        ),
+                )
+            val automatic = fixture.selections.snapshot("selector")
+            assertTrue(fixture.selections.selectAutomatically("selector", automatic, "b"))
+            val request = fixture.provider.selectionChanges().first()!!
+            var refreshes = 0
+            val rejecting =
+                object : RunningRelayRefresher {
+                    override suspend fun refresh(
+                        intent: RuntimePolicyReloadIntent,
+                        isCurrent: suspend () -> Boolean,
+                    ): Boolean {
+                        refreshes++
+                        return false
+                    }
+
+                    override suspend fun teardown() = Unit
+                }
+            val trigger = fixture.trigger(rejecting)
+
+            trigger.hotReload(request)
+
+            assertEquals(1, refreshes)
+            assertEquals("a", fixture.selections.snapshot("selector").profileId)
+            assertFalse(fixture.selections.snapshot("selector").isManual)
+            // The restored member is already live, so its own selection change replaces no stack.
+            trigger.hotReload(fixture.provider.selectionChanges().first()!!)
+            assertEquals(1, refreshes)
+        }
+
+    private fun liveSelection(memberId: String) =
+        com.poyka.ripdpi.data.RuntimeConfigurationSelection(
+            provider = "native",
+            relayKind = "trojan",
+            profileId = memberId,
+            selectorGroupId = "selector",
+            selectorMemberId = memberId,
+        )
+
+    @Test
     fun `same id profile replacement rejects in flight runtime reload`() =
         runTest {
             val original = member("b")
@@ -95,10 +158,11 @@ class RelayActivationSelectorReloadTriggerTest {
                     override suspend fun refresh(
                         intent: RuntimePolicyReloadIntent,
                         isCurrent: suspend () -> Boolean,
-                    ) {
+                    ): Boolean {
                         deliveredIntent = intent
                         fixture.groups.update(selectorGroup(listOf(original.copy(server = "replacement.example.com"))))
                         guardAccepted = isCurrent()
+                        return guardAccepted == true
                     }
 
                     override suspend fun teardown() = Unit
@@ -397,6 +461,8 @@ class RelayActivationSelectorReloadTriggerTest {
                     .phase is RuntimeActivationPhase.Applied,
             )
 
+            // A manual pick pins its member until the user returns the group to automatic selection.
+            fixture.selections.resumeAutomatic("selector")
             val expected = fixture.selections.snapshot("selector")
             assertTrue(fixture.selections.selectAutomatically("selector", expected, "b"))
             val automatic = fixture.provider.selectionChanges().first()!!
@@ -545,6 +611,9 @@ class RelayActivationSelectorReloadTriggerTest {
         val settings = FakeAppSettingsRepository()
         val stateStore = FakeServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) }
         val provider = ActiveSelectorSelectionProvider(groups, selections, activeGroup)
+        val applied =
+            com.poyka.ripdpi.activities
+                .FakeAppliedRuntimeConfigurationSource()
         val refresher = RecordingRelayRefresher(this)
         val trigger = trigger(refresher)
         private lateinit var standalone: SelectorRelayProfileMapping
@@ -572,6 +641,7 @@ class RelayActivationSelectorReloadTriggerTest {
                 stateStore = stateStore,
                 relayRefresher = refresher,
                 selectionProvider = provider,
+                applied = applied,
             )
 
         suspend fun transientSelection(): SelectorRelayProfileMapping {
@@ -643,10 +713,11 @@ class RelayActivationSelectorReloadTriggerTest {
         override suspend fun refresh(
             intent: RuntimePolicyReloadIntent,
             isCurrent: suspend () -> Boolean,
-        ) {
-            if (!isCurrent()) return
+        ): Boolean {
+            if (!isCurrent()) return false
             selections += fixture.transientSelection()
             intents += intent
+            return true
         }
 
         override suspend fun teardown() {

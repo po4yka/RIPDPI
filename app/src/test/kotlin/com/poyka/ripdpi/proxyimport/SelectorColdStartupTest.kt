@@ -138,6 +138,8 @@ class SelectorColdStartupTest {
                 FakeServiceStateStore(),
                 refresher,
                 provider,
+                com.poyka.ripdpi.activities
+                    .FakeAppliedRuntimeConfigurationSource(),
             )
         private val coordinator = SelectorReloadCoordinator(scope, provider.selectionChanges(), trigger)
         val listener =
@@ -154,8 +156,9 @@ class SelectorColdStartupTest {
         override suspend fun refresh(
             intent: RuntimePolicyReloadIntent,
             isCurrent: suspend () -> Boolean,
-        ) {
+        ): Boolean {
             refreshes++
+            return true
         }
 
         override suspend fun teardown() = Unit
