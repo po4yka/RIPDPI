@@ -2,16 +2,16 @@
 id: TRN-1786264762917675
 title: Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22)
 kind: feature
-status: backlog
+status: doing
 area: transport
 priority: medium
-owner: unassigned
+owner: Relay engineer
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917675-wire-hysteria-realm-stun-nat-traversal
 created: 2026-05-22
-updated: 2026-06-05
+updated: 2026-11-20
 source_wiki_pages:
   - hysteria2-tuic
 linked_task: null
@@ -59,3 +59,4 @@ Extend `ripdpi-hysteria2` (or add a sibling `ripdpi-hysteria-realm` crate) to su
 ## Work log
 
 - 2026-06-05: No Realm/STUN/NAT-traversal code found anywhere in ripdpi-hysteria2 (native/rust/crates/ripdpi-hysteria2/src/ has client.rs, config.rs, quic_transport, etc. but no realm/hole-punch logic); no sibling ripdpi-hysteria-realm crate; HYSTERIA_REALM_OK/FAIL_STUN/FAIL_PUNCH constants absent. All acceptance criteria unmet; work not started.
+- 2026-11-20: Client side implemented against sing-box `v1.14.0-alpha.22` (the deploy role pin): STUN discovery, `POST /v1/{realm}/connect`, punch, Hysteria2 on the punched socket, carried from the bundle `realm` block through the profile to the native config. Loopback fixture test `ripdpi-hysteria2/tests/realm_rendezvous.rs`. Phase errors exist in Rust (`RealmStun`, `RealmControl`, `RealmPunch`) but no diagnostic verdict surfaces them yet. Open: two-NAT device run and carrier NAT report need a live realm service and a Hysteria2 server that registers in it; the deploy bundle emits only the realm id and no deploy role registers a server.

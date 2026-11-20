@@ -120,7 +120,9 @@ The parser also surfaces these optional fields:
 
 - **`amneziawg[].cohort_fingerprint`** — `"sha256:…"` over the resolved obfuscation params; `AmneziaWgParameters.cohortFingerprint()` recomputes it, so a bundle whose params have drifted from the server's current cohort is detectable up front instead of stalling the AWG handshake.
 - **`hysteria_extras.<tag>.salamander_upstream_tag`** — the server's Hysteria2 release; compare to the bundled obfuscator version to warn on a Salamander skew.
-- **`topology`** — `split_hop_egress` / `hysteria_realm`, surfaced on `SingBoxParseResult.Success.topology`.
+- **`topology`** — `split_hop_egress` / `hysteria_realm`.
+  - `hysteria_realm` is the realm id of the bundle's Hysteria2 endpoints. Import stores it on each Hysteria2 profile, and it reaches the native relay config as `hysteriaRealmId`. It also supplies `realm_id` for a Hysteria2 outbound whose `realm` block omits it; a different id in the block rejects the bundle.
+  - `split_hop_egress` needs no client action. No production code compares the observed exit address with the server address of the active profile (checked 2026-11-20), so an exit that differs from the entry host is not reported as a fault. Keep it that way: an exit-address check added later must skip the comparison when this flag is true.
 - **`expires`** — date-only or RFC-3339 instant normalized onto `SingBoxParseResult.Success.tokenExpiresAtEpochMillis`; the client persists it separately from `Subscription-Userinfo` credential expiry, warns seven days ahead, and stops automatic refresh after the enforcement point without deleting imported profiles.
 
 ## The one manual step: AmneziaWG device key
@@ -185,7 +187,7 @@ Import coverage does not prove a connection on an Android device.
 | NaiveProxy | A sing-box `naive` outbound and a `naive+https://` or `naive+quic://` link import as a selectable NaiveProxy profile. The helper dials `server` and verifies that name, so the TLS name must equal `server`. A node with any other TLS option (private CA, ECH, `insecure`), UDP over TCP, QUIC tuning, or an invalid port, credential, header or concurrency stays an inactive raw profile; a node with `detour` or `multiplex` is skipped. The recipient exporter emits only the link, in its private `native` delivery, and no bundle outbound. Not checked against a live server. |
 | Snell v4/v6 | Research only. Stored as an inactive raw profile by the parser; never a selectable relay. |
 | DNS-morph | The app speaks the RIPDPI DNS-Morph v1 delivery channel below when a bundle declares `ripdpi.dns_morph`. The deploy role still runs an unnamed self-built binary that forwards to `upstream_endpoint` and exports no `dns_morph` block, so no deployed server speaks v1 yet. |
-| Hysteria realm | Topology metadata only; it does not enable a realm/STUN client. |
+| Hysteria realm | The client implements the realm client side of sing-box `v1.14.0-alpha.22`: STUN discovery, `POST /v1/{realm}/connect`, UDP hole punch, then Hysteria2 on the punched socket. It runs when a Hysteria2 outbound carries the upstream `realm` block (`server_url`, `token`, `realm_id`, `stun_servers`). The deployment bundle emits only `topology.hysteria_realm`, and no deployment role registers a Hysteria2 server in the realm, so a deployment bundle still dials its Hysteria2 server directly. Not verified against a live realm service or a real NAT. See [Hysteria realm](#hysteria-realm). |
 | Probe matrix: VLESS XHTTP, Trojan TCP/TLS | Profile types exist, but these research listeners need separate profiles and connection checks. |
 | Probe matrix: Trojan XHTTP, MTProto, TLS control | Trojan XHTTP is rejected at import as an unsupported transport. The native XHTTP carrier sends a VLESS request and removes a VLESS response header, and the relay configuration has no transport field for Trojan. The server uses this listener only as a measurement target for `vpnd probe-matrix`; the recipient exporter does not emit it. MTProto and the TLS control listener are not VPN subscription profiles. |
 | Server WARP, split-hop, cascade, tailnet | Server egress, topology or management functions. Client compatibility depends on the public ingress protocol. |
@@ -262,6 +264,39 @@ reimplementation tested against it), give it the signed payload instead of
 derived from `dns_morph_bridge_secrets.signing_key`. A device check then needs
 that bridge reachable on UDP/53 from the test network, a bundle that declares
 it, and a refresh with the HTTPS endpoints blocked.
+
+## Hysteria realm
+
+A realm profile reaches a Hysteria2 server that has no fixed address. The client asks its STUN servers for the public address of its QUIC socket, sends that address with a random nonce and obfuscation key to the rendezvous service, receives the server's addresses, exchanges punch packets with them, and then runs the normal Hysteria2 handshake on the same socket. The rendezvous service never carries VPN traffic.
+
+Import reads the upstream sing-box outbound shape. `server`, `server_port` and `server_ports` must be absent, as upstream requires:
+
+```json
+{
+  "type": "hysteria2",
+  "tag": "p5-realm",
+  "password": "<hysteria2 password>",
+  "tls": { "enabled": true, "server_name": "peer.example" },
+  "realm": {
+    "server_url": "https://realm.example.com:8444",
+    "token": "<realm user token>",
+    "realm_id": "realm-a",
+    "stun_servers": ["stun.example.com:3478"]
+  }
+}
+```
+
+Limits of the client:
+
+- The rendezvous URL must use `https`. `http` is accepted for a loopback host only, because the request carries the token. `realm.http_client` is ignored, so the service needs a publicly trusted certificate; the profile's `insecure` flag and pin apply to the Hysteria2 server only.
+- Rendezvous is IPv4 only.
+- The client punches only public peer addresses that the service names (at most 16), accepts a punch reply only from those hosts, and rejects an answer whose nonce or obfuscation key differs from the ones it sent.
+- A realm profile cannot use port hopping and does not migrate its QUIC path after the handshake.
+- A profile that has a realm id but no rendezvous URL dials its server address directly.
+- The connection editor has no realm fields. A realm profile comes from an import.
+- A `hysteria2://` link cannot carry realm settings.
+
+What the deployment must add before a deployment bundle can use a realm: emit the `realm` block (rendezvous URL, token, STUN servers) on the Hysteria2 outbound, and run a Hysteria2 server that registers in the realm. The deployment's Hysteria2 role runs the reference server, which does not register.
 
 ## End-to-end flow
 
