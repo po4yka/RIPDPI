@@ -1007,7 +1007,14 @@ private fun createInitializer(
                 FieldReportNetworkContext(application, NoOpAppSettingsRepository, UnusedTlsClientFactory),
             ),
         pendingBootstrapProvisioner =
-            PendingBootstrapProvisioner(proxyGroupRepository, BootstrapConsumer()) { _, _ -> emptyList() },
+            PendingBootstrapProvisioner(proxyGroupRepository, BootstrapConsumer()) { expected, _, prepare ->
+                if (expected !in proxyGroupRepository.list()) {
+                    false
+                } else {
+                    proxyGroupRepository.update(prepare(emptyList()))
+                    true
+                }
+            },
         appShortcutsPublisher =
             AppShortcutsPublisher(
                 context = application,

@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 import com.poyka.ripdpi.services.LocalSocksRoute
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.services.OwnedTlsFingerprintSelection
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -41,7 +42,9 @@ class FieldReportUploaderTest {
     private val route = LocalSocksRoute("127.0.0.1", 1080)
     private val config = RipdpiFieldReport("https://reports.example.test/v1/field-report", "cohort-a", 2)
 
-    private fun target() = FieldReportTarget(config, setOf(reality), setOf("bundle-group"), setOf("bundle-member"))
+    private val member = FieldReportMember("bundle-group", "bundle-member")
+
+    private fun target() = FieldReportTarget(config, mapOf(member to reality))
 
     private class Harness(
         val file: File = File.createTempFile("field-report", ".json").apply { delete() },
@@ -55,15 +58,36 @@ class FieldReportUploaderTest {
     ) {
         val requests = mutableListOf<Pair<String, String>>()
         val ledger = FieldReportLedger(file, { consent }, { now }, { network })
-        val uploader =
+        var beforePost: suspend () -> Unit = {}
+        var afterPost: () -> Unit = {}
+        var routeCurrent = true
+        val uploader get() = withLedger(ledger)
+
+        fun withLedger(store: FieldReportLedger): FieldReportUploader =
             FieldReportUploader(
-                ledger = ledger,
+                ledger = store,
                 consent = { consent },
                 targets = { targets },
                 appVersion = "1.4",
-                tunnelRoute = { tunnel },
-                activeUpstream = { upstream },
-                poster = { _, target, body -> accept.also { requests += target.endpoint to body } },
+                tunnel = {
+                    val activeRoute = tunnel
+                    val activeUpstream = upstream
+                    if (activeRoute != null && activeUpstream != null) {
+                        FieldReportTunnel(activeRoute, activeUpstream) { routeCurrent }
+                    } else {
+                        null
+                    }
+                },
+                poster = { _, target, body, stillCurrent ->
+                    beforePost()
+                    if (!stillCurrent()) {
+                        FieldReportPostResult.RouteChanged
+                    } else {
+                        requests += target.endpoint to body
+                        afterPost()
+                        if (accept) FieldReportPostResult.Accepted else FieldReportPostResult.Failed
+                    }
+                },
                 clock = { now },
             )
     }
@@ -77,7 +101,11 @@ class FieldReportUploaderTest {
             harness.now = recordedAt + hour * MillisPerHour
             repeat(attempts) {
                 harness.ledger.update {
-                    it.record(FieldReportAttempt(reality, "vless-reality", null, 80), harness.network, harness.now)
+                    it.record(
+                        FieldReportAttempt(reality, "vless-reality", null, 80, member),
+                        harness.network,
+                        harness.now,
+                    )
                 }
             }
         }
@@ -128,7 +156,13 @@ class FieldReportUploaderTest {
         }
 
     private suspend fun FieldReportLedger.recordAttempt(harness: Harness) =
-        update { it.record(FieldReportAttempt(reality, "vless-reality", null, 80), harness.network, harness.now) }
+        update {
+            it.record(
+                FieldReportAttempt(reality, "vless-reality", null, 80, member),
+                harness.network,
+                harness.now,
+            )
+        }
 
     @Test
     fun `the current hour is never sent`() =
@@ -191,6 +225,126 @@ class FieldReportUploaderTest {
         }
 
     @Test
+    fun `the same tag is isolated by subscription and another owner's buckets remain queued`() =
+        runTest {
+            val harness = harnessWithHours(1)
+            val other = FieldReportMember("other-group", "other-member")
+            val otherConfig = config.copy(endpoint = "https://other.example.test/v1/field-report")
+            harness.targets += FieldReportTarget(otherConfig, mapOf(other to reality))
+            repeat(7) {
+                harness.ledger.update {
+                    it.record(
+                        FieldReportAttempt(reality, "vless-reality", null, 80, other),
+                        harness.network,
+                        recordedAt,
+                    )
+                }
+            }
+
+            harness.uploader.uploadCompletedHours()
+            assertEquals(listOf(config.endpoint), harness.requests.map { it.first })
+            assertTrue(
+                harness.requests
+                    .single()
+                    .second
+                    .contains("\"attempts\":5"),
+            )
+            assertEquals(
+                7,
+                harness.ledger
+                    .snapshot()
+                    .hours
+                    .single()
+                    .buckets
+                    .single()
+                    .attempts
+                    .toInt(),
+            )
+
+            harness.upstream = FieldReportUpstream(other.groupId, other.memberId)
+            harness.uploader.uploadCompletedHours()
+            assertEquals(otherConfig.endpoint, harness.requests.last().first)
+            assertTrue(
+                harness.requests
+                    .last()
+                    .second
+                    .contains("\"attempts\":7"),
+            )
+        }
+
+    @Test
+    fun `the accepted request remains claimed after a worker interruption`() =
+        runTest {
+            val harness = harnessWithHours(1)
+            val interrupted = CancellationException("worker stopped")
+            val reopened = FieldReportLedger(harness.file, { true }, { harness.now }, { harness.network })
+            harness.afterPost = { throw interrupted }
+
+            try {
+                harness.uploader.uploadCompletedHours()
+                error("worker continued after cancellation")
+            } catch (error: CancellationException) {
+                assertEquals(interrupted, error)
+            }
+            harness.afterPost = {}
+            harness.withLedger(reopened).uploadCompletedHours()
+
+            assertEquals(1, harness.requests.size)
+            assertEquals(listOf(harness.now), reopened.snapshot().uploads[config.endpoint])
+            assertTrue(reopened.snapshot().hours.isEmpty())
+        }
+
+    @Test
+    fun `a revoked route makes no request`() =
+        runTest {
+            val harness = harnessWithHours(1)
+            harness.routeCurrent = false
+
+            harness.uploader.uploadCompletedHours()
+
+            assertTrue(harness.requests.isEmpty())
+            assertEquals(
+                1,
+                harness.ledger
+                    .snapshot()
+                    .hours.size,
+            )
+        }
+
+    @Test
+    fun `a route change after the claim keeps the definitely unsent report queued`() =
+        runTest {
+            val harness = harnessWithHours(1)
+            harness.beforePost = { harness.routeCurrent = false }
+
+            harness.uploader.uploadCompletedHours()
+
+            val queued = harness.ledger.snapshot()
+            assertTrue(harness.requests.isEmpty())
+            assertTrue(queued.uploads.isEmpty())
+            assertEquals(1, queued.hours.size)
+
+            harness.beforePost = {}
+            harness.routeCurrent = true
+            harness.uploader.uploadCompletedHours()
+            assertEquals(1, harness.requests.size)
+        }
+
+    @Test
+    fun `a claim from before consent revocation is neither dispatched nor restored`() =
+        runTest {
+            val harness = harnessWithHours(1)
+            harness.beforePost = { harness.ledger.clear() }
+
+            harness.uploader.uploadCompletedHours()
+
+            val queued = harness.ledger.snapshot()
+            assertTrue(harness.requests.isEmpty())
+            assertTrue(queued.uploads.isEmpty())
+            assertTrue(queued.hours.isEmpty())
+        }
+
+    @Test
     fun `the upstream is read only from the applied configuration of the current runtime`() {
         val selection =
             RuntimeConfigurationSelection("relay", selectorGroupId = "bundle-group", selectorMemberId = "m1")
@@ -241,7 +395,7 @@ class FieldReportUploaderTest {
             ) {
                 harness.ledger.update {
                     it.record(
-                        FieldReportAttempt(reality, "vless-reality", null, 80),
+                        FieldReportAttempt(reality, "vless-reality", null, 80, member),
                         harness.network,
                         harness.now,
                     )
@@ -257,7 +411,7 @@ class FieldReportUploaderTest {
             ) {
                 harness.ledger.update {
                     it.record(
-                        FieldReportAttempt(reality, "vless-reality", null, 80),
+                        FieldReportAttempt(reality, "vless-reality", null, 80, member),
                         harness.network,
                         harness.now,
                     )
@@ -320,7 +474,10 @@ class FieldReportUploaderTest {
             val tls = InterceptingTlsClientFactory(code = 202)
             val poster = OkHttpFieldReportPoster(tls)
 
-            assertTrue(poster.post(route, config, "{\"schema_version\":1}"))
+            assertEquals(
+                FieldReportPostResult.Accepted,
+                poster.post(route, config, "{\"schema_version\":1}") { true },
+            )
             val request = requireNotNull(tls.request)
             assertEquals("POST", request.method)
             assertEquals(config.endpoint, request.url.toString())
@@ -330,25 +487,25 @@ class FieldReportUploaderTest {
             val client = requireNotNull(tls.client)
             assertEquals(Proxy.NO_PROXY, client.proxy)
             assertFalse(client.retryOnConnectionFailure)
-            assertFalse(client.followRedirects)
-
-            assertFalse(OkHttpFieldReportPoster(InterceptingTlsClientFactory(code = 429)).post(route, config, "{}"))
-            assertFalse(
+            assertEquals(
+                FieldReportPostResult.Failed,
+                OkHttpFieldReportPoster(InterceptingTlsClientFactory(code = 429)).post(route, config, "{}") { true },
+            )
+            assertEquals(
+                FieldReportPostResult.Failed,
                 OkHttpFieldReportPoster(
                     InterceptingTlsClientFactory(failure = IOException("reset")),
-                ).post(route, config, "{}"),
+                ).post(route, config, "{}") { true },
             )
+            assertEquals(FieldReportPostResult.RouteChanged, poster.post(route, config, "{}") { false })
         }
 
     @Test
     fun `the report host is resolved by the tunnel listener and never by system DNS`() =
         runTest {
-            assertNull(fieldReportTunnelRoute(route, noDomain = true))
-            assertEquals(route, fieldReportTunnelRoute(route, noDomain = false))
-
             // Even a route that asks for local resolution sends the host name to the listener.
             val tls = InterceptingTlsClientFactory(code = 202)
-            OkHttpFieldReportPoster(tls).post(route.copy(resolveNamesLocally = true), config, "{}")
+            OkHttpFieldReportPoster(tls).post(route.copy(resolveNamesLocally = true), config, "{}") { true }
             val resolved = requireNotNull(tls.client).dns.lookup("reports.example.test").single()
             assertEquals("reports.example.test", resolved.hostName)
             assertTrue(resolved.address.all { it == 0.toByte() })
@@ -361,7 +518,9 @@ class FieldReportUploaderTest {
                 val greeting = CompletableFuture<Int>()
                 thread { listener.accept().use { greeting.complete(it.getInputStream().read()) } }
                 val tls = InterceptingTlsClientFactory(code = 202)
-                OkHttpFieldReportPoster(tls).post(LocalSocksRoute("127.0.0.1", listener.localPort), config, "{}")
+                OkHttpFieldReportPoster(
+                    tls,
+                ).post(LocalSocksRoute("127.0.0.1", listener.localPort), config, "{}") { true }
 
                 val socket = requireNotNull(tls.client).socketFactory.createSocket()
                 runCatching { socket.connect(InetSocketAddress.createUnresolved("reports.example.test", 443), 2_000) }

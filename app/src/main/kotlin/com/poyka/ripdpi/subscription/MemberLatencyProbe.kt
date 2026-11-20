@@ -20,12 +20,16 @@ data class MemberProbeResult(
 )
 
 sealed interface MemberProbeTarget {
+    val fieldReportGroupId: String?
+
     data class Reachability(
         val url: String,
+        override val fieldReportGroupId: String? = null,
     ) : MemberProbeTarget
 
     data class Payload(
         val policy: PayloadFailoverPolicy,
+        override val fieldReportGroupId: String? = null,
     ) : MemberProbeTarget
 }
 

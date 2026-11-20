@@ -46,12 +46,19 @@ private val OperatorCodePattern = Regex("([0-9]{3})([0-9]{2,3})")
 private val MccPattern = Regex("[0-9]{3}")
 private val MncPattern = Regex("[0-9]{2,3}")
 
+@Serializable
+internal data class FieldReportMember(
+    val groupId: String,
+    val memberId: String,
+)
+
 /** One remote connection attempt to the bundle endpoint [serverRef]; [failureStage] is null on success. */
 internal data class FieldReportAttempt(
     val serverRef: String,
     val protocol: String,
     val failureStage: FieldFailureStage?,
     val latencyMillis: Long,
+    val member: FieldReportMember,
 )
 
 internal const val SourceSim = "sim"
@@ -111,6 +118,7 @@ internal data class FieldReportBucket(
     val protocol: String,
     val failureStage: String? = null,
     val histogram: List<Long>,
+    val member: FieldReportMember,
 ) {
     val attempts: Long get() = histogram.sum()
 }
@@ -173,7 +181,13 @@ internal fun fieldReportAttempt(
     return if (protocol == null || outcome == null) {
         null
     } else {
-        FieldReportAttempt(profile.displayName, protocol, outcome.first, outcome.second.coerceAtLeast(0))
+        FieldReportAttempt(
+            profile.displayName,
+            protocol,
+            outcome.first,
+            outcome.second.coerceAtLeast(0),
+            FieldReportMember(profile.groupId, profile.id),
+        )
     }
 }
 
@@ -200,9 +214,12 @@ internal fun FieldReportState.record(
     val stage = attempt.failureStage?.wireValue
     val existing =
         hour.buckets.firstOrNull {
-            it.serverRef == attempt.serverRef && it.protocol == attempt.protocol && it.failureStage == stage
+            it.member == attempt.member && it.serverRef == attempt.serverRef &&
+                it.protocol == attempt.protocol && it.failureStage == stage
         }
-    val bucket = existing ?: FieldReportBucket(attempt.serverRef, attempt.protocol, stage, List(HistogramSize) { 0L })
+    val bucket =
+        existing
+            ?: FieldReportBucket(attempt.serverRef, attempt.protocol, stage, List(HistogramSize) { 0L }, attempt.member)
     val counted =
         bucket.copy(
             histogram =
@@ -215,6 +232,23 @@ internal fun FieldReportState.record(
     val updatedHours = if (stored == null) hours + updatedHour else hours.map { if (it === stored) updatedHour else it }
     return copy(hours = updatedHours).pruned(nowMillis)
 }
+
+internal fun FieldReportHour.restore(claimed: FieldReportHour): FieldReportHour =
+    copy(
+        buckets =
+            (buckets + claimed.buckets)
+                .groupBy { it.copy(histogram = emptyList()) }
+                .values
+                .map { matching ->
+                    val first = matching.first()
+                    var remaining = MaxBucketAttempts
+                    val counts =
+                        first.histogram.indices.map { index ->
+                            matching.sumOf { it.histogram[index] }.coerceAtMost(remaining).also { remaining -= it }
+                        }
+                    first.copy(histogram = counts)
+                },
+    )
 
 /** Drops hours and upload instants older than 24 hours and keeps at most 24 pending hours. */
 internal fun FieldReportState.pruned(nowMillis: Long): FieldReportState =

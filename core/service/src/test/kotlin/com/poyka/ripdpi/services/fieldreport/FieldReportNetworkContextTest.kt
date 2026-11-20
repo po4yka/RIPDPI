@@ -1,7 +1,11 @@
 package com.poyka.ripdpi.services.fieldreport
 
 import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.junit.Assert.assertEquals
@@ -36,7 +40,8 @@ class FieldReportNetworkContextTest {
         var now = epoch("2026-11-19T10:30:00Z")
         var operator: String? = "25001"
         val fetches = mutableListOf<Triple<String, String, Long>>()
-        var duringFetch: () -> Unit = {}
+        var duringPause: suspend () -> Unit = {}
+        var duringFetch: suspend () -> Unit = {}
         val context =
             FieldReportNetworkContext(
                 consent = { consent },
@@ -49,9 +54,57 @@ class FieldReportNetworkContextTest {
                 },
                 clock = { now },
                 random = Random(7),
-                pause = {},
+                pause = { duringPause() },
             )
     }
+
+    @Test
+    fun `revocation during jitter prevents a direct request even if consent is restored`() =
+        runTest {
+            val harness = Harness(wifi, golden)
+            val jitterStarted = CompletableDeferred<Unit>()
+            val finishJitter = CompletableDeferred<Unit>()
+            harness.duringPause = {
+                jitterStarted.complete(Unit)
+                finishJitter.await()
+            }
+            val refresh = launch { harness.context.refreshHint(listOf(target)) }
+            jitterStarted.await()
+
+            harness.consent = false
+            harness.context.clearHint()
+            harness.consent = true
+            finishJitter.complete(Unit)
+            refresh.join()
+
+            assertTrue(harness.fetches.isEmpty())
+        }
+
+    @Test
+    fun `an in-flight response cannot restore the hint after revocation`() =
+        runTest {
+            val harness = Harness(wifi, golden)
+            val started = CompletableDeferred<Unit>()
+            val reply = CompletableDeferred<Unit>()
+            harness.duringFetch = {
+                // Simulate a response that completes even after the request is canceled.
+                withContext(NonCancellable) {
+                    started.complete(Unit)
+                    reply.await()
+                }
+            }
+            val refresh = launch { harness.context.refreshHint(listOf(target)) }
+            started.await()
+            harness.context.refreshHint(listOf(target))
+            harness.consent = false
+            harness.context.clearHint()
+            harness.consent = true
+            reply.complete(Unit)
+            refresh.join()
+
+            assertEquals(1, harness.fetches.size)
+            assertEquals(FieldReportNetwork("none", "wifi"), harness.context.current())
+        }
 
     @Test
     fun `a cellular network is labelled by its operator and never fetches a hint`() =

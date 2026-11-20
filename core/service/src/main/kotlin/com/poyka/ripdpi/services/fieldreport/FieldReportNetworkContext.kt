@@ -10,8 +10,14 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -21,6 +27,7 @@ import kotlinx.serialization.json.longOrNull
 import okhttp3.Call
 import okhttp3.EventListener
 import okhttp3.Request
+import okhttp3.coroutines.executeAsync
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -155,10 +162,18 @@ class FieldReportNetworkContext internal constructor(
 
     private val lock = Any()
     private var cached: CachedHint? = null
+    private var hintEpoch = 0L
+    private var inFlight: Job? = null
 
     /** Drops the cached hint; consent revocation calls it so no hint outlives the consent it was fetched under. */
     fun clearHint() {
-        synchronized(lock) { cached = null }
+        val pending =
+            synchronized(lock) {
+                hintEpoch++
+                cached = null
+                inFlight.also { inFlight = null }
+            }
+        pending?.cancel()
     }
 
     /** The label for an attempt measured now. */
@@ -199,32 +214,58 @@ class FieldReportNetworkContext internal constructor(
     suspend fun refreshHint(targets: List<RipdpiFieldReport>) {
         val (target, endpoint) =
             targets.firstNotNullOfOrNull { report -> report.networkHintEndpoint?.let { report to it } } ?: return
-        if (!consent()) {
-            clearHint()
-            return
+        val epoch = synchronized(lock) { hintEpoch }
+        if (!consent()) return
+        val before = defaultNetwork()?.takeUnless { it.vpn || it.networkType == "cellular" } ?: return
+        coroutineScope {
+            val task = launch(start = CoroutineStart.LAZY) { fetchHint(target, endpoint, before, epoch) }
+            if (startHint(task, before, epoch)) {
+                try {
+                    task.join()
+                } finally {
+                    synchronized(lock) { if (inFlight === task) inFlight = null }
+                }
+            } else {
+                task.cancel()
+            }
         }
-        val before = defaultNetwork()?.takeUnless { it.vpn || it.networkType == "cellular" }
-        if (before != null && isDue(before)) fetchHint(target, endpoint, before)
     }
 
-    private fun isDue(network: DefaultNetwork): Boolean =
+    private fun startHint(
+        task: Job,
+        network: DefaultNetwork,
+        epoch: Long,
+    ): Boolean =
         synchronized(lock) {
-            cached?.takeIf { it.handle == network.handle }?.let { clock() >= it.nextFetchAtMillis } ?: true
+            val retryAt = cached?.takeIf { it.handle == network.handle }?.nextFetchAtMillis
+            if (epoch != hintEpoch || inFlight != null || (retryAt != null && clock() < retryAt)) {
+                false
+            } else {
+                inFlight = task
+                true
+            }
         }
 
     private suspend fun fetchHint(
         target: RipdpiFieldReport,
         endpoint: String,
         before: DefaultNetwork,
+        epoch: Long,
     ) {
         pause(random.nextLong(MaxStartJitterMillis))
+        if (!consent() || defaultNetwork() != before) return
+        currentCoroutineContext().ensureActive()
         val body = fetcher.fetch(endpoint, target.cohortToken, before)
         val sameNetwork = defaultNetwork() == before
         val now = clock()
         val hint = body?.let { parseNetworkHint(it, now) }?.takeIf { sameNetwork && now < it.expiresAtMillis }
         val intervalMillis = (hint?.ttlSeconds ?: NoHintIntervalSeconds) * MillisPerSecond
         val nextFetchAt = now + intervalMillis + random.nextLong(intervalMillis / JitterDivisor + 1)
-        synchronized(lock) { cached = CachedHint(before.handle, hint, nextFetchAt) }
+        if (consent()) {
+            synchronized(lock) {
+                if (epoch == hintEpoch) cached = CachedHint(before.handle, hint, nextFetchAt)
+            }
+        }
     }
 }
 
@@ -303,7 +344,7 @@ internal class OkHttpNetworkHintFetcher(
                     .get()
                     .build()
             try {
-                client.newCall(request).execute().use { response ->
+                client.newCall(request).executeAsync().use { response ->
                     val source = response.body.source()
                     when {
                         response.code != HttpOk || tunnelled.get() -> null

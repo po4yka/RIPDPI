@@ -82,7 +82,7 @@ def run(arguments: list[str] | None = None) -> None:
         raise ValueError("upstream checkout must be clean")
     if sys.platform == "darwin" and os.environ.get("BUILD_GATE_HELD") != "1":
         raise RuntimeError("run this compiler-backed workflow through build-gate")
-    env = dict(os.environ, GOMAXPROCS=str(args.jobs), GOTOOLCHAIN="go1.27.2", GOFLAGS=f"-p={args.jobs}", GOWORK="off")
+    env = dict(os.environ, GOMAXPROCS=str(args.jobs), GOTOOLCHAIN="go1.27.4", GOFLAGS=f"-p={args.jobs}", GOWORK="off")
     if args.test == "advanced_tcp_settings_exchange_with_upstream":
         env["RIPDPI_MIERU_ADVANCED_PEER"] = "1"
     if args.test == "changed_host_key_is_rejected_before_authentication":

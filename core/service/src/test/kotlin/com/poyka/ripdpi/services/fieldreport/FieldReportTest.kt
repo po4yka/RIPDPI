@@ -23,6 +23,7 @@ class FieldReportTest {
     private val hintSchema = ClientFieldReportSchema(contractJson("client-network-hint.schema.json"))
     private val network = FieldReportNetwork("server_hint", "cellular", asn = 64500, country = "ZZ")
     private val simOperator = FieldReportNetwork("sim", "cellular", mcc = "001", mnc = "01")
+    private val member = FieldReportMember("group", "member")
     private val reality = "p0-reality-upcloud-prod"
     private val hysteria = "p2-hysteria2-upcloud-prod"
 
@@ -114,9 +115,9 @@ class FieldReportTest {
         val at = epoch("2026-11-19T10:15:00Z")
         val state =
             FieldReportState()
-                .record(FieldReportAttempt(reality, "xhttp", null, 10), network, at)
-                .record(FieldReportAttempt(reality, "xhttp", null, 10), simOperator, at)
-                .record(FieldReportAttempt(reality, "xhttp", null, 10), network, at)
+                .record(FieldReportAttempt(reality, "xhttp", null, 10, member), network, at)
+                .record(FieldReportAttempt(reality, "xhttp", null, 10, member), simOperator, at)
+                .record(FieldReportAttempt(reality, "xhttp", null, 10, member), network, at)
 
         assertEquals(listOf(network, simOperator), state.hours.map { it.network })
         assertEquals(listOf(2L, 1L), state.hours.map { it.buckets.single().attempts })
@@ -138,7 +139,7 @@ class FieldReportTest {
             repeat(count) {
                 state =
                     state.record(
-                        FieldReportAttempt(serverRef, protocol, stage, slotLatencies[slot]),
+                        FieldReportAttempt(serverRef, protocol, stage, slotLatencies[slot], member),
                         measuredOn,
                         lastMilli,
                     )
@@ -246,7 +247,12 @@ class FieldReportTest {
         repeat(
             4,
         ) {
-            state = state.record(FieldReportAttempt(reality, "xhttp", null, 10), network, epoch("2026-11-19T10:00:00Z"))
+            state =
+                state.record(
+                    FieldReportAttempt(reality, "xhttp", null, 10, member),
+                    network,
+                    epoch("2026-11-19T10:00:00Z"),
+                )
         }
 
         assertNull(buildFieldReport(state.hours.single(), "1.4", setOf(reality)))
@@ -268,12 +274,12 @@ class FieldReportTest {
             val file = File.createTempFile("field-report", ".json")
             val at = epoch("2026-11-19T10:00:00Z")
             val ledger = FieldReportLedger(file, { consent }, { at }, { network })
-            ledger.update { it.record(FieldReportAttempt(reality, "xhttp", null, 10), network, at) }
+            ledger.update { it.record(FieldReportAttempt(reality, "xhttp", null, 10, member), network, at) }
             assertTrue(file.exists())
             assertNotNull(ledger.snapshot().hours.singleOrNull())
 
             consent = false
-            ledger.update { it.record(FieldReportAttempt(reality, "xhttp", null, 10), network, at) }
+            ledger.update { it.record(FieldReportAttempt(reality, "xhttp", null, 10, member), network, at) }
 
             assertFalse(file.exists())
             assertEquals(FieldReportState(), ledger.snapshot())

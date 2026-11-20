@@ -72,7 +72,7 @@ class FieldReportLedger(
             withContext(Dispatchers.IO) {
                 val now = clock()
                 cached = current().record(attempt, measuredOn, now)
-                if (flushedAt.let { it == null || now - it >= FlushIntervalMillis }) persist(now)
+                if (flushedAt.let { it == null || now - it >= FlushIntervalMillis }) persist(current(), now)
             }
         }
     }
@@ -85,7 +85,7 @@ class FieldReportLedger(
                 cached = FieldReportState()
                 // The first count after a new consent writes through, with its own consent check.
                 flushedAt = null
-                if (file.exists() && !file.delete()) log.w { "field report store delete failed" }
+                deletePendingFiles()
             }
         }
 
@@ -98,27 +98,62 @@ class FieldReportLedger(
     internal suspend fun update(transform: (FieldReportState) -> FieldReportState) =
         mutex.withLock {
             withContext(Dispatchers.IO) {
-                cached = transform(current())
-                persist(clock())
+                persist(transform(current()), clock())
             }
         }
 
+    /** Removes the selected buckets and reserves the request before it can be sent. */
+    internal suspend fun <T : Any> claim(transform: (FieldReportState) -> Pair<FieldReportState, T?>): Pair<Long, T>? =
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                val now = clock()
+                val before = current().pruned(now)
+                val (next, request) = transform(before)
+                if (before != next && persist(next, now)) request?.let { consentEpoch.get() to it } else null
+            }
+        }
+
+    internal fun isClaimCurrent(epoch: Long): Boolean = consentEpoch.get() == epoch
+
+    /** Restores a claim only when its request was never sent and its consent is still current. */
+    internal suspend fun restore(
+        epoch: Long,
+        transform: (FieldReportState) -> FieldReportState,
+    ) {
+        mutex.withLock {
+            if (isClaimCurrent(epoch)) {
+                withContext(Dispatchers.IO) { persist(transform(current()), clock()) }
+            }
+        }
+    }
+
     private fun current(): FieldReportState = cached ?: read().also { cached = it }
 
-    private suspend fun persist(now: Long) {
+    private suspend fun persist(
+        next: FieldReportState,
+        now: Long,
+    ): Boolean =
         try {
             if (consent()) {
-                val state = current().pruned(now)
+                val state = next.pruned(now)
                 write(state)
                 cached = state
+                flushedAt = now
+                true
             } else {
                 cached = FieldReportState()
-                file.delete()
+                deletePendingFiles()
+                false
             }
-            flushedAt = now
         } catch (error: IOException) {
             // Losing an aggregate only lowers the counts; it must never fail the probe or the upload run.
             log.w { "field report store write failed: ${error.javaClass.simpleName}" }
+            false
+        }
+
+    private fun deletePendingFiles() {
+        for (pending in listOf(file, temporary)) {
+            if (pending.exists() && !pending.delete()) log.w { "field report store delete failed" }
         }
     }
 
@@ -138,18 +173,23 @@ class FieldReportLedger(
             FieldReportState()
         }
 
+    private val temporary = File(file.path + ".tmp")
+
     private fun write(state: FieldReportState) {
         if (state.hours.isEmpty() && state.uploads.isEmpty()) {
-            file.delete()
+            if (file.exists() && !file.delete()) throw IOException("delete failed")
             return
         }
         file.parentFile?.mkdirs()
-        val temporary = File(file.path + ".tmp")
-        FileOutputStream(temporary).use { output ->
-            output.write(RipDpiJson.encodeToString(FieldReportState.serializer(), state).toByteArray())
-            output.fd.sync()
+        try {
+            FileOutputStream(temporary).use { output ->
+                output.write(RipDpiJson.encodeToString(FieldReportState.serializer(), state).toByteArray())
+                output.fd.sync()
+            }
+            if (!temporary.renameTo(file)) throw IOException("rename failed")
+        } finally {
+            temporary.delete()
         }
-        if (!temporary.renameTo(file)) throw IOException("rename failed")
     }
 }
 

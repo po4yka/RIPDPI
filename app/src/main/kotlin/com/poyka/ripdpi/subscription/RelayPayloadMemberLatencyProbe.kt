@@ -50,7 +50,9 @@ class RelayPayloadMemberLatencyProbe
             val elapsedMillis = (System.nanoTime() - startedNanos) / NanosPerMilli
             // An opt-in count must never fail the selector probe that it observes.
             try {
-                fieldReports.recordProbe(profile, measured, elapsedMillis)
+                if (target.fieldReportGroupId == profile.groupId) {
+                    fieldReports.recordProbe(profile, measured, elapsedMillis)
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (

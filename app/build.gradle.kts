@@ -731,6 +731,7 @@ plugins.withId("com.android.application") {
 // Guard the actual packaging tasks, including calls through aggregate/custom tasks.
 // Unit tests and lint remain native-less; no APK or bundle may contain the throwing stub.
 tasks.withType<PackageAndroidArtifact>().configureEach {
+    dependsOn(":checkShippedAssetSecrets")
     dependsOn(
         if (name.contains("Release", ignoreCase = true)) {
             ":core:engine:verifyLibXrayReleaseArtifacts"
@@ -740,7 +741,7 @@ tasks.withType<PackageAndroidArtifact>().configureEach {
     )
 }
 tasks.withType<PackageBundleTask>().configureEach {
-    dependsOn(":core:engine:verifyLibXrayReleaseArtifacts")
+    dependsOn(":checkShippedAssetSecrets", ":core:engine:verifyLibXrayReleaseArtifacts")
 }
 tasks.withType<FinalizeBundleTask>().configureEach {
     dependsOn(":core:engine:verifyLibXrayReleaseArtifacts")

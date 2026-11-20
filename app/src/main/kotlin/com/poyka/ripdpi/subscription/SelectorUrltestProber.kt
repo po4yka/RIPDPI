@@ -194,13 +194,14 @@ class SelectorUrltestProber internal constructor(
         val scope = scopeProvider.capture(group) ?: return
         val selection = selectionStore.snapshot(group.id)
         if (selection.isManual && selection.profileId in group.cloudflareMemberIds) return
+        val target = MemberProbeTarget.Reachability(probeUrl, group.id.takeIf { group.fieldReport != null })
         val latencies =
             probeCandidates(group).map { member ->
                 MemberLatency(
                     profileId = member.id,
                     latencyMillis =
                         probeRoundMutex.withLock {
-                            probe.measure(member, MemberProbeTarget.Reachability(probeUrl))?.latencyMillis
+                            probe.measure(member, target)?.latencyMillis
                         },
                 )
             }
@@ -391,7 +392,7 @@ class SelectorUrltestProber internal constructor(
     ): List<MemberLatency> {
         val eligible = probeCandidates(group)
         val active = eligible.firstOrNull { it.id == scoped.selection.profileId }
-        val target = MemberProbeTarget.Payload(policy)
+        val target = MemberProbeTarget.Payload(policy, group.id.takeIf { group.fieldReport != null })
         val activeResult = active?.let { measureMember(it, target) }
         val tcpPriority = active is ProxyProfile.Hysteria2 && activeResult?.latencyMillis == null
         if (scoped.tcpPriority != tcpPriority) {
