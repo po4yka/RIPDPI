@@ -116,6 +116,7 @@ class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
         val after = fixture.repository.list().single()
 
         assertEquals(SubscriptionRefreshFailure.PARSE_ERROR, (result as SubscriptionRefreshResult.Failed).failure)
+        assertEquals(false, result.retryable)
         assertEquals(
             before,
             after.copy(subscription = before.subscription, ownershipGeneration = before.ownershipGeneration),

@@ -31,6 +31,9 @@ import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
 import com.poyka.ripdpi.subscription.isLocalBundle
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
@@ -55,7 +58,7 @@ data class SubscriptionImportConfirmUiState(
     /** The named cause of [importFailed], when the payload itself was refused. */
     val rejection: ImportRejection? = null,
     /** Set once the import is saved with entries left out; the screen stays to show them. */
-    val skipped: List<SingBoxSkippedNode> = emptyList(),
+    val skipped: ImmutableList<SingBoxSkippedNode> = persistentListOf(),
     /** The imported AmneziaWG profile that still needs its private key, or empty; opened when the screen closes. */
     val awgKeyProfileId: String = "",
     /** A RIPDPI bundle the user holds locally; it has no [url]. */
@@ -501,7 +504,7 @@ class SubscriptionImportConfirmViewModel
             if (skipped.isEmpty()) {
                 importedEventChannel.send(keyProfileId)
             } else {
-                _uiState.update { it.copy(skipped = skipped, awgKeyProfileId = keyProfileId) }
+                _uiState.update { it.copy(skipped = skipped.toImmutableList(), awgKeyProfileId = keyProfileId) }
             }
         }
     }

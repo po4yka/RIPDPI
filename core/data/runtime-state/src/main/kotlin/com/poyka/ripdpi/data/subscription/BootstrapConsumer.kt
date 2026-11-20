@@ -294,6 +294,9 @@ class BootstrapConsumer(
             (singBox.skipped + splitNativeProfiles(singBox.profiles).second)
                 .firstOrNull()
                 ?.let { return BootstrapConsumeResult.ParseError("unsupported bootstrap node", node = it) }
+            if (!singBox.profiles.hasOnlyNativeProfiles()) {
+                return BootstrapConsumeResult.ParseError("unsupported bootstrap node")
+            }
             if (singBox.migration != null) {
                 try {
                     payload.requireMigrationUtf8()

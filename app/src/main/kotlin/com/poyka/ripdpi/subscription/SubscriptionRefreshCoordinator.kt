@@ -427,10 +427,15 @@ class SubscriptionRefreshCoordinator private constructor(
                 is RefreshOutcome.Failure -> return parsed
                 is RefreshOutcome.Updated -> parsed
             }
-        // A refresh that would drop a saved server only because its new entry is refused keeps the saved group.
-        val lost = profiles.skipped.firstOrNull { node -> group.members.any { it.displayName == node.label } }
-        return if (lost != null) {
-            rejected(ImportRejection.Entry(lost))
+        // A payload with refused entries never shrinks the saved group: a server that is missing from the
+        // usable set may be one of the refused entries, so the saved group is kept and the entry is named.
+        val kept = profiles.profiles.mapTo(mutableSetOf()) { it.displayName }
+        val dropsSaved = profiles.skipped.isNotEmpty() && group.members.any { it.displayName !in kept }
+        return if (dropsSaved) {
+            val refused =
+                profiles.skipped.firstOrNull { node -> group.members.any { it.displayName == node.label } }
+                    ?: profiles.skipped.first()
+            rejected(ImportRejection.Entry(refused))
         } else if (!profiles.profiles.fitsSubscriptionLimits() || wireGuardCount > MaxSubscriptionProfiles) {
             payloadTooLargeFailure()
         } else {
@@ -591,8 +596,15 @@ class SubscriptionRefreshCoordinator private constructor(
         // A recognised bundle must not fall through to AWG-only success after its relay topology or
         // payload policy fails, or after every relay entry is skipped: that would erase the last working members.
         val noUsableMember = members.isEmpty() && (singBox?.profiles?.isNotEmpty() == true || skipped.isNotEmpty())
-        if (singBox != null && (selector is SelectorUrltestImportResult.Error || noUsableMember)) {
-            val refused = (selector as? SelectorUrltestImportResult.Error)?.node ?: skipped.firstOrNull()
+        // A refused AmneziaWG entry or selector default is never replaced by what is left of the bundle.
+        val refusedWhole =
+            skipped.firstOrNull { it.amneziaWg }
+                ?: unusable.firstOrNull { selected?.group != null && it.label == selected.defaultMemberTag }
+        if (singBox != null &&
+            (selector is SelectorUrltestImportResult.Error || noUsableMember || refusedWhole != null)
+        ) {
+            val refused =
+                (selector as? SelectorUrltestImportResult.Error)?.node ?: refusedWhole ?: skipped.firstOrNull()
             return rejected(refused?.let(ImportRejection::Entry))
         }
         return when {
@@ -600,7 +612,10 @@ class SubscriptionRefreshCoordinator private constructor(
                 RefreshOutcome.Updated(
                     members,
                     selected.failoverPolicy.toSelectorFailover(),
-                    cloudflareMemberIds = selected.cloudflareMemberIds,
+                    cloudflareMemberIds =
+                        selected.cloudflareMemberIds?.intersect(
+                            members.mapTo(mutableSetOf()) { it.id },
+                        ),
                     isSelector = selected.group != null,
                     // A skipped member cannot stay the initial selection or keep its health entry.
                     initialMemberId = selected.group?.initialMemberId?.takeIf { id -> members.any { it.id == id } },

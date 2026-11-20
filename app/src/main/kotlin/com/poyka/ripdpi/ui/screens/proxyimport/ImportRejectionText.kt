@@ -9,6 +9,9 @@ import com.poyka.ripdpi.data.subscription.SingBoxSkippedNode
 
 private const val MaxListedEntries = 5
 
+// A tag and a payload identifier are free text from the server; long ones are cut for display.
+private const val MaxShownLength = 48
+
 /** Why a payload was refused; the generic text when no cause is known. */
 @Composable
 internal fun importRejectionText(rejection: ImportRejection?): String =
@@ -38,12 +41,14 @@ internal fun skippedEntriesText(skipped: List<SingBoxSkippedNode>): String {
 /** [SingBoxSkippedNode.detail] is a protocol identifier or a static backend reason, so it is shown as is. */
 @Composable
 private fun skippedEntryText(node: SingBoxSkippedNode): String {
-    val detail = node.detail
+    val detail = node.detail?.take(MaxShownLength)
+    val label = node.label.take(MaxShownLength)
     val unsupported =
         node.reason != SingBoxSkipReason.INVALID_SETTINGS && node.reason != SingBoxSkipReason.INVALID_NETWORK_POLICY
-    return if (unsupported && detail != null) {
-        stringResource(R.string.import_entry_unsupported, node.label, detail)
+    return if (unsupported) {
+        // An unknown protocol name is not shown, so the entry is named with the reason alone.
+        stringResource(R.string.import_entry_unsupported, label, detail ?: node.reason.name.lowercase())
     } else {
-        stringResource(R.string.import_entry_invalid, node.label) + detail?.let { " ($it)" }.orEmpty()
+        stringResource(R.string.import_entry_invalid, label) + detail?.let { " ($it)" }.orEmpty()
     }
 }

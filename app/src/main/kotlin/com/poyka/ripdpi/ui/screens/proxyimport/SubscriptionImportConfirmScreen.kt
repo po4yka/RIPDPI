@@ -63,7 +63,8 @@ fun SubscriptionImportConfirmRoute(
 
     SubscriptionImportConfirmScreen(
         uiState = uiState,
-        onBack = onBack,
+        // Once the import is saved, Back closes it the same way as Done.
+        onBack = { if (uiState.skipped.isEmpty()) onBack() else onImported(uiState.awgKeyProfileId) },
         onConfirm = viewModel::confirm,
         onDone = { onImported(uiState.awgKeyProfileId) },
         modifier = modifier,

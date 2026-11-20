@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
-import com.poyka.ripdpi.data.subscription.ImportRejection
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionPayloadBytes
 import com.poyka.ripdpi.data.subscription.SingBoxSkipReason
 import com.poyka.ripdpi.data.subscription.SingBoxSkippedNode
@@ -63,23 +62,26 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
         }
 
     @Test
-    fun `mixed supported and rejected URI refresh imports the supported entry and names the skipped line`() =
+    fun `first import of a mixed URI list keeps the supported entry and names the skipped line`() =
         runTest {
             val key = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
             val valid =
                 "vless://550e8400-e29b-41d4-a716-446655440000@relay.example:443" +
                     "?security=reality&pbk=$key&sni=target.example&type=tcp#valid"
             val fixture = fixture(now = 3_000L)
-            server.enqueue(response(200, valid + "\n" + valid.replace("type=tcp", "type=grpc")))
+            val mixed = valid + "\n" + valid.replace("type=tcp", "type=grpc")
+            server.enqueue(response(200, mixed))
+            server.enqueue(response(200, mixed))
 
-            val result = fixture.coordinator.refresh("subscription-group")
-
+            val skipped = listOf(SingBoxSkippedNode(2, "#2", SingBoxSkipReason.INVALID_SETTINGS, "vless"))
             assertEquals(
-                SubscriptionRefreshResult.Updated(
-                    1,
-                    listOf(SingBoxSkippedNode(2, "#2", SingBoxSkipReason.INVALID_SETTINGS, "vless")),
-                ),
-                result,
+                SubscriptionRefreshResult.Updated(1, skipped),
+                fixture.coordinator.refresh("subscription-group"),
+            )
+            // The same payload refreshes again: the saved server is still there, so nothing is lost.
+            assertEquals(
+                SubscriptionRefreshResult.Updated(1, skipped),
+                fixture.coordinator.refresh("subscription-group"),
             )
             assertEquals(
                 listOf("valid"),
@@ -92,7 +94,7 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
         }
 
     @Test
-    fun `rejected URI refresh retains the complete prior group`() =
+    fun `mixed supported and rejected URI refresh retains the complete prior group`() =
         runTest {
             val key = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
             val valid =
@@ -123,8 +125,7 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
             )
             val before = fixture.repository.list().single()
             val beforeSubscription = checkNotNull(before.subscription)
-            val rejected = valid.replace("type=tcp", "type=grpc")
-            server.enqueue(response(200, rejected + "\n" + rejected))
+            server.enqueue(response(200, valid + "\n" + valid.replace("type=tcp", "type=grpc")))
 
             val result = fixture.coordinator.refresh(before.id)
             val after = fixture.repository.list().single()
@@ -173,7 +174,7 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
         }
 
     @Test
-    fun `a refresh that refuses a saved server keeps the prior members and names it`() =
+    fun `mixed rejected sing-box and Clash nodes cannot replace prior members`() =
         runTest {
             val payloads =
                 listOf(
@@ -192,7 +193,7 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
                     ProxyProfile.Trojan(
                         id = "prior-member",
                         groupId = "subscription-group",
-                        displayName = "unsupported",
+                        displayName = "Saved node",
                         server = "prior.example",
                         serverPort = 8443,
                         password = "fixture-password",
@@ -209,7 +210,6 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
                     SubscriptionRefreshFailure.PARSE_ERROR,
                     (result as SubscriptionRefreshResult.Failed).failure,
                 )
-                assertEquals("unsupported", (result.rejection as ImportRejection.Entry).node.label)
                 assertEquals(
                     before,
                     after.copy(subscription = before.subscription, ownershipGeneration = before.ownershipGeneration),

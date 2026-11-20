@@ -28,6 +28,8 @@ data class SingBoxSkippedNode(
     val label: String,
     val reason: SingBoxSkipReason,
     val detail: String? = null,
+    /** An entry of `ripdpi.amneziawg`, not a relay outbound. */
+    val amneziaWg: Boolean = false,
 )
 
 /** Rejects connection framing and chaining that the native profile cannot retain. */
@@ -75,7 +77,7 @@ fun splitNativeProfiles(
             val reason =
                 when {
                     profile is ProxyProfile.RawConfig -> SingBoxSkipReason.UNSUPPORTED_PROTOCOL
-                    !validateNativeRelayProfileResult(profile).getOrDefault(false) -> SingBoxSkipReason.INVALID_SETTINGS
+                    validateNativeRelayProfileResult(profile).isFailure -> SingBoxSkipReason.INVALID_SETTINGS
                     else -> null
                 }
             if (reason != null) {

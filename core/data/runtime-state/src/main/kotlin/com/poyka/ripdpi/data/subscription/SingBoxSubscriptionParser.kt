@@ -768,7 +768,7 @@ private fun mapRipdpiAwg(
 
     val invalidPolicyField = invalidAwgPolicyField(obj, peerObj)
     if (invalidPolicyField != null) {
-        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.INVALID_NETWORK_POLICY, invalidPolicyField)
+        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.INVALID_NETWORK_POLICY, invalidPolicyField, true)
         return null
     }
 
@@ -790,18 +790,18 @@ private fun mapRipdpiAwg(
 
     val invalidWireField = invalidAwgWireField(obj)
     if (invalidWireField != null) {
-        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, invalidWireField)
+        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, invalidWireField, true)
         return null
     }
 
     // AmneziaWG obfuscation parameters.
     val awg = awgParameters(obj)
     runCatching { awg.requireSupportedProfile() }.getOrElse {
-        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, "wire_profile")
+        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, "wire_profile", true)
         return null
     }
     if ("cohort_fingerprint" in obj && !matchesCohortFingerprint(obj["cohort_fingerprint"], awg)) {
-        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_FINGERPRINT, "cohort_fingerprint")
+        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_FINGERPRINT, "cohort_fingerprint", true)
         return null
     }
 
