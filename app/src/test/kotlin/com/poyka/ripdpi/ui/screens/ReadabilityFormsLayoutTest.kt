@@ -316,11 +316,13 @@ class ReadabilityFormsLayoutTest {
     }
 
     @Test
-    fun tlsXhttpChoicesExcludeUnsupportedAutoAndTcp() {
+    fun tlsXhttpChoicesOfferEveryNativeModeAndNoTcp() {
         assertMatrix(
             labels =
                 listOf(
                     R.string.config_relay_vless_transport_xhttp,
+                    R.string.config_relay_xhttp_mode_auto,
+                    R.string.config_relay_xhttp_mode_packet_up,
                     R.string.config_relay_xhttp_mode_stream_up,
                     R.string.config_relay_xhttp_mode_stream_one,
                 ),
@@ -330,9 +332,6 @@ class ReadabilityFormsLayoutTest {
                 RelayVlessActions(),
             )
         }
-        assertTrue(
-            composeRule.onAllNodesWithText(text(R.string.config_relay_xhttp_mode_auto)).fetchSemanticsNodes().isEmpty(),
-        )
         assertTrue(
             composeRule
                 .onAllNodesWithText(
