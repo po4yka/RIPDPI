@@ -60,7 +60,7 @@
     <!-- onboarding refactor additions -->
     <!-- intro chips -->
     <string name="onboarding_chip_no_account">بدون حساب کاربری</string>
-    <string name="onboarding_chip_no_telemetry">بدون تله‌متری</string>
+    <string name="onboarding_chip_no_tracking">بدون ردیابی</string>
     <string name="onboarding_chip_no_cloud_sync">بدون همگام‌سازی ابری</string>
     <string name="onboarding_guarantee_header_privacy">حریم خصوصی</string>
     <string name="onboarding_guarantee_header_local">روی دستگاه شما</string>

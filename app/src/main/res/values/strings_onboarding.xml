@@ -25,7 +25,7 @@
     <string name="onboarding_validation_vpn_permission_denied">VPN permission was denied, so RIPDPI could not validate VPN mode.</string>
     <!-- intro chips -->
     <string name="onboarding_chip_no_account">No account</string>
-    <string name="onboarding_chip_no_telemetry">No telemetry</string>
+    <string name="onboarding_chip_no_tracking">No tracking</string>
     <string name="onboarding_chip_no_cloud_sync">No cloud sync</string>
     <string name="onboarding_guarantee_header_privacy">Privacy</string>
     <string name="onboarding_guarantee_header_local">On your device</string>

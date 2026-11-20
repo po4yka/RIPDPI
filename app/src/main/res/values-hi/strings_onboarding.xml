@@ -24,7 +24,7 @@
     <string name="onboarding_validation_notifications_required">सूचनाओं की अनुमति दें ताकि RIPDPI सत्यापन सेवा की स्थिति दिखा सके।</string>
     <string name="onboarding_validation_vpn_permission_denied">VPN अनुमति अस्वीकार कर दी गई, इसलिए RIPDPI VPN मोड को सत्यापित नहीं कर सका।</string>
     <string name="onboarding_chip_no_account">कोई अकाउंट नहीं</string>
-    <string name="onboarding_chip_no_telemetry">कोई टेलीमेट्री नहीं</string>
+    <string name="onboarding_chip_no_tracking">कोई ट्रैकिंग नहीं</string>
     <string name="onboarding_chip_no_cloud_sync">कोई क्लाउड सिंक नहीं</string>
     <string name="onboarding_guarantee_header_privacy">गोपनीयता</string>
     <string name="onboarding_guarantee_header_local">आपके डिवाइस पर</string>

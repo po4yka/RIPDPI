@@ -136,7 +136,7 @@
     <string name="data_transparency_what_we_do_not_collect_section">ما لا نجمعه</string>
     <string name="data_transparency_no_browsing">لا سجل تصفح أو محتوى URL أو حمولات الحزم أو بيانات الاعتماد أو أسرار TLS في التشخيصات الاعتيادية</string>
     <string name="data_transparency_no_personal_data">لا حسابات مستخدمين: يعمل التطبيق دون تسجيل الدخول</string>
-    <string name="data_transparency_no_external_servers">لا يُرسل أي بيانات إلى خوادم خارجية تلقائيًا، باستثناء التقارير الميدانية المجهولة عند تشغيلها</string>
+    <string name="data_transparency_no_external_servers">لا تُرسَل أي بيانات إلى خوادم خارجية تلقائيًا، باستثناء التقارير الميدانية المجهولة عند تشغيلها</string>
     <string name="data_transparency_no_analytics">لا تحليلات ولا إبلاغ عن الأعطال ولا SDKs إعلانية</string>
     <string name="settings_field_report_title">إرسال تقارير ميدانية مجهولة الهوية</string>
     <string name="settings_field_report_body">متوقف افتراضيًا. عند التشغيل، يرسل التطبيق كل ساعة ملخصًا إلى خادم التقارير في اشتراكك، عبر النفق النشط فقط. يتضمن الملخص أعداد الاتصالات لكل خادم: النتيجة، ومرحلة الفشل، ونطاق زمن الاستجابة، ونوع الشبكة. على بيانات الجوال يتضمن أيضًا رمز المشغّل (MCC-MNC) الذي يقرؤه التطبيق على الجهاز. على Wi-Fi يتضمن ASN الشبكة وبلدها كما يعيدهما خادم التقارير: عند تحديث الاشتراك، يطلبهما التطبيق من خادم التقارير مباشرةً، خارج النفق. لا يتضمن عناوين IP أو معرّفات أو مواقع تمت زيارتها. عند الإيقاف، يحذف التطبيق الملخصات غير المرسلة.</string>
