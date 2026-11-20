@@ -9,7 +9,6 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
-import com.poyka.ripdpi.data.RememberedNetworkPolicySuppressionDurationMs
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.toActiveDnsSettings
 import com.poyka.ripdpi.serialization.RipDpiContractJson
@@ -171,14 +170,13 @@ class DefaultRememberedNetworkPolicyStore
         ): RememberedNetworkPolicyEntity {
             val effectiveCompletedAt = completedAt ?: clock.now()
             return mutateCurrent(policy) { current ->
-                val shouldValidate = validated || current.status == RememberedNetworkPolicyStatusValidated
+                // Only probe evidence ([validated]) refreshes lastValidatedAt; other successes leave the age alone.
                 current.copy(
-                    status = if (shouldValidate) RememberedNetworkPolicyStatusValidated else current.status,
+                    status = if (validated) RememberedNetworkPolicyStatusValidated else current.status,
                     strategySignatureJson = strategySignatureJson ?: current.strategySignatureJson,
                     successCount = current.successCount + 1,
                     consecutiveFailureCount = 0,
-                    suppressedUntil = null,
-                    lastValidatedAt = if (shouldValidate) effectiveCompletedAt else current.lastValidatedAt,
+                    lastValidatedAt = if (validated) effectiveCompletedAt else current.lastValidatedAt,
                     updatedAt = effectiveCompletedAt,
                 )
             }
@@ -200,12 +198,6 @@ class DefaultRememberedNetworkPolicyStore
                     status = if (shouldSuppress) RememberedNetworkPolicyStatusSuppressed else current.status,
                     failureCount = current.failureCount + 1,
                     consecutiveFailureCount = nextConsecutiveFailures,
-                    suppressedUntil =
-                        if (shouldSuppress) {
-                            effectiveFailedAt + RememberedNetworkPolicySuppressionDurationMs
-                        } else {
-                            current.suppressedUntil
-                        },
                     updatedAt = effectiveFailedAt,
                 )
             }

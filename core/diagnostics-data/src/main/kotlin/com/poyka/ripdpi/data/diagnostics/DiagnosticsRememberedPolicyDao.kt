@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.poyka.ripdpi.data.RememberedNetworkPolicyMaxValidatedAgeMs
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -26,14 +27,15 @@ interface DiagnosticsRememberedPolicyDao {
     @Query("SELECT * FROM remembered_network_policies WHERE id = :id LIMIT 1")
     suspend fun getRememberedNetworkPolicyById(id: Long): RememberedNetworkPolicyEntity?
 
+    // A suppressed policy stays out until a probe validates it again; suppressedUntil is not consulted.
     @Query(
         """
         SELECT * FROM remembered_network_policies
         WHERE fingerprintHash = :fingerprintHash
             AND mode = :mode
             AND status = :validatedStatus
-            AND (suppressedUntil IS NULL OR suppressedUntil <= :now)
-        ORDER BY COALESCE(lastValidatedAt, 0) DESC, updatedAt DESC
+            AND lastValidatedAt >= :now - $RememberedNetworkPolicyMaxValidatedAgeMs
+        ORDER BY lastValidatedAt DESC, updatedAt DESC
         LIMIT 1
         """,
     )

@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
-import com.poyka.ripdpi.data.RememberedNetworkPolicySuppressionDurationMs
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -33,8 +32,10 @@ class RememberedPolicySessionTracker
             session: BypassUsageSessionEntity,
             activePolicy: ActiveConnectionPolicy?,
         ): BypassUsageSessionEntity {
+            // Only a replayed remembered policy is tracked. A session's time and traffic do not show that a
+            // strategy unblocks anything, so an ordinary session neither creates nor validates a policy.
             val policy =
-                activePolicy ?: run {
+                activePolicy?.takeIf { it.usedRememberedPolicy } ?: run {
                     clear()
                     return session
                 }
@@ -49,39 +50,25 @@ class RememberedPolicySessionTracker
             session: BypassUsageSessionEntity,
             policy: ActiveConnectionPolicy,
         ): BypassUsageSessionEntity {
-            val rememberedPolicyAudit: RememberedPolicySessionAudit?
-            val entity =
-                if (policy.usedRememberedPolicy) {
-                    val matchedPolicy = policy.matchedPolicy ?: return session
-                    rememberedPolicyAudit =
-                        RememberedPolicySessionAudit(
-                            matchedFingerprintHash = matchedPolicy.fingerprintHash,
-                            source = matchedPolicy.decodedSource(),
-                            appliedByExactMatch =
-                                policy.rememberedPolicyAppliedByExactMatch ?: policy.usedRememberedPolicy,
-                            previousSuccessCount = matchedPolicy.successCount,
-                            previousFailureCount = matchedPolicy.failureCount,
-                            previousConsecutiveFailureCount = matchedPolicy.consecutiveFailureCount,
-                        )
-                    rememberedNetworkPolicyStore.recordApplied(matchedPolicy, policy.appliedAt)
-                } else {
-                    rememberedPolicyAudit = null
-                    rememberedNetworkPolicyStore.upsertObservedPolicy(
-                        policy = policy.policy.copy(strategySignatureJson = session.strategyJson),
-                        source = RememberedNetworkPolicySource.MANUAL_SESSION,
-                        observedAt = policy.appliedAt,
-                    )
-                }
+            val matchedPolicy = policy.matchedPolicy ?: return session
+            val rememberedPolicyAudit =
+                RememberedPolicySessionAudit(
+                    matchedFingerprintHash = matchedPolicy.fingerprintHash,
+                    source = matchedPolicy.decodedSource(),
+                    appliedByExactMatch = policy.rememberedPolicyAppliedByExactMatch ?: true,
+                    previousSuccessCount = matchedPolicy.successCount,
+                    previousFailureCount = matchedPolicy.failureCount,
+                    previousConsecutiveFailureCount = matchedPolicy.consecutiveFailureCount,
+                )
             activeRememberedPolicySession =
                 ActiveRememberedPolicySession(
-                    entity = entity,
-                    usedRememberedPolicy = policy.usedRememberedPolicy,
+                    entity = rememberedNetworkPolicyStore.recordApplied(matchedPolicy, policy.appliedAt),
                     startedAt = policy.appliedAt,
                     fingerprintHash = policy.fingerprintHash,
                     policySignature = policy.policySignature,
                     mode = policy.mode,
                 )
-            return rememberedPolicyAudit?.let(session::withRememberedPolicyAudit) ?: session
+            return session.withRememberedPolicyAudit(rememberedPolicyAudit)
         }
 
         internal fun prepareTerminalOutcome(
@@ -99,47 +86,37 @@ class RememberedPolicySessionTracker
                 !session.failureMessage.isNullOrBlank() ||
                     session.endedReason?.startsWith("failed:") == true
 
+            val entity = rememberedPolicySession.entity
             return when {
-                rememberedPolicySession.usedRememberedPolicy && failed && !proved -> {
-                    val nextConsecutiveFailures = rememberedPolicySession.entity.consecutiveFailureCount + 1
+                failed && !proved -> {
+                    val nextConsecutiveFailures = entity.consecutiveFailureCount + 1
                     val shouldSuppress =
-                        rememberedPolicySession.entity.status == RememberedNetworkPolicyStatusValidated &&
-                            nextConsecutiveFailures >= 2
+                        entity.status == RememberedNetworkPolicyStatusValidated && nextConsecutiveFailures >= 2
                     RememberedPolicyTerminalOutcome(
-                        policyId = rememberedPolicySession.entity.id,
-                        mode = rememberedPolicySession.entity.mode,
-                        status =
-                            if (shouldSuppress) {
-                                RememberedNetworkPolicyStatusSuppressed
-                            } else {
-                                rememberedPolicySession.entity.status
-                            },
-                        successCount = rememberedPolicySession.entity.successCount,
-                        failureCount = rememberedPolicySession.entity.failureCount + 1,
+                        policyId = entity.id,
+                        mode = entity.mode,
+                        status = if (shouldSuppress) RememberedNetworkPolicyStatusSuppressed else entity.status,
+                        successCount = entity.successCount,
+                        failureCount = entity.failureCount + 1,
                         consecutiveFailureCount = nextConsecutiveFailures,
-                        suppressedUntil =
-                            if (shouldSuppress) {
-                                finalizedAt + RememberedNetworkPolicySuppressionDurationMs
-                            } else {
-                                rememberedPolicySession.entity.suppressedUntil
-                            },
-                        lastValidatedAt = rememberedPolicySession.entity.lastValidatedAt,
+                        lastValidatedAt = entity.lastValidatedAt,
                         updateStrategySignature = false,
                         updatedAt = finalizedAt,
                         failureHandover = rememberedPolicySession.toFailureHandover(session.id, finalizedAt),
                     )
                 }
 
+                // A clean session counts as a success, but only probe evidence validates: the status and
+                // lastValidatedAt stay as they are, so the policy still expires on schedule.
                 proved -> {
                     RememberedPolicyTerminalOutcome(
-                        policyId = rememberedPolicySession.entity.id,
-                        mode = rememberedPolicySession.entity.mode,
-                        status = RememberedNetworkPolicyStatusValidated,
-                        successCount = rememberedPolicySession.entity.successCount + 1,
-                        failureCount = rememberedPolicySession.entity.failureCount,
+                        policyId = entity.id,
+                        mode = entity.mode,
+                        status = entity.status,
+                        successCount = entity.successCount + 1,
+                        failureCount = entity.failureCount,
                         consecutiveFailureCount = 0,
-                        suppressedUntil = null,
-                        lastValidatedAt = finalizedAt,
+                        lastValidatedAt = entity.lastValidatedAt,
                         updateStrategySignature = true,
                         updatedAt = finalizedAt,
                     )
@@ -178,15 +155,13 @@ class RememberedPolicySessionTracker
 
         private data class ActiveRememberedPolicySession(
             val entity: RememberedNetworkPolicyEntity,
-            val usedRememberedPolicy: Boolean,
             val startedAt: Long,
             val fingerprintHash: String?,
             val policySignature: String,
             val mode: Mode,
         ) {
             fun matches(policy: ActiveConnectionPolicy): Boolean =
-                usedRememberedPolicy == policy.usedRememberedPolicy &&
-                    fingerprintHash == policy.fingerprintHash &&
+                fingerprintHash == policy.fingerprintHash &&
                     policySignature == policy.policySignature
 
             fun toFailureHandover(
@@ -238,12 +213,9 @@ internal data class RememberedPolicyTerminalOutcome(
             // Only the proved branch of prepareTerminalOutcome updates the strategy signature.
             updateStrategySignature -> {
                 current.copy(
-                    status = RememberedNetworkPolicyStatusValidated,
                     strategySignatureJson = strategySignatureJson,
                     successCount = current.successCount + 1,
                     consecutiveFailureCount = 0,
-                    suppressedUntil = null,
-                    lastValidatedAt = lastValidatedAt,
                     updatedAt = updatedAt,
                 )
             }
@@ -261,12 +233,6 @@ internal data class RememberedPolicyTerminalOutcome(
             status = if (shouldSuppress) RememberedNetworkPolicyStatusSuppressed else current.status,
             failureCount = current.failureCount + 1,
             consecutiveFailureCount = nextConsecutiveFailures,
-            suppressedUntil =
-                if (shouldSuppress) {
-                    updatedAt + RememberedNetworkPolicySuppressionDurationMs
-                } else {
-                    current.suppressedUntil
-                },
             updatedAt = updatedAt,
         )
     }

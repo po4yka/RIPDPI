@@ -142,7 +142,7 @@ class ProxyServiceAutoApplyLifecycleTest {
             assertEquals(RememberedNetworkPolicyStatusSuppressed, persisted.status)
             assertEquals(2, persisted.failureCount)
             assertEquals(2, persisted.consecutiveFailureCount)
-            assertNotNull(persisted.suppressedUntil)
+            assertNull(persisted.suppressedUntil)
             assertNull(env.rememberedPolicies.findValidatedMatch(fingerprint.scopeKey(), Mode.Proxy))
 
             env.startCaptured()

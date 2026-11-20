@@ -5,8 +5,8 @@ import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
+import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
-import com.poyka.ripdpi.data.RememberedNetworkPolicySuppressionDurationMs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -94,8 +94,26 @@ class RememberedNetworkPolicyStoreTest {
                 )
 
             assertEquals(clock.now(), result.updatedAt)
-            assertEquals(clock.now() + RememberedNetworkPolicySuppressionDurationMs, result.suppressedUntil)
+            assertEquals(RememberedNetworkPolicyStatusSuppressed, result.status)
+            assertNull(result.suppressedUntil)
             assertEquals(2, result.consecutiveFailureCount)
+        }
+
+    @Test
+    fun `success without probe evidence keeps the validation age`() =
+        runTest {
+            val result =
+                store.recordSuccess(
+                    policy =
+                        stored(
+                            rememberedPolicyEntity(status = RememberedNetworkPolicyStatusValidated)
+                                .copy(lastValidatedAt = 1_000L),
+                        ),
+                    completedAt = 5_000L,
+                )
+
+            assertEquals(1_000L, result.lastValidatedAt)
+            assertEquals(5_000L, result.updatedAt)
         }
 
     @Test
@@ -114,7 +132,7 @@ class RememberedNetworkPolicyStoreTest {
                 )
 
             assertEquals(9_999L, result.updatedAt)
-            assertEquals(9_999L + RememberedNetworkPolicySuppressionDurationMs, result.suppressedUntil)
+            assertEquals(RememberedNetworkPolicyStatusSuppressed, result.status)
         }
 
     @Test

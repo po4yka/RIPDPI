@@ -17,7 +17,6 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
-import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.RttBand
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
@@ -28,7 +27,6 @@ import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
-import com.poyka.ripdpi.data.diagnostics.decodedSource
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
@@ -543,7 +541,7 @@ class RuntimeHistoryMonitorTest {
         }
 
     @Test
-    fun `observed remembered policy is validated after proved successful session`() =
+    fun `a long busy ordinary session neither creates nor validates a remembered policy`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock(currentTime = 1_000L)
@@ -575,13 +573,6 @@ class RuntimeHistoryMonitorTest {
                     appliedAt = System.currentTimeMillis() - RememberedNetworkPolicyProofDurationMs - 1_000L,
                 ),
             )
-            waitUntil {
-                stores.rememberedPoliciesState.value.any {
-                    it.fingerprintHash == "fingerprint-success" &&
-                        it.mode == Mode.VPN.preferenceValue
-                }
-            }
-
             serviceStateStore.updateTelemetry(
                 runningTelemetry(
                     txBytes = RememberedNetworkPolicyProofTransferBytes / 2,
@@ -591,20 +582,13 @@ class RuntimeHistoryMonitorTest {
             serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
 
             waitUntil {
-                stores.rememberedPoliciesState.value.any {
-                    it.fingerprintHash == "fingerprint-success" &&
-                        it.mode == Mode.VPN.preferenceValue &&
-                        it.status == RememberedNetworkPolicyStatusValidated
-                }
+                stores.usageSessionsState.value
+                    .single()
+                    .finishedAt != null
             }
 
-            val persisted =
-                requireNotNull(stores.getRememberedNetworkPolicy("fingerprint-success", Mode.VPN.preferenceValue))
             val session = stores.usageSessionsState.value.single()
-            assertEquals(RememberedNetworkPolicyStatusValidated, persisted.status)
-            assertEquals(RememberedNetworkPolicySource.MANUAL_SESSION, persisted.decodedSource())
-            assertEquals(1, persisted.successCount)
-            assertNotNull(persisted.lastValidatedAt)
+            assertTrue(stores.rememberedPoliciesState.value.isEmpty())
             assertNull(session.rememberedPolicyMatchedFingerprintHash)
             assertNull(session.rememberedPolicySource)
             assertNull(session.rememberedPolicyAppliedByExactMatch)
@@ -667,13 +651,14 @@ class RuntimeHistoryMonitorTest {
                     appliedAt = 2_000L,
                 ),
             )
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
             waitUntil {
-                stores.rememberedPoliciesState.value.any {
-                    it.fingerprintHash == "fingerprint-manual" &&
-                        it.mode == Mode.VPN.preferenceValue
-                }
+                stores.usageSessionsState.value
+                    .single()
+                    .finishedAt != null
             }
 
+            assertTrue(stores.rememberedPoliciesState.value.none { it.fingerprintHash == "fingerprint-manual" })
             val session = stores.usageSessionsState.value.single()
             assertEquals("fingerprint-match", session.rememberedPolicyMatchedFingerprintHash)
             assertEquals(

@@ -3,9 +3,9 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
-import com.poyka.ripdpi.data.RememberedNetworkPolicySuppressionDurationMs
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class RememberedPolicyTerminalOutcomeTest {
@@ -48,7 +48,7 @@ class RememberedPolicyTerminalOutcomeTest {
         assertEquals(RememberedNetworkPolicyStatusSuppressed, result?.status)
         assertEquals(2, result?.failureCount)
         assertEquals(2, result?.consecutiveFailureCount)
-        assertEquals(100L + RememberedNetworkPolicySuppressionDurationMs, result?.suppressedUntil)
+        assertNull(result?.suppressedUntil)
         assertEquals("strategy-old", result?.strategySignatureJson)
     }
 
@@ -73,6 +73,8 @@ class RememberedPolicyTerminalOutcomeTest {
         assertEquals(1, result?.failureCount)
         assertEquals(0, result?.consecutiveFailureCount)
         assertEquals("strategy-new", result?.strategySignatureJson)
-        assertEquals(100L, result?.lastValidatedAt)
+        // Session time and traffic are no probe evidence: the policy keeps its validation age.
+        assertEquals(10L, result?.lastValidatedAt)
+        assertEquals(RememberedNetworkPolicyStatusValidated, result?.status)
     }
 }

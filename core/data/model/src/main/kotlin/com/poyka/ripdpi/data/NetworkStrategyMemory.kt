@@ -10,7 +10,11 @@ const val RememberedNetworkPolicyStatusValidated = "validated"
 const val RememberedNetworkPolicyStatusSuppressed = "suppressed"
 const val RememberedNetworkPolicyProofDurationMs = 60_000L
 const val RememberedNetworkPolicyProofTransferBytes = 256L * 1024L
-const val RememberedNetworkPolicySuppressionDurationMs = 24L * 60L * 60L * 1_000L
+
+// A validated policy is replayed for this long after the probe that validated it. Past it the network has no
+// validated match, so automatic probing measures it again on the next handover instead of replaying a winner
+// that DPI may have learned to block. Session time and traffic never extend it.
+const val RememberedNetworkPolicyMaxValidatedAgeMs = 7L * 24L * 60L * 60L * 1_000L
 const val RememberedNetworkPolicyRetentionLimit = 64
 
 @Serializable

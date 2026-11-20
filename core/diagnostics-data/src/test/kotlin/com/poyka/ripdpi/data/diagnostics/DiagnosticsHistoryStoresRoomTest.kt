@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionMaxAgeMs
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
 import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
+import com.poyka.ripdpi.data.RememberedNetworkPolicyMaxValidatedAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
@@ -744,8 +745,18 @@ class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
                     mode = "vpn",
                     status = RememberedNetworkPolicyStatusSuppressed,
                     lastValidatedAt = clock.now() - 50L,
-                    suppressedUntil = clock.now() + 1_000L,
+                    // A suppressed policy stays out after the old 24 h window; only a probe validates it again.
+                    suppressedUntil = clock.now() - 1L,
                     updatedAt = clock.now() - 50L,
+                ),
+            )
+            store.upsertRememberedNetworkPolicy(
+                rememberedPolicy(
+                    fingerprintHash = "fp-expired",
+                    mode = "vpn",
+                    status = RememberedNetworkPolicyStatusValidated,
+                    lastValidatedAt = clock.now() - RememberedNetworkPolicyMaxValidatedAgeMs - 1L,
+                    updatedAt = clock.now(),
                 ),
             )
             repeat(RememberedNetworkPolicyRetentionLimit + 2) { index ->
@@ -760,6 +771,7 @@ class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
             }
             assertEquals("fp-match", store.findValidatedRememberedNetworkPolicy("fp-match", "vpn")?.fingerprintHash)
             assertNull(store.findValidatedRememberedNetworkPolicy("fp-suppressed", "vpn"))
+            assertNull(store.findValidatedRememberedNetworkPolicy("fp-expired", "vpn"))
 
             store.pruneRememberedNetworkPolicies()
 
