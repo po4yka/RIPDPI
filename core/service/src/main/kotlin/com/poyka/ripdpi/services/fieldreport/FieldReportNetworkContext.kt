@@ -215,8 +215,8 @@ class FieldReportNetworkContext internal constructor(
         val (target, endpoint) =
             targets.firstNotNullOfOrNull { report -> report.networkHintEndpoint?.let { report to it } } ?: return
         val epoch = synchronized(lock) { hintEpoch }
-        if (!consent()) return
-        val before = defaultNetwork()?.takeUnless { it.vpn || it.networkType == "cellular" } ?: return
+        val network = if (consent()) defaultNetwork() else null
+        val before = network?.takeUnless { it.vpn || it.networkType == "cellular" } ?: return
         coroutineScope {
             val task = launch(start = CoroutineStart.LAZY) { fetchHint(target, endpoint, before, epoch) }
             if (startHint(task, before, epoch)) {
@@ -238,7 +238,8 @@ class FieldReportNetworkContext internal constructor(
     ): Boolean =
         synchronized(lock) {
             val retryAt = cached?.takeIf { it.handle == network.handle }?.nextFetchAtMillis
-            if (epoch != hintEpoch || inFlight != null || (retryAt != null && clock() < retryAt)) {
+            val requestAlreadyOwned = epoch != hintEpoch || inFlight != null
+            if (requestAlreadyOwned || (retryAt != null && clock() < retryAt)) {
                 false
             } else {
                 inFlight = task
