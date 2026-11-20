@@ -71,7 +71,8 @@ internal class VpnTunnelRefreshCoordinator(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: RuntimeCommandSupersededException) {
-                // The claim is the first step, so the tunnel is untouched; the newer command applies the new policy.
+                // The claim in beginDnsRefresh runs before any tunnel or session change. The telemetry poll calls
+                // this refresh again, so the saved policy still applies if the newer command ends without it.
                 Logger.i { "VPN tunnel refresh yielded to a newer runtime command" }
             } catch (error: Exception) {
                 failCurrentGeneration(refreshSession, error)

@@ -96,6 +96,39 @@ class AppliedRuntimeConfigurationStoreTest {
         }
 
     @Test
+    fun `a continuation is superseded only by a different live command`() =
+        runTest {
+            val fixture = Fixture()
+            val store = fixture.store
+            val first = fixture.attempt("runtime", 1)
+            assertTrue(store.begin(first, identity("transport")))
+            assertTrue(store.acknowledge(first, applied(first), null))
+            val next = fixture.continuation(first)
+            val wrongPredecessor =
+                next.copy(
+                    originalIntent =
+                        RuntimeAppliedIntent.Continuation(
+                            next.originalIntent.receipt,
+                            RuntimeAppliedUseIdentity("other-runtime", 1, Mode.VPN.preferenceValue),
+                        ),
+                )
+
+            // The same command still owns the authority, so a rejected claim is a real failure.
+            val rejected = runCatching { store.begin(wrongPredecessor, identity("transport")) }.exceptionOrNull()
+            assertTrue("$rejected", rejected is IllegalStateException && rejected !is RuntimeCommandSupersededException)
+
+            // No live command at all (for example one a schema migration dropped) is a failure too.
+            val withoutCommand =
+                AppliedRuntimeConfigurationStore(testRuntimeAppliedReceiptConsumer(testPauseAuthority()))
+            val orphaned = runCatching { withoutCommand.begin(next, identity("transport")) }.exceptionOrNull()
+            assertTrue("$orphaned", orphaned is IllegalStateException && orphaned !is RuntimeCommandSupersededException)
+
+            fixture.authority.reserveStart(Mode.VPN)
+            val superseded = runCatching { store.begin(next, identity("transport")) }.exceptionOrNull()
+            assertTrue("$superseded", superseded is RuntimeCommandSupersededException)
+        }
+
+    @Test
     fun `failure retains last confirmation without claiming current configuration applied`() =
         runTest {
             val fixture = Fixture()

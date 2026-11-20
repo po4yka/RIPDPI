@@ -146,6 +146,8 @@ internal class VpnRuntimeCompositionCoordinator(
             currentLocalProxyEndpoint = providerDelegate.currentLocalProxyEndpoint
             return evidence
         }
+        // Claim the runtime command first: a superseded claim then leaves the session state as it was.
+        applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
         session.currentDns = null
         session.currentDnsSignature = null
         session.currentNetworkScopeKey = null
@@ -154,7 +156,6 @@ internal class VpnRuntimeCompositionCoordinator(
 
         // Keep the installed TUN as a blocking barrier while the proxy stack changes. The old
         // TUN continues sending packets into the stopped local proxy, so no direct network window opens.
-        applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
         proxyRuntimeStack.stop(skipRuntimeShutdown = false)
         currentLocalProxyEndpoint = null
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)

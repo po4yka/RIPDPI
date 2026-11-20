@@ -220,19 +220,42 @@ class VpnTunnelRefreshCoordinatorTest {
         }
 
     @Test
-    fun refreshYieldsToANewerRuntimeCommandWithoutFailingTheSession() =
+    fun supersededRefreshLeavesTheTunnelAndRunsAgainOnTheNextPoll() =
         runTest {
-            var superseded = false
+            var superseded = true
             with(routingRefreshFixture(beginDns = { if (superseded) throw RuntimeCommandSupersededException() })) {
                 // A newer explicit command took the runtime authority and changed the saved DNS.
-                superseded = true
                 resolver.enqueue(refreshResolution(runtime, plainDnsSettings))
-
                 coordinator.refreshIfNeeded(session)
-
                 assertEquals(1, events.count { it == "vpn:establish" })
                 assertTrue(updates.isEmpty())
-                assertTrue(runtime.isForwarding)
+                assertEquals(originalLease, session.diagnosticsInPathRouteLease)
+
+                // The newer command ended without applying the saved DNS; the next telemetry poll applies it.
+                superseded = false
+                resolver.enqueue(refreshResolution(runtime, plainDnsSettings))
+                sessionProvider.session = TestVpnTunnelSession(tunFd = 8, events = events)
+                coordinator.refreshIfNeeded(session)
+                assertEquals(2, events.count { it == "vpn:establish" })
+                assertEquals(plainDnsSettings.activeDnsSettings(), runtime.requireReadyEvidence().resolverDns)
+                runtime.stop()
+            }
+        }
+
+    @Test
+    fun rejectedClaimWithoutANewerCommandStillFailsTheSession() =
+        runTest {
+            val failures = mutableListOf<Exception>()
+            with(
+                routingRefreshFixture(
+                    beginDns = { error("Runtime command claim rejected") },
+                    onFailure = { failures += it },
+                ),
+            ) {
+                resolver.enqueue(refreshResolution(runtime, plainDnsSettings))
+                coordinator.refreshIfNeeded(session)
+                assertEquals(1, failures.size)
+                assertEquals(1, events.count { it == "vpn:establish" })
                 runtime.stop()
             }
         }
@@ -240,6 +263,7 @@ class VpnTunnelRefreshCoordinatorTest {
     private suspend fun kotlinx.coroutines.test.TestScope.routingRefreshFixture(
         sharedProxyPath: Boolean = false,
         beginDns: () -> Unit = {},
+        onFailure: (Exception) -> Unit = { throw AssertionError("Unexpected refresh failure", it) },
     ): RoutingRefreshFixture {
         val initialSettings = AppSettingsSerializer.defaultValue
         val events = mutableListOf<String>()
@@ -290,7 +314,7 @@ class VpnTunnelRefreshCoordinatorTest {
                 ),
             )
         val overrides = TestResolverOverrideStore()
-        val coordinator = buildRefreshCoordinator(runtime, state, resolver, overrides, updates, beginDns)
+        val coordinator = buildRefreshCoordinator(runtime, state, resolver, overrides, updates, beginDns, onFailure)
 
         return RoutingRefreshFixture(
             initialSettings,
@@ -361,6 +385,7 @@ class VpnTunnelRefreshCoordinatorTest {
         overrides: TestResolverOverrideStore,
         updates: MutableList<String>,
         beginDns: () -> Unit = {},
+        onFailure: (Exception) -> Unit = { throw AssertionError("Unexpected refresh failure", it) },
     ): VpnTunnelRefreshCoordinator =
         VpnTunnelRefreshCoordinator(
             dependencies = buildRefreshDependencies(runtime, resolver, overrides),
@@ -392,7 +417,7 @@ class VpnTunnelRefreshCoordinatorTest {
                     override suspend fun failTunnelRefresh(
                         session: VpnRuntimeSession,
                         error: Exception,
-                    ) = throw AssertionError("Unexpected refresh failure", error)
+                    ) = onFailure(error)
                 },
         )
 
