@@ -74,7 +74,14 @@ class OnboardingStepsScreenTest {
                 (it as OnboardingPage.Informational).titleRes
             },
         )
-        assertEquals(OnboardingPages - presetPages.toSet(), OnboardingPages.subList(2, 5))
+        // The privacy step changes its text too: a preset can route traffic through remote servers.
+        assertEquals(OnboardingPages - presetPages.toSet(), OnboardingPages.subList(1, 5))
+        val presetText = { mode: Mode, page: Int ->
+            (onboardingPages(presetApplied = true, mode = mode)[page] as OnboardingPage.Informational).descriptionRes
+        }
+        assertEquals(R.string.onboarding_local_first_body_preset, presetText(Mode.VPN, 1))
+        assertEquals(R.string.onboarding_preset_connect_body, presetText(Mode.VPN, OnboardingInfoPageCount + 1))
+        assertEquals(R.string.onboarding_preset_connect_body_proxy, presetText(Mode.Proxy, OnboardingInfoPageCount + 1))
 
         renderOnboarding(OnboardingUiState(currentPage = 0))
 

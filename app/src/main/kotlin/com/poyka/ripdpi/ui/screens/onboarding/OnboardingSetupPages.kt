@@ -124,6 +124,7 @@ internal fun OnboardingModeValidationContent(
             state = state,
             selectedMode = uiState.selectedMode,
             notificationsNoteVisible = uiState.notificationsNoteVisible,
+            presetApplied = uiState.presetApplied,
         )
 
         if (state !is OnboardingValidationState.Success) {
@@ -147,6 +148,7 @@ private fun OnboardingValidationStatusBlock(
     state: OnboardingValidationState,
     selectedMode: Mode,
     notificationsNoteVisible: Boolean,
+    presetApplied: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -155,7 +157,7 @@ private fun OnboardingValidationStatusBlock(
 
     when (state) {
         OnboardingValidationState.Idle -> {
-            OnboardingTestIdleNotes(selectedMode, notificationsNoteVisible, modifier)
+            OnboardingTestIdleNotes(selectedMode, notificationsNoteVisible, presetApplied, modifier)
         }
 
         is OnboardingValidationState.Success -> {
@@ -169,7 +171,13 @@ private fun OnboardingValidationStatusBlock(
         is OnboardingValidationState.Failed -> {
             val message =
                 if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION) {
-                    stringResource(R.string.onboarding_test_failed_permission)
+                    stringResource(
+                        if (presetApplied) {
+                            R.string.onboarding_test_permission_preset
+                        } else {
+                            R.string.onboarding_test_failed_permission
+                        },
+                    )
                 } else if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS) {
                     stringResource(R.string.permissions_notifications_open_settings)
                 } else if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS) {
@@ -219,6 +227,7 @@ private fun OnboardingValidationStatusBlock(
 private fun OnboardingTestIdleNotes(
     selectedMode: Mode,
     notificationsNoteVisible: Boolean,
+    presetApplied: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
@@ -235,7 +244,13 @@ private fun OnboardingTestIdleNotes(
                 OnboardingNote(
                     icon = RipDpiIcons.Lock,
                     titleRes = R.string.onboarding_test_permission_card_title,
-                    bodyRes = R.string.onboarding_test_permission_note,
+                    // A preset can carry remote servers, so its note makes no claim about them.
+                    bodyRes =
+                        if (presetApplied) {
+                            R.string.onboarding_test_permission_preset
+                        } else {
+                            R.string.onboarding_test_permission_note
+                        },
                 )
             }
 

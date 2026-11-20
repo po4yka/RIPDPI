@@ -5,10 +5,12 @@
     <string name="biometric_prompt_pin_label">Code PIN de secours</string>
     <string name="biometric_prompt_title">Déverrouiller RIPDPI</string>
     <string name="onboarding_local_first_body">Tout fonctionne sur votre appareil.</string>
+    <string name="onboarding_local_first_body_preset">Vos paramètres restent sur cet appareil. Votre trafic peut passer par les serveurs fournis avec cette application.</string>
     <string name="onboarding_preset_ready_title">Prête à l\'emploi</string>
     <string name="onboarding_preset_ready_body">Cette application contient déjà des serveurs, des règles et des paramètres. Vous pouvez les modifier plus tard dans les onglets « Connexion » et « Paramètres ».</string>
     <string name="onboarding_preset_connect_title">Comment se connecter</string>
     <string name="onboarding_preset_connect_body">Appuyez sur « Connecter » dans l\'onglet « État ». Android peut demander l\'autorisation de créer un VPN local. Pour vous déconnecter, appuyez de nouveau sur le bouton et confirmez.</string>
+    <string name="onboarding_preset_connect_body_proxy">Appuyez sur « Connecter » dans l\'onglet « État ». RIPDPI démarre un proxy local et y affiche son adresse. Seules les applications que vous dirigez vers lui l\'utilisent. Pour vous déconnecter, appuyez de nouveau sur le bouton et confirmez.</string>
     <string name="onboarding_preset_trouble_title">Si cela ne fonctionne pas</string>
     <string name="onboarding_preset_trouble_body">Ouvrez l\'onglet « Diagnostics » et appuyez sur « Vérifier le réseau ». La vérification montre où la connexion échoue. Vous pouvez partager le résumé avec la personne qui vous a donné cette application.</string>
     <string name="onboarding_setup_finish">Terminer</string>
@@ -86,6 +88,7 @@
     <string name="onboarding_test_use_vpn">Utiliser le mode VPN à la place</string>
     <string name="onboarding_test_permission_note">Android peut demander une autorisation avant que RIPDPI puisse créer un tunnel VPN local. Aucun serveur VPN distant n\'est utilisé.</string>
     <string name="onboarding_test_failed_permission">Android exige une autorisation avant que RIPDPI puisse créer un tunnel VPN local sur cet appareil. Aucun serveur VPN distant n\'est utilisé.</string>
+    <string name="onboarding_test_permission_preset">RIPDPI a besoin de l\'autorisation d\'Android pour créer un tunnel VPN sur cet appareil.</string>
     <string name="onboarding_test_change_dns">Changer de DNS</string>
     <string name="onboarding_test_finish_without">Terminer sans tester</string>
     <string name="onboarding_test_state_permission">Android demandera l\'autorisation de créer une connexion VPN locale.</string>

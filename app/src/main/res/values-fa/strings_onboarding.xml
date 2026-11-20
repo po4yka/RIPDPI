@@ -23,10 +23,12 @@
     <string name="biometric_prompt_pin_placeholder">0000</string>
     <string name="biometric_prompt_use_biometric">بازگشت به بیومتریک</string>
     <string name="onboarding_local_first_body">همه‌چیز روی دستگاه شما اجرا می‌شود.</string>
+    <string name="onboarding_local_first_body_preset">تنظیمات شما روی همین دستگاه می‌ماند. ترافیک شما ممکن است از سرورهایی که همراه این برنامه آمده‌اند عبور کند.</string>
     <string name="onboarding_preset_ready_title">آماده استفاده</string>
     <string name="onboarding_preset_ready_body">این برنامه از قبل سرورها، قواعد و تنظیمات را دارد. بعداً می‌توانید آن‌ها را در زبانه‌های «اتصال» و «تنظیمات» تغییر دهید.</string>
     <string name="onboarding_preset_connect_title">روش اتصال</string>
     <string name="onboarding_preset_connect_body">در زبانه «وضعیت» روی «اتصال» بزنید. ممکن است Android برای ساخت VPN محلی اجازه بخواهد. برای قطع اتصال دوباره روی دکمه بزنید و تأیید کنید.</string>
+    <string name="onboarding_preset_connect_body_proxy">در زبانه «وضعیت» روی «اتصال» بزنید. RIPDPI یک پراکسی محلی راه‌اندازی می‌کند و نشانی آن را همان‌جا نشان می‌دهد. فقط برنامه‌هایی که به آن وصل می‌کنید از آن استفاده می‌کنند. برای قطع اتصال دوباره روی دکمه بزنید و تأیید کنید.</string>
     <string name="onboarding_preset_trouble_title">اگر کار نکرد</string>
     <string name="onboarding_preset_trouble_body">زبانه «تشخیص» را باز کنید و روی «بررسی شبکه» بزنید. این بررسی نشان می‌دهد اتصال کجا قطع می‌شود. می‌توانید خلاصه را با کسی که این برنامه را به شما داده است به اشتراک بگذارید.</string>
     <string name="onboarding_setup_finish">پایان</string>
@@ -86,6 +88,7 @@
     <string name="onboarding_test_use_vpn">به‌جای آن از حالت VPN استفاده کنید</string>
     <string name="onboarding_test_permission_note">اندروید ممکن است پیش از آنکه RIPDPI بتواند یک تونل VPN محلی ایجاد کند، درخواست مجوز کند. هیچ سرور VPN راه دوری استفاده نمی‌شود.</string>
     <string name="onboarding_test_failed_permission">اندروید پیش از آنکه RIPDPI بتواند روی این دستگاه یک تونل VPN محلی ایجاد کند، به مجوز نیاز دارد. هیچ سرور VPN راه دوری استفاده نمی‌شود.</string>
+    <string name="onboarding_test_permission_preset">RIPDPI برای ایجاد تونل VPN روی این دستگاه به مجوز اندروید نیاز دارد.</string>
     <string name="onboarding_test_change_dns">تغییر DNS</string>
     <string name="onboarding_test_finish_without">پایان بدون آزمایش</string>
     <string name="onboarding_test_state_permission">اندروید برای ایجاد یک اتصال VPN محلی درخواست مجوز می‌کند.</string>

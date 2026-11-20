@@ -10,10 +10,12 @@
     <string name="biometric_prompt_use_biometric">返回生物识别</string>
     <string name="onboarding_continue">继续</string>
     <string name="onboarding_local_first_body">一切都在你的设备上运行。</string>
+    <string name="onboarding_local_first_body_preset">你的设置保留在此设备上。你的流量可能会经过此应用内置的服务器。</string>
     <string name="onboarding_preset_ready_title">开箱即用</string>
     <string name="onboarding_preset_ready_body">此应用已内置服务器、规则和设置。之后可在“连接”和“设置”标签页中修改。</string>
     <string name="onboarding_preset_connect_title">如何连接</string>
     <string name="onboarding_preset_connect_body">在“状态”标签页点按“连接”。Android 可能会请求创建本地 VPN 的权限。要断开连接,请再次点按该按钮并确认。</string>
+    <string name="onboarding_preset_connect_body_proxy">在“状态”标签页点按“连接”。RIPDPI 会启动本地代理，并在该页显示其地址。只有你指向它的应用才会使用它。要断开连接，请再次点按该按钮并确认。</string>
     <string name="onboarding_preset_trouble_title">如果无法使用</string>
     <string name="onboarding_preset_trouble_body">打开“诊断”标签页并点按“检查网络”。它会显示连接在哪里失败。你可以把摘要分享给提供此应用的人。</string>
     <string name="onboarding_setup_mode_proxy_body">为支持手动代理配置的应用或客户端运行本地代理。</string>
@@ -86,6 +88,7 @@
     <string name="onboarding_test_use_vpn">改用 VPN 模式</string>
     <string name="onboarding_test_permission_note">Android 可能会在 RIPDPI 创建本地 VPN 隧道之前请求权限。不会使用任何远程 VPN 服务器。</string>
     <string name="onboarding_test_failed_permission">Android 要求授予权限,RIPDPI 才能在此设备上创建本地 VPN 隧道。不会使用任何远程 VPN 服务器。</string>
+    <string name="onboarding_test_permission_preset">RIPDPI 需要 Android 授予权限，才能在此设备上创建 VPN 隧道。</string>
     <string name="onboarding_test_change_dns">更改 DNS</string>
     <string name="onboarding_test_finish_without">不测试直接完成</string>
     <string name="onboarding_test_state_permission">Android 将请求创建本地 VPN 连接的权限。</string>

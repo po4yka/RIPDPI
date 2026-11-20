@@ -6,10 +6,12 @@
     <string name="onboarding_continue">Продолжить</string>
     <string name="onboarding_local_first_title">Конфиденциально по умолчанию</string>
     <string name="onboarding_local_first_body">Всё работает на вашем устройстве.</string>
+    <string name="onboarding_local_first_body_preset">Настройки остаются на этом устройстве. Трафик может идти через серверы, которые есть в этом приложении.</string>
     <string name="onboarding_preset_ready_title">Всё готово</string>
     <string name="onboarding_preset_ready_body">В приложении уже есть серверы, правила и настройки. Изменить их можно позже на вкладках «Подключение» и «Настройки».</string>
     <string name="onboarding_preset_connect_title">Как подключиться</string>
     <string name="onboarding_preset_connect_body">Нажмите «Подключить» на вкладке «Статус». Android может запросить разрешение на создание локального VPN. Чтобы отключиться, нажмите кнопку ещё раз и подтвердите.</string>
+    <string name="onboarding_preset_connect_body_proxy">Нажмите «Подключить» на вкладке «Статус». RIPDPI запустит локальный прокси и покажет там его адрес. Им пользуются только приложения, которые вы на него направите. Чтобы отключиться, нажмите кнопку ещё раз и подтвердите.</string>
     <string name="onboarding_preset_trouble_title">Если не работает</string>
     <string name="onboarding_preset_trouble_body">Откройте вкладку «Диагностика» и нажмите «Проверить сеть». Проверка покажет, где обрывается соединение. Сводкой можно поделиться с тем, кто дал вам это приложение.</string>
     <string name="onboarding_setup_finish">Завершить</string>
@@ -80,6 +82,7 @@
     <string name="onboarding_test_use_vpn">Использовать режим VPN</string>
     <string name="onboarding_test_permission_note">Android может запросить разрешение, прежде чем RIPDPI сможет создать локальный VPN-туннель. Удалённый VPN-сервер не используется.</string>
     <string name="onboarding_test_failed_permission">Android требует разрешение, прежде чем RIPDPI сможет создать локальный VPN-туннель на этом устройстве. Удалённый VPN-сервер не используется.</string>
+    <string name="onboarding_test_permission_preset">RIPDPI нужно разрешение Android, чтобы создать VPN-туннель на этом устройстве.</string>
     <string name="onboarding_test_change_dns">Сменить DNS</string>
     <string name="onboarding_test_finish_without">Завершить без проверки</string>
     <string name="onboarding_test_state_permission">Android запросит разрешение на создание локального VPN-подключения.</string>

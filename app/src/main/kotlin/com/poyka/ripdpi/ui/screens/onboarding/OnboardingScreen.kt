@@ -229,7 +229,9 @@ internal fun OnboardingScreen(
     actions: OnboardingScreenActions,
     modifier: Modifier = Modifier,
 ) {
-    CompositionLocalProvider(LocalOnboardingPages provides onboardingPages(uiState.presetApplied)) {
+    CompositionLocalProvider(
+        LocalOnboardingPages provides onboardingPages(uiState.presetApplied, uiState.selectedMode),
+    ) {
         OnboardingScreenContent(uiState, actions, modifier)
     }
 }

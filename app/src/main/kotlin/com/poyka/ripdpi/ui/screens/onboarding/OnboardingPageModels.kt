@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 
 /** A tab or an action of the app, with the icon and the name that it has there. */
@@ -114,9 +115,10 @@ internal val OnboardingPages: List<OnboardingPage> =
 
 /**
  * A packaged preset already made the three choices, so each choice step explains the app instead. The list
- * keeps its length and its order, so the step indexes serve both lists.
+ * keeps its length and its order, so the step indexes serve both lists. The text follows the preset mode,
+ * and the privacy step does not claim that all traffic stays on the device.
  */
-private val PresetOnboardingPages: List<OnboardingPage> =
+private fun presetOnboardingPages(mode: Mode): List<OnboardingPage> =
     OnboardingPages.map { page ->
         when ((page as? OnboardingPage.Setup)?.kind) {
             SetupPageKind.PersonaSelection -> {
@@ -139,7 +141,11 @@ private val PresetOnboardingPages: List<OnboardingPage> =
                     icon = page.icon,
                     kind = InfoPageKind.PresetConnect,
                     titleRes = R.string.onboarding_preset_connect_title,
-                    descriptionRes = R.string.onboarding_preset_connect_body,
+                    descriptionRes =
+                        when (mode) {
+                            Mode.VPN -> R.string.onboarding_preset_connect_body
+                            Mode.Proxy -> R.string.onboarding_preset_connect_body_proxy
+                        },
                     buttonLabelRes = R.string.onboarding_continue,
                     places =
                         listOf(
@@ -166,13 +172,21 @@ private val PresetOnboardingPages: List<OnboardingPage> =
             }
 
             else -> {
-                page
+                if (page is OnboardingPage.Informational && page.kind == InfoPageKind.Privacy) {
+                    page.copy(descriptionRes = R.string.onboarding_local_first_body_preset)
+                } else {
+                    page
+                }
             }
         }
     }
 
-internal fun onboardingPages(presetApplied: Boolean): List<OnboardingPage> =
-    if (presetApplied) PresetOnboardingPages else OnboardingPages
+private val PresetOnboardingPages = Mode.entries.associateWith(::presetOnboardingPages)
+
+internal fun onboardingPages(
+    presetApplied: Boolean,
+    mode: Mode = Mode.VPN,
+): List<OnboardingPage> = if (presetApplied) PresetOnboardingPages.getValue(mode) else OnboardingPages
 
 /** The welcome and the privacy step, which come before the first choice. */
 internal const val OnboardingInfoPageCount = 2

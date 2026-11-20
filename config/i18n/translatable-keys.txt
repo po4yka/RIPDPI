@@ -3348,11 +3348,13 @@ app:onboarding_done_title
 app:onboarding_guarantee_header_local
 app:onboarding_guarantee_header_privacy
 app:onboarding_local_first_body
+app:onboarding_local_first_body_preset
 app:onboarding_local_first_title
 app:onboarding_persona_advanced_body
 app:onboarding_persona_guided_body
 app:onboarding_persona_title
 app:onboarding_preset_connect_body
+app:onboarding_preset_connect_body_proxy
 app:onboarding_preset_connect_title
 app:onboarding_preset_ready_body
 app:onboarding_preset_ready_title
@@ -3374,6 +3376,7 @@ app:onboarding_test_idle_body
 app:onboarding_test_notification_note
 app:onboarding_test_permission_card_title
 app:onboarding_test_permission_note
+app:onboarding_test_permission_preset
 app:onboarding_test_proxy_card_title
 app:onboarding_test_proxy_note
 app:onboarding_test_retry

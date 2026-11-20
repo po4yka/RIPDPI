@@ -7,10 +7,12 @@
     <string name="onboarding_setup_finish">समाप्त करें</string>
     <string name="onboarding_local_first_title">डिज़ाइन से ही निजी</string>
     <string name="onboarding_local_first_body">सब कुछ आपके डिवाइस पर चलता है।</string>
+    <string name="onboarding_local_first_body_preset">आपकी सेटिंग्स इसी डिवाइस पर रहती हैं। आपका ट्रैफ़िक इस ऐप के साथ आए सर्वरों से होकर जा सकता है।</string>
     <string name="onboarding_preset_ready_title">उपयोग के लिए तैयार</string>
     <string name="onboarding_preset_ready_body">इस ऐप में सर्वर, नियम और सेटिंग्स पहले से मौजूद हैं। आप इन्हें बाद में “कनेक्शन” और “सेटिंग्स” टैब में बदल सकते हैं।</string>
     <string name="onboarding_preset_connect_title">कनेक्ट कैसे करें</string>
     <string name="onboarding_preset_connect_body">“स्थिति” टैब पर “कनेक्ट करें” पर टैप करें। Android स्थानीय VPN बनाने की अनुमति माँग सकता है। डिस्कनेक्ट करने के लिए बटन पर फिर से टैप करें और पुष्टि करें।</string>
+    <string name="onboarding_preset_connect_body_proxy">“स्थिति” टैब पर “कनेक्ट करें” पर टैप करें। RIPDPI एक स्थानीय प्रॉक्सी शुरू करता है और वहीं उसका पता दिखाता है। केवल वे ऐप इसका उपयोग करते हैं जिन्हें आप इसकी ओर भेजते हैं। डिस्कनेक्ट करने के लिए बटन पर फिर से टैप करें और पुष्टि करें।</string>
     <string name="onboarding_preset_trouble_title">अगर यह काम न करे</string>
     <string name="onboarding_preset_trouble_body">“जाँच” टैब खोलें और “नेटवर्क जाँचें” पर टैप करें। यह दिखाता है कि कनेक्शन कहाँ विफल होता है। आप सारांश उस व्यक्ति के साथ साझा कर सकते हैं जिसने आपको यह ऐप दिया है।</string>
     <string name="onboarding_setup_mode_vpn_body">सभी ऐप्स को डिवाइस पर मौजूद VPN के ज़रिए रूट करता है। Android पहले अनुमति माँगता है।</string>
@@ -48,6 +50,7 @@
     <string name="onboarding_test_finish_without">परीक्षण किए बिना समाप्त करें</string>
     <string name="onboarding_test_permission_note">RIPDPI द्वारा स्थानीय VPN टनल बनाने से पहले Android अनुमति माँग सकता है। किसी रिमोट VPN सर्वर का उपयोग नहीं किया जाता।</string>
     <string name="onboarding_test_failed_permission">इस डिवाइस पर RIPDPI द्वारा स्थानीय VPN टनल बनाने से पहले Android को अनुमति की आवश्यकता है। किसी रिमोट VPN सर्वर का उपयोग नहीं किया जाता।</string>
+    <string name="onboarding_test_permission_preset">इस डिवाइस पर VPN टनल बनाने के लिए RIPDPI को Android की अनुमति चाहिए।</string>
     <string name="onboarding_test_state_permission">Android स्थानीय VPN कनेक्शन बनाने के लिए अनुमति माँगेगा।</string>
     <string name="onboarding_test_failed_title">कनेक्शन परीक्षण विफल</string>
     <string name="onboarding_test_row_state_pending">लंबित</string>
