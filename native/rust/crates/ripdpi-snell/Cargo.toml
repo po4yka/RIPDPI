@@ -1,0 +1,18 @@
+[package]
+name = "ripdpi-snell"
+version.workspace = true
+edition.workspace = true
+# A port of sagernet/sing-snell (GPL-3.0-or-later); see LICENSE and LICENSING.md.
+license = "GPL-3.0-or-later"
+
+[dependencies]
+aes-gcm = { workspace = true }
+argon2 = { workspace = true }
+rand = { workspace = true }
+tokio = { workspace = true, features = ["io-util"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread", "macros"] }
+
+[lints]
+workspace = true

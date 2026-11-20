@@ -381,7 +381,7 @@ const PER_ADDRESS_CONNECT_TIMEOUT: Duration =
 /// Candidate server addresses in connection order: families interleaved from the resolver's first
 /// family (RFC 8305 section 4), resolver order kept within a family, and only the bind-IP family
 /// when a bind IP is set.
-fn ordered_server_addrs(addrs: Vec<SocketAddr>, bind_ip: Option<IpAddr>) -> Vec<SocketAddr> {
+pub(crate) fn ordered_server_addrs(addrs: Vec<SocketAddr>, bind_ip: Option<IpAddr>) -> Vec<SocketAddr> {
     let first_is_ipv6 = addrs.first().is_some_and(SocketAddr::is_ipv6);
     let (preferred, other): (Vec<_>, Vec<_>) = addrs.into_iter().partition(|addr| addr.is_ipv6() == first_is_ipv6);
     let (mut preferred, mut other) = (preferred.into_iter(), other.into_iter());
@@ -414,12 +414,12 @@ async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStrea
 ///
 /// # Cancel safety:
 /// cancel-safe: cancellation drops the protected socket.
-async fn connect_first(
+pub(crate) async fn connect_first(
     addrs: Vec<SocketAddr>,
     bind_ip: Option<IpAddr>,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> io::Result<TcpStream> {
-    let mut last_error = io::Error::new(io::ErrorKind::AddrNotAvailable, "no usable Shadowsocks server address");
+    let mut last_error = io::Error::new(io::ErrorKind::AddrNotAvailable, "no usable relay server address");
     let last_index = addrs.len().saturating_sub(1);
     for (index, server_addr) in addrs.into_iter().enumerate() {
         let socket = match server_addr {
@@ -438,9 +438,9 @@ async fn connect_first(
         let outcome = if index == last_index {
             attempt.await
         } else {
-            tokio::time::timeout(PER_ADDRESS_CONNECT_TIMEOUT, attempt).await.unwrap_or_else(|_| {
-                Err(io::Error::new(io::ErrorKind::TimedOut, "Shadowsocks server connect timed out"))
-            })
+            tokio::time::timeout(PER_ADDRESS_CONNECT_TIMEOUT, attempt)
+                .await
+                .unwrap_or_else(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "relay server connect timed out")))
         };
         match outcome {
             Ok(stream) => return Ok(stream),

@@ -6,6 +6,7 @@ mod protect;
 mod session_registry;
 mod shadowsocks;
 mod shadowtls;
+mod snell;
 mod ssh;
 mod tor;
 mod trojan;
@@ -31,6 +32,7 @@ pub use shadowtls::{
     ShadowTlsClientConfig, ShadowTlsInnerConfig, ShadowTlsSessionFactory, connect_shadowtls_tcp,
     connect_shadowtls_tcp_over, shadowtls_proxy_target,
 };
+pub use snell::{SnellSession, SnellSessionFactory};
 pub use ssh::{SshAuth, SshConfig, SshHostKeyPolicy, SshSession, SshSessionFactory};
 pub use tor::{TorBridgePtRelayConfig, TorPluggableTransportConfig, TorRelayBackend, TorRelayStream, TorRelayTarget};
 pub use trojan::{

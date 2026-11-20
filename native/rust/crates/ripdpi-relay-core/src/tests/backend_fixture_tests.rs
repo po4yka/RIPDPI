@@ -504,7 +504,7 @@ fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeCon
 #[test]
 fn relay_planned_capabilities_are_pinned_for_every_kind() {
     // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
-    let pinned: [(&str, bool, bool, bool, bool); 15] = [
+    let pinned: [(&str, bool, bool, bool, bool); 16] = [
         ("hysteria2", true, false, true, false),
         ("tuic_v5", true, false, true, true),
         ("vless", true, false, true, true),
@@ -518,6 +518,7 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
         ("trojan", true, false, false, true),
         ("anytls", true, false, true, true),
         ("shadowsocks", true, false, false, true), // the sample profile uses legacy AEAD
+        ("snell", true, false, false, true),
         ("tor", true, false, true, false),
         ("naiveproxy", true, false, false, false),
     ];
@@ -582,6 +583,7 @@ pub(super) fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static s
         RelayBackend::Trojan(_) => Some("trojan"),
         RelayBackend::AnyTls(_) => Some("anytls"),
         RelayBackend::Shadowsocks(_) => Some("shadowsocks"),
+        RelayBackend::Snell(_) => Some("snell"),
         RelayBackend::Tor(_) => Some("tor"),
         RelayBackend::Unsupported { .. } => None,
     }

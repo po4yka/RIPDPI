@@ -111,6 +111,7 @@ members = [
     "crates/ripdpi-webtunnel",
     "crates/ripdpi-xhttp",
     "crates/ripdpi-trojan",
+    "crates/ripdpi-snell",
     "crates/ripdpi-mieru",
     "crates/ripdpi-ssh",
     "crates/ripdpi-network-time",
@@ -222,6 +223,7 @@ ripdpi-tls-profiles = { path = "crates/ripdpi-tls-profiles" }
 ripdpi-webtunnel = { path = "crates/ripdpi-webtunnel" }
 ripdpi-xhttp = { path = "crates/ripdpi-xhttp" }
 ripdpi-trojan = { path = "crates/ripdpi-trojan" }
+ripdpi-snell = { path = "crates/ripdpi-snell" }
 ripdpi-mieru = { path = "crates/ripdpi-mieru" }
 ripdpi-network-time = { path = "crates/ripdpi-network-time" }
 ripdpi-wireguard-ws = { path = "crates/ripdpi-wireguard-ws" }
@@ -242,6 +244,8 @@ ripdpi-tunnel-core = { path = "crates/ripdpi-tunnel-core" }
 
 hdrhistogram = "7"
 aes = "0.9"
+aes-gcm = { version = "0.11", default-features = false, features = ["aes"] }
+argon2 = { version = "0.6", default-features = false, features = ["alloc"] }
 arc-swap = "1"
 android_logger = "0.15"
 anyhow = "1"

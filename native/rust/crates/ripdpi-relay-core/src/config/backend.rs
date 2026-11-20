@@ -9,6 +9,7 @@ mod mieru;
 mod naive;
 mod shadowsocks;
 mod shadowtls;
+mod snell;
 mod ssh;
 mod tor;
 mod trojan;
@@ -25,6 +26,7 @@ pub use mieru::{MieruRelayConfig, MieruTrafficPatternConfig};
 pub use naive::NaiveProxyRelayConfig;
 pub use shadowsocks::ShadowsocksRelayConfig;
 pub use shadowtls::ShadowTlsRelayConfig;
+pub use snell::SnellRelayConfig;
 pub use ssh::SshRelayConfig;
 pub use tor::{TorPluggableTransportConfig, TorRelayConfig};
 pub use trojan::TrojanRelayConfig;
@@ -48,6 +50,7 @@ pub enum RelayBackendConfig {
     Tor(TorRelayConfig),
     AnyTls(AnyTlsRelayConfig),
     Shadowsocks(ShadowsocksRelayConfig),
+    Snell(SnellRelayConfig),
     NaiveProxy(NaiveProxyRelayConfig),
     Unsupported(UnsupportedRelayConfig),
 }
@@ -69,6 +72,7 @@ impl RelayBackendConfig {
             Self::Tor(_) => "tor",
             Self::AnyTls(_) => "anytls",
             Self::Shadowsocks(_) => "shadowsocks",
+            Self::Snell(_) => "snell",
             Self::NaiveProxy(_) => "naiveproxy",
             Self::Unsupported(config) => &config.kind,
         }

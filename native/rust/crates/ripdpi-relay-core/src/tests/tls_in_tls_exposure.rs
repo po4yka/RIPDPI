@@ -18,7 +18,7 @@ use super::*;
 /// `tls_over_tcp` (the one axis classified here) = the outer transport places TLS
 /// records on a TCP stream, the substrate for the TLS-in-TLS-over-TCP fingerprint.
 /// QUIC kinds (`hysteria2` / `tuic_v5` / `masque`) and non-TLS kinds (`mieru` /
-/// `ssh` / `shadowsocks`) are `false`.
+/// `ssh` / `shadowsocks` / `snell`) are `false`.
 ///
 /// The exposed set is then *derived* from the authoritative registry, not from a
 /// second hand-maintained list:
@@ -39,7 +39,7 @@ use super::*;
 #[tokio::test]
 async fn relay_tls_in_tls_exposure_posture_is_pinned_for_every_kind() {
     // kind_id, tls_over_tcp (see the doc comment for the per-family rationale)
-    let tls_over_tcp: [(&str, bool); 15] = [
+    let tls_over_tcp: [(&str, bool); 16] = [
         ("hysteria2", false),
         ("tuic_v5", false),
         ("vless", true),
@@ -53,6 +53,7 @@ async fn relay_tls_in_tls_exposure_posture_is_pinned_for_every_kind() {
         ("trojan", true),
         ("anytls", true),
         ("shadowsocks", false),
+        ("snell", false),
         ("tor", true),
         ("naiveproxy", true),
     ];

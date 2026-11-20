@@ -149,6 +149,7 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
         | RelayKind::ShadowTlsV3
         | RelayKind::Trojan
         | RelayKind::Shadowsocks
+        | RelayKind::Snell
         | RelayKind::Tor
         | RelayKind::NaiveProxy => RelayPoolConfig {
             max_active_leases: SINGLE_CARRIER_MAX_ACTIVE_LEASES,

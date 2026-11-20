@@ -34,6 +34,8 @@ Bundled third-party code keeps its own license. Its notices stay in the files or
 
 Parts of the native desync engine are derived from [byedpi](https://github.com/hufrea/byedpi), Copyright (c) 2024 hufrea, under the MIT License. This includes the command-line option set and constants in `native/rust/crates/ripdpi-config` and the default fake TLS ClientHello in `native/rust/crates/ripdpi-packets`. The license text is in [LICENSES/byedpi-MIT.txt](LICENSES/byedpi-MIT.txt).
 
+The Snell client in `native/rust/crates/ripdpi-snell` is a port of [sagernet/sing-snell](https://github.com/SagerNet/sing-snell), Copyright (C) 2022 by nekohasekai, under the GNU General Public License, version 3 or later (`GPL-3.0-or-later`). GPLv3 section 13 permits its combination with the AGPL-3.0 code. That crate is excluded from the commercial license: a build under the commercial license must remove it together with the `snell` relay kind. The license text and notice are in [LICENSES/sing-snell-GPL-3.0-or-later.txt](LICENSES/sing-snell-GPL-3.0-or-later.txt).
+
 ## Contributions
 
 To keep dual licensing possible, every contribution requires agreement to the [Contributor License Agreement](CLA.md).

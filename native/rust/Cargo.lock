@@ -6475,6 +6475,7 @@ dependencies = [
  "ripdpi-relay-mux",
  "ripdpi-shadowsocks",
  "ripdpi-shadowtls",
+ "ripdpi-snell",
  "ripdpi-ssh",
  "ripdpi-tor",
  "ripdpi-trojan",
@@ -6680,6 +6681,16 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "ripdpi-snell"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "argon2",
+ "rand 0.10.3",
+ "tokio",
 ]
 
 [[package]]

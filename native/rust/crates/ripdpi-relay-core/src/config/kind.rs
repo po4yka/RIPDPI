@@ -15,6 +15,7 @@ pub(crate) enum RelayKind<'a> {
     Tor,
     AnyTls,
     Shadowsocks,
+    Snell,
     NaiveProxy,
     Unsupported(&'a str),
 }
@@ -36,6 +37,7 @@ impl<'a> RelayKind<'a> {
             RelayBackendConfig::Tor(_) => Self::Tor,
             RelayBackendConfig::AnyTls(_) => Self::AnyTls,
             RelayBackendConfig::Shadowsocks(_) => Self::Shadowsocks,
+            RelayBackendConfig::Snell(_) => Self::Snell,
             RelayBackendConfig::NaiveProxy(_) => Self::NaiveProxy,
             RelayBackendConfig::Unsupported(unsupported) => Self::Unsupported(&unsupported.kind),
         }

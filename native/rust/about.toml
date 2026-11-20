@@ -19,6 +19,7 @@ accepted = [
     "Unlicense",
     "CC0-1.0",
     "MPL-2.0",
+    "GPL-3.0-or-later",
 ]
 targets = [
     "aarch64-linux-android",

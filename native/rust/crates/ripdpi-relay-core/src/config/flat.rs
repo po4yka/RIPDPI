@@ -303,6 +303,10 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub shadowsocks_password: Option<String>,
     #[serde(default)]
+    pub snell_psk: Option<String>,
+    #[serde(default)]
+    pub snell_user_key: Option<String>,
+    #[serde(default)]
     pub naive_username: Option<String>,
     #[serde(default)]
     pub naive_password: Option<String>,
@@ -830,6 +834,7 @@ mod tests {
             method: "2022-blake3-aes-256-gcm".to_string(),
             password: Some(secret()),
         });
+        assert_debug_redacts(&SnellRelayConfig { psk: Some(secret()), user_key: Some(secret()) });
         assert_debug_redacts(&NaiveProxyRelayConfig {
             path: secret(),
             username: Some(secret()),

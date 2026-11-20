@@ -256,6 +256,18 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
     },
     RelayTransportRegistration {
         descriptor: RelayTransportDescriptor {
+            kind_id: "snell",
+            label: "Snell",
+            tcp: true,
+            udp: false,
+            reusable: false,
+            supports_outbound_bind_ip: true,
+        },
+        builder: Some(builders::build_snell),
+        fallback_mode: None,
+    },
+    RelayTransportRegistration {
+        descriptor: RelayTransportDescriptor {
             kind_id: "tor",
             label: "Tor",
             tcp: true,

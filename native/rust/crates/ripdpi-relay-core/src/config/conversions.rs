@@ -158,6 +158,9 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 method: flat.shadowsocks_method,
                 password: flat.shadowsocks_password,
             }),
+            "snell" => {
+                RelayBackendConfig::Snell(SnellRelayConfig { psk: flat.snell_psk, user_key: flat.snell_user_key })
+            }
             "tor" => RelayBackendConfig::Tor(TorRelayConfig {
                 state_dir: flat.tor_state_dir,
                 cache_dir: flat.tor_cache_dir,
@@ -269,6 +272,8 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             anytls_password: None,
             shadowsocks_method: String::new(),
             shadowsocks_password: None,
+            snell_psk: None,
+            snell_user_key: None,
             naive_username: None,
             naive_password: None,
             tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
@@ -432,6 +437,10 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             RelayBackendConfig::Shadowsocks(config) => {
                 flat.shadowsocks_method = config.method.clone();
                 flat.shadowsocks_password = config.password.clone();
+            }
+            RelayBackendConfig::Snell(config) => {
+                flat.snell_psk = config.psk.clone();
+                flat.snell_user_key = config.user_key.clone();
             }
             RelayBackendConfig::Tor(config) => {
                 flat.tor_state_dir = config.state_dir.clone();

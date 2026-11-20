@@ -61,6 +61,8 @@ exceptions = [
     { allow = ["CC0-1.0"], crate = "notify@8.2.2" },
     { allow = ["MPL-2.0"], crate = "option-ext@0.2.0" },
     { allow = ["MPL-2.0"], crate = "priority-queue@2.7.0" },
+    # Port of sagernet/sing-snell; excluded from the commercial license (LICENSING.md).
+    { allow = ["GPL-3.0-or-later"], crate = "ripdpi-snell" },
 ]
 
 [bans]

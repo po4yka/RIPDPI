@@ -15,6 +15,7 @@ mod masque;
 mod mieru;
 mod shadowsocks;
 mod shadowtls;
+mod snell;
 mod ssh;
 mod tor;
 mod trojan;
@@ -31,6 +32,7 @@ pub(crate) use masque::{build as build_masque, resolve_ech_before_build as resol
 pub(crate) use mieru::build as build_mieru;
 pub(crate) use shadowsocks::build as build_shadowsocks;
 pub(crate) use shadowtls::build as build_shadowtls;
+pub(crate) use snell::build as build_snell;
 pub(crate) use ssh::build as build_ssh;
 pub(crate) use tor::build as build_tor;
 pub(crate) use trojan::build as build_trojan;

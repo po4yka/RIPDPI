@@ -43,6 +43,7 @@ fn relay_dispatch_class(kind: RelayKind<'_>) -> RelayDispatchClass {
         | RelayKind::Trojan
         | RelayKind::AnyTls
         | RelayKind::Shadowsocks
+        | RelayKind::Snell
         | RelayKind::Tor => RelayDispatchClass::InProcessBackend,
         RelayKind::NaiveProxy => RelayDispatchClass::SubprocessFallback,
         RelayKind::Unsupported(_) => RelayDispatchClass::Unsupported,
@@ -82,6 +83,7 @@ fn relay_transport_registry_is_consistent() {
         sample_config("trojan"),
         sample_config("anytls"),
         sample_config("shadowsocks"),
+        sample_config("snell"),
         sample_config("tor"),
         sample_config("naiveproxy"),
         sample_config("off"),
@@ -184,6 +186,7 @@ fn relay_transport_registry_is_consistent() {
         "trojan",
         "anytls",
         "shadowsocks",
+        "snell",
         "tor",
     ] {
         assert!(
@@ -300,7 +303,7 @@ async fn reality_runtime_rejects_unknown_transport_before_readiness() {
 #[test]
 fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
     // kind_id, fallback_mode, pool max_active_leases, pool idle_timeout (secs)
-    let pinned: [(&str, Option<&str>, usize, u64); 15] = [
+    let pinned: [(&str, Option<&str>, usize, u64); 16] = [
         ("hysteria2", None, 64, 45),
         ("tuic_v5", None, 64, 45),
         ("vless", None, 48, 20),
@@ -314,6 +317,7 @@ fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
         ("trojan", None, 256, 5),
         ("anytls", None, 64, 45),
         ("shadowsocks", None, 256, 5),
+        ("snell", None, 256, 5),
         ("tor", None, 256, 5),
         ("naiveproxy", Some("subprocess"), 256, 5),
     ];
@@ -352,4 +356,20 @@ fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
     let default_pool = pool_config_for_backend(&unsupported);
     assert_eq!(RelayPoolConfig::default().max_active_leases, default_pool.max_active_leases);
     assert_eq!(RelayPoolConfig::default().idle_timeout, default_pool.idle_timeout);
+}
+
+#[tokio::test]
+async fn snell_backend_builds_tcp_only_from_kotlin_wire_fields() {
+    let mut wire = serde_json::to_value(sample_config("snell")).expect("serialize Snell relay config");
+    assert_eq!(wire["snellPsk"], serde_json::json!("secret"));
+    assert_eq!(wire["snellUserKey"], serde_json::json!("user"));
+    let config: ResolvedRelayRuntimeConfig = serde_json::from_value(wire.clone()).expect("Snell wire config");
+    let Ok(backend) = build_backend(&config).await else { panic!("Snell backend must build") };
+    let capabilities = backend.capabilities();
+    assert!(capabilities.tcp && !capabilities.udp && !capabilities.reusable);
+
+    wire["snellPsk"] = serde_json::Value::Null;
+    let config: ResolvedRelayRuntimeConfig = serde_json::from_value(wire).expect("Snell wire config without PSK");
+    let Err(error) = build_backend(&config).await else { panic!("a Snell profile without PSK must not build") };
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
 }
