@@ -145,6 +145,7 @@ fn strategy_test_plan() -> ExecutionPlan {
             suite_id: "quick_v1".to_string(),
             runtime_context: None,
             suite: build_strategy_probe_suite("quick_v1", &base).expect("quick strategy suite"),
+            base_config: base,
             probe_seed: 0,
             max_candidates: None,
         }),

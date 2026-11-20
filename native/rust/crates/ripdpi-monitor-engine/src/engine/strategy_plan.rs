@@ -1,5 +1,5 @@
-use ripdpi_proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
+use ripdpi_proxy_config::{ProxyRuntimeContext, ProxyUiConfig};
 
 use crate::candidates::{StrategyProbeSuite, build_strategy_probe_suite};
 use crate::types::ScanRequest;
@@ -7,6 +7,8 @@ use crate::util::{STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, probe_session_seed};
 
 pub(in crate::engine) struct StrategyExecutionPlan {
     pub(in crate::engine) suite_id: String,
+    /// The validated base config; a recommendation is built only on it, never on defaults.
+    pub(in crate::engine) base_config: ProxyUiConfig,
     pub(in crate::engine) runtime_context: Option<ProxyRuntimeContext>,
     pub(in crate::engine) suite: StrategyProbeSuite,
     pub(in crate::engine) probe_seed: u64,
@@ -38,5 +40,5 @@ pub(super) fn build_strategy_execution_plan(
     let suite = build_strategy_probe_suite(&sp.suite_id, &cfg)?;
     let probe_seed = probe_session_seed(cfg.host_autolearn.network_scope_key.as_deref(), session_id);
     let (max_candidates, suite_id) = (sp.max_candidates, sp.suite_id);
-    Ok(StrategyExecutionPlan { suite_id, probe_seed, runtime_context, suite, max_candidates })
+    Ok(StrategyExecutionPlan { suite_id, base_config: cfg, probe_seed, runtime_context, suite, max_candidates })
 }

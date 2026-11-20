@@ -60,15 +60,7 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         let quic = quic_winner.and_then(|winner| {
             strategy_plan.suite.quic_candidates.iter().find(|spec| spec.id == winner.id).map(|spec| (winner, spec))
         });
-        let base = plan.request.strategy_probe.as_ref()
-            .and_then(|request| request.base_proxy_config_json.as_deref())
-            .and_then(|json| ripdpi_proxy_config::parse_proxy_config_json(json).ok())
-            .and_then(|payload| match payload {
-                ripdpi_proxy_config::ProxyConfigPayload::Ui { config, .. } => Some(config),
-                ripdpi_proxy_config::ProxyConfigPayload::CommandLine { .. } => None,
-            })
-            .unwrap_or_default();
-        let config_json = resolve_recommended_proxy_config_json(&base, tcp, quic)?;
+        let config_json = resolve_recommended_proxy_config_json(&strategy_plan.base_config, tcp, quic)?;
         let confirm_good_corroborated = plan.request.confirm_good_dpi_evidence.is_some() && quic_winner.is_some();
         let labels = tcp_winner.into_iter().chain(quic_winner).map(|winner| winner.label.as_str()).collect::<Vec<_>>();
         Some(StrategyProbeRecommendation {
