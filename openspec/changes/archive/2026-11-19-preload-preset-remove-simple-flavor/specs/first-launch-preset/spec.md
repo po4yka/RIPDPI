@@ -6,7 +6,7 @@ A build can carry a preset so that a recipient installs the full application and
 
 ### Requirement: REQ-PRESET-APPLY — Apply a packaged preset on first launch
 
-When a build packages a preset and the install is fresh, the application MUST restore the preset's groups, profiles, credentials, routing rules, and settings before startup reports ready. The first screen the user sees MUST reflect the restored state without a manual import and without a user-visible restart.
+When a build packages a preset and the install is fresh, the application MUST restore the preset's groups, routing rules, and settings before startup reports ready. The preset MUST NOT carry credentials; the application MUST then consume each pending `BOOTSTRAP` subscription in the preset to receive its servers, without gating readiness. The first screen the user sees MUST reflect the restored state without a manual import and without a user-visible restart.
 
 #### Scenario: Fresh install of a build with a preset
 
@@ -86,17 +86,22 @@ The preset asset path MUST be excluded from source control. The application and 
 
 ### Requirement: REQ-PRESET-PREPARE — Convert a FULL export into a preset with one command
 
-The repository MUST provide one command that turns an encrypted FULL backup export into the plaintext preset asset. The command MUST fail, and MUST NOT write the asset, when the passphrase is wrong, the archive is not a FULL export with credentials, or the backup version is unsupported.
+The repository MUST provide one command that turns a FULL backup export, encrypted or plaintext, into the plaintext preset asset. The asset MUST NOT contain `privateData` and MUST record `containsCredentials` as false. The command MUST fail, and MUST NOT write the asset, when the passphrase is wrong, the backup version is unsupported, the document has profiles or group members, a subscription is not a pending `BOOTSTRAP` subscription, or no group has a pending `BOOTSTRAP` subscription.
 
-#### Scenario: Valid FULL export
+#### Scenario: FULL export with a bootstrap token slot
 
-- **WHEN** the operator runs the command with a FULL export and its passphrase
-- **THEN** the preset asset exists and a build packages it
+- **WHEN** the operator runs the command with a FULL export whose only subscription is an unconsumed `BOOTSTRAP` link and whose groups have no members
+- **THEN** the preset asset exists without `privateData`, with `containsCredentials` false, and a build packages it
 
-#### Scenario: SHARE export
+#### Scenario: Export without a token slot
 
-- **WHEN** the operator runs the command with a SHARE export
-- **THEN** the command fails and names the missing credentials
+- **WHEN** the operator runs the command with an export that has no pending `BOOTSTRAP` subscription, such as a SHARE export, whose links are removed
+- **THEN** the command fails and writes nothing
+
+#### Scenario: Export that carries credentials outside privateData
+
+- **WHEN** the export has profiles, group members, or a long-lived or consumed subscription
+- **THEN** the command fails, names the group by id only, and writes nothing
 
 ### Requirement: REQ-PRESET-SINGLE-EXPERIENCE — Ship one application per distribution channel
 

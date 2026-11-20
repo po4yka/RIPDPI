@@ -35,7 +35,7 @@ Gradle was not run in this implementation (owner rule). Run these and record the
 
 ## Pending
 
-- Conflict with AND-1795015211660121: its preset is a plaintext FULL backup with `privateData` credentials, so the guard fails `staticAnalysis` and `just ci-gates` in any checkout that holds `app/src/main/assets/preset.json`. This change's design assumed the preset carries no credentials; the preset change must narrow to a `BOOTSTRAP` token slot, or the owner must decide otherwise.
+- Resolved (owner decision, 2026-11-20): the conflict with AND-1795015211660121 is closed on branch `fix/preset-bootstrap-slot`. `:app:preparePreset` now drops `privateData`, writes `containsCredentials: false`, and writes nothing unless a group holds a pending `BOOTSTRAP` subscription; it refuses profiles, group members, and every other subscription. The preset carries a token slot that `PendingBootstrapProvisioner` consumes, and `checkShippedAssetSecrets` stays the second check. Evidence: `PreparePresetTaskTest` 6 tests OK, `PresetApplierTest` 6, `AppStartupInitializerTest` 14, `PendingBootstrapProvisionerTest` 3 (logs under `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-preset/`).
 - Server side: `/bootstrap/<token>` must deliver the relay credentials (deploy D4). The client parses the existing bootstrap payload formats; no new endpoint is assumed.
 
 ## Review fixes
