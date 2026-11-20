@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
+import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiWsTunnelConfig
@@ -371,6 +372,62 @@ class ConnectionPolicyResolverTest {
             assertEquals(newUrl, uiPreferences?.wsTunnel?.cloudflareWorkerUrl)
             assertEquals(newRef, uiPreferences?.wsTunnel?.cloudflareWorkerCredentialRef)
             assertEquals("new-secret", uiPreferences?.wsTunnel?.cloudflareWorkerBearer?.value)
+        }
+
+    @Test
+    fun `remembered policy replays only its measured lane over the current settings`() =
+        runTest {
+            val rememberedStore =
+                TestRememberedNetworkPolicyStore().apply {
+                    validatedMatch =
+                        sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
+                            proxyConfigJson =
+                                RipDpiProxyUIPreferences(
+                                    protocols = RipDpiProtocolConfig(desyncHttp = false),
+                                    wsTunnel = RipDpiWsTunnelConfig(enabled = true, mode = "always"),
+                                ).toNativeConfigJson(),
+                            winningTcpStrategyFamily = "split",
+                        )
+                }
+            val currentSettings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDesyncHttp(true)
+                    .setWsTunnelEnabled(false)
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val secrets = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore)
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(secrets, EmptyDestinationRoutingPolicySource),
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(currentSettings),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    rememberedNetworkPolicyStore = rememberedStore,
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = secrets,
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
+                        ),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+            val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+
+            assertEquals(true, resolution.rememberedPolicyAppliedByExactMatch)
+            assertEquals(false, uiPreferences?.protocols?.desyncHttp)
+            assertEquals(false, uiPreferences?.wsTunnel?.enabled)
         }
 
     @Test

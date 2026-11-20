@@ -2,24 +2,23 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import com.poyka.ripdpi.core.RipDpiDirectPathCapability
-import com.poyka.ripdpi.core.RipDpiHostAutolearnConfig
-import com.poyka.ripdpi.core.RipDpiListenConfig
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
+import com.poyka.ripdpi.core.applyStrategyToSettings
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.resolveGeoDatabasePaths
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.core.toRipDpiMorphPolicy
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
-import com.poyka.ripdpi.core.withDestinationRoutingPolicy
 import com.poyka.ripdpi.core.withoutPacketStrategies
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DirectPolicyEnvironment
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
+import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
@@ -240,9 +239,13 @@ internal class ConnectionPolicyRuntimeContextAssembler
             }
         }
 
+        /**
+         * The current settings with only the remembered policy's measured strategy lanes laid over them, the same
+         * overlay a recommendation uses when it is applied. Every other setting stays as the user has it now.
+         */
         suspend fun rememberedPreferences(
             configJson: String,
-            listen: RipDpiListenConfig,
+            rememberedPolicy: RememberedNetworkPolicyJson?,
             hostAutolearnStorePath: String,
             networkScopeKey: String?,
             runtimeContext: RipDpiRuntimeContext?,
@@ -250,36 +253,30 @@ internal class ConnectionPolicyRuntimeContextAssembler
             destinationRouting: DestinationRoutingPolicy,
             awg: AwgActivationRequest? = null,
         ): RipDpiProxyPreferences {
-            val geoPaths = resolveGeoDatabasePaths(context)
-            val effectiveRuntimeContext = withLuaSocketContext(runtimeContext, settings)
             val remembered =
-                com.poyka.ripdpi.core.RipDpiProxyJsonPreferences(
-                    configJson = configJson,
-                    hostAutolearnStorePath = hostAutolearnStorePath,
-                    networkScopeKey = networkScopeKey,
-                    runtimeContext = effectiveRuntimeContext,
-                    rootMode = settings.rootModeEnabled,
-                    rootHelperSocketPath = rootHelperManager.socketPath,
-                    environmentKind = environmentDetector.kind,
-                    geoipDbPath = geoPaths.geoipDbPath,
-                    geositeDbPath = geoPaths.geositeDbPath,
-                    awg = awg,
-                )
-            val rememberedPreferences =
-                checkNotNull(decodeRipDpiProxyUiPreferences(remembered.toNativeConfigJson())) {
-                    "Remembered proxy policy cannot be overlaid with canonical destination routing"
+                checkNotNull(
+                    decodeRipDpiProxyUiPreferences(
+                        com.poyka.ripdpi.core
+                            .RipDpiProxyJsonPreferences(configJson)
+                            .toNativeConfigJson(),
+                    ),
+                ) { "Remembered proxy policy is not a UI config" }
+            // A lane with a winning family was measured; the other lane keeps the current settings.
+            val applyTcp = rememberedPolicy?.winningTcpStrategyFamily != null
+            val applyQuic = rememberedPolicy?.winningQuicStrategyFamily != null
+            val overlaid =
+                if (applyTcp || applyQuic) {
+                    remembered.applyStrategyToSettings(settings, applyTcp, applyQuic)
+                } else {
+                    settings
                 }
-            val currentHostAutolearn =
-                RipDpiHostAutolearnConfig(
-                    enabled = settings.hostAutolearnEnabled,
-                    penaltyTtlHours = settings.hostAutolearnPenaltyTtlHours,
-                    maxHosts = settings.hostAutolearnMaxHosts,
-                    storePath = hostAutolearnStorePath,
-                    networkScopeKey = networkScopeKey,
-                )
-            return rememberedPreferences
-                .withSessionOverrides(listen = listen, hostAutolearn = currentHostAutolearn)
-                .withDestinationRoutingPolicy(destinationRouting, awgOverride = awg)
-                .let { proxySessionSecretResolver.applyRemembered(it, settings) }
+            return baselinePreferences(
+                settings = overlaid,
+                hostAutolearnStorePath = hostAutolearnStorePath,
+                networkScopeKey = networkScopeKey,
+                runtimeContext = runtimeContext,
+                destinationRouting = destinationRouting,
+                awg = awg,
+            )
         }
     }
