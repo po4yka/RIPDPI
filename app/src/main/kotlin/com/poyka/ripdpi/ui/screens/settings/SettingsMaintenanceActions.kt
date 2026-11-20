@@ -226,6 +226,12 @@ internal class SettingsMaintenanceActions(
         }
     }
 
+    fun setFieldReportEnabled(enabled: Boolean) {
+        mutations.updateSetting(key = "fieldReportEnabled", value = enabled.toString()) {
+            setFieldReportEnabled(enabled)
+        }
+    }
+
     fun rotateTelemetrySalt() {
         mutations.launch {
             telemetrySaltStore.rotateSalt()
