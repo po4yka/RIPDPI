@@ -139,12 +139,6 @@ internal class SettingsCustomizationActions(
         }
     }
 
-    fun setFieldReportEnabled(enabled: Boolean) {
-        mutations.updateSetting(key = "fieldReportEnabled", value = enabled.toString()) {
-            setFieldReportEnabled(enabled)
-        }
-    }
-
     fun setDynamicColorEnabled(enabled: Boolean) {
         mutations.updateSetting(key = "dynamicColorEnabled", value = enabled.toString()) {
             setDynamicColorEnabled(enabled)
