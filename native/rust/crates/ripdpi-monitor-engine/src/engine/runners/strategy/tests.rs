@@ -398,6 +398,18 @@ fn promotable_winner_selection_rejects_hostfake_when_replacement_socket_is_missi
 }
 
 #[test]
+fn promotable_winner_selection_needs_half_the_targets() {
+    let specs = build_tcp_candidates(&ProxyUiConfig::default());
+    let caps = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default;
+
+    let one_of_three = vec![strategy_candidate_summary("split_host", "split", 4, 12, 1, 3, false, "partial")];
+    assert_eq!(select_promotable_candidate_index(&one_of_three, &specs, true, true, caps()), None);
+
+    let one_of_one = vec![strategy_candidate_summary("split_host", "split", 4, 4, 1, 1, false, "success")];
+    assert_eq!(select_promotable_candidate_index(&one_of_one, &specs, true, true, caps()), Some(0));
+}
+
+#[test]
 fn promotable_winner_selection_rejects_failed_and_eliminated_candidates() {
     let specs = build_tcp_candidates(&ProxyUiConfig::default());
     let summaries = vec![

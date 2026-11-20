@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.runningReduce
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 // Declaration order is the display order after the recommended lane.
@@ -105,7 +106,7 @@ class ConnectionStrategyLanesSource
     ) {
         /** The running scan while one runs, the last stored strategy test otherwise. */
         fun observe(): Flow<StrategyLanesUiState?> =
-            combine(storedTest(), currentNetworkScopeKey(), runningTest()) { (session, applicable), network, running ->
+            combine(storedTest(), runningTest()) { (session, network, applicable), running ->
                 running ?: session?.toStrategyLanes(currentNetworkScopeKey = network)?.let { lanes ->
                     lanes.copy(lanes = lanes.lanes.map { it.copy(applicable = it.id in applicable) }.toImmutableList())
                 }
@@ -114,13 +115,13 @@ class ConnectionStrategyLanesSource
 
         // A lane offers its strategy only when applying it can succeed and would change the settings.
         @OptIn(ExperimentalCoroutinesApi::class)
-        private fun storedTest(): Flow<Pair<DiagnosticScanSession?, Set<String>>> =
-            history.observeLatestStrategyTest().flatMapLatest { session ->
-                val report = session?.report?.strategyProbeReport
-                if (report == null) {
-                    flowOf(session to emptySet())
+        private fun storedTest(): Flow<Triple<DiagnosticScanSession?, String?, Set<String>>> =
+            combine(history.observeLatestStrategyTest(), currentNetworkScopeKey(), ::Pair).flatMapLatest { pair ->
+                val (session, network) = pair
+                if (session == null) {
+                    flowOf(Triple(null, network, emptySet()))
                 } else {
-                    applier.applicableIds(report).map { session to it }
+                    applier.applicableIds(session, network).map { Triple(session, network, it) }
                 }
             }
 
@@ -165,13 +166,9 @@ class ConnectionStrategyLanesSource
 
         /** Applies the strategy of one lane of the last stored test. False when it cannot be applied. */
         suspend fun applyLane(id: String): Boolean {
-            val report =
-                history
-                    .observeLatestStrategyTest()
-                    .first()
-                    ?.report
-                    ?.strategyProbeReport
-            return report != null && applier.apply(report, id)
+            val session = history.observeLatestStrategyTest().first() ?: return false
+            val network = withContext(dispatchers.io) { runCatching { fingerprints.capture() }.getOrNull()?.scopeKey() }
+            return applier.apply(session, network, id)
         }
 
         // Each candidate the running test reports becomes a lane, in the order the test reaches them.

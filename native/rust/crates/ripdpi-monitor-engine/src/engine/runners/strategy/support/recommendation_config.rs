@@ -333,8 +333,11 @@ pub(in crate::engine::runners::strategy) fn select_safe_or_baseline_candidate_in
 fn candidate_has_promotable_result(candidate: &CandidateSummary) -> bool {
     if candidate.skipped
         || (candidate.desync_execution_required && !candidate.execution_evidence_complete)
-        || candidate.succeeded_targets == 0
         || candidate.total_targets == 0
+        // At least half the targets: one success out of several can be the control host or luck, while a
+        // one-target run stays usable. Auto-persist asks the same 50% of the winner's weighted coverage.
+        || candidate.succeeded_targets == 0
+        || candidate.succeeded_targets * 2 < candidate.total_targets
     {
         return false;
     }

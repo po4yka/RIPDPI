@@ -598,7 +598,8 @@ internal object DiagnosticsScanWorkflow {
     private fun StrategyProbeCandidateSummary.isPromotableStrategyWinner(
         settings: com.poyka.ripdpi.proto.AppSettings,
     ): Boolean {
-        val hasTargetSuccess = !skipped && succeededTargets > 0 && totalTargets > 0
+        // Same bar as the engine: at least half the targets, so one success out of several does not promote.
+        val hasTargetSuccess = !skipped && succeededTargets > 0 && succeededTargets * 2 >= totalTargets
         val hasPromotableOutcome = outcome.lowercase() !in NonPromotableStrategyProbeOutcomes
         val hasProductionEmitter = emitterTier != StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY
         val hasExactEmitter = !exactEmitterRequiresRoot || !emitterDowngraded

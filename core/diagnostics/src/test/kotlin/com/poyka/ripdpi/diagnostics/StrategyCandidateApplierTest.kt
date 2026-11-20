@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.applyStrategyToSettings
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -19,7 +20,7 @@ class StrategyCandidateApplierTest {
             val repository = FakeAppSettingsRepository(defaultDiagnosticsAppSettings())
             val before = repository.snapshot()
 
-            assertTrue(StrategyCandidateApplier(repository).apply(report(), "tcp-pass"))
+            assertTrue(StrategyCandidateApplier(repository).apply(session(), Network, "tcp-pass"))
 
             assertEquals(
                 decodeRipDpiProxyUiPreferences(
@@ -39,8 +40,11 @@ class StrategyCandidateApplierTest {
             assertTrue(engineConfig != config)
             val report = report(candidate("tcp-pass", "success", succeeded = 4).copy(proxyConfigJson = engineConfig))
 
-            assertEquals(setOf("tcp-pass"), StrategyCandidateApplier(repository).applicableIds(report).first())
-            assertTrue(StrategyCandidateApplier(repository).apply(report, "tcp-pass"))
+            assertEquals(
+                setOf("tcp-pass"),
+                StrategyCandidateApplier(repository).applicableIds(session(report), Network).first(),
+            )
+            assertTrue(StrategyCandidateApplier(repository).apply(session(report), Network, "tcp-pass"))
             assertEquals(
                 decodeRipDpiProxyUiPreferences(
                     config,
@@ -54,11 +58,11 @@ class StrategyCandidateApplierTest {
         runTest {
             val repository = FakeAppSettingsRepository(defaultDiagnosticsAppSettings())
             val applier = StrategyCandidateApplier(repository)
-            assertEquals(setOf("tcp-pass"), applier.applicableIds(report()).first())
+            assertEquals(setOf("tcp-pass"), applier.applicableIds(session(), Network).first())
 
-            assertTrue(applier.apply(report(), "tcp-pass"))
+            assertTrue(applier.apply(session(), Network, "tcp-pass"))
 
-            assertEquals(emptySet<String>(), applier.applicableIds(report()).first())
+            assertEquals(emptySet<String>(), applier.applicableIds(session(), Network).first())
         }
 
     @Test
@@ -68,11 +72,53 @@ class StrategyCandidateApplierTest {
             val before = repository.snapshot()
             val applier = StrategyCandidateApplier(repository)
 
-            assertEquals(setOf("tcp-pass"), applier.applicableIds(report()).first())
-            assertFalse(applier.apply(report(), "tcp-blocked"))
-            assertFalse(applier.apply(report(), "missing"))
+            assertEquals(setOf("tcp-pass"), applier.applicableIds(session(), Network).first())
+            assertFalse(applier.apply(session(), Network, "tcp-blocked"))
+            assertFalse(applier.apply(session(), Network, "missing"))
             assertEquals(before, repository.snapshot())
         }
+
+    @Test
+    fun `a test from another network, an unknown network or a partial run applies nothing`() =
+        runTest {
+            val repository = FakeAppSettingsRepository(defaultDiagnosticsAppSettings())
+            val before = repository.snapshot()
+            val applier = StrategyCandidateApplier(repository)
+            val partial = session(report().copy(completionKind = StrategyProbeCompletionKind.PARTIAL_RESULTS))
+            val unknownNetwork = session().copy(networkScopeKey = null)
+
+            assertEquals(emptySet<String>(), applier.applicableIds(session(), "other-network").first())
+            assertFalse(applier.apply(session(), "other-network", "tcp-pass"))
+            assertFalse(applier.apply(unknownNetwork, Network, "tcp-pass"))
+            assertEquals(emptySet<String>(), applier.applicableIds(partial, Network).first())
+            assertFalse(applier.apply(partial, Network, "tcp-pass"))
+            assertEquals(before, repository.snapshot())
+        }
+
+    @Test
+    fun `one success out of several targets is not applicable`() =
+        runTest {
+            val applier = StrategyCandidateApplier(FakeAppSettingsRepository(defaultDiagnosticsAppSettings()))
+            val lucky = session(report(candidate("tcp-pass", "partial", succeeded = 1)))
+            val half = session(report(candidate("tcp-pass", "partial", succeeded = 2)))
+
+            assertFalse(applier.apply(lucky, Network, "tcp-pass"))
+            assertTrue(applier.apply(half, Network, "tcp-pass"))
+        }
+
+    private fun session(report: StrategyProbeReport = report()) =
+        DiagnosticScanSession(
+            id = "session",
+            profileId = "automatic-probing",
+            pathMode = ScanPathMode.RAW_PATH.name,
+            serviceMode = null,
+            status = "completed",
+            summary = "",
+            report = DiagnosticsSessionProjection(strategyProbeReport = report),
+            startedAt = 0L,
+            finishedAt = 1L,
+            networkScopeKey = Network,
+        )
 
     private fun report(pass: StrategyProbeCandidateSummary = candidate("tcp-pass", "success", succeeded = 4)) =
         StrategyProbeReport(
@@ -101,4 +147,8 @@ class StrategyCandidateApplierTest {
         desyncExecutionRequired = false,
         runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
     )
+
+    private companion object {
+        const val Network = "network"
+    }
 }

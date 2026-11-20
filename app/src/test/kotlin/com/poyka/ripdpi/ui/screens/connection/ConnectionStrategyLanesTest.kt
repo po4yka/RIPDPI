@@ -471,10 +471,14 @@ class ConnectionStrategyLanesTest {
                     desyncExecutionRequired = false,
                     runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
                 )
-            val stored = session("stored", report().copy(tcpCandidates = listOf(passing)), startedAt = 10L)
+            val home = fingerprint(dns = "192.0.2.1")
+            val stored =
+                session("stored", report().copy(tcpCandidates = listOf(passing)), startedAt = 10L)
+                    .copy(networkScopeKey = home.scopeKey())
             val source =
                 strategyLanesSource(
                     FakeDiagnosticsHistorySource(stored),
+                    network = home,
                     settings = FakeAppSettingsRepository(),
                     dispatcher = UnconfinedTestDispatcher(testScheduler),
                 )
