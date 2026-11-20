@@ -773,7 +773,7 @@ async fn vless_reality_xhttp_xudp_with_upstream() {
     };
     let endpoint = loopback("RIPDPI_OUTBOUND_XHTTP");
     tokio::time::timeout(Duration::from_secs(15), async {
-        for mode in ["stream-up", "stream-one"] {
+        for mode in ["stream-up", "stream-one", "packet-up"] {
             let mut config = sample_config("vless_reality");
             config.common.udp_enabled = true;
             config.common.server = endpoint.ip().to_string();
