@@ -825,6 +825,58 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `direct network profiles hide the in path scan while the service runs`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            listOf(
+                com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId,
+                com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId,
+            ).forEach { profileId ->
+                val manager =
+                    FakeDiagnosticsManager().apply {
+                        profilesState.value =
+                            listOf(
+                                DiagnosticProfileEntity(
+                                    id = profileId,
+                                    name = profileId,
+                                    source = "bundled",
+                                    version = 1,
+                                    requestJson =
+                                        profileRequest(
+                                            profileId = profileId,
+                                            displayName = profileId,
+                                            manualOnly = true,
+                                        ),
+                                    updatedAt = 1L,
+                                ),
+                            )
+                    }
+                val viewModel =
+                    createDiagnosticsViewModel(
+                        context,
+                        manager,
+                        FakeAppSettingsRepository(),
+                        serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    )
+                val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+                advanceUntilIdle()
+
+                val scan = viewModel.uiState.value.scan
+                val badges = scan.workflowPresentation?.badges?.map { badge -> badge.text }
+                assertFalse(scan.runInPathEnabled)
+                assertNull(scan.runInPathHint)
+                assertEquals(
+                    listOf(
+                        context.getString(R.string.diagnostics_profile_badge_raw_only),
+                        context.getString(R.string.diagnostics_profile_badge_manual_only),
+                    ),
+                    badges,
+                )
+                collector.cancel()
+            }
+        }
+
+    @Test
     fun `connectivity profile disables in path scan while service is halted`() =
         runTest {
             val manager =

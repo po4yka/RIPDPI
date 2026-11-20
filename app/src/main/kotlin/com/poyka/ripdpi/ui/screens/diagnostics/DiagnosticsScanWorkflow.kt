@@ -28,6 +28,8 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanWorkflowBadgeUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanWorkflowPresentationUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.isRawPathOnly
+import com.poyka.ripdpi.ui.screens.diagnostics.state.workflowBadgeLabels
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -97,7 +99,7 @@ internal fun DiagnosticsScanWorkflowCard(
         )
         WorkflowScopeGuidance(scan)
         WorkflowActionRow(
-            strategyProbeSelected = strategyProbeSelected,
+            rawPathOnly = profile.isRawPathOnly,
             scan = scan,
             spacing = spacing.sm,
             presentation = presentation,
@@ -447,93 +449,20 @@ private fun workflowBadges(
     strategyProbeSelected: Boolean,
     isFullAudit: Boolean,
 ): List<DiagnosticsScanWorkflowBadgeUiModel> =
-    buildList {
-        if (isFullAudit) {
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_http_https_quic),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_all_builtin),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_raw_only),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_manual_apply),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-        } else if (strategyProbeSelected) {
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_http_https_quic),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_raw_only),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_manual_apply),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-        } else {
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_dns_http_https_tcp),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_raw_and_in_path),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-        }
-        if (profile.manualOnly) {
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_manual_only),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-        }
-        if (profile.regionTag?.equals("ru", ignoreCase = true) == true) {
-            add(
-                DiagnosticsScanWorkflowBadgeUiModel(
-                    stringResource(R.string.diagnostics_profile_badge_region_net),
-                    DiagnosticsTone.Neutral,
-                ),
-            )
-        }
+    workflowBadgeLabels(profile, strategyProbeSelected, isFullAudit).map { label ->
+        DiagnosticsScanWorkflowBadgeUiModel(stringResource(label), DiagnosticsTone.Neutral)
     }
 
 @Composable
 private fun WorkflowActionRow(
-    strategyProbeSelected: Boolean,
+    rawPathOnly: Boolean,
     scan: com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel,
     spacing: androidx.compose.ui.unit.Dp,
     presentation: DiagnosticsScanWorkflowPresentationUiModel,
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
 ) {
-    if (strategyProbeSelected) {
+    if (rawPathOnly) {
         RipDpiButton(
             text = presentation.rawActionLabel,
             onClick = onRunRawScan,
