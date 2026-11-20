@@ -161,12 +161,12 @@ class SubscriptionRefreshCoordinator private constructor(
             group.subscription
                 ?: return SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.UNREACHABLE, retryable = false)
         val priorFailure = subscription.lastRefreshFailure
-        return if (subscription.link.isBlank()) {
-            // A local import or a redacted backup has no source; recording UNREACHABLE would be false.
-            SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.UNREACHABLE, retryable = false)
-        } else if (subscription.kind == SubscriptionKind.BOOTSTRAP) {
+        return if (subscription.kind == SubscriptionKind.BOOTSTRAP) {
             // Only BootstrapConsumer may consume this URL; refresh never replays single-use delivery.
             SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.INVALIDATED, retryable = false)
+        } else if (subscription.link.isBlank()) {
+            // A local import or a redacted backup has no source; recording UNREACHABLE would be false.
+            SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.UNREACHABLE, retryable = false)
         } else if (!manual && priorFailure?.isTerminal == true) {
             SubscriptionRefreshResult.Failed(priorFailure, retryable = false)
         } else {

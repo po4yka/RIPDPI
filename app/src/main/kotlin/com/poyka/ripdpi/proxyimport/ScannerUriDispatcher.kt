@@ -43,8 +43,15 @@ sealed interface ImportPayload {
  * `.conf` with Interface and Peer headers. The editor validates their contents.
  */
 object ImportPayloadClassifier {
-    fun classify(text: String): ImportPayload? {
-        localBundle(text)?.let { return ImportPayload.Subscription(it) }
+    /**
+     * [maxBundleBytes] stays at the import-text bound on the main thread; only a caller that
+     * classifies off the main thread (a read file) raises it to the subscription bound.
+     */
+    fun classify(
+        text: String,
+        maxBundleBytes: Int = MaxImportFileBytes,
+    ): ImportPayload? {
+        localBundle(text, maxBundleBytes)?.let { return ImportPayload.Subscription(it) }
         val trimmed = text.takeIf(::isWithinImportTextLimit)?.let { it.trim().removePrefix(ByteOrderMark).trim() }
         if (trimmed.isNullOrEmpty()) return null
         return (ProxyUriShareDispatcher.dispatch(trimmed) as? ProxyImportRequest.Profile)?.let(ImportPayload::Profile)
@@ -59,10 +66,21 @@ object ImportPayloadClassifier {
      * Raw RIPDPI bundle JSON (a top-level object with a `ripdpi` block). Any schema version is
      * routed here so the import rejects it with the same error as the HTTPS path.
      */
-    private fun localBundle(text: String): PendingSubscriptionImportRequest? {
-        if (!isWithinLocalBundleLimit(text)) return null
+    private fun localBundle(
+        text: String,
+        maxBytes: Int,
+    ): PendingSubscriptionImportRequest? {
+        // Cheap prefix check before any size or JSON work.
+        if (text
+                .trimStart()
+                .removePrefix(ByteOrderMark)
+                .trimStart()
+                .firstOrNull() != '{'
+        ) {
+            return null
+        }
+        if (!isWithinImportTextLimit(text, maxBytes)) return null
         val json = text.trim().removePrefix(ByteOrderMark).trim()
-        if (!json.startsWith('{')) return null
         val root = runCatching { Json.parseToJsonElement(json) }.getOrNull() as? JsonObject ?: return null
         return if (root["ripdpi"] is JsonObject) {
             PendingSubscriptionImportRequest(

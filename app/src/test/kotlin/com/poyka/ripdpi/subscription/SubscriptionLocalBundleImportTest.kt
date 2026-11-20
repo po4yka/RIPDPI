@@ -1,14 +1,58 @@
 package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
+import com.poyka.ripdpi.proxyimport.PendingSubscriptionImportRequest
+import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
+import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SubscriptionLocalBundleImportTest : SubscriptionRefreshTestSupport() {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `a commit that fails after the group is added discards that group`() =
+        runTest {
+            val fixture = fixture(1_800_000_000_000L)
+            val discarded = mutableListOf<String>()
+            val viewModel =
+                SubscriptionImportConfirmViewModel(
+                    repository = fixture.repository,
+                    discardGroup = { discarded += it },
+                    importLocalBundle = { name, text ->
+                        fixture.coordinator.importLocalBundle(name, text)
+                        error("commit failed")
+                    },
+                )
+            val store = PendingProxyImportStore()
+            val token = store.stageSubscription(PendingSubscriptionImportRequest("", "", false, bundle = bundle()))!!
+            assertTrue(viewModel.claimRequest(token, store))
+            assertEquals("RIPDPI", viewModel.uiState.value.name)
+
+            viewModel.confirm()
+            viewModel.uiState.first { !it.importing }
+
+            assertTrue(viewModel.uiState.value.importFailed)
+            assertEquals(
+                listOf(
+                    fixture.repository
+                        .list()
+                        .single { it.name == "RIPDPI" }
+                        .id,
+                ),
+                discarded,
+            )
+        }
+
     @Test
     fun `local bundle persists the same AWG profile as the https path`() =
         runTest {

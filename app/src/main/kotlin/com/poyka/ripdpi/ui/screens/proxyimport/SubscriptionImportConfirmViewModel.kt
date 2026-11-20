@@ -25,6 +25,7 @@ import com.poyka.ripdpi.proxyimport.subscriptionHost
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateScheduler
 import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
+import com.poyka.ripdpi.subscription.isLocalBundle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -164,7 +165,16 @@ class SubscriptionImportConfirmViewModel
 
                 else -> {
                     claimedImportToken = importToken
-                    setRequest(request.url, request.name, request.bootstrap)
+                    // The card shows the same name the local import saves.
+                    val name =
+                        if (request.bundle !=
+                            null
+                        ) {
+                            request.name.ifBlank { LocalBundleDefaultName }
+                        } else {
+                            request.name
+                        }
+                    setRequest(request.url, name, request.bootstrap)
                     localBundleText = request.bundle
                     _uiState.update { it.copy(localBundle = request.bundle != null) }
                     true
@@ -204,12 +214,7 @@ class SubscriptionImportConfirmViewModel
             viewModelScope.launch {
                 try {
                     if (bundle != null) {
-                        val result = importLocalBundle(state.name.ifBlank { LocalBundleDefaultName }, bundle)
-                        if (result is SubscriptionRefreshResult.Updated) {
-                            completeImport()
-                        } else {
-                            _uiState.update { it.copy(importFailed = true) }
-                        }
+                        importBundle(state.name, bundle)
                         return@launch
                     }
                     val groups = repository.list()
@@ -254,6 +259,40 @@ class SubscriptionImportConfirmViewModel
                     _uiState.update { it.copy(importing = false) }
                 }
             }
+        }
+
+        /** A rejected or failed local import leaves no new group behind (same cleanup as the URL path). */
+        private suspend fun importBundle(
+            name: String,
+            bundle: String,
+        ) {
+            val isNew = repository.list().none { it.isLocalBundle() && it.name == name }
+            val result =
+                try {
+                    importLocalBundle(name, bundle)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: Exception) {
+                    null
+                }
+            if (result is SubscriptionRefreshResult.Updated) {
+                localBundleText = null
+                completeImport()
+                return
+            }
+            if (isNew) {
+                repository.list().firstOrNull { it.isLocalBundle() && it.name == name }?.let {
+                    discardGroup(
+                        it.id,
+                    )
+                }
+            }
+            _uiState.update { it.copy(importFailed = true) }
+        }
+
+        override fun onCleared() {
+            localBundleText = null
+            super.onCleared()
         }
 
         private suspend fun refreshAndCompleteImport(

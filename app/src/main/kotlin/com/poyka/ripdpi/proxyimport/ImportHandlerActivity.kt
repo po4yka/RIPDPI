@@ -5,16 +5,19 @@ import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.core.content.IntentCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
+import com.poyka.ripdpi.subscription.profileTitleOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Trampoline activity for inbound proxy share links, subscription deep links, and shared
@@ -200,11 +203,45 @@ class ImportHandlerActivity : Activity() {
     /** Cancelling the Activity also cancels its bounded import operation. */
     private fun readSharedFile(uri: Uri) {
         importScope.launch {
+            val resolver = applicationContext.contentResolver
             // The larger bundle bound; the classifier keeps the import-text bound for every other format.
-            val text = readImportText(applicationContext.contentResolver, uri, MaxLocalBundleBytes)
-            text?.let(ImportPayloadClassifier::classify)?.let(::forward) ?: toast(R.string.import_error_unsupported)
+            val text = readImportText(resolver, uri, MaxLocalBundleBytes)
+            val payload =
+                text?.let {
+                    withContext(
+                        Dispatchers.Default,
+                    ) { ImportPayloadClassifier.classify(it, MaxLocalBundleBytes) }
+                }
+            val named =
+                (payload as? ImportPayload.Subscription)
+                    ?.takeIf { it.request.bundle != null }
+                    ?.let { bundle ->
+                        val name = withContext(Dispatchers.IO) { bundleNameOf(resolver, uri) }
+                        ImportPayload.Subscription(bundle.request.copy(name = name))
+                    }
+                    ?: payload
+            named?.let(::forward) ?: toast(R.string.import_error_unsupported)
             finish()
         }
+    }
+
+    /**
+     * The document's display name without `.json`, cleaned and bounded like a server title; empty when
+     * the provider has none.
+     * shortcut: an unresponsive provider can stall this query and hold this trampoline, bound it if that shows up.
+     */
+    private fun bundleNameOf(
+        resolver: ContentResolver,
+        uri: Uri,
+    ): String {
+        val displayName =
+            runCatching {
+                resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+            }.getOrNull().orEmpty().trim()
+        val hasSuffix = displayName.endsWith(JsonSuffix, ignoreCase = true)
+        return profileTitleOf(if (hasSuffix) displayName.dropLast(JsonSuffix.length) else displayName)
     }
 
     private fun forward(payload: ImportPayload) {
@@ -249,6 +286,8 @@ class ImportHandlerActivity : Activity() {
     }
 
     companion object {
+        private const val JsonSuffix = ".json"
+
         /** Which import-confirmation destination [MainActivity] should open. */
         const val EXTRA_IMPORT_ROUTE: String = "com.poyka.ripdpi.extra.IMPORT_ROUTE"
 
