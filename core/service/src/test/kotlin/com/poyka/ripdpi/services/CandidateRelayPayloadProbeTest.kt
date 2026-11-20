@@ -12,7 +12,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.RelayCredentialRecord
-import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -408,7 +408,7 @@ class CandidateRelayPayloadProbeTest {
                 CandidateRelayPayloadProbe(
                     resolve = { _, _, _ ->
                         throw ServiceStartupRejectedException(
-                            FailureReason.RelayFingerprintPolicyRejected("relay.example rejected"),
+                            FailureReason.RelayFingerprintPolicyRejected("tunnel.example requires chrome_stable"),
                         )
                     },
                     runtimeFactory = factory(runtime),
@@ -432,8 +432,12 @@ class CandidateRelayPayloadProbeTest {
                 assertEquals(
                     CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Configuration),
                     probe.measure(
-                        RelayProfileRecord(id = "candidate", kind = RelayKindHysteria2, server = "relay.example"),
-                        RelayCredentialRecord(profileId = "candidate", hysteriaPassword = CredentialFixture),
+                        RelayProfileRecord(
+                            id = "candidate",
+                            kind = RelayKindCloudflareTunnel,
+                            server = "tunnel.example",
+                        ),
+                        RelayCredentialRecord(profileId = "candidate", cloudflareTunnelToken = CredentialFixture),
                         "https://probe",
                     ),
                 )
@@ -441,7 +445,7 @@ class CandidateRelayPayloadProbeTest {
                 Logger.setLogWriters(previousWriters)
             }
             assertEquals(
-                listOf("Candidate relay check rejected: kind=hysteria2 reason=RelayFingerprintPolicyRejected"),
+                listOf("Candidate relay check rejected: kind=cloudflare_tunnel reason=RelayFingerprintPolicyRejected"),
                 warnings,
             )
             assertEquals(null, runtime.config)

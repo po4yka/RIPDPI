@@ -1184,7 +1184,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
         }
 
     @Test
-    fun `resolve hysteria2 family projects credentials under a non-chrome profile`() =
+    fun `resolve hysteria2 family projects credentials`() =
         runTest {
             val resolver =
                 resolver(

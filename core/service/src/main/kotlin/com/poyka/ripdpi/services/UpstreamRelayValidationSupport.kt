@@ -245,18 +245,7 @@ internal fun validateCloudflareTunnelFeatures(
     }
 }
 
-internal fun validateDefaultRelayFeatures(
-    config: RipDpiRelayConfig,
-    tlsFingerprintProfile: String,
-) {
-    if (config.kind == RelayKindHysteria2 && tlsFingerprintProfile == TlsFingerprintProfileChromeStable) {
-        throw ServiceStartupRejectedException(
-            FailureReason.RelayFingerprintPolicyRejected(
-                "Hysteria2 requires a non-Chrome TLS fingerprint. Open Settings → Detection resistance → " +
-                    "TLS fingerprint profile and choose Firefox, Safari, Edge, or Chrome desktop, then reconnect.",
-            ),
-        )
-    }
+internal fun validateDefaultRelayFeatures(config: RipDpiRelayConfig) {
     if (config.kind == RelayKindGoogleAppsScript) {
         require(config.appsScriptScriptIds.isNotEmpty()) {
             "Google Apps Script relay requires at least one Apps Script deployment id"

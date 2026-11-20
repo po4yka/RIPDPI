@@ -34,7 +34,6 @@ import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
-import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -2043,65 +2042,7 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
-    fun `strict chrome fingerprint rejects hysteria2 startup`() =
-        runTest {
-            val supervisor =
-                UpstreamRelaySupervisor(
-                    scope = backgroundScope,
-                    dispatcher = StandardTestDispatcher(testScheduler),
-                    relayFactory = TestRipDpiRelayFactory(),
-                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                    relayProfileStore =
-                        TestRelayProfileStore().apply {
-                            save(
-                                RelayProfileRecord(
-                                    id = "edge",
-                                    kind = RelayKindHysteria2,
-                                    server = "relay.example",
-                                    serverPort = 8443,
-                                    serverName = "relay-sni.example",
-                                ),
-                            )
-                        },
-                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
-                    relayCredentialStore =
-                        TestRelayCredentialStore().apply {
-                            save(
-                                RelayCredentialRecord(
-                                    profileId = "edge",
-                                    hysteriaPassword = "fixture-pass",
-                                ),
-                            )
-                        },
-                )
-
-            try {
-                supervisor.start(
-                    expectedSelection =
-                        com.poyka.ripdpi.data
-                            .RuntimeConfigurationSelection("native"),
-                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
-                    requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
-                    config =
-                        RipDpiRelayConfig(
-                            enabled = true,
-                            kind = RelayKindHysteria2,
-                            profileId = "edge",
-                        ),
-                    onUnexpectedExit = {},
-                )
-                fail("Expected strict TLS policy to reject Hysteria2")
-            } catch (error: ServiceStartupRejectedException) {
-                val reason = error.reason
-                assertTrue(reason is FailureReason.RelayFingerprintPolicyRejected)
-                val message = (reason as FailureReason.RelayFingerprintPolicyRejected).message
-                assertTrue(message.contains("non-Chrome TLS fingerprint"))
-                assertTrue(message.contains("Detection resistance"))
-            }
-        }
-
-    @Test
-    fun `non chrome fingerprint allows hysteria2 startup`() =
+    fun `chrome stable fingerprint allows hysteria2 startup`() =
         runTest {
             val relayFactory = TestRipDpiRelayFactory()
             val supervisor =
@@ -2143,7 +2084,7 @@ class UpstreamRelaySupervisorTest {
                 inputs =
                     testRelayResolutionInputs(
                         quic = OwnedRelayQuicMigrationConfig(),
-                        tlsProfile = TlsFingerprintProfileFirefoxStable,
+                        tlsProfile = TlsFingerprintProfileChromeStable,
                     ),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
@@ -2155,7 +2096,9 @@ class UpstreamRelaySupervisorTest {
                 onUnexpectedExit = {},
             )
 
-            assertEquals(RelayKindHysteria2, relayFactory.lastRuntime.lastConfig?.kind)
+            val started = relayFactory.lastRuntime.lastConfig
+            assertEquals(RelayKindHysteria2, started?.kind)
+            assertEquals(TlsFingerprintProfileChromeStable, started?.tlsFingerprintProfile)
 
             supervisor.stop()
         }
