@@ -60,7 +60,7 @@
     <!-- onboarding refactor additions -->
     <!-- intro chips -->
     <string name="onboarding_chip_no_account">Sans compte</string>
-    <string name="onboarding_chip_no_telemetry">Sans télémétrie</string>
+    <string name="onboarding_chip_no_tracking">Sans pistage</string>
     <string name="onboarding_chip_no_cloud_sync">Sans synchronisation cloud</string>
     <string name="onboarding_guarantee_header_privacy">Confidentialité</string>
     <string name="onboarding_guarantee_header_local">Sur votre appareil</string>

@@ -60,7 +60,7 @@
     <!-- onboarding refactor additions -->
     <!-- intro chips -->
     <string name="onboarding_chip_no_account">无账号</string>
-    <string name="onboarding_chip_no_telemetry">无遥测</string>
+    <string name="onboarding_chip_no_tracking">无追踪</string>
     <string name="onboarding_chip_no_cloud_sync">无云同步</string>
     <string name="onboarding_guarantee_header_privacy">隐私</string>
     <string name="onboarding_guarantee_header_local">在你的设备上</string>

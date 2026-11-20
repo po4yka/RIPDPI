@@ -58,7 +58,7 @@
     <string name="biometric_dialog_cancel">Отмена</string>
     <string name="biometric_auth_error_title">Ошибка аутентификации</string>
     <string name="onboarding_chip_no_account">Без аккаунта</string>
-    <string name="onboarding_chip_no_telemetry">Без телеметрии</string>
+    <string name="onboarding_chip_no_tracking">Без слежки</string>
     <string name="onboarding_chip_no_cloud_sync">Без облачной синхронизации</string>
     <string name="onboarding_guarantee_header_privacy">Конфиденциальность</string>
     <string name="onboarding_guarantee_header_local">На вашем устройстве</string>

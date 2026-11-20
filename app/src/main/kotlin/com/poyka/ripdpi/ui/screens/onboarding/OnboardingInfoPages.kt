@@ -49,7 +49,7 @@ internal fun OnboardingInfoPageScene(
                 privacyLabels =
                     listOf(
                         R.string.onboarding_chip_no_account,
-                        R.string.onboarding_chip_no_telemetry,
+                        R.string.onboarding_chip_no_tracking,
                         R.string.onboarding_chip_no_cloud_sync,
                     ),
                 localLabels =

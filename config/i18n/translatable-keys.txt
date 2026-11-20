@@ -3335,7 +3335,7 @@ app:onboarding_chip_local_proxy
 app:onboarding_chip_local_vpn
 app:onboarding_chip_no_account
 app:onboarding_chip_no_cloud_sync
-app:onboarding_chip_no_telemetry
+app:onboarding_chip_no_tracking
 app:onboarding_continue
 app:onboarding_dns_title
 app:onboarding_done_dns

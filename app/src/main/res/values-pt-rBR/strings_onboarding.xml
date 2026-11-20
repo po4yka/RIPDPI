@@ -24,7 +24,7 @@
     <string name="onboarding_validation_notifications_required">Permita notificações para que o RIPDPI possa mostrar o status do serviço de validação.</string>
     <string name="onboarding_validation_vpn_permission_denied">A permissão de VPN foi negada, então o RIPDPI não pôde validar o modo VPN.</string>
     <string name="onboarding_chip_no_account">Sem conta</string>
-    <string name="onboarding_chip_no_telemetry">Sem telemetria</string>
+    <string name="onboarding_chip_no_tracking">Sem rastreamento</string>
     <string name="onboarding_chip_no_cloud_sync">Sem sincronização na nuvem</string>
     <string name="onboarding_guarantee_header_privacy">Privacidade</string>
     <string name="onboarding_guarantee_header_local">No seu dispositivo</string>
