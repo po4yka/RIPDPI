@@ -8,7 +8,7 @@
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::os::fd::{AsRawFd, RawFd};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use data_encoding::BASE32_DNSSEC;
 use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
@@ -24,8 +24,11 @@ use x25519_dalek::{EphemeralSecret, PublicKey, StaticSecret};
 pub const VERSION: u8 = 2;
 const KEY_LEN: usize = 32;
 const MAC_LEN: usize = 16;
-/// Version, client X25519 public key and chunk index; the MAC covers exactly these bytes.
-const REQUEST_BODY_LEN: usize = 1 + KEY_LEN + 2;
+/// Version, client X25519 public key, minute stamp and chunk index; the MAC covers exactly these bytes.
+const REQUEST_BODY_LEN: usize = 1 + KEY_LEN + 2 + 2;
+/// A query stamped further than this from the bridge clock gets no answer, so a captured query cannot be
+/// replayed later to confirm that the address is a bridge.
+pub const FRESHNESS_MINUTES: i16 = 5;
 const REQUEST_LEN: usize = REQUEST_BODY_LEN + MAC_LEN;
 const LABEL_LEN: usize = 63;
 /// Envelope bytes per TXT answer; with [`MAX_ZONE_LEN`] every response stays below [`MAX_DATAGRAM_LEN`].
@@ -39,7 +42,7 @@ pub const MAX_PAYLOAD_LEN: usize = 64 * 1024;
 const MAX_ENVELOPE_LEN: usize = MAX_PAYLOAD_LEN + ENVELOPE_OVERHEAD;
 /// Classic DNS UDP limit; a larger datagram is rejected, never parsed.
 pub const MAX_DATAGRAM_LEN: usize = 512;
-/// Keeps an uncompressed reply under [`MAX_DATAGRAM_LEN`] next to the 82-character request labels.
+/// Keeps an uncompressed reply under [`MAX_DATAGRAM_LEN`] next to the 85-character request labels.
 pub const MAX_ZONE_LEN: usize = 60;
 const SIGNING_CONTEXT: &[u8] = b"ripdpi-dns-morph-v2\0";
 const KEY_INFO: &[u8] = b"ripdpi-dns-morph-v2 payload key";
@@ -123,7 +126,8 @@ pub fn fetch(
     let mut total: Option<usize> = None;
     let mut index: u16 = 0;
     while total.is_none_or(|total| envelope.len() < total) {
-        let name = request_name(&bridge.zone, &bridge.keys, client_key.as_bytes(), index)?;
+        let name =
+            request_name(&bridge.zone, &bridge.keys, client_key.as_bytes(), minute_stamp(SystemTime::now()), index)?;
         let chunk = exchange(&socket, &rng, name, deadline)?;
         let (chunk_total, chunk_index, data) = split_chunk(&chunk)?;
         if chunk_total > MAX_ENVELOPE_LEN {
@@ -223,11 +227,24 @@ fn split_chunk(chunk: &[u8]) -> Result<(usize, u16, &[u8]), FetchError> {
     Ok((total, u16::from_be_bytes([header[4], header[5]]), data))
 }
 
-fn request_name(zone: &Name, keys: &TokenKeys, client_key: &[u8; KEY_LEN], index: u16) -> Result<Name, FetchError> {
+/// Minutes since the Unix epoch, wrapping at 2^16 (about 45 days); only the distance to the bridge clock matters.
+fn minute_stamp(now: SystemTime) -> u16 {
+    let minutes = now.duration_since(SystemTime::UNIX_EPOCH).map_or(0, |since| since.as_secs() / 60);
+    (minutes % (1 << 16)) as u16
+}
+
+fn request_name(
+    zone: &Name,
+    keys: &TokenKeys,
+    client_key: &[u8; KEY_LEN],
+    minute: u16,
+    index: u16,
+) -> Result<Name, FetchError> {
     let mut request = [0u8; REQUEST_LEN];
     request[0] = VERSION;
     request[1..=KEY_LEN].copy_from_slice(client_key);
-    request[KEY_LEN + 1..REQUEST_BODY_LEN].copy_from_slice(&index.to_be_bytes());
+    request[KEY_LEN + 1..KEY_LEN + 3].copy_from_slice(&minute.to_be_bytes());
+    request[KEY_LEN + 3..REQUEST_BODY_LEN].copy_from_slice(&index.to_be_bytes());
     let mac = keys.query_mac(zone, &request[..REQUEST_BODY_LEN]);
     request[REQUEST_BODY_LEN..].copy_from_slice(&mac);
     let encoded = BASE32_DNSSEC.encode(&request);
@@ -359,6 +376,11 @@ impl Responder {
     /// Returns `None` when the datagram is not an authenticated DNS-Morph request; the bridge forwards it
     /// unchanged, so an unauthorized prober sees an ordinary resolver.
     pub fn respond(&self, datagram: &[u8]) -> Option<Vec<u8>> {
+        self.respond_at(datagram, SystemTime::now())
+    }
+
+    /// [`Self::respond`] against an explicit bridge clock.
+    pub fn respond_at(&self, datagram: &[u8], now: SystemTime) -> Option<Vec<u8>> {
         let request = Message::from_vec(datagram).ok()?;
         let [question] = request.queries.as_slice() else { return None };
         let name = question.name.to_lowercase();
@@ -378,10 +400,15 @@ impl Responder {
             return None;
         }
         let (body, mac) = decoded.split_at(REQUEST_BODY_LEN);
+        // Checked before the MAC scan, so a stale query is also the cheapest to drop.
+        let minute = u16::from_be_bytes([body[KEY_LEN + 1], body[KEY_LEN + 2]]);
+        if (minute_stamp(now).wrapping_sub(minute) as i16).abs() > FRESHNESS_MINUTES {
+            return None;
+        }
         let (keys, payload) =
             self.subscribers.iter().find(|(keys, _)| bool::from(keys.query_mac(&self.zone, body).ct_eq(mac)))?;
         let client_key: [u8; KEY_LEN] = body[1..=KEY_LEN].try_into().ok()?;
-        let index = u16::from_be_bytes([body[KEY_LEN + 1], body[KEY_LEN + 2]]);
+        let index = u16::from_be_bytes([body[KEY_LEN + 3], body[KEY_LEN + 4]]);
         let envelope = self.seal(keys, payload, &client_key)?;
 
         let mut response = Message::response(request.metadata.id, OpCode::Query);
@@ -439,7 +466,8 @@ mod tests {
 
     fn query(zone: &str, client_key: [u8; KEY_LEN]) -> Vec<u8> {
         let zone = parse_zone(zone).expect("zone");
-        let name = request_name(&zone, &TokenKeys::new(&TOKEN).expect("keys"), &client_key, 0).expect("name");
+        let minute = minute_stamp(SystemTime::now());
+        let name = request_name(&zone, &TokenKeys::new(&TOKEN).expect("keys"), &client_key, minute, 0).expect("name");
         let mut query = Message::new(1, MessageType::Query, OpCode::Query);
         query.add_query(Query::new(name, RecordType::TXT));
         query.to_vec().expect("query")
@@ -451,6 +479,25 @@ mod tests {
         assert!(responder("m.example").respond(&query("m.example", client)).is_some());
         // The MAC covers the zone, so the same query is silent at a bridge with another zone.
         assert!(responder("other.example").respond(&query("m.example", client)).is_none());
+    }
+
+    #[test]
+    fn a_replayed_query_outside_the_freshness_window_gets_no_answer() {
+        let client = *PublicKey::from(&StaticSecret::from([3; 32])).as_bytes();
+        let captured = query("m.example", client);
+        let later = SystemTime::now() + Duration::from_secs(60 * (FRESHNESS_MINUTES as u64 + 1));
+        let earlier = SystemTime::now() - Duration::from_secs(60 * (FRESHNESS_MINUTES as u64 + 1));
+
+        assert!(responder("m.example").respond_at(&captured, later).is_none());
+        assert!(responder("m.example").respond_at(&captured, earlier).is_none());
+        assert!(responder("m.example").respond_at(&captured, SystemTime::now() + Duration::from_secs(120)).is_some());
+    }
+
+    #[test]
+    fn minute_stamps_wrap_without_losing_distance() {
+        let wrap = SystemTime::UNIX_EPOCH + Duration::from_secs(60 * (1 << 16));
+        let just_before = wrap - Duration::from_secs(60 * 2);
+        assert_eq!(minute_stamp(wrap).wrapping_sub(minute_stamp(just_before)) as i16, 2);
     }
 
     #[test]

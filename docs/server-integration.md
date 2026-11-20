@@ -240,18 +240,22 @@ Wire format, version 2:
    callback is registered, connects it to `address:port`, and generates a
    fresh X25519 key pair for the whole fetch.
 2. For chunk `i` (0, 1, 2, ...) it sends a standard query, `QTYPE=TXT`,
-   `QCLASS=IN`, random ID, for `<l1>.<l2>.<zone>`. The 51 request bytes are
-   version `0x02`, the client X25519 public key (32), `i` as a big-endian
-   `u16`, and a 16-byte MAC: the first 16 bytes of HMAC-SHA256 under the MAC
-   key over those 35 bytes followed by the zone in lowercase ASCII with its
+   `QCLASS=IN`, random ID, for `<l1>.<l2>.<zone>`. The 53 request bytes are
+   version `0x02`, the client X25519 public key (32), the current minute
+   since the Unix epoch modulo 65536 as a big-endian `u16`, `i` as a
+   big-endian `u16`, and a 16-byte MAC: the first 16 bytes of HMAC-SHA256 under the MAC
+   key over those 37 bytes followed by the zone in lowercase ASCII with its
    trailing dot. They are encoded as lowercase base32hex without padding (RFC 4648 section 7);
-   `l1` holds the first 63 characters and `l2` the remaining 19. The bridge
+   `l1` holds the first 63 characters and `l2` the remaining 22. The bridge
    decodes labels case-insensitively.
    Two subkeys come from the token: HKDF-SHA256(salt empty, IKM token) expanded
    with info `"ripdpi-dns-morph-v2 query mac"` gives the MAC key, and with
    info `"ripdpi-dns-morph-v2 payload salt"` gives the payload salt. A zero
    token is invalid.
-3. The bridge finds the subscriber whose token gives the same MAC
+3. The bridge drops a query whose minute is more than 5 minutes from its own
+   clock (wrapping distance), so a captured query cannot be replayed later
+   to probe the bridge; the device clock must be within that window. It then
+   finds the subscriber whose token gives the same MAC
    (constant-time compare). A request without a matching token is not
    answered by this protocol: the bridge forwards it to its local resolver
    like any other query, so a prober cannot tell the bridge apart.
@@ -282,7 +286,7 @@ trip; keep the served bundle small. A failed fetch keeps the HTTPS failure and
 the last working members. The channel has no forward secrecy against a later
 leak of the bridge seed, and a client that loses its token loses the channel.
 
-Queries carry no timestamp, so a captured query can be replayed. A replay
+A captured query can be replayed only inside its 5-minute window. A replay
 reveals nothing, because only the client's discarded X25519 secret opens the
 reply, but it costs the bridge one seal per query and gives about 3x
 reflection with a spoofed source. Each query also costs one HMAC per
