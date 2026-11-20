@@ -4,11 +4,11 @@ import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileSelections
 import com.poyka.ripdpi.data.ProxyGroup
-import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.awg.SavedAwgProfile
+import com.poyka.ripdpi.data.exitName
+import com.poyka.ripdpi.data.kindLabel
 import com.poyka.ripdpi.data.xray.VpnProviderKind
-import com.poyka.ripdpi.ui.screens.proxyimport.profileKindLabel
 
 /** The saved subscription member or AmneziaWG profile that traffic leaves through. */
 data class ActiveExit(
@@ -35,10 +35,11 @@ internal fun exitOf(
     awgProfiles: List<SavedAwgProfile>,
 ): ActiveExit? {
     val running = applications.values.firstNotNullOfOrNull { it.runningConfiguration() }
-    return if (running != null) running.exit(groups, awgProfiles) else saved.exit(groups, awgProfiles)
+    return if (running != null) running.exit(awgProfiles) else saved.exit(groups, awgProfiles)
 }
 
-private fun RuntimeConfigurationApplication.runningConfiguration(): AppliedRuntimeConfiguration? =
+/** The configuration that carries traffic now, or null when no session runs. */
+internal fun RuntimeConfigurationApplication.runningConfiguration(): AppliedRuntimeConfiguration? =
     when (this) {
         is RuntimeConfigurationApplication.Applied -> {
             configuration
@@ -55,19 +56,15 @@ private fun RuntimeConfigurationApplication.runningConfiguration(): AppliedRunti
         }
     }
 
-private fun AppliedRuntimeConfiguration.exit(
-    groups: List<ProxyGroup>,
-    awgProfiles: List<SavedAwgProfile>,
-): ActiveExit? =
-    effectiveSelection.profileId?.let { profileId ->
-        if (effectiveSelection.relayKind == AmneziaWgRelayKind) {
-            awgExit(profileId, awgProfiles)
-        } else {
-            requestedSelection.selectorGroupId
-                ?.takeIf { requestedSelection.profileId == profileId }
-                ?.let { memberExit(it, profileId, groups) }
-        }
-    }
+// A member's label comes from the configuration that carries traffic: a refresh that removes or renames the member
+// cannot turn the shown exit into Direct or into a name the runtime has not applied.
+private fun AppliedRuntimeConfiguration.exit(awgProfiles: List<SavedAwgProfile>): ActiveExit? {
+    val profileId = effectiveSelection.profileId ?: return null
+    if (effectiveSelection.relayKind == AmneziaWgRelayKind) return awgExit(profileId, awgProfiles)
+    val member = requestedSelection.takeIf { it.selectorGroupId != null && it.profileId == profileId } ?: return null
+    val kind = member.selectorMemberKind ?: return null
+    return ActiveExit(member.selectorMemberName ?: kind, kind)
+}
 
 private fun SavedExitSelection.exit(
     groups: List<ProxyGroup>,
@@ -98,26 +95,7 @@ private fun memberExit(
     groups: List<ProxyGroup>,
 ): ActiveExit? {
     val member = groups.firstOrNull { it.id == groupId }?.members?.firstOrNull { it.id == memberId } ?: return null
-    val kind = profileKindLabel(member)
-    val host = member.host()
-    val remark = member.displayName.takeUnless { it.isBlank() || (host != null && host in it) }
-    return ActiveExit(remark ?: kind, kind)
+    return ActiveExit(member.exitName(), member.kindLabel())
 }
-
-private fun ProxyProfile.host(): String? =
-    when (this) {
-        is ProxyProfile.Vless -> server
-        is ProxyProfile.VlessReality -> server
-        is ProxyProfile.Shadowsocks -> server
-        is ProxyProfile.Trojan -> server
-        is ProxyProfile.Tuic -> server
-        is ProxyProfile.Hysteria2 -> server
-        is ProxyProfile.AnyTls -> server
-        is ProxyProfile.Snell -> server
-        is ProxyProfile.Mieru -> server
-        is ProxyProfile.Naive -> server
-        is ProxyProfile.Ssh -> server
-        is ProxyProfile.RawConfig -> null
-    }.takeUnless { it.isNullOrBlank() }
 
 private const val AmneziaWgRelayKind = "amneziawg"

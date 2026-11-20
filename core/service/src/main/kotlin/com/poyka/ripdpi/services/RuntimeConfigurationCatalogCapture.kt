@@ -101,6 +101,8 @@ internal class RuntimeConfigurationCatalogCapture
                         selected.memberId,
                         selected.groupId,
                         selected.memberId,
+                        selected.memberName,
+                        selected.memberKind,
                     ),
                     listOf(
                         RipDpiEncodeDefaultsJson.encodeToString(RelayProfileRecord.serializer(), selected.profile),

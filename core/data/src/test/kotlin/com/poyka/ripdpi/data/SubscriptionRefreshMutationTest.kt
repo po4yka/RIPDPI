@@ -38,7 +38,9 @@ class SubscriptionRefreshMutationTest : RoomProfileTest() {
                 },
             )
 
-            assertNull(selection.snapshot(original.id).profileId)
+            // The removed member falls back to the default member, as a fresh import would, never to no member.
+            assertEquals("new", selection.snapshot(original.id).profileId)
+            assertFalse(selection.snapshot(original.id).isManual)
             assertNull(selection.manualReceipt(original.id))
             assertFalse(selection.selectAutomatically(original.id, before, "new"))
         }

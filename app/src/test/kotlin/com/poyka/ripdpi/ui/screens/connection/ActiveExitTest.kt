@@ -51,7 +51,16 @@ class ActiveExitTest {
     private val nothingSaved = SavedExitSelection(Mode.VPN, ProfileSelections(), null)
     private val savedMember = SavedExitSelection(Mode.VPN, ProfileSelections(selectorGroupId = "group-1"), "member-2")
     private val memberRequested =
-        RuntimeConfigurationSelection("native", null, "hysteria2", "member-2", "group-1", "member-2")
+        RuntimeConfigurationSelection(
+            "native",
+            null,
+            "hysteria2",
+            "member-2",
+            "group-1",
+            "member-2",
+            "Home Hysteria",
+            "Hysteria2",
+        )
     private val memberEffective =
         RuntimeConfigurationSelection("native", relayKind = "hysteria2", profileId = "member-2")
 
@@ -101,8 +110,16 @@ class ActiveExitTest {
     }
 
     @Test
+    fun `a running member removed or renamed by a refresh keeps the exit its configuration applied`() {
+        val renamed = listOf(groups.single().copy(members = listOf(member.copy(displayName = "Renamed"))))
+        val session = running(applied(memberRequested, memberEffective))
+
+        assertEquals(ActiveExit("Home Hysteria", "Hysteria2"), exitOf(session, nothingSaved, emptyList(), emptyList()))
+        assertEquals(ActiveExit("Home Hysteria", "Hysteria2"), exitOf(session, nothingSaved, renamed, emptyList()))
+    }
+
+    @Test
     fun `a deleted profile has no exit`() {
-        assertNull(exitOf(running(applied(memberRequested, memberEffective)), nothingSaved, emptyList(), emptyList()))
         val deletedAwg = SavedExitSelection(Mode.VPN, ProfileSelections(awgProfileId = "gone"), null)
         assertNull(exitOf(emptyMap(), deletedAwg, groups, listOf(awg)))
     }

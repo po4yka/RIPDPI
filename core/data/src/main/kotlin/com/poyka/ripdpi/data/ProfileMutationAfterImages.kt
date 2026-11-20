@@ -78,7 +78,7 @@ internal class ProfileMutationRowWriter(
     private val rows: com.poyka.ripdpi.data.persistence.ProfileRows,
     private val authority: PauseIntentAuthority,
 ) {
-    var clearedSelectorChoices: List<String> = emptyList()
+    var replacedSelectorChoices: List<String> = emptyList()
         private set
 
     fun apply(intent: ProfileMutationIntent) {
@@ -154,9 +154,9 @@ internal class ProfileMutationRowWriter(
         rows.groups.list()
         intent.awgProfiles.forEach(::saveAwg)
         rows.groups.replace(intent.groups)
-        clearedSelectorChoices =
+        replacedSelectorChoices =
             intent.groups.mapNotNull { group ->
-                group.id.takeIf { group.subscription != null && rows.selection.clearUnavailableChoice(group) }
+                group.id.takeIf { group.subscription != null && rows.selection.replaceUnavailableChoice(group) }
             }
     }
 

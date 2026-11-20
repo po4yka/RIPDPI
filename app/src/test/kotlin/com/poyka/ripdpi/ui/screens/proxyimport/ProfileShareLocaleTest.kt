@@ -20,6 +20,7 @@ import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.fakes.FakeRelayCredentialStore
 import com.poyka.ripdpi.data.fakes.FakeRelayProfileStore
+import com.poyka.ripdpi.data.kindLabel
 import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -66,7 +67,7 @@ class ProfileShareLocaleTest {
                 context.value.getString(
                     R.string.profile_share_setup_sheet_template,
                     profile.displayName,
-                    profileKindLabel(profile),
+                    profile.kindLabel(),
                     uri,
                 )
             composeRule.onNodeWithTag(RipDpiTestTags.ProfileShareSheetText).assertTextEquals(expected)

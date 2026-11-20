@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.kindLabel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -86,7 +87,7 @@ fun ProfileShareScreen(
                         stringResource(
                             R.string.profile_share_setup_sheet_template,
                             uiState.profile.displayName,
-                            profileKindLabel(uiState.profile),
+                            uiState.profile.kindLabel(),
                             uiState.shareUri,
                         ),
                     qrBitmap = qrBitmap,

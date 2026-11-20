@@ -72,10 +72,16 @@ internal class ProfileSelectionRows(
         )
     }
 
-    fun clearUnavailableChoice(group: ProxyGroup): Boolean {
+    /**
+     * A refresh that drops the selected member falls back to the group's default member, as a fresh import would, so
+     * the group stays startable and a running session reloads onto a member that exists.
+     */
+    fun replaceUnavailableChoice(group: ProxyGroup): Boolean {
         val storedId = decodeChoice(records.read(ChoiceNamespace, group.id)).profileId
         if (storedId == null || group.members.any { it.id == storedId }) return false
-        setChoice(group.id, null, false)
+        val default =
+            group.initialMemberId?.takeIf { id -> group.members.any { it.id == id } } ?: group.members.firstOrNull()?.id
+        setChoice(group.id, default, false)
         return true
     }
 

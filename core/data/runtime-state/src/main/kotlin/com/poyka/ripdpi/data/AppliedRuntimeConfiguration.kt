@@ -12,6 +12,9 @@ data class RuntimeConfigurationSelection(
     val profileId: String? = null,
     val selectorGroupId: String? = null,
     val selectorMemberId: String? = null,
+    /** The member's name and kind as captured with this configuration, so a later refresh cannot rename the exit. */
+    val selectorMemberName: String? = null,
+    val selectorMemberKind: String? = null,
 )
 
 @Serializable

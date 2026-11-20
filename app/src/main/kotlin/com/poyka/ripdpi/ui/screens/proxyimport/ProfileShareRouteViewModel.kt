@@ -74,19 +74,3 @@ class ProfileShareRouteViewModel
                 }
         }
     }
-
-internal fun profileKindLabel(profile: ProxyProfile): String =
-    when (profile) {
-        is ProxyProfile.Vless -> "VLESS"
-        is ProxyProfile.VlessReality -> "VLESS + REALITY"
-        is ProxyProfile.Shadowsocks -> "Shadowsocks"
-        is ProxyProfile.Trojan -> "Trojan"
-        is ProxyProfile.Tuic -> "TUIC"
-        is ProxyProfile.Hysteria2 -> "Hysteria2"
-        is ProxyProfile.AnyTls -> "AnyTLS"
-        is ProxyProfile.Snell -> "Snell"
-        is ProxyProfile.Mieru -> "Mieru"
-        is ProxyProfile.Naive -> "NaiveProxy"
-        is ProxyProfile.Ssh -> "SSH"
-        is ProxyProfile.RawConfig -> "Raw URI"
-    }

@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.exitName
+import com.poyka.ripdpi.data.kindLabel
 import com.poyka.ripdpi.data.mapRelayProfile
 import com.poyka.ripdpi.data.selector.SelectorActiveGroupStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
@@ -20,6 +22,8 @@ internal data class SelectedSelectorRelay(
     val credentials: RelayCredentialRecord,
     val groupId: String,
     val memberId: String,
+    val memberName: String,
+    val memberKind: String,
 ) {
     override fun toString() = "SelectedSelectorRelay([REDACTED])"
 }
@@ -56,7 +60,14 @@ internal class DefaultSelectorRelayRuntimeProfileResolver
                 } catch (_: IllegalArgumentException) {
                     rejectSelection("Selected selector member has invalid relay configuration")
                 } ?: rejectSelection("Selected selector member is not supported by the relay runtime")
-            return SelectedSelectorRelay(mapped.profile, mapped.credentials, groupId, memberId)
+            return SelectedSelectorRelay(
+                mapped.profile,
+                mapped.credentials,
+                groupId,
+                memberId,
+                member.exitName(),
+                member.kindLabel(),
+            )
         }
     }
 

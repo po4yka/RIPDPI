@@ -113,7 +113,7 @@ class SharedProxySelectorRuntimeStackTest {
                 shadowsocksMethod = "aes-256-gcm",
                 shadowsocksPassword = "fixture-shadowsocks-password",
             )
-        val selected = SelectedSelectorRelay(profile, secret, "group-b", "shared")
+        val selected = SelectedSelectorRelay(profile, secret, "group-b", "shared", "shared", "Shadowsocks")
         val resolver =
             createDefaultUpstreamRelayRuntimeConfigResolver(
                 profiles,
