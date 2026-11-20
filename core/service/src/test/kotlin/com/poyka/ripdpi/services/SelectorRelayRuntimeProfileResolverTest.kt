@@ -205,7 +205,8 @@ class SelectorRelayRuntimeProfileResolverTest {
                     groupId = "group-b",
                     server = "group-b.example",
                     serverPort = 443,
-                    uuid = "invalid",
+                    // 32 bytes that are not hex: a short id would be mapped to a UUIDv5 and accepted.
+                    uuid = "z".repeat(32),
                     serverName = "group-b.example",
                     xhttpPath = "/xhttp",
                 )
