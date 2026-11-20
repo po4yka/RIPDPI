@@ -205,14 +205,16 @@ fn relay_transport_registry_is_consistent() {
 async fn relay_transport_registry_dispatches_plain_vless_xhttp_only() {
     let mut xhttp = sample_config("vless");
     plain_vless_config_mut(&mut xhttp).vless_flow = "none".to_string();
-    let error = build_backend(&xhttp).await.err().expect("TLS auto requires unimplemented packet-up");
-    assert_eq!(io::ErrorKind::InvalidInput, error.kind());
-    assert!(error.to_string().contains("automatic mode requires REALITY"));
-    plain_vless_config_mut(&mut xhttp).xhttp_mode = "stream-up".to_string();
-    match build_backend(&xhttp).await.expect("plain vless xhttp backend") {
-        RelayBackend::Xhttp(_) => {}
-        other => panic!("plain vless xhttp must build Xhttp, got {:?}", std::mem::discriminant(&other)),
+    for mode in ["auto", "packet-up", "stream-up"] {
+        plain_vless_config_mut(&mut xhttp).xhttp_mode = mode.to_string();
+        match build_backend(&xhttp).await.expect("plain vless xhttp backend") {
+            RelayBackend::Xhttp(_) => {}
+            other => panic!("plain vless xhttp {mode} must build Xhttp, got {:?}", std::mem::discriminant(&other)),
+        }
     }
+    plain_vless_config_mut(&mut xhttp).xhttp_mode = "stream-down".to_string();
+    let error = build_backend(&xhttp).await.err().expect("unknown xHTTP mode fails");
+    assert_eq!(io::ErrorKind::InvalidInput, error.kind());
 
     let mut tcp = sample_config("vless");
     plain_vless_config_mut(&mut tcp).vless_transport = "tcp".to_string();

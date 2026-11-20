@@ -47,8 +47,8 @@ impl fmt::Debug for XhttpSocketProtector {
 ///
 /// Upstream selects `stream-up`, `packet-up`, or `stream-one`, with `auto`
 /// choosing a mode. `stream-down` names the GET download leg; a separate
-/// endpoint uses `downloadSettings`. This crate implements `stream-up` and
-/// `stream-one`; `packet-up` and separate download endpoints are unsupported.
+/// endpoint uses `downloadSettings`. This crate implements all three modes;
+/// separate download endpoints are unsupported.
 ///
 /// `Default` resolves to [`Self::StreamUp`] so existing callers — and
 /// any Kotlin/JNI binding that has not yet been taught about the mode
@@ -64,15 +64,19 @@ pub enum XhttpProtocolMode {
     /// session id is embedded in the URL. Matches xray-core's REALITY
     /// default in `transport/internet/splithttp/dialer.go`.
     StreamOne,
+    /// One long-lived GET (download) plus sequential bounded POSTs
+    /// `{path}/{session}/{seq}` (upload). xray-core's TLS `auto` choice.
+    PacketUp,
 }
 
 impl XhttpProtocolMode {
-    /// Resolve the xray `mode` string without a separate download endpoint.
-    /// REALITY auto uses stream-one. TLS auto requires packet-up, which is
-    /// not implemented, so it fails instead of changing the wire mode.
+    /// Resolve the xray `mode` string without a separate download endpoint,
+    /// as xray-core `splithttp/dialer.go` `Dial` does: auto is stream-one
+    /// with REALITY and packet-up otherwise.
     pub fn parse(value: &str, is_reality: bool) -> Result<Self, ProtocolModeParseError> {
         match value.trim() {
             "" | "auto" if is_reality => Ok(Self::StreamOne),
+            "" | "auto" | "packet-up" => Ok(Self::PacketUp),
             "stream-up" => Ok(Self::StreamUp),
             "stream-one" => Ok(Self::StreamOne),
             other => Err(ProtocolModeParseError(other.to_owned())),
@@ -91,7 +95,7 @@ impl fmt::Debug for ProtocolModeParseError {
 
 impl fmt::Display for ProtocolModeParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("unsupported xHTTP mode; use 'stream-up' or 'stream-one'; automatic mode requires REALITY")
+        f.write_str("unsupported xHTTP mode; use 'auto', 'packet-up', 'stream-up' or 'stream-one'")
     }
 }
 
@@ -305,8 +309,7 @@ impl XhttpTlsConfig {
         self
     }
 
-    /// Parse an explicit TLS mode (`stream-up` or `stream-one`). Automatic
-    /// TLS mode requires unimplemented packet-up and is rejected.
+    /// Parse a TLS mode; `auto` resolves to `packet-up`.
     pub fn with_protocol_mode_str(self, mode: &str) -> Result<Self, ConfigError> {
         let parsed = XhttpProtocolMode::parse(mode, false)?;
         Ok(self.with_protocol_mode(parsed))

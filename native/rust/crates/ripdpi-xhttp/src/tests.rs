@@ -105,6 +105,7 @@ fn protocol_mode_parses_xray_identifiers() {
         assert_eq!(XhttpProtocolMode::parse("stream-up", is_reality).unwrap(), XhttpProtocolMode::StreamUp);
         assert_eq!(XhttpProtocolMode::parse("  stream-up  ", is_reality).unwrap(), XhttpProtocolMode::StreamUp);
         assert_eq!(XhttpProtocolMode::parse("stream-one", is_reality).unwrap(), XhttpProtocolMode::StreamOne);
+        assert_eq!(XhttpProtocolMode::parse("packet-up", is_reality).unwrap(), XhttpProtocolMode::PacketUp);
     }
 }
 
@@ -112,15 +113,15 @@ fn protocol_mode_parses_xray_identifiers() {
 fn protocol_mode_resolves_auto_in_security_context() {
     for mode in ["", "auto", "  auto  "] {
         assert_eq!(XhttpProtocolMode::parse(mode, true).unwrap(), XhttpProtocolMode::StreamOne);
-        assert!(XhttpProtocolMode::parse(mode, false).is_err(), "TLS auto requires unsupported packet-up");
+        assert_eq!(XhttpProtocolMode::parse(mode, false).unwrap(), XhttpProtocolMode::PacketUp);
     }
 }
 
 #[test]
-fn protocol_mode_parse_rejects_unimplemented_modes() {
+fn protocol_mode_parse_rejects_unknown_modes() {
     // Reject unsupported selectors without echoing supplied values; stream-down names a GET leg, not a mode.
     for is_reality in [false, true] {
-        for unsupported in ["packet-up", "stream-down", "garbage"] {
+        for unsupported in ["stream-down", "packet_up", "garbage"] {
             let Err(err) = XhttpProtocolMode::parse(unsupported, is_reality) else {
                 panic!("{unsupported:?} must be rejected");
             };
@@ -181,7 +182,7 @@ fn with_protocol_mode_threads_choice_through() {
 }
 
 #[test]
-fn xhttp_tls_auto_rejects_unimplemented_packet_up() {
+fn xhttp_tls_auto_resolves_to_packet_up() {
     for mode in ["", "auto", "  auto  "] {
         let config = XhttpTlsConfig::from_strings(
             "edge.example",
@@ -193,7 +194,8 @@ fn xhttp_tls_auto_rejects_unimplemented_packet_up() {
             "chrome_stable",
         )
         .expect("TLS config");
-        assert!(config.with_protocol_mode_str(mode).is_err(), "TLS auto must not become stream-up");
+        let config = config.with_protocol_mode_str(mode).expect("TLS auto");
+        assert_eq!(XhttpProtocolMode::PacketUp, config.protocol_mode, "TLS auto must become packet-up");
     }
 }
 

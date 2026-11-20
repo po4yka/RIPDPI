@@ -4,8 +4,8 @@ use std::task::{Context, Poll};
 
 use bytes::Bytes;
 use http::Request;
-use http::header::{CONTENT_TYPE, REFERER};
-use http_body_util::{BodyExt, Empty};
+use http::header::{CONTENT_LENGTH, CONTENT_TYPE, REFERER};
+use http_body_util::{BodyExt, Empty, Full};
 use hyper::body::{Body, Frame};
 use tokio::sync::{mpsc, oneshot};
 
@@ -72,6 +72,23 @@ pub(crate) fn build_post_request(
         .body(body.boxed())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP POST request build: {error}")))?;
     Ok(request)
+}
+
+/// One packet-up upload. Like xray-core `FillPacketRequest`, it has a sized
+/// body and no gRPC Content-Type.
+pub(crate) fn build_packet_request(
+    path: &str,
+    host_header: &str,
+    referer: &str,
+    body: Bytes,
+) -> io::Result<Request<XhttpBody>> {
+    Request::builder()
+        .method("POST")
+        .uri(request_uri(host_header, path))
+        .header(REFERER, referer)
+        .header(CONTENT_LENGTH, body.len())
+        .body(Full::new(body).map_err(|never| match never {}).boxed())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP packet request build: {error}")))
 }
 
 /// Absolute-form target, so h2 sends `:scheme https` and `:authority` like a

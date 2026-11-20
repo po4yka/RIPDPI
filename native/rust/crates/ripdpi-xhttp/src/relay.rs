@@ -82,12 +82,14 @@ trait StreamMetadata {
 }
 
 impl StreamMetadata for XhttpMode {
-    /// Per-request path. Stream-up embeds a fresh random session id;
-    /// stream-one uses the bare configured path (xray-core sets
+    /// Per-request path. Stream-up and packet-up embed a fresh random session
+    /// id; stream-one uses the bare configured path (xray-core sets
     /// `sessionId = ""` for stream-one in `dialer.go`).
     fn request_path(&self) -> String {
         match self.protocol_mode() {
-            XhttpProtocolMode::StreamUp => stream_up_path(self.base_path(), &random_session_id()),
+            XhttpProtocolMode::StreamUp | XhttpProtocolMode::PacketUp => {
+                stream_up_path(self.base_path(), &random_session_id())
+            }
             XhttpProtocolMode::StreamOne => stream_one_path(self.base_path()),
         }
     }
@@ -161,7 +163,9 @@ impl PooledConnection {
     ) -> io::Result<XhttpStream> {
         let mut pending = PendingStreamCarrier(Some(self));
         let result = match mode.protocol_mode() {
-            XhttpProtocolMode::StreamUp => self.open_stream_up(mode, request, permit, upload).await,
+            XhttpProtocolMode::StreamUp | XhttpProtocolMode::PacketUp => {
+                self.open_stream_up(mode, request, permit, upload).await
+            }
             XhttpProtocolMode::StreamOne => self.open_stream_one(mode, request, permit).await,
         };
         self.opening_finished(false);
@@ -212,6 +216,14 @@ impl PooledConnection {
             }
         }
         let upload_carrier = upload.map(|(carrier, permit)| (permit, ActiveCarrier::new(carrier)));
+        if mode.protocol_mode() == XhttpProtocolMode::PacketUp {
+            // Packet-up POSTs are sent one at a time by the upload task, so the
+            // carrier lock is not needed past the GET.
+            drop(sender);
+            return self
+                .finish_packet_up(get_response, stream_path, host_header, request, permit, upload_carrier)
+                .await;
+        }
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
         let (upload_started, admitted) = tokio::sync::oneshot::channel();
         let post_request = build_post_request(
@@ -263,6 +275,55 @@ impl PooledConnection {
         };
         drop(sender);
         Ok(stream)
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: the task guard and permits own partial state; the GET is
+    /// reset when its response is dropped.
+    ///
+    /// `packet-up` after the accepted GET: the VLESS request goes into the
+    /// upload pipe and becomes the first bytes of POST seq 0.
+    async fn finish_packet_up(
+        self: &Arc<Self>,
+        get_response: hyper::Response<hyper::body::Incoming>,
+        session_path: String,
+        host_header: String,
+        request: &[u8],
+        permit: OwnedSemaphorePermit,
+        upload_carrier: Option<(OwnedSemaphorePermit, ActiveCarrier)>,
+    ) -> io::Result<XhttpStream> {
+        let post_carrier =
+            upload_carrier.as_ref().map_or_else(|| Arc::clone(self), |(_, carrier)| Arc::clone(&carrier.0));
+        let (mut user_upload, transport_upload) = tokio::io::duplex(crate::packet_up::MAX_EACH_POST_BYTES);
+        user_upload.write_all(request).await?;
+        let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
+        let stream_failed = Arc::new(AtomicBool::new(false));
+        let mut open_tasks = OpenStreamTaskGuard::new();
+        let download = spawn_download_pump(
+            get_response.into_body(),
+            transport_download,
+            Arc::clone(&stream_failed),
+            "xHTTP GET stream failed",
+        );
+        let abort_download = download.abort_handle();
+        open_tasks.push(download);
+        open_tasks.push(crate::packet_up::spawn_upload(
+            transport_upload,
+            post_carrier,
+            session_path,
+            host_header,
+            Arc::clone(&stream_failed),
+            abort_download,
+        ));
+        Ok(XhttpStream {
+            reader: ResponseHeaderStream::new(user_download),
+            stream_failed,
+            writer: user_upload,
+            _tasks: open_tasks,
+            _permit: permit,
+            _carrier: ActiveCarrier::new(Arc::clone(self)),
+            _upload_carrier: upload_carrier,
+        })
     }
 
     /// # Cancel safety:
@@ -629,7 +690,7 @@ mod tests {
         let _stream =
             pooled.open_stream_from_mode(&mode, &tcp_request(&mode), permit, None).await.expect("open stream");
         let expected = match protocol_mode {
-            XhttpProtocolMode::StreamUp => 2,
+            XhttpProtocolMode::StreamUp | XhttpProtocolMode::PacketUp => 2,
             XhttpProtocolMode::StreamOne => 1,
         };
         let mut heads = Vec::new();
@@ -643,7 +704,7 @@ mod tests {
 
     #[tokio::test]
     async fn requests_carry_https_scheme_and_authority_pseudo_headers() {
-        for protocol_mode in [XhttpProtocolMode::StreamUp, XhttpProtocolMode::StreamOne] {
+        for protocol_mode in [XhttpProtocolMode::StreamUp, XhttpProtocolMode::StreamOne, XhttpProtocolMode::PacketUp] {
             for head in received_request_heads(protocol_mode).await {
                 assert_eq!(Some("https"), head.uri.scheme_str(), "{protocol_mode:?} {} :scheme", head.method);
                 assert_eq!(
@@ -889,3 +950,6 @@ mod stream_up_tests;
 
 #[cfg(test)]
 mod cleanup_tests;
+
+#[cfg(test)]
+mod packet_up_tests;

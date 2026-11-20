@@ -10,7 +10,7 @@ Reference versions are scoped to each feature. They do not assert parity with ev
 - **Last reviewed:** 2026-11-11
 - **Owner:** Transport maintainer
 
-The xHTTP session driver implements H2 `stream-up` and `stream-one` with raw VLESS payloads. The crate also provides Finalmask transforms and a separate gRPC framing codec. VLESS and REALITY are owned by `ripdpi-vless`.
+The xHTTP session driver implements H2 `stream-up`, `stream-one` and `packet-up` with raw VLESS payloads. Packet-up follows Xray-core v26.10.31 (commit `a4a3dff5b20c2faae567b742c172c7b95e75c083`); `SPEC.md` cites each wire rule. The crate also provides Finalmask transforms and a separate gRPC framing codec. VLESS and REALITY are owned by `ripdpi-vless`.
 
 The xHTTP release and module tags resolve to the commit above. The wire reference is [the pinned SplitHTTP source](https://github.com/XTLS/Xray-core/tree/12ee51e4bb1d02ece4ef4b7114efa2bcdc130995/transport/internet/splithttp). The TRN-04 audit checked its mode, URL, header, pairing and XMUX contracts. Later REALITY runtime compatibility uses a separate pinned peer test; this record does not certify every upstream option or any Android Xray artifact.
 
