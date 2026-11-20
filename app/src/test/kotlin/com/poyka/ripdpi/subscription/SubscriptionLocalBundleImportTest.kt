@@ -89,6 +89,58 @@ class SubscriptionLocalBundleImportTest : SubscriptionRefreshTestSupport() {
         }
 
     @Test
+    fun `re-import under another file name updates the same group and keeps an entered AWG key`() =
+        runTest {
+            val fixture = fixture(1_800_000_000_000L)
+            fixture.coordinator.importLocalBundle("ripdpi-bundle", bundle())
+            val saved =
+                fixture.awgRepository
+                    .observeProfiles()
+                    .first()
+                    .single()
+            fixture.awgRepository.save("User label", saved.request.copy(privateKey = "local-private-key"), saved.id)
+            val groupsBefore = fixture.repository.list().map { it.id }
+
+            assertTrue(
+                fixture.coordinator.importLocalBundle("ripdpi-bundle (1)", bundle(psk = "rotated-psk"))
+                    is SubscriptionRefreshResult.Updated,
+            )
+
+            assertEquals(groupsBefore, fixture.repository.list().map { it.id })
+            assertTrue(fixture.repository.list().none { it.name == "ripdpi-bundle (1)" })
+            val updated =
+                fixture.awgRepository
+                    .observeProfiles()
+                    .first()
+                    .single()
+            assertEquals(saved.id, updated.id)
+            assertEquals("local-private-key", updated.request.privateKey)
+            assertEquals("rotated-psk", updated.request.presharedKey)
+        }
+
+    @Test
+    fun `a bundle with other server tags becomes a second group even under the same name`() =
+        runTest {
+            val fixture = fixture(1_800_000_000_000L)
+            fixture.coordinator.importLocalBundle("Home", bundle())
+
+            assertTrue(
+                fixture.coordinator.importLocalBundle("Home", bundle().replace("fleet-awg", "other-awg"))
+                    is SubscriptionRefreshResult.Updated,
+            )
+
+            assertEquals(2, fixture.repository.list().count { it.name == "Home" && it.isLocalBundle() })
+            assertEquals(
+                setOf("fleet-awg", "other-awg"),
+                fixture.awgRepository
+                    .observeProfiles()
+                    .first()
+                    .map { it.name }
+                    .toSet(),
+            )
+        }
+
+    @Test
     fun `re-import updates the same group and keeps an entered AWG key`() =
         runTest {
             val fixture = fixture(1_800_000_000_000L)

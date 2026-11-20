@@ -91,6 +91,8 @@ data class Subscription(
     /** DNS-Morph delivery fallback declared by the latest accepted bundle. */
     val dnsMorph: com.poyka.ripdpi.data.subscription.DnsMorphBridge? = null,
     val migration: com.poyka.ripdpi.data.subscription.MigrationDelivery? = null,
+    /** Server tags of the locally imported bundle; a re-import with the same set updates this group. */
+    val localBundleTags: Set<String> = emptySet(),
 ) {
     /** `true` once a [SubscriptionKind.BOOTSTRAP] token has been consumed. */
     val isConsumed: Boolean

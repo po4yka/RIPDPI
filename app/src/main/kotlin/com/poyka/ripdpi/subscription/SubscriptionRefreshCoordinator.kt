@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
-import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.Subscription
@@ -61,7 +60,6 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 import java.util.Base64
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -322,6 +320,7 @@ class SubscriptionRefreshCoordinator private constructor(
                         lifecycleState = SubscriptionLifecycleState.ACTIVE,
                         lastRefreshFailure = null,
                         mirrors = outcome.subscriptionMirrors ?: subscription.mirrors,
+                        localBundleTags = outcome.localBundleTags ?: subscription.localBundleTags,
                         dnsMorph = outcome.dnsMorph,
                     ),
         )
@@ -459,24 +458,17 @@ class SubscriptionRefreshCoordinator private constructor(
 
     /**
      * Installs a bundle the user holds locally (an opened file or pasted JSON). The group has no
-     * link and auto-update off, so it is never fetched; a re-import with the same [name] updates
-     * that group and its AmneziaWG rows in place. Nothing is saved when the bundle is rejected.
+     * link and auto-update off, so it is never fetched. A re-import of the same bundle updates that
+     * group and its AmneziaWG rows in place, whatever the file is called (see [localBundleTarget]).
+     * Nothing is saved when the bundle is rejected.
      */
     suspend fun importLocalBundle(
         name: String,
         text: String,
     ): SubscriptionRefreshResult {
         val groups = repository.list()
-        val existing = groups.firstOrNull { it.isLocalBundle() && it.name == name }
-        val draft =
-            existing ?: ProxyGroup(
-                id = UUID.randomUUID().toString(),
-                name = name,
-                type = ProxyGroupType.SUBSCRIPTION,
-                order = groups.size,
-                isSelector = false,
-                subscription = Subscription(),
-            )
+        val tags = withContext(Dispatchers.Default) { localBundleTags(text) }
+        val draft = groups.localBundleTarget(name, tags)
         val outcome =
             try {
                 withContext(Dispatchers.Default) { parsePayload(draft, localSubscriptionPayload(text)) }
@@ -488,10 +480,11 @@ class SubscriptionRefreshCoordinator private constructor(
         if (outcome is RefreshOutcome.Failure) {
             return SubscriptionRefreshResult.Failed(outcome.failure, false, outcome.rejection)
         }
-        if (existing == null) repository.add(draft)
+        if (groups.none { it.id == draft.id }) repository.add(draft)
         val expected =
             repository.list().firstOrNull { it.id == draft.id } ?: return SubscriptionRefreshResult.Superseded
-        val result = persistSuccess(expected, clockMillis(), outcome as RefreshOutcome.Updated)
+        val result =
+            persistSuccess(expected, clockMillis(), (outcome as RefreshOutcome.Updated).copy(localBundleTags = tags))
         signalPublisher.publish(repository.list(), clockMillis())
         return result
     }
@@ -714,6 +707,8 @@ class SubscriptionRefreshCoordinator private constructor(
             val migration: MigrationMetadata? = null,
             val payloadSha256: String = "",
             val skipped: List<SingBoxSkippedNode> = emptyList(),
+            /** Set only by a local import; `null` keeps the stored tags. */
+            val localBundleTags: Set<String>? = null,
         ) : RefreshOutcome
 
         data class Failure(
@@ -747,10 +742,6 @@ object SubscriptionRefreshModule {
 }
 
 private const val MaxProfileTitleLength = 64
-
-/** A locally imported bundle: no source link and never auto-updated. */
-internal fun ProxyGroup.isLocalBundle(): Boolean =
-    type == ProxyGroupType.SUBSCRIPTION && subscription?.let { it.link.isBlank() && !it.autoUpdate } == true
 
 /**
  * Decodes the `profile-title` header (plain text, or `base64:<utf-8 text>` as Hiddify and

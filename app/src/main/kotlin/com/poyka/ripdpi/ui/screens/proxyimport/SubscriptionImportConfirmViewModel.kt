@@ -291,7 +291,7 @@ class SubscriptionImportConfirmViewModel
             name: String,
             bundle: String,
         ) {
-            val isNew = repository.list().none { it.isLocalBundle() && it.name == name }
+            val before = repository.list().mapTo(mutableSetOf()) { it.id }
             val result =
                 try {
                     importLocalBundle(name, bundle)
@@ -305,13 +305,8 @@ class SubscriptionImportConfirmViewModel
                 completeImport(result.skipped, result.awgKeyProfileId)
                 return
             }
-            if (isNew) {
-                repository.list().firstOrNull { it.isLocalBundle() && it.name == name }?.let {
-                    discardGroup(
-                        it.id,
-                    )
-                }
-            }
+            // The import may have matched a group under another name, so only a group it added is new.
+            repository.list().filter { it.isLocalBundle() && it.id !in before }.forEach { discardGroup(it.id) }
             _uiState.update {
                 it.copy(importFailed = true, rejection = (result as? SubscriptionRefreshResult.Failed)?.rejection)
             }
