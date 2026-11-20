@@ -973,18 +973,18 @@ private fun createInitializer(
         context = application,
         startupDataRecovery = StartupDataRecovery(compatibilityResetter, startupOverrides.profileMutations),
         diagnosticsBootstrapperProvider = constantProvider(diagnosticsBootstrapper),
-        detectionObservationStarter = detectionObservationStarter,
         strategyPackService = strategyPackService,
         dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
         cdnEchSeedFromCache = CdnEchSeedFromCache(EmptyCdnEchPersistedCache),
         proxyGroupRepository = proxyGroupRepository,
         bootSessionRecorder = bootSessionRecorder,
-        resetEventRecorder = resetEventRecorder,
         startupDiagnosticsProbes =
             StartupDiagnosticsProbes(
+                detectionObservationStarter = detectionObservationStarter,
                 lastExitInspector = lastExitInspector,
                 memoryProfilingRegistrar = memoryProfilingRegistrar,
                 remoteDeviceAcceptanceStartupReconciler = remoteDeviceAcceptanceStartupReconciler,
+                resetEventRecorder = resetEventRecorder,
             ),
         presetApplier =
             object : PresetApplier(
