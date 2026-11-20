@@ -195,9 +195,8 @@ internal fun FieldReportState.record(
     nowMillis: Long,
 ): FieldReportState {
     val start = hourStart(nowMillis)
-    val hour =
-        hours.firstOrNull { it.startEpochMillis == start && it.network == network }
-            ?: FieldReportHour(start, network = network)
+    val stored = hours.firstOrNull { it.startEpochMillis == start && it.network == network }
+    val hour = stored ?: FieldReportHour(start, network = network)
     val stage = attempt.failureStage?.wireValue
     val existing =
         hour.buckets.firstOrNull {
@@ -212,7 +211,9 @@ internal fun FieldReportState.record(
                 },
         )
     val updatedHour = hour.copy(buckets = hour.buckets.filterNot { it == existing } + counted)
-    return copy(hours = hours.filterNot { it === hour } + updatedHour).pruned(nowMillis)
+    // An updated hour keeps its place, so hours stay in the order their first attempt arrived.
+    val updatedHours = if (stored == null) hours + updatedHour else hours.map { if (it === stored) updatedHour else it }
+    return copy(hours = updatedHours).pruned(nowMillis)
 }
 
 /** Drops hours and upload instants older than 24 hours and keeps at most 24 pending hours. */
