@@ -900,6 +900,7 @@ private class Fixture(
                     profileId !in failedHttpProfiles,
                     204,
                     null,
+                    null,
                 )
             },
             { httpClockNanos.get() },
