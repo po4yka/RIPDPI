@@ -172,6 +172,7 @@ internal data class MainUiInputs(
     val pendingConfigurations: Map<Mode, com.poyka.ripdpi.data.RuntimeConfigurationPendingStatus> = emptyMap(),
     val reconnectState: RunningReconnectState = RunningReconnectState.Idle,
     val reconnectSettingsIdentity: ReconnectSettingsIdentity = ReconnectSettingsIdentity(),
+    val activeExit: com.poyka.ripdpi.ui.screens.connection.ActiveExit? = null,
 )
 
 internal data class MainUiInputsBase(

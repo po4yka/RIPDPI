@@ -281,7 +281,16 @@ private fun RelaySectionRows(
     onOpenProfileUtility: (() -> Unit)? = null,
 ) {
     RipDpiCard {
-        if (uiState.activeExternalProvider != null) {
+        if (uiState.activeExit != null) {
+            SettingsRow(
+                title = uiState.activeExit.name,
+                subtitle = uiState.activeExit.kind,
+                onClick = onChooseRelay,
+                showChevron = true,
+                showDivider = true,
+                testTag = RipDpiTestTags.ConnectionRelayRelay,
+            )
+        } else if (uiState.activeExternalProvider != null) {
             SettingsRow(
                 title = uiState.activeExternalProvider.displayName,
                 onClick = onChooseRelay,

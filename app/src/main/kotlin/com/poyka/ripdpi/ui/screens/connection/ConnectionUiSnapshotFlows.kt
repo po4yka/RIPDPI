@@ -92,6 +92,7 @@ internal fun configUiStateFlow(
     factory: ConnectionUiStateFactory,
     reconnectState: Flow<RunningReconnectState> = flowOf(RunningReconnectState.Idle),
     strategyLanes: Flow<StrategyLanesUiState?> = flowOf(null),
+    activeExit: Flow<ActiveExit?> = flowOf(null),
 ): StateFlow<ConnectionUiState> =
     combine(
         persistedSnapshots,
@@ -120,6 +121,7 @@ internal fun configUiStateFlow(
             state
         }
     }.combine(strategyLanes) { state, lanes -> state.copy(strategyLanes = lanes) }
+        .combine(activeExit) { state, exit -> state.copy(activeExit = exit) }
         .stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(ConnectionUiStateStopTimeoutMillis),

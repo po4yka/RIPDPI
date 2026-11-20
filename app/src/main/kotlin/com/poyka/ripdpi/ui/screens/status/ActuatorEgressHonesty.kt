@@ -4,6 +4,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.connection.ActiveExit
 import com.poyka.ripdpi.ui.screens.connection.toConfigDraft
 
 /**
@@ -44,8 +45,8 @@ internal fun isForeignExitLive(
 internal fun isForeignExitLost(telemetry: ServiceTelemetrySnapshot): Boolean = telemetry.relayFailed
 
 /**
- * Trailing actuator label: "Relay" for a live foreign-relay exit, "Direct"
- * otherwise.
+ * Trailing actuator label: the saved name and kind of an active subscription member or
+ * AmneziaWG profile, "Relay" for a live foreign-relay exit, "Direct" otherwise.
  *
  * This chip answers "what kind of exit", while the headline beside it uses
  * "secure line" to answer "is the tunnel up". Labelling the exit "Secure" made
@@ -55,9 +56,11 @@ internal fun isForeignExitLost(telemetry: ServiceTelemetrySnapshot): Boolean = t
  */
 internal fun actuatorTrailingLabel(
     egressBacked: Boolean,
+    activeExit: ActiveExit?,
     stringResolver: StringResolver,
 ): String =
-    stringResolver.getString(
+    // A subscription member or AmneziaWG profile is named, since the relay flag stays off for both.
+    activeExit?.let { "${it.name} · ${it.kind}" } ?: stringResolver.getString(
         if (egressBacked) {
             R.string.status_connection_actuator_relay
         } else {

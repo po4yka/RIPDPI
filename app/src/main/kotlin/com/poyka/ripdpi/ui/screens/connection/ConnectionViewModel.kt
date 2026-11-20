@@ -223,6 +223,7 @@ class ConnectionViewModel
                 runtimeSnapshots = runtimeSnapshots,
                 factory = uiStateFactory,
                 reconnectState = dependencies.reconnectCoordinator.reconnectState,
+                activeExit = dependencies.externalProviders.activeExit,
                 strategyLanes =
                     strategyLanesSource
                         .observe()

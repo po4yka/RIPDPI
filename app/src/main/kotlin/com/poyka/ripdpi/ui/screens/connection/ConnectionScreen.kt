@@ -246,7 +246,7 @@ fun ConnectionScreen(
                         ConnectionPath.Relay -> {
                             val lastProfile = uiState.vpnProfiles.firstOrNull { it.id == uiState.activeRelayProfileId }
                             when {
-                                uiState.activeExternalProvider != null -> Unit
+                                uiState.activeExternalProvider != null || uiState.activeExit != null -> Unit
                                 lastProfile != null -> profileActions.select(lastProfile.id)
                                 !uiState.usesRelayPath -> browsingRelay = true
                             }

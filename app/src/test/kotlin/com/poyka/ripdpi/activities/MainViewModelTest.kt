@@ -51,6 +51,7 @@ import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.services.network.NetworkCondition
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.connection.ActiveExit
 import com.poyka.ripdpi.ui.screens.connection.NoExternalProviders
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
@@ -325,6 +326,25 @@ class MainViewModelTest {
 
         assertEquals(StatusConnectionActuatorStatus.Open, state.status)
         assertTrue(state.stages.all { it.state == StatusConnectionActuatorStageState.Pending })
+    }
+
+    @Test
+    fun `connection actuator names the active exit instead of the direct path`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = StatusApproachSummaryUiState("Packet split", "", "", ""),
+                activeExit = ActiveExit("Home", "Hysteria2"),
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals("Home · Hysteria2", state.trailingLabel)
+        assertEquals("", state.strategyLabel)
     }
 
     @Test

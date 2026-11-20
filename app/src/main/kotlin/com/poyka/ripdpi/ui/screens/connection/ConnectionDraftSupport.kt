@@ -317,6 +317,7 @@ data class ConnectionUiState(
     val activeRelayProfileId: String = DefaultRelayProfileId,
     val activeRelayEnabled: Boolean = false,
     val activeExternalProvider: ConnectionExternalProvider? = null,
+    val activeExit: ActiveExit? = null,
     val runningMode: Mode? = null,
     val runtimeOperation: ConnectionRuntimeOperation? = null,
     val runtimeError: String? = null,
@@ -344,7 +345,7 @@ data class ConnectionUiState(
     val strategyLanes: StrategyLanesUiState? = null,
 ) {
     val usesRelayPath: Boolean
-        get() = activeRelayEnabled || activeExternalProvider != null
+        get() = activeRelayEnabled || activeExternalProvider != null || activeExit != null
 }
 
 data class RelayPresetUiState(

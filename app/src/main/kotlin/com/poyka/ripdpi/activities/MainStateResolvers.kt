@@ -11,6 +11,7 @@ import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.service.telemetry.measurementSource
+import com.poyka.ripdpi.ui.screens.connection.ActiveExit
 import com.poyka.ripdpi.ui.screens.settings.buildControlPlaneHealthSummary
 import com.poyka.ripdpi.ui.screens.status.HardKillSwitchUiState
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage
@@ -259,6 +260,7 @@ private fun buildMainConnectionActuator(
         appStatus = inputs.statusAndMode.first,
         telemetry = inputs.telemetry,
         approachSummary = approachSummary,
+        activeExit = inputs.activeExit.takeIf { connectionState == ConnectionState.Connected },
         hardKillSwitch = hardKillSwitch,
         stringResolver = stringResolver,
     )
@@ -321,6 +323,7 @@ internal fun buildConnectionActuatorUiState(
     runtime: ConnectionRuntimeState,
     telemetry: ServiceTelemetrySnapshot,
     approachSummary: StatusApproachSummaryUiState?,
+    activeExit: ActiveExit? = null,
     appStatus: AppStatus? = null,
     hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
     stringResolver: StringResolver,
@@ -369,11 +372,12 @@ internal fun buildConnectionActuatorUiState(
 
     return StatusConnectionActuatorUiState(
         status = status,
-        trailingLabel = actuatorTrailingLabel(egressBacked, stringResolver),
+        trailingLabel = actuatorTrailingLabel(egressBacked, activeExit, stringResolver),
         routeLabel = routeLabelForMode(mode, settings, stringResolver),
-        strategyLabel = approachSummary?.title.orEmpty(),
-        strategyFacets = approachSummary?.facets ?: persistentListOf(),
-        strategyPassage = approachSummary?.passage,
+        // Traffic leaves through the saved exit, so the direct bypass strategy does not describe it.
+        strategyLabel = approachSummary?.title.takeIf { activeExit == null }.orEmpty(),
+        strategyFacets = approachSummary?.facets.takeIf { activeExit == null } ?: persistentListOf(),
+        strategyPassage = approachSummary?.passage.takeIf { activeExit == null },
         statusDescription =
             actuatorStatusDescription(
                 status = status,

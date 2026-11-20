@@ -4,8 +4,12 @@ import com.poyka.ripdpi.data.Mode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 internal object NoExternalProviders : ConnectionExternalProviders {
+    override val activeExit: Flow<ActiveExit?> = flowOf(null)
+
     override suspend fun current(mode: Mode): ConnectionExternalProvider? = null
 
     override suspend fun deactivate(mode: Mode): Boolean = false
@@ -17,6 +21,8 @@ internal class FakeExternalProviders(
     private val refuses: Boolean = false,
     private val onStop: () -> Unit = {},
 ) : ConnectionExternalProviders {
+    override val activeExit: Flow<ActiveExit?> = flowOf(null)
+
     var deactivations = 0
         private set
 

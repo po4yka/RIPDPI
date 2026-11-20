@@ -116,6 +116,36 @@ class ConnectionPathSelectionTest {
     }
 
     @Test
+    fun `active subscription member shows as the relay path with its name and kind`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionScreen(
+                    uiState =
+                        ConnectionUiState(
+                            activeExit = ActiveExit("Home Hysteria", "Hysteria2"),
+                            presets = buildConfigPresets(defaultDraft),
+                            draft = defaultDraft,
+                        ),
+                    onModeSelected = {},
+                    onPresetSelected = {},
+                    onEditCurrent = {},
+                    onOpenConfigEditor = {},
+                    onRetestStrategies = {},
+                    onPasteServerLink = {},
+                    profileActions = ConnectionProfileActions(),
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPath("relay")).assertIsSelected()
+        assertEquals(
+            1,
+            composeRule.onAllNodesWithText("Home Hysteria", useUnmergedTree = true).fetchSemanticsNodes().size,
+        )
+        assertEquals(1, composeRule.onAllNodesWithText("Hysteria2", useUnmergedTree = true).fetchSemanticsNodes().size)
+    }
+
+    @Test
     fun `relay without a saved profile browses and returns to direct after recommended`() {
         val manualDraft = defaultDraft.copy(proxyPort = "1081")
         composeRule.setContent {
