@@ -99,11 +99,11 @@ class DataTransparencyScreenTest {
     @Test
     fun doNotCollectNoExternalServersBulletIsDisplayed() {
         setScreen()
+        val copy =
+            "No data is sent to external servers automatically, except anonymous field reports when you turn them on"
 
-        scrollTo("No data is sent to external servers automatically")
-        composeRule
-            .onNodeWithText("No data is sent to external servers automatically")
-            .assertIsDisplayed()
+        scrollTo(copy)
+        composeRule.onNodeWithText(copy).assertIsDisplayed()
     }
 
     @Test
