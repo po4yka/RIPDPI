@@ -47,6 +47,18 @@ class SingBoxNaiveImportTest {
             verified to """"quic_congestion_control":"bbr2",""",
             verified to """"extra_headers":{"Host":"other.example.test"},""",
             verified to """"username":"a:b",""",
+            """"tls":{"enabled":true,"certificate_path":"/ca.pem"}""" to "",
+            """"tls":{"enabled":true,"disable_sni":true}""" to "",
+            verified to """"server_port":0,""",
+            verified to """"server_port":70000,""",
+            verified to """"password":123456,""",
+            verified to """"insecure_concurrency":"two",""",
+            verified to """"quic":"yes",""",
+            verified to """"stream_receive_window":{"size":1},""",
+            verified to """"extra_headers":"X-Token: one",""",
+            verified to """"extra_headers":{"X-Token":1},""",
+            verified to """"extra_headers":{"X-A":"1\nX-B: 2"},""",
+            verified to """"extra_headers":{"X-A:b":"1"},""",
         ).forEach { (tls, options) -> assertTrue("$tls $options", parse(options, tls) is ProxyProfile.RawConfig) }
     }
 
