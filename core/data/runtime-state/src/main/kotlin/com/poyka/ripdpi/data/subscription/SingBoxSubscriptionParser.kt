@@ -412,6 +412,8 @@ private fun mapOutbound(
 
         "anytls" -> mapAnyTls(obj, groupId, server, port, name)
 
+        "naive" -> naiveProfile(obj, groupId, name) ?: rawConfig(name, groupId, obj)
+
         // vmess, trojan-go, hysteria (v1), tuic, wireguard, shadowtls, ssh, … —
         // no first-class subtype; round-trip the raw JSON fragment so the engine
         // can still consume it via the custom-config path.

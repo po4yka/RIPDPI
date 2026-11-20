@@ -39,6 +39,25 @@ class NestedSelectorImportTest {
     }
 
     @Test
+    fun `tactical endpoints import as selectable members that map to native relay profiles`() {
+        val payload = requireNotNull(javaClass.getResource("/tactical-endpoints/bundle.json")).readText()
+        val result = SelectorUrltestGroupImport.import(payload, "fleet")
+        assertTrue("$result", result is SelectorUrltestImportResult.Success)
+        result as SelectorUrltestImportResult.Success
+        val members = requireNotNull(result.group).members
+        assertEquals(listOf("p1-naive-fixture"), members.map { it.displayName })
+        assertTrue(members.all { validateNativeRelayProfileResult(it) == Result.success(true) })
+
+        val naive = checkNotNull(mapRelayProfile(members.filterIsInstance<ProxyProfile.Naive>().single()))
+        assertEquals(RelayKindNaiveProxy, naive.profile.kind)
+        assertEquals("naive.example.test", naive.profile.server)
+        assertEquals("naive.example.test", naive.profile.serverName)
+        assertEquals(443, naive.profile.serverPort)
+        assertEquals("fixture-device", naive.credentials.naiveUsername)
+        assertEquals("synthetic-naive", naive.credentials.naivePassword)
+    }
+
+    @Test
     fun `backend mixed research bundle keeps the outer selector and supported candidates`() {
         val result = SelectorUrltestGroupImport.import(bundle(), "fleet")
         assertTrue("$result", result is SelectorUrltestImportResult.Success)

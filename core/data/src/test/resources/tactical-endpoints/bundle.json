@@ -1,0 +1,31 @@
+{
+  "outbounds": [
+    {
+      "type": "naive",
+      "tag": "p1-naive-fixture",
+      "server": "naive.example.test",
+      "server_port": 443,
+      "username": "fixture-device",
+      "password": "synthetic-naive",
+      "tls": {"enabled": true, "server_name": "naive.example.test"}
+    },
+    {
+      "type": "selector",
+      "tag": "select",
+      "outbounds": ["p1-naive-fixture", "auto"],
+      "default": "auto",
+      "interrupt_exist_connections": false
+    },
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": ["p1-naive-fixture"],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "30m",
+      "tolerance": 50
+    },
+    {"type": "direct", "tag": "direct"},
+    {"type": "block", "tag": "block"}
+  ],
+  "route": {"final": "select"}
+}
