@@ -14,6 +14,7 @@ import com.poyka.ripdpi.core.RelayMieruSection
 import com.poyka.ripdpi.core.RelayPluggableTransportSection
 import com.poyka.ripdpi.core.RelayShadowTlsSection
 import com.poyka.ripdpi.core.RelayShadowsocksSection
+import com.poyka.ripdpi.core.RelaySnellSection
 import com.poyka.ripdpi.core.RelaySshSection
 import com.poyka.ripdpi.core.RelayTorSection
 import com.poyka.ripdpi.core.RelayTrojanSection
@@ -322,6 +323,7 @@ private class ResolvedRelayConfigBuilder(
             tuic = tuicSection(),
             shadowTls = shadowTlsSection(),
             trojan = trojanSection(),
+            snell = snellSection(),
             shadowsocks = shadowsocksSection(),
             hysteria2 = hysteria2Section(),
             mieru = mieruSection(),
@@ -462,6 +464,12 @@ private class ResolvedRelayConfigBuilder(
         RelayTrojanSection(
             trojanPassword = credentials?.trojanPassword,
             trojanRootCertificatePem = effectiveConfig.trojanRootCertificatePem,
+        )
+
+    private fun snellSection(): RelaySnellSection =
+        RelaySnellSection(
+            snellPsk = credentials?.snellPsk,
+            snellUserKey = credentials?.snellUserKey,
         )
 
     private fun shadowsocksSection(): RelayShadowsocksSection =

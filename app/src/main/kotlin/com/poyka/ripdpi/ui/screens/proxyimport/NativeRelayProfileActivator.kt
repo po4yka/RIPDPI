@@ -37,6 +37,7 @@ class NativeRelayProfileActivator
                 is ProxyProfile.Tuic,
                 is ProxyProfile.Shadowsocks,
                 is ProxyProfile.AnyTls,
+                is ProxyProfile.Snell,
                 is ProxyProfile.VlessReality,
                 is ProxyProfile.Ssh,
                 is ProxyProfile.Mieru,

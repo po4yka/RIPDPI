@@ -282,6 +282,8 @@ data class ResolvedRipDpiRelayConfig(
     val tuicPassword: String? = null,
     val shadowTlsPassword: String? = null,
     val trojanPassword: String? = null,
+    val snellPsk: String? = null,
+    val snellUserKey: String? = null,
     val shadowsocksMethod: String? = null,
     val shadowsocksPassword: String? = null,
     val naiveUsername: String? = null,
@@ -380,6 +382,7 @@ data class RelayConfigSections(
     val tuic: RelayTuicSection,
     val shadowTls: RelayShadowTlsSection,
     val trojan: RelayTrojanSection,
+    val snell: RelaySnellSection,
     val shadowsocks: RelayShadowsocksSection,
     val hysteria2: RelayHysteria2Section,
     val mieru: RelayMieruSection,
@@ -496,6 +499,9 @@ private fun ResolvedRipDpiRelayConfig.trojanSection(): RelayTrojanSection =
         trojanPassword = trojanPassword,
         trojanRootCertificatePem = trojanRootCertificatePem,
     )
+
+private fun ResolvedRipDpiRelayConfig.snellSection(): RelaySnellSection =
+    RelaySnellSection(snellPsk = snellPsk, snellUserKey = snellUserKey)
 
 private fun ResolvedRipDpiRelayConfig.shadowsocksSection(): RelayShadowsocksSection =
     RelayShadowsocksSection(
@@ -650,6 +656,7 @@ fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
         tuic = tuicSection(),
         shadowTls = shadowTlsSection(),
         trojan = trojanSection(),
+        snell = snellSection(),
         shadowsocks = shadowsocksSection(),
         hysteria2 = hysteria2Section(),
         mieru = mieruSection(),
@@ -789,7 +796,11 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         cloudflareTunnelToken = cloudflare.cloudflareTunnelToken,
         cloudflareTunnelCredentialsJson = cloudflare.cloudflareTunnelCredentialsJson,
         finalmask = finalmask,
-    ).withHysteria2(hysteria2).withXhttp(vless).withAppsScript(appsScript).withAnyTls(anyTls)
+    ).withHysteria2(hysteria2).withXhttp(vless).withAppsScript(appsScript).withAnyTls(anyTls).withSnell(snell)
+
+/** Copy the Snell credentials as one unit. */
+private fun ResolvedRipDpiRelayConfig.withSnell(section: RelaySnellSection): ResolvedRipDpiRelayConfig =
+    copy(snellPsk = section.snellPsk, snellUserKey = section.snellUserKey)
 
 /** Copy the AnyTLS credentials and optional certificate pin as one unit. */
 private fun ResolvedRipDpiRelayConfig.withAnyTls(section: RelayAnyTlsSection): ResolvedRipDpiRelayConfig =

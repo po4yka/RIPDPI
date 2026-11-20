@@ -114,6 +114,7 @@ private fun ProxyProfile.endpointKey(): String =
         is ProxyProfile.Tuic -> "tuic|$server|$serverPort"
         is ProxyProfile.Hysteria2 -> "hysteria2|$server|$serverPort"
         is ProxyProfile.AnyTls -> "anytls|$server|$serverPort"
+        is ProxyProfile.Snell -> "snell|$server|$serverPort"
         is ProxyProfile.Mieru -> "mieru|$server|$serverPort"
         is ProxyProfile.Naive -> "naive|$server|$serverPort"
         is ProxyProfile.Ssh -> "ssh|$server|$serverPort"
@@ -132,6 +133,7 @@ private fun ProxyProfile.withIdentity(
         is ProxyProfile.Tuic -> copy(id = newId, displayName = name)
         is ProxyProfile.Hysteria2 -> copy(id = newId, displayName = name)
         is ProxyProfile.AnyTls -> copy(id = newId, displayName = name)
+        is ProxyProfile.Snell -> copy(id = newId, displayName = name)
         is ProxyProfile.Mieru -> copy(id = newId, displayName = name)
         is ProxyProfile.Naive -> copy(id = newId, displayName = name)
         is ProxyProfile.Ssh -> copy(id = newId, displayName = name)

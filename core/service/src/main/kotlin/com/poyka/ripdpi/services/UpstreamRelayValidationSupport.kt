@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindShadowsocks
+import com.poyka.ripdpi.data.RelayKindSnell
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -71,6 +72,10 @@ internal fun validateDefaultRelayCredentials(
 
             RelayKindAnyTls -> {
                 !credentials?.anyTlsPassword.isNullOrBlank()
+            }
+
+            RelayKindSnell -> {
+                !credentials?.snellPsk.isNullOrBlank()
             }
 
             RelayKindShadowsocks -> {

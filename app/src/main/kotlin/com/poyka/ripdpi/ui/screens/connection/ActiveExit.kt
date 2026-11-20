@@ -106,6 +106,7 @@ private fun ProxyProfile.host(): String? =
         is ProxyProfile.Tuic -> server
         is ProxyProfile.Hysteria2 -> server
         is ProxyProfile.AnyTls -> server
+        is ProxyProfile.Snell -> server
         is ProxyProfile.Mieru -> server
         is ProxyProfile.Naive -> server
         is ProxyProfile.Ssh -> server

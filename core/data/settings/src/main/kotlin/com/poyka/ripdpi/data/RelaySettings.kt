@@ -14,6 +14,7 @@ const val RelayKindTuicV5 = "tuic_v5"
 const val RelayKindShadowTlsV3 = "shadowtls_v3"
 const val RelayKindShadowsocks = "shadowsocks"
 const val RelayKindTrojan = "trojan"
+const val RelayKindSnell = "snell"
 const val RelayKindNaiveProxy = "naiveproxy"
 const val RelayKindTor = "tor"
 const val RelayKindGoogleAppsScript = "google_apps_script"
@@ -90,6 +91,7 @@ private val RelayKindsWithNativeSettings =
         RelayKindShadowTlsV3,
         RelayKindShadowsocks,
         RelayKindTrojan,
+        RelayKindSnell,
         RelayKindNaiveProxy,
         RelayKindTor,
         RelayKindGoogleAppsScript,

@@ -290,6 +290,8 @@ object FleetCompatHarness {
 
             is ProxyProfile.AnyTls -> "anytls|$server|$serverPort"
 
+            is ProxyProfile.Snell -> "snell|$server|$serverPort"
+
             is ProxyProfile.Mieru -> "mieru|$server|$serverPort"
 
             is ProxyProfile.Naive -> "naive|$server|$serverPort"
@@ -338,6 +340,10 @@ object FleetCompatHarness {
 
             is ProxyProfile.AnyTls -> {
                 mapOf("type" to "anytls", "name" to displayName, "server" to server, "port" to serverPort.toString())
+            }
+
+            is ProxyProfile.Snell -> {
+                mapOf("type" to "snell", "name" to displayName, "server" to server, "port" to serverPort.toString())
             }
 
             is ProxyProfile.Mieru -> {

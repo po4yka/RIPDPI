@@ -12,10 +12,10 @@
     "p0-reality-upcloud-fixture",
     "p1-xhttp-upcloud-fixture",
     "p1-xhttp-upcloud-fixture:alternate",
-    "p2-hysteria2-upcloud-fixture"
+    "p2-hysteria2-upcloud-fixture",
+    "p3-snell-v4-stream-fresh-upcloud-fixture"
   ],
   "expected_unsupported_tags": [
-    "p3-snell-v4-stream-fresh-upcloud-fixture",
     "p3-snell-v4-stream-reuse-upcloud-fixture"
   ],
   "expected_selector": "select",

@@ -140,6 +140,14 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             validatePasswordRelayFields("AnyTLS", profile.server, profile.serverPort, profile.password)
         }
 
+        is ProxyProfile.Snell -> {
+            validatePasswordRelayFields("Snell", profile.server, profile.serverPort, profile.psk)
+            require(profile.userKey.toByteArray(Charsets.UTF_8).size <= SnellUserKeyMaxBytes) {
+                "Snell user key must be at most $SnellUserKeyMaxBytes bytes"
+            }
+            true
+        }
+
         is ProxyProfile.Trojan -> {
             validatePasswordRelayFields("Trojan", profile.server, profile.serverPort, profile.password)
         }
@@ -152,6 +160,8 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             false
         }
     }
+
+const val SnellUserKeyMaxBytes = 255
 
 private fun validateShadowsocksProfileFields(profile: ProxyProfile.Shadowsocks): Boolean {
     require(profile.server.isNotBlank()) { "Shadowsocks requires a server hostname" }

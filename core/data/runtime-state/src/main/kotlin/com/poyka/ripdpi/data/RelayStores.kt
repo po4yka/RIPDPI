@@ -155,6 +155,8 @@ data class RelayCredentialRecord(
     val anyTlsPinSha256: String? = null,
     val shadowTlsPassword: String? = null,
     val trojanPassword: String? = null,
+    val snellPsk: String? = null,
+    val snellUserKey: String? = null,
     val mieruUsername: String? = null,
     val mieruPassword: String? = null,
     val sshUsername: String? = null,

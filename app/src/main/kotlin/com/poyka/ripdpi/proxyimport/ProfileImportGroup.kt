@@ -14,6 +14,7 @@ internal fun ProxyProfile.importedGroup(groupId: String): ProxyGroup {
             is ProxyProfile.Tuic -> copy(groupId = groupId)
             is ProxyProfile.Hysteria2 -> copy(groupId = groupId)
             is ProxyProfile.AnyTls -> copy(groupId = groupId)
+            is ProxyProfile.Snell -> copy(groupId = groupId)
             is ProxyProfile.Mieru -> copy(groupId = groupId)
             is ProxyProfile.Naive -> copy(groupId = groupId)
             is ProxyProfile.Ssh -> copy(groupId = groupId)

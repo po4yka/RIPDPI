@@ -1283,6 +1283,47 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                     ?.let { (it as kotlinx.serialization.json.JsonPrimitive).content },
             )
         }
+
+    @Test
+    fun `resolve snell family carries psk and user key over tcp`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "snell",
+                                    snellPsk = "snell-psk-fixture",
+                                    snellUserKey = "snell-user-fixture",
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = com.poyka.ripdpi.data.RelayKindSnell,
+                            profileId = "snell",
+                            server = "snell.example",
+                            serverPort = 2443,
+                            udpEnabled = false,
+                        ),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
+                )
+
+            assertEquals("snell", resolved.kind)
+            assertEquals("snell-psk-fixture", resolved.snellPsk)
+            assertEquals("snell-user-fixture", resolved.snellUserKey)
+            assertEquals(false, resolved.udpEnabled)
+            assertEquals(10, resolved.schemaVersion)
+        }
 }
 
 class UpstreamRelayXhttpPoolTest : UpstreamRelayRuntimeConfigResolverTestFixture() {

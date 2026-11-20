@@ -85,6 +85,16 @@ class BackupAllowlistCoverageTest {
                     serverName = "front.example.com",
                     password = "pw",
                 ),
+            "snell" to
+                ProxyProfile.Snell(
+                    id = "snell-1",
+                    displayName = "Snell",
+                    groupId = "g-1",
+                    server = "snell.example.com",
+                    serverPort = 2443,
+                    psk = "psk",
+                    userKey = "user",
+                ),
             "tuic" to
                 ProxyProfile.Tuic(
                     id = "tuic-1",

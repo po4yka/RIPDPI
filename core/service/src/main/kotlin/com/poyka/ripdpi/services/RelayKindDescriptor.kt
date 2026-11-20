@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindShadowsocks
+import com.poyka.ripdpi.data.RelayKindSnell
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTor
@@ -226,6 +227,16 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
         RelayKindDescriptor(
             kindId = RelayKindShadowsocks,
             label = "Shadowsocks",
+            tcp = true,
+            reusable = false,
+            supportsOutboundBindIp = true,
+            subprocessBacked = false,
+            finalmaskSupport = RelayFinalmaskSupport.NONE,
+            configBacking = RelayConfigBacking.INLINE_SETTINGS_BACKED,
+        ),
+        RelayKindDescriptor(
+            kindId = RelayKindSnell,
+            label = "Snell",
             tcp = true,
             reusable = false,
             supportsOutboundBindIp = true,

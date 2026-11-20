@@ -392,6 +392,7 @@ class RelayNativeConfigTest {
             anyTlsConfig(),
             trojanConfig(),
             shadowsocksConfig(),
+            snellConfig(),
             shadowTlsConfig(),
             chainRelayConfig(),
             cloudflareTunnelConfig(),
@@ -457,6 +458,25 @@ class RelayNativeConfigTest {
             trojanPassword = relayNativePlaceholder(5),
             trojanRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntrojan-root\n-----END CERTIFICATE-----",
         )
+
+    private fun snellConfig(): ResolvedRipDpiRelayConfig =
+        relayNativeBaseFixture("snell").copy(
+            snellPsk = "snell-fixture-psk",
+            snellUserKey = "snell-fixture-user",
+        )
+
+    @Test
+    fun `snell relay config serializes exactly its two credential keys on top of the required ones`() {
+        val wire =
+            json.parseToJsonElement(
+                json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), snellConfig()),
+            ) as JsonObject
+        assertEquals(requiredWireKeys + setOf("snellPsk", "snellUserKey"), wire.keys)
+        assertEquals("snell", (wire["kind"] as kotlinx.serialization.json.JsonPrimitive).content)
+        assertEquals(10, (wire["schemaVersion"] as kotlinx.serialization.json.JsonPrimitive).content.toInt())
+        assertEquals("snell-fixture-psk", (wire["snellPsk"] as kotlinx.serialization.json.JsonPrimitive).content)
+        assertEquals("snell-fixture-user", (wire["snellUserKey"] as kotlinx.serialization.json.JsonPrimitive).content)
+    }
 
     private fun shadowsocksConfig(): ResolvedRipDpiRelayConfig =
         relayNativeBaseFixture("shadowsocks").copy(
@@ -651,6 +671,8 @@ class RelayNativeConfigTest {
             shadowTlsPassword = relayNativePlaceholder(3),
             shadowsocksMethod = "2022-blake3-aes-256-gcm",
             shadowsocksPassword = relayNativePlaceholder(10),
+            snellPsk = "snell-fixture-psk",
+            snellUserKey = "snell-fixture-user",
             naiveUsername = "naive-username",
             naivePassword = relayNativePlaceholder(4),
             masqueAuthMode = "token",
@@ -769,6 +791,8 @@ class RelayNativeConfigTest {
                 "trojanPassword",
                 "shadowsocksMethod",
                 "shadowsocksPassword",
+                "snellPsk",
+                "snellUserKey",
                 "trojanRootCertificatePem",
                 "tuicRootCertificatePem",
                 "masqueRootCertificatePem",

@@ -15,10 +15,20 @@ class NestedSelectorImportTest {
         assertTrue("$result", result is SelectorUrltestImportResult.Success)
         result as SelectorUrltestImportResult.Success
         val members = requireNotNull(result.group).members
-        assertEquals(4, members.size)
+        assertEquals(5, members.size)
         assertEquals("select", result.group?.name)
         assertEquals("auto", result.defaultMemberTag)
-        assertEquals(2, result.profiles.filterIsInstance<ProxyProfile.RawConfig>().size)
+        // Only the reuse:true Snell twin stays an unsupported, non-selectable node.
+        val unsupported = result.profiles.filterIsInstance<ProxyProfile.RawConfig>()
+        assertEquals(listOf("p3-snell-v4-stream-reuse-upcloud-fixture"), unsupported.map { it.displayName })
+        val snell = members.filterIsInstance<ProxyProfile.Snell>().single()
+        assertEquals("p3-snell-v4-stream-fresh-upcloud-fixture", snell.displayName)
+        assertEquals(9443, snell.serverPort)
+        val mapping = requireNotNull(mapRelayProfile(snell))
+        assertEquals(RelayKindSnell, mapping.profile.kind)
+        assertEquals(false, mapping.profile.udpEnabled)
+        assertEquals("synthetic-snell-psk", mapping.credentials.snellPsk)
+        assertEquals("synthetic-snell-userkey", mapping.credentials.snellUserKey)
         val reality = members.filterIsInstance<ProxyProfile.VlessReality>().single()
         assertEquals("xtls-rprx-vision", reality.flow)
         assertEquals("11111111-2222-4333-8444-555555555555", reality.uuid)

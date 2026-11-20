@@ -191,6 +191,15 @@ object BackupAllowlist {
                 "password" to Classification.REDACTED,
             )
 
+    private val snellFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                "psk" to Classification.REDACTED,
+                "userKey" to Classification.REDACTED,
+            )
+
     private val trojanFields: Map<String, Classification> =
         commonFields +
             mapOf(
@@ -324,6 +333,7 @@ object BackupAllowlist {
             "vless-reality" to vlessRealityFields,
             "shadowsocks" to shadowsocksFields,
             "trojan" to trojanFields,
+            "snell" to snellFields,
             "hysteria2" to hysteria2Fields,
             "anytls" to anyTlsFields,
             "tuic" to tuicFields,

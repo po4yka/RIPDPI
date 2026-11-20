@@ -171,6 +171,10 @@ private fun profileSummary(profile: ProxyProfile): String =
             )
         }
 
+        is ProxyProfile.Snell -> {
+            stringResource(R.string.import_profile_summary_endpoint, "Snell", profile.server, profile.serverPort)
+        }
+
         is ProxyProfile.Mieru -> {
             stringResource(
                 R.string.import_profile_summary_endpoint,

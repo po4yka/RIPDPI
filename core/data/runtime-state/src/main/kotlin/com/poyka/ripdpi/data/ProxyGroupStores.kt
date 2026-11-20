@@ -325,6 +325,23 @@ sealed interface ProxyProfile {
                 "congestionControl=$congestionControl, alpn=$alpn)"
     }
 
+    /** Snell v4 outbound (TCP only, no reuse, no obfs). Imported from subscriptions; no manual editor. */
+    @Serializable
+    @SerialName("snell")
+    data class Snell(
+        override val id: String,
+        override val displayName: String,
+        override val groupId: String,
+        val server: String,
+        val serverPort: Int,
+        val psk: String,
+        val userKey: String = "",
+    ) : ProxyProfile {
+        override fun toString(): String =
+            "Snell(id=$id, displayName=$displayName, groupId=$groupId, server=$server, " +
+                "serverPort=$serverPort, psk=<redacted>, userKey=<redacted>)"
+    }
+
     @Serializable
     @SerialName("anytls")
     data class AnyTls(

@@ -138,6 +138,7 @@ class Base64SubscriptionParserTest {
             is ProxyProfile.Tuic -> profile.server
             is ProxyProfile.Hysteria2 -> profile.server
             is ProxyProfile.AnyTls -> profile.server
+            is ProxyProfile.Snell -> profile.server
             is ProxyProfile.Mieru -> profile.server
             is ProxyProfile.Naive -> profile.server
             is ProxyProfile.Ssh -> profile.server

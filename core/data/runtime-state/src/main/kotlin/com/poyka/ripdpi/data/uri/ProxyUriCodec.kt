@@ -125,6 +125,11 @@ object ProxyUriCodec {
                     encodeShadowsocks(profile)
                 }
 
+                // Snell is subscription-import only; it has no share-link format.
+                is ProxyProfile.Snell -> {
+                    null
+                }
+
                 is ProxyProfile.RawConfig -> {
                     profile.config.takeIf { it.contains("://") }
                 }

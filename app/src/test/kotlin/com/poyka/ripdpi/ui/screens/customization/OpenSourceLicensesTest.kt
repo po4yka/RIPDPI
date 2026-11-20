@@ -26,6 +26,7 @@ class OpenSourceLicensesTest {
         mapOf(
             "Go standard library" to "Redistribution and use in source and binary forms",
             "ripdpi-socks5-core" to "Jonathan Dizdarevic",
+            "ripdpi-snell" to "nekohasekai",
         ).forEach { (title, expected) ->
             val text = notices.single { it.title == title }.text
             assertTrue("$title lacks '$expected'", text.contains(expected))

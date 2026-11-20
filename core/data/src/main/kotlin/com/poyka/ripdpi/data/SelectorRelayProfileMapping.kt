@@ -81,6 +81,7 @@ private fun relayKindFor(profile: ProxyProfile): String? =
         is ProxyProfile.Tuic -> RelayKindTuicV5
         is ProxyProfile.Shadowsocks -> RelayKindShadowsocks
         is ProxyProfile.AnyTls -> RelayKindAnyTls
+        is ProxyProfile.Snell -> RelayKindSnell
         is ProxyProfile.VlessReality -> RelayKindVlessReality
         is ProxyProfile.Vless -> if (profile.hasXhttpTransport()) RelayKindVless else null
         is ProxyProfile.Hysteria2 -> RelayKindHysteria2
@@ -150,6 +151,10 @@ private fun relayEndpoint(profile: ProxyProfile): RelayActivationEndpoint =
             RelayActivationEndpoint(profile.server, profile.serverPort, profile.serverName)
         }
 
+        is ProxyProfile.Snell -> {
+            RelayActivationEndpoint(profile.server, profile.serverPort, profile.server)
+        }
+
         is ProxyProfile.VlessReality -> {
             RelayActivationEndpoint(profile.server, profile.serverPort, profile.serverName)
         }
@@ -212,6 +217,15 @@ private fun relayCredentials(
                 profileId = profileId,
                 anyTlsPassword = profile.password,
                 anyTlsPinSha256 = profile.pinSha256,
+            )
+        }
+
+        is ProxyProfile.Snell -> {
+            RelayCredentialRecord(
+                updatedAtEpochMillis = 0L,
+                profileId = profileId,
+                snellPsk = profile.psk,
+                snellUserKey = profile.userKey.ifEmpty { null },
             )
         }
 

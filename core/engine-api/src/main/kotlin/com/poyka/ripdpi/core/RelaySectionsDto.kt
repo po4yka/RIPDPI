@@ -189,6 +189,12 @@ data class RelaySshSection(
     val sshStrictHostKey: Boolean,
 )
 
+/** Snell v4 pre-shared key and optional user key. */
+data class RelaySnellSection(
+    val snellPsk: String?,
+    val snellUserKey: String?,
+)
+
 /** AnyTLS credential. */
 data class RelayAnyTlsSection(
     val anyTlsPassword: String?,
