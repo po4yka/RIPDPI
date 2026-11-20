@@ -106,10 +106,10 @@ async fn rendezvous_unbounded(config: &Config, realm: &RealmConfig) -> Result<(s
 
     let local = discover(&socket, &realm.stun_servers, protection).await?;
     let offered = PunchMetadata { nonce: rand::random(), obfs: rand::random() };
-    let (peers, metadata) = timeout(CONTROL_TIMEOUT, control_connect(realm, protection, &local, offered))
+    let peers = timeout(CONTROL_TIMEOUT, control_connect(realm, protection, &local, offered))
         .await
         .map_err(|_| HysteriaError::RealmControl("no answer from the rendezvous service".into()))??;
-    let peer = punch(&socket, &peers, metadata).await?;
+    let peer = punch(&socket, &peers, offered).await?;
     Ok((socket.into_std()?, peer))
 }
 
@@ -223,7 +223,7 @@ async fn control_connect(
     protection: SocketProtectionPolicy,
     local: &[SocketAddr],
     offered: PunchMetadata,
-) -> Result<(Vec<SocketAddr>, PunchMetadata)> {
+) -> Result<Vec<SocketAddr>> {
     let control = |message: &str| HysteriaError::RealmControl(message.to_owned());
     let mut url = url::Url::parse(&realm.server_url).map_err(|_| control("invalid rendezvous URL"))?;
     let authority_host = url.host_str().ok_or_else(|| control("rendezvous URL has no host"))?.to_owned();
@@ -301,17 +301,44 @@ async fn control_connect(
             .filter(|code| code.len() <= 32 && code.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_'));
         return Err(HysteriaError::RealmControl(format!("status {status} {}", code.unwrap_or("unknown"))));
     }
-    let peers = json["addresses"]
+    connect_answer_peers(&json, offered, loopback)
+}
+
+/// Peers of a `connect` answer. The service echoes the caller's nonce and obfs
+/// key, so an answer with other values did not come from this attempt. A peer
+/// address is STUN-mapped and therefore public; a local one is accepted only
+/// from a loopback service (a test fixture).
+fn connect_answer_peers(
+    json: &serde_json::Value,
+    offered: PunchMetadata,
+    local_service: bool,
+) -> Result<Vec<SocketAddr>> {
+    let control = |message: &str| HysteriaError::RealmControl(message.to_owned());
+    let nonce: Option<[u8; PUNCH_NONCE_LEN]> = json["nonce"].as_str().and_then(hex_decode);
+    let obfs: Option<[u8; 32]> = json["obfs"].as_str().and_then(hex_decode);
+    if nonce != Some(offered.nonce) || obfs != Some(offered.obfs) {
+        return Err(control("rendezvous answer does not match this attempt"));
+    }
+    let peers: Vec<SocketAddr> = json["addresses"]
         .as_array()
         .and_then(|addresses| {
             addresses.iter().take(PUNCH_MAX_PEERS).map(|address| address.as_str()?.parse().ok()).collect()
         })
         .ok_or_else(|| control("rendezvous answer has no valid addresses"))?;
-    let metadata = PunchMetadata {
-        nonce: json["nonce"].as_str().and_then(hex_decode).ok_or_else(|| control("rendezvous answer has no nonce"))?,
-        obfs: json["obfs"].as_str().and_then(hex_decode).ok_or_else(|| control("rendezvous answer has no obfs key"))?,
-    };
-    Ok((peers, metadata))
+    Ok(peers.into_iter().filter(|peer| local_service || !is_local(peer.ip())).collect())
+}
+
+fn is_local(ip: IpAddr) -> bool {
+    match ip {
+        // 100.64.0.0/10 is carrier-grade NAT space.
+        IpAddr::V4(ip) => {
+            ip.is_loopback()
+                || ip.is_private()
+                || ip.is_link_local()
+                || (ip.octets()[0] == 100 && ip.octets()[1] & 0xc0 == 64)
+        }
+        IpAddr::V6(ip) => ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local(),
+    }
 }
 
 /// Sends one HTTP/1.1 request and reads the status and body of the answer.
@@ -418,6 +445,10 @@ async fn punch(socket: &UdpSocket, peers: &[SocketAddr], metadata: PunchMetadata
         }
         let Ok(received) = timeout_at(next_send.min(deadline), socket.recv_from(&mut buffer)).await else { continue };
         let (len, from) = received?;
+        // The port may differ from every candidate behind a symmetric NAT; the host may not.
+        if !candidates.iter().any(|candidate| candidate.ip() == from.ip()) {
+            continue;
+        }
         let Some(kind) = decode_punch_packet(&buffer[..len], metadata) else { continue };
         if kind == PUNCH_HELLO {
             let _ = socket.send_to(&encode_punch_packet(PUNCH_ACK, metadata), from).await;
@@ -572,6 +603,28 @@ mod tests {
         let (transaction, mapped) = parse_stun_response(&response).expect("STUN message");
         assert_eq!(transaction[..2], [0xb7, 0xe7]);
         assert_eq!(mapped, Some("192.0.2.1:32853".parse().unwrap()));
+    }
+
+    #[test]
+    fn a_connect_answer_must_echo_this_attempt_and_name_public_peers() {
+        let offered = metadata();
+        let nonce = "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf";
+        let obfs = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+        let answer = |nonce: &str, obfs: &str| {
+            serde_json::json!({
+                "addresses": ["198.51.100.7:4000", "192.168.1.1:53", "100.64.0.1:4000", "127.0.0.1:4000"],
+                "nonce": nonce,
+                "obfs": obfs,
+            })
+        };
+        let peers = |local_service| connect_answer_peers(&answer(nonce, obfs), offered, local_service).unwrap();
+        assert_eq!(peers(false), ["198.51.100.7:4000".parse::<SocketAddr>().unwrap()]);
+        assert_eq!(peers(true).len(), 4, "a loopback test service may name local peers");
+
+        let other_nonce = "b0a1a2a3a4a5a6a7a8a9aaabacadaeaf";
+        assert!(connect_answer_peers(&answer(other_nonce, obfs), offered, false).is_err());
+        let other_obfs = "ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+        assert!(connect_answer_peers(&answer(nonce, other_obfs), offered, false).is_err());
     }
 
     #[test]
