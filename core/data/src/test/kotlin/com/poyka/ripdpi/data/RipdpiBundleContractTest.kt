@@ -206,6 +206,10 @@ class RipdpiBundleContractTest {
         assertEquals(false, hy2.insecure)
         assertEquals("20000-50000", hy2.portHopping?.ports)
         assertEquals(30000L, hy2.portHopping?.intervalMillis)
+        // The topology declares a realm id only: the direct address stays and no rendezvous is provisioned.
+        assertEquals(Hysteria2Realm(realmId = "realm-a"), hy2.realm)
+        assertEquals("203.0.113.7", hy2.server)
+        assertEquals(443, hy2.serverPort)
 
         // AWG entry with i-values; delivered fingerprint recomputes from its params.
         val awg = result.amneziaWgProfiles.single()

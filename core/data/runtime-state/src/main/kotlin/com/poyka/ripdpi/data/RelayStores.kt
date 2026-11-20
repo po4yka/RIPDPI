@@ -22,6 +22,7 @@ data class RelayProfileRecord(
     val serverPort: Int = 443,
     val serverName: String = "",
     val hysteriaPortHopping: Hysteria2PortHopping? = null,
+    val hysteriaRealm: Hysteria2Realm? = null,
     val securityLayer: String = RelaySecurityLayerReality,
     val realityPublicKey: String = "",
     val realityShortId: String = "",
@@ -139,6 +140,7 @@ data class RelayCredentialRecord(
     val chainExitUuid: String? = null,
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
+    val hysteriaRealmToken: String? = null,
     val hysteriaInsecure: Boolean = false,
     /**
      * Hysteria2 certificate pin (SHA-256 of the leaf certificate DER, 64

@@ -479,6 +479,10 @@ private class ResolvedRelayConfigBuilder(
             hysteriaPortHopPorts = effectiveConfig.hysteriaPortHopping?.ports,
             hysteriaPortHopIntervalMillis = effectiveConfig.hysteriaPortHopping?.intervalMillis,
             hysteriaPortHopIntervalMaxMillis = effectiveConfig.hysteriaPortHopping?.intervalMaxMillis,
+            hysteriaRealmId = effectiveConfig.hysteriaRealm?.realmId,
+            hysteriaRealmServerUrl = effectiveConfig.hysteriaRealm?.serverUrl?.ifBlank { null },
+            hysteriaRealmToken = credentials?.hysteriaRealmToken,
+            hysteriaRealmStunServers = effectiveConfig.hysteriaRealm?.stunServers.orEmpty(),
         )
 
     // Mieru reuses the common server/serverPort as its endpoint (the native

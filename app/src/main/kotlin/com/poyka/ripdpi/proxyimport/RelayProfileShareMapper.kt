@@ -167,7 +167,7 @@ object RelayProfileShareMapper {
                         insecure = credentials.hysteriaInsecure,
                         pinSha256 = credentials.hysteriaPinSha256,
                         portHopping = hysteriaPortHopping,
-                    ).takeIf { server.isNotBlank() && serverPort > 0 }
+                    ).takeIf { server.isNotBlank() && serverPort > 0 && hysteriaRealm?.serverUrl.isNullOrBlank() }
             }
         }
 

@@ -460,6 +460,70 @@ class SingBoxRipdpiExtensionParserTest {
         assertEquals("realm-a", result.topology!!.hysteriaRealm)
     }
 
+    private fun realmBundle(
+        realmBody: String,
+        topologyRealm: String? = null,
+    ): String =
+        """
+        {
+          "outbounds": [
+            { "type": "hysteria2", "tag": "p5-realm", "password": "pw",
+              "tls": { "enabled": true, "server_name": "peer.example" },
+              "realm": { "server_url": "https://realm.example.com:8444", "token": " test-token ",
+                         "stun_servers": ["stun.example.com:3478"]$realmBody } }
+          ],
+          "ripdpi": {
+            "schema_version": 3,
+            "topology": { "hysteria_realm": ${topologyRealm?.let { "\"$it\"" } ?: "null"} }
+          }
+        }
+        """.trimIndent()
+
+    @Test
+    fun `hysteria2 realm outbound maps rendezvous settings and takes host and port from the url`() {
+        val result = success(SingBoxSubscriptionParser.parse(realmBundle(""","realm_id": "realm-a""""), groupId))
+        val hy2 = result.profiles.single() as ProxyProfile.Hysteria2
+        assertEquals("realm.example.com", hy2.server)
+        assertEquals(8444, hy2.serverPort)
+        assertEquals(
+            Hysteria2Realm("realm-a", "https://realm.example.com:8444", listOf("stun.example.com:3478")),
+            hy2.realm,
+        )
+        assertEquals(" test-token ", hy2.realmToken)
+    }
+
+    @Test
+    fun `hysteria2 realm without realm id takes the topology id`() {
+        val result = success(SingBoxSubscriptionParser.parse(realmBundle("", "realm-topo"), groupId))
+        assertEquals("realm-topo", (result.profiles.single() as ProxyProfile.Hysteria2).realm?.realmId)
+    }
+
+    @Test
+    fun `hysteria2 realm id that differs from the topology id rejects the bundle`() {
+        val result = SingBoxSubscriptionParser.parse(realmBundle(""","realm_id": "realm-a"""", "realm-b"), groupId)
+        assertTrue("expected Error but got $result", result is SingBoxParseResult.Error)
+    }
+
+    @Test
+    fun `hysteria2 realm without any realm id rejects the bundle`() {
+        val result = SingBoxSubscriptionParser.parse(realmBundle(""), groupId)
+        assertTrue("expected Error but got $result", result is SingBoxParseResult.Error)
+    }
+
+    @Test
+    fun `hysteria2 realm next to a fixed server is skipped as unsupported`() {
+        val json =
+            """
+            { "outbounds": [
+              { "type": "hysteria2", "tag": "both", "server": "hy2.example.com", "server_port": 443, "password": "pw",
+                "realm": { "server_url": "https://realm.example.com", "realm_id": "r",
+                           "stun_servers": "stun.example.com:3478" } } ] }
+            """.trimIndent()
+        val result = success(SingBoxSubscriptionParser.parse(json, groupId))
+        assertTrue(result.profiles.isEmpty())
+        assertEquals(SingBoxSkipReason.UNSUPPORTED_TRANSPORT, result.skipped.single().reason)
+    }
+
     @Test
     fun `ripdpi RFC3339 expiry is normalized to epoch milliseconds`() {
         val json =

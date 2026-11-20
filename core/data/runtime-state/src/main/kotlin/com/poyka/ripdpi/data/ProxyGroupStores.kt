@@ -289,6 +289,9 @@ sealed interface ProxyProfile {
         val pinSha256: String? = null,
         /** Exact remote UDP destination set and fixed or randomized cadence. */
         val portHopping: Hysteria2PortHopping? = null,
+        /** Realm rendezvous settings; the token is kept apart in [realmToken] because it is a secret. */
+        val realm: Hysteria2Realm? = null,
+        val realmToken: String? = null,
         /**
          * The upstream Hysteria2 release tag whose Salamander algorithm the
          * server runs (`ripdpi.hysteria_extras.<tag>.salamander_upstream_tag`,

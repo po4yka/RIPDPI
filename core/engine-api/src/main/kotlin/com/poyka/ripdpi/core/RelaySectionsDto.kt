@@ -154,6 +154,10 @@ data class RelayHysteria2Section(
     val hysteriaPortHopPorts: String? = null,
     val hysteriaPortHopIntervalMillis: Long? = null,
     val hysteriaPortHopIntervalMaxMillis: Long? = null,
+    val hysteriaRealmId: String? = null,
+    val hysteriaRealmServerUrl: String? = null,
+    val hysteriaRealmToken: String? = null,
+    val hysteriaRealmStunServers: List<String> = emptyList(),
 )
 
 /** Mieru outbound endpoint, username/password credentials, transport protocol, multiplexing, and MTU. */

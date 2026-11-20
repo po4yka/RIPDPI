@@ -121,6 +121,10 @@ data class ResolvedChainRelayHopConfig(
     val hysteriaPortHopPorts: String? = null,
     val hysteriaPortHopIntervalMillis: Long? = null,
     val hysteriaPortHopIntervalMaxMillis: Long? = null,
+    val hysteriaRealmId: String? = null,
+    val hysteriaRealmServerUrl: String? = null,
+    val hysteriaRealmToken: String? = null,
+    val hysteriaRealmStunServers: List<String> = emptyList(),
     @SerialName("anytlsPassword")
     val anyTlsPassword: String? = null,
     val tuicUuid: String? = null,
@@ -262,6 +266,10 @@ data class ResolvedRipDpiRelayConfig(
     val hysteriaPortHopPorts: String? = null,
     val hysteriaPortHopIntervalMillis: Long? = null,
     val hysteriaPortHopIntervalMaxMillis: Long? = null,
+    val hysteriaRealmId: String? = null,
+    val hysteriaRealmServerUrl: String? = null,
+    val hysteriaRealmToken: String? = null,
+    val hysteriaRealmStunServers: List<String> = emptyList(),
     val hysteriaInsecure: Boolean = false,
     /** Hysteria2 leaf-certificate SHA-256 pin, 64 lowercase hex characters; `null` = no pin. */
     val hysteriaPinSha256: String? = null,
@@ -504,6 +512,10 @@ private fun ResolvedRipDpiRelayConfig.hysteria2Section(): RelayHysteria2Section 
         hysteriaPortHopPorts = hysteriaPortHopPorts,
         hysteriaPortHopIntervalMillis = hysteriaPortHopIntervalMillis,
         hysteriaPortHopIntervalMaxMillis = hysteriaPortHopIntervalMaxMillis,
+        hysteriaRealmId = hysteriaRealmId,
+        hysteriaRealmServerUrl = hysteriaRealmServerUrl,
+        hysteriaRealmToken = hysteriaRealmToken,
+        hysteriaRealmStunServers = hysteriaRealmStunServers,
     )
 
 private fun ResolvedRipDpiRelayConfig.mieruSection(): RelayMieruSection =
@@ -810,6 +822,10 @@ private fun ResolvedRipDpiRelayConfig.withHysteria2(section: RelayHysteria2Secti
         hysteriaPortHopPorts = section.hysteriaPortHopPorts,
         hysteriaPortHopIntervalMillis = section.hysteriaPortHopIntervalMillis,
         hysteriaPortHopIntervalMaxMillis = section.hysteriaPortHopIntervalMaxMillis,
+        hysteriaRealmId = section.hysteriaRealmId,
+        hysteriaRealmServerUrl = section.hysteriaRealmServerUrl,
+        hysteriaRealmToken = section.hysteriaRealmToken,
+        hysteriaRealmStunServers = section.hysteriaRealmStunServers,
     )
 
 /** Copy the XHTTP options as one unit, including the optional connection bound. */

@@ -98,6 +98,14 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             require(obfsKey.isBlank() || obfsKey.toByteArray().size >= Hysteria2SalamanderMinKeyBytes) {
                 "Hysteria2 Salamander key must be at least 4 bytes"
             }
+            profile.realm?.takeIf { it.serverUrl.isNotBlank() }?.let { realm ->
+                require(realm.realmId.isNotBlank()) { "Hysteria2 realm requires a realm id" }
+                require(realm.stunServers.any { it.isNotBlank() }) { "Hysteria2 realm requires a STUN server" }
+                require(hysteria2RealmEndpoint(realm.serverUrl) != null) {
+                    "Hysteria2 realm server URL must be an http or https URL with a host"
+                }
+                require(profile.portHopping == null) { "Hysteria2 realm cannot be combined with port hopping" }
+            }
             true
         }
 

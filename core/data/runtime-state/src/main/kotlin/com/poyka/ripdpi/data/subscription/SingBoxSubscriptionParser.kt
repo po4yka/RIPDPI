@@ -222,6 +222,7 @@ object SingBoxSubscriptionParser {
                         mapOutbound(type, obj, groupId)
                     }
                 val ripdpi = processRipdpiBlock(rootElement, baseProfiles, groupId)
+                require(ripdpi.profiles.none(::isRealmWithoutId)) { "Hysteria realm requires a realm id" }
                 SingBoxParseResult.Success(
                     profiles = ripdpi.profiles,
                     amneziaWgProfiles = ripdpi.amneziaWgProfiles,
@@ -324,6 +325,12 @@ private fun unsupportedHysteria2Option(
     label: String,
 ): SingBoxSkippedNode? {
     if (type != "hysteria2") return null
+    if (hysteria2RealmHasServer(
+            obj,
+        )
+    ) {
+        return SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_TRANSPORT, "realm")
+    }
     val obfsType = (obj["obfs"] as? JsonObject)?.string("type")?.lowercase()
     val unusableSalamanderKey =
         (salamanderPassword(obj)?.toByteArray()?.size ?: 0) < Hysteria2SalamanderMinKeyBytes
@@ -561,25 +568,29 @@ private fun mapHysteria2(
     port: Int?,
     name: String,
 ): ProxyProfile {
+    val realm = hysteria2RealmImport(obj)
     val hopping = singBoxHysteria2PortHopping(obj)
-    val selectedPort = port ?: hopping?.firstPort
+    val selectedPort = realm?.port ?: port ?: hopping?.firstPort
     require(
         !obj.containsKey("server_port") || (port != null && port in 1..MaxPort),
     ) { "Hysteria server port is invalid" }
     val password = obj.string("password")
     val tls = obj["tls"] as? JsonObject
-    return if (server != null && selectedPort != null && !password.isNullOrBlank()) {
+    val selectedServer = realm?.host ?: server
+    return if (selectedServer != null && selectedPort != null && !password.isNullOrBlank()) {
         ProxyProfile.Hysteria2(
             id = newId(),
             displayName = name,
             groupId = groupId,
-            server = server,
+            server = selectedServer,
             serverPort = selectedPort,
             password = password,
             serverName = tls?.string("server_name"),
             obfsPassword = salamanderPassword(obj),
             insecure = (tls?.get("insecure") as? JsonPrimitive)?.booleanOrNull,
             portHopping = hopping,
+            realm = realm?.realm,
+            realmToken = realm?.token,
         )
     } else {
         rawConfig(name, groupId, obj)
@@ -665,12 +676,14 @@ private fun processRipdpiBlock(
             }
             ?: emptyList()
     val hyExtras = versioned["hysteria_extras"] as? JsonObject
-    val patchedProfiles = hyExtras?.let { applyHysteriaExtras(profiles, it) } ?: profiles
+    val topology = parseRipdpiTopology(versioned["topology"] as? JsonObject)
+    val patchedProfiles =
+        applyRealmTopology(hyExtras?.let { applyHysteriaExtras(profiles, it) } ?: profiles, topology?.hysteriaRealm)
     return RipdpiBlockResult(
         profiles = patchedProfiles,
         amneziaWgProfiles = awgProfiles,
         skipped = skipped,
-        topology = parseRipdpiTopology(versioned["topology"] as? JsonObject),
+        topology = topology,
         tokenExpiresAtEpochMillis = parseRipdpiExpiry(versioned.string("expires")),
         subscriptionMirrors = mirrors,
         cloudflareMemberIds = parseCloudflareMemberIds(versioned, patchedProfiles),
@@ -840,46 +853,6 @@ private fun matchesCohortFingerprint(
 ): Boolean {
     val fingerprint = value as? JsonPrimitive ?: return false
     return fingerprint.isString && fingerprint.content == awg.cohortFingerprint()
-}
-
-/**
- * Patches already-parsed [ProxyProfile.Hysteria2] entries with extras from
- * `ripdpi.hysteria_extras`. Matching is by [ProxyProfile.displayName] (which
- * is set from the outbound's `tag` during parsing).
- */
-private fun applyHysteriaExtras(
-    profiles: List<ProxyProfile>,
-    hyExtras: JsonObject,
-): List<ProxyProfile> {
-    if (hyExtras.isEmpty()) return profiles
-    hyExtras.forEach { (tag, element) ->
-        val extras = requireNotNull(element as? JsonObject) { "Hysteria extras must be an object" }
-        if ("port_hopping" in extras) {
-            bundleHysteria2PortHopping(extras)
-            require(profiles.count { it is ProxyProfile.Hysteria2 && it.displayName == tag } == 1) {
-                "Hysteria hopping metadata has no unique supported outbound"
-            }
-        }
-    }
-    return profiles.map { profile ->
-        if (profile !is ProxyProfile.Hysteria2) return@map profile
-        val extras = hyExtras[profile.displayName] as? JsonObject ?: return@map profile
-        val obfsObj = extras["obfs"] as? JsonObject
-        val obfsType = obfsObj?.string("type")?.lowercase()
-        val obfsPassword = if (obfsType == "salamander") obfsObj.string("password") else null
-        val insecure = extras.bool("insecure")
-        val hopping = bundleHysteria2PortHopping(extras)
-        require(hopping == null || profile.portHopping == null || hopping == profile.portHopping) {
-            "Hysteria hopping metadata conflicts with the outbound"
-        }
-        val salamanderUpstreamTag = extras.string("salamander_upstream_tag")
-        profile.copy(
-            obfsPassword = obfsPassword ?: profile.obfsPassword,
-            insecure = insecure ?: profile.insecure,
-            portHopping = hopping ?: profile.portHopping,
-            salamanderUpstreamTag = salamanderUpstreamTag ?: profile.salamanderUpstreamTag,
-        )
-    }
 }
 
 // -------------------------------------------------------------------------

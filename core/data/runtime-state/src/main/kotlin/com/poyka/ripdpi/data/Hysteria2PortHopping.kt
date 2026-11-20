@@ -3,6 +3,31 @@ package com.poyka.ripdpi.data
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
 
+/** Hysteria2 realm rendezvous. An empty [serverUrl] means the realm id is declared but not provisioned. */
+@Serializable
+data class Hysteria2Realm(
+    val realmId: String,
+    val serverUrl: String = "",
+    val stunServers: List<String> = emptyList(),
+)
+
+/** Host and effective port of an `http`/`https` realm URL; `null` when it is not one with a host. */
+fun hysteria2RealmEndpoint(serverUrl: String): Pair<String, Int>? {
+    val uri = runCatching { java.net.URI(serverUrl.trim()) }.getOrNull() ?: return null
+    val scheme = uri.scheme?.lowercase()
+    val host = uri.host?.takeIf { it.isNotBlank() }
+    if ((scheme != "https" && scheme != "http") || host == null) return null
+    val port =
+        if (uri.port > 0) {
+            uri.port
+        } else if (scheme == "https") {
+            443
+        } else {
+            80
+        }
+    return host to port
+}
+
 /** One validated destination set and cadence for every Hysteria import and activation path. */
 @Serializable
 data class Hysteria2PortHopping(

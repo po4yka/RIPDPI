@@ -37,6 +37,7 @@ fun mapRelayProfile(
             serverPort = endpoint.serverPort,
             serverName = endpoint.serverName,
             hysteriaPortHopping = (profile as? ProxyProfile.Hysteria2)?.portHopping,
+            hysteriaRealm = (profile as? ProxyProfile.Hysteria2)?.realm,
             securityLayer =
                 if (profile is ProxyProfile.Vless) {
                     RelaySecurityLayerTls
@@ -228,6 +229,7 @@ private fun relayCredentials(
                 profileId = profileId,
                 hysteriaPassword = profile.password,
                 hysteriaSalamanderKey = profile.obfsPassword,
+                hysteriaRealmToken = profile.realmToken,
                 hysteriaInsecure = profile.insecure ?: false,
                 hysteriaPinSha256 = profile.pinSha256,
             )

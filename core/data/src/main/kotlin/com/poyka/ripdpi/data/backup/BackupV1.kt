@@ -216,6 +216,8 @@ object BackupAllowlist {
                 // without its pin accepts any certificate.
                 "pinSha256" to Classification.PUBLIC,
                 "portHopping" to Classification.PUBLIC,
+                "realm" to Classification.PUBLIC,
+                "realmToken" to Classification.REDACTED,
                 // Non-secret upstream Hysteria2 release tag (e.g. "v2.9.0"); same
                 // sensitivity class as the other RIPDPI-extras transport metadata.
                 "salamanderUpstreamTag" to Classification.PUBLIC,

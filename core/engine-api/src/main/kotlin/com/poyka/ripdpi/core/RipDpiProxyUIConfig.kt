@@ -244,6 +244,7 @@ data class RipDpiRelayConfig(
     val serverPort: Int = 443,
     val serverName: String = "",
     val hysteriaPortHopping: com.poyka.ripdpi.data.Hysteria2PortHopping? = null,
+    val hysteriaRealm: com.poyka.ripdpi.data.Hysteria2Realm? = null,
     val realityPublicKey: String = "",
     val realityShortId: String = "",
     val vlessFlow: String = com.poyka.ripdpi.data.RelayVlessFlowVision,

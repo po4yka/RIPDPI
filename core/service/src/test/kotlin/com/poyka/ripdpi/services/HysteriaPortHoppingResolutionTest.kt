@@ -4,13 +4,21 @@ import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.Hysteria2PortHopping
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
+import com.poyka.ripdpi.data.mapRelayProfile
+import com.poyka.ripdpi.data.subscription.SingBoxParseResult
+import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -123,6 +131,52 @@ class HysteriaPortHoppingResolutionTest : UpstreamRelayRuntimeConfigResolverTest
             assertEquals(credential.hysteriaSalamanderKey, entry.hysteriaSalamanderKey)
             assertEquals(credential.hysteriaPinSha256, entry.hysteriaPinSha256)
             assertEquals(true, entry.hysteriaInsecure)
+        }
+
+    @Test
+    fun `imported realm bundle reaches the native relay config JSON`() =
+        runTest {
+            val bundle =
+                """
+                { "outbounds": [
+                    { "type": "hysteria2", "tag": "p5-realm", "password": "test-password",
+                      "tls": { "enabled": true, "server_name": "peer.example" },
+                      "realm": { "server_url": "https://realm.example.com:8444", "token": "test-token",
+                                 "realm_id": "realm-a", "stun_servers": ["stun.example.com:3478"] } } ] }
+                """.trimIndent()
+            val parsed = SingBoxSubscriptionParser.parse(bundle, "group") as SingBoxParseResult.Success
+            val mapping = mapRelayProfile(parsed.profiles.single() as ProxyProfile.Hysteria2)!!
+            val profiles = TestRelayProfileStore().apply { save(mapping.profile) }
+            val credentials = TestRelayCredentialStore().apply { save(mapping.credentials) }
+            val resolved =
+                resolver(profiles, credentials).resolve(
+                    RipDpiRelayConfig(enabled = true, kind = mapping.profile.kind, profileId = mapping.profile.id),
+                    testRelayResolutionInputs(tlsProfile = "firefox_stable"),
+                    RuntimeConfigurationSelection("native"),
+                )
+            val wire =
+                Json
+                    .parseToJsonElement(
+                        Json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), resolved),
+                    ).jsonObject
+            assertEquals("realm-a", wire.getValue("hysteriaRealmId").jsonPrimitive.content)
+            assertEquals(
+                "https://realm.example.com:8444",
+                wire.getValue("hysteriaRealmServerUrl").jsonPrimitive.content,
+            )
+            assertEquals("test-token", wire.getValue("hysteriaRealmToken").jsonPrimitive.content)
+            assertEquals(
+                listOf("stun.example.com:3478"),
+                wire.getValue("hysteriaRealmStunServers").jsonArray.map { it.jsonPrimitive.content },
+            )
+            assertEquals("realm.example.com", wire.getValue("server").jsonPrimitive.content)
+            assertEquals(
+                8444,
+                wire
+                    .getValue("serverPort")
+                    .jsonPrimitive.content
+                    .toInt(),
+            )
         }
 
     private fun assertHopping(config: ResolvedRipDpiRelayConfig) {
