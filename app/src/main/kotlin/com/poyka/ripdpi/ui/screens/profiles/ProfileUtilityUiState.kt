@@ -36,8 +36,8 @@ internal data class ProfileUtilityItem(
 )
 
 /**
- * A saved AmneziaWG profile. It opens in its editor instead of the relay measurement flow, which
- * cannot probe an AWG tunnel. [needsPrivateKey] marks a subscription row delivered without its key.
+ * A saved AmneziaWG profile. It opens in its editor instead of the relay measurement flow, which cannot probe an AWG
+ * tunnel, so its row always reads as not checked. [needsPrivateKey] marks a subscription row delivered without its key.
  */
 internal data class AwgProfileItem(
     val id: String,

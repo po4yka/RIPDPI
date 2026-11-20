@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.profiles
 
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
@@ -297,7 +298,7 @@ class ProfileUtilityScreenTest {
     }
 
     @Test
-    fun `saved AmneziaWG profiles open their editor and mark a missing key`() {
+    fun `saved AmneziaWG profiles open their editor, mark a missing key and read as not checked`() {
         val opened = mutableListOf<Pair<String, Boolean>>()
         render(
             state(),
@@ -319,6 +320,20 @@ class ProfileUtilityScreenTest {
 
         composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-sub")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(text(R.string.settings_permission_status_required)).assertIsDisplayed()
+        // Check and select fastest cannot reach an AmneziaWG tunnel; the row says so in its value.
+        val notChecked = text(R.string.profile_utility_not_checked)
+        composeRule
+            .onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-own"))
+            .performScrollTo()
+            .assert(
+                androidx.compose.ui.test
+                    .hasText(notChecked) or
+                    androidx.compose.ui.test
+                        .hasAnyDescendant(
+                            androidx.compose.ui.test
+                                .hasText(notChecked),
+                        ),
+            )
         composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-own")).performScrollTo().performClick()
         composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-sub")).performScrollTo().performClick()
 

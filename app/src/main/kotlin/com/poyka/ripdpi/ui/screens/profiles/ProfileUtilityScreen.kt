@@ -157,7 +157,15 @@ private fun LazyListScope.awgProfileSection(
             SettingsRow(
                 title = profile.name,
                 subtitle = stringResource(R.string.awg_field_private_key).takeIf { profile.needsPrivateKey },
-                value = stringResource(R.string.settings_permission_status_required).takeIf { profile.needsPrivateKey },
+                // Relay checks cannot reach an AmneziaWG tunnel, so Check and select fastest skips these rows.
+                value =
+                    stringResource(
+                        if (profile.needsPrivateKey) {
+                            R.string.settings_permission_status_required
+                        } else {
+                            R.string.profile_utility_not_checked
+                        },
+                    ),
                 onClick = { openAwgProfile(profile.id, profile.needsPrivateKey) },
                 showChevron = true,
                 testTag = ProfileUtilityTestTags.awgRow(profile.id),
