@@ -13,10 +13,10 @@ class NativeVlessImportAdmissionTest {
         val reality = "security=reality&pbk=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&type=xhttp"
         val queries =
             listOf(
-                "security=tls&type=xhttp&mode=auto",
+                "security=tls&type=xhttp&mode=stream-down",
                 "$reality&mode=stream-one&flow=xtls-rprx-vision",
                 "$reality&mode=stream-one&flow=unavailable-flow",
-                "$reality&mode=packet-up&flow=",
+                "$reality&mode=stream-down&flow=",
             )
         queries.forEach { query ->
             val link = "$authority?$query"
@@ -25,9 +25,19 @@ class NativeVlessImportAdmissionTest {
             assertTrue(native.profiles.isEmpty())
             assertEquals(XraySkipReason.UNSUPPORTED_TRANSPORT, native.skipped.single().reason)
         }
-        val supported = "$authority?security=tls&type=xhttp&mode=stream-one&flow="
-        val accepted = XrayConfigImportParser.parse(supported, "group") as XrayConfigImportResult.Translated
-        assertEquals(1, accepted.profiles.size)
-        assertTrue(accepted.skipped.isEmpty())
+        listOf(
+            "security=tls&type=xhttp&mode=stream-one&flow=",
+            "security=tls&type=xhttp&mode=auto&flow=",
+            "security=tls&type=xhttp&mode=packet-up&flow=",
+            "$reality&mode=packet-up&flow=",
+        ).forEach { query ->
+            val accepted =
+                XrayConfigImportParser.parse(
+                    "$authority?$query",
+                    "group",
+                ) as XrayConfigImportResult.Translated
+            assertEquals(1, accepted.profiles.size)
+            assertTrue(accepted.skipped.isEmpty())
+        }
     }
 }

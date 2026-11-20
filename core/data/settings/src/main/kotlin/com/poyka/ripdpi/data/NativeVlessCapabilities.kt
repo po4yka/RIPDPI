@@ -5,6 +5,7 @@ const val RelayVlessFlowVisionUdp443 = "xtls-rprx-vision-udp443"
 const val RelayXhttpModeAuto = "auto"
 const val RelayXhttpModeStreamUp = "stream-up"
 const val RelayXhttpModeStreamOne = "stream-one"
+const val RelayXhttpModePacketUp = "packet-up"
 
 /** Native backend policy shared by import, persistence, editing, and activation. */
 object NativeVlessCapabilities {
@@ -37,11 +38,16 @@ object NativeVlessCapabilities {
             else -> listOf("", RelayVlessFlowVision, RelayVlessFlowVisionUdp443)
         }
 
+    /** Native resolves `auto` as Xray does: stream-one with REALITY, packet-up with TLS. */
     fun xhttpModes(security: String): List<String> =
         when (security) {
-            RelaySecurityLayerReality -> listOf(RelayXhttpModeAuto, RelayXhttpModeStreamUp, RelayXhttpModeStreamOne)
-            RelaySecurityLayerTls -> listOf(RelayXhttpModeStreamUp, RelayXhttpModeStreamOne)
-            else -> emptyList()
+            RelaySecurityLayerReality, RelaySecurityLayerTls -> {
+                listOf(RelayXhttpModeAuto, RelayXhttpModePacketUp, RelayXhttpModeStreamUp, RelayXhttpModeStreamOne)
+            }
+
+            else -> {
+                emptyList()
+            }
         }
 
     /** Native XUDP: REALITY TCP with Vision, or any xHTTP stream with the empty flow (as in Xray). */

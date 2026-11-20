@@ -676,12 +676,8 @@ class XrayConfigImportParserTest {
             listOf(
                 base.replace("\"flow\":\"\"", "\"flow\":\"xtls-rprx-vision\""),
                 base.replace("\"flow\":\"\"", "\"flow\":\"unavailable-flow\""),
-                base.replace("\"mode\":\"stream-one\"", "\"mode\":\"packet-up\""),
                 base.replace("\"mode\":\"stream-one\"", "\"mode\":\"stream-down\""),
-                """{"outbounds":[{"protocol":"vless",
-              "settings":{"address":"h.example","port":443,"id":"$uuid","encryption":"none"},
-              "streamSettings":{"method":"xhttp","security":"tls",
-                "tlsSettings":{"serverName":"h.example"},"xhttpSettings":{"path":"/stream","mode":"auto"}}}]}""",
+                tlsAutoConfig().replace("\"mode\":\"auto\"", "\"mode\":\"stream-down\""),
             )
         variants.forEach { input ->
             val rejected = translate(input)
@@ -689,7 +685,15 @@ class XrayConfigImportParserTest {
             assertEquals(XraySkipReason.UNSUPPORTED_TRANSPORT, rejected.skipped.single().reason)
         }
         assertEquals(1, translate(base).profiles.size)
+        assertEquals(1, translate(base.replace("\"mode\":\"stream-one\"", "\"mode\":\"packet-up\"")).profiles.size)
+        assertEquals(1, translate(tlsAutoConfig()).profiles.size)
     }
+
+    private fun tlsAutoConfig(): String =
+        """{"outbounds":[{"protocol":"vless",
+              "settings":{"address":"h.example","port":443,"id":"$uuid","encryption":"none"},
+              "streamSettings":{"method":"xhttp","security":"tls",
+                "tlsSettings":{"serverName":"h.example"},"xhttpSettings":{"path":"/stream","mode":"auto"}}}]}"""
 
     private fun flatRealityConfig(): String =
         """{ "outbounds": [ { "tag":"supported node", "protocol":"vless",

@@ -107,7 +107,7 @@ class NativeRelayProfileValidationResultTest {
     )
 
     @Test
-    fun `admission rejects unsupported flows and TLS automatic XHTTP without changing profiles`() {
+    fun `admission rejects unsupported flows and modes and accepts TLS automatic XHTTP`() {
         val reality =
             ProxyProfile.VlessReality(
                 id = "reality",
@@ -141,7 +141,9 @@ class NativeRelayProfileValidationResultTest {
                 reality.copy(flow = RelayVlessFlowVision, xhttpPath = "/stream"),
             ).isFailure,
         )
-        assertTrue(validateNativeRelayProfileResult(tls).isFailure)
+        assertTrue(validateNativeRelayProfileResult(tls).isSuccess)
+        assertTrue(validateNativeRelayProfileResult(tls.copy(xhttpMode = "packet-up")).isSuccess)
+        assertTrue(validateNativeRelayProfileResult(tls.copy(xhttpMode = "stream-down")).isFailure)
         assertTrue(validateNativeRelayProfileResult(tls.copy(xhttpMode = RelayXhttpModeStreamOne)).isSuccess)
         assertTrue(
             validateNativeRelayProfileResult(

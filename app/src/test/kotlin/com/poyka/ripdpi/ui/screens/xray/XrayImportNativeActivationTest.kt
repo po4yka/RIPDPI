@@ -228,7 +228,7 @@ class XrayImportNativeActivationTest {
                         ),
                     ),
                 )
-            val unsupportedMode = "packet-up"
+            val unsupportedMode = "stream-down"
             val config =
                 """
                 { "outbounds": [ {

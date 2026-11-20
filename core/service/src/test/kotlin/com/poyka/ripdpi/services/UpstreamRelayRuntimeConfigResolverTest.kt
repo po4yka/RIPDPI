@@ -619,7 +619,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
 
 class UpstreamRelayVlessAdmissionTest : UpstreamRelayRuntimeConfigResolverTestFixture() {
     @Test
-    fun `stored TLS automatic mode cannot inherit a supported caller mode`() =
+    fun `stored TLS automatic mode stays automatic instead of inheriting the caller mode`() =
         runTest {
             val profile =
                 RelayProfileRecord(
@@ -659,17 +659,16 @@ class UpstreamRelayVlessAdmissionTest : UpstreamRelayRuntimeConfigResolverTestFi
                     vlessFlow = "",
                     xhttpMode = "stream-one",
                 )
-            val error =
-                runCatching {
-                    resolver.resolve(
-                        config = config,
-                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
-                        expectedSelection =
-                            com.poyka.ripdpi.data
-                                .RuntimeConfigurationSelection("native"),
-                    )
-                }.exceptionOrNull()
-            assertTrue(error is IllegalArgumentException)
+            val resolved =
+                resolver.resolve(
+                    config = config,
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
+                )
+            // An empty stored mode is automatic; native resolves it to packet-up for TLS.
+            assertEquals("", resolved.xhttpMode)
             assertEquals("", profileStore.load(profile.id)?.xhttpMode)
             assertEquals("stream-one", config.xhttpMode)
         }
@@ -979,7 +978,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             )
                         },
                 )
-            val unsupportedMode = "packet-up"
+            val unsupportedMode = "stream-down"
 
             val error =
                 runCatching {

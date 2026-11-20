@@ -20,6 +20,7 @@ import com.poyka.ripdpi.data.RelayVlessFlowVisionUdp443
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.RelayXhttpModeAuto
+import com.poyka.ripdpi.data.RelayXhttpModePacketUp
 import com.poyka.ripdpi.data.RelayXhttpModeStreamUp
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -109,6 +110,7 @@ internal fun XhttpFields(
                 labelRes =
                     when (mode) {
                         RelayXhttpModeAuto -> R.string.config_relay_xhttp_mode_auto
+                        RelayXhttpModePacketUp -> R.string.config_relay_xhttp_mode_packet_up
                         RelayXhttpModeStreamUp -> R.string.config_relay_xhttp_mode_stream_up
                         else -> R.string.config_relay_xhttp_mode_stream_one
                     },

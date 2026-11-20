@@ -87,13 +87,13 @@ class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
     @Test
     fun `unavailable native VLESS XHTTP combinations preserve the accepted group`() =
         runTest {
-            val tlsAuto =
-                """{"outbounds":[{"type":"vless","tag":"tls-auto","server":"relay.example","server_port":443,
+            val tlsUnknownMode =
+                """{"outbounds":[{"type":"vless","tag":"tls-stream-down","server":"relay.example","server_port":443,
                   "uuid":"$validUuid","flow":"","tls":{"enabled":true,"server_name":"target.example"},
-                  "transport":{"type":"xhttp","path":"/supported","mode":"auto"}}]}"""
+                  "transport":{"type":"xhttp","path":"/supported","mode":"stream-down"}}]}"""
             val xhttp = """"transport":{"type":"xhttp","path":"/supported","mode":"stream-one"},"""
             val realityVision = realitySingBoxPayload.replace("\"server_port\":443,", "\"server_port\":443,$xhttp")
-            listOf(tlsAuto, realityVision).forEach { assertRejectedRefreshPreservesGroup(it) }
+            listOf(tlsUnknownMode, realityVision).forEach { assertRejectedRefreshPreservesGroup(it) }
         }
 
     private suspend fun assertRejectedRefreshPreservesGroup(payload: String) {

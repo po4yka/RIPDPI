@@ -20,6 +20,10 @@ class NativeVlessCapabilitiesTest {
                 Selection("reality", "xhttp", "off", "stream-up"),
                 Selection("tls", "xhttp", "", "stream-up"),
                 Selection("tls", "xhttp", "", "stream-one"),
+                Selection("tls", "xhttp", "", "auto"),
+                Selection("tls", "xhttp", "", ""),
+                Selection("tls", "xhttp", "", "packet-up"),
+                Selection("reality", "xhttp", "", "packet-up"),
             )
         supported.forEach { selection ->
             assertNull(
@@ -34,11 +38,9 @@ class NativeVlessCapabilitiesTest {
         val rejected =
             listOf(
                 Selection("tls", "reality_tcp", "", "auto"),
-                Selection("tls", "xhttp", "", "auto"),
-                Selection("tls", "xhttp", "", ""),
                 Selection("reality", "xhttp", "xtls-rprx-vision", "stream-one"),
-                Selection("reality", "xhttp", "", "packet-up"),
                 Selection("reality", "xhttp", "", "stream-down"),
+                Selection("tls", "xhttp", "", "stream-down"),
                 Selection("reality", "grpc", "", "auto"),
                 Selection("none", "reality_tcp", "", "auto"),
                 Selection("reality", "reality_tcp", "unknown-flow", "auto"),
@@ -74,8 +76,9 @@ class NativeVlessCapabilitiesTest {
     @Test
     fun `editor choices exclude combinations the native backend cannot build`() {
         assertEquals(listOf("xhttp"), NativeVlessCapabilities.transports("tls"))
-        assertEquals(listOf("stream-up", "stream-one"), NativeVlessCapabilities.xhttpModes("tls"))
-        assertEquals(listOf("auto", "stream-up", "stream-one"), NativeVlessCapabilities.xhttpModes("reality"))
+        val xrayModes = listOf("auto", "packet-up", "stream-up", "stream-one")
+        assertEquals(xrayModes, NativeVlessCapabilities.xhttpModes("tls"))
+        assertEquals(xrayModes, NativeVlessCapabilities.xhttpModes("reality"))
         assertEquals(listOf(""), NativeVlessCapabilities.flows("reality", "xhttp"))
         assertEquals("", NativeVlessCapabilities.defaultFlow("reality", "xhttp"))
         assertEquals(RelayVlessFlowVision, NativeVlessCapabilities.defaultFlow("reality", "reality_tcp"))
