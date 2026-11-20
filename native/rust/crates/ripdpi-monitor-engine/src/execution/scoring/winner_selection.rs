@@ -2,6 +2,8 @@ use std::cmp::Reverse;
 
 use crate::types::StrategyProbeCandidateSummary;
 
+const PLAIN_DIRECT_CANDIDATE_ID: &str = "baseline_plain_direct";
+
 #[cfg(test)]
 pub fn winning_candidate_index(candidates: &[StrategyProbeCandidateSummary]) -> Option<usize> {
     winning_candidate_index_with(candidates, |_| true)
@@ -19,6 +21,8 @@ pub fn winning_candidate_index_with(
         .max_by_key(|(index, candidate)| {
             (
                 candidate.weighted_success_score,
+                // A path that needs no desync wins every tie on success; quality also counts failed samples.
+                candidate.id == PLAIN_DIRECT_CANDIDATE_ID,
                 candidate.quality_score,
                 Reverse(candidate.average_latency_ms.unwrap_or(u64::MAX)),
                 Reverse(*index),

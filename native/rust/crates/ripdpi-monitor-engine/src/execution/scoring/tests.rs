@@ -27,6 +27,16 @@ fn winning_candidate_index_breaks_tie_with_quality_score() {
 }
 
 #[test]
+fn winning_candidate_index_prefers_plain_direct_on_equal_success() {
+    let candidates = vec![
+        summary_with("tcp_split", 3, 4, 9, false, Some(50)),
+        summary_with("baseline_plain_direct", 3, 4, 5, false, Some(200)),
+    ];
+
+    assert_eq!(winning_candidate_index(&candidates), Some(1));
+}
+
+#[test]
 fn winning_candidate_index_skips_skipped_candidates() {
     let candidates = vec![
         summary_with("a", 2, 4, 3, false, None),
