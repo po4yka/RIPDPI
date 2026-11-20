@@ -114,7 +114,9 @@ class PresetApplierTest : BackupRoomTest() {
             assertEquals(listOf("preset-rule"), fixture.ruleNames())
             val settings = fixture.settings.snapshot()
             assertEquals(4242, settings.proxyPort)
-            assertTrue(settings.onboardingComplete)
+            // The preset comes from an install that completed onboarding; the recipient still sees it.
+            assertFalse(settings.onboardingComplete)
+            assertTrue(applier(fixture, preset).applied())
         }
 
     @Test

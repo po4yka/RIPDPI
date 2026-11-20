@@ -7,6 +7,12 @@
     <string name="onboarding_setup_finish">Concluir</string>
     <string name="onboarding_local_first_title">Privado por design</string>
     <string name="onboarding_local_first_body">Tudo é executado no seu dispositivo.</string>
+    <string name="onboarding_preset_ready_title">Pronto para usar</string>
+    <string name="onboarding_preset_ready_body">Este app já vem com servidores, regras e configurações. Você pode alterá-los depois nas abas “Conexão” e “Configurações”.</string>
+    <string name="onboarding_preset_connect_title">Como conectar</string>
+    <string name="onboarding_preset_connect_body">Toque em “Conectar” na aba “Status”. O Android pode pedir permissão para criar uma VPN local. Para desconectar, toque no botão de novo e confirme.</string>
+    <string name="onboarding_preset_trouble_title">Se não funcionar</string>
+    <string name="onboarding_preset_trouble_body">Abra a aba “Diagnóstico” e toque em “Verificar rede”. A verificação mostra onde a conexão falha. Você pode compartilhar o resumo com a pessoa que lhe deu este app.</string>
     <string name="onboarding_setup_mode_vpn_body">Encaminha todos os apps por uma VPN no dispositivo. O Android pede permissão primeiro.</string>
     <string name="onboarding_setup_mode_proxy_body">Executa um proxy local para apps ou clientes compatíveis com configuração manual de proxy.</string>
     <string name="onboarding_setup_validate_title">Testar conexão</string>

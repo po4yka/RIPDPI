@@ -7,6 +7,12 @@
     <string name="onboarding_setup_finish">إنهاء</string>
     <string name="onboarding_local_first_title">خاص بحكم التصميم</string>
     <string name="onboarding_local_first_body">كل شيء يعمل على جهازك.</string>
+    <string name="onboarding_preset_ready_title">جاهز للاستخدام</string>
+    <string name="onboarding_preset_ready_body">يتضمن هذا التطبيق الخوادم والقواعد والإعدادات مسبقًا. يمكنك تغييرها لاحقًا من تبويبَي «الاتصال» و«الإعدادات».</string>
+    <string name="onboarding_preset_connect_title">طريقة الاتصال</string>
+    <string name="onboarding_preset_connect_body">اضغط على «اتصال» في تبويب «الحالة». قد يطلب Android الإذن بإنشاء VPN محلي. لقطع الاتصال، اضغط على الزر مرة أخرى ثم أكِّد.</string>
+    <string name="onboarding_preset_trouble_title">إذا لم يعمل</string>
+    <string name="onboarding_preset_trouble_body">افتح تبويب «التشخيصات» واضغط على «فحص الشبكة». يعرض الفحص موضع فشل الاتصال. يمكنك مشاركة الملخص مع الشخص الذي أعطاك هذا التطبيق.</string>
     <string name="onboarding_setup_mode_vpn_body">يوجِّه جميع التطبيقات عبر VPN على الجهاز. يطلب Android الإذن أولًا.</string>
     <string name="onboarding_setup_mode_proxy_body">يشغِّل وكيلاً محلياً للتطبيقات أو العملاء الذين يدعمون تهيئة الوكيل يدوياً.</string>
     <string name="onboarding_setup_validate_title">اختبار الاتصال</string>

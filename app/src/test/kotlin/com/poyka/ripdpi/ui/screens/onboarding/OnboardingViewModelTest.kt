@@ -68,7 +68,7 @@ class OnboardingViewModelTest {
             val initialSettings = repository.snapshot()
             val failure = IllegalStateException("durable selection failed")
             val xrayNativeProviderSelection = RecordingXrayNativeProviderSelection(repository, failure = failure)
-            val coordinator = OnboardingSettingsCoordinator(repository, xrayNativeProviderSelection)
+            val coordinator = OnboardingSettingsCoordinator(repository, xrayNativeProviderSelection) { false }
 
             val result =
                 runCatching {
@@ -101,6 +101,36 @@ class OnboardingViewModelTest {
 
             assertEquals(Mode.Proxy, vm.uiState.value.selectedMode)
             assertEquals(DnsProviderGoogle, vm.uiState.value.selectedDnsProviderId)
+        }
+
+    @Test
+    fun `preset flow finishes without rewriting the preset choices`() =
+        runTest {
+            // A built-in provider id with a resolver address of its own, an advanced interface, and Proxy mode.
+            val preset =
+                com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setRipdpiMode(Mode.Proxy.preferenceValue)
+                    .setDnsProviderId(DnsProviderGoogle)
+                    .setDnsIp("192.0.2.53")
+                    .setUiPersona("advanced")
+                    .build()
+            val repository = FakeAppSettingsRepository(initialSettings = preset)
+            val xrayNativeProviderSelection = RecordingXrayNativeProviderSelection(repository)
+            val vm =
+                createOnboardingViewModel(
+                    repository = repository,
+                    xrayNativeProviderSelection = xrayNativeProviderSelection,
+                    presetApplied = true,
+                )
+            assertTrue(vm.uiState.value.presetApplied)
+
+            // No runCurrent: the state still holds its default VPN mode, as after an immediate Skip.
+            vm.finish()
+            advanceUntilIdle()
+
+            assertEquals(preset.toBuilder().setOnboardingComplete(true).build(), repository.snapshot())
+            assertEquals(emptyList<Mode>(), xrayNativeProviderSelection.selectedModes)
         }
 
     @Test
@@ -590,9 +620,10 @@ internal fun createOnboardingViewModel(
     xrayNativeProviderSelection: RecordingXrayNativeProviderSelection =
         RecordingXrayNativeProviderSelection(repository),
     savedStateHandle: SavedStateHandle = SavedStateHandle(),
+    presetApplied: Boolean = false,
 ) = OnboardingViewModel(
     savedStateHandle = savedStateHandle,
-    settingsCoordinator = OnboardingSettingsCoordinator(repository, xrayNativeProviderSelection),
+    settingsCoordinator = OnboardingSettingsCoordinator(repository, xrayNativeProviderSelection) { presetApplied },
     validationCoordinator = OnboardingValidationCoordinator(validationRunner),
     permissionCoordinator =
         OnboardingPermissionCoordinator(

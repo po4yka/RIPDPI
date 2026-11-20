@@ -191,3 +191,26 @@ internal abstract class Scene(
         faded(k * 1.6f) { at(0f, (1f - k) * 18f) { block() } }
     }
 }
+
+/** The place in a loop of [period] seconds, and the moments that the loop passed in this frame. */
+internal class Loop(
+    private val period: Float,
+) {
+    var at = 0f
+        private set
+    private var was = 0f
+
+    fun reset() {
+        at = 0f
+        was = 0f
+    }
+
+    fun step(since: Float) {
+        was = at
+        at = since % period
+        // A new round passes every moment from its start.
+        if (at < was) was = -1f
+    }
+
+    fun passed(moment: Float): Boolean = was < moment && at >= moment
+}

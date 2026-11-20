@@ -7,6 +7,12 @@
     <string name="onboarding_setup_finish">समाप्त करें</string>
     <string name="onboarding_local_first_title">डिज़ाइन से ही निजी</string>
     <string name="onboarding_local_first_body">सब कुछ आपके डिवाइस पर चलता है।</string>
+    <string name="onboarding_preset_ready_title">उपयोग के लिए तैयार</string>
+    <string name="onboarding_preset_ready_body">इस ऐप में सर्वर, नियम और सेटिंग्स पहले से मौजूद हैं। आप इन्हें बाद में “कनेक्शन” और “सेटिंग्स” टैब में बदल सकते हैं।</string>
+    <string name="onboarding_preset_connect_title">कनेक्ट कैसे करें</string>
+    <string name="onboarding_preset_connect_body">“स्थिति” टैब पर “कनेक्ट करें” पर टैप करें। Android स्थानीय VPN बनाने की अनुमति माँग सकता है। डिस्कनेक्ट करने के लिए बटन पर फिर से टैप करें और पुष्टि करें।</string>
+    <string name="onboarding_preset_trouble_title">अगर यह काम न करे</string>
+    <string name="onboarding_preset_trouble_body">“जाँच” टैब खोलें और “नेटवर्क जाँचें” पर टैप करें। यह दिखाता है कि कनेक्शन कहाँ विफल होता है। आप सारांश उस व्यक्ति के साथ साझा कर सकते हैं जिसने आपको यह ऐप दिया है।</string>
     <string name="onboarding_setup_mode_vpn_body">सभी ऐप्स को डिवाइस पर मौजूद VPN के ज़रिए रूट करता है। Android पहले अनुमति माँगता है।</string>
     <string name="onboarding_setup_mode_proxy_body">उन ऐप्स या क्लाइंट के लिए स्थानीय proxy चलाता है जो मैन्युअल proxy कॉन्फ़िगरेशन का समर्थन करते हैं।</string>
     <string name="onboarding_setup_validate_title">कनेक्शन टेस्ट करें</string>

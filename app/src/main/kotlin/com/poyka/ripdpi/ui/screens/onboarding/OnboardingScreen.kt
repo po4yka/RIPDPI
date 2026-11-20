@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.displayCutoutPadding
@@ -35,9 +34,9 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -84,7 +83,7 @@ import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.coroutines.flow.Flow
 import kotlin.math.abs
 
-private const val AccessibilityOnboardingFontScale = 1.5f
+internal const val AccessibilityOnboardingFontScale = 1.5f
 
 // Below this window height (a phone in landscape) the step badge moves into the top bar.
 private val OnboardingCompactHeight = 480.dp
@@ -230,13 +229,24 @@ internal fun OnboardingScreen(
     actions: OnboardingScreenActions,
     modifier: Modifier = Modifier,
 ) {
+    CompositionLocalProvider(LocalOnboardingPages provides onboardingPages(uiState.presetApplied)) {
+        OnboardingScreenContent(uiState, actions, modifier)
+    }
+}
+
+@Composable
+private fun OnboardingScreenContent(
+    uiState: OnboardingUiState,
+    actions: OnboardingScreenActions,
+    modifier: Modifier = Modifier,
+) {
     val layout = RipDpiThemeTokens.layout
     val pagerState = rememberOnboardingPagerState(uiState.currentPage, actions.onPageChanged)
     val scrub = RipDpiThemeTokens.motion.animationsEnabled
     val pagePosition = rememberOnboardingPagePosition(pagerState, scrub)
 
     val settledPage = pagerState.settledPage.coerceIn(0, OnboardingPages.lastIndex)
-    val currentPage = OnboardingPages[settledPage]
+    val currentPage = LocalOnboardingPages.current[settledPage]
     val isTestPage = settledPage == OnboardingTestPageIndex
     val isCompletionPage = settledPage == OnboardingCompletionPageIndex
     val validationState = uiState.validationState
@@ -376,6 +386,7 @@ private fun OnboardingPinnedBadge(
         val dns = onboardingDnsName(uiState.selectedDnsProviderId)
         OnboardingSceneStage(
             state = onboardingSceneState(uiState, dns, statesTest),
+            presetApplied = uiState.presetApplied,
             pagePosition = pagePosition,
             sealed = step == OnboardingCompletionPageIndex,
             modifier = modifier,
@@ -433,6 +444,7 @@ private fun OnboardingPagerContent(
     actions: OnboardingScreenActions,
     modifier: Modifier = Modifier,
 ) {
+    val pages = LocalOnboardingPages.current
     val motion = RipDpiThemeTokens.motion
     val scrubPages = motion.animationsEnabled
     val direction = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1f else 1f
@@ -480,7 +492,7 @@ private fun OnboardingPagerContent(
                 } else {
                     Modifier.fillMaxSize()
                 }
-            when (val pageModel = OnboardingPages[page]) {
+            when (val pageModel = pages[page]) {
                 is OnboardingPage.Informational -> {
                     OnboardingInfoPageScene(
                         pageModel = pageModel,
@@ -793,190 +805,6 @@ private fun OnboardingValidationRecoveryKind.grantActionLabelRes(): Int? =
         -> null
     }
 
-@Composable
-private fun OnboardingInfoPageScene(
-    pageModel: OnboardingPage.Informational,
-    modifier: Modifier = Modifier,
-) {
-    val introLayout = rememberRipDpiIntroScaffoldMetrics()
-    val header = @Composable { headerModifier: Modifier ->
-        OnboardingPageHeader(
-            titleRes = pageModel.titleRes,
-            subtitleRes = pageModel.descriptionRes,
-            modifier = headerModifier,
-        )
-    }
-    val grid = @Composable { gridModifier: Modifier ->
-        OnboardingGuaranteeGrid(
-            privacyLabels =
-                listOf(
-                    R.string.onboarding_chip_no_account,
-                    R.string.onboarding_chip_no_telemetry,
-                    R.string.onboarding_chip_no_cloud_sync,
-                ),
-            localLabels =
-                listOf(
-                    R.string.onboarding_chip_local_vpn,
-                    R.string.onboarding_chip_local_proxy,
-                    R.string.onboarding_chip_local_config,
-                ),
-            modifier = gridModifier,
-        )
-    }
-
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val scrollModifier =
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = introLayout.bodyHorizontalPadding)
-                // A scroll child measures with unbounded height; the minimum lets the two landscape panes center
-                // in the free space, and the content still scrolls from the top once it outgrows the page.
-                .heightIn(min = maxHeight)
-        if (maxWidth > maxHeight) {
-            // Landscape leaves too little height to stack the header over the lists, so the
-            // lists fell below the fold. Two panes keep both in view.
-            Row(
-                modifier = scrollModifier,
-                horizontalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                header(Modifier.weight(1f))
-                grid(Modifier.weight(1f))
-            }
-        } else {
-            // Top-anchored like the setup steps: every title sits at one height under the pinned badge.
-            Column(
-                modifier = scrollModifier,
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap),
-            ) {
-                header(Modifier)
-                grid(Modifier)
-            }
-        }
-    }
-}
-
-/**
- * Passive guarantee grid in two grouped columns — privacy promises on the left, local-engine
- * capabilities on the right — each a small check mark + muted label. Each column carries a quiet
- * micro-header ("Privacy" / "On your device") so the grouping reads. Read-only by design:
- * deliberately NOT bordered pills, so it never reads as an interactive filter-chip row.
- */
-@Composable
-private fun OnboardingGuaranteeGrid(
-    privacyLabels: List<Int>,
-    localLabels: List<Int>,
-    modifier: Modifier = Modifier,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-    val introLayout = rememberRipDpiIntroScaffoldMetrics()
-    val useAccessibilityLayout = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
-    val gridModifier =
-        modifier
-            .widthIn(max = introLayout.guaranteeGridMaxWidth)
-            .fillMaxWidth()
-    if (useAccessibilityLayout) {
-        Column(
-            modifier = gridModifier,
-            verticalArrangement = Arrangement.spacedBy(spacing.lg),
-        ) {
-            OnboardingGuaranteeColumn(
-                headerRes = R.string.onboarding_guarantee_header_privacy,
-                labels = privacyLabels,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OnboardingGuaranteeColumn(
-                headerRes = R.string.onboarding_guarantee_header_local,
-                labels = localLabels,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    } else {
-        // Size each column to its own content (at most half the grid, so long labels wrap) and
-        // center the pair. Equal-width columns left the narrower one with a wider right margin.
-        BoxWithConstraints(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            val columnModifier =
-                Modifier
-                    .widthIn(max = (minOf(maxWidth, introLayout.guaranteeGridMaxWidth) - spacing.md) / 2)
-                    .width(IntrinsicSize.Max)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            ) {
-                OnboardingGuaranteeColumn(
-                    headerRes = R.string.onboarding_guarantee_header_privacy,
-                    labels = privacyLabels,
-                    modifier = columnModifier,
-                )
-                OnboardingGuaranteeColumn(
-                    headerRes = R.string.onboarding_guarantee_header_local,
-                    labels = localLabels,
-                    modifier = columnModifier,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun OnboardingGuaranteeColumn(
-    @StringRes headerRes: Int,
-    labels: List<Int>,
-    modifier: Modifier = Modifier,
-) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    val spacing = RipDpiThemeTokens.spacing
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(spacing.md),
-    ) {
-        Text(
-            text = stringResource(headerRes),
-            style = type.caption,
-            color = colors.mutedForeground,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        labels.forEach { labelRes ->
-            OnboardingGuaranteeItem(
-                text = stringResource(labelRes),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-}
-
-@Composable
-private fun OnboardingGuaranteeItem(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    val spacing = RipDpiThemeTokens.spacing
-    val components = RipDpiThemeTokens.components
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = RipDpiIcons.Check,
-            contentDescription = null,
-            tint = colors.mutedForeground,
-            modifier = Modifier.size(components.inputs.chipIconSize),
-        )
-        Text(
-            text = text,
-            style = type.body,
-            color = colors.mutedForeground,
-            // Constrain to the remaining column width so long translated labels wrap, never clip.
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
 /**
  * One coherent setup step: a header (title + optional subtitle) followed by the step content, laid
  * out as a single top-anchored scrollable group, so the title sits at the same height on every page
@@ -1079,7 +907,7 @@ private fun OnboardingSetupPageScene(
 
 /** Header shared by every onboarding page: title and optional subtitle. The step icon is the pinned badge. */
 @Composable
-private fun OnboardingPageHeader(
+internal fun OnboardingPageHeader(
     titleRes: Int,
     subtitleRes: Int?,
     modifier: Modifier = Modifier,
