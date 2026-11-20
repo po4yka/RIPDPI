@@ -89,7 +89,7 @@ internal fun SubscriptionImportConfirmScreen(
             )
         }
         // Same empty state as profile import: nothing to add, so no card and no disabled Add.
-        if (uiState.url.isBlank()) {
+        if (uiState.url.isBlank() && !uiState.localBundle) {
             RipDpiCard {
                 RipDpiPanelHeader(
                     title = stringResource(R.string.import_profile_confirm_empty_title),

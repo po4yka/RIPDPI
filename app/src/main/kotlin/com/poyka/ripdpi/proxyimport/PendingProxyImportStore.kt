@@ -144,11 +144,17 @@ data class PendingSubscriptionImportRequest(
     val url: String,
     val name: String,
     val bootstrap: Boolean,
+    /** RIPDPI bundle JSON the user holds locally; set only with an empty [url]. */
+    val bundle: String? = null,
 ) {
     fun isBounded(): Boolean =
-        url.startsWith("https://", ignoreCase = true) &&
-            url.toByteArray(Charsets.UTF_8).size in 1..MaxSubscriptionUrlBytes &&
-            name.toByteArray(Charsets.UTF_8).size <= MaxSubscriptionNameBytes
+        name.toByteArray(Charsets.UTF_8).size <= MaxSubscriptionNameBytes &&
+            if (bundle != null) {
+                url.isEmpty() && !bootstrap && isWithinLocalBundleLimit(bundle)
+            } else {
+                url.startsWith("https://", ignoreCase = true) &&
+                    url.toByteArray(Charsets.UTF_8).size in 1..MaxSubscriptionUrlBytes
+            }
 
     // The URL usually carries the subscription access token.
     override fun toString(): String = "PendingSubscriptionImportRequest(url=<redacted>, bootstrap=$bootstrap)"

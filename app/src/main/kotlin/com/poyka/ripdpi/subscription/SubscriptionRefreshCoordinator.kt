@@ -3,6 +3,7 @@ package com.poyka.ripdpi.subscription
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.Subscription
@@ -26,10 +27,12 @@ import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.data.subscription.SubscriptionMirror
 import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
+import com.poyka.ripdpi.data.subscription.SubscriptionPayload
 import com.poyka.ripdpi.data.subscription.SubscriptionPayloadTooLargeException
 import com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionParser
 import com.poyka.ripdpi.data.subscription.fitsSubscriptionLimits
 import com.poyka.ripdpi.data.subscription.isValidForRefresh
+import com.poyka.ripdpi.data.subscription.localSubscriptionPayload
 import com.poyka.ripdpi.data.subscription.readBoundedSubscriptionPayload
 import com.poyka.ripdpi.data.subscription.receivedMigration
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
@@ -47,6 +50,7 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 import java.util.Base64
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -157,7 +161,10 @@ class SubscriptionRefreshCoordinator private constructor(
             group.subscription
                 ?: return SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.UNREACHABLE, retryable = false)
         val priorFailure = subscription.lastRefreshFailure
-        return if (subscription.kind == SubscriptionKind.BOOTSTRAP) {
+        return if (subscription.link.isBlank()) {
+            // A local import or a redacted backup has no source; recording UNREACHABLE would be false.
+            SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.UNREACHABLE, retryable = false)
+        } else if (subscription.kind == SubscriptionKind.BOOTSTRAP) {
             // Only BootstrapConsumer may consume this URL; refresh never replays single-use delivery.
             SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.INVALIDATED, retryable = false)
         } else if (!manual && priorFailure?.isTerminal == true) {
@@ -169,14 +176,6 @@ class SubscriptionRefreshCoordinator private constructor(
                         RefreshOutcome.Failure(
                             failure = SubscriptionRefreshFailure.EXPIRED,
                             lifecycleState = SubscriptionLifecycleState.EXPIRED,
-                            retry = false,
-                        )
-                    }
-
-                    subscription.link.isBlank() -> {
-                        RefreshOutcome.Failure(
-                            failure = SubscriptionRefreshFailure.UNREACHABLE,
-                            lifecycleState = null,
                             retry = false,
                         )
                     }
@@ -322,49 +321,9 @@ class SubscriptionRefreshCoordinator private constructor(
                         } catch (_: SubscriptionPayloadTooLargeException) {
                             return@use payloadTooLargeFailure()
                         }
-                    val body = payload.text
-                    val singBoxResult = SingBoxSubscriptionParser.parse(body, group.id)
-                    if (singBoxResult is SingBoxParseResult.Error && singBoxResult.recognizedBundle) {
-                        return@use RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false)
-                    }
-                    val singBox = singBoxResult as? SingBoxParseResult.Success
-                    if (singBox?.migration != null) payload.requireMigrationUtf8()
-                    if (singBox?.tokenExpiresAtEpochMillis?.let { clockMillis() >= it } == true) {
-                        return@use RefreshOutcome.Failure(
-                            SubscriptionRefreshFailure.EXPIRED,
-                            SubscriptionLifecycleState.EXPIRED,
-                            false,
-                        )
-                    }
-                    val wireGuard =
-                        if (WireGuardIniSubscriptionParser.looksLikeWireGuardIni(body)) {
-                            WireGuardIniSubscriptionParser.parse(body, group.id)
-                        } else {
-                            null
-                        }
-                    require(wireGuard?.warnings.isNullOrEmpty())
-                    val wireGuardCount =
-                        singBox.orEmptyAwgCount() +
-                            wireGuard?.let { it.amneziaWgProfiles.size + it.profiles.size }.orZero()
-                    val profiles = parseProfiles(body, group.id, wireGuardCount, singBox)
-                    if (profiles != null) {
-                        if (!profiles.profiles.fitsSubscriptionLimits() || wireGuardCount > MaxSubscriptionProfiles) {
-                            payloadTooLargeFailure()
-                        } else {
-                            profiles
-                                .copy(
-                                    awgProfiles = parsedWireGuardProfiles(singBox, wireGuard),
-                                    subscriptionMirrors = singBox?.subscriptionMirrors,
-                                    migration = singBox?.migration,
-                                    payloadSha256 = payload.sha256,
-                                ).withResponseHeaders(response)
-                        }
-                    } else {
-                        RefreshOutcome.Failure(
-                            failure = SubscriptionRefreshFailure.PARSE_ERROR,
-                            lifecycleState = null,
-                            retry = false,
-                        )
+                    when (val outcome = parsePayload(group, payload)) {
+                        is RefreshOutcome.Updated -> outcome.withResponseHeaders(response)
+                        is RefreshOutcome.Failure -> outcome
                     }
                 }
             } catch (_: IllegalArgumentException) {
@@ -381,6 +340,87 @@ class SubscriptionRefreshCoordinator private constructor(
                 )
             }
         }
+
+    /** Shared by the HTTPS fetch and local imports so both persist the same parse result. */
+    private suspend fun parsePayload(
+        group: ProxyGroup,
+        payload: SubscriptionPayload,
+    ): RefreshOutcome {
+        val body = payload.text
+        val singBoxResult = SingBoxSubscriptionParser.parse(body, group.id)
+        if (singBoxResult is SingBoxParseResult.Error && singBoxResult.recognizedBundle) {
+            return RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false)
+        }
+        val singBox = singBoxResult as? SingBoxParseResult.Success
+        if (singBox?.migration != null) payload.requireMigrationUtf8()
+        if (singBox?.tokenExpiresAtEpochMillis?.let { clockMillis() >= it } == true) {
+            return RefreshOutcome.Failure(
+                SubscriptionRefreshFailure.EXPIRED,
+                SubscriptionLifecycleState.EXPIRED,
+                false,
+            )
+        }
+        val wireGuard =
+            if (WireGuardIniSubscriptionParser.looksLikeWireGuardIni(body)) {
+                WireGuardIniSubscriptionParser.parse(body, group.id)
+            } else {
+                null
+            }
+        require(wireGuard?.warnings.isNullOrEmpty())
+        val wireGuardCount =
+            singBox.orEmptyAwgCount() +
+                wireGuard?.let { it.amneziaWgProfiles.size + it.profiles.size }.orZero()
+        val profiles =
+            parseProfiles(body, group.id, wireGuardCount, singBox)
+                ?: return RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false)
+        return if (!profiles.profiles.fitsSubscriptionLimits() || wireGuardCount > MaxSubscriptionProfiles) {
+            payloadTooLargeFailure()
+        } else {
+            profiles.copy(
+                awgProfiles = parsedWireGuardProfiles(singBox, wireGuard),
+                subscriptionMirrors = singBox?.subscriptionMirrors,
+                migration = singBox?.migration,
+                payloadSha256 = payload.sha256,
+            )
+        }
+    }
+
+    /**
+     * Installs a bundle the user holds locally (an opened file or pasted JSON). The group has no
+     * link and auto-update off, so it is never fetched; a re-import with the same [name] updates
+     * that group and its AmneziaWG rows in place. Nothing is saved when the bundle is rejected.
+     */
+    suspend fun importLocalBundle(
+        name: String,
+        text: String,
+    ): SubscriptionRefreshResult {
+        val groups = repository.list()
+        val existing = groups.firstOrNull { it.isLocalBundle() && it.name == name }
+        val draft =
+            existing ?: ProxyGroup(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                type = ProxyGroupType.SUBSCRIPTION,
+                order = groups.size,
+                isSelector = false,
+                subscription = Subscription(),
+            )
+        val outcome =
+            try {
+                withContext(Dispatchers.Default) { parsePayload(draft, localSubscriptionPayload(text)) }
+            } catch (_: SubscriptionPayloadTooLargeException) {
+                payloadTooLargeFailure()
+            } catch (_: IllegalArgumentException) {
+                RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false)
+            }
+        if (outcome is RefreshOutcome.Failure) return SubscriptionRefreshResult.Failed(outcome.failure, false)
+        if (existing == null) repository.add(draft)
+        val expected =
+            repository.list().firstOrNull { it.id == draft.id } ?: return SubscriptionRefreshResult.Superseded
+        val result = persistSuccess(expected, clockMillis(), outcome as RefreshOutcome.Updated)
+        signalPublisher.publish(repository.list(), clockMillis())
+        return result
+    }
 
     private fun classifyHttpFailure(
         code: Int,
@@ -629,6 +669,10 @@ object SubscriptionRefreshModule {
 }
 
 private const val MaxProfileTitleLength = 64
+
+/** A locally imported bundle: no source link and never auto-updated. */
+internal fun ProxyGroup.isLocalBundle(): Boolean =
+    type == ProxyGroupType.SUBSCRIPTION && subscription?.let { it.link.isBlank() && !it.autoUpdate } == true
 
 /**
  * Decodes the `profile-title` header (plain text, or `base64:<utf-8 text>` as Hiddify and

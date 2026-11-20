@@ -3,6 +3,7 @@ package com.poyka.ripdpi.proxyimport
 import android.content.ContentResolver
 import android.net.Uri
 import android.os.CancellationSignal
+import com.poyka.ripdpi.data.subscription.MaxSubscriptionPayloadBytes
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import java.nio.ByteBuffer
@@ -24,18 +25,26 @@ private const val ImportReadTimeoutMillis = 3_000L
 private const val ImportReadConcurrency = 2
 private const val ImportWorkerIdleSeconds = 30L
 
+/** A local RIPDPI bundle may be as large as a remote subscription body. */
+internal const val MaxLocalBundleBytes = MaxSubscriptionPayloadBytes.toInt()
+
 /** Check the UTF-8 size before parsing and bound the encoding allocation for large strings. */
-internal fun isWithinImportTextLimit(text: String): Boolean =
-    text.length <= MaxImportFileBytes && text.toByteArray(Charsets.UTF_8).size <= MaxImportFileBytes
+internal fun isWithinImportTextLimit(
+    text: String,
+    maxBytes: Int = MaxImportFileBytes,
+): Boolean = text.length <= maxBytes && text.toByteArray(Charsets.UTF_8).size <= maxBytes
+
+internal fun isWithinLocalBundleLimit(text: String): Boolean = isWithinImportTextLimit(text, MaxLocalBundleBytes)
 
 /** Returns null for a failed, timed-out, oversized, or binary import. Admission never queues work. */
 internal suspend fun readImportText(
     resolver: ContentResolver,
     uri: Uri,
+    maxBytes: Int = MaxImportFileBytes,
 ): String? =
     withTimeoutOrNull(ImportReadTimeoutMillis) {
         suspendCancellableCoroutine { continuation ->
-            val request = ImportReadRequest(resolver, uri) { continuation.resume(it) }
+            val request = ImportReadRequest(resolver, uri, maxBytes) { continuation.resume(it) }
             continuation.invokeOnCancellation { request.cancel() }
             try {
                 ImportReaderWorkers.reads.execute(request)
@@ -63,6 +72,7 @@ private object ImportReaderWorkers {
 private class ImportReadRequest(
     private val resolver: ContentResolver,
     private val uri: Uri,
+    private val maxBytes: Int,
     onComplete: (String?) -> Unit,
 ) : Runnable {
     private val cancelled = AtomicBoolean(false)
@@ -76,7 +86,7 @@ private class ImportReadRequest(
             runCatching {
                 if (cancelled.get() || System.nanoTime() >= deadlineNanos) return@runCatching null
                 resolver.openAssetFileDescriptor(uri, "r", cancellationSignal)?.use { descriptor ->
-                    readImportDescriptor(descriptor, deadlineNanos, cancelled::get)
+                    readImportDescriptor(descriptor, deadlineNanos, cancelled::get, maxBytes)
                 }
             }.getOrNull()
         complete(text)
@@ -99,8 +109,10 @@ private class ImportReadRequest(
 }
 
 /** Decodes a bounded UTF-8 file and strips an optional byte-order mark. */
-internal fun decodeImportText(bytes: ByteArray): String? =
-    bytes.takeIf { it.size <= MaxImportFileBytes }?.let(::decodeUtf8OrNull)?.removePrefix(ByteOrderMark)
+internal fun decodeImportText(
+    bytes: ByteArray,
+    maxBytes: Int = MaxImportFileBytes,
+): String? = bytes.takeIf { it.size <= maxBytes }?.let(::decodeUtf8OrNull)?.removePrefix(ByteOrderMark)
 
 internal fun decodeUtf8OrNull(bytes: ByteArray): String? =
     try {

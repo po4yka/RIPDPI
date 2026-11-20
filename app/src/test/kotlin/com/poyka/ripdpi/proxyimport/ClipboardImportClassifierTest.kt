@@ -102,4 +102,21 @@ class ClipboardImportClassifierTest {
         assertTrue(result is ClipboardImportResult.UnknownContent)
         assertEquals("vless", (result as ClipboardImportResult.UnknownContent).scheme)
     }
+
+    @Test
+    fun `raw RIPDPI bundle JSON is a local subscription import`() {
+        val bundle = "{\"outbounds\":[],\"ripdpi\":{\"schema_version\":2,\"amneziawg\":[]}}"
+        val result = ClipboardImportClassifier.classify("\n$bundle\n")
+        val request = ((result as ClipboardImportResult.Importable).payload as ImportPayload.Subscription).request
+        assertEquals("", request.url)
+        assertEquals(bundle, request.bundle)
+        assertTrue(request.isBounded())
+    }
+
+    @Test
+    fun `JSON without a ripdpi block and arbitrary text stay unknown`() {
+        listOf("{\"outbounds\":[]}", "{\"ripdpi\":2}", "hello {\"ripdpi\":{}}", "{not json").forEach { text ->
+            assertTrue(text, ClipboardImportClassifier.classify(text) is ClipboardImportResult.UnknownContent)
+        }
+    }
 }

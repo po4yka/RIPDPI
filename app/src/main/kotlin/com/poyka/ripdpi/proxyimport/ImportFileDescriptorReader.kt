@@ -19,17 +19,18 @@ internal fun readImportDescriptor(
     asset: AssetFileDescriptor,
     deadlineNanos: Long,
     cancelled: () -> Boolean,
+    maxBytes: Int = MaxImportFileBytes,
 ): String? {
     val length = asset.declaredLength
-    if (length > MaxImportFileBytes || cancelled()) return null
-    val capacity = if (length >= 0L) length.toInt() else MaxImportFileBytes + 1
+    if (length > maxBytes || cancelled()) return null
+    val capacity = if (length >= 0L) length.toInt() else maxBytes + 1
     return try {
         rewindImportDescriptor(asset)
         asset.createInputStream().use { stream ->
             val channel = stream.channel
             val closeTask = ImportReadDeadlines.watch(channel, deadlineNanos, cancelled)
             try {
-                readImportChannel(channel, asset, capacity, deadlineNanos, cancelled)
+                readImportChannel(channel, asset, capacity, deadlineNanos, cancelled, maxBytes)
             } finally {
                 closeTask.cancel(false)
             }
@@ -76,6 +77,7 @@ private fun readImportChannel(
     capacity: Int,
     deadlineNanos: Long,
     cancelled: () -> Boolean,
+    maxBytes: Int,
 ): String? {
     val buffer = ByteBuffer.allocate(capacity)
     val poll =
@@ -99,7 +101,7 @@ private fun readImportChannel(
         }
     }
     return if (!cancelled() && System.nanoTime() < deadlineNanos) {
-        decodeImportText(buffer.array().copyOf(buffer.position()))
+        decodeImportText(buffer.array().copyOf(buffer.position()), maxBytes)
     } else {
         null
     }

@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.awg.defaultAwgAllowedIps
 import com.poyka.ripdpi.data.uri.AmneziaWgUriCodec
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import com.poyka.ripdpi.data.wireguard.toWgQuickConf
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 
 /** What a block of imported text is. Shared by the QR scanner, the clipboard, and the share sheet. */
 sealed interface ImportPayload {
@@ -42,6 +44,7 @@ sealed interface ImportPayload {
  */
 object ImportPayloadClassifier {
     fun classify(text: String): ImportPayload? {
+        localBundle(text)?.let { return ImportPayload.Subscription(it) }
         val trimmed = text.takeIf(::isWithinImportTextLimit)?.let { it.trim().removePrefix(ByteOrderMark).trim() }
         if (trimmed.isNullOrEmpty()) return null
         return (ProxyUriShareDispatcher.dispatch(trimmed) as? ProxyImportRequest.Profile)?.let(ImportPayload::Profile)
@@ -50,6 +53,27 @@ object ImportPayloadClassifier {
             ?: AmneziaVpnKeyDecoder.confFromKey(trimmed)?.let(::boundedConf)
             ?: amneziaWgConf(trimmed)?.let(::boundedConf)
             ?: trimmed.takeIf(WireGuardConfParser::hasInterfaceAndPeerSections)?.let(ImportPayload::WireGuardConf)
+    }
+
+    /**
+     * Raw RIPDPI bundle JSON (a top-level object with a `ripdpi` block). Any schema version is
+     * routed here so the import rejects it with the same error as the HTTPS path.
+     */
+    private fun localBundle(text: String): PendingSubscriptionImportRequest? {
+        if (!isWithinLocalBundleLimit(text)) return null
+        val json = text.trim().removePrefix(ByteOrderMark).trim()
+        if (!json.startsWith('{')) return null
+        val root = runCatching { Json.parseToJsonElement(json) }.getOrNull() as? JsonObject ?: return null
+        return if (root["ripdpi"] is JsonObject) {
+            PendingSubscriptionImportRequest(
+                "",
+                "",
+                false,
+                bundle = json,
+            )
+        } else {
+            null
+        }
     }
 
     private fun boundedConf(text: String): ImportPayload.WireGuardConf? =

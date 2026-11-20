@@ -47,6 +47,8 @@ data class SubscriptionImportConfirmUiState(
     val bootstrap: Boolean = false,
     val importing: Boolean = false,
     val importFailed: Boolean = false,
+    /** A RIPDPI bundle the user holds locally; it has no [url]. */
+    val localBundle: Boolean = false,
 )
 
 /**
@@ -72,6 +74,7 @@ class SubscriptionImportConfirmViewModel
         private val refreshSubscription: suspend (String) -> SubscriptionRefreshResult,
         private val scheduleAutoUpdate: (List<ProxyGroup>) -> Unit,
         private val discardGroup: suspend (String) -> Unit,
+        private val importLocalBundle: suspend (String, String) -> SubscriptionRefreshResult,
         @Suppress("UNUSED_PARAMETER") private val constructorMarker: Unit,
     ) : ViewModel() {
         @Inject
@@ -97,6 +100,7 @@ class SubscriptionImportConfirmViewModel
             discardGroup = { groupId ->
                 repository.delete(profileMutations.captureMutation(ProfileMutationOrigin.Compensation), groupId)
             },
+            importLocalBundle = refreshCoordinator::importLocalBundle,
             constructorMarker = Unit,
         )
 
@@ -113,6 +117,10 @@ class SubscriptionImportConfirmViewModel
             ) -> SubscriptionRefreshResult = { error("No test refresh") },
             scheduleAutoUpdate: (List<ProxyGroup>) -> Unit = {},
             discardGroup: suspend (String) -> Unit = {},
+            importLocalBundle: suspend (
+                String,
+                String,
+            ) -> SubscriptionRefreshResult = { _, _ -> error("No test import") },
         ) : this(
             repository,
             bootstrapConsumer,
@@ -121,6 +129,7 @@ class SubscriptionImportConfirmViewModel
             refreshSubscription,
             scheduleAutoUpdate,
             discardGroup,
+            importLocalBundle,
             Unit,
         )
 
@@ -131,6 +140,9 @@ class SubscriptionImportConfirmViewModel
         private var completed = false
         private var claimedImportToken: String? = null
 
+        // Kept out of the UI state: the bundle carries credentials.
+        private var localBundleText: String? = null
+
         // A consumed one-time payload that is not saved yet: a retry saves it without spending the token again.
         private var unsavedBootstrap: UnsavedBootstrap? = null
 
@@ -138,7 +150,8 @@ class SubscriptionImportConfirmViewModel
             importToken: String,
             pendingImports: PendingProxyImportStore = PendingProxyImportStore.process,
         ): Boolean {
-            val alreadyClaimed = claimedImportToken == importToken && _uiState.value.url.isNotBlank()
+            val alreadyClaimed =
+                claimedImportToken == importToken && (_uiState.value.url.isNotBlank() || localBundleText != null)
             val request = if (alreadyClaimed) null else pendingImports.claimSubscription(importToken)
             return when {
                 alreadyClaimed -> {
@@ -152,6 +165,8 @@ class SubscriptionImportConfirmViewModel
                 else -> {
                     claimedImportToken = importToken
                     setRequest(request.url, request.name, request.bootstrap)
+                    localBundleText = request.bundle
+                    _uiState.update { it.copy(localBundle = request.bundle != null) }
                     true
                 }
             }
@@ -164,8 +179,9 @@ class SubscriptionImportConfirmViewModel
             bootstrap: Boolean,
         ) {
             completed = false
+            localBundleText = null
             _uiState.update {
-                it.copy(url = url, name = name, bootstrap = bootstrap, importFailed = false)
+                it.copy(url = url, name = name, bootstrap = bootstrap, importFailed = false, localBundle = false)
             }
         }
 
@@ -181,11 +197,21 @@ class SubscriptionImportConfirmViewModel
          */
         fun confirm() {
             val state = _uiState.value
-            if (state.url.isBlank()) return
+            val bundle = localBundleText
+            if (state.url.isBlank() && bundle == null) return
             if (state.importing || completed) return
             _uiState.update { it.copy(importing = true, importFailed = false) }
             viewModelScope.launch {
                 try {
+                    if (bundle != null) {
+                        val result = importLocalBundle(state.name.ifBlank { LocalBundleDefaultName }, bundle)
+                        if (result is SubscriptionRefreshResult.Updated) {
+                            completeImport()
+                        } else {
+                            _uiState.update { it.copy(importFailed = true) }
+                        }
+                        return@launch
+                    }
                     val groups = repository.list()
                     val existing = groups.firstOrNull { group -> group.subscription?.link == state.url }
                     val groupId = existing?.id ?: groupIdFactory()
@@ -393,3 +419,6 @@ class SubscriptionImportConfirmViewModel
     }
 
 private val NotASubscription = setOf(SubscriptionRefreshFailure.PARSE_ERROR)
+
+/** Group name for a local bundle without a name; re-importing it updates the same group. */
+internal const val LocalBundleDefaultName = "RIPDPI"

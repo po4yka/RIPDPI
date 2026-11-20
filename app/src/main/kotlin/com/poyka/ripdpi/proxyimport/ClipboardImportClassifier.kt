@@ -48,7 +48,8 @@ object ClipboardImportClassifier {
                 ClipboardImportResult.Empty
             }
 
-            !isWithinImportTextLimit(clipboardText) -> {
+            // Bundle JSON may reach the subscription bound; the classifier keeps the smaller bound for the rest.
+            !isWithinLocalBundleLimit(clipboardText) -> {
                 ClipboardImportResult.UnknownContent("")
             }
 

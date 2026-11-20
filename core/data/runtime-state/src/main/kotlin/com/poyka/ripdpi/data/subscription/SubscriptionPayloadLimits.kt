@@ -50,6 +50,13 @@ fun ResponseBody.readBoundedSubscriptionPayload(): SubscriptionPayload {
     return SubscriptionPayload(buffer.readByteArray(), charset)
 }
 
+/** Wraps text the user holds locally (a bundle file or pasted JSON) under the same bound as a remote body. */
+fun localSubscriptionPayload(text: String): SubscriptionPayload {
+    val bytes = text.toByteArray(StandardCharsets.UTF_8)
+    if (bytes.size > MaxSubscriptionPayloadBytes) throw SubscriptionPayloadTooLargeException()
+    return SubscriptionPayload(bytes, StandardCharsets.UTF_8)
+}
+
 /** Keeps original entity bytes for a receipt digest; text decoding never defines payload identity. */
 class SubscriptionPayload internal constructor(
     private val bytes: ByteArray,

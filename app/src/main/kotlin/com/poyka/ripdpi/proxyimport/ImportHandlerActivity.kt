@@ -56,7 +56,17 @@ class ImportHandlerActivity : Activity() {
     /** Returns `true` while a shared file is read in the background; the read then finishes the activity. */
     private fun handleInboundIntent(): Boolean {
         if (intent?.action != Intent.ACTION_SEND) {
-            handleViewLink()
+            val document = intent?.data?.takeIf { it.scheme == ContentResolver.SCHEME_CONTENT }
+            if (document == null) {
+                handleViewLink()
+                return false
+            }
+            // An opened document (a bundle `.json` from a file manager): same bounded read as a shared file.
+            if (isForeignContentUri(document)) {
+                readSharedFile(document)
+                return true
+            }
+            toast(R.string.import_error_unsupported)
             return false
         }
         return handleSharedContent()
@@ -190,7 +200,8 @@ class ImportHandlerActivity : Activity() {
     /** Cancelling the Activity also cancels its bounded import operation. */
     private fun readSharedFile(uri: Uri) {
         importScope.launch {
-            val text = readImportText(applicationContext.contentResolver, uri)
+            // The larger bundle bound; the classifier keeps the import-text bound for every other format.
+            val text = readImportText(applicationContext.contentResolver, uri, MaxLocalBundleBytes)
             text?.let(ImportPayloadClassifier::classify)?.let(::forward) ?: toast(R.string.import_error_unsupported)
             finish()
         }
