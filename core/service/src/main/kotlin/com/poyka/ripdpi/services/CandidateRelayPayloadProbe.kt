@@ -148,8 +148,8 @@ class CandidateRelayPayloadProbe internal constructor(
             } catch (_: UnsupportedOperationException) {
                 return@withLock CandidateRelayMeasurement.Unsupported
             } catch (rejected: ServiceStartupRejectedException) {
-                // Reason type only: its message can name the server.
-                val reason = rejected.reason::class.simpleName
+                // Stable code only: the message can name the server, and R8 renames reason classes.
+                val reason = rejected.reason.startupJournalKind()
                 Logger.w { "Candidate relay check rejected: kind=${profile.kind} reason=$reason" }
                 return@withLock CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Configuration)
             } catch (_: Exception) {

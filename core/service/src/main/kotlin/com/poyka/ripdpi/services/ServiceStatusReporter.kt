@@ -202,7 +202,7 @@ internal class ServiceStatusReporter(
     }
 }
 
-private fun FailureReason?.startupJournalKind(): String =
+internal fun FailureReason?.startupJournalKind(): String =
     when (this) {
         is FailureReason.NativeError -> "native_error"
         FailureReason.TunnelEstablishmentFailed -> "tunnel_establishment_failed"

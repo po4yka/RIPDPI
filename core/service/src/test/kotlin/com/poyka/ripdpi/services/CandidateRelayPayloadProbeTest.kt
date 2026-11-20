@@ -445,7 +445,9 @@ class CandidateRelayPayloadProbeTest {
                 Logger.setLogWriters(previousWriters)
             }
             assertEquals(
-                listOf("Candidate relay check rejected: kind=cloudflare_tunnel reason=RelayFingerprintPolicyRejected"),
+                listOf(
+                    "Candidate relay check rejected: kind=cloudflare_tunnel reason=relay_fingerprint_policy_rejected",
+                ),
                 warnings,
             )
             assertEquals(null, runtime.config)
