@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.Subscription
+import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupSerializer
 import com.poyka.ripdpi.data.backup.BackupSettingsConverter
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -32,8 +35,18 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class PresetApplierTest : BackupRoomTest() {
     private val context: Context = ApplicationProvider.getApplicationContext()
+    private val bootstrapLink = "https://relay.example/bootstrap/preset-token"
+
+    // What :app:preparePreset ships: a credential-free document with a pending BOOTSTRAP slot.
     private val presetGroup =
-        ProxyGroup(id = "preset-group", name = "Preset", type = ProxyGroupType.BASIC, order = 0, isSelector = false)
+        ProxyGroup(
+            id = "preset-group",
+            name = "Preset",
+            type = ProxyGroupType.SUBSCRIPTION,
+            order = 0,
+            isSelector = false,
+            subscription = Subscription(link = bootstrapLink, kind = SubscriptionKind.BOOTSTRAP),
+        )
     private val presetSettings =
         AppSettingsSerializer.defaultValue
             .toBuilder()
@@ -42,27 +55,28 @@ class PresetApplierTest : BackupRoomTest() {
             .build()
     private val preset =
         BackupSerializer.encodeToString(
-            BackupExporter.export(
-                BackupVariant.FULL,
-                emptyList(),
-                listOf(presetGroup),
-                listOf(
-                    RuleEntity(
-                        name = "preset-rule",
-                        userOrder = 0,
-                        enabled = true,
-                        domains = "example.com",
-                        ports = "443",
-                        network = RuleNetwork.TCP,
-                        packages = emptySet(),
-                        outboundTag = OutboundTag.Profile(1),
+            BackupExporter
+                .export(
+                    BackupVariant.FULL,
+                    emptyList(),
+                    listOf(presetGroup),
+                    listOf(
+                        RuleEntity(
+                            name = "preset-rule",
+                            userOrder = 0,
+                            enabled = true,
+                            domains = "example.com",
+                            ports = "443",
+                            network = RuleNetwork.TCP,
+                            packages = emptySet(),
+                            outboundTag = OutboundTag.Profile(1),
+                        ),
                     ),
-                ),
-                BackupSettingsConverter.toMap(presetSettings, BackupVariant.FULL),
-                0L,
-                "1.0.0",
-                null,
-            ),
+                    BackupSettingsConverter.toMap(presetSettings, BackupVariant.FULL),
+                    0L,
+                    "1.0.0",
+                    null,
+                ).copy(containsCredentials = false),
         )
 
     @Before
@@ -110,7 +124,13 @@ class PresetApplierTest : BackupRoomTest() {
 
             assertEquals(PresetOutcome.Applied, applier(fixture, preset).applyIfFresh())
 
-            assertEquals(listOf("preset-group"), fixture.groups.list().map { it.id })
+            val slot = fixture.groups.list().single()
+            assertEquals("preset-group", slot.id)
+            // PendingBootstrapProvisioner consumes only an unconsumed BOOTSTRAP link.
+            assertEquals(SubscriptionKind.BOOTSTRAP, slot.subscription?.kind)
+            assertEquals(bootstrapLink, slot.subscription?.link)
+            assertNull(slot.subscription?.consumedAt)
+            assertTrue(slot.members.isEmpty())
             assertEquals(listOf("preset-rule"), fixture.ruleNames())
             val settings = fixture.settings.snapshot()
             assertEquals(4242, settings.proxyPort)

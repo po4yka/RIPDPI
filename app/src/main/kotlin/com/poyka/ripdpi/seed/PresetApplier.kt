@@ -43,7 +43,7 @@ abstract class PresetStatusModule {
 }
 
 /**
- * Restores the optional packaged preset (a plaintext FULL backup document) once, on a
+ * Restores the optional packaged preset (a plaintext backup document without credentials) once, on a
  * fresh install. A build without the asset, an install that completed onboarding, and
  * an install that already applied a preset are left untouched. Onboarding stays open after the
  * restore, so the recipient sees the steps that explain the preloaded app.
