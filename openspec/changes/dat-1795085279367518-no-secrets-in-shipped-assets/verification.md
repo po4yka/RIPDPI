@@ -3,7 +3,7 @@ task_id: DAT-1795085279367518
 change: dat-1795085279367518-no-secrets-in-shipped-assets
 commit_sha: null
 local: required
-local_evidence: null
+local_evidence: "Owner-authorized Gradle run on 2026-11-20 at dc1bc3d74: unit tests of :core:data, :core:data:model, :core:data:runtime-state, :core:diagnostics-data, :core:detection, :core:diagnostics, :core:service and :app (testGithubDebugUnitTest), build-logic :convention:test, :app:verifyRoborazziGithubDebug, staticAnalysis, just ci-gates and taskctl validate passed (exit 0)."
 remote_ci: required
 remote_ci_evidence: null
 device: not_applicable
@@ -16,6 +16,21 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 # Verification
 
+## Gradle run (owner-authorized, 2026-11-20)
+
+The owner authorized Gradle on 2026-11-20. At `dc1bc3d74` every gate below exited 0; logs are in `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-gradle/`.
+
+| Gate | Log |
+|---|---|
+| `:core:data:model`, `:core:data:runtime-state`, `:core:data`, `:core:diagnostics-data`, `:core:detection` `testDebugUnitTest` | `test-1.log` |
+| `:core:diagnostics:testDebugUnitTest :core:service:testDebugUnitTest :app:testGithubDebugUnitTest` | `final-unit.log` |
+| `-p build-logic :convention:test` | `final-convention.log` |
+| `:app:verifyRoborazziGithubDebug -Pripdpi.includeRoborazziUnitTests=true --tests 'com.poyka.ripdpi.ui.screenshot.*'` | `final-roborazzi.log` |
+| `staticAnalysis` | `final-static.log` |
+| `just ci-gates`, `./taskctl validate` | `final-ci-gates.log`, `final-taskctl.log` |
+
+The first run failed 17 tests, all caused by this branch; the fixes are `dd0c9402a` (field-report hour order), `d8ee5a883` (shared `RipDpiJson`), `6f877632e` (tests for the new data-transparency string and the `failureStage` probe parameter), `2a690f854` and `6a10104a9`, `9b8104b6f`, `fd0ac02c9` (lint and detekt, no baseline change). Blessed with owner authorization: `8b18b1e22` (`integrity_v12.json`, only the new `collectionStatus` field) and `dc1bc3d74` (two Roborazzi baselines: the data-transparency bullet and the onboarding chip). Rows above that say a test awaits the owner Gradle run are covered by this run.
+
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
@@ -25,7 +40,7 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 | REQ-DAT-1795085279367518-003 | DAT-1795085328294027 | `PendingBootstrapProvisioner` consumes unconsumed `BOOTSTRAP` subscriptions into the AndroidKeyStore-sealed group catalogue with typed `BootstrapProvisionOutcome`; `PendingBootstrapProvisionerTest` covers provisioned, 410 spent, and unreachable cases. `AppStartupInitializer` calls `provisionPending()` after `presetApplier.applyIfFresh()` as the failure-isolated `pending_bootstrap_provision` subsystem, launched on the application scope so the up-to-15 s bootstrap call never gates readiness; `AppStartupInitializerTest` `startup provisions a pending bootstrap token without gating readiness` asserts the delivered credential lands in the group. Written, not run (Gradle is owner-only) | pending owner run |
 | REQ-DAT-1795085279367518-004 | DAT-1795085329212733 | `rotation-note.md` in this change lists key kinds, asset paths, and release versions (`v0.2.0`, `v0.2.1` Simple shards) with no secret value | passed |
 
-## Owner checks still to run
+## Owner checks
 
 Gradle was not run in this implementation (owner rule). Run these and record the results above:
 

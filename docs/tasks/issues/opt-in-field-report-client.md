@@ -2,7 +2,7 @@
 id: DGN-1795085498592630
 title: Send opt-in anonymous aggregated field reports
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics engineer
@@ -11,8 +11,8 @@ blocked_by: [DGN-1795085357320979, DAT-1795085420746769]
 spec_mode: required
 openspec_change: dgn-1795085498592630-opt-in-field-report-client
 created: 2026-11-19
-updated: 2026-11-19
-status_detail: Review fixes committed; waits on owner gates - REQ-006 legal review (legal-check skill absent, client-legal-safety needs_local_counsel), the owner decision on the AGENTS.md data-leaves-device wording, and owner Gradle and device runs
+updated: 2026-11-20
+status_detail: Gradle gates passed on 2026-11-20; owner waived local counsel and approved the AGENTS.md wording; device run and remote CI remain
 ---
 
 ## Goal

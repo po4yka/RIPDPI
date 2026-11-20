@@ -3,7 +3,7 @@ task_id: DAT-1795085420746769
 change: dat-1795085420746769-consume-bundle-v3-endpoint-health
 commit_sha: null
 local: required
-local_evidence: null
+local_evidence: "Owner-authorized Gradle run on 2026-11-20 at dc1bc3d74: unit tests of :core:data, :core:data:model, :core:data:runtime-state, :core:diagnostics-data, :core:detection, :core:diagnostics, :core:service and :app (testGithubDebugUnitTest), build-logic :convention:test, :app:verifyRoborazziGithubDebug, staticAnalysis, just ci-gates and taskctl validate passed (exit 0)."
 remote_ci: required
 remote_ci_evidence: null
 device: not_applicable
@@ -16,7 +16,22 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 # Verification
 
-`local_evidence` stays null until the owner runs the Gradle gates below. Every new and changed assertion except the vendored-contract drift check is a Kotlin unit test, which no session compiled or ran (owner build policy).
+## Gradle run (owner-authorized, 2026-11-20)
+
+The owner authorized Gradle on 2026-11-20. At `dc1bc3d74` every gate below exited 0; logs are in `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-gradle/`.
+
+| Gate | Log |
+|---|---|
+| `:core:data:model`, `:core:data:runtime-state`, `:core:data`, `:core:diagnostics-data`, `:core:detection` `testDebugUnitTest` | `test-1.log` |
+| `:core:diagnostics:testDebugUnitTest :core:service:testDebugUnitTest :app:testGithubDebugUnitTest` | `final-unit.log` |
+| `-p build-logic :convention:test` | `final-convention.log` |
+| `:app:verifyRoborazziGithubDebug -Pripdpi.includeRoborazziUnitTests=true --tests 'com.poyka.ripdpi.ui.screenshot.*'` | `final-roborazzi.log` |
+| `staticAnalysis` | `final-static.log` |
+| `just ci-gates`, `./taskctl validate` | `final-ci-gates.log`, `final-taskctl.log` |
+
+The first run failed 17 tests, all caused by this branch; the fixes are `dd0c9402a` (field-report hour order), `d8ee5a883` (shared `RipDpiJson`), `6f877632e` (tests for the new data-transparency string and the `failureStage` probe parameter), `2a690f854` and `6a10104a9`, `9b8104b6f`, `fd0ac02c9` (lint and detekt, no baseline change). Blessed with owner authorization: `8b18b1e22` (`integrity_v12.json`, only the new `collectionStatus` field) and `dc1bc3d74` (two Roborazzi baselines: the data-transparency bullet and the onboarding chip). Rows above that say a test awaits the owner Gradle run are covered by this run.
+
+Before the owner-authorized Gradle run above, every new and changed assertion except the vendored-contract drift check is a Kotlin unit test, which no session compiled or ran (owner build policy).
 
 ## Requirement evidence
 
@@ -35,7 +50,7 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 - `python3 -m unittest scripts/tests/test_android_migration_fixture.py scripts/tests/test_android_local_acceptance.py scripts/tests/test_android_migration_receipt.py` (first session)
 - `./taskctl validate` and `just task-check`: exit 0 (logs `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-r2r4-fix/taskctl-validate.log`, `/private/tmp/claude-501/-Users-po4yka-GitRep/77ff58fa-9fb9-4fb3-ac83-38ef9dcd63ce/scratchpad/runs-r2r4-fix/task-check.log`)
 
-## Gradle gates left for the owner
+## Gradle gates
 
 ```bash
 ./gradlew :core:data:testDebugUnitTest --tests 'com.poyka.ripdpi.data.RipdpiBundleContractTest' --tests 'com.poyka.ripdpi.data.SingBoxRipdpiExtensionParserTest' --tests 'com.poyka.ripdpi.data.DeviceMigrationContractTest' --tests 'com.poyka.ripdpi.data.PayloadFailoverImportTest' --tests 'com.poyka.ripdpi.data.FleetCompatGoldenFileTest' -Pripdpi.skipNativeBuild=true
