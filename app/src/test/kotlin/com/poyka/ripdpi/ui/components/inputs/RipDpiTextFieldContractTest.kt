@@ -106,6 +106,25 @@ class RipDpiTextFieldContractTest {
     }
 
     @Test
+    fun `hidden secret keeps its value out of the accessibility tree`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                RipDpiTextField(
+                    value = "secret",
+                    onValueChange = {},
+                    decoration = RipDpiTextFieldDecoration(label = "Private key"),
+                    behavior = RipDpiTextFieldBehavior(textObfuscationMode = TextObfuscationMode.Hidden),
+                )
+            }
+        }
+        composeRule
+            .onNode(hasSetTextAction())
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("••••••")))
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Private key")))
+    }
+
+    @Test
     fun `read only secure field rejects edits and an editable one forwards them`() {
         var readOnly by mutableStateOf(true)
         val changes = mutableListOf<String>()

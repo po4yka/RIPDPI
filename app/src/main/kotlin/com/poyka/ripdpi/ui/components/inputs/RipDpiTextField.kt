@@ -22,8 +22,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.editableText
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
@@ -39,6 +41,8 @@ private const val DisabledAlpha = 0.38f
 
 // Mirrors the internal KeyboardOptions.SecureTextField that BasicSecureTextField uses by default.
 private val secureKeyboardDefaults = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false)
+
+private const val SecretMask = "\u2022"
 
 private val rejectEdits = InputTransformation { revertAllChanges() }
 
@@ -217,7 +221,12 @@ private fun RipDpiTextFieldInput(
     } else {
         OutlinedSecureTextField(
             state = textFieldState,
-            modifier = modifier,
+            // Compose reports the raw value as the node's text even with password semantics, so an accessibility
+            // service could read a masked secret. Expose the mask instead; this outer modifier overrides the field's.
+            modifier =
+                modifier.semantics {
+                    editableText = AnnotatedString(SecretMask.repeat(textFieldState.text.length))
+                },
             enabled = behavior.enabled,
             inputTransformation = if (behavior.readOnly) rejectEdits else forwardEdits,
             textStyle = textStyle,
