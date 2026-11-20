@@ -596,6 +596,307 @@
       "cadence_seconds": 60,
       "stale_after_seconds": 180,
       "alert_use": true
+    },
+    {
+      "name": "vpn_protocol_probe_success",
+      "owner": "observability_control_plane",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [
+        "node",
+        "protocol",
+        "vantage"
+      ],
+      "max_series": 64,
+      "cadence_seconds": 120,
+      "stale_after_seconds": 360,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_protocol_probe_observed_timestamp_seconds",
+      "owner": "observability_control_plane",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "protocol",
+        "vantage"
+      ],
+      "max_series": 64,
+      "cadence_seconds": 120,
+      "stale_after_seconds": 360,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_protocol_probe_complete_until_seconds",
+      "owner": "observability_control_plane",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "protocol"
+      ],
+      "max_series": 4,
+      "cadence_seconds": 120,
+      "stale_after_seconds": 360,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_protocol_probe_duration_seconds",
+      "owner": "observability_control_plane",
+      "type": "histogram",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "protocol",
+        "vantage"
+      ],
+      "max_series": 640,
+      "cadence_seconds": 120,
+      "stale_after_seconds": 360,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_awg_handshake_collection_success",
+      "owner": "amneziawg",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_awg_handshake_collected_timestamp_seconds",
+      "owner": "amneziawg",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_awg_peers",
+      "owner": "amneziawg",
+      "type": "gauge",
+      "unit": null,
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_awg_peers_fresh_handshake",
+      "owner": "amneziawg",
+      "type": "gauge",
+      "unit": null,
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_hysteria_traffic_collection_success",
+      "owner": "hysteria",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_hysteria_traffic_collected_timestamp_seconds",
+      "owner": "hysteria",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_hysteria_transmit_bytes_total",
+      "owner": "hysteria",
+      "type": "counter",
+      "unit": "bytes",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_hysteria_receive_bytes_total",
+      "owner": "hysteria",
+      "type": "counter",
+      "unit": "bytes",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_hysteria_online_connections",
+      "owner": "hysteria",
+      "type": "gauge",
+      "unit": null,
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_field_report_reports_total",
+      "owner": "subscription_host",
+      "type": "counter",
+      "unit": null,
+      "labels": [
+        "node"
+      ],
+      "max_series": 8,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_field_report_dropped_buckets_total",
+      "owner": "subscription_host",
+      "type": "counter",
+      "unit": null,
+      "labels": [
+        "node"
+      ],
+      "max_series": 8,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_field_report_capped_reports_total",
+      "owner": "subscription_host",
+      "type": "counter",
+      "unit": null,
+      "labels": [
+        "node"
+      ],
+      "max_series": 8,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": false
+    },
+    {
+      "name": "vpn_field_report_network_hint_available",
+      "owner": "subscription_host",
+      "type": "gauge",
+      "unit": null,
+      "labels": [
+        "node"
+      ],
+      "max_series": 8,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": false
+    },
+    {
+      "name": "vpn_field_report_network_reports_total",
+      "owner": "subscription_host",
+      "type": "counter",
+      "unit": null,
+      "labels": [
+        "node",
+        "protocol",
+        "network"
+      ],
+      "max_series": 512,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_field_report_attempts_total",
+      "owner": "subscription_host",
+      "type": "counter",
+      "unit": null,
+      "labels": [
+        "node",
+        "protocol",
+        "network",
+        "country"
+      ],
+      "max_series": 512,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_field_report_failures_total",
+      "owner": "subscription_host",
+      "type": "counter",
+      "unit": null,
+      "labels": [
+        "node",
+        "protocol",
+        "failure_stage",
+        "network"
+      ],
+      "max_series": 512,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_field_report_endpoint_attempts_total",
+      "owner": "subscription_host",
+      "type": "counter",
+      "unit": null,
+      "labels": [
+        "node",
+        "protocol",
+        "server_ref"
+      ],
+      "max_series": 512,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_field_report_endpoint_failures_total",
+      "owner": "subscription_host",
+      "type": "counter",
+      "unit": null,
+      "labels": [
+        "node",
+        "protocol",
+        "server_ref"
+      ],
+      "max_series": 512,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_field_report_latency_seconds",
+      "owner": "subscription_host",
+      "type": "histogram",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "protocol"
+      ],
+      "max_series": 64,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
     }
   ]
 }
