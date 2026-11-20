@@ -156,22 +156,30 @@ class FieldReportUploader internal constructor(
         ledger.update { it }
         val due = ledger.snapshot().hours.filter { it.startEpochMillis < hourStart(clock()) }
         if (due.isEmpty()) return
-        val reportTargets = targets().filter { it.config.endpoint.startsWith("https://") }
+        upload(due, targets().filter { it.config.endpoint.startsWith("https://") })
+    }
+
+    private suspend fun upload(
+        due: List<FieldReportHour>,
+        reportTargets: List<FieldReportTarget>,
+    ) {
         for (hour in due) {
             for (target in reportTargets) {
                 val live = tunnel() ?: return
                 if (!target.isServedBy(live.upstream) || !live.isCurrent()) continue
-                val (epoch, reservation) =
-                    ledger.claim { it.claimReport(hour, target, appVersion, clock()) } ?: continue
-                if (!consent()) return
-                val result =
-                    poster.post(live.route, target.config, reservation.body) {
-                        ledger.isClaimCurrent(epoch) && live.isCurrent()
+                val claim = ledger.claim { it.claimReport(hour, target, appVersion, clock()) }
+                if (claim != null) {
+                    val (epoch, reservation) = claim
+                    if (!consent()) return
+                    val result =
+                        poster.post(live.route, target.config, reservation.body) {
+                            ledger.isClaimCurrent(epoch) && live.isCurrent()
+                        }
+                    when (result) {
+                        FieldReportPostResult.Accepted -> Unit
+                        FieldReportPostResult.Failed -> log.i { "field report dropped after one failed request" }
+                        FieldReportPostResult.RouteChanged -> ledger.restore(epoch, reservation::restore)
                     }
-                when (result) {
-                    FieldReportPostResult.Accepted -> Unit
-                    FieldReportPostResult.Failed -> log.i { "field report dropped after one failed request" }
-                    FieldReportPostResult.RouteChanged -> ledger.restore(epoch, reservation::restore)
                 }
             }
         }
@@ -214,11 +222,9 @@ private fun FieldReportState.claimReport(
     version: String?,
     now: Long,
 ): Pair<FieldReportState, FieldReportReservation?> {
-    val hour =
-        hours.firstOrNull { it.startEpochMillis == due.startEpochMillis && it.network == due.network }
-            ?: return this to null
-    val (owned, remaining) = hour.buckets.partition(target::owns)
-    if (owned.isEmpty()) return this to null
+    val hour = hours.firstOrNull { it.startEpochMillis == due.startEpochMillis && it.network == due.network }
+    val (owned, remaining) = hour?.buckets.orEmpty().partition(target::owns)
+    if (hour == null || owned.isEmpty()) return this to null
     val endpoint = target.config.endpoint
     val history = uploads[endpoint].orEmpty()
     val report =
@@ -243,16 +249,17 @@ private suspend fun currentFieldReportTunnel(
     configurations: AppliedRuntimeConfigurationSource,
     noDomain: Boolean,
 ): FieldReportTunnel? {
-    if (noDomain) return null
-    val acquired = diagnostics.acquireInPathRouteLease() as? InPathRouteLeaseAcquisition.Acquired ?: return null
-    val lease = acquired.lease
+    val acquisition = if (noDomain) null else diagnostics.acquireInPathRouteLease()
+    val lease = (acquisition as? InPathRouteLeaseAcquisition.Acquired)?.lease ?: return null
     val applied = configurations.applications.value[Mode.VPN]
-    val upstream = fieldReportUpstream(applied, lease.runtimeId) ?: return null
-    return FieldReportTunnel(
-        LocalSocksRoute(lease.host, lease.port).withLogin(lease.credentials.username, lease.credentials.password),
-        upstream,
-    ) {
-        configurations.applications.value[Mode.VPN] == applied && diagnostics.validateInPathRouteLease(lease) == null
+    return fieldReportUpstream(applied, lease.runtimeId)?.let { upstream ->
+        FieldReportTunnel(
+            LocalSocksRoute(lease.host, lease.port).withLogin(lease.credentials.username, lease.credentials.password),
+            upstream,
+        ) {
+            configurations.applications.value[Mode.VPN] == applied &&
+                diagnostics.validateInPathRouteLease(lease) == null
+        }
     }
 }
 
