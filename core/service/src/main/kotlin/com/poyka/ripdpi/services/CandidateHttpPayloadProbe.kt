@@ -22,12 +22,18 @@ class CandidateHttpPayloadProbe internal constructor(
         endpoint: RelayProbeEndpoint,
         url: String,
     ): CandidateHttpPayloadEvidence {
-        val started = nanoTime()
-        val result = tcp.probe(endpoint, url)
+        var started = nanoTime()
+        var result = tcp.probe(endpoint, url)
+        // One dropped SYN or stalled call on a lossy path must not fail a healthy server: retry once.
+        if (result.transient) {
+            started = nanoTime()
+            result = tcp.probe(endpoint, url)
+        }
         return CandidateHttpPayloadEvidence(
             result.succeeded,
             (nanoTime() - started) / NanosecondsPerMillisecond,
             failureStage = result.failureStage,
+            timedOut = result.timedOut,
         )
     }
 
@@ -75,6 +81,8 @@ data class CandidateHttpPayloadEvidence(
     val quality: ProfileQualityMeasurement? = null,
     /** The field-report stage of a failed probe, when the failure named one. */
     val failureStage: FieldFailureStage? = null,
+    /** The last attempt failed by timeout rather than by a response or connection error. */
+    val timedOut: Boolean = false,
 )
 
 private const val CandidateHttpTimeoutMillis = 15_000L

@@ -229,6 +229,64 @@ class CandidateRelayPayloadProbeTest {
         }
 
     @Test
+    fun `a call timeout is retried once and then reported as timed out`() =
+        runTest {
+            val runtime = FakeCandidateRuntime()
+            var calls = 0
+            val probe =
+                create(
+                    runtime,
+                    capabilities { _, _ ->
+                        calls++
+                        RelayTcpProbeResult(false, failure = RelayProbeFailure.TcpConnect, timedOut = true)
+                    },
+                )
+            assertEquals(
+                CandidateRelayMeasurement.TimedOut(CandidateMeasurementStage.Http),
+                probe.measure(Profile, Credentials, "https://probe"),
+            )
+            assertEquals(2, calls)
+        }
+
+    @Test
+    fun `a connection error that clears on the retry measures the server`() =
+        runTest {
+            val runtime = FakeCandidateRuntime()
+            var calls = 0
+            val probe =
+                create(
+                    runtime,
+                    capabilities { _, _ ->
+                        calls++
+                        if (calls == 1) {
+                            RelayTcpProbeResult(false, failure = RelayProbeFailure.TcpConnect)
+                        } else {
+                            RelayTcpProbeResult(true, 204)
+                        }
+                    },
+                )
+            assertTrue(probe.measure(Profile, Credentials, "https://probe") is CandidateRelayMeasurement.Succeeded)
+            assertEquals(2, calls)
+        }
+
+    @Test
+    fun `an HTTP status failure is not retried`() =
+        runTest {
+            val runtime = FakeCandidateRuntime()
+            var calls = 0
+            val probe =
+                create(
+                    runtime,
+                    capabilities { _, _ ->
+                        calls++
+                        RelayTcpProbeResult(false, 503, RelayProbeFailure.TcpHttpStatus)
+                    },
+                )
+            assertTrue(probe.measure(Profile, Credentials, "https://probe") is CandidateRelayMeasurement.Failed)
+            assertEquals(1, calls)
+        }
+
+    @Test
     fun `runtime environment changes invalidate an otherwise successful payload`() =
         runTest {
             val runtime = FakeCandidateRuntime()

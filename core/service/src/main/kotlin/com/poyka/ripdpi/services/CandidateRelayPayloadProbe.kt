@@ -12,8 +12,6 @@ import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.diagnostics.FieldFailureStage
 import com.poyka.ripdpi.data.diagnostics.nativeFieldFailureStage
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +31,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /** Owns an ephemeral relay solely for an HTTP payload measurement; never activates a stored profile. */
 @Singleton
@@ -223,6 +223,13 @@ class CandidateRelayPayloadProbe internal constructor(
                             CandidateRelayMeasurement.EnvironmentChanged
                         }
 
+                        !result.succeeded && result.timedOut -> {
+                            CandidateRelayMeasurement.TimedOut(
+                                stage,
+                                result.failureStage ?: runtime.nativeFailureStage(),
+                            )
+                        }
+
                         !result.succeeded || !job.isActive -> {
                             CandidateRelayMeasurement.Failed(stage, result.failureStage ?: runtime.nativeFailureStage())
                         }
@@ -297,7 +304,8 @@ class CandidateRelayPayloadProbe internal constructor(
     )
 }
 
-private const val HttpDeadlineMillis = 15_000L
+// Two attempts of the 15 s HTTP call timeout: a transient failure is retried once.
+private const val HttpDeadlineMillis = 30_000L
 private const val ReadyDeadlineMillis = 5_000L
 private const val CleanupDeadlineMillis = 5_000L
 

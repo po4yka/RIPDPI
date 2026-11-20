@@ -71,7 +71,12 @@ internal data class RelayTcpProbeResult(
     val failure: RelayProbeFailure? = null,
     /** The field-report stage of a failed request, when its exception type names one. */
     val failureStage: FieldFailureStage? = null,
-)
+    /** The request hit its call, connect or read timeout. */
+    val timedOut: Boolean = false,
+) {
+    /** No HTTP response arrived: a connection error or a timeout, which a lossy path can cause once. */
+    val transient: Boolean get() = !succeeded && statusCode == null && failure == RelayProbeFailure.TcpConnect
+}
 
 internal fun interface RelayTcpProbe {
     suspend fun probe(
@@ -254,6 +259,8 @@ internal class OkHttpRelayTcpProbe(
                             succeeded = false,
                             failure = RelayProbeFailure.TcpConnect,
                             failureStage = relayProbeFailureStage(error),
+                            // OkHttp reports its call timeout as a bare InterruptedIOException("timeout").
+                            timedOut = error is java.io.InterruptedIOException,
                         )
                     }
                 }

@@ -122,7 +122,7 @@ class CandidateXrayPayloadProbe internal constructor(
                                 LocalSocksCredentialRegistry.unregister("127.0.0.1", port, inboundCredentials)
                             }
                         when {
-                            result == null -> {
+                            result == null || (!result.succeeded && result.timedOut) -> {
                                 CandidateRelayMeasurement.TimedOut(stage)
                             }
 
@@ -170,7 +170,9 @@ class CandidateXrayPayloadProbe internal constructor(
 }
 
 private const val CandidateXrayReadyTimeoutMillis = 5_000L
-private const val CandidateXrayHttpTimeoutMillis = 15_000L
+
+// Two attempts of the 15 s HTTP call timeout: a transient failure is retried once.
+private const val CandidateXrayHttpTimeoutMillis = 30_000L
 private const val CandidateXrayStopTimeoutMillis = 5_000L
 
 private const val MillisecondsPerSecond = 1_000L
