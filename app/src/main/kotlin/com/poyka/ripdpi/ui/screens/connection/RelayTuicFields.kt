@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RelayCongestionControlCubic
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -20,15 +21,15 @@ internal fun TuicRelayFields(
     draft: ConnectionDraft,
     actions: RelayTuicActions,
 ) {
-    RipDpiTextField(
+    RelayPasswordField(
+        label = stringResource(R.string.config_relay_tuic_uuid),
         value = draft.relayTuicUuid,
         onValueChange = actions.onRelayTuicUuidChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_tuic_uuid)),
     )
-    RipDpiTextField(
+    RelayPasswordField(
+        label = stringResource(R.string.config_relay_tuic_password),
         value = draft.relayTuicPassword,
         onValueChange = actions.onRelayTuicPasswordChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_tuic_password)),
     )
     RipDpiTextField(
         value = draft.relayTuicRootCertificatePem,

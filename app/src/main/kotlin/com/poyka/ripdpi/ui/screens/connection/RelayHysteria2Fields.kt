@@ -3,22 +3,21 @@ package com.poyka.ripdpi.ui.screens.connection
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 
 @Composable
 internal fun HysteriaRelayFields(
     draft: ConnectionDraft,
     actions: RelayHysteriaActions,
 ) {
-    RipDpiTextField(
+    RelayPasswordField(
+        label = stringResource(R.string.config_relay_hysteria_password),
         value = draft.relayHysteriaPassword,
         onValueChange = actions.onRelayHysteriaPasswordChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_hysteria_password)),
     )
-    RipDpiTextField(
+    RelayPasswordField(
+        label = stringResource(R.string.config_relay_hysteria_salamander),
         value = draft.relayHysteriaSalamanderKey,
         onValueChange = actions.onRelayHysteriaSalamanderKeyChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_hysteria_salamander)),
     )
 }

@@ -1,15 +1,13 @@
 package com.poyka.ripdpi.ui.screens.connection
 
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 
 @Composable
 internal fun VlessPlainRelayFields(
@@ -27,7 +25,11 @@ internal fun TrojanRelayFields(
     draft: ConnectionDraft,
     actions: RelayAdditionalKindActions,
 ) {
-    RelaySecretField(draft.relayTrojanPassword, R.string.config_relay_trojan_password, actions.onTrojanPasswordChanged)
+    RelayPasswordField(
+        label = stringResource(R.string.config_relay_trojan_password),
+        value = draft.relayTrojanPassword,
+        onValueChange = actions.onTrojanPasswordChanged,
+    )
     RipDpiTextField(
         value = draft.relayTrojanRootCertificatePem,
         onValueChange = actions.onTrojanRootCertificatePemChanged,
@@ -46,10 +48,10 @@ internal fun ShadowsocksRelayFields(
         R.string.config_relay_shadowsocks_method,
         actions.onShadowsocksMethodChanged,
     )
-    RelaySecretField(
-        draft.relayShadowsocksPassword,
-        R.string.config_relay_shadowsocks_password,
-        actions.onShadowsocksPasswordChanged,
+    RelayPasswordField(
+        label = stringResource(R.string.config_relay_shadowsocks_password),
+        value = draft.relayShadowsocksPassword,
+        onValueChange = actions.onShadowsocksPasswordChanged,
     )
 }
 
@@ -84,10 +86,10 @@ internal fun AppsScriptRelayFields(
         R.string.config_relay_apps_script_direct_hosts,
         actions.onAppsScriptDirectHostsChanged,
     )
-    RelaySecretField(
-        draft.relayAppsScriptAuthKey,
-        R.string.config_relay_apps_script_auth_key,
-        actions.onAppsScriptAuthKeyChanged,
+    RelayPasswordField(
+        label = stringResource(R.string.config_relay_apps_script_auth_key),
+        value = draft.relayAppsScriptAuthKey,
+        onValueChange = actions.onAppsScriptAuthKeyChanged,
     )
     RipDpiSwitch(
         checked = draft.relayAppsScriptVerifySsl,
@@ -107,23 +109,5 @@ private fun RelayPlainField(
         value = value,
         onValueChange = onChanged,
         decoration = RipDpiTextFieldDecoration(label = stringResource(labelRes)),
-    )
-}
-
-@Composable
-private fun RelaySecretField(
-    value: String,
-    labelRes: Int,
-    onChanged: (String) -> Unit,
-) {
-    RipDpiTextField(
-        value = value,
-        onValueChange = onChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(labelRes)),
-        behavior =
-            RipDpiTextFieldBehavior(
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                textObfuscationMode = TextObfuscationMode.Hidden,
-            ),
     )
 }

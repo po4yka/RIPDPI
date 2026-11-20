@@ -9,9 +9,9 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
-import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -78,22 +78,15 @@ private fun CloudflareLocalOriginFields(
                 label = stringResource(R.string.relay_cloudflare_credentials_reference_label),
             ),
     )
-    RipDpiConfigTextField(
+    RelayPasswordField(
+        label = stringResource(R.string.relay_cloudflare_tunnel_token_label),
         value = draft.relayCloudflareTunnelToken,
         onValueChange = actions.onRelayCloudflareTunnelTokenChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(R.string.relay_cloudflare_tunnel_token_label),
-                helperText = stringResource(R.string.relay_cloudflare_tunnel_token_helper),
-            ),
+        helperText = stringResource(R.string.relay_cloudflare_tunnel_token_helper),
     )
-    RipDpiConfigTextField(
+    RelayPasswordField(
+        label = stringResource(R.string.relay_cloudflare_named_tunnel_credentials_label),
         value = draft.relayCloudflareTunnelCredentialsJson,
         onValueChange = actions.onRelayCloudflareTunnelCredentialsJsonChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(R.string.relay_cloudflare_named_tunnel_credentials_label),
-            ),
-        multiline = true,
     )
 }

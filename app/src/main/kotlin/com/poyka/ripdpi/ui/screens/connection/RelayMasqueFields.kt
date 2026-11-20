@@ -10,6 +10,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 
 @Composable
 internal fun MasqueRelayFields(
@@ -31,10 +32,10 @@ internal fun MasqueRelayFields(
     MasqueAuthModeRow(draft = draft, uiState = uiState, actions = actions)
     MasquePrivacyPassStatus(uiState)
     if (draft.showsMasqueTokenField()) {
-        RipDpiTextField(
+        RelayPasswordField(
+            label = stringResource(R.string.config_relay_masque_token),
             value = draft.relayMasqueAuthToken,
             onValueChange = actions.onRelayMasqueAuthTokenChanged,
-            decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_masque_token)),
         )
     }
     if (draft.relayMasqueAuthMode == RelayMasqueAuthModeCloudflareMtls) {

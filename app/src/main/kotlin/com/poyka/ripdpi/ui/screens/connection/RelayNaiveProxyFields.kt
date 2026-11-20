@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.connection
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -14,6 +13,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 
 @Composable
 internal fun NaiveProxyRelayFields(
@@ -30,19 +30,11 @@ internal fun NaiveProxyRelayFields(
                 helperText = stringResource(R.string.config_relay_naive_username_helper),
             ),
     )
-    RipDpiTextField(
+    RelayPasswordField(
+        label = stringResource(R.string.config_relay_naive_password),
         value = draft.relayNaivePassword,
         onValueChange = actions.onRelayNaivePasswordChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(R.string.config_relay_naive_password),
-                helperText = stringResource(R.string.config_relay_naive_password_helper),
-            ),
-        behavior =
-            RipDpiTextFieldBehavior(
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                textObfuscationMode = TextObfuscationMode.Hidden,
-            ),
+        helperText = stringResource(R.string.config_relay_naive_password_helper),
     )
     RipDpiTextField(
         value = draft.relayNaivePath,

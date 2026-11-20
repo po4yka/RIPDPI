@@ -41,12 +41,19 @@ internal fun RelaySecretField(
     errorText: String? = null,
     testTag: String? = null,
     enabled: Boolean = true,
+    helperText: String? = null,
 ) {
     RipDpiTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
-        decoration = RipDpiTextFieldDecoration(label = label, errorText = errorText, testTag = testTag),
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = label,
+                helperText = helperText,
+                errorText = errorText,
+                testTag = testTag,
+            ),
         behavior =
             RipDpiTextFieldBehavior(
                 textObfuscationMode = if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
@@ -74,6 +81,7 @@ internal fun RelayPasswordField(
     onValueChange: (String) -> Unit,
     errorText: String? = null,
     testTag: String? = null,
+    helperText: String? = null,
 ) {
     var revealed by remember { mutableStateOf(false) }
     RelaySecretField(
@@ -84,6 +92,7 @@ internal fun RelayPasswordField(
         onReveal = { revealed = true },
         errorText = errorText,
         testTag = testTag,
+        helperText = helperText,
     )
 }
 

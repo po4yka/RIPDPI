@@ -12,6 +12,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -31,15 +32,11 @@ internal fun MasqueCloudflareMtlsFields(
             ),
         multiline = true,
     )
-    RipDpiConfigTextField(
+    RelayPasswordField(
+        label = stringResource(R.string.config_relay_masque_client_private_key),
         value = draft.relayMasqueClientPrivateKeyPem,
         onValueChange = actions.onRelayMasqueClientPrivateKeyPemChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(R.string.config_relay_masque_client_private_key),
-                helperText = stringResource(R.string.config_relay_masque_client_private_key_helper),
-            ),
-        multiline = true,
+        helperText = stringResource(R.string.config_relay_masque_client_private_key_helper),
     )
     FlowRow(
         modifier = Modifier.fillMaxWidth(),

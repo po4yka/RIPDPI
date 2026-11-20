@@ -6,6 +6,7 @@ import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.autofill.ContentDataType
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -122,6 +123,32 @@ class RipDpiTextFieldContractTest {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("••••••")))
             .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password))
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Private key")))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDataType, ContentDataType.None))
+    }
+
+    @Test
+    fun `revealed secret shows its value`() {
+        var revealed by mutableStateOf(false)
+        composeRule.setContent {
+            RipDpiTheme {
+                RipDpiTextField(
+                    value = "secret",
+                    onValueChange = {},
+                    behavior =
+                        RipDpiTextFieldBehavior(
+                            textObfuscationMode =
+                                if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
+                        ),
+                )
+            }
+        }
+        composeRule
+            .onNode(hasSetTextAction())
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("••••••")))
+        composeRule.runOnIdle { revealed = true }
+        composeRule
+            .onNode(hasSetTextAction())
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("secret")))
     }
 
     @Test

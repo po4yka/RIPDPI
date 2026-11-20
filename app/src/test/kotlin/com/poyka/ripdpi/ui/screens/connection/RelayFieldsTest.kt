@@ -10,11 +10,20 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextReplacement
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
+import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTor
+import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayKindTuicV5
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
@@ -37,6 +46,62 @@ import org.robolectric.annotation.GraphicsMode
 class RelayFieldsTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun everyRelaySecretFieldIsMaskedByDefault() {
+        // One draft per editor, with every secret that editor shows set to the same marker.
+        val marker = "masked-fixture-value"
+        val editors =
+            listOf(
+                ConnectionDraft(relayKind = RelayKindHysteria2, relayHysteriaPassword = marker) to 2,
+                ConnectionDraft(relayKind = RelayKindHysteria2, relayHysteriaSalamanderKey = marker) to 2,
+                ConnectionDraft(relayKind = RelayKindTuicV5, relayTuicUuid = marker, relayTuicPassword = marker) to 2,
+                ConnectionDraft(relayKind = RelayKindShadowTlsV3, relayShadowTlsPassword = marker) to 1,
+                ConnectionDraft(relayKind = RelayKindMasque, relayMasqueAuthToken = marker) to 1,
+                ConnectionDraft(
+                    relayKind = RelayKindMasque,
+                    relayMasqueAuthMode = RelayMasqueAuthModeCloudflareMtls,
+                    relayMasqueClientPrivateKeyPem = marker,
+                ) to 1,
+                ConnectionDraft(relayKind = RelayKindCloudflareTunnel, relayVlessUuid = marker) to 1,
+                ConnectionDraft(
+                    relayKind = RelayKindCloudflareTunnel,
+                    relayCloudflareTunnelMode = RelayCloudflareTunnelModePublishLocalOrigin,
+                    relayCloudflareTunnelToken = marker,
+                    relayCloudflareTunnelCredentialsJson = marker,
+                    relayVlessUuid = marker,
+                ) to 3,
+                ConnectionDraft(relayKind = RelayKindVlessReality, relayVlessUuid = marker) to 1,
+                ConnectionDraft(relayKind = RelayKindVless, relayVlessUuid = marker) to 1,
+                ConnectionDraft(relayKind = RelayKindTrojan, relayTrojanPassword = marker) to 1,
+                ConnectionDraft(relayKind = RelayKindShadowsocks, relayShadowsocksPassword = marker) to 1,
+                ConnectionDraft(relayKind = RelayKindGoogleAppsScript, relayAppsScriptAuthKey = marker) to 1,
+                ConnectionDraft(relayKind = RelayKindAnyTls, relayAnyTlsPassword = marker) to 1,
+                ConnectionDraft(relayKind = RelayKindNaiveProxy, relayNaivePassword = marker) to 1,
+            )
+        var draft by mutableStateOf(editors.first().first)
+        composeRule.setContent {
+            RipDpiTheme { RelayKindFields(draft = draft, uiState = ConnectionUiState()) }
+        }
+        val leaks =
+            SemanticsMatcher("exposes the marker") { node ->
+                node.config
+                    .getOrElseNullable(
+                        SemanticsProperties.EditableText,
+                    ) { null }
+                    ?.text
+                    ?.contains(marker) == true ||
+                    node.config.getOrElseNullable(SemanticsProperties.Text) { null }?.any { marker in it.text } == true
+            }
+
+        editors.forEach { (editorDraft, secretFields) ->
+            composeRule.runOnIdle { draft = editorDraft }
+            composeRule.onAllNodes(leaks, useUnmergedTree = true).assertCountEquals(0)
+            composeRule
+                .onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password), useUnmergedTree = true)
+                .assertCountEquals(secretFields)
+        }
+    }
 
     @Test
     fun anyTlsFieldsRenderEndpointSniAndPassword() {

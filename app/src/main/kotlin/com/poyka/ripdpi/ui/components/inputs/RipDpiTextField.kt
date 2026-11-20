@@ -20,7 +20,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentDataType
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.contentDataType
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.editableText
 import androidx.compose.ui.semantics.error
@@ -222,10 +224,12 @@ private fun RipDpiTextFieldInput(
         OutlinedSecureTextField(
             state = textFieldState,
             // Compose reports the raw value as the node's text even with password semantics, so an accessibility
-            // service could read a masked secret. Expose the mask instead; this outer modifier overrides the field's.
+            // service could read a masked secret. Expose the mask instead and keep autofill services from taking
+            // the value; this outer modifier overrides the field's.
             modifier =
                 modifier.semantics {
                     editableText = AnnotatedString(SecretMask.repeat(textFieldState.text.length))
+                    contentDataType = ContentDataType.None
                 },
             enabled = behavior.enabled,
             inputTransformation = if (behavior.readOnly) rejectEdits else forwardEdits,

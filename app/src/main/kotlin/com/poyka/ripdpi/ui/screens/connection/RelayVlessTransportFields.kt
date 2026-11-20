@@ -25,6 +25,7 @@ import com.poyka.ripdpi.data.RelayXhttpModeStreamUp
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -71,10 +72,10 @@ internal fun VlessUuidField(
     draft: ConnectionDraft,
     actions: RelayVlessActions,
 ) {
-    RipDpiTextField(
+    RelayPasswordField(
+        label = stringResource(R.string.config_relay_vless_uuid),
         value = draft.relayVlessUuid,
         onValueChange = actions.onRelayVlessUuidChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_vless_uuid)),
     )
 }
 
