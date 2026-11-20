@@ -189,6 +189,8 @@
     <string name="import_subscription_bootstrap_title">رابط تهيئة لمرة واحدة</string>
     <string name="import_subscription_bootstrap_body">هذا رمز تهيئة لمرة واحدة. يمكن استخدامه مرة واحدة لجلب اشتراكك.</string>
     <string name="import_subscription_unnamed">اشتراك بدون اسم</string>
+    <string name="import_done_added">تمت الإضافة: %1$s</string>
+    <string name="import_unavailable">لم يعد هذا الاستيراد متاحًا. افتح الرابط أو الملف مرة أخرى.</string>
     <string name="import_failure_schema_version">إصدار هذه الحزمة %1$d. يدعم التطبيق الإصدار %2$d.</string>
     <string name="import_entry_unsupported">%1$s: %2$s غير مدعوم</string>
     <string name="import_entry_invalid">%1$s: الإعدادات غير صالحة</string>

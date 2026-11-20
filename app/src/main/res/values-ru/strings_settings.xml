@@ -200,6 +200,8 @@
     <string name="import_subscription_bootstrap_title">Одноразовая ссылка инициализации</string>
     <string name="import_subscription_bootstrap_body">Это одноразовый токен инициализации. Его можно использовать один раз для получения подписки.</string>
     <string name="import_subscription_unnamed">Подписка без названия</string>
+    <string name="import_done_added">Добавлено: %1$s</string>
+    <string name="import_unavailable">Этот импорт больше недоступен. Откройте ссылку или файл ещё раз.</string>
     <string name="import_failure_schema_version">Версия этого пакета — %1$d. Приложение поддерживает версию %2$d.</string>
     <string name="import_entry_unsupported">%1$s: %2$s не поддерживается</string>
     <string name="import_entry_invalid">%1$s: недопустимые настройки</string>

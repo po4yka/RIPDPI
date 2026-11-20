@@ -3141,6 +3141,7 @@ app:import_clipboard_unknown_no_scheme
 app:import_clipboard_unknown_title
 app:import_clipboard_unknown_with_scheme
 app:import_confirm_add_action
+app:import_done_added
 app:import_entry_invalid
 app:import_entry_unsupported
 app:import_error_bad_encoding
@@ -3160,6 +3161,7 @@ app:import_subscription_bootstrap_title
 app:import_subscription_confirm_empty_body
 app:import_subscription_confirm_title
 app:import_subscription_unnamed
+app:import_unavailable
 app:language_name_ar
 app:language_name_de
 app:language_name_en

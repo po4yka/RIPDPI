@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,15 +37,21 @@ fun ProfileImportConfirmRoute(
     modifier: Modifier = Modifier,
     viewModel: ProfileImportConfirmViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val latestOnUnavailable by rememberUpdatedState(onUnavailable)
     LaunchedEffect(viewModel, importToken) {
         if (!viewModel.loadProfile(importToken)) {
+            context.toastImportUnavailable()
             latestOnUnavailable()
         }
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LifecycleEventEffect(viewModel.importedEvents) { onImported() }
+    val addedName = uiState.profile?.displayName.orEmpty()
+    LifecycleEventEffect(viewModel.importedEvents) {
+        context.toastImported(addedName)
+        onImported()
+    }
 
     val ssh = uiState.profile as? ProxyProfile.Ssh
     if (ssh != null && ssh.hostKeyFingerprint.isNullOrBlank()) {

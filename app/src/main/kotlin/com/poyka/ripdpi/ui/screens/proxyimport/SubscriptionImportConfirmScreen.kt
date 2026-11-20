@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -44,13 +45,21 @@ fun SubscriptionImportConfirmRoute(
     modifier: Modifier = Modifier,
     viewModel: SubscriptionImportConfirmViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val latestOnUnavailable by rememberUpdatedState(onUnavailable)
     LaunchedEffect(viewModel, importToken) {
-        if (!viewModel.claimRequest(importToken)) latestOnUnavailable()
+        if (!viewModel.claimRequest(importToken)) {
+            context.toastImportUnavailable()
+            latestOnUnavailable()
+        }
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LifecycleEventEffect(viewModel.importedEvents) { onImported(it) }
+    val addedName = uiState.name.ifBlank { stringResource(R.string.import_subscription_unnamed) }
+    LifecycleEventEffect(viewModel.importedEvents) {
+        context.toastImported(addedName)
+        onImported(it)
+    }
 
     SubscriptionImportConfirmScreen(
         uiState = uiState,

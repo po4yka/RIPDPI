@@ -211,6 +211,8 @@
     <string name="import_subscription_bootstrap_title">एक-बार का बूटस्ट्रैप लिंक</string>
     <string name="import_subscription_bootstrap_body">यह एक-बार का बूटस्ट्रैप टोकन है। इसका उपयोग आपकी सदस्यता प्राप्त करने के लिए एक बार किया जा सकता है।</string>
     <string name="import_subscription_unnamed">बिना नाम की सदस्यता</string>
+    <string name="import_done_added">जोड़ा गया: %1$s</string>
+    <string name="import_unavailable">यह आयात अब उपलब्ध नहीं है। लिंक या फ़ाइल फिर से खोलें।</string>
     <string name="import_failure_schema_version">यह बंडल संस्करण %1$d का है। यह ऐप संस्करण %2$d का समर्थन करता है।</string>
     <string name="import_entry_unsupported">%1$s: %2$s समर्थित नहीं है</string>
     <string name="import_entry_invalid">%1$s: सेटिंग मान्य नहीं हैं</string>

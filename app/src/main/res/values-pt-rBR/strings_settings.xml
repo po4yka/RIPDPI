@@ -200,6 +200,8 @@
     <string name="import_subscription_bootstrap_title">Link de inicialização de uso único</string>
     <string name="import_subscription_bootstrap_body">Este é um token de inicialização de uso único. Ele pode ser usado uma única vez para obter sua assinatura.</string>
     <string name="import_subscription_unnamed">Assinatura sem nome</string>
+    <string name="import_done_added">Adicionado: %1$s</string>
+    <string name="import_unavailable">Esta importação não está mais disponível. Abra o link ou o arquivo novamente.</string>
     <string name="import_failure_schema_version">Este pacote é da versão %1$d. O app é compatível com a versão %2$d.</string>
     <string name="import_entry_unsupported">%1$s: %2$s não é compatível</string>
     <string name="import_entry_invalid">%1$s: as configurações não são válidas</string>

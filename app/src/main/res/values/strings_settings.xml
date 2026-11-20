@@ -208,6 +208,8 @@
     <string name="import_subscription_bootstrap_title">One-time bootstrap link</string>
     <string name="import_subscription_bootstrap_body">This is a one-time bootstrap token. It can be used once to fetch your subscription.</string>
     <string name="import_subscription_unnamed">Unnamed subscription</string>
+    <string name="import_done_added">Added: %1$s</string>
+    <string name="import_unavailable">This import is no longer available. Open the link or file again.</string>
     <string name="import_failure_schema_version">This bundle is version %1$d. This app supports version %2$d.</string>
     <string name="import_entry_unsupported">%1$s: %2$s is not supported</string>
     <string name="import_entry_invalid">%1$s: settings are not valid</string>

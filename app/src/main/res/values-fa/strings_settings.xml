@@ -203,6 +203,8 @@
     <string name="import_subscription_bootstrap_title">پیوند راه‌اندازی یک‌بارمصرف</string>
     <string name="import_subscription_bootstrap_body">این یک توکن راه‌اندازی یک‌بارمصرف است. می‌توان یک بار از آن برای دریافت اشتراک استفاده کرد.</string>
     <string name="import_subscription_unnamed">اشتراک بدون نام</string>
+    <string name="import_done_added">افزوده شد: %1$s</string>
+    <string name="import_unavailable">این ورود دیگر در دسترس نیست. پیوند یا فایل را دوباره باز کنید.</string>
     <string name="import_failure_schema_version">نسخهٔ این بسته %1$d است. برنامه از نسخهٔ %2$d پشتیبانی می‌کند.</string>
     <string name="import_entry_unsupported">%1$s: %2$s پشتیبانی نمی‌شود</string>
     <string name="import_entry_invalid">%1$s: تنظیمات معتبر نیست</string>

@@ -202,6 +202,8 @@
     <string name="import_subscription_bootstrap_title">Enlace de arranque de un solo uso</string>
     <string name="import_subscription_bootstrap_body">Este es un token de arranque de un solo uso. Puede usarse una vez para obtener tu suscripción.</string>
     <string name="import_subscription_unnamed">Suscripción sin nombre</string>
+    <string name="import_done_added">Añadido: %1$s</string>
+    <string name="import_unavailable">Esta importación ya no está disponible. Abre el enlace o el archivo de nuevo.</string>
     <string name="import_failure_schema_version">Este paquete es de la versión %1$d. La aplicación admite la versión %2$d.</string>
     <string name="import_entry_unsupported">%1$s: %2$s no es compatible</string>
     <string name="import_entry_invalid">%1$s: la configuración no es válida</string>

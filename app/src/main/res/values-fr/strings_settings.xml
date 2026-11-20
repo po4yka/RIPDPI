@@ -202,6 +202,8 @@
     <string name="import_subscription_bootstrap_title">Lien d\'amorçage à usage unique</string>
     <string name="import_subscription_bootstrap_body">Ceci est un jeton d\'amorçage à usage unique. Il peut être utilisé une fois pour récupérer votre abonnement.</string>
     <string name="import_subscription_unnamed">Abonnement sans nom</string>
+    <string name="import_done_added">Ajouté : %1$s</string>
+    <string name="import_unavailable">Cet import n’est plus disponible. Ouvrez à nouveau le lien ou le fichier.</string>
     <string name="import_failure_schema_version">Ce paquet est en version %1$d. L’application prend en charge la version %2$d.</string>
     <string name="import_entry_unsupported">%1$s : %2$s n’est pas pris en charge</string>
     <string name="import_entry_invalid">%1$s : paramètres non valides</string>
