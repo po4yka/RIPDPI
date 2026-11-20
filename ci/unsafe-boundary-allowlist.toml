@@ -162,6 +162,15 @@ owner = "android-ffi"
 review_date = "2026-11-15"
 
 [[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/dns_morph_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: DNS-Morph subscription delivery"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-21"
+
+[[entries]]
 file = "native/rust/crates/ripdpi-android/src/ffi/lua_bridge.rs"
 pattern = 'extern "system" fn'
 reason = "JNI bridge: Lua strategy engine"
