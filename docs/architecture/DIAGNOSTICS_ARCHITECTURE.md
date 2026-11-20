@@ -23,10 +23,17 @@ A scan probes each connection target independently and produces a typed
 **verdict**, stored per network fingerprint and replayed when the network is
 seen again ([`GLOSSARY.md`](GLOSSARY.md)):
 
-- `TRANSPARENT_WORKS` — raw path works, no intervention needed.
-- `OWNED_STACK_ONLY` — works only via the app's owned TLS stack.
+- `TRANSPARENT_WORKS` — raw path works, no intervention needed. Only a
+  measured transparent success on a raw-path scan produces it.
+- `OWNED_STACK_ONLY` — works only via the app's owned TLS stack. Scans do not
+  derive it at present; stored capability records and the native runtime still
+  read it.
 - `NO_DIRECT_SOLUTION` — on-device mutation cannot recover it; relay required.
-- `IP_BLOCK_SUSPECT` — IP-level block detected.
+
+`IP_BLOCK_SUSPECT` is not a verdict. It is a transport class (and
+`IP_BLOCKED` a reason code) that can accompany a verdict. Only raw-path scans
+produce verdicts and direct-path capability records; an in-path scan measures
+the active tunnel or proxy.
 
 Scans run in two path modes (see [`RUNTIME_MODES.md`](RUNTIME_MODES.md) §3):
 **raw-path** (VPN stopped, direct connection) and **in-path** (through the
@@ -37,7 +44,7 @@ active RIPDPI VPN or local proxy on Android). Scan kinds include `quick_v1` (fas
 
 The manual `selective-availability-matrix` profile compares declared-available,
 domestic, global and optional user targets. `selectiveMatrix` is an optional
-version-1 request configuration in engine schema 9. Old profiles do not schedule
+version-1 request configuration of the engine wire schema (currently 11). Old profiles do not schedule
 its `SELECTIVE_AVAILABILITY` task family. It does not run in background audits.
 
 Each round visits the cohorts in order. An attempt records DNS, TCP, verified
@@ -324,10 +331,13 @@ A scan verdict feeds the **per-network policy cache**. Results are persisted
 by `:core:diagnostics-data` and keyed by a **SHA-256 network fingerprint
 hash** — never a raw `BSSID` / `SSID` / carrier name (see
 [`.claude/rules/network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md)).
-The `RememberedNetworkPolicyStore` runs a small state machine over each
-remembered policy — `OBSERVED → VALIDATED → APPLIED → SUCCESS / FAILURE` —
-so a strategy proven on a network is replayed when that fingerprint is seen
-again, and a policy that regresses is suppressed. Diagnostics is the
+The `RememberedNetworkPolicyStore` gives each remembered policy a status of
+`observed`, `validated` or `suppressed`. Applying a policy records
+`lastAppliedAt`; success and failure update counters. A success can promote an
+`observed` policy to `validated`. Two consecutive failures of a `validated`
+policy suppress it for 24 hours (`suppressedUntil`). A validated policy is
+replayed when that fingerprint is seen again. A fresh scan result that meets
+the background auto-persist bar outranks it and is persisted. Diagnostics is the
 *producer* of these entries; the runtime is the *consumer*. The producer side
 must keep its persisted artifacts inside the privacy bounds above — that
 declaration is load-bearing for the Play Store Data Safety surface.
