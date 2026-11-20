@@ -789,6 +789,30 @@ class ConnectionViewModelApplyChangesTest {
         }
 
     @Test
+    fun `direct ends a saved subscription member selection`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            val settings = FakeAppSettingsRepository()
+            val reconnect = FakeRunningServiceReconnect()
+            val nativeSelection = RecordingXrayNativeProviderSelection(settings)
+            val viewModel =
+                createConfigViewModel(
+                    appSettingsRepository = settings,
+                    serviceStateStore = store,
+                    reconnectCoordinator = reconnect,
+                    externalProviders = FakeExternalProviders(active = null, exit = ActiveExit("Home", "Hysteria2")),
+                    xrayNativeProviderSelection = nativeSelection,
+                )
+
+            viewModel.relayProfileSelector.selectDirect()
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.VPN), nativeSelection.selectedModes)
+            assertEquals(listOf(Mode.VPN), reconnect.requestedModes)
+        }
+
+    @Test
     fun `direct turns off an external provider and refreshes the state`() =
         runTest {
             val store = FakeServiceStateStore()

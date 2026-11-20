@@ -20,8 +20,9 @@ internal class FakeExternalProviders(
     private val stopsSession: Boolean = false,
     private val refuses: Boolean = false,
     private val onStop: () -> Unit = {},
+    exit: ActiveExit? = null,
 ) : ConnectionExternalProviders {
-    override val activeExit: Flow<ActiveExit?> = flowOf(null)
+    override val activeExit: Flow<ActiveExit?> = flowOf(exit)
 
     var deactivations = 0
         private set

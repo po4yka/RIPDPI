@@ -5,6 +5,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -52,13 +53,19 @@ internal class ConnectionRelayProfileSelector(
             val settings = dependencies.appSettingsRepository.snapshot()
             val mode = settings.toConfigDraft().mode
             val hadExternal = dependencies.externalProviders.current(mode) != null
-            // A subscription member keeps the relay flag off; turning the relay off also ends selector ownership.
+            // A subscription member keeps the relay flag off, so Direct must end the selector ownership itself.
             val selectorExit = !hadExternal && dependencies.externalProviders.activeExit.first() != null
             val restart = turnOffExternalProviders(mode)
+            if (selectorExit) {
+                dependencies.xrayNativeProviderSelection.selectNativeMode(
+                    ProfileMutationOrigin.ExplicitActivation,
+                    mode,
+                )
+            }
             val draft =
                 when {
-                    settings.relayEnabled || selectorExit -> dependencies.relayArtifacts.deactivateActiveProfile()
-                    hadExternal -> dependencies.appSettingsRepository.snapshot().toConfigDraft()
+                    settings.relayEnabled -> dependencies.relayArtifacts.deactivateActiveProfile()
+                    hadExternal || selectorExit -> dependencies.appSettingsRepository.snapshot().toConfigDraft()
                     else -> null
                 }
             when {
