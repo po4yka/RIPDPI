@@ -56,7 +56,7 @@ class DnsMorphBridgeTest {
                 "token" to "\"${key.trimEnd('=')}\"",
                 "address" to "\"224.0.0.1\"",
                 "address" to "\"0.0.0.0\"",
-                "zone" to "\"${"a".repeat(30)}.${"b".repeat(30)}\"",
+                "zone" to "\"${"a".repeat(27)}.${"b".repeat(27)}\"",
             )
         for ((field, value) in invalid) {
             val json = (valid + (field to value)).entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" }

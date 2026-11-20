@@ -25,10 +25,10 @@ pub const VERSION: u8 = 2;
 const KEY_LEN: usize = 32;
 const MAC_LEN: usize = 16;
 /// Version, client X25519 public key, minute stamp and chunk index; the MAC covers exactly these bytes.
-const REQUEST_BODY_LEN: usize = 1 + KEY_LEN + 2 + 2;
+const REQUEST_BODY_LEN: usize = 1 + KEY_LEN + 4 + 2;
 /// A query stamped further than this from the bridge clock gets no answer, so a captured query cannot be
 /// replayed later to confirm that the address is a bridge.
-pub const FRESHNESS_MINUTES: i16 = 5;
+pub const FRESHNESS_MINUTES: u32 = 5;
 const REQUEST_LEN: usize = REQUEST_BODY_LEN + MAC_LEN;
 const LABEL_LEN: usize = 63;
 /// Envelope bytes per TXT answer; with [`MAX_ZONE_LEN`] every response stays below [`MAX_DATAGRAM_LEN`].
@@ -42,8 +42,8 @@ pub const MAX_PAYLOAD_LEN: usize = 64 * 1024;
 const MAX_ENVELOPE_LEN: usize = MAX_PAYLOAD_LEN + ENVELOPE_OVERHEAD;
 /// Classic DNS UDP limit; a larger datagram is rejected, never parsed.
 pub const MAX_DATAGRAM_LEN: usize = 512;
-/// Keeps an uncompressed reply under [`MAX_DATAGRAM_LEN`] next to the 85-character request labels.
-pub const MAX_ZONE_LEN: usize = 60;
+/// Keeps an uncompressed reply under [`MAX_DATAGRAM_LEN`] next to the 88-character request labels.
+pub const MAX_ZONE_LEN: usize = 54;
 const SIGNING_CONTEXT: &[u8] = b"ripdpi-dns-morph-v2\0";
 const KEY_INFO: &[u8] = b"ripdpi-dns-morph-v2 payload key";
 const NONCE_INFO: &[u8] = b"ripdpi-dns-morph-v2 nonce key";
@@ -227,24 +227,25 @@ fn split_chunk(chunk: &[u8]) -> Result<(usize, u16, &[u8]), FetchError> {
     Ok((total, u16::from_be_bytes([header[4], header[5]]), data))
 }
 
-/// Minutes since the Unix epoch, wrapping at 2^16 (about 45 days); only the distance to the bridge clock matters.
-fn minute_stamp(now: SystemTime) -> u16 {
+/// Minutes since the Unix epoch; a `u32` does not wrap for about 8,000 years, so a captured stamp never
+/// becomes fresh again.
+fn minute_stamp(now: SystemTime) -> u32 {
     let minutes = now.duration_since(SystemTime::UNIX_EPOCH).map_or(0, |since| since.as_secs() / 60);
-    (minutes % (1 << 16)) as u16
+    u32::try_from(minutes).unwrap_or(u32::MAX)
 }
 
 fn request_name(
     zone: &Name,
     keys: &TokenKeys,
     client_key: &[u8; KEY_LEN],
-    minute: u16,
+    minute: u32,
     index: u16,
 ) -> Result<Name, FetchError> {
     let mut request = [0u8; REQUEST_LEN];
     request[0] = VERSION;
     request[1..=KEY_LEN].copy_from_slice(client_key);
-    request[KEY_LEN + 1..KEY_LEN + 3].copy_from_slice(&minute.to_be_bytes());
-    request[KEY_LEN + 3..REQUEST_BODY_LEN].copy_from_slice(&index.to_be_bytes());
+    request[KEY_LEN + 1..KEY_LEN + 5].copy_from_slice(&minute.to_be_bytes());
+    request[KEY_LEN + 5..REQUEST_BODY_LEN].copy_from_slice(&index.to_be_bytes());
     let mac = keys.query_mac(zone, &request[..REQUEST_BODY_LEN]);
     request[REQUEST_BODY_LEN..].copy_from_slice(&mac);
     let encoded = BASE32_DNSSEC.encode(&request);
@@ -401,14 +402,14 @@ impl Responder {
         }
         let (body, mac) = decoded.split_at(REQUEST_BODY_LEN);
         // Checked before the MAC scan, so a stale query is also the cheapest to drop.
-        let minute = u16::from_be_bytes([body[KEY_LEN + 1], body[KEY_LEN + 2]]);
-        if (minute_stamp(now).wrapping_sub(minute) as i16).abs() > FRESHNESS_MINUTES {
+        let minute = u32::from_be_bytes([body[KEY_LEN + 1], body[KEY_LEN + 2], body[KEY_LEN + 3], body[KEY_LEN + 4]]);
+        if minute_stamp(now).abs_diff(minute) > FRESHNESS_MINUTES {
             return None;
         }
         let (keys, payload) =
             self.subscribers.iter().find(|(keys, _)| bool::from(keys.query_mac(&self.zone, body).ct_eq(mac)))?;
         let client_key: [u8; KEY_LEN] = body[1..=KEY_LEN].try_into().ok()?;
-        let index = u16::from_be_bytes([body[KEY_LEN + 3], body[KEY_LEN + 4]]);
+        let index = u16::from_be_bytes([body[KEY_LEN + 5], body[KEY_LEN + 6]]);
         let envelope = self.seal(keys, payload, &client_key)?;
 
         let mut response = Message::response(request.metadata.id, OpCode::Query);
@@ -485,8 +486,8 @@ mod tests {
     fn a_replayed_query_outside_the_freshness_window_gets_no_answer() {
         let client = *PublicKey::from(&StaticSecret::from([3; 32])).as_bytes();
         let captured = query("m.example", client);
-        let later = SystemTime::now() + Duration::from_secs(60 * (FRESHNESS_MINUTES as u64 + 1));
-        let earlier = SystemTime::now() - Duration::from_secs(60 * (FRESHNESS_MINUTES as u64 + 1));
+        let stale = Duration::from_secs(60 * (u64::from(FRESHNESS_MINUTES) + 1));
+        let (later, earlier) = (SystemTime::now() + stale, SystemTime::now() - stale);
 
         assert!(responder("m.example").respond_at(&captured, later).is_none());
         assert!(responder("m.example").respond_at(&captured, earlier).is_none());
@@ -494,10 +495,15 @@ mod tests {
     }
 
     #[test]
-    fn minute_stamps_wrap_without_losing_distance() {
-        let wrap = SystemTime::UNIX_EPOCH + Duration::from_secs(60 * (1 << 16));
-        let just_before = wrap - Duration::from_secs(60 * 2);
-        assert_eq!(minute_stamp(wrap).wrapping_sub(minute_stamp(just_before)) as i16, 2);
+    fn far_stamps_are_stale_in_both_directions() {
+        let client = *PublicKey::from(&StaticSecret::from([3; 32])).as_bytes();
+        let captured = query("m.example", client);
+        // The 16-bit wrap period and the signed-overflow midpoint that broke an earlier stamp format.
+        for minutes in [1u64 << 15, 1 << 16, (1 << 16) + 1] {
+            let far = Duration::from_secs(60 * minutes);
+            assert!(responder("m.example").respond_at(&captured, SystemTime::now() + far).is_none(), "{minutes}");
+            assert!(responder("m.example").respond_at(&captured, SystemTime::now() - far).is_none(), "{minutes}");
+        }
     }
 
     #[test]

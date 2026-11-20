@@ -115,6 +115,6 @@ internal fun parseDnsMorphBridge(block: JsonObject): DnsMorphBridge? {
 private const val MaxPort = 65_535
 
 // Keeps an uncompressed reply under the 512-byte datagram cap; equals the Rust limit.
-private const val MaxZoneLength = 60
+private const val MaxZoneLength = 54
 private const val KeyBytes = 32
 private val ZoneLabel = Regex("[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?")
