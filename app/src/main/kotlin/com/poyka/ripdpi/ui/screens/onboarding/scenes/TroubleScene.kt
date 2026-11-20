@@ -168,7 +168,9 @@ internal class TroubleScene(
         }
     }
 
-    /** The sheet with the place of the break. It shows beside the ghost, and then it leaves for the person who helps. */
+    /**
+     * The sheet with the place of the break. It shows beside the ghost, and then it leaves for the person who helps.
+     */
     private fun Pen.report(p: Float) {
         val pop = back(cl((p - 5.6f) / 0.4f))
         val fly = ease((p - 6.6f) / 2f)
