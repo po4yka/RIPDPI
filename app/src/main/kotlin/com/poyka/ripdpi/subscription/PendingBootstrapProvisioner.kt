@@ -7,12 +7,12 @@ import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
-import com.poyka.ripdpi.data.awg.saveMigrationTargets
+import com.poyka.ripdpi.data.awg.AwgSubscriptionProfile
+import com.poyka.ripdpi.data.awg.SavedAwgProfile
 import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
-import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
+import com.poyka.ripdpi.data.awg.toMigrationTarget
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
-import com.poyka.ripdpi.data.subscription.MigrationTarget
 import com.poyka.ripdpi.data.subscription.receivedMigration
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -57,10 +57,11 @@ sealed interface BootstrapProvisionOutcome {
 class PendingBootstrapProvisioner internal constructor(
     private val repository: ProxyGroupRepository,
     private val bootstrapConsumer: BootstrapConsumer,
-    private val saveAwgProfiles: suspend (
-        List<AmneziaWgSubscriptionProfile>,
-        Map<String, String>,
-    ) -> List<MigrationTarget>,
+    private val commitProvision: suspend (
+        ProxyGroup,
+        List<AwgSubscriptionProfile>,
+        (List<SavedAwgProfile>) -> ProxyGroup,
+    ) -> Boolean,
 ) {
     @Inject
     constructor(
@@ -69,11 +70,7 @@ class PendingBootstrapProvisioner internal constructor(
     ) : this(
         repository = repository,
         bootstrapConsumer = BootstrapConsumer(),
-        saveAwgProfiles = { profiles, previousTags ->
-            awgProfileRepository.saveMigrationTargets(
-                profiles.map { it.toAwgSubscriptionProfile(previousTag = previousTags[it.displayName]) },
-            )
-        },
+        commitProvision = awgProfileRepository::commitSubscriptionRefresh,
     )
 
     suspend fun provisionPending(): List<BootstrapProvisionOutcome> =
@@ -89,12 +86,17 @@ class PendingBootstrapProvisioner internal constructor(
         return when (val result = bootstrapConsumer.consume(pending.link, expected.id)) {
             is BootstrapConsumeResult.Consumed -> {
                 val previousTags = result.migration?.awgPreviousTags.orEmpty()
-                val awgTargets = saveAwgProfiles(result.amneziaWgProfiles, previousTags)
+                val awgProfiles =
+                    result.amneziaWgProfiles.map {
+                        it.toAwgSubscriptionProfile(
+                            previousTag = previousTags[it.displayName],
+                        )
+                    }
                 val saved =
-                    replaceIfUnchanged(expected) { current ->
+                    commitProvision(expected, awgProfiles) { prepared ->
                         SubscriptionMemberPersistence
                             .apply(
-                                group = current,
+                                group = expected,
                                 members = result.profiles,
                                 failover = result.failover,
                                 cloudflareMemberIds = result.cloudflareMemberIds,
@@ -115,7 +117,7 @@ class PendingBootstrapProvisioner internal constructor(
                                                 result.payloadSha256,
                                                 result.consumedAtMillis,
                                                 result.profiles,
-                                                awgTargets,
+                                                prepared.map(SavedAwgProfile::toMigrationTarget),
                                             ),
                                     ),
                             )

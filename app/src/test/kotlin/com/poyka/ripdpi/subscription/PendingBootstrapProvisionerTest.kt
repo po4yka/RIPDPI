@@ -8,13 +8,19 @@ import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.proxyimport.FakeProxyGroupRepository
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
+import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class PendingBootstrapProvisionerTest {
     private val consumedAt = 1_700_000_000_000L
@@ -34,7 +40,17 @@ class PendingBootstrapProvisionerTest {
         }
 
     private fun provisioner(repository: FakeProxyGroupRepository) =
-        PendingBootstrapProvisioner(repository, BootstrapConsumer(clockMillis = { consumedAt })) { _, _ -> emptyList() }
+        PendingBootstrapProvisioner(
+            repository,
+            BootstrapConsumer(clockMillis = { consumedAt }),
+        ) { expected, _, prepare ->
+            if (expected !in repository.list()) {
+                false
+            } else {
+                repository.update(prepare(emptyList()))
+                true
+            }
+        }
 
     @Test
     fun `a valid token stores delivered credentials once and is consumed`() =
@@ -53,6 +69,44 @@ class PendingBootstrapProvisionerTest {
                 assertEquals("fixture-secret", member.password)
                 assertEquals(consumedAt, saved.subscription?.consumedAt)
                 assertEquals(1, server.requestCount)
+            }
+        }
+
+    @Test
+    fun `a delivered token cannot provision a replaced slot`() =
+        runTest {
+            MockWebServer().use { server ->
+                val requested = CompletableDeferred<Unit>()
+                val release = CountDownLatch(1)
+                server.dispatcher =
+                    object : Dispatcher() {
+                        override fun dispatch(request: RecordedRequest): MockResponse {
+                            requested.complete(Unit)
+                            check(release.await(5, TimeUnit.SECONDS))
+                            return MockResponse
+                                .Builder()
+                                .body(
+                                    "trojan://fixture-secret@relay.example:443#relay",
+                                ).build()
+                        }
+                    }
+                server.start()
+                val repository = repositoryWithTokenSlot(server.url("/bootstrap/fixture").toString())
+                val replacement = repository.list().single().copy(ownershipGeneration = "replacement")
+                val pending = async { provisioner(repository).provisionPending() }
+
+                try {
+                    requested.await()
+                    repository.update(replacement)
+                } finally {
+                    release.countDown()
+                }
+
+                assertEquals(
+                    listOf(BootstrapProvisionOutcome.Failed("slot", BootstrapProvisionFailure.SUPERSEDED)),
+                    pending.await(),
+                )
+                assertEquals(listOf(replacement), repository.list())
             }
         }
 

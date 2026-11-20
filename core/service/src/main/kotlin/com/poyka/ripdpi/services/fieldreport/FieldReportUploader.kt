@@ -12,14 +12,16 @@ import androidx.work.WorkerParameters
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 import com.poyka.ripdpi.services.LocalSocksRoute
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
-import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.localSocksProxy
+import com.poyka.ripdpi.services.withLogin
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,6 +33,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.coroutines.executeAsync
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -40,17 +43,23 @@ private const val HttpAccepted = 202
 private const val RequestTimeoutSeconds = 30L
 private val JsonMediaType = "application/json".toMediaType()
 
-/** One `field_report` upload target, the server_refs (member tags) its groups own, and those groups and members. */
 internal data class FieldReportTarget(
     val config: RipdpiFieldReport,
-    val serverRefs: Set<String>,
-    val groupIds: Set<String>,
-    val memberIds: Set<String>,
+    private val members: Map<FieldReportMember, String>,
 ) {
-    /** True when the tunnel exits through one of this target's own members, so the report never leaves elsewhere. */
     fun isServedBy(upstream: FieldReportUpstream): Boolean =
-        upstream.groupId in groupIds || upstream.memberId in memberIds
+        members.keys.any { member ->
+            member.memberId == upstream.memberId && (upstream.groupId == null || member.groupId == upstream.groupId)
+        }
+
+    fun owns(bucket: FieldReportBucket): Boolean = members[bucket.member] == bucket.serverRef
 }
+
+internal data class FieldReportTunnel(
+    val route: LocalSocksRoute,
+    val upstream: FieldReportUpstream,
+    val isCurrent: () -> Boolean,
+)
 
 /** The selector group and member (or relay profile id) the active VPN tunnel exits through. */
 internal data class FieldReportUpstream(
@@ -68,13 +77,20 @@ internal fun fieldReportUpstream(
     return selection?.let { FieldReportUpstream(it.selectorGroupId, it.selectorMemberId ?: it.profileId) }
 }
 
-/** Sends one report through the tunnel listener [route]; true only when the server accepted it. */
+internal enum class FieldReportPostResult {
+    Accepted,
+    Failed,
+    RouteChanged,
+}
+
+/** RouteChanged means the request was stopped before any report bytes reached the network. */
 internal fun interface FieldReportPoster {
     suspend fun post(
         route: LocalSocksRoute,
         target: RipdpiFieldReport,
         body: String,
-    ): Boolean
+        isCurrent: () -> Boolean,
+    ): FieldReportPostResult
 }
 
 /**
@@ -88,8 +104,7 @@ class FieldReportUploader internal constructor(
     private val consent: suspend () -> Boolean,
     private val targets: suspend () -> List<FieldReportTarget>,
     private val appVersion: String?,
-    private val tunnelRoute: suspend () -> LocalSocksRoute?,
-    private val activeUpstream: suspend () -> FieldReportUpstream?,
+    private val tunnel: suspend () -> FieldReportTunnel?,
     private val poster: FieldReportPoster,
     private val clock: () -> Long,
 ) {
@@ -99,7 +114,7 @@ class FieldReportUploader internal constructor(
         ledger: FieldReportLedger,
         settings: AppSettingsRepository,
         groups: ProxyGroupRepository,
-        runtimes: ServiceRuntimeRegistry,
+        diagnostics: DiagnosticsRuntimeCoordinator,
         configurations: AppliedRuntimeConfigurationSource,
         tlsClientFactory: OwnedTlsClientFactory,
     ) : this(
@@ -111,25 +126,20 @@ class FieldReportUploader internal constructor(
                 .filter { it.fieldReport != null }
                 .groupBy { checkNotNull(it.fieldReport) }
                 .map { (config, owners) ->
-                    val members = owners.flatMap { it.members }
-                    FieldReportTarget(
-                        config,
-                        members.mapTo(mutableSetOf()) { it.displayName },
-                        owners.mapTo(mutableSetOf()) { it.id },
-                        members.mapTo(mutableSetOf()) { it.id },
-                    )
+                    val members =
+                        owners
+                            .flatMap { group ->
+                                group.members.map { FieldReportMember(group.id, it.id) to it.displayName }
+                            }.toMap()
+                    FieldReportTarget(config, members)
                 }
         },
         appVersion =
             fieldReportAppVersion(
                 runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull(),
             ),
-        // The app's own UID bypasses the VPN, so the report enters the listener the tunnel forwards into.
-        tunnelRoute = {
-            fieldReportTunnelRoute(runtimes.current(Mode.VPN)?.tunnelSocksRoute, settings.snapshot().noDomain)
-        },
-        activeUpstream = {
-            fieldReportUpstream(configurations.applications.value[Mode.VPN], runtimes.current(Mode.VPN)?.runtimeId)
+        tunnel = {
+            currentFieldReportTunnel(diagnostics, configurations, settings.snapshot().noDomain)
         },
         poster = OkHttpFieldReportPoster(tlsClientFactory),
         clock = System::currentTimeMillis,
@@ -138,81 +148,113 @@ class FieldReportUploader internal constructor(
     private val log = Logger.withTag("field-report")
 
     suspend fun uploadCompletedHours() {
-        // A write prunes hours older than 24 hours, so an hour that never saw the tunnel ages out of the file.
-        ledger.update { it }
-        val now = clock()
-        val state = ledger.snapshot()
-        val due = state.hours.filter { it.startEpochMillis < hourStart(now) }
-        // Without the tunnel nothing is sent; the hours wait for a later run and age out after 24 hours.
-        val route = if (due.isEmpty()) null else tunnelRoute()
-        // The tunnel may exit from the real address (no relay) or through another operator's relay, so a
-        // report goes only to a target whose own member carries the tunnel; otherwise the hours wait as above.
-        val upstream = route?.let { activeUpstream() }
-        val reportTargets =
-            if (upstream == null) {
-                emptyList()
-            } else {
-                targets().filter { it.config.endpoint.startsWith("https://") && it.isServedBy(upstream) }
-            }
         if (!consent()) {
             ledger.clear()
-        } else if (route != null && reportTargets.isNotEmpty()) {
-            upload(due, state.uploads, route, reportTargets, now)
+            return
         }
-    }
-
-    private suspend fun upload(
-        due: List<FieldReportHour>,
-        history: Map<String, List<Long>>,
-        route: LocalSocksRoute,
-        reportTargets: List<FieldReportTarget>,
-        now: Long,
-    ) {
-        val version = appVersion
-        val reports =
-            if (version == null) {
-                emptyList()
-            } else {
-                due.flatMap { hour ->
-                    reportTargets.mapNotNull { target ->
-                        buildFieldReport(hour, version, target.serverRefs)?.let { target to it }
+        // Flush pending counts and age out data even when there is no usable tunnel.
+        ledger.update { it }
+        val due = ledger.snapshot().hours.filter { it.startEpochMillis < hourStart(clock()) }
+        if (due.isEmpty()) return
+        val reportTargets = targets().filter { it.config.endpoint.startsWith("https://") }
+        for (hour in due) {
+            for (target in reportTargets) {
+                val live = tunnel() ?: return
+                if (!target.isServedBy(live.upstream) || !live.isCurrent()) continue
+                val (epoch, reservation) =
+                    ledger.claim { it.claimReport(hour, target, appVersion, clock()) } ?: continue
+                if (!consent()) return
+                val result =
+                    poster.post(live.route, target.config, reservation.body) {
+                        ledger.isClaimCurrent(epoch) && live.isCurrent()
                     }
+                when (result) {
+                    FieldReportPostResult.Accepted -> Unit
+                    FieldReportPostResult.Failed -> log.i { "field report dropped after one failed request" }
+                    FieldReportPostResult.RouteChanged -> ledger.restore(epoch, reservation::restore)
                 }
             }
-        val requests = mutableMapOf<String, MutableList<Long>>()
-        for ((target, report) in reports) {
-            val endpoint = target.config.endpoint
-            val used = history[endpoint].orEmpty().count { now - it < MillisPerDay } + requests[endpoint].orEmpty().size
-            // Consent is re-read before every request, so a revocation stops the run.
-            if (used < target.config.maxReportsPerDay && consent()) {
-                requests.getOrPut(endpoint) { mutableListOf() } += now
-                if (!poster.post(route, target.config, report.toString())) {
-                    log.i { "field report dropped after one failed request" }
-                }
-            }
-        }
-        val handled = due.mapTo(mutableSetOf()) { it.startEpochMillis to it.network }
-        ledger.update { current ->
-            current.copy(
-                hours = current.hours.filterNot { (it.startEpochMillis to it.network) in handled },
-                uploads =
-                    (current.uploads.keys + requests.keys).associateWith {
-                        current.uploads[it].orEmpty() + requests[it].orEmpty()
-                    },
-            )
         }
     }
 }
 
-/**
- * The listener route for an upload, or null when none may be used. The app's own UID is outside the VPN, so a
- * name looked up on the device would leave outside the tunnel; with noDomain the listener cannot look up names,
- * so the upload is skipped instead.
- */
-internal fun fieldReportTunnelRoute(
-    route: LocalSocksRoute?,
+private data class FieldReportReservation(
+    val body: String,
+    val hour: FieldReportHour,
+    val endpoint: String,
+    val instant: Long,
+) {
+    fun restore(state: FieldReportState): FieldReportState {
+        val history = state.uploads[endpoint].orEmpty().toMutableList()
+        val index = history.lastIndexOf(instant)
+        if (index < 0) return state
+        history.removeAt(index)
+        val pending =
+            state.hours.firstOrNull {
+                it.startEpochMillis == hour.startEpochMillis &&
+                    it.network == hour.network
+            }
+        return state.copy(
+            hours =
+                if (pending ==
+                    null
+                ) {
+                    state.hours + hour
+                } else {
+                    state.hours.map { if (it === pending) it.restore(hour) else it }
+                },
+            uploads = state.uploads + (endpoint to history),
+        )
+    }
+}
+
+private fun FieldReportState.claimReport(
+    due: FieldReportHour,
+    target: FieldReportTarget,
+    version: String?,
+    now: Long,
+): Pair<FieldReportState, FieldReportReservation?> {
+    val hour =
+        hours.firstOrNull { it.startEpochMillis == due.startEpochMillis && it.network == due.network }
+            ?: return this to null
+    val (owned, remaining) = hour.buckets.partition(target::owns)
+    if (owned.isEmpty()) return this to null
+    val endpoint = target.config.endpoint
+    val history = uploads[endpoint].orEmpty()
+    val report =
+        version?.takeIf { history.size < target.config.maxReportsPerDay }?.let {
+            val serverRefs = owned.mapTo(mutableSetOf()) { bucket -> bucket.serverRef }
+            val claimedHour = hour.copy(buckets = owned)
+            buildFieldReport(claimedHour, it, serverRefs)?.let { body ->
+                FieldReportReservation(body.toString(), claimedHour, endpoint, now)
+            }
+        }
+    val remainingHour = hour.copy(buckets = remaining).takeIf { remaining.isNotEmpty() }
+    val next =
+        copy(
+            hours = hours.mapNotNull { if (it === hour) remainingHour else it },
+            uploads = if (report == null) uploads else uploads + (endpoint to (history + now)),
+        )
+    return next to report
+}
+
+private suspend fun currentFieldReportTunnel(
+    diagnostics: DiagnosticsRuntimeCoordinator,
+    configurations: AppliedRuntimeConfigurationSource,
     noDomain: Boolean,
-): LocalSocksRoute? = route?.takeUnless { noDomain }
+): FieldReportTunnel? {
+    if (noDomain) return null
+    val acquired = diagnostics.acquireInPathRouteLease() as? InPathRouteLeaseAcquisition.Acquired ?: return null
+    val lease = acquired.lease
+    val applied = configurations.applications.value[Mode.VPN]
+    val upstream = fieldReportUpstream(applied, lease.runtimeId) ?: return null
+    return FieldReportTunnel(
+        LocalSocksRoute(lease.host, lease.port).withLogin(lease.credentials.username, lease.credentials.password),
+        upstream,
+    ) {
+        configurations.applications.value[Mode.VPN] == applied && diagnostics.validateInPathRouteLease(lease) == null
+    }
+}
 
 internal class OkHttpFieldReportPoster(
     private val tlsClientFactory: OwnedTlsClientFactory,
@@ -221,7 +263,8 @@ internal class OkHttpFieldReportPoster(
         route: LocalSocksRoute,
         target: RipdpiFieldReport,
         body: String,
-    ): Boolean =
+        isCurrent: () -> Boolean,
+    ): FieldReportPostResult =
         withContext(Dispatchers.IO) {
             val client =
                 tlsClientFactory.create {
@@ -229,6 +272,10 @@ internal class OkHttpFieldReportPoster(
                     followRedirects(false)
                     followSslRedirects(false)
                     retryOnConnectionFailure(false)
+                    addNetworkInterceptor { chain ->
+                        if (!isCurrent()) throw FieldReportRouteChanged()
+                        chain.proceed(chain.request())
+                    }
                     // The listener, not the system, looks up the report host, inside the tunnel.
                     localSocksProxy(route.copy(resolveNamesLocally = false))
                 }
@@ -240,12 +287,19 @@ internal class OkHttpFieldReportPoster(
                     .post(body.toRequestBody(JsonMediaType))
                     .build()
             try {
-                client.newCall(request).execute().use { response -> response.code == HttpAccepted }
+                if (!isCurrent()) return@withContext FieldReportPostResult.RouteChanged
+                client.newCall(request).executeAsync().use { response ->
+                    if (response.code == HttpAccepted) FieldReportPostResult.Accepted else FieldReportPostResult.Failed
+                }
+            } catch (_: FieldReportRouteChanged) {
+                FieldReportPostResult.RouteChanged
             } catch (_: IOException) {
-                false
+                FieldReportPostResult.Failed
             }
         }
 }
+
+private class FieldReportRouteChanged : IOException()
 
 @HiltWorker
 class FieldReportWorker
