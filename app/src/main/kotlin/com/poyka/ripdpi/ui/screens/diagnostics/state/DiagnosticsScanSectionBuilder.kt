@@ -67,11 +67,12 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
     val matrixInputValid = parseSelectiveMatrixHosts(params.selectiveMatrixHostsInput) != null
     val inputAllowed = params.manualInputValid(selectedProfile?.id, matrixInputValid)
     val runRawEnabled = params.progress == null && !(strategyProbeSelected && params.rawArgsEnabled) && inputAllowed
-    val runInPathEnabled = params.progress == null && !strategyProbeSelected && serviceRunning && inputAllowed
+    val rawPathOnly = selectedProfile?.isRawPathOnly == true
+    val runInPathEnabled = params.progress == null && !rawPathOnly && serviceRunning && inputAllowed
     val workflowRestriction = buildWorkflowRestriction(params, selectedProfile, strategyProbeSelected)
     val workflowLabel = buildWorkflowLabel(selectedProfile)
     val runRawHint = buildRawScanHint(strategyProbeSelected, workflowLabel, params.autoResumeAfterRawScan)
-    val runInPathHint = buildInPathHint(params, strategyProbeSelected, workflowLabel)
+    val runInPathHint = buildInPathHint(params, strategyProbeSelected, rawPathOnly, workflowLabel)
     val remediationLadder =
         buildScanRemediationLadder(
             selectedProfile = selectedProfile,
@@ -198,10 +199,12 @@ private fun DiagnosticsProfileProjection?.matrixTargetRows() =
 private fun DiagnosticsUiFactorySupport.buildInPathHint(
     params: BuildScanUiModelParams,
     strategyProbeSelected: Boolean,
+    rawPathOnly: Boolean,
     workflowLabel: String,
-): String =
+): String? =
     when {
         strategyProbeSelected -> context.getString(R.string.diagnostics_scan_raw_only_format, workflowLabel)
+        rawPathOnly -> null
         params.serviceStatus == AppStatus.Reconnecting -> context.getString(R.string.diagnostics_scope_reconnecting)
         params.serviceStatus != AppStatus.Running -> context.getString(R.string.diagnostics_scan_in_path_service_halted)
         params.serviceMode == Mode.VPN -> context.getString(R.string.diagnostics_scope_active_vpn_description)

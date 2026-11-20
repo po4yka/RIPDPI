@@ -33,6 +33,13 @@ internal const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
 internal val DiagnosticsProfileOptionUiModel.isStrategyProbe: Boolean
     get() = kind == ScanKind.STRATEGY_PROBE
 
+// These profiles measure the direct network; an in-path run cannot produce their evidence.
+internal val DiagnosticsProfileOptionUiModel.isRawPathOnly: Boolean
+    get() =
+        isStrategyProbe ||
+            id == com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId ||
+            id == com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
+
 internal val DiagnosticsProfileOptionUiModel.isFullAudit: Boolean
     get() = strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1
 

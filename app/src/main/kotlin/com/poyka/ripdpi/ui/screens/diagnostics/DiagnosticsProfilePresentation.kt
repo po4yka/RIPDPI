@@ -71,11 +71,16 @@ internal fun diagnosticProfileTextResources(profile: DiagnosticsProfileOptionUiM
 @ReadOnlyComposable
 internal fun displayedDiagnosticProfileDescription(profile: DiagnosticsProfileOptionUiModel): String {
     val (_, description) = diagnosticProfileTextResources(profile)
+    val manualRunOnly = stringResource(R.string.diagnostics_profile_manual_run_only)
     return buildString {
         append(description)
+        // Some descriptions reuse short labels; close them with this locale's sentence end before more sentences.
+        if (description.lastOrNull()?.isLetterOrDigit() == true) {
+            append(manualRunOnly.last())
+        }
         if (profile.manualOnly) {
             append(" ")
-            append(stringResource(R.string.diagnostics_profile_manual_run_only))
+            append(manualRunOnly)
         }
         if (profile.requiresExplicitConsent) {
             append(" ${stringResource(R.string.diagnostics_profile_explicit_consent_required)}")
