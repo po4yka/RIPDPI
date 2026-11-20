@@ -12,13 +12,12 @@ spec_mode: required
 openspec_change: dat-1795085279367518-no-secrets-in-shipped-assets
 created: 2026-11-19
 updated: 2026-11-19
-linked_task: AND-1795015211660121
 status_detail: Review findings fixed with regression tests; owner Gradle run pending
 ---
 
 ## Goal
 
-No secret material ships in app assets, and embedded relay credentials arrive through bootstrap provisioning into Keystore-backed storage. Planning only; the untracked app/src/simple/ file is not touched. Related: AND-1795015211660121 (removes the simple flavor and adds preset.json; review).
+No secret material ships in app assets, and embedded relay credentials arrive through bootstrap provisioning into Keystore-backed storage. Planning only; the untracked app/src/simple/ file is not touched. Related: the closed preload-preset change (archive 2026-11-19-preload-preset-remove-simple-flavor).
 
 ## Acceptance criteria
 
