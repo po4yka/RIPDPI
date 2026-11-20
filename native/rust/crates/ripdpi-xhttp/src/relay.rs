@@ -4,13 +4,14 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll, ready};
+use std::time::Duration;
 
 use bytes::Bytes;
 use http_body_util::BodyExt;
 use hyper::StatusCode;
 use rand::{Rng, RngExt};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
-use tokio::sync::{OwnedSemaphorePermit, mpsc};
+use tokio::sync::{OwnedSemaphorePermit, mpsc, oneshot};
 use tokio::task::{AbortHandle, JoinHandle};
 
 use ripdpi_vless::addons::VlessFlow;
@@ -34,6 +35,16 @@ pub struct XhttpStream {
     _permit: OwnedSemaphorePermit,
     _carrier: ActiveCarrier,
     _upload_carrier: Option<(OwnedSemaphorePermit, ActiveCarrier)>,
+    /// Fires once every byte accepted by `poll_write` reached the peer; shutdown waits for it.
+    upload_flushed: Option<oneshot::Receiver<()>>,
+    flush_deadline: Option<Pin<Box<tokio::time::Sleep>>>,
+}
+
+/// Upper bound for `poll_shutdown` to wait for buffered upload bytes.
+const UPLOAD_FLUSH_TIMEOUT: Duration = Duration::from_secs(30);
+
+fn stream_reset() -> io::Error {
+    io::Error::new(io::ErrorKind::ConnectionReset, "xHTTP stream was reset")
 }
 
 impl AsyncRead for XhttpStream {
@@ -52,9 +63,13 @@ impl AsyncRead for XhttpStream {
 impl AsyncWrite for XhttpStream {
     fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, io::Error>> {
         if self.stream_failed.load(Ordering::Acquire) {
-            return Poll::Ready(Err(io::Error::new(io::ErrorKind::ConnectionReset, "xHTTP stream was reset")));
+            return Poll::Ready(Err(stream_reset()));
         }
-        Pin::new(&mut self.writer).poll_write(cx, buf)
+        let result = ready!(Pin::new(&mut self.writer).poll_write(cx, buf));
+        // A writer parked on a full pipe wakes when a failed upload drops it.
+        Poll::Ready(
+            result.map_err(|error| if self.stream_failed.load(Ordering::Acquire) { stream_reset() } else { error }),
+        )
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
@@ -64,11 +79,32 @@ impl AsyncWrite for XhttpStream {
         Pin::new(&mut self.writer).poll_flush(cx)
     }
 
+    /// Completes after the upload leg delivered every accepted byte, so dropping
+    /// the stream right after shutdown loses nothing; bounded by
+    /// [`UPLOAD_FLUSH_TIMEOUT`].
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        if self.stream_failed.load(Ordering::Acquire) {
-            return Poll::Ready(Err(io::Error::new(io::ErrorKind::ConnectionReset, "xHTTP stream was reset")));
+        let this = &mut *self;
+        if this.stream_failed.load(Ordering::Acquire) {
+            return Poll::Ready(Err(stream_reset()));
         }
-        Pin::new(&mut self.writer).poll_shutdown(cx)
+        ready!(Pin::new(&mut this.writer).poll_shutdown(cx))?;
+        let Some(flushed) = this.upload_flushed.as_mut() else {
+            return Poll::Ready(Ok(()));
+        };
+        let result = match Pin::new(flushed).poll(cx) {
+            Poll::Ready(Ok(())) => Ok(()),
+            // The upload leg ended without delivering everything.
+            Poll::Ready(Err(_)) => Err(stream_reset()),
+            Poll::Pending => {
+                let deadline =
+                    this.flush_deadline.get_or_insert_with(|| Box::pin(tokio::time::sleep(UPLOAD_FLUSH_TIMEOUT)));
+                ready!(deadline.as_mut().poll(cx));
+                Err(io::Error::new(io::ErrorKind::TimedOut, "xHTTP upload flush timed out"))
+            }
+        };
+        this.upload_flushed = None;
+        this.flush_deadline = None;
+        Poll::Ready(result)
     }
 }
 
@@ -226,11 +262,12 @@ impl PooledConnection {
         }
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
         let (upload_started, admitted) = tokio::sync::oneshot::channel();
+        let (upload_ended, upload_flushed) = oneshot::channel();
         let post_request = build_post_request(
             &stream_path,
             &host_header,
             &referer_padding(&host_header, &stream_path),
-            ChannelBody::new(outgoing_rx).with_start_notice(upload_started),
+            ChannelBody::new(outgoing_rx).with_start_notice(upload_started).with_end_notice(upload_ended),
         )?;
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let mut open_tasks = OpenStreamTaskGuard::new();
@@ -272,6 +309,8 @@ impl PooledConnection {
             _permit: permit,
             _carrier: ActiveCarrier::new(Arc::clone(self)),
             _upload_carrier: upload_carrier,
+            upload_flushed: Some(upload_flushed),
+            flush_deadline: None,
         };
         drop(sender);
         Ok(stream)
@@ -294,7 +333,8 @@ impl PooledConnection {
     ) -> io::Result<XhttpStream> {
         let post_carrier =
             upload_carrier.as_ref().map_or_else(|| Arc::clone(self), |(_, carrier)| Arc::clone(&carrier.0));
-        let (mut user_upload, transport_upload) = tokio::io::duplex(crate::packet_up::MAX_EACH_POST_BYTES);
+        let (mut user_upload, transport_upload) = tokio::io::duplex(crate::packet_up::UPLOAD_PIPE_BYTES);
+        let (upload_ended, upload_flushed) = oneshot::channel();
         user_upload.write_all(request).await?;
         let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let stream_failed = Arc::new(AtomicBool::new(false));
@@ -314,6 +354,7 @@ impl PooledConnection {
             host_header,
             Arc::clone(&stream_failed),
             abort_download,
+            upload_ended,
         ));
         Ok(XhttpStream {
             reader: ResponseHeaderStream::new(user_download),
@@ -323,6 +364,8 @@ impl PooledConnection {
             _permit: permit,
             _carrier: ActiveCarrier::new(Arc::clone(self)),
             _upload_carrier: upload_carrier,
+            upload_flushed: Some(upload_flushed),
+            flush_deadline: None,
         })
     }
 
@@ -346,7 +389,13 @@ impl PooledConnection {
         let referer = referer_padding(&host_header, &stream_path);
 
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
-        let post_request = build_post_request(&stream_path, &host_header, &referer, ChannelBody::new(outgoing_rx))?;
+        let (upload_ended, upload_flushed) = oneshot::channel();
+        let post_request = build_post_request(
+            &stream_path,
+            &host_header,
+            &referer,
+            ChannelBody::new(outgoing_rx).with_end_notice(upload_ended),
+        )?;
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let mut open_tasks = OpenStreamTaskGuard::new();
         open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
@@ -380,6 +429,8 @@ impl PooledConnection {
             _permit: permit,
             _carrier: ActiveCarrier::new(Arc::clone(self)),
             _upload_carrier: None,
+            upload_flushed: Some(upload_flushed),
+            flush_deadline: None,
         };
         Ok(stream)
     }
@@ -758,6 +809,8 @@ mod tests {
         let carrier = Arc::new(PooledConnection::new(sender, 1, Arc::new(tokio::sync::Notify::new())));
         let mut stream = super::XhttpStream {
             _upload_carrier: None,
+            upload_flushed: None,
+            flush_deadline: None,
             _carrier: super::ActiveCarrier::new(carrier),
             reader: ripdpi_vless::wire::ResponseHeaderStream::new(user_download),
             stream_failed,

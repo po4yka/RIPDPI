@@ -100,6 +100,21 @@ fn configured_path_query_follows_the_session_segment() {
 }
 
 #[test]
+fn packet_up_post_paths_follow_xray_path_rules() {
+    // xray-core GetNormalizedPath adds the trailing slash, appendToPath adds the
+    // session then the seq, and GetNormalizedQuery keeps the query after them.
+    for (base, expected) in [
+        ("/xh", "/xh/sid/0"),
+        ("/xh/", "/xh/sid/0"),
+        ("xh", "/xh/sid/0"),
+        ("/xh?ed=2048", "/xh/sid/0?ed=2048"),
+        ("/xh/?ed=2048", "/xh/sid/0?ed=2048"),
+    ] {
+        assert_eq!(expected, stream_up_path(&stream_up_path(base, "sid"), "0"), "{base}");
+    }
+}
+
+#[test]
 fn protocol_mode_parses_xray_identifiers() {
     for is_reality in [false, true] {
         assert_eq!(XhttpProtocolMode::parse("stream-up", is_reality).unwrap(), XhttpProtocolMode::StreamUp);

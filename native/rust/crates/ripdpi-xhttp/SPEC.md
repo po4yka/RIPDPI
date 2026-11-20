@@ -33,7 +33,13 @@ Reference: Xray-core v26.10.31 (commit `a4a3dff5b20c2faae567b742c172c7b95e75c083
 - Padding: each GET and POST carries a fresh `x_padding` value in the Referer query (`config.go` `FillStreamRequest` and `FillPacketRequest`, `xpadding.go` `PlacementQueryInHeader`), as for stream-up.
 - Upload EOF sends no marker; the GET stays open until the stream is dropped, which resets both legs (`dialer.go` `splitConn`).
 
-Divergences: Xray starts the next POST once the previous request is written and lets the server reorder by `seq` (`upload_queue.go`); this crate waits for each POST response, so at most one POST per session is in flight. The upload pipe holds at most one POST body, which gives backpressure. `scMaxEachPostBytes`, `scMinPostsIntervalMs`, `xmux` request and reuse limits, header or cookie data placement and HTTP/1.1 or HTTP/3 carriers are not configurable or not implemented; the defaults above apply. `xmux` pool limits apply only as for stream-up: a peer that admits fewer than two H2 streams splits the GET and POSTs across two carriers.
+Divergences and limits:
+
+- Xray waits only until a POST is written before it starts the next one (`dialer.go` `Dial`, `wroteRequest`), and the server reorders by `seq` (`upload_queue.go`, `scMaxBufferedPosts` 30). This crate submits POSTs in `seq` order on one H2 connection and keeps at most 4 POSTs and 2 MB in flight. Any non-200, transport error or a POST without an answer in 60 s fails the session.
+- Memory: a session that uploads at line rate holds up to 1 MB in its upload pipe, 1 MB in the next chunk and 2 MB in flight. The pipe fills lazily, so idle and interactive sessions hold little. A 256 KB pipe measured about 25% slower upload than Xray on loopback at 80 and 200 ms RTT, because 30 ms pacing makes POST size the throughput limit.
+- Opening waits for the GET's 200 before it returns the stream, so POST 0 starts one round trip later than in Xray, where `OpenStream` returns once the connection is up. Stream-up shares this path; the pool reads the peer's stream limit from that response.
+- `poll_shutdown` completes after every accepted byte was answered with 200 (packet-up) or handed to the H2 connection (stream-up, stream-one), within 30 s. For stream-up and stream-one, dropping the stream right after shutdown can still let H2 reset a request whose last frames are queued but not yet sent.
+- `scMaxEachPostBytes`, `scMinPostsIntervalMs`, `xmux` request and reuse limits, header or cookie data placement and HTTP/1.1 or HTTP/3 carriers are not configurable or not implemented; the defaults above apply. `xmux` pool limits apply only as for stream-up: a peer that admits fewer than two H2 streams splits the GET and POSTs across two carriers. Kotlin admission accepts a pool size only with explicit `stream-up`.
 
 Connection pooling is in `pool.rs`; session ownership is in `relay.rs`.
 HTTP request construction and body framing are in `h2_body.rs`. The gRPC-like

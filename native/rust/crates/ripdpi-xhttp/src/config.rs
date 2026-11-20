@@ -64,7 +64,7 @@ pub enum XhttpProtocolMode {
     /// session id is embedded in the URL. Matches xray-core's REALITY
     /// default in `transport/internet/splithttp/dialer.go`.
     StreamOne,
-    /// One long-lived GET (download) plus sequential bounded POSTs
+    /// One long-lived GET (download) plus bounded, seq-numbered POSTs
     /// `{path}/{session}/{seq}` (upload). xray-core's TLS `auto` choice.
     PacketUp,
 }
