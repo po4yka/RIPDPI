@@ -4,8 +4,6 @@ import android.content.Context
 import android.database.SQLException
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.backup.ResetEventName
-import com.poyka.ripdpi.backup.ResetEventRecorder
-import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
@@ -66,14 +64,12 @@ class AppStartupInitializer
         @param:ApplicationContext private val context: Context,
         private val startupDataRecovery: StartupDataRecovery,
         private val diagnosticsBootstrapperProvider: Provider<DiagnosticsBootstrapper>,
-        private val detectionObservationStarter: DetectionObservationStarter,
         private val strategyPackService: StrategyPackService,
         private val dnsPathPreferenceInvalidator: DnsPathPreferenceInvalidator,
         private val cdnEchSeedFromCache: CdnEchSeedFromCache,
         private val proxyGroupRepository: ProxyGroupRepository,
         private val bootSessionRecorder: BootSessionRecorder,
         private val appShortcutsPublisher: AppShortcutsPublisher,
-        private val resetEventRecorder: ResetEventRecorder,
         private val startupDiagnosticsProbes: StartupDiagnosticsProbes,
         private val presetApplier: PresetApplier,
         private val fieldReportConsentFollower: FieldReportConsentFollower,
@@ -187,7 +183,7 @@ class AppStartupInitializer
                 Logger.w(error) { "Memory profiling registration failed" }
             }
             runCatching {
-                detectionObservationStarter.startObserving(context, applicationScope)
+                startupDiagnosticsProbes.detectionObservationStarter.startObserving(context, applicationScope)
             }.onFailure { error ->
                 Logger.w(error) { "App startup detection observation failed" }
             }
@@ -260,7 +256,7 @@ class AppStartupInitializer
                     // survived the wipe + ProcessPhoenix restart in a dedicated store.
                     // Consume it exactly once and surface it so diagnostics can tell a
                     // deliberate reset apart from a crash in this session's logs.
-                    if (resetEventRecorder.consumeResetEvent()) {
+                    if (startupDiagnosticsProbes.resetEventRecorder.consumeResetEvent()) {
                         Logger.i { "Diagnostics event: $ResetEventName (recovered across restart)" }
                     }
                 }
