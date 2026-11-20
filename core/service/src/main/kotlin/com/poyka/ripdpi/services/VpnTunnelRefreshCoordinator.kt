@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ServiceStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -31,6 +32,8 @@ internal class VpnTunnelRefreshCoordinator(
                     callbacks.recomposeRuntimeForPolicyChange(refreshSession, latestConnectionPolicy)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
+                } catch (_: RuntimeCommandSupersededException) {
+                    Logger.i { "VPN policy refresh yielded to a newer runtime command" }
                 } catch (error: Exception) {
                     failCurrentGeneration(refreshSession, error)
                 }
@@ -67,6 +70,9 @@ internal class VpnTunnelRefreshCoordinator(
                 callbacks.confirmDnsRefresh(refreshSession, latestConnectionPolicy)
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (_: RuntimeCommandSupersededException) {
+                // The claim is the first step, so the tunnel is untouched; the newer command applies the new policy.
+                Logger.i { "VPN tunnel refresh yielded to a newer runtime command" }
             } catch (error: Exception) {
                 failCurrentGeneration(refreshSession, error)
             }

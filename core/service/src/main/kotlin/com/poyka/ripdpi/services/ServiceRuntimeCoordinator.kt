@@ -339,6 +339,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                             }
                             true
                         } catch (failure: Exception) {
+                            Logger.w(failure) { "Connection policy reload failed" }
                             failureReason = runtimeHooks.handoverHooks.classifyFailure(failure)
                             cleanupRequired = true
                             cleanupRequired = !runtimeHooks.handoverHooks.retainFailClosedAfterExhaustion()

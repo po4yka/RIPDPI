@@ -219,8 +219,27 @@ class VpnTunnelRefreshCoordinatorTest {
             }
         }
 
+    @Test
+    fun refreshYieldsToANewerRuntimeCommandWithoutFailingTheSession() =
+        runTest {
+            var superseded = false
+            with(routingRefreshFixture(beginDns = { if (superseded) throw RuntimeCommandSupersededException() })) {
+                // A newer explicit command took the runtime authority and changed the saved DNS.
+                superseded = true
+                resolver.enqueue(refreshResolution(runtime, plainDnsSettings))
+
+                coordinator.refreshIfNeeded(session)
+
+                assertEquals(1, events.count { it == "vpn:establish" })
+                assertTrue(updates.isEmpty())
+                assertTrue(runtime.isForwarding)
+                runtime.stop()
+            }
+        }
+
     private suspend fun kotlinx.coroutines.test.TestScope.routingRefreshFixture(
         sharedProxyPath: Boolean = false,
+        beginDns: () -> Unit = {},
     ): RoutingRefreshFixture {
         val initialSettings = AppSettingsSerializer.defaultValue
         val events = mutableListOf<String>()
@@ -271,7 +290,7 @@ class VpnTunnelRefreshCoordinatorTest {
                 ),
             )
         val overrides = TestResolverOverrideStore()
-        val coordinator = buildRefreshCoordinator(runtime, state, resolver, overrides, updates)
+        val coordinator = buildRefreshCoordinator(runtime, state, resolver, overrides, updates, beginDns)
 
         return RoutingRefreshFixture(
             initialSettings,
@@ -341,6 +360,7 @@ class VpnTunnelRefreshCoordinatorTest {
         resolver: TestConnectionPolicyResolver,
         overrides: TestResolverOverrideStore,
         updates: MutableList<String>,
+        beginDns: () -> Unit = {},
     ): VpnTunnelRefreshCoordinator =
         VpnTunnelRefreshCoordinator(
             dependencies = buildRefreshDependencies(runtime, resolver, overrides),
@@ -350,7 +370,7 @@ class VpnTunnelRefreshCoordinatorTest {
                     override fun beginDnsRefresh(
                         session: VpnRuntimeSession,
                         resolution: ConnectionPolicyResolution,
-                    ) = Unit
+                    ) = beginDns()
 
                     override fun confirmDnsRefresh(
                         session: VpnRuntimeSession,

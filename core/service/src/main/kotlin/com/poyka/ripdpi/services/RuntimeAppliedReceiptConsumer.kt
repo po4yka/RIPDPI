@@ -12,6 +12,9 @@ import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** A newer runtime command owns the authority, so this attempt must not claim it; nothing was changed. */
+internal class RuntimeCommandSupersededException : IllegalStateException("Runtime command superseded")
+
 /** Every positive native ACK commits its original authority and profile utility in the same durable state. */
 @Singleton
 internal class RuntimeAppliedReceiptConsumer
@@ -57,6 +60,7 @@ internal class RuntimeAppliedReceiptConsumer
                             authority.claimActivation(original.receipt, identity)
                         }
                     }
+            if (!claimed && !authority.isCurrent(original.receipt)) throw RuntimeCommandSupersededException()
             check(claimed) { "Runtime command claim rejected" }
             bindings.keys.filter { it.mode == attempt.mode }.forEach {
                 measured.release(it.originalIntent.receipt.commandId)
