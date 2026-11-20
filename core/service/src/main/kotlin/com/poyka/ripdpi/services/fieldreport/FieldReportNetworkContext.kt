@@ -99,8 +99,11 @@ internal fun parseNetworkHint(
             .text("observed_at")
             ?.takeIf(HintObservedAtPattern::matches)
             ?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
-    return if (asn != null && country != null && ttl != null && observedAt != null) {
-        NetworkHint(asn, country, ttl, minOf(observedAt, nowMillis) + ttl * MillisPerSecond)
+    // The ttl and the expiry instant it gives.
+    val validity =
+        if (ttl != null && observedAt != null) ttl to minOf(observedAt, nowMillis) + ttl * MillisPerSecond else null
+    return if (asn != null && country != null && validity != null) {
+        NetworkHint(asn, country, validity.first, validity.second)
     } else {
         null
     }
@@ -194,18 +197,26 @@ class FieldReportNetworkContext internal constructor(
      * The hint is discarded when the default network changed during the request.
      */
     suspend fun refreshHint(targets: List<RipdpiFieldReport>) {
-        val target = targets.firstOrNull { it.networkHintEndpoint != null } ?: return
-        val endpoint = target.networkHintEndpoint ?: return
+        val (target, endpoint) =
+            targets.firstNotNullOfOrNull { report -> report.networkHintEndpoint?.let { report to it } } ?: return
         if (!consent()) {
             clearHint()
             return
         }
-        val before = defaultNetwork()
-        val due =
-            synchronized(lock) {
-                cached?.takeIf { it.handle == before?.handle }?.let { clock() >= it.nextFetchAtMillis } ?: true
-            }
-        if (before == null || before.vpn || before.networkType == "cellular" || !due) return
+        val before = defaultNetwork()?.takeUnless { it.vpn || it.networkType == "cellular" }
+        if (before != null && isDue(before)) fetchHint(target, endpoint, before)
+    }
+
+    private fun isDue(network: DefaultNetwork): Boolean =
+        synchronized(lock) {
+            cached?.takeIf { it.handle == network.handle }?.let { clock() >= it.nextFetchAtMillis } ?: true
+        }
+
+    private suspend fun fetchHint(
+        target: RipdpiFieldReport,
+        endpoint: String,
+        before: DefaultNetwork,
+    ) {
         pause(random.nextLong(MaxStartJitterMillis))
         val body = fetcher.fetch(endpoint, target.cohortToken, before)
         val sameNetwork = defaultNetwork() == before
@@ -218,9 +229,10 @@ class FieldReportNetworkContext internal constructor(
 }
 
 private fun androidDefaultNetwork(context: Context): DefaultNetwork? {
-    val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return null
-    val network = connectivity.activeNetwork ?: return null
-    val capabilities = connectivity.getNetworkCapabilities(network) ?: return null
+    val connectivity = context.getSystemService(ConnectivityManager::class.java)
+    val network = connectivity?.activeNetwork
+    val capabilities = network?.let { connectivity?.getNetworkCapabilities(it) }
+    if (network == null || capabilities == null) return null
     val type =
         when {
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"

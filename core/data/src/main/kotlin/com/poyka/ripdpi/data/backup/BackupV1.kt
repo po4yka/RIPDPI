@@ -372,7 +372,10 @@ object BackupAllowlist {
  * and keeps only the other subscription metadata. FULL exports bypass this redactor.
  */
 object BackupGroupRedactor {
-    /** Returns [group] without subscription secrets, members and their health, field-report target, failover controls or package names. */
+    /**
+     * Returns [group] without subscription secrets, members and their health, field-report target, failover controls
+     * or package names.
+     */
     fun redact(group: ProxyGroup): ProxyGroup {
         // SHARE backups must not carry the member node list. A selector/subscription
         // group's [ProxyGroup.members] can embed per-node credentials (e.g. AnyTLS/SSH

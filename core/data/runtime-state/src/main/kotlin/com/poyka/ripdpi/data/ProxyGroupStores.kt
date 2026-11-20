@@ -128,7 +128,9 @@ data class ProxyGroup(
     val ownershipGeneration: String = "",
     /** Imported preference used only until a local choice is stored; it never starts a connection. */
     val initialMemberId: String? = null,
-    /** Bundle `ripdpi.endpoints` health by server_ref (member tag); evaluated when failover selects, never at import. */
+    /**
+     * Bundle `ripdpi.endpoints` health by server_ref (member tag); evaluated when failover selects, never at import.
+     */
     val memberHealth: Map<String, EndpointHealth> = emptyMap(),
     /** Bundle `ripdpi.field_report` from the last valid bundle; the opt-in field-report client uploads to it. */
     val fieldReport: RipdpiFieldReport? = null,

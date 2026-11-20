@@ -115,13 +115,14 @@ private val CohortTokenPattern = Regex("[A-Za-z0-9_-]{22,64}")
  */
 internal fun parseEndpointHealth(endpoints: JsonObject?): Map<String, EndpointHealth> =
     endpoints
+        ?.filterKeys(ServerRefPattern::matches)
         ?.mapNotNull { (serverRef, value) ->
             val health = (value as? JsonObject)?.get("health") as? JsonObject ?: return@mapNotNull null
             val status = EndpointHealthStatus.entries.firstOrNull { it.wireValue == health.text("status") }
             val observedAt =
                 health.text("observed_at")?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
             val ttlSeconds = health.integer("ttl_seconds")?.takeIf { it in MinHealthTtlSeconds..MaxHealthTtlSeconds }
-            if (!ServerRefPattern.matches(serverRef) || status == null || observedAt == null || ttlSeconds == null) {
+            if (status == null || observedAt == null || ttlSeconds == null) {
                 return@mapNotNull null
             }
             serverRef to EndpointHealth(status, observedAt, ttlSeconds)
@@ -143,10 +144,17 @@ internal fun ripdpiContractError(extension: JsonObject?): SingBoxParseResult.Err
 
 /** Returns the first `field_report` field that violates the contract, or `null` when the block is absent or valid. */
 private fun invalidFieldReportField(value: JsonElement?): String? {
-    if (value == null) return null
-    val block = value as? JsonObject ?: return "field_report"
-    val maxReports = block.integer("max_reports_per_day")
+    val block = value as? JsonObject
+    val maxReports = block?.integer("max_reports_per_day")
     return when {
+        value == null -> {
+            null
+        }
+
+        block == null -> {
+            "field_report"
+        }
+
         !isHttpsEndpoint(block.text("endpoint")) -> {
             "field_report.endpoint"
         }

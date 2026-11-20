@@ -436,7 +436,7 @@ class DeveloperAnalyticsAllowListTest {
             val failingSource =
                 object : DeveloperAnalyticsSource {
                     override suspend fun collect(context: DeveloperAnalyticsContext): DeveloperAnalyticsPayload =
-                        throw IllegalStateException("collector broke")
+                        error("collector broke")
                 }
             val exporter = createExporter(stores, failingSource)
 
