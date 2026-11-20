@@ -20,6 +20,7 @@ import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
+import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityRoute
 import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 import com.poyka.ripdpi.ui.screens.status.StatusRoute
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverRoute
@@ -95,6 +96,13 @@ internal fun NavGraphBuilder.addPrimaryRoutes(
     }
     addSubscriptionFailoverRoute(navController)
     addSubscriptionStatusRoute(navController)
+    composable<Route.ProfileUtility> {
+        ProfileUtilityRoute(
+            onBack = { navController.popBackStack() },
+            // The Relay section holds the paste-link, scan-QR and add-server entries.
+            onImportProfile = { navController.navigateConnectionSubRoute(Route.ConnectionRelay) },
+        )
+    }
     composable<Route.StrategyTuner> {
         StrategyTunerRoute(onBack = { navController.popBackStack() })
     }

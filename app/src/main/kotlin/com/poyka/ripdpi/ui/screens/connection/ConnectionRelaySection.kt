@@ -55,6 +55,7 @@ internal fun ConnectionRelaySection(
     onChooseRelay: () -> Unit = {},
     onOpenSubscriptionStatus: (() -> Unit)? = null,
     onOpenSubscriptionFailover: (() -> Unit)? = null,
+    onOpenProfileUtility: (() -> Unit)? = null,
 ) {
     TrackRecomposition("ConnectionRelaySection")
 
@@ -69,6 +70,7 @@ internal fun ConnectionRelaySection(
             onChooseRelay = onChooseRelay,
             onOpenSubscriptionStatus = onOpenSubscriptionStatus,
             onOpenSubscriptionFailover = onOpenSubscriptionFailover,
+            onOpenProfileUtility = onOpenProfileUtility,
         )
     }
 }
@@ -276,6 +278,7 @@ private fun RelaySectionRows(
     onChooseRelay: () -> Unit,
     onOpenSubscriptionStatus: (() -> Unit)? = null,
     onOpenSubscriptionFailover: (() -> Unit)? = null,
+    onOpenProfileUtility: (() -> Unit)? = null,
 ) {
     RipDpiCard {
         if (uiState.activeExternalProvider != null) {
@@ -299,6 +302,13 @@ private fun RelaySectionRows(
             VpnSubscriptionRow(
                 testTag = RipDpiTestTags.ConnectionSubscriptionStatus,
                 title = stringResource(R.string.subscription_status_title),
+                onClick = it,
+            )
+        }
+        onOpenProfileUtility?.let {
+            VpnSubscriptionRow(
+                testTag = RipDpiTestTags.SettingsProfileUtility,
+                title = stringResource(R.string.profile_utility_title),
                 onClick = it,
             )
         }

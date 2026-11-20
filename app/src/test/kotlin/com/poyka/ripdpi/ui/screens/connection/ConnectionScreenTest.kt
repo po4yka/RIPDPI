@@ -299,6 +299,20 @@ class ConnectionScreenTest {
     }
 
     @Test
+    fun `relay section opens the saved profile picker`() {
+        var pickerClicks = 0
+        setConfigScreen(initialPath = ConnectionPath.Relay, onOpenProfileUtility = { pickerClicks += 1 })
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.SettingsProfileUtility)
+            .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
+
+        composeRule.runOnIdle { assertEquals(1, pickerClicks) }
+    }
+
+    @Test
     fun `relay off row opens profile choices and dns row invokes its callback`() {
         var dnsClicks = 0
         setConfigScreen(
@@ -558,6 +572,7 @@ class ConnectionScreenTest {
         onEditCurrent: () -> Unit = {},
         onOpenLocalBypassEditor: () -> Unit = {},
         onOpenDnsSettings: () -> Unit = {},
+        onOpenProfileUtility: () -> Unit = {},
         onRetestStrategies: () -> Unit = {},
         onPasteServerLink: () -> Unit = {},
         onScanServer: () -> Unit = {},
@@ -585,6 +600,8 @@ class ConnectionScreenTest {
                             ConnectionEditorTarget.Bypass -> onOpenLocalBypassEditor()
 
                             ConnectionEditorTarget.Resolver -> onOpenDnsSettings()
+
+                            ConnectionEditorTarget.ProfileUtility -> onOpenProfileUtility()
 
                             ConnectionEditorTarget.SubscriptionStatus,
                             ConnectionEditorTarget.SubscriptionFailover,

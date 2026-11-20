@@ -46,6 +46,7 @@ enum class ConnectionEditorTarget {
     Resolver,
     SubscriptionStatus,
     SubscriptionFailover,
+    ProfileUtility,
 }
 
 @androidx.compose.runtime.Stable
@@ -127,6 +128,7 @@ fun ConnectionRoute(
                 ConnectionEditorTarget.Resolver -> onOpenDnsSettings()
                 ConnectionEditorTarget.SubscriptionStatus -> onOpenRoute(Route.SubscriptionStatus)
                 ConnectionEditorTarget.SubscriptionFailover -> onOpenRoute(Route.SubscriptionFailover)
+                ConnectionEditorTarget.ProfileUtility -> onOpenRoute(Route.ProfileUtility)
             }
         },
         onRetestStrategies = remember(viewModel) { viewModel.laneActions::toggleTest },
@@ -325,6 +327,7 @@ private fun ConnectionSelectedPathSection(
                 onOpenDnsSettings = { onOpenConfigEditor(ConnectionEditorTarget.Resolver) },
                 onOpenSubscriptionStatus = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionStatus) },
                 onOpenSubscriptionFailover = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionFailover) },
+                onOpenProfileUtility = { onOpenConfigEditor(ConnectionEditorTarget.ProfileUtility) },
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionRelaySummary),
             )
         }

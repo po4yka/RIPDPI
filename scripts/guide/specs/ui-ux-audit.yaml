@@ -92,6 +92,7 @@ flow_sections:
       - asset_provider
       - subscription_failover
       - subscription_status
+      - profile_utility
       - app_customization
       - data_transparency
       - backup_restore
@@ -461,6 +462,16 @@ pages:
     state: "status summary"
     description: |
       Subscription lifecycle summary with availability, expiry, and refresh state.
+
+  - id: profile_utility
+    title: "Saved Profiles"
+    route: "profile_utility"
+    flow_from: "config"
+    flow_label: "saved profiles"
+    expected_root: "profile_utility-screen"
+    state: "saved profiles"
+    description: |
+      Grouped saved profiles and subscription members with favorites, recent acknowledged uses, and explicit check or check-and-select actions.
 
   - id: app_customization
     title: "App Customization"

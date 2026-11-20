@@ -449,6 +449,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.ConnectionHealth.stableRoute to { hasRoute<Route.ConnectionHealth>() },
         Route.SubscriptionFailover.stableRoute to { hasRoute<Route.SubscriptionFailover>() },
         Route.SubscriptionStatus.stableRoute to { hasRoute<Route.SubscriptionStatus>() },
+        Route.ProfileUtility.stableRoute to { hasRoute<Route.ProfileUtility>() },
         Route.StrategyTuner.stableRoute to { hasRoute<Route.StrategyTuner>() },
         Route.ModeEditor.stableRoute to { hasRoute<Route.ModeEditor>() },
         Route.BackupRestore.stableRoute to { hasRoute<Route.BackupRestore>() },

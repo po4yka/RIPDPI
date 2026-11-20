@@ -130,6 +130,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object ProfileUtility : Route() {
+        override val stableRoute = "profile_utility"
+        override val titleRes = R.string.profile_utility_title
+        override val icon: ImageVector = RipDpiIcons.Config
+    }
+
+    @Serializable
     data object StrategyTuner : Route() {
         override val stableRoute = "strategy_tuner"
         override val titleRes = R.string.title_strategy_tuner
@@ -507,6 +514,7 @@ sealed class Route {
                     ConnectionHealth,
                     SubscriptionFailover,
                     SubscriptionStatus,
+                    ProfileUtility,
                     StrategyTuner,
                     Settings,
                     BackupRestore,
