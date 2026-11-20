@@ -4,13 +4,13 @@ import android.content.Context
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.serialization.RipDpiJson
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -45,7 +45,6 @@ class FieldReportLedger(
 
     private val log = Logger.withTag("field-report")
     private val mutex = Mutex()
-    private val json = Json { ignoreUnknownKeys = true }
 
     /** The current state once read from [file]; null until the first access. Guarded by [mutex]. */
     private var cached: FieldReportState? = null
@@ -126,7 +125,7 @@ class FieldReportLedger(
     private fun read(): FieldReportState =
         try {
             if (file.exists()) {
-                json.decodeFromString(
+                RipDpiJson.decodeFromString(
                     FieldReportState.serializer(),
                     file.readText(),
                 )
@@ -147,7 +146,7 @@ class FieldReportLedger(
         file.parentFile?.mkdirs()
         val temporary = File(file.path + ".tmp")
         FileOutputStream(temporary).use { output ->
-            output.write(json.encodeToString(FieldReportState.serializer(), state).toByteArray())
+            output.write(RipDpiJson.encodeToString(FieldReportState.serializer(), state).toByteArray())
             output.fd.sync()
         }
         if (!temporary.renameTo(file)) throw IOException("rename failed")
