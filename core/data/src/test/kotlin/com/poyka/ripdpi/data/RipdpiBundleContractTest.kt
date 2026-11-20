@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.awg.requireValidSubscriptionProfiles
+import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.EndpointHealth
 import com.poyka.ripdpi.data.subscription.EndpointHealthOrder
 import com.poyka.ripdpi.data.subscription.EndpointHealthStatus
@@ -516,6 +518,36 @@ class RipdpiBundleContractTest {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Client-owned import golden: every server kind a local bundle can carry.
+    // The deployer may copy the file to check that its emitted shape still imports.
+    // -------------------------------------------------------------------------
+    @Test
+    fun `client import golden covers every server kind and each passes native validation`() {
+        val payload = resource(CLIENT_IMPORT_GOLDEN)
+        val parsed = SingBoxSubscriptionParser.parse(payload, "client-golden") as SingBoxParseResult.Success
+        assertEquals(emptyList<Any>(), parsed.skipped)
+
+        val group = importedGroup(payload)
+        val members = group.members
+        assertEquals(
+            listOf("p0-reality-example", "p1-xhttp-example", "p2-hysteria2-example"),
+            members.map { it.displayName },
+        )
+        members.forEach { assertEquals(it.displayName, true, validateNativeRelayProfileResult(it).getOrThrow()) }
+        assertEquals("xtls-rprx-vision", (members[0] as ProxyProfile.VlessReality).flow)
+        val xhttp = members[1] as ProxyProfile.Vless
+        assertEquals("/stream" to "auto", xhttp.xhttpPath to xhttp.xhttpMode)
+        assertEquals("EXAMPLEsalamanderPassword", (members[2] as ProxyProfile.Hysteria2).obfsPassword)
+        assertEquals("https://probe.example.com/204", group.failover?.probeUrl)
+
+        // The AWG entry is a key-less template that the guarded persistence boundary accepts.
+        val awg = parsed.amneziaWgProfiles.single().toAwgSubscriptionProfile()
+        listOf(awg).requireValidSubscriptionProfiles()
+        assertEquals("p3-awg-example", awg.name)
+        assertEquals("", awg.request.privateKey)
+    }
+
     private fun importedGroup(payload: String): ProxyGroup {
         val imported = SelectorUrltestGroupImport.import(payload, "health", epochMillis("2026-11-19T10:05:00Z"))
         assertTrue("expected Success but got $imported", imported is SelectorUrltestImportResult.Success)
@@ -552,6 +584,7 @@ class RipdpiBundleContractTest {
         const val SCHEMA = "/contract/ripdpi-bundle.schema.json"
         const val EXAMPLE = "/contract/ripdpi-bundle.example.json"
         const val GOLDEN = "/contract/cohort-fingerprint.golden.json"
+        const val CLIENT_IMPORT_GOLDEN = "/contract/client-import-bundle.golden.json"
         const val GOLDEN_FULL = "/contract/ripdpi-bundle.golden-full.json"
         const val HEALTH_EXPIRED = "/contract/ripdpi-bundle.health-expired.json"
         const val AWG_ARM64_FLOOR = "/contract/amneziawg-arm64-version-floor.json"

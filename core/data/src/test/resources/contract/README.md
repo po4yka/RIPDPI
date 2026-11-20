@@ -28,6 +28,7 @@ tests read. They are listed here by purpose:
 | `ripdpi-bundle.hysteria-port-hopping.json` | Sing-box document with a Hysteria2 port-hopping outbound |
 | `ripdpi-bundle.health-expired.json` | Bundle whose endpoint health is expired at its `_evaluated_at` clock; the client must treat every endpoint as unknown |
 | `ripdpi-bundle.payload-failover.json` | Deterministic deployer output for the explicit payload-failover policy |
+| `client-import-bundle.golden.json` | Client-owned, secret-free bundle with every importable server kind (REALITY with Vision, xHTTP over TLS with mode `auto`, Hysteria2, AmneziaWG with `private_key_placeholder`, selector, urltest); each server must pass native validation. The deployer may copy it; it is not pinned in the vendored manifest |
 | `cascade-asn-attestation.schema.json` | Schema: RU cascade candidate ASN attestation |
 | `cascade-leg-health.schema.json` | Schema: cascade ingress-to-egress leg health evidence |
 | `cascade-leg-probe-config.schema.json` | Schema: operator-side authenticated cascade leg probe configuration |

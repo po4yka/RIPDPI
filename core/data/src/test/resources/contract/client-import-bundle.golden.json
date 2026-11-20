@@ -1,0 +1,137 @@
+{
+  "_comment": "Client-owned import golden: one bundle with every server kind the RIPDPI client imports from a local file (VLESS REALITY with Vision, VLESS xHTTP over TLS with mode auto, Hysteria2 with Salamander, AmneziaWG with private_key_placeholder) plus a selector and a urltest group. All values are invented and use documentation addresses. ClientImportBundleGoldenTest imports it and requires every server to pass native validation. The deployer may copy this file to check that its emitted bundle shape still imports.",
+  "log": {
+    "level": "warn"
+  },
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "p0-reality-example",
+      "server": "192.0.2.10",
+      "server_port": 443,
+      "uuid": "12345678-1234-4234-8234-123456789abc",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "mirror.example.com",
+        "reality": {
+          "enabled": true,
+          "public_key": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA",
+          "short_id": "aabbccdd"
+        },
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "p1-xhttp-example",
+      "server": "relay.example.com",
+      "server_port": 443,
+      "uuid": "22345678-1234-4234-8234-123456789abc",
+      "tls": {
+        "enabled": true,
+        "server_name": "relay.example.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "type": "xhttp",
+        "path": "/stream",
+        "mode": "auto"
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "p2-hysteria2-example",
+      "server": "192.0.2.10",
+      "server_port": 8443,
+      "password": "EXAMPLEhysteriaClientPassword"
+    },
+    {
+      "type": "selector",
+      "tag": "select",
+      "outbounds": [
+        "auto",
+        "p0-reality-example",
+        "p1-xhttp-example",
+        "p2-hysteria2-example"
+      ],
+      "default": "auto"
+    },
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": [
+        "p0-reality-example",
+        "p1-xhttp-example",
+        "p2-hysteria2-example"
+      ],
+      "url": "https://probe.example.com/204",
+      "interval": "5m",
+      "tolerance": 50
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff"
+      }
+    ],
+    "final": "select"
+  },
+  "ripdpi": {
+    "schema_version": 3,
+    "amneziawg": [
+      {
+        "tag": "p3-awg-example",
+        "address": [
+          "10.66.66.2/32",
+          "fd42:42:42::2/128"
+        ],
+        "dns": [
+          "1.1.1.1",
+          "1.0.0.1"
+        ],
+        "mtu": 1420,
+        "jc": 3,
+        "jmin": 20,
+        "jmax": 50,
+        "s1": 10,
+        "s2": 20,
+        "h1": "1000-1999",
+        "h2": "2000-2999",
+        "h3": "3000-3999",
+        "h4": "4000-4999",
+        "i1": "<b 0xdeadbeef><r 4><rd 2><rc 2><t>",
+        "i3": "<b 0xcafebabe>",
+        "cohort_fingerprint": "sha256:51912e328885b16e0c4053a7ed93f786996b98c75a4d4a151de370d08b5db57d",
+        "private_key_placeholder": true,
+        "peer": {
+          "public_key": "ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=",
+          "preshared_key": "ISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISE=",
+          "endpoint": "192.0.2.10:51820",
+          "allowed_ips": [
+            "0.0.0.0/0",
+            "::/0"
+          ],
+          "persistent_keepalive": 25
+        },
+        "wire_profile": "awg-3.1-ranges-v1"
+      }
+    ],
+    "hysteria_extras": {
+      "p2-hysteria2-example": {
+        "insecure": false,
+        "obfs": {
+          "type": "salamander",
+          "password": "EXAMPLEsalamanderPassword"
+        }
+      }
+    }
+  }
+}
