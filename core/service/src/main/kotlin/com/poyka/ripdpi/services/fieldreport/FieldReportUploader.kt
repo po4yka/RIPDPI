@@ -166,22 +166,31 @@ class FieldReportUploader internal constructor(
         for (hour in due) {
             for (target in reportTargets) {
                 val live = tunnel() ?: return
-                if (!target.isServedBy(live.upstream) || !live.isCurrent()) continue
-                val claim = ledger.claim { it.claimReport(hour, target, appVersion, clock()) }
-                if (claim != null) {
-                    val (epoch, reservation) = claim
-                    if (!consent()) return
-                    val result =
-                        poster.post(live.route, target.config, reservation.body) {
-                            ledger.isClaimCurrent(epoch) && live.isCurrent()
-                        }
-                    when (result) {
-                        FieldReportPostResult.Accepted -> Unit
-                        FieldReportPostResult.Failed -> log.i { "field report dropped after one failed request" }
-                        FieldReportPostResult.RouteChanged -> ledger.restore(epoch, reservation::restore)
-                    }
-                }
+                val claim =
+                    live.takeIf { target.isServedBy(it.upstream) && it.isCurrent() }?.let {
+                        ledger.claim { it.claimReport(hour, target, appVersion, clock()) }
+                    } ?: continue
+                if (!consent()) return
+                val (epoch, reservation) = claim
+                postClaim(target, live, epoch, reservation)
             }
+        }
+    }
+
+    private suspend fun postClaim(
+        target: FieldReportTarget,
+        live: FieldReportTunnel,
+        epoch: Long,
+        reservation: FieldReportReservation,
+    ) {
+        val result =
+            poster.post(live.route, target.config, reservation.body) {
+                ledger.isClaimCurrent(epoch) && live.isCurrent()
+            }
+        when (result) {
+            FieldReportPostResult.Accepted -> Unit
+            FieldReportPostResult.Failed -> log.i { "field report dropped after one failed request" }
+            FieldReportPostResult.RouteChanged -> ledger.restore(epoch, reservation::restore)
         }
     }
 }
