@@ -272,7 +272,9 @@ class FieldReportWorker
         }
     }
 
-/** Keeps the hourly upload scheduled exactly while consent is on; revoking consent deletes unsent reports and the hint. */
+/**
+ * Keeps the hourly upload scheduled exactly while consent is on; revoking consent deletes unsent reports and the hint.
+ */
 @Singleton
 class FieldReportConsentFollower
     @Inject
