@@ -1370,6 +1370,7 @@ Source: %2$s</string>
     <string name="profile_utility_checked_at">Checked: %1$s</string>
     <string name="profile_utility_busy">The Xray runtime is busy. Pause or stop it, then try again.</string>
     <string name="profile_utility_check_fastest">Check and select fastest</string>
+    <string name="profile_utility_select_automatically">Select automatically</string>
     <string name="runtime_config_title">Runtime configuration</string>
     <string name="runtime_config_applied">Confirmed configuration</string>
     <string name="runtime_config_applying">Applying configuration</string>

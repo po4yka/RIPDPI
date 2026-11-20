@@ -1330,6 +1330,7 @@ fake_burst 3</string>
     <string name="profile_utility_checked_at">检查时间：%1$s</string>
     <string name="profile_utility_busy">Xray 正忙。请暂停或停止连接，然后重试。</string>
     <string name="profile_utility_check_fastest">检测并选择最快的配置</string>
+    <string name="profile_utility_select_automatically">自动选择</string>
     <string name="runtime_config_title">连接配置</string>
     <string name="runtime_config_applied">已确认的配置</string>
     <string name="runtime_config_applying">正在应用配置</string>

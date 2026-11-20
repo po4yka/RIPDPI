@@ -22,7 +22,7 @@ class SelectorPayloadQueueTest {
         runTest {
             val groups = listOf(payloadGroup("first"), payloadGroup("second"))
             val store = ProbeTestSelectionStore()
-            for (group in groups) store.select(group.id, "${group.id}-active")
+            for (group in groups) store.set(group.id, "${group.id}-active")
             val candidateMutex = Mutex()
             val observed = mutableListOf<String>()
             val prober =
@@ -65,8 +65,8 @@ class SelectorPayloadQueueTest {
             val first = payloadGroup("first")
             val second = payloadGroup("second").copy(cloudflareMemberIds = setOf("second-reserve"))
             val store = ProbeTestSelectionStore()
-            store.select(first.id, "first-active")
-            store.select(second.id, "second-active")
+            store.set(first.id, "first-active")
+            store.set(second.id, "second-active")
             val release = CompletableDeferred<Unit>()
             val observed = mutableListOf<String>()
             val prober =
@@ -106,7 +106,7 @@ class SelectorPayloadQueueTest {
             val ordinary =
                 selectorTestGroup(listOf(selectorTestMember("ordinary-first"), selectorTestMember("ordinary-second")))
             val store = ProbeTestSelectionStore()
-            store.select(payload.id, "payload-active")
+            store.set(payload.id, "payload-active")
             val observed = mutableListOf<String>()
             val prober =
                 SelectorUrltestProber(

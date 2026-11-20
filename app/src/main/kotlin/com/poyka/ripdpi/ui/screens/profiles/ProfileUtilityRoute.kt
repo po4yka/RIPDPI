@@ -24,6 +24,7 @@ internal fun ProfileUtilityRoute(
             viewModel::updateUrl,
             viewModel::checkAndSelectFastest,
             retryCatalog = viewModel::retryCatalog,
+            resumeAutomatic = viewModel::resumeAutomatic,
             importProfile = onImportProfile,
             openAwgProfile = onOpenAwgProfile,
         ),

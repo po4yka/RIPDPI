@@ -1345,6 +1345,7 @@ Origen: %2$s</string>
     <string name="profile_utility_checked_at">Comprobado: %1$s</string>
     <string name="profile_utility_busy">Xray está ocupado. Pausa o detén la conexión e inténtalo de nuevo.</string>
     <string name="profile_utility_check_fastest">Comprobar y elegir el más rápido</string>
+    <string name="profile_utility_select_automatically">Seleccionar automáticamente</string>
     <string name="runtime_config_title">Configuración de conexión</string>
     <string name="runtime_config_applied">Configuración confirmada</string>
     <string name="runtime_config_applying">Aplicando configuración</string>

@@ -48,6 +48,8 @@ internal class ProfileUtilityActions(
     val probeUrl: (String) -> Unit,
     val checkFastest: () -> Unit,
     val retryCatalog: () -> Unit = {},
+    // Lets the failover policy of a selector group move its member again after a manual pick.
+    val resumeAutomatic: (String) -> Unit = {},
     // Null where the host has no import entry.
     val importProfile: (() -> Unit)? = null,
     // Opens a saved AmneziaWG profile in its editor by id.
@@ -121,6 +123,13 @@ internal fun ProfileUtilityScreen(
                     item(key = "section:${section.key}", contentType = "section") {
                         SettingsCategoryHeader(title = sectionTitle(section.titleProfile))
                     }
+                    val groupId = (section.titleProfile.reference as? ProfileUtilityReference.SelectorMember)?.groupId
+                    val automatic = groupId?.let(state.automaticGroups::get)
+                    if (groupId != null && automatic != null) {
+                        item(key = "automatic:$groupId", contentType = "automatic") {
+                            SelectorAutomaticRow(groupId, automatic, actions)
+                        }
+                    }
                     items(
                         section.profiles,
                         key = { ProfileUtilityTestTags.action(it.reference, "row") },
@@ -154,6 +163,24 @@ private fun LazyListScope.awgProfileSection(
                 testTag = ProfileUtilityTestTags.awgRow(profile.id),
             )
         }
+    }
+}
+
+@Composable
+private fun SelectorAutomaticRow(
+    groupId: String,
+    automatic: Boolean,
+    actions: ProfileUtilityActions,
+) {
+    RipDpiCard(
+        modifier = Modifier.semantics { selected = automatic },
+        variant = if (automatic) RipDpiCardVariant.Selected else RipDpiCardVariant.Tonal,
+    ) {
+        SettingsRow(
+            title = stringResource(R.string.profile_utility_select_automatically),
+            onClick = { actions.resumeAutomatic(groupId) },
+            testTag = ProfileUtilityTestTags.automatic(groupId),
+        )
     }
 }
 

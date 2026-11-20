@@ -151,6 +151,7 @@ class ProfileQualityNativeTest {
                                     }
                                 groups.add(ProxyGroup(id, id, ProxyGroupType.BASIC, 0, true, members = members))
                                 selections.select(id, "slow")
+                                selections.resumeAutomatic(id)
                                 assertTrue(controller.start(Mode.Proxy) is ServiceStartResult.Accepted)
                                 state.status.first { it == AppStatus.Running to Mode.Proxy }
                                 awaitApplied(id, "slow")

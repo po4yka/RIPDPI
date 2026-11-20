@@ -1401,6 +1401,7 @@ fakeddisorder endhost</string>
     <string name="profile_utility_checked_at">تم الفحص: %1$s</string>
     <string name="profile_utility_busy">Xray مشغول. أوقف الاتصال مؤقتًا أو أنهه، ثم حاول مجددًا.</string>
     <string name="profile_utility_check_fastest">اختبار واختيار الأسرع</string>
+    <string name="profile_utility_select_automatically">الاختيار تلقائيًا</string>
     <string name="runtime_config_title">إعداد الاتصال</string>
     <string name="runtime_config_applied">إعداد مؤكد</string>
     <string name="runtime_config_applying">جارٍ تطبيق الإعداد</string>

@@ -3,6 +3,8 @@ package com.poyka.ripdpi.ui.screens.profiles
 import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.data.awg.SavedAwgProfile
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentMapOf
 
 internal data class ProfileUtilityUiState(
     val catalogGeneration: Long,
@@ -12,6 +14,8 @@ internal data class ProfileUtilityUiState(
     val canMeasure: Boolean,
     val cleanupPending: Boolean,
     val failure: ProfileUtilityFailure?,
+    /** Selector groups with a failover policy, mapped to whether their member is chosen automatically. */
+    val automaticGroups: ImmutableMap<String, Boolean> = persistentMapOf(),
 ) {
     val loading: Boolean get() = catalogState == ProfileCatalogState.Loading
 }

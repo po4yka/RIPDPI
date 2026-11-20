@@ -3541,6 +3541,7 @@ app:profile_utility_probe_options
 app:profile_utility_recents
 app:profile_utility_retry_cleanup
 app:profile_utility_saved
+app:profile_utility_select_automatically
 app:profile_utility_selection_failed
 app:profile_utility_timeout
 app:profile_utility_title

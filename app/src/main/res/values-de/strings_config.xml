@@ -1345,6 +1345,7 @@ Quelle: %2$s</string>
     <string name="profile_utility_checked_at">Geprüft: %1$s</string>
     <string name="profile_utility_busy">Xray ist beschäftigt. Pausieren oder stoppen Sie die Verbindung und versuchen Sie es erneut.</string>
     <string name="profile_utility_check_fastest">Prüfen und schnellstes Profil wählen</string>
+    <string name="profile_utility_select_automatically">Automatisch auswählen</string>
     <string name="runtime_config_title">Verbindungskonfiguration</string>
     <string name="runtime_config_applied">Bestätigte Konfiguration</string>
     <string name="runtime_config_applying">Konfiguration wird angewendet</string>

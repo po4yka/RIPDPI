@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.subscription
 
+import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
@@ -8,6 +9,7 @@ import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.services.CandidateRelayPayloadProbe
 import com.poyka.ripdpi.services.CandidateRelayProbeEnvironment
 import com.poyka.ripdpi.services.PhysicalNetworkObserver
+import com.poyka.ripdpi.ui.screens.connection.runningConfiguration
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,6 +17,7 @@ internal data class SelectorProbeScope(
     val members: List<ProxyProfile>,
     val failover: SelectorFailover?,
     val cloudflareMemberIds: Set<String>,
+    val memberHealth: Map<String, com.poyka.ripdpi.data.subscription.EndpointHealth>,
     val networkScope: String,
     val underlayGeneration: Long?,
     val networkEpoch: com.poyka.ripdpi.services.CandidatePhysicalNetworkToken,
@@ -32,6 +35,7 @@ internal class CurrentSelectorProbeScopeProvider(
     private val network: NetworkFingerprintProvider,
     private val environment: suspend () -> CandidateRelayProbeEnvironment,
     private val networkEpoch: () -> com.poyka.ripdpi.services.CandidatePhysicalNetworkToken?,
+    private val carriesTraffic: (String) -> Boolean,
 ) : SelectorProbeScopeProvider {
     @Inject
     constructor(
@@ -39,9 +43,17 @@ internal class CurrentSelectorProbeScopeProvider(
         network: NetworkFingerprintProvider,
         payloadProbe: CandidateRelayPayloadProbe,
         networkEpoch: PhysicalNetworkObserver,
-    ) : this(groups, network, payloadProbe::captureEnvironment, networkEpoch::capture)
+        applied: AppliedRuntimeConfigurationSource,
+    ) : this(groups, network, payloadProbe::captureEnvironment, networkEpoch::capture, { groupId ->
+        applied.applications.value.values.any {
+            it.runningConfiguration()?.effectiveSelection?.selectorGroupId == groupId
+        }
+    })
 
     override suspend fun capture(group: ProxyGroup): SelectorProbeScope? {
+        // Only the group whose member carries the running session's traffic is probed; an inactive group, an
+        // AmneziaWG or Xray session, or a stopped one gains nothing from ephemeral relays.
+        if (!carriesTraffic(group.id)) return null
         val current = groups.list().firstOrNull { it.id == group.id } ?: return null
         return if (current.matchesProbePolicy(group)) {
             val epoch = networkEpoch()
@@ -54,6 +66,7 @@ internal class CurrentSelectorProbeScopeProvider(
                         members = current.members,
                         failover = current.failover,
                         cloudflareMemberIds = current.cloudflareMemberIds,
+                        memberHealth = current.memberHealth,
                         networkScope = fingerprint.scopeKey(),
                         underlayGeneration = fingerprint.directDnsUnderlayGeneration,
                         environment = runtimeEnvironment,

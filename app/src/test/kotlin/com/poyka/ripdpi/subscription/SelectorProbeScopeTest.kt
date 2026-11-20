@@ -19,6 +19,27 @@ class SelectorProbeScopeTest {
     private val physical = TestPhysicalNetworkEvidence()
 
     @Test
+    fun `a group whose member carries no traffic has no probe scope`() =
+        runTest {
+            val group = group()
+            val groups =
+                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
+                    override suspend fun list(): List<ProxyGroup> = listOf(group)
+                }
+            var carrying: String? = null
+            val provider =
+                CurrentSelectorProbeScopeProvider(groups, network(), { environment() }, { physical.capture() }, {
+                    it == carrying
+                })
+
+            assertNull(provider.capture(group))
+            carrying = "another-group"
+            assertNull(provider.capture(group))
+            carrying = group.id
+            assertEquals(group.members, provider.capture(group)?.members)
+        }
+
+    @Test
     fun `actual group member credentials policy classification and existence fence old input`() =
         runTest {
             val group = group()
@@ -29,7 +50,13 @@ class SelectorProbeScopeTest {
                     override suspend fun list(): List<ProxyGroup> = if (present) listOf(current) else emptyList()
                 }
             val provider =
-                CurrentSelectorProbeScopeProvider(groups, network(), { environment() }, { physical.capture() })
+                CurrentSelectorProbeScopeProvider(
+                    groups,
+                    network(),
+                    { environment() },
+                    { physical.capture() },
+                    { true },
+                )
             val original = provider.capture(group)
             current = group.copy(name = "new display name")
             assertEquals(original, provider.capture(group))
@@ -67,6 +94,7 @@ class SelectorProbeScopeTest {
                     },
                     { environment() },
                     { physical.capture() },
+                    { true },
                 )
             val original = requireNotNull(provider.capture(group))
             fingerprint = fingerprint(2)
@@ -91,6 +119,7 @@ class SelectorProbeScopeTest {
                     },
                     { environment() },
                     { physical.capture() },
+                    { true },
                 )
             assertNull(provider.capture(group))
         }
@@ -113,6 +142,7 @@ class SelectorProbeScopeTest {
                         environment()
                     },
                     { changing.capture() },
+                    { true },
                 )
             assertNull(provider.capture(group))
         }

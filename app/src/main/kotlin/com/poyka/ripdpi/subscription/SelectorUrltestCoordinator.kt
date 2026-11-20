@@ -128,8 +128,8 @@ class SelectorUrltestCoordinator(
             proberJobs.remove(id)?.job?.cancel()
             prober.invalidatePendingSelection(id)
         }
-        // Refresh only the inputs used by probing; timestamp/accounting changes must not
-        // restart the interval and indefinitely postpone the next probe.
+        // Refresh only the inputs used by probing; timestamp, accounting and health changes must not
+        // restart the interval and indefinitely postpone the next probe. Each pass reads health itself.
         wanted.forEach { (id, group) ->
             val previous = proberJobs[id]
             if (previous == null || !previous.job.isActive || previous.policyChanged(group)) {
@@ -148,7 +148,7 @@ class SelectorUrltestCoordinator(
     ) {
         fun policyChanged(updated: ProxyGroup): Boolean =
             group.members != updated.members || group.failover != updated.failover ||
-                group.cloudflareMemberIds != updated.cloudflareMemberIds || group.memberHealth != updated.memberHealth
+                group.cloudflareMemberIds != updated.cloudflareMemberIds
     }
 
     private companion object {

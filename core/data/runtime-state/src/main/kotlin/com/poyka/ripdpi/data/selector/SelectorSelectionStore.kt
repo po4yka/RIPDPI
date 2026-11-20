@@ -31,10 +31,16 @@ interface SelectorSelectionStore {
 
     suspend fun snapshot(groupId: String): SelectorSelectionSnapshot
 
+    /** Hot stream of the selection of [groupId], including whether the user pinned it by hand. */
+    fun selection(groupId: String): Flow<SelectorSelectionSnapshot>
+
+    /** Keeps the selected member and lets the group's failover policy move it again. */
+    suspend fun resumeAutomatic(groupId: String)
+
     /** Invalidates in-flight probe decisions without changing the selected member or its origin. */
     fun invalidatePendingSelection(groupId: String)
 
-    /** Applies a probe result only while [expected] is still the current selection. */
+    /** Applies a probe result only while [expected] is still the current, automatic selection. */
     suspend fun selectAutomatically(
         groupId: String,
         expected: SelectorSelectionSnapshot,
@@ -77,6 +83,13 @@ class DefaultSelectorSelectionStore
         override suspend fun snapshot(groupId: String): SelectorSelectionSnapshot =
             persistence.transaction { observed(groupId, it.choice(groupId)) }
 
+        override fun selection(groupId: String): Flow<SelectorSelectionSnapshot> = persistence.observeChoice(groupId)
+
+        override suspend fun resumeAutomatic(groupId: String) =
+            persistence.transaction(afterCommit = { activeGroup.forgetManualReceipt(groupId) }) { rows ->
+                rows.setChoice(groupId, rows.choice(groupId).profileId, false)
+            }
+
         override fun invalidatePendingSelection(groupId: String) {
             authority.intentLinearizer.serialize {
                 revisions[groupId] = Math.addExact(revisions[groupId] ?: 0L, 1L)
@@ -91,7 +104,9 @@ class DefaultSelectorSelectionStore
             persistence.transaction(
                 afterCommit = { selected -> if (selected) activeGroup.forgetManualReceipt(groupId) },
             ) { rows ->
-                if (observed(groupId, rows.choice(groupId)) != expected) {
+                val current = rows.choice(groupId)
+                // A manual pick pins its member: only an automatic selection may move automatically.
+                if (current.isManual || observed(groupId, current) != expected) {
                     false
                 } else {
                     rows.setChoice(groupId, profileId, false)

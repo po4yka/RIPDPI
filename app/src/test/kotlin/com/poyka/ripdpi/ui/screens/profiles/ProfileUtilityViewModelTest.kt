@@ -105,6 +105,33 @@ class ProfileUtilityViewModelTest {
     @get:Rule val mainDispatcherRule = MainDispatcherRule()
 
     @Test
+    fun `a failover group picked by hand offers automatic selection again`() =
+        runTest {
+            val f = fixture(probeUrl = null)
+            try {
+                val group =
+                    com.poyka.ripdpi.subscription.selectorTestGroup(
+                        listOf(
+                            com.poyka.ripdpi.subscription
+                                .selectorTestMember("one"),
+                            com.poyka.ripdpi.subscription
+                                .selectorTestMember("two"),
+                        ),
+                    )
+                f.groups.add(group)
+                f.selectionStore.select(group.id, "one")
+                f.awaitState { it.automaticGroups[group.id] == false }
+
+                f.vm.resumeAutomatic(group.id)
+
+                f.awaitState { it.automaticGroups[group.id] == true }
+                assertEquals("one", f.selectionStore.snapshot(group.id).profileId)
+            } finally {
+                f.close()
+            }
+        }
+
+    @Test
     fun `an untouched probe URL can check with the relay connectivity probe`() =
         runTest {
             val f = fixture(probeUrl = null)
@@ -1023,6 +1050,8 @@ private class Fixture(
             xrayProbe,
             com.poyka.ripdpi.data
                 .ProfileQualityStore(),
+            groups,
+            selectionStore,
         )
     private val viewModels = ViewModelStore().apply { put("profiles", vm) }
 

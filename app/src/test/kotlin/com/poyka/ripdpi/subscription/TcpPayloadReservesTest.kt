@@ -32,7 +32,7 @@ class TcpPayloadReservesTest {
                         tcp,
                     ),
                 ).copy(failover = SelectorFailover("unused", 60, 0, policy()))
-            val store = ProbeTestSelectionStore().apply { select("g", "udp") }
+            val store = ProbeTestSelectionStore().apply { set("g", "udp") }
             var now = 0L
             val measured = mutableListOf<String>()
             val prober =

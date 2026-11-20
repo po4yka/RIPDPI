@@ -1370,6 +1370,7 @@ fakeddisorder endhost</string>
     <string name="profile_utility_checked_at">Проверен: %1$s</string>
     <string name="profile_utility_busy">Xray занят. Приостановите или остановите соединение и попробуйте снова.</string>
     <string name="profile_utility_check_fastest">Проверить и выбрать самый быстрый</string>
+    <string name="profile_utility_select_automatically">Выбирать автоматически</string>
     <string name="runtime_config_title">Конфигурация соединения</string>
     <string name="runtime_config_applied">Подтверждённая конфигурация</string>
     <string name="runtime_config_applying">Применение конфигурации</string>

@@ -8,11 +8,16 @@ import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
 import com.poyka.ripdpi.data.ProfileUtilityCatalog
 import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
 import com.poyka.ripdpi.data.ProfileUtilityReference
+import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.services.CandidateRelayMeasurements
 import com.poyka.ripdpi.services.CandidateXrayMeasurements
 import com.poyka.ripdpi.services.MeasuredProfileActivationFailure
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,6 +26,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -42,6 +48,8 @@ internal class ProfileUtilityViewModel
         private val native: CandidateRelayMeasurements,
         private val xray: CandidateXrayMeasurements,
         quality: com.poyka.ripdpi.data.ProfileQualityStore,
+        groups: ProxyGroupRepository,
+        private val selectorSelections: SelectorSelectionStore,
     ) : ViewModel() {
         private val failure = MutableStateFlow<ProfileUtilityFailure?>(null)
         private val results = MutableStateFlow<Map<ProfileUtilityReference, ProfileMeasurementUiState>>(emptyMap())
@@ -69,7 +77,25 @@ internal class ProfileUtilityViewModel
                         }
                 }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CatalogObservation.Loading)
         private val cleanup = combine(native.cleanupPending, xray.cleanupPending) { n, x -> n || x }
-        private val command = combine(results, url, failure, quality.state) { r, u, f, q -> CommandState(r, u, f, q) }
+
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        private val automaticGroups =
+            groups.groups().flatMapLatest { all ->
+                val failover = all.filter { it.isSelector && it.failover != null }
+                if (failover.isEmpty()) {
+                    flowOf(persistentMapOf())
+                } else {
+                    combine(
+                        failover.map { group ->
+                            selectorSelections.selection(group.id).map { group.id to !it.isManual }
+                        },
+                    ) { it.toMap().toImmutableMap() }
+                }
+            }
+        private val command =
+            combine(results, url, failure, quality.state, automaticGroups) { r, u, f, q, auto ->
+                CommandState(r, u, f, q, auto)
+            }
         val uiState =
             combine(
                 committedCatalog,
@@ -106,6 +132,7 @@ internal class ProfileUtilityViewModel
                         } else {
                             work.failure
                         },
+                    automaticGroups = work.automaticGroups,
                 )
             }.stateIn(
                 viewModelScope,
@@ -174,6 +201,8 @@ internal class ProfileUtilityViewModel
                     }
                 }
         }
+
+        fun resumeAutomatic(groupId: String) = command { selectorSelections.resumeAutomatic(groupId) }
 
         fun cancel() {
             operationToken = Any()
@@ -299,5 +328,6 @@ internal class ProfileUtilityViewModel
             val url: String,
             val failure: ProfileUtilityFailure?,
             val quality: com.poyka.ripdpi.data.ProfileQualitySnapshot,
+            val automaticGroups: ImmutableMap<String, Boolean>,
         )
     }

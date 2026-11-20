@@ -15,7 +15,7 @@ class SelectorUrltestProberResilienceTest {
     fun `a probe pass that throws does not end the run loop`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             var captureFails = true
             val prober =
                 SelectorUrltestProber(

@@ -586,6 +586,8 @@ class XrayProviderE2ETest {
                                     utilityNative,
                                     utilityXray,
                                     utilityQuality,
+                                    selectorGroups,
+                                    selectorSelections,
                                 )
                             kotlinx.coroutines.withContext(Dispatchers.Main) { models.put("owned-xray-utility", vm) }
                             collector = observeUtility(vm, phase, reference)

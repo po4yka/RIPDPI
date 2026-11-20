@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertTrue
@@ -181,6 +182,10 @@ private class FakeSelectorSelectionStore : SelectorSelectionStore {
     ) = write(groupId, profileId, true)
 
     override suspend fun clearSelection(groupId: String) = write(groupId, null, false)
+
+    override fun selection(groupId: String) = flowFor(groupId).map { SelectorSelectionSnapshot(it, false, 0L) }
+
+    override suspend fun resumeAutomatic(groupId: String) = Unit
 
     private fun write(
         groupId: String,

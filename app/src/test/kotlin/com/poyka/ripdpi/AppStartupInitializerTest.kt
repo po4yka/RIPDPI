@@ -1111,6 +1111,10 @@ private object NoOpSelectorSelectionStore : SelectorSelectionStore {
     ) = Unit
 
     override suspend fun clearSelection(groupId: String) = Unit
+
+    override fun selection(groupId: String) = kotlinx.coroutines.flow.flowOf(SelectorSelectionSnapshot(null, false, 0L))
+
+    override suspend fun resumeAutomatic(groupId: String) = Unit
 }
 
 private object EmptyProxyGroupRepository : ProxyGroupRepository {

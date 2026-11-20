@@ -66,6 +66,9 @@ class SelectorUrltestProber internal constructor(
     private val payloadStates = ConcurrentHashMap<String, ScopedPayloadState>()
     private val probeRoundMutex = Mutex()
 
+    /** Consecutive reachability passes in which the selected member, keyed by group, failed its check. */
+    private val unreachablePasses = ConcurrentHashMap<String, Pair<String, Int>>()
+
     private data class ScopedPayloadState(
         val scope: SelectorProbeScope,
         var selection: SelectorSelectionSnapshot,
@@ -81,6 +84,7 @@ class SelectorUrltestProber internal constructor(
     /** Fences a replaced or stopped policy against a probe already about to commit. */
     internal fun invalidatePendingSelection(groupId: String) {
         payloadStates.remove(groupId)
+        unreachablePasses.remove(groupId)
         qualityStore.invalidate(groupId)
         selectionStore.invalidatePendingSelection(groupId)
     }
@@ -106,9 +110,12 @@ class SelectorUrltestProber internal constructor(
                     }
                 }
             try {
+                // The first pass follows session start closely; later passes keep the policy interval.
+                var wait = FirstPassDelayMillis.coerceAtMost(intervalMillis)
                 while (true) {
-                    delay(intervalMillis)
+                    delay(wait)
                     contained("probe pass") { runProbePass(group, failover.probeUrl, failover.toleranceMs) }
+                    wait = intervalMillis
                 }
             } finally {
                 selectionWatcher.cancel()
@@ -122,12 +129,16 @@ class SelectorUrltestProber internal constructor(
      * direct members only: when all of them are down they fail open even while a Cloudflare member is up. Bundle
      * health is evaluated now, so expired down health is neutral again.
      */
-    private fun probeCandidates(group: ProxyGroup): List<ProxyProfile> =
+    private fun probeCandidates(
+        group: ProxyGroup,
+        scope: SelectorProbeScope,
+    ): List<ProxyProfile> =
         when (
             val order =
                 orderByEndpointHealth(
                     group.members.filterNot { it.id in group.cloudflareMemberIds },
-                    group.memberHealth,
+                    // Health refreshes with every bundle refresh and is read per pass, not from the loop's start.
+                    scope.memberHealth,
                     wallClockMillis(),
                 )
         ) {
@@ -193,16 +204,16 @@ class SelectorUrltestProber internal constructor(
     ) {
         val scope = scopeProvider.capture(group) ?: return
         val selection = selectionStore.snapshot(group.id)
-        if (selection.isManual && selection.profileId in group.cloudflareMemberIds) return
+        // A manual pick pins its member; the store refuses an automatic move anyway, so skip the probes.
+        if (selection.isManual) return
         val target = MemberProbeTarget.Reachability(probeUrl, group.id.takeIf { group.fieldReport != null })
         val latencies =
-            probeCandidates(group).map { member ->
+            probeCandidates(group, scope).map { member ->
+                val result = probeRoundMutex.withLock { probe.measure(member, target) }
                 MemberLatency(
-                    profileId = member.id,
-                    latencyMillis =
-                        probeRoundMutex.withLock {
-                            probe.measure(member, target)?.latencyMillis
-                        },
+                    member.id,
+                    result?.latencyMillis,
+                    reason = result?.reason ?: ProfileQualityReason.TransferFailed,
                 )
             }
         currentCoroutineContext().ensureActive()
@@ -211,6 +222,20 @@ class SelectorUrltestProber internal constructor(
             // Keep the last active exit when no direct candidate is reachable. A prior automatic
             // Cloudflare choice is displaced as soon as a direct candidate recovers, never re-promoted.
             val current = selection.profileId
+            val currentResult = latencies.firstOrNull { it.profileId == current }
+            // A check that could not judge the current member (cleanup, busy, network change) decides nothing.
+            if (currentResult?.reason in UndecidedReasons) return
+            val failed = currentResult?.takeIf { it.latencyMillis == null }
+            val failures =
+                failed?.let { (unreachablePasses[group.id]?.takeIf { p -> p.first == it.profileId }?.second ?: 0) + 1 }
+                    ?: 0
+            if (failed == null) {
+                unreachablePasses.remove(group.id)
+            } else {
+                unreachablePasses[group.id] = failed.profileId to failures
+            }
+            // One lost pass on a lossy path is not an outage: switch for unreachability only after consecutive ones.
+            if (failures in 1 until UnreachablePassesBeforeSwitch) return
             val winner = bestSwitchCandidate(latencies, current, toleranceMs)
             if (winner != null && winner != current &&
                 selectionStore.selectAutomatically(group.id, selection, winner)
@@ -250,7 +275,7 @@ class SelectorUrltestProber internal constructor(
     ): ScopedPayloadState? {
         val scope = scopeProvider.capture(group)
         val selection = selectionStore.snapshot(group.id)
-        return if (scope == null || (selection.isManual && selection.profileId in group.cloudflareMemberIds)) {
+        return if (scope == null || selection.isManual) {
             payloadStates.remove(group.id)
             qualityStore.invalidate(group.id)
             null
@@ -282,7 +307,7 @@ class SelectorUrltestProber internal constructor(
             currentCoroutineContext().ensureActive()
             val now = monotonicMillis()
             val eligibleReserves =
-                probeCandidates(group).count { it.id != selection.profileId }
+                probeCandidates(group, scoped.scope).count { it.id != selection.profileId }
             if (results.any {
                     it.reason == ProfileQualityReason.CleanupPending ||
                         it.reason == ProfileQualityReason.ScopeChanged
@@ -390,7 +415,7 @@ class SelectorUrltestProber internal constructor(
         scoped: ScopedPayloadState,
         policy: PayloadFailoverPolicy,
     ): List<MemberLatency> {
-        val eligible = probeCandidates(group)
+        val eligible = probeCandidates(group, scoped.scope)
         val active = eligible.firstOrNull { it.id == scoped.selection.profileId }
         val target = MemberProbeTarget.Payload(policy, group.id.takeIf { group.fieldReport != null })
         val activeResult = active?.let { measureMember(it, target) }
@@ -513,6 +538,9 @@ class SelectorUrltestProber internal constructor(
     private companion object {
         const val MinIntervalSeconds = 1
         const val MinMembers = 2
+        const val UnreachablePassesBeforeSwitch = 2
+        const val FirstPassDelayMillis = 15_000L
+        val UndecidedReasons = setOf(ProfileQualityReason.CleanupPending, ProfileQualityReason.ScopeChanged)
         const val MaxPayloadCandidatesPerPass = 2
         const val MillisecondsPerSecond = 1_000L
         const val NanosecondsPerMillisecond = 1_000_000L

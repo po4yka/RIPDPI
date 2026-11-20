@@ -36,6 +36,19 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             fixture.reopen()
             assertTrue(fixture.selectorSelections.snapshot("group").isManual)
             assertNull(fixture.selectorSelections.manualReceipt("group"))
+            // A manual pick pins its member: a probe result cannot replace it, even with a current snapshot.
+            assertFalse(
+                fixture.selectorSelections.selectAutomatically(
+                    "group",
+                    fixture.selectorSelections.snapshot("group"),
+                    "probe",
+                ),
+            )
+            assertEquals("manual", fixture.selectorSelections.snapshot("group").profileId)
+            fixture.selectorSelections.resumeAutomatic("group")
+            fixture.reopen()
+            assertEquals("manual", fixture.selectorSelections.snapshot("group").profileId)
+            assertFalse(fixture.selectorSelections.snapshot("group").isManual)
             assertTrue(
                 fixture.selectorSelections.selectAutomatically(
                     "group",
@@ -120,7 +133,8 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             assertFalse(store.selectAutomatically("group", before, "stale"))
             assertEquals("manual", store.snapshot("group").profileId)
             assertTrue(store.snapshot("group").isManual)
-            assertTrue(store.selectAutomatically("group", store.snapshot("group"), "fresh"))
+            assertFalse(store.selectAutomatically("group", store.snapshot("group"), "fresh"))
+            assertEquals("manual", store.snapshot("group").profileId)
         }
 
     @Test
@@ -169,6 +183,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             val fixture = initialized()
             val store = fixture.selectorSelections
             store.select("group", "initial")
+            store.resumeAutomatic("group")
             val before = store.snapshot("group")
             val receipt = reserve(fixture)
             val barrier = ProfileWriteBarrier("selector_choices")
@@ -190,15 +205,17 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
         }
 
     @Test
-    fun `automatic choice clears the transient manual receipt`() =
+    fun `resuming automatic selection keeps the member and clears the transient manual receipt`() =
         runTest {
             val fixture = initialized()
             val store = fixture.selectorSelections
             store.select("group", "manual")
             assertNotNull(store.manualReceipt("group"))
-            assertTrue(store.selectAutomatically("group", store.snapshot("group"), "probe"))
+            store.resumeAutomatic("group")
             assertNull(store.manualReceipt("group"))
             assertFalse(store.snapshot("group").isManual)
+            assertEquals("manual", store.selectedProfileId("group").first())
+            assertTrue(store.selectAutomatically("group", store.snapshot("group"), "probe"))
             assertEquals("probe", store.selectedProfileId("group").first())
         }
 
@@ -256,6 +273,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             val fixture = initialized()
             val store = fixture.selectorSelections
             store.select("group", "initial")
+            store.resumeAutomatic("group")
             val expected = store.snapshot("group")
             val dispatcher = DelayedReturnDispatcher()
             val barrier = ProfileWriteBarrier("selector_choices")

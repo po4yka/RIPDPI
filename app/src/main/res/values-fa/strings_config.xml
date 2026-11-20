@@ -1345,6 +1345,7 @@ fakeddisorder endhost</string>
     <string name="profile_utility_checked_at">بررسی‌شده: %1$s</string>
     <string name="profile_utility_busy">Xray مشغول است. اتصال را موقتاً متوقف یا قطع کنید و دوباره امتحان کنید.</string>
     <string name="profile_utility_check_fastest">آزمایش و انتخاب سریع‌ترین</string>
+    <string name="profile_utility_select_automatically">انتخاب خودکار</string>
     <string name="runtime_config_title">پیکربندی اتصال</string>
     <string name="runtime_config_applied">پیکربندی تأییدشده</string>
     <string name="runtime_config_applying">در حال اعمال پیکربندی</string>

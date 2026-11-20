@@ -46,7 +46,7 @@ class SelectorUrltestCoordinatorTest {
                 SelectorUrltestCoordinator(
                     backgroundScope,
                     repository,
-                    selectorTestProber(store, FixedMemberLatencyProbe(mapOf("fast" to 100L))),
+                    selectorTestProber(store, FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))),
                 )
             coordinator.start(Mode.VPN)
             val failure = runCatching { coordinator.awaitSubscription() }.exceptionOrNull()
@@ -65,7 +65,7 @@ class SelectorUrltestCoordinatorTest {
     fun `failed group watcher cancels its owned probes`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             val failWatcher = CompletableDeferred<Unit>()
             val storageFailure = IllegalStateException("Group source failed")
             val failures = mutableListOf<Throwable>()
@@ -90,7 +90,7 @@ class SelectorUrltestCoordinatorTest {
                 SelectorUrltestCoordinator(
                     scope,
                     repository,
-                    selectorTestProber(store, FixedMemberLatencyProbe(mapOf("fast" to 100L))),
+                    selectorTestProber(store, FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))),
                 )
             coordinator.start(Mode.VPN)
             runCurrent()
@@ -109,7 +109,7 @@ class SelectorUrltestCoordinatorTest {
     fun `old service stop keeps probes running for new mode owner`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             val group =
                 selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")), intervalSeconds = 10)
             val groups = MutableStateFlow(listOf(group))
@@ -121,7 +121,7 @@ class SelectorUrltestCoordinatorTest {
                 SelectorUrltestCoordinator(
                     backgroundScope,
                     repository,
-                    selectorTestProber(store, FixedMemberLatencyProbe(mapOf("fast" to 100L))),
+                    selectorTestProber(store, FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))),
                 )
             coordinator.start(Mode.VPN)
             runCurrent()
@@ -132,10 +132,43 @@ class SelectorUrltestCoordinatorTest {
             runCurrent()
             assertEquals("fast", store.selectedProfileId("g").value)
             coordinator.stop(Mode.Proxy)
-            store.select("g", "slow")
+            store.set("g", "slow")
             advanceTimeBy(10_001)
             runCurrent()
             assertEquals("slow", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `a health-only refresh keeps the running probe interval`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            store.set("g", "slow")
+            val group =
+                selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")), intervalSeconds = 10)
+            val groups = MutableStateFlow(listOf(group))
+            val repository =
+                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
+                    override fun groups() = groups
+                }
+            val prober = selectorTestProber(store, FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
+            val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
+            coordinator.start(Mode.VPN)
+            runCurrent()
+            advanceTimeBy(9_000)
+            val healthy =
+                com.poyka.ripdpi.data.subscription.EndpointHealth(
+                    com.poyka.ripdpi.data.subscription.EndpointHealthStatus.HEALTHY,
+                    1L,
+                    60,
+                )
+            groups.value = listOf(group.copy(memberHealth = mapOf("fast" to healthy)))
+            runCurrent()
+            advanceTimeBy(1_001)
+            runCurrent()
+
+            // A restarted loop would wait a full interval from the refresh and still show the slow member.
+            assertEquals("fast", store.selectedProfileId("g").value)
+            coordinator.stop(Mode.VPN)
         }
 
     @Test

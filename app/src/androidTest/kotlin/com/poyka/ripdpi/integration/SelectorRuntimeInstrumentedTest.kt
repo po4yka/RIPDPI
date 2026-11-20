@@ -121,6 +121,8 @@ class SelectorRuntimeInstrumentedTest {
 
     @Inject lateinit var groups: com.poyka.ripdpi.data.ProxyGroupRepository
 
+    @Inject lateinit var selectorSelections: com.poyka.ripdpi.data.selector.SelectorSelectionStore
+
     @Inject lateinit var catalog: ProfileUtilityCatalogReader
 
     @Inject lateinit var applied: AppliedRuntimeConfigurationSource
@@ -597,6 +599,8 @@ class SelectorRuntimeInstrumentedTest {
             measurements,
             xrayMeasurements,
             quality,
+            groups,
+            selectorSelections,
         )
 
     private suspend fun verifyCandidate(truncated: Boolean) =

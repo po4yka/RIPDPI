@@ -182,6 +182,7 @@ class OfflineReservePayloadIntegrationTest {
                 group.members,
                 group.failover,
                 group.cloudflareMemberIds,
+                group.memberHealth,
                 "opaque-test-network",
                 1L,
                 TestPhysicalNetworkEvidence().capture(),

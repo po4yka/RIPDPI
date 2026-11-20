@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.subscription
 
+import com.poyka.ripdpi.data.ProfileQualityReason
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.subscription.EndpointHealth
 import com.poyka.ripdpi.data.subscription.EndpointHealthStatus
@@ -27,7 +28,7 @@ class SelectorUrltestProberTest {
     fun `manual Cloudflare choice survives an in-flight automatic probe`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "origin")
+            store.set("g", "origin")
             val group =
                 selectorTestGroup(listOf(selectorTestMember("edge"), selectorTestMember("origin")))
                     .copy(cloudflareMemberIds = setOf("edge"))
@@ -75,7 +76,7 @@ class SelectorUrltestProberTest {
     fun `payload policy drives typed controls and switches only after consecutive observations`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "active")
+            store.set("g", "active")
             val group =
                 selectorTestGroup(listOf(selectorTestMember("active"), selectorTestMember("reserve"))).copy(
                     failover = SelectorFailover("unused", 60, 0, policy()),
@@ -102,7 +103,7 @@ class SelectorUrltestProberTest {
     fun `payload network changes discard evidence and in-flight switches`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "active")
+            store.set("g", "active")
             val group =
                 selectorTestGroup(listOf(selectorTestMember("active"), selectorTestMember("reserve"))).copy(
                     failover = SelectorFailover("unused", 60, 0, policy()),
@@ -135,7 +136,7 @@ class SelectorUrltestProberTest {
     fun `payload outage backoff skips probes and invalidation discards prior evidence`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "active")
+            store.set("g", "active")
             val group =
                 selectorTestGroup(listOf(selectorTestMember("active"), selectorTestMember("reserve"))).copy(
                     failover = SelectorFailover("unused", 60, 0, policy()),
@@ -173,7 +174,7 @@ class SelectorUrltestProberTest {
     fun `payload healthy reserve qualifies without probing a stalled tail`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "active")
+            store.set("g", "active")
             val group =
                 selectorTestGroup(
                     listOf(selectorTestMember("reserve"), selectorTestMember("tail"), selectorTestMember("active")),
@@ -215,7 +216,7 @@ class SelectorUrltestProberTest {
     fun `payload reserve traversal rotates without backoff for unobserved members`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "active")
+            store.set("g", "active")
             val group =
                 selectorTestGroup(
                     listOf(selectorTestMember("active"), selectorTestMember("failed"), selectorTestMember("reserve")),
@@ -246,7 +247,7 @@ class SelectorUrltestProberTest {
     fun `payload whole-pass deadline rotates stalled reserve without counting unobserved failures`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "active")
+            store.set("g", "active")
             val group =
                 selectorTestGroup(
                     listOf(selectorTestMember("active"), selectorTestMember("stall"), selectorTestMember("reserve")),
@@ -287,7 +288,7 @@ class SelectorUrltestProberTest {
     fun `resolver feature flag change fences a completed candidate probe`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             val group = selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")))
             var scope = selectorTestScope(group)
             val prober =
@@ -310,7 +311,7 @@ class SelectorUrltestProberTest {
     fun `network generation change fences a completed candidate probe`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             val group = selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")))
             var scope = selectorTestScope(group)
             val prober =
@@ -330,7 +331,7 @@ class SelectorUrltestProberTest {
     fun `network ABA with identical final fingerprint still fences completed probe`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             val group = selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")))
             val original = selectorTestScope(group)
             var scope = original
@@ -354,7 +355,7 @@ class SelectorUrltestProberTest {
     fun `removed or changed group fences a completed probe before selection`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             val group = selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")))
             var current: SelectorProbeScope? = selectorTestScope(group)
             val prober =
@@ -374,7 +375,7 @@ class SelectorUrltestProberTest {
     fun `runtime environment change invalidates payload evidence`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             val group = selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")))
             var scope = selectorTestScope(group)
             val prober =
@@ -394,7 +395,7 @@ class SelectorUrltestProberTest {
     fun `a faster member beating the tolerance is selected`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             val probe = FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))
             val prober = selectorTestProber(store, probe)
 
@@ -412,7 +413,7 @@ class SelectorUrltestProberTest {
     fun `a member within the tolerance band does not trigger a switch`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "current")
+            store.set("g", "current")
             // 120 vs 100: the candidate is faster, but only by 20ms — inside the 50ms band.
             val probe = FixedMemberLatencyProbe(mapOf("current" to 120L, "candidate" to 100L))
             val prober = selectorTestProber(store, probe)
@@ -430,24 +431,84 @@ class SelectorUrltestProberTest {
     fun `an unreachable current selection falls over to a reachable member`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "down")
+            store.set("g", "down")
             val probe = FixedMemberLatencyProbe(mapOf("down" to null, "up" to 200L))
             val prober = selectorTestProber(store, probe)
 
-            prober.runProbePass(
-                selectorTestGroup(listOf(selectorTestMember("down"), selectorTestMember("up"))),
-                "https://probe",
-                toleranceMs = 50,
-            )
+            val group = selectorTestGroup(listOf(selectorTestMember("down"), selectorTestMember("up")))
 
+            // One failed check on a lossy path is not an outage; the second consecutive one is.
+            prober.runProbePass(group, "https://probe", toleranceMs = 50)
+            assertEquals("down", store.selectedProfileId("g").value)
+            prober.runProbePass(group, "https://probe", toleranceMs = 50)
             assertEquals("up", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `a recovered check resets the unreachable count`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            store.set("g", "flaky")
+            val results = ArrayDeque(listOf<Long?>(null, 150L, null))
+            val prober =
+                selectorTestProber(store) { profile, _ ->
+                    if (profile.id == "flaky") {
+                        MemberProbeResult(results.removeFirst())
+                    } else {
+                        MemberProbeResult(200L)
+                    }
+                }
+            val group = selectorTestGroup(listOf(selectorTestMember("flaky"), selectorTestMember("up")))
+
+            repeat(3) { prober.runProbePass(group, "https://probe", toleranceMs = 50) }
+
+            assertEquals("flaky", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `a check that could not judge the current member decides nothing`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            store.set("g", "current")
+            val prober =
+                selectorTestProber(store) { profile, _ ->
+                    if (profile.id == "current") {
+                        MemberProbeResult(null, reason = ProfileQualityReason.CleanupPending)
+                    } else {
+                        MemberProbeResult(10L)
+                    }
+                }
+            val group = selectorTestGroup(listOf(selectorTestMember("current"), selectorTestMember("other")))
+
+            repeat(3) { prober.runProbePass(group, "https://probe", toleranceMs = 50) }
+
+            assertEquals("current", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `a member picked by hand is never moved by a probe pass`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            store.select("g", "pinned")
+            var calls = 0
+            val prober =
+                selectorTestProber(store) { profile, _ ->
+                    calls++
+                    MemberProbeResult(if (profile.id == "pinned") null else 10L)
+                }
+            val group = selectorTestGroup(listOf(selectorTestMember("pinned"), selectorTestMember("fast")))
+
+            repeat(3) { prober.runProbePass(group, "https://probe", toleranceMs = 0) }
+
+            assertEquals("pinned", store.selectedProfileId("g").value)
+            assertEquals(0, calls)
         }
 
     @Test
     fun `stored down health excludes a member only until its ttl expires`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             var wallClock = 1_000_000L
             val group =
                 selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast"))).copy(
@@ -473,7 +534,7 @@ class SelectorUrltestProberTest {
     fun `every member down keeps failover running on all members`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             val down = EndpointHealth(EndpointHealthStatus.DOWN, 1_000_000L, 60)
             val group =
                 selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast"))).copy(
@@ -539,7 +600,7 @@ class SelectorUrltestProberTest {
     fun `the run loop probes on each interval`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
+            store.set("g", "slow")
             val probe = FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))
             val prober = selectorTestProber(store, probe)
             val group =
@@ -550,6 +611,25 @@ class SelectorUrltestProberTest {
             assertEquals("slow", store.selectedProfileId("g").value)
 
             advanceTimeBy(10_001)
+            runCurrent()
+
+            assertEquals("fast", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `the first pass runs 15 seconds after start, not one interval later`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            store.set("g", "slow")
+            val prober = selectorTestProber(store, FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
+            val group =
+                selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")), intervalSeconds = 180)
+            backgroundScope.launch { prober.run(group) }
+            advanceTimeBy(14_999)
+            runCurrent()
+            assertEquals("slow", store.selectedProfileId("g").value)
+
+            advanceTimeBy(2)
             runCurrent()
 
             assertEquals("fast", store.selectedProfileId("g").value)

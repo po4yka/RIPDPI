@@ -105,6 +105,8 @@ internal class OwnedHysteriaSelector(
             groups.add(group)
             created = true
             selections.select(groupId, primaryId)
+            // A manual pick pins its member; failover moves only an automatic selection.
+            selections.resumeAutomatic(groupId)
         }
 
     fun awaitPrimary(): AppliedRuntimeConfiguration {

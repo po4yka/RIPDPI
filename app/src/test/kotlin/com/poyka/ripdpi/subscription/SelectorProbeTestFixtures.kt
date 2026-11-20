@@ -9,12 +9,14 @@ import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 
 internal fun selectorTestScope(group: ProxyGroup) =
     SelectorProbeScope(
         group.members,
         group.failover,
         group.cloudflareMemberIds,
+        group.memberHealth,
         "opaque-test-network",
         1L,
         TestPhysicalNetworkEvidence().capture(),
@@ -88,10 +90,15 @@ internal class ProbeTestSelectionStore : SelectorSelectionStore {
         expected: SelectorSelectionSnapshot,
         profileId: String,
     ): Boolean {
-        if (snapshot(groupId) != expected) return false
+        if (groupId in manual || snapshot(groupId) != expected) return false
         write(groupId, profileId, false)
         return true
     }
+
+    override fun selection(groupId: String) =
+        flowFor(groupId).map { SelectorSelectionSnapshot(it, groupId in manual, revisions[groupId] ?: 0L) }
+
+    override suspend fun resumeAutomatic(groupId: String) = write(groupId, flowFor(groupId).value, false)
 
     override suspend fun select(
         groupId: String,
