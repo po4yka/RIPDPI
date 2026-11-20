@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
+use ripdpi_failure_classifier::{FailureStage, classify_transport_error};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf, copy_bidirectional};
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
@@ -179,6 +180,7 @@ where
         }
         Err(error) => {
             telemetry.emit_connect_observation(TcpConnectObservation { rtt_ms, succeeded: false });
+            log_upstream_dial_failure(&error, rtt_ms);
             telemetry.record_handshake_error(error.to_string());
             let mut reply_stage = RelayStageGuard::start(trace_stages, "socks_reply");
             let reply_code = dial_failure_reply_code(error.kind());
@@ -239,6 +241,25 @@ where
             Err(error)
         }
     }
+}
+
+/// Log one classified warning per failed upstream dial (TCP connect, protocol
+/// handshake, or dial deadline). Stage events stay out of logcat, so without
+/// this line a failed profile check left no trace there. The error text can
+/// carry server addresses, so only its kind and class are logged.
+fn log_upstream_dial_failure(error: &io::Error, elapsed_ms: u64) {
+    let failure = classify_transport_error(FailureStage::Connect, error);
+    tracing::warn!(
+        ring = "relay",
+        subsystem = "relay",
+        source = "relay",
+        kind = "relay_upstream_dial_failed",
+        failure_class = failure.class.as_str(),
+        io_error_kind = format!("{:?}", error.kind()).to_ascii_lowercase(),
+        os_error_code = error.raw_os_error(),
+        elapsed_ms,
+        "relay upstream dial failed"
+    );
 }
 
 /// Map an upstream dial failure to its RFC 1928 REP code.

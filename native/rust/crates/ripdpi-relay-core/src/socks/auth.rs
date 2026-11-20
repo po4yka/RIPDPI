@@ -503,6 +503,74 @@ mod tests {
         );
     }
 
+    #[derive(Clone, Default)]
+    struct CapturedLog(Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for CapturedLog {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("log lock").extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// A failed upstream dial must reach the platform log as one classified
+    /// warning: telemetry alone left logcat silent between listener start and
+    /// stop. The line must not echo the target or the backend's error text,
+    /// which can carry server details.
+    #[tokio::test]
+    async fn failed_upstream_dial_logs_a_classified_warning_without_the_target() {
+        use tracing::instrument::WithSubscriber as _;
+
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind test listener");
+        let mut client_end =
+            tokio::net::TcpStream::connect(listener.local_addr().expect("listener addr")).await.expect("connect");
+        let (server_end, _) = listener.accept().await.expect("accept test server");
+        client_end
+            .write_all(&[0x05, 0x01, 0x00, 0x05, 0x01, 0x00, 0x01, 203, 0, 113, 5, 0x01, 0xbb])
+            .await
+            .expect("write greeting and CONNECT request");
+        let config = SocksSessionConfig {
+            local_socks_host: "127.0.0.1".to_string(),
+            backend_kind: "trojan".to_string(),
+            udp_enabled: false,
+            confirm_good_eligible: false,
+            timeouts: RelaySessionTimeouts::production(),
+            local_socks_auth: None,
+        };
+        let backend = Arc::new(RelayBackend::Unsupported { kind: "trojan".to_string() });
+        let log = CapturedLog::default();
+        let writer = log.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::WARN)
+            .with_ansi(false)
+            .with_writer(move || writer.clone())
+            .finish();
+        // Keep an unobserved dispatcher alive so a callsite interest cached by
+        // another test thread cannot hide this event (see relay_attempt_trace.rs).
+        let _unobserved = tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default());
+
+        let telemetry = RecordingTelemetry::default();
+        let result = super::handle_client(server_end, backend, config, &telemetry, CancellationToken::new())
+            .with_subscriber(subscriber)
+            .await;
+
+        assert!(result.is_err(), "an unsupported backend must fail the dial");
+        let output = String::from_utf8(log.0.lock().expect("log lock").clone()).expect("utf-8 log");
+        let line = output
+            .lines()
+            .find(|line| line.contains("relay_upstream_dial_failed"))
+            .unwrap_or_else(|| panic!("no classified dial-failure warning in: {output:?}"));
+        assert!(line.contains("WARN"), "{line}");
+        assert!(line.contains("failure_class=\"unknown\""), "{line}");
+        assert!(line.contains("io_error_kind=\"unsupported\""), "{line}");
+        assert!(!line.contains("203.0.113.5"), "the target must not be logged: {line}");
+        assert!(!line.contains("not implemented"), "the backend error text must not be logged: {line}");
+    }
+
     #[tokio::test]
     async fn unsupported_atyp_is_rejected_with_rep_08() {
         let (mut client_end, mut server_end) = duplex(64);
