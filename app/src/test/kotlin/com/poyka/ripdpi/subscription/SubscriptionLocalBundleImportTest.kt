@@ -117,7 +117,7 @@ class SubscriptionLocalBundleImportTest : SubscriptionRefreshTestSupport() {
             val fixture = fixture(1_800_000_000_000L)
             val groupsBefore = fixture.repository.list()
             for (invalid in listOf(
-                bundle().replace("\"schema_version\":2", "\"schema_version\":99"),
+                bundle().replace("\"schema_version\":3", "\"schema_version\":99"),
                 "{\"ripdpi\":{}}",
             )) {
                 assertEquals(
@@ -151,7 +151,7 @@ class SubscriptionLocalBundleImportTest : SubscriptionRefreshTestSupport() {
         psk: String = "original-psk",
     ): String =
         """
-        {"outbounds":[],"ripdpi":{"schema_version":2,"amneziawg":[{
+        {"outbounds":[],"ripdpi":{"schema_version":3,"amneziawg":[{
           "tag":"fleet-awg","wire_profile":"awg-3.1-ranges-v1","jmin":0,"jmax":0,"s1":0,"s2":0,"h1":"1","h2":"2","h3":"3","h4":"4","private_key_placeholder":true,"address": ["10.8.0.2/32", "fd77::2/128"],"mtu":1330,"jc":4,
           "peer":{"public_key":"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
           "endpoint":"$endpoint","preshared_key":"$psk","allowed_ips":["0.0.0.0/0"]}
