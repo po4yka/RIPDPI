@@ -77,6 +77,8 @@ sealed interface SubscriptionRefreshResult {
         val memberCount: Int,
         /** Entries left out because the native backend cannot run them. */
         val skipped: List<SingBoxSkippedNode> = emptyList(),
+        /** The saved AmneziaWG profile this payload delivered without its private key, or `null`. */
+        val awgKeyProfileId: String? = null,
     ) : SubscriptionRefreshResult
 
     data class Failed(
@@ -243,8 +245,10 @@ class SubscriptionRefreshCoordinator private constructor(
     ): SubscriptionRefreshResult {
         val subscription = expected.subscription ?: return SubscriptionRefreshResult.Superseded
         val replacement = replacementGroup(expected, attemptedAt, outcome)
+        var awgKeyProfileId: String? = null
         val committed =
             awgProfileRepository.commitSubscriptionRefresh(expected, outcome.awgProfiles) { prepared ->
+                awgKeyProfileId = prepared.firstOrNull { it.request.privateKey.isBlank() }?.id
                 replacement.copy(
                     subscription =
                         checkNotNull(replacement.subscription).copy(
@@ -262,7 +266,7 @@ class SubscriptionRefreshCoordinator private constructor(
             }
         return if (committed) {
             log.i { "refreshed subscription group ${expected.id}: ${replacement.members.size} profiles persisted" }
-            SubscriptionRefreshResult.Updated(replacement.members.size, outcome.skipped)
+            SubscriptionRefreshResult.Updated(replacement.members.size, outcome.skipped, awgKeyProfileId)
         } else {
             SubscriptionRefreshResult.Superseded
         }

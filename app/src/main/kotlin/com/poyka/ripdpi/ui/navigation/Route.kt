@@ -433,6 +433,8 @@ sealed class Route {
     data class AmneziaWgProfile(
         val importToken: String = "",
         val profileId: String = "",
+        /** Show only the private key of the saved profile [profileId], which a bundle delivers without it. */
+        val keyOnly: Boolean = false,
     ) : Route() {
         @kotlinx.serialization.Transient
         override val stableRoute = "profile/amneziawg"

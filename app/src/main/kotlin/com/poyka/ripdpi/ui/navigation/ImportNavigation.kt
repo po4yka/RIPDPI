@@ -10,6 +10,7 @@ import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileRoute
 import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileRoute
 import com.poyka.ripdpi.ui.screens.mieru.MieruProfileRoute
+import com.poyka.ripdpi.ui.screens.proxyimport.AwgPrivateKeyRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionAddRoute
@@ -34,7 +35,13 @@ internal fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
         SubscriptionImportConfirmRoute(
             importToken = route.importToken,
             onBack = { navController.popBackStack() },
-            onImported = { navController.navigateHome() },
+            onImported = { awgKeyProfileId ->
+                navController.navigateHome()
+                // A bundle delivers an AmneziaWG profile without its private key: ask for it now, over Home.
+                if (awgKeyProfileId.isNotEmpty()) {
+                    navController.navigate(Route.AmneziaWgProfile(profileId = awgKeyProfileId, keyOnly = true))
+                }
+            },
             onUnavailable = { navController.navigateHome() },
         )
     }
@@ -100,11 +107,15 @@ private fun NavGraphBuilder.addCapturedImportRoutes(navController: NavHostContro
     }
     composable<Route.AmneziaWgProfile> { entry ->
         val route = entry.toRoute<Route.AmneziaWgProfile>()
-        AmneziaWgProfileRoute(
-            onBack = { navController.popBackStack() },
-            importToken = route.importToken,
-            profileId = route.profileId,
-        )
+        if (route.keyOnly) {
+            AwgPrivateKeyRoute(profileId = route.profileId, onBack = { navController.popBackStack() })
+        } else {
+            AmneziaWgProfileRoute(
+                onBack = { navController.popBackStack() },
+                importToken = route.importToken,
+                profileId = route.profileId,
+            )
+        }
     }
 }
 

@@ -101,7 +101,9 @@ internal fun NavGraphBuilder.addPrimaryRoutes(
             onBack = { navController.popBackStack() },
             // The Relay section holds the paste-link, scan-QR and add-server entries.
             onImportProfile = { navController.navigateConnectionSubRoute(Route.ConnectionRelay) },
-            onOpenAwgProfile = { id -> navController.navigate(Route.AmneziaWgProfile(profileId = id)) },
+            onOpenAwgProfile = { id, needsPrivateKey ->
+                navController.navigate(Route.AmneziaWgProfile(profileId = id, keyOnly = needsPrivateKey))
+            },
         )
     }
     composable<Route.StrategyTuner> {

@@ -112,7 +112,10 @@ class SubscriptionAwgRefreshTest : SubscriptionRefreshTestSupport() {
         runTest {
             val fixture = fixture(1_800_000_000_000L)
             server.enqueue(response(200, bundle()))
-            assertEquals(SubscriptionRefreshResult.Updated(0), fixture.coordinator.refresh("subscription-group"))
+            assertEquals(
+                0,
+                (fixture.coordinator.refresh("subscription-group") as SubscriptionRefreshResult.Updated).memberCount,
+            )
             val originalAwg =
                 fixture.awgRepository
                     .observeProfiles()
@@ -210,14 +213,20 @@ class SubscriptionAwgRefreshTest : SubscriptionRefreshTestSupport() {
                 AllowedIPs = 0.0.0.0/0
                 """.trimIndent()
             responses += ini("192.0.2.10:51820")
-            assertEquals(SubscriptionRefreshResult.Updated(0), fixture.coordinator.refresh("subscription-group"))
+            assertEquals(
+                0,
+                (fixture.coordinator.refresh("subscription-group") as SubscriptionRefreshResult.Updated).memberCount,
+            )
             val original =
                 fixture.awgRepository
                     .observeProfiles()
                     .first()
                     .single()
             responses += ini("192.0.2.20:443")
-            assertEquals(SubscriptionRefreshResult.Updated(0), fixture.coordinator.refresh("subscription-group"))
+            assertEquals(
+                0,
+                (fixture.coordinator.refresh("subscription-group") as SubscriptionRefreshResult.Updated).memberCount,
+            )
             val updated =
                 fixture.awgRepository
                     .observeProfiles()

@@ -56,6 +56,8 @@ data class SubscriptionImportConfirmUiState(
     val rejection: ImportRejection? = null,
     /** Set once the import is saved with entries left out; the screen stays to show them. */
     val skipped: List<SingBoxSkippedNode> = emptyList(),
+    /** The imported AmneziaWG profile that still needs its private key, or empty; opened when the screen closes. */
+    val awgKeyProfileId: String = "",
     /** A RIPDPI bundle the user holds locally; it has no [url]. */
     val localBundle: Boolean = false,
 )
@@ -84,6 +86,7 @@ class SubscriptionImportConfirmViewModel
         private val scheduleAutoUpdate: (List<ProxyGroup>) -> Unit,
         private val discardGroup: suspend (String) -> Unit,
         private val importLocalBundle: suspend (String, String) -> SubscriptionRefreshResult,
+        private val awgKeyMissing: suspend (String) -> Boolean,
         @Suppress("UNUSED_PARAMETER") private val constructorMarker: Unit,
     ) : ViewModel() {
         @Inject
@@ -110,6 +113,13 @@ class SubscriptionImportConfirmViewModel
                 repository.delete(profileMutations.captureMutation(ProfileMutationOrigin.Compensation), groupId)
             },
             importLocalBundle = refreshCoordinator::importLocalBundle,
+            awgKeyMissing = { profileId ->
+                awgProfileRepository
+                    .load(profileId)
+                    ?.request
+                    ?.privateKey
+                    ?.isBlank() == true
+            },
             constructorMarker = Unit,
         )
 
@@ -130,6 +140,7 @@ class SubscriptionImportConfirmViewModel
                 String,
                 String,
             ) -> SubscriptionRefreshResult = { _, _ -> error("No test import") },
+            awgKeyMissing: suspend (String) -> Boolean = { false },
         ) : this(
             repository,
             bootstrapConsumer,
@@ -139,13 +150,16 @@ class SubscriptionImportConfirmViewModel
             scheduleAutoUpdate,
             discardGroup,
             importLocalBundle,
+            awgKeyMissing,
             Unit,
         )
 
         private val _uiState = MutableStateFlow(SubscriptionImportConfirmUiState())
         val uiState: StateFlow<SubscriptionImportConfirmUiState> = _uiState.asStateFlow()
-        private val importedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
-        val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
+        private val importedEventChannel = Channel<String>(capacity = Channel.BUFFERED)
+
+        /** Emits once the import is saved: the AmneziaWG profile id that still needs its private key, or empty. */
+        val importedEvents: Flow<String> = importedEventChannel.receiveAsFlow()
         private var completed = false
         private var claimedImportToken: String? = null
 
@@ -285,7 +299,7 @@ class SubscriptionImportConfirmViewModel
                 }
             if (result is SubscriptionRefreshResult.Updated) {
                 localBundleText = null
-                completeImport(result.skipped)
+                completeImport(result.skipped, result.awgKeyProfileId)
                 return
             }
             if (isNew) {
@@ -319,7 +333,7 @@ class SubscriptionImportConfirmViewModel
             scheduleAutoUpdate(repository.list())
             when (result) {
                 is SubscriptionRefreshResult.Updated -> {
-                    completeImport(result.skipped)
+                    completeImport(result.skipped, result.awgKeyProfileId)
                 }
 
                 is SubscriptionRefreshResult.Failed -> {
@@ -342,7 +356,8 @@ class SubscriptionImportConfirmViewModel
             order: Int,
         ) {
             // The server spends the token once it answers, so finish the save even if the screen closes.
-            val saved =
+            // `saved` is null on failure, else the AmneziaWG profile id that still needs its key (or empty).
+            val saved: String? =
                 withContext(NonCancellable) {
                     val unsaved = unsavedBootstrap?.takeIf { it.url == state.url }
                     val targetGroupId = unsaved?.groupId ?: groupId
@@ -383,7 +398,7 @@ class SubscriptionImportConfirmViewModel
                                 ),
                             )
                             unsavedBootstrap = null
-                            true
+                            awgTargets.firstOrNull { awgKeyMissing(it.profileId) }?.profileId.orEmpty()
                         }
 
                         is BootstrapConsumeResult.ParseError -> {
@@ -393,18 +408,18 @@ class SubscriptionImportConfirmViewModel
                             _uiState.update {
                                 it.copy(importFailed = true, rejection = result.node?.let(ImportRejection::Entry))
                             }
-                            false
+                            null
                         }
 
                         is BootstrapConsumeResult.AlreadyConsumed,
                         is BootstrapConsumeResult.NetworkError,
                         -> {
                             _uiState.update { it.copy(importFailed = true) }
-                            false
+                            null
                         }
                     }
                 }
-            if (saved) completeImport()
+            if (saved != null) completeImport(awgKeyProfileId = saved)
         }
 
         private suspend fun saveRejectedBootstrap(
@@ -477,9 +492,17 @@ class SubscriptionImportConfirmViewModel
                 packageRoutingRules = packageRoutingRules,
             )
 
-        private suspend fun completeImport(skipped: List<SingBoxSkippedNode> = emptyList()) {
+        private suspend fun completeImport(
+            skipped: List<SingBoxSkippedNode> = emptyList(),
+            awgKeyProfileId: String? = null,
+        ) {
             completed = true
-            if (skipped.isEmpty()) importedEventChannel.send(Unit) else _uiState.update { it.copy(skipped = skipped) }
+            val keyProfileId = awgKeyProfileId.orEmpty()
+            if (skipped.isEmpty()) {
+                importedEventChannel.send(keyProfileId)
+            } else {
+                _uiState.update { it.copy(skipped = skipped, awgKeyProfileId = keyProfileId) }
+            }
         }
     }
 

@@ -298,7 +298,7 @@ class ProfileUtilityScreenTest {
 
     @Test
     fun `saved AmneziaWG profiles open their editor and mark a missing key`() {
-        val opened = mutableListOf<String>()
+        val opened = mutableListOf<Pair<String, Boolean>>()
         render(
             state(),
             ProfileUtilityActions(
@@ -309,7 +309,7 @@ class ProfileUtilityScreenTest {
                 { error("Unexpected cleanup") },
                 { error("Unexpected probe URL edit") },
                 { error("Unexpected fastest selection") },
-                openAwgProfile = { opened += it },
+                openAwgProfile = { id, needsPrivateKey -> opened += id to needsPrivateKey },
             ),
             listOf(
                 AwgProfileItem("awg-sub", "Home AWG", needsPrivateKey = true),
@@ -322,7 +322,8 @@ class ProfileUtilityScreenTest {
         composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-own")).performScrollTo().performClick()
         composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-sub")).performScrollTo().performClick()
 
-        assertEquals(listOf("awg-own", "awg-sub"), opened)
+        // The row that lacks its key asks for the key-only screen.
+        assertEquals(listOf("awg-own" to false, "awg-sub" to true), opened)
     }
 
     private fun openDetails() {

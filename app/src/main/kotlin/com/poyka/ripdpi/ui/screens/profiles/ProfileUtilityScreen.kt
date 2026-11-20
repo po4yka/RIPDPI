@@ -50,7 +50,7 @@ internal class ProfileUtilityActions(
     // Null where the host has no import entry.
     val importProfile: (() -> Unit)? = null,
     // Opens a saved AmneziaWG profile in its editor by id.
-    val openAwgProfile: ((String) -> Unit)? = null,
+    val openAwgProfile: ((id: String, needsPrivateKey: Boolean) -> Unit)? = null,
 )
 
 @Composable
@@ -144,7 +144,7 @@ internal fun ProfileUtilityScreen(
                             stringResource(R.string.settings_permission_status_required).takeIf {
                                 profile.needsPrivateKey
                             },
-                        onClick = { openAwgProfile(profile.id) },
+                        onClick = { openAwgProfile(profile.id, profile.needsPrivateKey) },
                         showChevron = true,
                         testTag = ProfileUtilityTestTags.awgRow(profile.id),
                     )

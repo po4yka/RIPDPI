@@ -61,9 +61,13 @@ class SubscriptionLocalBundleImportTest : SubscriptionRefreshTestSupport() {
         runTest {
             val fixture = fixture(1_800_000_000_000L)
             server.enqueue(response(200, bundle()))
-            assertEquals(SubscriptionRefreshResult.Updated(0), fixture.coordinator.refresh("subscription-group"))
+            assertEquals(
+                0,
+                (fixture.coordinator.refresh("subscription-group") as SubscriptionRefreshResult.Updated).memberCount,
+            )
 
-            assertEquals(SubscriptionRefreshResult.Updated(0), fixture.coordinator.importLocalBundle("Home", bundle()))
+            val imported = fixture.coordinator.importLocalBundle("Home", bundle()) as SubscriptionRefreshResult.Updated
+            assertEquals(0, imported.memberCount)
 
             val local = fixture.repository.list().single { it.name == "Home" }
             val subscription = local.subscription!!
@@ -139,6 +143,30 @@ class SubscriptionLocalBundleImportTest : SubscriptionRefreshTestSupport() {
                     .first()
                     .isEmpty(),
             )
+        }
+
+    @Test
+    fun `a bundle AmneziaWG profile without its key is handed to the key screen`() =
+        runTest {
+            val fixture = fixture(1_800_000_000_000L)
+            val viewModel =
+                SubscriptionImportConfirmViewModel(
+                    repository = fixture.repository,
+                    importLocalBundle = fixture.coordinator::importLocalBundle,
+                )
+            val store = PendingProxyImportStore()
+            val request = PendingSubscriptionImportRequest("", "Home", false, bundle = bundle())
+            assertTrue(viewModel.claimRequest(store.stageSubscription(request)!!, store))
+
+            viewModel.confirm()
+            val keyProfileId = viewModel.importedEvents.first()
+
+            val saved =
+                fixture.awgRepository
+                    .observeProfiles()
+                    .first()
+                    .single { it.request.privateKey.isBlank() }
+            assertEquals(saved.id, keyProfileId)
         }
 
     @Test

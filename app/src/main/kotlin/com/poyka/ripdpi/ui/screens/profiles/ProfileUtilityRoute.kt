@@ -8,7 +8,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 internal fun ProfileUtilityRoute(
     onBack: () -> Unit,
     onImportProfile: (() -> Unit)? = null,
-    onOpenAwgProfile: ((String) -> Unit)? = null,
+    onOpenAwgProfile: ((id: String, needsPrivateKey: Boolean) -> Unit)? = null,
     viewModel: ProfileUtilityViewModel = hiltViewModel(),
     awgViewModel: SavedAwgProfilesViewModel = hiltViewModel(),
 ) {

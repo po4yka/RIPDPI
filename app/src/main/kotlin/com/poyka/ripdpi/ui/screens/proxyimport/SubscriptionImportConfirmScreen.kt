@@ -39,7 +39,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 fun SubscriptionImportConfirmRoute(
     importToken: String,
     onBack: () -> Unit,
-    onImported: () -> Unit,
+    onImported: (awgKeyProfileId: String) -> Unit,
     onUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SubscriptionImportConfirmViewModel = hiltViewModel(),
@@ -50,13 +50,13 @@ fun SubscriptionImportConfirmRoute(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LifecycleEventEffect(viewModel.importedEvents) { onImported() }
+    LifecycleEventEffect(viewModel.importedEvents) { onImported(it) }
 
     SubscriptionImportConfirmScreen(
         uiState = uiState,
         onBack = onBack,
         onConfirm = viewModel::confirm,
-        onDone = onImported,
+        onDone = { onImported(uiState.awgKeyProfileId) },
         modifier = modifier,
     )
 }
