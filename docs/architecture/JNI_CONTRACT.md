@@ -69,6 +69,7 @@ class holds the raw `external fun`s; a sibling wrapper class
 | `NativeOwnedTlsHttpFetcherNativeBindings` (`.../core/NativeOwnedTlsHttpFetcher.kt`) | `Java_com_poyka_ripdpi_core_NativeOwnedTlsHttpFetcherNativeBindings_*` | `ripdpi-android` · `src/ffi/owned_tls_http_bridge.rs` | `libripdpi.so` |
 | `NativeEchTlsHandshakeBridge` (`.../core/NativeEchTlsHandshakeBridge.kt`) | `Java_com_poyka_ripdpi_core_*` (native-ech-tls) | `ripdpi-android` · `src/ffi/native_ech_tls_bridge.rs` | `libripdpi.so` |
 | `NativeDoqQuicClientNativeBindings` (`:core:diagnostics`) | `Java_com_poyka_ripdpi_diagnostics_dpi_NativeDoqQuicClientNativeBindings_*` | `ripdpi-android` · `src/ffi/doq_bridge.rs` | `libripdpi.so` |
+| `NativeDnsMorphFetcherNativeBindings` (`.../core/NativeDnsMorphFetcher.kt`) | `Java_com_poyka_ripdpi_core_NativeDnsMorphFetcherNativeBindings_*` | `ripdpi-android` · `src/ffi/dns_morph_bridge.rs` | `libripdpi.so` |
 | `NativeQuicInitialPacketBindings` (`:core:diagnostics`) | `Java_com_poyka_ripdpi_diagnostics_dpi_NativeQuicInitialPacketBindings_*` | `ripdpi-android` · `src/ffi/quic_initial_bridge.rs` | `libripdpi.so` |
 | `JniNativeSignsBridge` (`:core:detection`) | `Java_com_poyka_ripdpi_core_detection_checker_JniNativeSignsBridge_*` | `ripdpi-android` · `src/ffi/native_signs_bridge.rs` | `libripdpi.so` |
 | `Tun2SocksNativeBindings` (`.../core/Tun2SocksTunnel.kt`) | `Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_*` | `ripdpi-tunnel-android` · `src/entry.rs` (+ `src/session/`) | `libripdpi-tunnel.so` |

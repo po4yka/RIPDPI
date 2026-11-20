@@ -8,8 +8,10 @@ DNS-Morph (Ailabouni-Dunkelman-Bitan, CSCML 2021) splits the transport model: th
 
 ## What Changes
 
-- Deliver the observable outcome and acceptance criteria recorded in the linked portfolio task.
-- Preserve unrelated behavior and enforce the repository validation and evidence requirements.
+- The deploy role names no bridge source, wire format or recipient export, so RIPDPI defines DNS-Morph v1 itself (owner decision, 2026-11-20): signed subscription delivery over UDP TXT, not a traffic tunnel.
+- New crate `ripdpi-dns-morph` holds the client and the bridge responder; the Android platform adapter exposes it through `NativeDnsMorphFetcherNativeBindings.jniFetch` with a protected socket.
+- The `ripdpi.dns_morph` bundle block declares the bridge (IP literal, port, zone, Ed25519 public key). A subscription refresh uses it only after every HTTPS endpoint failed.
+- `docs/server-integration.md` records the wire contract and the deploy-side work a live bridge needs.
 
 ## Capabilities
 

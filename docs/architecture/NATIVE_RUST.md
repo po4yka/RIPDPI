@@ -188,6 +188,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-protocol-detect` | Stream protocol detection | Detector types | `ripdpi-strategy-trait` | No runtime consumer; crate-local regression tests only | Keep only if the standalone detector test surface remains useful |
 | `ripdpi-protocol-loopback` | TCP and QUIC loopback test harness | Harness API | — (leaf) | Dev-dependency of `ripdpi-hysteria2`; never linked into production | Keep as shared test infrastructure tracked by `protocol-loopback-harness-design.md` |
 | `ripdpi-dns-resolver` | Encrypted DNS client (DoH/DoT/DNSCrypt/DoQ) | Resolver API (async) | `ripdpi-socks5-core` | Fan-in 8; heavy ext deps (`quinn`, `boring`, `reqwest`) | Keep |
+| `ripdpi-dns-morph` | DNS-Morph v1 signed subscription delivery over UDP TXT (client and bridge responder) | Blocking fetch API | `hickory-proto`, `ring` | Leaf; used by the Android platform adapter | Keep |
 | `ripdpi-ech-dns` | ECH configuration discovery and DNS record handling | Resolver helpers | `ripdpi-dns-resolver` | Feeds owned TLS paths | Keep |
 | `ripdpi-network-time` | Network-derived time abstraction | Time API | — (leaf) | Shared clock seam | Keep |
 | `ripdpi-pcap` | Classic pcap writer/reader + endpoint redaction | Pcap I/O API | — (leaf) | Used by tunnel Android capture/export paths | Keep |

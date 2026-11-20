@@ -1,50 +1,50 @@
 ## Purpose
 
-Define the observable completion contract for Spike: DNS-Morph bootstrap as fallback bootstrap channel. DNS-Morph (Ailabouni-Dunkelman-Bitan, CSCML 2021) splits the transport model: the handshake uses DNS port 53 while the data plane uses any underlying transport. This provides a distinct bootstrap surface whose behavior depends on middlebox port-53 handling and active L7 fingerprinting. No mature Android-targeting fork exists yet. The spike validates whether the bootstrap shim is buildable on Android and whether controlled external clients can complete the roughly 80-query type-A handshake on representative resolver paths
+Define the observable contract of the DNS-Morph v1 delivery channel: an optional, bundle-declared UDP path that delivers a signed subscription body when every HTTPS endpoint of a refresh fails. The wire format is in `docs/server-integration.md` ("DNS-Morph bootstrap channel").
 
 ## ADDED Requirements
 
 ### Requirement: REQ-TRN-1786264762917575-001 — ripdpi-dns-morph crate compiles for all 4 Android ABIs
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: ripdpi-dns-morph crate compiles for all 4 Android ABIs.
+The `ripdpi-dns-morph` crate MUST build into `libripdpi.so` for every supported Android ABI, and the JNI facade MUST export `NativeDnsMorphFetcherNativeBindings.jniFetch`.
 
 #### Scenario: Verify criterion 1
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that ripdpi-dns-morph crate compiles for all 4 Android ABIs
+- **WHEN** the native workspace builds for armeabi-v7a, arm64-v8a, x86 and x86_64
+- **THEN** the crate compiles and the JNI symbol baseline lists the export
 
-### Requirement: REQ-TRN-1786264762917575-002 — Bootstrap completes against a synthetic DNS-Morph bridge in test-lab/dns/ scena…
+### Requirement: REQ-TRN-1786264762917575-002 — Signed payload delivery against a loopback bridge
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Bootstrap completes against a synthetic DNS-Morph bridge in test-lab/dns/ scenario (~3–8 s end-to-end per paper).
+The client MUST fetch a payload from a loopback bridge that speaks DNS-Morph v1 and MUST return it only when the Ed25519 signature over the session nonce and payload verifies with the declared key. A tampered chunk, a foreign key, a datagram over 512 bytes, or a declared envelope over the payload limit MUST fail the fetch. The socket MUST be protected before its first datagram, and a protection failure MUST send nothing.
 
 #### Scenario: Verify criterion 2
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Bootstrap completes against a synthetic DNS-Morph bridge in test-lab/dns/ scenario (~3–8 s end-to-end per paper)
+- **WHEN** `cargo test -p ripdpi-dns-morph --locked` runs the loopback bridge tests
+- **THEN** the valid payload is delivered and every hostile response is rejected
 
-### Requirement: REQ-TRN-1786264762917575-003 — Normal-query compatibility verified against the bridge
+### Requirement: REQ-TRN-1786264762917575-003 — Ordinary queries stay with the bridge forwarder
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Protocol-behavior validation confirms that querying the bridge with dig @bridge www.example.com returns normal DNS responses.
+The bridge responder MUST leave every query that is not a DNS-Morph v1 request under its zone unanswered by the protocol, so the bridge forwards it to its local resolver.
 
 #### Scenario: Verify criterion 3
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate normal-query compatibility against the bridge
+- **WHEN** the responder receives an ordinary `A` query for another name
+- **THEN** it returns no DNS-Morph answer
 
-### Requirement: REQ-TRN-1786264762917575-004 — Integration test in core/diagnostics-data/ covers bootstrap → primary-transport…
+### Requirement: REQ-TRN-1786264762917575-004 — Bundle declaration to refresh delivery
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Integration test in core/diagnostics-data/ covers bootstrap → primary-transport handoff.
+A subscription refresh MUST use the bridge declared by the latest accepted bundle only after every HTTPS endpoint failed, MUST install the delivered bundle on success, MUST keep the HTTPS failure and the last members when the bridge fails, and MUST never contact an undeclared bridge.
 
 #### Scenario: Verify criterion 4
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Integration test in core/diagnostics-data/ covers bootstrap → primary-transport handoff
+- **WHEN** `SubscriptionRefreshDnsMorphTest` imports a bundle that declares `ripdpi.dns_morph` and the next HTTPS refresh fails
+- **THEN** the refresh installs the bundle that the bridge delivered
 
 ### Requirement: REQ-TRN-1786264762917575-005 — LOW-confidence dedup explicitly resolved in PR description: confirmed NOT a dup…
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: LOW-confidence dedup explicitly resolved in PR description: confirmed NOT a duplicate of ripdpi-dns-resolver or any current bootstrap transport code.
+The change MUST confirm that DNS-Morph is not a duplicate of `ripdpi-dns-resolver` or current bootstrap transport code.
 
 #### Scenario: Verify criterion 5
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that LOW-confidence dedup explicitly resolved in PR description: confirmed NOT a duplicate of ripdpi-dns-resolver or any current bootstrap transport code
+- **WHEN** the change is reviewed
+- **THEN** the dedup boundary is recorded in the task note and the new crate shares no resolver API

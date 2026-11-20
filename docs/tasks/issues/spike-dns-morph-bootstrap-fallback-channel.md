@@ -2,16 +2,16 @@
 id: TRN-1786264762917575
 title: "Spike: DNS-Morph bootstrap as fallback bootstrap channel"
 kind: feature
-status: blocked
+status: doing
 area: transport
 priority: medium
-owner: unassigned
+owner: dns-morph-client session
 parent: EPC-1786264762917282
 blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917575-spike-dns-morph-bootstrap-fallback-channel
 created: 2026-05-22
-updated: 2026-07-26
+updated: 2026-11-20
 source_wiki_pages:
   - dns-morph-bootstrap
 linked_task: null
@@ -40,9 +40,9 @@ Stand up DNS-Morph bootstrap as a fallback bootstrap channel in RIPDPI Android:
 ## Acceptance criteria
 
 - [ ] `ripdpi-dns-morph` crate compiles for all 4 Android ABIs.
-- [ ] Bootstrap completes against a synthetic DNS-Morph bridge in `test-lab/dns/` scenario (~3–8 s end-to-end per paper).
-- [ ] Protocol-behavior validation confirms that querying the bridge with `dig @bridge www.example.com` returns normal DNS responses.
-- [ ] Integration test in `core/diagnostics-data/` covers bootstrap → primary-transport handoff.
+- [ ] The client delivers a signed payload from a loopback DNS-Morph v1 bridge and rejects tampered and oversized responses.
+- [ ] The bridge responder leaves ordinary queries to its forwarder.
+- [ ] A refresh test covers bundle declaration to DNS-Morph delivery after HTTPS failure.
 - [ ] LOW-confidence dedup explicitly resolved in PR description: confirmed NOT a duplicate of `ripdpi-dns-resolver` or any current bootstrap transport code.
 
 ## Risks / open questions
@@ -96,3 +96,4 @@ The task body names a sibling deploy task `add-dns-morph-bridge-ansible-role` th
 
 - 2026-06-05: No implementation started — `ripdpi-dns-morph` crate does not exist, no dns-morph references anywhere in native/rust/crates/, app/, or core/; test-lab/dns/ exists but contains no dns-morph scenario; all acceptance criteria unmet.
 - 2026-06-11 (design spike, externally-gated): Delivered the feasibility note above. Resolved the LOW-confidence dedup (confirmed distinct from `ripdpi-dns-resolver` and siblings — byte-channel vs name-resolution). Confirmed 4-ABI buildability and that the `protect_socket` helper already covers the :53 socket. Central finding: the technique depends on resolver-path behavior the client cannot measure, plus a non-existent externally reachable bridge and synthetic test bridge. No code merged; status → `blocked` (externally-gated) pending bridge stand-up and a :53 reachability measurement.
+- 2026-11-20: Deploy `origin/main` (5c339c084) defines no bridge source, wire format, authentication or recipient export. Owner decision: RIPDPI defines DNS-Morph v1 as signed subscription delivery over UDP TXT, declared by `ripdpi.dns_morph` and used only after every HTTPS refresh endpoint fails. Acceptance criteria rewritten to that scope; the synthetic test-lab bridge and the diagnostics-data handoff test are replaced by the loopback bridge test and the refresh test. A live bridge and a device check remain deploy-side work.

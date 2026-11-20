@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.awg.requireValidSubscriptionProfiles
 import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.awg.toMigrationTarget
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.subscription.DnsMorphFetcher
 import com.poyka.ripdpi.data.subscription.EndpointHealth
 import com.poyka.ripdpi.data.subscription.ImportRejection
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
@@ -34,9 +35,11 @@ import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
 import com.poyka.ripdpi.data.subscription.SubscriptionPayload
 import com.poyka.ripdpi.data.subscription.SubscriptionPayloadTooLargeException
 import com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionParser
+import com.poyka.ripdpi.data.subscription.deliver
 import com.poyka.ripdpi.data.subscription.fitsSubscriptionLimits
 import com.poyka.ripdpi.data.subscription.isValidForRefresh
 import com.poyka.ripdpi.data.subscription.localSubscriptionPayload
+import com.poyka.ripdpi.data.subscription.parseBundleDnsMorph
 import com.poyka.ripdpi.data.subscription.readBoundedSubscriptionPayload
 import com.poyka.ripdpi.data.subscription.receivedMigration
 import com.poyka.ripdpi.data.subscription.splitNativeProfiles
@@ -104,6 +107,7 @@ class SubscriptionRefreshCoordinator private constructor(
     private val httpClient: OkHttpClient,
     private val clockMillis: () -> Long,
     private val refreshNetworkHint: suspend (List<RipdpiFieldReport>) -> Unit,
+    private val dnsMorphFetcher: DnsMorphFetcher,
 ) {
     @Inject
     internal constructor(
@@ -113,6 +117,7 @@ class SubscriptionRefreshCoordinator private constructor(
         expiryClock: SubscriptionExpiryClock,
         networkContext: FieldReportNetworkContext,
         @ApplicationScope applicationScope: CoroutineScope,
+        dnsMorphFetcher: DnsMorphFetcher,
     ) : this(
         repository = repository,
         awgProfileRepository = awgProfileRepository,
@@ -131,6 +136,7 @@ class SubscriptionRefreshCoordinator private constructor(
                 }
             }
         },
+        dnsMorphFetcher = dnsMorphFetcher,
     )
 
     @Suppress("LongParameterList")
@@ -141,7 +147,8 @@ class SubscriptionRefreshCoordinator private constructor(
         httpClient: OkHttpClient,
         clockMillis: () -> Long,
         @Suppress("UNUSED_PARAMETER") testOnly: Unit,
-    ) : this(repository, awgProfileRepository, signalPublisher, httpClient, clockMillis, {})
+        dnsMorphFetcher: DnsMorphFetcher = DnsMorphFetcher { throw IOException("DNS-Morph is not available") },
+    ) : this(repository, awgProfileRepository, signalPublisher, httpClient, clockMillis, {}, dnsMorphFetcher)
 
     private val log = Logger.withTag("subscription-auto-update")
     private val deliveryHttpClient =
@@ -315,6 +322,7 @@ class SubscriptionRefreshCoordinator private constructor(
                         lifecycleState = SubscriptionLifecycleState.ACTIVE,
                         lastRefreshFailure = null,
                         mirrors = outcome.subscriptionMirrors ?: subscription.mirrors,
+                        dnsMorph = outcome.dnsMorph,
                     ),
         )
     }
@@ -442,6 +450,7 @@ class SubscriptionRefreshCoordinator private constructor(
             profiles.copy(
                 awgProfiles = parsedWireGuardProfiles(singBox, wireGuard),
                 subscriptionMirrors = singBox?.subscriptionMirrors,
+                dnsMorph = parseBundleDnsMorph(body),
                 migration = singBox?.migration,
                 payloadSha256 = payload.sha256,
             )
@@ -576,7 +585,10 @@ class SubscriptionRefreshCoordinator private constructor(
             }
             retry = retry || (last as RefreshOutcome.Failure).retry
         }
-        return (last as RefreshOutcome.Failure).copy(retry = retry)
+        // The bundle-declared DNS-Morph channel runs only after every HTTPS endpoint failed.
+        return subscription.dnsMorph?.let { bridge ->
+            dnsMorphFetcher.deliver(bridge) { parsePayload(group, it) as? RefreshOutcome.Updated }
+        } ?: (last as RefreshOutcome.Failure).copy(retry = retry)
     }
 
     private suspend fun parseProfiles(
@@ -693,6 +705,7 @@ class SubscriptionRefreshCoordinator private constructor(
             val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
             val clearRelayMembers: Boolean = false,
             val subscriptionMirrors: SubscriptionMirrorSet? = null,
+            val dnsMorph: com.poyka.ripdpi.data.subscription.DnsMorphBridge? = null,
             val cloudflareMemberIds: Set<String>? = null,
             val isSelector: Boolean = false,
             val initialMemberId: String? = null,

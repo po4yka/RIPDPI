@@ -184,7 +184,7 @@ Import coverage does not prove a connection on an Android device.
 | AmneziaWG | Imported through `ripdpi.amneziawg`, a `.conf` (file, QR, clipboard, share sheet), an `amneziawg://` link, or an AmneziaVPN `vpn://` key. A plain WireGuard `.conf` becomes an AmneziaWG profile with no obfuscation. Only the first `[Peer]` is used. AmneziaWG 3.x keys (header protection, content padding, random trailers, timer ranges) are carried to the native engine. Activation requires a valid device key and an ABI-compatible parameter set. Non-zero `S3`/`S4`, which 3.x header protection needs, import and start like other parameters. |
 | NaiveProxy | A sing-box `naive` outbound and a `naive+https://` or `naive+quic://` link import as a selectable NaiveProxy profile. The helper dials `server` and verifies that name, so the TLS name must equal `server`. A node with any other TLS option (private CA, ECH, `insecure`), UDP over TCP, QUIC tuning, or an invalid port, credential, header or concurrency stays an inactive raw profile; a node with `detour` or `multiplex` is skipped. The recipient exporter emits only the link, in its private `native` delivery, and no bundle outbound. Not checked against a live server. |
 | Snell v4/v6 | Research only. Stored as an inactive raw profile by the parser; never a selectable relay. |
-| DNS-morph | No recipient export or app runtime kind. |
+| DNS-morph | The app speaks the RIPDPI DNS-Morph v1 delivery channel below when a bundle declares `ripdpi.dns_morph`. The deploy role still runs an unnamed self-built binary that forwards to `upstream_endpoint` and exports no `dns_morph` block, so no deployed server speaks v1 yet. |
 | Hysteria realm | Topology metadata only; it does not enable a realm/STUN client. |
 | Probe matrix: VLESS XHTTP, Trojan TCP/TLS | Profile types exist, but these research listeners need separate profiles and connection checks. |
 | Probe matrix: Trojan XHTTP, MTProto, TLS control | Trojan XHTTP is rejected at import as an unsupported transport. The native XHTTP carrier sends a VLESS request and removes a VLESS response header, and the relay configuration has no transport field for Trojan. The server uses this listener only as a measurement target for `vpnd probe-matrix`; the recipient exporter does not emit it. MTProto and the TLS control listener are not VPN subscription profiles. |
@@ -200,6 +200,68 @@ members. A genuine AWG-only bundle can replace relay members.
 SHARE backups remove the entire subscription URL, bearer token and mirrors.
 A URL path or hostname can itself contain a credential. FULL backups retain
 these values and must be treated as credential-bearing exports.
+
+## DNS-Morph bootstrap channel
+
+DNS-Morph v1 is a reserve delivery path for a long-lived subscription. It is
+not a traffic tunnel. When every HTTPS endpoint of a refresh fails, the app
+asks the bridge for the subscription body over UDP and installs it only if the
+bridge's Ed25519 signature verifies. The channel is off unless the latest
+accepted bundle declares it. Bootstrap (single-use) subscriptions never use it.
+The client is `native/rust/crates/ripdpi-dns-morph` (`fetch`); its `Responder`
+is the bridge side and the reference for a server build.
+
+The bundle declares the bridge in the versioned `ripdpi` block. All four
+fields are required and unknown fields reject the bundle:
+
+```json
+"dns_morph": {
+  "address": "192.0.2.53",
+  "port": 53,
+  "zone": "m.example.net",
+  "public_key": "<standard base64 of the 32-byte Ed25519 public key>"
+}
+```
+
+`address` is an IP literal, so the channel never needs a name lookup. A bundle
+without the block turns the channel off at its next accepted refresh. Backups
+drop the declaration with the other delivery endpoints.
+
+Wire format, version 1:
+
+1. The client opens one UDP socket, protects it when the VPN protection
+   callback is registered, connects it to `address:port`, and picks a random
+   8-byte nonce for the whole fetch.
+2. For chunk `i` (0, 1, 2, ...) it sends a standard query, `QTYPE=TXT`,
+   `QCLASS=IN`, random ID, for `<label>.<zone>`. `label` is lowercase base32hex
+   without padding (RFC 4648 section 7) of 11 bytes: version `0x01`, the
+   nonce, and `i` as a big-endian `u16`. The bridge decodes labels case-insensitively.
+3. The bridge answers with the same ID and question, `NOERROR`, and exactly
+   one TXT record with one character-string: the envelope length as a
+   big-endian `u32`, `i` as a big-endian `u16`, then envelope bytes
+   `[180*i, 180*i+180)`. A request past the envelope gets `REFUSED`.
+4. The envelope is `payload || signature`. The signature is Ed25519 over
+   `"ripdpi-dns-morph-v1\0" || nonce || payload`, so a reply recorded for
+   another nonce does not verify.
+5. A query that is not a DNS-Morph request under `zone` is not answered by
+   this protocol; the bridge forwards it to its local resolver.
+
+The client fails closed: a datagram over 512 bytes, a declared envelope over
+64 KiB of payload, a changed length, a wrong chunk index or size, a non-
+`NOERROR` code, or a bad signature ends the fetch. It ignores datagrams that
+do not match the query ID and question. Each chunk gets three 2-second
+attempts within a 90-second budget. A full 64 KiB payload takes about 365
+round trips, so it fits the budget only below about 245 ms per round trip;
+keep the served bundle small. `zone` is at most 100 characters so that every
+reply stays under 512 bytes. A failed fetch keeps the HTTPS failure and the
+last working members.
+
+Deploy-side work before a live check: build the bridge from `Responder` (or a
+reimplementation tested against it), give it the signed payload instead of
+`upstream_endpoint`, and export the `dns_morph` block with the public key
+derived from `dns_morph_bridge_secrets.signing_key`. A device check then needs
+that bridge reachable on UDP/53 from the test network, a bundle that declares
+it, and a refresh with the HTTPS endpoints blocked.
 
 ## End-to-end flow
 

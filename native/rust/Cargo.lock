@@ -5569,6 +5569,7 @@ dependencies = [
  "jni",
  "nix 0.31.3",
  "ripdpi-diagnostics-dns",
+ "ripdpi-dns-morph",
  "ripdpi-dns-resolver",
  "ripdpi-packets",
  "ripdpi-runtime-platform",
@@ -5960,6 +5961,16 @@ dependencies = [
  "tokio",
  "tungstenite",
  "webpki-roots",
+]
+
+[[package]]
+name = "ripdpi-dns-morph"
+version = "0.1.0"
+dependencies = [
+ "data-encoding",
+ "hickory-proto",
+ "ring",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

@@ -399,6 +399,7 @@ object BackupGroupRedactor {
                     token = "",
                     link = "",
                     mirrors = SubscriptionMirrorSet(),
+                    dnsMorph = null,
                 ),
         )
     }

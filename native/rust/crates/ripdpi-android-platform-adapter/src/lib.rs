@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod cdn_ech;
+mod dns_morph;
 mod doq;
 mod probe_results;
 mod quic_initial;
@@ -8,6 +9,7 @@ mod quic_response;
 mod shared_priors;
 
 pub use cdn_ech::{refresh_entry, seed_entry, snapshot_entry};
+pub use dns_morph::fetch_entry as fetch_dns_morph_entry;
 pub use doq::{DoqRequestControls, exchange_entry as exchange_doq_entry};
 pub use probe_results::inject_entry as inject_probe_results_entry;
 pub use quic_initial::create_entry as create_quic_initial_entry;

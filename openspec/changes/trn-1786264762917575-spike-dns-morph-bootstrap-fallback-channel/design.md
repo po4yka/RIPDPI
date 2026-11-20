@@ -10,9 +10,11 @@ Portfolio task `TRN-1786264762917575` owns this change. DNS-Morph (Ailabouni-Dun
 
 ## Decisions
 
-- Treat the portfolio task as the source of priority, ownership, and lifecycle state.
-- Treat this OpenSpec change as the normative behavior delta for the `transport` area.
-- Keep implementation details in the affected modules and record exact verification evidence separately.
+- Purpose: reserve delivery of the signed subscription body. The bridge never carries VPN traffic; the delivered bundle then selects the data plane as an HTTPS refresh would.
+- Authentication: Ed25519 over a domain label, a per-fetch client nonce and the payload. The nonce prevents replay of a recorded reply; the pinned key comes only from an accepted bundle.
+- Wire: one TXT answer per 180-byte envelope chunk, stop-and-wait, 512-byte datagram cap, 64 KiB payload cap, three 2 s attempts per chunk inside a 90 s budget.
+- Placement: blocking `std` UDP client (no async runtime), protected through `ripdpi-runtime-platform` before the first send. The Kotlin refresh coordinator owns the fallback order; the channel never masks the HTTPS failure.
+- No user-visible strings: the channel shows through the existing refresh status.
 
 ## Risks / Trade-offs
 

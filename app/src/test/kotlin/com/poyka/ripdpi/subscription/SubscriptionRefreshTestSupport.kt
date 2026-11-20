@@ -41,6 +41,9 @@ abstract class SubscriptionRefreshTestSupport {
         initialRules: List<PackageRoutingRule> = emptyList(),
         initialMembers: List<ProxyProfile> = emptyList(),
         httpClient: OkHttpClient = OkHttpClient(),
+        dnsMorphFetcher: com.poyka.ripdpi.data.subscription.DnsMorphFetcher =
+            com.poyka.ripdpi.data.subscription
+                .DnsMorphFetcher { throw java.io.IOException("no DNS-Morph") },
     ): Fixture {
         val persistence =
             com.poyka.ripdpi.data.testing
@@ -67,6 +70,7 @@ abstract class SubscriptionRefreshTestSupport {
                 httpClient = httpClient,
                 clockMillis = { now },
                 testOnly = Unit,
+                dnsMorphFetcher = dnsMorphFetcher,
             )
         return Fixture(repository, coordinator, publisher, awgRepository)
     }

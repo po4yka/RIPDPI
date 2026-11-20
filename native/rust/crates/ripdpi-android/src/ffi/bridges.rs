@@ -2,6 +2,8 @@
 mod cdn_ech_bridge;
 #[path = "diagnostics_bridge.rs"]
 mod diagnostics_bridge;
+#[path = "dns_morph_bridge.rs"]
+mod dns_morph_bridge;
 #[path = "doq_bridge.rs"]
 mod doq_bridge;
 #[path = "lua_bridge.rs"]
@@ -27,6 +29,7 @@ mod vpn_protect_bridge;
 
 pub use cdn_ech_bridge::*;
 pub use diagnostics_bridge::*;
+pub use dns_morph_bridge::*;
 pub use doq_bridge::*;
 pub use lua_bridge::*;
 pub use native_ech_tls_bridge::*;
