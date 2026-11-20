@@ -1,5 +1,9 @@
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -26,10 +30,15 @@ import javax.crypto.spec.SecretKeySpec
 /**
  * Turns a FULL backup export into the plaintext preset asset the app restores on first launch.
  *
+ * The preset carries no credentials. FULL is the only export that keeps a subscription link, so the
+ * task reads it, drops `privateData`, and writes `containsCredentials: false`. At least one group must
+ * hold a pending `BOOTSTRAP` subscription (the token slot `PendingBootstrapProvisioner` consumes on
+ * first run); profiles, group members, and any other subscription are refused, so nothing is written.
+ *
  * The envelope layout mirrors `BackupEncryption` in `:core:data`; both sides decrypt the shared
  * fixture `core/data/src/test/resources/backup/preset-fixture.ripdpibackup` in their tests.
  */
-@DisableCachingByDefault(because = "Writes credentials; must never enter the build cache")
+@DisableCachingByDefault(because = "Reads a credential-bearing archive; must never enter the build cache")
 abstract class PreparePresetTask : DefaultTask() {
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
@@ -57,19 +66,48 @@ abstract class PreparePresetTask : DefaultTask() {
         val document =
             runCatching { Json.parseToJsonElement(json).jsonObject }
                 .getOrElse { throw GradleException("The archive is not a backup document") }
-        if (document["containsCredentials"]?.jsonPrimitive?.booleanOrNull != true) {
-            throw GradleException("The archive is not a FULL export: it carries no credentials")
-        }
         val version = document["schemaVersion"]?.jsonPrimitive?.intOrNull
         val supported = supportedVersions()
         if (version == null || version !in supported) {
             throw GradleException("Backup schema version $version is not supported by this checkout ($supported)")
         }
+        requireBootstrapSlotOnly(document)
+        val preset = JsonObject(document - "privateData" + ("containsCredentials" to JsonPrimitive(false)))
         presetFile.get().asFile.apply {
             parentFile.mkdirs()
-            writeText(json)
+            writeText(preset.toString())
         }
     }
+
+    // Messages name group ids only, never a link, token, or profile field.
+    private fun requireBootstrapSlotOnly(document: JsonObject) {
+        if ((document["profiles"] as? JsonArray).orEmpty().isNotEmpty()) {
+            throw GradleException("The archive carries profiles; a preset ships no credentials")
+        }
+        val groups = (document["groups"] as? JsonArray).orEmpty().map { it.jsonObject }
+        var slots = 0
+        groups.forEach { group ->
+            val id = group["id"]?.jsonPrimitive?.contentOrNull
+            if ((group["members"] as? JsonArray).orEmpty().isNotEmpty()) {
+                throw GradleException("Group $id has members; a preset ships no credentials")
+            }
+            val subscription = group["subscription"] as? JsonObject ?: return@forEach
+            if (!subscription.isPendingBootstrap()) {
+                throw GradleException("Group $id has a subscription that is not a pending BOOTSTRAP slot")
+            }
+            slots++
+        }
+        if (slots == 0) {
+            throw GradleException("The archive has no group with a pending BOOTSTRAP subscription")
+        }
+    }
+
+    private fun JsonObject.isPendingBootstrap(): Boolean =
+        this["kind"]?.jsonPrimitive?.contentOrNull == "BOOTSTRAP" &&
+            (this["consumedAt"] ?: JsonNull) == JsonNull &&
+            !this["link"]?.jsonPrimitive?.contentOrNull.isNullOrBlank() &&
+            this["token"]?.jsonPrimitive?.contentOrNull.isNullOrEmpty() &&
+            ((this["mirrors"] as? JsonObject)?.get("mirrors") as? JsonArray).orEmpty().isEmpty()
 
     private fun supportedVersions(): IntRange {
         val source = schemaSource.get().asFile.readText()
