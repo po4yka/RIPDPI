@@ -29,6 +29,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     )
     .map_err(to_io_error)?;
     client_config.salamander_key = salamander_key(hysteria.salamander_key.as_deref())?;
+    client_config.realm = realm(hysteria, client_config.port_hopping.is_some())?;
     client_config.insecure = hysteria.insecure;
     // Fail closed on a malformed pin: ignoring it would turn an `insecure`
     // profile into one that accepts any certificate.
@@ -48,6 +49,40 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         context.pool_config,
         Some(context.quic_migration.clone()),
     )))
+}
+
+/// Rendezvous settings when the profile provisions a rendezvous URL. A realm
+/// id alone (the bundle topology declares it, nothing provisions it) keeps
+/// the direct dial to the server address.
+fn realm(
+    hysteria: &crate::config::Hysteria2RelayConfig,
+    port_hopping: bool,
+) -> io::Result<Option<ripdpi_hysteria2::RealmConfig>> {
+    fn filled(value: &Option<String>) -> Option<&str> {
+        value.as_deref().map(str::trim).filter(|value| !value.is_empty())
+    }
+    let realm_id = filled(&hysteria.realm_id);
+    let Some(server_url) = filled(&hysteria.realm_server_url) else {
+        if realm_id.is_some() {
+            tracing::warn!("hysteria2 realm declared without a rendezvous URL; dialing the server address directly");
+        }
+        return Ok(None);
+    };
+    let invalid = |message: &str| io::Error::new(io::ErrorKind::InvalidInput, message.to_owned());
+    let stun_servers: Vec<String> =
+        hysteria.realm_stun_servers.iter().map(|server| server.trim().to_owned()).filter(|s| !s.is_empty()).collect();
+    if stun_servers.is_empty() {
+        return Err(invalid("Hysteria2 realm needs a STUN server"));
+    }
+    if port_hopping {
+        return Err(invalid("Hysteria2 realm and port hopping are mutually exclusive"));
+    }
+    Ok(Some(ripdpi_hysteria2::RealmConfig {
+        server_url: server_url.to_owned(),
+        token: hysteria.realm_token.clone().unwrap_or_default(),
+        realm_id: realm_id.ok_or_else(|| invalid("Hysteria2 realm needs a realm id"))?.to_owned(),
+        stun_servers,
+    }))
 }
 
 #[cfg(test)]
@@ -144,6 +179,35 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn realm_is_used_only_with_a_rendezvous_url_and_complete_settings() {
+        let realm_with = |edit: &dyn Fn(&mut Hysteria2RelayConfig), port_hopping: bool| {
+            let mut hysteria = Hysteria2RelayConfig {
+                realm_id: Some("realm-a".into()),
+                realm_server_url: Some("https://realm.example.com:8444".into()),
+                realm_token: Some("test-token".into()),
+                realm_stun_servers: vec!["stun.example.com:3478".into()],
+                ..Hysteria2RelayConfig::default()
+            };
+            edit(&mut hysteria);
+            realm(&hysteria, port_hopping)
+        };
+        let realm_of = |edit: &dyn Fn(&mut Hysteria2RelayConfig)| realm_with(edit, false);
+        let complete = realm_of(&|_| {}).expect("complete realm").expect("realm mode");
+        assert_eq!(complete.server_url, "https://realm.example.com:8444");
+        assert_eq!(complete.token, "test-token");
+        assert_eq!(complete.realm_id, "realm-a");
+        assert_eq!(complete.stun_servers, ["stun.example.com:3478"]);
+
+        assert!(
+            realm_of(&|h| h.realm_server_url = None).expect("id alone is valid").is_none(),
+            "id alone dials direct"
+        );
+        assert!(realm_of(&|h| h.realm_id = Some("  ".into())).is_err());
+        assert!(realm_of(&|h| h.realm_stun_servers.clear()).is_err());
+        assert!(realm_with(&|_| {}, true).is_err(), "realm excludes port hopping");
     }
 
     #[test]

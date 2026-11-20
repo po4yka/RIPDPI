@@ -10,13 +10,17 @@ bytes = { workspace = true }
 h3 = { workspace = true }
 h3-quinn = { workspace = true }
 http = { workspace = true }
+httparse = { workspace = true }
 quinn = { workspace = true }
 rand = { workspace = true }
 ripdpi-native-protect = { workspace = true }
 rustls = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
 socket2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
+tokio-rustls = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }

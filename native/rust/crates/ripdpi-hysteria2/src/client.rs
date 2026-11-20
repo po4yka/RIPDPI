@@ -11,7 +11,9 @@ use crate::error::{HysteriaError, Result};
 use crate::hopping_socket::{HoppingSocket, StopHoppingOnDrop};
 use crate::migration::QuicMigration;
 use crate::tcp::{DuplexStream, build_tcp_request, read_tcp_response};
-use crate::tls_quic::{ClientSocketSpec, H3ConnectionGuard, authenticate_connection, build_endpoint, build_tls_config};
+use crate::tls_quic::{
+    ClientSocketSpec, H3ConnectionGuard, authenticate_connection, build_endpoint, build_endpoint_on, build_tls_config,
+};
 use crate::udp::{UdpPacket, UdpSession, dispatch_udp_datagrams};
 
 const ANDROID_UDP_AUTH_SETTLE_GRACE: Duration = Duration::from_millis(100);
@@ -32,6 +34,8 @@ impl Drop for AbortOnDrop {
 /// # Cancel safety:
 /// cancel-safe: DNS and handshake futures own their partial state. The hopping
 /// guard stops its timer and closes both paths if connect or H3 auth is cancelled.
+/// A realm rendezvous owns its socket until it returns; the endpoint owns it
+/// afterwards and closes it when the QUIC handshake or H3 auth is dropped.
 pub async fn connect(config: &Config) -> Result<HysteriaClient> {
     if let Some(policy) = &config.port_hopping {
         policy.validate_deadline()?;
@@ -40,13 +44,24 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         tracing::warn!("hysteria2 session starting with certificate verification DISABLED (insecure=true profile)");
     }
 
-    let server_addr = config
-        .socket_protection
-        .resolve_authority(&config.server_addr)
-        .await?
-        .into_iter()
-        .next()
-        .ok_or_else(|| HysteriaError::InvalidAddress(config.server_addr.clone()))?;
+    if config.realm.is_some() && config.port_hopping.is_some() {
+        return Err(HysteriaError::InvalidAddress("realm and port hopping are mutually exclusive".to_string()));
+    }
+    // A realm peer is reached on the punched socket, never at `server_addr`.
+    let punched = match &config.realm {
+        Some(realm) => Some(crate::realm::rendezvous(config, realm).await?),
+        None => None,
+    };
+    let server_addr = match &punched {
+        Some((_, peer)) => *peer,
+        None => config
+            .socket_protection
+            .resolve_authority(&config.server_addr)
+            .await?
+            .into_iter()
+            .next()
+            .ok_or_else(|| HysteriaError::InvalidAddress(config.server_addr.clone()))?,
+    };
 
     let tls_config = build_tls_config(config)?;
     let socket_spec = ClientSocketSpec {
@@ -55,8 +70,10 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         salamander_key: config.salamander_key.clone(),
         socket_protection: config.socket_protection,
     };
-    let (endpoint, current_socket, hopping_socket) =
-        build_endpoint(config, tls_config, socket_spec.clone(), server_addr)?;
+    let (endpoint, current_socket, hopping_socket) = match punched {
+        Some((socket, _)) => build_endpoint_on(config, tls_config, socket_spec.clone(), server_addr, socket)?,
+        None => build_endpoint(config, tls_config, socket_spec.clone(), server_addr)?,
+    };
     let hopping_stop = StopHoppingOnDrop::new(hopping_socket.clone());
     let connection = endpoint.connect(server_addr, &config.server_name)?.await?;
 
@@ -75,7 +92,8 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         max_datagram_size,
         udp_ready_at,
         socket_spec,
-        migrate_after_handshake: config.quic_migrate_after_handshake,
+        // A fresh source port has no NAT mapping towards a realm peer.
+        migrate_after_handshake: config.quic_migrate_after_handshake && config.realm.is_none(),
         migration: QuicMigration::new_not_attempted(current_socket),
         hopping_socket,
     });

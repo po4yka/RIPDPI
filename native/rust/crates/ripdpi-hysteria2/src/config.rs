@@ -19,6 +19,9 @@ pub struct Config {
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
     /// Validated remote port set and exact fixed/random cadence.
     pub port_hopping: Option<PortHoppingConfig>,
+    /// Reach the server through a Hysteria Realm rendezvous instead of
+    /// `server_addr`. Excludes `port_hopping`, as upstream does.
+    pub realm: Option<crate::realm::RealmConfig>,
 }
 
 impl fmt::Debug for Config {
@@ -35,6 +38,7 @@ impl fmt::Debug for Config {
             .field("quic_migrate_after_handshake", &self.quic_migrate_after_handshake)
             .field("socket_protection", &self.socket_protection)
             .field("port_hopping", &self.port_hopping)
+            .field("realm", &self.realm)
             .finish()
     }
 }
@@ -71,6 +75,7 @@ impl Config {
             quic_migrate_after_handshake: false,
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             port_hopping: None,
+            realm: None,
         })
     }
 

@@ -104,6 +104,17 @@ pub(crate) fn build_endpoint(
     server_addr: SocketAddr,
 ) -> Result<(quinn::Endpoint, Option<std::net::UdpSocket>, Option<Arc<HoppingSocket>>)> {
     let socket = build_client_udp_socket(&socket_spec)?;
+    build_endpoint_on(config, tls_config, socket_spec, server_addr, socket)
+}
+
+/// [`build_endpoint`] on a socket the caller already bound and protected.
+pub(crate) fn build_endpoint_on(
+    config: &Config,
+    tls_config: rustls::ClientConfig,
+    socket_spec: ClientSocketSpec,
+    server_addr: SocketAddr,
+    socket: std::net::UdpSocket,
+) -> Result<(quinn::Endpoint, Option<std::net::UdpSocket>, Option<Arc<HoppingSocket>>)> {
     let socket_clone = if config.port_hopping.is_none() { Some(socket.try_clone()?) } else { None };
     let mut hopping_socket = None;
     let mut endpoint = if let Some(policy) = &config.port_hopping {

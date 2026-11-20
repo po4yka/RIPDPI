@@ -281,6 +281,14 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub hysteria_port_hop_interval_max_millis: Option<u64>,
     #[serde(default)]
+    pub hysteria_realm_id: Option<String>,
+    #[serde(default)]
+    pub hysteria_realm_server_url: Option<String>,
+    #[serde(default)]
+    pub hysteria_realm_token: Option<String>,
+    #[serde(default)]
+    pub hysteria_realm_stun_servers: Vec<String>,
+    #[serde(default)]
     pub tuic_uuid: Option<String>,
     #[serde(default)]
     pub tuic_password: Option<String>,

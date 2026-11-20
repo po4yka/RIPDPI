@@ -34,6 +34,15 @@ pub enum HysteriaError {
     InvalidDatagram(String),
     #[error("invalid certificate pin: {0}")]
     InvalidCertificatePin(String),
+    /// Realm rendezvous failed while discovering the public address.
+    #[error("realm STUN discovery failed: {0}")]
+    RealmStun(String),
+    /// Realm rendezvous failed at the rendezvous service.
+    #[error("realm rendezvous failed: {0}")]
+    RealmControl(String),
+    /// Realm rendezvous failed while punching through to the peer.
+    #[error("realm hole punch failed: {0}")]
+    RealmPunch(String),
 }
 
 pub type Result<T> = std::result::Result<T, HysteriaError>;

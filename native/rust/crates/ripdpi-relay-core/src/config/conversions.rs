@@ -32,6 +32,10 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 port_hop_ports: flat.hysteria_port_hop_ports,
                 port_hop_interval_millis: flat.hysteria_port_hop_interval_millis,
                 port_hop_interval_max_millis: flat.hysteria_port_hop_interval_max_millis,
+                realm_id: flat.hysteria_realm_id,
+                realm_server_url: flat.hysteria_realm_server_url,
+                realm_token: flat.hysteria_realm_token,
+                realm_stun_servers: flat.hysteria_realm_stun_servers,
             }),
             "tuic_v5" => RelayBackendConfig::TuicV5(TuicRelayConfig {
                 uuid: flat.tuic_uuid,
@@ -254,6 +258,10 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             hysteria_port_hop_ports: None,
             hysteria_port_hop_interval_millis: None,
             hysteria_port_hop_interval_max_millis: None,
+            hysteria_realm_id: None,
+            hysteria_realm_server_url: None,
+            hysteria_realm_token: None,
+            hysteria_realm_stun_servers: Vec::new(),
             tuic_uuid: None,
             tuic_password: None,
             shadow_tls_password: None,
@@ -301,6 +309,10 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.hysteria_port_hop_ports = config.port_hop_ports.clone();
                 flat.hysteria_port_hop_interval_millis = config.port_hop_interval_millis;
                 flat.hysteria_port_hop_interval_max_millis = config.port_hop_interval_max_millis;
+                flat.hysteria_realm_id = config.realm_id.clone();
+                flat.hysteria_realm_server_url = config.realm_server_url.clone();
+                flat.hysteria_realm_token = config.realm_token.clone();
+                flat.hysteria_realm_stun_servers = config.realm_stun_servers.clone();
             }
             RelayBackendConfig::TuicV5(config) => {
                 flat.tuic_uuid = config.uuid.clone();

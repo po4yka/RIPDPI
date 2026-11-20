@@ -9,6 +9,7 @@ mod hopping_socket;
 mod migration;
 mod port_hopping;
 pub mod quic_transport;
+mod realm;
 mod salamander;
 mod tcp;
 #[cfg(test)]
@@ -27,5 +28,6 @@ pub use quic_transport::{
     QuicTransport, QuicTransportConfig, build_client_udp_socket, build_client_udp_socket_with_policy,
     build_connect_request, build_quic_endpoint, maybe_rebind_endpoint, parse_certificate_pin_sha256,
 };
+pub use realm::RealmConfig;
 pub use tcp::DuplexStream;
 pub use udp::UdpSession;

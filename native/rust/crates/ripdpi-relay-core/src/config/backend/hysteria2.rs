@@ -11,6 +11,12 @@ pub struct Hysteria2RelayConfig {
     pub port_hop_ports: Option<String>,
     pub port_hop_interval_millis: Option<u64>,
     pub port_hop_interval_max_millis: Option<u64>,
+    /// Realm declared for the endpoint. Rendezvous is used only when
+    /// `realm_server_url` is also set; an id alone dials the server directly.
+    pub realm_id: Option<String>,
+    pub realm_server_url: Option<String>,
+    pub realm_token: Option<String>,
+    pub realm_stun_servers: Vec<String>,
 }
 
 impl_redacted_debug!(Hysteria2RelayConfig { insecure, pin_sha256 });
