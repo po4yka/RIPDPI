@@ -1,17 +1,23 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.LogWriter
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
 import com.poyka.ripdpi.core.RelaySocketProtection
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.diagnostics.FieldFailureStage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -390,6 +396,55 @@ class CandidateRelayPayloadProbeTest {
             assertTrue(!probe.cleanupPending.value)
             assertEquals(2, creates)
             assertEquals(2, old.stops)
+        }
+
+    @Test
+    fun `configuration rejection logs its classified reason without profile values`() =
+        runTest {
+            val runtime = FakeCandidateRuntime()
+            val warnings = mutableListOf<String>()
+            val previousWriters = Logger.mutableConfig.logWriterList
+            val probe =
+                CandidateRelayPayloadProbe(
+                    resolve = { _, _, _ ->
+                        throw ServiceStartupRejectedException(
+                            FailureReason.RelayFingerprintPolicyRejected("relay.example rejected"),
+                        )
+                    },
+                    runtimeFactory = factory(runtime),
+                    httpProbe = capabilities { _, _ -> error("HTTP must not run after a configuration rejection") },
+                    environment = { environment() },
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                )
+            try {
+                Logger.setLogWriters(
+                    object : LogWriter() {
+                        override fun log(
+                            severity: Severity,
+                            message: String,
+                            tag: String,
+                            throwable: Throwable?,
+                        ) {
+                            if (severity == Severity.Warn) warnings += message
+                        }
+                    },
+                )
+                assertEquals(
+                    CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Configuration),
+                    probe.measure(
+                        RelayProfileRecord(id = "candidate", kind = RelayKindHysteria2, server = "relay.example"),
+                        RelayCredentialRecord(profileId = "candidate", hysteriaPassword = CredentialFixture),
+                        "https://probe",
+                    ),
+                )
+            } finally {
+                Logger.setLogWriters(previousWriters)
+            }
+            assertEquals(
+                listOf("Candidate relay check rejected: kind=hysteria2 reason=RelayFingerprintPolicyRejected"),
+                warnings,
+            )
+            assertEquals(null, runtime.config)
         }
 
     private fun kotlinx.coroutines.test.TestScope.create(

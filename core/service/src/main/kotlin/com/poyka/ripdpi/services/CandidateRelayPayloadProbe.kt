@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
 import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
@@ -8,8 +9,11 @@ import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.diagnostics.FieldFailureStage
 import com.poyka.ripdpi.data.diagnostics.nativeFieldFailureStage
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -29,8 +33,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /** Owns an ephemeral relay solely for an HTTP payload measurement; never activates a stored profile. */
 @Singleton
@@ -145,7 +147,13 @@ class CandidateRelayPayloadProbe internal constructor(
                 throw cancelled
             } catch (_: UnsupportedOperationException) {
                 return@withLock CandidateRelayMeasurement.Unsupported
+            } catch (rejected: ServiceStartupRejectedException) {
+                // Reason type only: its message can name the server.
+                val reason = rejected.reason::class.simpleName
+                Logger.w { "Candidate relay check rejected: kind=${profile.kind} reason=$reason" }
+                return@withLock CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Configuration)
             } catch (_: Exception) {
+                Logger.w { "Candidate relay check rejected: kind=${profile.kind} reason=configuration" }
                 return@withLock CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Configuration)
             }
             measureResolved(config, listenerCredentials, before, httpDeadlineMillis, probe)
