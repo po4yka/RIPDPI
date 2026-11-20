@@ -43,7 +43,12 @@ pub fn init_android_logging(tag: &'static str) {
 
             let _ = LogTracer::init();
 
-            let _ = tracing_subscriber::registry().with(AndroidLogLayer).with(EventRingLayer::global()).try_init();
+            // A metadata-only per-layer filter caches the decision per callsite, so
+            // third-party DEBUG/TRACE events are never formatted for logcat.
+            let logcat = AndroidLogLayer.with_filter(tracing_subscriber::filter::filter_fn(|metadata| {
+                allows_log_target(metadata.target(), tracing_log::AsLog::as_log(metadata.level()))
+            }));
+            let _ = tracing_subscriber::registry().with(logcat).with(EventRingLayer::global()).try_init();
         }
 
         log::set_max_level(default_android_log_level());

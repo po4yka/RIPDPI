@@ -23,18 +23,8 @@ where
             return;
         }
         let metadata = event.metadata();
-        let level = match *metadata.level() {
-            tracing::Level::ERROR => log::Level::Error,
-            tracing::Level::WARN => log::Level::Warn,
-            tracing::Level::INFO => log::Level::Info,
-            tracing::Level::DEBUG => log::Level::Debug,
-            tracing::Level::TRACE => log::Level::Trace,
-        };
-        // Filter on the original target: the re-emitted record carries this crate's target.
-        if !crate::logging::allows_log_target(metadata.target(), level) {
-            return;
-        }
         let message = visitor.finish(metadata.target());
+        let level = tracing_log::AsLog::as_log(metadata.level());
         log::log!(level, "{message}");
     }
 }
