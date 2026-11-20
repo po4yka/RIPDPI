@@ -187,7 +187,7 @@ Import coverage does not prove a connection on an Android device.
 | DNS-morph | No recipient export or app runtime kind. |
 | Hysteria realm | Topology metadata only; it does not enable a realm/STUN client. |
 | Probe matrix: VLESS XHTTP, Trojan TCP/TLS | Profile types exist, but these research listeners need separate profiles and connection checks. |
-| Probe matrix: Trojan XHTTP, MTProto, TLS control | Trojan XHTTP is rejected. MTProto and the TLS control listener are not VPN subscription profiles. |
+| Probe matrix: Trojan XHTTP, MTProto, TLS control | Trojan XHTTP is rejected at import as an unsupported transport. The native XHTTP carrier sends a VLESS request and removes a VLESS response header, and the relay configuration has no transport field for Trojan. The server uses this listener only as a measurement target for `vpnd probe-matrix`; the recipient exporter does not emit it. MTProto and the TLS control listener are not VPN subscription profiles. |
 | Server WARP, split-hop, cascade, tailnet | Server egress, topology or management functions. Client compatibility depends on the public ingress protocol. |
 
 The importer resolves the outer selector and bounded nested groups. It rejects
