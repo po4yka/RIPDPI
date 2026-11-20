@@ -31,11 +31,16 @@ class NativeRelayProfileValidationResultTest {
                 validateNativeRelayProfileResult(profile.copy(xhttpMaxConnections = count)).isSuccess,
             )
         }
-        assertTrue(
-            validateNativeRelayProfileResult(
-                profile.copy(xhttpMaxConnections = 1, xhttpMode = RelayXhttpModeAuto),
-            ).isFailure,
-        )
+        // Native splits pooled packet-up too, but the deploy tool emits pools only with stream-up.
+        listOf(RelayXhttpModeAuto, "packet-up", "stream-one").forEach { mode ->
+            org.junit.Assert.assertEquals(
+                mode,
+                "Unsupported XHTTP pool settings",
+                validateNativeRelayProfileResult(profile.copy(xhttpMaxConnections = 1, xhttpMode = mode))
+                    .exceptionOrNull()
+                    ?.message,
+            )
+        }
         assertTrue(validateNativeRelayProfileResult(profile.copy(xhttpMaxConnections = 1, xhttpPath = null)).isFailure)
         assertTrue(
             validateNativeRelayProfileResult(

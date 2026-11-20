@@ -216,7 +216,7 @@ fun validateVlessRealityEndpointFields(
 
 fun validateRelayXhttpMode(value: String) {
     require(isValidRelayXhttpMode(value)) {
-        "xHTTP mode must be 'auto', 'stream-up', 'stream-one', or empty"
+        "xHTTP mode must be 'auto', 'packet-up', 'stream-up', 'stream-one', or empty"
     }
 }
 
