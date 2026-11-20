@@ -425,10 +425,14 @@ sealed class Route {
         override val icon: ImageVector? = null
     }
 
-    /** [importToken] optionally names a staged `.conf` that prefills the editor. */
+    /**
+     * [importToken] optionally names a staged `.conf` that prefills the editor; [profileId] opens a
+     * saved profile. Both are opaque ids: profile secrets never travel in navigation arguments.
+     */
     @Serializable
     data class AmneziaWgProfile(
         val importToken: String = "",
+        val profileId: String = "",
     ) : Route() {
         @kotlinx.serialization.Transient
         override val stableRoute = "profile/amneziawg"

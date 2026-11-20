@@ -11,6 +11,8 @@ internal object ProfileUtilityTestTags {
     const val Cleanup = "profile_utility_cleanup"
     const val EmptyImport = "profile_utility_empty_import"
 
+    fun awgRow(profileId: String): String = "profile_utility_awg:${profileId}_row"
+
     fun action(
         reference: ProfileUtilityReference,
         action: String,

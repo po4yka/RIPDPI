@@ -373,6 +373,7 @@
     <string name="subscription_add_continue">Продолжить</string>
     <string name="awg_conf_import_failed_title">Конфигурация не импортирована</string>
     <string name="awg_conf_import_failed_body">Текст не является корректным файлом .conf WireGuard или AmneziaWG либо использует параметры, которые RIPDPI не поддерживает.</string>
+    <string name="awg_conf_subscription_server_mismatch_body">Этот конфиг относится к другому серверу, а не к серверу этого профиля подписки. Используйте конфиг для того же сервера.</string>
     <string name="awg_conf_import_unreadable_body">RIPDPI не удалось прочитать файл. Он пустой, больше 64 КБ или не является текстовым.</string>
     <string name="awg_conf_extra_peers_title">Используется только первый пир</string>
     <string name="awg_conf_extra_peers_body">Пропущено дополнительных разделов [Peer]: %1$d. RIPDPI подключается только через первый пир.</string>

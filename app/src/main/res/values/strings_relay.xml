@@ -379,6 +379,7 @@
     <string name="subscription_add_continue">Continue</string>
     <string name="awg_conf_import_failed_title">Config not imported</string>
     <string name="awg_conf_import_failed_body">The text is not a valid WireGuard or AmneziaWG .conf, or it uses options that RIPDPI does not support.</string>
+    <string name="awg_conf_subscription_server_mismatch_body">This config is for a different server than this subscription profile. Use the config for the same server.</string>
     <string name="awg_conf_import_unreadable_body">RIPDPI could not read the file. It is empty, larger than 64 KB, or not a text file.</string>
     <string name="awg_conf_extra_peers_title">Only the first peer is used</string>
     <string name="awg_conf_extra_peers_body">Extra [Peer] sections ignored: %1$d. RIPDPI connects through the first peer only.</string>

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.profiles
 
 import com.poyka.ripdpi.data.ProfileUtilityReference
+import com.poyka.ripdpi.data.awg.SavedAwgProfile
 import kotlinx.collections.immutable.ImmutableList
 
 internal data class ProfileUtilityUiState(
@@ -29,6 +30,19 @@ internal data class ProfileUtilityItem(
     val measurement: ProfileMeasurementUiState,
     val quality: ProfileQualityUiState? = null,
 )
+
+/**
+ * A saved AmneziaWG profile. It opens in its editor instead of the relay measurement flow, which
+ * cannot probe an AWG tunnel. [needsPrivateKey] marks a subscription row delivered without its key.
+ */
+internal data class AwgProfileItem(
+    val id: String,
+    val name: String,
+    val needsPrivateKey: Boolean,
+)
+
+internal fun SavedAwgProfile.toAwgProfileItem(): AwgProfileItem =
+    AwgProfileItem(id, name, needsPrivateKey = request.privateKey.isBlank())
 
 internal sealed interface ProfileMeasurementUiState {
     data object NotChecked : ProfileMeasurementUiState

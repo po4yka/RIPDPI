@@ -367,6 +367,7 @@
     <string name="subscription_add_continue">Continuar</string>
     <string name="awg_conf_import_failed_title">Configuração não importada</string>
     <string name="awg_conf_import_failed_body">O texto não é um .conf do WireGuard ou do AmneziaWG válido, ou usa opções que o RIPDPI não aceita.</string>
+    <string name="awg_conf_subscription_server_mismatch_body">Esta configuração é de um servidor diferente do deste perfil de assinatura. Use a configuração do mesmo servidor.</string>
     <string name="awg_conf_import_unreadable_body">O RIPDPI não conseguiu ler o arquivo. Ele está vazio, tem mais de 64 KB ou não é um arquivo de texto.</string>
     <string name="awg_conf_extra_peers_title">Apenas o primeiro par é usado</string>
     <string name="awg_conf_extra_peers_body">Seções [Peer] extras ignoradas: %1$d. O RIPDPI se conecta apenas pelo primeiro par.</string>

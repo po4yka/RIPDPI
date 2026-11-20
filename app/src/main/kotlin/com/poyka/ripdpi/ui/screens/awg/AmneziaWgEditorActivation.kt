@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.awg
 import com.poyka.ripdpi.data.awg.AwgActivationField
 import com.poyka.ripdpi.data.awg.AwgActivationInputException
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.isValidAwgMtu
 import com.poyka.ripdpi.data.awg.toActivationRequest
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
@@ -38,6 +39,59 @@ fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRe
         mtu = mtu,
         persistentKeepalive = keepalive,
         persistentKeepaliveMax = keepaliveMax ?: 0,
+    )
+}
+
+/** Opens a saved request in the editor; [toActivationRequest] maps the result back to the same request. */
+fun AwgActivationRequest.toEditorState(): AmneziaWgEditorState {
+    val form =
+        AwgProfileForm(
+            wireProfile = obfuscation.wireProfile,
+            server = endpointHost,
+            serverPort = endpointPort,
+            interfacePrivateKey = privateKey,
+            peerPublicKey = peerPublicKey,
+            presharedKey = presharedKey,
+            jc = obfuscation.jc,
+            jmin = obfuscation.jmin,
+            jmax = obfuscation.jmax,
+            s1 = obfuscation.s1,
+            s2 = obfuscation.s2,
+            s3 = obfuscation.s3,
+            s4 = obfuscation.s4,
+            h1 = obfuscation.h1,
+            h2 = obfuscation.h2,
+            h3 = obfuscation.h3,
+            h4 = obfuscation.h4,
+            i1 = obfuscation.i1,
+            i2 = obfuscation.i2,
+            i3 = obfuscation.i3,
+            i4 = obfuscation.i4,
+            i5 = obfuscation.i5,
+            v3 = obfuscation.v3,
+            carrier = carrier,
+            carrierWsUrl = carrierWsUrl,
+        )
+    val transport =
+        mapOf(
+            AwgEditorField.ADDRESS to
+                listOf(interfaceAddressV4, interfaceAddressV6)
+                    .filter(String::isNotEmpty)
+                    .joinToString(", "),
+            AwgEditorField.DNS to dnsServers.joinToString(", "),
+            AwgEditorField.MTU to mtu.toString(),
+            AwgEditorField.ALLOWED_IPS to allowedIps.joinToString(", "),
+            AwgEditorField.PERSISTENT_KEEPALIVE to
+                if (persistentKeepaliveMax > 0) {
+                    "$persistentKeepalive-$persistentKeepaliveMax"
+                } else {
+                    persistentKeepalive.toString()
+                },
+        )
+    return AmneziaWgEditorState(
+        form = form,
+        rawTextByField = form.identityRawText() + form.obfuscationRawText() + transport,
+        obfuscationLocked = false,
     )
 }
 

@@ -23,6 +23,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchControls
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchEmpty
@@ -33,6 +34,8 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import java.text.NumberFormat
 
 internal class ProfileUtilityActions(
@@ -46,6 +49,8 @@ internal class ProfileUtilityActions(
     val retryCatalog: () -> Unit = {},
     // Null where the host has no import entry.
     val importProfile: (() -> Unit)? = null,
+    // Opens a saved AmneziaWG profile in its editor by id.
+    val openAwgProfile: ((String) -> Unit)? = null,
 )
 
 @Composable
@@ -54,6 +59,7 @@ internal fun ProfileUtilityScreen(
     onBack: () -> Unit,
     actions: ProfileUtilityActions,
     modifier: Modifier = Modifier,
+    awgProfiles: ImmutableList<AwgProfileItem> = persistentListOf(),
 ) {
     val search = rememberProfileSearchState()
     val catalog =
@@ -121,6 +127,27 @@ internal fun ProfileUtilityScreen(
                     ) {
                         ProfileUtilityRow(it, state, actions)
                     }
+                }
+            }
+        }
+        val openAwgProfile = actions.openAwgProfile
+        if (openAwgProfile != null && awgProfiles.isNotEmpty()) {
+            item(key = "section:awg", contentType = "section") {
+                SettingsCategoryHeader(title = "AmneziaWG")
+            }
+            items(awgProfiles, key = { ProfileUtilityTestTags.awgRow(it.id) }, contentType = { "awg" }) { profile ->
+                RipDpiCard {
+                    SettingsRow(
+                        title = profile.name,
+                        subtitle = stringResource(R.string.awg_field_private_key).takeIf { profile.needsPrivateKey },
+                        value =
+                            stringResource(R.string.settings_permission_status_required).takeIf {
+                                profile.needsPrivateKey
+                            },
+                        onClick = { openAwgProfile(profile.id) },
+                        showChevron = true,
+                        testTag = ProfileUtilityTestTags.awgRow(profile.id),
+                    )
                 }
             }
         }

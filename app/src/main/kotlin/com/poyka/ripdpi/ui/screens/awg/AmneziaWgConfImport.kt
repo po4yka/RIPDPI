@@ -149,6 +149,9 @@ enum class AwgConfImportFailure {
 
     /** The config requests a fixed local port, which the editor cannot apply. */
     UNSUPPORTED_LISTEN_PORT,
+
+    /** The config names another server than the subscription profile it would update. */
+    SUBSCRIPTION_SERVER_MISMATCH,
 }
 
 /** Outcome of [AmneziaWgEditorState.importConf]. */

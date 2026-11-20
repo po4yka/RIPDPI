@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -286,6 +287,35 @@ class ProfileUtilityScreenTest {
         assertEquals(1, calls)
     }
 
+    @Test
+    fun `saved AmneziaWG profiles open their editor and mark a missing key`() {
+        val opened = mutableListOf<String>()
+        render(
+            state(),
+            ProfileUtilityActions(
+                { _, _, _ -> error("Unexpected favorite") },
+                { error("Unexpected check") },
+                { error("Unexpected selection") },
+                { error("Unexpected cancel") },
+                { error("Unexpected cleanup") },
+                { error("Unexpected probe URL edit") },
+                { error("Unexpected fastest selection") },
+                openAwgProfile = { opened += it },
+            ),
+            listOf(
+                AwgProfileItem("awg-sub", "Home AWG", needsPrivateKey = true),
+                AwgProfileItem("awg-own", "Own", false),
+            ),
+        )
+
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-sub")).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(text(R.string.settings_permission_status_required)).assertIsDisplayed()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-own")).performScrollTo().performClick()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-sub")).performScrollTo().performClick()
+
+        assertEquals(listOf("awg-own", "awg-sub"), opened)
+    }
+
     private fun openDetails() {
         composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "details")).performScrollTo().performClick()
     }
@@ -337,8 +367,18 @@ class ProfileUtilityScreenTest {
     private fun render(
         state: ProfileUtilityUiState,
         actions: ProfileUtilityActions,
+        awgProfiles: List<AwgProfileItem> = emptyList(),
     ) {
-        composeRule.setContent { RipDpiTheme { ProfileUtilityScreen(state, { error("Unexpected back") }, actions) } }
+        composeRule.setContent {
+            RipDpiTheme {
+                ProfileUtilityScreen(
+                    state,
+                    { error("Unexpected back") },
+                    actions,
+                    awgProfiles = awgProfiles.toPersistentList(),
+                )
+            }
+        }
     }
 
     private fun text(id: Int) = RuntimeEnvironment.getApplication().getString(id)

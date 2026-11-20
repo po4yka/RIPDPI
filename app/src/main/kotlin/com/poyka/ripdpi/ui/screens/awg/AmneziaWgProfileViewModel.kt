@@ -121,6 +121,11 @@ class AmneziaWgProfileViewModel
          * field is sufficient.
          */
         private var savedProfileId: String? = null
+        private var savedProfileName: String? = null
+
+        /** The subscription profile this editor updates; a pasted `.conf` must keep its server. */
+        private var subscriptionServer: AwgActivationRequest? = null
+        private var requestedProfileId: String? = null
         private var claimedImportToken: String? = null
         private var pendingConsent: Pair<String, AmneziaWgEditorState>? = null
         private val consentRequests = Channel<AwgVpnConsentRequest>(Channel.BUFFERED)
@@ -206,6 +211,14 @@ class AmneziaWgProfileViewModel
                     }
 
                     is AwgConfImport.Imported -> {
+                        if (subscriptionServer?.isServerOf(result.editor.form) == false) {
+                            return@update state.copy(
+                                confImportFailure =
+                                    AwgConfImport.Failed(
+                                        AwgConfImportFailure.SUBSCRIPTION_SERVER_MISMATCH,
+                                    ),
+                            )
+                        }
                         state.withEditor(result.editor).copy(
                             ignoredPeerCount = result.ignoredPeerCount,
                             ignoredConfOptions = result.ignoredOptions.toImmutableList(),
@@ -231,6 +244,21 @@ class AmneziaWgProfileViewModel
             if (importToken == claimedImportToken) return
             claimedImportToken = importToken
             pendingImports.claimAmneziaWgConf(importToken)?.let(::onConfPasted)
+        }
+
+        /**
+         * Opens the saved profile [profileId] once, unless the user already started editing. Save then
+         * updates that row, so a subscription profile keeps its id and subscription link.
+         */
+        suspend fun onLoadProfile(profileId: String) {
+            if (profileId == requestedProfileId) return
+            requestedProfileId = profileId
+            val saved = profileRepository.load(profileId) ?: return
+            if (_uiState.value.editor != AmneziaWgEditorState.initial()) return
+            savedProfileId = saved.id
+            savedProfileName = saved.name
+            subscriptionServer = saved.request.takeIf { saved.subscriptionOwned }
+            _uiState.update { it.withEditor(saved.request.toEditorState()) }
         }
 
         /** Reads the clipboard only in response to the editor's explicit Paste action. */
@@ -314,6 +342,7 @@ class AmneziaWgProfileViewModel
          * profile-list UI label; it lives only inside the serialized blob as user config.
          */
         private fun profileName(editor: AmneziaWgEditorState): String {
+            savedProfileName?.let { return it }
             val cohort = editor.form.cohortId
             return if (cohort == AwgProfileForm.CUSTOM_COHORT_ID) "AmneziaWG" else "AmneziaWG ($cohort)"
         }
@@ -350,6 +379,9 @@ private fun AmneziaWgProfileUiState.withEditor(nextEditor: AmneziaWgEditorState)
         activationStatus =
             if (activationStatus == AwgActivationStatus.Failed) AwgActivationStatus.Idle else activationStatus,
     )
+
+private fun AwgActivationRequest.isServerOf(form: AwgProfileForm): Boolean =
+    form.server == endpointHost && form.serverPort == endpointPort && form.peerPublicKey == peerPublicKey
 
 private fun buildCohortOptions(catalog: AwgCohortCatalogData): List<AwgCohortOption> =
     catalog.presets.map { AwgCohortOption(id = it.id, displayNameKey = it.displayNameKey) } +

@@ -289,6 +289,7 @@ app:awg_conf_ignored_options_title
 app:awg_conf_import_failed_body
 app:awg_conf_import_failed_title
 app:awg_conf_import_unreadable_body
+app:awg_conf_subscription_server_mismatch_body
 app:awg_conf_unsupported_option_body
 app:awg_connect_action
 app:awg_connect_error

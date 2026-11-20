@@ -69,9 +69,12 @@ fun AmneziaWgProfileRoute(
     onRequestPrivateKeyReveal: (() -> Unit)? = null,
     onRequestPresharedKeyReveal: (() -> Unit)? = null,
     importToken: String = "",
+    profileId: String = "",
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(importToken) {
+    LaunchedEffect(profileId, importToken) {
+        // The saved profile loads first so a staged .conf is applied on top of it.
+        if (profileId.isNotEmpty()) viewModel.onLoadProfile(profileId)
         if (importToken.isNotEmpty()) viewModel.onImportToken(importToken)
     }
     var consentRequestId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -183,6 +186,10 @@ internal fun AmneziaWgProfileScreen(
 
                         AwgConfImportFailure.UNSUPPORTED_LISTEN_PORT -> {
                             stringResource(R.string.awg_conf_unsupported_option_body, "ListenPort")
+                        }
+
+                        AwgConfImportFailure.SUBSCRIPTION_SERVER_MISMATCH -> {
+                            stringResource(R.string.awg_conf_subscription_server_mismatch_body)
                         }
                     },
                 testTag = RipDpiTestTags.AwgConfImportFailed,

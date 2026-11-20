@@ -99,9 +99,11 @@ private fun NavGraphBuilder.addCapturedImportRoutes(navController: NavHostContro
         )
     }
     composable<Route.AmneziaWgProfile> { entry ->
+        val route = entry.toRoute<Route.AmneziaWgProfile>()
         AmneziaWgProfileRoute(
             onBack = { navController.popBackStack() },
-            importToken = entry.toRoute<Route.AmneziaWgProfile>().importToken,
+            importToken = route.importToken,
+            profileId = route.profileId,
         )
     }
 }

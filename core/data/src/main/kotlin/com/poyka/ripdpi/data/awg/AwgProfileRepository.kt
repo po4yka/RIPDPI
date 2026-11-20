@@ -40,6 +40,8 @@ data class SavedAwgProfile(
     val id: String,
     val name: String,
     val request: AwgActivationRequest,
+    /** A subscription refresh owns this row's server; local edits keep the key and network policy. */
+    val subscriptionOwned: Boolean = false,
 )
 
 /**
@@ -340,6 +342,7 @@ class AwgProfileRepository
                                     ),
                             ),
                     ),
+                subscriptionOwned = subscriptionOrigin() != null,
             )
         }
 
