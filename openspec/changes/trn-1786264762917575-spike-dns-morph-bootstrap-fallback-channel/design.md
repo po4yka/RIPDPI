@@ -11,8 +11,8 @@ Portfolio task `TRN-1786264762917575` owns this change. DNS-Morph (Ailabouni-Dun
 ## Decisions
 
 - Purpose: reserve delivery of the signed subscription body. The bridge never carries VPN traffic; the delivered bundle then selects the data plane as an HTTPS refresh would.
-- Authentication: Ed25519 over a domain label, a per-fetch client nonce and the payload. The nonce prevents replay of a recorded reply; the pinned key comes only from an accepted bundle.
-- Wire: one TXT answer per 180-byte envelope chunk, stop-and-wait, 512-byte datagram cap, 64 KiB payload cap, three 2 s attempts per chunk inside a 90 s budget.
+- Authentication and secrecy (v2, owner decision after the push-time security review found v1 exposed bundle credentials): every query carries a truncated HMAC-SHA256 from a per-subscriber token, so the bridge answers only that subscriber and stays silent to probers. The payload is sealed with ChaCha20-Poly1305 under an HKDF key from an X25519 exchange between a fresh client key and a bridge key derived from the Ed25519 seed, salted with the token. Ed25519 signs the sealed envelope and the client key, so a recorded reply does not verify for another fetch. The pinned key and token come only from an accepted bundle and are stored sealed with it.
+- Wire: two request labels, one TXT answer per 180-byte envelope chunk, stop-and-wait, 512-byte datagram cap, 60-character zone cap, 64 KiB payload cap, three 2 s attempts per chunk inside a 90 s budget.
 - Placement: blocking `std` UDP client (no async runtime), protected through `ripdpi-runtime-platform` before the first send. The Kotlin refresh coordinator owns the fallback order; the channel never masks the HTTPS failure.
 - No user-visible strings: the channel shows through the existing refresh status.
 

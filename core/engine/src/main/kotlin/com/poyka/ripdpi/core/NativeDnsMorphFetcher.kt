@@ -37,10 +37,12 @@ class NativeDnsMorphFetcher
     constructor(
         private val bindings: NativeDnsMorphFetcherBindings,
     ) : DnsMorphFetcher {
-        // shortcut: the native call is not cancellable; it ends within its 90 s deadline. Add a cancel handle if a caller needs to stop sooner.
+        // shortcut: the native call is not cancellable and ends within its 90 s deadline.
+        // Add a cancel handle if a caller needs to stop sooner.
         override suspend fun fetch(bridge: DnsMorphBridge): ByteArray =
             withContext(Dispatchers.IO) {
-                val request = NativeDnsMorphRequest(bridge.address, bridge.port, bridge.zone, bridge.publicKey)
+                val request =
+                    NativeDnsMorphRequest(bridge.address, bridge.port, bridge.zone, bridge.publicKey, bridge.token)
                 val reply =
                     try {
                         bindings.fetch(RipDpiJson.encodeToString(NativeDnsMorphRequest.serializer(), request))
@@ -69,7 +71,10 @@ private data class NativeDnsMorphRequest(
     val port: Int,
     val zone: String,
     val publicKey: String,
-)
+    val token: String,
+) {
+    override fun toString(): String = "NativeDnsMorphRequest([REDACTED])"
+}
 
 @Serializable
 private data class NativeDnsMorphResponse(

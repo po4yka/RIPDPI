@@ -18,6 +18,7 @@ struct FetchRequest {
     port: u16,
     zone: String,
     public_key: String,
+    token: String,
 }
 
 #[derive(Serialize)]
@@ -52,18 +53,19 @@ fn fetch(request_json: &str) -> Result<Vec<u8>, String> {
     let request: FetchRequest =
         serde_json::from_str(request_json).map_err(|_| "invalid DNS-Morph request".to_string())?;
     let ip: IpAddr = request.address.parse().map_err(|_| "invalid DNS-Morph bridge address".to_string())?;
-    let public_key: [u8; 32] = STANDARD
-        .decode(request.public_key)
-        .ok()
-        .and_then(|key| key.try_into().ok())
-        .ok_or_else(|| "invalid DNS-Morph public key".to_string())?;
+    let public_key = decode_key(&request.public_key).ok_or_else(|| "invalid DNS-Morph public key".to_string())?;
+    let token = decode_key(&request.token).ok_or_else(|| "invalid DNS-Morph token".to_string())?;
     let bridge =
-        Bridge::new(SocketAddr::new(ip, request.port), &request.zone, public_key).map_err(|e| e.to_string())?;
+        Bridge::new(SocketAddr::new(ip, request.port), &request.zone, public_key, token).map_err(|e| e.to_string())?;
     ripdpi_dns_morph::fetch(&bridge, FETCH_DEADLINE, |fd| {
         // No callback means no active VPN: the direct socket cannot loop into a TUN.
         if has_protect_callback() { protect_socket_via_callback(fd) } else { Ok(()) }
     })
     .map_err(|error| error.to_string())
+}
+
+fn decode_key(encoded: &str) -> Option<[u8; 32]> {
+    STANDARD.decode(encoded).ok()?.try_into().ok()
 }
 
 fn response(result: Result<Vec<u8>, String>) -> String {
@@ -83,9 +85,11 @@ mod tests {
         let key = STANDARD.encode([0u8; 32]);
         for request in [
             "{}".to_string(),
-            format!(r#"{{"address":"bridge.example","port":53,"zone":"m.test","publicKey":"{key}"}}"#),
-            r#"{"address":"192.0.2.1","port":53,"zone":"m.test","publicKey":"AAAA"}"#.to_string(),
-            format!(r#"{{"address":"192.0.2.1","port":53,"zone":"m.test","publicKey":"{key}","extra":1}}"#),
+            format!(r#"{{"address":"bridge.example","port":53,"zone":"m.test","publicKey":"{key}","token":"{key}"}}"#),
+            r#"{"address":"192.0.2.1","port":53,"zone":"m.test","publicKey":"AAAA","token":"AAAA"}"#.to_string(),
+            format!(
+                r#"{{"address":"192.0.2.1","port":53,"zone":"m.test","publicKey":"{key}","token":"{key}","extra":1}}"#
+            ),
         ] {
             assert!(fetch(&request).is_err(), "{request}");
         }

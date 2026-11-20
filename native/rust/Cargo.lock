@@ -5970,7 +5970,9 @@ dependencies = [
  "data-encoding",
  "hickory-proto",
  "ring",
+ "subtle",
  "thiserror 2.0.21",
+ "x25519-dalek 3.0.0",
 ]
 
 [[package]]

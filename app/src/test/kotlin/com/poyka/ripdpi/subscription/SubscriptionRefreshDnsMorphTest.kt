@@ -13,11 +13,13 @@ import java.util.Base64
 
 class SubscriptionRefreshDnsMorphTest : SubscriptionRefreshTestSupport() {
     private val publicKey = Base64.getEncoder().encodeToString(ByteArray(32) { 3 })
-    private val declared = DnsMorphBridge("192.0.2.53", 53, "morph.example.test", publicKey)
+    private val token = Base64.getEncoder().encodeToString(ByteArray(32) { 5 })
+    private val declared = DnsMorphBridge("192.0.2.53", 53, "morph.example.test", publicKey, token)
     private val bundleWithBridge =
         """{"outbounds":[{"type":"trojan","tls":{"enabled":true},"tag":"first","server":"relay.example",
         "server_port":443,"password":"fixture-password"}],"ripdpi":{"schema_version":3,"dns_morph":
-        {"address":"192.0.2.53","port":53,"zone":"Morph.Example.Test","public_key":"$publicKey"}}}"""
+        {"address":"192.0.2.53","port":53,"zone":"Morph.Example.Test","public_key":"$publicKey",
+        "token":"$token"}}}"""
     private val bundleFromBridge =
         """{"outbounds":[{"type":"trojan","tls":{"enabled":true},"tag":"from-bridge","server":"relay.example",
         "server_port":443,"password":"fixture-password"}],"ripdpi":{"schema_version":3}}"""

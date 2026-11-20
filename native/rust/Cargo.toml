@@ -290,6 +290,7 @@ hickory-resolver = { git = "https://github.com/hickory-dns/hickory-dns.git", rev
 smoltcp = { version = "0.14", default-features = false, features = ["std", "async", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
 thiserror = "2"
 data-encoding = "2.11"
+subtle = "2.6"
 tokio = { version = "1", default-features = false }
 tor-error = { version = "0.48.0" }
 tor-ptmgr = { version = "0.48.0" }

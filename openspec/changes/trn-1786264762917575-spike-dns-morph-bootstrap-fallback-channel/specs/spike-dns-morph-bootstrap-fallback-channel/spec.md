@@ -1,6 +1,6 @@
 ## Purpose
 
-Define the observable contract of the DNS-Morph v1 delivery channel: an optional, bundle-declared UDP path that delivers a signed subscription body when every HTTPS endpoint of a refresh fails. The wire format is in `docs/server-integration.md` ("DNS-Morph bootstrap channel").
+Define the observable contract of the DNS-Morph v2 delivery channel: an optional, bundle-declared UDP path that delivers a sealed and signed subscription body when every HTTPS endpoint of a refresh fails. The wire format is in `docs/server-integration.md` ("DNS-Morph bootstrap channel").
 
 ## ADDED Requirements
 
@@ -13,18 +13,23 @@ The `ripdpi-dns-morph` crate MUST build into `libripdpi.so` for every supported 
 - **WHEN** the native workspace builds for armeabi-v7a, arm64-v8a, x86 and x86_64
 - **THEN** the crate compiles and the JNI symbol baseline lists the export
 
-### Requirement: REQ-TRN-1786264762917575-002 — Signed payload delivery against a loopback bridge
+### Requirement: REQ-TRN-1786264762917575-002 — Sealed, signed payload delivery against a loopback bridge
 
-The client MUST fetch a payload from a loopback bridge that speaks DNS-Morph v1 and MUST return it only when the Ed25519 signature over the session nonce and payload verifies with the declared key. A tampered chunk, a foreign key, a datagram over 512 bytes, or a declared envelope over the payload limit MUST fail the fetch. The socket MUST be protected before its first datagram, and a protection failure MUST send nothing.
+The client MUST return a payload from a DNS-Morph v2 bridge only when its Ed25519 signature verifies with the declared key and it decrypts. The bridge MUST answer only token-authenticated queries, each with that subscriber's own payload. The socket MUST be protected before its first datagram.
 
 #### Scenario: Verify criterion 2
 
 - **WHEN** `cargo test -p ripdpi-dns-morph --locked` runs the loopback bridge tests
-- **THEN** the valid payload is delivered and every hostile response is rejected
+- **THEN** the valid payload is delivered, no run of it appears in plaintext on the wire, and an unknown token gets no answer
+
+#### Scenario: Hostile responses fail the fetch
+
+- **WHEN** the bridge sends a tampered chunk, a foreign signature, a datagram over 512 bytes, or a declared envelope over the payload limit
+- **THEN** the fetch fails, and a protection failure sends no datagram
 
 ### Requirement: REQ-TRN-1786264762917575-003 — Ordinary queries stay with the bridge forwarder
 
-The bridge responder MUST leave every query that is not a DNS-Morph v1 request under its zone unanswered by the protocol, so the bridge forwards it to its local resolver.
+The bridge responder MUST leave every query that is not an authenticated DNS-Morph v2 request under its zone unanswered by the protocol, so the bridge forwards it to its local resolver.
 
 #### Scenario: Verify criterion 3
 

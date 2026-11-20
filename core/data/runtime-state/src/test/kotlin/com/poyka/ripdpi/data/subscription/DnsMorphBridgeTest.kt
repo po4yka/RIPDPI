@@ -18,10 +18,13 @@ class DnsMorphBridgeTest {
     fun `parses a declared bridge and lowercases its zone`() {
         val bridge =
             parseDnsMorphBridge(
-                block("""{"address":"2001:db8::53","port":5353,"zone":"Morph.Example","public_key":"$key"}"""),
+                block(
+                    """{"address":"2001:db8::53","port":5353,"zone":"Morph.Example",
+                    "public_key":"$key","token":"$key"}""",
+                ),
             )
 
-        assertEquals(DnsMorphBridge("2001:db8::53", 5353, "morph.example", key), bridge)
+        assertEquals(DnsMorphBridge("2001:db8::53", 5353, "morph.example", key, key), bridge)
     }
 
     @Test
@@ -37,6 +40,7 @@ class DnsMorphBridgeTest {
                 "port" to "53",
                 "zone" to "\"m.example\"",
                 "public_key" to "\"$key\"",
+                "token" to "\"$key\"",
             )
         val invalid =
             listOf(
@@ -48,6 +52,11 @@ class DnsMorphBridgeTest {
                 "zone" to "\"-m.example\"",
                 "public_key" to "\"${Base64.getEncoder().encodeToString(ByteArray(31))}\"",
                 "public_key" to "\"not base64\"",
+                "token" to "\"${Base64.getEncoder().encodeToString(ByteArray(16))}\"",
+                "token" to "\"${key.trimEnd('=')}\"",
+                "address" to "\"224.0.0.1\"",
+                "address" to "\"0.0.0.0\"",
+                "zone" to "\"${"a".repeat(30)}.${"b".repeat(30)}\"",
             )
         for ((field, value) in invalid) {
             val json = (valid + (field to value)).entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" }
@@ -56,7 +65,10 @@ class DnsMorphBridgeTest {
         assertThrows(IllegalArgumentException::class.java) { parseDnsMorphBridge(block("[]")) }
         assertThrows(IllegalArgumentException::class.java) {
             parseDnsMorphBridge(
-                block("""{"address":"192.0.2.1","port":53,"zone":"m.example","public_key":"$key","x":1}"""),
+                block(
+                    """{"address":"192.0.2.1","port":53,"zone":"m.example",
+                    "public_key":"$key","token":"$key","x":1}""",
+                ),
             )
         }
     }

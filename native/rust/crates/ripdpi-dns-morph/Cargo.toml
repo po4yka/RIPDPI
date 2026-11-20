@@ -11,4 +11,6 @@ workspace = true
 data-encoding = { workspace = true }
 hickory-proto = { workspace = true }
 ring = { workspace = true }
+subtle = { workspace = true }
 thiserror = { workspace = true }
+x25519-dalek = { workspace = true }

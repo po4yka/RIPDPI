@@ -40,7 +40,7 @@ Stand up DNS-Morph bootstrap as a fallback bootstrap channel in RIPDPI Android:
 ## Acceptance criteria
 
 - [ ] `ripdpi-dns-morph` crate compiles for all 4 Android ABIs.
-- [ ] The client delivers a signed payload from a loopback DNS-Morph v1 bridge and rejects tampered and oversized responses.
+- [ ] The client delivers a sealed signed payload from a loopback DNS-Morph v2 bridge and rejects tampered and oversized responses.
 - [ ] The bridge responder leaves ordinary queries to its forwarder.
 - [ ] A refresh test covers bundle declaration to DNS-Morph delivery after HTTPS failure.
 - [ ] LOW-confidence dedup explicitly resolved in PR description: confirmed NOT a duplicate of `ripdpi-dns-resolver` or any current bootstrap transport code.
@@ -97,3 +97,4 @@ The task body names a sibling deploy task `add-dns-morph-bridge-ansible-role` th
 - 2026-06-05: No implementation started — `ripdpi-dns-morph` crate does not exist, no dns-morph references anywhere in native/rust/crates/, app/, or core/; test-lab/dns/ exists but contains no dns-morph scenario; all acceptance criteria unmet.
 - 2026-06-11 (design spike, externally-gated): Delivered the feasibility note above. Resolved the LOW-confidence dedup (confirmed distinct from `ripdpi-dns-resolver` and siblings — byte-channel vs name-resolution). Confirmed 4-ABI buildability and that the `protect_socket` helper already covers the :53 socket. Central finding: the technique depends on resolver-path behavior the client cannot measure, plus a non-existent externally reachable bridge and synthetic test bridge. No code merged; status → `blocked` (externally-gated) pending bridge stand-up and a :53 reachability measurement.
 - 2026-11-20: Deploy `origin/main` (5c339c084) defines no bridge source, wire format, authentication or recipient export. Owner decision: RIPDPI defines DNS-Morph v1 as signed subscription delivery over UDP TXT, declared by `ripdpi.dns_morph` and used only after every HTTPS refresh endpoint fails. Acceptance criteria rewritten to that scope; the synthetic test-lab bridge and the diagnostics-data handoff test are replaced by the loopback bridge test and the refresh test. A live bridge and a device check remain deploy-side work.
+- 2026-11-21: The push-time security review found that v1 sent the bundle unencrypted and served it to anyone. Owner decision: v2 adds a per-subscriber token MAC on every query and seals the payload to a fresh client X25519 key with ChaCha20-Poly1305, still Ed25519-signed. v1 is replaced, not kept, because no server speaks it.

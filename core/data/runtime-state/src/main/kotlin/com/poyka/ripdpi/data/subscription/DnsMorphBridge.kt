@@ -25,15 +25,24 @@ data class DnsMorphBridge(
     val zone: String,
     /** Standard base64 of the bridge's 32-byte Ed25519 public key. */
     val publicKey: String,
+    /** Standard base64 of this subscriber's 32-byte secret; it authorizes queries and keys the payload. */
+    val token: String,
 ) {
     fun isValid(): Boolean =
-        NumericIp.parseAddress(address) != null &&
+        NumericIp.parseAddress(address)?.let { !it.isZero && !it.isMulticast } == true &&
             port in 1..MaxPort &&
             zone.length <= MaxZoneLength &&
             zone.split('.').all { it.matches(ZoneLabel) } &&
-            runCatching { Base64.getDecoder().decode(publicKey).size == PublicKeyBytes }.getOrDefault(false)
+            isKey(publicKey) &&
+            isKey(token)
 
     override fun toString(): String = "DnsMorphBridge([REDACTED])"
+
+    // Canonical padded form only, the same form the native client accepts.
+    private fun isKey(encoded: String): Boolean =
+        runCatching { Base64.getDecoder().decode(encoded) }
+            .getOrNull()
+            ?.takeIf { it.size == KeyBytes && Base64.getEncoder().encodeToString(it) == encoded } != null
 }
 
 /** Fetches the verified payload from [bridge]; throws an [java.io.IOException] on any failure. */
@@ -87,7 +96,7 @@ private suspend fun DnsMorphFetcher.fetchSubscriptionPayload(bridge: DnsMorphBri
 internal fun parseDnsMorphBridge(block: JsonObject): DnsMorphBridge? {
     val element = block["dns_morph"] ?: return null
     val entry = requireNotNull(element as? JsonObject) { "invalid DNS-Morph bridge" }
-    require(entry.keys == setOf("address", "port", "zone", "public_key")) { "invalid DNS-Morph bridge fields" }
+    require(entry.keys == setOf("address", "port", "zone", "public_key", "token")) { "invalid DNS-Morph bridge fields" }
 
     fun string(key: String) =
         requireNotNull(
@@ -97,7 +106,8 @@ internal fun parseDnsMorphBridge(block: JsonObject): DnsMorphBridge? {
         requireNotNull(
             (entry["port"] as? JsonPrimitive)?.takeUnless { it.isString }?.intOrNull,
         ) { "invalid DNS-Morph port" }
-    val bridge = DnsMorphBridge(string("address"), port, string("zone").lowercase(), string("public_key"))
+    val bridge =
+        DnsMorphBridge(string("address"), port, string("zone").lowercase(), string("public_key"), string("token"))
     require(bridge.isValid()) { "invalid DNS-Morph bridge" }
     return bridge
 }
@@ -105,6 +115,6 @@ internal fun parseDnsMorphBridge(block: JsonObject): DnsMorphBridge? {
 private const val MaxPort = 65_535
 
 // Keeps an uncompressed reply under the 512-byte datagram cap; equals the Rust limit.
-private const val MaxZoneLength = 100
-private const val PublicKeyBytes = 32
+private const val MaxZoneLength = 60
+private const val KeyBytes = 32
 private val ZoneLabel = Regex("[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?")
