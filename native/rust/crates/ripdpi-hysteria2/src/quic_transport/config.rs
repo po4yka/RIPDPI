@@ -10,9 +10,8 @@
 //! (Hysteria2, MASQUE, and the not-yet-existing VLESS-QUIC / VMess-QUIC /
 //! generic H3 CONNECT shapes) configures QUIC the same way.
 //!
-//! The config exposes the knobs the epic calls out as needing to be
-//! "configurable at the transport boundary": **ALPN**, **SNI**, and a
-//! per-profile **uTLS-style fingerprint profile** name.
+//! The config exposes **ALPN** and **SNI** at the transport boundary. The
+//! ClientHello always comes from rustls; no uTLS-style fingerprint applies.
 
 use std::sync::Arc;
 
@@ -41,10 +40,6 @@ pub struct QuicTransportConfig {
     pub server_name: String,
     /// ALPN protocols offered, most-preferred first. Defaults to `["h3"]`.
     pub alpn_protocols: Vec<Vec<u8>>,
-    /// Per-profile uTLS-style fingerprint profile name (e.g. `chrome_stable`).
-    /// Carried at the transport boundary so the caller can shape the QUIC
-    /// ClientHello; `None` uses the stack default.
-    pub fingerprint_profile: Option<String>,
     /// Skip certificate validation. Required for Reality / self-signed
     /// deployments; never enable for a normal CA-validated profile.
     pub insecure: bool,
@@ -69,7 +64,6 @@ impl QuicTransportConfig {
         Self {
             server_name: server_name.into(),
             alpn_protocols: vec![ALPN_H3.to_vec()],
-            fingerprint_profile: None,
             insecure: false,
             pin_sha256: None,
             bind_low_port: false,
@@ -81,12 +75,6 @@ impl QuicTransportConfig {
     /// Builder: replace the offered ALPN protocol list.
     pub fn with_alpn(mut self, alpn_protocols: Vec<Vec<u8>>) -> Self {
         self.alpn_protocols = alpn_protocols;
-        self
-    }
-
-    /// Builder: set the per-profile uTLS-style fingerprint profile name.
-    pub fn with_fingerprint_profile(mut self, profile: impl Into<String>) -> Self {
-        self.fingerprint_profile = Some(profile.into());
         self
     }
 
@@ -253,7 +241,6 @@ mod tests {
         let config = QuicTransportConfig::new("example.com");
         assert_eq!(config.server_name, "example.com");
         assert_eq!(config.alpn_protocols, vec![ALPN_H3.to_vec()]);
-        assert_eq!(config.fingerprint_profile, None);
         assert!(!config.insecure, "validation must be ON by default");
         assert_eq!(config.pin_sha256, None);
         assert!(!config.bind_low_port);
@@ -264,12 +251,10 @@ mod tests {
     fn builder_sets_every_knob() {
         let config = QuicTransportConfig::new("cover.example")
             .with_alpn(vec![b"h3".to_vec(), b"hq-interop".to_vec()])
-            .with_fingerprint_profile("chrome_stable")
             .with_insecure(true)
             .with_bind_low_port(true)
             .with_migrate_after_handshake(true);
         assert_eq!(config.alpn_protocols, vec![b"h3".to_vec(), b"hq-interop".to_vec()]);
-        assert_eq!(config.fingerprint_profile.as_deref(), Some("chrome_stable"));
         assert!(config.insecure);
         assert!(config.bind_low_port);
         assert!(config.migrate_after_handshake);

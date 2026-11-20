@@ -20,9 +20,8 @@
 //! # What it provides
 //!
 //! * [`QuicTransportConfig`] + its factory -- the shared `quinn` + `rustls`
-//!   client-config construction, with **ALPN**, **SNI**, and a per-profile
-//!   **uTLS-style fingerprint profile** configurable at the transport
-//!   boundary.
+//!   client-config construction, with **ALPN** and **SNI** configurable at
+//!   the transport boundary.
 //! * [`build_quic_endpoint`] / [`build_client_udp_socket`] -- the shared
 //!   QUIC client UDP-socket + `quinn::Endpoint` construction that Hysteria2
 //!   and MASQUE each open-coded.
