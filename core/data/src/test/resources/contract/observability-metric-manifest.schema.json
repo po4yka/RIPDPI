@@ -46,7 +46,7 @@
       "properties": {
         "name": {"$ref": "#/$defs/metricName"},
         "owner": {"$ref": "#/$defs/alias"},
-        "type": {"enum": ["gauge", "counter"]},
+        "type": {"enum": ["gauge", "counter", "histogram"]},
         "unit": {
           "type": ["string", "null"],
           "maxLength": 32,
@@ -57,7 +57,7 @@
           "maxItems": 8,
           "uniqueItems": true,
           "items": {
-            "enum": ["node", "role", "profile", "policy", "severity", "vantage", "state"]
+            "enum": ["node", "role", "profile", "policy", "severity", "vantage", "state", "protocol", "failure_stage", "network", "country", "server_ref"]
           }
         },
         "max_series": {"type": "integer", "minimum": 1, "maximum": 2048},

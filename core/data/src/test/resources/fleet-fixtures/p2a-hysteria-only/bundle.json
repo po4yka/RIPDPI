@@ -62,7 +62,7 @@
         "p2-hysteria2-upcloud-prod"
       ],
       "url": "https://www.gstatic.com/generate_204",
-      "interval": "5m",
+      "interval": "30m",
       "tolerance": 50
     },
     {

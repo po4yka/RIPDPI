@@ -89,7 +89,7 @@
         "p0-reality-hetzner-prod"
       ],
       "url": "https://www.gstatic.com/generate_204",
-      "interval": "5m",
+      "interval": "30m",
       "tolerance": 50
     },
     {

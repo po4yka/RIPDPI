@@ -27,6 +27,21 @@
     }
   },
   "$defs": {
+    "deliveryReceipt": {
+      "description": "Proof that one alert reached Telegram through Alertmanager and the relay. It names the alert, the UTC time and the Telegram message id only; additionalProperties false keeps the bot token and chat id out.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "environment", "receiver", "alert_name", "sent_at", "telegram_message_id"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "kind": {"const": "telegram-delivery-receipt"},
+        "environment": {"const": "staging"},
+        "receiver": {"const": "telegram-primary"},
+        "alert_name": {"type": "string", "pattern": "^[A-Z][A-Za-z0-9]{0,127}$"},
+        "sent_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+        "telegram_message_id": {"type": "integer", "minimum": 1, "maximum": 2147483647}
+      }
+    },
     "alias": {
       "type": "string",
       "minLength": 1,
