@@ -1,7 +1,7 @@
 ---
 task_id: DGN-1795014097920678
 change: paired-network-availability
-commit_sha: de007a006
+commit_sha: de007a006be270fe8e2e9edbf9f9705a665c626c
 local: passed
 local_evidence: On fbf450077 (rebased on 6f7ee46b1, macOS) with -Pripdpi.skipNativeBuild=true, staticAnalysis --continue passed; :core:diagnostics:testDebugUnitTest (1843 tests), :core:diagnostics-data:testDebugUnitTest (104 tests) and :app:testGithubDebugUnitTest (3774 tests) passed with 0 failures; :app:lintGithubDebug and :core:service:lintDebug passed; just ci-gates passed (architecture health, LoC and hotspot budgets, contracts, locale parity, translation export, Rust API snapshots).
 remote_ci: passed
@@ -16,7 +16,7 @@ deployment_evidence: No deployment is owned by this change.
 
 # Verification
 
-Local gates passed on the commit above. No device run and no exact-revision CI run exist yet, so the History card is verified only through Robolectric and a local render. The comparison is descriptive: these tests make no claim about any real network, permitted prefixes, ASN-wide availability, or nationwide results.
+Local gates, exact-tree CI and one Pixel 8 Pro run passed (see the frontmatter). The device run paired two sessions on the same network type; a pair across different networks is covered only by unit tests. The comparison is descriptive: these tests make no claim about any real network, permitted prefixes, ASN-wide availability, or nationwide results.
 
 ## Requirement evidence
 

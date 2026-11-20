@@ -1,0 +1,11 @@
+{
+  "change": "quic-version-state-controls",
+  "evidence_summary": "PR #743 merged as de007a006; CI run 44683066247 passed on the same tree; Pixel 8 Pro device run on 2c7a1c168 (see the archived verification.md).",
+  "execution_sha256": "9aa0942536cbc350b8d2306e68484fe624ccba5b7a57d3e4265fdf6495903fc4",
+  "issue_sha256": "f09f37ad02c9ad535476c1e40156ecc6a342aa10a781db5b9b8575e54e37c525",
+  "outcome": "done",
+  "prepared_at": "2026-11-20T06:33:12Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1795014101783145"
+}

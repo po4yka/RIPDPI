@@ -2,7 +2,7 @@
 id: DGN-1795014101783145
 title: Isolate QUIC version diagnostics from residual flow state
 kind: feature
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: diagnostic-evidence writer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: quic-version-state-controls
 created: 2026-11-18
 updated: 2026-11-20
+closed_at: "2026-11-20T06:33:12Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "PR #743 merged as de007a006; CI run 44683066247 passed on the same tree; Pixel 8 Pro device run on 2c7a1c168 (see the archived verification.md)."
 ---
 
 ## Goal

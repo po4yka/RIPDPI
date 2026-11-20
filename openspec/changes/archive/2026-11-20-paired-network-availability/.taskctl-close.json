@@ -1,0 +1,11 @@
+{
+  "change": "paired-network-availability",
+  "evidence_summary": "PR #743 merged as de007a006; CI run 44683066247 passed on the same tree; Pixel 8 Pro device run on 2c7a1c168 (see the archived verification.md).",
+  "execution_sha256": "3a5dbad6c1f2c8d75d7c8ab59d916b6b7a10ece7cda2cbac5daf786b864afeff",
+  "issue_sha256": "256971202b31457dc5ec853ffccff51d32ab4b41431add4bcff4e4f529923285",
+  "outcome": "done",
+  "prepared_at": "2026-11-20T06:33:14Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1795014097920678"
+}

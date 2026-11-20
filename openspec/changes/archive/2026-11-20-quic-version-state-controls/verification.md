@@ -1,7 +1,7 @@
 ---
 task_id: DGN-1795014101783145
 change: quic-version-state-controls
-commit_sha: de007a006
+commit_sha: de007a006be270fe8e2e9edbf9f9705a665c626c
 local: passed
 local_evidence: On f27d282fd (macOS, Rust 1.100.0) cargo test --locked --no-fail-fast for ripdpi-diagnostics-transport, -contracts, -runner, -probes and ripdpi-monitor-engine passed (864 tests incl. contract_fixtures); cargo clippy --locked --all-targets -D warnings on those crates passed; :core:diagnostics:testDebugUnitTest 1841 tests, :core:diagnostics-data:testDebugUnitTest, :app:testGithubDebugUnitTest 3770 tests and :build-logic:convention:test 61 tests passed with 0 failures; :app:lintGithubDebug and :core:service:lintDebug passed; just ci-gates passed. The transport matrix tests ran in the cargo run above; the RFC 9369 KAT ran separately with cargo test --locked -p ripdpi-packets v2_kat (3 tests passed).
 remote_ci: passed
@@ -16,7 +16,7 @@ deployment_evidence: No deployment is owned by this change.
 
 # Verification
 
-Local gates passed on the commit above. No device run, no packet capture, and no exact-revision CI run exist yet, so the on-wire behavior of v1 and v2 Initials on a real Android network is unverified. No claim about any real network follows from these tests.
+Local gates, exact-tree CI and one Pixel 8 Pro run over LTE passed (see the frontmatter). No packet capture exists, so the on-wire v1 and v2 Initials are not independently confirmed. The single device run supports no general claim about any network.
 
 ## Requirement evidence
 
