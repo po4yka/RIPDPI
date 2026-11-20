@@ -45,7 +45,7 @@ class NestedSelectorImportTest {
         assertTrue("$result", result is SelectorUrltestImportResult.Success)
         result as SelectorUrltestImportResult.Success
         val members = requireNotNull(result.group).members
-        assertEquals(listOf("p1-naive-fixture"), members.map { it.displayName })
+        assertEquals(listOf("p1-naive-fixture", "p1-xhttp-fixture:cdn"), members.map { it.displayName })
         assertTrue(members.all { validateNativeRelayProfileResult(it) == Result.success(true) })
 
         val naive = checkNotNull(mapRelayProfile(members.filterIsInstance<ProxyProfile.Naive>().single()))
@@ -55,6 +55,20 @@ class NestedSelectorImportTest {
         assertEquals(443, naive.profile.serverPort)
         assertEquals("fixture-device", naive.credentials.naiveUsername)
         assertEquals("synthetic-naive", naive.credentials.naivePassword)
+
+        // The CDN name is the dial target, the TLS name and the Host header; the origin address is absent.
+        val cdn = checkNotNull(mapRelayProfile(members.filterIsInstance<ProxyProfile.Vless>().single()))
+        assertEquals(RelayKindVless, cdn.profile.kind)
+        assertEquals(RelaySecurityLayerTls, cdn.profile.securityLayer)
+        assertEquals(RelayVlessTransportXhttp, cdn.profile.vlessTransport)
+        assertEquals("cdn.example.test", cdn.profile.server)
+        assertEquals(8443, cdn.profile.serverPort)
+        assertEquals("cdn.example.test", cdn.profile.serverName)
+        assertEquals("cdn.example.test", cdn.profile.xhttpHost)
+        assertEquals("/fixture-sync", cdn.profile.xhttpPath)
+        assertEquals("packet-up", cdn.profile.xhttpMode)
+        assertEquals("chrome", cdn.profile.vlessFingerprint)
+        assertEquals("11111111-2222-4333-8444-555555555555", cdn.credentials.vlessUuid)
     }
 
     @Test

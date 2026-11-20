@@ -10,16 +10,25 @@
       "tls": {"enabled": true, "server_name": "naive.example.test"}
     },
     {
+      "type": "vless",
+      "tag": "p1-xhttp-fixture:cdn",
+      "server": "cdn.example.test",
+      "server_port": 8443,
+      "uuid": "11111111-2222-4333-8444-555555555555",
+      "tls": {"enabled": true, "server_name": "cdn.example.test", "utls": {"enabled": true, "fingerprint": "chrome"}},
+      "transport": {"type": "xhttp", "host": "cdn.example.test", "path": "/fixture-sync", "mode": "packet-up"}
+    },
+    {
       "type": "selector",
       "tag": "select",
-      "outbounds": ["p1-naive-fixture", "auto"],
+      "outbounds": ["p1-naive-fixture", "p1-xhttp-fixture:cdn", "auto"],
       "default": "auto",
       "interrupt_exist_connections": false
     },
     {
       "type": "urltest",
       "tag": "auto",
-      "outbounds": ["p1-naive-fixture"],
+      "outbounds": ["p1-naive-fixture", "p1-xhttp-fixture:cdn"],
       "url": "https://www.gstatic.com/generate_204",
       "interval": "30m",
       "tolerance": 50
