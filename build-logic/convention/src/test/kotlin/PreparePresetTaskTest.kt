@@ -1,3 +1,7 @@
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.gradle.api.GradleException
 import org.gradle.testfixtures.ProjectBuilder
 import java.io.File
@@ -11,7 +15,6 @@ import kotlin.test.assertTrue
 class PreparePresetTaskTest {
     // Shared with BackupEncryptionTest in :core:data, which decrypts the same archive with the app's code.
     private val fixtures = File("../../core/data/src/test/resources/backup").absoluteFile
-    private val plaintext = fixtures.resolve("preset-fixture.json").readText()
 
     private fun run(
         archive: File,
@@ -37,12 +40,75 @@ class PreparePresetTaskTest {
     private fun temp(content: String): File =
         Files.createTempFile("archive", ".json").toFile().apply { writeText(content) }
 
+    private val slotGroup =
+        """{"id":"slot","name":"Preset relay","type":"SUBSCRIPTION","order":0,"isSelector":false,"members":[],""" +
+            """"subscription":{"link":"https://relay.example/bootstrap/abc","token":"","kind":"BOOTSTRAP",""" +
+            """"consumedAt":null,"mirrors":{"mirrors":[]}}}"""
+
+    private fun export(
+        groups: String = "[$slotGroup]",
+        profiles: String = "[]",
+    ): String =
+        """{"schemaVersion":3,"createdAtEpochMillis":0,"appVersion":"fixture","profiles":$profiles,""" +
+            """"groups":$groups,"rules":[],"settings":{},"containsCredentials":true,""" +
+            """"privateData":{"relayCredentials":[{"profileId":"r","password":"relay-secret"}]}}"""
+
+    private fun assertRejected(
+        archive: String,
+        message: String,
+    ) = run(temp(archive)) { preset, prepare ->
+        assertTrue(assertFailsWith<GradleException> { prepare() }.message!!.contains(message))
+        assertFalse(preset.exists())
+    }
+
     @Test
-    fun `encrypted FULL export becomes the plaintext preset`() =
-        run(fixtures.resolve("preset-fixture.ripdpibackup")) { preset, prepare ->
+    fun `FULL export with a bootstrap slot becomes a preset without credentials`() =
+        run(temp(export())) { preset, prepare ->
             prepare()
-            assertEquals(plaintext, preset.readText())
+            val document = Json.parseToJsonElement(preset.readText()).jsonObject
+            assertFalse("privateData" in document)
+            assertFalse(document.getValue("containsCredentials").jsonPrimitive.boolean)
+            assertEquals(Json.parseToJsonElement("[$slotGroup]"), document["groups"])
         }
+
+    @Test
+    fun `encrypted export is decrypted before the bootstrap slot check`() =
+        run(fixtures.resolve("preset-fixture.ripdpibackup")) { preset, prepare ->
+            // The shared fixture has no groups, so a correct decrypt reaches the slot check.
+            assertTrue(assertFailsWith<GradleException> { prepare() }.message!!.contains("pending BOOTSTRAP"))
+            assertFalse(preset.exists())
+        }
+
+    @Test
+    fun `export without a pending bootstrap slot is rejected`() {
+        assertRejected(export(groups = "[]"), "no group with a pending BOOTSTRAP")
+        // A SHARE export strips the subscription link, so its slot cannot be consumed.
+        assertRejected(
+            export(groups = "[${slotGroup.replace("https://relay.example/bootstrap/abc", "")}]"),
+            "not a pending BOOTSTRAP slot",
+        )
+        assertRejected(
+            export(groups = "[${slotGroup.replace("\"consumedAt\":null", "\"consumedAt\":1")}]"),
+            "not a pending BOOTSTRAP slot",
+        )
+    }
+
+    @Test
+    fun `credentials outside privateData are rejected`() {
+        assertRejected(export(profiles = """[{"type":"trojan","password":"p"}]"""), "carries profiles")
+        assertRejected(
+            export(groups = "[${slotGroup.replace("\"members\":[]", "\"members\":[{\"type\":\"trojan\"}]")}]"),
+            "Group slot has members",
+        )
+        assertRejected(
+            export(groups = "[${slotGroup.replace("\"kind\":\"BOOTSTRAP\"", "\"kind\":\"LONG_LIVED\"")}]"),
+            "Group slot has a subscription that is not a pending BOOTSTRAP slot",
+        )
+        assertRejected(
+            export(groups = "[${slotGroup.replace("\"token\":\"\"", "\"token\":\"t\"")}]"),
+            "not a pending BOOTSTRAP slot",
+        )
+    }
 
     @Test
     fun `wrong or missing passphrase fails without writing`() {
@@ -55,15 +121,6 @@ class PreparePresetTaskTest {
             assertFalse(preset.exists())
         }
     }
-
-    @Test
-    fun `SHARE export is rejected for missing credentials`() =
-        run(
-            temp(plaintext.replace("\"containsCredentials\":true", "\"containsCredentials\":false")),
-        ) { preset, prepare ->
-            assertTrue(assertFailsWith<GradleException> { prepare() }.message!!.contains("no credentials"))
-            assertFalse(preset.exists())
-        }
 
     @Test
     fun `schema version outside the checkout range is rejected`() =
