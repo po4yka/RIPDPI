@@ -99,6 +99,7 @@ pub(super) struct RuntimeState {
     quality_observer: Mutex<Option<Arc<dyn Fn(TcpConnectObservation) + Send + Sync>>>,
     readiness_observer: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
     confirm_good_dpi: Mutex<ConfirmGoodDpiAccumulator>,
+    dial_failure_log: Mutex<crate::socks::DialFailureLogLimiter>,
     /// Parent cancellation token. `request_stop` cancels it so every in-flight
     /// SOCKS5 session — racing its `child_token().cancelled()` future against
     /// the session work — wakes promptly and unwinds instead of leaking its
@@ -128,6 +129,7 @@ impl RuntimeState {
             quality_observer: Mutex::new(None),
             readiness_observer: Mutex::new(None),
             confirm_good_dpi: Mutex::new(ConfirmGoodDpiAccumulator::default()),
+            dial_failure_log: Mutex::new(crate::socks::DialFailureLogLimiter::new()),
             shutdown_token: CancellationToken::new(),
             session_tracker: TaskTracker::new(),
             session_tasks: SessionTaskRegistry::default(),
@@ -257,6 +259,10 @@ impl RuntimeState {
     pub(super) fn session_error_streak(&self) -> u64 {
         // Ordering: this is a standalone telemetry counter and does not synchronize other state.
         self.session_error_streak.load(Ordering::Relaxed)
+    }
+
+    pub(super) fn admit_dial_failure_log(&self) -> Option<u64> {
+        self.dial_failure_log.lock().unwrap_or_else(std::sync::PoisonError::into_inner).admit(std::time::Instant::now())
     }
 
     pub(super) fn record_handshake_error(&self, error: String) {

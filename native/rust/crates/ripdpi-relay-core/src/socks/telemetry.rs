@@ -65,6 +65,12 @@ pub(crate) trait SocksTelemetry {
 
     fn record_handshake_error(&self, error: String);
 
+    /// Per-runtime dial-failure log budget: `Some(suppressed)` when this failure may be
+    /// logged. The default logs every failure; `RelayRuntime` rate-limits.
+    fn admit_dial_failure_log(&self) -> Option<u64> {
+        Some(0)
+    }
+
     fn record_xudp_association_opened(&self) {}
 
     fn record_xudp_association_closed(&self, _reason: &'static str) {}

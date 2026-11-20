@@ -7,6 +7,7 @@ mod udp;
 mod udp_frame;
 
 pub(crate) use auth::handle_client;
+pub(crate) use connect::DialFailureLogLimiter;
 pub(crate) use target::RelayTargetAddr;
 pub(crate) use telemetry::{RelaySessionTimeouts, SocksSessionConfig, SocksTelemetry, TOR_RELAY_CONNECT_DEADLINE};
 pub(crate) use udp::UdpCarrier;

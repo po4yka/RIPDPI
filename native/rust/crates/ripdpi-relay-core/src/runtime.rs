@@ -198,6 +198,10 @@ impl SocksTelemetry for RelayRuntime {
         self.state.record_handshake_error(error);
     }
 
+    fn admit_dial_failure_log(&self) -> Option<u64> {
+        self.state.admit_dial_failure_log()
+    }
+
     fn record_xudp_association_opened(&self) {
         self.state.record_xudp_association_opened();
     }

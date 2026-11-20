@@ -180,7 +180,9 @@ where
         }
         Err(error) => {
             telemetry.emit_connect_observation(TcpConnectObservation { rtt_ms, succeeded: false });
-            log_upstream_dial_failure(&error, rtt_ms);
+            if let Some(suppressed) = telemetry.admit_dial_failure_log() {
+                log_upstream_dial_failure(&error, rtt_ms, suppressed);
+            }
             telemetry.record_handshake_error(error.to_string());
             let mut reply_stage = RelayStageGuard::start(trace_stages, "socks_reply");
             let reply_code = dial_failure_reply_code(error.kind());
@@ -247,7 +249,7 @@ where
 /// handshake, or dial deadline). Stage events stay out of logcat, so without
 /// this line a failed profile check left no trace there. The error text can
 /// carry server addresses, so only its kind and class are logged.
-fn log_upstream_dial_failure(error: &io::Error, elapsed_ms: u64) {
+fn log_upstream_dial_failure(error: &io::Error, elapsed_ms: u64, suppressed: u64) {
     let failure = classify_transport_error(FailureStage::Connect, error);
     tracing::warn!(
         ring = "relay",
@@ -255,11 +257,57 @@ fn log_upstream_dial_failure(error: &io::Error, elapsed_ms: u64) {
         source = "relay",
         kind = "relay_upstream_dial_failed",
         failure_class = failure.class.as_str(),
-        io_error_kind = format!("{:?}", error.kind()).to_ascii_lowercase(),
+        io_error_kind = io_error_kind_code(error.kind()),
         os_error_code = error.raw_os_error(),
         elapsed_ms,
+        suppressed,
         "relay upstream dial failed"
     );
+}
+
+/// A dead server fails every client connection; one line per interval keeps
+/// logcat readable and leaves room in the bounded relay event ring.
+const DIAL_FAILURE_LOG_INTERVAL: Duration = Duration::from_secs(30);
+
+pub(crate) struct DialFailureLogLimiter {
+    last_logged: Option<Instant>,
+    suppressed: u64,
+}
+
+impl DialFailureLogLimiter {
+    pub(crate) const fn new() -> Self {
+        Self { last_logged: None, suppressed: 0 }
+    }
+
+    /// Returns the number of failures suppressed since the last line when this one may be logged.
+    pub(crate) fn admit(&mut self, now: Instant) -> Option<u64> {
+        if self.last_logged.is_some_and(|last| now.saturating_duration_since(last) < DIAL_FAILURE_LOG_INTERVAL) {
+            self.suppressed = self.suppressed.saturating_add(1);
+            return None;
+        }
+        self.last_logged = Some(now);
+        Some(std::mem::take(&mut self.suppressed))
+    }
+}
+
+/// Stable wire values: `Debug` output of `io::ErrorKind` is not a contract.
+fn io_error_kind_code(kind: io::ErrorKind) -> &'static str {
+    match kind {
+        io::ErrorKind::ConnectionRefused => "connection_refused",
+        io::ErrorKind::ConnectionReset => "connection_reset",
+        io::ErrorKind::ConnectionAborted => "connection_aborted",
+        io::ErrorKind::TimedOut => "timed_out",
+        io::ErrorKind::NetworkUnreachable => "network_unreachable",
+        io::ErrorKind::HostUnreachable => "host_unreachable",
+        io::ErrorKind::AddrNotAvailable => "address_not_available",
+        io::ErrorKind::PermissionDenied => "permission_denied",
+        io::ErrorKind::Unsupported => "unsupported",
+        io::ErrorKind::InvalidInput => "invalid_input",
+        io::ErrorKind::InvalidData => "invalid_data",
+        io::ErrorKind::UnexpectedEof => "unexpected_eof",
+        io::ErrorKind::NotConnected => "not_connected",
+        _ => "other",
+    }
 }
 
 /// Map an upstream dial failure to its RFC 1928 REP code.
@@ -575,5 +623,32 @@ mod tests {
             .map(|event| event.outcome)
             .collect::<Vec<_>>();
         assert_eq!(outcomes, [Some("started".to_string()), Some("cancelled".to_string())]);
+    }
+}
+
+#[cfg(test)]
+mod dial_failure_log_tests {
+    use super::{DIAL_FAILURE_LOG_INTERVAL, DialFailureLogLimiter, io_error_kind_code};
+    use std::io;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn first_failure_logs_then_one_line_per_interval_with_suppressed_count() {
+        let start = Instant::now();
+        let mut limiter = DialFailureLogLimiter::new();
+        assert_eq!(limiter.admit(start), Some(0));
+        for offset in 1..=4 {
+            assert_eq!(limiter.admit(start + Duration::from_secs(offset)), None);
+        }
+        assert_eq!(limiter.admit(start + DIAL_FAILURE_LOG_INTERVAL), Some(4));
+        assert_eq!(limiter.admit(start + DIAL_FAILURE_LOG_INTERVAL + Duration::from_secs(1)), None);
+    }
+
+    #[test]
+    fn io_error_kinds_use_fixed_codes() {
+        assert_eq!(io_error_kind_code(io::ErrorKind::ConnectionRefused), "connection_refused");
+        assert_eq!(io_error_kind_code(io::ErrorKind::TimedOut), "timed_out");
+        assert_eq!(io_error_kind_code(io::ErrorKind::HostUnreachable), "host_unreachable");
+        assert_eq!(io_error_kind_code(io::ErrorKind::OutOfMemory), "other");
     }
 }
