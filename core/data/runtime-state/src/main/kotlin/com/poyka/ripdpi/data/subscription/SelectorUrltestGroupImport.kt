@@ -85,6 +85,8 @@ sealed interface SelectorUrltestImportResult {
         val defaultMemberTag: String?,
         val failoverPolicy: FailoverPolicy,
         val skipped: List<SingBoxSkippedNode> = emptyList(),
+        /** Every outbound `tag` in the bundle: the names that are safe to show for an entry. */
+        val outboundTags: Set<String> = emptySet(),
         val cloudflareMemberIds: Set<String>? = null,
         val endpointHealth: EndpointHealthOrder? = null,
         /** Bundle health of the imported relay members by server_ref, with or without a selector. */
@@ -98,6 +100,8 @@ sealed interface SelectorUrltestImportResult {
         val message: String,
         val reason: SingBoxSkipReason? = null,
         val detail: String? = null,
+        /** The refused entry when no selector member is usable. */
+        val node: SingBoxSkippedNode? = null,
     ) : SelectorUrltestImportResult
 }
 
@@ -111,7 +115,10 @@ sealed interface SelectorUrltestImportResult {
  * [SelectorUrltestImportResult.defaultMemberTag]. A `urltest` entry becomes the
  * group's [FailoverPolicy.Urltest]. Tag → profile resolution is order
  * independent (a forward-referencing selector resolves); a selector naming a
- * tag absent from the bundle rejects the whole import. A single concrete
+ * tag absent from the bundle rejects the whole import. A selector member the
+ * parser refused or that has no native backend is left out and reported in
+ * `skipped`, so the other members still import; a selector with no usable
+ * member, or whose `default` is such a member, is rejected. A single concrete
  * outbound with no selector produces one profile and no group; an orphaned
  * urltest with no selector is skipped.
  */
@@ -141,11 +148,11 @@ object SelectorUrltestGroupImport {
         // First pass: collect the concrete outbound profiles by tag, and the
         // selector / urltest metadata entries.
         val parsed = SingBoxSubscriptionParser.parse(payload, groupId)
-        val profiles =
-            when (parsed) {
-                is SingBoxParseResult.Error -> return SelectorUrltestImportResult.Error(parsed.message)
-                is SingBoxParseResult.Success -> parsed.profiles
-            }
+        if (parsed !is SingBoxParseResult.Success) {
+            return SelectorUrltestImportResult.Error((parsed as SingBoxParseResult.Error).message)
+        }
+        val profiles = parsed.profiles
+        val tags = outbounds.mapNotNullTo(mutableSetOf()) { (it as? JsonObject)?.string("tag") }
         val profileTags = profiles.mapTo(mutableSetOf()) { it.displayName }
 
         val topology =
@@ -175,6 +182,7 @@ object SelectorUrltestGroupImport {
                 defaultMemberTag = null,
                 failoverPolicy = FailoverPolicy.Manual,
                 skipped = parsed.skipped,
+                outboundTags = tags,
                 cloudflareMemberIds = parsed.cloudflareMemberIds,
                 memberHealth = parsed.endpointHealth.filterKeys { it in profileTags },
                 fieldReport = parsed.fieldReport,
@@ -182,8 +190,20 @@ object SelectorUrltestGroupImport {
         }
 
         val memberOrder = topology.memberTags
-        val missing = memberOrder.filterNot { it in profileTags }
-        missingSelectorMemberError(missing, parsed.skipped)?.let { return it }
+        // A member with no native backend (RawConfig) is reported with the parser's refused entries.
+        val skipped =
+            parsed.skipped +
+                splitNativeProfiles(
+                    profiles.filter { it is ProxyProfile.RawConfig && it.displayName in memberOrder },
+                    tags,
+                ).second
+        val skippedTags = skipped.mapTo(mutableSetOf()) { it.label }
+        val absent = memberOrder.filterNot { it in profileTags || it in skippedTags }
+        if (absent.isNotEmpty()) {
+            return SelectorUrltestImportResult.Error(
+                "selector references tag(s) absent from the bundle: ${absent.joinToString(", ")}",
+            )
+        }
         val legacyPolicy =
             try {
                 failoverPolicy(topology.urltest())
@@ -204,10 +224,19 @@ object SelectorUrltestGroupImport {
                 .filterNot { it is ProxyProfile.RawConfig }
 
         val supportedTags = memberProfiles.mapTo(mutableSetOf()) { it.displayName }
+        // The selection itself must be usable: an unsupported default is never replaced by another member.
         if (memberProfiles.isEmpty() ||
             (topology.defaultTags.isNotEmpty() && topology.defaultTags.none { it in supportedTags })
         ) {
-            return SelectorUrltestImportResult.Error("selector has no supported candidate for its selection")
+            val refused =
+                skipped.firstOrNull { it.label in topology.defaultTags }
+                    ?: skipped.firstOrNull { it.label in memberOrder }
+            return SelectorUrltestImportResult.Error(
+                message = "selector has no supported candidate for its selection",
+                reason = refused?.reason,
+                detail = refused?.detail,
+                node = refused,
+            )
         }
         // Every member is stored with its health; failover re-evaluates it at selection time, so an expired
         // down observation becomes neutral again without a refresh. Only the initial preference uses it now.
@@ -221,7 +250,7 @@ object SelectorUrltestGroupImport {
             memberProfiles,
             failoverPolicy,
             topology.defaultTags.firstOrNull { it in candidateTags },
-        ).copy(endpointHealth = endpointHealth)
+        ).copy(endpointHealth = endpointHealth, skipped = skipped, outboundTags = tags)
     }
 
     private fun isDeviceOnlyAwg(
@@ -261,27 +290,6 @@ object SelectorUrltestGroupImport {
             memberHealth = memberHealth,
             fieldReport = parsed.fieldReport,
         )
-    }
-
-    private fun missingSelectorMemberError(
-        missing: List<String>,
-        skipped: List<SingBoxSkippedNode>,
-    ): SelectorUrltestImportResult.Error? {
-        if (missing.isEmpty()) return null
-        val rejectedMember = skipped.firstOrNull { it.label in missing }
-        return if (rejectedMember != null) {
-            SelectorUrltestImportResult.Error(
-                message =
-                    "selector member ${rejectedMember.label} uses unsupported " +
-                        rejectedMember.detail.orEmpty(),
-                reason = rejectedMember.reason,
-                detail = rejectedMember.detail,
-            )
-        } else {
-            SelectorUrltestImportResult.Error(
-                "selector references tag(s) absent from the bundle: ${missing.joinToString(", ")}",
-            )
-        }
     }
 
     private fun failoverPolicy(urltest: JsonObject?): FailoverPolicy =

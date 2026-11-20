@@ -15,6 +15,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.subscription.ImportRejection
 import com.poyka.ripdpi.subscription.SubscriptionExpiryItemUiState
 import com.poyka.ripdpi.subscription.SubscriptionExpiryStatus
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -22,6 +23,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.proxyimport.importRejectionText
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -123,6 +125,7 @@ internal fun SubscriptionStatusScreen(
                     refreshing = uiState.refreshingGroupId == item.groupId,
                     refreshEnabled = uiState.refreshingGroupId == null,
                     refreshFailed = uiState.refreshFailedGroupId == item.groupId,
+                    refreshRejection = uiState.refreshRejection,
                     onRefresh = { onRefresh(item.groupId) },
                     migrationContent = { migrationContent(item.groupId) },
                 )
@@ -137,6 +140,7 @@ private fun SubscriptionStatusCard(
     refreshing: Boolean,
     refreshEnabled: Boolean,
     refreshFailed: Boolean,
+    refreshRejection: ImportRejection?,
     onRefresh: () -> Unit,
     migrationContent: @Composable () -> Unit,
 ) {
@@ -193,9 +197,12 @@ private fun SubscriptionStatusCard(
                 style = RipDpiThemeTokens.type.body,
             )
         }
-        if (refreshFailed && item.lastRefreshFailure == null) {
+        // A refused payload is named even when the stored failure already says "Refresh failed".
+        if (refreshFailed && (item.lastRefreshFailure == null || refreshRejection != null)) {
             Text(
-                text = stringResource(R.string.subscription_status_refresh_failed),
+                text =
+                    refreshRejection?.let { importRejectionText(it) }
+                        ?: stringResource(R.string.subscription_status_refresh_failed),
                 style = RipDpiThemeTokens.type.body,
                 color = RipDpiThemeTokens.colors.destructive,
             )

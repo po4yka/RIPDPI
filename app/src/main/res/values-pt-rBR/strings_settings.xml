@@ -200,6 +200,14 @@
     <string name="import_subscription_bootstrap_title">Link de inicialização de uso único</string>
     <string name="import_subscription_bootstrap_body">Este é um token de inicialização de uso único. Ele pode ser usado uma única vez para obter sua assinatura.</string>
     <string name="import_subscription_unnamed">Assinatura sem nome</string>
+    <string name="import_failure_schema_version">Este pacote é da versão %1$d. O app é compatível com a versão %2$d.</string>
+    <string name="import_entry_unsupported">%1$s: %2$s não é compatível</string>
+    <string name="import_entry_invalid">%1$s: as configurações não são válidas</string>
+    <plurals name="import_entries_skipped">
+        <item quantity="one">%1$d entrada ignorada</item>
+        <item quantity="many">%1$d entradas ignoradas</item>
+        <item quantity="other">%1$d entradas ignoradas</item>
+    </plurals>
     <string name="import_clipboard_action">Importar da área de transferência</string>
     <string name="import_clipboard_unknown_title">Área de transferência sem link de proxy</string>
     <string name="import_clipboard_unknown_with_scheme">A área de transferência contém um link \"%1$s\", que não é um link de proxy suportado.</string>

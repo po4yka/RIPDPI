@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.subscription.FailoverPolicy
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.SingBoxSkipReason
+import com.poyka.ripdpi.data.subscription.SingBoxSkippedNode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -181,7 +182,7 @@ class SelectorUrltestGroupImportTest {
     }
 
     @Test
-    fun `selector member with unsupported transport retains typed rejection`() {
+    fun `selector member with unsupported transport is skipped by tag and the rest import`() {
         val json =
             """
             { "outbounds": [
@@ -192,11 +193,28 @@ class SelectorUrltestGroupImportTest {
               { "type": "selector", "tag": "select", "outbounds": ["p0", "ws-node"] } ] }
             """.trimIndent()
 
+        val result = SelectorUrltestGroupImport.import(json, groupId) as SelectorUrltestImportResult.Success
+
+        assertEquals(listOf("p0"), result.group?.members?.map { it.displayName })
+        assertEquals(
+            listOf(SingBoxSkippedNode(1, "ws-node", SingBoxSkipReason.UNSUPPORTED_TRANSPORT, "ws")),
+            result.skipped,
+        )
+    }
+
+    @Test
+    fun `selector with no usable member is refused and names the entry`() {
+        val json =
+            """
+            { "outbounds": [
+              { "type": "vless", "tag": "ws-node", "server": "ws.example.com", "server_port": 443,
+                "uuid": "11111111-1111-1111-1111-111111111111", "transport": { "type": "ws" } },
+              { "type": "selector", "tag": "select", "outbounds": ["ws-node"] } ] }
+            """.trimIndent()
+
         val result = SelectorUrltestGroupImport.import(json, groupId) as SelectorUrltestImportResult.Error
 
-        assertEquals(SingBoxSkipReason.UNSUPPORTED_TRANSPORT, result.reason)
-        assertEquals("ws", result.detail)
-        assertTrue(result.message.contains("ws-node"))
+        assertEquals(SingBoxSkippedNode(0, "ws-node", SingBoxSkipReason.UNSUPPORTED_TRANSPORT, "ws"), result.node)
     }
 
     @Test

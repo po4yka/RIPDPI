@@ -21,7 +21,9 @@ import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.data.subscription.EndpointHealth
+import com.poyka.ripdpi.data.subscription.ImportRejection
 import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
+import com.poyka.ripdpi.data.subscription.SingBoxSkippedNode
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.proxyimport.subscriptionHost
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateScheduler
@@ -50,6 +52,10 @@ data class SubscriptionImportConfirmUiState(
     val bootstrap: Boolean = false,
     val importing: Boolean = false,
     val importFailed: Boolean = false,
+    /** The named cause of [importFailed], when the payload itself was refused. */
+    val rejection: ImportRejection? = null,
+    /** Set once the import is saved with entries left out; the screen stays to show them. */
+    val skipped: List<SingBoxSkippedNode> = emptyList(),
     /** A RIPDPI bundle the user holds locally; it has no [url]. */
     val localBundle: Boolean = false,
 )
@@ -193,7 +199,7 @@ class SubscriptionImportConfirmViewModel
             completed = false
             localBundleText = null
             _uiState.update {
-                it.copy(url = url, name = name, bootstrap = bootstrap, importFailed = false, localBundle = false)
+                SubscriptionImportConfirmUiState(url = url, name = name, bootstrap = bootstrap)
             }
         }
 
@@ -212,7 +218,7 @@ class SubscriptionImportConfirmViewModel
             val bundle = localBundleText
             if (state.url.isBlank() && bundle == null) return
             if (state.importing || completed) return
-            _uiState.update { it.copy(importing = true, importFailed = false) }
+            _uiState.update { it.copy(importing = true, importFailed = false, rejection = null) }
             viewModelScope.launch {
                 try {
                     if (bundle != null) {
@@ -279,7 +285,7 @@ class SubscriptionImportConfirmViewModel
                 }
             if (result is SubscriptionRefreshResult.Updated) {
                 localBundleText = null
-                completeImport()
+                completeImport(result.skipped)
                 return
             }
             if (isNew) {
@@ -289,7 +295,9 @@ class SubscriptionImportConfirmViewModel
                     )
                 }
             }
-            _uiState.update { it.copy(importFailed = true) }
+            _uiState.update {
+                it.copy(importFailed = true, rejection = (result as? SubscriptionRefreshResult.Failed)?.rejection)
+            }
         }
 
         override fun onCleared() {
@@ -310,11 +318,19 @@ class SubscriptionImportConfirmViewModel
             // Schedule from the saved result so terminal failures and opt-outs stay excluded.
             scheduleAutoUpdate(repository.list())
             when (result) {
-                is SubscriptionRefreshResult.Updated -> completeImport()
+                is SubscriptionRefreshResult.Updated -> {
+                    completeImport(result.skipped)
+                }
 
-                is SubscriptionRefreshResult.Failed,
-                SubscriptionRefreshResult.Superseded,
-                -> _uiState.update { it.copy(importFailed = true) }
+                is SubscriptionRefreshResult.Failed -> {
+                    _uiState.update {
+                        it.copy(importFailed = true, rejection = result.rejection)
+                    }
+                }
+
+                SubscriptionRefreshResult.Superseded -> {
+                    _uiState.update { it.copy(importFailed = true) }
+                }
             }
         }
 
@@ -374,7 +390,9 @@ class SubscriptionImportConfirmViewModel
                             result.consumedAtMillis?.let { consumedAt ->
                                 saveRejectedBootstrap(state, existing, targetGroupId, groupName, order, consumedAt)
                             }
-                            _uiState.update { it.copy(importFailed = true) }
+                            _uiState.update {
+                                it.copy(importFailed = true, rejection = result.node?.let(ImportRejection::Entry))
+                            }
                             false
                         }
 
@@ -459,9 +477,9 @@ class SubscriptionImportConfirmViewModel
                 packageRoutingRules = packageRoutingRules,
             )
 
-        private suspend fun completeImport() {
+        private suspend fun completeImport(skipped: List<SingBoxSkippedNode> = emptyList()) {
             completed = true
-            importedEventChannel.send(Unit)
+            if (skipped.isEmpty()) importedEventChannel.send(Unit) else _uiState.update { it.copy(skipped = skipped) }
         }
     }
 

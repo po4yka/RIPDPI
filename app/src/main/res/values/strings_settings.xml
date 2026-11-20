@@ -208,6 +208,13 @@
     <string name="import_subscription_bootstrap_title">One-time bootstrap link</string>
     <string name="import_subscription_bootstrap_body">This is a one-time bootstrap token. It can be used once to fetch your subscription.</string>
     <string name="import_subscription_unnamed">Unnamed subscription</string>
+    <string name="import_failure_schema_version">This bundle is version %1$d. This app supports version %2$d.</string>
+    <string name="import_entry_unsupported">%1$s: %2$s is not supported</string>
+    <string name="import_entry_invalid">%1$s: settings are not valid</string>
+    <plurals name="import_entries_skipped">
+        <item quantity="one">%1$d entry skipped</item>
+        <item quantity="other">%1$d entries skipped</item>
+    </plurals>
     <!-- Clipboard import -->
     <string name="import_clipboard_action">Import from clipboard</string>
     <string name="import_clipboard_unknown_title">Clipboard not a proxy link</string>

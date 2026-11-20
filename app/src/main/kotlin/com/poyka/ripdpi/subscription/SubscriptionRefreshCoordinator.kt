@@ -18,15 +18,16 @@ import com.poyka.ripdpi.data.awg.requireValidSubscriptionProfiles
 import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.awg.toMigrationTarget
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
-import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
-import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
 import com.poyka.ripdpi.data.subscription.EndpointHealth
+import com.poyka.ripdpi.data.subscription.ImportRejection
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
 import com.poyka.ripdpi.data.subscription.MigrationMetadata
 import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
+import com.poyka.ripdpi.data.subscription.SingBoxBundleErrorCode
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
+import com.poyka.ripdpi.data.subscription.SingBoxSkippedNode
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.data.subscription.SubscriptionMirror
 import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
@@ -38,9 +39,9 @@ import com.poyka.ripdpi.data.subscription.isValidForRefresh
 import com.poyka.ripdpi.data.subscription.localSubscriptionPayload
 import com.poyka.ripdpi.data.subscription.readBoundedSubscriptionPayload
 import com.poyka.ripdpi.data.subscription.receivedMigration
+import com.poyka.ripdpi.data.subscription.splitNativeProfiles
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import com.poyka.ripdpi.data.subscription.withUserinfoHeader
-import com.poyka.ripdpi.data.validateNativeRelayProfileResult
 import com.poyka.ripdpi.proxyimport.subscriptionHost
 import com.poyka.ripdpi.services.fieldreport.FieldReportNetworkContext
 import dagger.Module
@@ -74,11 +75,15 @@ sealed interface SubscriptionRefreshResult {
 
     data class Updated(
         val memberCount: Int,
+        /** Entries left out because the native backend cannot run them. */
+        val skipped: List<SingBoxSkippedNode> = emptyList(),
     ) : SubscriptionRefreshResult
 
     data class Failed(
         val failure: SubscriptionRefreshFailure,
         val retryable: Boolean,
+        /** The named cause of a rejected payload, when one is known. */
+        val rejection: ImportRejection? = null,
     ) : SubscriptionRefreshResult
 }
 
@@ -222,7 +227,7 @@ class SubscriptionRefreshCoordinator private constructor(
 
                 is RefreshOutcome.Failure -> {
                     if (persistFailure(group, attemptedAt, outcome)) {
-                        SubscriptionRefreshResult.Failed(outcome.failure, outcome.retry)
+                        SubscriptionRefreshResult.Failed(outcome.failure, outcome.retry, outcome.rejection)
                     } else {
                         SubscriptionRefreshResult.Superseded
                     }
@@ -257,7 +262,7 @@ class SubscriptionRefreshCoordinator private constructor(
             }
         return if (committed) {
             log.i { "refreshed subscription group ${expected.id}: ${replacement.members.size} profiles persisted" }
-            SubscriptionRefreshResult.Updated(replacement.members.size)
+            SubscriptionRefreshResult.Updated(replacement.members.size, outcome.skipped)
         } else {
             SubscriptionRefreshResult.Superseded
         }
@@ -388,7 +393,11 @@ class SubscriptionRefreshCoordinator private constructor(
         val body = payload.text
         val singBoxResult = SingBoxSubscriptionParser.parse(body, group.id)
         if (singBoxResult is SingBoxParseResult.Error && singBoxResult.recognizedBundle) {
-            return RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false)
+            return rejected(
+                ImportRejection
+                    .SchemaVersion(singBoxResult.foundSchemaVersion)
+                    .takeIf { singBoxResult.code == SingBoxBundleErrorCode.UNSUPPORTED_SCHEMA_VERSION },
+            )
         }
         val singBox = singBoxResult as? SingBoxParseResult.Success
         if (singBox?.migration != null) payload.requireMigrationUtf8()
@@ -410,9 +419,15 @@ class SubscriptionRefreshCoordinator private constructor(
             singBox.orEmptyAwgCount() +
                 wireGuard?.let { it.amneziaWgProfiles.size + it.profiles.size }.orZero()
         val profiles =
-            parseProfiles(body, group.id, wireGuardCount, singBox)
-                ?: return RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false)
-        return if (!profiles.profiles.fitsSubscriptionLimits() || wireGuardCount > MaxSubscriptionProfiles) {
+            when (val parsed = parseProfiles(body, group.id, wireGuardCount, singBox)) {
+                is RefreshOutcome.Failure -> return parsed
+                is RefreshOutcome.Updated -> parsed
+            }
+        // A refresh that would drop a saved server only because its new entry is refused keeps the saved group.
+        val lost = profiles.skipped.firstOrNull { node -> group.members.any { it.displayName == node.label } }
+        return if (lost != null) {
+            rejected(ImportRejection.Entry(lost))
+        } else if (!profiles.profiles.fitsSubscriptionLimits() || wireGuardCount > MaxSubscriptionProfiles) {
             payloadTooLargeFailure()
         } else {
             profiles.copy(
@@ -452,7 +467,9 @@ class SubscriptionRefreshCoordinator private constructor(
             } catch (_: IllegalArgumentException) {
                 RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false)
             }
-        if (outcome is RefreshOutcome.Failure) return SubscriptionRefreshResult.Failed(outcome.failure, false)
+        if (outcome is RefreshOutcome.Failure) {
+            return SubscriptionRefreshResult.Failed(outcome.failure, false, outcome.rejection)
+        }
         if (existing == null) repository.add(draft)
         val expected =
             repository.list().firstOrNull { it.id == draft.id } ?: return SubscriptionRefreshResult.Superseded
@@ -558,36 +575,49 @@ class SubscriptionRefreshCoordinator private constructor(
         groupId: String,
         wireGuardCount: Int,
         singBox: SingBoxParseResult.Success?,
-    ): RefreshOutcome.Updated? {
+    ): RefreshOutcome {
         val selector = SelectorUrltestGroupImport.import(body, groupId)
-        // A recognised bundle must not fall through to AWG-only success after
-        // its relay topology or payload policy fails: that would erase the last working members.
-        val members =
-            (selector as? SelectorUrltestImportResult.Success)
-                ?.let { it.group?.members ?: it.profiles }
-                .orEmpty()
-        if (rejectsRelayBundle(singBox, selector, members)) return null
-        var parsed =
-            if (selector is SelectorUrltestImportResult.Success && members.isNotEmpty()) {
+        val selected = selector as? SelectorUrltestImportResult.Success
+        val (members, unusable) =
+            splitNativeProfiles(
+                selected?.let { it.group?.members ?: it.profiles }.orEmpty(),
+                selected?.outboundTags.orEmpty(),
+            )
+        val skipped = selected?.skipped.orEmpty() + unusable
+        // A recognised bundle must not fall through to AWG-only success after its relay topology or
+        // payload policy fails, or after every relay entry is skipped: that would erase the last working members.
+        val noUsableMember = members.isEmpty() && (singBox?.profiles?.isNotEmpty() == true || skipped.isNotEmpty())
+        if (singBox != null && (selector is SelectorUrltestImportResult.Error || noUsableMember)) {
+            val refused = (selector as? SelectorUrltestImportResult.Error)?.node ?: skipped.firstOrNull()
+            return rejected(refused?.let(ImportRejection::Entry))
+        }
+        return when {
+            selected != null && members.isNotEmpty() -> {
                 RefreshOutcome.Updated(
                     members,
-                    selector.failoverPolicy.toSelectorFailover(),
-                    cloudflareMemberIds = selector.cloudflareMemberIds,
-                    isSelector = selector.group != null,
-                    initialMemberId = selector.group?.initialMemberId,
-                    memberHealth = selector.memberHealth,
-                    fieldReport = selector.fieldReport,
+                    selected.failoverPolicy.toSelectorFailover(),
+                    cloudflareMemberIds = selected.cloudflareMemberIds,
+                    isSelector = selected.group != null,
+                    // A skipped member cannot stay the initial selection or keep its health entry.
+                    initialMemberId = selected.group?.initialMemberId?.takeIf { id -> members.any { it.id == id } },
+                    memberHealth = selected.memberHealth.filterKeys { tag -> members.any { it.displayName == tag } },
+                    fieldReport = selected.fieldReport,
                     tokenExpiresAtEpochMillis = singBox?.tokenExpiresAtEpochMillis,
                     packageRoutingRules = singBox?.packageRoutingRules.orEmpty(),
+                    skipped = skipped,
                 )
-            } else {
-                null
             }
-        if (parsed == null && wireGuardCount == 0) {
-            parsed = parseSimpleProfiles(body, groupId)
-        }
-        if (parsed == null && wireGuardCount > 0) {
-            parsed =
+
+            wireGuardCount == 0 -> {
+                val simple = parseSimpleSubscription(body, groupId)
+                when {
+                    simple == null -> rejected(null)
+                    simple.first.isEmpty() -> rejected(simple.second.firstOrNull()?.let(ImportRejection::Entry))
+                    else -> RefreshOutcome.Updated(simple.first, null, skipped = simple.second)
+                }
+            }
+
+            else -> {
                 RefreshOutcome.Updated(
                     emptyList(),
                     null,
@@ -595,41 +625,12 @@ class SubscriptionRefreshCoordinator private constructor(
                     packageRoutingRules = singBox?.packageRoutingRules.orEmpty(),
                     clearRelayMembers = true,
                 )
-        }
-        return parsed?.takeIf { outcome ->
-            outcome.profiles.none { profile ->
-                validateNativeRelayProfileResult(profile).isFailure
             }
         }
     }
 
-    private fun rejectsRelayBundle(
-        singBox: SingBoxParseResult.Success?,
-        selector: SelectorUrltestImportResult,
-        members: List<ProxyProfile>,
-    ): Boolean {
-        if (singBox == null) return false
-        val rejectedNodes = singBox.skipped.isNotEmpty() || singBox.profiles.any { it is ProxyProfile.RawConfig }
-        val missingMembers = singBox.profiles.isNotEmpty() && members.isEmpty()
-        return selector is SelectorUrltestImportResult.Error || rejectedNodes || missingMembers
-    }
-
-    private fun parseSimpleProfiles(
-        body: String,
-        groupId: String,
-    ): RefreshOutcome.Updated? {
-        val profiles =
-            if (ClashSubscriptionParser.looksLikeClash(body)) {
-                val clash = ClashSubscriptionParser.parse(body, groupId)
-                clash.takeIf { it.errors.isEmpty() }?.profiles.orEmpty()
-            } else {
-                val base64 = Base64SubscriptionParser.parse(body, groupId)
-                base64.takeIf { it.warnings.isEmpty() }?.profiles.orEmpty()
-            }
-        return profiles
-            .takeIf { it.isNotEmpty() && it.none { node -> node is ProxyProfile.RawConfig } }
-            ?.let { RefreshOutcome.Updated(it, null) }
-    }
+    private fun rejected(rejection: ImportRejection?): RefreshOutcome.Failure =
+        RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false, rejection)
 
     private fun parsedWireGuardProfiles(
         singBox: SingBoxParseResult.Success?,
@@ -680,12 +681,14 @@ class SubscriptionRefreshCoordinator private constructor(
             val fieldReport: RipdpiFieldReport? = null,
             val migration: MigrationMetadata? = null,
             val payloadSha256: String = "",
+            val skipped: List<SingBoxSkippedNode> = emptyList(),
         ) : RefreshOutcome
 
         data class Failure(
             val failure: SubscriptionRefreshFailure,
             val lifecycleState: SubscriptionLifecycleState?,
             val retry: Boolean,
+            val rejection: ImportRejection? = null,
         ) : RefreshOutcome
     }
 

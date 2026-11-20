@@ -3141,9 +3141,12 @@ app:import_clipboard_unknown_no_scheme
 app:import_clipboard_unknown_title
 app:import_clipboard_unknown_with_scheme
 app:import_confirm_add_action
+app:import_entry_invalid
+app:import_entry_unsupported
 app:import_error_bad_encoding
 app:import_error_missing_url
 app:import_error_unsupported
+app:import_failure_schema_version
 app:import_profile_confirm_empty_body
 app:import_profile_confirm_empty_title
 app:import_profile_confirm_error

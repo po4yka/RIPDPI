@@ -203,6 +203,12 @@
     <string name="import_subscription_bootstrap_title">一次性引导链接</string>
     <string name="import_subscription_bootstrap_body">这是一次性引导令牌，只能使用一次以获取你的订阅。</string>
     <string name="import_subscription_unnamed">未命名订阅</string>
+    <string name="import_failure_schema_version">此配置包的版本为 %1$d，本应用支持版本 %2$d。</string>
+    <string name="import_entry_unsupported">%1$s：不支持 %2$s</string>
+    <string name="import_entry_invalid">%1$s：设置无效</string>
+    <plurals name="import_entries_skipped">
+        <item quantity="other">已跳过 %1$d 个条目</item>
+    </plurals>
     <!-- Clipboard import -->
     <string name="import_clipboard_action">从剪贴板导入</string>
     <string name="import_clipboard_unknown_title">剪贴板不是代理链接</string>

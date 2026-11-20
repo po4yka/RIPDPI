@@ -200,6 +200,15 @@
     <string name="import_subscription_bootstrap_title">Одноразовая ссылка инициализации</string>
     <string name="import_subscription_bootstrap_body">Это одноразовый токен инициализации. Его можно использовать один раз для получения подписки.</string>
     <string name="import_subscription_unnamed">Подписка без названия</string>
+    <string name="import_failure_schema_version">Версия этого пакета — %1$d. Приложение поддерживает версию %2$d.</string>
+    <string name="import_entry_unsupported">%1$s: %2$s не поддерживается</string>
+    <string name="import_entry_invalid">%1$s: недопустимые настройки</string>
+    <plurals name="import_entries_skipped">
+        <item quantity="one">Пропущена %1$d запись</item>
+        <item quantity="few">Пропущено %1$d записи</item>
+        <item quantity="many">Пропущено %1$d записей</item>
+        <item quantity="other">Пропущено %1$d записи</item>
+    </plurals>
     <string name="import_clipboard_action">Импорт из буфера обмена</string>
     <string name="import_clipboard_unknown_title">В буфере обмена нет ссылки прокси</string>
     <string name="import_clipboard_unknown_with_scheme">В буфере обмена ссылка \"%1$s\", которая не является поддерживаемой ссылкой прокси.</string>

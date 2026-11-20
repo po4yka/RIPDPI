@@ -69,24 +69,10 @@ sealed interface SingBoxParseResult {
         val recognizedBundle: Boolean = false,
         /** Typed cause for a rejected `ripdpi` contract; `null` for other parse failures. */
         val code: SingBoxBundleErrorCode? = null,
+        /** The bundle's own `ripdpi.schema_version` when [code] is a version mismatch and it is an integer. */
+        val foundSchemaVersion: Int? = null,
     ) : SingBoxParseResult
 }
-
-/** Stable reason why a subscription entry was not made selectable. */
-enum class SingBoxSkipReason {
-    UNSUPPORTED_TRANSPORT,
-    UNSUPPORTED_OBFUSCATION,
-    UNSUPPORTED_FINGERPRINT,
-    INVALID_NETWORK_POLICY,
-}
-
-/** One rejected subscription entry. [detail] is a non-secret protocol or metadata identifier. */
-data class SingBoxSkippedNode(
-    val index: Int,
-    val label: String,
-    val reason: SingBoxSkipReason,
-    val detail: String? = null,
-)
 
 /**
  * Transport topology declared by `ripdpi.topology`. Both fields are optional

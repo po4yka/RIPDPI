@@ -135,6 +135,7 @@ internal fun ripdpiContractError(extension: JsonObject?): SingBoxParseResult.Err
         return SingBoxParseResult.Error(
             "Unsupported RIPDPI bundle schema version",
             code = SingBoxBundleErrorCode.UNSUPPORTED_SCHEMA_VERSION,
+            foundSchemaVersion = (extension?.get("schema_version") as? JsonPrimitive)?.intOrNull,
         )
     }
     return invalidFieldReportField(extension["field_report"])?.let { field ->

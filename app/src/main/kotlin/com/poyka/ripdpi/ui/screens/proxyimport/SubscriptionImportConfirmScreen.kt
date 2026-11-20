@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,6 +56,7 @@ fun SubscriptionImportConfirmRoute(
         uiState = uiState,
         onBack = onBack,
         onConfirm = viewModel::confirm,
+        onDone = onImported,
         modifier = modifier,
     )
 }
@@ -65,6 +67,7 @@ internal fun SubscriptionImportConfirmScreen(
     onBack: () -> Unit,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
+    onDone: () -> Unit = {},
 ) {
     SecureWindowEffect()
     RipDpiContentScreenScaffold(
@@ -84,8 +87,20 @@ internal fun SubscriptionImportConfirmScreen(
         if (uiState.importFailed) {
             WarningBanner(
                 title = stringResource(R.string.strategy_config_import_failed_title),
-                message = stringResource(R.string.import_profile_confirm_error),
+                message = importRejectionText(uiState.rejection),
                 tone = WarningBannerTone.Error,
+            )
+        }
+        if (uiState.skipped.isNotEmpty()) {
+            WarningBanner(
+                title =
+                    pluralStringResource(
+                        R.plurals.import_entries_skipped,
+                        uiState.skipped.size,
+                        uiState.skipped.size,
+                    ),
+                message = skippedEntriesText(uiState.skipped),
+                tone = WarningBannerTone.Warning,
             )
         }
         // Same empty state as profile import: nothing to add, so no card and no disabled Add.
@@ -106,9 +121,11 @@ internal fun SubscriptionImportConfirmScreen(
                 supporting = uiState.url,
             )
         }
+        // The import is saved once entries were skipped; the screen only waits for the user to read them.
+        val saved = uiState.skipped.isNotEmpty()
         RipDpiButton(
-            text = stringResource(R.string.import_confirm_add_action),
-            onClick = onConfirm,
+            text = stringResource(if (saved) R.string.xray_import_done_action else R.string.import_confirm_add_action),
+            onClick = if (saved) onDone else onConfirm,
             enabled = !uiState.importing,
             loading = uiState.importing,
             modifier = Modifier.fillMaxWidth(),

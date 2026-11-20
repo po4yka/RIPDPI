@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.subscription
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.subscription.ImportRejection
 import com.poyka.ripdpi.subscription.SubscriptionExpiryClock
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
@@ -25,6 +26,8 @@ data class SubscriptionStatusUiState(
     val secretsRevealed: Boolean = false,
     val refreshingGroupId: String? = null,
     val refreshFailedGroupId: String? = null,
+    /** The named cause of the failed manual refresh of [refreshFailedGroupId], when the payload was refused. */
+    val refreshRejection: ImportRejection? = null,
 )
 
 @HiltViewModel
@@ -45,6 +48,9 @@ class SubscriptionStatusViewModel internal constructor(
     private val secretsRevealed = MutableStateFlow(false)
     private val refreshingGroupId = MutableStateFlow<String?>(null)
     private val refreshFailedGroupId = MutableStateFlow<String?>(null)
+
+    // shortcut: the cause lives only in this screen's memory, persist it with the subscription if it must survive.
+    private var refreshRejection: ImportRejection? = null
 
     val uiState: StateFlow<SubscriptionStatusUiState> =
         combine(
@@ -79,6 +85,7 @@ class SubscriptionStatusViewModel internal constructor(
                 secretsRevealed = revealed,
                 refreshingGroupId = refreshing,
                 refreshFailedGroupId = failedGroup,
+                refreshRejection = refreshRejection.takeIf { failedGroup != null },
             )
         }.stateIn(
             scope = viewModelScope,
@@ -100,12 +107,15 @@ class SubscriptionStatusViewModel internal constructor(
         val job =
             viewModelScope.launch {
                 try {
-                    if (refreshGroup(groupId) !is SubscriptionRefreshResult.Updated) {
+                    val result = refreshGroup(groupId)
+                    if (result !is SubscriptionRefreshResult.Updated) {
+                        refreshRejection = (result as? SubscriptionRefreshResult.Failed)?.rejection
                         refreshFailedGroupId.value = groupId
                     }
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (_: Exception) {
+                    refreshRejection = null
                     refreshFailedGroupId.value = groupId
                 }
             }

@@ -202,6 +202,13 @@
     <string name="import_subscription_bootstrap_title">Einmaliger Bootstrap-Link</string>
     <string name="import_subscription_bootstrap_body">Dies ist ein einmaliges Bootstrap-Token. Es kann einmal verwendet werden, um Ihr Abonnement abzurufen.</string>
     <string name="import_subscription_unnamed">Unbenanntes Abonnement</string>
+    <string name="import_failure_schema_version">Dieses Paket hat Version %1$d. Die App unterstützt Version %2$d.</string>
+    <string name="import_entry_unsupported">%1$s: %2$s wird nicht unterstützt</string>
+    <string name="import_entry_invalid">%1$s: Einstellungen sind ungültig</string>
+    <plurals name="import_entries_skipped">
+        <item quantity="one">%1$d Eintrag übersprungen</item>
+        <item quantity="other">%1$d Einträge übersprungen</item>
+    </plurals>
     <!-- Clipboard import -->
     <string name="import_clipboard_action">Aus Zwischenablage importieren</string>
     <string name="import_clipboard_unknown_title">Zwischenablage ist kein Proxy-Link</string>

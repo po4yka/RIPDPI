@@ -67,6 +67,8 @@ sealed interface BootstrapConsumeResult {
     data class ParseError(
         val reason: String,
         val consumedAtMillis: Long? = null,
+        /** The entry the native backend refused, when that is why the payload was rejected. */
+        val node: SingBoxSkippedNode? = null,
     ) : BootstrapConsumeResult
 }
 
@@ -288,9 +290,10 @@ class BootstrapConsumer(
             singBoxProfileCount in 1..MaxSubscriptionProfiles &&
             singBox.profiles.fitsSubscriptionLimits()
         ) {
-            if (singBox.skipped.isNotEmpty() || !singBox.profiles.hasOnlyNativeProfiles()) {
-                return BootstrapConsumeResult.ParseError("unsupported bootstrap node")
-            }
+            // A one-time payload is installed whole or not at all; the refused entry is named for the user.
+            (singBox.skipped + splitNativeProfiles(singBox.profiles).second)
+                .firstOrNull()
+                ?.let { return BootstrapConsumeResult.ParseError("unsupported bootstrap node", node = it) }
             if (singBox.migration != null) {
                 try {
                     payload.requireMigrationUtf8()

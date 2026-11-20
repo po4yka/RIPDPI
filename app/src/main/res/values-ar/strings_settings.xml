@@ -189,6 +189,17 @@
     <string name="import_subscription_bootstrap_title">رابط تهيئة لمرة واحدة</string>
     <string name="import_subscription_bootstrap_body">هذا رمز تهيئة لمرة واحدة. يمكن استخدامه مرة واحدة لجلب اشتراكك.</string>
     <string name="import_subscription_unnamed">اشتراك بدون اسم</string>
+    <string name="import_failure_schema_version">إصدار هذه الحزمة %1$d. يدعم التطبيق الإصدار %2$d.</string>
+    <string name="import_entry_unsupported">%1$s: %2$s غير مدعوم</string>
+    <string name="import_entry_invalid">%1$s: الإعدادات غير صالحة</string>
+    <plurals name="import_entries_skipped">
+        <item quantity="zero">لم يُتخطَّ أي إدخال</item>
+        <item quantity="one">تم تخطي إدخال واحد</item>
+        <item quantity="two">تم تخطي إدخالين</item>
+        <item quantity="few">تم تخطي %1$d إدخالات</item>
+        <item quantity="many">تم تخطي %1$d إدخالًا</item>
+        <item quantity="other">تم تخطي %1$d إدخال</item>
+    </plurals>
     <string name="import_clipboard_action">استيراد من الحافظة</string>
     <string name="import_clipboard_unknown_title">محتوى الحافظة ليس رابط بروكسي</string>
     <string name="import_clipboard_unknown_with_scheme">تحتوي الحافظة على رابط \"%1$s\"، وهو ليس رابط بروكسي مدعوماً.</string>
