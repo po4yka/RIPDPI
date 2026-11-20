@@ -50,6 +50,10 @@ pub(crate) async fn create_connection(
     handshake_pooled(io, max_concurrent_streams, pool_changed).await
 }
 
+const H2_STREAM_WINDOW: u32 = 4 << 20;
+/// Room for several full-rate streams on one carrier.
+const H2_CONNECTION_WINDOW: u32 = 16 << 20;
+
 /// Start the H2 session over an established carrier and attach its driver.
 /// Keep-alive PINGs let the driver notice a silently dead path (NAT expiry,
 /// network change without RST): the driver then ends and marks the pooled
@@ -73,6 +77,10 @@ where
         .keep_alive_interval(H2_KEEP_ALIVE_INTERVAL)
         .keep_alive_timeout(H2_KEEP_ALIVE_TIMEOUT)
         .keep_alive_while_idle(true)
+        // Go's HTTP/2 client (xray-core's) allows 4 MiB per stream; Hyper's 2 MiB
+        // default capped download at about 2 MiB per round trip.
+        .initial_stream_window_size(H2_STREAM_WINDOW)
+        .initial_connection_window_size(H2_CONNECTION_WINDOW)
         .handshake(TokioIo::new(io))
         .await
         .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP H2 handshake: {error}")))?;

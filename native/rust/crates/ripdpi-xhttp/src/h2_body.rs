@@ -1,5 +1,7 @@
 use std::io;
 use std::pin::Pin;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
@@ -14,7 +16,7 @@ pub(crate) type XhttpBody = http_body_util::combinators::BoxBody<Bytes, io::Erro
 pub(crate) struct ChannelBody {
     receiver: mpsc::Receiver<io::Result<Bytes>>,
     started: Option<oneshot::Sender<()>>,
-    ended: Option<oneshot::Sender<()>>,
+    ended: Option<(oneshot::Sender<()>, Arc<AtomicBool>)>,
 }
 
 impl ChannelBody {
@@ -25,9 +27,10 @@ impl ChannelBody {
         self.started = Some(started);
         self
     }
-    /// Signals once the body has handed its last frame to the H2 connection.
-    pub(crate) fn with_end_notice(mut self, ended: oneshot::Sender<()>) -> Self {
-        self.ended = Some(ended);
+    /// Signals once the body has handed its last frame to the H2 connection,
+    /// through the flag first and then the channel.
+    pub(crate) fn with_end_notice(mut self, ended: oneshot::Sender<()>, flag: Arc<AtomicBool>) -> Self {
+        self.ended = Some((ended, flag));
         self
     }
 }
@@ -49,7 +52,8 @@ impl Body for ChannelBody {
             }
             Poll::Ready(Some(Err(error))) => Poll::Ready(Some(Err(error))),
             Poll::Ready(None) => {
-                if let Some(ended) = self.ended.take() {
+                if let Some((ended, flag)) = self.ended.take() {
+                    flag.store(true, Ordering::Release);
                     let _ = ended.send(());
                 }
                 Poll::Ready(None)

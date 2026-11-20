@@ -134,6 +134,14 @@ impl PooledConnection {
         (self.peer_streams.load(Ordering::Acquire) / 2).max(1)
     }
 
+    /// This session's share of the peer's H2 streams beyond the two that
+    /// admission budgets per session (one GET, one POST).
+    pub(crate) fn extra_streams_per_session(&self) -> usize {
+        let state = self.stream_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let sessions = (state.active + state.pending).max(1);
+        self.peer_streams.load(Ordering::Acquire).saturating_sub(2 * sessions) / sessions
+    }
+
     pub(crate) fn active_at_peer_capacity(&self) -> bool {
         self.stream_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).active >= self.peer_sessions()
     }
@@ -416,6 +424,25 @@ mod tests {
             .await
             .expect("pooled connection drop must abort driver")
             .expect("driver drop notification");
+    }
+
+    #[tokio::test]
+    async fn extra_post_streams_share_what_admission_leaves_free() {
+        let (client_io, _server_io) = tokio::io::duplex(4096);
+        let (sender, _connection) =
+            hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(client_io))
+                .await
+                .expect("client h2 handshake");
+        let pooled = PooledConnection::new(sender, 8, Arc::new(Notify::new()));
+        // A peer allowing 10 streams admits 5 sessions of 2 streams each.
+        pooled.peer_streams.store(10, Ordering::Release);
+        pooled.stream_started();
+        pooled.stream_started();
+        assert_eq!(3, pooled.extra_streams_per_session(), "(10 - 2 * 2) / 2");
+        for _ in 0..3 {
+            pooled.stream_started();
+        }
+        assert_eq!(0, pooled.extra_streams_per_session(), "a full carrier leaves one POST per session");
     }
 
     #[tokio::test]

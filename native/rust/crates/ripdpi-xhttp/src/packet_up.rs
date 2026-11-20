@@ -17,7 +17,9 @@ use tokio::sync::oneshot;
 use tokio::task::{AbortHandle, JoinError, JoinHandle, JoinSet};
 use tokio::time::Instant;
 
-use crate::h2_body::build_packet_request;
+use hyper::client::conn::http2::SendRequest;
+
+use crate::h2_body::{XhttpBody, build_packet_request};
 use crate::pool::PooledConnection;
 use crate::relay::{referer_padding, stream_up_path};
 
@@ -42,9 +44,11 @@ const READ_SIZE: usize = 16 * 1024;
 /// answered with 200. A failed POST publishes the failure before the upload
 /// pipe closes and closes the download, so the session fails instead of
 /// losing bytes.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_upload(
-    mut upload: DuplexStream,
+    upload: DuplexStream,
     carrier: Arc<PooledConnection>,
+    sender: SendRequest<XhttpBody>,
     session_path: String,
     host: String,
     stream_failed: Arc<AtomicBool>,
@@ -52,19 +56,36 @@ pub(crate) fn spawn_upload(
     flushed: oneshot::Sender<()>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        match upload_packets(&mut upload, &carrier, &session_path, &host).await {
+        // Locals drop in reverse order: the guard publishes a failure, even
+        // from a panic, before the flush sender and the pipe drop.
+        let flushed = flushed;
+        let mut upload = upload;
+        let mut failure = FailureGuard { stream_failed, abort_download, armed: true };
+        let mut sender = sender;
+        match upload_packets(&mut upload, &carrier, &mut sender, &session_path, &host).await {
             Ok(()) => {
+                failure.armed = false;
                 let _ = flushed.send(());
             }
-            Err(error) => {
-                tracing::debug!(error = %error, "xHTTP packet-up upload failed");
-                // Publish failure before the pipe and the flush sender drop.
-                stream_failed.store(true, Ordering::Release);
-                abort_download.abort();
-            }
+            Err(error) => tracing::debug!(error = %error, "xHTTP packet-up upload failed"),
         }
-        drop(upload);
     })
+}
+
+/// Marks the session failed and closes the download unless disarmed.
+struct FailureGuard {
+    stream_failed: Arc<AtomicBool>,
+    abort_download: AbortHandle,
+    armed: bool,
+}
+
+impl Drop for FailureGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            self.stream_failed.store(true, Ordering::Release);
+            self.abort_download.abort();
+        }
+    }
 }
 
 /// # Cancel safety:
@@ -73,6 +94,7 @@ pub(crate) fn spawn_upload(
 async fn upload_packets(
     upload: &mut DuplexStream,
     carrier: &PooledConnection,
+    sender: &mut SendRequest<XhttpBody>,
     session_path: &str,
     host: &str,
 ) -> io::Result<()> {
@@ -96,8 +118,11 @@ async fn upload_packets(
             }
         };
         if !chunk.is_empty() {
-            while !posts.is_empty()
-                && (posts.len() >= MAX_IN_FLIGHT_POSTS || in_flight_bytes + chunk.len() > MAX_IN_FLIGHT_BYTES)
+            // Extra POSTs use only streams the pool did not budget to other
+            // sessions, so a busy carrier slows uploads instead of queueing
+            // POSTs in Hyper while their timeout runs.
+            let max_posts = 1 + carrier.extra_streams_per_session().min(MAX_IN_FLIGHT_POSTS - 1);
+            while !posts.is_empty() && (posts.len() >= max_posts || in_flight_bytes + chunk.len() > MAX_IN_FLIGHT_BYTES)
             {
                 if let Some(done) = posts.join_next().await {
                     in_flight_bytes -= post_result(done)?;
@@ -106,7 +131,7 @@ async fn upload_packets(
             last_post = Some(Instant::now());
             let body = chunk.split().freeze();
             in_flight_bytes += body.len();
-            let response = submit_post(carrier, &stream_up_path(session_path, &seq.to_string()), host, body).await?;
+            let response = submit_post(sender, &stream_up_path(session_path, &seq.to_string()), host, body)?;
             posts.spawn(response);
             seq += 1;
         }
@@ -152,19 +177,15 @@ async fn fill_chunk(upload: &mut DuplexStream, chunk: &mut BytesMut, scratch: &m
 /// Hand one POST to the H2 connection now, so seq order is the stream order,
 /// and return its completion: only status 200 succeeds, as in xray-core
 /// `DefaultDialerClient.PostPacket`, within [`POST_TIMEOUT`].
-///
-/// # Cancel safety:
-/// cancel-safe: cancellation before submission sends nothing; after it, the
-/// returned future owns the request.
-async fn submit_post(
-    carrier: &PooledConnection,
+fn submit_post(
+    sender: &mut SendRequest<XhttpBody>,
     path: &str,
     host: &str,
     body: Bytes,
 ) -> io::Result<impl Future<Output = io::Result<usize>> + Send + 'static> {
     let len = body.len();
     let request = build_packet_request(path, host, &referer_padding(host, path), body)?;
-    let response = carrier.sender.lock().await.send_request(request);
+    let response = sender.send_request(request);
     Ok(async move {
         let finish = async {
             let response = response.await.map_err(|error| {

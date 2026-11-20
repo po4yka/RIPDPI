@@ -11,7 +11,7 @@ use http_body_util::BodyExt;
 use hyper::StatusCode;
 use rand::{Rng, RngExt};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
-use tokio::sync::{OwnedSemaphorePermit, mpsc, oneshot};
+use tokio::sync::{OwnedSemaphorePermit, mpsc, oneshot, watch};
 use tokio::task::{AbortHandle, JoinHandle};
 
 use ripdpi_vless::addons::VlessFlow;
@@ -35,9 +35,11 @@ pub struct XhttpStream {
     _permit: OwnedSemaphorePermit,
     _carrier: ActiveCarrier,
     _upload_carrier: Option<(OwnedSemaphorePermit, ActiveCarrier)>,
-    /// Fires once every byte accepted by `poll_write` reached the peer; shutdown waits for it.
+    /// Fires when the upload leg has every accepted byte; see `poll_shutdown`.
     upload_flushed: Option<oneshot::Receiver<()>>,
     flush_deadline: Option<Pin<Box<tokio::time::Sleep>>>,
+    /// The first shutdown outcome, returned again by every later call.
+    shutdown_result: Option<Result<(), (io::ErrorKind, &'static str)>>,
 }
 
 /// Upper bound for `poll_shutdown` to wait for buffered upload bytes.
@@ -79,32 +81,49 @@ impl AsyncWrite for XhttpStream {
         Pin::new(&mut self.writer).poll_flush(cx)
     }
 
-    /// Completes after the upload leg delivered every accepted byte, so dropping
-    /// the stream right after shutdown loses nothing; bounded by
-    /// [`UPLOAD_FLUSH_TIMEOUT`].
+    /// Waits, at most [`UPLOAD_FLUSH_TIMEOUT`], until the upload leg holds no
+    /// accepted byte. For packet-up every byte was in a POST answered with 200.
+    /// For stream-up and stream-one every byte and the request end were handed
+    /// to the H2 request; dropping the stream after a successful shutdown keeps
+    /// that request open until the peer ends its response or the same timeout
+    /// passes, so H2 does not cancel frames still queued. Neither proves that
+    /// the peer application read the bytes.
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         let this = &mut *self;
-        if this.stream_failed.load(Ordering::Acquire) {
-            return Poll::Ready(Err(stream_reset()));
+        if let Some(result) = this.shutdown_result {
+            return Poll::Ready(result.map_err(|(kind, message)| io::Error::new(kind, message)));
         }
-        ready!(Pin::new(&mut this.writer).poll_shutdown(cx))?;
-        let Some(flushed) = this.upload_flushed.as_mut() else {
-            return Poll::Ready(Ok(()));
-        };
-        let result = match Pin::new(flushed).poll(cx) {
-            Poll::Ready(Ok(())) => Ok(()),
-            // The upload leg ended without delivering everything.
-            Poll::Ready(Err(_)) => Err(stream_reset()),
-            Poll::Pending => {
-                let deadline =
-                    this.flush_deadline.get_or_insert_with(|| Box::pin(tokio::time::sleep(UPLOAD_FLUSH_TIMEOUT)));
-                ready!(deadline.as_mut().poll(cx));
-                Err(io::Error::new(io::ErrorKind::TimedOut, "xHTTP upload flush timed out"))
-            }
-        };
+        let result = ready!(this.poll_shutdown_once(cx));
         this.upload_flushed = None;
         this.flush_deadline = None;
-        Poll::Ready(result)
+        this.shutdown_result = Some(result);
+        Poll::Ready(result.map_err(|(kind, message)| io::Error::new(kind, message)))
+    }
+}
+
+impl XhttpStream {
+    fn poll_shutdown_once(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), (io::ErrorKind, &'static str)>> {
+        const RESET: (io::ErrorKind, &str) = (io::ErrorKind::ConnectionReset, "xHTTP stream was reset");
+        if self.stream_failed.load(Ordering::Acquire) {
+            return Poll::Ready(Err(RESET));
+        }
+        if ready!(Pin::new(&mut self.writer).poll_shutdown(cx)).is_err() {
+            return Poll::Ready(Err(RESET));
+        }
+        let Some(flushed) = self.upload_flushed.as_mut() else {
+            return Poll::Ready(Ok(()));
+        };
+        match Pin::new(flushed).poll(cx) {
+            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+            // The upload leg ended without delivering everything.
+            Poll::Ready(Err(_)) => Poll::Ready(Err(RESET)),
+            Poll::Pending => {
+                let deadline =
+                    self.flush_deadline.get_or_insert_with(|| Box::pin(tokio::time::sleep(UPLOAD_FLUSH_TIMEOUT)));
+                ready!(deadline.as_mut().poll(cx));
+                Poll::Ready(Err((io::ErrorKind::TimedOut, "xHTTP upload flush timed out")))
+            }
+        }
     }
 }
 
@@ -253,21 +272,28 @@ impl PooledConnection {
         }
         let upload_carrier = upload.map(|(carrier, permit)| (permit, ActiveCarrier::new(carrier)));
         if mode.protocol_mode() == XhttpProtocolMode::PacketUp {
-            // Packet-up POSTs are sent one at a time by the upload task, so the
-            // carrier lock is not needed past the GET.
+            // The upload task submits POSTs through its own sender clone, so it
+            // never waits for this lock while another session opens.
+            let post_sender = match &upload_carrier {
+                Some((_, carrier)) => carrier.0.sender.lock().await.clone(),
+                None => sender.clone(),
+            };
             drop(sender);
             return self
-                .finish_packet_up(get_response, stream_path, host_header, request, permit, upload_carrier)
+                .finish_packet_up(get_response, stream_path, host_header, request, permit, upload_carrier, post_sender)
                 .await;
         }
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
         let (upload_started, admitted) = tokio::sync::oneshot::channel();
         let (upload_ended, upload_flushed) = oneshot::channel();
+        let body_ended = Arc::new(AtomicBool::new(false));
         let post_request = build_post_request(
             &stream_path,
             &host_header,
             &referer_padding(&host_header, &stream_path),
-            ChannelBody::new(outgoing_rx).with_start_notice(upload_started).with_end_notice(upload_ended),
+            ChannelBody::new(outgoing_rx)
+                .with_start_notice(upload_started)
+                .with_end_notice(upload_ended, Arc::clone(&body_ended)),
         )?;
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let mut open_tasks = OpenStreamTaskGuard::new();
@@ -284,6 +310,7 @@ impl PooledConnection {
             transport_download,
             Arc::clone(&stream_failed),
             "xHTTP GET stream failed",
+            None,
         );
         let abort_download = download.abort_handle();
         open_tasks.push(download);
@@ -292,7 +319,11 @@ impl PooledConnection {
             Some((_, carrier)) => carrier.0.sender.lock().await.send_request(post_request),
             None => sender.send_request(post_request),
         };
-        open_tasks.push(spawn_upload_response(response, Arc::clone(&stream_failed), abort_upload, abort_download));
+        let dropped = open_tasks.dropped();
+        open_tasks.linger(
+            spawn_upload_response(response, Arc::clone(&stream_failed), abort_upload, abort_download, dropped),
+            body_ended,
+        );
 
         // Hyper polls the upload body after H2 admits the stream. Its response headers
         // may depend on application bytes which the caller can only send after open.
@@ -311,6 +342,7 @@ impl PooledConnection {
             _upload_carrier: upload_carrier,
             upload_flushed: Some(upload_flushed),
             flush_deadline: None,
+            shutdown_result: None,
         };
         drop(sender);
         Ok(stream)
@@ -330,6 +362,7 @@ impl PooledConnection {
         request: &[u8],
         permit: OwnedSemaphorePermit,
         upload_carrier: Option<(OwnedSemaphorePermit, ActiveCarrier)>,
+        post_sender: hyper::client::conn::http2::SendRequest<crate::h2_body::XhttpBody>,
     ) -> io::Result<XhttpStream> {
         let post_carrier =
             upload_carrier.as_ref().map_or_else(|| Arc::clone(self), |(_, carrier)| Arc::clone(&carrier.0));
@@ -344,12 +377,14 @@ impl PooledConnection {
             transport_download,
             Arc::clone(&stream_failed),
             "xHTTP GET stream failed",
+            None,
         );
         let abort_download = download.abort_handle();
         open_tasks.push(download);
         open_tasks.push(crate::packet_up::spawn_upload(
             transport_upload,
             post_carrier,
+            post_sender,
             session_path,
             host_header,
             Arc::clone(&stream_failed),
@@ -366,6 +401,7 @@ impl PooledConnection {
             _upload_carrier: upload_carrier,
             upload_flushed: Some(upload_flushed),
             flush_deadline: None,
+            shutdown_result: None,
         })
     }
 
@@ -390,11 +426,12 @@ impl PooledConnection {
 
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
         let (upload_ended, upload_flushed) = oneshot::channel();
+        let body_ended = Arc::new(AtomicBool::new(false));
         let post_request = build_post_request(
             &stream_path,
             &host_header,
             &referer,
-            ChannelBody::new(outgoing_rx).with_end_notice(upload_ended),
+            ChannelBody::new(outgoing_rx).with_end_notice(upload_ended, Arc::clone(&body_ended)),
         )?;
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let mut open_tasks = OpenStreamTaskGuard::new();
@@ -414,12 +451,18 @@ impl PooledConnection {
         let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
         let stream_failed = Arc::new(AtomicBool::new(false));
-        open_tasks.push(spawn_download_pump(
-            post_response.into_body(),
-            transport_download,
-            Arc::clone(&stream_failed),
-            "xHTTP stream-one body failed",
-        ));
+        // The response body holds the request open, so it lingers after a clean shutdown.
+        let dropped = open_tasks.dropped();
+        open_tasks.linger(
+            spawn_download_pump(
+                post_response.into_body(),
+                transport_download,
+                Arc::clone(&stream_failed),
+                "xHTTP stream-one body failed",
+                Some(dropped),
+            ),
+            body_ended,
+        );
 
         let stream = XhttpStream {
             reader: ResponseHeaderStream::new(user_download),
@@ -431,6 +474,7 @@ impl PooledConnection {
             _upload_carrier: None,
             upload_flushed: Some(upload_flushed),
             flush_deadline: None,
+            shutdown_result: None,
         };
         Ok(stream)
     }
@@ -465,15 +509,28 @@ impl Drop for PendingStreamCarrier<'_> {
 
 struct OpenStreamTaskGuard {
     handles: Vec<JoinHandle<()>>,
+    /// Tasks that hold an upload request open. They are detached instead of
+    /// aborted once their request body has ended, so H2 sends the queued frames.
+    lingering: Vec<(JoinHandle<()>, Arc<AtomicBool>)>,
+    /// Closed on drop; a detached task then finishes within [`UPLOAD_FLUSH_TIMEOUT`].
+    dropped: watch::Sender<()>,
 }
 
 impl OpenStreamTaskGuard {
     fn new() -> Self {
-        Self { handles: Vec::new() }
+        Self { handles: Vec::new(), lingering: Vec::new(), dropped: watch::channel(()).0 }
     }
 
     fn push(&mut self, handle: JoinHandle<()>) {
         self.handles.push(handle);
+    }
+
+    fn linger(&mut self, handle: JoinHandle<()>, body_ended: Arc<AtomicBool>) {
+        self.lingering.push((handle, body_ended));
+    }
+
+    fn dropped(&self) -> watch::Receiver<()> {
+        self.dropped.subscribe()
     }
 }
 
@@ -482,7 +539,27 @@ impl Drop for OpenStreamTaskGuard {
         for handle in &self.handles {
             handle.abort();
         }
+        for (handle, body_ended) in &self.lingering {
+            if !body_ended.load(Ordering::Acquire) {
+                handle.abort();
+            }
+        }
     }
+}
+
+/// Run `work`; after the stream is dropped, give it at most
+/// [`UPLOAD_FLUSH_TIMEOUT`] more.
+///
+/// # Cancel safety:
+/// cancel-safe: it only drops `work`.
+async fn bounded_after_drop<T>(work: impl Future<Output = T>, mut dropped: watch::Receiver<()>) -> Option<T> {
+    let mut work = std::pin::pin!(work);
+    tokio::select! {
+        output = &mut work => return Some(output),
+        // Err means the guard, and so the stream, was dropped.
+        _ = dropped.changed() => {}
+    }
+    tokio::time::timeout(UPLOAD_FLUSH_TIMEOUT, work).await.ok()
 }
 
 fn spawn_upload_pump(
@@ -513,28 +590,44 @@ fn spawn_download_pump<B>(
     mut transport_download: DuplexStream,
     stream_failed: Arc<AtomicBool>,
     error_label: &'static str,
+    linger: Option<watch::Receiver<()>>,
 ) -> JoinHandle<()>
 where
     B: hyper::body::Body<Data = Bytes> + Send + Unpin + 'static,
     B::Error: std::fmt::Display + Send,
 {
     tokio::spawn(async move {
-        while let Some(frame) = body.frame().await {
-            let frame = match frame {
-                Ok(frame) => frame,
-                Err(error) => {
-                    tracing::debug!(error = %error, "{error_label}");
-                    stream_failed.store(true, Ordering::Release);
-                    break;
+        let pump = async {
+            // A lingering pump keeps reading after the reader is gone, so the
+            // response stays open until the peer ends it.
+            let mut deliver = true;
+            while let Some(frame) = body.frame().await {
+                let frame = match frame {
+                    Ok(frame) => frame,
+                    Err(error) => {
+                        tracing::debug!(error = %error, "{error_label}");
+                        stream_failed.store(true, Ordering::Release);
+                        break;
+                    }
+                };
+                if deliver
+                    && let Ok(data) = frame.into_data()
+                    && transport_download.write_all(&data).await.is_err()
+                {
+                    if linger.is_none() {
+                        break;
+                    }
+                    deliver = false;
                 }
-            };
-            if let Ok(data) = frame.into_data()
-                && transport_download.write_all(&data).await.is_err()
-            {
-                break;
             }
+            let _ = transport_download.shutdown().await;
+        };
+        match linger.clone() {
+            Some(dropped) => {
+                bounded_after_drop(pump, dropped).await;
+            }
+            None => pump.await,
         }
-        let _ = transport_download.shutdown().await;
     })
 }
 
@@ -543,9 +636,28 @@ fn spawn_upload_response(
     stream_failed: Arc<AtomicBool>,
     abort_upload: AbortHandle,
     abort_download: AbortHandle,
+    dropped: watch::Receiver<()>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        let failed = match response.await {
+        let outcome = bounded_after_drop(upload_response_failed(response), dropped).await;
+        if outcome.unwrap_or(false) {
+            // Publish failure before pipe closure wakes a pending read or write.
+            stream_failed.store(true, Ordering::Release);
+            abort_upload.abort();
+            abort_download.abort();
+        }
+    })
+}
+
+/// True when the upload request failed; false when the peer ended it cleanly.
+///
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the response, which resets the request.
+async fn upload_response_failed(
+    response: impl Future<Output = Result<hyper::Response<hyper::body::Incoming>, hyper::Error>>,
+) -> bool {
+    {
+        match response.await {
             Ok(response) if response.status().is_success() => {
                 let mut body = response.into_body();
                 loop {
@@ -567,14 +679,8 @@ fn spawn_upload_response(
                 tracing::debug!(error = %error, "xHTTP POST request failed");
                 true
             }
-        };
-        if failed {
-            // Publish failure before pipe closure wakes a pending read or write.
-            stream_failed.store(true, Ordering::Release);
-            abort_upload.abort();
-            abort_download.abort();
         }
-    })
+    }
 }
 
 pub(crate) fn random_padding_value() -> String {
@@ -796,6 +902,7 @@ mod tests {
             transport_download,
             Arc::clone(&stream_failed),
             "test download",
+            None,
         );
         let (_user_upload, writer) = tokio::io::duplex(1024);
         let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
@@ -811,6 +918,7 @@ mod tests {
             _upload_carrier: None,
             upload_flushed: None,
             flush_deadline: None,
+            shutdown_result: None,
             _carrier: super::ActiveCarrier::new(carrier),
             reader: ripdpi_vless::wire::ResponseHeaderStream::new(user_download),
             stream_failed,
@@ -1006,3 +1114,6 @@ mod cleanup_tests;
 
 #[cfg(test)]
 mod packet_up_tests;
+
+#[cfg(test)]
+mod shutdown_tests;
