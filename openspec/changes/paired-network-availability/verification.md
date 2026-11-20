@@ -1,15 +1,15 @@
 ---
 task_id: DGN-1795014097920678
 change: paired-network-availability
-commit_sha: fbf450077
+commit_sha: de007a006
 local: passed
 local_evidence: On fbf450077 (rebased on 6f7ee46b1, macOS) with -Pripdpi.skipNativeBuild=true, staticAnalysis --continue passed; :core:diagnostics:testDebugUnitTest (1843 tests), :core:diagnostics-data:testDebugUnitTest (104 tests) and :app:testGithubDebugUnitTest (3774 tests) passed with 0 failures; :app:lintGithubDebug and :core:service:lintDebug passed; just ci-gates passed (architecture health, LoC and hotspot budgets, contracts, locale parity, translation export, Rust API snapshots).
-remote_ci: required
-remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+remote_ci: passed
+remote_ci_evidence: CI run 44683066247 on PR #743 head eda0579dc (same tree as merge commit de007a006): ci-required passed with 56 passing checks, including gradle-static-analysis, rust-lint, build-android-debug, build-android-tests and android-instrumentation-apks; 18 nightly or scheduled jobs were skipped, and CodeQL Analyze (java-kotlin) was re-running after a Maven download miss.
+device: passed
+device_evidence: Pixel 8 Pro, GitHub debug build 2c7a1c168: two selective matrix sessions were paired in History, the comparison rendered and reported the same network type, and the exported comparison JSON was redacted. Not run on device: a pair across different networks (Wi-Fi against LTE); unit tests cover that case.
+artifact: passed
+artifact_evidence: CI build-android-debug in run 44683066247 assembled :app:assembleGithubDebug with the native libraries, inside the approved 864 KiB per-library growth budget (scripts/ci/native-size-baseline.json, approved 2026-11-19); the device runs used a local GitHub debug APK built from 2c7a1c168.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---

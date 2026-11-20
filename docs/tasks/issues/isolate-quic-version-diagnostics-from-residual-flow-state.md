@@ -2,7 +2,7 @@
 id: DGN-1795014101783145
 title: Isolate QUIC version diagnostics from residual flow state
 kind: feature
-status: backlog
+status: review
 area: diagnostics
 priority: high
 owner: diagnostic-evidence writer
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: quic-version-state-controls
 created: 2026-11-18
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 ## Goal

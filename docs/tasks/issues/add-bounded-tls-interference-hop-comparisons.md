@@ -2,7 +2,7 @@
 id: DGN-1795014015067016
 title: Add bounded TLS interference hop comparisons
 kind: feature
-status: backlog
+status: review
 area: diagnostics
 priority: medium
 owner: diagnostic-evidence writer
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: tls-interference-hop-comparison
 created: 2026-11-18
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 ## Goal

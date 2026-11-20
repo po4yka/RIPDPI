@@ -1,15 +1,15 @@
 ---
 task_id: DGN-1795014015067016
 change: tls-interference-hop-comparison
-commit_sha: 10e4747a3
+commit_sha: de007a006
 local: passed
 local_evidence: On 10e4747a3 (macOS, Rust 1.100.0) cargo test --locked for ripdpi-diagnostics-contracts, -tls, -runner, -probes and ripdpi-monitor-engine passed (794 tests incl. contract_fixtures); cargo clippy --locked --workspace --no-deps --all-targets -D warnings passed; :core:diagnostics:testDebugUnitTest 1835 tests, :app:testGithubDebugUnitTest 3767 tests and :build-logic:convention:test passed with 0 failures; :app:lintGithubDebug and :core:service:lintDebug passed; just ci-gates passed.
-remote_ci: required
-remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+remote_ci: passed
+remote_ci_evidence: CI run 44683066247 on PR #743 head eda0579dc (same tree as merge commit de007a006): ci-required passed with 56 passing checks, including gradle-static-analysis, rust-lint, build-android-debug, build-android-tests and android-instrumentation-apks; 18 nightly or scheduled jobs were skipped, and CodeQL Analyze (java-kotlin) was re-running after a Maven download miss.
+device: passed
+device_evidence: Pixel 8 Pro over IPv4-only LTE, GitHub debug build 2c7a1c168: a manual TLS hop comparison against a user endpoint completed with 16 attempts per SNI, reported the server answer at hop 8, and showed the result as inconclusive with the observation limit text. An earlier run on IPv6-first addresses failed every attempt in 0 ms; 2c7a1c168 fixed it by pinning the probe to a routable address. 86cb2175c changed only scan chips and buttons after this run.
+artifact: passed
+artifact_evidence: CI build-android-debug in run 44683066247 assembled :app:assembleGithubDebug with the native libraries, inside the approved 864 KiB per-library growth budget (scripts/ci/native-size-baseline.json, approved 2026-11-19); the device runs used a local GitHub debug APK built from 2c7a1c168.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---

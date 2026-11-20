@@ -1,15 +1,15 @@
 ---
 task_id: DGN-1795014101783145
 change: quic-version-state-controls
-commit_sha: f27d282fd
+commit_sha: de007a006
 local: passed
 local_evidence: On f27d282fd (macOS, Rust 1.100.0) cargo test --locked --no-fail-fast for ripdpi-diagnostics-transport, -contracts, -runner, -probes and ripdpi-monitor-engine passed (864 tests incl. contract_fixtures); cargo clippy --locked --all-targets -D warnings on those crates passed; :core:diagnostics:testDebugUnitTest 1841 tests, :core:diagnostics-data:testDebugUnitTest, :app:testGithubDebugUnitTest 3770 tests and :build-logic:convention:test 61 tests passed with 0 failures; :app:lintGithubDebug and :core:service:lintDebug passed; just ci-gates passed. The transport matrix tests ran in the cargo run above; the RFC 9369 KAT ran separately with cargo test --locked -p ripdpi-packets v2_kat (3 tests passed).
-remote_ci: required
-remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+remote_ci: passed
+remote_ci_evidence: CI run 44683066247 on PR #743 head eda0579dc (same tree as merge commit de007a006): ci-required passed with 56 passing checks, including gradle-static-analysis, rust-lint, build-android-debug, build-android-tests and android-instrumentation-apks; 18 nightly or scheduled jobs were skipped, and CodeQL Analyze (java-kotlin) was re-running after a Maven download miss.
+device: passed
+device_evidence: Pixel 8 Pro over IPv4-only LTE, GitHub debug build 2c7a1c168: a manual QUIC version matrix against a user endpoint completed; the v1 test SNI answered, v2 was inconclusive, the version difference was reported as not determined, and the same-socket residual check showed no effect. 86cb2175c changed only scan chips and buttons after this run.
+artifact: passed
+artifact_evidence: CI build-android-debug in run 44683066247 assembled :app:assembleGithubDebug with the native libraries, inside the approved 864 KiB per-library growth budget (scripts/ci/native-size-baseline.json, approved 2026-11-19); the device runs used a local GitHub debug APK built from 2c7a1c168.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
