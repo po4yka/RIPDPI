@@ -177,13 +177,15 @@ private fun ProfileUtilityHeader(
                 style = RipDpiThemeTokens.type.caption,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
+            // An unusable probe URL disables every check, so its field stays open to show why.
+            val showOptions = optionsExpanded || !state.canMeasure
             ProfileUtilityDisclosure(
                 text = stringResource(R.string.profile_utility_probe_options),
-                expanded = optionsExpanded,
-                onClick = { optionsExpanded = !optionsExpanded },
+                expanded = showOptions,
+                onClick = { optionsExpanded = !showOptions },
                 tag = ProfileUtilityTestTags.ProbeOptions,
             )
-            if (optionsExpanded) {
+            if (showOptions) {
                 ProfileUtilityProbeOptions(state, actions)
             }
         }

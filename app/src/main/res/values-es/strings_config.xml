@@ -1339,6 +1339,7 @@ Origen: %2$s</string>
     <string name="profile_utility_command_failed">No se pudo completar el comando. Revisa el estado del perfil.</string>
     <string name="profile_utility_selection_failed">No se pudo aplicar el perfil. Revisa los perfiles guardado y aplicado.</string>
     <string name="profile_utility_url">URL de comprobación</string>
+    <string name="profile_utility_url_invalid">Introduce una URL que empiece por http:// o https://.</string>
     <string name="profile_utility_applied">Perfil aplicado</string>
     <string name="profile_utility_loading">Cargando perfiles…</string>
     <string name="profile_utility_checked_at">Comprobado: %1$s</string>

@@ -1339,6 +1339,7 @@ fakeddisorder endhost</string>
     <string name="profile_utility_command_failed">فرمان کامل نشد. وضعیت نمایه را بررسی کنید.</string>
     <string name="profile_utility_selection_failed">نمایه اعمال نشد. نمایه ذخیره‌شده و اعمال‌شده را بررسی کنید.</string>
     <string name="profile_utility_url">نشانی بررسی</string>
+    <string name="profile_utility_url_invalid">یک نشانی URL وارد کنید که با http:// یا https:// شروع شود.</string>
     <string name="profile_utility_applied">نمایه اعمال‌شده</string>
     <string name="profile_utility_loading">در حال بارگذاری نمایه‌ها…</string>
     <string name="profile_utility_checked_at">بررسی‌شده: %1$s</string>

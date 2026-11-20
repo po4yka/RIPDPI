@@ -7,6 +7,8 @@ import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.isValidAwgMtu
 import com.poyka.ripdpi.data.awg.toActivationRequest
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
+import java.util.Base64
+import java.util.Locale
 
 /**
  * Projects the editor into an [AwgActivationRequest] for the standalone
@@ -41,6 +43,44 @@ fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRe
         persistentKeepaliveMax = keepaliveMax ?: 0,
     )
 }
+
+/**
+ * The server a profile talks to, normalised so that equal servers compare equal: the host in lower case
+ * without IPv6 brackets, and the peer key as canonical base64. It holds no secret.
+ */
+internal data class AwgServerIdentity(
+    val host: String,
+    val port: Int,
+    val peerPublicKey: String,
+) {
+    override fun toString(): String = "AwgServerIdentity(host=<redacted>, port=$port, peerPublicKey=$peerPublicKey)"
+}
+
+internal fun awgServerIdentity(
+    host: String,
+    port: Int,
+    peerPublicKey: String,
+): AwgServerIdentity {
+    val key = peerPublicKey.trim()
+    val canonicalKey =
+        try {
+            Base64.getEncoder().encodeToString(Base64.getDecoder().decode(key))
+        } catch (_: IllegalArgumentException) {
+            key
+        }
+    return AwgServerIdentity(host.trim().removeSurrounding("[", "]").lowercase(Locale.ROOT), port, canonicalKey)
+}
+
+internal fun AwgActivationRequest.serverIdentity(): AwgServerIdentity =
+    awgServerIdentity(endpointHost, endpointPort, peerPublicKey)
+
+/** Uses the typed port text when present, like [toActivationRequest]. */
+internal fun AmneziaWgEditorState.serverIdentity(): AwgServerIdentity =
+    awgServerIdentity(
+        form.server,
+        rawTextByField[AwgEditorField.SERVER_PORT]?.trim()?.toIntOrNull() ?: form.serverPort,
+        form.peerPublicKey,
+    )
 
 /** Opens a saved request in the editor; [toActivationRequest] maps the result back to the same request. */
 fun AwgActivationRequest.toEditorState(): AmneziaWgEditorState {

@@ -15,6 +15,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -35,7 +36,7 @@ internal class AwgProfileViewModelFixture : TestWatcher() {
     }
 
     val activator = RecordingStandaloneAmneziaWgActivator()
-    val dao: AwgProfileDao = InMemoryAwgProfileDao()
+    val dao = InMemoryAwgProfileDao()
     val credentialStore: AwgCredentialStore = InMemoryAwgCredentialStore()
     val repository =
         testAwgProfileRepository(
@@ -97,14 +98,19 @@ internal class RecordingStandaloneAmneziaWgActivator : StandaloneAmneziaWgActiva
  * In-memory [AwgProfileDao] so the test drives the REAL [AwgProfileRepository]
  * (and therefore the real stable-id discipline) without a Room dependency.
  */
-private class InMemoryAwgProfileDao : AwgProfileDao {
+internal class InMemoryAwgProfileDao : AwgProfileDao {
     private val rows = MutableStateFlow<List<AwgProfileEntity>>(emptyList())
 
-    override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows.asStateFlow()
+    /** Makes every read fail like a broken Room query. */
+    var failReads = false
 
-    override fun allProfiles(): List<AwgProfileEntity> = rows.value
+    private fun readable() = check(!failReads) { "Room read failed" }
 
-    override fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
+    override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows.asStateFlow().onEach { readable() }
+
+    override fun allProfiles(): List<AwgProfileEntity> = rows.value.also { readable() }
+
+    override fun getProfile(id: String): AwgProfileEntity? = rows.value.also { readable() }.firstOrNull { it.id == id }
 
     override fun upsertProfile(profile: AwgProfileEntity) {
         rows.value = rows.value.filterNot { it.id == profile.id } + profile

@@ -1324,6 +1324,7 @@ fake_burst 3</string>
     <string name="profile_utility_command_failed">无法完成命令。请检查配置文件状态。</string>
     <string name="profile_utility_selection_failed">无法应用配置文件。请检查已保存和已应用的配置文件。</string>
     <string name="profile_utility_url">检查 URL</string>
+    <string name="profile_utility_url_invalid">请输入以 http:// 或 https:// 开头的网址。</string>
     <string name="profile_utility_applied">已应用配置文件</string>
     <string name="profile_utility_loading">正在加载配置文件…</string>
     <string name="profile_utility_checked_at">检查时间：%1$s</string>

@@ -156,10 +156,11 @@ internal fun AmneziaWgProfileScreen(
         hintRes =
             when {
                 connectFailed -> R.string.awg_connect_error
+                uiState.subscriptionServerChanged -> R.string.awg_conf_subscription_server_mismatch_body
                 uiState.canActivate -> R.string.awg_connect_ready_hint
                 else -> R.string.awg_connect_incomplete_hint
             },
-        hintIsError = connectFailed,
+        hintIsError = connectFailed || uiState.subscriptionServerChanged,
     ) {
         // Import comes first: a pasted .conf fills most of the fields below.
         RipDpiButton(

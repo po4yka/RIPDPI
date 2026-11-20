@@ -87,6 +87,8 @@ data class AmneziaWgProfileUiState(
     /** `[Peer]` sections the last imported `.conf` had beyond the first one, which the editor ignores. */
     val ignoredPeerCount: Int = 0,
     val ignoredConfOptions: ImmutableList<String> = persistentListOf(),
+    /** Connect refused to save another server under a subscription profile; the next edit clears it. */
+    val subscriptionServerChanged: Boolean = false,
 )
 
 /**
@@ -124,7 +126,7 @@ class AmneziaWgProfileViewModel
         private var savedProfileName: String? = null
 
         /** The subscription profile this editor updates; a pasted `.conf` must keep its server. */
-        private var subscriptionServer: AwgActivationRequest? = null
+        private var subscriptionServer: AwgServerIdentity? = null
         private var requestedProfileId: String? = null
         private var claimedImportToken: String? = null
         private var pendingConsent: Pair<String, AmneziaWgEditorState>? = null
@@ -211,7 +213,7 @@ class AmneziaWgProfileViewModel
                     }
 
                     is AwgConfImport.Imported -> {
-                        if (subscriptionServer?.isServerOf(result.editor.form) == false) {
+                        if (changesSubscriptionServer(result.editor)) {
                             return@update state.copy(
                                 confImportFailure =
                                     AwgConfImport.Failed(
@@ -219,7 +221,17 @@ class AmneziaWgProfileViewModel
                                     ),
                             )
                         }
-                        state.withEditor(result.editor).copy(
+                        // A conf without a key value only refreshes the other fields.
+                        val currentKey = state.editor.form.interfacePrivateKey
+                        val imported =
+                            if (result.editor.form.interfacePrivateKey
+                                    .isBlank() && currentKey.isNotBlank()
+                            ) {
+                                result.editor.updateField(AwgEditorField.INTERFACE_PRIVATE_KEY, currentKey)
+                            } else {
+                                result.editor
+                            }
+                        state.withEditor(imported).copy(
                             ignoredPeerCount = result.ignoredPeerCount,
                             ignoredConfOptions = result.ignoredOptions.toImmutableList(),
                             privateKeyRevealed = false,
@@ -247,19 +259,37 @@ class AmneziaWgProfileViewModel
         }
 
         /**
-         * Opens the saved profile [profileId] once, unless the user already started editing. Save then
-         * updates that row, so a subscription profile keeps its id and subscription link.
+         * Opens the saved profile [profileId] once. Save then updates that row, so a subscription profile
+         * keeps its id and subscription link. Text the user typed before the load finished stays. A row
+         * that cannot be loaded shows the connect error, and Connect refuses to create a new row.
          */
+        @Suppress("TooGenericExceptionCaught")
         suspend fun onLoadProfile(profileId: String) {
             if (profileId == requestedProfileId) return
             requestedProfileId = profileId
-            val saved = profileRepository.load(profileId) ?: return
-            if (_uiState.value.editor != AmneziaWgEditorState.initial()) return
+            val saved =
+                try {
+                    profileRepository.load(profileId)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: Exception) {
+                    null
+                }
+            if (saved == null) {
+                _uiState.update { it.copy(activationStatus = AwgActivationStatus.Failed) }
+                return
+            }
             savedProfileId = saved.id
             savedProfileName = saved.name
-            subscriptionServer = saved.request.takeIf { saved.subscriptionOwned }
-            _uiState.update { it.withEditor(saved.request.toEditorState()) }
+            subscriptionServer = saved.request.takeIf { saved.subscriptionOwned }?.serverIdentity()
+            _uiState.update {
+                if (it.editor == AmneziaWgEditorState.initial()) it.withEditor(saved.request.toEditorState()) else it
+            }
         }
+
+        /** The one server check for paste and save: a subscription row keeps the server its bundle names. */
+        private fun changesSubscriptionServer(editor: AmneziaWgEditorState): Boolean =
+            subscriptionServer?.let { it != editor.serverIdentity() } ?: false
 
         /** Reads the clipboard only in response to the editor's explicit Paste action. */
         fun onPasteConf() {
@@ -327,6 +357,17 @@ class AmneziaWgProfileViewModel
                 _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
                 return
             }
+            // An editor opened for a saved row never saves a new, unlinked row.
+            check(requestedProfileId == null || savedProfileId != null) { "Saved AmneziaWG profile is not loaded" }
+            if (changesSubscriptionServer(editor)) {
+                _uiState.update {
+                    it.copy(
+                        activationStatus = AwgActivationStatus.Idle,
+                        subscriptionServerChanged = true,
+                    )
+                }
+                return
+            }
             val draft = editor.toActivationRequest(profileId = "")
             draft.requireRuntimeReady()
             val stableId = profileRepository.save(profileName(editor), draft, existingId = savedProfileId)
@@ -376,12 +417,10 @@ private fun AmneziaWgProfileUiState.withEditor(nextEditor: AmneziaWgEditorState)
         pendingCohortId = null,
         canActivate = nextEditor.isActivatable(),
         confImportFailure = null,
+        subscriptionServerChanged = false,
         activationStatus =
             if (activationStatus == AwgActivationStatus.Failed) AwgActivationStatus.Idle else activationStatus,
     )
-
-private fun AwgActivationRequest.isServerOf(form: AwgProfileForm): Boolean =
-    form.server == endpointHost && form.serverPort == endpointPort && form.peerPublicKey == peerPublicKey
 
 private fun buildCohortOptions(catalog: AwgCohortCatalogData): List<AwgCohortOption> =
     catalog.presets.map { AwgCohortOption(id = it.id, displayNameKey = it.displayNameKey) } +

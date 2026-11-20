@@ -105,6 +105,21 @@ class ProfileUtilityViewModelTest {
     @get:Rule val mainDispatcherRule = MainDispatcherRule()
 
     @Test
+    fun `an untouched probe URL can check with the relay connectivity probe`() =
+        runTest {
+            val f = fixture(probeUrl = null)
+            try {
+                val state = f.vm.uiState.value
+                assertEquals(com.poyka.ripdpi.services.ConnectivityCheckProbeUrl, state.probeUrl)
+                assertTrue(state.canMeasure)
+                f.vm.updateUrl("probe.example/check")
+                f.awaitState { !it.canMeasure }
+            } finally {
+                f.close()
+            }
+        }
+
+    @Test
     fun `check measures and cleans candidate without dispatch selection or recents`() =
         runTest {
             val f = fixture()
@@ -748,6 +763,7 @@ private suspend fun TestScope.fixture(
     persistence: com.poyka.ripdpi.data.testing.RoomProfileFixture =
         com.poyka.ripdpi.data.testing
             .RoomProfileFixture(disk, authority),
+    probeUrl: String? = ProbeUrl,
 ): Fixture {
     val fixture = Fixture(disk, authority, persistence)
     persistence.initialize()
@@ -757,7 +773,7 @@ private suspend fun TestScope.fixture(
     fixture.mutations.recover()
     backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { fixture.vm.uiState.collect {} }
     fixture.awaitState { !it.loading && it.profiles.any { item -> item.reference == Reference } }
-    fixture.vm.updateUrl(ProbeUrl)
+    probeUrl?.let(fixture.vm::updateUrl)
     fixture.awaitState { it.canMeasure }
     return fixture
 }

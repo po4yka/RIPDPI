@@ -1364,6 +1364,7 @@ fakeddisorder endhost</string>
     <string name="profile_utility_command_failed">Не удалось выполнить команду. Проверьте состояние профиля.</string>
     <string name="profile_utility_selection_failed">Не удалось применить профиль. Проверьте сохранённый и применённый профили.</string>
     <string name="profile_utility_url">URL проверки</string>
+    <string name="profile_utility_url_invalid">Введите URL, начинающийся с http:// или https://.</string>
     <string name="profile_utility_applied">Применённый профиль</string>
     <string name="profile_utility_loading">Загрузка профилей…</string>
     <string name="profile_utility_checked_at">Проверен: %1$s</string>

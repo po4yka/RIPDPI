@@ -3541,6 +3541,7 @@ app:profile_utility_timeout
 app:profile_utility_title
 app:profile_utility_unsupported
 app:profile_utility_url
+app:profile_utility_url_invalid
 app:profile_variants_cta_select
 app:profile_variants_cta_selected
 app:profile_variants_metric_latency

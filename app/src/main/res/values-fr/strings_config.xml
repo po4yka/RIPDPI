@@ -1339,6 +1339,7 @@ Source : %2$s</string>
     <string name="profile_utility_command_failed">Impossible de terminer la commande. Vérifiez l’état du profil.</string>
     <string name="profile_utility_selection_failed">Impossible d’appliquer le profil. Vérifiez les profils enregistré et appliqué.</string>
     <string name="profile_utility_url">URL de vérification</string>
+    <string name="profile_utility_url_invalid">Saisissez une URL commençant par http:// ou https://.</string>
     <string name="profile_utility_applied">Profil appliqué</string>
     <string name="profile_utility_loading">Chargement des profils…</string>
     <string name="profile_utility_checked_at">Vérifié : %1$s</string>

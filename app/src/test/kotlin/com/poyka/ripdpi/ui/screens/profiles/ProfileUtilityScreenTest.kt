@@ -288,6 +288,15 @@ class ProfileUtilityScreenTest {
     }
 
     @Test
+    fun `an unusable probe URL keeps its field open with the invalid state`() {
+        render(state().copy(probeUrl = "probe.example", canMeasure = false), actions())
+
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.ProbeUrl).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(text(R.string.profile_utility_url_invalid)).assertIsDisplayed()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.Fastest).assertIsNotEnabled()
+    }
+
+    @Test
     fun `saved AmneziaWG profiles open their editor and mark a missing key`() {
         val opened = mutableListOf<String>()
         render(

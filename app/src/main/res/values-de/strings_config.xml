@@ -1339,6 +1339,7 @@ Quelle: %2$s</string>
     <string name="profile_utility_command_failed">Befehl konnte nicht abgeschlossen werden. Profilstatus prüfen.</string>
     <string name="profile_utility_selection_failed">Profil konnte nicht angewendet werden. Gespeichertes und angewendetes Profil prüfen.</string>
     <string name="profile_utility_url">Prüf-URL</string>
+    <string name="profile_utility_url_invalid">Gib eine URL ein, die mit http:// oder https:// beginnt.</string>
     <string name="profile_utility_applied">Angewendetes Profil</string>
     <string name="profile_utility_loading">Profile werden geladen…</string>
     <string name="profile_utility_checked_at">Geprüft: %1$s</string>

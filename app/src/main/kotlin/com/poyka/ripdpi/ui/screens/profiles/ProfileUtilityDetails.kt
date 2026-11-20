@@ -54,6 +54,7 @@ internal fun ProfileUtilityProbeOptions(
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.profile_utility_url),
+                errorText = stringResource(R.string.profile_utility_url_invalid).takeUnless { state.canMeasure },
                 testTag = ProfileUtilityTestTags.ProbeUrl,
             ),
     )

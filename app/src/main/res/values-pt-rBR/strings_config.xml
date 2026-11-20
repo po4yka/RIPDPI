@@ -1335,6 +1335,7 @@ Fonte: %2$s</string>
     <string name="profile_utility_command_failed">Não foi possível concluir o comando. Verifique o estado do perfil.</string>
     <string name="profile_utility_selection_failed">Não foi possível aplicar o perfil. Verifique os perfis salvo e aplicado.</string>
     <string name="profile_utility_url">URL de verificação</string>
+    <string name="profile_utility_url_invalid">Insira uma URL que comece com http:// ou https://.</string>
     <string name="profile_utility_applied">Perfil aplicado</string>
     <string name="profile_utility_loading">Carregando perfis…</string>
     <string name="profile_utility_checked_at">Verificado: %1$s</string>

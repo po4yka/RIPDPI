@@ -44,7 +44,9 @@ internal class ProfileUtilityViewModel
     ) : ViewModel() {
         private val failure = MutableStateFlow<ProfileUtilityFailure?>(null)
         private val results = MutableStateFlow<Map<ProfileUtilityReference, ProfileMeasurementUiState>>(emptyMap())
-        private val url = MutableStateFlow("")
+
+        // The relay probe's own target, so a check works before the user edits anything.
+        private val url = MutableStateFlow(com.poyka.ripdpi.services.ConnectivityCheckProbeUrl)
         private var operation: Job? = null
 
         @Volatile private var operationToken: Any = Any()
@@ -107,7 +109,7 @@ internal class ProfileUtilityViewModel
             }.stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
-                ProfileUtilityUiState(0, persistentListOf(), "", ProfileCatalogState.Loading, false, false, null),
+                ProfileUtilityUiState(0, persistentListOf(), url.value, ProfileCatalogState.Loading, true, false, null),
             )
 
         fun retryCatalog() {
