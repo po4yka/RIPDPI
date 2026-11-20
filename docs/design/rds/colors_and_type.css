@@ -50,33 +50,37 @@
 
 /* ---------- Light mode (default) ---------- */
 :root {
-  /* Surface */
-  --rdp-background: #FAFAFA;
-  --rdp-foreground: #1A1A1A;
-  --rdp-card: #FFFFFF;
-  --rdp-card-foreground: #1A1A1A;
-  --rdp-surface-variant: #F0F0F0;
-  --rdp-on-surface-variant: #444444;
-  --rdp-muted: #F5F5F5;
-  --rdp-muted-foreground: #575757;
-  --rdp-accent: #E8E8E8;
-  --rdp-accent-foreground: #1A1A1A;
-  --rdp-input-background: #F5F5F5;
+  /* Surface (Material scheme: surface, onSurface, surfaceContainerHigh/Highest, secondaryContainer) */
+  --rdp-background: #FBF9FA;
+  --rdp-foreground: #1B1B1D;
+  --rdp-card: #FBF9FA;
+  --rdp-card-foreground: #1B1B1D;
+  --rdp-surface-variant: #E4E2E3;
+  --rdp-on-surface-variant: #474748;
+  --rdp-muted: #EAE7E9;
+  --rdp-muted-foreground: #474748;
+  --rdp-accent: #DFE2EB;
+  --rdp-accent-foreground: #42474E;
+  --rdp-input-background: #E4E2E3;
 
-  /* Edges */
-  --rdp-border: #E0E0E0;
-  --rdp-card-border: #E8E8E8;
-  --rdp-divider: #F0F0F0;
-  --rdp-hairline: #666666; /* fixed across both modes */
-  --rdp-outline: #757575;
-  --rdp-outline-variant: #D0D0D0;
+  /* Edges (outline / outlineVariant) */
+  --rdp-border: #C8C6C7;
+  --rdp-card-border: #C8C6C7;
+  --rdp-divider: #C8C6C7;
+  --rdp-hairline: #777778;
+  --rdp-outline: #777778;
+  --rdp-outline-variant: #C8C6C7;
   --rdp-scrim: rgba(0, 0, 0, 0.6);
 
-  /* Brand / primary swap (foreground ↔ background) */
-  --rdp-primary: #1A1A1A;
-  --rdp-primary-foreground: #FFFFFF;
+  /* Primary action: onSurface container with a surface label */
+  --rdp-primary: #1B1B1D;
+  --rdp-primary-foreground: #FBF9FA;
 
-  /* Semantic — success / emerald */
+  /* Live-path signal / cyan */
+  --rdp-signal: #0E7490;
+
+  /* Semantic — success / emerald.
+     Kotlin defines only the success tone; foreground and container are deck-only. */
   --rdp-success: #047857;
   --rdp-success-foreground: #FFFFFF;
   --rdp-success-container: #ECFDF5;
@@ -89,10 +93,10 @@
   --rdp-warning-container-foreground: #1A1A1A;
 
   /* Semantic — destructive / red */
-  --rdp-destructive: #B91C1C;
+  --rdp-destructive: #BA1A1A;
   --rdp-destructive-foreground: #FFFFFF;
-  --rdp-destructive-container: #FEF2F2;
-  --rdp-destructive-container-foreground: #7F1D1D;
+  --rdp-destructive-container: #FFDAD6;
+  --rdp-destructive-container-foreground: #93000A;
 
   /* Semantic — info / blue */
   --rdp-info: #1D4ED8;
@@ -113,25 +117,30 @@
     monospace;
 
   /* ---------- Type scale (px / line-height in px) — closed scale ---------- */
-  --rdp-type-screen-title: 500 22px/28px var(--rdp-font-sans);
-  --rdp-type-screen-title-emphasis: 700 22px/28px var(--rdp-font-sans);
+  --rdp-type-screen-title: 500 24px/32px var(--rdp-font-sans);
+  --rdp-type-screen-title-emphasis: 700 24px/32px var(--rdp-font-sans);
   --rdp-type-appbar-title: 500 22px/28px var(--rdp-font-sans);
-  --rdp-type-sheet-title: 500 18px/24px var(--rdp-font-sans);
-  --rdp-type-section-title: 500 13px/18px var(--rdp-font-sans); /* + letter-spacing 0.72px, uppercase-feeling */
-  --rdp-type-intro-title: 500 22px/30px var(--rdp-font-sans);
-  --rdp-type-intro-body: 400 15px/22px var(--rdp-font-sans);
-  --rdp-type-body: 400 14px/20px var(--rdp-font-sans);
-  --rdp-type-body-emphasis: 500 14px/20px var(--rdp-font-sans);
-  --rdp-type-body-emphasis-bold: 700 14px/20px var(--rdp-font-sans);
+  --rdp-type-sheet-title: 500 22px/28px var(--rdp-font-sans);
+  --rdp-type-card-title: 500 18px/24px var(--rdp-font-sans);
+  --rdp-type-section-title: 500 14px/20px var(--rdp-font-sans); /* + letter-spacing 0.72px, uppercase-feeling */
+  --rdp-type-intro-title: 500 24px/32px var(--rdp-font-sans);
+  --rdp-type-intro-body: 400 16px/24px var(--rdp-font-sans);
+  --rdp-type-intro-action: 400 14px/21px var(--rdp-font-sans);
+  --rdp-type-body: 400 16px/24px var(--rdp-font-sans);
+  --rdp-type-body-emphasis: 500 16px/24px var(--rdp-font-sans);
+  --rdp-type-body-emphasis-bold: 700 16px/24px var(--rdp-font-sans);
+  --rdp-type-secondary-body: 400 14px/20px var(--rdp-font-sans);
   --rdp-type-caption: 400 12px/16px var(--rdp-font-sans);
   --rdp-type-small-label: 500 12px/16px var(--rdp-font-sans);
-  --rdp-type-button: 500 15px/20px var(--rdp-font-sans);
+  --rdp-type-button: 500 16px/24px var(--rdp-font-sans);
   --rdp-type-nav-label: 500 12px/16px var(--rdp-font-sans);
   --rdp-type-mono-value: 400 14px/20px var(--rdp-font-mono);
   --rdp-type-mono-config: 400 14px/20px var(--rdp-font-mono);
   --rdp-type-mono-inline: 400 13px/20px var(--rdp-font-mono);
   --rdp-type-mono-log: 400 12px/20px var(--rdp-font-mono);
   --rdp-type-mono-small: 400 12px/16px var(--rdp-font-mono);
+  --rdp-type-hero-value: 500 32px/40px var(--rdp-font-mono);
+  --rdp-type-readout-value: 500 20px/28px var(--rdp-font-mono);
   --rdp-type-brand-status: 500 13px/18px var(--rdp-font-mono);
 
   /* ---------- Spacing — closed 9-step scale ---------- */
@@ -230,27 +239,30 @@
 /* ---------- Dark mode ---------- */
 :root[data-theme="dark"],
 .rdp-dark {
-  --rdp-background: #121212; /* never pure black — avoids OLED smearing */
-  --rdp-foreground: #E8E8E8;
-  --rdp-card: #1A1A1A;
-  --rdp-card-foreground: #E8E8E8;
-  --rdp-surface-variant: #222222;
-  --rdp-on-surface-variant: #CCCCCC;
-  --rdp-muted: #1E1E1E;
-  --rdp-muted-foreground: #A3A3A3;
-  --rdp-accent: #2A2A2A;
-  --rdp-accent-foreground: #E8E8E8;
-  --rdp-input-background: #1E1E1E;
+  --rdp-background: #131314; /* never pure black — avoids OLED smearing */
+  --rdp-foreground: #E4E2E3;
+  --rdp-card: #131314;
+  --rdp-card-foreground: #E4E2E3;
+  --rdp-surface-variant: #474748;
+  --rdp-on-surface-variant: #C8C6C7;
+  --rdp-muted: #2A2A2B;
+  --rdp-muted-foreground: #C8C6C7;
+  --rdp-accent: #42474E;
+  --rdp-accent-foreground: #DFE2EB;
+  --rdp-input-background: #353536;
 
-  --rdp-border: #2A2A2A;
-  --rdp-card-border: #2A2A2A;
-  --rdp-divider: #222222;
-  --rdp-outline: #616161;
-  --rdp-outline-variant: #333333;
+  --rdp-border: #474748;
+  --rdp-card-border: #474748;
+  --rdp-divider: #474748;
+  --rdp-hairline: #919092;
+  --rdp-outline: #919092;
+  --rdp-outline-variant: #474748;
   --rdp-scrim: rgba(0, 0, 0, 0.8);
 
-  --rdp-primary: #E8E8E8;
-  --rdp-primary-foreground: #121212;
+  --rdp-primary: #FFFFFF; /* full white so the primary action stays the strongest control */
+  --rdp-primary-foreground: #131314;
+
+  --rdp-signal: #22D3EE;
 
   --rdp-success: #34D399;
   --rdp-success-foreground: #06281C;
@@ -259,18 +271,18 @@
 
   --rdp-warning: #FBBF24;
   --rdp-warning-foreground: #1C1917;
-  --rdp-warning-container: #451A03;
-  --rdp-warning-container-foreground: #FDE68A;
+  --rdp-warning-container: #2B261D;
+  --rdp-warning-container-foreground: #F3DDB0;
 
-  --rdp-destructive: #F87171;
-  --rdp-destructive-foreground: #210A0A;
-  --rdp-destructive-container: #450A0A;
-  --rdp-destructive-container-foreground: #FECACA;
+  --rdp-destructive: #FFB4AB;
+  --rdp-destructive-foreground: #690005;
+  --rdp-destructive-container: #93000A;
+  --rdp-destructive-container-foreground: #FFDAD6;
 
   --rdp-info: #60A5FA;
   --rdp-info-foreground: #0A2342;
-  --rdp-info-container: #0C4A6E;
-  --rdp-info-container-foreground: #DBEAFE;
+  --rdp-info-container: #1D242D;
+  --rdp-info-container-foreground: #CFE0F2;
 
   --rdp-restricted: #9CA3AF;
   --rdp-restricted-foreground: #111827;
