@@ -35,7 +35,11 @@ pub fn init_android_logging(tag: &'static str) {
     INIT.get_or_init(|| {
         #[cfg(target_os = "android")]
         {
-            android_logger::init_once(android_logger::Config::default().with_tag(tag));
+            static LOGGER: OnceLock<OwnedVerboseLogger> = OnceLock::new();
+            let logger = LOGGER.get_or_init(|| {
+                OwnedVerboseLogger(android_logger::AndroidLogger::new(android_logger::Config::default().with_tag(tag)))
+            });
+            let _ = log::set_logger(logger);
 
             let _ = LogTracer::init();
 
@@ -49,6 +53,33 @@ pub fn init_android_logging(tag: &'static str) {
             let _ = tag;
         }
     });
+}
+
+/// Third-party crates (rustls, quinn, h2, hyper) print server names and
+/// handshake detail at DEBUG and TRACE, so only RIPDPI crates may log below INFO.
+#[cfg(any(target_os = "android", test))]
+pub(crate) fn allows_log_target(target: &str, level: log::Level) -> bool {
+    level <= log::Level::Info || target.starts_with("ripdpi") || target.starts_with("android_support")
+}
+
+#[cfg(target_os = "android")]
+struct OwnedVerboseLogger(android_logger::AndroidLogger);
+
+#[cfg(target_os = "android")]
+impl log::Log for OwnedVerboseLogger {
+    fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
+        allows_log_target(metadata.target(), metadata.level()) && self.0.enabled(metadata)
+    }
+
+    fn log(&self, record: &log::Record<'_>) {
+        if allows_log_target(record.target(), record.level()) {
+            self.0.log(record);
+        }
+    }
+
+    fn flush(&self) {
+        self.0.flush();
+    }
 }
 
 pub fn default_android_log_level() -> LevelFilter {

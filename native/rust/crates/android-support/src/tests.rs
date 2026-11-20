@@ -295,3 +295,17 @@ fn with_borrowed_unowned_env<R>(env: &mut Env<'_>, f: impl FnOnce(&mut EnvUnowne
 fn take_exception(env: &mut EnvUnowned<'_>) -> String {
     describe_exception(env).expect("expected Java exception")
 }
+
+#[test]
+fn third_party_debug_and_trace_never_reach_logcat() {
+    use crate::logging::allows_log_target;
+    use log::Level;
+    for target in ["rustls::client::hs", "quinn_proto::connection", "h2::codec", "hyper_util::client"] {
+        assert!(!allows_log_target(target, Level::Debug), "{target} DEBUG");
+        assert!(!allows_log_target(target, Level::Trace), "{target} TRACE");
+        assert!(allows_log_target(target, Level::Info), "{target} INFO");
+        assert!(allows_log_target(target, Level::Warn), "{target} WARN");
+    }
+    assert!(allows_log_target("ripdpi_relay_core::runtime::events", Level::Debug));
+    assert!(allows_log_target("android_support::tracing_layer", Level::Trace));
+}
