@@ -52,10 +52,12 @@ internal class ConnectionRelayProfileSelector(
             val settings = dependencies.appSettingsRepository.snapshot()
             val mode = settings.toConfigDraft().mode
             val hadExternal = dependencies.externalProviders.current(mode) != null
+            // A subscription member keeps the relay flag off; turning the relay off also ends selector ownership.
+            val selectorExit = !hadExternal && dependencies.externalProviders.activeExit.first() != null
             val restart = turnOffExternalProviders(mode)
             val draft =
                 when {
-                    settings.relayEnabled -> dependencies.relayArtifacts.deactivateActiveProfile()
+                    settings.relayEnabled || selectorExit -> dependencies.relayArtifacts.deactivateActiveProfile()
                     hadExternal -> dependencies.appSettingsRepository.snapshot().toConfigDraft()
                     else -> null
                 }

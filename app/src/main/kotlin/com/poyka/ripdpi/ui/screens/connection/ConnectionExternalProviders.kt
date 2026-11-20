@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.ui.screens.connection
 
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProfileSelectionStore
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
@@ -13,9 +15,13 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 /** A VPN egress that replaces both Direct and the relay profiles. The name is a product name. */
@@ -29,7 +35,7 @@ enum class ConnectionExternalProvider(
 interface ConnectionExternalProviders {
     suspend fun current(mode: Mode): ConnectionExternalProvider?
 
-    /** The subscription member or AmneziaWG profile the running session uses; null when none runs. */
+    /** The subscription member or AmneziaWG profile in use, or the saved one the next start uses; null for Direct. */
     val activeExit: Flow<ActiveExit?>
 
     /** Turns off every external egress. Returns true when that also stopped the VPN session. */
@@ -43,18 +49,30 @@ internal class DefaultConnectionExternalProviders
         private val xrayNativeSelection: XrayNativeProviderSelection,
         private val amneziaWg: StandaloneAmneziaWgActivator,
         configurations: AppliedRuntimeConfigurationSource,
+        settings: AppSettingsRepository,
+        selectorSelections: SelectorSelectionStore,
         groups: ProxyGroupRepository,
         awgProfiles: AwgProfileRepository,
     ) : ConnectionExternalProviders {
-        // Only one mode runs at a time; a stopped mode has no confirmed configuration.
+        @OptIn(ExperimentalCoroutinesApi::class)
+        private val savedSelection: Flow<SavedExitSelection> =
+            combine(
+                settings.settings.map { Mode.fromString(it.ripdpiMode.ifEmpty { "vpn" }) }.distinctUntilChanged(),
+                profileSelections.observe(),
+            ) { mode, selections -> mode to selections }
+                .flatMapLatest { (mode, selections) ->
+                    val member = selections.selectorGroupId?.let(selectorSelections::selectedProfileId) ?: flowOf(null)
+                    member.map { SavedExitSelection(mode, selections, it) }
+                }
+
         override val activeExit: Flow<ActiveExit?> =
             combine(
                 configurations.applications,
+                savedSelection,
                 groups.groups(),
                 awgProfiles.observeProfiles(),
-            ) { applications, saved, awg ->
-                applications.values.firstNotNullOfOrNull { it.activeExit(saved, awg) }
-            }.distinctUntilChanged()
+                ::exitOf,
+            ).distinctUntilChanged()
 
         override suspend fun current(mode: Mode): ConnectionExternalProvider? {
             if (mode != Mode.VPN) return null

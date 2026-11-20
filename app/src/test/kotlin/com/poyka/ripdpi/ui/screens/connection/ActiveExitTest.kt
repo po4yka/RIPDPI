@@ -2,16 +2,20 @@ package com.poyka.ripdpi.ui.screens.connection
 
 import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ProfileSelections
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RuntimeAppliedIntent
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.RuntimeConfigurationApplyReason
+import com.poyka.ripdpi.data.RuntimeConfigurationAttempt
 import com.poyka.ripdpi.data.RuntimeConfigurationDns
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.SavedAwgProfile
+import com.poyka.ripdpi.data.testPauseAuthority
 import com.poyka.ripdpi.ui.screens.awg.AwgPeerTestKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -44,34 +48,88 @@ class ActiveExitTest {
             ),
         )
 
-    @Test
-    fun `selector member is named by its saved name and kind`() {
-        val requested = RuntimeConfigurationSelection("native", null, "hysteria2", "member-2", "group-1", "member-2")
-        val effective = RuntimeConfigurationSelection("native", relayKind = "hysteria2", profileId = "member-2")
+    private val nothingSaved = SavedExitSelection(Mode.VPN, ProfileSelections(), null)
+    private val savedMember = SavedExitSelection(Mode.VPN, ProfileSelections(selectorGroupId = "group-1"), "member-2")
+    private val memberRequested =
+        RuntimeConfigurationSelection("native", null, "hysteria2", "member-2", "group-1", "member-2")
+    private val memberEffective =
+        RuntimeConfigurationSelection("native", relayKind = "hysteria2", profileId = "member-2")
 
+    @Test
+    fun `running selector member is named by its saved name and kind`() {
         assertEquals(
             ActiveExit("Home Hysteria", "Hysteria2"),
-            applied(requested, effective).activeExit(groups, listOf(awg)),
+            exitOf(running(applied(memberRequested, memberEffective)), nothingSaved, groups, listOf(awg)),
         )
     }
 
     @Test
-    fun `amneziawg profile is named by its saved name`() {
+    fun `running amneziawg profile is named by its saved name`() {
         val selection = RuntimeConfigurationSelection("native", "udp", "amneziawg", "awg-1")
 
         assertEquals(
             ActiveExit("Office AWG", "AmneziaWG"),
-            applied(selection, selection).activeExit(groups, listOf(awg)),
+            exitOf(running(applied(selection, selection)), nothingSaved, groups, listOf(awg)),
         )
     }
 
     @Test
-    fun `stopped runtime and a plain relay have no exit`() {
-        val relay = RuntimeConfigurationSelection("native", relayKind = "vless", profileId = "relay-1")
+    fun `a running direct session wins over a saved member`() {
+        val direct = RuntimeConfigurationSelection("native")
 
-        assertNull(RuntimeConfigurationApplication.Unknown.activeExit(groups, listOf(awg)))
-        assertNull(applied(relay, relay).activeExit(groups, listOf(awg)))
+        assertNull(exitOf(running(applied(direct, direct)), savedMember, groups, listOf(awg)))
     }
+
+    @Test
+    fun `a new session does not show the previous session's exit`() {
+        val previous = applied(memberRequested, memberEffective).configuration
+        val starting =
+            RuntimeConfigurationApplication.Applying(
+                RuntimeConfigurationAttempt(
+                    runtimeId = "next-runtime",
+                    revision = 1,
+                    mode = Mode.VPN,
+                    requestedSelection = memberRequested,
+                    reason = RuntimeConfigurationApplyReason.InitialStart,
+                    originalIntent = RuntimeAppliedIntent.Activation(testPauseAuthority().reserveStart(Mode.VPN)),
+                    catalogGeneration = 1,
+                ),
+                previous,
+            )
+
+        assertNull(exitOf(running(starting), nothingSaved, groups, listOf(awg)))
+    }
+
+    @Test
+    fun `a deleted profile has no exit`() {
+        assertNull(exitOf(running(applied(memberRequested, memberEffective)), nothingSaved, emptyList(), emptyList()))
+        val deletedAwg = SavedExitSelection(Mode.VPN, ProfileSelections(awgProfileId = "gone"), null)
+        assertNull(exitOf(emptyMap(), deletedAwg, groups, listOf(awg)))
+    }
+
+    @Test
+    fun `a stopped service shows the saved selection the next start uses`() {
+        assertEquals(ActiveExit("Home Hysteria", "Hysteria2"), exitOf(emptyMap(), savedMember, groups, listOf(awg)))
+        val savedAwg = ProfileSelections(awgProfileId = "awg-1")
+        assertEquals(
+            ActiveExit("Office AWG", "AmneziaWG"),
+            exitOf(stopped(), SavedExitSelection(Mode.VPN, savedAwg, null), groups, listOf(awg)),
+        )
+        // AmneziaWG runs only as a VPN, so a proxy start uses no exit.
+        assertNull(exitOf(stopped(), SavedExitSelection(Mode.Proxy, savedAwg, null), groups, listOf(awg)))
+    }
+
+    @Test
+    fun `a member without a remark is named by its kind, not its host`() {
+        val unnamed = member.copy(displayName = "relay.example:443")
+        val unnamedGroups = listOf(groups.single().copy(members = listOf(unnamed)))
+
+        assertEquals(ActiveExit("Hysteria2", "Hysteria2"), exitOf(emptyMap(), savedMember, unnamedGroups, emptyList()))
+    }
+
+    private fun running(application: RuntimeConfigurationApplication) = mapOf(Mode.VPN to application)
+
+    private fun stopped() = mapOf(Mode.VPN to RuntimeConfigurationApplication.Unknown)
 
     private fun applied(
         requested: RuntimeConfigurationSelection,

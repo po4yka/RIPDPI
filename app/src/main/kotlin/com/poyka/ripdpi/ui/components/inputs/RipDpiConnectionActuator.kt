@@ -69,6 +69,7 @@ import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -601,6 +602,9 @@ private fun ActuatorRouteLabels(state: StatusConnectionActuatorUiState) {
         text = state.trailingLabel,
         style = type.secondaryBody,
         color = RipDpiThemeTokens.colors.mutedForeground,
+        // A saved profile name can be long; one line keeps the header height stable.
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
     )
 }
 

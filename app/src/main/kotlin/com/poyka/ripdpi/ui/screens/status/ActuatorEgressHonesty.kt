@@ -59,11 +59,15 @@ internal fun actuatorTrailingLabel(
     activeExit: ActiveExit?,
     stringResolver: StringResolver,
 ): String =
-    // A subscription member or AmneziaWG profile is named, since the relay flag stays off for both.
-    activeExit?.let { "${it.name} · ${it.kind}" } ?: stringResolver.getString(
+    // A subscription member or AmneziaWG profile is named, since the relay flag stays off for both. The isolates keep
+    // a right-to-left or mixed-direction name from reordering the separator and kind.
+    activeExit?.let { "$FirstStrongIsolate${it.name}$PopDirectionalIsolate · ${it.kind}" } ?: stringResolver.getString(
         if (egressBacked) {
             R.string.status_connection_actuator_relay
         } else {
             R.string.status_connection_path_direct
         },
     )
+
+private const val FirstStrongIsolate = "\u2068"
+private const val PopDirectionalIsolate = "\u2069"

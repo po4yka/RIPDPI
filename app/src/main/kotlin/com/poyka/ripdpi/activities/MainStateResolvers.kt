@@ -260,7 +260,7 @@ private fun buildMainConnectionActuator(
         appStatus = inputs.statusAndMode.first,
         telemetry = inputs.telemetry,
         approachSummary = approachSummary,
-        activeExit = inputs.activeExit.takeIf { connectionState == ConnectionState.Connected },
+        activeExit = inputs.activeExit,
         hardKillSwitch = hardKillSwitch,
         stringResolver = stringResolver,
     )

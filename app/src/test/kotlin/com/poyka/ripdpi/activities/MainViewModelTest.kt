@@ -343,7 +343,7 @@ class MainViewModelTest {
                 stringResolver = FakeStringResolver(),
             )
 
-        assertEquals("Home · Hysteria2", state.trailingLabel)
+        assertEquals("\u2068Home\u2069 · Hysteria2", state.trailingLabel)
         assertEquals("", state.strategyLabel)
     }
 
