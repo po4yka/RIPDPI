@@ -114,6 +114,8 @@ class ProfileUtilityViewModelTest {
                 assertTrue(state.canMeasure)
                 f.vm.updateUrl("probe.example/check")
                 f.awaitState { !it.canMeasure }
+                f.vm.updateUrl("https://")
+                f.awaitState { !it.canMeasure && it.probeUrl == "https://" }
             } finally {
                 f.close()
             }

@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import javax.inject.Inject
 
 @HiltViewModel
@@ -95,7 +96,7 @@ internal class ProfileUtilityViewModel
                             CatalogObservation.Failed -> ProfileCatalogState.Failed
                             is CatalogObservation.Ready -> ProfileCatalogState.Ready
                         },
-                    canMeasure = work.url.startsWith("https://") || work.url.startsWith("http://"),
+                    canMeasure = work.url.toHttpUrlOrNull() != null,
                     cleanupPending = pending,
                     failure =
                         if (observation ==

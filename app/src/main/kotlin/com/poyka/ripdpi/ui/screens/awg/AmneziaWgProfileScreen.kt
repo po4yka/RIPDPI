@@ -162,6 +162,8 @@ internal fun AmneziaWgProfileScreen(
             },
         hintIsError = connectFailed || uiState.subscriptionServerChanged,
     ) {
+        // A saved profile replaces the whole form when it loads, so nothing is shown to edit before then.
+        if (uiState.loadingProfile) return@RelayEditorScaffold
         // Import comes first: a pasted .conf fills most of the fields below.
         RipDpiButton(
             text = stringResource(R.string.awg_paste_conf_action),

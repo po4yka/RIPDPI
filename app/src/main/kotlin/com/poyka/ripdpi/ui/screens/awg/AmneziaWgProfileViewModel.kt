@@ -89,6 +89,8 @@ data class AmneziaWgProfileUiState(
     val ignoredConfOptions: ImmutableList<String> = persistentListOf(),
     /** Connect refused to save another server under a subscription profile; the next edit clears it. */
     val subscriptionServerChanged: Boolean = false,
+    /** A saved profile is loading; the form stays hidden so nothing typed can be lost or merged. */
+    val loadingProfile: Boolean = false,
 )
 
 /**
@@ -149,7 +151,7 @@ class AmneziaWgProfileViewModel
          * previous failure no longer describes the current form).
          */
         private inline fun mutateEditor(crossinline transform: (AmneziaWgEditorState) -> AmneziaWgEditorState) {
-            _uiState.update { it.withEditor(transform(it.editor)) }
+            _uiState.update { if (it.loadingProfile) it else it.withEditor(transform(it.editor)) }
         }
 
         /**
@@ -174,7 +176,9 @@ class AmneziaWgProfileViewModel
             }
             val preset = catalog.find(cohortId) ?: return
             _uiState.update { state ->
-                if (state.editor.hasV3Edits()) {
+                if (state.loadingProfile) {
+                    state
+                } else if (state.editor.hasV3Edits()) {
                     state.copy(pendingCohortId = cohortId)
                 } else {
                     state.withEditor(state.editor.selectCohort(preset))
@@ -207,6 +211,7 @@ class AmneziaWgProfileViewModel
          */
         fun onConfPasted(conf: String) {
             _uiState.update { state ->
+                if (state.loadingProfile) return@update state
                 when (val result = state.editor.importConf(conf, catalog)) {
                     is AwgConfImport.Failed -> {
                         state.copy(confImportFailure = result)
@@ -259,32 +264,32 @@ class AmneziaWgProfileViewModel
         }
 
         /**
-         * Opens the saved profile [profileId] once. Save then updates that row, so a subscription profile
-         * keeps its id and subscription link. Text the user typed before the load finished stays. A row
-         * that cannot be loaded shows the connect error, and Connect refuses to create a new row.
+         * Opens the saved profile [profileId]. Save then updates that row, so a subscription profile keeps its
+         * id and subscription link. Edits wait until the load completes. A cancelled or failed load can run
+         * again; a row that cannot be loaded shows the connect error, and Connect never creates a new row.
          */
         @Suppress("TooGenericExceptionCaught")
         suspend fun onLoadProfile(profileId: String) {
-            if (profileId == requestedProfileId) return
+            if (profileId == savedProfileId) return
             requestedProfileId = profileId
+            _uiState.update { it.copy(loadingProfile = true) }
             val saved =
                 try {
                     profileRepository.load(profileId)
                 } catch (cancellation: CancellationException) {
+                    _uiState.update { it.copy(loadingProfile = false) }
                     throw cancellation
                 } catch (_: Exception) {
                     null
                 }
             if (saved == null) {
-                _uiState.update { it.copy(activationStatus = AwgActivationStatus.Failed) }
+                _uiState.update { it.copy(loadingProfile = false, activationStatus = AwgActivationStatus.Failed) }
                 return
             }
             savedProfileId = saved.id
             savedProfileName = saved.name
             subscriptionServer = saved.request.takeIf { saved.subscriptionOwned }?.serverIdentity()
-            _uiState.update {
-                if (it.editor == AmneziaWgEditorState.initial()) it.withEditor(saved.request.toEditorState()) else it
-            }
+            _uiState.update { it.withEditor(saved.request.toEditorState()).copy(loadingProfile = false) }
         }
 
         /** The one server check for paste and save: a subscription row keeps the server its bundle names. */
@@ -298,9 +303,14 @@ class AmneziaWgProfileViewModel
 
         /** Requests system VPN consent before saving or activating the selected profile. */
         fun onConnect() {
-            if (_uiState.value.pendingCohortId != null) return
+            if (_uiState.value.pendingCohortId != null || _uiState.value.loadingProfile) return
             val editor = _uiState.value.editor
             if (!editor.isActivatable() || _uiState.value.activationStatus == AwgActivationStatus.Connecting) return
+            // Refuse before the consent dialog: the save it would authorize is refused anyway.
+            if (changesSubscriptionServer(editor)) {
+                _uiState.update { it.copy(subscriptionServerChanged = true) }
+                return
+            }
             _uiState.update { it.copy(activationStatus = AwgActivationStatus.Connecting) }
             launchConnectAction {
                 val intent = permissionPlatformBridge.prepareVpnPermissionIntent()

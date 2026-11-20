@@ -148,36 +148,48 @@ class AmneziaWgSavedProfileEditTest {
         }
 
     @Test
-    fun `a typed server change is not saved under the subscription row`() =
+    fun `a typed server, port, or invalid peer key is never saved under the subscription row`() =
         runTest {
             val id =
                 fixture.repository
                     .saveSubscriptionProfiles(listOf(member))
                     .single()
                     .id
+            // Consent is pending, so a refused save must not reach the consent dialog.
+            fixture.permissionBridge.vpnPermissionIntent = android.content.Intent("test.vpn.consent")
+            listOf(
+                AwgEditorField.SERVER to "other.example.com",
+                AwgEditorField.SERVER_PORT to "443",
+                AwgEditorField.PEER_PUBLIC_KEY to "not base64!",
+                AwgEditorField.SERVER_PORT to "port",
+            ).forEach { (field, value) ->
+                val viewModel = fixture.viewModel()
+                viewModel.onLoadProfile(id)
+                viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
+                viewModel.onFieldChanged(field, value)
+
+                viewModel.onConnect()
+                advanceUntilIdle()
+
+                assertEquals(field.name, AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
+                assertNull(fixture.activator.lastActivated)
+                assertEquals(bundled.copy(profileId = id), fixture.repository.load(id)!!.request)
+            }
             val viewModel = fixture.viewModel()
             viewModel.onLoadProfile(id)
             viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
-            viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "443")
-
+            viewModel.onFieldChanged(AwgEditorField.SERVER, "other.example.com")
             viewModel.onConnect()
-            advanceUntilIdle()
-
             assertTrue(viewModel.uiState.value.subscriptionServerChanged)
-            assertNull(fixture.activator.lastActivated)
-            assertEquals(
-                "",
-                fixture.repository
-                    .load(id)!!
-                    .request.privateKey,
-            )
-            assertEquals(
-                51820,
-                fixture.repository
-                    .load(id)!!
-                    .request.endpointPort,
-            )
         }
+
+    @Test
+    fun `an unpadded peer key names the same server`() {
+        assertEquals(
+            awgServerIdentity("vpn.example.com", 51820, AwgPeerTestKey),
+            awgServerIdentity("vpn.example.com", 51820, AwgPeerTestKey.trimEnd('=')),
+        )
+    }
 
     @Test
     fun `a profile that cannot be loaded shows the error and never saves a new row`() =
@@ -204,7 +216,7 @@ class AmneziaWgSavedProfileEditTest {
         }
 
     @Test
-    fun `text typed before the load finishes still saves to the loaded row`() =
+    fun `a failed load of the same id loads on retry`() =
         runTest {
             val id =
                 fixture.repository
@@ -212,21 +224,40 @@ class AmneziaWgSavedProfileEditTest {
                     .single()
                     .id
             val viewModel = fixture.viewModel()
-            fixture.fillRequiredIdentity(viewModel)
+            fixture.dao.failReads = true
+            viewModel.onLoadProfile(id)
+            fixture.dao.failReads = false
 
             viewModel.onLoadProfile(id)
+
+            assertEquals("vpn.example.com", viewModel.uiState.value.editor.form.server)
+            assertFalse(viewModel.uiState.value.loadingProfile)
+            viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
+            viewModel.onConnect()
+            advanceUntilIdle()
+            assertEquals(id, fixture.activator.lastActivated?.profileId)
+        }
+
+    @Test
+    fun `saving a bundle-shaped row with only the key typed keeps every other field`() =
+        runTest {
+            val template = bundleShaped.copy(profileId = "", privateKey = "")
+            val id =
+                fixture.repository
+                    .saveSubscriptionProfiles(
+                        listOf(AwgSubscriptionProfile("group-one", "tag:home", "Home AWG", template, true, true)),
+                    ).single()
+                    .id
+            val viewModel = fixture.viewModel()
+            viewModel.onLoadProfile(id)
+            viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
+
             viewModel.onConnect()
             advanceUntilIdle()
 
-            assertEquals(id, fixture.activator.lastActivated?.profileId)
-            assertEquals(
-                listOf(id),
-                fixture.repository
-                    .observeProfiles()
-                    .first()
-                    .map { it.id },
-            )
-            assertTrue(fixture.repository.load(id)!!.subscriptionOwned)
+            val expected = template.copy(profileId = id, privateKey = AwgPrivateTestKey)
+            assertEquals(expected, fixture.activator.lastActivated)
+            assertEquals(expected, fixture.repository.load(id)!!.request)
         }
 
     @Test
@@ -250,41 +281,42 @@ class AmneziaWgSavedProfileEditTest {
 
     @Test
     fun `a bundle-shaped request survives opening it in the editor unchanged`() {
-        val request =
-            AwgActivationRequest(
-                profileId = "awg-bundle",
-                privateKey = AwgPrivateTestKey,
-                peerPublicKey = AwgPeerTestKey,
-                presharedKey =
-                    java.util.Base64
-                        .getEncoder()
-                        .encodeToString(ByteArray(32) { 3 }),
-                endpointHost = "vpn.example.com",
-                endpointPort = 51820,
-                interfaceAddressV4 = "10.8.0.2/32",
-                interfaceAddressV6 = "fd00::2/128",
-                dnsServers = listOf("1.1.1.1", "2606:4700:4700::1111"),
-                allowedIps = listOf("0.0.0.0/0", "::/0"),
-                mtu = 1420,
-                persistentKeepalive = 25,
-                obfuscation =
-                    com.poyka.ripdpi.data.awg.AwgActivationObfuscation(
-                        wireProfile = "awg-3.1-ranges-v1",
-                        jc = 4,
-                        jmin = 40,
-                        jmax = 70,
-                        s1 = 50,
-                        s2 = 100,
-                        h1 = "100-199",
-                        h2 = "200-299",
-                        h3 = "300-399",
-                        h4 = "400-499",
-                    ),
-            )
-        request.obfuscation.requireSupportedProfile()
+        bundleShaped.obfuscation.requireSupportedProfile()
 
-        assertEquals(request, request.toEditorState().toActivationRequest(profileId = "awg-bundle"))
+        assertEquals(bundleShaped, bundleShaped.toEditorState().toActivationRequest(profileId = "awg-bundle"))
     }
+
+    private val bundleShaped =
+        AwgActivationRequest(
+            profileId = "awg-bundle",
+            privateKey = AwgPrivateTestKey,
+            peerPublicKey = AwgPeerTestKey,
+            presharedKey =
+                java.util.Base64
+                    .getEncoder()
+                    .encodeToString(ByteArray(32) { 3 }),
+            endpointHost = "vpn.example.com",
+            endpointPort = 51820,
+            interfaceAddressV4 = "10.8.0.2/32",
+            interfaceAddressV6 = "fd00::2/128",
+            dnsServers = listOf("1.1.1.1", "2606:4700:4700::1111"),
+            allowedIps = listOf("0.0.0.0/0", "::/0"),
+            mtu = 1420,
+            persistentKeepalive = 25,
+            obfuscation =
+                com.poyka.ripdpi.data.awg.AwgActivationObfuscation(
+                    wireProfile = "awg-3.1-ranges-v1",
+                    jc = 4,
+                    jmin = 40,
+                    jmax = 70,
+                    s1 = 50,
+                    s2 = 100,
+                    h1 = "100-199",
+                    h2 = "200-299",
+                    h3 = "300-399",
+                    h4 = "400-499",
+                ),
+        )
 
     private fun conf(
         endpoint: String,
