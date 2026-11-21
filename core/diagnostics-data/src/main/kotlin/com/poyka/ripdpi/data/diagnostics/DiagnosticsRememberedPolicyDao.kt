@@ -27,14 +27,19 @@ interface DiagnosticsRememberedPolicyDao {
     @Query("SELECT * FROM remembered_network_policies WHERE id = :id LIMIT 1")
     suspend fun getRememberedNetworkPolicyById(id: Long): RememberedNetworkPolicyEntity?
 
-    // A suppressed policy stays out until a probe validates it again; suppressedUntil is not consulted.
+    // The one rule for a replayable policy, which also blocks automatic probing: validated by a probe (older builds
+    // validated session rows by time and traffic), and within the max age but not in the future (a bad clock would
+    // keep it forever). A suppressed policy stays out until a probe validates it again; suppressedUntil is not
+    // consulted.
     @Query(
         """
         SELECT * FROM remembered_network_policies
         WHERE fingerprintHash = :fingerprintHash
             AND mode = :mode
             AND status = :validatedStatus
+            AND source != :sessionSource
             AND lastValidatedAt >= :now - $RememberedNetworkPolicyMaxValidatedAgeMs
+            AND lastValidatedAt <= :now
         ORDER BY lastValidatedAt DESC, updatedAt DESC
         LIMIT 1
         """,
@@ -43,6 +48,7 @@ interface DiagnosticsRememberedPolicyDao {
         fingerprintHash: String,
         mode: String,
         validatedStatus: String,
+        sessionSource: String,
         now: Long,
     ): RememberedNetworkPolicyEntity?
 

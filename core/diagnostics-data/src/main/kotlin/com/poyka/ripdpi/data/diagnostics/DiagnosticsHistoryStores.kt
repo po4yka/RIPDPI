@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionMaxAgeMs
 import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionLimit
 import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.withLock
@@ -583,6 +584,7 @@ class RoomRememberedNetworkPolicyRecordStore
                 fingerprintHash = fingerprintHash,
                 mode = mode,
                 validatedStatus = RememberedNetworkPolicyStatusValidated,
+                sessionSource = RememberedNetworkPolicySource.MANUAL_SESSION.storageValue,
                 now = clock.now(),
             )
 

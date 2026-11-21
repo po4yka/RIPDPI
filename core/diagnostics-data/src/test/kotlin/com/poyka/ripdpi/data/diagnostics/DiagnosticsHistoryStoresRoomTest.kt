@@ -759,6 +759,27 @@ class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
                     updatedAt = clock.now(),
                 ),
             )
+            // Older builds validated an ordinary session by its time and traffic; no probe measured it.
+            store.upsertRememberedNetworkPolicy(
+                rememberedPolicy(
+                    fingerprintHash = "fp-session",
+                    mode = "vpn",
+                    status = RememberedNetworkPolicyStatusValidated,
+                    lastValidatedAt = clock.now() - 100L,
+                    updatedAt = clock.now(),
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
+                ),
+            )
+            // Validated by a clock that ran ahead: the age bound must not keep it replayable forever.
+            store.upsertRememberedNetworkPolicy(
+                rememberedPolicy(
+                    fingerprintHash = "fp-future",
+                    mode = "vpn",
+                    status = RememberedNetworkPolicyStatusValidated,
+                    lastValidatedAt = clock.now() + 1L,
+                    updatedAt = clock.now(),
+                ),
+            )
             repeat(RememberedNetworkPolicyRetentionLimit + 2) { index ->
                 store.upsertRememberedNetworkPolicy(
                     rememberedPolicy(
@@ -772,6 +793,8 @@ class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
             assertEquals("fp-match", store.findValidatedRememberedNetworkPolicy("fp-match", "vpn")?.fingerprintHash)
             assertNull(store.findValidatedRememberedNetworkPolicy("fp-suppressed", "vpn"))
             assertNull(store.findValidatedRememberedNetworkPolicy("fp-expired", "vpn"))
+            assertNull(store.findValidatedRememberedNetworkPolicy("fp-session", "vpn"))
+            assertNull(store.findValidatedRememberedNetworkPolicy("fp-future", "vpn"))
 
             store.pruneRememberedNetworkPolicies()
 
@@ -1591,12 +1614,13 @@ private fun rememberedPolicy(
     updatedAt: Long,
     lastValidatedAt: Long? = null,
     suppressedUntil: Long? = null,
+    source: RememberedNetworkPolicySource = RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND,
 ) = RememberedNetworkPolicyEntity(
     fingerprintHash = fingerprintHash,
     mode = mode,
     summaryJson = "{}",
     proxyConfigJson = "{}",
-    source = RememberedNetworkPolicySource.MANUAL_SESSION.encodeStorageValue(),
+    source = source.encodeStorageValue(),
     status = status,
     firstObservedAt = updatedAt,
     lastValidatedAt = lastValidatedAt,
