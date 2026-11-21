@@ -79,6 +79,7 @@ internal data class ProfileExecutionPolicyDefinition(
 internal data class DomainTargetDefinition(
     val host: String,
     val isControl: Boolean = false,
+    val httpPath: String = "/",
     val concurrencyProbe: ConcurrencyProbeTargetMetadataDefinition? = null,
     val legalSafety: CatalogLegalSafety = CatalogLegalSafety.SAFE,
     val legalSafetyMetadata: CatalogLegalSafetyMetadata? = null,

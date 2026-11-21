@@ -20,12 +20,14 @@ internal fun domainTargets(
     multiline: String,
     legalSafety: CatalogLegalSafety = CatalogLegalSafety.SAFE,
     isControl: Boolean = false,
+    httpPath: String = "/",
     concurrencyProbe: ConcurrencyProbeTargetMetadataDefinition? = null,
 ): List<DomainTargetDefinition> =
     lines(multiline).map { host ->
         DomainTargetDefinition(
             host = host,
             isControl = isControl,
+            httpPath = httpPath,
             concurrencyProbe = concurrencyProbe,
             legalSafety = legalSafety,
         )

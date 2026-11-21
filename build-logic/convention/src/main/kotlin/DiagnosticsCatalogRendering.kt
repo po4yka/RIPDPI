@@ -379,6 +379,7 @@ private fun DomainTargetDefinition.toJson(): JsonObject =
     buildJsonObject {
         put("host", host)
         if (isControl) put("isControl", true)
+        if (httpPath != "/") put("httpPath", httpPath)
         concurrencyProbe?.let { put("concurrencyProbe", it.toJson()) }
         effectiveMetadata()?.let { put("legalSafety", it.toJson()) }
     }

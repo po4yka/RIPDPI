@@ -68,13 +68,13 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "automatic-probing",
             name = "Automatic probing",
-            version = 5,
+            version = 6,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_PROBING,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = true, requiresRawPath = true),
-            packRefs = listOf(packRef("neutral-control", 3)),
+            packRefs = listOf(packRef("neutral-control", 4)),
             domainTargets =
                 domainTargets(
                     """
@@ -100,13 +100,13 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "automatic-audit",
             name = "Automatic audit",
-            version = 5,
+            version = 6,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_AUDIT,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = true, requiresRawPath = true),
-            packRefs = listOf(packRef("neutral-control", 3)),
+            packRefs = listOf(packRef("neutral-control", 4)),
             domainTargets =
                 domainTargets(
                     """
@@ -223,7 +223,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-throttling",
             name = "Russia Throttling Check",
-            version = 6,
+            version = 7,
             family = CatalogDiagnosticProfileFamily.THROTTLING,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -232,7 +232,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             packRefs =
                 listOf(
                     packRef("ru-throttling", 2),
-                    packRef("neutral-control", 3),
+                    packRef("neutral-control", 4),
                 ),
             domainTargets = throttling.domainTargets + control.domainTargets,
             throughputTargets = throttling.throughputTargets + control.throughputTargets,
@@ -260,7 +260,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-full",
             name = "Russia DPI Full",
-            version = 9,
+            version = 10,
             family = CatalogDiagnosticProfileFamily.DPI_FULL,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -273,7 +273,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     packRef("ru-messaging", 2),
                     packRef("ru-circumvention", 1),
                     packRef("ru-throttling", 2),
-                    packRef("neutral-control", 3),
+                    packRef("neutral-control", 4),
                 ),
             domainTargets =
                 (
@@ -317,7 +317,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-strategy",
             name = "Russia DPI Strategy Probe",
-            version = 3,
+            version = 4,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_AUDIT,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
@@ -330,7 +330,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     packRef("ru-global-platforms", 1),
                     packRef("ru-messaging", 2),
                     packRef("ru-circumvention", 1),
-                    packRef("neutral-control", 3),
+                    packRef("neutral-control", 4),
                 ),
             domainTargets =
                 (

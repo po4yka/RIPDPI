@@ -172,7 +172,7 @@ class DiagnosticsCatalogLegalSafetyTest {
         val fullProfile = profiles.single { it.id == "ru-dpi-full" }
         val telegramTarget = requireNotNull(fullProfile.telegramTarget)
 
-        assertEquals(9, fullProfile.version)
+        assertEquals(10, fullProfile.version)
         assertEquals("https://telegram.org/img/Telegram200million.png", telegramTarget.mediaUrl)
         assertEquals(5, telegramTarget.dcEndpoints.size)
         assertEquals(listOf("DC1", "DC2", "DC3", "DC4", "DC5"), telegramTarget.dcEndpoints.map { it.label })
@@ -206,7 +206,7 @@ class DiagnosticsCatalogLegalSafetyTest {
                 "ru-global-platforms@1",
                 "ru-messaging@2",
                 "ru-circumvention@1",
-                "neutral-control@3",
+                "neutral-control@4",
             ),
             strategy.packRefs,
         )
