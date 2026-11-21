@@ -8,7 +8,6 @@
     <string name="dns_mode_plain_body">Отправлять DNS-запросы напрямую на IP-адрес резолвера без зашифрованного перехвата или дополнительной настройки.</string>
     <string name="dns_protocol_section">Зашифрованный протокол</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
-    <string name="dns_protocol_helper">Выберите, какой зашифрованный DNS-транспорт RIPDPI должен использовать для перехвата DNS в VPN и диагностики.</string>
     <string name="dns_protocol_doh_body">Лучший вариант по умолчанию. Встроенные профили Cloudflare, Google, Quad9 и AdGuard готовы к использованию.</string>
     <string name="dns_protocol_dot_body">DNS-over-TLS на порту 853. Хорошо подходит, когда вы контролируете имя хоста и TLS-имя сервера.</string>
     <string name="dns_protocol_dnscrypt_body">DNSCrypt с проверкой имени провайдера и публичного ключа. Используйте только для пользовательских резолверов.</string>
@@ -17,19 +16,14 @@
     <string name="dns_resolvers_section">Резолверы</string>
     <string name="dns_custom_section">Пользовательский сервер</string>
     <string name="dns_custom_title">Пользовательский DNS</string>
-    <string name="dns_custom_body">Укажите конкретный адрес резолвера для локального VPN-пути и сохраните его на этом устройстве.</string>
     <string name="dns_custom_doh_title">Пользовательский DoH</string>
     <string name="dns_custom_doh_body">Используйте пользовательский DNS-over-HTTPS с явными bootstrap-IP, чтобы разрешение имён в туннеле не зависело от обычного DNS.</string>
     <string name="dns_custom_doh_url_label">URL DoH</string>
     <string name="dns_custom_doh_url_helper">Используйте HTTPS-адрес, принимающий DNS-сообщения по RFC 8484.</string>
     <string name="dns_custom_doh_url_error">Введите корректный HTTPS DoH-адрес.</string>
     <string name="dns_custom_dot_title">Пользовательский DoT</string>
-    <string name="dns_custom_dot_body">Используйте DNS-over-TLS с явным хостом, портом, TLS-именем и bootstrap-IP.</string>
-    <string name="dns_custom_dot_host_helper">Имя хоста или IP-адрес DNS-over-TLS сервера.</string>
     <string name="dns_custom_dot_tls_helper">Имя сервера, используемое при проверке TLS-сертификата.</string>
     <string name="dns_custom_dnscrypt_title">Пользовательский DNSCrypt</string>
-    <string name="dns_custom_dnscrypt_body">Используйте DNSCrypt-резолвер, указав адрес, имя провайдера, публичный ключ и bootstrap-IP.</string>
-    <string name="dns_custom_dnscrypt_host_helper">Имя хоста или IP-адрес DNSCrypt-сервера.</string>
     <string name="dns_custom_dnscrypt_provider_label">Имя провайдера</string>
     <string name="dns_custom_dnscrypt_provider_helper">Имя провайдера сертификата, объявляемое DNSCrypt-резолвером.</string>
     <string name="dns_custom_dnscrypt_public_key_label">Публичный ключ</string>
@@ -75,9 +69,7 @@
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>
     <string name="dns_protocol_odoh_body">Обезличенный DNS через HTTPS. Настройте прокси, целевой сервер и ключ.</string>
     <string name="dns_custom_doq_title">Пользовательский DoQ</string>
-    <string name="dns_custom_doq_body">Укажите сервер DNS через QUIC, порт, TLS-имя и IP-адреса начальной загрузки.</string>
     <string name="dns_custom_odoh_title">Пользовательский ODoH</string>
-    <string name="dns_custom_odoh_body">Укажите независимых операторов прокси и целевого сервера, конфигурацию и IP-адреса начальной загрузки.</string>
     <string name="dns_custom_odoh_proxy_url_label">HTTPS URL прокси</string>
     <string name="dns_custom_odoh_proxy_operator_label">Идентификатор оператора прокси</string>
     <string name="dns_custom_odoh_target_host_label">Хост целевого сервера</string>

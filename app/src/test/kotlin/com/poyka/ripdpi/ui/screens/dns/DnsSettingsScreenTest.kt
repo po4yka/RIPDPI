@@ -217,6 +217,7 @@ class DnsSettingsScreenTest {
             }
         }
 
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsAdvanced).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolDot)).performScrollTo().performClick()
 
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomPort).assert(hasEditableText("853"))
@@ -330,6 +331,7 @@ class DnsSettingsScreenTest {
             }
         }
 
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsAdvanced).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolOdoh)).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.DnsOdohTargetHost).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()

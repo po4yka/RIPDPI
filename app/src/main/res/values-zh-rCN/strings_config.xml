@@ -70,7 +70,6 @@
     <string name="config_cli_active_body">命令行参数优先于此屏幕上的设置。</string>
     <string name="config_reconnect_in_progress">正在重新连接。完成后请重试。</string>
     <string name="config_default_ttl_helper">留空以使用引擎默认值。</string>
-    <string name="config_dns_helper">用于本地 VPN 路由。</string>
     <string name="config_editor_body">正在编辑 %1$s。点按“保存”后，修改会存储在本设备上。</string>
     <string name="config_error_invalid_dns">请输入有效的非本地 DNS 地址。</string>
     <string name="config_error_ipv6_dns_requires_ipv6">请开启 IPv6 以使用 IPv6 DNS 地址。</string>

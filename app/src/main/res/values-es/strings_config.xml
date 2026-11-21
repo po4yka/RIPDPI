@@ -224,7 +224,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="adaptive_split_summary_label_scope">Alcance</string>
     <string name="config_buffer_helper">Tamaño del búfer del socket en bytes.</string>
     <string name="config_chain_editor_label">Estrategia de evasión</string>
-    <string name="config_dns_helper">Se usa para la ruta VPN local.</string>
     <string name="config_editor_title">Editar perfil</string>
     <string name="config_error_invalid_port">Introduce un puerto TCP válido.</string>
     <string name="config_fake_offset_marker_helper">Acepta desplazamientos numéricos o semánticos como 0, host+1, endhost-2 o endhost+1. Los marcadores auto(…) adaptativos no se admiten aquí.</string>

@@ -58,7 +58,6 @@
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_editor_title">प्रोफ़ाइल संपादित करें</string>
     <string name="config_editor_body">%1$s संपादित किया जा रहा है। सहेजें पर टैप करने पर परिवर्तन इस डिवाइस पर सहेजे जाते हैं।</string>
-    <string name="config_dns_helper">स्थानीय VPN रूट के लिए उपयोग किया जाता है।</string>
     <string name="config_dns_disabled_helper">DNS ओवरराइड केवल स्थानीय VPN मोड में लागू होता है।</string>
     <string name="config_proxy_helper">जहाँ स्थानीय प्रॉक्सी श्रोता बाइंड होता है।</string>
     <string name="config_relay_title">आउटबाउंड रिले प्रोटोकॉल</string>

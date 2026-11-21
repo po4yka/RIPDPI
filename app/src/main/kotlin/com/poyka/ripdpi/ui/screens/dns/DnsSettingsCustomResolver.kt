@@ -103,20 +103,6 @@ internal fun CustomEncryptedDnsSection(
                 style = type.bodyEmphasis,
                 color = colors.foreground,
             )
-            Text(
-                text =
-                    stringResource(
-                        if (uiState.dns.encryptedDnsProtocol ==
-                            EncryptedDnsProtocolDoq
-                        ) {
-                            R.string.dns_custom_doq_body
-                        } else {
-                            R.string.dns_custom_dot_body
-                        },
-                    ),
-                style = type.body,
-                color = colors.mutedForeground,
-            )
             CommonEndpointFields(
                 host = dotHost,
                 onHostChange = onDotHostChange,
@@ -125,7 +111,6 @@ internal fun CustomEncryptedDnsSection(
                 bootstrapInput = bootstrapInput,
                 onBootstrapInputChange = onBootstrapInputChange,
                 hostLabel = stringResource(R.string.dns_custom_host_label),
-                hostHelper = stringResource(R.string.dns_custom_dot_host_helper),
                 bootstrapError =
                     if (bootstrapInput.isNotBlank() && !bootstrapIpsValid) {
                         stringResource(R.string.dns_custom_bootstrap_error)
@@ -188,11 +173,6 @@ internal fun CustomEncryptedDnsSection(
                 style = type.bodyEmphasis,
                 color = colors.foreground,
             )
-            Text(
-                text = stringResource(R.string.dns_custom_dnscrypt_body),
-                style = type.body,
-                color = colors.mutedForeground,
-            )
             CommonEndpointFields(
                 host = dnscryptHost,
                 onHostChange = onDnscryptHostChange,
@@ -201,7 +181,6 @@ internal fun CustomEncryptedDnsSection(
                 bootstrapInput = bootstrapInput,
                 onBootstrapInputChange = onBootstrapInputChange,
                 hostLabel = stringResource(R.string.dns_custom_host_label),
-                hostHelper = stringResource(R.string.dns_custom_dnscrypt_host_helper),
                 bootstrapError =
                     if (bootstrapInput.isNotBlank() && !bootstrapIpsValid) {
                         stringResource(R.string.dns_custom_bootstrap_error)
@@ -363,7 +342,6 @@ internal fun CommonEndpointFields(
     bootstrapInput: String,
     onBootstrapInputChange: (String) -> Unit,
     hostLabel: String,
-    hostHelper: String,
     bootstrapError: String?,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -377,7 +355,6 @@ internal fun CommonEndpointFields(
                 RelayValueField(
                     label = hostLabel,
                     placeholder = stringResource(R.string.dns_placeholder_resolver_example),
-                    helperText = hostHelper,
                     testTag = RipDpiTestTags.DnsCustomHost,
                 ),
             value = host,

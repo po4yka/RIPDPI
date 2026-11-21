@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="dns_active_detail_route">Tunnel-Route</string>
-    <string name="dns_custom_body">Legen Sie eine spezifische Resolver-Adresse für den lokalen VPN-Pfad fest und behalten Sie sie auf diesem Gerät gespeichert.</string>
-    <string name="dns_custom_dnscrypt_host_helper">Hostname oder IP für den DNSCrypt-Server.</string>
     <string name="dns_custom_dnscrypt_public_key_label">Public Key</string>
     <string name="dns_custom_doh_url_helper">Verwenden Sie einen HTTPS-Endpunkt, der RFC-8484-DNS-Nachrichten akzeptiert.</string>
     <string name="dns_custom_dot_tls_helper">Servername, der bei der TLS-Zertifikatsprüfung verwendet wird.</string>
@@ -10,7 +8,6 @@
     <string name="dns_mode_section">Modus</string>
     <string name="dns_placeholder_public_key">0123abcd…</string>
     <string name="dns_protocol_dnscrypt_body">DNSCrypt mit Provider-Name- und Public-Key-Validierung. Nur für benutzerdefinierte Resolver verwenden.</string>
-    <string name="dns_protocol_helper">Wählen Sie, welchen verschlüsselten DNS-Transport RIPDPI für VPN-DNS-Interception und Diagnose verwenden soll.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_google_title">Google Public DNS</string>
     <string name="dns_active_route_encrypted_vpn">DNS wird abgefangen, solange das VPN läuft.</string>
@@ -32,7 +29,6 @@
     <string name="dns_custom_bootstrap_helper">Geben Sie eine oder mehrere Resolver-IPs getrennt durch Kommas oder Leerzeichen ein.</string>
     <string name="dns_custom_dnscrypt_provider_label">Anbietername</string>
     <string name="dns_custom_doh_body">Verwenden Sie einen benutzerdefinierten DNS-over-HTTPS-Endpunkt mit expliziten Bootstrap-IPs, damit die Tunnel-Auflösung nicht von Klartext-DNS abhängt.</string>
-    <string name="dns_custom_dot_body">Verwenden Sie einen DNS-over-TLS-Endpunkt mit explizitem Host, Port, TLS-Name und Bootstrap-IPs.</string>
     <string name="dns_custom_title">Benutzerdefiniertes DNS</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_protocol_builtin_and_custom">Integriert + benutzerdefiniert</string>
@@ -50,7 +46,6 @@
     <string name="dns_custom_bootstrap_label">Bootstrap-IPs</string>
     <string name="dns_custom_dnscrypt_public_key_error">Geben Sie einen gültigen 64-stelligen hexadezimalen öffentlichen Schlüssel ein.</string>
     <string name="dns_custom_doh_title">Benutzerdefiniertes DoH</string>
-    <string name="dns_custom_dot_host_helper">Hostname oder IP für den DNS-over-TLS-Endpunkt.</string>
     <string name="dns_custom_port_label">Port</string>
     <string name="dns_custom_tls_server_name_label">TLS-Servername</string>
     <string name="dns_mode_plain">Klartext-DNS</string>
@@ -59,7 +54,6 @@
     <string name="dns_resolvers_section">Resolver</string>
     <string name="dns_active_detail_endpoint">Endpunkt</string>
     <string name="dns_active_section_title">Aktiver Resolver</string>
-    <string name="dns_custom_dnscrypt_body">Verwenden Sie einen DNSCrypt-Resolver, indem Sie Endpunkt, Provider-Name, Public Key und Bootstrap-IPs angeben.</string>
     <string name="dns_custom_dnscrypt_public_key_helper">Resolver-Signaturschlüssel als 64 hexadezimale Zeichen.</string>
     <string name="dns_custom_doh_url_error">Geben Sie einen gültigen HTTPS-DoH-Endpunkt ein.</string>
     <string name="dns_custom_dot_title">Benutzerdefiniertes DoT</string>
@@ -75,9 +69,7 @@
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>
     <string name="dns_protocol_odoh_body">Anonymisiertes DNS über HTTPS. Richten Sie Proxy, Ziel und Schlüssel ein.</string>
     <string name="dns_custom_doq_title">Benutzerdefiniertes DoQ</string>
-    <string name="dns_custom_doq_body">Nutzen Sie DNS über QUIC mit Host, Port, TLS-Namen und Bootstrap-IPs.</string>
     <string name="dns_custom_odoh_title">Benutzerdefiniertes ODoH</string>
-    <string name="dns_custom_odoh_body">Geben Sie getrennte Proxy- und Zielbetreiber, Konfigurationsdaten und Bootstrap-IPs an.</string>
     <string name="dns_custom_odoh_proxy_url_label">HTTPS-URL des Proxys</string>
     <string name="dns_custom_odoh_proxy_operator_label">ID des Proxybetreibers</string>
     <string name="dns_custom_odoh_target_host_label">Zielhost</string>

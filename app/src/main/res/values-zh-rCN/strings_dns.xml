@@ -18,8 +18,6 @@
     <string name="dns_resolvers_section">解析器</string>
     <string name="dns_active_bootstrap_not_required">明文 DNS 模式下不需要</string>
     <string name="dns_active_route_encrypted_vpn">VPN 运行期间会拦截 DNS。</string>
-    <string name="dns_custom_body">为本地 VPN 路径设置特定的解析器地址,并将其存储在此设备上。</string>
-    <string name="dns_custom_dnscrypt_body">通过指定端点、提供商名称、公钥和引导 IP 使用 DNSCrypt 解析器。</string>
     <string name="dns_custom_dnscrypt_public_key_error">请输入有效的 64 字符十六进制公钥。</string>
     <string name="dns_custom_doh_body">使用带有显式引导 IP 的自定义 DoH 端点,使隧道解析不依赖于明文 DNS。</string>
     <string name="dns_custom_doh_url_label">DoH 地址</string>
@@ -41,10 +39,8 @@
     <string name="dns_active_route_plain_vpn">VPN 运行期间，查询直接发送到此解析器 IP。</string>
     <string name="dns_custom_bootstrap_error">请输入一个或多个引导 IP 地址。请勿使用回环地址或未指定地址。</string>
     <string name="dns_custom_save_requirements_hint">请填写所有必填字段以保存</string>
-    <string name="dns_custom_dnscrypt_host_helper">DNSCrypt 服务器的主机名或 IP。</string>
     <string name="dns_custom_dnscrypt_public_key_helper">解析器签名密钥,64 个十六进制字符。</string>
     <string name="dns_custom_doh_title">自定义 DoH</string>
-    <string name="dns_custom_dot_body">使用 DNS-over-TLS 端点,需提供显式的主机、端口、TLS 名称和引导 IP。</string>
     <string name="dns_custom_host_label">主机</string>
     <string name="dns_custom_section">自定义服务器</string>
     <string name="dns_ipv6_helper">允许本地 VPN 构建器在所选网络支持时包含 IPv6 DNS 路由。</string>
@@ -61,13 +57,11 @@
     <string name="dns_custom_dnscrypt_provider_helper">DNSCrypt 解析器声明的证书提供者名称。</string>
     <string name="dns_custom_dnscrypt_public_key_label">公钥</string>
     <string name="dns_custom_doh_url_error">请输入有效的 HTTPS DoH 端点。</string>
-    <string name="dns_custom_dot_host_helper">DNS-over-TLS 端点的主机名或 IP。</string>
     <string name="dns_custom_switch_hint">保存此表单以使用自定义端点替换当前的内置配置文件。</string>
     <string name="dns_mode_doh">加密 DNS</string>
     <string name="dns_mode_plain">明文 DNS</string>
     <string name="dns_protocol_builtin_and_custom">内置 + 自定义</string>
     <string name="dns_protocol_doh_body">最佳默认工作流。已内置 Cloudflare、Google、Quad9 和 AdGuard 配置文件,可直接使用。</string>
-    <string name="dns_protocol_helper">选择 RIPDPI 应当用于 VPN DNS 拦截和诊断的加密 DNS 传输方式。</string>
     <string name="dns_resolver_adguard_body">侧重广告和跟踪器拦截的公共解析器。</string>
     <string name="dns_resolver_quad9_title">Quad9</string>
     <string name="dns_protocol_doq" translatable="false">DoQ</string>
@@ -75,9 +69,7 @@
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>
     <string name="dns_protocol_odoh_body">通过 HTTPS 使用匿名 DNS。配置代理、目标和目标密钥。</string>
     <string name="dns_custom_doq_title">自定义 DoQ</string>
-    <string name="dns_custom_doq_body">设置 DNS over QUIC 的主机、端口、TLS 名称和引导 IP。</string>
     <string name="dns_custom_odoh_title">自定义 ODoH</string>
-    <string name="dns_custom_odoh_body">设置独立的代理和目标运营方、配置字节及引导 IP。</string>
     <string name="dns_custom_odoh_proxy_url_label">代理 HTTPS URL</string>
     <string name="dns_custom_odoh_proxy_operator_label">代理运营方 ID</string>
     <string name="dns_custom_odoh_target_host_label">目标主机</string>

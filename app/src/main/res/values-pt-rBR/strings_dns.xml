@@ -8,7 +8,6 @@
     <string name="dns_mode_plain_body">Envia o DNS diretamente ao IP do resolvedor, sem intercepção criptografada nem configuração de bootstrap.</string>
     <string name="dns_protocol_section">Protocolo criptografado</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
-    <string name="dns_protocol_helper">Escolha qual transporte de DNS criptografado o RIPDPI deve usar para intercepção de DNS na VPN e para diagnóstico.</string>
     <string name="dns_protocol_doh_body">Melhor fluxo padrão. Os perfis integrados Cloudflare, Google, Quad9 e AdGuard estão prontos para uso.</string>
     <string name="dns_protocol_dot_body">DNS-over-TLS na porta 853. Bom quando você controla o hostname e o nome de servidor TLS.</string>
     <string name="dns_protocol_dnscrypt_body">DNSCrypt com validação de provider-name e chave pública. Use apenas para resolvedores personalizados.</string>
@@ -17,19 +16,14 @@
     <string name="dns_resolvers_section">Resolvedores</string>
     <string name="dns_custom_section">Servidor personalizado</string>
     <string name="dns_custom_title">DNS personalizado</string>
-    <string name="dns_custom_body">Define um endereço de resolvedor específico para o caminho VPN local e o mantém armazenado neste dispositivo.</string>
     <string name="dns_custom_doh_title">DoH personalizado</string>
     <string name="dns_custom_doh_body">Usa um endpoint DNS-over-HTTPS personalizado com IPs de bootstrap explícitos para que a resolução do túnel não dependa de DNS simples.</string>
     <string name="dns_custom_doh_url_label">URL do DoH</string>
     <string name="dns_custom_doh_url_helper">Use um endpoint HTTPS que aceite mensagens DNS RFC 8484.</string>
     <string name="dns_custom_doh_url_error">Informe um endpoint DoH HTTPS válido.</string>
     <string name="dns_custom_dot_title">DoT personalizado</string>
-    <string name="dns_custom_dot_body">Usa um endpoint DNS-over-TLS com host, porta, nome TLS e IPs de bootstrap explícitos.</string>
-    <string name="dns_custom_dot_host_helper">Hostname ou IP do endpoint DNS-over-TLS.</string>
     <string name="dns_custom_dot_tls_helper">Nome de servidor usado durante a verificação do certificado TLS.</string>
     <string name="dns_custom_dnscrypt_title">DNSCrypt personalizado</string>
-    <string name="dns_custom_dnscrypt_body">Usa um resolvedor DNSCrypt especificando endpoint, provider name, chave pública e IPs de bootstrap.</string>
-    <string name="dns_custom_dnscrypt_host_helper">Hostname ou IP do servidor DNSCrypt.</string>
     <string name="dns_custom_dnscrypt_provider_label">Nome do provedor</string>
     <string name="dns_custom_dnscrypt_provider_helper">Nome do provedor de certificado anunciado pelo resolvedor DNSCrypt.</string>
     <string name="dns_custom_dnscrypt_public_key_label">Chave pública</string>
@@ -75,9 +69,7 @@
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>
     <string name="dns_protocol_odoh_body">DNS oculto sobre HTTPS. Configure proxy, destino e chave do destino.</string>
     <string name="dns_custom_doq_title">DoQ personalizado</string>
-    <string name="dns_custom_doq_body">Use DNS sobre QUIC com host, porta, nome TLS e IPs de inicialização.</string>
     <string name="dns_custom_odoh_title">ODoH personalizado</string>
-    <string name="dns_custom_odoh_body">Informe operadores distintos para proxy e destino, bytes de configuração e IPs de inicialização.</string>
     <string name="dns_custom_odoh_proxy_url_label">URL HTTPS do proxy</string>
     <string name="dns_custom_odoh_proxy_operator_label">ID do operador do proxy</string>
     <string name="dns_custom_odoh_target_host_label">Host de destino</string>

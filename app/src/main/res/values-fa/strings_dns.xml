@@ -5,7 +5,6 @@
     <string name="dns_active_route_saved">نام‌های پردازش‌شده توسط پروکسی محلی را حل می‌کند. DNS دستگاه تغییر نمی‌کند.</string>
     <string name="dns_custom_bootstrap_error">یک یا چند نشانی IP راه‌انداز وارد کنید. از نشانی‌های حلقهٔ محلی یا نامشخص استفاده نکنید.</string>
     <string name="dns_custom_save_requirements_hint">برای ذخیره، همه فیلدهای لازم را پر کنید</string>
-    <string name="dns_custom_dnscrypt_body">با مشخص کردن endpoint، نام ارائه‌دهنده، کلید عمومی و IPهای بوت‌استرپ از یک resolver DNSCrypt استفاده کنید.</string>
     <string name="dns_custom_dnscrypt_provider_label">نام ارائه‌دهنده</string>
     <string name="dns_custom_dnscrypt_public_key_label">کلید عمومی</string>
     <string name="dns_custom_doh_title">DoH سفارشی</string>
@@ -31,11 +30,9 @@
     <string name="dns_active_route_encrypted_vpn">تا وقتی VPN در حال اجراست، DNS رهگیری می‌شود.</string>
     <string name="dns_active_section_title">resolver فعال</string>
     <string name="dns_custom_bootstrap_helper">یک یا چند IP resolver را با کاما یا فاصله جدا شده وارد کنید.</string>
-    <string name="dns_custom_dnscrypt_host_helper">نام میزبان یا IP برای سرور DNSCrypt.</string>
     <string name="dns_custom_dnscrypt_public_key_error">یک کلید عمومی هگزادسیمال معتبر 64 کاراکتری وارد کنید.</string>
     <string name="dns_custom_dnscrypt_title">DNSCrypt سفارشی</string>
     <string name="dns_custom_doh_url_error">یک نقطه‌پایانی HTTPS DoH معتبر وارد کنید.</string>
-    <string name="dns_custom_dot_body">از یک نقطه‌پایانی DNS-over-TLS با میزبان، پورت، نام TLS و IPهای bootstrap صریح استفاده کنید.</string>
     <string name="dns_custom_dot_tls_helper">نام سروری که هنگام تأیید گواهی TLS استفاده می‌شود.</string>
     <string name="dns_custom_port_label">پورت</string>
     <string name="dns_custom_switch_hint">این فرم را ذخیره کنید تا نمایه داخلی فعلی با یک نقطه‌پایانی سفارشی جایگزین شود.</string>
@@ -43,20 +40,17 @@
     <string name="dns_mode_section">حالت</string>
     <string name="dns_placeholder_resolver_example">resolver.example</string>
     <string name="dns_protocol_dnscrypt_body">DNSCrypt با اعتبارسنجی provider-name و کلید عمومی. این را فقط برای resolverهای سفارشی استفاده کنید.</string>
-    <string name="dns_protocol_helper">انتخاب کنید RIPDPI از کدام ترابری DNS رمزگذاری‌شده برای رهگیری DNS در VPN و تشخیص استفاده کند.</string>
     <string name="dns_proxy_banner_title">حالت Proxy فعال است</string>
     <string name="dns_resolver_cloudflare_body">resolver عمومی سریع با ردپای راه‌اندازی حداقلی.</string>
     <string name="dns_resolver_google_body">resolver عمومی با دسترس‌پذیری گسترده و پیش‌فرض‌های آشنا.</string>
     <string name="dns_resolver_quad9_title">Quad9</string>
     <string name="dns_active_detail_endpoint">نقطه پایانی</string>
     <string name="dns_active_route_plain_vpn">تا وقتی VPN در حال اجراست، پرس‌وجوها مستقیماً به IP این تحلیل‌گر می‌روند.</string>
-    <string name="dns_custom_body">یک نشانی تحلیل‌گر مشخص برای مسیر VPN محلی تنظیم کنید و آن را روی این دستگاه نگه دارید.</string>
     <string name="dns_custom_bootstrap_label">IPهای Bootstrap</string>
     <string name="dns_custom_dnscrypt_provider_helper">نام ارائه‌دهنده گواهی که توسط تحلیل‌گر DNSCrypt اعلام می‌شود.</string>
     <string name="dns_custom_dnscrypt_public_key_helper">کلید امضای تحلیل‌گر به‌صورت 64 کاراکتر هگزادسیمال.</string>
     <string name="dns_custom_doh_body">از یک نقطه پایانی DNS-over-HTTPS سفارشی با IPهای bootstrap صریح استفاده کنید تا حل‌وفصل تونل به DNS ساده وابسته نباشد.</string>
     <string name="dns_custom_doh_url_helper">از یک نقطه پایانی HTTPS استفاده کنید که پیام‌های DNS مطابق RFC 8484 را می‌پذیرد.</string>
-    <string name="dns_custom_dot_host_helper">نام میزبان یا IP برای نقطه پایانی DNS-over-TLS.</string>
     <string name="dns_custom_host_label">میزبان</string>
     <string name="dns_custom_title">DNS سفارشی</string>
     <string name="dns_mode_doh">DNS رمزنگاری‌شده</string>
@@ -75,9 +69,7 @@
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>
     <string name="dns_protocol_odoh_body">DNS ناشناس از طریق HTTPS. پراکسی، هدف و کلید هدف را تنظیم کنید.</string>
     <string name="dns_custom_doq_title">DoQ سفارشی</string>
-    <string name="dns_custom_doq_body">سرور DNS روی QUIC را با میزبان، درگاه، نام TLS و IPهای راه‌اندازی تنظیم کنید.</string>
     <string name="dns_custom_odoh_title">ODoH سفارشی</string>
-    <string name="dns_custom_odoh_body">گردانندگان جداگانه برای پراکسی و هدف، بایت‌های پیکربندی و IPهای راه‌اندازی را تعیین کنید.</string>
     <string name="dns_custom_odoh_proxy_url_label">نشانی HTTPS پراکسی</string>
     <string name="dns_custom_odoh_proxy_operator_label">شناسه گرداننده پراکسی</string>
     <string name="dns_custom_odoh_target_host_label">میزبان هدف</string>

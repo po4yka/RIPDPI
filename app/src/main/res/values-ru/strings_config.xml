@@ -35,7 +35,6 @@
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_editor_title">Редактировать профиль</string>
     <string name="config_editor_body">Редактирование %1$s. Изменения сохраняются на этом устройстве, когда вы нажимаете «Сохранить».</string>
-    <string name="config_dns_helper">Используется для локального VPN-маршрута.</string>
     <string name="config_dns_disabled_helper">Переопределение DNS применяется только в локальном режиме VPN.</string>
     <string name="config_listen_address_summary">Адрес привязки локального прокси</string>
     <string name="config_proxy_helper">Адрес привязки локального прокси-слушателя.</string>

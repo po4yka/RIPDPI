@@ -8,7 +8,6 @@
     <string name="dns_mode_plain_body">एन्क्रिप्टेड इंटरसेप्शन या बूटस्ट्रैप सेटअप के बिना DNS को सीधे रिज़ॉल्वर IP पर भेजें।</string>
     <string name="dns_protocol_section">एन्क्रिप्टेड प्रोटोकॉल</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
-    <string name="dns_protocol_helper">चुनें कि VPN DNS इंटरसेप्शन और डायग्नोस्टिक्स के लिए RIPDPI को कौन-सा एन्क्रिप्टेड DNS ट्रांसपोर्ट उपयोग करना चाहिए।</string>
     <string name="dns_protocol_doh_body">सबसे अच्छा डिफ़ॉल्ट वर्कफ़्लो। अंतर्निहित Cloudflare, Google, Quad9, और AdGuard प्रोफ़ाइल उपयोग के लिए तैयार हैं।</string>
     <string name="dns_protocol_dot_body">पोर्ट 853 पर DNS-over-TLS। तब अच्छा जब आप होस्टनाम और TLS सर्वर नाम नियंत्रित करते हों।</string>
     <string name="dns_protocol_dnscrypt_body">प्रोवाइडर-नाम और सार्वजनिक-कुंजी सत्यापन के साथ DNSCrypt। इसका उपयोग केवल कस्टम रिज़ॉल्वर के लिए करें।</string>
@@ -17,19 +16,14 @@
     <string name="dns_resolvers_section">रिज़ॉल्वर</string>
     <string name="dns_custom_section">कस्टम सर्वर</string>
     <string name="dns_custom_title">कस्टम DNS</string>
-    <string name="dns_custom_body">स्थानीय VPN पथ के लिए एक विशिष्ट रिज़ॉल्वर पता सेट करें और उसे इस डिवाइस पर संग्रहीत रखें।</string>
     <string name="dns_custom_doh_title">कस्टम DoH</string>
     <string name="dns_custom_doh_body">स्पष्ट बूटस्ट्रैप IP के साथ एक कस्टम DNS-over-HTTPS एंडपॉइंट का उपयोग करें ताकि टनल रिज़ॉल्यूशन सादे DNS पर निर्भर न हो।</string>
     <string name="dns_custom_doh_url_label">DoH URL</string>
     <string name="dns_custom_doh_url_helper">एक ऐसे HTTPS एंडपॉइंट का उपयोग करें जो RFC 8484 DNS संदेश स्वीकार करता हो।</string>
     <string name="dns_custom_doh_url_error">एक मान्य HTTPS DoH एंडपॉइंट दर्ज करें।</string>
     <string name="dns_custom_dot_title">कस्टम DoT</string>
-    <string name="dns_custom_dot_body">स्पष्ट होस्ट, पोर्ट, TLS नाम, और बूटस्ट्रैप IP के साथ एक DNS-over-TLS एंडपॉइंट का उपयोग करें।</string>
-    <string name="dns_custom_dot_host_helper">DNS-over-TLS एंडपॉइंट के लिए होस्टनाम या IP।</string>
     <string name="dns_custom_dot_tls_helper">TLS प्रमाणपत्र सत्यापन के दौरान उपयोग किया जाने वाला सर्वर नाम।</string>
     <string name="dns_custom_dnscrypt_title">कस्टम DNSCrypt</string>
-    <string name="dns_custom_dnscrypt_body">एंडपॉइंट, प्रोवाइडर नाम, सार्वजनिक कुंजी, और बूटस्ट्रैप IP निर्दिष्ट करके एक DNSCrypt रिज़ॉल्वर का उपयोग करें।</string>
-    <string name="dns_custom_dnscrypt_host_helper">DNSCrypt सर्वर के लिए होस्टनाम या IP।</string>
     <string name="dns_custom_dnscrypt_provider_label">प्रोवाइडर नाम</string>
     <string name="dns_custom_dnscrypt_provider_helper">DNSCrypt रिज़ॉल्वर द्वारा प्रचारित प्रमाणपत्र प्रोवाइडर नाम।</string>
     <string name="dns_custom_dnscrypt_public_key_label">सार्वजनिक कुंजी</string>
@@ -71,9 +65,7 @@
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>
     <string name="dns_protocol_odoh_body">HTTPS पर निजी DNS। प्रॉक्सी, लक्ष्य और लक्ष्य कुंजी सेट करें।</string>
     <string name="dns_custom_doq_title">कस्टम DoQ</string>
-    <string name="dns_custom_doq_body">QUIC पर DNS के लिए होस्ट, पोर्ट, TLS नाम और बूटस्ट्रैप IP सेट करें।</string>
     <string name="dns_custom_odoh_title">कस्टम ODoH</string>
-    <string name="dns_custom_odoh_body">अलग प्रॉक्सी और लक्ष्य संचालक, कॉन्फ़िगरेशन बाइट और बूटस्ट्रैप IP सेट करें।</string>
     <string name="dns_custom_odoh_proxy_url_label">प्रॉक्सी HTTPS URL</string>
     <string name="dns_custom_odoh_proxy_operator_label">प्रॉक्सी संचालक ID</string>
     <string name="dns_custom_odoh_target_host_label">लक्ष्य होस्ट</string>

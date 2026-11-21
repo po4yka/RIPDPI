@@ -10,7 +10,6 @@
     <string name="dns_protocol_doh" translatable="false">DoH</string>
     <string name="dns_protocol_dot" translatable="false">DoT</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
-    <string name="dns_protocol_helper">Choose which encrypted DNS transport RIPDPI should use for VPN DNS interception and diagnostics.</string>
     <string name="dns_protocol_doh_body">Best default workflow. Built-in Cloudflare, Google, Quad9, and AdGuard profiles are ready to use.</string>
     <string name="dns_protocol_dot_body">DNS-over-TLS on port 853. Good when you control the hostname and TLS server name.</string>
     <string name="dns_protocol_dnscrypt_body">DNSCrypt with provider-name and public-key validation. Use this for custom resolvers only.</string>
@@ -19,19 +18,14 @@
     <string name="dns_resolvers_section">Resolvers</string>
     <string name="dns_custom_section">Custom server</string>
     <string name="dns_custom_title">Custom DNS</string>
-    <string name="dns_custom_body">Set a specific resolver address for the local VPN path and keep it stored on this device.</string>
     <string name="dns_custom_doh_title">Custom DoH</string>
     <string name="dns_custom_doh_body">Use a custom DNS-over-HTTPS endpoint with explicit bootstrap IPs so tunnel resolution does not depend on plain DNS.</string>
     <string name="dns_custom_doh_url_label">DoH URL</string>
     <string name="dns_custom_doh_url_helper">Use an HTTPS endpoint that accepts RFC 8484 DNS messages.</string>
     <string name="dns_custom_doh_url_error">Enter a valid HTTPS DoH endpoint.</string>
     <string name="dns_custom_dot_title">Custom DoT</string>
-    <string name="dns_custom_dot_body">Use a DNS-over-TLS endpoint with an explicit host, port, TLS name, and bootstrap IPs.</string>
-    <string name="dns_custom_dot_host_helper">Hostname or IP for the DNS-over-TLS endpoint.</string>
     <string name="dns_custom_dot_tls_helper">Server name used during TLS certificate verification.</string>
     <string name="dns_custom_dnscrypt_title">Custom DNSCrypt</string>
-    <string name="dns_custom_dnscrypt_body">Use a DNSCrypt resolver by specifying the endpoint, provider name, public key, and bootstrap IPs.</string>
-    <string name="dns_custom_dnscrypt_host_helper">Hostname or IP for the DNSCrypt server.</string>
     <string name="dns_custom_dnscrypt_provider_label">Provider name</string>
     <string name="dns_custom_dnscrypt_provider_helper">Certificate provider name advertised by the DNSCrypt resolver.</string>
     <string name="dns_custom_dnscrypt_public_key_label">Public key</string>
@@ -79,9 +73,7 @@
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>
     <string name="dns_protocol_odoh_body">Oblivious DNS over HTTPS. Configure a proxy, target, and target key.</string>
     <string name="dns_custom_doq_title">Custom DoQ</string>
-    <string name="dns_custom_doq_body">Use a DNS over QUIC endpoint with a host, port, TLS name, and bootstrap IPs.</string>
     <string name="dns_custom_odoh_title">Custom ODoH</string>
-    <string name="dns_custom_odoh_body">Set separate proxy and target operators, target configuration bytes, and bootstrap IPs.</string>
     <string name="dns_custom_odoh_proxy_url_label">Proxy HTTPS URL</string>
     <string name="dns_custom_odoh_proxy_operator_label">Proxy operator ID</string>
     <string name="dns_custom_odoh_target_host_label">Target host</string>

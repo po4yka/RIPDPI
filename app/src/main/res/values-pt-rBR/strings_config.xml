@@ -58,7 +58,6 @@
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_editor_title">Editar perfil</string>
     <string name="config_editor_body">Editando %1$s. As alterações são salvas neste dispositivo quando você toca em Salvar.</string>
-    <string name="config_dns_helper">Usado para a rota de VPN local.</string>
     <string name="config_dns_disabled_helper">A substituição de DNS só é aplicada no modo de VPN local.</string>
     <string name="config_proxy_helper">Onde o listener do proxy local faz bind.</string>
     <string name="config_relay_title">Protocolo de retransmissão de saída</string>

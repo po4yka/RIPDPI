@@ -319,6 +319,7 @@ internal object RipDpiTestTags {
     const val DnsOdohRetrievedAt = "dns-odoh-retrieved-at"
     const val DnsOdohTtl = "dns-odoh-ttl"
     const val DnsCustomSave = "dns-custom-save"
+    const val DnsAdvanced = "dns-advanced"
 
     const val CustomizationShapeInfo = "customization-shape-info"
     const val CustomizationThemedIcon = "customization-themed-icon"

@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="dns_active_detail_route">Route du tunnel</string>
-    <string name="dns_custom_body">Définissez une adresse de résolveur spécifique pour le chemin VPN local et conservez-la sur cet appareil.</string>
-    <string name="dns_custom_dnscrypt_host_helper">Nom d\'hôte ou IP du serveur DNSCrypt.</string>
     <string name="dns_custom_dnscrypt_public_key_label">Clé publique</string>
     <string name="dns_custom_doh_url_helper">Utilisez un point de terminaison HTTPS qui accepte les messages DNS RFC 8484.</string>
     <string name="dns_custom_dot_tls_helper">Nom du serveur utilisé lors de la vérification du certificat TLS.</string>
@@ -10,7 +8,6 @@
     <string name="dns_mode_section">Mode</string>
     <string name="dns_placeholder_public_key">0123abcd…</string>
     <string name="dns_protocol_dnscrypt_body">DNSCrypt avec validation par nom de fournisseur et clé publique. À utiliser pour les résolveurs personnalisés uniquement.</string>
-    <string name="dns_protocol_helper">Choisissez quel transport DNS chiffré RIPDPI doit utiliser pour l\'interception DNS du VPN et les diagnostics.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_google_title">Google Public DNS</string>
     <string name="dns_active_route_encrypted_vpn">Le DNS est intercepté tant que le VPN fonctionne.</string>
@@ -32,7 +29,6 @@
     <string name="dns_custom_bootstrap_helper">Saisissez une ou plusieurs IP de résolveur séparées par des virgules ou des espaces.</string>
     <string name="dns_custom_dnscrypt_provider_label">Nom du fournisseur</string>
     <string name="dns_custom_doh_body">Utiliser un point de terminaison DNS-over-HTTPS personnalisé avec des IP de bootstrap explicites afin que la résolution du tunnel ne dépende pas du DNS clair.</string>
-    <string name="dns_custom_dot_body">Utiliser un point de terminaison DNS-over-TLS avec un hôte, un port, un nom TLS et des IP de bootstrap explicites.</string>
     <string name="dns_custom_title">DNS personnalisé</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_protocol_builtin_and_custom">Intégré + personnalisé</string>
@@ -50,7 +46,6 @@
     <string name="dns_custom_bootstrap_label">IP de bootstrap</string>
     <string name="dns_custom_dnscrypt_public_key_error">Saisissez une clé publique hexadécimale valide de 64 caractères.</string>
     <string name="dns_custom_doh_title">DoH personnalisé</string>
-    <string name="dns_custom_dot_host_helper">Nom d\'hôte ou IP du point de terminaison DNS-over-TLS.</string>
     <string name="dns_custom_port_label">Port</string>
     <string name="dns_custom_tls_server_name_label">Nom du serveur TLS</string>
     <string name="dns_mode_plain">DNS en clair</string>
@@ -59,7 +54,6 @@
     <string name="dns_resolvers_section">Résolveurs</string>
     <string name="dns_active_detail_endpoint">Point de terminaison</string>
     <string name="dns_active_section_title">Résolveur actif</string>
-    <string name="dns_custom_dnscrypt_body">Utilisez un résolveur DNSCrypt en spécifiant le point de terminaison, le nom du fournisseur, la clé publique et les IP de démarrage.</string>
     <string name="dns_custom_dnscrypt_public_key_helper">Clé de signature du résolveur en 64 caractères hexadécimaux.</string>
     <string name="dns_custom_doh_url_error">Saisissez un point de terminaison DoH HTTPS valide.</string>
     <string name="dns_custom_dot_title">DoT personnalisé</string>
@@ -75,9 +69,7 @@
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>
     <string name="dns_protocol_odoh_body">DNS privé sur HTTPS. Configurez un proxy, une cible et sa clé.</string>
     <string name="dns_custom_doq_title">DoQ personnalisé</string>
-    <string name="dns_custom_doq_body">Utilisez DNS sur QUIC avec un hôte, un port, un nom TLS et des IP de démarrage.</string>
     <string name="dns_custom_odoh_title">ODoH personnalisé</string>
-    <string name="dns_custom_odoh_body">Indiquez des opérateurs distincts pour le proxy et la cible, les octets de configuration et les IP de démarrage.</string>
     <string name="dns_custom_odoh_proxy_url_label">URL HTTPS du proxy</string>
     <string name="dns_custom_odoh_proxy_operator_label">ID de l’opérateur du proxy</string>
     <string name="dns_custom_odoh_target_host_label">Hôte cible</string>

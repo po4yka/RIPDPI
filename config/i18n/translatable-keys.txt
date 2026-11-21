@@ -599,7 +599,6 @@ app:config_cli_banner_title
 app:config_default_ttl_helper
 app:config_default_ttl_summary
 app:config_dns_disabled_helper
-app:config_dns_helper
 app:config_editor_body
 app:config_editor_hydration_failed
 app:config_editor_title
@@ -2812,12 +2811,9 @@ app:dns_active_route_encrypted_vpn
 app:dns_active_route_plain_vpn
 app:dns_active_route_saved
 app:dns_active_section_title
-app:dns_custom_body
 app:dns_custom_bootstrap_error
 app:dns_custom_bootstrap_helper
 app:dns_custom_bootstrap_label
-app:dns_custom_dnscrypt_body
-app:dns_custom_dnscrypt_host_helper
 app:dns_custom_dnscrypt_provider_helper
 app:dns_custom_dnscrypt_provider_label
 app:dns_custom_dnscrypt_public_key_error
@@ -2829,15 +2825,11 @@ app:dns_custom_doh_title
 app:dns_custom_doh_url_error
 app:dns_custom_doh_url_helper
 app:dns_custom_doh_url_label
-app:dns_custom_doq_body
 app:dns_custom_doq_title
 app:dns_custom_doq_unavailable
-app:dns_custom_dot_body
-app:dns_custom_dot_host_helper
 app:dns_custom_dot_title
 app:dns_custom_dot_tls_helper
 app:dns_custom_host_label
-app:dns_custom_odoh_body
 app:dns_custom_odoh_config_expired
 app:dns_custom_odoh_config_invalid
 app:dns_custom_odoh_configs_hex_label
@@ -2881,7 +2873,6 @@ app:dns_protocol_dnscrypt_body
 app:dns_protocol_doh_body
 app:dns_protocol_doq_body
 app:dns_protocol_dot_body
-app:dns_protocol_helper
 app:dns_protocol_odoh_body
 app:dns_protocol_section
 app:dns_proxy_banner_body

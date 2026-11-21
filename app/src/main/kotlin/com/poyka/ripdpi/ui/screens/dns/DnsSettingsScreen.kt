@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.dns
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
@@ -18,6 +20,7 @@ import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.defaultEncryptedDnsPort
+import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
@@ -31,6 +34,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.collections.immutable.toImmutableList
 
@@ -89,17 +93,6 @@ internal fun DnsSettingsScreen(
         DnsProxyModeWarning(uiState)
         DnsActiveConfigurationCard(uiState = uiState, selectedResolver = selectedResolver)
         DnsModeSection(uiState = uiState, onModeSelected = onModeSelected)
-        DnsProtocolSection(
-            uiState = editorUiState,
-            onProtocolSelected = { protocol ->
-                if (protocol == EncryptedDnsProtocolDoh) {
-                    draftProtocol = null
-                    onProtocolSelected(protocol)
-                } else {
-                    draftProtocol = protocol
-                }
-            },
-        )
         DnsResolverCatalogSection(uiState = editorUiState, onResolverSelected = onResolverSelected)
         DnsCustomResolverSettingsSection(
             uiState = editorUiState,
@@ -112,7 +105,26 @@ internal fun DnsSettingsScreen(
             onSaveCustomOdoh = onSaveCustomOdoh,
             onSavePlainDns = onSavePlainDns,
         )
-        DnsIpv6Section(ipv6Enable = uiState.ipv6Enable, onIpv6Changed = onIpv6Changed)
+        // The transport choice and IPv6 rarely change; a saved non-DoH protocol opens the section.
+        AdvancedSection(
+            initiallyExpanded = uiState.dns.encryptedDnsProtocol != EncryptedDnsProtocolDoh,
+            testTag = RipDpiTestTags.DnsAdvanced,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.lg)) {
+                DnsProtocolSection(
+                    uiState = editorUiState,
+                    onProtocolSelected = { protocol ->
+                        if (protocol == EncryptedDnsProtocolDoh) {
+                            draftProtocol = null
+                            onProtocolSelected(protocol)
+                        } else {
+                            draftProtocol = protocol
+                        }
+                    },
+                )
+                DnsIpv6Section(ipv6Enable = uiState.ipv6Enable, onIpv6Changed = onIpv6Changed)
+            }
+        }
     }
 }
 

@@ -81,7 +81,6 @@ internal fun OdohDnsEditor(
             (protocolChanged || candidate != current || parseBootstrapIps(bootstrapInput) != currentBootstrapIps)
 
     Text(stringResource(R.string.dns_custom_odoh_title), style = type.bodyEmphasis, color = colors.foreground)
-    Text(stringResource(R.string.dns_custom_odoh_body), style = type.body, color = colors.mutedForeground)
     OdohTextField(proxyUrl, {
         proxyUrl = it
     }, R.string.dns_custom_odoh_proxy_url_label, RipDpiTestTags.DnsOdohProxyUrl, KeyboardType.Uri)

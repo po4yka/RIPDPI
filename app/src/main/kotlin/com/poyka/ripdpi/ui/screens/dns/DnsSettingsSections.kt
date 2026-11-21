@@ -117,10 +117,8 @@ internal fun DnsProtocolSection(
     uiState: SettingsUiState,
     onProtocolSelected: (String) -> Unit,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     AnimatedVisibility(
         visible = uiState.dns.dnsMode == DnsModeEncrypted,
         enter = motion.sectionEnterTransition(),
@@ -128,11 +126,6 @@ internal fun DnsProtocolSection(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
             SettingsCategoryHeader(title = stringResource(R.string.dns_protocol_section))
-            Text(
-                text = stringResource(R.string.dns_protocol_helper),
-                style = type.body,
-                color = colors.mutedForeground,
-            )
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 DnsProtocolOptionCards(uiState, onProtocolSelected)
             }
@@ -297,11 +290,6 @@ private fun PlainDnsEditor(
         style = type.bodyEmphasis,
         color = colors.foreground,
     )
-    Text(
-        text = stringResource(R.string.dns_custom_body),
-        style = type.body,
-        color = colors.mutedForeground,
-    )
     RipDpiTextField(
         value = input.plainDnsInput,
         onValueChange = input.onPlainDnsInputChange,
@@ -310,12 +298,8 @@ private fun PlainDnsEditor(
                 testTag = RipDpiTestTags.DnsPlainAddress,
                 label = stringResource(R.string.dbs_ip_setting),
                 placeholder = stringResource(R.string.config_placeholder_dns),
-                helperText =
-                    if (uiState.isVpn) {
-                        stringResource(R.string.config_dns_helper)
-                    } else {
-                        stringResource(R.string.config_dns_disabled_helper)
-                    },
+                // In Proxy mode the address is saved but unused, so the field says so.
+                helperText = stringResource(R.string.config_dns_disabled_helper).takeUnless { uiState.isVpn },
                 errorText =
                     when {
                         validation.plainDnsNeedsIpv6 -> {

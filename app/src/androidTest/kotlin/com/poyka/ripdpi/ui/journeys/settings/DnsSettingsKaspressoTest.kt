@@ -66,6 +66,7 @@ class DnsSettingsKaspressoTest :
                 )
             with(DnsSettingsPage(composeRule)) {
                 step("Switch to encrypted DNS") { click(encryptedMode) }
+                step("Open the Advanced section") { click(advanced) }
                 fieldsByProtocol.forEach { (protocol, fields) ->
                     step("Protocol $protocol shows its resolver fields") {
                         click(protocolTag(protocol))

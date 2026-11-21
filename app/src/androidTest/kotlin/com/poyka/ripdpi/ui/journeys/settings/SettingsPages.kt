@@ -83,6 +83,7 @@ internal class DnsSettingsPage(
     val encryptedMode = RipDpiTestTags.dnsMode(DnsModeEncrypted)
     val plainAddress = RipDpiTestTags.DnsPlainAddress
     val plainSave = RipDpiTestTags.DnsPlainSave
+    val advanced = RipDpiTestTags.DnsAdvanced
 
     fun protocolTag(id: String): String = RipDpiTestTags.dnsProtocol(id)
 }
