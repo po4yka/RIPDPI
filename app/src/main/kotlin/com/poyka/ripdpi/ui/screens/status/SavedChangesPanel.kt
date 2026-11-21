@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.activities.StatusAppliedConfigurationUiState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -15,7 +16,7 @@ import kotlinx.coroutines.flow.map
 @Composable
 internal fun savedChangesPanel(viewModel: MainViewModel): (@Composable () -> Unit)? {
     val applied = remember(viewModel) { viewModel.uiState.map { it.appliedConfiguration }.distinctUntilChanged() }
-    val state by applied.collectAsStateWithLifecycle(viewModel.uiState.value.appliedConfiguration)
+    val state by applied.collectAsStateWithLifecycle(StatusAppliedConfigurationUiState())
     if (!state.visible || !(state.pending || state.reconnecting)) return null
     return {
         StatusAppliedConfigurationPanel(
