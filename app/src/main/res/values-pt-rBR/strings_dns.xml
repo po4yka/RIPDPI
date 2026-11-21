@@ -37,7 +37,6 @@
     <string name="dns_custom_dnscrypt_public_key_error">Informe uma chave pública hexadecimal válida de 64 caracteres.</string>
     <string name="dns_custom_host_label">Host</string>
     <string name="dns_custom_port_label">Porta</string>
-    <string name="dns_custom_port_helper">Use a porta do resolvedor para o protocolo criptografado selecionado.</string>
     <string name="dns_custom_tls_server_name_label">Nome de servidor TLS</string>
     <string name="dns_custom_bootstrap_label">IPs de bootstrap</string>
     <string name="dns_custom_bootstrap_helper">Informe um ou mais IPs do resolvedor separados por vírgulas ou espaços.</string>
@@ -71,7 +70,6 @@
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_placeholder_public_key">0123abcd\u2026</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
-    <string name="dns_placeholder_port">443</string>
     <string name="dns_protocol_doq" translatable="false">DoQ</string>
     <string name="dns_protocol_doq_body">DNS sobre QUIC. Informe host, nome TLS, porta e IPs de inicialização.</string>
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>

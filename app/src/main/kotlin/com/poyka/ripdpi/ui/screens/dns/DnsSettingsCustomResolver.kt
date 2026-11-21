@@ -23,6 +23,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayHostField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPortField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayUrlField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -284,30 +288,20 @@ internal fun CustomEncryptedDnsSection(
                 style = type.body,
                 color = colors.mutedForeground,
             )
-            RipDpiTextField(
-                value = dohUrl,
-                onValueChange = onDohUrlChange,
-                decoration =
-                    RipDpiTextFieldDecoration(
-                        testTag = RipDpiTestTags.DnsCustomDohUrl,
+            RelayUrlField(
+                field =
+                    RelayValueField(
                         label = stringResource(R.string.dns_custom_doh_url_label),
                         placeholder = stringResource(R.string.dns_placeholder_doh_url),
                         helperText = stringResource(R.string.dns_custom_doh_url_helper),
                         errorText =
-                            if (dohUrl.isNotBlank() && !isValidHttpsUrl(dohUrl.trim())) {
-                                stringResource(R.string.dns_custom_doh_url_error)
-                            } else {
-                                null
+                            stringResource(R.string.dns_custom_doh_url_error).takeIf {
+                                dohUrl.isNotBlank() && !isValidHttpsUrl(dohUrl.trim())
                             },
+                        testTag = RipDpiTestTags.DnsCustomDohUrl,
                     ),
-                behavior =
-                    RipDpiTextFieldBehavior(
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Uri,
-                                imeAction = ImeAction.Next,
-                            ),
-                    ),
+                value = dohUrl,
+                onValueChange = onDohUrlChange,
             )
             RipDpiTextField(
                 value = bootstrapInput,
@@ -378,45 +372,27 @@ internal fun CommonEndpointFields(
         horizontalArrangement = Arrangement.spacedBy(spacing.md),
         verticalAlignment = androidx.compose.ui.Alignment.Top,
     ) {
-        RipDpiTextField(
-            value = host,
-            onValueChange = onHostChange,
-            modifier = Modifier.weight(1f),
-            decoration =
-                RipDpiTextFieldDecoration(
-                    testTag = RipDpiTestTags.DnsCustomHost,
+        RelayHostField(
+            field =
+                RelayValueField(
                     label = hostLabel,
                     placeholder = stringResource(R.string.dns_placeholder_resolver_example),
                     helperText = hostHelper,
+                    testTag = RipDpiTestTags.DnsCustomHost,
                 ),
-            behavior =
-                RipDpiTextFieldBehavior(
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType = KeyboardType.Ascii,
-                            imeAction = ImeAction.Next,
-                        ),
-                ),
+            value = host,
+            onValueChange = onHostChange,
+            modifier = Modifier.weight(1f),
         )
-        RipDpiTextField(
+        RelayPortField(
+            field =
+                RelayValueField(
+                    label = stringResource(R.string.dns_custom_port_label),
+                    testTag = RipDpiTestTags.DnsCustomPort,
+                ),
             value = portInput,
             onValueChange = onPortInputChange,
             modifier = Modifier.weight(dnsPortWeightFraction),
-            decoration =
-                RipDpiTextFieldDecoration(
-                    testTag = RipDpiTestTags.DnsCustomPort,
-                    label = stringResource(R.string.dns_custom_port_label),
-                    placeholder = stringResource(R.string.dns_placeholder_port),
-                    helperText = stringResource(R.string.dns_custom_port_helper),
-                ),
-            behavior =
-                RipDpiTextFieldBehavior(
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Next,
-                        ),
-                ),
         )
     }
     RipDpiTextField(

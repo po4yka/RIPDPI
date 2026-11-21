@@ -11,7 +11,6 @@
     <string name="dns_custom_title">自定义 DNS</string>
     <string name="dns_mode_encrypted_body">在 VPN 内拦截 DNS，并通过所选加密协议进行解析。</string>
     <string name="dns_mode_section">模式</string>
-    <string name="dns_placeholder_port">443</string>
     <string name="dns_protocol_custom_only">仅自定义</string>
     <string name="dns_protocol_section">加密协议</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
@@ -63,7 +62,6 @@
     <string name="dns_custom_dnscrypt_public_key_label">公钥</string>
     <string name="dns_custom_doh_url_error">请输入有效的 HTTPS DoH 端点。</string>
     <string name="dns_custom_dot_host_helper">DNS-over-TLS 端点的主机名或 IP。</string>
-    <string name="dns_custom_port_helper">使用所选加密协议对应的解析器端口。</string>
     <string name="dns_custom_switch_hint">保存此表单以使用自定义端点替换当前的内置配置文件。</string>
     <string name="dns_mode_doh">加密 DNS</string>
     <string name="dns_mode_plain">明文 DNS</string>

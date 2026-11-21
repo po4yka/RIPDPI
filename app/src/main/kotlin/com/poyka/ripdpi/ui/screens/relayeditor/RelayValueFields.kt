@@ -32,11 +32,12 @@ private fun RelayValueInput(
     value: String,
     onValueChange: (String) -> Unit,
     keyboardType: KeyboardType,
+    modifier: Modifier,
 ) {
     RipDpiTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         decoration =
             RipDpiTextFieldDecoration(
                 label = field.label,
@@ -66,8 +67,15 @@ internal fun RelayHostField(
     field: RelayValueField,
     value: String,
     onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    RelayValueInput(field, value, { onValueChange(it.filter { char -> !char.isWhitespace() }) }, KeyboardType.Uri)
+    RelayValueInput(
+        field,
+        value,
+        { onValueChange(it.filter { char -> !char.isWhitespace() }) },
+        KeyboardType.Uri,
+        modifier,
+    )
 }
 
 /** A URL. Spaces never belong in one, so a pasted value loses them. */
@@ -76,8 +84,15 @@ internal fun RelayUrlField(
     field: RelayValueField,
     value: String,
     onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    RelayValueInput(field, value, { onValueChange(it.filter { char -> !char.isWhitespace() }) }, KeyboardType.Uri)
+    RelayValueInput(
+        field,
+        value,
+        { onValueChange(it.filter { char -> !char.isWhitespace() }) },
+        KeyboardType.Uri,
+        modifier,
+    )
 }
 
 /**
@@ -90,6 +105,7 @@ internal fun RelayNumberField(
     value: String,
     onValueChange: (String) -> Unit,
     range: IntRange? = null,
+    modifier: Modifier = Modifier,
 ) {
     val outOfRange =
         range != null && value.isNotBlank() && value.trim().toIntOrNull()?.let { it in range } != true
@@ -106,6 +122,7 @@ internal fun RelayNumberField(
         value = value,
         onValueChange = { onValueChange(it.trim()) },
         keyboardType = KeyboardType.Number,
+        modifier = modifier,
     )
 }
 
@@ -115,6 +132,7 @@ internal fun RelayPortField(
     field: RelayValueField,
     value: String,
     onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    RelayNumberField(field, value, onValueChange, RelayPortRange)
+    RelayNumberField(field, value, onValueChange, RelayPortRange, modifier)
 }

@@ -33,7 +33,6 @@
     <string name="dns_custom_dnscrypt_provider_label">Anbietername</string>
     <string name="dns_custom_doh_body">Verwenden Sie einen benutzerdefinierten DNS-over-HTTPS-Endpunkt mit expliziten Bootstrap-IPs, damit die Tunnel-Auflösung nicht von Klartext-DNS abhängt.</string>
     <string name="dns_custom_dot_body">Verwenden Sie einen DNS-over-TLS-Endpunkt mit explizitem Host, Port, TLS-Name und Bootstrap-IPs.</string>
-    <string name="dns_custom_port_helper">Verwenden Sie den Resolver-Port für das ausgewählte verschlüsselte Protokoll.</string>
     <string name="dns_custom_title">Benutzerdefiniertes DNS</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_protocol_builtin_and_custom">Integriert + benutzerdefiniert</string>
@@ -67,7 +66,6 @@
     <string name="dns_custom_section">Benutzerdefinierter Server</string>
     <string name="dns_ipv6_helper">Erlauben Sie dem lokalen VPN-Builder, IPv6-DNS-Routing einzuschließen, wenn das ausgewählte Netzwerk dies unterstützt.</string>
     <string name="dns_mode_plain_body">Sendet DNS direkt an die Resolver-IP ohne verschlüsselte Abfangung oder Bootstrap-Setup.</string>
-    <string name="dns_placeholder_port">443</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
     <string name="dns_protocol_dot_body">DNS-over-TLS auf Port 853. Gut, wenn Sie Hostname und TLS-Servernamen kontrollieren.</string>
     <string name="dns_resolver_adguard_body">Öffentlicher Resolver, der Werbe- und Tracker-Blockierung betont.</string>

@@ -37,7 +37,6 @@
     <string name="dns_custom_dnscrypt_public_key_error">एक मान्य 64-वर्ण की हेक्साडेसिमल सार्वजनिक कुंजी दर्ज करें।</string>
     <string name="dns_custom_host_label">होस्ट</string>
     <string name="dns_custom_port_label">पोर्ट</string>
-    <string name="dns_custom_port_helper">चुने गए एन्क्रिप्टेड प्रोटोकॉल के लिए रिज़ॉल्वर पोर्ट का उपयोग करें।</string>
     <string name="dns_custom_tls_server_name_label">TLS सर्वर नाम</string>
     <string name="dns_custom_bootstrap_label">बूटस्ट्रैप IP</string>
     <string name="dns_custom_bootstrap_helper">अल्पविराम या रिक्त स्थान से अलग करके एक या अधिक रिज़ॉल्वर IP दर्ज करें।</string>
@@ -96,5 +95,4 @@
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_placeholder_public_key">0123abcd…</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
-    <string name="dns_placeholder_port">443</string>
 </resources>

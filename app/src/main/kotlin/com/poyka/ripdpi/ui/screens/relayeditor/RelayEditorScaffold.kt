@@ -130,7 +130,7 @@ internal class RelayFieldBinding<F : Enum<F>>(
         field: F,
         @StringRes labelRes: Int,
     ) {
-        RelayHostField(valueField(field, labelRes), rawText(field)) { onChanged(field, it) }
+        RelayHostField(valueField(field, labelRes), rawText(field), onValueChange = { onChanged(field, it) })
     }
 
     /** A whole-number field; [range] bounds it and shows the bounds. */

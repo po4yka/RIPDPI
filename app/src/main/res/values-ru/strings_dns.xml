@@ -37,7 +37,6 @@
     <string name="dns_custom_dnscrypt_public_key_error">Введите корректный 64-символьный шестнадцатеричный публичный ключ.</string>
     <string name="dns_custom_host_label">Хост</string>
     <string name="dns_custom_port_label">Порт</string>
-    <string name="dns_custom_port_helper">Используйте порт резолвера для выбранного зашифрованного протокола.</string>
     <string name="dns_custom_tls_server_name_label">TLS-имя сервера</string>
     <string name="dns_custom_bootstrap_label">Bootstrap IP</string>
     <string name="dns_custom_bootstrap_helper">Введите один или несколько IP-адресов резолвера, разделённых запятыми или пробелами.</string>
@@ -71,7 +70,6 @@
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_placeholder_public_key">0123abcd\u2026</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
-    <string name="dns_placeholder_port">443</string>
     <string name="dns_protocol_doq" translatable="false">DoQ</string>
     <string name="dns_protocol_doq_body">DNS через QUIC. Укажите свой хост, TLS-имя, порт и IP-адреса начальной загрузки.</string>
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>

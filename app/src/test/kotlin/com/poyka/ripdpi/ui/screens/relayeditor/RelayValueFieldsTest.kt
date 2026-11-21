@@ -50,7 +50,10 @@ class RelayValueFieldsTest {
         var host by mutableStateOf("")
         composeRule.setContent {
             RipDpiTheme {
-                RelayHostField(RelayValueField(label = "Server", testTag = "host"), value = host) { host = it }
+                RelayHostField(RelayValueField(label = "Server", testTag = "host"), value = host, onValueChange = {
+                    host =
+                        it
+                })
             }
         }
 

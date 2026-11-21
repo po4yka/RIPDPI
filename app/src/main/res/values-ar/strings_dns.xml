@@ -37,7 +37,6 @@
     <string name="dns_custom_dnscrypt_public_key_error">أدخل مفتاحاً عاماً سداسيَّ عشري صالحاً مكوَّناً من 64 حرفاً.</string>
     <string name="dns_custom_host_label">المضيف</string>
     <string name="dns_custom_port_label">المنفذ</string>
-    <string name="dns_custom_port_helper">استخدم منفذ المحلِّل للبروتوكول المشفَّر المحدَّد.</string>
     <string name="dns_custom_tls_server_name_label">اسم خادم TLS</string>
     <string name="dns_custom_bootstrap_label">عناوين IP للتمهيد</string>
     <string name="dns_custom_bootstrap_helper">أدخل عنوان IP واحداً أو أكثر للمحلِّل مفصولةً بفواصل أو مسافات.</string>
@@ -71,7 +70,6 @@
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_placeholder_public_key">0123abcd\u2026</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
-    <string name="dns_placeholder_port">443</string>
     <string name="dns_protocol_doq" translatable="false">DoQ</string>
     <string name="dns_protocol_doq_body">DNS عبر QUIC. أدخل المضيف واسم TLS والمنفذ وعناوين IP للتهيئة.</string>
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>

@@ -2854,7 +2854,6 @@ app:dns_custom_odoh_target_operator_label
 app:dns_custom_odoh_target_path_label
 app:dns_custom_odoh_title
 app:dns_custom_odoh_ttl_label
-app:dns_custom_port_helper
 app:dns_custom_port_label
 app:dns_custom_save_requirements_hint
 app:dns_custom_section
@@ -2869,7 +2868,6 @@ app:dns_mode_plain_body
 app:dns_mode_section
 app:dns_placeholder_bootstrap_ips
 app:dns_placeholder_dnscrypt_cert
-app:dns_placeholder_port
 app:dns_placeholder_public_key
 app:dns_placeholder_resolver_example
 app:dns_private_dns_info_body

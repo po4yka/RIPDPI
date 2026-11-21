@@ -11,7 +11,6 @@
     <string name="dns_custom_doh_title">DoH سفارشی</string>
     <string name="dns_custom_doh_url_label">URL DoH</string>
     <string name="dns_custom_dot_title">DoT سفارشی</string>
-    <string name="dns_custom_port_helper">از پورت resolver برای پروتکل رمزگذاری‌شده انتخاب‌شده استفاده کنید.</string>
     <string name="dns_custom_section">سرور سفارشی</string>
     <string name="dns_custom_tls_server_name_label">نام سرور TLS</string>
     <string name="dns_mode_encrypted_body">DNS را داخل VPN رهگیری کنید و آن را از طریق پروتکل رمزگذاری‌شده انتخاب‌شده حل کنید.</string>
@@ -63,7 +62,6 @@
     <string name="dns_mode_doh">DNS رمزنگاری‌شده</string>
     <string name="dns_mode_plain_body">DNS را مستقیماً به IP تحلیل‌گر ارسال کنید بدون رهگیری رمزنگاری‌شده یا راه‌اندازی bootstrap.</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
-    <string name="dns_placeholder_port">443</string>
     <string name="dns_protocol_builtin_and_custom">داخلی + سفارشی</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
     <string name="dns_protocol_dot_body">DNS-over-TLS روی پورت 853. مناسب وقتی شما نام میزبان و نام سرور TLS را کنترل می‌کنید.</string>
