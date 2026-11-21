@@ -548,6 +548,9 @@ jobs:
           # APK jobs that reuse these libraries take their Rust notices from here.
           mkdir -p "$RUNNER_TEMP/native-shard/notices"
           cp app/build/generated/rustNotices/notices/rust-crates.json "$RUNNER_TEMP/native-shard/notices/"
+          # The GPL-derived Snell crate must ship its notice (LICENSING.md); unit tests run without cargo-about.
+          jq -e '.packages[] | select(.name == "ripdpi-snell" and .license == "GPL-3.0-or-later")' \
+            app/build/generated/rustNotices/notices/rust-crates.json > /dev/null
           ls -la "$RUNNER_TEMP/native-shard"
 
       - name: Check packaged JNI export inventories
@@ -660,6 +663,9 @@ jobs:
           # APK jobs that reuse these libraries take their Rust notices from here.
           mkdir -p "$RUNNER_TEMP/native-shard/notices"
           cp app/build/generated/rustNotices/notices/rust-crates.json "$RUNNER_TEMP/native-shard/notices/"
+          # The GPL-derived Snell crate must ship its notice (LICENSING.md); unit tests run without cargo-about.
+          jq -e '.packages[] | select(.name == "ripdpi-snell" and .license == "GPL-3.0-or-later")' \
+            app/build/generated/rustNotices/notices/rust-crates.json > /dev/null
           ls -la "$RUNNER_TEMP/native-shard"
 
       - name: Upload native artifacts for x86_64
