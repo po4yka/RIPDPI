@@ -20,6 +20,7 @@ fun AdvancedSettingsRoute(
     onOpenAssetProvider: () -> Unit,
     onOpenRememberedNetworks: () -> Unit,
     modifier: Modifier = Modifier,
+    savedChanges: (@Composable () -> Unit)? = null,
     viewModel: SettingsViewModel = hiltViewModel(),
     workerViewModel: WsTunnelWorkerSettingsViewModel = hiltViewModel(),
     warpViewModel: WarpEnrollmentViewModel = hiltViewModel(),
@@ -53,6 +54,7 @@ fun AdvancedSettingsRoute(
         hostPackCatalog = hostPackCatalog,
         strategyPackCatalog = strategyPackCatalog,
         notice = notice,
+        savedChanges = savedChanges,
         actions =
             rememberAdvancedSettingsActions(
                 onBack = onBack,

@@ -34,6 +34,7 @@ import com.poyka.ripdpi.ui.screens.settings.SettingsDetailPlaceholder
 import com.poyka.ripdpi.ui.screens.settings.SettingsViewModel
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
+import com.poyka.ripdpi.ui.screens.status.savedChangesPanel
 import java.io.File
 
 internal fun NavGraphBuilder.addSettingsRoutes(
@@ -80,6 +81,7 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
             onOpenBlockcheck = { navController.navigate(Route.Blockcheck) },
             onOpenAssetProvider = { navController.navigate(Route.AssetProvider) },
             onOpenRememberedNetworks = { navController.navigate(Route.RememberedNetworks) },
+            savedChanges = savedChangesPanel(mainViewModel),
             viewModel = settingsViewModel,
         )
     }

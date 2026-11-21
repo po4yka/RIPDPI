@@ -23,6 +23,7 @@ internal fun AdvancedSettingsContent(
     hostPackCatalog: HostPackCatalogUiState,
     strategyPackCatalog: StrategyPackCatalogUiState,
     notice: AdvancedNotice?,
+    savedChanges: (@Composable () -> Unit)?,
     actions: AdvancedSettingsActions,
     contentState: AdvancedSettingsContentState,
     pendingHostPack: HostPackPreset?,
@@ -39,7 +40,7 @@ internal fun AdvancedSettingsContent(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = actions.onBack,
     ) {
-        advancedSettingsBannerItems(uiState, notice)
+        advancedSettingsBannerItems(uiState, notice, savedChanges)
         advancedSettingsPrimarySections(uiState, actions, contentState)
         advancedSettingsSecondarySections(
             uiState = uiState,
@@ -57,7 +58,11 @@ internal fun AdvancedSettingsContent(
 private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsBannerItems(
     uiState: SettingsUiState,
     notice: AdvancedNotice?,
+    savedChanges: (@Composable () -> Unit)?,
 ) {
+    savedChanges?.let { content ->
+        item(key = "advanced_settings_saved_changes") { content() }
+    }
     if (uiState.enableCmdSettings) {
         item(key = "advanced_settings_warning") {
             WarningBanner(
