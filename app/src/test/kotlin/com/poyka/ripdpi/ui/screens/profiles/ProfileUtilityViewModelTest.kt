@@ -558,6 +558,13 @@ class ProfileUtilityViewModelTest {
                 f.close()
             }
         }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [29])
+class ProfileUtilityFastestSelectionTest {
+    @get:Rule val mainDispatcherRule = MainDispatcherRule()
 
     @Test
     fun `fastest selects minimum successful current payload and records only actual winning ACK`() =
