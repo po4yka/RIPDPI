@@ -21,6 +21,15 @@ internal data class SelectorVpnPath(
     val usesIsolatedProbes: Boolean = false,
 )
 
+/** True when this configuration is a later revision of [previous] that applies [memberId] for [groupId]. */
+internal fun AppliedRuntimeConfiguration.isAppliedSelectorSuccessor(
+    previous: AppliedRuntimeConfiguration,
+    groupId: String,
+    memberId: String?,
+): Boolean =
+    memberId != null && runtimeId == previous.runtimeId && mode == previous.mode && revision > previous.revision &&
+        effectiveSelection.selectorGroupId == groupId && effectiveSelection.selectorMemberId == memberId
+
 internal class SelectorVpnPayloadProbe
     @Inject
     constructor(

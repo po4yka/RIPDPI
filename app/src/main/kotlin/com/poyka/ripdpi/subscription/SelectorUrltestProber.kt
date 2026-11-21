@@ -17,7 +17,6 @@ import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.data.subscription.EndpointHealthOrder
 import com.poyka.ripdpi.data.subscription.orderByEndpointHealth
-import com.poyka.ripdpi.proxyimport.isAppliedSelectorSuccessor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
