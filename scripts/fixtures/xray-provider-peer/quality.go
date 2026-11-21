@@ -12,6 +12,9 @@ import (
 
 const qualityPayloadBytes = 262144
 
+// Leave time for the loaded HEAD to connect and finish on the Android emulator.
+const qualityBodyHold = 1500 * time.Millisecond
+
 func qualityPayload() []byte {
 	body := make([]byte, qualityPayloadBytes)
 	for index := range body {
@@ -55,7 +58,7 @@ func (p *peer) startQualityOrigin(certificate tls.Certificate) (net.Listener, er
 			if err := http.NewResponseController(w).Flush(); err != nil {
 				return
 			}
-			timer := time.NewTimer(400 * time.Millisecond)
+			timer := time.NewTimer(qualityBodyHold)
 			defer timer.Stop()
 			select {
 			case <-request.Context().Done():
