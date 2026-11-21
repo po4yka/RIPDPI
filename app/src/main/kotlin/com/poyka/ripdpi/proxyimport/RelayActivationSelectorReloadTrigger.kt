@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RejectedSwitchReverter
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.services.RuntimePolicyReloadIntent
@@ -55,6 +56,7 @@ class RelayActivationSelectorReloadTrigger
         private val relayRefresher: RunningRelayRefresher,
         private val selectionProvider: ActiveSelectorSelectionProvider,
         private val applied: AppliedRuntimeConfigurationSource,
+        private val switches: RejectedSwitchReverter,
     ) : SelectorReloadTrigger {
         private val activationMutex = Mutex()
         private var preparedProfile: ProxyProfile? = null
@@ -116,7 +118,12 @@ class RelayActivationSelectorReloadTrigger
                     // Stable code only: the message can name the server, and R8 renames exception classes.
                     "failed"
                 }
-            if (reason != null) restoreLiveMember(group, profileId, reason)
+            if (reason != null) {
+                val manual = request.manualReceipt
+                val restored =
+                    if (manual != null) switches.revertRejectedSwitch(manual) else restoreLiveMember(group, profileId)
+                Logger.w { "Selector reload $reason; previous selection restored: $restored" }
+            }
         }
 
         private suspend fun isCurrent(
@@ -127,21 +134,17 @@ class RelayActivationSelectorReloadTrigger
             selections.snapshot(group).profileId == profileId && memberProfile(group, profileId) == profile
 
         /**
-         * A rejected reload leaves traffic on the member the confirmed configuration names. An automatic selection is
-         * put back on that member, so the store and the next probe pass never treat the rejected one as live. A manual
-         * pick stays: the store refuses an automatic write over it.
+         * A rejected automatic reload leaves traffic on the member the confirmed configuration names, so the selection
+         * goes back to it unless a refresh removed it; the rejected member then stays as the next start's member.
          */
         private suspend fun restoreLiveMember(
             group: String,
             rejected: String,
-            reason: String,
-        ) {
+        ): Boolean {
             val live = appliedMember(group)
             val selection = selections.snapshot(group)
-            val restored =
-                live != null && live != rejected && selection.profileId == rejected &&
-                    selections.selectAutomatically(group, selection, live)
-            Logger.w { "Selector reload $reason; selection restored to the live member: $restored" }
+            return live != null && live != rejected && selection.profileId == rejected &&
+                memberProfile(group, live) != null && selections.selectAutomatically(group, selection, live)
         }
 
         private fun appliedMember(group: String): String? =

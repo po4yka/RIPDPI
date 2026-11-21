@@ -140,6 +140,7 @@ class SelectorColdStartupTest {
                 provider,
                 com.poyka.ripdpi.activities
                     .FakeAppliedRuntimeConfigurationSource(),
+                persistence.coordinator,
             )
         private val coordinator = SelectorReloadCoordinator(scope, provider.selectionChanges(), trigger)
         val listener =

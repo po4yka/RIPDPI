@@ -87,54 +87,122 @@ class RelayActivationSelectorReloadTriggerTest {
         runTest {
             val fixture = fixture(listOf(selectorGroup(listOf(member("a"), member("b")))), "a")
             fixture.selections.resumeAutomatic("selector")
-            fixture.applied.applications.value =
-                mapOf(
-                    Mode.VPN to
-                        com.poyka.ripdpi.data.RuntimeConfigurationApplication.Applied(
-                            com.poyka.ripdpi.data.AppliedRuntimeConfiguration(
-                                runtimeId = "runtime",
-                                revision = 1,
-                                appliedAt = 1,
-                                mode = Mode.VPN,
-                                requestedSelection = liveSelection("a"),
-                                effectiveSelection = liveSelection("a"),
-                                dns =
-                                    com.poyka.ripdpi.data
-                                        .RuntimeConfigurationDns("plain", "system"),
-                                strategy =
-                                    com.poyka.ripdpi.data
-                                        .RuntimeConfigurationStrategy(false),
-                                reason = com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.InitialStart,
-                            ),
-                        ),
-                )
+            fixture.applied.applications.value = liveApplication("a")
             val automatic = fixture.selections.snapshot("selector")
             assertTrue(fixture.selections.selectAutomatically("selector", automatic, "b"))
             val request = fixture.provider.selectionChanges().first()!!
-            var refreshes = 0
-            val rejecting =
-                object : RunningRelayRefresher {
-                    override suspend fun refresh(
-                        intent: RuntimePolicyReloadIntent,
-                        isCurrent: suspend () -> Boolean,
-                    ): Boolean {
-                        refreshes++
-                        return false
-                    }
-
-                    override suspend fun teardown() = Unit
-                }
+            val rejecting = RejectingRefresher()
             val trigger = fixture.trigger(rejecting)
 
             trigger.hotReload(request)
 
-            assertEquals(1, refreshes)
+            assertEquals(1, rejecting.refreshes)
             assertEquals("a", fixture.selections.snapshot("selector").profileId)
             assertFalse(fixture.selections.snapshot("selector").isManual)
             // The restored member is already live, so its own selection change replaces no stack.
             trigger.hotReload(fixture.provider.selectionChanges().first()!!)
-            assertEquals(1, refreshes)
+            assertEquals(1, rejecting.refreshes)
         }
+
+    @Test
+    fun `a rejected reload never restores a live member that a refresh removed`() =
+        runTest {
+            val fixture = fixture(listOf(selectorGroup(listOf(member("x"), member("d")))), "x")
+            fixture.selections.resumeAutomatic("selector")
+            fixture.applied.applications.value = liveApplication("x")
+            // A refresh drops the live member and falls back to the group's default member.
+            fixture.groups.update(selectorGroup(listOf(member("d"))))
+            val automatic = fixture.selections.snapshot("selector")
+            assertTrue(fixture.selections.selectAutomatically("selector", automatic, "d"))
+
+            fixture.trigger(RejectingRefresher()).hotReload(fixture.provider.selectionChanges().first()!!)
+
+            assertEquals("d", fixture.selections.snapshot("selector").profileId)
+        }
+
+    @Test
+    fun `a rejected manual pick puts back the previous member and its automatic origin`() =
+        runTest {
+            val persistence =
+                com.poyka.ripdpi.data.testing.RoomProfileFixture(
+                    androidx.test.core.app.ApplicationProvider
+                        .getApplicationContext(),
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
+            try {
+                persistence.initialize()
+                persistence.groups.add(selectorGroup(listOf(member("a"), member("b"))))
+                val selections = persistence.selectorSelections
+                assertTrue(selections.selectAutomatically("selector", selections.snapshot("selector"), "a"))
+                persistence.selectorActiveGroup.restoreActiveGroup("selector")
+                selections.select("selector", "b")
+                val receipt = selections.manualReceipt("selector") ?: error("Manual pick published no reservation")
+                val trigger =
+                    RelayActivationSelectorReloadTrigger(
+                        groupRepository = persistence.groups,
+                        selections = selections,
+                        authority = persistence.authority,
+                        stateStore = FakeServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) },
+                        relayRefresher = RejectingRefresher(),
+                        selectionProvider =
+                            ActiveSelectorSelectionProvider(
+                                persistence.groups,
+                                selections,
+                                persistence.selectorActiveGroup,
+                            ),
+                        applied =
+                            com.poyka.ripdpi.activities
+                                .FakeAppliedRuntimeConfigurationSource(),
+                        switches = persistence.coordinator,
+                    )
+
+                trigger.hotReload(SelectorReloadRequest("selector", "b", receipt))
+
+                assertEquals("a", selections.snapshot("selector").profileId)
+                assertFalse(selections.snapshot("selector").isManual)
+                assertEquals("selector", persistence.selectorActiveGroup.snapshotActiveGroupId())
+                assertEquals(null, selections.manualReceipt("selector"))
+            } finally {
+                persistence.close()
+            }
+        }
+
+    private class RejectingRefresher : RunningRelayRefresher {
+        var refreshes = 0
+
+        override suspend fun refresh(
+            intent: RuntimePolicyReloadIntent,
+            isCurrent: suspend () -> Boolean,
+        ): Boolean {
+            refreshes++
+            return false
+        }
+
+        override suspend fun teardown() = Unit
+    }
+
+    private fun liveApplication(memberId: String) =
+        mapOf(
+            Mode.VPN to
+                com.poyka.ripdpi.data.RuntimeConfigurationApplication.Applied(
+                    com.poyka.ripdpi.data.AppliedRuntimeConfiguration(
+                        runtimeId = "runtime",
+                        revision = 1,
+                        appliedAt = 1,
+                        mode = Mode.VPN,
+                        requestedSelection = liveSelection(memberId),
+                        effectiveSelection = liveSelection(memberId),
+                        dns =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationDns("plain", "system"),
+                        strategy =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationStrategy(false),
+                        reason = com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.InitialStart,
+                    ),
+                ),
+        )
 
     private fun liveSelection(memberId: String) =
         com.poyka.ripdpi.data.RuntimeConfigurationSelection(
@@ -642,6 +710,11 @@ class RelayActivationSelectorReloadTriggerTest {
                 relayRefresher = refresher,
                 selectionProvider = provider,
                 applied = applied,
+                // The in-memory manual pick keeps no before-image; the Room-backed case covers the revert.
+                switches =
+                    object : com.poyka.ripdpi.data.RejectedSwitchReverter {
+                        override suspend fun revertRejectedSwitch(receipt: DurableCommandReceipt) = false
+                    },
             )
 
         suspend fun transientSelection(): SelectorRelayProfileMapping {
