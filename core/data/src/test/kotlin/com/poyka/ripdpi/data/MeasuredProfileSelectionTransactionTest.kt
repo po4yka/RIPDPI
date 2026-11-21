@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -201,6 +202,37 @@ class MeasuredProfileSelectionTransactionTest : RoomProfileTest() {
                 )
             assertNull(fixture.pauseAuthority.activationReceiptFromEnvelope(envelope))
             assertNoMeasuredHistory(fixture)
+        }
+
+    @Test
+    fun `a rejected selector switch puts back the AmneziaWG choice and the group's automatic member`() =
+        runTest {
+            val fixture = fixture()
+            fixture.coordinator().activateStandaloneAwg(
+                fixture.coordinator().captureMutation(ProfileMutationOrigin.ExplicitActivation),
+                "awg",
+            )
+            val lease = fixture.selectorLease()
+            val settings = fixture.settings.snapshot()
+            val selections = fixture.profileSelection.snapshot()
+            assertEquals("awg", selections.awgProfileId)
+            val selected =
+                fixture.coordinator().selectMeasuredProfile(
+                    lease,
+                    Mode.Proxy,
+                ) as ProfileUtilitySelectionResult.Selected
+            assertNull(fixture.profileSelection.snapshot().awgProfileId)
+
+            // The runtime rejected the reload: the command ends and the switch is reverted.
+            assertTrue(fixture.pauseAuthority.cancelProfileActivation(selected.receipt))
+            assertTrue(fixture.coordinator().revertRejectedSwitch(selected.receipt))
+
+            assertEquals(selections, fixture.profileSelection.snapshot())
+            assertEquals(settings, fixture.settings.snapshot())
+            assertNull(fixture.selectorSelections.snapshot("group").profileId)
+            assertFalse(fixture.selectorSelections.snapshot("group").isManual)
+            assertNull(fixture.selectorSelections.manualReceipt("group"))
+            assertFalse(fixture.coordinator().revertRejectedSwitch(selected.receipt))
         }
 
     @Test

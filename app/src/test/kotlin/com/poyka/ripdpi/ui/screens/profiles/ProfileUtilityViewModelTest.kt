@@ -54,6 +54,7 @@ import com.poyka.ripdpi.services.RuntimeExperimentSelection
 import com.poyka.ripdpi.services.RuntimeExperimentSelectionProvider
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartPreflightResult
+import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicyCompileResult
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicyCompiler
@@ -310,6 +311,40 @@ class ProfileUtilityViewModelTest {
                 assertEquals(settings, f.settings.snapshot())
                 f.assertNoSelection()
                 f.assertCleanedCandidates(1)
+            } finally {
+                f.close()
+            }
+        }
+
+    @Test
+    fun `a rejected check and select puts back the previous selection`() =
+        runTest {
+            val f = fixture()
+            try {
+                val group =
+                    com.poyka.ripdpi.subscription.selectorTestGroup(
+                        listOf(
+                            com.poyka.ripdpi.subscription
+                                .selectorTestMember("one"),
+                            com.poyka.ripdpi.subscription
+                                .selectorTestMember("two"),
+                        ),
+                    )
+                f.groups.add(group)
+                f.selectionStore.select(group.id, "one")
+                val settings = f.settings.snapshot()
+                f.rejectStart = true
+                f.vm.checkAndSelect(Reference)
+                f.awaitItem {
+                    it.measurement ==
+                        ProfileMeasurementUiState.Failed(
+                            ProfileUtilityFailure.SelectionFailed,
+                        )
+                }
+                assertEquals(settings, f.settings.snapshot())
+                assertEquals(group.id, f.selector.snapshotActiveGroupId())
+                assertEquals("one", f.selectionStore.snapshot(group.id).profileId)
+                assertTrue(f.selectionStore.snapshot(group.id).isManual)
             } finally {
                 f.close()
             }
@@ -908,6 +943,8 @@ private class Fixture(
 
     @Volatile var failStop = false
 
+    @Volatile var rejectStart = false
+
     @Volatile var onPreflight: () -> Unit = {}
     private val http =
         construct(
@@ -996,6 +1033,9 @@ private class Fixture(
 
                 "startPrepared" -> {
                     val receipt = args[1] as RuntimeActivationReceipt
+                    if (rejectStart) {
+                        return@port ServiceStartResult.Rejected(receipt.mode, ServiceStartRejectionReason.Superseded)
+                    }
                     assertTrue(authority.isCurrent(receipt))
                     dispatches += receipt
                     firstDispatch.complete(receipt)

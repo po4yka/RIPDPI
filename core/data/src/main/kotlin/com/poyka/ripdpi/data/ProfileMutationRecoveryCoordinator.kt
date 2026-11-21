@@ -97,11 +97,20 @@ interface ProfileMutationCoordinator :
     ): ProfileMutationOutcome
 }
 
+/**
+ * The stored selection names what carries traffic or will carry it on the next start: when the runtime rejects an
+ * explicit switch, the rows it overwrote come back with their previous origin.
+ */
+interface RejectedSwitchReverter {
+    suspend fun revertRejectedSwitch(receipt: DurableCommandReceipt): Boolean
+}
+
 /** Applies related profile data in one Room transaction and publishes committed runtime state. */
 @Singleton
 class ProfileMutationRecoveryCoordinator private constructor(
     private val runtime: ProfileMutationRuntime,
 ) : ProfileMutationCoordinator,
+    RejectedSwitchReverter,
     XrayProviderMutationCoordinator,
     ProfileBackupMutationCoordinator by ProfileBackupMutations(runtime),
     StandaloneAwgMutationCoordinator by runtime.standalone,
@@ -185,6 +194,7 @@ class ProfileMutationRecoveryCoordinator private constructor(
             }
             val intent = intentProjection.measuredIntent(payload, mode)
             var reserved: ProfileActivationReceipt? = null
+            var revert: SwitchRevertIntent? = null
             runCatching {
                 val receipt =
                     runtime.database.withAuthority(
@@ -218,9 +228,14 @@ class ProfileMutationRecoveryCoordinator private constructor(
                                 ),
                                 intent,
                             )
-                        ProfileMutationRowWriter(rows, pauseAuthority).applyMeasured(measured, selected)
+                        val groupId = (payload as? ProfileUtilitySelectionPayload.Selector)?.groupId
+                        revert =
+                            rows.captureSwitch(selected, groupId) {
+                                ProfileMutationRowWriter(rows, pauseAuthority).applyMeasured(measured, selected)
+                            }
                         selected
                     } ?: return@runCatching ProfileUtilitySelectionResult.Superseded
+                runtime.switchRevert = revert
                 catalog.publish()
                 mutationGeneration.completed()
                 if (pauseAuthority.isCurrent(receipt)) {
@@ -238,6 +253,24 @@ class ProfileMutationRecoveryCoordinator private constructor(
                         ?.let(failure::addSuppressed)
                 }
             }.getOrThrow()
+        }
+
+    override suspend fun revertRejectedSwitch(receipt: DurableCommandReceipt): Boolean =
+        mutex.withLock {
+            runtime.recover()
+            val revert =
+                runtime.switchRevert?.takeIf {
+                    it.commandId == receipt.commandId && it.authority == receipt.authority
+                } ?: return@withLock false
+            runtime.switchRevert = null
+            val written = afterImageWriter.executeOwnedMetadata(receipt, revert)
+            // The rejected pick's manual receipt must not survive the choice it named.
+            if (written) {
+                revert.groupId?.let {
+                    runtime.activeGroup.publishCommittedChoice(it, SelectorChoiceOrigin.Reconstruction)
+                }
+            }
+            written
         }
 
     private fun measuredLeaseMatches(

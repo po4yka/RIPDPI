@@ -147,6 +147,47 @@ internal class ProfileMutationRowWriter(
             is SubscriptionRefreshIntent -> {
                 refreshSubscriptions(intent)
             }
+
+            is SwitchRevertIntent -> {
+                revertSwitch(intent)
+            }
+        }
+    }
+
+    /**
+     * Each row goes back only while it still holds the switch's value, so a newer write (a settings edit, a refresh
+     * fallback) survives. A previous member that a refresh removed is never restored.
+     */
+    private fun revertSwitch(intent: SwitchRevertIntent) {
+        if (!matchesOwner(intent.authority, intent.commandId)) return
+        val before = intent.before
+        val switched = intent.switched
+        val now = rows.switchImage(intent.groupId)
+
+        fun <T> restored(
+            current: T,
+            switchedValue: T,
+            beforeValue: T,
+        ) = if (current == switchedValue) beforeValue else current
+        rows.settings.replace(
+            mergeChangedSettingsFields(switched.settings(), before.settings(), rows.settings.snapshot()),
+        )
+        rows.selection.setAwg(restored(now.awgProfileId, switched.awgProfileId, before.awgProfileId))
+        rows.selection.setXray(restored(now.provider, switched.provider, before.provider))
+        rows.selection.setActiveGroup(restored(now.activeGroupId, switched.activeGroupId, before.activeGroupId))
+        rows.warpProfiles.setActiveProfileId(restored(now.warpProfileId, switched.warpProfileId, before.warpProfileId))
+        val groupId = intent.groupId ?: return
+        val previous = before.choiceProfileId
+        val members =
+            rows.groups
+                .list()
+                .singleOrNull { it.id == groupId }
+                ?.members
+                .orEmpty()
+        if (now.choiceProfileId == switched.choiceProfileId && now.choiceManual == switched.choiceManual &&
+            (previous == null || members.any { it.id == previous })
+        ) {
+            rows.selection.setChoice(groupId, previous, before.choiceManual)
         }
     }
 
@@ -510,6 +551,56 @@ internal data class StandaloneAwgCompensateIntent(
     val before: StandaloneSelectionBeforeImage,
 ) : ProfileMutationIntent {
     override val family = ProfileMutationFamily.Awg
+}
+
+/** The rows an explicit switch overwrites: settings, provider pointers, and the switched group's choice. */
+@Serializable
+internal data class SwitchRowsImage(
+    val settingsBase64: String,
+    val awgProfileId: String?,
+    val provider: XrayProviderSelectionRecord,
+    val activeGroupId: String?,
+    val warpProfileId: String?,
+    val choiceProfileId: String?,
+    val choiceManual: Boolean,
+) {
+    fun settings(): AppSettings = AppSettings.parseFrom(Base64.getDecoder().decode(settingsBase64))
+}
+
+internal fun com.poyka.ripdpi.data.persistence.ProfileRows.switchImage(groupId: String?): SwitchRowsImage {
+    val choice = groupId?.let(selection::choice)
+    return SwitchRowsImage(
+        Base64.getEncoder().encodeToString(settings.snapshot().toByteArray()),
+        selection.awg(),
+        selection.xray(),
+        selection.activeGroup(),
+        warpProfiles.activeProfileId(),
+        choice?.profileId,
+        choice?.isManual == true,
+    )
+}
+
+/** Captures the rows around [apply], in the switch's own transaction, so a rejected switch can put them back. */
+internal fun com.poyka.ripdpi.data.persistence.ProfileRows.captureSwitch(
+    receipt: ProfileActivationReceipt,
+    groupId: String?,
+    apply: () -> Unit,
+): SwitchRevertIntent {
+    val before = switchImage(groupId)
+    apply()
+    return SwitchRevertIntent(receipt.authority, receipt.commandId, groupId, before, switchImage(groupId))
+}
+
+@Serializable
+@SerialName("switch_revert")
+internal data class SwitchRevertIntent(
+    val authority: PauseAuthorityRef,
+    val commandId: String,
+    val groupId: String?,
+    val before: SwitchRowsImage,
+    val switched: SwitchRowsImage,
+) : ProfileMutationIntent {
+    override val family = ProfileMutationFamily.Relay
 }
 
 @Serializable

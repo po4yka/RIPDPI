@@ -99,6 +99,10 @@ abstract class ProfileMutationCoordinatorModule {
 
     @Binds
     @Singleton
+    abstract fun bindRejectedSwitchReverter(coordinator: ProfileMutationRecoveryCoordinator): RejectedSwitchReverter
+
+    @Binds
+    @Singleton
     abstract fun bindRecoveryAccess(coordinator: ProfileMutationRecoveryCoordinator): ProfileMutationRecoveryAccess
 
     @Binds

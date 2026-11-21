@@ -61,13 +61,22 @@ internal class ProfileMutationAfterImageWriter(
                         )
                     val writer = ProfileMutationRowWriter(rows, runtime.pauseAuthority)
                     reserved = (outcome as? ProfileMutationOutcome.Reserved)?.receipt as? ProfileActivationReceipt
+                    var revert: SwitchRevertIntent? = null
                     if (intent.ownsProviderSelection(preparation.origin)) {
-                        reserved?.let { writer.applyOwned(intent, it) }
+                        reserved?.let { receipt ->
+                            if (intent is SelectorSelectIntent) {
+                                revert =
+                                    rows.captureSwitch(receipt, intent.groupId) { writer.applyOwned(intent, receipt) }
+                            } else {
+                                writer.applyOwned(intent, receipt)
+                            }
+                        }
                     } else {
                         writer.apply(intent)
                     }
-                    CommittedMutation(outcome, before, beforeProfile, writer.replacedSelectorChoices)
+                    CommittedMutation(outcome, before, beforeProfile, writer.replacedSelectorChoices, revert)
                 }
+            committed.revert?.let { runtime.switchRevert = it }
             publishCommittedWarpRevision(runtime.warpRevisions, intent, committed.before, committed.beforeProfile)
             runtime.catalog.publish()
             runtime.mutationGeneration.completed()
@@ -107,6 +116,7 @@ private data class CommittedMutation(
     val before: WarpCredentials?,
     val beforeProfile: WarpProfile?,
     val replacedSelectorChoices: List<String>,
+    val revert: SwitchRevertIntent?,
 )
 
 internal fun ProfileMutationIntent.ownsProviderSelection(origin: ProfileMutationOrigin): Boolean =

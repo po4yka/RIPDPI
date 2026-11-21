@@ -19,6 +19,9 @@ internal class ProfileMutationRuntime(
     val standalone: StandaloneAwgMutationCoordinator = StandaloneAwgMutations(this)
     val subscriptionRefresh: SubscriptionRefreshMutationCoordinator = SubscriptionRefreshMutations(this)
 
+    /** The last explicit switch's before-image, held under [mutex]. A crash drops it, so the switched rows stay. */
+    var switchRevert: SwitchRevertIntent? = null
+
     suspend fun recover() {
         database.initialize()
         pauseAuthority.initializeAfterMigration()

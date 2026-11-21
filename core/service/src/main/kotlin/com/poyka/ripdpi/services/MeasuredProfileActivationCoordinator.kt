@@ -56,7 +56,12 @@ class MeasuredProfileActivationCoordinator
                 }
             if (outcome.isFailure || outcome.getOrNull() != null) {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    val cleanupFailure = runCatching { cancelOwned(selected.receipt, bound) }.exceptionOrNull()
+                    // Traffic stays on the previous selection, so the stored rows go back to it.
+                    val cleanupFailure =
+                        runCatching {
+                            cancelOwned(selected.receipt, bound)
+                            mutations.revertRejectedSwitch(selected.receipt)
+                        }.exceptionOrNull()
                     if (cleanupFailure != null) {
                         val original = outcome.exceptionOrNull()
                         if (original != null) original.addSuppressed(cleanupFailure) else throw cleanupFailure
