@@ -101,14 +101,11 @@ class RelayActivationSelectorReloadTrigger
                 } else {
                     null
                 }
-            if (profile == null) return
-            val intent = reloadIntent(request) ?: return
+            val intent = profile?.let { reloadIntent(request) }
             // An automatic selection that names the member already carrying traffic needs no stack replacement.
-            if (skipApplied && intent == RuntimePolicyReloadIntent.Automatic &&
-                appliedMember(group) == profileId
-            ) {
-                return
-            }
+            val alreadyApplied =
+                skipApplied && intent == RuntimePolicyReloadIntent.Automatic && appliedMember(group) == profileId
+            if (profile == null || intent == null || alreadyApplied) return
             val reason =
                 try {
                     if (relayRefresher.refresh(intent) { isCurrent(group, profileId, profile) }) null else "rejected"

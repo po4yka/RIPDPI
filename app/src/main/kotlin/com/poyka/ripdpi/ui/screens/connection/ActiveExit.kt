@@ -43,10 +43,13 @@ internal fun exitOf(
 // cannot turn the shown exit into Direct or into a name the runtime has not applied.
 private fun AppliedRuntimeConfiguration.exit(awgProfiles: List<SavedAwgProfile>): ActiveExit? {
     val profileId = effectiveSelection.profileId ?: return null
-    if (effectiveSelection.relayKind == AmneziaWgRelayKind) return awgExit(profileId, awgProfiles)
-    val member = requestedSelection.takeIf { it.selectorGroupId != null && it.profileId == profileId } ?: return null
-    val kind = member.selectorMemberKind ?: return null
-    return ActiveExit(member.selectorMemberName ?: kind, kind)
+    val member = requestedSelection.takeIf { it.selectorGroupId != null && it.profileId == profileId }
+    val kind = member?.selectorMemberKind
+    return when {
+        effectiveSelection.relayKind == AmneziaWgRelayKind -> awgExit(profileId, awgProfiles)
+        member == null || kind == null -> null
+        else -> ActiveExit(member.selectorMemberName ?: kind, kind)
+    }
 }
 
 private fun SavedExitSelection.exit(

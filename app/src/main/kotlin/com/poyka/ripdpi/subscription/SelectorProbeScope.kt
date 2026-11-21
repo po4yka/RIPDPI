@@ -57,8 +57,8 @@ internal class CurrentSelectorProbeScopeProvider(
         // Only the group whose member carries the running session's traffic is probed; an inactive group, an
         // AmneziaWG or Xray session, or a stopped one gains nothing from ephemeral relays.
         if (!carriesTraffic(group.id)) return null
-        val current = groups.list().firstOrNull { it.id == group.id } ?: return null
-        return if (current.matchesProbePolicy(group)) {
+        val current = groups.list().firstOrNull { it.id == group.id }
+        return if (current != null && current.matchesProbePolicy(group)) {
             val epoch = networkEpoch()
             val fingerprint = network.capture()
             if (epoch != null && fingerprint != null) {

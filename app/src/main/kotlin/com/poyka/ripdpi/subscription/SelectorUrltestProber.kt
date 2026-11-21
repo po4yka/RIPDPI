@@ -219,29 +219,38 @@ class SelectorUrltestProber internal constructor(
         currentCoroutineContext().ensureActive()
         if (scope.sameProbe(scopeProvider.capture(group))) {
             currentCoroutineContext().ensureActive()
-            // Keep the last active exit when no direct candidate is reachable. A prior automatic
-            // Cloudflare choice is displaced as soon as a direct candidate recovers, never re-promoted.
-            val current = selection.profileId
-            val currentResult = latencies.firstOrNull { it.profileId == current }
-            // A check that could not judge the current member (cleanup, busy, network change) decides nothing.
-            if (currentResult?.reason in UndecidedReasons) return
-            val failed = currentResult?.takeIf { it.latencyMillis == null }
-            val failures =
-                failed?.let { (unreachablePasses[group.id]?.takeIf { p -> p.first == it.profileId }?.second ?: 0) + 1 }
-                    ?: 0
-            if (failed == null) {
-                unreachablePasses.remove(group.id)
-            } else {
-                unreachablePasses[group.id] = failed.profileId to failures
-            }
-            // One lost pass on a lossy path is not an outage: switch for unreachability only after consecutive ones.
-            if (failures in 1 until UnreachablePassesBeforeSwitch) return
-            val winner = bestSwitchCandidate(latencies, current, toleranceMs)
-            if (winner != null && winner != current &&
-                selectionStore.selectAutomatically(group.id, selection, winner)
-            ) {
-                log.i { "urltest selecting lower-latency member $winner for group ${group.id}" }
-            }
+            applyReachabilityPass(group, selection, latencies, toleranceMs)
+        }
+    }
+
+    private suspend fun applyReachabilityPass(
+        group: ProxyGroup,
+        selection: SelectorSelectionSnapshot,
+        latencies: List<MemberLatency>,
+        toleranceMs: Int,
+    ) {
+        // Keep the last active exit when no direct candidate is reachable. A prior automatic
+        // Cloudflare choice is displaced as soon as a direct candidate recovers, never re-promoted.
+        val current = selection.profileId
+        val currentResult = latencies.firstOrNull { it.profileId == current }
+        // A check that could not judge the current member (cleanup, busy, network change) decides nothing.
+        if (currentResult?.reason in UndecidedReasons) return
+        val failed = currentResult?.takeIf { it.latencyMillis == null }
+        val failures =
+            failed?.let { (unreachablePasses[group.id]?.takeIf { p -> p.first == it.profileId }?.second ?: 0) + 1 }
+                ?: 0
+        if (failed == null) {
+            unreachablePasses.remove(group.id)
+        } else {
+            unreachablePasses[group.id] = failed.profileId to failures
+        }
+        // One lost pass on a lossy path is not an outage: switch for unreachability only after consecutive ones.
+        if (failures in 1 until UnreachablePassesBeforeSwitch) return
+        val winner = bestSwitchCandidate(latencies, current, toleranceMs)
+        if (winner != null && winner != current &&
+            selectionStore.selectAutomatically(group.id, selection, winner)
+        ) {
+            log.i { "urltest selecting lower-latency member $winner for group ${group.id}" }
         }
     }
 

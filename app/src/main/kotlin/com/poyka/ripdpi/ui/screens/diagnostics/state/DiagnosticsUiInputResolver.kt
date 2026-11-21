@@ -71,7 +71,7 @@ internal class DiagnosticsUiInputResolver
                 latestResolverRecommendation =
                     latestProfileReport
                         ?.resolverRecommendation
-                        ?.takeIf { isMeasuredOn(latestProfileSession?.networkScopeKey, input.currentNetworkScopeKey) }
+                        ?.takeIf { isMeasuredOn(latestProfileSession.networkScopeKey, input.currentNetworkScopeKey) }
                         ?.let(support::toResolverRecommendationUiModel),
                 latestStrategyProbeReport = latestStrategyProbeReport,
                 currentTelemetry = input.currentTelemetry,
