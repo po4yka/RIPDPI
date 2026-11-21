@@ -380,50 +380,8 @@ private class ResolvedRelayConfigBuilder(
     // resolution (the legacy inline two-hop path) the flat entry/exit fields are
     // used directly.
     private fun chainSection(): RelayChainSection =
-        RelayChainSection(hops = chainRelay?.let { resolvedChainHopRefs(it) } ?: legacyInlineChainHopRefs())
-
-    private fun resolvedChainHopRefs(chain: ResolvedChainRelayConfig): List<ResolvedChainRelayHopRef> =
-        chain.hops.map { hop ->
-            ResolvedChainRelayHopRef(
-                config = hop.config,
-                server = hop.server,
-                serverPort = hop.serverPort,
-                serverName = hop.serverName,
-                publicKey = hop.publicKey,
-                shortId = hop.shortId,
-                flow = hop.config.vlessFlow,
-                xhttpMode = hop.config.xhttpMode,
-                profileId = hop.profileId,
-                uuid = hop.uuid.ifBlank { null },
-            )
-        }
-
-    private fun legacyInlineChainHopRefs(): List<ResolvedChainRelayHopRef> =
-        listOf(
-            ResolvedChainRelayHopRef(
-                config = null,
-                server = effectiveConfig.chainEntryServer,
-                serverPort = effectiveConfig.chainEntryPort,
-                serverName = effectiveConfig.chainEntryServerName,
-                publicKey = effectiveConfig.chainEntryPublicKey,
-                shortId = effectiveConfig.chainEntryShortId,
-                flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
-                xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
-                profileId = effectiveConfig.chainEntryProfileId,
-                uuid = credentials?.chainEntryUuid,
-            ),
-            ResolvedChainRelayHopRef(
-                config = null,
-                server = effectiveConfig.chainExitServer,
-                serverPort = effectiveConfig.chainExitPort,
-                serverName = effectiveConfig.chainExitServerName,
-                publicKey = effectiveConfig.chainExitPublicKey,
-                shortId = effectiveConfig.chainExitShortId,
-                flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
-                xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
-                profileId = effectiveConfig.chainExitProfileId,
-                uuid = credentials?.chainExitUuid,
-            ),
+        RelayChainSection(
+            hops = chainRelay?.let(::resolvedChainHopRefs) ?: legacyInlineChainHopRefs(effectiveConfig, credentials),
         )
 
     private fun masqueSection(): RelayMasqueSection =
@@ -601,6 +559,53 @@ private class ResolvedRelayConfigBuilder(
         )
     }
 }
+
+private fun resolvedChainHopRefs(chain: ResolvedChainRelayConfig): List<ResolvedChainRelayHopRef> =
+    chain.hops.map { hop ->
+        ResolvedChainRelayHopRef(
+            config = hop.config,
+            server = hop.server,
+            serverPort = hop.serverPort,
+            serverName = hop.serverName,
+            publicKey = hop.publicKey,
+            shortId = hop.shortId,
+            flow = hop.config.vlessFlow,
+            xhttpMode = hop.config.xhttpMode,
+            profileId = hop.profileId,
+            uuid = hop.uuid.ifBlank { null },
+        )
+    }
+
+private fun legacyInlineChainHopRefs(
+    config: RipDpiRelayConfig,
+    credentials: RelayCredentialRecord?,
+): List<ResolvedChainRelayHopRef> =
+    listOf(
+        ResolvedChainRelayHopRef(
+            config = null,
+            server = config.chainEntryServer,
+            serverPort = config.chainEntryPort,
+            serverName = config.chainEntryServerName,
+            publicKey = config.chainEntryPublicKey,
+            shortId = config.chainEntryShortId,
+            flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
+            xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
+            profileId = config.chainEntryProfileId,
+            uuid = credentials?.chainEntryUuid,
+        ),
+        ResolvedChainRelayHopRef(
+            config = null,
+            server = config.chainExitServer,
+            serverPort = config.chainExitPort,
+            serverName = config.chainExitServerName,
+            publicKey = config.chainExitPublicKey,
+            shortId = config.chainExitShortId,
+            flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
+            xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
+            profileId = config.chainExitProfileId,
+            uuid = credentials?.chainExitUuid,
+        ),
+    )
 
 internal fun RipDpiRelayFinalmaskConfig.toResolvedFinalmaskConfig(): ResolvedRelayFinalmaskConfig =
     ResolvedRelayFinalmaskConfig(
