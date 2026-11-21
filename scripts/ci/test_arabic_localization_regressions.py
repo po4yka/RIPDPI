@@ -67,8 +67,8 @@ class ArabicLocalizationRegressionsTest(unittest.TestCase):
         self.assertNotIn("البادئة النهائية", value)
 
     def test_network_port_and_data_spans_are_not_seaports_or_time_periods(self):
-        self.assertIn("منفذ", self.value("dns_custom_dot_body"))
-        self.assertNotIn("ميناء", self.value("dns_custom_dot_body"))
+        self.assertIn("منفذ", self.value("dns_protocol_dot_body"))
+        self.assertNotIn("ميناء", self.value("dns_protocol_dot_body"))
         for key in ("fake_order_card_body", "fake_order_card_order_body"):
             with self.subTest(key=key):
                 self.assertIn("مقاطع البيانات", self.value(key))
