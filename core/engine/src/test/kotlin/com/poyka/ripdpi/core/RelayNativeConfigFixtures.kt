@@ -91,3 +91,33 @@ internal fun relayNativeThreeHopChainFixture(): ResolvedRipDpiRelayConfig {
         chainExitUuid = exitHop.vlessUuid,
     )
 }
+
+internal fun relayNativeChainFixture(): ResolvedRipDpiRelayConfig =
+    relayNativeBaseFixture("chain_relay").copy(
+        chainEntry =
+            ResolvedChainRelayHopConfig(
+                kind = "vless_reality",
+                profileId = "chain-entry-profile-id",
+                server = "entry.example",
+                serverPort = 443,
+                serverName = "entry-sni.example",
+                realityPublicKey = "entry-public-key",
+                realityShortId = "entry-short-id",
+                vlessUuid = "chain-entry-uuid",
+                tlsFingerprintProfile = "firefox_stable",
+            ),
+        chainEntryProfileId = "chain-entry-profile-id",
+        chainEntryUuid = "chain-entry-uuid",
+        chainExit =
+            ResolvedChainRelayHopConfig(
+                kind = "masque",
+                profileId = "chain-exit-profile-id",
+                masqueUrl = "https://masque.example/.well-known/masque/tcp/",
+                masqueUseHttp2Fallback = true,
+                masqueAuthMode = "bearer",
+                masqueAuthToken = relayNativePlaceholder(12),
+                tlsFingerprintProfile = "safari_stable",
+            ),
+        chainExitProfileId = "chain-exit-profile-id",
+        chainExitUuid = "chain-exit-uuid",
+    )
