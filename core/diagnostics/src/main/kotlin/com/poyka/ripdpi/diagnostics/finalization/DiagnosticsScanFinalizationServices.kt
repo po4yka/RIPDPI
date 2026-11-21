@@ -162,11 +162,17 @@ class ScanFinalizationService
                 targetOptimizer.record(fingerprint.scopeKey(), report, prepared.settings)
             }
             rememberEdgeProbeResults(prepared, fingerprint, report)
-            if (prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
+            // An in-path scan measured the active tunnel or proxy, not the raw network's direct path.
+            if (
+                prepared.pathMode == ScanPathMode.RAW_PATH &&
+                prepared.hasCurrentNetworkScope(networkFingerprintProvider)
+            ) {
                 rememberCapabilityEvidence(prepared, fingerprint, report)
             }
             if (winningCombination?.id != "remembered" && prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
-                rememberNetworkDnsPathPreference(fingerprint, report.resolverRecommendation)
+                if (report.isCompleteScan()) {
+                    rememberNetworkDnsPathPreference(fingerprint, report.resolverRecommendation)
+                }
                 if (prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
                     rememberStrategyProbeRecommendation(prepared, report)
                 }
@@ -358,6 +364,7 @@ class ScanFinalizationService
             pathMode: ScanPathMode,
         ): Pair<ScanReport, TemporaryResolverOverride?> {
             val recommendation = report.resolverRecommendation ?: return report to null
+            if (!report.isCompleteScan()) return report to null
             val (status, mode) = serviceStateStore.status.value
             val shouldApply =
                 DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
@@ -394,7 +401,7 @@ class ScanFinalizationService
             prepared: PreparedDiagnosticsScan,
             report: ScanReport,
         ) {
-            if (report.completionKind != ScanCompletionKind.NORMAL || report.terminationReason != null) return
+            if (!report.isCompleteScan()) return
             val strategyProbe = report.strategyProbeReport
             val persistencePolicy = prepared.intent.executionPolicy.probePersistencePolicy
             val shouldRemember =
@@ -447,10 +454,32 @@ class ScanFinalizationService
             if (policy != null) {
                 rememberedNetworkPolicyStore.rememberValidatedPolicy(
                     policy = policy,
-                    source = RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND,
+                    source = prepared.rememberedPolicySource(),
                     validatedAt = report.finishedAt,
                 )
             }
+        }
+    }
+
+private fun ScanReport.isCompleteScan(): Boolean =
+    completionKind == ScanCompletionKind.NORMAL && terminationReason == null
+
+private fun PreparedDiagnosticsScan.rememberedPolicySource(): RememberedNetworkPolicySource =
+    when {
+        scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND -> {
+            RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND
+        }
+
+        initialSession.profileId == "automatic-probing" -> {
+            RememberedNetworkPolicySource.AUTOMATIC_PROBING_MANUAL
+        }
+
+        initialSession.profileId == "automatic-audit" -> {
+            RememberedNetworkPolicySource.AUTOMATIC_AUDIT_MANUAL
+        }
+
+        else -> {
+            RememberedNetworkPolicySource.STRATEGY_PROBE_MANUAL
         }
     }
 

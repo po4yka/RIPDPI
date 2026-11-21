@@ -34,6 +34,42 @@ class BypassCombinationScorerTest {
     }
 
     @Test
+    fun `fresh persistable result beats remembered validated combination`() {
+        val winner =
+            requireNotNull(
+                BypassCombinationScorer.chooseBest(
+                    listOf(
+                        BypassCombinationScorer.rememberedCandidate(
+                            resolverPath = null,
+                            strategyRecommendation = null,
+                        ),
+                        candidate(id = "fresh").copy(persistenceEligible = true),
+                    ),
+                ),
+            )
+
+        assertEquals("fresh", winner.id)
+    }
+
+    @Test
+    fun `remembered validated combination beats fresh high confidence result that cannot be persisted`() {
+        val winner =
+            requireNotNull(
+                BypassCombinationScorer.chooseBest(
+                    listOf(
+                        candidate(id = "fresh"),
+                        BypassCombinationScorer.rememberedCandidate(
+                            resolverPath = null,
+                            strategyRecommendation = null,
+                        ),
+                    ),
+                ),
+            )
+
+        assertEquals("remembered", winner.id)
+    }
+
+    @Test
     fun `ech preserving combination beats non ech combination when transport scores tie`() {
         val winner =
             requireNotNull(

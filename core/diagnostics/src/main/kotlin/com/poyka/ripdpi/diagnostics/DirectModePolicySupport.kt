@@ -75,7 +75,9 @@ internal fun enrichDirectPathCapabilityObservation(
         ?: observation
 
 private fun ScanReport.hasDefinitiveDirectModeEvidence(): Boolean =
-    completionKind == ScanCompletionKind.NORMAL &&
+    // Only a raw-path scan measures the direct path; an in-path scan ran through the active tunnel or proxy.
+    pathMode == ScanPathMode.RAW_PATH &&
+        completionKind == ScanCompletionKind.NORMAL &&
         terminationReason == null &&
         results.none { !it.isQuicInitialProbe() && it.invalidatesDirectModeEvidence() } &&
         (
@@ -186,16 +188,23 @@ private fun buildVerdict(
 ): DirectModeVerdict? =
     when (outcome) {
         DirectModeOutcome.TRANSPARENT_OK -> {
-            if (signals.hasTransparentSuccess || signals.hasTlsFailureWithoutResponse) {
+            val result =
+                when {
+                    signals.hasTransparentSuccess -> DirectModeVerdictResult.TRANSPARENT_WORKS
+
+                    // A TLS failure without a reply and no transparent success needs intervention.
+                    signals.hasTlsFailureWithoutResponse -> DirectModeVerdictResult.NO_DIRECT_SOLUTION
+
+                    else -> null
+                }
+            result?.let {
                 DirectModeVerdict(
-                    result = DirectModeVerdictResult.TRANSPARENT_WORKS,
+                    result = it,
                     reasonCode = reasonCode,
                     transportClass = signals.transportClass,
                     authority = authority,
                     cooldownUntil = cooldownUntil,
                 )
-            } else {
-                null
             }
         }
 

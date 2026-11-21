@@ -496,7 +496,7 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
                     .fingerprintHash,
             )
             assertEquals(
-                RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND,
+                RememberedNetworkPolicySource.STRATEGY_PROBE_MANUAL,
                 stores.rememberedPoliciesState.value
                     .single()
                     .decodedSource(),

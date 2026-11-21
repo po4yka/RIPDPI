@@ -251,6 +251,44 @@ class DirectModePolicySupportTest {
     }
 
     @Test
+    fun `in path success is not direct mode evidence for the raw network`() {
+        val report =
+            reportWithResults(
+                strategyHttpsProbe(
+                    candidateId = "baseline_plain_direct",
+                    outcome = "tls_ok",
+                ),
+            ).copy(pathMode = ScanPathMode.IN_PATH)
+
+        assertNull(deriveDirectModeVerdict(report))
+        assertNull(collectDirectPathCapabilityObservations(report)["example.org"]?.transportPolicy)
+    }
+
+    @Test
+    fun `tls failure without a reply and no transparent success needs intervention`() {
+        val report =
+            reportWithResults(
+                ProbeResult(
+                    probeType = "domain_reachability",
+                    target = "example.org",
+                    outcome = "http_ok",
+                    details =
+                        listOf(
+                            ProbeDetail("targetHost", "example.org"),
+                            ProbeDetail("tls13Status", "tls_handshake_failed"),
+                            ProbeDetail("tls13FailureStage", "tls_handshake"),
+                            ProbeDetail("tls13PeerResponseReceived", "false"),
+                        ),
+                ),
+            )
+
+        val verdict = deriveDirectModeVerdict(report)
+
+        assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
+        assertEquals(DirectTransportClass.SNI_TLS_SUSPECT, verdict?.transportClass)
+    }
+
+    @Test
     fun `current configured strategy success is not transparent direct evidence`() {
         val report =
             reportWithResults(

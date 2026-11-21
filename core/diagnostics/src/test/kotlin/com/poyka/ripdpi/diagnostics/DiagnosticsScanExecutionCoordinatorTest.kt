@@ -117,6 +117,55 @@ class DiagnosticsScanPolicyFinalizationTest {
         }
 
     @Test
+    fun `partial execution neither applies override nor remembers preferred path`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val resolverOverrideStore = FakeResolverOverrideStore()
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val networkFingerprintProvider = FakeNetworkFingerprintProvider()
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    resolverOverrideStore = resolverOverrideStore,
+                    networkFingerprintProvider = networkFingerprintProvider,
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-1",
+                    settings =
+                        defaultDiagnosticsAppSettings()
+                            .toBuilder()
+                            .setDnsMode(DnsModePlainUdp)
+                            .setDnsIp("8.8.8.8")
+                            .build(),
+                    exposeProgress = true,
+                    networkFingerprint = networkFingerprintProvider.capture(),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                buildResolverRecommendationBridge(
+                    prepared.sessionId,
+                    scanReportWithResolverRecommendation(prepared.sessionId)
+                        .copy(completionKind = ScanCompletionKind.PARTIAL_RESULTS),
+                )
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
+
+            assertNull(resolverOverrideStore.override.value)
+            assertNull(stores.getNetworkDnsPathPreference(networkFingerprintProvider.capture().scopeKey()))
+        }
+
+    @Test
     fun `post persistence failure keeps report but fails only after settlement receipt`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -886,7 +935,10 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
         }
 }
 
-private fun buildResolverRecommendationBridge(sessionId: String): FakeNetworkDiagnosticsBridge {
+private fun buildResolverRecommendationBridge(
+    sessionId: String,
+    report: ScanReport = scanReportWithResolverRecommendation(sessionId),
+): FakeNetworkDiagnosticsBridge {
     val json = diagnosticsTestJson()
     return FakeNetworkDiagnosticsBridge(json).apply {
         autoCompleteOnStart = false
@@ -922,7 +974,7 @@ private fun buildResolverRecommendationBridge(sessionId: String): FakeNetworkDia
                 isFinished = true,
             ),
         )
-        enqueueReport(scanReportWithResolverRecommendation(sessionId))
+        enqueueReport(report)
     }
 }
 
@@ -1809,7 +1861,7 @@ internal fun scanReportWithResolverRecommendation(sessionId: String) =
                 ProbeResult(
                     probeType = "dns_integrity",
                     target = "blocked.example",
-                    outcome = "dns_substitution",
+                    outcome = "udp_blocked",
                     details =
                         listOf(
                             ProbeDetail("encryptedResolverId", com.poyka.ripdpi.data.DnsProviderCloudflare),
