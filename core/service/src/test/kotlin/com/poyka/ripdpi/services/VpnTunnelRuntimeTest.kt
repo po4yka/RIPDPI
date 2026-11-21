@@ -285,7 +285,7 @@ class VpnTunnelRuntimeTest {
         }
 
     @Test
-    fun secondStartIncrementsRecoveryRetryCount() =
+    fun `a reconnect start is not a tunnel recovery retry`() =
         runTest {
             val events = mutableListOf<String>()
             val host = TestVpnServiceHost(backgroundScope)
@@ -318,7 +318,7 @@ class VpnTunnelRuntimeTest {
                 configurationInput = runtime.captureConfigurationInput(),
             )
 
-            assertEquals(1L, runtime.tunnelRecoveryRetryCount)
+            assertEquals(0L, runtime.tunnelRecoveryRetryCount)
         }
 
     @Test
@@ -637,13 +637,13 @@ class VpnTunnelRuntimeTest {
                 localProxyEndpoint = localProxyEndpoint,
                 configurationInput = runtime.captureConfigurationInput(),
             )
-            runtime.stop()
-            runtime.start(
+            runtime.rebuild(
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
                 configurationInput = runtime.captureConfigurationInput(),
+                recovery = true,
             )
             assertEquals(1L, runtime.tunnelRecoveryRetryCount)
 

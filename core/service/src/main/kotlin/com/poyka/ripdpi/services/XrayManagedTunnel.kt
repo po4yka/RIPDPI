@@ -81,18 +81,29 @@ internal interface XrayTunnelDriver {
                     params: XrayTunnelStartParams,
                     endpoint: LocalProxyEndpoint,
                 ) {
-                    val start = if (runtime.isRunning) runtime::rebuild else runtime::start
-                    start(
-                        params.activeDns,
-                        params.overrideReason,
-                        params.logContext,
-                        endpoint,
-                        params.forceTunnelDns,
-                        params.splitStrictDnsPolicy,
-                        null,
-                        params.configurationInput,
-                        true,
-                    )
+                    if (runtime.isRunning) {
+                        runtime.rebuild(
+                            activeDns = params.activeDns,
+                            overrideReason = params.overrideReason,
+                            logContext = params.logContext,
+                            localProxyEndpoint = endpoint,
+                            forceTunnelDns = params.forceTunnelDns,
+                            splitStrictDnsPolicy = params.splitStrictDnsPolicy,
+                            configurationInput = params.configurationInput,
+                            sharedProxyPath = true,
+                        )
+                    } else {
+                        runtime.start(
+                            activeDns = params.activeDns,
+                            overrideReason = params.overrideReason,
+                            logContext = params.logContext,
+                            localProxyEndpoint = endpoint,
+                            forceTunnelDns = params.forceTunnelDns,
+                            splitStrictDnsPolicy = params.splitStrictDnsPolicy,
+                            configurationInput = params.configurationInput,
+                            sharedProxyPath = true,
+                        )
+                    }
                 }
 
                 override suspend fun quiesce() {

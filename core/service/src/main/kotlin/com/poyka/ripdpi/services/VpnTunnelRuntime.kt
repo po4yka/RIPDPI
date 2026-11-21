@@ -93,7 +93,6 @@ internal class VpnTunnelRuntime(
     private var activeRouteLifecycleGeneration: Long? = null
     private var pendingRouteLifecycleGeneration: Long? = null
     private val forwardingLease = AtomicReference<TunnelForwardingLease?>()
-    private var tunnelStartCount: Int = 0
     private var currentProfileInterface: VpnProfileInterface? = null
 
     @Volatile
@@ -212,7 +211,7 @@ internal class VpnTunnelRuntime(
         // Closing it here would remove that barrier before Failed is published.
         pendingSession = pendingTunnel.session
         pendingRouteLifecycleGeneration = pendingTunnel.lifecycleGeneration
-        startBridge(pendingTunnel, retainFailedBridge = false)
+        startBridge(pendingTunnel, retainFailedBridge = false, recovery = false)
     }
 
     /**
@@ -234,6 +233,7 @@ internal class VpnTunnelRuntime(
         profileInterface: VpnProfileInterface? = null,
         configurationInput: VpnTunnelConfigurationInput,
         sharedProxyPath: Boolean = false,
+        recovery: Boolean = false,
     ) {
         val previouslyRetiringSession = retiringSession
         if (previouslyRetiringSession != null) {
@@ -287,7 +287,7 @@ internal class VpnTunnelRuntime(
             vpnHost.finishDirectDnsUnderlay(pendingTunnel.directDnsPrepareToken, DirectDnsUnderlayAction.FailClosed)
             throw error
         }
-        startBridge(pendingTunnel, retainFailedBridge = true)
+        startBridge(pendingTunnel, retainFailedBridge = true, recovery = recovery)
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -419,6 +419,7 @@ internal class VpnTunnelRuntime(
     private suspend fun startBridge(
         pendingTunnel: PendingTunnel,
         retainFailedBridge: Boolean,
+        recovery: Boolean,
     ) {
         var createdBridge: Tun2SocksBridge? = null
         var startSucceeded = false
@@ -437,7 +438,7 @@ internal class VpnTunnelRuntime(
                 tunnelBridge.start(pendingTunnel.config, pendingTunnel.session.tunFd, attributionCallback)
             }
             startSucceeded = true
-            publishBridgeReady(pendingTunnel, tunnelBridge)
+            publishBridgeReady(pendingTunnel, tunnelBridge, recovery)
             consumedConfigurationInput = pendingTunnel.configurationInput
             consumedForceTunnelDns = pendingTunnel.forceTunnelDns
             readyEvidence =
@@ -500,6 +501,7 @@ internal class VpnTunnelRuntime(
     private suspend fun publishBridgeReady(
         pendingTunnel: PendingTunnel,
         tunnelBridge: Tun2SocksBridge,
+        recovery: Boolean,
     ) {
         tun2SocksBridge = tunnelBridge
         pcapCaptureRuntimeController?.bindTunnel(
@@ -523,10 +525,9 @@ internal class VpnTunnelRuntime(
             appliedTunnelReceiptGeneration = appliedReceipt.generation,
         )
         callbacks.onTunnelReady()
-        if (tunnelStartCount > 0) {
-            tunnelRecoveryRetryCount += 1
-        }
-        tunnelStartCount += 1
+        // A switch, handover or settings refresh also rebuilds the tunnel; only a rebuild made to recover from a
+        // failure is a recovery retry, which Status shows as a tunnel warning.
+        if (recovery) tunnelRecoveryRetryCount += 1
     }
 
     suspend fun stop() {
@@ -695,7 +696,6 @@ internal class VpnTunnelRuntime(
         currentDnsSignature = null
         currentInterfacePolicySignature = null
         currentProfileInterface = null
-        tunnelStartCount = 0
         tunnelRecoveryRetryCount = 0L
     }
 

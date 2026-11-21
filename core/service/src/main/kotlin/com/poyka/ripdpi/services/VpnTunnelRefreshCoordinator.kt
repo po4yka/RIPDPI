@@ -16,6 +16,7 @@ internal class VpnTunnelRefreshCoordinator(
         session: VpnRuntimeSession,
         interfacePolicyChangeObserved: Boolean = false,
         forceTunnelRebuild: Boolean = false,
+        recovery: Boolean = false,
     ) {
         dependencies.mutex.withLock {
             val activeSession = state.runtimeSession()
@@ -64,6 +65,7 @@ internal class VpnTunnelRefreshCoordinator(
                     profileInterface = dependencies.vpnTunnelRuntime.consumedProfileInterface,
                     forceTunnelDns = dependencies.vpnTunnelRuntime.consumedForceTunnelDns,
                     sharedProxyPath = dependencies.vpnTunnelRuntime.requireReadyEvidence().sharedProxyPath,
+                    recovery = recovery,
                 )
                 dependencies.vpnTunnelRuntime.publishInPathLease(refreshSession, endpoint)
                 callbacks.updateRuntimeDnsState(refreshSession, latestConnectionPolicy)
@@ -115,7 +117,7 @@ internal class VpnTunnelRefreshCoordinator(
         // The synthetic address pool belongs to one tunnel session and never reuses an address,
         // so only a new tunnel session restores DNS once the pool is used up.
         val poolUsedUp = isSyntheticDnsPoolUsedUp(telemetry.tunnelTelemetry.lastDnsError.orEmpty())
-        if (recoverDns || poolUsedUp) refreshIfNeeded(session, forceTunnelRebuild = poolUsedUp)
+        if (recoverDns || poolUsedUp) refreshIfNeeded(session, forceTunnelRebuild = poolUsedUp, recovery = true)
         return recoverDns || poolUsedUp
     }
 

@@ -39,6 +39,47 @@ class VpnTunnelRuntimeRecoveryTest {
         }
 
     @Test
+    fun `only a recovery rebuild counts as a tunnel recovery retry`() =
+        runTest {
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge()),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(),
+                )
+            val activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings()
+            runtime.start(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
+
+            // A live backend switch (Hysteria2 to AmneziaWG) rebuilds the tunnel; nothing failed.
+            runtime.rebuild(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
+            assertEquals(0L, runtime.tunnelRecoveryRetryCount)
+
+            runtime.rebuild(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+                recovery = true,
+            )
+            assertEquals(1L, runtime.tunnelRecoveryRetryCount)
+        }
+
+    @Test
     fun tunnelStartFailureRetainsEstablishedSessionUntilOrchestratedStop() =
         runTest {
             val events = mutableListOf<String>()
