@@ -2,7 +2,7 @@
 id: TRN-1786264762917575
 title: "Spike: DNS-Morph bootstrap as fallback bootstrap channel"
 kind: feature
-status: review
+status: done
 area: transport
 priority: medium
 owner: dns-morph-client session
@@ -16,6 +16,9 @@ source_wiki_pages:
   - dns-morph-bootstrap
 linked_task: null
 status_detail: externally-gated — requires a separately operated bridge and measured network vantage
+closed_at: "2026-11-21T10:03:27Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "DNS-Morph v2 client and bridge responder on main (e2b0ce71f, e35f6108a, e1f9b79a7, f69b19dd4, 80df46688): loopback, unit, adapter and Kotlin refresh tests pass locally; CI run 44882985822 on ca9030dfe passed, with rust-lint passing in run 44875595293. No bridge is deployed, so no device check ran."
 ---
 
 ## Motivation

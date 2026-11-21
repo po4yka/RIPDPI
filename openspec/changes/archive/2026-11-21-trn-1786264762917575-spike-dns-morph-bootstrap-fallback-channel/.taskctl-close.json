@@ -1,0 +1,11 @@
+{
+  "change": "trn-1786264762917575-spike-dns-morph-bootstrap-fallback-channel",
+  "evidence_summary": "DNS-Morph v2 client and bridge responder on main (e2b0ce71f, e35f6108a, e1f9b79a7, f69b19dd4, 80df46688): loopback, unit, adapter and Kotlin refresh tests pass locally; CI run 44882985822 on ca9030dfe passed, with rust-lint passing in run 44875595293. No bridge is deployed, so no device check ran.",
+  "execution_sha256": "3a3e4fa4082a9b575bb49925cc283b5d54a9ee6c50c48e2da8efc4f342d8bdc7",
+  "issue_sha256": "793fa2089c3b18ece11f8a0b2bd496d5c1588f24ebfc5d3f3b8ff93dc9b00352",
+  "outcome": "done",
+  "prepared_at": "2026-11-21T10:03:27Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1786264762917575"
+}
