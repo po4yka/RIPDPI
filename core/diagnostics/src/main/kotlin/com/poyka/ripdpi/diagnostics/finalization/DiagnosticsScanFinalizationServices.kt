@@ -373,8 +373,8 @@ class ScanFinalizationService
             settings: com.poyka.ripdpi.proto.AppSettings,
             pathMode: ScanPathMode,
         ): Pair<ScanReport, TemporaryResolverOverride?> {
-            val recommendation = report.resolverRecommendation ?: return report to null
-            if (!report.isCompleteScan()) return report to null
+            val recommendation =
+                report.resolverRecommendation?.takeIf { report.isCompleteScan() } ?: return report to null
             val (status, mode) = serviceStateStore.status.value
             val shouldApply =
                 DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
@@ -412,26 +412,9 @@ class ScanFinalizationService
             prepared: PreparedDiagnosticsScan,
             report: ScanReport,
         ): RememberedNetworkPolicyJson? {
-            if (!report.isCompleteScan()) return null
-            val strategyProbe = report.strategyProbeReport ?: return null
-            val fingerprint = prepared.networkFingerprint ?: return null
-            val shouldRemember =
-                prepared.settings.networkStrategyMemoryEnabled &&
-                    !prepared.settings.enableCmdSettings &&
-                    when (prepared.intent.executionPolicy.probePersistencePolicy) {
-                        ProbePersistencePolicy.MANUAL_ONLY -> {
-                            false
-                        }
-
-                        ProbePersistencePolicy.BACKGROUND_ONLY -> {
-                            prepared.scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND
-                        }
-
-                        ProbePersistencePolicy.ALWAYS -> {
-                            true
-                        }
-                    }
-            if (!shouldRemember) return null
+            val strategyProbe = report.strategyProbeReport?.takeIf { report.isCompleteScan() }
+            val fingerprint = prepared.networkFingerprint
+            if (strategyProbe == null || fingerprint == null || !prepared.remembersStrategyPolicy()) return null
             // The builder applies the auto-persist eligibility bar, quick_v1 suite and valid recommendation checks.
             return DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
                 strategyProbe = strategyProbe,
@@ -445,6 +428,23 @@ class ScanFinalizationService
             )
         }
     }
+
+private fun PreparedDiagnosticsScan.remembersStrategyPolicy(): Boolean =
+    settings.networkStrategyMemoryEnabled &&
+        !settings.enableCmdSettings &&
+        when (intent.executionPolicy.probePersistencePolicy) {
+            ProbePersistencePolicy.MANUAL_ONLY -> {
+                false
+            }
+
+            ProbePersistencePolicy.BACKGROUND_ONLY -> {
+                scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND
+            }
+
+            ProbePersistencePolicy.ALWAYS -> {
+                true
+            }
+        }
 
 private fun ScanReport.isCompleteScan(): Boolean =
     completionKind == ScanCompletionKind.NORMAL && terminationReason == null

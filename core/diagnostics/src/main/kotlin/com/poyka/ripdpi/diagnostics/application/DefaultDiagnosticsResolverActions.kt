@@ -21,9 +21,10 @@ class DefaultDiagnosticsResolverActions
         private val resolverOverrideStore: ResolverOverrideStore,
     ) : DiagnosticsResolverActions {
         override suspend fun keepResolverRecommendationForSession(sessionId: String): Boolean {
-            val fingerprint = networkFingerprintProvider.capture() ?: return false
+            val fingerprint = networkFingerprintProvider.capture()
             val recommendation =
-                recommendationStore.loadResolverRecommendation(sessionId, fingerprint.scopeKey()) ?: return false
+                fingerprint?.let { recommendationStore.loadResolverRecommendation(sessionId, it.scopeKey()) }
+            if (fingerprint == null || recommendation == null) return false
             resolverOverrideStore.setTemporaryOverride(
                 DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation),
             )
@@ -31,9 +32,10 @@ class DefaultDiagnosticsResolverActions
         }
 
         override suspend fun saveResolverRecommendation(sessionId: String): Boolean {
-            val fingerprint = networkFingerprintProvider.capture() ?: return false
+            val fingerprint = networkFingerprintProvider.capture()
             val recommendation =
-                recommendationStore.loadResolverRecommendation(sessionId, fingerprint.scopeKey()) ?: return false
+                fingerprint?.let { recommendationStore.loadResolverRecommendation(sessionId, it.scopeKey()) }
+            if (fingerprint == null || recommendation == null) return false
             val selectedPath = with(ResolverRecommendationEngine) { recommendation.toEncryptedDnsPathCandidate() }
             appSettingsRepository.update {
                 dnsMode = com.poyka.ripdpi.data.DnsModeEncrypted

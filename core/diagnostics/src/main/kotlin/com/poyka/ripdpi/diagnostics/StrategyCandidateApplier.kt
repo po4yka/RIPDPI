@@ -43,9 +43,9 @@ class StrategyCandidateApplier
             currentNetworkScopeKey: String?,
             candidateId: String,
         ): Boolean {
-            val report = session.applicableReport(currentNetworkScopeKey) ?: return false
-            val tcp = report.tcpCandidates.firstOrNull { it.id == candidateId }
-            val candidate = tcp ?: report.quicCandidates.firstOrNull { it.id == candidateId } ?: return false
+            val report = session.applicableReport(currentNetworkScopeKey)
+            val tcp = report?.tcpCandidates?.firstOrNull { it.id == candidateId }
+            val candidate = tcp ?: report?.quicCandidates?.firstOrNull { it.id == candidateId } ?: return false
             var applied = false
             // Validate and apply against one current value, so concurrent settings changes are preserved.
             appSettingsRepository.update {
