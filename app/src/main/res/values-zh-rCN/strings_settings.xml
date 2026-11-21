@@ -29,7 +29,7 @@
     <string name="settings_biometric_confirm_enable">启用</string>
     <string name="settings_biometric_pin_required_message">启用生物识别解锁前请先设置备用 PIN。当生物识别验证不可用时,PIN 可作为备用访问方式。</string>
     <string name="settings_biometric_unavailable">本设备不具备生物识别硬件。</string>
-    <string name="settings_community_api_url_reset">重置为默认</string>
+    <string name="settings_reset_to_default">重置为默认</string>
     <string name="settings_connectivity_section">连接</string>
     <string name="settings_diagnostics_monitor_title">记录运行时诊断历史</string>
     <string name="settings_diagnostics_sample_title">采样间隔(秒)</string>

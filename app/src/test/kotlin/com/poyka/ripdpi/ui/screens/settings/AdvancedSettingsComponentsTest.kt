@@ -32,6 +32,33 @@ class AdvancedSettingsComponentsTest {
     // -- AdvancedTextSetting --
 
     @Test
+    fun `a changed setting resets to the stored default and an unchanged one offers no reset`() {
+        val confirmed = mutableListOf<Pair<AdvancedTextSetting, String>>()
+        composeRule.setContent {
+            RipDpiTheme {
+                androidx.compose.foundation.layout.Column {
+                    AdvancedTextSetting(
+                        title = "Port",
+                        value = "9000",
+                        setting = AdvancedTextSetting.ProxyPort,
+                        onConfirm = { setting, value -> confirmed += setting to value },
+                    )
+                    AdvancedTextSetting(
+                        title = "Buffer",
+                        value = "16384",
+                        setting = AdvancedTextSetting.BufferSize,
+                        onConfirm = { _, _ -> },
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedReset(AdvancedTextSetting.ProxyPort)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedReset(AdvancedTextSetting.BufferSize)).assertDoesNotExist()
+        composeRule.runOnIdle { assertEquals(listOf(AdvancedTextSetting.ProxyPort to "1080"), confirmed) }
+    }
+
+    @Test
     fun `text setting shows no save button when value unchanged`() {
         composeRule.setContent {
             RipDpiTheme {

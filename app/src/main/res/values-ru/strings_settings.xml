@@ -136,7 +136,7 @@
     <string name="settings_community_api_url_label">URL API сообщества</string>
     <string name="settings_community_api_url_helper">Оставьте пустым, чтобы сравнивать только с вашими проверками.</string>
     <string name="settings_community_api_url_save">Сохранить</string>
-    <string name="settings_community_api_url_reset">Сбросить</string>
+    <string name="settings_reset_to_default">Сбросить</string>
     <string name="settings_clear_community_cache">Очистить кеш сообщества</string>
     <string name="customization_icon_clean">Чистый</string>
     <string name="customization_icon_cracked">Треснувший</string>

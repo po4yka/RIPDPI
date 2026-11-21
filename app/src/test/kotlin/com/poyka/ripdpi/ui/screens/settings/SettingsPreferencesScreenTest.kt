@@ -137,7 +137,7 @@ class SettingsPreferencesScreenTest {
 
         assertTrue(filledShare(R.string.settings_community_api_url_save) < 0.3f)
         assertTrue(filledShare(R.string.config_cancel) < 0.3f)
-        assertTrue(filledShare(R.string.settings_community_api_url_reset) < 0.3f)
+        assertTrue(filledShare(R.string.settings_reset_to_default) < 0.3f)
 
         // With no filled action the two choices differ by place: dismiss first, confirm last.
         fun bounds(labelRes: Int) =

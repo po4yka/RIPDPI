@@ -162,7 +162,7 @@
     <string name="settings_community_api_url_label">URL da API da comunidade</string>
     <string name="settings_community_api_url_helper">Deixe vazio para comparar apenas com suas próprias verificações.</string>
     <string name="settings_community_api_url_save">Salvar</string>
-    <string name="settings_community_api_url_reset">Redefinir para o padrão</string>
+    <string name="settings_reset_to_default">Redefinir para o padrão</string>
     <string name="settings_clear_community_cache">Limpar cache da comunidade</string>
     <string name="settings_reset_title">Redefinir configurações</string>
     <string name="settings_reset_body">Restaura todas as configurações para os valores padrão. Perfis, grupos, regras de roteamento e histórico de diagnóstico são mantidos.</string>

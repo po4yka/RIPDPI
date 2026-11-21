@@ -613,6 +613,9 @@ internal object RipDpiTestTags {
     val advancedSave: (AdvancedTextSetting) -> String =
         { setting -> "advanced-save-${sanitize(setting.name)}" }
 
+    val advancedReset: (AdvancedTextSetting) -> String =
+        { setting -> "advanced-reset-${sanitize(setting.name)}" }
+
     val advancedOption: (AdvancedOptionSetting) -> String =
         { setting -> "advanced-option-${sanitize(setting.name)}" }
 

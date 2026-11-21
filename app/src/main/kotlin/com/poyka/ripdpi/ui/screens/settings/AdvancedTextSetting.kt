@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import com.poyka.ripdpi.data.AppSettingsSerializer
+
 internal enum class AdvancedTextSetting {
     DiagnosticsSampleIntervalSeconds,
     DiagnosticsHistoryRetentionDays,
@@ -64,4 +66,27 @@ internal enum class AdvancedTextSetting {
     WarpAmneziaS2,
     WarpAmneziaS3,
     WarpAmneziaS4,
+}
+
+/**
+ * The value a fresh install stores for [this], for the fields whose default is a real value. A field shows a reset
+ * only when it has one here.
+ */
+internal fun AdvancedTextSetting.defaultValue(): String? {
+    val defaults = AppSettingsSerializer.defaultValue
+    return when (this) {
+        AdvancedTextSetting.DiagnosticsSampleIntervalSeconds -> defaults.diagnosticsSampleIntervalSeconds
+        AdvancedTextSetting.DiagnosticsHistoryRetentionDays -> defaults.diagnosticsHistoryRetentionDays
+        AdvancedTextSetting.ProxyIp -> defaults.proxyIp
+        AdvancedTextSetting.ProxyPort -> defaults.proxyPort
+        AdvancedTextSetting.MaxConnections -> defaults.maxConnections
+        AdvancedTextSetting.BufferSize -> defaults.bufferSize
+        AdvancedTextSetting.FakeTtl -> defaults.fakeTtl
+        AdvancedTextSetting.HostAutolearnPenaltyTtlHours -> defaults.hostAutolearnPenaltyTtlHours
+        AdvancedTextSetting.HostAutolearnMaxHosts -> defaults.hostAutolearnMaxHosts
+        AdvancedTextSetting.AdaptiveFallbackCacheTtlSeconds -> defaults.adaptiveFallbackCacheTtlSeconds
+        AdvancedTextSetting.WarpScannerParallelism -> defaults.warpScannerParallelism
+        AdvancedTextSetting.WarpScannerMaxRttMs -> defaults.warpScannerMaxRttMs
+        else -> return null
+    }.toString()
 }

@@ -139,7 +139,7 @@ internal fun CommunityApiUrlEditor(
                 ),
         )
         RipDpiButton(
-            text = stringResource(R.string.settings_community_api_url_reset),
+            text = stringResource(R.string.settings_reset_to_default),
             onClick = onReset,
             modifier = Modifier.fillMaxWidth(),
             enabled = value.isNotBlank(),

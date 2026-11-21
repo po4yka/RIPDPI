@@ -163,7 +163,7 @@
     <string name="settings_community_api_url_label">Community API URL</string>
     <string name="settings_community_api_url_helper">Leave empty to compare with your own checks only.</string>
     <string name="settings_community_api_url_save">Save</string>
-    <string name="settings_community_api_url_reset">Reset to default</string>
+    <string name="settings_reset_to_default">Reset to default</string>
     <string name="settings_clear_community_cache">Clear community cache</string>
     <string name="settings_reset_title">Reset settings</string>
     <string name="settings_reset_body">Restore every setting to its default value. Profiles, groups, routing rules, and diagnostics history are kept.</string>

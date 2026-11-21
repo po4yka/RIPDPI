@@ -111,7 +111,7 @@
     <string name="settings_biometric_no_enrollment">هیچ بیومتریکی ثبت نشده است. در تنظیمات دستگاه یک اثر انگشت اضافه کنید.</string>
     <string name="settings_biometric_pin_required_title">PIN پشتیبان لازم است</string>
     <string name="settings_clear_community_cache">پاک کردن کش اجتماع</string>
-    <string name="settings_community_api_url_reset">بازنشانی به پیش‌فرض</string>
+    <string name="settings_reset_to_default">بازنشانی به پیش‌فرض</string>
     <string name="settings_exclude_russian_apps_title">مستثنا کردن برنامه‌های روسی</string>
     <string name="settings_full_tunnel_helper">وقتی فعال است، تمام ترافیک از تونل عبور می‌کند. استثناهای برنامه‌ها در این حالت غیرفعال هستند.</string>
     <string name="settings_permission_action_allow">اجازه دادن</string>

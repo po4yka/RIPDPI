@@ -4159,7 +4159,6 @@ app:settings_clear_community_cache
 app:settings_clear_community_cache_body
 app:settings_community_api_url_helper
 app:settings_community_api_url_label
-app:settings_community_api_url_reset
 app:settings_community_api_url_save
 app:settings_community_source_body
 app:settings_community_source_default
@@ -4252,6 +4251,7 @@ app:settings_reset_confirm
 app:settings_reset_dialog_body
 app:settings_reset_dialog_title
 app:settings_reset_title
+app:settings_reset_to_default
 app:settings_root_mode_strategies_body
 app:settings_routing_rules_body
 app:settings_security_section

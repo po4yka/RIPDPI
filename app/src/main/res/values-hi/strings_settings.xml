@@ -173,7 +173,7 @@
     <string name="settings_community_api_url_label">कम्युनिटी API URL</string>
     <string name="settings_community_api_url_helper">केवल अपनी जाँचों से तुलना करने के लिए खाली छोड़ें।</string>
     <string name="settings_community_api_url_save">सहेजें</string>
-    <string name="settings_community_api_url_reset">डिफ़ॉल्ट पर रीसेट करें</string>
+    <string name="settings_reset_to_default">डिफ़ॉल्ट पर रीसेट करें</string>
     <string name="settings_clear_community_cache">कम्युनिटी कैश साफ़ करें</string>
     <string name="settings_reset_title">सेटिंग्स रीसेट करें</string>
     <string name="settings_reset_body">सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित करें। प्रोफ़ाइल, समूह, रूटिंग नियम और डायग्नोस्टिक्स इतिहास बने रहते हैं।</string>

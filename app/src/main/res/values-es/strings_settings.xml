@@ -174,7 +174,7 @@
     <string name="settings_biometric_body_with_pin">El desbloqueo biométrico está habilitado con un PIN de respaldo local como alternativa.</string>
     <string name="settings_biometric_confirm_title">¿Habilitar la autenticación?</string>
     <string name="settings_biometric_title">Requerir autenticación</string>
-    <string name="settings_community_api_url_reset">Restablecer al predeterminado</string>
+    <string name="settings_reset_to_default">Restablecer al predeterminado</string>
     <string name="settings_manage_action">Gestionar</string>
     <string name="settings_permission_status_not_needed">No es necesario</string>
     <string name="settings_permissions_battery_ready">Android ya permite que RIPDPI ignore la optimización de batería Doze.</string>

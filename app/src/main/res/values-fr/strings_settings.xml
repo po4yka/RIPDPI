@@ -174,7 +174,7 @@
     <string name="settings_biometric_body_with_pin">Le déverrouillage biométrique est activé avec un PIN de secours local en repli.</string>
     <string name="settings_biometric_confirm_title">Activer l\'authentification ?</string>
     <string name="settings_biometric_title">Exiger une authentification</string>
-    <string name="settings_community_api_url_reset">Réinitialiser par défaut</string>
+    <string name="settings_reset_to_default">Réinitialiser par défaut</string>
     <string name="settings_manage_action">Gérer</string>
     <string name="settings_permission_status_not_needed">Non nécessaire</string>
     <string name="settings_permissions_battery_ready">Android permet déjà à RIPDPI d\'ignorer l\'optimisation de batterie Doze.</string>

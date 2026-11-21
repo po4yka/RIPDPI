@@ -151,7 +151,7 @@
     <string name="settings_community_api_url_label">رابط API المجتمع</string>
     <string name="settings_community_api_url_helper">اتركه فارغاً للمقارنة بفحوصاتك فقط.</string>
     <string name="settings_community_api_url_save">حفظ</string>
-    <string name="settings_community_api_url_reset">إعادة التعيين إلى الافتراضي</string>
+    <string name="settings_reset_to_default">إعادة التعيين إلى الافتراضي</string>
     <string name="settings_clear_community_cache">مسح ذاكرة التخزين المؤقت للمجتمع</string>
     <string name="settings_reset_title">إعادة تعيين الإعدادات</string>
     <string name="settings_reset_body">استعادة جميع الإعدادات إلى قيمها الافتراضية. يتم الاحتفاظ بالملفات الشخصية والمجموعات وقواعد التوجيه وسجل التشخيص.</string>

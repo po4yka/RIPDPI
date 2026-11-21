@@ -86,7 +86,7 @@ class ReadabilityFormActionsLayoutTest {
     fun communityUrlActionsKeepCompleteLabelsAndCallbacks() {
         var resets = 0
         // Save is the dialog's confirm action; the editor itself keeps only Reset.
-        val labels = listOf(R.string.settings_community_api_url_reset)
+        val labels = listOf(R.string.settings_reset_to_default)
         assertMatrix(labels) { CommunityApiUrlEditor("https://fixture.example", {}, {}, { resets++ }) }
         labels.forEach { composeRule.onNodeWithText(text(it)).performScrollTo().performClick() }
         composeRule.runOnIdle { assertEquals(1, resets) }

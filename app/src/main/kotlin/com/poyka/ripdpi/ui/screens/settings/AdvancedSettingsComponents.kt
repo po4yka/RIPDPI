@@ -31,6 +31,7 @@ import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.formatNumericRange
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -209,6 +210,15 @@ internal fun AdvancedTextSetting(
             onSave = { onConfirm(setting, normalizedInput) },
             saveTestTag = RipDpiTestTags.advancedSave(setting),
         )
+        val defaultValue = remember(setting) { setting.defaultValue() }
+        if (enabled && !isDirty && defaultValue != null && value != defaultValue) {
+            RipDpiButton(
+                text = stringResource(R.string.settings_reset_to_default),
+                onClick = { onConfirm(setting, defaultValue) },
+                variant = RipDpiButtonVariant.Ghost,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.advancedReset(setting)),
+            )
+        }
         if (showDivider) {
             HorizontalDivider(color = colors.divider)
         }

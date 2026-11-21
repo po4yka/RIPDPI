@@ -174,7 +174,7 @@
     <string name="settings_biometric_body_with_pin">Die biometrische Entsperrung ist mit einer lokalen Backup-PIN als Fallback aktiviert.</string>
     <string name="settings_biometric_confirm_title">Authentifizierung aktivieren?</string>
     <string name="settings_biometric_title">Authentifizierung erforderlich</string>
-    <string name="settings_community_api_url_reset">Auf Standard zurücksetzen</string>
+    <string name="settings_reset_to_default">Auf Standard zurücksetzen</string>
     <string name="settings_manage_action">Verwalten</string>
     <string name="settings_permission_status_not_needed">Nicht erforderlich</string>
     <string name="settings_permissions_battery_ready">Android erlaubt RIPDPI bereits, die Doze-Akkuoptimierung zu ignorieren.</string>
