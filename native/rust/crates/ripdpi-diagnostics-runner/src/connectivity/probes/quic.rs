@@ -82,7 +82,7 @@ fn record_reply(details: &mut Vec<ProbeDetail>, request: &[u8], observation: Udp
     (quic_reply_status(kind), "none".to_string())
 }
 
-fn transport_outcome(error: &TransportError) -> &'static str {
+pub(in crate::connectivity) fn transport_outcome(error: &TransportError) -> &'static str {
     match error {
         TransportError::ProbeAborted("cancelled") => "quic_cancelled",
         TransportError::ProbeAborted("deadline_exceeded") | TransportError::ScanDeadlineExceeded => {

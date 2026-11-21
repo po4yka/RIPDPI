@@ -193,12 +193,14 @@ private fun bucketDnsIntegrity(
         "dns_nxdomain_mismatch",
         "dns_system_resolution_failed",
         "encrypted_dns_blocked",
-        "dns_unavailable",
         -> {
             DiagnosticsOutcomeBucket.Failed
         }
 
-        "dns_oracle_unavailable" -> {
+        // No usable answer is no evidence of interference (outcome.rs).
+        "dns_unavailable",
+        "dns_oracle_unavailable",
+        -> {
             DiagnosticsOutcomeBucket.Inconclusive
         }
 

@@ -107,6 +107,18 @@ fn quic_retry_and_version_negotiation_are_responses_but_not_completed_endpoint_c
 }
 
 #[test]
+fn quic_setup_error_does_not_downgrade_a_reached_service() {
+    assert!(matches!(
+        endpoint_evidence(&[EndpointLeg::Reached, socket_leg("quic_setup_error")]),
+        EndpointEvidence::Reached
+    ));
+    assert!(matches!(
+        endpoint_evidence(&[EndpointLeg::Reached, socket_leg("quic_timeout")]),
+        EndpointEvidence::Partial
+    ));
+}
+
+#[test]
 fn no_measured_endpoint_is_inconclusive() {
     let transport = TransportConfig::Direct { route_experiment: None };
     let cancel = AtomicBool::new(false);

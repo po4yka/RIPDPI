@@ -171,8 +171,9 @@ fn http_leg(observation: Option<&HttpObservation>) -> EndpointLeg {
 
 fn socket_leg(status: &str) -> EndpointLeg {
     match status {
-        "not_run" => EndpointLeg::Skipped,
-        "interrupted" | "invalid_target" => EndpointLeg::Incomplete,
+        // A local setup error (no route, DNS, socket) never reached the endpoint.
+        "not_run" | "quic_setup_error" => EndpointLeg::Skipped,
+        "interrupted" | "invalid_target" | "quic_cancelled" | "quic_deadline_exceeded" => EndpointLeg::Incomplete,
         "tls_ok" | "tcp_connect_ok" | "quic_initial_response" => EndpointLeg::Reached,
         "quic_initial_ack"
         | "quic_initial_other"

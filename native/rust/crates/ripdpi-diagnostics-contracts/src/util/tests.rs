@@ -222,10 +222,18 @@ fn event_level_is_warn_for_censorship_findings() {
 }
 
 #[test]
+fn dns_unavailable_is_inconclusive_not_interference() {
+    for path_mode in [ScanPathMode::RawPath, ScanPathMode::InPath] {
+        let c = classify_probe_outcome("dns_integrity", &path_mode, "dns_unavailable");
+        assert_eq!(c.bucket, ProbeOutcomeBucket::Inconclusive);
+        assert_eq!(c.event_level, "warn");
+    }
+}
+
+#[test]
 fn event_level_stays_error_for_infra_faults() {
     for (probe, outcome) in [
         ("network_environment", "network_unavailable"),
-        ("dns_integrity", "dns_unavailable"),
         ("domain_reachability", "unreachable"),
         ("quic_reachability", "quic_error"),
         ("throughput_window", "throughput_failed"),

@@ -112,11 +112,11 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             "udp_blocked" => ProbeOutcomeBucket::Inconclusive,
             "udp_skipped_or_blocked" if matches!(path_mode, ScanPathMode::InPath) => ProbeOutcomeBucket::Attention,
             "udp_skipped_or_blocked" => ProbeOutcomeBucket::Inconclusive,
-            "dns_sinkhole_substitution"
-            | "dns_nxdomain_mismatch"
-            | "dns_system_resolution_failed"
-            | "dns_unavailable" => ProbeOutcomeBucket::Failed,
-            "dns_oracle_unavailable" => ProbeOutcomeBucket::Inconclusive,
+            "dns_sinkhole_substitution" | "dns_nxdomain_mismatch" | "dns_system_resolution_failed" => {
+                ProbeOutcomeBucket::Failed
+            }
+            // No usable answer is no evidence of interference (see the runner's DNS classifier).
+            "dns_unavailable" | "dns_oracle_unavailable" => ProbeOutcomeBucket::Inconclusive,
             _ => legacy_outcome_bucket(outcome),
         },
         "domain_reachability" => match outcome {
