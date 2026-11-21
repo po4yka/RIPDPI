@@ -211,10 +211,11 @@ internal fun AdvancedTextSetting(
             saveTestTag = RipDpiTestTags.advancedSave(setting),
         )
         val defaultValue = remember(setting) { setting.defaultValue() }
-        if (enabled && !isDirty && defaultValue != null && value != defaultValue) {
+        val resetValue = defaultValue?.takeIf { enabled && !isDirty && it != value }
+        if (resetValue != null) {
             RipDpiButton(
                 text = stringResource(R.string.settings_reset_to_default),
-                onClick = { onConfirm(setting, defaultValue) },
+                onClick = { onConfirm(setting, resetValue) },
                 variant = RipDpiButtonVariant.Ghost,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.advancedReset(setting)),
             )

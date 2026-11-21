@@ -83,6 +83,7 @@ internal class SettingsMutationRunner(
     // A storage failure (full disk, EIO) must not reach the uncaught handler and kill the app and its
     // VPN service. The settings flow keeps showing the stored value, and a notice says the change was not
     // saved. The log names only the class: the message can carry stored values.
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun guarded(
         onFailure: (suspend (SettingsEffect.Notice) -> Unit)? = null,
         block: suspend () -> Unit,
