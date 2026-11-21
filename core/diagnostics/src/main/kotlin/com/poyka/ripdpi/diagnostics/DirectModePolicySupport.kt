@@ -188,23 +188,17 @@ private fun buildVerdict(
 ): DirectModeVerdict? =
     when (outcome) {
         DirectModeOutcome.TRANSPARENT_OK -> {
-            val result =
-                when {
-                    signals.hasTransparentSuccess -> DirectModeVerdictResult.TRANSPARENT_WORKS
-
-                    // A TLS failure without a reply and no transparent success needs intervention.
-                    signals.hasTlsFailureWithoutResponse -> DirectModeVerdictResult.NO_DIRECT_SOLUTION
-
-                    else -> null
-                }
-            result?.let {
+            // A TLS failure alone proves neither claim: a local strategy may still work, so emit no verdict.
+            if (signals.hasTransparentSuccess) {
                 DirectModeVerdict(
-                    result = it,
+                    result = DirectModeVerdictResult.TRANSPARENT_WORKS,
                     reasonCode = reasonCode,
                     transportClass = signals.transportClass,
                     authority = authority,
                     cooldownUntil = cooldownUntil,
                 )
+            } else {
+                null
             }
         }
 

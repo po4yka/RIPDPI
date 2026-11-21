@@ -265,7 +265,7 @@ class DirectModePolicySupportTest {
     }
 
     @Test
-    fun `tls failure without a reply and no transparent success needs intervention`() {
+    fun `tls failure without a reply and no transparent success claims no verdict but keeps the policy`() {
         val report =
             reportWithResults(
                 ProbeResult(
@@ -282,10 +282,13 @@ class DirectModePolicySupportTest {
                 ),
             )
 
-        val verdict = deriveDirectModeVerdict(report)
+        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
 
-        assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
-        assertEquals(DirectTransportClass.SNI_TLS_SUSPECT, verdict?.transportClass)
+        // The strategy probe found a working local strategy, so neither "direct works" nor "no direct solution".
+        assertNull(deriveDirectModeVerdict(report))
+        assertEquals(DirectModeOutcome.TRANSPARENT_OK, observation.transportPolicy?.outcome)
+        assertEquals(QuicMode.HARD_DISABLE, observation.transportPolicy?.quicMode)
+        assertEquals(DirectTransportClass.SNI_TLS_SUSPECT, observation.transportClass)
     }
 
     @Test
