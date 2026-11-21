@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.RawPathExecutionResult
+import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.ServerCapabilityStore
@@ -90,10 +91,13 @@ class ScanFinalizationService
                         settings = prepared.settings,
                         pathMode = prepared.pathMode,
                     )
+                // One predicate: a fresh result outranks a remembered policy exactly when its policy is persisted.
+                val freshPolicy = buildFreshRememberedPolicy(prepared, plannedReport)
                 val winningCombination =
                     resolveWinningCombination(
                         prepared = prepared,
                         report = plannedReport,
+                        freshPolicyPersistable = freshPolicy != null,
                     )
                 var finalReport = enforceNetworkScope(prepared, plannedReport)
                 var derived =
@@ -111,7 +115,7 @@ class ScanFinalizationService
                 // Report and context persistence can suspend while the physical network changes.
                 finalReport = enforceNetworkScope(prepared, finalReport)
                 if (prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
-                    persistNetworkEvidence(prepared, finalReport, winningCombination)
+                    persistNetworkEvidence(prepared, finalReport, winningCombination, freshPolicy)
                 }
                 if (prepared.pathMode == ScanPathMode.IN_PATH) {
                     val staged = checkNotNull(scanRecordStore.getScanSession(prepared.sessionId))
@@ -153,6 +157,7 @@ class ScanFinalizationService
             prepared: PreparedDiagnosticsScan,
             report: ScanReport,
             winningCombination: BypassCombinationCandidate?,
+            freshPolicy: RememberedNetworkPolicyJson?,
         ) {
             val fingerprint = prepared.networkFingerprint ?: return
             if (
@@ -173,8 +178,12 @@ class ScanFinalizationService
                 if (report.isCompleteScan()) {
                     rememberNetworkDnsPathPreference(fingerprint, report.resolverRecommendation)
                 }
-                if (prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
-                    rememberStrategyProbeRecommendation(prepared, report)
+                if (freshPolicy != null && prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
+                    rememberedNetworkPolicyStore.rememberValidatedPolicy(
+                        policy = freshPolicy,
+                        source = prepared.rememberedPolicySource(),
+                        validatedAt = report.finishedAt,
+                    )
                 }
             }
         }
@@ -277,6 +286,7 @@ class ScanFinalizationService
         private suspend fun resolveWinningCombination(
             prepared: PreparedDiagnosticsScan,
             report: ScanReport,
+            freshPolicyPersistable: Boolean,
         ): BypassCombinationCandidate? {
             val fingerprintHash = prepared.networkFingerprint?.scopeKey() ?: return null
             val mode = Mode.fromString(prepared.settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue })
@@ -298,6 +308,7 @@ class ScanFinalizationService
                     currentTcpFamily = laneFamilies.tcpStrategyFamily,
                     currentQuicFamily = laneFamilies.quicStrategyFamily,
                     preferredEdges = preferredEdges,
+                    persistable = freshPolicyPersistable,
                 )
             return BypassCombinationScorer.chooseBest(
                 buildList {
@@ -397,17 +408,18 @@ class ScanFinalizationService
             )
         }
 
-        private suspend fun rememberStrategyProbeRecommendation(
+        /** The strategy policy this scan will remember, or null when it must not be persisted. */
+        private fun buildFreshRememberedPolicy(
             prepared: PreparedDiagnosticsScan,
             report: ScanReport,
-        ) {
-            if (!report.isCompleteScan()) return
-            val strategyProbe = report.strategyProbeReport
-            val persistencePolicy = prepared.intent.executionPolicy.probePersistencePolicy
+        ): RememberedNetworkPolicyJson? {
+            if (!report.isCompleteScan()) return null
+            val strategyProbe = report.strategyProbeReport ?: return null
+            val fingerprint = prepared.networkFingerprint ?: return null
             val shouldRemember =
                 prepared.settings.networkStrategyMemoryEnabled &&
                     !prepared.settings.enableCmdSettings &&
-                    when (persistencePolicy) {
+                    when (prepared.intent.executionPolicy.probePersistencePolicy) {
                         ProbePersistencePolicy.MANUAL_ONLY -> {
                             false
                         }
@@ -420,44 +432,18 @@ class ScanFinalizationService
                             true
                         }
                     }
-            val passesBackgroundEligibilityGate =
-                if (
-                    shouldRemember &&
-                    prepared.scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND &&
-                    strategyProbe != null
-                ) {
-                    DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(strategyProbe) ==
-                        DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible
-                } else {
-                    true
-                }
-            val canBuildPolicy =
-                shouldRemember &&
-                    passesBackgroundEligibilityGate &&
-                    strategyProbe != null &&
-                    prepared.networkFingerprint != null
-            val policy =
-                if (canBuildPolicy) {
-                    DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
-                        strategyProbe = strategyProbe,
-                        settings = prepared.settings,
-                        fingerprint = prepared.networkFingerprint,
-                        hostAutolearnStorePath =
-                            prepared.settings
-                                .takeIf { it.hostAutolearnEnabled }
-                                ?.let { resolveHostAutolearnStorePath(context) },
-                        json = json,
-                    )
-                } else {
-                    null
-                }
-            if (policy != null) {
-                rememberedNetworkPolicyStore.rememberValidatedPolicy(
-                    policy = policy,
-                    source = prepared.rememberedPolicySource(),
-                    validatedAt = report.finishedAt,
-                )
-            }
+            if (!shouldRemember) return null
+            // The builder applies the auto-persist eligibility bar, quick_v1 suite and valid recommendation checks.
+            return DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
+                strategyProbe = strategyProbe,
+                settings = prepared.settings,
+                fingerprint = fingerprint,
+                hostAutolearnStorePath =
+                    prepared.settings
+                        .takeIf { it.hostAutolearnEnabled }
+                        ?.let { resolveHostAutolearnStorePath(context) },
+                json = json,
+            )
         }
     }
 

@@ -93,6 +93,96 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
         }
 
     @Test
+    fun `fresh eligible result that will not be persisted keeps the remembered combination`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = coordinatorTimelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val preparedFingerprint = strategyProbeFingerprint(ssid = "network-default", gateway = "192.0.2.1")
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    networkFingerprintProvider = MutableNetworkFingerprintProvider(preparedFingerprint),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+
+            suspend fun runBackgroundProbe(
+                sessionId: String,
+                settings: com.poyka.ripdpi.proto.AppSettings,
+                report: ScanReport,
+            ) {
+                val prepared =
+                    preparedDiagnosticsScan(
+                        sessionId = sessionId,
+                        settings = settings,
+                        scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                        exposeProgress = false,
+                        registerActiveBridge = false,
+                        networkFingerprint = preparedFingerprint,
+                        profileId = "automatic-probing",
+                        family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                        kind = ScanKind.STRATEGY_PROBE,
+                        strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                    )
+                seedPreparedScan(stores, prepared)
+                fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+                val bridge =
+                    FakeNetworkDiagnosticsBridge(json).apply {
+                        autoCompleteOnStart = false
+                        enqueueProgress(
+                            ScanProgress(
+                                sessionId = sessionId,
+                                phase = "complete",
+                                completedSteps = 1,
+                                totalSteps = 1,
+                                message = "complete",
+                                isFinished = true,
+                            ),
+                        )
+                        enqueueReport(report)
+                    }
+                fixtures.activeScanRegistry.registerBridge(bridge, sessionId, prepared.registerActiveBridge)
+                fixtures.coordinator.execute(
+                    prepared,
+                    BridgeSessionHandle(bridge, sessionId, prepared.registerActiveBridge),
+                    rawPathRunner = ::runSettledRawPathBlock,
+                )
+            }
+
+            val rememberingSettings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            runBackgroundProbe(
+                "session-remembered",
+                rememberingSettings,
+                scanReportWithStrategyProbe("session-remembered", rememberingSettings),
+            )
+            val rememberedBefore = stores.rememberedPoliciesState.value.single()
+
+            // Strategy memory is off, so this eligible result cannot be persisted and must not win.
+            val forgetfulSettings = rememberingSettings.toBuilder().setNetworkStrategyMemoryEnabled(false).build()
+            runBackgroundProbe(
+                "session-fresh",
+                forgetfulSettings,
+                scanReportWithStrategyProbe(
+                    "session-fresh",
+                    forgetfulSettings,
+                    resolverRecommendation = resolverRecommendationForCoordinator(),
+                ).copy(results = scanReportWithResolverRecommendation("session-fresh").results),
+            )
+
+            assertEquals(listOf(rememberedBefore), stores.rememberedPoliciesState.value)
+            assertNull(stores.getNetworkDnsPathPreference(preparedFingerprint.scopeKey()))
+        }
+
+    @Test
     fun `background automatic probing skips remembered policy when audit assessment is missing`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

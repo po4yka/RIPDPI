@@ -6,7 +6,7 @@ import com.poyka.ripdpi.data.PreferredEdgeCandidate
 internal data class BypassCombinationCandidate(
     val id: String,
     val rememberedValidated: Boolean,
-    /** A fresh result that clears the same bar as background auto-persistence. */
+    /** A fresh result whose strategy policy this scan will remember. */
     val persistenceEligible: Boolean = false,
     val strategyConfidence: StrategyProbeAuditConfidenceLevel? = null,
     val winnerCoveragePercent: Int = 0,
@@ -46,6 +46,7 @@ internal object BypassCombinationScorer {
         currentTcpFamily: String?,
         currentQuicFamily: String?,
         preferredEdges: Map<String, List<PreferredEdgeCandidate>>,
+        persistable: Boolean,
     ): BypassCombinationCandidate {
         val strategyProbe = report.strategyProbeReport
         val assessment = strategyProbe?.auditAssessment
@@ -63,9 +64,7 @@ internal object BypassCombinationScorer {
         return BypassCombinationCandidate(
             id = "fresh",
             rememberedValidated = false,
-            persistenceEligible =
-                strategyProbe?.let(DiagnosticsScanWorkflow::evaluateBackgroundAutoPersistEligibility) ==
-                    DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible,
+            persistenceEligible = persistable,
             strategyConfidence = assessment?.confidence?.level,
             winnerCoveragePercent = assessment?.coverage?.winnerCoveragePercent ?: 0,
             combinedTransportSuccess =
