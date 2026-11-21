@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedConnectionConcurrencyPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
-import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.strategyFamily
@@ -33,12 +32,6 @@ interface RememberedNetworkPolicyStore {
         mode: Mode,
     ): RememberedNetworkPolicyEntity?
 
-    suspend fun upsertObservedPolicy(
-        policy: RememberedNetworkPolicyJson,
-        source: RememberedNetworkPolicySource = RememberedNetworkPolicySource.MANUAL_SESSION,
-        observedAt: Long? = null,
-    ): RememberedNetworkPolicyEntity
-
     suspend fun rememberValidatedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: RememberedNetworkPolicySource,
@@ -48,13 +41,6 @@ interface RememberedNetworkPolicyStore {
     suspend fun recordApplied(
         policy: RememberedNetworkPolicyEntity,
         appliedAt: Long? = null,
-    ): RememberedNetworkPolicyEntity
-
-    suspend fun recordSuccess(
-        policy: RememberedNetworkPolicyEntity,
-        validated: Boolean = false,
-        strategySignatureJson: String? = null,
-        completedAt: Long? = null,
     ): RememberedNetworkPolicyEntity
 
     suspend fun recordFailure(
@@ -110,26 +96,6 @@ class DefaultRememberedNetworkPolicyStore
                 mode = mode.preferenceValue,
             )
 
-        override suspend fun upsertObservedPolicy(
-            policy: RememberedNetworkPolicyJson,
-            source: RememberedNetworkPolicySource,
-            observedAt: Long?,
-        ): RememberedNetworkPolicyEntity =
-            writeLock.withLock {
-                upsertInternal(
-                    existing =
-                        recordStore.getRememberedNetworkPolicy(
-                            fingerprintHash = policy.fingerprintHash,
-                            mode = policy.mode,
-                        ),
-                    policy = policy,
-                    source = source,
-                    status = RememberedNetworkPolicyStatusObserved,
-                    validatedAt = null,
-                    now = observedAt ?: clock.now(),
-                )
-            }
-
         override suspend fun rememberValidatedPolicy(
             policy: RememberedNetworkPolicyJson,
             source: RememberedNetworkPolicySource,
@@ -145,9 +111,7 @@ class DefaultRememberedNetworkPolicyStore
                         ),
                     policy = policy,
                     source = source,
-                    status = RememberedNetworkPolicyStatusValidated,
                     validatedAt = effectiveValidatedAt,
-                    now = effectiveValidatedAt,
                 )
             }
         }
@@ -161,26 +125,6 @@ class DefaultRememberedNetworkPolicyStore
                     current.copy(lastAppliedAt = effectiveAppliedAt, updatedAt = effectiveAppliedAt)
                 }
             }
-
-        override suspend fun recordSuccess(
-            policy: RememberedNetworkPolicyEntity,
-            validated: Boolean,
-            strategySignatureJson: String?,
-            completedAt: Long?,
-        ): RememberedNetworkPolicyEntity {
-            val effectiveCompletedAt = completedAt ?: clock.now()
-            return mutateCurrent(policy) { current ->
-                // Only probe evidence ([validated]) refreshes lastValidatedAt; other successes leave the age alone.
-                current.copy(
-                    status = if (validated) RememberedNetworkPolicyStatusValidated else current.status,
-                    strategySignatureJson = strategySignatureJson ?: current.strategySignatureJson,
-                    successCount = current.successCount + 1,
-                    consecutiveFailureCount = 0,
-                    lastValidatedAt = if (validated) effectiveCompletedAt else current.lastValidatedAt,
-                    updatedAt = effectiveCompletedAt,
-                )
-            }
-        }
 
         override suspend fun recordFailure(
             policy: RememberedNetworkPolicyEntity,
@@ -240,9 +184,7 @@ class DefaultRememberedNetworkPolicyStore
             existing: RememberedNetworkPolicyEntity?,
             policy: RememberedNetworkPolicyJson,
             source: RememberedNetworkPolicySource,
-            status: String,
-            validatedAt: Long?,
-            now: Long,
+            validatedAt: Long,
         ): RememberedNetworkPolicyEntity {
             val contentChanged = existing?.matches(policy) == false
             val base =
@@ -269,15 +211,15 @@ class DefaultRememberedNetworkPolicyStore
                                 json.encodeToString(RememberedConnectionConcurrencyPolicyJson.serializer(), it)
                             },
                         source = source.encodeStorageValue(),
-                        status = status,
-                        successCount = if (status == RememberedNetworkPolicyStatusValidated) 1 else 0,
+                        status = RememberedNetworkPolicyStatusValidated,
+                        successCount = 1,
                         failureCount = 0,
                         consecutiveFailureCount = 0,
-                        firstObservedAt = now,
+                        firstObservedAt = validatedAt,
                         lastValidatedAt = validatedAt,
                         lastAppliedAt = existing?.lastAppliedAt,
                         suppressedUntil = null,
-                        updatedAt = now,
+                        updatedAt = validatedAt,
                     )
                 } else {
                     existing.copy(
@@ -300,17 +242,12 @@ class DefaultRememberedNetworkPolicyStore
                                 json.encodeToString(RememberedConnectionConcurrencyPolicyJson.serializer(), it)
                             } ?: existing.connectionConcurrencyPolicyJson,
                         source = source.encodeStorageValue(),
-                        status = status,
-                        successCount =
-                            if (status == RememberedNetworkPolicyStatusValidated) {
-                                existing.successCount + 1
-                            } else {
-                                existing.successCount
-                            },
+                        status = RememberedNetworkPolicyStatusValidated,
+                        successCount = existing.successCount + 1,
                         consecutiveFailureCount = 0,
-                        lastValidatedAt = validatedAt ?: existing.lastValidatedAt,
+                        lastValidatedAt = validatedAt,
                         suppressedUntil = null,
-                        updatedAt = now,
+                        updatedAt = validatedAt,
                     )
                 }
             return persist(base)

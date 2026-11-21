@@ -4,6 +4,7 @@ import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
@@ -35,8 +36,8 @@ class RememberedNetworksKaspressoTest :
             step("Seed two remembered networks with synthetic fingerprints") {
                 runBlocking {
                     policyStore.clearAll()
-                    kept = policyStore.upsertObservedPolicy(syntheticPolicy("journey-fingerprint-kept")).id
-                    forgotten = policyStore.upsertObservedPolicy(syntheticPolicy("journey-fingerprint-forgotten")).id
+                    kept = remember("journey-fingerprint-kept")
+                    forgotten = remember("journey-fingerprint-forgotten")
                 }
             }
             step("Open remembered networks from advanced settings: both entries are listed") {
@@ -78,6 +79,13 @@ class RememberedNetworksKaspressoTest :
                 }
             }
         }
+
+    private suspend fun remember(fingerprintHash: String): Long =
+        policyStore
+            .rememberValidatedPolicy(
+                syntheticPolicy(fingerprintHash),
+                RememberedNetworkPolicySource.STRATEGY_PROBE_MANUAL,
+            ).id
 
     /** A policy with a made-up fingerprint hash; it names no real network. */
     private fun syntheticPolicy(fingerprintHash: String) =

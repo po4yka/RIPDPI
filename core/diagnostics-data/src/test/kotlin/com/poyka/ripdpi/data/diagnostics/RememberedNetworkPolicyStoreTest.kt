@@ -20,21 +20,6 @@ class RememberedNetworkPolicyStoreTest {
     private val store = DefaultRememberedNetworkPolicyStore(recordStore, clock)
 
     @Test
-    fun `upsert observed policy uses clock when observedAt omitted`() =
-        runTest {
-            val result =
-                store.upsertObservedPolicy(
-                    policy = rememberedPolicyJson(fingerprintHash = "fingerprint-observed"),
-                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
-                )
-
-            assertEquals(RememberedNetworkPolicyStatusObserved, result.status)
-            assertEquals(clock.now(), result.firstObservedAt)
-            assertEquals(clock.now(), result.updatedAt)
-            assertNull(result.lastValidatedAt)
-        }
-
-    @Test
     fun `remember validated policy uses explicit validatedAt when provided`() =
         runTest {
             val result =
@@ -63,23 +48,6 @@ class RememberedNetworkPolicyStoreTest {
         }
 
     @Test
-    fun `record success uses explicit completedAt for validation transition`() =
-        runTest {
-            val result =
-                store.recordSuccess(
-                    policy = stored(rememberedPolicyEntity(status = RememberedNetworkPolicyStatusObserved)),
-                    validated = true,
-                    strategySignatureJson = "strategy-v2",
-                    completedAt = 2_222L,
-                )
-
-            assertEquals(RememberedNetworkPolicyStatusValidated, result.status)
-            assertEquals("strategy-v2", result.strategySignatureJson)
-            assertEquals(2_222L, result.lastValidatedAt)
-            assertEquals(2_222L, result.updatedAt)
-        }
-
-    @Test
     fun `record failure uses clock for suppression when failedAt omitted`() =
         runTest {
             val result =
@@ -95,25 +63,7 @@ class RememberedNetworkPolicyStoreTest {
 
             assertEquals(clock.now(), result.updatedAt)
             assertEquals(RememberedNetworkPolicyStatusSuppressed, result.status)
-            assertNull(result.suppressedUntil)
             assertEquals(2, result.consecutiveFailureCount)
-        }
-
-    @Test
-    fun `success without probe evidence keeps the validation age`() =
-        runTest {
-            val result =
-                store.recordSuccess(
-                    policy =
-                        stored(
-                            rememberedPolicyEntity(status = RememberedNetworkPolicyStatusValidated)
-                                .copy(lastValidatedAt = 1_000L),
-                        ),
-                    completedAt = 5_000L,
-                )
-
-            assertEquals(1_000L, result.lastValidatedAt)
-            assertEquals(5_000L, result.updatedAt)
         }
 
     @Test
@@ -171,7 +121,6 @@ class RememberedNetworkPolicyStoreTest {
             store.deletePolicy(snapshot.id, snapshot.fingerprintHash)
 
             store.recordApplied(policy = snapshot, appliedAt = 2_000L)
-            store.recordSuccess(policy = snapshot, validated = true, completedAt = 3_000L)
             store.recordFailure(policy = snapshot, failedAt = 4_000L)
 
             assertNull(recordStore.getRememberedNetworkPolicy("fingerprint-deleted", Mode.VPN.preferenceValue))
@@ -188,10 +137,10 @@ class RememberedNetworkPolicyStoreTest {
                 )
             store.deletePolicy(stale.id, stale.fingerprintHash)
             val newer =
-                store.upsertObservedPolicy(
+                store.rememberValidatedPolicy(
                     policy = rememberedPolicyJson(fingerprintHash = "fingerprint-replaced"),
                     source = RememberedNetworkPolicySource.MANUAL_SESSION,
-                    observedAt = 2_000L,
+                    validatedAt = 2_000L,
                 )
 
             store.recordFailure(policy = stale, failedAt = 3_000L)

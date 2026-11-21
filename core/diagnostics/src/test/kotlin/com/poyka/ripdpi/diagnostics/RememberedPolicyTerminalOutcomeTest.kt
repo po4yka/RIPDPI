@@ -5,12 +5,10 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class RememberedPolicyTerminalOutcomeTest {
-    // Outcome counters come from a session-start snapshot with no failures; the stored row has
-    // one failure from another session since then.
+    // The stored row has one failure from another session since this session started.
     private val storedRow =
         RememberedNetworkPolicyEntity(
             id = 5L,
@@ -31,16 +29,13 @@ class RememberedPolicyTerminalOutcomeTest {
 
     @Test
     fun `a failure outcome adds to the failures stored since its snapshot`() {
+        // Outbox JSON as older builds wrote it, with snapshot counters that applyTo no longer reads.
         val outcome =
-            RememberedPolicyTerminalOutcome(
-                policyId = 5L,
-                mode = "vpn",
-                status = RememberedNetworkPolicyStatusValidated,
-                successCount = 3,
-                failureCount = 1,
-                consecutiveFailureCount = 1,
-                updateStrategySignature = false,
-                updatedAt = 100L,
+            RuntimeHistoryJson.decodeFromString(
+                RememberedPolicyTerminalOutcome.serializer(),
+                """{"policyId":5,"mode":"vpn","status":"validated","successCount":3,"failureCount":1,""" +
+                    """"consecutiveFailureCount":1,"suppressedUntil":null,"lastValidatedAt":10,""" +
+                    """"updateStrategySignature":false,"updatedAt":100}""",
             )
 
         val result = outcome.applyTo(storedRow, strategySignatureJson = "strategy-new")
@@ -48,7 +43,6 @@ class RememberedPolicyTerminalOutcomeTest {
         assertEquals(RememberedNetworkPolicyStatusSuppressed, result?.status)
         assertEquals(2, result?.failureCount)
         assertEquals(2, result?.consecutiveFailureCount)
-        assertNull(result?.suppressedUntil)
         assertEquals("strategy-old", result?.strategySignatureJson)
     }
 
@@ -58,11 +52,6 @@ class RememberedPolicyTerminalOutcomeTest {
             RememberedPolicyTerminalOutcome(
                 policyId = 5L,
                 mode = "vpn",
-                status = RememberedNetworkPolicyStatusValidated,
-                successCount = 4,
-                failureCount = 0,
-                consecutiveFailureCount = 0,
-                lastValidatedAt = 100L,
                 updateStrategySignature = true,
                 updatedAt = 100L,
             )

@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
+import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.Sender
@@ -142,7 +143,6 @@ class ProxyServiceAutoApplyLifecycleTest {
             assertEquals(RememberedNetworkPolicyStatusSuppressed, persisted.status)
             assertEquals(2, persisted.failureCount)
             assertEquals(2, persisted.consecutiveFailureCount)
-            assertNull(persisted.suppressedUntil)
             assertNull(env.rememberedPolicies.findValidatedMatch(fingerprint.scopeKey(), Mode.Proxy))
 
             env.startCaptured()
@@ -163,10 +163,15 @@ class ProxyServiceAutoApplyLifecycleTest {
             val fingerprint = sampleFingerprint()
             val env = newEnv(fingerprint = fingerprint)
             val manualPolicy = automaticProbePolicy(fingerprint)
-            env.rememberedPolicies.upsertObservedPolicy(
-                policy = manualPolicy,
-                source = RememberedNetworkPolicySource.AUTOMATIC_PROBING_MANUAL,
-                observedAt = env.clock.nowMillis(),
+            // An observed (never validated) row, as older builds stored it.
+            val validated =
+                env.rememberedPolicies.rememberValidatedPolicy(
+                    policy = manualPolicy,
+                    source = RememberedNetworkPolicySource.AUTOMATIC_PROBING_MANUAL,
+                    validatedAt = env.clock.nowMillis(),
+                )
+            env.recordStore.upsertRememberedNetworkPolicy(
+                validated.copy(status = RememberedNetworkPolicyStatusObserved, lastValidatedAt = null),
             )
 
             assertNull(env.rememberedPolicies.findValidatedMatch(fingerprint.scopeKey(), Mode.Proxy))

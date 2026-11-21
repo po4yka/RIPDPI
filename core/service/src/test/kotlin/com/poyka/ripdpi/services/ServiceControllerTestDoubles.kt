@@ -238,12 +238,6 @@ internal class TestRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
         mode: Mode,
     ): RememberedNetworkPolicyEntity? = validatedMatch
 
-    override suspend fun upsertObservedPolicy(
-        policy: RememberedNetworkPolicyJson,
-        source: RememberedNetworkPolicySource,
-        observedAt: Long?,
-    ): RememberedNetworkPolicyEntity = sampleRememberedPolicyEntity()
-
     override suspend fun rememberValidatedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: RememberedNetworkPolicySource,
@@ -253,13 +247,6 @@ internal class TestRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
     override suspend fun recordApplied(
         policy: RememberedNetworkPolicyEntity,
         appliedAt: Long?,
-    ): RememberedNetworkPolicyEntity = policy
-
-    override suspend fun recordSuccess(
-        policy: RememberedNetworkPolicyEntity,
-        validated: Boolean,
-        strategySignatureJson: String?,
-        completedAt: Long?,
     ): RememberedNetworkPolicyEntity = policy
 
     override suspend fun recordFailure(

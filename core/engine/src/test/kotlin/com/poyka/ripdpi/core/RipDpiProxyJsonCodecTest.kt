@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
-import com.poyka.ripdpi.data.CloudflareWorkerTransportConfig
 import com.poyka.ripdpi.data.DirectDnsClassification
 import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
@@ -155,14 +154,14 @@ class RipDpiProxyJsonCodecTest {
     fun `worker transport is session only and stripped before policy persistence`() {
         val bearer = "worker-secret"
         val preferences =
-            RipDpiProxyUIPreferences()
-                .withCloudflareWorkerTransport(
-                    CloudflareWorkerTransportConfig(
-                        workerUrl = "https://edge.example.workers.dev/relay",
-                        credentialRef = "worker-main",
-                        authBearer = SecretString(bearer),
+            RipDpiProxyUIPreferences(
+                wsTunnel =
+                    RipDpiWsTunnelConfig(
+                        cloudflareWorkerUrl = "https://edge.example.workers.dev/relay",
+                        cloudflareWorkerCredentialRef = "worker-main",
+                        cloudflareWorkerBearer = SecretString(bearer),
                     ),
-                )
+            )
 
         val runtimeJson = preferences.toNativeConfigJson()
         val wsTunnel =

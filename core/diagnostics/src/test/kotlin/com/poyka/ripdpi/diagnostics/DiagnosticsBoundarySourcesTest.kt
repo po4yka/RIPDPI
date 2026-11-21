@@ -332,12 +332,6 @@ private class CountingRememberedNetworkPolicyStore : RememberedNetworkPolicyStor
         mode: Mode,
     ): RememberedNetworkPolicyEntity? = null
 
-    override suspend fun upsertObservedPolicy(
-        policy: RememberedNetworkPolicyJson,
-        source: RememberedNetworkPolicySource,
-        observedAt: Long?,
-    ): RememberedNetworkPolicyEntity = error("unused in test")
-
     override suspend fun rememberValidatedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: RememberedNetworkPolicySource,
@@ -347,13 +341,6 @@ private class CountingRememberedNetworkPolicyStore : RememberedNetworkPolicyStor
     override suspend fun recordApplied(
         policy: RememberedNetworkPolicyEntity,
         appliedAt: Long?,
-    ): RememberedNetworkPolicyEntity = error("unused in test")
-
-    override suspend fun recordSuccess(
-        policy: RememberedNetworkPolicyEntity,
-        validated: Boolean,
-        strategySignatureJson: String?,
-        completedAt: Long?,
     ): RememberedNetworkPolicyEntity = error("unused in test")
 
     override suspend fun recordFailure(

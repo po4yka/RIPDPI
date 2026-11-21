@@ -89,17 +89,9 @@ class RememberedPolicySessionTracker
             val entity = rememberedPolicySession.entity
             return when {
                 failed && !proved -> {
-                    val nextConsecutiveFailures = entity.consecutiveFailureCount + 1
-                    val shouldSuppress =
-                        entity.status == RememberedNetworkPolicyStatusValidated && nextConsecutiveFailures >= 2
                     RememberedPolicyTerminalOutcome(
                         policyId = entity.id,
                         mode = entity.mode,
-                        status = if (shouldSuppress) RememberedNetworkPolicyStatusSuppressed else entity.status,
-                        successCount = entity.successCount,
-                        failureCount = entity.failureCount + 1,
-                        consecutiveFailureCount = nextConsecutiveFailures,
-                        lastValidatedAt = entity.lastValidatedAt,
                         updateStrategySignature = false,
                         updatedAt = finalizedAt,
                         failureHandover = rememberedPolicySession.toFailureHandover(session.id, finalizedAt),
@@ -112,11 +104,6 @@ class RememberedPolicySessionTracker
                     RememberedPolicyTerminalOutcome(
                         policyId = entity.id,
                         mode = entity.mode,
-                        status = entity.status,
-                        successCount = entity.successCount + 1,
-                        failureCount = entity.failureCount,
-                        consecutiveFailureCount = 0,
-                        lastValidatedAt = entity.lastValidatedAt,
                         updateStrategySignature = true,
                         updatedAt = finalizedAt,
                     )
@@ -186,20 +173,14 @@ class RememberedPolicySessionTracker
 internal data class RememberedPolicyTerminalOutcome(
     val policyId: Long = 0L,
     val mode: String,
-    val status: String,
-    val successCount: Int,
-    val failureCount: Int,
-    val consecutiveFailureCount: Int,
-    val suppressedUntil: Long? = null,
-    val lastValidatedAt: Long? = null,
     val updateStrategySignature: Boolean,
     val updatedAt: Long,
     val failureHandover: RememberedPolicyFailureHandover? = null,
 ) {
     /**
-     * Applies this session's success or failure to [current], the row as stored now. The absolute
-     * counters above come from the session-start snapshot, so writing them would undo updates made
-     * by other sessions since then. Returns null when [current] is a row of another mode.
+     * Applies this session's success or failure to [current], the row as stored now, so updates made by other
+     * sessions since this one started are kept. Returns null when [current] is a row of another mode. Outbox JSON
+     * written by older builds carries extra counter keys; the tolerant decoder ignores them.
      */
     fun applyTo(
         current: RememberedNetworkPolicyEntity,

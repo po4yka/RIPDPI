@@ -2,7 +2,6 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.ActiveDnsSettings
-import com.poyka.ripdpi.data.CloudflareWorkerTransportConfig
 import com.poyka.ripdpi.data.EnvironmentKind
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.StrategyLaneFamilies
@@ -176,69 +175,6 @@ fun RipDpiProxyUIPreferences.withConnectionConcurrencyPolicy(
         environmentKind = environmentKind,
         destinationRouting = destinationRouting,
         awg = awg,
-    )
-
-fun RipDpiProxyUIPreferences.withCloudflareWorkerTransport(
-    config: CloudflareWorkerTransportConfig?,
-): RipDpiProxyUIPreferences =
-    RipDpiProxyUIPreferences(
-        listen = listen,
-        protocols = protocols,
-        chains = chains,
-        fakePackets = fakePackets,
-        parserEvasions = parserEvasions,
-        adaptiveFallback = adaptiveFallback,
-        quic = quic,
-        hosts = hosts,
-        relay = relay,
-        warp = warp,
-        hostAutolearn = hostAutolearn,
-        wsTunnel =
-            wsTunnel.copy(
-                cloudflareWorkerUrl = config?.workerUrl,
-                cloudflareWorkerCredentialRef = config?.credentialRef,
-                cloudflareWorkerBearer = config?.authBearer,
-            ),
-        nativeLogLevel = nativeLogLevel,
-        runtimeContext = runtimeContext,
-        logContext = logContext,
-        rootMode = rootMode,
-        rootHelperSocketPath = rootHelperSocketPath,
-        geoipDbPath = geoipDbPath,
-        geositeDbPath = geositeDbPath,
-        environmentKind = environmentKind,
-        destinationRouting = destinationRouting,
-        awg = awg,
-    )
-
-/** Replaces the destination-route snapshot while preserving every other runtime preference. */
-fun RipDpiProxyUIPreferences.withDestinationRoutingPolicy(
-    policy: DestinationRoutingPolicy,
-    awgOverride: AwgActivationRequest? = awg,
-): RipDpiProxyUIPreferences =
-    RipDpiProxyUIPreferences(
-        listen = listen,
-        protocols = protocols,
-        chains = chains,
-        fakePackets = fakePackets,
-        parserEvasions = parserEvasions,
-        adaptiveFallback = adaptiveFallback,
-        quic = quic,
-        hosts = hosts,
-        relay = relay,
-        warp = warp,
-        hostAutolearn = hostAutolearn,
-        wsTunnel = wsTunnel,
-        nativeLogLevel = nativeLogLevel,
-        runtimeContext = runtimeContext,
-        logContext = logContext,
-        rootMode = rootMode,
-        rootHelperSocketPath = rootHelperSocketPath,
-        geoipDbPath = geoipDbPath,
-        geositeDbPath = geositeDbPath,
-        environmentKind = environmentKind,
-        destinationRouting = policy,
-        awg = awgOverride,
     )
 
 fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(activeDns: ActiveDnsSettings? = null): StrategyLaneFamilies =
