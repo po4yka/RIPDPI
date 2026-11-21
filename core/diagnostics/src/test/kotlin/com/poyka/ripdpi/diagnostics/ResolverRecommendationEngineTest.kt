@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -363,7 +364,7 @@ class ResolverRecommendationEngineComputeTest {
     }
 
     @Test
-    fun `compute recommends resolver for retried udp timeout with encrypted answers`() {
+    fun `compute does not recommend resolver for inconclusive udp timeout`() {
         val report =
             ScanReport(
                 sessionId = "s1",
@@ -401,9 +402,81 @@ class ResolverRecommendationEngineComputeTest {
                 preferredPath = null,
             )
 
-        assertNotNull(result)
-        assertEquals(DnsProviderCloudflare, result!!.selectedResolverId)
-        assertEquals("udp_timeout_transient", result.triggerOutcome)
+        assertNull(result)
+    }
+
+    @Test
+    fun `compute does not recommend resolver for raw path skipped udp`() {
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 100,
+                summary = "",
+                results =
+                    listOf(
+                        dnsIntegrityResult(
+                            outcome = "udp_skipped_or_blocked",
+                            resolverId = DnsProviderCloudflare,
+                            protocol = EncryptedDnsProtocolDoh,
+                            host = "cloudflare-dns.com",
+                            endpoint = "https://cloudflare-dns.com/dns-query",
+                            bootstrapIps = "1.1.1.1",
+                            encryptedAddresses = "93.184.216.34",
+                            latencyMs = "5",
+                        ),
+                    ),
+            )
+
+        assertNull(
+            ResolverRecommendationEngine.compute(
+                report = report,
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
+                preferredPath = null,
+            ),
+        )
+    }
+
+    @Test
+    fun `compute recommends resolver for corroborated suspicious divergence`() {
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 100,
+                summary = "",
+                results =
+                    listOf(
+                        dnsIntegrityResult(
+                            outcome = "dns_suspicious_divergence",
+                            resolverId = DnsProviderCloudflare,
+                            protocol = EncryptedDnsProtocolDoh,
+                            host = "cloudflare-dns.com",
+                            endpoint = "https://cloudflare-dns.com/dns-query",
+                            bootstrapIps = "1.1.1.1",
+                            encryptedAddresses = "93.184.216.34",
+                            latencyMs = "5",
+                        ),
+                    ),
+            )
+
+        val result =
+            ResolverRecommendationEngine.compute(
+                report = report,
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
+                preferredPath = null,
+            )
+
+        assertEquals("dns_suspicious_divergence", result?.triggerOutcome)
+        assertEquals(DnsProviderCloudflare, result?.selectedResolverId)
     }
 
     @Test
@@ -549,7 +622,7 @@ class ResolverRecommendationEngineComputeTest {
                             ProbeResult(
                                 probeType = "dns_integrity",
                                 target = "example.com",
-                                outcome = "udp_timeout_transient",
+                                outcome = "udp_blocked",
                                 details =
                                     listOf(
                                         ProbeDetail("encryptedResolverId", DnsProviderCloudflare),
@@ -701,7 +774,60 @@ class ResolverRecommendationEngineComputeTest {
 
         assertNotNull(result)
         assertEquals(DnsProviderGoogle, result!!.selectedResolverId)
-        assertTrue(result.rationale.contains("Avoided bootstrap IPs blocked by DPI: 1.1.1.1."))
+        assertFalse(result.rationale.contains("blocked by DPI"))
+    }
+
+    @Test
+    fun `compute avoids reset ipv6 bootstrap and names it blocked by DPI`() {
+        for (target in listOf("[2606:4700::1111]:443", "2606:4700::1111")) {
+            val report =
+                ScanReport(
+                    sessionId = "s1",
+                    profileId = "p1",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = 0,
+                    finishedAt = 100,
+                    summary = "",
+                    results =
+                        listOf(
+                            ProbeResult(probeType = "tcp_fat_header", target = target, outcome = "tcp_reset"),
+                            dnsIntegrityResult(
+                                outcome = "dns_sinkhole_substitution",
+                                resolverId = DnsProviderCloudflare,
+                                protocol = EncryptedDnsProtocolDoh,
+                                host = "cloudflare-dns.com",
+                                endpoint = "https://cloudflare-dns.com/dns-query",
+                                bootstrapIps = "2606:4700::1111",
+                                encryptedAddresses = "93.184.216.34",
+                                latencyMs = "5",
+                                bootstrapValidated = true,
+                            ),
+                            dnsIntegrityResult(
+                                outcome = "dns_nxdomain_mismatch",
+                                resolverId = DnsProviderGoogle,
+                                protocol = EncryptedDnsProtocolDot,
+                                host = "dns.google",
+                                endpoint = "dns.google:853",
+                                bootstrapIps = "8.8.8.8",
+                                encryptedAddresses = "93.184.216.34",
+                                latencyMs = "80",
+                                bootstrapValidated = true,
+                            ),
+                        ),
+                )
+
+            val result =
+                ResolverRecommendationEngine.compute(
+                    report = report,
+                    settings =
+                        com.poyka.ripdpi.proto.AppSettings
+                            .getDefaultInstance(),
+                    preferredPath = null,
+                )
+
+            assertEquals(target, DnsProviderGoogle, result?.selectedResolverId)
+            assertTrue(target, result!!.rationale.contains("Avoided bootstrap IPs blocked by DPI: 2606:4700::1111."))
+        }
     }
 
     @Test
@@ -719,7 +845,7 @@ class ResolverRecommendationEngineComputeTest {
                         ProbeResult(
                             probeType = "dns_integrity",
                             target = "example.com",
-                            outcome = "dns_substitution",
+                            outcome = "dns_sinkhole_substitution",
                             details =
                                 listOf(
                                     ProbeDetail("encryptedResolverId", DnsProviderCloudflare),
@@ -752,7 +878,7 @@ class ResolverRecommendationEngineComputeTest {
         assertNotNull(result)
         assertEquals(DnsProviderGoogle, result!!.selectedResolverId)
         assertEquals(EncryptedDnsProtocolDot, result.selectedProtocol)
-        assertEquals("dns_substitution", result.triggerOutcome)
+        assertEquals("dns_sinkhole_substitution", result.triggerOutcome)
         assertTrue(result.persistable)
     }
 
@@ -784,7 +910,7 @@ class ResolverRecommendationEngineComputeTest {
                         ProbeResult(
                             probeType = "dns_integrity",
                             target = "example.com",
-                            outcome = "dns_substitution",
+                            outcome = "dns_sinkhole_substitution",
                             details =
                                 listOf(
                                     ProbeDetail("dnsSelectedResolverRole", "secondary"),

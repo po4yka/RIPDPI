@@ -19,16 +19,21 @@ private const val MaxBlockedBootstrapDisplay = 3
 private const val ProbeTypeDnsIntegrity = "dns_integrity"
 private const val ProbeTypeTcpFatHeader = "tcp_fat_header"
 
-private val TcpFatHeaderBlockedOutcomes = setOf("tcp_reset", "tcp_16kb_blocked", "tcp_timeout", "tls_handshake_failed")
+// Only a reset or a close at the 16 KB threshold is evidence of DPI; a timeout or failed handshake is not.
+private val TcpFatHeaderDpiBlockedOutcomes = setOf("tcp_reset", "tcp_16kb_blocked")
+private val TcpFatHeaderUnusableOutcomes = TcpFatHeaderDpiBlockedOutcomes + setOf("tcp_timeout", "tls_handshake_failed")
 private const val OutcomeDnsMatch = "dns_match"
-private const val OutcomeDnsSubstitution = "dns_substitution"
-private const val OutcomeDnsSinkholeSubstitution = "dns_sinkhole_substitution"
-private const val OutcomeDnsNxdomain = "dns_nxdomain"
-private const val OutcomeDnsNxdomainMismatch = "dns_nxdomain_mismatch"
-private const val OutcomeDnsSystemResolutionFailed = "dns_system_resolution_failed"
+
+// DNS outcomes the native classifier rates Failed or Attention as interference (outcome_policy.rs).
+private val DnsInterferenceOutcomes =
+    setOf(
+        "dns_sinkhole_substitution",
+        "dns_nxdomain_mismatch",
+        "dns_system_resolution_failed",
+        "dns_suspicious_divergence",
+    )
 private const val OutcomeUdpBlocked = "udp_blocked"
 private const val OutcomeUdpSkippedOrBlocked = "udp_skipped_or_blocked"
-private const val OutcomeUdpTimeoutTransient = "udp_timeout_transient"
 private const val DetailDnsSelectedResolverRole = "dnsSelectedResolverRole"
 private const val ResolverRolePrimary = "primary"
 private const val ResolverRoleSystem = "system"
@@ -62,7 +67,8 @@ internal object ResolverRecommendationEngine {
     ): ResolverRecommendation? {
         val dnsResults = report.results.filter { it.probeType == ProbeTypeDnsIntegrity }
         val blockedBootstrapIps = extractBlockedBootstrapIps(report.results)
-        return dnsResults.firstRecommendationTrigger()?.let { trigger ->
+        val dpiBlockedBootstrapIps = extractBlockedBootstrapIps(report.results, TcpFatHeaderDpiBlockedOutcomes)
+        return dnsResults.firstRecommendationTrigger(report.pathMode)?.let { trigger ->
             val currentPath = settings.activeDnsSettings().toEncryptedDnsPathCandidate()
             selectCandidate(
                 collectCandidates(dnsResults),
@@ -82,7 +88,7 @@ internal object ResolverRecommendationEngine {
                     selectedDohUrl = selected.path.dohUrl,
                     selectedDnscryptProviderName = selected.path.dnscryptProviderName,
                     selectedDnscryptPublicKey = selected.path.dnscryptPublicKey,
-                    rationale = selected.rationale(trigger.outcome, preferredPath, currentPath, blockedBootstrapIps),
+                    rationale = selected.rationale(trigger.outcome, preferredPath, currentPath, dpiBlockedBootstrapIps),
                     appliedTemporarily = false,
                     persistable = true,
                 )
@@ -90,15 +96,14 @@ internal object ResolverRecommendationEngine {
         }
     }
 
-    fun extractBlockedBootstrapIps(results: List<ProbeResult>): Set<String> =
+    fun extractBlockedBootstrapIps(
+        results: List<ProbeResult>,
+        outcomes: Set<String> = TcpFatHeaderUnusableOutcomes,
+    ): Set<String> =
         results
-            .filter { it.probeType == ProbeTypeTcpFatHeader && it.outcome in TcpFatHeaderBlockedOutcomes }
-            .mapNotNull { result ->
-                result.target
-                    .substringBefore(':')
-                    .trim()
-                    .takeIf { it.isNotBlank() }
-            }.toSet()
+            .filter { it.probeType == ProbeTypeTcpFatHeader && it.outcome in outcomes }
+            .mapNotNull { result -> result.target.targetHost().takeIf { it.isNotBlank() } }
+            .toSet()
 
     fun parseResolverPathCandidate(details: Map<String, String>): EncryptedDnsPathCandidate? {
         val resolverId = details["encryptedResolverId"].orEmpty().ifBlank { DnsProviderCustom }
@@ -222,19 +227,28 @@ private fun collectCandidates(dnsResults: List<ProbeResult>): List<Candidate> =
         }.groupBy { it.path.pathKey() }
         .mapNotNull { (_, entries) -> entries.toCandidate() }
 
-private fun List<ProbeResult>.firstRecommendationTrigger(): ProbeResult? =
+private fun List<ProbeResult>.firstRecommendationTrigger(pathMode: ScanPathMode): ProbeResult? =
     firstOrNull {
-        (
-            it.outcome == OutcomeDnsSubstitution ||
-                it.outcome == OutcomeDnsSinkholeSubstitution ||
-                it.outcome == OutcomeDnsNxdomain ||
-                it.outcome == OutcomeDnsNxdomainMismatch ||
-                it.outcome == OutcomeDnsSystemResolutionFailed ||
-                it.outcome == OutcomeUdpBlocked ||
-                it.outcome == OutcomeUdpSkippedOrBlocked ||
-                it.outcome == OutcomeUdpTimeoutTransient
-        ) && (!hasHealthyPrimaryDnsFor(it.target) || it.isPrimaryOrSystemDnsObservation())
+        it.isDnsInterference(pathMode) && (!hasHealthyPrimaryDnsFor(it.target) || it.isPrimaryOrSystemDnsObservation())
     }
+
+private fun ProbeResult.isDnsInterference(pathMode: ScanPathMode): Boolean =
+    when (outcome) {
+        in DnsInterferenceOutcomes -> true
+        OutcomeUdpBlocked -> pathMode == ScanPathMode.RAW_PATH
+        OutcomeUdpSkippedOrBlocked -> pathMode == ScanPathMode.IN_PATH
+        else -> false
+    }
+
+/** Host of a `host:port`, `[v6]:port` or bare IPv6 target. */
+private fun String.targetHost(): String {
+    val target = trim()
+    return when {
+        target.startsWith('[') -> target.substringAfter('[').substringBefore(']')
+        target.count { it == ':' } > 1 -> target
+        else -> target.substringBefore(':')
+    }.trim()
+}
 
 private fun List<ProbeResult>.hasHealthyPrimaryDnsFor(target: String): Boolean =
     any { result ->
