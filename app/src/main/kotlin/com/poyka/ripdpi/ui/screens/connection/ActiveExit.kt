@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.awg.SavedAwgProfile
 import com.poyka.ripdpi.data.exitName
 import com.poyka.ripdpi.data.kindLabel
+import com.poyka.ripdpi.data.runningConfiguration
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 
 /** The saved subscription member or AmneziaWG profile that traffic leaves through. */
@@ -37,24 +38,6 @@ internal fun exitOf(
     val running = applications.values.firstNotNullOfOrNull { it.runningConfiguration() }
     return if (running != null) running.exit(awgProfiles) else saved.exit(groups, awgProfiles)
 }
-
-/** The configuration that carries traffic now, or null when no session runs. */
-internal fun RuntimeConfigurationApplication.runningConfiguration(): AppliedRuntimeConfiguration? =
-    when (this) {
-        is RuntimeConfigurationApplication.Applied -> {
-            configuration
-        }
-
-        // The previous configuration carries traffic only while the same runtime applies a new one; a new session
-        // starting after a stop must not show the last session's exit.
-        is RuntimeConfigurationApplication.Applying -> {
-            previous?.takeIf { it.runtimeId == attempt.runtimeId }
-        }
-
-        else -> {
-            null
-        }
-    }
 
 // A member's label comes from the configuration that carries traffic: a refresh that removes or renames the member
 // cannot turn the shown exit into Direct or into a name the runtime has not applied.

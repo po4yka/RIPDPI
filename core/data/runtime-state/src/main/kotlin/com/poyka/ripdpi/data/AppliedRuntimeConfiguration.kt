@@ -98,6 +98,24 @@ sealed interface RuntimeConfigurationApplication {
     ) : RuntimeConfigurationApplication
 }
 
+/** The configuration that carries traffic now, or null when no session runs. */
+fun RuntimeConfigurationApplication.runningConfiguration(): AppliedRuntimeConfiguration? =
+    when (this) {
+        is RuntimeConfigurationApplication.Applied -> {
+            configuration
+        }
+
+        // The previous configuration carries traffic only while the same runtime applies a new one; a new session
+        // starting after a stop must not show the last session's exit.
+        is RuntimeConfigurationApplication.Applying -> {
+            previous?.takeIf { it.runtimeId == attempt.runtimeId }
+        }
+
+        else -> {
+            null
+        }
+    }
+
 enum class RuntimeConfigurationPendingStatus {
     Unknown,
     InSync,

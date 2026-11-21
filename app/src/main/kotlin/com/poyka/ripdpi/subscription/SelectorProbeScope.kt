@@ -6,10 +6,10 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
+import com.poyka.ripdpi.data.runningConfiguration
 import com.poyka.ripdpi.services.CandidateRelayPayloadProbe
 import com.poyka.ripdpi.services.CandidateRelayProbeEnvironment
 import com.poyka.ripdpi.services.PhysicalNetworkObserver
-import com.poyka.ripdpi.ui.screens.connection.runningConfiguration
 import javax.inject.Inject
 import javax.inject.Singleton
 
