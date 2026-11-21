@@ -30,7 +30,8 @@ internal fun nativeSnellProfile(
             (obj.text("obfs_mode")?.takeIf { it.isNotBlank() } ?: "none") == "none" &&
             (obj.text("network")?.takeIf { it.isNotBlank() } ?: "tcp") == "tcp" &&
             userKey.toByteArray(Charsets.UTF_8).size <= SnellUserKeyMaxBytes
-    if (!plain || server == null || port == null || psk == null) return null
+    val complete = server != null && port != null && psk != null
+    if (!plain || !complete) return null
     return ProxyProfile.Snell(
         id = UUID.randomUUID().toString(),
         displayName = name,

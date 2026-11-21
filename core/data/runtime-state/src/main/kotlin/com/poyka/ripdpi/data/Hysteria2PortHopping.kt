@@ -13,20 +13,23 @@ data class Hysteria2Realm(
 
 /** Host and effective port of an `http`/`https` realm URL; `null` when it is not one with a host. */
 fun hysteria2RealmEndpoint(serverUrl: String): Pair<String, Int>? {
-    val uri = runCatching { java.net.URI(serverUrl.trim()) }.getOrNull() ?: return null
-    val scheme = uri.scheme?.lowercase()
-    val host = uri.host?.takeIf { it.isNotBlank() }
-    if ((scheme != "https" && scheme != "http") || host == null) return null
-    val port =
-        if (uri.port > 0) {
-            uri.port
-        } else if (scheme == "https") {
-            443
-        } else {
-            80
+    val uri = runCatching { java.net.URI(serverUrl.trim()) }.getOrNull()
+    val host = uri?.host?.takeIf { it.isNotBlank() }
+    val defaultPort =
+        when (uri?.scheme?.lowercase()) {
+            "https" -> HttpsDefaultPort
+            "http" -> HttpDefaultPort
+            else -> null
         }
-    return host to port
+    return if (uri == null || host == null || defaultPort == null) {
+        null
+    } else {
+        host to (uri.port.takeIf { it > 0 } ?: defaultPort)
+    }
 }
+
+private const val HttpsDefaultPort = 443
+private const val HttpDefaultPort = 80
 
 /** One validated destination set and cadence for every Hysteria import and activation path. */
 @Serializable

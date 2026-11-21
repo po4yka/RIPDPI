@@ -223,21 +223,7 @@ object SelectorUrltestGroupImport {
                 .mapNotNull(membersByTag::get)
                 .filterNot { it is ProxyProfile.RawConfig }
 
-        val supportedTags = memberProfiles.mapTo(mutableSetOf()) { it.displayName }
-        // The selection itself must be usable: an unsupported default is never replaced by another member.
-        if (memberProfiles.isEmpty() ||
-            (topology.defaultTags.isNotEmpty() && topology.defaultTags.none { it in supportedTags })
-        ) {
-            val refused =
-                skipped.firstOrNull { it.label in topology.defaultTags }
-                    ?: skipped.firstOrNull { it.label in memberOrder }
-            return SelectorUrltestImportResult.Error(
-                message = "selector has no supported candidate for its selection",
-                reason = refused?.reason,
-                detail = refused?.detail,
-                node = refused,
-            )
-        }
+        unusableSelection(memberProfiles, topology, skipped)?.let { return it }
         // Every member is stored with its health; failover re-evaluates it at selection time, so an expired
         // down observation becomes neutral again without a refresh. Only the initial preference uses it now.
         val endpointHealth = orderByEndpointHealth(memberProfiles, parsed.endpointHealth, nowEpochMillis)
@@ -251,6 +237,28 @@ object SelectorUrltestGroupImport {
             failoverPolicy,
             topology.defaultTags.firstOrNull { it in candidateTags },
         ).copy(endpointHealth = endpointHealth, skipped = skipped, outboundTags = tags)
+    }
+
+    // The selection itself must be usable: an unsupported default is never replaced by another member.
+    private fun unusableSelection(
+        memberProfiles: List<ProxyProfile>,
+        topology: SelectorTopology,
+        skipped: List<SingBoxSkippedNode>,
+    ): SelectorUrltestImportResult.Error? {
+        val supportedTags = memberProfiles.mapTo(mutableSetOf()) { it.displayName }
+        val unusable =
+            memberProfiles.isEmpty() ||
+                (topology.defaultTags.isNotEmpty() && topology.defaultTags.none { it in supportedTags })
+        if (!unusable) return null
+        val refused =
+            skipped.firstOrNull { it.label in topology.defaultTags }
+                ?: skipped.firstOrNull { it.label in topology.memberTags }
+        return SelectorUrltestImportResult.Error(
+            message = "selector has no supported candidate for its selection",
+            reason = refused?.reason,
+            detail = refused?.detail,
+            node = refused,
+        )
     }
 
     private fun isDeviceOnlyAwg(

@@ -324,20 +324,25 @@ private fun unsupportedHysteria2Option(
     index: Int,
     label: String,
 ): SingBoxSkippedNode? {
-    if (type != "hysteria2") return null
-    if (hysteria2RealmHasServer(
-            obj,
-        )
-    ) {
-        return SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_TRANSPORT, "realm")
-    }
     val obfsType = (obj["obfs"] as? JsonObject)?.string("type")?.lowercase()
     val unusableSalamanderKey =
         (salamanderPassword(obj)?.toByteArray()?.size ?: 0) < Hysteria2SalamanderMinKeyBytes
-    return if (obfsType != null && (obfsType != "salamander" || unusableSalamanderKey)) {
-        SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, obfsType)
-    } else {
-        null
+    return when {
+        type != "hysteria2" -> {
+            null
+        }
+
+        hysteria2RealmHasServer(obj) -> {
+            SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_TRANSPORT, "realm")
+        }
+
+        obfsType != null && (obfsType != "salamander" || unusableSalamanderKey) -> {
+            SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, obfsType)
+        }
+
+        else -> {
+            null
+        }
     }
 }
 

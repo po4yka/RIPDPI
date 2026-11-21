@@ -91,35 +91,11 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
         }
 
         is ProxyProfile.Hysteria2 -> {
-            require(profile.server.isNotBlank()) { "Hysteria2 requires a server hostname" }
-            require(profile.serverPort in RelayPortRange) { "Hysteria2 requires a valid server port" }
-            require(profile.password.isNotBlank()) { "Hysteria2 requires an authentication password" }
-            val obfsKey = profile.obfsPassword.orEmpty()
-            require(obfsKey.isBlank() || obfsKey.toByteArray().size >= Hysteria2SalamanderMinKeyBytes) {
-                "Hysteria2 Salamander key must be at least 4 bytes"
-            }
-            profile.realm?.takeIf { it.serverUrl.isNotBlank() }?.let { realm ->
-                require(realm.realmId.isNotBlank()) { "Hysteria2 realm requires a realm id" }
-                require(realm.stunServers.any { it.isNotBlank() }) { "Hysteria2 realm requires a STUN server" }
-                require(hysteria2RealmEndpoint(realm.serverUrl) != null) {
-                    "Hysteria2 realm server URL must be an http or https URL with a host"
-                }
-                require(profile.portHopping == null) { "Hysteria2 realm cannot be combined with port hopping" }
-            }
-            true
+            validateHysteria2ProfileFields(profile)
         }
 
         is ProxyProfile.Naive -> {
-            require(profile.server.isNotBlank()) { "NaiveProxy requires a server hostname" }
-            require(profile.serverPort in RelayPortRange) { "NaiveProxy requires a valid server port" }
-            require(profile.username.isNotBlank()) { "NaiveProxy requires a username" }
-            require(
-                profile.concurrency in 1..MaxNaiveConcurrency,
-            ) { "NaiveProxy concurrency must be 1 to $MaxNaiveConcurrency" }
-            require(profile.serverPinSha256.isEmpty() || (!profile.quic && profile.concurrency == 1)) {
-                "NaiveProxy HTTP/3 and concurrency cannot use a certificate pin"
-            }
-            true
+            validateNaiveProfileFields(profile)
         }
 
         is ProxyProfile.Shadowsocks -> {
@@ -162,6 +138,38 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
     }
 
 const val SnellUserKeyMaxBytes = 255
+
+private fun validateHysteria2ProfileFields(profile: ProxyProfile.Hysteria2): Boolean {
+    require(profile.server.isNotBlank()) { "Hysteria2 requires a server hostname" }
+    require(profile.serverPort in RelayPortRange) { "Hysteria2 requires a valid server port" }
+    require(profile.password.isNotBlank()) { "Hysteria2 requires an authentication password" }
+    val obfsKey = profile.obfsPassword.orEmpty()
+    require(obfsKey.isBlank() || obfsKey.toByteArray().size >= Hysteria2SalamanderMinKeyBytes) {
+        "Hysteria2 Salamander key must be at least 4 bytes"
+    }
+    profile.realm?.takeIf { it.serverUrl.isNotBlank() }?.let { realm ->
+        require(realm.realmId.isNotBlank()) { "Hysteria2 realm requires a realm id" }
+        require(realm.stunServers.any { it.isNotBlank() }) { "Hysteria2 realm requires a STUN server" }
+        require(hysteria2RealmEndpoint(realm.serverUrl) != null) {
+            "Hysteria2 realm server URL must be an http or https URL with a host"
+        }
+        require(profile.portHopping == null) { "Hysteria2 realm cannot be combined with port hopping" }
+    }
+    return true
+}
+
+private fun validateNaiveProfileFields(profile: ProxyProfile.Naive): Boolean {
+    require(profile.server.isNotBlank()) { "NaiveProxy requires a server hostname" }
+    require(profile.serverPort in RelayPortRange) { "NaiveProxy requires a valid server port" }
+    require(profile.username.isNotBlank()) { "NaiveProxy requires a username" }
+    require(
+        profile.concurrency in 1..MaxNaiveConcurrency,
+    ) { "NaiveProxy concurrency must be 1 to $MaxNaiveConcurrency" }
+    require(profile.serverPinSha256.isEmpty() || (!profile.quic && profile.concurrency == 1)) {
+        "NaiveProxy HTTP/3 and concurrency cannot use a certificate pin"
+    }
+    return true
+}
 
 private fun validateShadowsocksProfileFields(profile: ProxyProfile.Shadowsocks): Boolean {
     require(profile.server.isNotBlank()) { "Shadowsocks requires a server hostname" }

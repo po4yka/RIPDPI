@@ -56,11 +56,15 @@ fun interface DnsMorphFetcher {
  */
 fun parseBundleDnsMorph(body: String): DnsMorphBridge? {
     // Same reader and version semantics as SingBoxSubscriptionParser, so a bundle it accepts keeps its channel.
-    val root = runCatching { RipDpiLenientJson.parseToJsonElement(body) }.getOrNull() as? JsonObject ?: return null
-    val block = root["ripdpi"] as? JsonObject ?: return null
-    val version = (block["schema_version"] as? JsonPrimitive)?.let { it.intOrNull ?: it.contentOrNull?.toIntOrNull() }
-    if (version != SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION) return null
-    return parseDnsMorphBridge(block)
+    val root = runCatching { RipDpiLenientJson.parseToJsonElement(body) }.getOrNull() as? JsonObject
+    val block = root?.get("ripdpi") as? JsonObject
+    val version =
+        (block?.get("schema_version") as? JsonPrimitive)?.let { it.intOrNull ?: it.contentOrNull?.toIntOrNull() }
+    return if (block != null && version == SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION) {
+        parseDnsMorphBridge(block)
+    } else {
+        null
+    }
 }
 
 /**
