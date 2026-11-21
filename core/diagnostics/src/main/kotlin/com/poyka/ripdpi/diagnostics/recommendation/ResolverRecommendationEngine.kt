@@ -2,7 +2,6 @@
 
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
@@ -10,6 +9,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.canonicalDefaultDnsProviderDefinition
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.toEncryptedDnsPathCandidate
 import java.net.URI
@@ -371,7 +371,8 @@ private fun selectCandidate(
             { if (currentPath != null && it.path.protocol == currentPath.protocol) 0 else 1 },
             { -it.healthyCount },
             { it.averageLatencyMs ?: Long.MAX_VALUE },
-            { if (it.path.resolverId == DnsProviderCloudflare) 0 else 1 },
+            // A full tie goes to the default provider, never to Cloudflare, which is blocked in Russia.
+            { if (it.path.resolverId == canonicalDefaultDnsProviderDefinition().providerId) 0 else 1 },
         ),
     )
 }

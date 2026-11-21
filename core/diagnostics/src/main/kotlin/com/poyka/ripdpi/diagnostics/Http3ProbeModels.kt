@@ -7,9 +7,9 @@ const val Http3ProfileId = "http3-connectivity"
 @Serializable
 data class Http3ProbeConfig(
     val version: Int = 1,
-    val host: String = "www.cloudflare.com",
+    val host: String = "www.google.com",
     val port: Int = 443,
-    val path: String = "/cdn-cgi/trace",
+    val path: String = "/robots.txt",
     val connectIp: String? = null,
     val timeoutMs: Long = 5_000,
     val maxResponseBytes: Long = 65_536,

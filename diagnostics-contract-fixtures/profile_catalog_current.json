@@ -28,7 +28,7 @@
     },
     {
       "id": "neutral-control",
-      "version": 4
+      "version": 5
     }
   ],
   "profiles": [
@@ -281,10 +281,46 @@
     {
       "id": "http3-connectivity",
       "name": "HTTP/3 connectivity",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "http3-connectivity",
         "displayName": "HTTP/3 connectivity",
+        "kind": "CONNECTIVITY",
+        "family": "GENERAL",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": true,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": [],
+        "http3Probe": {
+          "version": 1,
+          "host": "www.google.com",
+          "port": 443,
+          "path": "/robots.txt",
+          "timeoutMs": 5000,
+          "maxResponseBytes": 65536
+        }
+      }
+    },
+    {
+      "id": "http3-connectivity-cloudflare",
+      "name": "HTTP/3 connectivity (Cloudflare)",
+      "version": 1,
+      "request": {
+        "profileId": "http3-connectivity-cloudflare",
+        "displayName": "HTTP/3 connectivity (Cloudflare)",
         "kind": "CONNECTIVITY",
         "family": "GENERAL",
         "intentBucket": "SAFE_DEFAULT",
@@ -317,10 +353,46 @@
     {
       "id": "pmtu-connectivity",
       "name": "Active packet sizes / PMTU",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "pmtu-connectivity",
         "displayName": "Active packet sizes / PMTU",
+        "kind": "CONNECTIVITY",
+        "family": "GENERAL",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": true,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": [],
+        "pmtuProbe": {
+          "version": 1,
+          "host": "www.google.com",
+          "port": 443,
+          "timeoutMs": 10000,
+          "observationMs": 3000,
+          "upperBoundUdpPayloadBytes": 1472
+        }
+      }
+    },
+    {
+      "id": "pmtu-connectivity-cloudflare",
+      "name": "Active packet sizes / PMTU (Cloudflare)",
+      "version": 1,
+      "request": {
+        "profileId": "pmtu-connectivity-cloudflare",
+        "displayName": "Active packet sizes / PMTU (Cloudflare)",
         "kind": "CONNECTIVITY",
         "family": "GENERAL",
         "intentBucket": "SAFE_DEFAULT",
@@ -419,7 +491,7 @@
     {
       "id": "automatic-probing",
       "name": "Automatic probing",
-      "version": 6,
+      "version": 7,
       "request": {
         "profileId": "automatic-probing",
         "displayName": "Automatic probing",
@@ -434,7 +506,7 @@
           "probePersistencePolicy": "BACKGROUND_ONLY"
         },
         "packRefs": [
-          "neutral-control@4"
+          "neutral-control@5"
         ],
         "domainTargets": [
           {
@@ -459,13 +531,14 @@
             }
           },
           {
+            "host": "proof.ovh.net",
+            "isControl": true,
+            "httpPath": "/robots.txt"
+          },
+          {
             "host": "speed.cloudflare.com",
             "isControl": true,
             "httpPath": "/__down?bytes=1024"
-          },
-          {
-            "host": "proof.ovh.net",
-            "isControl": true
           }
         ],
         "dnsTargets": [],
@@ -492,7 +565,7 @@
     {
       "id": "automatic-audit",
       "name": "Automatic audit",
-      "version": 6,
+      "version": 7,
       "request": {
         "profileId": "automatic-audit",
         "displayName": "Automatic audit",
@@ -507,7 +580,7 @@
           "probePersistencePolicy": "BACKGROUND_ONLY"
         },
         "packRefs": [
-          "neutral-control@4"
+          "neutral-control@5"
         ],
         "domainTargets": [
           {
@@ -532,13 +605,14 @@
             }
           },
           {
+            "host": "proof.ovh.net",
+            "isControl": true,
+            "httpPath": "/robots.txt"
+          },
+          {
             "host": "speed.cloudflare.com",
             "isControl": true,
             "httpPath": "/__down?bytes=1024"
-          },
-          {
-            "host": "proof.ovh.net",
-            "isControl": true
           }
         ],
         "dnsTargets": [],
@@ -1281,7 +1355,7 @@
     {
       "id": "ru-throttling",
       "name": "Russia Throttling Check",
-      "version": 7,
+      "version": 8,
       "request": {
         "profileId": "ru-throttling",
         "displayName": "Russia Throttling Check",
@@ -1298,20 +1372,21 @@
         },
         "packRefs": [
           "ru-throttling@2",
-          "neutral-control@4"
+          "neutral-control@5"
         ],
         "domainTargets": [
           {
             "host": "www.youtube.com"
           },
           {
+            "host": "proof.ovh.net",
+            "isControl": true,
+            "httpPath": "/robots.txt"
+          },
+          {
             "host": "speed.cloudflare.com",
             "isControl": true,
             "httpPath": "/__down?bytes=1024"
-          },
-          {
-            "host": "proof.ovh.net",
-            "isControl": true
           }
         ],
         "dnsTargets": [],
@@ -1371,7 +1446,7 @@
     {
       "id": "ru-dpi-full",
       "name": "Russia DPI Full",
-      "version": 10,
+      "version": 11,
       "request": {
         "profileId": "ru-dpi-full",
         "displayName": "Russia DPI Full",
@@ -1392,7 +1467,7 @@
           "ru-messaging@2",
           "ru-circumvention@1",
           "ru-throttling@2",
-          "neutral-control@4"
+          "neutral-control@5"
         ],
         "domainTargets": [
           {
@@ -1420,13 +1495,14 @@
             "host": "www.whatsapp.com"
           },
           {
+            "host": "proof.ovh.net",
+            "isControl": true,
+            "httpPath": "/robots.txt"
+          },
+          {
             "host": "speed.cloudflare.com",
             "isControl": true,
             "httpPath": "/__down?bytes=1024"
-          },
-          {
-            "host": "proof.ovh.net",
-            "isControl": true
           }
         ],
         "dnsTargets": [
@@ -1569,7 +1645,7 @@
     {
       "id": "ru-dpi-strategy",
       "name": "Russia DPI Strategy Probe",
-      "version": 4,
+      "version": 5,
       "request": {
         "profileId": "ru-dpi-strategy",
         "displayName": "Russia DPI Strategy Probe",
@@ -1589,7 +1665,7 @@
           "ru-global-platforms@1",
           "ru-messaging@2",
           "ru-circumvention@1",
-          "neutral-control@4"
+          "neutral-control@5"
         ],
         "domainTargets": [
           {
@@ -1617,13 +1693,14 @@
             "host": "www.whatsapp.com"
           },
           {
+            "host": "proof.ovh.net",
+            "isControl": true,
+            "httpPath": "/robots.txt"
+          },
+          {
             "host": "speed.cloudflare.com",
             "isControl": true,
             "httpPath": "/__down?bytes=1024"
-          },
-          {
-            "host": "proof.ovh.net",
-            "isControl": true
           }
         ],
         "dnsTargets": [],

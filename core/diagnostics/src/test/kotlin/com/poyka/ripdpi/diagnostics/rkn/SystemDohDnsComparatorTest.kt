@@ -191,6 +191,40 @@ class SystemDohDnsComparatorTest {
             assertEquals(DnsMethod.PRIVATE_DNS_DOT, result.dnsMethod)
         }
 
+    @Test
+    fun blockedReferenceProviderLeavesTheOthersAndAnswersAreUnited() =
+        runTest {
+            val reference =
+                DohReferenceResolver(
+                    listOf(
+                        resolver { setOf("142.250.1.1") },
+                        resolver { throw IOException("connect timed out") },
+                        resolver { setOf("142.250.1.2", "142.250.1.1") },
+                    ),
+                )
+
+            assertEquals(setOf("142.250.1.1", "142.250.1.2"), reference.resolve("example.org"))
+        }
+
+    @Test
+    fun referenceFailsOnlyWhenNoProviderAnswers() =
+        runTest {
+            val emptyAnswer =
+                DohReferenceResolver(listOf(resolver { throw IOException("blocked") }, resolver { emptySet() }))
+            assertEquals(emptySet<String>(), emptyAnswer.resolve("example.org"))
+
+            val allBlocked = DohReferenceResolver(List(2) { resolver { throw IOException("blocked") } })
+            val result = comparator(system = { setOf("1.2.3.4") }, doh = allBlocked::resolve).compare("example.org")
+            assertEquals(DnsComparisonVerdict.OK, result.verdict)
+            assertEquals(DnsComparisonConfidence.LOW, result.confidence)
+            assertTrue(result.notes.any { it.contains("every reference resolver") })
+        }
+
+    private fun resolver(answer: suspend (String) -> Set<String>): Ipv4Resolver =
+        object : Ipv4Resolver {
+            override suspend fun resolve(host: String): Set<String> = answer(host)
+        }
+
     /**
      * What Android's getAllByName throws: an UnknownHostException whose cause is a GaiException (hidden API,
      * so an IOException stands in) with the libcore message format "<function> failed: <EAI name> (<text>)".

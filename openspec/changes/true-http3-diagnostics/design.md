@@ -12,7 +12,7 @@ Existing QUIC probes produce Initial-only evidence. RFC 9114 requires HTTP seman
 
 - Use the existing locked quinn 0.11.12, h3 0.0.8, h3-quinn 0.0.10 and rustls 0.23.45 packages. No upstream package or version is added.
 - Use current-thread Tokio, protected UDP, verified TLS/hostname and ALPN h3. A single absolute timeout covers DNS, connection, request, headers and body. Poll cancellation and close all streams/endpoints/driver tasks.
-- Use one reviewed control: www.cloudflare.com:443/cdn-cgi/trace. Do not persist its returned data, which can contain client IP. The report contains only bounded status and counters.
+- Use reviewed controls: www.google.com:443/robots.txt by default, and www.cloudflare.com:443/cdn-cgi/trace in the http3-connectivity-cloudflare option, because Cloudflare is blocked in Russia. Do not persist its returned data, which can contain client IP. The report contains only bounded status and counters.
 - Keep raw-path and proxy-path authority separate. Unsupported proxy execution never opens a direct connection. This release does not add a SOCKS QUIC carrier.
 - HTTP/3 confirmation requires response headers. A non-2xx status is a confirmed H3 response with an HTTP error; a body timeout or cap retains protocol confirmation but not full completion.
 
@@ -23,7 +23,7 @@ Task DGN-1791532838740620 records isolated writers. Rust owns its contracts/mani
 ### Optional request and evidence
 
 Optional request/profile field http3Probe; config class Http3ProbeConfig:
-version=1 (Int/u32), host="www.cloudflare.com", port=443 (Int/u16), path="/cdn-cgi/trace", connectIp:String?=null, timeoutMs=5000 (Long/u64, 250..15000), maxResponseBytes=65536 (Long/u64, 1..262144). Defaults must decode empty config. host bounded ASCII DNS name or numeric IP; connectIp numeric literal only; path absolute origin form, <=1024, no fragment, query, controls, whitespace or authority. GET only, no redirects/fallback. One reviewed control in manual raw-only profile http3-connectivity; full stage key http3; phase/probeType http3; task family HTTP3 / Rust Http3. No schema bump, optional omitted on legacy serialization.
+version=1 (Int/u32), host="www.google.com", port=443 (Int/u16), path="/robots.txt", connectIp:String?=null, timeoutMs=5000 (Long/u64, 250..15000), maxResponseBytes=65536 (Long/u64, 1..262144). Defaults must decode empty config. host bounded ASCII DNS name or numeric IP; connectIp numeric literal only; path absolute origin form, <=1024, no fragment, query, controls, whitespace or authority. GET only, no redirects/fallback. One reviewed control in manual raw-only profile http3-connectivity; full stage key http3; phase/probeType http3; task family HTTP3 / Rust Http3. No schema bump, optional omitted on legacy serialization.
 
 Evidence detail key http3Evidence. Kotlin Http3ProbeEvidence; Rust Http3Evidence:
 version:Int=1

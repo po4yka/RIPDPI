@@ -1799,6 +1799,7 @@
     <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s शृंखलाएँ बीच में रुकीं</string>
     <string name="diagnostics_tcp16_row_detail">%1$s · पहुँच से बाहर %2$s · त्रुटियाँ %3$s · असमर्थित %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_cloudflare_title">HTTP/3 (Cloudflare)</string>
     <string name="diagnostics_http3_validated">HTTP/3 प्रतिक्रिया की पुष्टि</string>
     <string name="diagnostics_http3_tls">TLS प्रमाणपत्र और होस्ट नाम सत्यापित</string>
     <string name="diagnostics_http3_sent">अनुरोध भेजा गया</string>
@@ -1905,6 +1906,7 @@
     <string name="diagnostics_strategy_family_ipfrag2_ipv6_ext">IPv6 एक्सटेंशन के साथ IP फ़्रैगमेंटेशन</string>
     <string name="diagnostics_strategy_family_quic_ipfrag2_ipv6_ext">IPv6 एक्सटेंशन के साथ QUIC IP फ़्रैगमेंटेशन</string>
     <string name="diagnostics_pmtu_title">सक्रिय पैकेट आकार / PMTU</string>
+    <string name="diagnostics_pmtu_cloudflare_title">सक्रिय पैकेट आकार / PMTU (Cloudflare)</string>
     <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
     <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
     <string name="diagnostics_pmtu_lower_bound">ACK से पुष्ट UDP पेलोड की निचली सीमा</string>

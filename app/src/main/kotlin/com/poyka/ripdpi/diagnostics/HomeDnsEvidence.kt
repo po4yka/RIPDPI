@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.diagnostics
 
-internal const val HomeDohEndpoint = "https://1.1.1.1/dns-query"
+import com.poyka.ripdpi.diagnostics.rkn.DohReferenceEndpoint
+
+// The home check asks every DoH reference at once, so one blocked provider does not void it.
+internal val HomeDohEndpoint: String =
+    DohReferenceEndpoint.entries.joinToString { endpoint -> java.net.URI(endpoint.url).host }
 
 internal fun characterizeHomeDns(
     systemIps: List<String>,

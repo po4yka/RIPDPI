@@ -219,12 +219,20 @@ Candidates are a **plan**, not an executor: the spec describes the required
 packet-level behaviour and the runtime capabilities it needs; the engine builds
 the emitter from it.
 
-An in-path strategy scan can verify the active service with one HTTPS transfer
-to the first configured control on its authenticated route. The transfer has
+An in-path strategy scan can verify the active service with an HTTPS transfer
+to each configured control on its authenticated route. Each transfer has
 a three-second deadline and a 16 KiB body limit. A nonempty HTTP 200 body must
 complete with explicit framing and pass the block-page check. A TLS handshake,
-headers, or a first body byte can identify the last proven stage. Only a
-verified body on the current owned route supports the active `WORKING` verdict.
+headers, or a first body byte can identify the last proven stage. The verdict
+uses the furthest stage that any control reached, so one blocked control
+provider (Cloudflare in Russia) cannot hide a path that works. Only a verified
+body on the current owned route supports the active `WORKING` verdict.
+
+Reference checks do not depend on one provider. The DNS rewrite check unions
+the answers of several DoH providers on fixed IPs (`DohReferenceEndpoint`), and
+fails only when none answers. The HTTP/3 and PMTU profiles use `www.google.com`
+by default; the `-cloudflare` profile variants keep the Cloudflare control as
+an option.
 
 ---
 

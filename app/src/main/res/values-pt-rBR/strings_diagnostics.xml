@@ -1794,6 +1794,7 @@
     <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s séries interrompidas</string>
     <string name="diagnostics_tcp16_row_detail">%1$s · inacessíveis %2$s · erros %3$s · sem suporte %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_cloudflare_title">HTTP/3 (Cloudflare)</string>
     <string name="diagnostics_http3_validated">Resposta HTTP/3 confirmada</string>
     <string name="diagnostics_http3_tls">Certificado TLS e nome do servidor verificados</string>
     <string name="diagnostics_http3_sent">Solicitação enviada</string>
@@ -1900,6 +1901,7 @@
     <string name="diagnostics_strategy_family_ipfrag2_ipv6_ext">Fragmentação IP com extensões IPv6</string>
     <string name="diagnostics_strategy_family_quic_ipfrag2_ipv6_ext">Fragmentação IP de QUIC com extensões IPv6</string>
     <string name="diagnostics_pmtu_title">Tamanho ativo dos pacotes / PMTU</string>
+    <string name="diagnostics_pmtu_cloudflare_title">Tamanho ativo dos pacotes / PMTU (Cloudflare)</string>
     <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
     <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
     <string name="diagnostics_pmtu_lower_bound">Limite inferior da carga UDP confirmado por ACK</string>

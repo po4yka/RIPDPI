@@ -271,20 +271,20 @@ internal object CurrentStrategyVerdictEvaluator {
 
 private const val HostSplitActionCount = 3
 
-private fun List<ProbeResult>.activeControlTransferStage(): ConnectionStage? {
-    val markers =
-        filter { result ->
-            result.probeType == "domain_reachability" &&
-                result.details.singleOrNull { it.key == "isControl" }?.value == "true"
-        }.flatMap { result -> result.details.filter { it.key == "activeControlTransferStage" } }
-    return when (markers.singleOrNull()?.value) {
-        "tls" -> ConnectionStage.TLS
-        "http_headers" -> ConnectionStage.HTTP_HEADERS
-        "first_body_byte" -> ConnectionStage.FIRST_BODY_BYTE
-        "body" -> ConnectionStage.BODY
-        else -> null
-    }
-}
+// Every control checks a transfer; one blocked control provider must not hide a path that works.
+private fun List<ProbeResult>.activeControlTransferStage(): ConnectionStage? =
+    filter { result ->
+        result.probeType == "domain_reachability" &&
+            result.details.singleOrNull { it.key == "isControl" }?.value == "true"
+    }.mapNotNull { result ->
+        when (result.details.singleOrNull { it.key == "activeControlTransferStage" }?.value) {
+            "tls" -> ConnectionStage.TLS
+            "http_headers" -> ConnectionStage.HTTP_HEADERS
+            "first_body_byte" -> ConnectionStage.FIRST_BODY_BYTE
+            "body" -> ConnectionStage.BODY
+            else -> null
+        }
+    }.maxOrNull()
 
 private fun StrategyProbeRuntimeTerminalStatus.isEvaluable(): Boolean =
     this == StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN ||

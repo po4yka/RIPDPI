@@ -1911,6 +1911,7 @@
     <string name="diagnostics_tcp16_row_detected">%1$s: انقطعت %2$s من %3$s سلسلة</string>
     <string name="diagnostics_tcp16_row_detail">%1$s · غير متاح %2$s · أخطاء %3$s · غير مدعوم %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_cloudflare_title">HTTP/3 (Cloudflare)</string>
     <string name="diagnostics_http3_validated">تم تأكيد استجابة HTTP/3</string>
     <string name="diagnostics_http3_tls">تم التحقق من شهادة TLS واسم المضيف</string>
     <string name="diagnostics_http3_sent">تم إرسال الطلب</string>
@@ -2017,6 +2018,7 @@
     <string name="diagnostics_strategy_family_ipfrag2_ipv6_ext">تجزئة IP مع امتدادات IPv6</string>
     <string name="diagnostics_strategy_family_quic_ipfrag2_ipv6_ext">تجزئة IP لـ QUIC مع امتدادات IPv6</string>
     <string name="diagnostics_pmtu_title">حجم الحزم النشط / PMTU</string>
+    <string name="diagnostics_pmtu_cloudflare_title">حجم الحزم النشط / PMTU (Cloudflare)</string>
     <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
     <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
     <string name="diagnostics_pmtu_lower_bound">الحد الأدنى لحمولة UDP المؤكد بواسطة ACK</string>

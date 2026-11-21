@@ -1819,6 +1819,7 @@
     <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s trains interrupted</string>
     <string name="diagnostics_tcp16_row_detail">%1$s · unreachable %2$s · errors %3$s · unsupported %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_cloudflare_title">HTTP/3 (Cloudflare)</string>
     <string name="diagnostics_http3_validated">HTTP/3 response confirmed</string>
     <string name="diagnostics_http3_tls">TLS certificate and hostname verified</string>
     <string name="diagnostics_http3_sent">Request sent</string>
@@ -1925,6 +1926,7 @@
     <string name="diagnostics_strategy_family_ipfrag2_ipv6_ext">IP fragmentation with IPv6 extensions</string>
     <string name="diagnostics_strategy_family_quic_ipfrag2_ipv6_ext">QUIC IP fragmentation with IPv6 extensions</string>
     <string name="diagnostics_pmtu_title">Active packet size / PMTU</string>
+    <string name="diagnostics_pmtu_cloudflare_title">Active packet size / PMTU (Cloudflare)</string>
     <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
     <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
     <string name="diagnostics_pmtu_lower_bound">ACK-confirmed UDP payload lower bound</string>

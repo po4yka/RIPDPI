@@ -1839,6 +1839,7 @@
     <string name="diagnostics_tcp16_row_detected">%1$s: прервано серий %2$s/%3$s</string>
     <string name="diagnostics_tcp16_row_detail">%1$s · недоступно: %2$s · ошибки: %3$s · не поддерживается: %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_cloudflare_title">HTTP/3 (Cloudflare)</string>
     <string name="diagnostics_http3_validated">Ответ HTTP/3 подтверждён</string>
     <string name="diagnostics_http3_tls">Сертификат TLS и имя сервера проверены</string>
     <string name="diagnostics_http3_sent">Запрос отправлен</string>
@@ -1945,6 +1946,7 @@
     <string name="diagnostics_strategy_family_ipfrag2_ipv6_ext">Фрагментация IP с расширениями IPv6</string>
     <string name="diagnostics_strategy_family_quic_ipfrag2_ipv6_ext">Фрагментация IP для QUIC с расширениями IPv6</string>
     <string name="diagnostics_pmtu_title">Активный размер пакетов / PMTU</string>
+    <string name="diagnostics_pmtu_cloudflare_title">Активный размер пакетов / PMTU (Cloudflare)</string>
     <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
     <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
     <string name="diagnostics_pmtu_lower_bound">Подтверждённая ACK нижняя граница UDP-нагрузки</string>

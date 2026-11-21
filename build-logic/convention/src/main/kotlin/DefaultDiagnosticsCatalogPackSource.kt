@@ -113,11 +113,12 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
             ),
             TargetPackDefinition(
                 id = "neutral-control",
-                version = 4,
-                // The first control carries the in-path transfer check, which needs a small complete body.
+                version = 5,
+                // Each control carries the in-path transfer check, which needs a small complete body. Controls
+                // come from independent providers, so one blocked provider (Cloudflare in Russia) leaves a baseline.
                 domainTargets =
-                    domainTargets("speed.cloudflare.com", isControl = true, httpPath = "/__down?bytes=1024") +
-                        domainTargets("proof.ovh.net", isControl = true),
+                    domainTargets("proof.ovh.net", isControl = true, httpPath = "/robots.txt") +
+                        domainTargets("speed.cloudflare.com", isControl = true, httpPath = "/__down?bytes=1024"),
                 tcpTargets = DiagnosticsCatalogSharedData.tcpTlsControls,
                 throughputTargets =
                     listOf(

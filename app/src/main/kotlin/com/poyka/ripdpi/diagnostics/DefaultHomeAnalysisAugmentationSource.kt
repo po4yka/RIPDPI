@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.diagnostics.rkn.DohReferenceResolver
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
@@ -15,6 +16,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 import java.net.InetAddress
 import java.net.Socket
 import java.util.concurrent.TimeUnit
@@ -24,12 +26,17 @@ import javax.inject.Singleton
 private const val BufferbloatProbes = 4
 private const val BufferbloatProbeTimeoutMs = 1_500L
 private const val BufferbloatLoadedTimeoutMs = 8_000L
-private const val BufferbloatHost = "1.1.1.1"
 private const val BufferbloatTcpPort = 443
-private const val BufferbloatLoadedUrl = "https://speed.cloudflare.com/__down?bytes=2000000"
-private const val DnsControlHost = "cloudflare.com"
+private const val BufferbloatLoadBytes = 2_000_000L
+
+// Cloudflare is blocked in Russia, so it is the last option: the first target that answers is used.
+private val BufferbloatRttHosts = listOf("8.8.8.8", "1.1.1.1")
+private val BufferbloatLoadedUrls =
+    listOf("https://proof.ovh.net/files/10Mb.dat", "https://speed.cloudflare.com/__down?bytes=2000000")
+
+// dns.google has the same anycast answer everywhere, so system and DoH answers for it must overlap.
+private const val DnsControlHost = "dns.google"
 private const val DnsCanaryHost = "youtube.com"
-private const val DohEndpoint = "https://1.1.1.1/dns-query"
 private const val NetworkProbeOverallTimeoutMs = 15_000L
 private const val MaxRoutingFindings = 6
 
@@ -41,6 +48,8 @@ class DefaultHomeAnalysisAugmentationSource
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val catalogService: RoutingProtectionCatalogService,
     ) : HomeAnalysisAugmentationSource {
+        private val dohReference = DohReferenceResolver()
+
         private val httpClient: OkHttpClient by lazy {
             OkHttpClient
                 .Builder()
@@ -122,8 +131,11 @@ class DefaultHomeAnalysisAugmentationSource
 
         override suspend fun bufferbloat(): HomeBufferbloatResult? =
             awaitBlockingProbeWithin(NetworkProbeOverallTimeoutMs) {
-                val idle = measureRttSamples(BufferbloatProbes)
-                val (loaded, load) = withLoad { measureRttSamples(BufferbloatProbes) }
+                // Idle and loaded samples use one host, so the latency increase is not a host difference.
+                val firstSample = BufferbloatRttHosts.firstNotNullOfOrNull { host -> measureSingleRtt(host)?.to(host) }
+                val rttHost = firstSample?.second ?: BufferbloatRttHosts.first()
+                val idle = listOfNotNull(firstSample?.first) + measureRttSamples(rttHost, BufferbloatProbes - 1)
+                val (loaded, load) = withLoad { measureRttSamples(rttHost, BufferbloatProbes) }
                 homeBufferbloatResult(idle, loaded, load)
             }
 
@@ -174,36 +186,29 @@ class DefaultHomeAnalysisAugmentationSource
             runCatching { InetAddress.getAllByName(host).map { it.hostAddress.orEmpty() }.filter { it.isNotBlank() } }
                 .getOrDefault(emptyList())
 
-        private fun resolveDoh(host: String): List<String>? {
-            val request =
-                Request
-                    .Builder()
-                    .url("$DohEndpoint?name=$host&type=A")
-                    .header("accept", "application/dns-json")
-                    .build()
-            return runCatching {
-                httpClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@use null
-                    val body = response.body.string()
-                    val matches = Regex("\"data\":\"([^\"]+)\"").findAll(body)
-                    matches.mapNotNull { match -> match.groupValues.getOrNull(1) }.toList().ifEmpty { null }
-                }
-            }.getOrNull()
-        }
+        private suspend fun resolveDoh(host: String): List<String>? =
+            try {
+                dohReference.resolve(host).toList().ifEmpty { null }
+            } catch (_: IOException) {
+                null
+            }
 
-        private fun measureRttSamples(probes: Int): List<HomeRttSample> =
+        private fun measureRttSamples(
+            host: String,
+            probes: Int,
+        ): List<HomeRttSample> =
             buildList {
                 repeat(probes) {
-                    measureSingleRtt()?.let { add(it) }
+                    measureSingleRtt(host)?.let { add(it) }
                 }
             }
 
-        private fun measureSingleRtt(): HomeRttSample? =
+        private fun measureSingleRtt(host: String): HomeRttSample? =
             runCatching {
                 Socket().use { socket ->
                     val startedNs = System.nanoTime()
                     socket.connect(
-                        java.net.InetSocketAddress(BufferbloatHost, BufferbloatTcpPort),
+                        java.net.InetSocketAddress(host, BufferbloatTcpPort),
                         BufferbloatProbeTimeoutMs.toInt(),
                     )
                     val finishedNs = System.nanoTime()
@@ -226,15 +231,16 @@ class DefaultHomeAnalysisAugmentationSource
             var bytesRead = 0L
             var firstByteNs: Long? = null
             var lastByteNs: Long? = null
-            val successful =
+
+            fun download(url: String): Boolean =
                 runCatching {
-                    val request = Request.Builder().url(BufferbloatLoadedUrl).build()
+                    val request = Request.Builder().url(url).build()
                     httpClient.newCall(request).execute().use { response ->
                         if (!response.isSuccessful) return@use false
                         response.body.byteStream().use { stream ->
                             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                            // A cancelled probe stops downloading at the next chunk.
-                            while (isActive()) {
+                            // A cancelled probe stops downloading at the next chunk; the cap keeps the data cost fixed.
+                            while (isActive() && bytesRead < BufferbloatLoadBytes) {
                                 val count = stream.read(buffer)
                                 if (count < 0) break
                                 if (count > 0) {
@@ -250,6 +256,13 @@ class DefaultHomeAnalysisAugmentationSource
                         true
                     }
                 }.getOrDefault(false)
+            // The next target is tried only when the previous one sent no byte; a partial load is still a load.
+            var successful = false
+            for (url in BufferbloatLoadedUrls) {
+                if (!isActive()) break
+                successful = download(url)
+                if (successful || firstByteNs != null) break
+            }
             started.complete(false)
             return HomeLoadEvidence(successful, bytesRead, firstByteNs, lastByteNs)
         }

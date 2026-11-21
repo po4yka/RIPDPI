@@ -37,7 +37,11 @@ class DiagnosticsCatalogPmtuTest {
         assertEquals(null, profile.strategyProbe)
         assertEquals(null, profile.selectiveMatrix)
         assertEquals(null, profile.ipFamilyProbe)
-        assertTrue(profiles.filterNot { it.id == profile.id }.all { it.pmtuProbe == null })
+        val cloudflare = profiles.single { it.id == "pmtu-connectivity-cloudflare" }
+        assertEquals(PmtuCloudflareProbe, cloudflare.pmtuProbe)
+        assertEquals(profile.executionPolicy, cloudflare.executionPolicy)
+        cloudflare.validatePmtuProbe()
+        assertTrue(profiles.filterNot { it.id == profile.id || it == cloudflare }.all { it.pmtuProbe == null })
         assertEquals(PmtuProbeDefinition(), config)
         profile.validatePmtuProbe()
     }
@@ -64,20 +68,26 @@ class DiagnosticsCatalogPmtuTest {
                 .jsonObject
         assertEquals(
             Json.parseToJsonElement(
-                """{"version":1,"host":"www.cloudflare.com","port":443,
+                """{"version":1,"host":"www.google.com","port":443,
                     "timeoutMs":10000,"observationMs":3000,"upperBoundUdpPayloadBytes":1472}""",
             ),
             config,
         )
         assertFalse(config.containsKey("connectIp"))
-        profiles.filterNot { it == profile }.forEach {
-            assertFalse(
-                it.jsonObject
-                    .getValue("request")
-                    .jsonObject
-                    .containsKey("pmtuProbe"),
-            )
-        }
+        profiles
+            .filterNot {
+                it == profile ||
+                    it.jsonObject
+                        .getValue("id")
+                        .jsonPrimitive.content == "pmtu-connectivity-cloudflare"
+            }.forEach {
+                assertFalse(
+                    it.jsonObject
+                        .getValue("request")
+                        .jsonObject
+                        .containsKey("pmtuProbe"),
+                )
+            }
     }
 
     @Test

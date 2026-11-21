@@ -1762,6 +1762,7 @@
     <string name="diagnostics_tcp16_row_detected">%1$s：%2$s/%3$s 个序列中断</string>
     <string name="diagnostics_tcp16_row_detail">%1$s · 无法访问 %2$s · 错误 %3$s · 不支持 %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_cloudflare_title">HTTP/3 (Cloudflare)</string>
     <string name="diagnostics_http3_validated">已确认 HTTP/3 响应</string>
     <string name="diagnostics_http3_tls">已验证 TLS 证书和主机名</string>
     <string name="diagnostics_http3_sent">已发送请求</string>
@@ -1868,6 +1869,7 @@
     <string name="diagnostics_strategy_family_ipfrag2_ipv6_ext">使用 IPv6 扩展的 IP 分片</string>
     <string name="diagnostics_strategy_family_quic_ipfrag2_ipv6_ext">使用 IPv6 扩展的 QUIC IP 分片</string>
     <string name="diagnostics_pmtu_title">主动数据包大小 / PMTU</string>
+    <string name="diagnostics_pmtu_cloudflare_title">主动数据包大小 / PMTU (Cloudflare)</string>
     <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
     <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
     <string name="diagnostics_pmtu_lower_bound">ACK 确认的 UDP 载荷下限</string>

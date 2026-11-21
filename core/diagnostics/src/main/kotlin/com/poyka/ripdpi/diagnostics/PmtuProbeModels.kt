@@ -7,7 +7,7 @@ const val PmtuProfileId = "pmtu-connectivity"
 @Serializable
 data class PmtuProbeConfig(
     val version: Int = 1,
-    val host: String = "www.cloudflare.com",
+    val host: String = "www.google.com",
     val port: Int = 443,
     val connectIpv4: String? = null,
     val connectIpv6: String? = null,

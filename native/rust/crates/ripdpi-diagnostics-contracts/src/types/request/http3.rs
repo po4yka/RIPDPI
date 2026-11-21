@@ -16,9 +16,9 @@ impl Default for Http3ProbeConfig {
     fn default() -> Self {
         Self {
             version: 1,
-            host: "www.cloudflare.com".into(),
+            host: "www.google.com".into(),
             port: 443,
-            path: "/cdn-cgi/trace".into(),
+            path: "/robots.txt".into(),
             connect_ip: None,
             timeout_ms: 5000,
             max_response_bytes: 65536,

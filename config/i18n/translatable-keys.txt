@@ -1702,6 +1702,7 @@ app:diagnostics_http3_body
 app:diagnostics_http3_body_limit
 app:diagnostics_http3_bytes
 app:diagnostics_http3_caution
+app:diagnostics_http3_cloudflare_title
 app:diagnostics_http3_complete
 app:diagnostics_http3_connect_error
 app:diagnostics_http3_dns
@@ -2049,6 +2050,7 @@ app:diagnostics_phase_tg
 app:diagnostics_pmtu_bytes
 app:diagnostics_pmtu_caution
 app:diagnostics_pmtu_ceiling
+app:diagnostics_pmtu_cloudflare_title
 app:diagnostics_pmtu_confirmed
 app:diagnostics_pmtu_current
 app:diagnostics_pmtu_diagnosis

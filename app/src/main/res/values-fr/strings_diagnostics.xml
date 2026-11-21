@@ -1796,6 +1796,7 @@
     <string name="diagnostics_tcp16_row_detected">%1$s : %2$s/%3$s séries interrompues</string>
     <string name="diagnostics_tcp16_row_detail">%1$s · injoignables %2$s · erreurs %3$s · non pris en charge %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_cloudflare_title">HTTP/3 (Cloudflare)</string>
     <string name="diagnostics_http3_validated">Réponse HTTP/3 confirmée</string>
     <string name="diagnostics_http3_tls">Certificat TLS et nom du serveur vérifiés</string>
     <string name="diagnostics_http3_sent">Requête envoyée</string>
@@ -1902,6 +1903,7 @@
     <string name="diagnostics_strategy_family_ipfrag2_ipv6_ext">Fragmentation IP avec extensions IPv6</string>
     <string name="diagnostics_strategy_family_quic_ipfrag2_ipv6_ext">Fragmentation IP de QUIC avec extensions IPv6</string>
     <string name="diagnostics_pmtu_title">Taille active des paquets / PMTU</string>
+    <string name="diagnostics_pmtu_cloudflare_title">Taille active des paquets / PMTU (Cloudflare)</string>
     <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
     <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
     <string name="diagnostics_pmtu_lower_bound">Borne basse de charge UDP confirmée par ACK</string>

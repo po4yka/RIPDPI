@@ -17,7 +17,7 @@ impl Default for PmtuProbeConfig {
     fn default() -> Self {
         Self {
             version: 1,
-            host: "www.cloudflare.com".into(),
+            host: "www.google.com".into(),
             port: 443,
             connect_ipv4: None,
             connect_ipv6: None,

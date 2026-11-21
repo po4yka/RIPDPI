@@ -443,6 +443,30 @@ class CurrentStrategyActivePathVerdictEvaluatorTest {
     }
 
     @Test
+    fun `a blocked control provider does not hide a transfer that another control completed`() {
+        val assessment =
+            CurrentStrategyVerdictEvaluator.evaluate(
+                report(
+                    baseline(attempts = listOf(attempt(true))),
+                    pathMode = ScanPathMode.IN_PATH,
+                    activePathObservation = activePathObservation(StrategyProbeResponseStage.RESPONSE_OBSERVED, true),
+                ).copy(
+                    results =
+                        listOf(
+                            activeControlTransfer("tls").copy(target = "speed.cloudflare.com"),
+                            activeControlTransfer("body").copy(target = "proof.ovh.net"),
+                        ),
+                ),
+                StrategyId,
+                StrategyId,
+                ExpectedSignature,
+            )
+
+        assertEquals(ActiveStrategyPathOutcome.WORKING, assessment.activePathOutcome)
+        assertEquals(ConnectionStage.BODY, assessment.activePathLastProvenStage)
+    }
+
+    @Test
     fun `legacy reachability and reports without an owned control stay unverified`() {
         val report =
             report(

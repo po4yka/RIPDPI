@@ -4,11 +4,15 @@ import com.poyka.ripdpi.data.NumericIp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.Inet4Address
@@ -54,7 +58,7 @@ fun interface Ipv4Resolver {
 
 class SystemDohDnsComparator(
     private val systemResolver: Ipv4Resolver = SystemIpv4Resolver(),
-    private val dohResolver: Ipv4Resolver = CloudflareDohJsonResolver(),
+    private val dohResolver: Ipv4Resolver = DohReferenceResolver(),
     private val dnsMethodProvider: () -> DnsMethod = { DnsMethod.SYSTEM },
     private val systemTimeoutMs: Long = DefaultTimeoutMs,
     private val dohTimeoutMs: Long = DefaultTimeoutMs,
@@ -123,7 +127,10 @@ class SystemDohDnsComparator(
             sysIps.isNotEmpty() && dohIps.isEmpty() -> {
                 verdict = DnsComparisonVerdict.OK
                 confidence = DnsComparisonConfidence.LOW
-                notes.add("DoH lookup failed - control comparison unavailable, DNS poisoning cannot be ruled out")
+                notes.add(
+                    "DoH lookup failed on every reference resolver - control comparison unavailable, " +
+                        "DNS poisoning cannot be ruled out",
+                )
             }
 
             areDisjoint(sysIps, dohIps) -> {
@@ -198,8 +205,43 @@ class SystemIpv4Resolver : Ipv4Resolver {
         }
 }
 
-class CloudflareDohJsonResolver(
-    private val endpoint: String = CloudflareDnsJsonEndpoint,
+/**
+ * Public DoH resolvers with a JSON API on a fixed IP, so a reference lookup never depends on the system resolver.
+ * They belong to independent providers: Cloudflare is blocked in Russia, so it cannot be the only reference.
+ */
+enum class DohReferenceEndpoint(
+    val url: String,
+) {
+    GOOGLE("https://8.8.8.8/resolve"),
+    ADGUARD_UNFILTERED("https://94.140.14.140/resolve"),
+    CLOUDFLARE("https://1.1.1.1/dns-query"),
+}
+
+/**
+ * Asks every reference provider at once and unions their answers. A blocked provider does not remove the
+ * reference, and CDN answers that differ by provider do not read as a rewrite. Fails only when no provider answers.
+ */
+class DohReferenceResolver(
+    private val resolvers: List<Ipv4Resolver> = DohReferenceEndpoint.entries.map { DohJsonResolver(it.url) },
+) : Ipv4Resolver {
+    override suspend fun resolve(host: String): Set<String> =
+        coroutineScope {
+            val answers = resolvers.map { resolver -> async { runCatching { resolver.resolve(host) } } }.awaitAll()
+            currentCoroutineContext().ensureActive()
+            // Only a failed provider is skipped: cancellation and JVM errors still propagate.
+            answers.firstNotNullOfOrNull { it.exceptionOrNull() as? CancellationException }?.let { throw it }
+            answers.firstNotNullOfOrNull { it.exceptionOrNull() as? Error }?.let { throw it }
+            val answered = answers.mapNotNull { it.getOrNull() }
+            if (answered.isEmpty()) {
+                val cause = answers.firstNotNullOfOrNull { it.exceptionOrNull() }
+                throw IOException("No DoH reference resolver answered", cause)
+            }
+            answered.flatMapTo(linkedSetOf()) { it }
+        }
+}
+
+class DohJsonResolver(
+    private val endpoint: String,
 ) : Ipv4Resolver {
     override suspend fun resolve(host: String): Set<String> =
         withContext(Dispatchers.IO) {
@@ -211,9 +253,22 @@ class CloudflareDohJsonResolver(
             connection.useCaches = false
             connection.setRequestProperty("Accept", "application/dns-json")
             try {
-                if (connection.responseCode !in HttpSuccessStatusRange) return@withContext emptySet()
-                val body = connection.inputStream.bufferedReader().use { reader -> reader.readText() }
-                JSONObject(body)
+                // An error status is not an answer, so the reference resolver can tell it from an empty one.
+                if (connection.responseCode !in HttpSuccessStatusRange) {
+                    throw IOException("DoH reference $endpoint returned HTTP ${connection.responseCode}")
+                }
+                // A capped read keeps a slow or oversized provider answer from outliving the comparison budget.
+                val body = ByteArrayOutputStream()
+                connection.inputStream.use { stream ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val count = stream.read(buffer)
+                        if (count < 0) break
+                        body.write(buffer, 0, count)
+                        if (body.size() > MaxBodyBytes) throw IOException("DoH reference $endpoint answer is too large")
+                    }
+                }
+                JSONObject(body.toString(StandardCharsets.UTF_8.name()))
                     .optJSONArray("Answer")
                     ?.let { answers ->
                         (0 until answers.length()).mapNotNull { index ->
@@ -233,8 +288,9 @@ class CloudflareDohJsonResolver(
     private fun isIpv4Literal(value: String): Boolean = NumericIp.parseAddress(value)?.isIPv4 == true
 
     private companion object {
-        private const val CloudflareDnsJsonEndpoint = "https://cloudflare-dns.com/dns-query"
-        private const val HttpTimeoutMs = 5_000
+        // Connect plus read stays under the comparator's 5 s budget, so a silent provider cannot void the others.
+        private const val HttpTimeoutMs = 2_000
+        private const val MaxBodyBytes = 16 * 1024
         private const val ARecordType = 1
         private val HttpSuccessStatusRange = 200..299
     }

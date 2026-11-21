@@ -74,7 +74,7 @@ mod interrupted_probe_tests {
     use crate::types::{DomainTarget, ScanPathMode, ScanRequest, SharedState};
 
     #[test]
-    fn only_the_first_control_on_the_authenticated_in_path_strategy_route_can_verify_a_transfer() {
+    fn every_control_on_the_authenticated_in_path_strategy_route_can_verify_a_transfer() {
         let mut request: ScanRequest = serde_json::from_str(
             r#"{
                 "profileId":"web","displayName":"Web","kind":"STRATEGY_PROBE","pathMode":"IN_PATH",
@@ -105,7 +105,7 @@ mod interrupted_probe_tests {
         assert!(plan.stage_order.contains(&ExecutionStageId::Web));
         let transfer_flags =
             |plan: &_| WebFamily::targets(plan).into_iter().map(|(_, check)| check).collect::<Vec<_>>();
-        assert_eq!(transfer_flags(&plan), [false, true, false]);
+        assert_eq!(transfer_flags(&plan), [false, true, true]);
         let strategy = plan.strategy.take();
         assert_eq!(transfer_flags(&plan), [false, false, false]);
         plan.strategy = strategy;

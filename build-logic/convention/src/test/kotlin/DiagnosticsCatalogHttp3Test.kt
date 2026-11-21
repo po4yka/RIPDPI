@@ -37,7 +37,11 @@ class DiagnosticsCatalogHttp3Test {
         assertEquals(null, profile.strategyProbe)
         assertEquals(null, profile.selectiveMatrix)
         assertEquals(null, profile.ipFamilyProbe)
-        assertTrue(profiles.filterNot { it.id == profile.id }.all { it.http3Probe == null })
+        val cloudflare = profiles.single { it.id == "http3-connectivity-cloudflare" }
+        assertEquals(Http3CloudflareProbe, cloudflare.http3Probe)
+        assertEquals(profile.executionPolicy, cloudflare.executionPolicy)
+        cloudflare.validateHttp3Probe()
+        assertTrue(profiles.filterNot { it.id == profile.id || it == cloudflare }.all { it.http3Probe == null })
         assertEquals(Http3ProbeDefinition(), config)
         profile.validateHttp3Probe()
     }
@@ -64,20 +68,26 @@ class DiagnosticsCatalogHttp3Test {
                 .jsonObject
         assertEquals(
             Json.parseToJsonElement(
-                """{"version":1,"host":"www.cloudflare.com","port":443,"path":"/cdn-cgi/trace",
+                """{"version":1,"host":"www.google.com","port":443,"path":"/robots.txt",
                     "timeoutMs":5000,"maxResponseBytes":65536}""",
             ),
             config,
         )
         assertFalse(config.containsKey("connectIp"))
-        profiles.filterNot { it == profile }.forEach {
-            assertFalse(
-                it.jsonObject
-                    .getValue("request")
-                    .jsonObject
-                    .containsKey("http3Probe"),
-            )
-        }
+        profiles
+            .filterNot {
+                it == profile ||
+                    it.jsonObject
+                        .getValue("id")
+                        .jsonPrimitive.content == "http3-connectivity-cloudflare"
+            }.forEach {
+                assertFalse(
+                    it.jsonObject
+                        .getValue("request")
+                        .jsonObject
+                        .containsKey("http3Probe"),
+                )
+            }
     }
 
     @Test
