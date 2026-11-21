@@ -323,22 +323,33 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                 if (!isCurrent()) return@withLock false
                 val resolution = runtimeHooks.startHooks.resolveInitialConnectionPolicy()
                 if (!isCurrent()) return@withLock false
+                val previousAttempt = observedSession.configurationAttempt
                 handoverRestarting = true
                 try {
                     withContext(NonCancellable) {
-                        try {
-                            val carrier = resolution.proxyPreferences.awgConfigOrNull()?.carrier
-                            val reloadTimeout =
-                                if (carrier == AwgActivationRequest.CARRIER_WS) {
-                                    AwgWsRuntimeReloadTimeoutMillis
-                                } else {
-                                    SelectorRuntimeReloadTimeoutMillis
+                        val failure =
+                            try {
+                                val carrier = resolution.proxyPreferences.awgConfigOrNull()?.carrier
+                                val reloadTimeout =
+                                    if (carrier == AwgActivationRequest.CARRIER_WS) {
+                                        AwgWsRuntimeReloadTimeoutMillis
+                                    } else {
+                                        SelectorRuntimeReloadTimeoutMillis
+                                    }
+                                withTimeout(reloadTimeout) {
+                                    reloadResolvedRuntime(observedSession, resolution, clock.nowMillis())
                                 }
-                            withTimeout(reloadTimeout) {
-                                reloadResolvedRuntime(observedSession, resolution, clock.nowMillis())
+                                null
+                            } catch (superseded: RuntimeCommandSupersededException) {
+                                if (observedSession.configurationAttempt == previousAttempt) {
+                                    // No claim succeeded, so the running stack still belongs to the previous command.
+                                    return@withContext false
+                                }
+                                superseded
+                            } catch (failure: Exception) {
+                                failure
                             }
-                            true
-                        } catch (failure: Exception) {
+                        if (failure != null) {
                             Logger.w(failure) { "Connection policy reload failed" }
                             failureReason = runtimeHooks.handoverHooks.classifyFailure(failure)
                             cleanupRequired = true
@@ -346,6 +357,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                             runtimeHooks.statusHooks.updateStatus(ServiceStatus.Failed, failureReason)
                             throw failure
                         }
+                        true
                     }
                 } finally {
                     handoverRestarting = false

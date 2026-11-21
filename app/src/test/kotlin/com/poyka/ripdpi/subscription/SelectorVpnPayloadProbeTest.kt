@@ -52,7 +52,11 @@ class SelectorVpnPayloadProbeTest {
         runTest {
             settings.update { setNoDomain(true) }
 
-            assertNull(probe.capture("g"))
+            val path = requireNotNull(probe.capture("g"))
+            assertEquals(configuration, path.configuration)
+            assertTrue(path.usesIsolatedProbes)
+            assertTrue(probe.isCurrent(path))
+            assertNull(probe.measure(path, policy()))
             assertEquals(0, coordinator.acquisitions)
         }
 

@@ -18,9 +18,13 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RuntimeActivationPhase
+import com.poyka.ripdpi.data.RuntimeActivationReceipt
 import com.poyka.ripdpi.data.RuntimeAppliedIntent
 import com.poyka.ripdpi.data.RuntimeAppliedUseIdentity
 import com.poyka.ripdpi.data.RuntimeAppliedUseReceipt
+import com.poyka.ripdpi.data.RuntimeConfigurationApplication
+import com.poyka.ripdpi.data.RuntimeConfigurationApplyReason
+import com.poyka.ripdpi.data.RuntimeConfigurationAttempt
 import com.poyka.ripdpi.data.RuntimeIntentLinearizer
 import com.poyka.ripdpi.data.SelectorRelayProfileMapping
 import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
@@ -35,12 +39,16 @@ import com.poyka.ripdpi.services.selector.SelectorReloadCoordinator
 import com.poyka.ripdpi.services.selector.SelectorReloadRequest
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -102,6 +110,134 @@ class RelayActivationSelectorReloadTriggerTest {
             // The restored member is already live, so its own selection change replaces no stack.
             trigger.hotReload(fixture.provider.selectionChanges().first()!!)
             assertEquals(1, rejecting.refreshes)
+        }
+
+    @Test
+    fun `a successful refresh without an applied revision does not switch the running member`() =
+        runTest {
+            val fixture = fixture(listOf(selectorGroup(listOf(member("a"), member("b")))), "a")
+            val request = requestAutomaticReserve(fixture)
+
+            fixture.trigger(fixture.refresher).hotReload(request)
+
+            assertEquals(1, fixture.refresher.refreshCount)
+            assertEquals("a", fixture.selections.snapshot("selector").profileId)
+        }
+
+    @Test
+    fun `handover rejection reconciles even if application settles after the timeout`() =
+        runTest {
+            val fixture = fixture(listOf(selectorGroup(listOf(member("a"), member("b")))), "a")
+            val request = requestAutomaticReserve(fixture)
+            val reload = async { fixture.trigger(rejectDuringHandover(fixture)).hotReload(request) }
+            runCurrent()
+            advanceTimeBy(60_001L)
+
+            assertFalse(reload.isCompleted)
+            assertEquals("b", fixture.selections.snapshot("selector").profileId)
+            fixture.applied.applications.value = liveApplication("a", revision = 2L)
+            reload.await()
+
+            assertEquals("a", fixture.selections.snapshot("selector").profileId)
+        }
+
+    @Test
+    fun `a late rejection keeps a newer manual choice of the same member`() =
+        runTest {
+            val fixture = fixture(listOf(selectorGroup(listOf(member("a"), member("b")))), "a")
+            val request = requestAutomaticReserve(fixture)
+            val reload = async { fixture.trigger(rejectDuringHandover(fixture)).hotReload(request) }
+            runCurrent()
+            fixture.select("selector", "b")
+            val manual = fixture.selections.snapshot("selector")
+            runCurrent()
+            assertTrue(reload.isCompleted)
+            fixture.applied.applications.value = liveApplication("a", revision = 2L)
+            reload.await()
+
+            assertTrue(manual.isManual)
+            assertEquals(manual, fixture.selections.snapshot("selector"))
+        }
+
+    @Test
+    fun `an explicit stop retires reconciliation while handover is still applying`() =
+        runTest {
+            val fixture = fixture(listOf(selectorGroup(listOf(member("a"), member("b")))), "a")
+            val request = requestAutomaticReserve(fixture)
+            val reload = async { fixture.trigger(rejectDuringHandover(fixture)).hotReload(request) }
+            runCurrent()
+            assertFalse(reload.isCompleted)
+
+            fixture.authority.reserveStop()
+            runCurrent()
+
+            assertTrue(reload.isCompleted)
+            assertEquals("b", fixture.selections.snapshot("selector").profileId)
+        }
+
+    @Test
+    fun `a handover that applies the requested reserve keeps its selection`() =
+        runTest {
+            val fixture = fixture(listOf(selectorGroup(listOf(member("a"), member("b")))), "a")
+            val request = requestAutomaticReserve(fixture)
+            val reload = async { fixture.trigger(rejectDuringHandover(fixture)).hotReload(request) }
+            runCurrent()
+            fixture.applied.applications.value = liveApplication("b", revision = 2L)
+            reload.await()
+
+            assertEquals("b", fixture.selections.snapshot("selector").profileId)
+        }
+
+    @Test
+    fun `a runtime timeout reconciles against the still applied member`() =
+        runTest {
+            val fixture = fixture(listOf(selectorGroup(listOf(member("a"), member("b")))), "a")
+            val request = requestAutomaticReserve(fixture)
+            val refresher =
+                object : RunningRelayRefresher by fixture.refresher {
+                    override suspend fun refresh(
+                        intent: RuntimePolicyReloadIntent,
+                        isCurrent: suspend () -> Boolean,
+                    ): Boolean = withTimeout(1L) { awaitCancellation() }
+                }
+
+            fixture.trigger(refresher).hotReload(request)
+
+            assertEquals("a", fixture.selections.snapshot("selector").profileId)
+        }
+
+    private suspend fun requestAutomaticReserve(fixture: Fixture): SelectorReloadRequest {
+        fixture.selections.resumeAutomatic("selector")
+        fixture.handoverStart = fixture.authority.reserveStart(Mode.VPN)
+        fixture.applied.applications.value = liveApplication("a")
+        val automatic = fixture.selections.snapshot("selector")
+        assertTrue(fixture.selections.selectAutomatically("selector", automatic, "b") { true })
+        return requireNotNull(fixture.provider.selectionChanges().first())
+    }
+
+    private fun rejectDuringHandover(fixture: Fixture): RunningRelayRefresher =
+        object : RunningRelayRefresher by fixture.refresher {
+            override suspend fun refresh(
+                intent: RuntimePolicyReloadIntent,
+                isCurrent: suspend () -> Boolean,
+            ): Boolean {
+                val before =
+                    (fixture.applied.applications.value[Mode.VPN] as RuntimeConfigurationApplication.Applied)
+                        .configuration
+                val attempt =
+                    RuntimeConfigurationAttempt(
+                        before.runtimeId,
+                        before.revision + 1,
+                        before.mode,
+                        before.requestedSelection,
+                        RuntimeConfigurationApplyReason.NetworkHandover,
+                        RuntimeAppliedIntent.Activation(fixture.handoverStart),
+                        catalogGeneration = 0L,
+                    )
+                fixture.applied.applications.value =
+                    mapOf(Mode.VPN to RuntimeConfigurationApplication.Applying(attempt, before))
+                return false
+            }
         }
 
     @Test
@@ -182,27 +318,29 @@ class RelayActivationSelectorReloadTriggerTest {
         override suspend fun teardown() = Unit
     }
 
-    private fun liveApplication(memberId: String) =
-        mapOf(
-            Mode.VPN to
-                com.poyka.ripdpi.data.RuntimeConfigurationApplication.Applied(
-                    com.poyka.ripdpi.data.AppliedRuntimeConfiguration(
-                        runtimeId = "runtime",
-                        revision = 1,
-                        appliedAt = 1,
-                        mode = Mode.VPN,
-                        requestedSelection = liveSelection(memberId),
-                        effectiveSelection = liveSelection(memberId),
-                        dns =
-                            com.poyka.ripdpi.data
-                                .RuntimeConfigurationDns("plain", "system"),
-                        strategy =
-                            com.poyka.ripdpi.data
-                                .RuntimeConfigurationStrategy(false),
-                        reason = com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.InitialStart,
-                    ),
+    private fun liveApplication(
+        memberId: String,
+        revision: Long = 1L,
+    ) = mapOf(
+        Mode.VPN to
+            com.poyka.ripdpi.data.RuntimeConfigurationApplication.Applied(
+                com.poyka.ripdpi.data.AppliedRuntimeConfiguration(
+                    runtimeId = "runtime",
+                    revision = revision,
+                    appliedAt = 1,
+                    mode = Mode.VPN,
+                    requestedSelection = liveSelection(memberId),
+                    effectiveSelection = liveSelection(memberId),
+                    dns =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationDns("plain", "system"),
+                    strategy =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationStrategy(false),
+                    reason = com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.InitialStart,
                 ),
-        )
+            ),
+    )
 
     private fun liveSelection(memberId: String) =
         com.poyka.ripdpi.data.RuntimeConfigurationSelection(
@@ -678,6 +816,7 @@ class RelayActivationSelectorReloadTriggerTest {
         val credentials = FakeRelayCredentialStore()
         val settings = FakeAppSettingsRepository()
         val stateStore = FakeServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) }
+        lateinit var handoverStart: RuntimeActivationReceipt
         val provider = ActiveSelectorSelectionProvider(groups, selections, activeGroup)
         val applied =
             com.poyka.ripdpi.activities

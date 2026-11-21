@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.RuntimeConfigurationApplyReason
+import com.poyka.ripdpi.data.RuntimeConfigurationAttempt
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
@@ -1417,6 +1419,53 @@ class ServiceRuntimeHandoverTest {
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RetainedRuntimeCleanupTest {
+    @Test
+    fun `a superseded reload claim leaves the running session available to the newer command`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            env.coordinator.revisionReceipt = { _, _ -> throw RuntimeCommandSupersededException() }
+
+            assertFalse(handle.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true })
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+            assertEquals(0, env.coordinator.handoverRetainCalls)
+            assertEquals(0, env.coordinator.stopCalls)
+            assertSame(handle, env.runtimeRegistry.current(Mode.Proxy))
+
+            env.coordinator.revisionReceipt = null
+            assertTrue(handle.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true })
+        }
+
+    @Test
+    fun `a rejected claim after replacement began retains the fail closed barrier`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            env.coordinator.handoverRetainResult = true
+            env.coordinator.revisionReceipt = { session, resolution ->
+                session.configurationAttempt =
+                    RuntimeConfigurationAttempt(
+                        session.runtimeId,
+                        session.nextConfigurationRevision(),
+                        session.mode,
+                        resolution.requestedConfiguration.selection,
+                        RuntimeConfigurationApplyReason.SelectorReload,
+                        session.nextAppliedIntent(),
+                        resolution.catalogGeneration,
+                    )
+                throw RuntimeCommandSupersededException()
+            }
+            val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
+
+            val result = runCatching { handle.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true } }
+
+            assertTrue(result.exceptionOrNull() is RuntimeCommandSupersededException)
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+            assertEquals(1, env.coordinator.handoverRetainCalls)
+            assertSame(handle, env.runtimeRegistry.current(Mode.Proxy))
+        }
+
     @Test
     fun `pending native cleanup retains service registration and blocks replacement until retry`() =
         runTest {

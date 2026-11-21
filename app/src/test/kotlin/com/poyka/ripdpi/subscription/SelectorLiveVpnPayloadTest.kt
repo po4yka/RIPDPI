@@ -5,7 +5,12 @@ import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
+import com.poyka.ripdpi.data.ProfileQualityBudget
+import com.poyka.ripdpi.data.ProfileQualityDecisionReason
+import com.poyka.ripdpi.data.ProfileQualityMeasurement
+import com.poyka.ripdpi.data.ProfileQualityPolicy
 import com.poyka.ripdpi.data.ProfileQualityReason
+import com.poyka.ripdpi.data.ProfileQualityStore
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.RuntimeConfigurationApplyReason
 import com.poyka.ripdpi.data.RuntimeConfigurationDns
@@ -14,6 +19,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.data.SelectorFailover
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class SelectorLiveVpnPayloadTest {
@@ -126,6 +132,8 @@ class SelectorLiveVpnPayloadTest {
             prober.runProbePass(group, "unused", 0)
             assertEquals("reserve", store.selectedProfileId("g").value)
 
+            // The desired choice alone must not start the cooldown clock.
+            now += 600_000
             // The VPN reloads with the reserve, which then stalls too while the old primary recovers.
             scope = scope.copy(vpnPath = vpnPath(runtimeConfiguration("reserve", revision = 2L)))
             repeat(3) {
@@ -137,6 +145,93 @@ class SelectorLiveVpnPayloadTest {
             now += 600_000
             prober.runProbePass(group, "unused", 0)
             assertEquals("active", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `a quality promotion is published after a full body on the applied reserve`() =
+        runTest {
+            val qualityPolicy = ProfileQualityPolicy(131_076, 1_048_576, 3_600, 20, 50)
+            val group = group(policy().copy(quality = qualityPolicy))
+            val store = ProbeTestSelectionStore().apply { set("g", "active") }
+            val quality = ProfileQualityStore()
+            var now = 0L
+            var scope = selectorTestScope(group).copy(vpnPath = vpnPath(runtimeConfiguration("active")))
+            var stalls = false
+            var challengerBusy = false
+            var isolatedProbes = 0
+            val slow = ProfileQualityMeasurement(0, 32_768, 1_000_000_000, 10, 100, true, ProfileQualityReason.Verified)
+            val fast = slow.copy(bodyDurationNanos = 500_000_000)
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    { member, _ ->
+                        isolatedProbes++
+                        when {
+                            member.id != "active" -> MemberProbeResult(10, fast)
+                            challengerBusy -> MemberProbeResult(null, reason = ProfileQualityReason.CleanupPending)
+                            else -> MemberProbeResult(10, slow)
+                        }
+                    },
+                    { scope },
+                    { now },
+                    qualityStore = quality,
+                    reserveBudget = { id, value ->
+                        ProfileQualityBudget(
+                            id,
+                            value.reservedQualityPassBytes(),
+                            0L,
+                            qualityPolicy.maxWindowBytes,
+                            null,
+                            ProfileQualityReason.Verified,
+                        )
+                    },
+                    measureVpnPayload = { path, _ ->
+                        when {
+                            stalls -> MemberProbeResult(null, reason = ProfileQualityReason.TransferFailed)
+                            path.configuration.revision == 1L -> MemberProbeResult(10, slow)
+                            else -> MemberProbeResult(10, fast)
+                        }
+                    },
+                )
+
+            suspend fun pass() {
+                prober.runProbePass(group, "unused", 0)
+                now += 60_000
+            }
+
+            fun assertPending() {
+                val decision = quality.state.value.decisions["g"]
+                assertNotEquals(ProfileQualityDecisionReason.PromotedForGoodput, decision?.reason)
+            }
+
+            pass()
+            pass()
+            assertEquals("reserve", store.snapshot("g").profileId)
+            assertPending()
+
+            val beforeApply = isolatedProbes
+            scope = scope.copy(vpnPath = requireNotNull(scope.vpnPath).copy(lease = null, usesIsolatedProbes = true))
+            pass()
+            assertEquals(beforeApply, isolatedProbes)
+
+            scope = scope.copy(vpnPath = vpnPath(runtimeConfiguration("reserve", revision = 2L)))
+            stalls = true
+            pass()
+            assertPending()
+
+            val appliedReserve = requireNotNull(scope.vpnPath)
+            scope = scope.copy(vpnPath = appliedReserve.copy(lease = null, usesIsolatedProbes = true))
+            stalls = false
+            pass()
+            assertPending()
+
+            scope = scope.copy(vpnPath = appliedReserve)
+            challengerBusy = true
+            pass()
+            val decision = requireNotNull(quality.state.value.decisions["g"])
+            assertEquals(ProfileQualityDecisionReason.PromotedForGoodput, decision.reason)
+            assertEquals("reserve", decision.selectedProfileId)
+            assertEquals(300_000L, decision.observedAtElapsedMillis)
         }
 
     private fun group(policy: PayloadFailoverPolicy) =

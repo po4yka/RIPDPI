@@ -1,0 +1,5 @@
+# Design
+
+Capture the selection revision and running configuration before asking the service to reload. Read the mode-specific applied configuration after reload returns. Report a timeout if the same runtime is still applying a revision after the wait window. Keep reconciliation tied to that runtime until it settles or a newer choice supersedes the request. Confirm the exact desired group and member on a newer applied revision of the same runtime. Restore the live member through a selection compare-and-set that also checks the applied revision. A superseded claim leaves the service and data path available for the newer command.
+
+Track desired VPN payload moves in the current probe scope. Start the cooldown once a completed round observes the applied replacement. Complete the move's recovery evidence only after a verified full payload on that path. With `noDomain`, keep the applied VPN revision and use isolated probes for selection. Leave traffic recovery unconfirmed until a live probe can run. Drop the pending observation when the probe scope or selection changes. Keep the service's current fail-closed ownership rules.

@@ -132,7 +132,7 @@ class XrayProviderE2ETest {
         com.poyka.ripdpi.services.OwnedQualityProbeFactory.http(
             { manifest.getString("qualityCertificate") },
             { manifest.getInt("qualityPort") },
-            { stalledQualityPort },
+            { stalledQualityRoute?.takeIf { routeCoordinator.validateInPathRouteLease(it) == null }?.port },
         )
 
     // JUnit creates a fresh test instance, so each case has its own eight-event budget.
@@ -273,7 +273,7 @@ class XrayProviderE2ETest {
 
     @Inject lateinit var routeCoordinator: com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 
-    @Volatile private var stalledQualityPort: Int? = null
+    @Volatile private var stalledQualityRoute: com.poyka.ripdpi.data.DiagnosticsInPathRouteLease? = null
 
     @Volatile private var lastFailure: String? = null
     private val context: Context get() = ApplicationProvider.getApplicationContext()
@@ -813,10 +813,11 @@ class XrayProviderE2ETest {
                         val acquisition = routeCoordinator.acquireInPathRouteLease()
                         check(acquisition is com.poyka.ripdpi.data.InPathRouteLeaseAcquisition.Acquired)
                         selector.verifyActivePrimary(automaticPayloadHttp, acquisition.lease)
-                        stalledQualityPort = acquisition.lease.port
+                        stalledQualityRoute = acquisition.lease
                         selector.verifyFreshPrimary(selectorProbe)
                         selector.resumeAutomatic()
                         selector.awaitAutomaticReserve(primary)
+                        val completedOnApply = completedQualityProbeCount()
                         assertTrue(
                             "The active route must receive headers and stall in the body",
                             qualityProbeCount("QualityStalled") > 0,
@@ -831,9 +832,10 @@ class XrayProviderE2ETest {
                             result.getString("sha256"),
                         )
                         assertEquals(before, readControl("direct-receipts").getInt("count"))
+                        awaitUntil(timeoutMs = 90_000L) { completedQualityProbeCount() > completedOnApply }
                     }
                 } finally {
-                    stalledQualityPort = null
+                    stalledQualityRoute = null
                     controller.stop()
                     awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
                 }

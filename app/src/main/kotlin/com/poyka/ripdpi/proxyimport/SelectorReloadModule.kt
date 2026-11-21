@@ -71,6 +71,8 @@ class ActiveSelectorSelectionProvider
                 }
 
         suspend fun activeGroupId(): String? = activeGroup.snapshotActiveGroupId()
+
+        internal val activeGroupChanges get() = activeGroup.activeGroupId
     }
 
 /** Qualifier for the application-lifetime scope the selector coordinator watches on. */
