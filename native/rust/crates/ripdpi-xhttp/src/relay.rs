@@ -507,6 +507,7 @@ impl Drop for PendingStreamCarrier<'_> {
     }
 }
 
+// Drop order: the Drop body aborts the tasks first; the `dropped` sender drops after it, which wakes every detached upload task so it stops within the flush timeout.
 struct OpenStreamTaskGuard {
     handles: Vec<JoinHandle<()>>,
     /// Tasks that hold an upload request open. They are detached instead of
