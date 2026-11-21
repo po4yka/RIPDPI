@@ -39,6 +39,8 @@ internal data class DiagnosticsUiStateInput(
     val activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
     val serviceStatus: AppStatus,
     val serviceMode: com.poyka.ripdpi.data.Mode = com.poyka.ripdpi.data.Mode.VPN,
+    /** `NetworkFingerprint.scopeKey()` of the current network; null when unknown. */
+    val currentNetworkScopeKey: String? = null,
     val selectedSectionRequest: DiagnosticsSection,
     val selectedProfileId: String?,
     val selectiveMatrixHostsInput: String = "",

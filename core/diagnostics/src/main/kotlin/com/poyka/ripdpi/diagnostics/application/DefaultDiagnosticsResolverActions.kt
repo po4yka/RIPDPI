@@ -21,14 +21,18 @@ class DefaultDiagnosticsResolverActions
         private val resolverOverrideStore: ResolverOverrideStore,
     ) : DiagnosticsResolverActions {
         override suspend fun keepResolverRecommendationForSession(sessionId: String) {
-            val recommendation = recommendationStore.loadResolverRecommendation(sessionId) ?: return
+            val fingerprint = networkFingerprintProvider.capture() ?: return
+            val recommendation =
+                recommendationStore.loadResolverRecommendation(sessionId, fingerprint.scopeKey()) ?: return
             resolverOverrideStore.setTemporaryOverride(
                 DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation),
             )
         }
 
         override suspend fun saveResolverRecommendation(sessionId: String) {
-            val recommendation = recommendationStore.loadResolverRecommendation(sessionId) ?: return
+            val fingerprint = networkFingerprintProvider.capture() ?: return
+            val recommendation =
+                recommendationStore.loadResolverRecommendation(sessionId, fingerprint.scopeKey()) ?: return
             val selectedPath = with(ResolverRecommendationEngine) { recommendation.toEncryptedDnsPathCandidate() }
             appSettingsRepository.update {
                 dnsMode = com.poyka.ripdpi.data.DnsModeEncrypted
@@ -44,12 +48,10 @@ class DefaultDiagnosticsResolverActions
                 encryptedDnsDnscryptProviderName = selectedPath.dnscryptProviderName
                 encryptedDnsDnscryptPublicKey = selectedPath.dnscryptPublicKey
             }
-            networkFingerprintProvider.capture()?.let { fingerprint ->
-                networkDnsPathPreferenceStore.rememberPreferredPath(
-                    fingerprint = fingerprint,
-                    path = selectedPath,
-                )
-            }
+            networkDnsPathPreferenceStore.rememberPreferredPath(
+                fingerprint = fingerprint,
+                path = selectedPath,
+            )
             resolverOverrideStore.clear()
         }
     }

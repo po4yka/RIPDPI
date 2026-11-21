@@ -16,9 +16,14 @@ class DiagnosticsRecommendationStore
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
-        suspend fun loadResolverRecommendation(sessionId: String): ResolverRecommendation? =
+        /** The session's recommendation, only when the session was measured on [networkScopeKey]. */
+        suspend fun loadResolverRecommendation(
+            sessionId: String,
+            networkScopeKey: String,
+        ): ResolverRecommendation? =
             scanRecordStore
                 .getScanSession(sessionId)
+                ?.takeIf { it.networkScopeKey == networkScopeKey }
                 ?.reportJson
                 ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
                 ?.resolverRecommendation

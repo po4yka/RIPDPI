@@ -66,8 +66,14 @@ internal class DiagnosticsUiInputResolver
                 latestProfileSession = latestProfileSession,
                 latestReport = latestCompletedSession?.report,
                 latestReportResults = latestProfileReport.probeResultRows(latestProfileSession),
+                // Keep and save act on the current network, so another network's recommendation is not offered.
                 latestResolverRecommendation =
-                    latestProfileReport?.resolverRecommendation?.let(support::toResolverRecommendationUiModel),
+                    latestProfileReport
+                        ?.resolverRecommendation
+                        ?.takeIf {
+                            input.currentNetworkScopeKey != null &&
+                                latestProfileSession?.networkScopeKey == input.currentNetworkScopeKey
+                        }?.let(support::toResolverRecommendationUiModel),
                 latestStrategyProbeReport = latestStrategyProbeReport,
                 currentTelemetry = input.currentTelemetry,
                 health =

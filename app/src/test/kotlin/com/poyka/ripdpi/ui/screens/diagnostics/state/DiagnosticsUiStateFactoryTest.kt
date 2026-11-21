@@ -4,11 +4,13 @@ import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
+import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.ui.screens.history.historyScanSession
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -106,6 +108,36 @@ class DiagnosticsUiStateFactoryTest {
         assertEquals(emptyList<DiagnosticsProbeResultUiModel>(), state.scan.latestResults)
         assertNull(state.scan.resolverRecommendation)
         assertNull(state.scan.strategyProbeReport)
+    }
+
+    @Test
+    fun `resolver recommendation is offered only for a session measured on the current network`() {
+        val session =
+            historyScanSession(
+                report =
+                    DiagnosticsSessionProjection(
+                        resolverRecommendation =
+                            ResolverRecommendation(
+                                triggerOutcome = "dns_sinkhole_substitution",
+                                selectedResolverId = "cloudflare",
+                                selectedProtocol = "doh",
+                                selectedEndpoint = "https://cloudflare-dns.com/dns-query",
+                                rationale = "Use encrypted DNS",
+                                persistable = true,
+                            ),
+                    ),
+            ).copy(networkScopeKey = "network-a")
+        val input =
+            diagnosticsUiStateInput(listOf(session)).copy(
+                profiles = listOf(readableProfile("default", "Default")),
+                selectedProfileId = "default",
+            )
+
+        assertNotNull(
+            factory.buildUiState(input.copy(currentNetworkScopeKey = "network-a")).scan.resolverRecommendation,
+        )
+        assertNull(factory.buildUiState(input.copy(currentNetworkScopeKey = "network-b")).scan.resolverRecommendation)
+        assertNull(factory.buildUiState(input.copy(currentNetworkScopeKey = null)).scan.resolverRecommendation)
     }
 
     @Test

@@ -96,6 +96,38 @@ class DiagnosticsResolverActionsTest {
         }
 
     @Test
+    fun `keep and save ignore a recommendation measured on another network`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val session =
+                diagnosticsSessionWithResolverRecommendation(
+                    sessionId = "session-1",
+                    networkScopeKey = "other-network",
+                )
+            stores.sessionsState.value = listOf(session)
+            val appSettingsRepository = FakeAppSettingsRepository()
+            val resolverOverrideStore = FakeResolverOverrideStore()
+            val actions =
+                DefaultDiagnosticsResolverActions(
+                    appSettingsRepository = appSettingsRepository,
+                    recommendationStore = DiagnosticsRecommendationStore(stores, json),
+                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    resolverOverrideStore = resolverOverrideStore,
+                )
+
+            actions.keepResolverRecommendationForSession(session.id)
+            actions.saveResolverRecommendation(session.id)
+
+            assertNull(resolverOverrideStore.override.value)
+            assertNull(
+                stores.getNetworkDnsPathPreference(FakeNetworkFingerprintProvider().capture().scopeKey()),
+            )
+            assertEquals("", appSettingsRepository.snapshot().dnsProviderId)
+        }
+
+    @Test
     fun `keep and save are no-ops when session has no recommendation`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -133,6 +165,7 @@ class DiagnosticsResolverActionsTest {
 
 private fun diagnosticsSessionWithResolverRecommendation(
     sessionId: String,
+    networkScopeKey: String? = FakeNetworkFingerprintProvider().capture().scopeKey(),
 ): com.poyka.ripdpi.data.diagnostics.ScanSessionEntity {
     val json = diagnosticsTestJson()
     return diagnosticsSession(
@@ -175,5 +208,5 @@ private fun diagnosticsSessionWithResolverRecommendation(
                         ),
                 ).toEngineScanReportWire(),
             ),
-    )
+    ).copy(networkScopeKey = networkScopeKey)
 }

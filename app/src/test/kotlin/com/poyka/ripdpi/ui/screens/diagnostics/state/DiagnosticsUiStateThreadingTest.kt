@@ -66,6 +66,8 @@ class DiagnosticsUiStateThreadingTest {
                             EmptyRememberedNetworkPolicySource(),
                             EmptyActiveConnectionPolicySource(),
                             FakeServiceStateStore(),
+                            fixedNetworkFingerprintProvider(DiagnosticsTestNetwork),
+                            SilentNetworkHandoverMonitor(),
                         ),
                     selectionState = MutableStateFlow(SelectionState()),
                     filterState = MutableStateFlow(FilterState()),

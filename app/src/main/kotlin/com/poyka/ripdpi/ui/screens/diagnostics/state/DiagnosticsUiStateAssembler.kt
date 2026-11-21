@@ -9,10 +9,13 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
@@ -259,14 +262,15 @@ internal class DiagnosticsUiStateAssembler
                 ),
                 contextDependencies.serviceStateStore.status,
                 contextDependencies.activeConnectionPolicySource.activePolicies,
-            ) { settings, rememberedPolicies, serviceStatus, activePolicies ->
+                currentNetworkScopeKey(contextDependencies),
+            ) { settings, rememberedPolicies, serviceStatus, activePolicies, networkScopeKey ->
                 val (status, activeMode) = serviceStatus
                 val connectionPolicy =
                     selectActiveConnectionPolicy(
                         serviceMode = activeMode,
                         activePolicies = activePolicies,
                     )
-                ConfigSnapshot(settings, rememberedPolicies, connectionPolicy, status, activeMode)
+                ConfigSnapshot(settings, rememberedPolicies, connectionPolicy, status, activeMode, networkScopeKey)
             }.stateIn(
                 scope,
                 SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
@@ -277,6 +281,18 @@ internal class DiagnosticsUiStateAssembler
                     serviceStatus = AppStatus.Halted,
                 ),
             )
+
+        private fun currentNetworkScopeKey(contextDependencies: DiagnosticsContextDependencies): Flow<String?> =
+            contextDependencies.networkHandoverMonitor
+                .observe()
+                .map { handover -> handover.currentFingerprint?.scopeKey() }
+                .onStart {
+                    emit(
+                        runCatching {
+                            contextDependencies.networkFingerprintProvider.capture()
+                        }.getOrNull()?.scopeKey(),
+                    )
+                }.flowOn(dispatchers.io)
 
         private fun assembleControlState(
             scope: CoroutineScope,
@@ -331,6 +347,7 @@ internal class DiagnosticsUiStateAssembler
                 activeConnectionPolicy = config.activeConnectionPolicy,
                 serviceStatus = config.serviceStatus,
                 serviceMode = config.serviceMode,
+                currentNetworkScopeKey = config.currentNetworkScopeKey,
                 selectedSectionRequest = controls.selection.selectedSectionRequest,
                 selectedProfileId =
                     controls.selection.selectedProfileId

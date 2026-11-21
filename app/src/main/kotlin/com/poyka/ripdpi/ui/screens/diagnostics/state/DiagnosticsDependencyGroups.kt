@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
@@ -29,6 +31,8 @@ class DiagnosticsContextDependencies
         val rememberedPolicySource: DiagnosticsRememberedPolicySource,
         val activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource,
         val serviceStateStore: ServiceStateStore,
+        val networkFingerprintProvider: NetworkFingerprintProvider,
+        val networkHandoverMonitor: NetworkHandoverMonitor,
     )
 
 internal class DiagnosticsFiles

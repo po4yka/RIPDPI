@@ -9,6 +9,10 @@ import com.poyka.ripdpi.activities.StubDiagnosticsScanController
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.NetworkHandoverEvent
+import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
@@ -43,10 +47,29 @@ import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.robolectric.RuntimeEnvironment
 import java.io.File
+
+internal val DiagnosticsTestNetwork =
+    NetworkFingerprint(
+        transport = "wifi",
+        networkValidated = true,
+        captivePortalDetected = false,
+        privateDnsMode = "off",
+        dnsServers = listOf("192.0.2.53"),
+    )
+
+internal fun fixedNetworkFingerprintProvider(network: NetworkFingerprint?): NetworkFingerprintProvider =
+    object : NetworkFingerprintProvider {
+        override fun capture(): NetworkFingerprint? = network
+    }
+
+internal class SilentNetworkHandoverMonitor : NetworkHandoverMonitor {
+    override val events = MutableSharedFlow<NetworkHandoverEvent>()
+}
 
 internal fun createDiagnosticsViewModel(
     appContext: Context = RuntimeEnvironment.getApplication(),
@@ -59,6 +82,7 @@ internal fun createDiagnosticsViewModel(
     rememberedPolicySource: DiagnosticsRememberedPolicySource = EmptyRememberedNetworkPolicySource(),
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
     serviceStateStore: ServiceStateStore = FakeServiceStateStore(),
+    currentNetwork: NetworkFingerprint? = DiagnosticsTestNetwork,
     probeDependencies: DiagnosticsProbeDependencies = defaultDiagnosticsProbeDependencies(appContext),
     savedStateHandle: SavedStateHandle = SavedStateHandle(),
     initialize: Boolean = true,
@@ -93,6 +117,8 @@ internal fun createDiagnosticsViewModel(
                     rememberedPolicySource = rememberedPolicySource,
                     activeConnectionPolicySource = activeConnectionPolicySource,
                     serviceStateStore = serviceStateStore,
+                    networkFingerprintProvider = fixedNetworkFingerprintProvider(currentNetwork),
+                    networkHandoverMonitor = SilentNetworkHandoverMonitor(),
                 ),
             diagnosticsBootstrapper = diagnosticsBootstrapper,
             appSettingsRepository = appSettingsRepository,

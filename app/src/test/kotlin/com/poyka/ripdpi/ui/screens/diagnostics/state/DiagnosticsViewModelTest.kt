@@ -1236,7 +1236,7 @@ class DiagnosticsViewModelTest {
                                                 ),
                                         ),
                                     ),
-                            ),
+                            ).copy(networkScopeKey = DiagnosticsTestNetwork.scopeKey()),
                         )
                 }
 
