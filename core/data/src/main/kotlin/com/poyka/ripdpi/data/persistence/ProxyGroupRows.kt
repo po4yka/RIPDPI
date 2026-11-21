@@ -21,6 +21,7 @@ internal class ProxyGroupRows(
         records.write(Namespace, Current, json.encodeToByteArray())
         val selection = ProfileSelectionRows(records)
         if (groups.none { it.id == selection.activeGroup() }) selection.setActiveGroup(null)
+        selection.clearChoicesOutside(groups.mapTo(mutableSetOf(), ProxyGroup::id))
     }
 
     fun replace(groups: List<ProxyGroup>) =
@@ -28,7 +29,10 @@ internal class ProxyGroupRows(
 
     fun clear() {
         records.clear(Namespace)
-        ProfileSelectionRows(records).setActiveGroup(null)
+        ProfileSelectionRows(records).apply {
+            setActiveGroup(null)
+            clearChoicesOutside(emptySet())
+        }
     }
 
     companion object {

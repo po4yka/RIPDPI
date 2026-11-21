@@ -85,6 +85,14 @@ internal class ProfileSelectionRows(
         return true
     }
 
+    /** A removed group keeps no member choice; the bumped revision still fences in-flight probe decisions. */
+    fun clearChoicesOutside(groupIds: Set<String>) {
+        records
+            .keys(ChoiceNamespace)
+            .filter { it !in groupIds && decodeChoice(records.read(ChoiceNamespace, it)).profileId != null }
+            .forEach { setChoice(it, null, false) }
+    }
+
     override fun clearSelections() {
         val groupsWithPreference = ProxyGroupRows(records).list().filter { it.initialMemberId != null }.map { it.id }
         (records.keys(ChoiceNamespace) + groupsWithPreference).distinct().forEach { setChoice(it, null, false) }

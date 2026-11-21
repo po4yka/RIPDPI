@@ -319,6 +319,23 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             }
         }
 
+    @Test
+    fun `deleting the active selector group clears its pointer and choice in the same write`() =
+        runTest {
+            val fixture = initialized()
+            val repository = DefaultProxyGroupRepository(fixture.groupCatalog, fixture.coordinator())
+            val member = ProxyProfile.Vless("one", "one", "group", "fixture.example", 443, "fixture")
+            repository.add(ProxyGroup("group", "group", ProxyGroupType.BASIC, 0, true, members = listOf(member)))
+            fixture.selectorSelections.select("group", "one")
+            assertEquals("group", fixture.selectorChoice.snapshotActiveGroupId())
+
+            repository.delete(fixture.coordinator().captureMutation(ProfileMutationOrigin.ExplicitDeletion), "group")
+            fixture.reopen()
+
+            assertNull(fixture.selectorChoice.snapshotActiveGroupId())
+            assertNull(fixture.selectorSelections.snapshot("group").profileId)
+        }
+
     private suspend fun initialized() = fixture().also { it.initialize() }
 
     private fun reserve(fixture: ProfileMutationTestFixture): ProfileActivationReceipt =
