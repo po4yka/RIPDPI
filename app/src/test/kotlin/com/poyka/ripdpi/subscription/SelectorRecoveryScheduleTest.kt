@@ -68,6 +68,44 @@ class SelectorRecoveryScheduleTest {
         }
 
     @Test
+    fun `a recovery request inside the spacing runs when the spacing ends`() =
+        runTest {
+            val store = ProbeTestSelectionStore().apply { set("g", "active") }
+            val group =
+                selectorTestGroup(listOf(selectorTestMember("active"), selectorTestMember("reserve")))
+                    .copy(failover = SelectorFailover("unused", 60, 0, policy()))
+            val requests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+            val attempts = mutableListOf<Pair<Long, PayloadProbePurpose>>()
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    { _, _ -> MemberProbeResult(20L) },
+                    { selectorTestScope(group) },
+                    { testScheduler.currentTime },
+                    reserveBudget = { id, configured, purpose ->
+                        attempts += testScheduler.currentTime to purpose
+                        admitTestPayloadPass(id, configured, purpose)
+                    },
+                )
+            backgroundScope.launch { prober.run(group, requests) }
+            advanceTimeBy(16_000L)
+            requests.emit(Unit)
+            advanceTimeBy(14_000L)
+            // The second network change arrives while the first recovery holds the 30-second spacing.
+            requests.emit(Unit)
+            advanceTimeBy(21_001L)
+
+            assertEquals(
+                listOf(
+                    15_000L to PayloadProbePurpose.Scheduled,
+                    21_000L to PayloadProbePurpose.Recovery,
+                    51_000L to PayloadProbePurpose.Recovery,
+                ),
+                attempts,
+            )
+        }
+
+    @Test
     fun `a deferred regular health pass preserves earlier observed failures`() =
         runTest {
             val store = ProbeTestSelectionStore().apply { set("g", "active") }
