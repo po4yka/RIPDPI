@@ -83,6 +83,7 @@ class SelectorUrltestProber internal constructor(
         var tcpPriority: Boolean = false,
         var recoveringReserve: String? = null,
         val failedReserves: MutableSet<String> = mutableSetOf(),
+        var routeUnavailable: Boolean = false,
     )
 
     /** Fences a replaced or stopped policy against a probe already about to commit. */
@@ -251,8 +252,9 @@ class SelectorUrltestProber internal constructor(
         // One lost pass on a lossy path is not an outage: switch for unreachability only after consecutive ones.
         if (failures in 1 until UnreachablePassesBeforeSwitch) return
         val winner = bestSwitchCandidate(latencies, current, toleranceMs)
+        // Reachability probes use isolated candidates, not the applied VPN route, so no route authority applies.
         if (winner != null && winner != current &&
-            selectionStore.selectAutomatically(group.id, selection, winner)
+            selectionStore.selectAutomatically(group.id, selection, winner) { true }
         ) {
             log.i { "urltest selecting lower-latency member $winner for group ${group.id}" }
         }
@@ -266,17 +268,26 @@ class SelectorUrltestProber internal constructor(
         val scoped = payloadState(group, policy) ?: return@withLock
         if (monotonicMillis() >= scoped.state.nextProbeAt) {
             if (policy.quality != null && !admitQualityPass(group, scoped, policy)) return@withLock
+            var routeUnavailable = false
             val results =
                 withTimeoutOrNull(payloadPassDeadlineMillis(policy)) {
-                    measurePayloadRound(group, scoped, policy)
+                    measurePayloadRound(group, scoped, policy).also { routeUnavailable = it == null }
                 }
-            if (results == null) {
+            if (routeUnavailable) {
+                // The applied VPN route could not be measured: this pass observed nothing, so earlier
+                // evidence (failure streak, reserve progress, cooldown) stays as it was.
+                if (!scoped.routeUnavailable) {
+                    log.w { "Payload pass for group ${group.id} skipped: applied VPN route unavailable" }
+                }
+                scoped.routeUnavailable = true
+            } else if (results == null) {
                 // A pass deadline provides no complete observation; rotate without inventing failures.
                 scoped.recoveringReserve = null
                 scoped.reserveIndex++
                 scoped.state.discardObservation()
                 scoped.quality.discard()
             } else {
+                scoped.routeUnavailable = false
                 commitPayloadObservation(group, scoped, results)
             }
         }
@@ -435,6 +446,7 @@ class SelectorUrltestProber internal constructor(
         scoped: ScopedPayloadState,
         policy: PayloadFailoverPolicy,
     ): List<MemberLatency>? {
+        // Returns null when the applied VPN route could not be measured; such a pass decides nothing.
         val eligible = probeCandidates(group, scoped.scope)
         val vpnPath = scoped.scope.vpnPath
         val active =
@@ -448,6 +460,9 @@ class SelectorUrltestProber internal constructor(
             } else {
                 measureActiveVpnMember(vpnPath, active, policy, measureVpnPayload)
             }
+        if (vpnPath != null && (activeResult == null || activeResult.reason == ProfileQualityReason.ScopeChanged)) {
+            return null
+        }
         val tcpPriority = active is ProxyProfile.Hysteria2 && activeResult?.latencyMillis == null
         if (scoped.tcpPriority != tcpPriority) {
             scoped.tcpPriority = tcpPriority
@@ -455,14 +470,10 @@ class SelectorUrltestProber internal constructor(
             scoped.recoveringReserve = null
             scoped.failedReserves.clear()
         }
-        val inconclusive =
-            vpnPath != null && (activeResult == null || activeResult.reason == ProfileQualityReason.ScopeChanged)
-        if (inconclusive ||
-            (activeResult?.latencyMillis != null && policy.quality == null)
-        ) {
+        if (activeResult?.latencyMillis != null && policy.quality == null) {
             scoped.recoveringReserve = null
             scoped.failedReserves.clear()
-            return if (inconclusive) null else listOfNotNull(activeResult)
+            return listOf(activeResult)
         }
         val results = listOfNotNull(activeResult)
         val reserves =

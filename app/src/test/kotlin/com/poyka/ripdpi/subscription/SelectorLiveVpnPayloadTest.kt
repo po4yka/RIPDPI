@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.ProfileQualityReason
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.RuntimeConfigurationApplyReason
@@ -22,23 +23,11 @@ class SelectorLiveVpnPayloadTest {
             val store = ProbeTestSelectionStore()
             store.set("g", "active")
             val policy = policy()
-            val group =
-                selectorTestGroup(
-                    listOf(selectorTestMember("active"), selectorTestMember("reserve")),
-                ).copy(failover = SelectorFailover("unused", 60, 0, policy))
+            val group = group(policy)
             var now = 0L
             var mayCommit = false
-            val runtime = runtimeConfiguration()
-            val lease =
-                DiagnosticsInPathRouteLease(
-                    runtime.runtimeId,
-                    1L,
-                    1L,
-                    "127.0.0.1",
-                    1080,
-                    DiagnosticsProxyCredentials("user", "password"),
-                )
-            val scope = selectorTestScope(group).copy(vpnPath = SelectorVpnPath(runtime, lease))
+            val runtime = runtimeConfiguration("active")
+            val scope = selectorTestScope(group).copy(vpnPath = vpnPath(runtime))
             var liveProbes = 0
             val prober =
                 SelectorUrltestProber(
@@ -72,11 +61,110 @@ class SelectorLiveVpnPayloadTest {
             assertEquals("reserve", store.selectedProfileId("g").value)
         }
 
-    private fun runtimeConfiguration(): AppliedRuntimeConfiguration {
-        val selection = RuntimeConfigurationSelection("relay", selectorGroupId = "g", selectorMemberId = "active")
+    @Test
+    fun `an unmeasurable applied route keeps the failure streak`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            store.set("g", "active")
+            val group = group(policy())
+            var now = 0L
+            val scope = selectorTestScope(group).copy(vpnPath = vpnPath(runtimeConfiguration("active")))
+            var routeMeasurable = true
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    { _, _ -> MemberProbeResult(20L) },
+                    { scope },
+                    { now },
+                    measureVpnPayload = { _, _ ->
+                        if (routeMeasurable) {
+                            MemberProbeResult(
+                                null,
+                                reason = ProfileQualityReason.TransferFailed,
+                            )
+                        } else {
+                            null
+                        }
+                    },
+                )
+            prober.runProbePass(group, "unused", 0)
+            now += 60_000
+            routeMeasurable = false
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("active", store.selectedProfileId("g").value)
+
+            // The second failure, after the skipped pass, reaches the threshold of two.
+            now += 60_000
+            routeMeasurable = true
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("reserve", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `the reload that applies a reserve keeps the failover cooldown`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            store.set("g", "active")
+            val group = group(policy().copy(cooldownSeconds = 600))
+            var now = 0L
+            var scope = selectorTestScope(group).copy(vpnPath = vpnPath(runtimeConfiguration("active")))
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    { _, _ -> MemberProbeResult(20L) },
+                    { scope },
+                    { now },
+                    measureVpnPayload = {
+                        _,
+                        _,
+                        ->
+                        MemberProbeResult(null, reason = ProfileQualityReason.TransferFailed)
+                    },
+                )
+            prober.runProbePass(group, "unused", 0)
+            now += 60_000
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("reserve", store.selectedProfileId("g").value)
+
+            // The VPN reloads with the reserve, which then stalls too while the old primary recovers.
+            scope = scope.copy(vpnPath = vpnPath(runtimeConfiguration("reserve", revision = 2L)))
+            repeat(3) {
+                now += 60_000
+                prober.runProbePass(group, "unused", 0)
+            }
+            assertEquals("reserve", store.selectedProfileId("g").value)
+
+            now += 600_000
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("active", store.selectedProfileId("g").value)
+        }
+
+    private fun group(policy: PayloadFailoverPolicy) =
+        selectorTestGroup(
+            listOf(selectorTestMember("active"), selectorTestMember("reserve")),
+        ).copy(failover = SelectorFailover("unused", 60, 0, policy))
+
+    private fun vpnPath(runtime: AppliedRuntimeConfiguration) =
+        SelectorVpnPath(
+            runtime,
+            DiagnosticsInPathRouteLease(
+                runtime.runtimeId,
+                runtime.revision,
+                1L,
+                "127.0.0.1",
+                1080,
+                DiagnosticsProxyCredentials("user", "password"),
+            ),
+        )
+
+    private fun runtimeConfiguration(
+        member: String,
+        revision: Long = 1L,
+    ): AppliedRuntimeConfiguration {
+        val selection = RuntimeConfigurationSelection("relay", selectorGroupId = "g", selectorMemberId = member)
         return AppliedRuntimeConfiguration(
             runtimeId = "runtime",
-            revision = 1L,
+            revision = revision,
             appliedAt = 0L,
             mode = Mode.VPN,
             requestedSelection = selection,

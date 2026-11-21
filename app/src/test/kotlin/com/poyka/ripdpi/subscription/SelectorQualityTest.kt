@@ -307,7 +307,7 @@ class SelectorQualityTest {
                     ): Boolean {
                         scope = scope.copy(networkScope = "changed-network")
                         kotlinx.coroutines.runBlocking { candidate.invalidateChangedQualityScope(group) }
-                        return delegate.selectAutomatically(groupId, expected, profileId)
+                        return delegate.selectAutomatically(groupId, expected, profileId, isCurrent)
                     }
                 }
             candidate =

@@ -89,7 +89,7 @@ class RelayActivationSelectorReloadTriggerTest {
             fixture.selections.resumeAutomatic("selector")
             fixture.applied.applications.value = liveApplication("a")
             val automatic = fixture.selections.snapshot("selector")
-            assertTrue(fixture.selections.selectAutomatically("selector", automatic, "b"))
+            assertTrue(fixture.selections.selectAutomatically("selector", automatic, "b") { true })
             val request = fixture.provider.selectionChanges().first()!!
             val rejecting = RejectingRefresher()
             val trigger = fixture.trigger(rejecting)
@@ -113,7 +113,7 @@ class RelayActivationSelectorReloadTriggerTest {
             // A refresh drops the live member and falls back to the group's default member.
             fixture.groups.update(selectorGroup(listOf(member("d"))))
             val automatic = fixture.selections.snapshot("selector")
-            assertTrue(fixture.selections.selectAutomatically("selector", automatic, "d"))
+            assertTrue(fixture.selections.selectAutomatically("selector", automatic, "d") { true })
 
             fixture.trigger(RejectingRefresher()).hotReload(fixture.provider.selectionChanges().first()!!)
 
@@ -134,7 +134,7 @@ class RelayActivationSelectorReloadTriggerTest {
                 persistence.initialize()
                 persistence.groups.add(selectorGroup(listOf(member("a"), member("b"))))
                 val selections = persistence.selectorSelections
-                assertTrue(selections.selectAutomatically("selector", selections.snapshot("selector"), "a"))
+                assertTrue(selections.selectAutomatically("selector", selections.snapshot("selector"), "a") { true })
                 persistence.selectorActiveGroup.restoreActiveGroup("selector")
                 selections.select("selector", "b")
                 val receipt = selections.manualReceipt("selector") ?: error("Manual pick published no reservation")
@@ -532,7 +532,7 @@ class RelayActivationSelectorReloadTriggerTest {
             // A manual pick pins its member until the user returns the group to automatic selection.
             fixture.selections.resumeAutomatic("selector")
             val expected = fixture.selections.snapshot("selector")
-            assertTrue(fixture.selections.selectAutomatically("selector", expected, "b"))
+            assertTrue(fixture.selections.selectAutomatically("selector", expected, "b") { true })
             val automatic = fixture.provider.selectionChanges().first()!!
             assertEquals(null, automatic.manualReceipt)
             fixture.trigger.hotReload(automatic)

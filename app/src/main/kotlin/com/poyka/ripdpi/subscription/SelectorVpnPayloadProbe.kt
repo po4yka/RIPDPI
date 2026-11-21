@@ -28,13 +28,19 @@ internal class SelectorVpnPayloadProbe
         private val settings: AppSettingsRepository,
         private val http: CandidateHttpPayloadProbe,
     ) {
+        /**
+         * Returns null when the VPN does not carry [groupId], or when noDomain is on: the in-path listener cannot
+         * resolve control host names then, and resolving them in the app would leave the tunnel (as the field
+         * report does). The selector then measures the active member with isolated candidate probes.
+         */
         suspend fun capture(groupId: String): SelectorVpnPath? {
+            if (settings.snapshot().noDomain) return null
             val application = applied.applications.value[Mode.VPN]
             val configuration =
                 application?.runningConfiguration()?.takeIf { it.effectiveSelection.selectorGroupId == groupId }
                     ?: return null
             val lease =
-                if (application is RuntimeConfigurationApplication.Applied && !settings.snapshot().noDomain) {
+                if (application is RuntimeConfigurationApplication.Applied) {
                     (diagnostics.acquireInPathRouteLease() as? InPathRouteLeaseAcquisition.Acquired)?.lease
                 } else {
                     null

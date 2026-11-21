@@ -161,7 +161,7 @@ class OfflineReservePayloadIntegrationTest {
 
     private suspend fun restoredSelection(group: ProxyGroup): DefaultSelectorSelectionStore {
         val initial = selectionStore()
-        assertTrue(initial.selectAutomatically(group.id, initial.snapshot(group.id), "primary"))
+        assertTrue(initial.selectAutomatically(group.id, initial.snapshot(group.id), "primary") { true })
         return selectionStore().also { assertEquals("primary", it.snapshot(group.id).profileId) }
     }
 
