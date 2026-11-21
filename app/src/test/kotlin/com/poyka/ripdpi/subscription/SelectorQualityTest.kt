@@ -303,6 +303,7 @@ class SelectorQualityTest {
                         groupId: String,
                         expected: com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot,
                         profileId: String,
+                        isCurrent: () -> Boolean,
                     ): Boolean {
                         scope = scope.copy(networkScope = "changed-network")
                         kotlinx.coroutines.runBlocking { candidate.invalidateChangedQualityScope(group) }

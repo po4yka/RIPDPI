@@ -171,7 +171,7 @@ def owned_https_acl(manifest):
         raise ValueError("owned HTTPS port must be an integer in 1..65535")
     return [
         f"direct({host}, tcp/{port}, 127.0.0.1)"
-        for host in ("quality-a.example.test", "quality-b.example.test")
+        for host in ("quality-a.example.test", "quality-b.example.test", "192.0.2.81", "192.0.2.82")
     ]
 
 

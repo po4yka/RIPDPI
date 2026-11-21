@@ -2792,6 +2792,7 @@ jobs:
             wrongIdentityCannotReachPeerOrFallBackToDirect
             profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck
             realRealityQualityMeasuresAuthenticatedBodyAndConcurrentHeadBeforeRetirement
+            stalledBodyOnActiveVpnUsesVerifiedReserve
             peerLossAndRecoveryPreservesTunAndRejectsDirectBypass
           )
           printf -v xray_selector 'com.poyka.ripdpi.e2e.XrayProviderE2ETest#%s,' "${xray_methods[@]}"
@@ -2806,7 +2807,7 @@ jobs:
             python3 scripts/ci/validate_android_junit_results.py \
               app/build/outputs/androidTest-results/connected/debug/flavors/github \
               --require-test "com.poyka.ripdpi.e2e.XrayProviderE2ETest#$method" \
-              --expected-count 1 --expected-total-count 5 --forbid-skips
+              --expected-count 1 --expected-total-count "${#xray_methods[@]}" --forbid-skips
           done
           capture_xray_evidence
 

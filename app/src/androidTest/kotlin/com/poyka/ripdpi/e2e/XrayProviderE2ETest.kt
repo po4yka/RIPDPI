@@ -132,6 +132,7 @@ class XrayProviderE2ETest {
         com.poyka.ripdpi.services.OwnedQualityProbeFactory.http(
             { manifest.getString("qualityCertificate") },
             { manifest.getInt("qualityPort") },
+            { stalledQualityPort },
         )
 
     // JUnit creates a fresh test instance, so each case has its own eight-event budget.
@@ -267,6 +268,12 @@ class XrayProviderE2ETest {
     private var controlHost = "10.0.2.2"
     private var failureJob: Job? = null
     private var udpBridge: TestUdpBridge? = null
+
+    @Inject lateinit var selectorProbe: com.poyka.ripdpi.subscription.MemberLatencyProbe
+
+    @Inject lateinit var routeCoordinator: com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+
+    @Volatile private var stalledQualityPort: Int? = null
 
     @Volatile private var lastFailure: String? = null
     private val context: Context get() = ApplicationProvider.getApplicationContext()
@@ -783,6 +790,71 @@ class XrayProviderE2ETest {
     }
 
     @Test
+    fun stalledBodyOnActiveVpnUsesVerifiedReserve() =
+        runBlocking {
+            ownedFailoverSelector(ownedXrayMembers(manifest, fixtureHost)).use { selector ->
+                try {
+                    selection.update(XrayProviderSelectionRecord())
+                    selector.prepareStandalonePreflight()
+                    settings.update { relayEnabled = false }
+                    assertTrue(controller.start(Mode.VPN) is ServiceStartResult.Accepted)
+                    awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000)
+                    settings.update {
+                        relayEnabled = true
+                        relayKind = com.poyka.ripdpi.data.RelayKindVlessReality
+                        tlsFingerprintProfile = TlsFingerprintProfileFirefoxStable
+                    }
+                    selector.pinPrimary()
+                    val primary = selector.awaitPrimary()
+                    bindTestProcessDnsProbeService(10_000).use { probe ->
+                        assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+                        awaitOwnedPeerEcho("xhttp")
+                        val before = readControl("direct-receipts").getInt("count")
+                        val acquisition = routeCoordinator.acquireInPathRouteLease()
+                        check(acquisition is com.poyka.ripdpi.data.InPathRouteLeaseAcquisition.Acquired)
+                        selector.verifyActivePrimary(automaticPayloadHttp, acquisition.lease)
+                        stalledQualityPort = acquisition.lease.port
+                        selector.verifyFreshPrimary(selectorProbe)
+                        selector.resumeAutomatic()
+                        selector.awaitAutomaticReserve(primary)
+                        assertTrue(
+                            "The active route must receive headers and stall in the body",
+                            qualityProbeCount("QualityStalled") > 0,
+                        )
+                        assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+                        val result = probe.transfer("download", "live-payload-reserve", size = 262_144, port = 80)
+                        assertTrue("The reserve must carry the entire body through TUN", result.getBoolean("ok"))
+                        assertTrue(result.getInt("uid") != Process.myUid())
+                        assertEquals(262_144, result.getInt("bytes"))
+                        assertEquals(
+                            "31a1f9dea0169551092d05e8bf4a446228c8c3eb4c9b713c66adcb7fd53c89be",
+                            result.getString("sha256"),
+                        )
+                        assertEquals(before, readControl("direct-receipts").getInt("count"))
+                    }
+                } finally {
+                    stalledQualityPort = null
+                    controller.stop()
+                    awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
+                }
+            }
+        }
+
+    private fun ownedFailoverSelector(members: (String, String, String) -> List<com.poyka.ripdpi.data.ProxyProfile>) =
+        OwnedFailoverSelector(
+            selectorGroups,
+            selectorSelections,
+            selectorActive,
+            utilityMutations,
+            selectorMutationStores,
+            runBlocking { selectorMutationStores.profileSelection.snapshot() },
+            utilityAuthority,
+            utilityApplied,
+            manifest,
+            members,
+        )
+
+    @Test
     fun hysteriaCompletesTransfersSleepWakeAndUdpFailureFallsBackToSavedTcp() {
         check(InstrumentationRegistry.getArguments().getString("ripdpi.usbDataScope") != "true")
         exerciseHysteriaTransactions()
@@ -802,18 +874,8 @@ class XrayProviderE2ETest {
             val oldCredentials = runBlocking { relayCredentials.load(relayId) }
             val transportPort = manifest.getInt("transportPort")
             val automatic =
-                OwnedHysteriaSelector(
-                    selectorGroups,
-                    selectorSelections,
-                    selectorActive,
-                    utilityMutations,
-                    selectorMutationStores,
-                    selectorMutationStores.profileSelection.snapshot(),
-                    utilityAuthority,
-                    utilityApplied,
-                    manifest,
-                    fixtureHost,
-                    udpBridge?.port ?: manifest.getInt("hysteriaPort"),
+                ownedFailoverSelector(
+                    ownedHysteriaMembers(manifest, fixtureHost, udpBridge?.port ?: manifest.getInt("hysteriaPort")),
                 )
 
             fun startHysteria(
@@ -1138,9 +1200,11 @@ class XrayProviderE2ETest {
         }
     }
 
-    private fun completedQualityProbeCount(): Int {
+    private fun completedQualityProbeCount(): Int = qualityProbeCount("QualityComplete")
+
+    private fun qualityProbeCount(target: String): Int {
         val receipts = readControl("request-receipts").getJSONArray("receipts")
-        return (0 until receipts.length()).count { receipts.getJSONObject(it).getString("target") == "QualityComplete" }
+        return (0 until receipts.length()).count { receipts.getJSONObject(it).getString("target") == target }
     }
 
     @Test

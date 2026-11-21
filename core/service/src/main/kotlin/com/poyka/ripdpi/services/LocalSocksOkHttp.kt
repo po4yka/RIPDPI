@@ -51,9 +51,13 @@ internal fun OkHttpClient.Builder.localSocksProxy(endpoint: RelayProbeEndpoint):
         LocalSocksRoute(
             endpoint.host,
             endpoint.port,
-            LocalSocksCredentialRegistry.lookup(endpoint.host, endpoint.port),
+            endpoint.localCredentials(),
         ),
     )
+
+internal fun RelayProbeEndpoint.localCredentials(): LocalSocksCredentials? =
+    credentials?.let { LocalSocksCredentials(it.username, it.password) }
+        ?: LocalSocksCredentialRegistry.lookup(host, port)
 
 /**
  * Routes OkHttp through [route]. `java.net` SOCKS can take credentials only from the process-wide

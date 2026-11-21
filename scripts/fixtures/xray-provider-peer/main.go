@@ -304,6 +304,7 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 		"routing": map[string]any{"domainStrategy": "AsIs", "rules": []any{
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls", "hysteria-dns"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": fmt.Sprint(p.manifest.DNSPort), "outboundTag": "owned-dns"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "domain": []string{"full:quality-a.example.test", "full:quality-b.example.test"}, "port": fmt.Sprintf("443,%d", p.manifest.QualityPort), "outboundTag": "owned-quality"},
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{qualityAddressA + "/32", qualityAddressB + "/32"}, "port": fmt.Sprint(p.manifest.QualityPort), "outboundTag": "owned-quality"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
 			// Host tests and the emulator alias reach only this owned HTTP port.
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPPort), "outboundTag": "owned-doh"},
@@ -453,7 +454,8 @@ func decoyCertificate() (tls.Certificate, error) {
 	}
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(1), DNSNames: []string{serverName, "quality-a.example.test", "quality-b.example.test"},
-		NotBefore: time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour),
+		IPAddresses: []net.IP{net.ParseIP(qualityAddressA), net.ParseIP(qualityAddressB)},
+		NotBefore:   time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour),
 		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &private.PublicKey, private)

@@ -61,6 +61,10 @@ class SelectorUrltestProber internal constructor(
     },
     /** Wall clock for bundle health expiry (`observed_at + ttl_seconds` is an absolute instant). */
     private val wallClockMillis: () -> Long = System::currentTimeMillis,
+    private val measureVpnPayload: suspend (
+        SelectorVpnPath,
+        PayloadFailoverPolicy,
+    ) -> MemberProbeResult? = { _, _ -> null },
 ) {
     private val log = Logger.withTag("selector-urltest")
     private val payloadStates = ConcurrentHashMap<String, ScopedPayloadState>()
@@ -337,7 +341,13 @@ class SelectorUrltestProber internal constructor(
                 )
             val qualityDecision = observeQuality(group, scoped, results, now)
             val winner = healthWinner ?: qualityDecision?.winner
-            if (winner != null && selectionStore.selectAutomatically(group.id, selection, winner)) {
+            if (winner != null &&
+                selectionStore.selectAutomatically(
+                    group.id,
+                    selection,
+                    winner,
+                ) { scopeProvider.isCurrent(scoped.scope) }
+            ) {
                 scoped.state.switched(now)
                 scoped.quality.discard()
                 if (healthWinner == null && qualityDecision != null) {
@@ -424,11 +434,20 @@ class SelectorUrltestProber internal constructor(
         group: ProxyGroup,
         scoped: ScopedPayloadState,
         policy: PayloadFailoverPolicy,
-    ): List<MemberLatency> {
+    ): List<MemberLatency>? {
         val eligible = probeCandidates(group, scoped.scope)
-        val active = eligible.firstOrNull { it.id == scoped.selection.profileId }
+        val vpnPath = scoped.scope.vpnPath
+        val active =
+            (if (vpnPath == null) eligible else scoped.scope.members).firstOrNull {
+                it.id == scoped.selection.profileId
+            }
         val target = MemberProbeTarget.Payload(policy, group.id.takeIf { group.fieldReport != null })
-        val activeResult = active?.let { measureMember(it, target) }
+        val activeResult =
+            if (vpnPath == null) {
+                active?.let { measureMember(it, target) }
+            } else {
+                measureActiveVpnMember(vpnPath, active, policy, measureVpnPayload)
+            }
         val tcpPriority = active is ProxyProfile.Hysteria2 && activeResult?.latencyMillis == null
         if (scoped.tcpPriority != tcpPriority) {
             scoped.tcpPriority = tcpPriority
@@ -436,10 +455,14 @@ class SelectorUrltestProber internal constructor(
             scoped.recoveringReserve = null
             scoped.failedReserves.clear()
         }
-        if (activeResult?.latencyMillis != null && policy.quality == null) {
+        val inconclusive =
+            vpnPath != null && (activeResult == null || activeResult.reason == ProfileQualityReason.ScopeChanged)
+        if (inconclusive ||
+            (activeResult?.latencyMillis != null && policy.quality == null)
+        ) {
             scoped.recoveringReserve = null
             scoped.failedReserves.clear()
-            return listOf(activeResult)
+            return if (inconclusive) null else listOfNotNull(activeResult)
         }
         val results = listOfNotNull(activeResult)
         val reserves =
@@ -558,4 +581,20 @@ class SelectorUrltestProber internal constructor(
         // Each candidate reserves 5 seconds for readiness and 5 seconds for native cleanup.
         const val CandidateLifecycleBudgetMillis = 10_000L
     }
+}
+
+private suspend fun measureActiveVpnMember(
+    path: SelectorVpnPath,
+    member: ProxyProfile?,
+    policy: PayloadFailoverPolicy,
+    measure: suspend (SelectorVpnPath, PayloadFailoverPolicy) -> MemberProbeResult?,
+): MemberLatency? {
+    val appliedMemberId = path.configuration.effectiveSelection.selectorMemberId ?: return null
+    val result = member?.takeIf { it.id == appliedMemberId }?.let { measure(path, policy) }
+    return MemberLatency(
+        appliedMemberId,
+        result?.latencyMillis,
+        result?.quality,
+        result?.reason ?: ProfileQualityReason.ScopeChanged,
+    )
 }

@@ -45,6 +45,7 @@ interface SelectorSelectionStore {
         groupId: String,
         expected: SelectorSelectionSnapshot,
         profileId: String,
+        isCurrent: () -> Boolean = { true },
     ): Boolean
 
     /** Sets [profileId] as the active member of the selector group [groupId]. */
@@ -100,13 +101,14 @@ class DefaultSelectorSelectionStore
             groupId: String,
             expected: SelectorSelectionSnapshot,
             profileId: String,
+            isCurrent: () -> Boolean,
         ): Boolean =
             persistence.transaction(
                 afterCommit = { selected -> if (selected) activeGroup.forgetManualReceipt(groupId) },
             ) { rows ->
                 val current = rows.choice(groupId)
                 // A manual pick pins its member: only an automatic selection may move automatically.
-                if (current.isManual || observed(groupId, current) != expected) {
+                if (current.isManual || observed(groupId, current) != expected || !isCurrent()) {
                     false
                 } else {
                     rows.setChoice(groupId, profileId, false)

@@ -285,23 +285,24 @@ with open(os.environ["INVOCATION_LOG"], "a") as output:
         )
         self.assertEqual(0, result.returncode, result.stderr)
         calls = [json.loads(line) for line in log.read_text().splitlines()]
-        self.assertEqual(6, len(calls))
         expected = {
             "bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart",
             "wrongIdentityCannotReachPeerOrFallBackToDirect",
             "profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck",
             "realRealityQualityMeasuresAuthenticatedBodyAndConcurrentHeadBeforeRetirement",
+            "stalledBodyOnActiveVpnUsesVerifiedReserve",
             "peerLossAndRecoveryPreservesTunAndRejectsDirectBypass",
         }
         expected = {f"com.poyka.ripdpi.e2e.XrayProviderE2ETest#{method}" for method in expected}
         selected = calls[0][calls[0].index("--test-class") + 1].split(",")
         required = [call[call.index("--require-test") + 1] for call in calls[1:]]
-        self.assertEqual(5, len(selected))
+        self.assertEqual(len(expected), len(selected))
+        self.assertEqual(len(expected) + 1, len(calls))
         self.assertEqual(expected, set(selected))
         self.assertEqual(selected, required)
         for call in calls[1:]:
             self.assertEqual("1", call[call.index("--expected-count") + 1])
-            self.assertEqual("5", call[call.index("--expected-total-count") + 1])
+            self.assertEqual(str(len(expected)), call[call.index("--expected-total-count") + 1])
             self.assertIn("--forbid-skips", call)
 
 

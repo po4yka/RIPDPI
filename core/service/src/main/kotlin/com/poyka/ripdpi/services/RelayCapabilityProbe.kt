@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.LocalSocks5Client
-import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
 import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.diagnostics.DnsMessages
@@ -32,6 +31,7 @@ import javax.inject.Inject
 data class RelayProbeEndpoint(
     val host: String,
     val port: Int,
+    val credentials: com.poyka.ripdpi.data.DiagnosticsProxyCredentials? = null,
 )
 
 data class RelayCapabilityProbeResult(
@@ -423,7 +423,7 @@ internal fun negotiateLocalSocksAuthentication(
     LocalSocks5Client.authenticate(
         input,
         output,
-        LocalSocksCredentialRegistry.lookup(endpoint.host, endpoint.port),
+        endpoint.localCredentials(),
     )
 }
 

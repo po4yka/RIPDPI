@@ -170,6 +170,7 @@ private class FakeSelectorSelectionStore : SelectorSelectionStore {
         groupId: String,
         expected: SelectorSelectionSnapshot,
         profileId: String,
+        isCurrent: () -> Boolean,
     ): Boolean {
         if (snapshot(groupId) != expected) return false
         write(groupId, profileId, false)

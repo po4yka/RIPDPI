@@ -97,7 +97,9 @@ class SelectorProbeScopeTest {
                     { true },
                 )
             val original = requireNotNull(provider.capture(group))
+            org.junit.Assert.assertTrue(provider.isCurrent(original))
             fingerprint = fingerprint(2)
+            org.junit.Assert.assertFalse(provider.isCurrent(original))
             val changed = requireNotNull(provider.capture(group))
             assertEquals(original.networkScope, changed.networkScope)
             assertNotEquals(original, changed)
