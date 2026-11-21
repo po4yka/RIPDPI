@@ -19,9 +19,7 @@ fn neutral_response_cannot_reward_a_delayed_send_or_become_accepted() {
     let attempt = FakeTtlAttempt { ttl: 7, generation: 12, revision: 3 };
     assert!(shared.finish_fake_ttl_send(Some(attempt)).expect("publish delayed send").is_none());
     assert!(shared.accept_fake_ttl_response(Some(56)).expect("late response cannot reward").is_none());
-    shared
-        .finish_first_response(FirstResponseOutcome::Accepted { success_recorded: false })
-        .expect("late completion cannot replace neutrality");
+    shared.finish_first_response(FirstResponseOutcome::Accepted).expect("late completion cannot replace neutrality");
     assert!(!shared.rotation_eligible());
     assert!(!shared.snapshot().expect("final state").permits_success());
 }
@@ -47,7 +45,7 @@ fn a_response_without_an_overlapping_send_cannot_credit_a_future_attempt() {
     let attempt = FakeTtlAttempt { ttl: 7, generation: 12, revision: 3 };
     assert!(shared.finish_fake_ttl_send(Some(attempt)).expect("finish future send").is_none());
     assert!(shared.accept_fake_ttl_response(Some(56)).expect("response already closed").is_none());
-    assert_eq!(shared.fake_ttl_attempt().expect("bound attempt"), Some(attempt));
+    assert!(shared.snapshot().expect("snapshot").fake_ttl_attempt.is_none());
 }
 
 #[test]
@@ -72,9 +70,11 @@ fn an_overlapping_attempt_claims_fake_feedback_once_with_the_observed_ttl() {
         Some(FakeTtlFeedback { attempt, server_ttl: Some(56) })
     );
     assert!(shared.accept_fake_ttl_response(Some(55)).expect("feedback claimed").is_none());
-    shared.complete_fake_ttl_feedback().expect("complete feedback");
     assert_eq!(shared.begin_fake_ttl_send().expect("begin later send"), Some(attempt));
     assert!(shared.finish_fake_ttl_send(Some(attempt)).expect("finish later send").is_none());
+    let terminal = shared.snapshot().expect("terminal receipt");
+    assert_eq!(terminal.fake_ttl_attempt, Some(attempt));
+    assert_eq!(terminal.server_ttl, Some(56));
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn neutral_evolution_response_closes_only_its_delayed_receipt() {
     shared.finish_first_response(FirstResponseOutcome::Neutral).unwrap();
     shared.finish_evolution_response(&state, true).unwrap();
     shared.finish_evolution_send(&state, Some(canceled)).unwrap();
-    shared.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: false }).unwrap();
+    shared.finish_first_response(FirstResponseOutcome::Accepted).unwrap();
     shared.finish_evolution_response(&state, true).unwrap();
     assert!(!shared.snapshot().unwrap().permits_success());
     assert_eq!(resolve(Some(canceled)).hints.split_offset_base, None);

@@ -25,26 +25,25 @@ pub(super) enum FirstResponseOutcome {
     #[default]
     Unobserved,
     Pending,
-    Accepted {
-        success_recorded: bool,
-    },
+    Accepted,
     Rejected,
     Neutral,
 }
 
 impl FirstResponseOutcome {
     fn permits_success(self) -> bool {
-        matches!(self, Self::Unobserved | Self::Accepted { success_recorded: false })
+        matches!(self, Self::Unobserved | Self::Accepted)
     }
 
     fn permits_rotation(self) -> bool {
-        matches!(self, Self::Unobserved | Self::Accepted { .. })
+        matches!(self, Self::Unobserved | Self::Accepted)
     }
 }
 
 /// Adaptive observations owned by one relay success.
 pub(crate) struct AdaptiveFeedbackAttempts {
     pub(super) fake_ttl: Option<FakeTtlAttempt>,
+    pub(super) server_ttl: Option<u8>,
     pub(super) evolution: Option<EvolutionAttempt>,
 }
 
@@ -53,6 +52,7 @@ pub(super) struct RelaySession {
     first_response: FirstResponseOutcome,
     pending_response: Option<PendingFirstResponse>,
     pub(super) fake_ttl_attempt: Option<FakeTtlAttempt>,
+    pub(super) server_ttl: Option<u8>,
     pub(super) evolution_attempt: Option<EvolutionAttempt>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
@@ -62,6 +62,7 @@ pub(super) struct FirstOutboundSession {
     first_response: FirstResponseOutcome,
     pending_response: Option<PendingFirstResponse>,
     pub(super) fake_ttl_attempt: Option<FakeTtlAttempt>,
+    pub(super) server_ttl: Option<u8>,
     pub(super) evolution_attempt: Option<EvolutionAttempt>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
@@ -73,6 +74,7 @@ impl FirstOutboundSession {
             first_response: FirstResponseOutcome::Unobserved,
             pending_response: None,
             fake_ttl_attempt: None,
+            server_ttl: None,
             evolution_attempt: None,
             lua_flow: None,
         }
@@ -84,6 +86,7 @@ impl FirstOutboundSession {
             first_response: self.first_response,
             pending_response: self.pending_response,
             fake_ttl_attempt: self.fake_ttl_attempt,
+            server_ttl: self.server_ttl,
             evolution_attempt: self.evolution_attempt,
             lua_flow: self.lua_flow,
         }
@@ -96,6 +99,11 @@ impl FirstOutboundSession {
 
     pub(super) fn reject_first_response(&mut self) {
         self.first_response = FirstResponseOutcome::Rejected;
+    }
+
+    pub(super) fn accept_first_response(&mut self, server_ttl: Option<u8>) {
+        self.first_response = FirstResponseOutcome::Accepted;
+        self.server_ttl = server_ttl;
     }
 
     pub(super) fn neutral_first_response(&mut self) {
@@ -125,26 +133,17 @@ impl RelaySession {
     }
 
     pub(super) fn into_shared(self) -> RelaySharedSession {
+        let neutral = matches!(self.first_response, FirstResponseOutcome::Rejected | FirstResponseOutcome::Neutral);
+        let mut fake_ttl = FakeTtlFeedbackLedger::new(self.fake_ttl_attempt, neutral);
+        let mut evolution = EvolutionFeedbackLedger::new(self.evolution_attempt, neutral);
+        if matches!(self.first_response, FirstResponseOutcome::Accepted) {
+            let _ = fake_ttl.accept_response(self.server_ttl);
+            let _ = evolution.finish_response(true);
+        }
         RelaySharedSession {
             state: Arc::new(Mutex::new(self.state)),
-            evolution_feedback: Arc::new(Mutex::new(EvolutionFeedbackLedger::new(
-                self.evolution_attempt,
-                matches!(
-                    self.first_response,
-                    FirstResponseOutcome::Accepted { success_recorded: true }
-                        | FirstResponseOutcome::Rejected
-                        | FirstResponseOutcome::Neutral
-                ),
-            ))),
-            fake_ttl_feedback: Arc::new(Mutex::new(FakeTtlFeedbackLedger::new(
-                self.fake_ttl_attempt,
-                matches!(
-                    self.first_response,
-                    FirstResponseOutcome::Accepted { success_recorded: true }
-                        | FirstResponseOutcome::Rejected
-                        | FirstResponseOutcome::Neutral
-                ),
-            ))),
+            evolution_feedback: Arc::new(Mutex::new(evolution)),
+            fake_ttl_feedback: Arc::new(Mutex::new(fake_ttl)),
             first_response: Arc::new(Mutex::new(self.first_response)),
             lua_flow: self.lua_flow,
         }
@@ -205,11 +204,6 @@ impl RelaySharedSession {
         Ok(())
     }
 
-    pub(super) fn fake_ttl_attempt(&self) -> io::Result<Option<FakeTtlAttempt>> {
-        let ledger = self.fake_ttl_feedback.lock().map_err(|_| io::Error::other("fake TTL feedback mutex poisoned"))?;
-        Ok(ledger.bound_attempt)
-    }
-
     pub(super) fn begin_fake_ttl_send(&self) -> io::Result<Option<FakeTtlAttempt>> {
         self.fake_ttl_feedback.lock().map_err(|_| io::Error::other("fake TTL feedback mutex poisoned"))?.begin_send()
     }
@@ -227,13 +221,6 @@ impl RelaySharedSession {
         Ok(ledger.accept_response(server_ttl))
     }
 
-    pub(super) fn complete_fake_ttl_feedback(&self) -> io::Result<()> {
-        let mut ledger =
-            self.fake_ttl_feedback.lock().map_err(|_| io::Error::other("fake TTL feedback mutex poisoned"))?;
-        ledger.complete_feedback();
-        Ok(())
-    }
-
     /// The active pending reader owns content completion; Neutral revokes that ownership.
     pub(super) fn response_owner_revoked(&self) -> io::Result<bool> {
         let outcome = self.first_response.lock().map_err(|_| io::Error::other("response mutex poisoned"))?;
@@ -242,17 +229,22 @@ impl RelaySharedSession {
 
     pub(super) fn snapshot(&self) -> io::Result<RelaySession> {
         let first_response = *self.first_response.lock().map_err(|_| io::Error::other("response mutex poisoned"))?;
-        let fake_ttl_attempt = self.fake_ttl_attempt()?;
+        let fake_ttl = self
+            .fake_ttl_feedback
+            .lock()
+            .map_err(|_| io::Error::other("fake TTL feedback mutex poisoned"))?
+            .final_feedback();
         let evolution_attempt = self
             .evolution_feedback
             .lock()
             .map_err(|_| io::Error::other("evolution feedback mutex poisoned"))?
-            .bound_attempt;
+            .final_attempt();
         self.state.lock().map_err(|_| io::Error::other("session mutex poisoned")).map(|state| RelaySession {
             state: state.clone(),
             first_response,
             pending_response: None,
-            fake_ttl_attempt,
+            fake_ttl_attempt: fake_ttl.map(|feedback| feedback.attempt),
+            server_ttl: fake_ttl.and_then(|feedback| feedback.server_ttl),
             evolution_attempt,
             lua_flow: self.lua_flow.clone(),
         })
@@ -313,11 +305,7 @@ impl RelaySharedSession {
 }
 
 fn apply_evolution_feedback(state: &RuntimeState, feedback: Option<(EvolutionAttempt, bool)>) {
-    if let Some((attempt, success)) = feedback {
-        if success {
-            state.note_evolver_success(Some(attempt));
-        } else {
-            state.discard_evolver_attempt(Some(attempt));
-        }
+    if let Some((attempt, false)) = feedback {
+        state.discard_evolver_attempt(Some(attempt));
     }
 }

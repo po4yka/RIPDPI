@@ -34,7 +34,6 @@ pub(super) struct RelayResultContext<'a> {
     pub(super) relay_timeouts: RuntimeRelayTimeouts,
     pub(super) target: SocketAddr,
     pub(super) route: &'a RuntimeConnectionRoute,
-    pub(super) success_recorded: bool,
     pub(super) success_host: Option<&'a str>,
     pub(super) success_payload: Option<&'a [u8]>,
     pub(super) success_strategy_family: Option<&'a str>,
@@ -48,7 +47,6 @@ pub(super) fn record_relay_result(
     context: RelayResultContext<'_>,
 ) -> io::Result<()> {
     if let Ok(final_state) = relay_result
-        && !context.success_recorded
         && final_state.permits_success()
         && final_state.has_inbound_payload()
     {
@@ -62,6 +60,7 @@ pub(super) fn record_relay_result(
             context.primary_strategy_family,
             AdaptiveFeedbackAttempts {
                 fake_ttl: final_state.fake_ttl_attempt,
+                server_ttl: final_state.server_ttl,
                 evolution: final_state.evolution_attempt,
             },
         )?;

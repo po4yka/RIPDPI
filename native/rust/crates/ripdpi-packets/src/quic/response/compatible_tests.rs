@@ -118,7 +118,7 @@ fn dpi24_initial_identity_uses_both_cids_and_allows_compatible_versions() {
 
 #[test]
 fn dpi24_runtime_checks_fixed_bit_grease_offer_and_raw_integrity() {
-    use QuicInitialResponseDisposition::{Accepted, Rejected, UnverifiableClientOffer};
+    use QuicInitialResponseDisposition::{Accepted, AcceptedRetry, Rejected, UnverifiableClientOffer};
     macro_rules! fixture {
         ($name:literal) => {
             include_bytes!(concat!("../../../tests/fixtures/quic/compatible/", $name, ".bin")).as_slice()
@@ -148,10 +148,10 @@ fn dpi24_runtime_checks_fixed_bit_grease_offer_and_raw_integrity() {
             V2_CLIENT,
         ),
     ] {
-        for response in [initial, retry, cross_initial] {
+        for (response, disposition) in [(initial, Accepted), (retry, AcceptedRetry), (cross_initial, Accepted)] {
             assert_eq!(response[0] & 0x40, 0);
             assert_eq!(validate_quic_response(request, response), None, "strict probes do not offer grease");
-            assert_eq!(validate_quic_initial_response_for_runtime(request, response), Accepted);
+            assert_eq!(validate_quic_initial_response_for_runtime(request, response), disposition);
             assert_eq!(validate_quic_initial_response_for_runtime(no_offer, response), Rejected);
             assert_eq!(validate_quic_initial_response_for_runtime(partial, response), UnverifiableClientOffer);
             let mut bad_tag = response.to_vec();

@@ -132,7 +132,7 @@ pub(super) fn relay_streams(
         peer_done.store(true, Ordering::Release);
         shutdown_relay_pair(&upstream, &client);
     }
-    let down_result = down.join().map_err(|_| io::Error::other("downstream thread panicked"))?;
+    let down_result = down.join().unwrap_or_else(|_| Err(io::Error::other("downstream thread panicked")));
 
     // Ensure both sockets are fully closed regardless of how relay threads exited.
     // The per-direction shutdown in each thread may be skipped on error paths;
@@ -148,13 +148,20 @@ pub(super) fn relay_streams(
         let _ = relay_platform::detach_drop_sack(&upstream);
     }
 
-    up_result.and(down_result)?;
-
-    if freeze_detected.load(Ordering::Acquire) {
+    let relay_result = up_result.and(down_result);
+    let frozen = freeze_detected.load(Ordering::Acquire);
+    if relay_result.is_err() || frozen {
+        session_state.finish_evolution_response(state, false)?;
+    }
+    relay_result?;
+    if frozen {
         return Err(io::Error::new(io::ErrorKind::TimedOut, CONNECTION_FREEZE_MARKER));
     }
-
-    session_state.snapshot()
+    let final_state = session_state.snapshot()?;
+    if !final_state.permits_success() || !final_state.has_inbound_payload() {
+        session_state.finish_evolution_response(state, false)?;
+    }
+    Ok(final_state)
 }
 
 #[cfg(test)]

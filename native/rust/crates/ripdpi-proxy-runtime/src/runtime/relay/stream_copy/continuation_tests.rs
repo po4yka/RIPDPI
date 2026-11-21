@@ -1,47 +1,12 @@
 use super::*;
 use std::io::{Read, Write};
-use std::net::{Ipv4Addr, SocketAddr, TcpListener};
-use std::sync::mpsc;
+use std::net::{Ipv4Addr, TcpListener};
 use std::time::Duration;
 
 use crate::runtime::config::RuntimeConfig;
 use crate::runtime::relay::failure_retry::prepare_relay;
 use crate::runtime::types::RuntimeConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::config::{RotationCandidate, RotationPolicy};
-use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
-
-struct SuccessBarrier {
-    entered: mpsc::SyncSender<()>,
-    release: std::sync::Mutex<mpsc::Receiver<()>>,
-}
-
-impl RuntimeTelemetrySink for SuccessBarrier {
-    fn on_listener_started(&self, _: SocketAddr, _: usize, _: usize) {}
-    fn on_listener_stopped(&self) {}
-    fn on_client_accepted(&self) {}
-    fn on_client_finished(&self) {}
-    fn on_client_error(&self, _: &io::Error) {}
-    fn on_route_selected(&self, _: SocketAddr, _: usize, _: Option<&str>, _: &'static str) {}
-    fn on_failure_classified(
-        &self,
-        _: SocketAddr,
-        _: &ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure,
-        _: Option<&str>,
-    ) {
-    }
-    fn on_route_advanced(&self, _: SocketAddr, _: usize, _: usize, _: u32, _: Option<&str>) {}
-    fn on_host_autolearn_state(&self, _: bool, _: usize, _: usize, _: usize, _: Option<&str>, _: Option<&str>) {}
-    fn on_host_autolearn_event(&self, action: &'static str, _: Option<&str>, _: Option<usize>) {
-        if action == "host_promoted" {
-            self.entered.send(()).expect("success recording entered");
-            self.release
-                .lock()
-                .expect("release lock")
-                .recv_timeout(Duration::from_secs(2))
-                .expect("release success recording");
-        }
-    }
-}
 
 fn pair() -> (TcpStream, TcpStream) {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind owned pair");
@@ -81,11 +46,7 @@ fn accepted_continuation_enables_rotation_for_the_next_real_request() {
     config.host_autolearn.enabled = true;
     config.groups[0].actions.rotation_policy =
         Some(RotationPolicy { candidates: vec![RotationCandidate::default()], ..RotationPolicy::default() });
-    let (entered_tx, entered_rx) = mpsc::sync_channel(1);
-    let (release_tx, release_rx) = mpsc::sync_channel(1);
-    let telemetry =
-        std::sync::Arc::new(SuccessBarrier { entered: entered_tx, release: std::sync::Mutex::new(release_rx) });
-    let state = RuntimeState::test_with_telemetry(config, Some(telemetry));
+    let state = RuntimeState::test(config);
     let mut prepared = prepare_relay(
         &mut client,
         upstream,
@@ -117,10 +78,7 @@ fn accepted_continuation_enables_rotation_for_the_next_real_request() {
     let mut received = vec![0; response.len()];
     app.read_exact(&mut received).expect("first response delivered");
     assert_eq!(received, response);
-    entered_rx.recv_timeout(Duration::from_secs(2)).expect("real success event pauses observer after delivery");
-    let eligible_when_response_visible = session.rotation_eligible();
-    release_tx.send(()).expect("resume success recording");
-    observer.join().expect("join response observer").expect("accept first response");
+    assert!(session.rotation_eligible(), "rotation is eligible as soon as the response is visible");
     app.write_all(next).expect("send later request");
     let mut later = vec![0; next.len()];
     client.read_exact(&mut later).expect("read later request");
@@ -141,8 +99,8 @@ fn accepted_continuation_enables_rotation_for_the_next_real_request() {
         "accepted later response must finish its observation"
     );
     assert_eq!(received, response);
+    observer.join().expect("join response observer").expect("accept first response");
     server.join().expect("join owned origin");
-    assert!(eligible_when_response_visible, "a client can start its next round as soon as the response is visible");
 }
 
 #[test]
