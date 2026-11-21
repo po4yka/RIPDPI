@@ -187,60 +187,51 @@ private fun relayEndpoint(profile: ProxyProfile): RelayActivationEndpoint =
 private fun relayCredentials(
     profileId: String,
     profile: ProxyProfile,
-): RelayCredentialRecord =
-    when (profile) {
+): RelayCredentialRecord {
+    val base = RelayCredentialRecord(updatedAtEpochMillis = 0L, profileId = profileId)
+    return when (profile) {
         is ProxyProfile.Trojan -> {
-            RelayCredentialRecord(updatedAtEpochMillis = 0L, profileId = profileId, trojanPassword = profile.password)
+            base.copy(trojanPassword = profile.password)
         }
 
         is ProxyProfile.Tuic -> {
-            RelayCredentialRecord(
-                updatedAtEpochMillis = 0L,
-                profileId = profileId,
+            base.copy(
                 tuicUuid = profile.uuid,
                 tuicPassword = profile.password,
             )
         }
 
         is ProxyProfile.Shadowsocks -> {
-            RelayCredentialRecord(
-                updatedAtEpochMillis = 0L,
-                profileId = profileId,
+            base.copy(
                 shadowsocksMethod = profile.method,
                 shadowsocksPassword = profile.password,
             )
         }
 
         is ProxyProfile.AnyTls -> {
-            RelayCredentialRecord(
-                updatedAtEpochMillis = 0L,
-                profileId = profileId,
+            base.copy(
                 anyTlsPassword = profile.password,
                 anyTlsPinSha256 = profile.pinSha256,
             )
         }
 
         is ProxyProfile.Snell -> {
-            RelayCredentialRecord(
-                updatedAtEpochMillis = 0L,
-                profileId = profileId,
+            base.copy(
                 snellPsk = profile.psk,
                 snellUserKey = profile.userKey.ifEmpty { null },
             )
         }
 
         is ProxyProfile.VlessReality -> {
-            RelayCredentialRecord(updatedAtEpochMillis = 0L, profileId = profileId, vlessUuid = profile.uuid)
+            base.copy(vlessUuid = profile.uuid)
         }
 
         is ProxyProfile.Vless -> {
-            RelayCredentialRecord(updatedAtEpochMillis = 0L, profileId = profileId, vlessUuid = profile.uuid)
+            base.copy(vlessUuid = profile.uuid)
         }
 
         is ProxyProfile.Hysteria2 -> {
-            RelayCredentialRecord(
-                updatedAtEpochMillis = 0L,
-                profileId = profileId,
+            base.copy(
                 hysteriaPassword = profile.password,
                 hysteriaSalamanderKey = profile.obfsPassword,
                 hysteriaRealmToken = profile.realmToken,
@@ -254,9 +245,7 @@ private fun relayCredentials(
             // both never leaks the unused credential into the Keystore,
             // regardless of which caller built it.
             val isKey = profile.authType == RelaySshAuthTypePrivateKey
-            RelayCredentialRecord(
-                updatedAtEpochMillis = 0L,
-                profileId = profileId,
+            base.copy(
                 sshUsername = profile.username,
                 sshPassword = profile.password?.takeIf { !isKey },
                 sshPrivateKey = profile.privateKey?.takeIf { isKey },
@@ -265,18 +254,14 @@ private fun relayCredentials(
         }
 
         is ProxyProfile.Mieru -> {
-            RelayCredentialRecord(
-                updatedAtEpochMillis = 0L,
-                profileId = profileId,
+            base.copy(
                 mieruUsername = profile.username,
                 mieruPassword = profile.password,
             )
         }
 
         is ProxyProfile.Naive -> {
-            RelayCredentialRecord(
-                updatedAtEpochMillis = 0L,
-                profileId = profileId,
+            base.copy(
                 naiveUsername = profile.username,
                 naivePassword = profile.password,
                 naiveExtraHeaders = profile.extraHeaders.ifEmpty { null },
@@ -290,6 +275,7 @@ private fun relayCredentials(
             error("unsupported relay activation profile ${profile::class.simpleName}")
         }
     }
+}
 
 private data class RelayActivationEndpoint(
     val server: String,
