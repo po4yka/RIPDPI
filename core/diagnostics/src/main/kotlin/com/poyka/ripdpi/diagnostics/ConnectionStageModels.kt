@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class ConnectionStage { DNS, TCP, PROXY, TLS, HTTP_HEADERS, FIRST_BODY_BYTE, BODY, QUIC_RESPONSE, QUIC_HANDSHAKE }
 
 enum class ConnectionStageState {

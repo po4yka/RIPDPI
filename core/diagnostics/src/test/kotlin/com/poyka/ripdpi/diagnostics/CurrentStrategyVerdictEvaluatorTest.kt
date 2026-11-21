@@ -404,14 +404,33 @@ class CurrentStrategyActivePathVerdictEvaluatorTest {
     }
 
     @Test
-    fun `authoritative in-path evidence verifies active service path`() {
+    fun `TLS and HTTP headers followed by a stuck body do not verify the active path`() {
         val assessment =
             CurrentStrategyVerdictEvaluator.evaluate(
                 report(
                     baseline(attempts = listOf(attempt(true))),
                     pathMode = ScanPathMode.IN_PATH,
                     activePathObservation = activePathObservation(StrategyProbeResponseStage.RESPONSE_OBSERVED, true),
-                ),
+                ).copy(results = listOf(activeControlTransfer("http_headers"))),
+                StrategyId,
+                StrategyId,
+                ExpectedSignature,
+            )
+
+        assertEquals(ActiveStrategyPathOutcome.UNVERIFIED, assessment.activePathOutcome)
+        assertEquals(ConnectionStage.HTTP_HEADERS, assessment.activePathLastProvenStage)
+        assertFalse(assessment.isConfirmedWorkingStrategyApproach())
+    }
+
+    @Test
+    fun `a verified short control response proves the active service path`() {
+        val assessment =
+            CurrentStrategyVerdictEvaluator.evaluate(
+                report(
+                    baseline(attempts = listOf(attempt(true))),
+                    pathMode = ScanPathMode.IN_PATH,
+                    activePathObservation = activePathObservation(StrategyProbeResponseStage.RESPONSE_OBSERVED, true),
+                ).copy(results = listOf(activeControlTransfer("body"))),
                 StrategyId,
                 StrategyId,
                 ExpectedSignature,
@@ -419,7 +438,38 @@ class CurrentStrategyActivePathVerdictEvaluatorTest {
 
         assertEquals(CurrentStrategyCandidateVerdict.WORKING_ON_TESTED_CANDIDATE_PATH, assessment.candidateVerdict)
         assertEquals(ActiveStrategyPathOutcome.WORKING, assessment.activePathOutcome)
+        assertEquals(ConnectionStage.BODY, assessment.activePathLastProvenStage)
         assertEquals(null, assessment.activePathUnavailableReason)
+    }
+
+    @Test
+    fun `legacy reachability and reports without an owned control stay unverified`() {
+        val report =
+            report(
+                baseline(attempts = listOf(attempt(true))),
+                pathMode = ScanPathMode.IN_PATH,
+                activePathObservation = activePathObservation(StrategyProbeResponseStage.RESPONSE_OBSERVED, true),
+            )
+        val control = activeControlTransfer("body")
+        val strategyReport = requireNotNull(report.strategyProbeReport)
+        val withoutLease =
+            report.copy(
+                results = listOf(control),
+                strategyProbeReport =
+                    strategyReport.copy(
+                        activePathObservation =
+                            activePathObservation(
+                                StrategyProbeResponseStage.RESPONSE_OBSERVED,
+                                false,
+                            ),
+                    ),
+            )
+        val unrelatedBody = control.copy(details = control.details.filter { it.key != "isControl" })
+        listOf(report, withoutLease, report.copy(results = listOf(unrelatedBody))).forEach {
+            val assessment = CurrentStrategyVerdictEvaluator.evaluate(it, StrategyId, StrategyId, ExpectedSignature)
+            assertEquals(ActiveStrategyPathOutcome.UNVERIFIED, assessment.activePathOutcome)
+            assertEquals(null, assessment.activePathLastProvenStage)
+        }
     }
 
     @Test
@@ -430,7 +480,7 @@ class CurrentStrategyActivePathVerdictEvaluatorTest {
                     baseline(attempts = emptyList()).copy(executionEvidenceComplete = false),
                     pathMode = ScanPathMode.IN_PATH,
                     activePathObservation = activePathObservation(StrategyProbeResponseStage.RESPONSE_OBSERVED, true),
-                ),
+                ).copy(results = listOf(activeControlTransfer("body"))),
                 StrategyId,
                 StrategyId,
                 ExpectedSignature,
@@ -569,7 +619,7 @@ class CurrentStrategyActivePathVerdictEvaluatorTest {
                     baseline(attempts = listOf(attempt(false))),
                     pathMode = ScanPathMode.IN_PATH,
                     activePathObservation = activePathObservation(StrategyProbeResponseStage.RESPONSE_OBSERVED, true),
-                ),
+                ).copy(results = listOf(activeControlTransfer("body"))),
                 StrategyId,
                 StrategyId,
                 ExpectedSignature,
@@ -701,6 +751,14 @@ class CurrentStrategyActivePathVerdictEvaluatorTest {
         }
     }
 }
+
+private fun activeControlTransfer(stage: String) =
+    ProbeResult(
+        probeType = "domain_reachability",
+        target = "control.example",
+        outcome = "tls_ok",
+        details = listOf(ProbeDetail("isControl", "true"), ProbeDetail("activeControlTransferStage", stage)),
+    )
 
 private fun report(
     baseline: StrategyProbeCandidateSummary,

@@ -5,15 +5,52 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, bounded_scan_io_timeout, with_scan_io_deadline};
-use ripdpi_diagnostics_contracts::{ProbeDetail, ProbeResult, SelectiveMatrixConfig, SelectiveMatrixTarget};
+use ripdpi_diagnostics_contracts::{
+    DomainTarget, ProbeDetail, ProbeResult, SelectiveMatrixConfig, SelectiveMatrixTarget,
+};
 use ripdpi_diagnostics_tls::tls::{
     ApplicationProtocolPolicy, ProbeStreamFailureStage, ProbeStreamOptions,
     open_probe_stream_targets_with_options_and_abort,
 };
-use ripdpi_diagnostics_transport::transport::{ConnectionStream, TargetAddress, TransportConfig, resolve_addresses};
+use ripdpi_diagnostics_transport::transport::{
+    ConnectionStream, TargetAddress, TransportConfig, domain_connect_targets, resolve_addresses,
+};
 use rustls::client::danger::ServerCertVerifier;
 
 use super::{matrix_body, target_parse::parse_http_target};
+
+#[cfg(test)]
+mod strategy_transfer_tests;
+
+/// Measure the last proven stage on the scan transport. Keep the response out of the report.
+pub fn run_strategy_control_transfer(
+    target: &DomainTarget,
+    transport: &TransportConfig,
+    cancel: &AtomicBool,
+    verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> Option<ProbeDetail> {
+    let url = format!("https://{}{}", target.host, target.http_path);
+    let mut parsed = parse_http_target(&url, None, &[], target.https_port).ok()?;
+    if parsed.host != target.host || target.host.is_empty() || !target.http_path.starts_with('/') {
+        return None;
+    }
+    parsed.connect_targets = domain_connect_targets(target);
+    let cutoff = Instant::now() + Duration::from_secs(3);
+    let scan_deadline = active_scan_io_deadline();
+    let deadline = scan_deadline.map_or(cutoff, |outer| outer.min(cutoff));
+    let control = AttemptControl { cancel, deadline, scan_deadline };
+    if control.aborted() {
+        return None;
+    }
+    let mut evidence =
+        ProbeResult { probe_type: String::new(), target: String::new(), outcome: String::new(), details: vec![] };
+    let stage = with_scan_io_deadline(Some(deadline), || {
+        execute_https(&parsed, 16 * 1024, transport, &control, verifier, &mut evidence, true)
+    });
+    stage
+        .filter(|_| !control.cancelled())
+        .map(|value| ProbeDetail { key: "activeControlTransferStage".into(), value: value.into() })
+}
 
 pub fn run_selective_matrix_attempt(
     config: &SelectiveMatrixConfig,
@@ -41,7 +78,7 @@ pub fn run_selective_matrix_attempt(
             );
             return;
         }
-        let Ok(parsed) = parse_http_target(&target.url, None, &[], None) else {
+        let Ok(mut parsed) = parse_http_target(&target.url, None, &[], None) else {
             return;
         };
         if !parsed.secure || parsed.port != 443 {
@@ -79,8 +116,8 @@ pub fn run_selective_matrix_attempt(
             );
             return;
         }
-        let targets: Vec<_> = addresses.into_iter().map(TargetAddress::Ip).collect();
-        execute_https(&parsed, &targets, config.max_response_bytes, transport, &control, verifier, &mut result);
+        parsed.connect_targets = addresses.into_iter().map(TargetAddress::Ip).collect();
+        execute_https(&parsed, config.max_response_bytes, transport, &control, verifier, &mut result, false);
     });
     put(&mut result, "elapsedMs", started.elapsed().as_millis().to_string());
     result
@@ -88,20 +125,20 @@ pub fn run_selective_matrix_attempt(
 
 fn execute_https(
     parsed: &super::types::ParsedHttpTarget,
-    targets: &[TargetAddress],
     max_response_bytes: usize,
     transport: &TransportConfig,
     control: &AttemptControl<'_>,
     verifier: Option<&Arc<dyn ServerCertVerifier>>,
     result: &mut ProbeResult,
-) {
+    verify_control_body: bool,
+) -> Option<&'static str> {
     let options = ProbeStreamOptions {
         application_protocol: ApplicationProtocolPolicy::Http11Only,
         certificate_policy: verifier.into(),
         ..ProbeStreamOptions::default()
     };
     let opened = open_probe_stream_targets_with_options_and_abort(
-        targets,
+        &parsed.connect_targets,
         parsed.port,
         transport,
         Some(&parsed.host),
@@ -126,7 +163,7 @@ fn execute_https(
                     "matrix_target_transport_failed"
                 },
             );
-            return;
+            return None;
         }
     };
     put(result, "tcpStatus", "ok");
@@ -140,11 +177,12 @@ fn execute_https(
         ConnectionStream::Plain(s) => s.set_write_timeout(Some(write_timeout)),
         ConnectionStream::Tls(s) => s.sock.set_write_timeout(Some(write_timeout)),
     };
+    let authority = if parsed.port == 443 { parsed.host.clone() } else { format!("{}:{}", parsed.host, parsed.port) };
     let request = format!(
         "GET {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n",
-        parsed.path, parsed.host
+        parsed.path, authority
     );
-    if control.aborted()
+    let stage = if control.aborted()
         || timeout_result.is_err()
         || opened.stream.write_all(request.as_bytes()).and_then(|_| opened.stream.flush()).is_err()
     {
@@ -153,11 +191,13 @@ fn execute_https(
             "http",
             if control.cancelled() { "matrix_target_cancelled" } else { "matrix_target_body_incomplete" },
         );
+        "tls"
     } else {
         let body = matrix_body::read_response(
             &mut Interruptible { stream: &mut opened.stream, abort: &|| control.aborted() },
             max_response_bytes,
             &|| control.aborted(),
+            verify_control_body,
         );
         put(result, "httpStatusCode", body.status.to_string());
         put(
@@ -194,12 +234,22 @@ fn execute_https(
                 },
             );
         }
-    }
+        if body.verified {
+            "body"
+        } else if body.bytes > 0 {
+            "first_body_byte"
+        } else if body.headers_complete {
+            "http_headers"
+        } else {
+            "tls"
+        }
+    };
     // Completion does not need another TLS write after the measurement deadline.
     let _ = match &opened.stream {
         ConnectionStream::Plain(s) => s.shutdown(Shutdown::Both),
         ConnectionStream::Tls(s) => s.sock.shutdown(Shutdown::Both),
     };
+    Some(stage)
 }
 
 struct AttemptControl<'a> {

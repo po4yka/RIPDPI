@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.ActiveStrategyPathUnavailableReason
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachVerificationState
 import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
+import com.poyka.ripdpi.diagnostics.ConnectionStage
 import com.poyka.ripdpi.diagnostics.CurrentStrategyAssessment
 import com.poyka.ripdpi.diagnostics.CurrentStrategyCandidateVerdict
 import com.poyka.ripdpi.diagnostics.CurrentStrategyEvidenceReason
@@ -159,6 +160,17 @@ class DiagnosticsUiCommonSupportTest {
                 .copy(
                     currentStrategyAssessment =
                         baseAssessment.copy(activePathOutcome = ActiveStrategyPathOutcome.INEFFECTIVE),
+                ).uiEvidenceNote(stringResolver),
+        )
+        assertEquals(
+            context.getString(R.string.diagnostics_strategy_active_service_unverified) +
+                " · " + context.getString(R.string.diagnostics_stages_headers),
+            summary
+                .copy(
+                    currentStrategyAssessment =
+                        baseAssessment.copy(
+                            activePathLastProvenStage = ConnectionStage.HTTP_HEADERS,
+                        ),
                 ).uiEvidenceNote(stringResolver),
         )
     }

@@ -2,19 +2,20 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::ProbeExecutionContext;
-use crate::connectivity::run_domain_probe_with_key_log;
+use crate::connectivity::{ProbeExecutionContext, run_domain_probe_with_key_log};
 use crate::engine::runtime::ExecutionPlan;
 use crate::types::{DomainTarget, ProbeResult};
 
 use super::support::ConnectivityProbeFamily;
+
+mod strategy_control;
 
 pub(in crate::engine::runners) struct WebRunner;
 
 struct WebFamily;
 
 impl ConnectivityProbeFamily for WebFamily {
-    type Target = DomainTarget;
+    type Target = (DomainTarget, bool);
 
     const PHASE: &'static str = "reachability";
     const ARTIFACT_SOURCE: &'static str = "domain_reachability";
@@ -22,11 +23,11 @@ impl ConnectivityProbeFamily for WebFamily {
     const DROP_EMPTY_INTERRUPTED_RESULT: bool = true;
 
     fn targets(plan: &ExecutionPlan) -> Vec<Self::Target> {
-        plan.request.domain_targets.clone()
+        strategy_control::targets(plan)
     }
 
     fn message(target: &Self::Target) -> String {
-        format!("Reachability {}", target.host)
+        format!("Reachability {}", target.0.host)
     }
 
     fn run_probe(
@@ -36,13 +37,18 @@ impl ConnectivityProbeFamily for WebFamily {
         cancel: &std::sync::atomic::AtomicBool,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
-        run_domain_probe_with_key_log(
+        let (target, check_transfer) = target;
+        let mut result = run_domain_probe_with_key_log(
             target,
             &plan.transport,
             tls_verifier,
             plan.request.diagnostic_tls_keylog_path.as_deref(),
             Some(cancel),
-        )
+        );
+        if *check_transfer {
+            strategy_control::append_evidence(&mut result, target, &plan.transport, cancel, tls_verifier);
+        }
+        result
     }
 }
 
@@ -61,11 +67,54 @@ mod interrupted_probe_tests {
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
 
-    use super::WebRunner;
+    use super::{ConnectivityProbeFamily, WebFamily, WebRunner};
     use crate::engine::plan::build_execution_plan;
     use crate::engine::runtime::{ExecutionCoordinator, ExecutionRuntime, ExecutionStageId, RunnerOutcome};
-    use crate::transport::direct_transport;
-    use crate::types::{DomainTarget, ScanRequest, SharedState};
+    use crate::transport::{Socks5Credentials, TransportConfig, direct_transport};
+    use crate::types::{DomainTarget, ScanPathMode, ScanRequest, SharedState};
+
+    #[test]
+    fn only_the_first_control_on_the_authenticated_in_path_strategy_route_can_verify_a_transfer() {
+        let mut request: ScanRequest = serde_json::from_str(
+            r#"{
+                "profileId":"web","displayName":"Web","kind":"STRATEGY_PROBE","pathMode":"IN_PATH",
+                "domainTargets":[{"host":"test.example"},{"host":"control1.example","isControl":true},{"host":"control2.example","isControl":true}],
+                "dnsTargets":[],"tcpTargets":[],"whitelistSni":[],
+                "strategyProbe":{"suiteId":"quick_v1"},
+                "inPathRoute":{"host":"127.0.0.1","port":1090,"credentials":{"username":"diagnostics","password":"fixture"}}
+            }"#,
+        )
+        .unwrap();
+        request.strategy_probe.as_mut().unwrap().base_proxy_config_json = Some(
+            serde_json::to_string(&ripdpi_proxy_config::ProxyConfigPayload::Ui {
+                schema_version: 2,
+                config: ripdpi_proxy_config::ProxyUiConfig::default(),
+                strategy_preset: None,
+                runtime_context: None,
+                log_context: None,
+                session_overrides: None,
+            })
+            .unwrap(),
+        );
+        let transport = TransportConfig::Socks5 {
+            host: "127.0.0.1".into(),
+            port: 1090,
+            credentials: Socks5Credentials::new("diagnostics", "fixture"),
+        };
+        let mut plan = build_execution_plan("test-web".into(), request, 0, transport).unwrap();
+        assert!(plan.stage_order.contains(&ExecutionStageId::Web));
+        let transfer_flags =
+            |plan: &_| WebFamily::targets(plan).into_iter().map(|(_, check)| check).collect::<Vec<_>>();
+        assert_eq!(transfer_flags(&plan), [false, true, false]);
+        let strategy = plan.strategy.take();
+        assert_eq!(transfer_flags(&plan), [false, false, false]);
+        plan.strategy = strategy;
+        plan.request.path_mode = ScanPathMode::RawPath;
+        assert_eq!(transfer_flags(&plan), [false, false, false]);
+        plan.request.path_mode = ScanPathMode::InPath;
+        plan.transport = direct_transport();
+        assert_eq!(transfer_flags(&plan), [false, false, false]);
+    }
 
     #[test]
     fn interrupted_web_probe_preserves_captured_client_hello() {

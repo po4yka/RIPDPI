@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-21
+goal: DGN-1795277862388284 Require a completed transfer for the active strategy
+  verdict

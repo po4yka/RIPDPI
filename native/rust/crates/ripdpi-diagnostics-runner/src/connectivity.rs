@@ -7,7 +7,7 @@ pub use tls_hop::{TLS_HOP_EVIDENCE_KEY, TLS_HOP_LOCAL_KEY, run_tls_hop_compariso
 mod http3;
 pub use http3::run_http3_probe;
 mod ip_family;
-pub use endpoint::run_selective_matrix_attempt;
+pub use endpoint::{run_selective_matrix_attempt, run_strategy_control_transfer};
 pub use ip_family::run_ip_family_probes;
 pub(crate) mod adapters;
 mod endpoint;

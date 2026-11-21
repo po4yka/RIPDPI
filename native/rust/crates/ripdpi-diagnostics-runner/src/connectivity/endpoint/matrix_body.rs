@@ -6,13 +6,25 @@ pub(super) struct BodyResult {
     pub headers_complete: bool,
     pub bytes: usize,
     pub complete: bool,
+    pub verified: bool,
     pub reason: &'static str,
 }
 
-pub(super) fn read_response<R: Read>(stream: &mut R, max_body: usize, abort: &dyn Fn() -> bool) -> BodyResult {
-    let mut result =
-        BodyResult { headers_complete: false, status: 0, bytes: 0, complete: false, reason: "malformed_http" };
-    match parse(stream, max_body, abort, &mut result) {
+pub(super) fn read_response<R: Read>(
+    stream: &mut R,
+    max_body: usize,
+    abort: &dyn Fn() -> bool,
+    verify_control_body: bool,
+) -> BodyResult {
+    let mut result = BodyResult {
+        headers_complete: false,
+        status: 0,
+        bytes: 0,
+        complete: false,
+        verified: false,
+        reason: "malformed_http",
+    };
+    match parse(stream, max_body, abort, verify_control_body, &mut result) {
         Ok(()) => {
             result.complete = true;
             result.reason = "complete";
@@ -26,12 +38,16 @@ fn parse<R: Read>(
     stream: &mut R,
     max: usize,
     abort: &dyn Fn() -> bool,
+    verify_control_body: bool,
     result: &mut BodyResult,
 ) -> Result<(), &'static str> {
-    use ripdpi_diagnostics_http::http::{HttpBodyFraming, HttpResponseDecoder, HttpResponseEvent};
+    use ripdpi_diagnostics_http::http::{
+        HttpBodyFraming, HttpResponseDecoder, HttpResponseEvent, classify_http_response_with_fingerprints,
+    };
     let mut decoder = HttpResponseDecoder::new("GET", 16384)?;
     let mut buffer = [0; 8192];
     let mut wire_remaining = max.saturating_add(16384);
+    let mut control_response = None;
     loop {
         if abort() {
             return Err("cancelled");
@@ -71,14 +87,37 @@ fn parse<R: Read>(
                 if matches!(framing, HttpBodyFraming::Length(length) if length > max as u64) {
                     return Err("response_limit");
                 }
+                if verify_control_body
+                    && head.status_code == 200
+                    && matches!(framing, HttpBodyFraming::Length(_) | HttpBodyFraming::Chunked)
+                    && !head.headers.contains_key("content-range")
+                    && head.headers.get("content-encoding").is_none_or(|coding| coding.eq_ignore_ascii_case("identity"))
+                {
+                    control_response = Some(head);
+                }
             }
             HttpResponseEvent::Data(bytes) => {
                 result.bytes = result.bytes.saturating_add(bytes.len());
                 if result.bytes > max {
                     return Err("response_limit");
                 }
+                if let Some(response) = &mut control_response {
+                    response.body.extend_from_slice(&bytes);
+                }
             }
-            HttpResponseEvent::Complete => return if result.bytes == 0 { Err("empty_body") } else { Ok(()) },
+            HttpResponseEvent::Complete => {
+                if result.bytes == 0 {
+                    return Err("empty_body");
+                }
+                result.verified = control_response.is_some_and(|response| {
+                    classify_http_response_with_fingerprints(
+                        &response,
+                        ripdpi_failure_classifier::bundled_blockpage_fingerprints(),
+                    )
+                    .0 == "http_ok"
+                });
+                return Ok(());
+            }
         }
     }
 }
@@ -87,7 +126,7 @@ fn parse<R: Read>(
 mod tests {
     use super::*;
     fn run(mut response: &[u8], cap: usize) -> BodyResult {
-        read_response(&mut response, cap, &|| false)
+        read_response(&mut response, cap, &|| false, false)
     }
     #[test]
     fn requires_complete_framing() {
@@ -107,7 +146,7 @@ mod tests {
             assert!(!run(response, 20).complete);
         }
         assert_eq!(run(b"HTTP/1.1 200 OK\r\nContent-Length: 200\r\n\r\n", 20).reason, "response_limit");
-        assert_eq!(read_response(&mut b"".as_slice(), 20, &|| true).reason, "cancelled");
+        assert_eq!(read_response(&mut b"".as_slice(), 20, &|| true, false).reason, "cancelled");
     }
     #[test]
     fn rejects_ambiguous_and_oversized_headers() {

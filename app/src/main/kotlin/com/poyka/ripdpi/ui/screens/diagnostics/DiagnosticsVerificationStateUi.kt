@@ -27,7 +27,9 @@ internal fun BypassApproachSummary.uiEvidenceNote(stringResolver: StringResolver
         }
 
         else -> {
-            stringResolver.getString(R.string.diagnostics_strategy_active_service_unverified)
+            val unverified = stringResolver.getString(R.string.diagnostics_strategy_active_service_unverified)
+            val stage = assessment?.activePathLastProvenStage
+            if (stage == null) unverified else "$unverified · ${stringResolver.getString(stage.labelResource())}"
         }
     }
 }
