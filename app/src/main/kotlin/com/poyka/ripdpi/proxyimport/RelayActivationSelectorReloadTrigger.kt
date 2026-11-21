@@ -141,7 +141,7 @@ class RelayActivationSelectorReloadTrigger
             val live = appliedMember(group)
             val selection = selections.snapshot(group)
             return live != null && live != rejected && selection.profileId == rejected &&
-                memberProfile(group, live) != null && selections.selectAutomatically(group, selection, live)
+                memberProfile(group, live) != null && selections.selectAutomatically(group, selection, live) { true }
         }
 
         private fun appliedMember(group: String): String? =

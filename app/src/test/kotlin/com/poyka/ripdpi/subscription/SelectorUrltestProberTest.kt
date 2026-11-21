@@ -427,7 +427,7 @@ class SelectorUrltestProberTest {
     fun `automatic existing fallback is retained until a direct candidate is reachable`() =
         runTest {
             val store = ProbeTestSelectionStore()
-            store.selectAutomatically("g", store.snapshot("g"), "edge")
+            store.selectAutomatically("g", store.snapshot("g"), "edge") { true }
             val group =
                 selectorTestGroup(
                     listOf(selectorTestMember("edge"), selectorTestMember("direct")),

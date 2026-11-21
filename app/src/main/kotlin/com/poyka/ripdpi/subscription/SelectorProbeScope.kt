@@ -24,8 +24,13 @@ internal data class SelectorProbeScope(
     val environment: CandidateRelayProbeEnvironment,
     val vpnPath: SelectorVpnPath? = null,
 ) {
-    /** Member health changes with every bundle refresh: each pass reads it, but it never resets failover state. */
-    fun sameProbe(other: SelectorProbeScope?) = other != null && copy(memberHealth = other.memberHealth) == other
+    /**
+     * Member health changes with every bundle refresh, and the applied VPN path changes when the selector's own
+     * switch reloads the tunnel: each pass reads both, but neither resets failover streaks or cooldown. Route
+     * authority is checked per measurement and again at the selection write.
+     */
+    fun sameProbe(other: SelectorProbeScope?) =
+        other != null && copy(memberHealth = other.memberHealth, vpnPath = other.vpnPath) == other
 }
 
 internal fun interface SelectorProbeScopeProvider {

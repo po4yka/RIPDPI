@@ -246,7 +246,7 @@ class SelectorUrltestCoordinatorTest {
                             groups.value = listOf(group.copy(cloudflareMemberIds = setOf("fast")))
                             runCurrent()
                         }
-                        return store.selectAutomatically(groupId, expected, profileId)
+                        return store.selectAutomatically(groupId, expected, profileId, isCurrent)
                     }
                 }
             val prober =

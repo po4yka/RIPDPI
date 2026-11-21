@@ -42,7 +42,7 @@ class SubscriptionRefreshMutationTest : RoomProfileTest() {
             assertEquals("new", selection.snapshot(original.id).profileId)
             assertFalse(selection.snapshot(original.id).isManual)
             assertNull(selection.manualReceipt(original.id))
-            assertFalse(selection.selectAutomatically(original.id, before, "new"))
+            assertFalse(selection.selectAutomatically(original.id, before, "new") { true })
         }
 
     @Test

@@ -23,7 +23,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             val before = store.snapshot("group")
             store.select("group", "two")
             store.select("group", "one")
-            assertFalse(store.selectAutomatically("group", before, "probe"))
+            assertFalse(store.selectAutomatically("group", before, "probe") { true })
             assertEquals("one", store.selectedProfileId("group").first())
             assertTrue(store.snapshot("group").isManual)
         }
@@ -55,7 +55,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
                     "group",
                     fixture.selectorSelections.snapshot("group"),
                     "probe",
-                ),
+                ) { true },
             )
             assertEquals("manual", fixture.selectorSelections.snapshot("group").profileId)
             fixture.selectorSelections.resumeAutomatic("group")
@@ -67,7 +67,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
                     "group",
                     fixture.selectorSelections.snapshot("group"),
                     "probe",
-                ),
+                ) { true },
             )
             fixture.reopen()
             assertEquals("probe", fixture.selectorSelections.snapshot("group").profileId)
@@ -82,7 +82,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             store.select("group", "one")
             val before = store.snapshot("group")
             store.select("group", "one")
-            assertFalse(store.selectAutomatically("group", before, "probe"))
+            assertFalse(store.selectAutomatically("group", before, "probe") { true })
         }
 
     @Test
@@ -92,7 +92,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             val store = fixture.selectorSelections
             val before = store.snapshot("group")
             store.clearSelection("group")
-            assertFalse(store.selectAutomatically("group", before, "probe"))
+            assertFalse(store.selectAutomatically("group", before, "probe") { true })
             assertNull(store.snapshot("group").profileId)
             assertFalse(store.snapshot("group").isManual)
         }
@@ -104,7 +104,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             val store = fixture.selectorSelections
             val before = store.snapshot("never-stored")
             store.clearAll()
-            assertFalse(store.selectAutomatically("never-stored", before, "probe"))
+            assertFalse(store.selectAutomatically("never-stored", before, "probe") { true })
         }
 
     @Test
@@ -143,10 +143,10 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             store.select("group", "manual")
             val before = store.snapshot("group")
             store.invalidatePendingSelection("group")
-            assertFalse(store.selectAutomatically("group", before, "stale"))
+            assertFalse(store.selectAutomatically("group", before, "stale") { true })
             assertEquals("manual", store.snapshot("group").profileId)
             assertTrue(store.snapshot("group").isManual)
-            assertFalse(store.selectAutomatically("group", store.snapshot("group"), "fresh"))
+            assertFalse(store.selectAutomatically("group", store.snapshot("group"), "fresh") { true })
             assertEquals("manual", store.snapshot("group").profileId)
         }
 
@@ -185,7 +185,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             repeat(2) { store.invalidatePendingSelection("group") }
             val before = store.snapshot("group")
             fixture.selectorChoice.commitMember("group", "same", SelectorChoiceOrigin.Manual(reserve(fixture)))
-            assertFalse(store.selectAutomatically("group", before, "stale"))
+            assertFalse(store.selectAutomatically("group", before, "stale") { true })
             assertEquals("same", store.snapshot("group").profileId)
             assertTrue(store.snapshot("group").revision > before.revision)
         }
@@ -205,7 +205,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
                 async { fixture.selectorChoice.commitMember("group", "manual", SelectorChoiceOrigin.Manual(receipt)) }
             try {
                 barrier.awaitEntry()
-                val automatic = async { store.selectAutomatically("group", before, "probe") }
+                val automatic = async { store.selectAutomatically("group", before, "probe") { true } }
                 barrier.release()
                 manual.await()
                 assertFalse(automatic.await())
@@ -228,7 +228,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             assertNull(store.manualReceipt("group"))
             assertFalse(store.snapshot("group").isManual)
             assertEquals("manual", store.selectedProfileId("group").first())
-            assertTrue(store.selectAutomatically("group", store.snapshot("group"), "probe"))
+            assertTrue(store.selectAutomatically("group", store.snapshot("group"), "probe") { true })
             assertEquals("probe", store.selectedProfileId("group").first())
         }
 
@@ -295,7 +295,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             try {
                 val automatic =
                     scope.async(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
-                        store.selectAutomatically("group", expected, "automatic")
+                        store.selectAutomatically("group", expected, "automatic") { true }
                     }
                 // Keep IO pending until the automatic caller has suspended.
                 barrier.awaitEntry()

@@ -45,7 +45,7 @@ interface SelectorSelectionStore {
         groupId: String,
         expected: SelectorSelectionSnapshot,
         profileId: String,
-        isCurrent: () -> Boolean = { true },
+        isCurrent: () -> Boolean,
     ): Boolean
 
     /** Sets [profileId] as the active member of the selector group [groupId]. */

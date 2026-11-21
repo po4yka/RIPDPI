@@ -61,7 +61,7 @@ class SelectorColdStartupTest {
             initial.groups.add(group)
             val stored = initial.groups.list().single()
             val choice = initial.selectorSelections.snapshot(group.id)
-            assertTrue(initial.selectorSelections.selectAutomatically(group.id, choice, "member"))
+            assertTrue(initial.selectorSelections.selectAutomatically(group.id, choice, "member") { true })
             initial.selectorActiveGroup.restoreActiveGroup(group.id)
             val persistence = initial.reopen(testPauseAuthority()).also { databases += it }
             persistence.initialize()

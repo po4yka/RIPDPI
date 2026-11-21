@@ -1,18 +1,26 @@
 package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.activities.TestEmptyProxyGroupRepository
+import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RuntimeConfigurationApplyReason
+import com.poyka.ripdpi.data.RuntimeConfigurationDns
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
+import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.services.CandidateRelayProbeEnvironment
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SelectorProbeScopeTest {
@@ -103,6 +111,48 @@ class SelectorProbeScopeTest {
             val changed = requireNotNull(provider.capture(group))
             assertEquals(original.networkScope, changed.networkScope)
             assertNotEquals(original, changed)
+        }
+
+    @Test
+    fun `a payload scope is current only while its applied VPN route is`() =
+        runTest {
+            val group = group().copy(failover = SelectorFailover("https://probe.example", 10, 50, policy()))
+            val groups =
+                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
+                    override suspend fun list() = listOf(group)
+                }
+            val selection = RuntimeConfigurationSelection("relay", selectorGroupId = "g", selectorMemberId = "member")
+            val path =
+                SelectorVpnPath(
+                    AppliedRuntimeConfiguration(
+                        runtimeId = "runtime",
+                        revision = 1L,
+                        appliedAt = 0L,
+                        mode = Mode.VPN,
+                        requestedSelection = selection,
+                        effectiveSelection = selection,
+                        dns = RuntimeConfigurationDns("plain_udp", "system"),
+                        strategy = RuntimeConfigurationStrategy(enabled = false),
+                        reason = RuntimeConfigurationApplyReason.InitialStart,
+                    ),
+                    null,
+                )
+            var routeCurrent = true
+            val provider =
+                CurrentSelectorProbeScopeProvider(
+                    groups,
+                    network(),
+                    { environment() },
+                    { physical.capture() },
+                    { true },
+                    captureVpnPath = { path },
+                    isVpnPathCurrent = { it == path && routeCurrent },
+                )
+            val scope = requireNotNull(provider.capture(group))
+            assertEquals(path, scope.vpnPath)
+            assertTrue(provider.isCurrent(scope))
+            routeCurrent = false
+            assertFalse(provider.isCurrent(scope))
         }
 
     @Test
