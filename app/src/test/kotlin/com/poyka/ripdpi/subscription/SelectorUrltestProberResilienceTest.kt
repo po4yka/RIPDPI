@@ -25,6 +25,7 @@ class SelectorUrltestProberResilienceTest {
                         check(!captureFails) { "network capture failed" }
                         selectorTestScope(group)
                     },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             val group =
                 selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")), intervalSeconds = 10)

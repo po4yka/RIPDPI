@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
+import com.poyka.ripdpi.data.PayloadProbePurpose
 import com.poyka.ripdpi.data.ProfileQualityBudget
 import com.poyka.ripdpi.data.ProfileQualityDecisionReason
 import com.poyka.ripdpi.data.ProfileQualityMeasurement
@@ -17,12 +18,141 @@ import com.poyka.ripdpi.data.RuntimeConfigurationDns
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.data.SelectorFailover
+import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
+import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class SelectorLiveVpnPayloadTest {
+    @Test
+    fun `a route change during the reserve probe discards the old failure sample`() =
+        runTest {
+            val store = ProbeTestSelectionStore().apply { set("g", "active") }
+            val group = group(policy())
+            var now = 0L
+            var scope = selectorTestScope(group).copy(vpnPath = vpnPath(runtimeConfiguration("active")))
+            val laterPath = vpnPath(runtimeConfiguration("active", revision = 2L))
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    { _, _ ->
+                        if (now == 0L) {
+                            scope = scope.copy(vpnPath = laterPath)
+                        }
+                        MemberProbeResult(20L)
+                    },
+                    { scope },
+                    { now },
+                    reserveBudget = ::admitTestPayloadPass,
+                    measureVpnPayload = {
+                        _,
+                        _,
+                        ->
+                        MemberProbeResult(null, reason = ProfileQualityReason.TransferFailed)
+                    },
+                )
+            prober.runProbePass(group, "unused", 0)
+            now = 60_000L
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("active", store.snapshot("g").profileId)
+
+            now = 120_000L
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("reserve", store.snapshot("g").profileId)
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `recovery spends no budget until the selected member is applied`() =
+        runTest {
+            val store = ProbeTestSelectionStore().apply { set("g", "reserve") }
+            val group = group(policy())
+            var scope = selectorTestScope(group).copy(vpnPath = vpnPath(runtimeConfiguration("active")))
+            val requests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+            val charged = mutableListOf<PayloadProbePurpose>()
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    { _, _ -> error("Isolated candidate is unnecessary") },
+                    { scope },
+                    { testScheduler.currentTime },
+                    reserveBudget = { id, configured, purpose ->
+                        charged += purpose
+                        admitTestPayloadPass(id, configured, purpose)
+                    },
+                    measureVpnPayload = { _, _ -> MemberProbeResult(20L) },
+                )
+            backgroundScope.launch { prober.run(group, requests) }
+            runCurrent()
+            requests.emit(Unit)
+            advanceTimeBy(6_000L)
+            assertEquals(emptyList<PayloadProbePurpose>(), charged)
+
+            scope = scope.copy(vpnPath = vpnPath(runtimeConfiguration("reserve", revision = 2L)))
+            requests.emit(Unit)
+            advanceTimeBy(6_000L)
+            assertEquals(listOf(PayloadProbePurpose.Recovery), charged)
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `a live failure queues one early pass and a budget deferral adds no failure`() =
+        runTest {
+            val store = ProbeTestSelectionStore().apply { set("g", "active") }
+            val group = group(policy())
+            val scope = selectorTestScope(group).copy(vpnPath = vpnPath(runtimeConfiguration("active")))
+            val externalRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+            val attempts = mutableListOf<Pair<Long, PayloadProbePurpose>>()
+            var recoveryAllowed = false
+            var liveTransfers = 0
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    { _, _ -> MemberProbeResult(20L) },
+                    { scope },
+                    { testScheduler.currentTime },
+                    reserveBudget = { id, configured, purpose ->
+                        attempts += testScheduler.currentTime to purpose
+                        val admitted = admitTestPayloadPass(id, configured, purpose)
+                        if (purpose == PayloadProbePurpose.Recovery && !recoveryAllowed) {
+                            admitted.copy(reservedPassBytes = 0L, reason = ProfileQualityReason.BudgetExhausted)
+                        } else {
+                            admitted
+                        }
+                    },
+                    measureVpnPayload = { _, _ ->
+                        liveTransfers++
+                        MemberProbeResult(null, reason = ProfileQualityReason.TransferFailed)
+                    },
+                )
+            val loop = backgroundScope.launch { prober.run(group, externalRequests) }
+            advanceTimeBy(20_001L)
+            assertEquals(
+                listOf(15_000L to PayloadProbePurpose.Scheduled, 20_000L to PayloadProbePurpose.Recovery),
+                attempts,
+            )
+            assertEquals(1, liveTransfers)
+            assertEquals("active", store.snapshot("g").profileId)
+
+            advanceTimeBy(30_000L)
+            assertEquals(2, attempts.size)
+            recoveryAllowed = true
+            externalRequests.emit(Unit)
+            runCurrent()
+            advanceTimeBy(5_001L)
+            assertEquals(55_001L to PayloadProbePurpose.Recovery, attempts.last())
+            assertEquals(2, liveTransfers)
+            assertEquals("reserve", store.snapshot("g").profileId)
+            loop.cancel()
+        }
+
     @Test
     fun `a stale route or network cannot publish a verified reserve`() =
         runTest {
@@ -32,12 +162,29 @@ class SelectorLiveVpnPayloadTest {
             val group = group(policy)
             var now = 0L
             var mayCommit = false
+            var checkingWrite = false
+            val guarded =
+                object : SelectorSelectionStore by store {
+                    override suspend fun selectAutomatically(
+                        groupId: String,
+                        expected: SelectorSelectionSnapshot,
+                        profileId: String,
+                        isCurrent: () -> Boolean,
+                    ): Boolean {
+                        checkingWrite = true
+                        return try {
+                            store.selectAutomatically(groupId, expected, profileId, isCurrent)
+                        } finally {
+                            checkingWrite = false
+                        }
+                    }
+                }
             val runtime = runtimeConfiguration("active")
             val scope = selectorTestScope(group).copy(vpnPath = vpnPath(runtime))
             var liveProbes = 0
             val prober =
                 SelectorUrltestProber(
-                    store,
+                    guarded,
                     MemberLatencyProbe { member, _ ->
                         assertEquals("reserve", member.id)
                         MemberProbeResult(20L)
@@ -45,7 +192,7 @@ class SelectorLiveVpnPayloadTest {
                     object : SelectorProbeScopeProvider {
                         override suspend fun capture(group: ProxyGroup) = scope
 
-                        override fun isCurrent(scope: SelectorProbeScope): Boolean = mayCommit
+                        override fun isCurrent(scope: SelectorProbeScope): Boolean = !checkingWrite || mayCommit
                     },
                     { now },
                     measureVpnPayload = { path, expected ->
@@ -54,6 +201,7 @@ class SelectorLiveVpnPayloadTest {
                         liveProbes++
                         MemberProbeResult(null, reason = ProfileQualityReason.TransferFailed)
                     },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "unused", 0)
             now += 60_000
@@ -92,6 +240,7 @@ class SelectorLiveVpnPayloadTest {
                             null
                         }
                     },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "unused", 0)
             now += 60_000
@@ -126,6 +275,7 @@ class SelectorLiveVpnPayloadTest {
                         ->
                         MemberProbeResult(null, reason = ProfileQualityReason.TransferFailed)
                     },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "unused", 0)
             now += 60_000
@@ -175,7 +325,7 @@ class SelectorLiveVpnPayloadTest {
                     { scope },
                     { now },
                     qualityStore = quality,
-                    reserveBudget = { id, value ->
+                    reserveBudget = { id, value, _ ->
                         ProfileQualityBudget(
                             id,
                             value.reservedQualityPassBytes(),

@@ -38,7 +38,7 @@ class SelectorQualityTest {
             SelectorProbeScopeProvider { scope },
             monotonicMillis = { now },
             qualityStore = quality,
-            reserveBudget = { id, value ->
+            reserveBudget = { id, value, _ ->
                 ProfileQualityBudget(
                     id,
                     if (deferred) 0 else value.reservedQualityPassBytes(),
@@ -79,7 +79,7 @@ class SelectorQualityTest {
                     },
                     SelectorProbeScopeProvider { selectorTestScope(mixed) },
                     { clock },
-                    reserveBudget = { id, value ->
+                    reserveBudget = { id, value, _ ->
                         ProfileQualityBudget(
                             id,
                             value.reservedQualityPassBytes(),
@@ -271,7 +271,7 @@ class SelectorQualityTest {
                         },
                         SelectorProbeScopeProvider { selectorTestScope(multi) },
                         monotonicMillis = { time },
-                        reserveBudget = { id, value ->
+                        reserveBudget = { id, value, _ ->
                             ProfileQualityBudget(
                                 id,
                                 value.reservedQualityPassBytes(),
@@ -319,7 +319,7 @@ class SelectorQualityTest {
                     SelectorProbeScopeProvider { scope },
                     monotonicMillis = { time },
                     qualityStore = quality,
-                    reserveBudget = { id, value ->
+                    reserveBudget = { id, value, _ ->
                         ProfileQualityBudget(
                             id,
                             value.reservedQualityPassBytes(),

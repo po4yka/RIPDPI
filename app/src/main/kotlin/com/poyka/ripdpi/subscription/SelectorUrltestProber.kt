@@ -3,6 +3,7 @@ package com.poyka.ripdpi.subscription
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
+import com.poyka.ripdpi.data.PayloadProbePurpose
 import com.poyka.ripdpi.data.ProfileQualityBudget
 import com.poyka.ripdpi.data.ProfileQualityDecision
 import com.poyka.ripdpi.data.ProfileQualityDecisionReason
@@ -18,15 +19,24 @@ import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.data.subscription.EndpointHealthOrder
 import com.poyka.ripdpi.data.subscription.orderByEndpointHealth
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.seconds
 
@@ -50,16 +60,7 @@ class SelectorUrltestProber internal constructor(
     private val scopeProvider: SelectorProbeScopeProvider,
     private val monotonicMillis: () -> Long = { System.nanoTime() / NanosecondsPerMillisecond },
     private val qualityStore: ProfileQualityStore = ProfileQualityStore(),
-    private val reserveBudget: (String, PayloadFailoverPolicy) -> ProfileQualityBudget = { id, policy ->
-        ProfileQualityBudget(
-            id,
-            0,
-            0,
-            requireNotNull(policy.quality).maxWindowBytes,
-            null,
-            ProfileQualityReason.BudgetUnavailable,
-        )
-    },
+    private val reserveBudget: (String, PayloadFailoverPolicy, PayloadProbePurpose) -> ProfileQualityBudget,
     /** Wall clock for bundle health expiry (`observed_at + ttl_seconds` is an absolute instant). */
     private val wallClockMillis: () -> Long = System::currentTimeMillis,
     private val measureVpnPayload: suspend (
@@ -70,6 +71,7 @@ class SelectorUrltestProber internal constructor(
     private val log = Logger.withTag("selector-urltest")
     private val payloadStates = ConcurrentHashMap<String, ScopedPayloadState>()
     private val probeRoundMutex = Mutex()
+    private var nextRecoveryAt = Long.MIN_VALUE
 
     /** Consecutive reachability passes in which the selected member, keyed by group, failed its check. */
     private val unreachablePasses = ConcurrentHashMap<String, Pair<String, Int>>()
@@ -86,7 +88,7 @@ class SelectorUrltestProber internal constructor(
         ): Boolean = path?.configuration?.isAppliedSelectorSuccessor(previous, groupId, memberId) == true
     }
 
-    private data class ScopedPayloadState(
+    private inner class ScopedPayloadState(
         var scope: SelectorProbeScope,
         var selection: SelectorSelectionSnapshot,
         val state: PayloadFailoverState,
@@ -99,6 +101,13 @@ class SelectorUrltestProber internal constructor(
         var routeUnavailable: Boolean = false,
         var vpnRecovery: VpnRecovery? = null,
     ) {
+        fun activeTransferFailed(results: List<MemberLatency>): Boolean =
+            scope.vpnPath?.usesIsolatedProbes == false &&
+                results.any {
+                    it.profileId == selection.profileId && it.latencyMillis == null &&
+                        it.reason == ProfileQualityReason.TransferFailed
+                }
+
         fun observeVpnApplication(
             groupId: String,
             now: Long,
@@ -110,6 +119,96 @@ class SelectorUrltestProber internal constructor(
                     it.applied = true
                 }
             }
+
+        fun canMeasureAppliedPath(recovery: Boolean): Boolean {
+            val path = scope.vpnPath ?: return true
+            val isolatedScheduledPass = path.usesIsolatedProbes && !recovery && vpnRecovery == null
+            val appliedMember = path.configuration.effectiveSelection.selectorMemberId == selection.profileId
+            return isolatedScheduledPass || (appliedMember && (path.usesIsolatedProbes || path.lease != null))
+        }
+
+        suspend fun commitResults(
+            group: ProxyGroup,
+            results: List<MemberLatency>,
+            recoveryPass: Boolean,
+        ): Boolean {
+            val now = monotonicMillis()
+            val recovery = observeVpnApplication(group.id, now) { scopeProvider.isCurrent(scope) }
+            if (results.any { it.reason in UndecidedReasons }) {
+                state.discardObservation()
+                quality.discard()
+                publishQuality(group, this, results, now)
+                return false
+            }
+            val eligibleReserves = probeCandidates(group, scope).count { it.id != selection.profileId }
+            val healthWinner =
+                state.observe(
+                    results,
+                    selection.profileId,
+                    now,
+                    allCandidatesObserved = failedReserves.size >= eligibleReserves,
+                    recoveryPass = recoveryPass,
+                )
+            val activeFailed = activeTransferFailed(results)
+            if (recoveryPass && activeFailed) quality.discard()
+            val qualityDecision = if (recoveryPass) null else observeQuality(group, this, results, now)
+            recordVerifiedRecovery(group.id, recovery, results, now)
+            val switched =
+                selectWinner(
+                    group.id,
+                    healthWinner ?: qualityDecision?.winner,
+                    qualityDecision?.takeIf { healthWinner == null },
+                    now,
+                )
+            val needsFollowUp = !switched && !recoveryPass && activeFailed
+            return needsFollowUp && scopeProvider.isCurrent(scope)
+        }
+
+        private fun recordVerifiedRecovery(
+            groupId: String,
+            recovery: VpnRecovery?,
+            results: List<MemberLatency>,
+            now: Long,
+        ) {
+            if (recovery == null || scope.vpnPath?.usesIsolatedProbes != false) return
+            val liveVerified = results.any { it.profileId == selection.profileId && it.latencyMillis != null }
+            if (liveVerified && scopeProvider.isCurrent(scope) && matchesPayloadGeneration(groupId, this)) {
+                vpnRecovery = null
+                recovery.promotion?.let {
+                    qualityStore.decide(
+                        it.copy(observedAtElapsedMillis = now),
+                        qualityGeneration,
+                    )
+                }
+                log.i { "Selector VPN traffic recovered on the applied reserve" }
+            }
+        }
+
+        suspend fun selectWinner(
+            groupId: String,
+            winner: String?,
+            qualityDecision: QualityDecision?,
+            now: Long,
+        ): Boolean {
+            if (winner == null ||
+                !selectionStore.selectAutomatically(groupId, selection, winner) { scopeProvider.isCurrent(scope) }
+            ) {
+                return false
+            }
+            val promotion =
+                qualityDecision?.let {
+                    ProfileQualityDecision(groupId, winner, it.challengerId, it.reason, now)
+                }
+            recordSwitchRequest(promotion, now)?.let { qualityStore.decide(it, qualityGeneration) }
+            val selected = selectionStore.snapshot(groupId)
+            if (selected.profileId == winner && !selected.isManual) {
+                selection = selected
+            } else {
+                payloadStates.remove(groupId, this)
+            }
+            log.i { "Payload-qualified selector requested a reserve for group $groupId" }
+            return true
+        }
 
         fun recordSwitchRequest(
             promotion: ProfileQualityDecision?,
@@ -169,7 +268,11 @@ class SelectorUrltestProber internal constructor(
      * [com.poyka.ripdpi.data.SelectorFailover] or fewer than two members — there
      * is nothing to fail over between.
      */
-    suspend fun run(group: ProxyGroup) {
+    @OptIn(FlowPreview::class)
+    suspend fun run(
+        group: ProxyGroup,
+        recoveryRequests: Flow<Unit> = emptyFlow(),
+    ) {
         val failover = group.failover ?: return
         if (group.members.size < MinMembers) return
         val intervalMillis =
@@ -177,6 +280,25 @@ class SelectorUrltestProber internal constructor(
                 .coerceAtLeast(MinIntervalSeconds)
                 .seconds.inWholeMilliseconds
         coroutineScope {
+            val activeFailures = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+            val recoveryWatcher =
+                failover.payloadPolicy?.let { policy ->
+                    launch {
+                        val latestRequest = AtomicLong()
+                        merge(recoveryRequests, activeFailures)
+                            .map { latestRequest.incrementAndGet() }
+                            .debounce(RecoveryQuietMillis)
+                            .conflate()
+                            .collect { request ->
+                                contained("recovery pass") {
+                                    runPayloadPass(group, policy, PayloadProbePurpose.Recovery) {
+                                        latestRequest.get() ==
+                                            request
+                                    }
+                                }
+                            }
+                    }
+                }
             val selectionWatcher =
                 launch {
                     selectionStore.selectedProfileId(group.id).collect {
@@ -188,10 +310,13 @@ class SelectorUrltestProber internal constructor(
                 var wait = FirstPassDelayMillis.coerceAtMost(intervalMillis)
                 while (true) {
                     delay(wait)
-                    contained("probe pass") { runProbePass(group, failover.probeUrl, failover.toleranceMs) }
+                    contained("probe pass") {
+                        if (runProbePass(group, failover.probeUrl, failover.toleranceMs)) activeFailures.tryEmit(Unit)
+                    }
                     wait = intervalMillis
                 }
             } finally {
+                recoveryWatcher?.cancel()
                 selectionWatcher.cancel()
                 invalidatePendingSelection(group.id)
             }
@@ -262,12 +387,13 @@ class SelectorUrltestProber internal constructor(
         group: ProxyGroup,
         probeUrl: String,
         toleranceMs: Int,
-    ) {
+    ): Boolean {
         val policy = group.failover?.payloadPolicy
-        if (policy != null) {
-            runPayloadPass(group, policy)
+        return if (policy != null) {
+            runPayloadPass(group, policy, PayloadProbePurpose.Scheduled)
         } else {
             runReachabilityPass(group, probeUrl, toleranceMs)
+            false
         }
     }
 
@@ -332,35 +458,54 @@ class SelectorUrltestProber internal constructor(
     private suspend fun runPayloadPass(
         group: ProxyGroup,
         policy: PayloadFailoverPolicy,
-    ) = probeRoundMutex.withLock {
-        // Wait for other selector work before capturing scope or starting the measurement budget.
-        val scoped = payloadState(group, policy) ?: return@withLock
-        if (monotonicMillis() >= scoped.state.nextProbeAt) {
-            if (policy.quality != null && !admitQualityPass(group, scoped, policy)) return@withLock
-            var routeUnavailable = false
-            val results =
-                withTimeoutOrNull(payloadPassDeadlineMillis(policy)) {
-                    measurePayloadRound(group, scoped, policy).also { routeUnavailable = it == null }
+        purpose: PayloadProbePurpose,
+        requestIsQuiet: () -> Boolean = { true },
+    ): Boolean =
+        probeRoundMutex.withLock {
+            // Wait for other selector work before capturing scope or starting the measurement budget.
+            val scoped = payloadState(group, policy) ?: return@withLock false
+            val now = monotonicMillis()
+            val recovery = purpose == PayloadProbePurpose.Recovery
+            val due =
+                if (recovery) {
+                    now >= nextRecoveryAt && !scoped.state.inOutageBackoff(now)
+                } else {
+                    now >=
+                        scoped.state.nextProbeAt
                 }
-            if (routeUnavailable) {
-                // The applied VPN route could not be measured: this pass observed nothing, so earlier
-                // evidence (failure streak, reserve progress, cooldown) stays as it was.
-                if (!scoped.routeUnavailable) {
-                    log.w { "Payload pass for group ${group.id} skipped: applied VPN route unavailable" }
+            if (!due) return@withLock false
+            if (!scoped.canMeasureAppliedPath(recovery) || !requestIsQuiet()) return@withLock false
+            if (recovery && !scopeProvider.isCurrent(scoped.scope)) return@withLock false
+            try {
+                if (!admitPayloadPass(group, scoped, policy, purpose)) return@withLock false
+                val probePolicy = if (recovery) policy.copy(quality = null) else policy
+                var routeUnavailable = false
+                val results =
+                    withTimeoutOrNull(payloadPassDeadlineMillis(probePolicy)) {
+                        measurePayloadRound(group, scoped, probePolicy).also { routeUnavailable = it == null }
+                    }
+                if (routeUnavailable) {
+                    // The applied VPN route could not be measured: this pass observed nothing, so earlier
+                    // evidence (failure streak, reserve progress, cooldown) stays as it was.
+                    if (!scoped.routeUnavailable) {
+                        log.w { "Payload pass for group ${group.id} skipped: applied VPN route unavailable" }
+                    }
+                    scoped.routeUnavailable = true
+                } else if (results == null) {
+                    // A pass deadline provides no complete observation; rotate without inventing failures.
+                    scoped.recoveringReserve = null
+                    scoped.reserveIndex++
+                    scoped.state.discardObservation()
+                    scoped.quality.discard()
+                } else {
+                    scoped.routeUnavailable = false
+                    return@withLock commitPayloadObservation(group, scoped, results, recovery)
                 }
-                scoped.routeUnavailable = true
-            } else if (results == null) {
-                // A pass deadline provides no complete observation; rotate without inventing failures.
-                scoped.recoveringReserve = null
-                scoped.reserveIndex++
-                scoped.state.discardObservation()
-                scoped.quality.discard()
-            } else {
-                scoped.routeUnavailable = false
-                commitPayloadObservation(group, scoped, results)
+                false
+            } finally {
+                if (recovery) nextRecoveryAt = monotonicMillis() + RecoverySpacingMillis
             }
         }
-    }
 
     private suspend fun payloadState(
         group: ProxyGroup,
@@ -391,86 +536,27 @@ class SelectorUrltestProber internal constructor(
         group: ProxyGroup,
         scoped: ScopedPayloadState,
         results: List<MemberLatency>,
-    ) {
+        recoveryPass: Boolean,
+    ): Boolean {
         currentCoroutineContext().ensureActive()
-        val selection = scoped.selection
-        if (!matchesCurrentScope(group, scoped)) {
+        val latestScope = scopeProvider.capture(group)
+        val scopeMatches = matchesCurrentScope(group, scoped, latestScope)
+        if (!scopeMatches) {
             payloadStates.remove(group.id, scoped)
             qualityStore.invalidate(group.id)
-            return
         }
         currentCoroutineContext().ensureActive()
-        val now = monotonicMillis()
-        val eligibleReserves =
-            probeCandidates(group, scoped.scope).count { it.id != selection.profileId }
-        val recovery = scoped.observeVpnApplication(group.id, now) { scopeProvider.isCurrent(scoped.scope) }
-        if (results.any {
-                it.reason == ProfileQualityReason.CleanupPending ||
-                    it.reason == ProfileQualityReason.ScopeChanged
-            }
-        ) {
-            scoped.state.discardObservation()
-            scoped.quality.discard()
-            publishQuality(group, scoped, results, now)
-            return
-        }
-        val healthWinner =
-            scoped.state.observe(
-                results,
-                selection.profileId,
-                now,
-                allCandidatesObserved = scoped.failedReserves.size >= eligibleReserves,
-            )
-        val qualityDecision = observeQuality(group, scoped, results, now)
-        val liveVerified =
-            scoped.scope.vpnPath?.usesIsolatedProbes == false &&
-                results.any { it.profileId == selection.profileId && it.latencyMillis != null }
-        val reportable =
-            liveVerified && scopeProvider.isCurrent(scoped.scope) && matchesPayloadGeneration(group.id, scoped)
-        if (recovery != null && reportable) {
-            scoped.vpnRecovery = null
-            recovery.promotion?.let {
-                qualityStore.decide(
-                    it.copy(observedAtElapsedMillis = now),
-                    scoped.qualityGeneration,
-                )
-            }
-            log.i { "Selector VPN traffic recovered on the applied reserve" }
-        }
-        val winner = healthWinner ?: qualityDecision?.winner
-        if (winner != null &&
-            selectionStore.selectAutomatically(
-                group.id,
-                selection,
-                winner,
-            ) { scopeProvider.isCurrent(scoped.scope) }
-        ) {
-            val promotion =
-                qualityDecision?.takeIf { healthWinner == null }?.let {
-                    ProfileQualityDecision(
-                        group.id,
-                        winner,
-                        it.challengerId,
-                        it.reason,
-                        now,
-                    )
-                }
-            scoped.recordSwitchRequest(promotion, now)?.let { qualityStore.decide(it, scoped.qualityGeneration) }
-            val selected = selectionStore.snapshot(group.id)
-            if (selected.profileId == winner && !selected.isManual) {
-                scoped.selection = selected
-            } else {
-                payloadStates.remove(group.id, scoped)
-            }
-            log.i { "Payload-qualified selector requested a reserve for group ${group.id}" }
-        }
+        val sameRoute = scoped.scope.vpnPath == latestScope?.vpnPath
+        val usable = scopeMatches && sameRoute && scopeProvider.isCurrent(scoped.scope)
+        return usable && scoped.commitResults(group, results, recoveryPass)
     }
 
     private suspend fun matchesCurrentScope(
         group: ProxyGroup,
         scoped: ScopedPayloadState,
+        latestScope: SelectorProbeScope?,
     ): Boolean =
-        scoped.scope.sameProbe(scopeProvider.capture(group)) && selectionStore.snapshot(group.id) == scoped.selection &&
+        scoped.scope.sameProbe(latestScope) && selectionStore.snapshot(group.id) == scoped.selection &&
             matchesPayloadGeneration(group.id, scoped)
 
     private fun matchesPayloadGeneration(
@@ -576,16 +662,18 @@ class SelectorUrltestProber internal constructor(
         }
     }
 
-    private fun admitQualityPass(
+    private fun admitPayloadPass(
         group: ProxyGroup,
         scoped: ScopedPayloadState,
         policy: PayloadFailoverPolicy,
+        purpose: PayloadProbePurpose,
     ): Boolean {
-        val budget = reserveBudget(group.id, policy)
+        val budget = reserveBudget(group.id, policy, purpose)
         qualityStore.budget(budget)
         if (budget.reason == ProfileQualityReason.Verified) return true
-        scoped.quality.discard()
-        scoped.state.discardObservation()
+        if (purpose == PayloadProbePurpose.Scheduled) {
+            scoped.quality.discard()
+        }
         qualityStore.decide(
             ProfileQualityDecision(
                 group.id,
@@ -655,6 +743,8 @@ class SelectorUrltestProber internal constructor(
         const val MinMembers = 2
         const val UnreachablePassesBeforeSwitch = 2
         const val FirstPassDelayMillis = 15_000L
+        const val RecoveryQuietMillis = 5_000L
+        const val RecoverySpacingMillis = 30_000L
         val UndecidedReasons = setOf(ProfileQualityReason.CleanupPending, ProfileQualityReason.ScopeChanged)
         const val MaxPayloadCandidatesPerPass = 2
         const val MillisecondsPerSecond = 1_000L

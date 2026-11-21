@@ -90,6 +90,7 @@ class SelectorUrltestProberTest {
                         MemberProbeResult(if (profile.id == "fast") 1L else 100L)
                     },
                     SelectorProbeScopeProvider { scope },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "https://probe", 0)
             assertEquals("slow", store.selectedProfileId("g").value)
@@ -110,6 +111,7 @@ class SelectorUrltestProberTest {
                         MemberProbeResult(if (profile.id == "fast") 1L else 100L)
                     },
                     SelectorProbeScopeProvider { scope },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "https://probe", 0)
             assertEquals("slow", store.selectedProfileId("g").value)
@@ -134,6 +136,7 @@ class SelectorUrltestProberTest {
                         MemberProbeResult(if (profile.id == "fast") 1L else 100L)
                     },
                     SelectorProbeScopeProvider { scope },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "https://probe", 0)
             assertEquals("slow", store.selectedProfileId("g").value)
@@ -154,6 +157,7 @@ class SelectorUrltestProberTest {
                         MemberProbeResult(1L)
                     },
                     SelectorProbeScopeProvider { current },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "https://probe", 0)
             assertEquals("slow", store.selectedProfileId("g").value)
@@ -174,6 +178,7 @@ class SelectorUrltestProberTest {
                         MemberProbeResult(if (profile.id == "fast") 1L else 100L)
                     },
                     SelectorProbeScopeProvider { scope },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "https://probe", 0)
             assertEquals("slow", store.selectedProfileId("g").value)
@@ -308,6 +313,7 @@ class SelectorUrltestProberTest {
                     FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)),
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     wallClockMillis = { wallClock },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
 
             prober.runProbePass(group, "https://probe", toleranceMs = 50)
@@ -334,6 +340,7 @@ class SelectorUrltestProberTest {
                     FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)),
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     wallClockMillis = { 1_000_000L },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
 
             prober.runProbePass(group, "https://probe", toleranceMs = 50)
@@ -356,6 +363,7 @@ class SelectorUrltestProberTest {
                     FixedMemberLatencyProbe(mapOf("edge" to 1L, "slow" to 300L, "fast" to 100L)),
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     wallClockMillis = { 1_000_000L },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
 
             prober.runProbePass(group, "https://probe", toleranceMs = 50)
@@ -377,6 +385,7 @@ class SelectorUrltestProberTest {
                     FixedMemberLatencyProbe(mapOf("degraded" to 100L, "neutral" to 100L)),
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     wallClockMillis = { 1_000_000L },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
 
             prober.runProbePass(group, "https://probe", toleranceMs = 50)

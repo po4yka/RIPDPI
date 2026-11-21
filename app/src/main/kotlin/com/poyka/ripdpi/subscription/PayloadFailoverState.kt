@@ -18,6 +18,7 @@ internal class PayloadFailoverState(
         current: String?,
         now: Long,
         allCandidatesObserved: Boolean = true,
+        recoveryPass: Boolean = false,
     ): String? {
         results.forEach { result ->
             val previous = successes[result.profileId] ?: 0
@@ -40,7 +41,7 @@ internal class PayloadFailoverState(
             }
         val waitSeconds =
             (policy.intervalSeconds.toLong() * (1L shl outagePasses)).coerceAtMost(policy.maxBackoffSeconds.toLong())
-        nextProbeAt = now + waitSeconds * MillisecondsPerSecond
+        if (!recoveryPass || outagePasses > 0) nextProbeAt = now + waitSeconds * MillisecondsPerSecond
         if (activeHealthy || failures < policy.failureThreshold || now < cooldownUntil) return null
         return results
             .firstOrNull {
@@ -55,6 +56,8 @@ internal class PayloadFailoverState(
     }
 
     fun inCooldown(now: Long): Boolean = now < cooldownUntil
+
+    fun inOutageBackoff(now: Long): Boolean = outagePasses > 0 && now < nextProbeAt
 
     fun switched(now: Long) {
         cooldownUntil = now + policy.cooldownSeconds * MillisecondsPerSecond

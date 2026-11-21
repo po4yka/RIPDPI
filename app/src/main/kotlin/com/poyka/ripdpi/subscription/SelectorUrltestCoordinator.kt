@@ -9,9 +9,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import javax.inject.Singleton
 
@@ -33,6 +35,7 @@ class SelectorUrltestCoordinator(
     private val groupRepository: ProxyGroupRepository,
     private val prober: SelectorUrltestProber,
     private val scopeChanges: Flow<Unit> = emptyFlow(),
+    private val recoveryRequests: Flow<Unit> = emptyFlow(),
 ) {
     private val lock = Any()
     private var generation = 0L
@@ -75,13 +78,14 @@ class SelectorUrltestCoordinator(
                 try {
                     coroutineScope {
                         val watcherScope = this
+                        val recovery = recoveryRequests.shareIn(watcherScope, SharingStarted.Eagerly)
                         launch {
                             scopeChanges.collect {
                                 groupRepository.list().forEach { prober.invalidateChangedQualityScope(it) }
                             }
                         }
                         groupRepository.groups().map(::urltestGroups).distinctUntilChanged().collect {
-                            reconcile(it, observedGeneration, watcherScope)
+                            reconcile(it, observedGeneration, watcherScope, recovery)
                             ready.complete(Unit)
                         }
                     }
@@ -120,6 +124,7 @@ class SelectorUrltestCoordinator(
         groups: List<ProxyGroup>,
         observedGeneration: Long,
         watcherScope: CoroutineScope,
+        recoveryRequests: Flow<Unit>,
     ) = synchronized(lock) {
         if (owners.isEmpty() || generation != observedGeneration) return@synchronized
         val wanted = groups.associateBy { it.id }
@@ -137,7 +142,7 @@ class SelectorUrltestCoordinator(
                 // in the interval between invalidation and cancellation.
                 previous?.job?.cancel()
                 prober.invalidatePendingSelection(id)
-                proberJobs[id] = RunningProbe(group, watcherScope.launch { prober.run(group) })
+                proberJobs[id] = RunningProbe(group, watcherScope.launch { prober.run(group, recoveryRequests) })
             }
         }
     }

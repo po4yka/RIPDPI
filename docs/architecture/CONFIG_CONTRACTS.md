@@ -702,6 +702,15 @@ Without optional `quality`, successful active payload health retains the member;
 consecutive failures and reserve recoveries use the existing thresholds,
 cooldown and capped outage backoff. With quality enabled, a pass measures the
 active member and one rotating reserve even when the active member is healthy.
+Network changes, handover completion, and current runtime or payload failures
+can request an early health pass. Signals coalesce for five seconds. Recovery
+attempts have at least 30 seconds between them and respect current outage backoff.
+Both kinds of payload pass share the durable byte budget. The default window
+for a policy without quality is 60 seconds with space for two maximum-size
+passes. When a window can fit two passes, the scheduler holds enough bytes for
+one recovery pass. A budget deferral contributes no health sample.
+
+Regular quality passes also measure HTTP latency.
 A baseline HEAD and a concurrent loaded HEAD use the same authenticated object.
 GET goodput counts verified body bytes over its monotonic first-body-byte-to-EOF interval, excluding
 startup and TLS setup. The loaded transaction must start and finish inside that

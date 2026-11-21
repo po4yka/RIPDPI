@@ -16,6 +16,74 @@ class ProfileQualityBudgetLedgerTest {
         }
 
     @Test
+    fun `routine measurements leave room for one recovery pass`() {
+        val single = policy()
+        val configured = single.copy(quality = requireNotNull(single.quality).copy(maxWindowBytes = 262_152L))
+        val owner = ledger()
+        assertEquals(ProfileQualityReason.Verified, owner.reserve("scheduled", configured).reason)
+        assertEquals(ProfileQualityReason.BudgetExhausted, owner.reserve("other-group", configured).reason)
+        val recovery = ledger().reserve("other-group", configured, PayloadProbePurpose.Recovery)
+        assertEquals(ProfileQualityReason.Verified, recovery.reason)
+        assertEquals(262_152L, recovery.consumedWindowBytes)
+        val noQuality = configured.copy(quality = null)
+        assertEquals(
+            ProfileQualityReason.BudgetExhausted,
+            ledger().reserve("no-quality", noQuality, PayloadProbePurpose.Recovery).reason,
+        )
+    }
+
+    @Test
+    fun `recovery charges release the held bytes for regular scheduling within the cap`() {
+        val single = policy()
+        val configured = single.copy(quality = requireNotNull(single.quality).copy(maxWindowBytes = 262_152L))
+        assertEquals(
+            ProfileQualityReason.Verified,
+            ledger().reserve("recovery", configured, PayloadProbePurpose.Recovery).reason,
+        )
+        assertFalse(requireNotNull(persistence.value).contains("recovery"))
+        val scheduled = ledger().reserve("scheduled", configured)
+        assertEquals(ProfileQualityReason.Verified, scheduled.reason)
+        assertEquals(262_152L, scheduled.consumedWindowBytes)
+        assertEquals(ProfileQualityReason.BudgetExhausted, ledger().reserve("another", configured).reason)
+    }
+
+    @Test
+    fun `legacy ledger writes invalidate stale recovery metadata but retain charged bytes`() {
+        val single = policy()
+        val configured = single.copy(quality = requireNotNull(single.quality).copy(maxWindowBytes = 262_152L))
+        ledger().reserve("recovery", configured, PayloadProbePurpose.Recovery)
+        assertTrue(persistence.recovery != null)
+        persistence.value =
+            """
+            {"version":1,"bootCount":7,"entries":[
+              {"elapsedMillis":99,"bytes":131076,"windowSeconds":60,"maxWindowBytes":262152}
+            ]}
+            """.trimIndent()
+
+        val scheduled = ledger().reserve("scheduled", configured)
+        assertEquals(ProfileQualityReason.BudgetExhausted, scheduled.reason)
+        assertEquals(131_076L, scheduled.consumedWindowBytes)
+        assertEquals(null, persistence.recovery)
+    }
+
+    @Test
+    fun `maximum payload passes without a quality policy share the default window`() {
+        val single = policy()
+        val maximum = single.copy(quality = null, probes = single.probes.map { it.copy(expectedBytes = 1_048_576) })
+        val scheduled = ledger().reserve("scheduled", maximum)
+        assertEquals(4_194_308L, scheduled.reservedPassBytes)
+        assertEquals(ProfileQualityReason.BudgetExhausted, ledger().reserve("another", maximum).reason)
+        assertEquals(
+            8_388_616L,
+            ledger().reserve("recovery", maximum, PayloadProbePurpose.Recovery).consumedWindowBytes,
+        )
+        assertEquals(
+            ProfileQualityReason.BudgetExhausted,
+            ledger().reserve("another", maximum, PayloadProbePurpose.Recovery).reason,
+        )
+    }
+
+    @Test
     fun `reservation is persisted before admission and survives restart and policy reimport`() {
         val policy = policy()
         val first = ledger().reserve("a", policy)
@@ -113,13 +181,15 @@ class ProfileQualityBudgetLedgerTest {
 
     private class MemoryPersistence : ProfileQualityBudgetPersistence {
         var value: String? = null
+        var recovery: String? = null
         var failCommit = false
 
-        override fun read() = value
+        override fun read() = ProfileQualityBudgetRecords(value, recovery)
 
-        override fun commit(value: String) {
+        override fun commit(value: ProfileQualityBudgetRecords) {
             check(!failCommit)
-            this.value = value
+            this.value = value.ledger
+            recovery = value.recovery
         }
     }
 }

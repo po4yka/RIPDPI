@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.subscription
 
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
+import com.poyka.ripdpi.data.PayloadProbePurpose
+import com.poyka.ripdpi.data.ProfileQualityBudget
+import com.poyka.ripdpi.data.ProfileQualityReason
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
@@ -10,6 +14,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+
+@Suppress("UnusedParameter")
+internal fun admitTestPayloadPass(
+    groupId: String,
+    policy: PayloadFailoverPolicy,
+    purpose: PayloadProbePurpose,
+): ProfileQualityBudget =
+    ProfileQualityBudget(
+        groupId,
+        policy.reservedQualityPassBytes(),
+        0,
+        Long.MAX_VALUE,
+        null,
+        ProfileQualityReason.Verified,
+    )
 
 internal fun selectorTestScope(group: ProxyGroup) =
     SelectorProbeScope(
@@ -124,7 +143,12 @@ internal class ProbeTestSelectionStore : SelectorSelectionStore {
 internal fun selectorTestProber(
     store: SelectorSelectionStore,
     probe: MemberLatencyProbe,
-) = SelectorUrltestProber(store, probe, SelectorProbeScopeProvider { group -> selectorTestScope(group) })
+) = SelectorUrltestProber(
+    store,
+    probe,
+    SelectorProbeScopeProvider { group -> selectorTestScope(group) },
+    reserveBudget = ::admitTestPayloadPass,
+)
 
 internal class FixedMemberLatencyProbe(
     private val latencies: Map<String, Long?>,

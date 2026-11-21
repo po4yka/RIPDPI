@@ -45,6 +45,7 @@ class TcpPayloadReservesTest {
                     },
                     SelectorProbeScopeProvider { selectorTestScope(group) },
                     { now },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
 
             prober.runProbePass(group, "unused", 0)
