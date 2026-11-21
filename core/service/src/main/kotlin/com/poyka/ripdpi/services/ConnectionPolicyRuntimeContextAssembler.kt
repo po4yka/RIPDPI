@@ -267,17 +267,20 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     ),
                 ) { "Remembered proxy policy is not a UI config" }
             // applyStrategyToSettings cannot carry these TCP options into the settings.
-            if (applyTcp && (remembered.chains.tcpRotation != null || remembered.chains.payloadDisable.isNotEmpty())) {
-                return notReplayable(policy, "tcp_rotation_or_payload_disable")
+            val tcpOptionsLost =
+                applyTcp && (remembered.chains.tcpRotation != null || remembered.chains.payloadDisable.isNotEmpty())
+            return if (tcpOptionsLost) {
+                notReplayable(policy, "tcp_rotation_or_payload_disable")
+            } else {
+                baselinePreferences(
+                    settings = remembered.applyStrategyToSettings(settings, applyTcp, applyQuic),
+                    hostAutolearnStorePath = hostAutolearnStorePath,
+                    networkScopeKey = networkScopeKey,
+                    runtimeContext = runtimeContext,
+                    destinationRouting = destinationRouting,
+                    awg = awg,
+                )
             }
-            return baselinePreferences(
-                settings = remembered.applyStrategyToSettings(settings, applyTcp, applyQuic),
-                hostAutolearnStorePath = hostAutolearnStorePath,
-                networkScopeKey = networkScopeKey,
-                runtimeContext = runtimeContext,
-                destinationRouting = destinationRouting,
-                awg = awg,
-            )
         }
 
         private fun notReplayable(

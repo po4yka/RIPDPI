@@ -306,62 +306,7 @@ internal class DefaultConnectionPolicyResolver
                 ) ?: return null
 
             return try {
-                val rememberedPolicy = matchedPolicy.toPolicyJson()
-                val rememberedLaneFamilies =
-                    rememberedPolicyMatcher.deriveLaneFamilies(
-                        proxyConfigJson = matchedPolicy.proxyConfigJson,
-                        activeDns = baseline.baselineVpnDnsSelection.activeDns,
-                    )
-                val vpnDnsSelection = rememberedVpnDnsSelection(mode, baseline, rememberedPolicy?.vpnDnsPolicy)
-                val effectiveDns = vpnDnsSelection.activeDns
-                val splitStrictDnsPolicy =
-                    splitStrictDnsPolicy(
-                        activeDns = effectiveDns,
-                        routingSnapshot = baseline.destinationRoutingSnapshot,
-                        fingerprint = baseline.fingerprint,
-                    )
-                // A policy that cannot be replayed is not a failure of the policy: the session runs the baseline.
-                val proxyPreferences =
-                    rememberedProxyPreferences(
-                        baseline = baseline,
-                        effectiveDns = effectiveDns,
-                        rememberedPolicy = rememberedPolicy,
-                        matchedPolicy = matchedPolicy,
-                    ) ?: return null
-                val appliedPolicy =
-                    rememberedPolicyMatcher.appliedPolicy(
-                        rememberedPolicy = rememberedPolicy,
-                        rememberedLaneFamilies = rememberedLaneFamilies,
-                        effectiveDns = effectiveDns,
-                    )
-                val policySignature =
-                    signatureBuilder.build(
-                        mode = mode,
-                        proxyPreferences = proxyPreferences,
-                        activeDns = effectiveDns,
-                        resolverFallbackReason = baseline.dnsResolution.override?.reason,
-                        matchedPolicy = matchedPolicy,
-                        destinationRoutingDigest = splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
-                    )
-                ConnectionPolicyResolution(
-                    settings = baseline.settings,
-                    requestedConfiguration = baseline.requestedConfiguration,
-                    catalogGeneration = baseline.catalogGeneration,
-                    proxyPreferences = proxyPreferences,
-                    activeDns = effectiveDns,
-                    vpnDnsOverride = vpnDnsSelection.rememberedVpnDnsPolicy,
-                    matchedNetworkPolicy = matchedPolicy,
-                    rememberedPolicyAppliedByExactMatch = true,
-                    appliedPolicy = appliedPolicy,
-                    networkScopeKey = baseline.networkScopeKey,
-                    fingerprintHash = baseline.networkScopeKey,
-                    policySignature = policySignature,
-                    resolverFallbackReason = baseline.dnsResolution.override?.reason,
-                    handoverClassification = handoverClassification,
-                    splitStrictDnsPolicy = splitStrictDnsPolicy,
-                    destinationRoutingDigest = baseline.destinationRoutingSnapshot.policyOrThrow().canonicalDigest,
-                    localNetworkDependent = false,
-                )
+                rememberedResolution(mode, baseline, handoverClassification, matchedPolicy)
             } catch (error: CancellationException) {
                 throw error
             } catch (
@@ -371,6 +316,70 @@ internal class DefaultConnectionPolicyResolver
                 rememberedNetworkPolicyStore.recordFailure(matchedPolicy)
                 null
             }
+        }
+
+        private suspend fun rememberedResolution(
+            mode: Mode,
+            baseline: BaselineConnectionPolicy,
+            handoverClassification: String?,
+            matchedPolicy: RememberedNetworkPolicyEntity,
+        ): ConnectionPolicyResolution? {
+            val rememberedPolicy = matchedPolicy.toPolicyJson()
+            val rememberedLaneFamilies =
+                rememberedPolicyMatcher.deriveLaneFamilies(
+                    proxyConfigJson = matchedPolicy.proxyConfigJson,
+                    activeDns = baseline.baselineVpnDnsSelection.activeDns,
+                )
+            val vpnDnsSelection = rememberedVpnDnsSelection(mode, baseline, rememberedPolicy?.vpnDnsPolicy)
+            val effectiveDns = vpnDnsSelection.activeDns
+            val splitStrictDnsPolicy =
+                splitStrictDnsPolicy(
+                    activeDns = effectiveDns,
+                    routingSnapshot = baseline.destinationRoutingSnapshot,
+                    fingerprint = baseline.fingerprint,
+                )
+            // A policy that cannot be replayed is not a failure of the policy: the session runs the baseline.
+            val proxyPreferences =
+                rememberedProxyPreferences(
+                    baseline = baseline,
+                    effectiveDns = effectiveDns,
+                    rememberedPolicy = rememberedPolicy,
+                    matchedPolicy = matchedPolicy,
+                ) ?: return null
+            val appliedPolicy =
+                rememberedPolicyMatcher.appliedPolicy(
+                    rememberedPolicy = rememberedPolicy,
+                    rememberedLaneFamilies = rememberedLaneFamilies,
+                    effectiveDns = effectiveDns,
+                )
+            val policySignature =
+                signatureBuilder.build(
+                    mode = mode,
+                    proxyPreferences = proxyPreferences,
+                    activeDns = effectiveDns,
+                    resolverFallbackReason = baseline.dnsResolution.override?.reason,
+                    matchedPolicy = matchedPolicy,
+                    destinationRoutingDigest = splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
+                )
+            return ConnectionPolicyResolution(
+                settings = baseline.settings,
+                requestedConfiguration = baseline.requestedConfiguration,
+                catalogGeneration = baseline.catalogGeneration,
+                proxyPreferences = proxyPreferences,
+                activeDns = effectiveDns,
+                vpnDnsOverride = vpnDnsSelection.rememberedVpnDnsPolicy,
+                matchedNetworkPolicy = matchedPolicy,
+                rememberedPolicyAppliedByExactMatch = true,
+                appliedPolicy = appliedPolicy,
+                networkScopeKey = baseline.networkScopeKey,
+                fingerprintHash = baseline.networkScopeKey,
+                policySignature = policySignature,
+                resolverFallbackReason = baseline.dnsResolution.override?.reason,
+                handoverClassification = handoverClassification,
+                splitStrictDnsPolicy = splitStrictDnsPolicy,
+                destinationRoutingDigest = baseline.destinationRoutingSnapshot.policyOrThrow().canonicalDigest,
+                localNetworkDependent = false,
+            )
         }
 
         private fun rememberedVpnDnsSelection(

@@ -254,14 +254,11 @@ internal class OkHttpRelayTcpProbe(
                                 }
                             }
                         }
+                    } catch (error: java.io.InterruptedIOException) {
+                        // OkHttp reports its call timeout as a bare InterruptedIOException("timeout").
+                        tcpConnectFailure(error, timedOut = true)
                     } catch (error: IOException) {
-                        RelayTcpProbeResult(
-                            succeeded = false,
-                            failure = RelayProbeFailure.TcpConnect,
-                            failureStage = relayProbeFailureStage(error),
-                            // OkHttp reports its call timeout as a bare InterruptedIOException("timeout").
-                            timedOut = error is java.io.InterruptedIOException,
-                        )
+                        tcpConnectFailure(error, timedOut = false)
                     }
                 }
             try {
@@ -273,6 +270,16 @@ internal class OkHttpRelayTcpProbe(
         }
     }
 }
+
+private fun tcpConnectFailure(
+    error: IOException,
+    timedOut: Boolean,
+) = RelayTcpProbeResult(
+    succeeded = false,
+    failure = RelayProbeFailure.TcpConnect,
+    failureStage = relayProbeFailureStage(error),
+    timedOut = timedOut,
+)
 
 /** Exact bytes and digest; redirects, compression, partial ranges and truncated bodies never qualify. */
 internal fun consumeVerifiedPayload(
