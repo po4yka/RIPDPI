@@ -71,7 +71,8 @@ class SelectorUrltestProber internal constructor(
     private val log = Logger.withTag("selector-urltest")
     private val payloadStates = ConcurrentHashMap<String, ScopedPayloadState>()
     private val probeRoundMutex = Mutex()
-    private var nextRecoveryAt = Long.MIN_VALUE
+
+    @Volatile private var nextRecoveryAt = Long.MIN_VALUE
 
     /** Consecutive reachability passes in which the selected member, keyed by group, failed its check. */
     private val unreachablePasses = ConcurrentHashMap<String, Pair<String, Int>>()
@@ -291,9 +292,9 @@ class SelectorUrltestProber internal constructor(
                             .conflate()
                             .collect { request ->
                                 contained("recovery pass") {
-                                    runPayloadPass(group, policy, PayloadProbePurpose.Recovery) {
-                                        latestRequest.get() ==
-                                            request
+                                    val isLatest = { latestRequest.get() == request }
+                                    while (runPayloadPass(group, policy, PayloadProbePurpose.Recovery, isLatest)) {
+                                        delay((nextRecoveryAt - monotonicMillis()).coerceAtLeast(1L))
                                     }
                                 }
                             }
@@ -455,6 +456,10 @@ class SelectorUrltestProber internal constructor(
         }
     }
 
+    /**
+     * Returns true when the group still wants a recovery pass: a scheduled pass saw the active path fail, or
+     * the shared recovery spacing deferred this recovery request.
+     */
     private suspend fun runPayloadPass(
         group: ProxyGroup,
         policy: PayloadFailoverPolicy,
@@ -466,15 +471,14 @@ class SelectorUrltestProber internal constructor(
             val scoped = payloadState(group, policy) ?: return@withLock false
             val now = monotonicMillis()
             val recovery = purpose == PayloadProbePurpose.Recovery
-            val due =
-                if (recovery) {
-                    now >= nextRecoveryAt && !scoped.state.inOutageBackoff(now)
-                } else {
-                    now >=
-                        scoped.state.nextProbeAt
-                }
-            if (!due) return@withLock false
-            if (!scoped.canMeasureAppliedPath(recovery) || !requestIsQuiet()) return@withLock false
+            if (recovery) {
+                if (scoped.state.inOutageBackoff(now) || !requestIsQuiet()) return@withLock false
+                // Another recovery holds the spacing shared by all groups: keep this request until it ends.
+                if (now < nextRecoveryAt) return@withLock true
+            } else if (now < scoped.state.nextProbeAt) {
+                return@withLock false
+            }
+            if (!scoped.canMeasureAppliedPath(recovery)) return@withLock false
             if (recovery && !scopeProvider.isCurrent(scoped.scope)) return@withLock false
             try {
                 if (!admitPayloadPass(group, scoped, policy, purpose)) return@withLock false
