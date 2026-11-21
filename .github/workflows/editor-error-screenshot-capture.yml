@@ -1,0 +1,56 @@
+name: Editor error screenshot capture
+
+on:
+  push:
+    branches: [tmp/editor-error-screenshot-capture]
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          java-version: "21"
+          rust-components: ""
+          rust-targets: ""
+          rust-cache-shared-key: rust-android-roborazzi
+          rust-cache-save: "false"
+          setup-rust: "false"
+          setup-android-ndk: "false"
+          gradle-cache-read-only: "true"
+
+      - name: Compare editor error screenshots
+        shell: bash
+        run: |
+          tests=(
+            --tests com.poyka.ripdpi.ui.screenshot.AnyTlsProfileScreenshotTest.invalidState
+            --tests com.poyka.ripdpi.ui.screenshot.MieruProfileScreenshotTest.mieruProfileInvalid
+            --tests com.poyka.ripdpi.ui.screenshot.SshProfileScreenshotTest.invalidPort
+          )
+          ./gradlew :app:compareRoborazziGithubDebug \
+            -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true "${tests[@]}"
+          git diff --exit-code -- app/src/test/screenshots/
+
+          shopt -s nullglob
+          actual=(app/build/outputs/roborazzi/*_actual.png)
+          if (( ${#actual[@]} == 0 )); then
+            ./gradlew :app:verifyRoborazziGithubDebug \
+              -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true "${tests[@]}"
+          elif (( ${#actual[@]} != 6 )); then
+            echo "Expected six changed screenshots, got ${#actual[@]}" >&2
+            exit 1
+          fi
+
+      - name: Upload comparisons
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: editor-error-screenshots
+          path: app/build/outputs/roborazzi/*.png
+          retention-days: 3
