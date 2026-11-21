@@ -1250,7 +1250,6 @@ class DiagnosticsViewModelTest {
             assertNotNull(recommendation)
             assertEquals("Switch DNS to Cloudflare", recommendation?.headline)
             assertTrue(recommendation?.appliedTemporarily == true)
-            assertTrue(recommendation?.persistable == true)
             assertTrue(recommendation?.fields?.any { it.label == "Protocol" && it.value == "DOH" } == true)
 
             val savedEffects = mutableListOf<DiagnosticsEffect.ScanCompleted>()
@@ -2075,7 +2074,6 @@ class DiagnosticsViewModelTest {
                                     rationale = "Encrypted DNS stayed clean while UDP DNS diverged.",
                                     fields = persistentListOf(),
                                     appliedTemporarily = false,
-                                    persistable = true,
                                 ),
                         ),
                     stringResolver = AndroidStringResolver(appContext),

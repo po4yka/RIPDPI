@@ -739,7 +739,6 @@ data class DiagnosticsResolverRecommendationUiModel(
     val rationale: String,
     val fields: ImmutableList<DiagnosticsFieldUiModel>,
     val appliedTemporarily: Boolean,
-    val persistable: Boolean,
 )
 
 @Immutable

@@ -1,6 +1,6 @@
 # Design
 
-Reuse the physical network epoch provider and the proxy supervisor's per-run lease. Treat a proxy poll without current origin as diagnostic evidence only. Do not copy physical identifiers into telemetry. A run started before physical callbacks are ready or invalidated by a callback remains diagnostic-only for learning until the next proxy run. This keeps buffered data from an unverified run out of remembered policy.
+Reuse the physical network epoch provider and the proxy supervisor's per-run lease. Treat a proxy poll without current origin as diagnostic evidence only. Do not copy physical identifiers into telemetry. Native drains all learning signals on each poll, so each batch covers the interval since the previous poll. A batch can teach policy only when the physical epoch captured before the previous poll (or at run start) is still current at consumption. A callback during the interval, or a missing epoch at its start, makes only that batch diagnostic-only. This keeps buffered data from an unverified interval out of remembered policy without disabling learning for the rest of the run.
 
 Reuse the in-path route lease acquired at scan start. An invalid lease makes the report partial and removes route-dependent advice before persistence. Proxy-mode scans continue to use their own listener boundary.
 

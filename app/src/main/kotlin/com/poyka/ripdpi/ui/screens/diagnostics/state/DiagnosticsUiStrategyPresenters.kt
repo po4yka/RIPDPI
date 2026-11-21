@@ -85,7 +85,6 @@ internal class ResolverRecommendationPresenter {
                     ),
                 ).toImmutableList(),
             appliedTemporarily = recommendation.appliedTemporarily,
-            persistable = recommendation.persistable,
         )
 }
 

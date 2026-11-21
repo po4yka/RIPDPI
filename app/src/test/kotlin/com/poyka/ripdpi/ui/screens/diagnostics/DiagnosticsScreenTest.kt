@@ -277,7 +277,6 @@ class DiagnosticsScreenTest {
                                             rationale = "UDP DNS showed substitution while DoH matched.",
                                             fields = persistentListOf(),
                                             appliedTemporarily = true,
-                                            persistable = true,
                                         ),
                                     remediationLadder =
                                         remediationLadder(

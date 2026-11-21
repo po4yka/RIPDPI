@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpoch
 import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -67,11 +68,7 @@ internal class ProxyRuntimeSupervisor(
         check(proxyJob == null) { "Proxy fields not null" }
 
         val proxyInstance = ripDpiProxyFactory.create()
-        val epoch = networkEpochProvider.capture()
-        val lease =
-            ProxyForwardingLease(proxyInstance) { run ->
-                epoch != null && forwardingLease.get() === run && networkEpochProvider.capture() == epoch
-            }
+        val lease = ProxyForwardingLease(proxyInstance, networkEpochProvider.capture())
         proxyRuntime = proxyInstance
         forwardingLease.set(lease)
         stopRequested = false
@@ -267,6 +264,9 @@ internal class ProxyRuntimeSupervisor(
                     RuntimeForwardingEvidence.Unavailable,
                 )
         afterForwardingLeaseAcquired()
+        // Native drains every learning signal per poll, so this batch was produced after the previous
+        // poll. It may teach policy only if the physical epoch from before that poll still holds.
+        val intervalEpoch = lease.lastPollEpoch.getAndSet(networkEpochProvider.capture())
         val runtime = lease.runtime
         val telemetry =
             runCatching { runtime.pollTelemetry() }
@@ -293,7 +293,12 @@ internal class ProxyRuntimeSupervisor(
             forwardingEvidence =
                 evidence.takeIf { forwardingLease.get() === lease }
                     ?: RuntimeForwardingEvidence.Unavailable,
-            directPathLearningOrigin = lease.learningOrigin,
+            directPathLearningOrigin =
+                DirectPathLearningOrigin(run = lease) {
+                    intervalEpoch != null &&
+                        forwardingLease.get() === lease &&
+                        networkEpochProvider.capture() == intervalEpoch
+                },
         )
     }
 
@@ -311,7 +316,7 @@ internal class ProxyRuntimeSupervisor(
 
 private class ProxyForwardingLease(
     val runtime: RipDpiProxyRuntime,
-    isCurrent: (ProxyForwardingLease) -> Boolean,
+    startEpoch: DiagnosticsNetworkEpoch?,
 ) {
-    val learningOrigin = DirectPathLearningOrigin { isCurrent(this) }
+    val lastPollEpoch = AtomicReference(startEpoch)
 }

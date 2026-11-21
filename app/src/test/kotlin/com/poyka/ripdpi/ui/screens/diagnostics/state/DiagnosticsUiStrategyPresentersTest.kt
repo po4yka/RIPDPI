@@ -81,7 +81,6 @@ class DiagnosticsUiStrategyPresentersTest {
         assertEquals("DOH", uiModel.fields.first { it.label == "Protocol" }.value)
         assertEquals("94.140.14.14", uiModel.fields.first { it.label == "Bootstrap" }.value)
         assertTrue(uiModel.appliedTemporarily)
-        assertTrue(uiModel.persistable)
     }
 
     @Test

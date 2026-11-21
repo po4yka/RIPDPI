@@ -25,9 +25,11 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import javax.inject.Inject
 
-internal fun interface DirectPathLearningOrigin {
-    fun isCurrent(): Boolean
-}
+/** [run] identifies the producing proxy run; [isCurrent] says whether the batch may still teach policy. */
+internal class DirectPathLearningOrigin(
+    val run: Any,
+    val isCurrent: () -> Boolean,
+)
 
 internal interface DirectPathPolicyTelemetryConsumer {
     suspend fun consume(
@@ -52,7 +54,7 @@ internal class DirectPathPolicyLearner
         private val flowAppAttributionStore: FlowAppAttributionStore,
     ) : DirectPathPolicyTelemetryConsumer {
         private var cachedFingerprintHash: String? = null
-        private var previousOrigin: DirectPathLearningOrigin? = null
+        private var previousRun: Any? = null
         private val cachedEnvelopes = linkedMapOf<DirectPathTupleKey, TransportPolicyEnvelope>()
         private val lastAppliedSignatures = linkedMapOf<DirectPathTupleKey, String>()
         private val pendingNoDirectSolutions = linkedMapOf<DirectPathTupleKey, Long>()
@@ -91,8 +93,8 @@ internal class DirectPathPolicyLearner
             val fingerprint = networkFingerprintProvider.capture()?.takeIf { origin.isCurrent() } ?: return
             ensureFingerprintCache(fingerprint.scopeKey())
             if (!origin.isCurrent()) return
-            if (previousOrigin !== origin) {
-                previousOrigin = origin
+            if (previousRun !== origin.run) {
+                previousRun = origin.run
                 pendingNoDirectSolutions.clear()
             }
             // App evidence must survive authority-level signal coalescing.
