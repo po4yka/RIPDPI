@@ -102,6 +102,9 @@ impl AdaptiveFeedbackPort for ServicesStateHandle {
     fn note_evolver_success(&self, attempt: EvolutionAttempt) {
         self.with_evolver(|evolver| evolver.record_success(attempt, 0));
     }
+    fn note_evolver_answered(&self, attempt: EvolutionAttempt) {
+        self.with_evolver(|evolver| evolver.note_answered(attempt));
+    }
     fn discard_evolver_attempt(&self, attempt: EvolutionAttempt) {
         self.with_evolver(|evolver| evolver.discard(attempt));
     }

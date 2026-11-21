@@ -45,6 +45,26 @@ fn owned_attempt_expires_at_exact_ttl_and_late_feedback_is_neutral() {
 }
 
 #[test]
+fn answer_inside_ttl_keeps_success_reported_after_ttl() {
+    let mut evolver = StrategyEvolver::new(true, 0.0).with_time_knobs(10, 0, 0, 0);
+    evolver.set_test_clock_ms(100);
+    let mut answered = evolver.start_experiment(LearningContext::default()).unwrap();
+    let mut late = evolver.start_experiment(LearningContext::default()).unwrap();
+    evolver.set_test_clock_ms(109);
+    evolver.note_experiment_answered(&mut answered);
+    evolver.set_test_clock_ms(110);
+    evolver.note_experiment_answered(&mut late);
+    // A long relay reports its clean close well after the TTL.
+    evolver.set_test_clock_ms(60_000);
+    assert!(!evolver.experiment_expired(&answered));
+    assert!(evolver.experiment_expired(&late));
+    evolver.record_experiment_success(answered, 1);
+    evolver.record_experiment_success(late, 1);
+    let state = evolver.contexts.get(&LearningContext::default()).unwrap();
+    assert_eq!(state.combos.values().map(|stats| stats.successes).sum::<u32>(), 1);
+}
+
+#[test]
 fn zero_ttl_retains_owned_attempt_and_neutral_failures_do_not_train() {
     for class in [FailureClass::CapabilitySkipped, FailureClass::StrategyExecutionFailure] {
         let mut evolver = StrategyEvolver::new(true, 0.0).with_time_knobs(0, 0, 0, 0);

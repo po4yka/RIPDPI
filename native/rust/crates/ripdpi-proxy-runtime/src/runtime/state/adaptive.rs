@@ -71,6 +71,11 @@ impl RuntimeState {
             AdaptiveFeedbackPort::discard_evolver_attempt(&self.services, attempt);
         }
     }
+    pub(in crate::runtime) fn note_evolver_answered(&self, attempt: Option<EvolutionAttempt>) {
+        if let Some(attempt) = attempt {
+            AdaptiveFeedbackPort::note_evolver_answered(&self.services, attempt);
+        }
+    }
     pub(in crate::runtime) fn note_evolver_success(&self, attempt: Option<EvolutionAttempt>) {
         if let Some(attempt) = attempt {
             AdaptiveFeedbackPort::note_evolver_success(&self.services, attempt);

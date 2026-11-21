@@ -147,6 +147,8 @@ pub trait AdaptiveFeedbackPort: Send + Sync {
 
     fn note_evolver_failure(&self, attempt: EvolutionAttempt, class: FailureClass);
     fn note_evolver_success(&self, attempt: EvolutionAttempt);
+    /// The attempt got an accepted answer; its success is reported when the relay ends cleanly.
+    fn note_evolver_answered(&self, attempt: EvolutionAttempt);
     fn discard_evolver_attempt(&self, attempt: EvolutionAttempt);
     fn note_evolver_connect_failure(&self);
     fn reset_evolver(&self);
