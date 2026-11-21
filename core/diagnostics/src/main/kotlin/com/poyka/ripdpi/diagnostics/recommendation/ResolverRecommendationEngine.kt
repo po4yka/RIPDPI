@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.toEncryptedDnsPathCandidate
@@ -103,6 +104,7 @@ internal object ResolverRecommendationEngine {
         results
             .filter { it.probeType == ProbeTypeTcpFatHeader && it.outcome in outcomes }
             .mapNotNull { result -> result.target.targetHost().takeIf { it.isNotBlank() } }
+            .map(String::canonicalIpOrSelf)
             .toSet()
 
     fun parseResolverPathCandidate(details: Map<String, String>): EncryptedDnsPathCandidate? {
@@ -170,7 +172,7 @@ internal object ResolverRecommendationEngine {
             if (hasHttpScheme(trimmed)) {
                 URI(trimmed).host?.takeIf(String::isNotBlank)
             } else {
-                trimmed.substringBefore(':').takeIf(String::isNotBlank)
+                trimmed.targetHost().takeIf(String::isNotBlank)
             }
         }.getOrNull()
     }
@@ -182,7 +184,7 @@ internal object ResolverRecommendationEngine {
             if (hasHttpScheme(trimmed)) {
                 URI(trimmed).resolvedPort()
             } else {
-                trimmed.substringAfterLast(':').toIntOrNull()
+                trimmed.targetPort()
             }
         }.getOrNull()
     }
@@ -250,6 +252,19 @@ private fun String.targetHost(): String {
     }.trim()
 }
 
+/** Port of a `host:port` or `[v6]:port` target; a bare IPv6 address has none. */
+private fun String.targetPort(): Int? {
+    val target = trim()
+    return when {
+        target.startsWith('[') -> target.substringAfter(']', "").removePrefix(":")
+        target.count { it == ':' } == 1 -> target.substringAfter(':')
+        else -> null
+    }?.toIntOrNull()
+}
+
+/** One spelling per IP literal, so `2001:db8::1` and `2001:DB8:0::1` compare equal; hostnames pass through. */
+private fun String.canonicalIpOrSelf(): String = NumericIp.parseAddress(trim())?.toCanonicalString() ?: trim()
+
 private fun List<ProbeResult>.hasHealthyPrimaryDnsFor(target: String): Boolean =
     any { result ->
         result.target == target &&
@@ -291,7 +306,7 @@ private fun selectCandidate(
         compareBy<Candidate>(
             {
                 if (blockedBootstrapIps.isNotEmpty() &&
-                    it.path.bootstrapIps.any { ip -> ip in blockedBootstrapIps }
+                    it.path.bootstrapIps.any { ip -> ip.canonicalIpOrSelf() in blockedBootstrapIps }
                 ) {
                     1
                 } else {

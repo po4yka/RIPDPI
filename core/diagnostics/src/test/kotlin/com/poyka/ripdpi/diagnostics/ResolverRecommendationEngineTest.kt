@@ -108,6 +108,14 @@ class ResolverRecommendationEngineTest {
         assertNull(ResolverRecommendationEngine.parsePortFromEncryptedEndpoint("dns.google"))
     }
 
+    @Test
+    fun `parse host and port handle bracketed and bare ipv6 endpoints`() {
+        assertEquals("2001:db8::1", ResolverRecommendationEngine.parseHostFromEncryptedEndpoint("[2001:db8::1]:853"))
+        assertEquals(853, ResolverRecommendationEngine.parsePortFromEncryptedEndpoint("[2001:db8::1]:853"))
+        assertEquals("2001:db8::1", ResolverRecommendationEngine.parseHostFromEncryptedEndpoint("2001:db8::1"))
+        assertNull(ResolverRecommendationEngine.parsePortFromEncryptedEndpoint("2001:db8::1"))
+    }
+
     // -- parseResolverPathCandidate --
 
     @Test
@@ -779,7 +787,8 @@ class ResolverRecommendationEngineComputeTest {
 
     @Test
     fun `compute avoids reset ipv6 bootstrap and names it blocked by DPI`() {
-        for (target in listOf("[2606:4700::1111]:443", "2606:4700::1111")) {
+        // Different spellings of one IPv6 address must match the bootstrap entry.
+        for (target in listOf("[2606:4700::1111]:443", "2606:4700::1111", "[2606:4700:0:0:0:0:0:1111]:443")) {
             val report =
                 ScanReport(
                     sessionId = "s1",
