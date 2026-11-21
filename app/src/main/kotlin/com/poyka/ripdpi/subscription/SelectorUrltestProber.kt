@@ -84,7 +84,32 @@ class SelectorUrltestProber internal constructor(
         var recoveringReserve: String? = null,
         val failedReserves: MutableSet<String> = mutableSetOf(),
         var routeUnavailable: Boolean = false,
-    )
+    ) {
+        /** Measures one reserve, preferring the one that is recovering, and advances the reserve rotation. */
+        suspend fun measureReserve(
+            candidates: List<ProxyProfile>,
+            tcpPriority: Boolean,
+            measure: suspend (ProxyProfile) -> MemberLatency,
+        ): MemberLatency? {
+            val reserves = if (tcpPriority) candidates.preferTcpReserves() else candidates
+            val reserve =
+                reserves.takeIf { it.isNotEmpty() }?.let { members ->
+                    members.firstOrNull { it.id == recoveringReserve } ?: members[reserveIndex.mod(members.size)]
+                }
+            return reserve?.let {
+                val result = measure(it)
+                if (result.latencyMillis != null) {
+                    recoveringReserve = it.id
+                    failedReserves.clear()
+                } else {
+                    failedReserves.add(it.id)
+                    recoveringReserve = null
+                    reserveIndex = (reserves.indexOf(it) + 1).mod(reserves.size)
+                }
+                result
+            }
+        }
+    }
 
     /** Fences a replaced or stopped policy against a probe already about to commit. */
     internal fun invalidatePendingSelection(groupId: String) {
@@ -460,48 +485,31 @@ class SelectorUrltestProber internal constructor(
             } else {
                 measureActiveVpnMember(vpnPath, active, policy, measureVpnPayload)
             }
-        if (vpnPath != null && (activeResult == null || activeResult.reason == ProfileQualityReason.ScopeChanged)) {
-            return null
-        }
+        val routeUnmeasured =
+            vpnPath != null && (activeResult == null || activeResult.reason == ProfileQualityReason.ScopeChanged)
         val tcpPriority = active is ProxyProfile.Hysteria2 && activeResult?.latencyMillis == null
-        if (scoped.tcpPriority != tcpPriority) {
+        if (!routeUnmeasured && scoped.tcpPriority != tcpPriority) {
             scoped.tcpPriority = tcpPriority
             scoped.reserveIndex = 0
             scoped.recoveringReserve = null
             scoped.failedReserves.clear()
         }
-        if (activeResult?.latencyMillis != null && policy.quality == null) {
-            scoped.recoveringReserve = null
-            scoped.failedReserves.clear()
-            return listOf(activeResult)
-        }
-        val results = listOfNotNull(activeResult)
-        val reserves =
-            eligible.filterNot { it.id == active?.id }.let { members ->
-                if (tcpPriority) {
-                    members.preferTcpReserves()
-                } else {
-                    members
-                }
+        return when {
+            routeUnmeasured -> {
+                null
             }
-        val reserve =
-            reserves.takeIf { it.isNotEmpty() }?.let { candidates ->
-                candidates.firstOrNull { it.id == scoped.recoveringReserve }
-                    ?: candidates[scoped.reserveIndex.mod(candidates.size)]
-            }
-        return if (reserve == null) {
-            results
-        } else {
-            val result = measureMember(reserve, target)
-            if (result.latencyMillis != null) {
-                scoped.recoveringReserve = reserve.id
-                scoped.failedReserves.clear()
-            } else {
-                scoped.failedReserves.add(reserve.id)
+
+            activeResult?.latencyMillis != null && policy.quality == null -> {
                 scoped.recoveringReserve = null
-                scoped.reserveIndex = (reserves.indexOf(reserve) + 1).mod(reserves.size)
+                scoped.failedReserves.clear()
+                listOf(activeResult)
             }
-            results + result
+
+            else -> {
+                val reserves = eligible.filterNot { it.id == active?.id }
+                listOfNotNull(activeResult) +
+                    listOfNotNull(scoped.measureReserve(reserves, tcpPriority) { measureMember(it, target) })
+            }
         }
     }
 
