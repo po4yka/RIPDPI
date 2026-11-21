@@ -29,6 +29,19 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
         }
 
     @Test
+    fun `revoked probe authority preserves the stored automatic member`() =
+        runTest {
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("group", "active")
+            store.resumeAutomatic("group")
+            val current = store.snapshot("group")
+            assertFalse(store.selectAutomatically("group", current, "reserve") { false })
+            fixture.reopen()
+            assertEquals("active", fixture.selectorSelections.snapshot("group").profileId)
+        }
+
+    @Test
     fun `manual and automatic origins survive database reopen`() =
         runTest {
             val fixture = initialized()

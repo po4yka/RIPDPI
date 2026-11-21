@@ -1101,6 +1101,7 @@ private object NoOpSelectorSelectionStore : SelectorSelectionStore {
         groupId: String,
         expected: SelectorSelectionSnapshot,
         profileId: String,
+        isCurrent: () -> Boolean,
     ): Boolean = false
 
     override fun selectedProfileId(groupId: String): StateFlow<String?> = MutableStateFlow(null)

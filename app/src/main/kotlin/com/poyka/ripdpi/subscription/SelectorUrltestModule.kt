@@ -31,6 +31,7 @@ abstract class SelectorUrltestModule {
             selectionStore: SelectorSelectionStore,
             probe: MemberLatencyProbe,
             scopeProvider: CurrentSelectorProbeScopeProvider,
+            vpn: SelectorVpnPayloadProbe,
             qualityStore: com.poyka.ripdpi.data.ProfileQualityStore,
             budgetLedger: com.poyka.ripdpi.data.ProfileQualityBudgetLedger,
         ): SelectorUrltestProber =
@@ -41,6 +42,7 @@ abstract class SelectorUrltestModule {
                 monotonicMillis = android.os.SystemClock::elapsedRealtime,
                 qualityStore = qualityStore,
                 reserveBudget = budgetLedger::reserve,
+                measureVpnPayload = vpn::measure,
             )
 
         @Provides

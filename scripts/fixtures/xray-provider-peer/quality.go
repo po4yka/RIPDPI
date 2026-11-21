@@ -15,6 +15,13 @@ const qualityPayloadBytes = 262144
 // Leave time for the loaded HEAD to connect and finish on the Android emulator.
 const qualityBodyHold = 1500 * time.Millisecond
 
+// Reserved addresses let the VPN's local SOCKS frontend reach the same controlled origin
+// when it resolves destinations before forwarding to the selected relay.
+const (
+	qualityAddressA = "192.0.2.81"
+	qualityAddressB = "192.0.2.82"
+)
+
 func qualityPayload() []byte {
 	body := make([]byte, qualityPayloadBytes)
 	for index := range body {
@@ -56,6 +63,16 @@ func (p *peer) startQualityOrigin(certificate tls.Certificate) (net.Listener, er
 				return
 			}
 			if err := http.NewResponseController(w).Flush(); err != nil {
+				return
+			}
+			if request.Header.Get("X-Owned-Quality-Fault") == "stall-body" {
+				p.requests.record("QualityStalled", request.URL.Path)
+				timer := time.NewTimer(5 * time.Second)
+				defer timer.Stop()
+				select {
+				case <-request.Context().Done():
+				case <-timer.C:
+				}
 				return
 			}
 			timer := time.NewTimer(qualityBodyHold)

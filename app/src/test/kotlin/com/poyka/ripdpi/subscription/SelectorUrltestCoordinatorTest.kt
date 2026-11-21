@@ -239,6 +239,7 @@ class SelectorUrltestCoordinatorTest {
                         groupId: String,
                         expected: SelectorSelectionSnapshot,
                         profileId: String,
+                        isCurrent: () -> Boolean,
                     ): Boolean {
                         if (updateBeforeCommit) {
                             updateBeforeCommit = false

@@ -22,6 +22,7 @@ internal data class SelectorProbeScope(
     val underlayGeneration: Long?,
     val networkEpoch: com.poyka.ripdpi.services.CandidatePhysicalNetworkToken,
     val environment: CandidateRelayProbeEnvironment,
+    val vpnPath: SelectorVpnPath? = null,
 ) {
     /** Member health changes with every bundle refresh: each pass reads it, but it never resets failover state. */
     fun sameProbe(other: SelectorProbeScope?) = other != null && copy(memberHealth = other.memberHealth) == other
@@ -29,6 +30,8 @@ internal data class SelectorProbeScope(
 
 internal fun interface SelectorProbeScopeProvider {
     suspend fun capture(group: ProxyGroup): SelectorProbeScope?
+
+    fun isCurrent(scope: SelectorProbeScope): Boolean = true
 }
 
 /** Compares repository inputs and transient network/runtime context without logging network identities. */
@@ -39,6 +42,8 @@ internal class CurrentSelectorProbeScopeProvider(
     private val environment: suspend () -> CandidateRelayProbeEnvironment,
     private val networkEpoch: () -> com.poyka.ripdpi.services.CandidatePhysicalNetworkToken?,
     private val carriesTraffic: (String) -> Boolean,
+    private val captureVpnPath: suspend (String) -> SelectorVpnPath? = { null },
+    private val isVpnPathCurrent: (SelectorVpnPath) -> Boolean = { false },
 ) : SelectorProbeScopeProvider {
     @Inject
     constructor(
@@ -47,11 +52,28 @@ internal class CurrentSelectorProbeScopeProvider(
         payloadProbe: CandidateRelayPayloadProbe,
         networkEpoch: PhysicalNetworkObserver,
         applied: AppliedRuntimeConfigurationSource,
-    ) : this(groups, network, payloadProbe::captureEnvironment, networkEpoch::capture, { groupId ->
-        applied.applications.value.values.any {
-            it.runningConfiguration()?.effectiveSelection?.selectorGroupId == groupId
-        }
-    })
+        vpn: SelectorVpnPayloadProbe,
+    ) : this(
+        groups,
+        network,
+        payloadProbe::captureEnvironment,
+        networkEpoch::capture,
+        carriesTraffic = { groupId ->
+            applied.applications.value.values.any {
+                it.runningConfiguration()?.effectiveSelection?.selectorGroupId == groupId
+            }
+        },
+        captureVpnPath = vpn::capture,
+        isVpnPathCurrent = vpn::isCurrent,
+    )
+
+    override fun isCurrent(scope: SelectorProbeScope): Boolean {
+        val fingerprint = network.capture() ?: return false
+        val sameNetwork =
+            fingerprint.scopeKey() == scope.networkScope &&
+                fingerprint.directDnsUnderlayGeneration == scope.underlayGeneration
+        return sameNetwork && networkEpoch() == scope.networkEpoch && (scope.vpnPath?.let(isVpnPathCurrent) ?: true)
+    }
 
     override suspend fun capture(group: ProxyGroup): SelectorProbeScope? {
         // Only the group whose member carries the running session's traffic is probed; an inactive group, an
@@ -63,8 +85,11 @@ internal class CurrentSelectorProbeScopeProvider(
             val fingerprint = network.capture()
             if (epoch != null && fingerprint != null) {
                 val runtimeEnvironment = environment()
+                val vpnPath = if (group.failover?.payloadPolicy != null) captureVpnPath(group.id) else null
                 val latest = groups.list().firstOrNull { it.id == group.id }
-                if (latest?.matchesProbePolicy(current) == true && epoch == networkEpoch()) {
+                if (latest?.matchesProbePolicy(current) == true && epoch == networkEpoch() &&
+                    carriesTraffic(group.id)
+                ) {
                     SelectorProbeScope(
                         members = current.members,
                         failover = current.failover,
@@ -74,6 +99,7 @@ internal class CurrentSelectorProbeScopeProvider(
                         underlayGeneration = fingerprint.directDnsUnderlayGeneration,
                         environment = runtimeEnvironment,
                         networkEpoch = epoch,
+                        vpnPath = vpnPath,
                     )
                 } else {
                     null

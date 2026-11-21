@@ -29,10 +29,12 @@ Run the host checks with `go test -mod=readonly ./...` and
 one connection to force reuse across stop; the client instance remains alive
 through rejection and recovery. No external server is required.
 
-The owned quality origin exposes one authenticated 262144-byte object at the two
-exact `quality-a.example.test` / `quality-b.example.test` routes. HEAD and GET
+The owned quality origin exposes one authenticated 262144-byte object at the
+exact `quality-a.example.test` and `quality-b.example.test` routes and the two
+reserved IP controls `192.0.2.81` and `192.0.2.82`. HEAD and GET
 share its Content-Length. GET sends one byte, then holds the rest for 1.5 s so
 a loaded HEAD can complete during the transfer on the Android emulator. The
-manifest carries only the public test certificate and digest. Android trust is
+Android failover test can hold the remaining body until timeout on the active
+route. The manifest carries only the public test certificate and digest. Android trust is
 injected by test fixtures; production trust validation is unchanged. All other
 destinations retain the default blackhole route.

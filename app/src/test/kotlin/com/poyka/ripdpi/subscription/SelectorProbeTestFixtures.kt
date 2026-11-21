@@ -89,8 +89,9 @@ internal class ProbeTestSelectionStore : SelectorSelectionStore {
         groupId: String,
         expected: SelectorSelectionSnapshot,
         profileId: String,
+        isCurrent: () -> Boolean,
     ): Boolean {
-        if (groupId in manual || snapshot(groupId) != expected) return false
+        if (groupId in manual || snapshot(groupId) != expected || !isCurrent()) return false
         write(groupId, profileId, false)
         return true
     }

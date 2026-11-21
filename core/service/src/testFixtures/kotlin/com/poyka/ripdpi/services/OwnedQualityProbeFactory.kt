@@ -11,22 +11,40 @@ import java.util.Base64
 
 /** Test-only trust for the freshly created owned peer certificate; no production trust or hostname bypass. */
 object OwnedQualityProbeFactory {
-    /** Trust applies only to the two owned HTTPS controls, with normal hostname checks. */
+    val addressControls = listOf("192.0.2.81", "192.0.2.82")
+    private val controlHosts = setOf("quality-a.example.test", "quality-b.example.test") + addressControls
+
+    /** Trust applies only to the owned HTTPS controls, with normal hostname and address checks. */
     fun http(
         certificateBase64: () -> String,
         port: () -> Int,
+        stalledPort: () -> Int? = { null },
     ): CandidateHttpPayloadProbe =
         CandidateHttpPayloadProbe(
             OkHttpRelayTcpProbe(),
             System::nanoTime,
             strictProbe = { control, timeout ->
                 val url = control.url.toHttpUrl()
-                if (url.host in setOf("quality-a.example.test", "quality-b.example.test") &&
+                if (url.host in controlHosts &&
                     url.port == port() && url.encodedPath == "/quality-payload" && url.query == null
                 ) {
                     val trust = trust(certificateBase64())
-                    OkHttpRelayTcpProbe(timeout, control) {
-                        OkHttpClient.Builder().sslSocketFactory(trust.sslSocketFactory(), trust.trustManager)
+                    RelayTcpProbe { endpoint, target ->
+                        OkHttpRelayTcpProbe(timeout, control) {
+                            OkHttpClient
+                                .Builder()
+                                .sslSocketFactory(trust.sslSocketFactory(), trust.trustManager)
+                                .addInterceptor { chain ->
+                                    val request = chain.request()
+                                    chain.proceed(
+                                        if (endpoint.port == stalledPort()) {
+                                            request.newBuilder().header("X-Owned-Quality-Fault", "stall-body").build()
+                                        } else {
+                                            request
+                                        },
+                                    )
+                                }
+                        }.probe(endpoint, target)
                     }
                 } else {
                     OkHttpRelayTcpProbe(timeout, control)

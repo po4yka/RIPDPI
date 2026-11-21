@@ -19,11 +19,13 @@ from android_nginx_fixture import NginxFixture, configuration, private_host
 
 
 class FixtureTests(unittest.TestCase):
-    def test_owned_https_acl_allows_only_two_exact_domains_and_one_tcp_port(self):
+    def test_owned_https_acl_allows_only_exact_control_endpoints(self):
         self.assertEqual(
             [
                 "direct(quality-a.example.test, tcp/49173, 127.0.0.1)",
                 "direct(quality-b.example.test, tcp/49173, 127.0.0.1)",
+                "direct(192.0.2.81, tcp/49173, 127.0.0.1)",
+                "direct(192.0.2.82, tcp/49173, 127.0.0.1)",
             ],
             owned_https_acl({"qualityPort": 49173}),
         )
