@@ -453,17 +453,16 @@ internal fun ResolverRecommendationCard(
                         .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.DiagnosticsResolverKeepSession),
             )
-            if (recommendation.persistable) {
-                RipDpiButton(
-                    text = stringResource(R.string.diagnostics_resolver_save_setting),
-                    onClick = onSaveAsSetting,
-                    variant = RipDpiButtonVariant.Primary,
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .ripDpiTestTag(RipDpiTestTags.DiagnosticsResolverSaveSetting),
-                )
-            }
+            // Saving is an explicit user choice; `persistable` only gates automatic DNS changes.
+            RipDpiButton(
+                text = stringResource(R.string.diagnostics_resolver_save_setting),
+                onClick = onSaveAsSetting,
+                variant = RipDpiButtonVariant.Primary,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsResolverSaveSetting),
+            )
         }
     }
 }

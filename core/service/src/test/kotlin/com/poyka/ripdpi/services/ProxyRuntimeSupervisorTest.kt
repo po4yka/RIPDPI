@@ -69,6 +69,36 @@ class ProxyRuntimeLearningOriginTest {
             assertFalse(unverified.isCurrent())
             supervisor.stop()
         }
+
+    @Test
+    fun `learning resumes one poll after the epoch settles within a run`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            var epoch: DiagnosticsNetworkEpoch? = null
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { TestProxyRuntime() },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    networkEpochProvider = DiagnosticsNetworkEpochProvider { epoch },
+                )
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            // Callbacks arrive after the run starts: only the batch spanning that gap is untrusted.
+            epoch = object : DiagnosticsNetworkEpoch {}
+            assertFalse(supervisor.pollLearningOrigin().isCurrent())
+            assertTrue(supervisor.pollLearningOrigin().isCurrent())
+
+            // A callback between polls invalidates the batch drained across it, not the rest of the run.
+            epoch = object : DiagnosticsNetworkEpoch {}
+            assertFalse(supervisor.pollLearningOrigin().isCurrent())
+            assertTrue(supervisor.pollLearningOrigin().isCurrent())
+            supervisor.stop()
+        }
+
+    private suspend fun ProxyRuntimeSupervisor.pollLearningOrigin() =
+        requireNotNull(pollTelemetryAndForwardingEvidence().directPathLearningOrigin)
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

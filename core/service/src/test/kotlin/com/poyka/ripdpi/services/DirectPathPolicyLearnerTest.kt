@@ -76,7 +76,7 @@ class DirectPathPolicyLearnerTest {
                 "deadbeef",
                 DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
                 100L,
-                origin = DirectPathLearningOrigin { false },
+                origin = DirectPathLearningOrigin(run = Any()) { false },
             )
             assertTrue(store.directPathCapabilitiesForFingerprint(wifi.scopeKey()).isEmpty())
             assertTrue(store.directPathCapabilitiesForFingerprint(cellular.scopeKey()).isEmpty())
@@ -609,7 +609,7 @@ class DirectPathPolicyLearnerTest {
         }
 }
 
-private val TestDirectPathLearningOrigin = DirectPathLearningOrigin { true }
+private val TestDirectPathLearningOrigin = DirectPathLearningOrigin(run = Any()) { true }
 
 private suspend fun DirectPathPolicyLearner.consume(snapshot: NativeRuntimeSnapshot) =
     consume(snapshot, TestDirectPathLearningOrigin)
