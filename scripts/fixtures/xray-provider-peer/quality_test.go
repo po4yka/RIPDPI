@@ -79,6 +79,16 @@ func verifyQualityRound(t *testing.T, p *peer, client *http.Client, late bool) {
 	var body bodyResult
 	if late {
 		body = <-finished
+	} else {
+		// Model the delay before a loaded HEAD on a busy Android emulator.
+		const loadedHeadDelay = 600 * time.Millisecond
+		timer := time.NewTimer(loadedHeadDelay)
+		defer timer.Stop()
+		select {
+		case <-finished:
+			t.Fatal("GET finished before the delayed HEAD could start")
+		case <-timer.C:
+		}
 	}
 	headStarted := time.Now()
 	loaded, err := client.Head(endpoint)
