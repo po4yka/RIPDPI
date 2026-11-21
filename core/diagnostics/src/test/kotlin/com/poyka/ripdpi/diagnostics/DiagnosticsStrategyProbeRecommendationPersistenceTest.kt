@@ -97,6 +97,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                 stores,
                 TestDiagnosticsHistoryClock(),
                 requireNotNull(prepared.networkFingerprint),
+                routeLease = prepared.inPathRouteLease,
             ).finalize(
                 prepared,
                 json.encodeToString(report.toEngineScanReportWire()),
@@ -157,9 +158,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                 stores,
                 TestDiagnosticsHistoryClock(),
                 requireNotNull(prepared.networkFingerprint),
+                routeLease = prepared.inPathRouteLease,
             ).finalize(
                 prepared,
                 json.encodeToString(malformed.toEngineScanReportWire()),
+                ownedInPathRouteAtCompletion = true,
             )
 
             val persisted =
@@ -182,6 +185,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                     stores,
                     TestDiagnosticsHistoryClock(),
                     requireNotNull(prepared.networkFingerprint),
+                    routeLease = prepared.inPathRouteLease,
                 )
 
             service.finalize(
@@ -514,12 +518,17 @@ private fun scanFinalizationService(
     stores: FakeDiagnosticsHistoryStores,
     clock: TestDiagnosticsHistoryClock,
     fingerprint: NetworkFingerprint,
+    routeLease: DiagnosticsInPathRouteLease? = null,
 ): ScanFinalizationService =
     ScanFinalizationService(
         context = TestContext(),
         scanRecordStore = stores,
         artifactWriteStore = stores,
-        networkFingerprintProvider = MutableNetworkFingerprintProvider(fingerprint),
+        evidenceAuthority =
+            ScanEvidenceAuthority(
+                MutableNetworkFingerprintProvider(fingerprint),
+                FakeDiagnosticsRuntimeCoordinator().apply { updateInPathRouteLease(routeLease) },
+            ),
         serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
         resolverOverrideStore = FakeResolverOverrideStore(),
         rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),

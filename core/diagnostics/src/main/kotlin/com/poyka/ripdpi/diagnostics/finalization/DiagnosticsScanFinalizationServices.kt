@@ -4,6 +4,7 @@ package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
@@ -27,10 +28,12 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
 import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.application.hasCurrentNetworkScope
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
+import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsScopeLoss
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind
 import com.poyka.ripdpi.diagnostics.finalization.revokePersistedNetworkScope
 import com.poyka.ripdpi.diagnostics.finalization.withoutNetworkScopeAuthority
+import com.poyka.ripdpi.diagnostics.finalization.withoutScopeAuthority
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -45,15 +48,47 @@ internal data class ScanFinalizationResult(
     val correctedDnsPath: EncryptedDnsPathCandidate?,
 )
 
+internal class ScanEvidenceAuthority
+    @Inject
+    constructor(
+        private val networkFingerprintProvider: NetworkFingerprintProvider,
+        private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
+    ) {
+        fun isNetworkCurrent(prepared: PreparedDiagnosticsScan): Boolean =
+            prepared.hasCurrentNetworkScope(networkFingerprintProvider)
+
+        fun trackScopeLoss(
+            prepared: PreparedDiagnosticsScan,
+            ownedInPathRouteAtCompletion: Boolean,
+        ): () -> DiagnosticsScopeLoss? {
+            var lostScope: DiagnosticsScopeLoss? = null
+            return {
+                if (lostScope == null) {
+                    lostScope =
+                        when {
+                            !isNetworkCurrent(prepared) -> DiagnosticsScopeLoss.NETWORK
+
+                            prepared.inPathRouteLease?.let {
+                                !ownedInPathRouteAtCompletion || runtimeCoordinator.validateInPathRouteLease(it) != null
+                            } == true -> DiagnosticsScopeLoss.VPN_ROUTE
+
+                            else -> null
+                        }
+                }
+                lostScope
+            }
+        }
+    }
+
 @Singleton
 class ScanFinalizationService
     @Inject
-    constructor(
+    internal constructor(
         @param:ApplicationContext
         private val context: Context,
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactWriteStore: DiagnosticsArtifactWriteStore,
-        private val networkFingerprintProvider: NetworkFingerprintProvider,
+        private val evidenceAuthority: ScanEvidenceAuthority,
         private val serviceStateStore: ServiceStateStore,
         private val resolverOverrideStore: ResolverOverrideStore,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
@@ -72,24 +107,17 @@ class ScanFinalizationService
             ownedInPathRouteAtCompletion: Boolean = false,
         ): ScanFinalizationResult =
             withContext(NonCancellable) {
-                val rawReport = json.decodeEngineScanReportWire(reportJson)
-                requireReportMatchesPreparedScan(prepared, rawReport)
-                val finalizedWire =
-                    DiagnosticsDiagnosisAuthority
-                        .finalizeReport(rawReport.withLocalNetworkDeferrals(prepared))
-                        .withOwnedInPathRouteAuthority(prepared, ownedInPathRouteAtCompletion)
-                val enrichedReport =
-                    DiagnosticsScanWorkflow.enrichScanReport(
-                        report = finalizedWire.toScanReport(),
-                        settings = prepared.settings,
-                        preferredDnsPath = prepared.preferredDnsPath,
-                    )
-                val scopedReport = enforceNetworkScope(prepared, enrichedReport)
+                val scopeLoss = evidenceAuthority.trackScopeLoss(prepared, ownedInPathRouteAtCompletion)
+
+                fun scope(report: ScanReport): ScanReport = scopeLoss()?.let(report::withoutScopeAuthority) ?: report
+
+                val scopedReport = scope(prepareReport(prepared, reportJson, ownedInPathRouteAtCompletion))
                 val (plannedReport, resolverOverride) =
                     planTemporaryResolverOverride(
                         report = scopedReport,
                         settings = prepared.settings,
                         pathMode = prepared.pathMode,
+                        networkScopeKey = prepared.networkFingerprint?.scopeKey(),
                     )
                 // One predicate: a fresh result outranks a remembered policy exactly when its policy is persisted.
                 val freshPolicy = buildFreshRememberedPolicy(prepared, plannedReport)
@@ -99,12 +127,9 @@ class ScanFinalizationService
                         report = plannedReport,
                         freshPolicyPersistable = freshPolicy != null,
                     )
-                var finalReport = enforceNetworkScope(prepared, plannedReport)
-                var derived =
-                    com.poyka.ripdpi.diagnostics.domain
-                        .DerivedScanReport(finalReport.toEngineScanReportWire())
+                var finalReport = scope(plannedReport)
                 DiagnosticsReportPersister.persistScanReport(
-                    report = derived.report,
+                    report = finalReport.toEngineScanReportWire(),
                     scanRecordStore = scanRecordStore,
                     artifactWriteStore = artifactWriteStore,
                     serviceStateStore = serviceStateStore,
@@ -113,71 +138,103 @@ class ScanFinalizationService
                 )
                 postScanRecorder.persist(prepared)
                 // Report and context persistence can suspend while the physical network changes.
-                finalReport = enforceNetworkScope(prepared, finalReport)
-                if (prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
-                    persistNetworkEvidence(prepared, finalReport, winningCombination, freshPolicy)
+                finalReport = scope(finalReport)
+                if (scopeLoss() == null) {
+                    persistNetworkEvidence(
+                        prepared,
+                        finalReport,
+                        winningCombination,
+                        freshPolicy,
+                    ) { scopeLoss() == null }
                 }
-                if (prepared.pathMode == ScanPathMode.IN_PATH) {
-                    val staged = checkNotNull(scanRecordStore.getScanSession(prepared.sessionId))
-                    if (!staged.hasAuthoritativeManualConflictCancellation()) {
-                        check(staged.status == "running") { "In-path scan changed status during finalization" }
-                        scanRecordStore.upsertScanSession(
-                            staged.copy(status = "completed", finishedAt = finalReport.finishedAt),
-                        )
-                    }
+                if (prepared.pathMode == ScanPathMode.IN_PATH && scopeLoss() == null) {
+                    completeInPathSession(prepared.sessionId, finalReport.finishedAt) { scopeLoss() == null }
                 }
-                finalReport = enforceNetworkScope(prepared, finalReport)
-                derived =
+                scopeLoss()?.let { loss ->
+                    finalReport = finalReport.withoutScopeAuthority(loss)
+                    revokePersistedNetworkScope(
+                        prepared.sessionId,
+                        scanRecordStore,
+                        json,
+                        loss,
+                        inPathFinishedAt = finalReport.finishedAt.takeIf { prepared.pathMode == ScanPathMode.IN_PATH },
+                    )
+                }
+                val derived =
                     com.poyka.ripdpi.diagnostics.domain
                         .DerivedScanReport(finalReport.toEngineScanReportWire())
-                if (!prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
-                    revokePersistedNetworkScope(prepared.sessionId, scanRecordStore, json)
-                }
                 val correctedDnsPath =
                     with(ResolverRecommendationEngine) {
-                        finalReport.resolverRecommendation?.toEncryptedDnsPathCandidate()
+                        finalReport.resolverRecommendationForAutomaticUse()?.toEncryptedDnsPathCandidate()
                     }
-                val shouldReprobe =
-                    DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
-                        report = finalReport,
-                        pathMode = prepared.pathMode,
-                        resolverOverrideApplied = resolverOverride != null,
-                    )
-                if (prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
-                    resolverOverride?.let { resolverOverrideStore.setTemporaryOverride(it) }
-                }
+                val appliedOverride = resolverOverride?.takeIf { scopeLoss() == null && correctedDnsPath != null }
+                if (appliedOverride != null) resolverOverrideStore.setTemporaryOverride(appliedOverride)
                 ScanFinalizationResult(
                     derived = derived,
-                    shouldReprobeWithCorrectedDns = shouldReprobe,
+                    shouldReprobeWithCorrectedDns =
+                        DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                            report = finalReport,
+                            pathMode = prepared.pathMode,
+                            resolverOverrideApplied = appliedOverride != null && scopeLoss() == null,
+                        ),
                     correctedDnsPath = correctedDnsPath,
                 )
             }
+
+        private fun prepareReport(
+            prepared: PreparedDiagnosticsScan,
+            reportJson: String,
+            ownedInPathRouteAtCompletion: Boolean,
+        ): ScanReport {
+            val rawReport = json.decodeEngineScanReportWire(reportJson)
+            requireReportMatchesPreparedScan(prepared, rawReport)
+            val finalizedWire =
+                DiagnosticsDiagnosisAuthority
+                    .finalizeReport(rawReport.withLocalNetworkDeferrals(prepared))
+                    .withOwnedInPathRouteAuthority(prepared, ownedInPathRouteAtCompletion)
+            return DiagnosticsScanWorkflow.enrichScanReport(
+                report = finalizedWire.toScanReport(),
+                settings = prepared.settings,
+                preferredDnsPath = prepared.preferredDnsPath,
+            )
+        }
+
+        private suspend fun completeInPathSession(
+            sessionId: String,
+            finishedAt: Long,
+            isScopeCurrent: () -> Boolean,
+        ) {
+            val staged = checkNotNull(scanRecordStore.getScanSession(sessionId))
+            if (!staged.hasAuthoritativeManualConflictCancellation() && isScopeCurrent()) {
+                check(staged.status == "running") { "In-path scan changed status during finalization" }
+                scanRecordStore.upsertScanSession(staged.copy(status = "completed", finishedAt = finishedAt))
+            }
+        }
 
         private suspend fun persistNetworkEvidence(
             prepared: PreparedDiagnosticsScan,
             report: ScanReport,
             winningCombination: BypassCombinationCandidate?,
             freshPolicy: RememberedNetworkPolicyJson?,
+            isScopeCurrent: () -> Boolean,
         ) {
             val fingerprint = prepared.networkFingerprint ?: return
             if (
                 prepared.scanOrigin == DiagnosticsScanOrigin.USER_INITIATED &&
-                prepared.hasCurrentNetworkScope(networkFingerprintProvider)
+                isScopeCurrent()
             ) {
                 targetOptimizer.record(fingerprint.scopeKey(), report, prepared.settings)
             }
             // An in-path scan measured the active tunnel or proxy, not the raw network's direct path.
-            if (prepared.pathMode == ScanPathMode.RAW_PATH) {
-                rememberEdgeProbeResults(prepared, fingerprint, report)
-                if (prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
-                    rememberCapabilityEvidence(prepared, fingerprint, report)
+            if (prepared.pathMode == ScanPathMode.RAW_PATH && isScopeCurrent()) {
+                rememberEdgeProbeResults(fingerprint, report, isScopeCurrent)
+                if (isScopeCurrent()) {
+                    rememberCapabilityEvidence(fingerprint, report, isScopeCurrent)
                 }
             }
-            if (winningCombination?.id != "remembered" && prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
-                if (report.isCompleteScan()) {
-                    rememberNetworkDnsPathPreference(fingerprint, report.resolverRecommendation)
-                }
-                if (freshPolicy != null && prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
+            if (winningCombination?.id != "remembered" && isScopeCurrent()) {
+                rememberNetworkDnsPathPreference(fingerprint, report.resolverRecommendationForAutomaticUse())
+                if (freshPolicy != null && isScopeCurrent()) {
                     rememberedNetworkPolicyStore.rememberValidatedPolicy(
                         policy = freshPolicy,
                         source = prepared.rememberedPolicySource(),
@@ -186,19 +243,6 @@ class ScanFinalizationService
                 }
             }
         }
-
-        private fun enforceNetworkScope(
-            prepared: PreparedDiagnosticsScan,
-            report: ScanReport,
-        ): ScanReport =
-            if (prepared.hasCurrentNetworkScope(
-                    networkFingerprintProvider,
-                )
-            ) {
-                report
-            } else {
-                report.withoutNetworkScopeAuthority()
-            }
 
         private fun requireReportMatchesPreparedScan(
             prepared: PreparedDiagnosticsScan,
@@ -251,10 +295,7 @@ class ScanFinalizationService
             }
             val rawReport = json.decodeEngineScanReportWire(reportJson).withLocalNetworkDeferrals(prepared)
             val report =
-                if (prepared.hasCurrentNetworkScope(
-                        networkFingerprintProvider,
-                    )
-                ) {
+                if (evidenceAuthority.isNetworkCurrent(prepared)) {
                     rawReport
                 } else {
                     rawReport.withoutNetworkScopeAuthority()
@@ -277,7 +318,7 @@ class ScanFinalizationService
                 json = json,
                 deferTerminal = true,
             )
-            if (!prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
+            if (!evidenceAuthority.isNetworkCurrent(prepared)) {
                 revokePersistedNetworkScope(prepared.sessionId, scanRecordStore, json)
             }
         }
@@ -301,7 +342,7 @@ class ScanFinalizationService
                     report = report,
                     resolverPath =
                         with(ResolverRecommendationEngine) {
-                            report.resolverRecommendation?.toEncryptedDnsPathCandidate()
+                            report.resolverRecommendationForAutomaticUse()?.toEncryptedDnsPathCandidate()
                         },
                     currentDnsProtocol = prepared.settings.activeDnsSettings().encryptedDnsProtocol,
                     currentTcpFamily = laneFamilies.tcpStrategyFamily,
@@ -325,15 +366,15 @@ class ScanFinalizationService
         }
 
         private suspend fun rememberEdgeProbeResults(
-            prepared: PreparedDiagnosticsScan,
             fingerprint: NetworkFingerprint,
             report: ScanReport,
+            isScopeCurrent: () -> Boolean,
         ) {
             report.results.forEach { result ->
                 val connectedIp = result.detailValue("connectedIp")?.takeIf { it.isNotBlank() } ?: return@forEach
                 val host = result.detailValue("targetHost") ?: result.inferEdgeHost() ?: return@forEach
                 val transportKind = result.edgeTransportKind() ?: return@forEach
-                if (!prepared.hasCurrentNetworkScope(networkFingerprintProvider)) return
+                if (!isScopeCurrent()) return
                 networkEdgePreferenceStore.recordEdgeResult(
                     fingerprint = fingerprint,
                     host = host,
@@ -347,9 +388,9 @@ class ScanFinalizationService
         }
 
         private suspend fun rememberCapabilityEvidence(
-            prepared: PreparedDiagnosticsScan,
             fingerprint: NetworkFingerprint,
             report: ScanReport,
+            isScopeCurrent: () -> Boolean,
         ) {
             val existingRecords =
                 serverCapabilityStore.directPathCapabilitiesForFingerprint(fingerprint.scopeKey())
@@ -357,7 +398,7 @@ class ScanFinalizationService
                 report = report,
                 existingRecords = existingRecords,
             ).forEach { (authority, observation) ->
-                if (!prepared.hasCurrentNetworkScope(networkFingerprintProvider)) return
+                if (!isScopeCurrent()) return
                 serverCapabilityStore.rememberDirectPathObservation(
                     fingerprint = fingerprint,
                     authority = authority,
@@ -372,9 +413,10 @@ class ScanFinalizationService
             report: ScanReport,
             settings: com.poyka.ripdpi.proto.AppSettings,
             pathMode: ScanPathMode,
+            networkScopeKey: String?,
         ): Pair<ScanReport, TemporaryResolverOverride?> {
-            val recommendation =
-                report.resolverRecommendation?.takeIf { report.isCompleteScan() } ?: return report to null
+            val recommendation = report.resolverRecommendationForAutomaticUse()
+            if (recommendation == null || networkScopeKey == null) return report to null
             val (status, mode) = serviceStateStore.status.value
             val shouldApply =
                 DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
@@ -385,7 +427,7 @@ class ScanFinalizationService
                     pathMode = pathMode,
                 )
             return if (shouldApply) {
-                val override = DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation)
+                val override = DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation, networkScopeKey)
                 report.copy(
                     resolverRecommendation = recommendation.copy(appliedTemporarily = true),
                 ) to override

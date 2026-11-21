@@ -318,7 +318,12 @@ class WarpEnrollmentOrchestratorTest {
             val bootstrapSessionFactory =
                 object : BootstrapProxyRuntimeSupervisorSessionFactory {
                     override fun create(scope: kotlinx.coroutines.CoroutineScope): ProxyRuntimeSupervisor =
-                        DefaultProxyRuntimeSupervisorFactory(proxyFactory, NoStoreHostAutolearnController).create(
+                        DefaultProxyRuntimeSupervisorFactory(
+                            proxyFactory,
+                            NoStoreHostAutolearnController,
+                            com.poyka.ripdpi.data
+                                .DiagnosticsNetworkEpochProvider { null },
+                        ).create(
                             scope = scope,
                             dispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
                             networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
@@ -427,7 +432,12 @@ class WarpEnrollmentOrchestratorTest {
             val bootstrapSessionFactory =
                 object : BootstrapProxyRuntimeSupervisorSessionFactory {
                     override fun create(scope: kotlinx.coroutines.CoroutineScope): ProxyRuntimeSupervisor =
-                        DefaultProxyRuntimeSupervisorFactory(proxyFactory, NoStoreHostAutolearnController).create(
+                        DefaultProxyRuntimeSupervisorFactory(
+                            proxyFactory,
+                            NoStoreHostAutolearnController,
+                            com.poyka.ripdpi.data
+                                .DiagnosticsNetworkEpochProvider { null },
+                        ).create(
                             scope = scope,
                             dispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
                             networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),

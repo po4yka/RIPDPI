@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
@@ -44,6 +45,7 @@ internal class ProxyRuntimeSupervisor(
     private val stopTimeoutMillis: Long = 5_000L,
     private val afterForwardingLeaseAcquired: suspend () -> Unit = {},
     private val beforeNativeStart: (() -> Unit)? = null,
+    private val networkEpochProvider: DiagnosticsNetworkEpochProvider = DiagnosticsNetworkEpochProvider { null },
 ) {
     private var proxyRuntime: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
@@ -65,7 +67,11 @@ internal class ProxyRuntimeSupervisor(
         check(proxyJob == null) { "Proxy fields not null" }
 
         val proxyInstance = ripDpiProxyFactory.create()
-        val lease = ProxyForwardingLease(proxyInstance)
+        val epoch = networkEpochProvider.capture()
+        val lease =
+            ProxyForwardingLease(proxyInstance) { run ->
+                epoch != null && forwardingLease.get() === run && networkEpochProvider.capture() == epoch
+            }
         proxyRuntime = proxyInstance
         forwardingLease.set(lease)
         stopRequested = false
@@ -287,6 +293,7 @@ internal class ProxyRuntimeSupervisor(
             forwardingEvidence =
                 evidence.takeIf { forwardingLease.get() === lease }
                     ?: RuntimeForwardingEvidence.Unavailable,
+            directPathLearningOrigin = lease.learningOrigin,
         )
     }
 
@@ -304,4 +311,7 @@ internal class ProxyRuntimeSupervisor(
 
 private class ProxyForwardingLease(
     val runtime: RipDpiProxyRuntime,
-)
+    isCurrent: (ProxyForwardingLease) -> Boolean,
+) {
+    val learningOrigin = DirectPathLearningOrigin { isCurrent(this) }
+}

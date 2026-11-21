@@ -65,7 +65,7 @@ class DiagnosticsHomeWorkflowServiceTest {
 
             val savedSettings = appSettingsRepository.snapshot()
             assertTrue(outcome.actionable)
-            assertEquals("fp-audit", outcome.fingerprintHash)
+            assertEquals(CurrentNetwork, outcome.fingerprintHash)
             assertEquals(initialSettings.proxyIp, savedSettings.proxyIp)
             assertEquals(initialSettings.proxyPort, savedSettings.proxyPort)
             assertEquals(initialSettings.noDomain, savedSettings.noDomain)
@@ -263,59 +263,50 @@ class DiagnosticsHomeWorkflowServiceTest {
         }
 
     @Test
-    fun `finalizeHomeAudit persists resolver recommendation when strategy is not actionable`() =
+    fun `finalizeHomeAudit reports a live scoped DNS override without saving it globally`() =
         runTest {
-            val stores = FakeDiagnosticsHistoryStores()
-            val appSettingsRepository = FakeAppSettingsRepository()
-            stores.sessionsState.value =
-                listOf(
-                    diagnosticsSession(
-                        id = "resolver-session",
-                        profileId = "automatic-audit",
-                        pathMode = ScanPathMode.RAW_PATH.name,
-                        summary = "Resolver recommendation",
-                        reportJson =
-                            json.encodeToString(
-                                com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
-                                    .serializer(),
-                                resolverOnlyAuditReport("resolver-session").toEngineScanReportWire(),
-                            ),
-                    ).copy(networkScopeKey = CurrentNetwork),
-                )
+            val originalNetwork = fingerprint("measured-network")
+            val (service, appSettings) = resolverAuditWorkflow(originalNetwork, originalNetwork)
+            val initialSettings = appSettings.snapshot()
 
-            val outcome =
-                createHomeWorkflowService(
-                    stores = stores,
-                    appSettingsRepository = appSettingsRepository,
-                ).finalizeHomeAudit("resolver-session")
+            val outcome = service.finalizeHomeAudit("resolver-session")
 
-            val savedSettings = appSettingsRepository.snapshot()
             assertTrue(outcome.actionable)
             assertEquals("DNS settings applied", outcome.headline)
-            assertEquals("cloudflare", savedSettings.dnsProviderId)
-            assertEquals("doh", savedSettings.encryptedDnsProtocol)
-            assertEquals("cloudflare-dns.com", savedSettings.encryptedDnsHost)
-            assertTrue(outcome.appliedSettings.any { it.label == "Resolver" })
+            assertTrue(outcome.appliedSettings.any { it.label == "Resolver" && it.value == "cloudflare" })
+            assertEquals(initialSettings, appSettings.snapshot())
         }
 
     @Test
-    fun `a resolver recommendation that was not saved is not listed as applied`() =
+    fun `finalizeHomeAudit keeps stale resolver evidence advisory after a network change`() =
         runTest {
-            val refusingActions =
-                object : DiagnosticsResolverActions {
-                    override suspend fun keepResolverRecommendationForSession(sessionId: String) = false
-
-                    override suspend fun saveResolverRecommendation(sessionId: String) = false
-                }
-
-            val applied =
-                DiagnosticsHomeResolverActionCoordinator(refusingActions).applyResolverRecommendation(
-                    sessionId = "resolver-session",
-                    strategyApplied = null,
-                    resolverRecommendation = resolverOnlyAuditReport("resolver-session").resolverRecommendation,
+            val (service, appSettings) =
+                resolverAuditWorkflow(
+                    fingerprint("measured-network"),
+                    fingerprint("other-network"),
                 )
+            val initialSettings = appSettings.snapshot()
 
-            assertEquals(emptyList<DiagnosticsAppliedSetting>(), applied)
+            val outcome = service.finalizeHomeAudit("resolver-session")
+
+            assertFalse(outcome.actionable)
+            assertTrue(outcome.appliedSettings.isEmpty())
+            assertEquals("Use encrypted DNS", outcome.recommendationSummary)
+            assertEquals(initialSettings, appSettings.snapshot())
+        }
+
+    @Test
+    fun `a resolver recommendation without a live override is not listed as applied`() =
+        runTest {
+            val network = fingerprint("measured-network")
+            val (service, appSettings) = resolverAuditWorkflow(network, network, installOverride = false)
+            val initialSettings = appSettings.snapshot()
+
+            val outcome = service.finalizeHomeAudit("resolver-session")
+
+            assertFalse(outcome.actionable)
+            assertTrue(outcome.appliedSettings.isEmpty())
+            assertEquals(initialSettings, appSettings.snapshot())
         }
 
     @Test
@@ -545,6 +536,45 @@ class DiagnosticsHomeWorkflowServiceTest {
         return createHomeWorkflowService(stores, FakeAppSettingsRepository()).finalizeHomeAudit(report.sessionId)
     }
 
+    private fun resolverAuditWorkflow(
+        originalNetwork: com.poyka.ripdpi.data.NetworkFingerprint,
+        currentNetwork: com.poyka.ripdpi.data.NetworkFingerprint,
+        installOverride: Boolean = true,
+    ): Pair<DefaultDiagnosticsHomeWorkflowService, FakeAppSettingsRepository> {
+        val report = resolverOnlyAuditReport("resolver-session")
+        val stores =
+            FakeDiagnosticsHistoryStores().apply {
+                sessionsState.value =
+                    listOf(
+                        diagnosticsSession(
+                            id = report.sessionId,
+                            profileId = report.profileId,
+                            pathMode = report.pathMode.name,
+                            summary = report.summary,
+                            reportJson = json.encodeToString(report.toEngineScanReportWire()),
+                        ).copy(networkScopeKey = originalNetwork.scopeKey()),
+                    )
+            }
+        val resolverOverrideStore =
+            FakeResolverOverrideStore().apply {
+                if (installOverride) {
+                    setTemporaryOverride(
+                        DiagnosticsScanWorkflow.buildTemporaryResolverOverride(
+                            requireNotNull(report.resolverRecommendation),
+                            originalNetwork.scopeKey(),
+                        ),
+                    )
+                }
+            }
+        val appSettingsRepository = FakeAppSettingsRepository()
+        return createHomeWorkflowService(
+            stores = stores,
+            appSettingsRepository = appSettingsRepository,
+            networkFingerprintProvider = MutableNetworkFingerprintProvider(currentNetwork),
+            resolverOverrideStore = resolverOverrideStore,
+        ) to appSettingsRepository
+    }
+
     private companion object {
         // The network that createHomeWorkflowService's default fingerprint provider reports.
         val CurrentNetwork = requireNotNull(MutableNetworkFingerprintProvider().fingerprint).scopeKey()
@@ -590,6 +620,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                     selectedTlsServerName = "cloudflare-dns.com",
                     selectedDohUrl = "https://cloudflare-dns.com/dns-query",
                     rationale = "Use encrypted DNS",
+                    appliedTemporarily = true,
                     persistable = true,
                 ),
         )

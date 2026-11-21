@@ -5,6 +5,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
@@ -145,42 +146,6 @@ private val HumanLabelOverrides: Map<String, String> =
         "tlsrec_fake" to "TLS record split + fake",
         "sni_tls_suspect" to "SNI/TLS suspected",
     )
-
-@Singleton
-internal class DiagnosticsHomeResolverActionCoordinator
-    @Inject
-    constructor(
-        private val resolverActions: DiagnosticsResolverActions,
-    ) {
-        internal suspend fun applyResolverRecommendation(
-            sessionId: String,
-            strategyApplied: StrategyApplyResult?,
-            resolverRecommendation: ResolverRecommendation?,
-        ): List<DiagnosticsAppliedSetting> =
-            if (
-                strategyApplied == null &&
-                resolverRecommendation?.persistable == true &&
-                resolverActions.saveResolverRecommendation(sessionId)
-            ) {
-                buildResolverAppliedSettings(resolverRecommendation)
-            } else {
-                emptyList()
-            }
-
-        private fun buildResolverAppliedSettings(
-            recommendation: ResolverRecommendation,
-        ): List<DiagnosticsAppliedSetting> =
-            listOf(
-                DiagnosticsAppliedSetting(
-                    label = "Resolver",
-                    value = recommendation.selectedResolverId,
-                ),
-                DiagnosticsAppliedSetting(
-                    label = "Protocol",
-                    value = recommendation.selectedProtocol.uppercase(),
-                ),
-            )
-    }
 
 @Singleton
 internal class DiagnosticsHomeCapabilityEvidenceSummarizer
@@ -377,7 +342,7 @@ internal class DefaultDiagnosticsHomeWorkflowService
         private val artifactQueryStore: DiagnosticsArtifactQueryStore,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val recommendationApplier: DiagnosticsHomeRecommendationApplier,
-        private val resolverActionCoordinator: DiagnosticsHomeResolverActionCoordinator,
+        private val resolverOverrideStore: ResolverOverrideStore,
         private val capabilityEvidenceSummarizer: DiagnosticsHomeCapabilityEvidenceSummarizer,
         private val auditOutcomeBuilder: DiagnosticsHomeAuditOutcomeBuilder,
         @param:Named("diagnosticsJson")
@@ -389,13 +354,13 @@ internal class DefaultDiagnosticsHomeWorkflowService
             withContext(Dispatchers.IO) {
                 val session = scanRecordStore.getScanSession(sessionId)
                 val report = session?.reportJson?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
-                val fingerprintHash =
-                    session?.triggerCurrentFingerprintHash
+                val recordedFingerprintHash =
+                    session?.networkScopeKey ?: session?.triggerCurrentFingerprintHash
                         ?: artifactQueryStore
                             .getNativeEventsForSession(sessionId, limit = 80)
                             .lastOrNull { !it.fingerprintHash.isNullOrBlank() }
                             ?.fingerprintHash
-                        ?: currentFingerprintHash()
+                val fingerprintHash = recordedFingerprintHash ?: currentFingerprintHash()
 
                 if (session == null || report == null) {
                     return@withContext DiagnosticsHomeAuditOutcome(
@@ -417,12 +382,8 @@ internal class DefaultDiagnosticsHomeWorkflowService
                 val strategyApplied =
                     if (applicable) recommendationApplier.applyValidatedRecommendation(strategyProbe) else null
                 val resolverApplied =
-                    if (applicable) {
-                        resolverActionCoordinator.applyResolverRecommendation(
-                            sessionId = sessionId,
-                            strategyApplied = strategyApplied,
-                            resolverRecommendation = resolverRecommendation,
-                        )
+                    if (applicable && strategyApplied == null) {
+                        appliedResolverSettings(report, session.networkScopeKey)
                     } else {
                         emptyList()
                     }
@@ -442,6 +403,33 @@ internal class DefaultDiagnosticsHomeWorkflowService
                         capabilityEvidence = capabilityEvidence,
                     ).copy(networkChanged = networkChanged)
             }
+
+        private suspend fun appliedResolverSettings(
+            report: ScanReport,
+            measuredScope: String?,
+        ): List<DiagnosticsAppliedSetting> {
+            val recommendation =
+                report.resolverRecommendationForAutomaticUse()?.takeIf { it.appliedTemporarily } ?: return emptyList()
+            val scopeMatches = isMeasuredOn(measuredScope, currentFingerprintHash())
+            val override =
+                resolverOverrideStore.override.value?.takeIf {
+                    scopeMatches && it.networkScopeKey == measuredScope && it.appliedAt >= report.finishedAt
+                }
+            val matchesResolver =
+                override?.let {
+                    val selectedPath =
+                        with(ResolverRecommendationEngine) { recommendation.toEncryptedDnsPathCandidate() }
+                    it.matches(selectedPath.toActiveDnsSettings())
+                } == true
+            return if (matchesResolver) {
+                listOf(
+                    DiagnosticsAppliedSetting(label = "Resolver", value = recommendation.selectedResolverId),
+                    DiagnosticsAppliedSetting(label = "Protocol", value = recommendation.selectedProtocol.uppercase()),
+                )
+            } else {
+                emptyList()
+            }
+        }
 
         override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
             withContext(Dispatchers.IO) {

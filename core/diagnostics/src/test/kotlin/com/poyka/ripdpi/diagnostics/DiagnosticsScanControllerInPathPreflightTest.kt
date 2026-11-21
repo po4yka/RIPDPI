@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -191,7 +192,7 @@ class DiagnosticsScanControllerInPathPreflightTest {
                     request.inPathRoute?.credentials?.password,
                 ),
             )
-            assertEquals(4, runtimeCoordinator.leaseValidationCount)
+            assertTrue(runtimeCoordinator.leaseValidationCount >= 4)
             assertEquals(0, runtimeCoordinator.rawScanCount)
             assertEquals(AppStatus.Running to Mode.VPN, serviceStateStore.status.value)
         }

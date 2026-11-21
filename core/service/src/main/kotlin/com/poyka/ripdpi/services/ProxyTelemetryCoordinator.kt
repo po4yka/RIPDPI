@@ -70,6 +70,7 @@ internal class ProxyTelemetryCoordinator(
             VpnTelemetrySnapshot(
                 proxyTelemetry = proxyTelemetryOutcome.snapshotOrIdle(source = "proxy"),
                 proxyTelemetryStatus = proxyTelemetryOutcome.toStatus(),
+                directPathLearningOrigin = proxyPoll.directPathLearningOrigin,
                 relayTelemetry = relayTelemetryOutcome.snapshotOrIdle(source = "relay"),
                 relayTelemetryStatus = relayTelemetryOutcome.toStatus(),
                 warpTelemetry = warpTelemetryOutcome.snapshotOrIdle(source = "warp"),
@@ -87,7 +88,7 @@ internal class ProxyTelemetryCoordinator(
     }
 
     private suspend fun reportTelemetry(telemetry: VpnTelemetrySnapshot) {
-        directPathPolicyTelemetryConsumer.consume(telemetry.proxyTelemetry)
+        directPathPolicyTelemetryConsumer.consume(telemetry.proxyTelemetry, telemetry.directPathLearningOrigin)
         statusReporter.reportTelemetry(
             activePolicy = currentSession()?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = { null },

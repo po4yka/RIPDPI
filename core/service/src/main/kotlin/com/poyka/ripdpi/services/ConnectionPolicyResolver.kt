@@ -148,10 +148,10 @@ internal class DefaultConnectionPolicyResolver
             val settings = captured.settings
             val protectPath = runtimeContextAssembler.captureProtectPath(mode, settings, forPreflight)
             val requestedConfiguration = captured.requested
-            val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
-            val destinationRoutingSnapshot = destinationRoutingPolicySource.snapshot()
             val networkScopeKey = fingerprintSnapshot?.scopeKey()
+            val dnsResolution = resolveNetworkScopedDns(settings, resolverOverride, networkScopeKey)
+            val destinationRoutingSnapshot = destinationRoutingPolicySource.snapshot()
             val directPathCapabilities = runtimeContextAssembler.directPathCapabilities(networkScopeKey)
             val baselineVpnDnsSelection =
                 baselineVpnDnsSelection(
@@ -221,6 +221,16 @@ internal class DefaultConnectionPolicyResolver
                 splitStrictDnsPolicy = splitStrictDnsPolicy,
             )
         }
+
+        private fun resolveNetworkScopedDns(
+            settings: AppSettings,
+            resolverOverride: TemporaryResolverOverride?,
+            networkScopeKey: String?,
+        ): EffectiveDnsResolution =
+            resolveEffectiveDns(
+                settings,
+                resolverOverride?.takeIf { it.networkScopeKey == null || it.networkScopeKey == networkScopeKey },
+            )
 
         private suspend fun captureRequestedStartSettings(
             mode: Mode,

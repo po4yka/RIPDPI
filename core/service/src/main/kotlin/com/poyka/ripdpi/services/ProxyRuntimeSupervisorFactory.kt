@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import dagger.Binds
 import dagger.Module
@@ -27,6 +28,7 @@ internal class DefaultProxyRuntimeSupervisorFactory
     constructor(
         private val ripDpiProxyFactory: RipDpiProxyFactory,
         private val hostAutolearnStoreController: HostAutolearnStoreController,
+        private val networkEpochProvider: DiagnosticsNetworkEpochProvider,
     ) : ProxyRuntimeSupervisorFactory {
         override fun create(
             scope: CoroutineScope,
@@ -39,6 +41,7 @@ internal class DefaultProxyRuntimeSupervisorFactory
                 dispatcher = dispatcher,
                 ripDpiProxyFactory = ripDpiProxyFactory,
                 networkSnapshotProvider = networkSnapshotProvider,
+                networkEpochProvider = networkEpochProvider,
                 beforeNativeStart = ::applyPendingHostAutolearnErase.takeIf { appliesPendingHostAutolearnErase },
             )
 

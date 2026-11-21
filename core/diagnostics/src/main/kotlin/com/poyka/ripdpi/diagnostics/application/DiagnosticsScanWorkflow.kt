@@ -208,7 +208,7 @@ internal object DiagnosticsScanWorkflow {
         serviceMode: Mode,
         pathMode: ScanPathMode,
     ): Boolean {
-        if (report.resolverRecommendation == null) return false
+        if (report.resolverRecommendationForAutomaticUse() == null) return false
         return (
             report.strategyProbeReport == null ||
                 report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED ||
@@ -223,11 +223,15 @@ internal object DiagnosticsScanWorkflow {
             settings.activeDnsSettings().mode == DnsModePlainUdp
     }
 
-    fun buildTemporaryResolverOverride(recommendation: ResolverRecommendation): TemporaryResolverOverride {
+    fun buildTemporaryResolverOverride(
+        recommendation: ResolverRecommendation,
+        networkScopeKey: String? = null,
+    ): TemporaryResolverOverride {
         val selectedPath = with(ResolverRecommendationEngine) { recommendation.toEncryptedDnsPathCandidate() }
         return selectedPath.toTemporaryResolverOverride(
             reason = recommendation.rationale,
             appliedAt = System.currentTimeMillis(),
+            networkScopeKey = networkScopeKey,
         )
     }
 
@@ -238,7 +242,7 @@ internal object DiagnosticsScanWorkflow {
     ): Boolean {
         val strategyProbe = report.strategyProbeReport
         return when {
-            !resolverOverrideApplied -> false
+            !resolverOverrideApplied || report.resolverRecommendationForAutomaticUse() == null -> false
             pathMode != ScanPathMode.RAW_PATH -> false
             strategyProbe == null -> false
             strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> true

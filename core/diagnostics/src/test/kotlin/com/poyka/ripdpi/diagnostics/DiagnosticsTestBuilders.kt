@@ -278,7 +278,7 @@ internal fun createDiagnosticsServices(
                     context = context,
                     scanRecordStore = stores,
                     artifactWriteStore = stores,
-                    networkFingerprintProvider = networkFingerprintProvider,
+                    evidenceAuthority = ScanEvidenceAuthority(networkFingerprintProvider, runtimeCoordinator),
                     serviceStateStore = serviceStateStore,
                     resolverOverrideStore = resolverOverrideStore,
                     rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,

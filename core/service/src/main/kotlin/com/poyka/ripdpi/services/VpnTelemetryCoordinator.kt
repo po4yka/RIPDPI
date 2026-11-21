@@ -190,6 +190,7 @@ internal class VpnTelemetryCoordinator(
             VpnTelemetrySnapshot(
                 proxyTelemetry = proxyTelemetryOutcome.snapshotOrIdle(source = "proxy"),
                 proxyTelemetryStatus = proxyTelemetryOutcome.toStatus(),
+                directPathLearningOrigin = proxyPoll.directPathLearningOrigin,
                 relayTelemetry = relayTelemetryOutcome.snapshotOrIdle(source = "relay"),
                 relayTelemetryStatus = relayTelemetryOutcome.toStatus(),
                 warpTelemetry = warpTelemetryOutcome.snapshotOrIdle(source = "warp"),

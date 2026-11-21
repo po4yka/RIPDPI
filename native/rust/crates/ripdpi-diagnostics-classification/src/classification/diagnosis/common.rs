@@ -21,10 +21,6 @@ impl DiagnosisSink {
         }
     }
 
-    pub(crate) fn contains_code(&self, codes: &[&str]) -> bool {
-        self.diagnoses.iter().any(|diagnosis| codes.contains(&diagnosis.code.as_str()))
-    }
-
     pub(crate) fn contains_code_for_target(&self, code: &str, target: &str) -> bool {
         self.diagnoses.iter().any(|diagnosis| diagnosis.code == code && diagnosis.target.as_deref() == Some(target))
     }
