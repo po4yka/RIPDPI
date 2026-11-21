@@ -6,11 +6,19 @@ pub(super) struct EvolutionFeedbackLedger {
     send_in_flight: bool,
     response: Option<bool>,
     claimed: bool,
+    // An accepted response binds one receipt. Only the terminal relay can reward it.
+    reward: Option<EvolutionAttempt>,
 }
 
 impl EvolutionFeedbackLedger {
     pub(super) fn new(bound_attempt: Option<EvolutionAttempt>, completed: bool) -> Self {
-        Self { bound_attempt, send_in_flight: false, response: completed.then_some(false), claimed: completed }
+        Self {
+            bound_attempt,
+            send_in_flight: false,
+            response: completed.then_some(false),
+            claimed: completed,
+            reward: None,
+        }
     }
 
     pub(super) fn begin_send(&mut self) -> io::Result<Option<EvolutionAttempt>> {
@@ -43,12 +51,23 @@ impl EvolutionFeedbackLedger {
             self.response.get_or_insert(true);
         } else {
             self.mark_neutral_response();
+            if let Some(reward) = self.reward.take() {
+                return Some((reward, false));
+            }
         }
         self.claim()
     }
 
     pub(super) fn mark_neutral_response(&mut self) {
         self.response = Some(false);
+    }
+
+    pub(super) fn final_attempt(&self) -> Option<EvolutionAttempt> {
+        match self.response {
+            Some(true) => self.reward,
+            Some(false) => None,
+            None => self.bound_attempt,
+        }
     }
 
     fn claim(&mut self) -> Option<(EvolutionAttempt, bool)> {
@@ -65,6 +84,9 @@ impl EvolutionFeedbackLedger {
             return None;
         };
         self.claimed = true;
+        if success {
+            self.reward = Some(attempt);
+        }
         Some((attempt, success))
     }
 }
@@ -80,7 +102,7 @@ mod tests {
             assert_eq!(ledger.begin_send().unwrap(), None);
             assert_eq!(ledger.finish_response(success), None);
             assert_eq!(ledger.finish_send(Some(attempt)).unwrap(), Some((attempt, success)));
-            assert_eq!(ledger.finish_response(!success), None);
+            assert_eq!(ledger.finish_response(!success), success.then_some((attempt, false)));
             assert_eq!(ledger.begin_send().unwrap(), Some(attempt));
             assert_eq!(ledger.finish_send(Some(attempt)).unwrap(), None);
         }

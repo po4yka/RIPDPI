@@ -1,19 +1,15 @@
-use crate::runtime::relay::session::AdaptiveFeedbackAttempts;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use crate::runtime::adaptive::note_server_ttl_for_route;
 use crate::runtime::failure::RuntimeClassifiedFailure;
-use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_success;
 use crate::runtime::relay::first_exchange::{FirstResponse, FirstResponseReader, read_first_response};
 use crate::runtime::relay::pending_response::PendingFirstResponse;
 use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::RuntimeConnectionRoute;
 
 pub(super) enum FirstResponseDecision {
-    Complete { recorded_success: bool },
+    Complete,
     Retry { failure: RuntimeClassifiedFailure, response_bytes: Option<Vec<u8>> },
     Continue(Box<PendingFirstResponse>),
 }
@@ -21,11 +17,8 @@ pub(super) enum FirstResponseDecision {
 pub(super) struct FirstResponseContext<'a> {
     pub(super) state: &'a RuntimeState,
     pub(super) target: SocketAddr,
-    pub(super) route: &'a RuntimeConnectionRoute,
     pub(super) host: Option<&'a str>,
     pub(super) original_request: &'a [u8],
-    pub(super) success_strategy_family: Option<&'static str>,
-    pub(super) primary_strategy_family: Option<&'static str>,
     pub(super) tls_send_start: Option<Instant>,
 }
 
@@ -48,11 +41,8 @@ pub(super) fn handle_first_response(
         FirstResponse::Continuation(reader) => Ok(FirstResponseDecision::Continue(Box::new(PendingFirstResponse {
             reader: *reader,
             target: context.target,
-            route: context.route.clone(),
             host: context.host.map(str::to_owned),
             original_request: context.original_request.to_vec(),
-            success_strategy_family: context.success_strategy_family,
-            primary_strategy_family: context.primary_strategy_family,
             tls_send_start: context.tls_send_start,
         }))),
         FirstResponse::Forward(bytes, server_ttl) => {
@@ -62,35 +52,10 @@ pub(super) fn handle_first_response(
             let has_inbound_payload = session_state.observe_first_response_payload(&bytes);
             client.write_all(&bytes)?;
             context.state.note_application_traffic(0, bytes.len() as u64);
-            if !has_inbound_payload {
-                return Ok(FirstResponseDecision::Complete { recorded_success: false });
+            if has_inbound_payload {
+                session_state.accept_first_response(server_ttl);
             }
-            if RuntimeState::should_track_strategy_target(context.target)
-                && let Some(ttl) = server_ttl
-            {
-                note_server_ttl_for_route(
-                    context.state,
-                    context.target,
-                    context.route.group_index,
-                    context.host,
-                    ttl,
-                    session_state.fake_ttl_attempt,
-                )?;
-            }
-            record_stream_relay_success(
-                context.state,
-                context.target,
-                context.route,
-                context.host,
-                Some(context.original_request),
-                context.success_strategy_family,
-                context.primary_strategy_family,
-                AdaptiveFeedbackAttempts {
-                    fake_ttl: session_state.fake_ttl_attempt,
-                    evolution: session_state.evolution_attempt,
-                },
-            )?;
-            Ok(FirstResponseDecision::Complete { recorded_success: true })
+            Ok(FirstResponseDecision::Complete)
         }
         FirstResponse::Neutral(bytes) => {
             session_state.neutral_first_response();
@@ -98,12 +63,12 @@ pub(super) fn handle_first_response(
             session_state.observe_retry_response_payload(&bytes);
             client.write_all(&bytes)?;
             context.state.note_application_traffic(0, bytes.len() as u64);
-            Ok(FirstResponseDecision::Complete { recorded_success: false })
+            Ok(FirstResponseDecision::Complete)
         }
         FirstResponse::NoData => {
             session_state.neutral_first_response();
             context.state.discard_evolver_attempt(session_state.evolution_attempt);
-            Ok(FirstResponseDecision::Complete { recorded_success: false })
+            Ok(FirstResponseDecision::Complete)
         }
         FirstResponse::Failure { failure, response_bytes } => {
             Ok(FirstResponseDecision::Retry { failure, response_bytes })
@@ -118,7 +83,7 @@ mod tests {
     use crate::runtime::payload::RUNTIME_DEFAULT_FAKE_TLS;
     use crate::runtime::relay::execution::{RelayResultContext, record_relay_result};
     use crate::runtime::routing::select_route;
-    use crate::runtime::types::RuntimeTransportProtocol;
+    use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
     use ripdpi_proxy_runtime_adapter::desync_platform::EvolutionHintContext;
     use ripdpi_proxy_runtime_adapter::model::config::{DETECT_TLS_ALERT, DesyncGroup};
     use ripdpi_proxy_runtime_adapter::model::ports::AdaptiveHintPort;
@@ -196,7 +161,6 @@ mod tests {
             let canceled = selected.evolution_attempt.unwrap();
             let other = resolve(None).evolution_attempt.unwrap();
             session.evolution_attempt = Some(canceled);
-            let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
             let result = handle_first_response(
                 &mut client,
                 &mut upstream,
@@ -204,20 +168,14 @@ mod tests {
                 FirstResponseContext {
                     state: &state,
                     target,
-                    route: &route,
                     host: Some("example.test"),
                     original_request: request,
-                    success_strategy_family: None,
-                    primary_strategy_family: None,
                     tls_send_start: Some(Instant::now()),
                 },
             )
             .expect("closure is forwarded without a failure");
             assert_eq!(*telemetry.0.lock().expect("handshake count"), 0, "closure is not a ServerHello");
-            assert!(
-                matches!(result, FirstResponseDecision::Complete { recorded_success: false }),
-                "code {code:?} is neutral"
-            );
+            assert!(matches!(result, FirstResponseDecision::Complete), "code {code:?} is neutral");
             let mut bytes = vec![0; response.len()];
             app.read_exact(&mut bytes).expect("forwarded closure");
             assert_eq!(bytes, response);
@@ -228,6 +186,62 @@ mod tests {
             state.note_evolver_success(Some(other));
             assert_eq!(resolve(Some(other)).hints.split_offset_base, None);
             assert!(!session.into_relay_session().permits_success(), "late relay completion must stay neutral");
+        }
+    }
+
+    #[test]
+    fn forwarded_response_stays_provisional_until_the_relay_completes() {
+        for frozen in [false, true] {
+            let mut config = RuntimeConfig::default();
+            config.groups.push(DesyncGroup::new(1));
+            config.adaptive.cache_ttl = 60;
+            let state = RuntimeState::test(config);
+            let (mut upstream, mut origin) = pair();
+            let (mut client, mut app) = pair();
+            let target = upstream.peer_addr().expect("target");
+            let request = b"GET / HTTP/1.1\r\nHost: fixture.test\r\n\r\n";
+            let response = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok";
+            let route = RuntimeConnectionRoute { group_index: 1, attempted_mask: 3, route_advances: 1 };
+            let mut session = FirstOutboundSession::new();
+            session.observe_first_outbound_payload(request);
+            origin.write_all(response).expect("short response");
+            handle_first_response(
+                &mut client,
+                &mut upstream,
+                &mut session,
+                FirstResponseContext {
+                    state: &state,
+                    target,
+                    host: None,
+                    original_request: request,
+                    tls_send_start: None,
+                },
+            )
+            .expect("forward response");
+            let mut forwarded = vec![0; response.len()];
+            app.read_exact(&mut forwarded).expect("already visible to client");
+            assert_eq!(forwarded.as_slice(), response);
+            let selected = || select_route(&state, target, None, None, true).expect("next route").group_index;
+            assert_eq!(selected(), 0, "an open relay cannot commit a strategy");
+            let context = || RelayResultContext {
+                relay_timeouts: state.relay_timeouts(1).expect("timeouts"),
+                target,
+                route: &route,
+                success_host: None,
+                success_payload: Some(request),
+                success_strategy_family: None,
+                primary_strategy_family: None,
+            };
+            let result = if frozen {
+                Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    crate::runtime::relay::stream_copy::CONNECTION_FREEZE_MARKER,
+                ))
+            } else {
+                Ok(session.into_relay_session())
+            };
+            record_relay_result(&result, &state, context()).expect("terminal feedback");
+            assert_eq!(selected(), usize::from(!frozen), "only clean completion can commit the strategy");
         }
     }
 
@@ -254,11 +268,8 @@ mod tests {
                 FirstResponseContext {
                     state: &state,
                     target,
-                    route: &route,
                     host: None,
                     original_request: request,
-                    success_strategy_family: None,
-                    primary_strategy_family: None,
                     tls_send_start: None,
                 },
             )
@@ -275,7 +286,6 @@ mod tests {
                     relay_timeouts: state.relay_timeouts(1).expect("timeouts"),
                     target,
                     route: &route,
-                    success_recorded: false,
                     success_host: None,
                     success_payload: Some(request),
                     success_strategy_family: None,

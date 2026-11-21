@@ -82,6 +82,7 @@ pub ripdpi_packets::QuicInitialBrowserProfile::ChromeAndroid
 pub ripdpi_packets::QuicInitialBrowserProfile::FirefoxAndroid
 pub enum ripdpi_packets::QuicInitialResponseDisposition
 pub ripdpi_packets::QuicInitialResponseDisposition::Accepted
+pub ripdpi_packets::QuicInitialResponseDisposition::AcceptedRetry
 pub ripdpi_packets::QuicInitialResponseDisposition::Rejected
 pub ripdpi_packets::QuicInitialResponseDisposition::UnverifiableClientOffer
 pub enum ripdpi_packets::QuicProbeProfile

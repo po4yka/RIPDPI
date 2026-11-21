@@ -49,11 +49,8 @@ fn dpi38_pending_closure_keeps_rotation_and_late_success_neutral() {
         let pending = PendingFirstResponse {
             reader: *reader,
             target,
-            route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 },
             host: HOST.map(str::to_owned),
             original_request: request.to_vec(),
-            success_strategy_family: None,
-            primary_strategy_family: None,
             tls_send_start: Some(Instant::now()),
         };
         let resolve = |attempt| {
@@ -91,7 +88,7 @@ fn dpi38_pending_closure_keeps_rotation_and_late_success_neutral() {
         }
         pending.finish(&state, &mut upstream, &mut client, &session).expect("finish neutral closure");
         session.finish_evolution_send(&state, Some(neutral_attempt)).unwrap();
-        session.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: false }).unwrap();
+        session.finish_first_response(FirstResponseOutcome::Accepted).unwrap();
         session.finish_evolution_response(&state, true).unwrap();
         let expected: &[u8] = if client_canceled { &[] } else { &response };
         let mut bytes = vec![0; expected.len()];
@@ -164,11 +161,8 @@ fn dpi38_pending_close_delimited_body_distinguishes_real_client_rst_from_write_f
         let pending = PendingFirstResponse {
             reader: *reader,
             target,
-            route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 },
             host: HOST.map(str::to_owned),
             original_request: REQUEST.to_vec(),
-            success_strategy_family: None,
-            primary_strategy_family: None,
             tls_send_start: None,
         };
         let mut seed = FirstOutboundSession::new();
@@ -230,7 +224,7 @@ fn dpi38_partial_method_timeout_keeps_body_framing_and_learning_neutral() {
     use crate::runtime::relay::failure_retry::{RelayFlow, prepare_relay};
     use crate::runtime::relay::stream_copy::{RelayStreamSettings, relay_streams};
     use crate::runtime::routing::select_route;
-    use crate::runtime::types::RuntimeTransportProtocol;
+    use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
     use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
     use std::net::Shutdown;
     use std::sync::mpsc;
@@ -304,7 +298,6 @@ fn dpi38_partial_method_timeout_keeps_body_framing_and_learning_neutral() {
                 relay_timeouts: state.relay_timeouts(1).expect("timeouts"),
                 target,
                 route: &final_route,
-                success_recorded: prepared.success_recorded,
                 success_host: prepared.success_host.as_deref(),
                 success_payload: prepared.success_payload.as_deref(),
                 success_strategy_family: prepared.success_strategy_family,

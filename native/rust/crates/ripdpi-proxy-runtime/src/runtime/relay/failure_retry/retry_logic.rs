@@ -12,22 +12,6 @@ use crate::runtime::routing::{note_route_success, preferred_targets_for_transpor
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 
-pub(in crate::runtime::relay) fn record_stream_fake_ttl_success(
-    state: &RuntimeState,
-    target: SocketAddr,
-    group_index: usize,
-    host: Option<&str>,
-    feedback: crate::runtime::relay::session::FakeTtlFeedback,
-) -> io::Result<()> {
-    if !RuntimeState::should_track_strategy_target(target) {
-        return Ok(());
-    }
-    if let Some(ttl) = feedback.server_ttl {
-        note_server_ttl_for_route(state, target, group_index, host, ttl, Some(feedback.attempt))?;
-    }
-    note_adaptive_fake_ttl_success(state, target, group_index, host, Some(feedback.attempt))
-}
-
 pub(crate) fn record_stream_relay_success(
     state: &RuntimeState,
     target: SocketAddr,
@@ -38,7 +22,7 @@ pub(crate) fn record_stream_relay_success(
     primary_strategy_family: Option<&str>,
     attempts: AdaptiveFeedbackAttempts,
 ) -> io::Result<()> {
-    let AdaptiveFeedbackAttempts { fake_ttl: fake_ttl_attempt, evolution: evolution_attempt } = attempts;
+    let AdaptiveFeedbackAttempts { fake_ttl: fake_ttl_attempt, server_ttl, evolution: evolution_attempt } = attempts;
     if !RuntimeState::should_track_strategy_target(target) {
         state.discard_evolver_attempt(evolution_attempt);
         return Ok(());
@@ -55,6 +39,9 @@ pub(crate) fn record_stream_relay_success(
             RuntimeTransportProtocol::Tcp,
         )?;
         note_direct_path_tcp_success(state, success_host, &targets, strategy_family.or(primary_strategy_family))?;
+    }
+    if let Some(ttl) = server_ttl {
+        note_server_ttl_for_route(state, target, route.group_index, success_host, ttl, fake_ttl_attempt)?;
     }
     note_adaptive_fake_ttl_success(state, target, route.group_index, success_host, fake_ttl_attempt)?;
     state.note_evolver_success(evolution_attempt);

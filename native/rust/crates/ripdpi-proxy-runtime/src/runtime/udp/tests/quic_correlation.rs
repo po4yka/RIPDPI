@@ -1,4 +1,5 @@
 use super::*;
+use crate::runtime::udp::session::UpstreamResponse::{self, Progress, Retry, Unmatched};
 
 fn rfc_packets(v2: bool) -> (&'static [u8], &'static [u8], &'static [u8]) {
     if v2 {
@@ -49,13 +50,13 @@ fn vn_reply(request: &[u8], decoy: bool) -> Vec<u8> {
     response
 }
 
-fn assert_first_reply_accounting(request: &[u8], replies: &[(&[u8], bool)], follow_up: bool) {
+fn assert_first_reply_accounting(request: &[u8], replies: &[(&[u8], UpstreamResponse)], follow_up: bool) {
     assert_accounting_with_second_initial(request, replies, follow_up, None);
 }
 
 fn assert_accounting_with_second_initial(
     request: &[u8],
-    replies: &[(&[u8], bool)],
+    replies: &[(&[u8], UpstreamResponse)],
     follow_up: bool,
     second: Option<&[u8]>,
 ) {
@@ -97,7 +98,7 @@ fn assert_accounting_with_second_initial(
     let expected_pending = second.unwrap_or(request);
     let mut encode = Vec::new();
     let mut scratch = UdpUpstreamPollScratch::default();
-    for &(reply, accepted) in replies {
+    for &(reply, expected) in replies {
         let last_used = flows.get(&key).unwrap().last_used;
         peer.send(reply).unwrap();
         let deadline = Instant::now() + Duration::from_secs(1);
@@ -120,10 +121,15 @@ fn assert_accounting_with_second_initial(
         let (_, forwarded) = parse_socks5_udp_packet(&received[..n], &state).unwrap();
         assert_eq!(forwarded, reply, "forwarding does not depend on success accounting");
         let entry = flows.get(&key).unwrap();
-        assert_eq!(entry.answered, accepted);
-        assert_eq!(entry.awaiting_response, !accepted);
-        if !accepted {
+        let progressed = expected == Progress;
+        assert_eq!(entry.answered, progressed);
+        assert_eq!(entry.awaiting_response, !progressed);
+        if expected == Unmatched {
             assert_eq!(entry.last_used, last_used, "unrelated traffic must not extend expiry");
+        } else if expected == Retry {
+            assert!(entry.session.has_provisional_retry(), "retain validated Retry separately");
+        }
+        if !progressed {
             assert_eq!(entry.pending_payload(), expected_pending, "keep first-flight metadata for timeout/fallback");
         } else {
             assert!(entry.session.pending_initial().is_none());
@@ -139,19 +145,23 @@ fn dpi24_quic_success_requires_integrity_and_survives_outbound_follow_up() {
         let actual_vn = vn_reply(request, false);
         let mut corrupt = initial.to_vec();
         *corrupt.last_mut().unwrap() ^= 1;
-        for accepted in [initial, retry] {
-            assert_first_reply_accounting(
-                request,
-                &[(&decoy_vn, false), (&actual_vn, false), (&corrupt, false), (accepted, true)],
-                true,
-            );
-        }
+        assert_first_reply_accounting(
+            request,
+            &[
+                (&decoy_vn, Unmatched),
+                (&actual_vn, Unmatched),
+                (&corrupt, Unmatched),
+                (retry, Retry),
+                (initial, Progress),
+            ],
+            true,
+        );
     }
 }
 
 #[test]
 fn dpi24_generic_udp_keeps_first_reply_behavior() {
-    assert_first_reply_accounting(b"generic request", &[(b"generic response", true)], false);
+    assert_first_reply_accounting(b"generic request", &[(b"generic response", Progress)], false);
 }
 
 #[test]
@@ -182,7 +192,7 @@ fn dpi24_declared_compatible_initial_is_accepted() {
             .as_slice(),
         ),
     ] {
-        assert_first_reply_accounting(request, &[(response, true)], true);
+        assert_first_reply_accounting(request, &[(response, Progress)], true);
     }
 }
 
@@ -211,7 +221,7 @@ fn dpi24_unverifiable_expiry_is_neutral_but_hard_errors_keep_fallback() {
 }
 
 fn assert_neutral_expiry_and_fallback(request: &[u8], response: &[u8]) {
-    assert_first_reply_accounting(request, &[(response, false)], true);
+    assert_first_reply_accounting(request, &[(response, Unmatched)], true);
     for (hard_error, new_connection) in [(false, false), (true, false), (false, true)] {
         let peer = UdpSocket::bind("127.0.0.1:0").unwrap();
         let target = peer.local_addr().unwrap();
@@ -398,8 +408,8 @@ fn dpi24_declared_fixed_bit_grease_initial_and_retry_are_accepted() {
             fixture!("v2-v1-grease-initial"),
         ),
     ] {
-        for response in [initial, retry, compatible] {
-            assert_first_reply_accounting(request, &[(response, true)], true);
+        for (response, disposition) in [(initial, Progress), (retry, Retry), (compatible, Progress)] {
+            assert_first_reply_accounting(request, &[(response, disposition)], true);
         }
     }
 }
@@ -410,7 +420,7 @@ fn dpi24_bad_integrity_initial_lookalike_keeps_generic_udp_accounting() {
         let (request, _, _) = rfc_packets(v2);
         let mut malformed = request.to_vec();
         *malformed.last_mut().unwrap() ^= 1;
-        assert_first_reply_accounting(&malformed, &[(b"generic response", true)], false);
+        assert_first_reply_accounting(&malformed, &[(b"generic response", Progress)], false);
     }
 }
 
@@ -421,7 +431,7 @@ fn dpi24_multiplexed_later_initial_keeps_earlier_valid_response() {
         env!("CARGO_MANIFEST_DIR"),
         "/../ripdpi-packets/tests/fixtures/quic/compatible/v1-v2-post-retry-client.bin"
     ));
-    assert_accounting_with_second_initial(request, &[(response, true)], true, Some(next));
+    assert_accounting_with_second_initial(request, &[(response, Progress)], true, Some(next));
 }
 
 #[test]

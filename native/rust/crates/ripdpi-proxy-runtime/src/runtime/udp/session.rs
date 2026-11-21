@@ -11,11 +11,19 @@ struct TrackedInitial {
     unverifiable_offer: bool,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum UpstreamResponse {
+    Unmatched,
+    Retry,
+    Progress,
+}
+
 pub(super) struct UdpFlowSession {
     state: RuntimeSessionState,
     quic_contexts: Vec<TrackedInitial>,
     quic_context_overflow: bool,
     quic_confirmed: bool,
+    saw_quic_retry: bool,
     pending_context: Option<usize>,
     pending_initial: Option<Vec<u8>>,
 }
@@ -27,30 +35,45 @@ impl UdpFlowSession {
             quic_contexts: Vec::new(),
             quic_context_overflow: false,
             quic_confirmed: false,
+            saw_quic_retry: false,
             pending_context: None,
             pending_initial: None,
         }
     }
 
-    pub(super) fn response_matches_outbound(&mut self, payload: &[u8]) -> bool {
+    pub(super) fn classify_upstream_response(&mut self, payload: &[u8]) -> UpstreamResponse {
+        use UpstreamResponse::{Progress, Retry, Unmatched};
         if !self.feedback_is_eligible()
             || (self.quic_confirmed
                 && payload.first().is_some_and(|byte| byte & 0x80 != 0)
                 && payload.get(1..5) == Some([0; 4].as_slice()))
         {
-            return false;
+            return Unmatched;
         }
         if self.quic_contexts.is_empty() {
-            return self.pending_initial.is_none();
+            return if self.pending_initial.is_none() { Progress } else { Unmatched };
         }
         for tracked in &mut self.quic_contexts {
             match classify_quic_initial_response_context(&tracked.context, payload) {
-                QuicInitialResponseDisposition::Accepted => return true,
+                QuicInitialResponseDisposition::Accepted => return Progress,
+                QuicInitialResponseDisposition::AcceptedRetry => {
+                    self.saw_quic_retry = true;
+                    return Retry;
+                }
                 QuicInitialResponseDisposition::UnverifiableClientOffer => tracked.unverifiable_offer = true,
                 QuicInitialResponseDisposition::Rejected => {}
             }
         }
-        false
+        Unmatched
+    }
+
+    #[cfg(test)]
+    pub(super) fn response_matches_outbound(&mut self, payload: &[u8]) -> bool {
+        self.classify_upstream_response(payload) != UpstreamResponse::Unmatched
+    }
+
+    pub(super) fn has_provisional_retry(&self) -> bool {
+        self.saw_quic_retry
     }
 
     // Initial-response evidence identifies QUIC, but does not confirm its handshake.
@@ -66,6 +89,7 @@ impl UdpFlowSession {
         self.quic_contexts.clear();
         self.quic_context_overflow = false;
         self.quic_confirmed = false;
+        self.saw_quic_retry = false;
         self.pending_context = None;
         self.pending_initial = None;
     }

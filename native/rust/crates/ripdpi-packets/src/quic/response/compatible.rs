@@ -8,7 +8,10 @@ use crate::types::{QUIC_V1_VERSION, QUIC_V2_VERSION};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum QuicInitialResponseDisposition {
+    /// A correlated, integrity-checked server Initial.
     Accepted,
+    /// A correlated Retry challenge, without evidence of further progress.
+    AcceptedRetry,
     Rejected,
     /// CID and packet integrity match, but the complete client offer is unavailable.
     UnverifiableClientOffer,
@@ -81,7 +84,7 @@ pub fn classify_quic_initial_response_context(
     context: &QuicInitialResponseContext,
     response: &[u8],
 ) -> QuicInitialResponseDisposition {
-    use QuicInitialResponseDisposition::{Accepted, Rejected, UnverifiableClientOffer};
+    use QuicInitialResponseDisposition::{Accepted, AcceptedRetry, Rejected, UnverifiableClientOffer};
     let Some((version, dcid, scid, offset)) = long_header(response) else {
         return Rejected;
     };
@@ -90,7 +93,8 @@ pub fn classify_quic_initial_response_context(
     }
     let clear_fixed_bit = response[0] & 0x40 == 0;
     let retry_type = if version == QUIC_V1_VERSION { 0x30 } else { 0x00 };
-    if response[0] & 0x30 == retry_type {
+    let retry = response[0] & 0x30 == retry_type;
+    if retry {
         if version != context.version
             || scid == context.dcid()
             || response.len().saturating_sub(offset) <= 16
@@ -106,15 +110,16 @@ pub fn classify_quic_initial_response_context(
             return Rejected;
         }
     }
+    let accepted = if retry { AcceptedRetry } else { Accepted };
     if version == context.version && !clear_fixed_bit {
-        return Accepted;
+        return accepted;
     }
     // RFC 9368/9369 permit compatible Initial versions; RFC 9287 permits a cleared Fixed Bit.
     // Retry retains the original version. Integrity uses the raw header, including its Fixed Bit.
     match context.offers {
         ClientOffers::Unavailable => UnverifiableClientOffer,
         ClientOffers::Known { compatible, grease } => {
-            if (version == context.version || compatible) && (!clear_fixed_bit || grease) { Accepted } else { Rejected }
+            if (version == context.version || compatible) && (!clear_fixed_bit || grease) { accepted } else { Rejected }
         }
     }
 }

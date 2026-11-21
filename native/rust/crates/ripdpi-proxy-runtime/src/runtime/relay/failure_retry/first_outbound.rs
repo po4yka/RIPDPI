@@ -30,7 +30,6 @@ pub(crate) struct PreparedRelay {
     pub(crate) cap_guard: Option<ExitIpSessionGuard>,
     pub(crate) route: RuntimeConnectionRoute,
     pub(crate) session_state: RelaySession,
-    pub(crate) success_recorded: bool,
     pub(crate) success_host: Option<String>,
     pub(crate) success_payload: Option<Vec<u8>>,
     pub(crate) success_strategy_family: Option<&'static str>,
@@ -48,7 +47,6 @@ impl PreparedRelay {
             cap_guard,
             route,
             session_state: session.into_relay_session(),
-            success_recorded: false,
             success_host: None,
             success_payload: None,
             success_strategy_family: None,
@@ -148,7 +146,6 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let mut route = self.route;
         let mut retry_state = RouteRetryState::default();
         let mut session_state;
-        let mut success_recorded = false;
         let mut success_strategy_family;
         let mut first_payload_counted = false;
         let inspect_first_response = needs_first_exchange(self.state)?;
@@ -211,24 +208,20 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 FirstResponseContext {
                     state: self.state,
                     target: self.target,
-                    route: &route,
                     host: first_payload.host.as_deref(),
                     original_request: &first_payload.original_request,
-                    success_strategy_family,
-                    primary_strategy_family: self.state.primary_tcp_strategy_family(route.group_index),
                     tls_send_start,
                 },
-            )? {
+            )
+            .inspect_err(|_| self.state.discard_evolver_attempt(session_state.evolution_attempt))?
+            {
                 FirstResponseDecision::Continue(pending) => {
                     // No route retry can run after this move. The outbound copy may
                     // now commit continuation bytes that this coordinator cannot replay.
                     session_state.defer_first_response(*pending);
                     break;
                 }
-                FirstResponseDecision::Complete { recorded_success } => {
-                    success_recorded = recorded_success;
-                    break;
-                }
+                FirstResponseDecision::Complete => break,
                 FirstResponseDecision::Retry { failure, response_bytes } => {
                     let Some(retry) = handle_first_response_failure(
                         client,
@@ -263,7 +256,6 @@ impl<'a> FirstOutboundCoordinator<'a> {
             cap_guard,
             route,
             session_state: session_state.into_relay_session(),
-            success_recorded,
             success_host: first_payload.host,
             success_payload: Some(first_payload.original_request),
             success_strategy_family,

@@ -58,12 +58,14 @@ fn version_negotiation(seed: &QuicInitialSeed) -> Vec<u8> {
 }
 
 #[test]
-fn quic_decoy_response_does_not_complete_the_real_flow() {
-    for (version, kind) in [
-        (QUIC_V1_VERSION, UdpChainStepKind::QuicPacketNumberGap),
-        (QUIC_V2_VERSION, UdpChainStepKind::QuicPacketNumberGap),
-        (QUIC_V1_VERSION, UdpChainStepKind::QuicFakeVersion),
-        (QUIC_V2_VERSION, UdpChainStepKind::QuicFakeVersion),
+fn quic_retry_is_forwarded_and_only_initial_progress_trains_the_route() {
+    for (version, kind, retry_only) in [
+        (QUIC_V1_VERSION, UdpChainStepKind::QuicPacketNumberGap, false),
+        (QUIC_V2_VERSION, UdpChainStepKind::QuicPacketNumberGap, false),
+        (QUIC_V1_VERSION, UdpChainStepKind::QuicFakeVersion, false),
+        (QUIC_V2_VERSION, UdpChainStepKind::QuicFakeVersion, false),
+        (QUIC_V1_VERSION, UdpChainStepKind::QuicPacketNumberGap, true),
+        (QUIC_V2_VERSION, UdpChainStepKind::QuicPacketNumberGap, true),
     ] {
         let peer = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("peer");
         peer.set_read_timeout(Some(Duration::from_secs(2))).expect("peer timeout");
@@ -81,11 +83,31 @@ fn quic_decoy_response_does_not_complete_the_real_flow() {
             preserve_host_in_response: false,
             authoritative_host: None,
         };
-        let mut group = DesyncGroup::new(0);
+        let mut group = DesyncGroup::new(1);
         group.actions.udp_chain = vec![UdpChainStep::new(kind, 1)];
-        let state = test_runtime_state(RuntimeConfig { groups: vec![group], ..Default::default() });
-        let mut flows = HashMap::from([(key.clone(), flow_entry_for(upstream, target))]);
+        let mut config = RuntimeConfig { groups: vec![DesyncGroup::new(0), group], ..Default::default() };
+        config.adaptive.cache_ttl = 60;
+        let state = test_runtime_state(config);
+        let mut entry = flow_entry_for(upstream, target);
+        entry.route = RuntimeConnectionRoute { group_index: 1, attempted_mask: 3, route_advances: 1 };
+        let fallback = retry_only.then(|| UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("fallback"));
+        if let Some(fallback) = &fallback {
+            entry.target_candidates.push(fallback.local_addr().expect("owned fallback"));
+        }
+        let mut flows = HashMap::from([(key.clone(), entry)]);
         let original = real_initial(version);
+        let chosen_group = || {
+            state
+                .select_initial_route(
+                    target,
+                    Some(&original),
+                    None,
+                    true,
+                    crate::runtime::types::RuntimeTransportProtocol::Udp,
+                )
+                .expect("route choice")
+                .group_index
+        };
         super::super::upstream_pump::send_udp_flow_payload(
             &state,
             flows.get_mut(&key).expect("flow"),
@@ -154,10 +176,29 @@ fn quic_decoy_response_does_not_complete_the_real_flow() {
         assert!(validate_quic_version_negotiation_response(&original, &real_reply));
         pump_reply(&real_reply, &mut flows);
         assert!(!flows.get(&key).expect("flow").answered, "VN does not establish the selected version");
+        pump_reply(real_responses(version).1, &mut flows);
+        let entry = flows.get(&key).expect("flow");
+        assert!(entry.awaiting_response, "Retry alone must not settle strategy feedback");
+        assert!(!entry.answered, "Retry must leave later valid Initial correlation active");
+        assert_eq!(chosen_group(), 0, "Retry alone must not pin a route");
+        if let Some(fallback) = &fallback {
+            let now = entry.last_used + crate::runtime::state::UDP_FLOW_IDLE_TIMEOUT;
+            crate::runtime::udp::flow::expire_udp_flows(&state, &mut flows, None, now, &mut Vec::new())
+                .expect("Retry-only expiry is neutral");
+            assert!(flows.is_empty());
+            assert_eq!(chosen_group(), 0, "no route success after Retry-only expiry");
+            fallback.set_nonblocking(true).expect("fallback nonblocking");
+            assert_eq!(
+                fallback.recv(&mut [0; 2048]).expect_err("no replay from Retry-only expiry").kind(),
+                std::io::ErrorKind::WouldBlock
+            );
+            continue;
+        }
         pump_reply(real_responses(version).0, &mut flows);
         let entry = flows.get(&key).expect("flow");
         assert!(entry.answered);
         assert!(!entry.awaiting_response);
+        assert_eq!(chosen_group(), 1, "correlated Initial progress should pin the route");
         let confirmed_activity = entry.last_used;
         let confirmed_round = entry.session.round_count();
         for late_vn in [&decoy_reply, &real_reply] {
