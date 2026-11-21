@@ -1,0 +1,5 @@
+# Design
+
+Use existing physical network, service failure, and handover signals. A completed failing check on the live VPN can request one early follow-up. Coalesce signals for five seconds and allow at most one recovery admission attempt every 30 seconds across selectors. The regular loop still runs at its policy interval. An early pass uses the current group, selection, network and leased route. Outage backoff in the same scope still applies.
+
+Charge regular and recovery payload passes to the same boot-aware ledger. For a payload policy without a quality cap, use a 60-second window with room for two maximum-size passes. Leave one pass of headroom when the active budget can support both. A policy with room for one pass admits either purpose up to its cap. A denied pass records a budget deferral without data-plane evidence. Store the recovery tags separately from the existing v1 byte records and bind them to those records. Older clients can still read the charged records after downgrade.

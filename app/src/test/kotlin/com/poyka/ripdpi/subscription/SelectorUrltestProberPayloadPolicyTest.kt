@@ -30,6 +30,7 @@ class SelectorUrltestProberPayloadPolicyTest {
                     },
                     SelectorProbeScopeProvider { selectorTestScope(group) },
                     { now },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "unused", 0)
             assertEquals("active", store.selectedProfileId("g").value)
@@ -55,6 +56,7 @@ class SelectorUrltestProberPayloadPolicyTest {
                     MemberLatencyProbe { member, _ -> if (member.id == "reserve") MemberProbeResult(20L) else null },
                     SelectorProbeScopeProvider { scope },
                     { now },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "unused", 0)
             val healthy = EndpointHealth(EndpointHealthStatus.HEALTHY, 0L, 60)
@@ -85,6 +87,7 @@ class SelectorUrltestProberPayloadPolicyTest {
                     },
                     SelectorProbeScopeProvider { scope },
                     { now },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "unused", 0)
             scope = scope.copy(underlayGeneration = 2)
@@ -118,6 +121,7 @@ class SelectorUrltestProberPayloadPolicyTest {
                     },
                     SelectorProbeScopeProvider { selectorTestScope(group) },
                     { now },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "unused", 0)
             now = 60_000
@@ -168,6 +172,7 @@ class SelectorUrltestProberPayloadPolicyTest {
                     },
                     SelectorProbeScopeProvider { selectorTestScope(group) },
                     { testScheduler.currentTime },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "unused", 0)
             advanceTimeBy(60_000)
@@ -198,6 +203,7 @@ class SelectorUrltestProberPayloadPolicyTest {
                     },
                     SelectorProbeScopeProvider { selectorTestScope(group) },
                     { testScheduler.currentTime },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             repeat(3) {
                 prober.runProbePass(group, "unused", 0)
@@ -239,6 +245,7 @@ class SelectorUrltestProberPayloadPolicyTest {
                     },
                     SelectorProbeScopeProvider { selectorTestScope(group) },
                     { testScheduler.currentTime },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             prober.runProbePass(group, "unused", 0)
             assertEquals(60_000L, testScheduler.currentTime)

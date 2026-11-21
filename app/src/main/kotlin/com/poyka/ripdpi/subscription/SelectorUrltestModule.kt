@@ -1,7 +1,12 @@
 package com.poyka.ripdpi.subscription
 
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.proxyimport.SelectorReloadScope
 import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
@@ -12,6 +17,11 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import javax.inject.Singleton
@@ -67,6 +77,7 @@ abstract class SelectorUrltestModule {
                         service.status.map { },
                         activeGroup.choiceChanges.map { },
                     ),
+                recoveryRequests = selectorRecoveryRequests(network.changes, service),
             )
 
         /** Adapts the urltest coordinator to the service-lifecycle multibinding. */
@@ -85,3 +96,23 @@ abstract class SelectorUrltestModule {
             }
     }
 }
+
+internal fun selectorRecoveryRequests(
+    networkChanges: Flow<Long>,
+    service: ServiceStateStore,
+): Flow<Unit> =
+    merge(
+        networkChanges.drop(1).map { },
+        service.events
+            .filterIsInstance<ServiceEvent.Failed>()
+            .filter {
+                it.statusAtFailure == AppStatus.Running && it.modeAtFailure == service.status.value.second &&
+                    it.reason !is FailureReason.PermissionLost
+            }.map { },
+        service.telemetry
+            .map { it.networkHandoverState }
+            .distinctUntilChanged()
+            .drop(1)
+            .filter { it == NetworkHandoverStates.Revalidated }
+            .map { },
+    )

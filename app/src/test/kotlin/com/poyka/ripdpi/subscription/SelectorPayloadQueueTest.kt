@@ -42,6 +42,7 @@ class SelectorPayloadQueueTest {
                     },
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     { testScheduler.currentTime },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
 
             repeat(2) { round ->
@@ -79,6 +80,7 @@ class SelectorPayloadQueueTest {
                     },
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     { testScheduler.currentTime },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
             val running = launch { prober.runProbePass(first, "unused", 0) }
             runCurrent()
@@ -118,6 +120,7 @@ class SelectorPayloadQueueTest {
                     },
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     { testScheduler.currentTime },
+                    reserveBudget = ::admitTestPayloadPass,
                 )
 
             val reachability = launch { prober.runProbePass(ordinary, "https://probe.example", 0) }

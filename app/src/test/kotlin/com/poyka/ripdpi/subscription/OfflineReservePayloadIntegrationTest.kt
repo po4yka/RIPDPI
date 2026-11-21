@@ -203,6 +203,7 @@ class OfflineReservePayloadIntegrationTest {
             },
             SelectorProbeScopeProvider { scope },
             monotonicMillis = { probeTimeMillis },
+            reserveBudget = ::admitTestPayloadPass,
         )
     }
 
