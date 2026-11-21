@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.isMeasuredOn
 import com.poyka.ripdpi.data.tlsFingerprintProfileSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -408,8 +409,7 @@ internal class DefaultDiagnosticsHomeWorkflowService
                 val strategyRecommendation = report.strategyRecommendation
                 // Settings measured on one network must not be applied on another; an old row without its
                 // network key cannot show where it was measured.
-                val networkChanged =
-                    session.networkScopeKey.let { measured -> measured == null || measured != currentFingerprintHash() }
+                val networkChanged = !isMeasuredOn(session.networkScopeKey, currentFingerprintHash())
                 val applicable = session.hasCompleteHomeReport(sessionId, report) && !networkChanged
                 val strategyApplied =
                     if (applicable) recommendationApplier.applyValidatedRecommendation(strategyProbe) else null

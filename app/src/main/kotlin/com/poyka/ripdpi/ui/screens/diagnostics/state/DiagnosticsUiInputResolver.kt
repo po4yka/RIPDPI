@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
+import com.poyka.ripdpi.data.isMeasuredOn
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
@@ -70,10 +71,8 @@ internal class DiagnosticsUiInputResolver
                 latestResolverRecommendation =
                     latestProfileReport
                         ?.resolverRecommendation
-                        ?.takeIf {
-                            input.currentNetworkScopeKey != null &&
-                                latestProfileSession?.networkScopeKey == input.currentNetworkScopeKey
-                        }?.let(support::toResolverRecommendationUiModel),
+                        ?.takeIf { isMeasuredOn(latestProfileSession?.networkScopeKey, input.currentNetworkScopeKey) }
+                        ?.let(support::toResolverRecommendationUiModel),
                 latestStrategyProbeReport = latestStrategyProbeReport,
                 currentTelemetry = input.currentTelemetry,
                 health =

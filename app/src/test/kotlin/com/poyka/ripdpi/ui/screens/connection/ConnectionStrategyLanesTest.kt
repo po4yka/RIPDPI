@@ -193,14 +193,14 @@ class ConnectionStrategyLanesTest {
     }
 
     @Test
-    fun `lanes are marked only when the test ran on another known network`() {
+    fun `lanes are unmarked only when the test ran on the current known network`() {
         val atHome = session("home", report = report(), startedAt = 20L).copy(networkScopeKey = "home")
 
         assertEquals(true, atHome.toStrategyLanes("mobile")?.otherNetwork)
         assertEquals(false, atHome.toStrategyLanes("home")?.otherNetwork)
-        // No network now, or a row from before the network was recorded: not known, so not marked.
-        assertEquals(false, atHome.toStrategyLanes(null)?.otherNetwork)
-        assertEquals(false, atHome.copy(networkScopeKey = null).toStrategyLanes("mobile")?.otherNetwork)
+        // No network known yet, or a row from before the network was recorded: the applier refuses both.
+        assertEquals(true, atHome.toStrategyLanes(null)?.otherNetwork)
+        assertEquals(true, atHome.copy(networkScopeKey = null).toStrategyLanes("mobile")?.otherNetwork)
     }
 
     @Test

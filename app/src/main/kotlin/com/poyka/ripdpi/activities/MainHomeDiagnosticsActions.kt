@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.isMeasuredOn
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
@@ -594,4 +595,4 @@ private fun List<DiagnosticScanSession>.latestCompletedManualDiagnosticSession()
     }.maxByOrNull { session -> session.finishedAt ?: session.startedAt }
 
 private fun DiagnosticsHomeCompositeOutcome.matchesKnownNetwork(currentFingerprint: String?): Boolean =
-    fingerprintHash?.let { it == currentFingerprint } == true
+    isMeasuredOn(fingerprintHash, currentFingerprint)

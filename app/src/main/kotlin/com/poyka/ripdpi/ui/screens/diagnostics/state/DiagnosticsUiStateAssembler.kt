@@ -6,16 +6,15 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.currentNetworkScopeKey
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
@@ -262,7 +261,10 @@ internal class DiagnosticsUiStateAssembler
                 ),
                 contextDependencies.serviceStateStore.status,
                 contextDependencies.activeConnectionPolicySource.activePolicies,
-                currentNetworkScopeKey(contextDependencies),
+                currentNetworkScopeKey(
+                    contextDependencies.networkHandoverMonitor,
+                    contextDependencies.networkFingerprintProvider,
+                ).flowOn(dispatchers.io),
             ) { settings, rememberedPolicies, serviceStatus, activePolicies, networkScopeKey ->
                 val (status, activeMode) = serviceStatus
                 val connectionPolicy =
@@ -281,18 +283,6 @@ internal class DiagnosticsUiStateAssembler
                     serviceStatus = AppStatus.Halted,
                 ),
             )
-
-        private fun currentNetworkScopeKey(contextDependencies: DiagnosticsContextDependencies): Flow<String?> =
-            contextDependencies.networkHandoverMonitor
-                .observe()
-                .map { handover -> handover.currentFingerprint?.scopeKey() }
-                .onStart {
-                    emit(
-                        runCatching {
-                            contextDependencies.networkFingerprintProvider.capture()
-                        }.getOrNull()?.scopeKey(),
-                    )
-                }.flowOn(dispatchers.io)
 
         private fun assembleControlState(
             scope: CoroutineScope,

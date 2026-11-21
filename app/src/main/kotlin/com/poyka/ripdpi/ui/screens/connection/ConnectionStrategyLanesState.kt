@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
+import com.poyka.ripdpi.data.currentNetworkScopeKey
+import com.poyka.ripdpi.data.isMeasuredOn
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
@@ -33,8 +35,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.runningReduce
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -116,7 +116,11 @@ class ConnectionStrategyLanesSource
         // A lane offers its strategy only when applying it can succeed and would change the settings.
         @OptIn(ExperimentalCoroutinesApi::class)
         private fun storedTest(): Flow<Triple<DiagnosticScanSession?, String?, Set<String>>> =
-            combine(history.observeLatestStrategyTest(), currentNetworkScopeKey(), ::Pair).flatMapLatest { pair ->
+            combine(
+                history.observeLatestStrategyTest(),
+                currentNetworkScopeKey(handovers, fingerprints).flowOn(dispatchers.io),
+                ::Pair,
+            ).flatMapLatest { pair ->
                 val (session, network) = pair
                 if (session == null) {
                     flowOf(Triple(null, network, emptySet()))
@@ -189,15 +193,6 @@ class ConnectionStrategyLanesSource
                         }
                     }
                 }.map { it?.lanes }
-
-        private fun currentNetworkScopeKey(): Flow<String?> =
-            handovers
-                .observe()
-                .map { handover -> handover.currentFingerprint?.scopeKey() }
-                .onStart { emit(runCatching { fingerprints.capture() }.getOrNull()?.scopeKey()) }
-                // A moment without a network keeps the last known one, so the mark does not flicker.
-                .runningReduce { last, next -> next ?: last }
-                .flowOn(dispatchers.io)
     }
 
 private data class RunningTest(
@@ -244,13 +239,12 @@ private fun StrategyProbeLiveProgress.toLane(outcome: String?): StrategyLaneUiSt
     }
 
 /**
- * A test with no candidates gives no lanes. A network counts as another one only when both keys are known:
- * an old row, or a moment without a network, must not mark the lanes.
+ * A test with no candidates gives no lanes. Lanes not measured on the current network are marked, as the applier
+ * refuses them: an old row that does not say where it ran is not this network's either.
  */
 internal fun DiagnosticScanSession.toStrategyLanes(currentNetworkScopeKey: String?): StrategyLanesUiState? =
     report?.strategyProbeReport?.toStrategyLanes(finishedAt ?: startedAt, report?.results.orEmpty())?.copy(
-        otherNetwork =
-            networkScopeKey != null && currentNetworkScopeKey != null && networkScopeKey != currentNetworkScopeKey,
+        otherNetwork = !isMeasuredOn(networkScopeKey, currentNetworkScopeKey),
     )
 
 // The engine tests the strategy in use as a candidate of its own, under this id.

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.application
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.isMeasuredOn
 import com.poyka.ripdpi.diagnostics.DiagnosticsSessionQueries
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import kotlinx.serialization.json.Json
@@ -23,7 +24,7 @@ class DiagnosticsRecommendationStore
         ): ResolverRecommendation? =
             scanRecordStore
                 .getScanSession(sessionId)
-                ?.takeIf { it.networkScopeKey == networkScopeKey }
+                ?.takeIf { isMeasuredOn(it.networkScopeKey, networkScopeKey) }
                 ?.reportJson
                 ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
                 ?.resolverRecommendation

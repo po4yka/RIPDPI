@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.isMeasuredOn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
@@ -61,6 +62,6 @@ class StrategyCandidateApplier
         private fun DiagnosticScanSession.applicableReport(currentNetworkScopeKey: String?): StrategyProbeReport? =
             report
                 ?.strategyProbeReport
-                ?.takeIf { networkScopeKey != null && networkScopeKey == currentNetworkScopeKey }
+                ?.takeIf { isMeasuredOn(networkScopeKey, currentNetworkScopeKey) }
                 ?.takeIf { it.completionKind == StrategyProbeCompletionKind.NORMAL }
     }
