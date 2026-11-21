@@ -44,7 +44,7 @@ active RIPDPI VPN or local proxy on Android). Scan kinds include `quick_v1` (fas
 
 The manual `selective-availability-matrix` profile compares declared-available,
 domestic, global and optional user targets. `selectiveMatrix` is an optional
-version-1 request configuration of the engine wire schema (currently 11). Old profiles do not schedule
+version-1 request configuration of the engine wire schema (`DIAGNOSTICS_ENGINE_SCHEMA_VERSION`). Old profiles do not schedule
 its `SELECTIVE_AVAILABILITY` task family. It does not run in background audits.
 
 Each round visits the cohorts in order. An attempt records DNS, TCP, verified
@@ -327,20 +327,9 @@ session. See [`.claude/rules/android-vpn-lifecycle.md`](../../.claude/rules/andr
 
 ### Policy memory
 
-A scan verdict feeds the **per-network policy cache**. Results are persisted
-by `:core:diagnostics-data` and keyed by a **SHA-256 network fingerprint
-hash** — never a raw `BSSID` / `SSID` / carrier name (see
-[`.claude/rules/network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md)).
-The `RememberedNetworkPolicyStore` gives each remembered policy a status of
-`observed`, `validated` or `suppressed`. Applying a policy records
-`lastAppliedAt`; success and failure update counters. A success can promote an
-`observed` policy to `validated`. Two consecutive failures of a `validated`
-policy suppress it for 24 hours (`suppressedUntil`). A validated policy is
-replayed when that fingerprint is seen again. A fresh scan result that meets
-the background auto-persist bar outranks it and is persisted. Diagnostics is the
-*producer* of these entries; the runtime is the *consumer*. The producer side
-must keep its persisted artifacts inside the privacy bounds above — that
-declaration is load-bearing for the Play Store Data Safety surface.
+A scan verdict feeds the **per-network policy cache**. Results are persisted by `:core:diagnostics-data` and keyed by a **SHA-256 network fingerprint hash**, never a raw `BSSID` / `SSID` / carrier name (see [`.claude/rules/network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md)). Diagnostics is the *producer* of these entries; the runtime is the *consumer*. The producer side must keep its persisted artifacts inside the privacy bounds above; that declaration is load-bearing for the Play Store Data Safety surface.
+
+The `RememberedNetworkPolicyStore` gives each remembered policy a status of `observed`, `validated` or `suppressed`. Only probe evidence validates a policy: ordinary sessions write no policy, and `manual_session` rows are never replayed. A validated policy replays for at most 7 days after its probe (`RememberedNetworkPolicyMaxValidatedAgeMs`); session traffic never extends that, and after it automatic probing measures the network again. Two consecutive failures of a validated policy suppress it until a probe validates it again; `suppressedUntil` is neither written nor read. A replay lays only the measured TCP and QUIC lanes, plus DNS and concurrency, over the current settings; a policy with no measured lane is not replayed. A fresh scan result outranks a remembered policy exactly when finalization persists its strategy as a new policy. A Home audit applies its result, and a strategy test applies a candidate, only when the session was measured on the current network (`isMeasuredOn`).
 
 ---
 
