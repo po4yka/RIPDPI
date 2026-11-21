@@ -124,6 +124,13 @@ for identifier, protocol, package, target, test in (
         "tests::backend_fixture_tests::relay_runtime_routes_cloudflare_tunnel_through_xhttp_backend",
     ),
     (
+        "native-snell-capability",
+        "snell",
+        "ripdpi-relay-core",
+        "lib",
+        "tests::transport_registry::snell_backend_builds_tcp_only_from_kotlin_wire_fields",
+    ),
+    (
         "native-tor-capability",
         "tor",
         "ripdpi-relay-core",
