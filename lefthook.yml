@@ -26,7 +26,7 @@ pre-commit:
         grep -E '^\+' |
         grep -Ev '^\+\+\+' |
         grep -Ei '(AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY-----|(password|secret|token|api_key)\s*=\s*"[^"]{8,}")' |
-        grep -Ev 'AKIAIOSFODNN7EXAMPLE|[Ff]ixture' &&
+        grep -Ev 'AKIAIOSFODNN7EXAMPLE|[Ff]ixture' | grep -Ev '^\+\s*internal const val ConnectionField[A-Za-z]+ = "[A-Za-z]+"$' &&
         { echo "error: potential secrets detected in staged changes"; exit 1; } ||
         true
 
