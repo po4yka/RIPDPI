@@ -312,7 +312,6 @@ app:awg_field_i2
 app:awg_field_i3
 app:awg_field_i4
 app:awg_field_i5
-app:awg_field_invalid
 app:awg_field_jc
 app:awg_field_jmax
 app:awg_field_jmin
@@ -2995,6 +2994,7 @@ app:fake_payload_profile_status_separate
 app:fake_payload_profile_summary_label_current
 app:fake_payload_profile_summary_label_interaction
 app:fake_payload_profile_summary_label_when_used
+app:field_error_invalid
 app:haptic_feedback_accessibility
 app:haptic_feedback_off
 app:haptic_feedback_system

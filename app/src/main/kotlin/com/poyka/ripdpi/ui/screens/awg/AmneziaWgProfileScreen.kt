@@ -245,7 +245,9 @@ private fun AwgAdvancedSection(
 ) {
     val editor = uiState.editor
     RelayAdvancedSection(
-        hasError = AwgAdvancedFields.any { editor.hasFieldError(it) || editor.conflictingField(it) != null },
+        hasError =
+            editor.runtimeInputField() in AwgAdvancedFields ||
+                AwgAdvancedFields.any { editor.hasFieldError(it) || editor.conflictingField(it) != null },
     ) {
         AdvancedConnectionSection(uiState, onFieldChanged, onRevealPresharedKey)
         CarrierSection(uiState, onFieldChanged, onCarrierSelected)
@@ -297,7 +299,7 @@ private fun AdvancedConnectionSection(
                     .takeIf { editor.isManaged(AwgEditorField.PRESHARED_KEY) },
             errorText =
                 if (editor.hasFieldError(AwgEditorField.PRESHARED_KEY)) {
-                    stringResource(R.string.awg_field_invalid)
+                    stringResource(R.string.field_error_invalid)
                 } else {
                     null
                 },
@@ -387,7 +389,7 @@ private fun InterfaceSection(
                         AwgEditorField.INTERFACE_PRIVATE_KEY,
                     )
                 ) {
-                    stringResource(R.string.awg_field_invalid)
+                    stringResource(R.string.field_error_invalid)
                 } else {
                     null
                 },
@@ -522,6 +524,7 @@ internal fun PlainField(
     val hasError = editor.hasFieldError(field)
     val conflict = editor.conflictingField(field)
     val managed = editor.isManaged(field)
+    val value = editor.rawText(field)
     val valueField =
         RelayValueField(
             label = stringResource(labelRes),
@@ -542,7 +545,12 @@ internal fun PlainField(
                     }
 
                     hasError -> {
-                        stringResource(R.string.awg_field_invalid)
+                        stringResource(R.string.field_error_invalid)
+                    }
+
+                    // An empty field the runtime requires, inside Advanced where the user may not have looked.
+                    field in AwgAdvancedFields && field == editor.runtimeInputField() && value.isBlank() -> {
+                        stringResource(R.string.config_error_required)
                     }
 
                     else -> {
@@ -553,7 +561,6 @@ internal fun PlainField(
             readOnly = managed,
             enabled = enabled,
         )
-    val value = editor.rawText(field)
     val onValueChange: (String) -> Unit = { onFieldChanged(field, it) }
     when (field) {
         AwgEditorField.SERVER -> {

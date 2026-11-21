@@ -15,7 +15,7 @@ internal fun validationMessage(errorKey: String?): String? =
         "required" -> stringResource(R.string.config_error_required)
         "taken" -> stringResource(R.string.config_relay_profile_id_taken)
         "unsupported" -> stringResource(R.string.config_error_unsupported)
-        "invalid" -> stringResource(R.string.awg_field_invalid)
+        "invalid" -> stringResource(R.string.field_error_invalid)
         "conflict_vless_transport" -> conflictMessage(R.string.config_relay_vless_transport)
         "conflict_udp" -> conflictMessage(R.string.config_relay_udp)
         "same_hop" -> stringResource(R.string.config_relay_chain_error_same_hop)

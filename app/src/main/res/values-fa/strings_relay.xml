@@ -115,7 +115,7 @@
     <string name="awg_field_i3">I3</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
-    <string name="awg_field_invalid">مقدار معتبری برای این فیلد نیست.</string>
+    <string name="field_error_invalid">مقدار معتبری برای این فیلد نیست.</string>
     <string name="awg_field_from_subscription">از اشتراک</string>
     <string name="awg_hp_prefix_min">برای محافظت از سربرگ، %1$s را روی %2$d یا بیشتر تنظیم کنید.</string>
     <string name="awg_v3_title">AmneziaWG 3.x</string>

@@ -158,6 +158,8 @@ internal fun RelayKindAdvancedFields(
         }
 
         RelayKindVless -> {
+            // Plain VLESS has no transport picker; an imported transport it cannot run is reported here.
+            RelayChoiceError(errors[ConnectionFieldRelayVlessTransport])
             VlessFlowFields(draft, actions.vless, errors)
             XhttpFields(draft, actions.vless, errors)
         }

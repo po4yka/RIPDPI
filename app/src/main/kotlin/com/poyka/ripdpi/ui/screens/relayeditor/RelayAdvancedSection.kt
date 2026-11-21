@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,6 +31,8 @@ internal fun RelayAdvancedSection(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    // Latched, so fixing the field does not fold the group away under the user's cursor.
+    LaunchedEffect(hasError) { if (hasError) expanded = true }
     val shown = expanded || hasError
     val state = stringResource(if (shown) R.string.semantic_state_expanded else R.string.semantic_state_collapsed)
     RipDpiButton(

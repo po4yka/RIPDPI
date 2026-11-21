@@ -34,7 +34,7 @@ internal fun AwgV3Fields(
             onReveal = onRevealHeaderProtectionKey,
             errorText =
                 if (editor.hasFieldError(AwgEditorField.HEADER_PROTECTION_KEY)) {
-                    stringResource(R.string.awg_field_invalid)
+                    stringResource(R.string.field_error_invalid)
                 } else {
                     null
                 },

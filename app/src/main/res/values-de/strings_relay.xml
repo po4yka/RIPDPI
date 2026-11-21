@@ -115,7 +115,7 @@
     <string name="awg_field_i3">I3</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
-    <string name="awg_field_invalid">Kein gültiger Wert für dieses Feld.</string>
+    <string name="field_error_invalid">Kein gültiger Wert für dieses Feld.</string>
     <string name="awg_field_from_subscription">Aus dem Abonnement</string>
     <string name="awg_hp_prefix_min">Setzen Sie %1$s für den Header-Schutz auf mindestens %2$d.</string>
     <string name="awg_v3_title">AmneziaWG 3.x</string>

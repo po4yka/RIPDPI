@@ -115,7 +115,7 @@
     <string name="awg_field_i3">I3</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
-    <string name="awg_field_invalid">此字段的值无效。</string>
+    <string name="field_error_invalid">此字段的值无效。</string>
     <string name="awg_field_from_subscription">来自订阅</string>
     <string name="awg_hp_prefix_min">要保护标头，请将 %1$s 设为 %2$d 或更大。</string>
     <string name="awg_v3_title">AmneziaWG 3.x</string>

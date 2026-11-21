@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.ui.screens.relayeditor
 
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -33,6 +36,16 @@ class RelayAdvancedSectionTest {
     @Test
     fun `an invalid field inside keeps advanced open`() {
         composeRule.setContent { RipDpiTheme { RelayAdvancedSection(hasError = true) { Text("inside") } } }
+
+        composeRule.onNodeWithText("inside").assertExists()
+    }
+
+    @Test
+    fun `fixing the invalid field keeps advanced open`() {
+        var hasError by mutableStateOf(true)
+        composeRule.setContent { RipDpiTheme { RelayAdvancedSection(hasError = hasError) { Text("inside") } } }
+
+        hasError = false
 
         composeRule.onNodeWithText("inside").assertExists()
     }

@@ -296,6 +296,9 @@ data class AmneziaWgEditorState(
         }
     }
 
+    /** The field the runtime's input check rejects first, or `null`. */
+    fun runtimeInputField(): AwgEditorField? = (activationError as? AwgActivationInputException)?.field?.editorField()
+
     /** Whether the current draft can pass the runtime's local input checks. */
     fun isActivatable(): Boolean = activationError == null
 

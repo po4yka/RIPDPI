@@ -181,6 +181,7 @@ private fun TransportSection(
                 selectedValue = editor.protocol,
                 onValueSelected = onProtocolSelected,
                 label = stringResource(R.string.mieru_field_protocol),
+                placeholder = editor.protocol.uppercase(),
                 errorText = stringResource(R.string.config_error_unsupported),
             )
         }

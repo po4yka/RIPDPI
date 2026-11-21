@@ -125,7 +125,7 @@ internal fun AwgPrivateKeyScreen(
             onValueChange = onKeyChanged,
             onReveal = onRevealKey,
             errorText =
-                stringResource(R.string.awg_field_invalid)
+                stringResource(R.string.field_error_invalid)
                     .takeIf { editor.hasFieldError(AwgEditorField.INTERFACE_PRIVATE_KEY) },
         )
         // The provider's .conf for this server carries the key; the editor keeps the bundle's server.

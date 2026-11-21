@@ -293,7 +293,7 @@ class AwgV3EditorAcceptanceTest {
 
     private fun verifyInvalidDraftAndPreset() {
         field(AwgEditorField.HEADER_PROTECTION_KEY).performScrollTo().performClick().performTextReplacement("not-a-key")
-        compose.onNodeWithText(text(R.string.awg_field_invalid)).assertExists()
+        compose.onNodeWithText(text(R.string.field_error_invalid)).assertExists()
         compose.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsNotEnabled()
         field(AwgEditorField.HEADER_PROTECTION_KEY).performScrollTo()
         capture("hp-key-error")
@@ -305,7 +305,7 @@ class AwgV3EditorAcceptanceTest {
         capture("hp-prefix-error")
         field(AwgEditorField.S4).performTextReplacement("24")
         field(AwgEditorField.REKEY_TIMEOUT).performScrollTo().performClick().performTextReplacement("12-1")
-        compose.onNodeWithText(text(R.string.awg_field_invalid)).assertExists()
+        compose.onNodeWithText(text(R.string.field_error_invalid)).assertExists()
         compose.waitUntil(5_000) { imeVisible() }
         capture("range-error-keyboard")
         selectPreset()

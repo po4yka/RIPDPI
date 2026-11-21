@@ -65,7 +65,7 @@ import com.poyka.ripdpi.ui.screens.connection.NoOpModeEditorActions
 import com.poyka.ripdpi.ui.screens.connection.RelayMasqueActions
 import com.poyka.ripdpi.ui.screens.connection.RelayTuicActions
 import com.poyka.ripdpi.ui.screens.connection.RelayVlessActions
-import com.poyka.ripdpi.ui.screens.connection.TuicRelayFields
+import com.poyka.ripdpi.ui.screens.connection.TuicAdvancedFields
 import com.poyka.ripdpi.ui.screens.connection.VlessFlowFields
 import com.poyka.ripdpi.ui.screens.connection.VlessTransportFields
 import com.poyka.ripdpi.ui.screens.customization.AboutPackageRow
@@ -364,7 +364,7 @@ class ReadabilityFormsLayoutTest {
             labels = listOf(R.string.config_relay_tuic_congestion_bbr, R.string.config_relay_tuic_congestion_cubic),
             direction = LayoutDirection.Rtl,
         ) {
-            TuicRelayFields(ConnectionDraft(), RelayTuicActions())
+            TuicAdvancedFields(ConnectionDraft(), RelayTuicActions())
         }
     }
 
