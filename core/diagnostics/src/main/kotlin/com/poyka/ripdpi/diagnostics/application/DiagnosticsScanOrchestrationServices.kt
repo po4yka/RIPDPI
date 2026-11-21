@@ -28,6 +28,9 @@ import javax.inject.Named
 import javax.inject.Singleton
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition as EngineScanReportDisposition
 
+internal const val AutomaticProbeProfileId = "automatic-probing"
+internal const val AutomaticAuditProfileId = "automatic-audit"
+
 internal data class BridgeSessionHandle(
     val bridge: NetworkDiagnosticsBridge,
     val sessionId: String,
@@ -45,10 +48,6 @@ class ScanAdmissionService
         private val json: Json,
         private val homeRunLease: DiagnosticsHomeRunLease,
     ) {
-        private companion object {
-            const val AutomaticProbeProfileId = "automatic-probing"
-        }
-
         internal suspend fun admitManualStart(
             selectedProfileId: String? = null,
             skipActiveScanCheck: Boolean = false,

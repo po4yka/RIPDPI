@@ -455,11 +455,11 @@ private fun PreparedDiagnosticsScan.rememberedPolicySource(): RememberedNetworkP
             RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND
         }
 
-        initialSession.profileId == "automatic-probing" -> {
+        initialSession.profileId == AutomaticProbeProfileId -> {
             RememberedNetworkPolicySource.AUTOMATIC_PROBING_MANUAL
         }
 
-        initialSession.profileId == "automatic-audit" -> {
+        initialSession.profileId == AutomaticAuditProfileId -> {
             RememberedNetworkPolicySource.AUTOMATIC_AUDIT_MANUAL
         }
 

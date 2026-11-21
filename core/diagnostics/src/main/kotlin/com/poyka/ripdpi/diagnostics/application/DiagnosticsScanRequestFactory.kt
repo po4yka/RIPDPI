@@ -23,6 +23,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.toActiveDnsSettings
 import com.poyka.ripdpi.diagnostics.ActiveProbeSafetyPolicy
+import com.poyka.ripdpi.diagnostics.AutomaticAuditProfileId
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsIntentResolver
 import com.poyka.ripdpi.diagnostics.DiagnosticsPlanner
@@ -61,7 +62,6 @@ internal enum class DiagnosticsScanOrigin {
     DNS_CORRECTED_REPROBE,
 }
 
-private const val AutomaticAuditProfileId = "automatic-audit"
 private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
 private val RequestFactoryLog = Logger.withTag("DiagnosticsScanRequestFactory")
 
