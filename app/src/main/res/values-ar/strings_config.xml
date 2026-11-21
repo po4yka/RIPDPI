@@ -25,8 +25,6 @@
     <string name="config_vpn_add_server_paste">لصق الرابط</string>
     <string name="config_vpn_add_server_scan">مسح QR</string>
     <string name="config_vpn_profiles_title">الخوادم</string>
-    <string name="config_vpn_profiles_empty_body">الصق رابط ملف مثل vless:// أو ss:// أو trojan:// أو hysteria2:// أو مشابه لإضافة خادم.</string>
-    <string name="config_vpn_profiles_empty_value">لا توجد خوادم بعد</string>
     <string name="config_mode_section">الوضع</string>
     <string name="config_presets_section">الملفات الشخصية</string>
     <string name="config_network_section">الشبكة</string>

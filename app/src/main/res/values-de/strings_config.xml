@@ -462,8 +462,6 @@ fake_burst 3</string>
     <string name="config_vpn_add_server_paste">Link einfügen</string>
     <string name="config_vpn_add_server_scan">QR scannen</string>
     <string name="config_vpn_profiles_title">Server</string>
-    <string name="config_vpn_profiles_empty_body">Fügen Sie einen Profil-Link wie vless://, ss://, trojan://, hysteria2:// oder ähnlich ein, um einen Server hinzuzufügen.</string>
-    <string name="config_vpn_profiles_empty_value">Noch keine Server</string>
     <string name="desync_http">HTTP-Bypass-Strategie</string>
     <string name="fake_order_card_dsl_only">Diese Chain-Form lässt sich nicht über die Karte für die Reihenfolge des primären Fake-Schritts bearbeiten. Verwenden Sie das Chain-DSL, um altorder oder seqmode zu ändern.</string>
     <string name="fake_order_card_runtime_default">Standardreihenfolge</string>

@@ -820,8 +820,6 @@ app:config_vpn_credentials_required
 app:config_vpn_credentials_summary
 app:config_vpn_credentials_title
 app:config_vpn_import_awg_conf
-app:config_vpn_profiles_empty_body
-app:config_vpn_profiles_empty_value
 app:config_vpn_profiles_title
 app:config_vpn_protocol_summary
 app:config_vpn_protocol_title

@@ -462,8 +462,6 @@ fake_burst 3</string>
     <string name="config_vpn_add_server_paste">Pegar enlace</string>
     <string name="config_vpn_add_server_scan">Escanear QR</string>
     <string name="config_vpn_profiles_title">Servidores</string>
-    <string name="config_vpn_profiles_empty_body">Pega un enlace de perfil vless://, ss://, trojan://, hysteria2:// o similar para añadir un servidor.</string>
-    <string name="config_vpn_profiles_empty_value">Aún no hay servidores</string>
     <string name="desync_http">Estrategia de bypass HTTP</string>
     <string name="fake_order_card_dsl_only">Esta forma de cadena no se puede editar con la tarjeta de orden fake del paso principal. Usa el DSL de cadena para cambiar altorder o seqmode.</string>
     <string name="fake_order_card_runtime_default">Orden por defecto</string>

@@ -26,8 +26,6 @@
     <string name="config_vpn_add_server_paste">Paste link</string>
     <string name="config_vpn_add_server_scan">Scan QR</string>
     <string name="config_vpn_profiles_title">Servers</string>
-    <string name="config_vpn_profiles_empty_body">Paste a vless://, ss://, trojan://, hysteria2://, or similar profile link to add a server.</string>
-    <string name="config_vpn_profiles_empty_value">No servers yet</string>
     <string name="config_mode_section">Mode</string>
     <string name="config_presets_section">Profiles</string>
     <string name="config_network_section">Network</string>

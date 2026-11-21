@@ -921,8 +921,6 @@ fakeddisorder endhost</string>
     <string name="config_vpn_add_server_paste">Вставить ссылку</string>
     <string name="config_vpn_add_server_scan">Сканировать QR</string>
     <string name="config_vpn_profiles_title">Серверы</string>
-    <string name="config_vpn_profiles_empty_body">Вставьте ссылку профиля vless://, ss://, trojan://, hysteria2:// или похожую, чтобы добавить сервер.</string>
-    <string name="config_vpn_profiles_empty_value">Серверов пока нет</string>
     <string name="fake_order_card_body">Управляйте чередованием поддельных и подлинных диапазонов на основном шаге семейства fake без редактирования полного DSL цепочки.</string>
     <string name="fake_order_card_dsl_only">Эта форма цепочки не редактируется карточкой порядка fake основного шага. Используйте DSL цепочки для изменения altorder или seqmode.</string>
     <string name="fake_order_card_hostfake_order_locked">Нестандартный порядок hostfake требует маркера разделения midhost. Добавьте `midhost=` в DSL цепочки, чтобы разблокировать изменения altorder.</string>

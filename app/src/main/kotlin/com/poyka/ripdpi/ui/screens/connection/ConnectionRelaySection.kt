@@ -113,16 +113,9 @@ private fun VpnProfileList(
     val search =
         com.poyka.ripdpi.ui.components.profiles
             .rememberProfileSearchState()
-    if (uiState.vpnProfiles.isEmpty()) {
-        SettingsRow(
-            title = stringResource(R.string.config_vpn_profiles_title),
-            subtitle = stringResource(R.string.config_vpn_profiles_empty_body),
-            value = stringResource(R.string.config_vpn_profiles_empty_value),
-            showDivider = true,
-            testTag = RipDpiTestTags.ConnectionRelayProfileList,
-        )
-        return
-    }
+    // Only manual servers live here; subscription and AmneziaWG servers are on the Profiles screen, so an empty
+    // list is no reason to say there are no servers.
+    if (uiState.vpnProfiles.isEmpty()) return
     if (showSearch) {
         VpnProfileSearchSheet(
             profiles = uiState.vpnProfiles,

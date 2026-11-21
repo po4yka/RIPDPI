@@ -25,8 +25,6 @@
     <string name="config_vpn_add_server_paste">چسباندن پیوند</string>
     <string name="config_vpn_add_server_scan">اسکن QR</string>
     <string name="config_vpn_profiles_title">سرورها</string>
-    <string name="config_vpn_profiles_empty_body">برای افزودن سرور، پیوند نمایه vless://، ss://، trojan://، hysteria2:// یا مشابه را بچسبانید.</string>
-    <string name="config_vpn_profiles_empty_value">هنوز سروری نیست</string>
     <string name="config_mode_section">حالت</string>
     <string name="config_presets_section">نمایه‌ها</string>
     <string name="config_network_section">شبکه</string>

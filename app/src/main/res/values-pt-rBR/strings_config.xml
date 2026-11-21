@@ -25,8 +25,6 @@
     <string name="config_vpn_add_server_paste">Colar link</string>
     <string name="config_vpn_add_server_scan">Escanear QR</string>
     <string name="config_vpn_profiles_title">Servidores</string>
-    <string name="config_vpn_profiles_empty_body">Cole um link de perfil vless://, ss://, trojan://, hysteria2:// ou parecido para adicionar um servidor.</string>
-    <string name="config_vpn_profiles_empty_value">Ainda sem servidores</string>
     <string name="config_mode_section">Modo</string>
     <string name="config_presets_section">Perfis</string>
     <string name="config_network_section">Rede</string>

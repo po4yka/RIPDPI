@@ -585,8 +585,6 @@ fake_burst 3</string>
     <string name="config_vpn_add_server_paste">粘贴链接</string>
     <string name="config_vpn_add_server_scan">扫描 QR</string>
     <string name="config_vpn_profiles_title">服务器</string>
-    <string name="config_vpn_profiles_empty_body">粘贴 vless://、ss://、trojan://、hysteria2:// 或类似配置文件链接来添加服务器。</string>
-    <string name="config_vpn_profiles_empty_value">还没有服务器</string>
     <string name="desync_https">HTTPS 绕过策略</string>
     <string name="fake_order_card_order_body">选择在此发送步骤中如何交错 fake 与真实段。</string>
     <string name="fake_order_card_runtime_label">当前配置文件</string>

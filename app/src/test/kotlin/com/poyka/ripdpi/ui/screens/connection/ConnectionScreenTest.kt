@@ -270,7 +270,7 @@ class ConnectionScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddServerPaste).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddServerScan).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProfileList).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProfileList).assertDoesNotExist()
     }
 
     @Test
