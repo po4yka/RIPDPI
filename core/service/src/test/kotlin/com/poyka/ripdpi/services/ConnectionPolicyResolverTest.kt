@@ -156,7 +156,7 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
-    fun `vpn cold start without network fingerprint uses encrypted dns default`() =
+    fun `vpn startup and handover apply a scoped DNS override only on its network`() =
         runTest {
             val resolver =
                 DefaultConnectionPolicyResolver(
@@ -186,7 +186,25 @@ class ConnectionPolicyResolverTest {
                         ),
                 )
 
-            val resolution = resolver.resolve(mode = Mode.VPN)
+            val origin = sampleFingerprint()
+            val otherNetwork = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val override =
+                quad9DotPath().toTemporaryResolverOverride(
+                    reason = "diagnostic recovery",
+                    networkScopeKey = origin.scopeKey(),
+                )
+            val resolution = resolver.resolve(mode = Mode.VPN, resolverOverride = override)
+
+            val onOrigin = resolver.resolve(mode = Mode.VPN, resolverOverride = override, fingerprint = origin)
+            val onOtherNetwork =
+                resolver.resolve(
+                    mode = Mode.VPN,
+                    resolverOverride = override,
+                    fingerprint = otherNetwork,
+                )
+            assertEquals(override.toActiveDnsSettings(), onOrigin.activeDns)
+            assertNull(onOtherNetwork.resolverFallbackReason)
+            assertEquals(resolution.activeDns, onOtherNetwork.activeDns)
 
             assertEquals(DnsProviderAdGuard, resolution.activeDns.providerId)
             assertEquals(EncryptedDnsProtocolDoh, resolution.activeDns.encryptedDnsProtocol)

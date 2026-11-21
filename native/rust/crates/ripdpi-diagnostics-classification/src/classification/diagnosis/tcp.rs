@@ -1,18 +1,12 @@
-use crate::types::{Diagnosis, ProbeResult, ScanRequest};
+use crate::types::{Diagnosis, ProbeResult};
 
 use super::common::{DiagnosisSink, diagnosis_evidence};
 use super::failure_detail_value;
 
-pub(crate) fn classify_tcp_diagnoses(
-    request: &ScanRequest,
-    results: &[ProbeResult],
-    tcp_whitelist_bypass: bool,
-    sink: &mut DiagnosisSink,
-) {
+pub(crate) fn classify_tcp_diagnoses(results: &[ProbeResult], sink: &mut DiagnosisSink) {
     for result in results.iter().filter(|result| result.probe_type == "tcp_fat_header") {
         classify_tcp_result(result, sink);
     }
-    push_sni_triggered_tls_interference(request, tcp_whitelist_bypass, sink);
 }
 
 fn classify_tcp_result(result: &ProbeResult, sink: &mut DiagnosisSink) {
@@ -94,31 +88,10 @@ fn push_whitelist_sni_bypassable(result: &ProbeResult, sink: &mut DiagnosisSink)
 
     sink.push(Diagnosis {
         code: "whitelist_sni_bypassable".to_string(),
-        summary: format!("Whitelisted SNI recovered access for {}", result.target),
+        summary: format!("TCP probe completed with an alternate SNI for {}", result.target),
         severity: "warning".to_string(),
         target: Some(result.target.clone()),
         evidence: diagnosis_evidence(result, &["selectedSni", "attempts"]),
-        recommendation: None,
-        control_validated: None,
-    });
-}
-
-fn push_sni_triggered_tls_interference(request: &ScanRequest, tcp_whitelist_bypass: bool, sink: &mut DiagnosisSink) {
-    if !tcp_whitelist_bypass
-        || !sink.contains_code(&["tls_clienthello_timeout", "tls_clienthello_rst", "tls_clienthello_close"])
-    {
-        return;
-    }
-
-    sink.push(Diagnosis {
-        code: "sni_triggered_tls_interference".to_string(),
-        summary: "TLS interference appears sensitive to the requested SNI".to_string(),
-        severity: "warning".to_string(),
-        target: request.region_tag.clone(),
-        evidence: vec![
-            "tls failures recovered when a whitelisted SNI was used".to_string(),
-            "whitelist_sni_ok".to_string(),
-        ],
         recommendation: None,
         control_validated: None,
     });

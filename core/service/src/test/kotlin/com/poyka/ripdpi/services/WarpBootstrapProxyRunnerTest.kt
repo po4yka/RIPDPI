@@ -64,7 +64,12 @@ class WarpBootstrapProxyRunnerTest {
             bootstrapProxyRuntimeSupervisorSessionFactory =
                 object : BootstrapProxyRuntimeSupervisorSessionFactory {
                     override fun create(scope: CoroutineScope): ProxyRuntimeSupervisor =
-                        DefaultProxyRuntimeSupervisorFactory(proxyFactory, NoStoreHostAutolearnController).create(
+                        DefaultProxyRuntimeSupervisorFactory(
+                            proxyFactory,
+                            NoStoreHostAutolearnController,
+                            com.poyka.ripdpi.data
+                                .DiagnosticsNetworkEpochProvider { null },
+                        ).create(
                             scope = scope,
                             dispatcher = Dispatchers.Unconfined,
                             networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),

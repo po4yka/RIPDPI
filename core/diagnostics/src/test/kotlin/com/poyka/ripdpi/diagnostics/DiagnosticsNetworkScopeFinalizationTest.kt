@@ -9,6 +9,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -56,6 +57,20 @@ class DiagnosticsNetworkScopeFinalizationTest {
         }
 
     @Test
+    fun `stable network keeps unverified DNS recommendation without applying or remembering it`() =
+        runTest {
+            val outcome =
+                finalizeNetworkScopeScenario(NetworkScopeChange.Stable, resolverOnly = true, trustedDns = false)
+
+            assertFalse(requireNotNull(outcome.report.resolverRecommendation).persistable)
+            assertNull(outcome.resolverOverrideStore.override.value)
+            assertTrue(
+                outcome.stores.networkDnsPathPreferencesState.value
+                    .isEmpty(),
+            )
+        }
+
+    @Test
     fun `missing epoch prevents resolver override and remembered DNS path`() =
         runTest {
             assertUntrustedNetworkScope(finalizeNetworkScopeScenario(NetworkScopeChange.Missing, resolverOnly = true))
@@ -91,6 +106,7 @@ private suspend fun TestScope.finalizeNetworkScopeScenario(
     change: NetworkScopeChange,
     resolverOnly: Boolean = false,
     recovery: Boolean = false,
+    trustedDns: Boolean = true,
 ): NetworkScopeOutcome {
     val json = diagnosticsTestJson()
     val stores = FakeDiagnosticsHistoryStores()
@@ -135,7 +151,16 @@ private suspend fun TestScope.finalizeNetworkScopeScenario(
     fixtures.activeScanRegistry.rememberPreparedScan(prepared)
     val original =
         if (resolverOnly) {
-            scanReportWithResolverRecommendation(prepared.sessionId)
+            scanReportWithResolverRecommendation(prepared.sessionId).let { report ->
+                if (trustedDns) {
+                    report
+                } else {
+                    val probe = report.results.single()
+                    report.copy(
+                        results = listOf(probe.copy(details = probe.details.filter { it.key != "oracleTrust" })),
+                    )
+                }
+            }
         } else {
             scanReportWithStrategyProbe(prepared.sessionId, settings)
         }

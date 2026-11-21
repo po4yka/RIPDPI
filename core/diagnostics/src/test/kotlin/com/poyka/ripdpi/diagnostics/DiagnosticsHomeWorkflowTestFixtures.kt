@@ -3,32 +3,21 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.core.RipDpiListenConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
-import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
-import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions
-import com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore
 
 internal fun createHomeWorkflowService(
     stores: FakeDiagnosticsHistoryStores,
     appSettingsRepository: FakeAppSettingsRepository,
     networkFingerprintProvider: MutableNetworkFingerprintProvider = MutableNetworkFingerprintProvider(),
     serverCapabilityStore: FakeServerCapabilityStore = FakeServerCapabilityStore(),
+    resolverOverrideStore: FakeResolverOverrideStore = FakeResolverOverrideStore(),
 ): DefaultDiagnosticsHomeWorkflowService {
     val json = diagnosticsTestJson()
-    val resolverActions =
-        DefaultDiagnosticsResolverActions(
-            appSettingsRepository = appSettingsRepository,
-            recommendationStore = DiagnosticsRecommendationStore(stores, json),
-            networkFingerprintProvider = networkFingerprintProvider,
-            networkDnsPathPreferenceStore =
-                DefaultNetworkDnsPathPreferenceStore(stores, TestDiagnosticsHistoryClock()),
-            resolverOverrideStore = FakeResolverOverrideStore(),
-        )
     return DefaultDiagnosticsHomeWorkflowService(
         scanRecordStore = stores,
         artifactQueryStore = stores,
         networkFingerprintProvider = networkFingerprintProvider,
         recommendationApplier = DiagnosticsHomeRecommendationApplier(appSettingsRepository),
-        resolverActionCoordinator = DiagnosticsHomeResolverActionCoordinator(resolverActions),
+        resolverOverrideStore = resolverOverrideStore,
         capabilityEvidenceSummarizer = DiagnosticsHomeCapabilityEvidenceSummarizer(serverCapabilityStore),
         auditOutcomeBuilder = DiagnosticsHomeAuditOutcomeBuilder(),
         json = json,

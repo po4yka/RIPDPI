@@ -25,6 +25,7 @@ internal sealed interface RuntimeForwardingEvidence<out T> {
 internal data class RuntimeTelemetryEvidencePoll<T>(
     val telemetry: RuntimeTelemetryOutcome,
     val forwardingEvidence: RuntimeForwardingEvidence<T>,
+    val directPathLearningOrigin: DirectPathLearningOrigin? = null,
 )
 
 internal suspend fun <T> captureFinalDataPlaneEvidence(

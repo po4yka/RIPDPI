@@ -675,6 +675,10 @@ class DiagnosticsScanPolicyFinalizationTest {
             assertTrue(finalization.shouldReprobeWithCorrectedDns)
             assertEquals("cloudflare", finalization.correctedDnsPath?.resolverId)
             assertEquals("cloudflare", resolverOverrideStore.override.value?.resolverId)
+            assertEquals(
+                requireNotNull(prepared.networkFingerprint).scopeKey(),
+                resolverOverrideStore.override.value?.networkScopeKey,
+            )
             assertTrue(requireNotNull(persisted.resolverRecommendation).appliedTemporarily)
         }
 }
@@ -1528,17 +1532,20 @@ class DiagnosticsInPathRouteAuthorityTest {
         runTest { verifyAuthority(RouteChange.None, StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN) }
 
     @Test
-    fun `route change before terminal response leaves active observation unverified`() =
+    fun `route change before terminal response keeps measurements but revokes advice`() =
         runTest { verifyAuthority(RouteChange.BeforeTerminal, StrategyActivePathAuthority.UNVERIFIED) }
 
     @Test
-    fun `route change during persistence preserves measured historical authority`() =
-        runTest {
-            verifyAuthority(
-                RouteChange.DuringPersistence,
-                StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN,
-            )
-        }
+    fun `route change during persistence revokes current advice but keeps measurements`() =
+        runTest { verifyAuthority(RouteChange.DuringPersistence, StrategyActivePathAuthority.UNVERIFIED) }
+
+    @Test
+    fun `route change during terminal write revokes the saved conclusion`() =
+        runTest { verifyAuthority(RouteChange.DuringTerminalWrite, StrategyActivePathAuthority.UNVERIFIED) }
+
+    @Test
+    fun `generic in-path scan cannot diagnose a replaced route`() =
+        runTest { verifyAuthority(RouteChange.BeforeTerminal, null, strategy = false) }
 
     @Test
     fun `observed route loss cannot be healed before terminal receipt`() {
@@ -1554,9 +1561,16 @@ class DiagnosticsInPathRouteAuthorityTest {
 
     private suspend fun kotlinx.coroutines.test.TestScope.verifyAuthority(
         change: RouteChange,
-        expected: StrategyActivePathAuthority,
+        expected: StrategyActivePathAuthority?,
+        strategy: Boolean = true,
     ) {
-        val (prepared, report) = ownedActiveObservationFixture("session-route-authority-$change")
+        val (prepared, strategyReport) = ownedActiveObservationFixture("session-route-authority-$change")
+        val measuredResult = ProbeResult("domain_reachability", "example.org", "tls_ok", emptyList())
+        val report =
+            strategyReport.copy(
+                strategyProbeReport = strategyReport.strategyProbeReport.takeIf { strategy },
+                results = listOf(measuredResult),
+            )
         val stores = FakeDiagnosticsHistoryStores()
         val fixtures =
             executionCoordinatorFixtures(
@@ -1582,6 +1596,11 @@ class DiagnosticsInPathRouteAuthorityTest {
                 fixtures.runtimeCoordinator.updateInPathRouteLease(null)
             }
         }
+        if (change == RouteChange.DuringTerminalWrite) {
+            stores.beforeUpsertScanSession = { session ->
+                if (session.status == "completed") fixtures.runtimeCoordinator.updateInPathRouteLease(null)
+            }
+        }
         fixtures.coordinator.execute(
             prepared,
             BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge),
@@ -1591,10 +1610,16 @@ class DiagnosticsInPathRouteAuthorityTest {
         assertEquals("completed", session.status)
         val persisted = json.decodeEngineScanReportWire(requireNotNull(session.reportJson))
         assertEquals(expected, persisted.strategyProbeReport?.activePathObservation?.activePathAuthority)
+        assertEquals(listOf(measuredResult), persisted.toScanReport().results)
+        if (change != RouteChange.None) {
+            assertEquals("PARTIAL_RESULTS", persisted.completionKind.name)
+            assertEquals(listOf("in_path_route_unverified"), persisted.diagnoses.map { it.code })
+            assertNull(persisted.resolverRecommendation)
+        }
         assertEquals(change == RouteChange.None, (fixtures.runtimeCoordinator.validateInPathRouteLease(lease) == null))
     }
 
-    private enum class RouteChange { None, BeforeTerminal, DuringPersistence }
+    private enum class RouteChange { None, BeforeTerminal, DuringPersistence, DuringTerminalWrite }
 }
 
 @Suppress("LongMethod")
@@ -1627,12 +1652,13 @@ internal fun executionCoordinatorFixtures(
     val diagnosticsContextProvider = FakeDiagnosticsContextProvider()
     val rawPathSettlementBarrier = RawPathSettlementBarrier(stores, stores.rawPathSettlementStore, json)
     val targetOptimizer = DiagnosticsTargetOptimizer()
+    val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
     val scanFinalizationService =
         ScanFinalizationService(
             context = TestContext(),
             scanRecordStore = stores,
             artifactWriteStore = stores,
-            networkFingerprintProvider = networkFingerprintProvider,
+            evidenceAuthority = ScanEvidenceAuthority(networkFingerprintProvider, runtimeCoordinator),
             serviceStateStore = serviceStateStore,
             resolverOverrideStore = resolverOverrideStore,
             rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
@@ -1680,7 +1706,6 @@ internal fun executionCoordinatorFixtures(
             targetOptimizer = targetOptimizer,
             json = json,
         )
-    val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
     val coordinator =
         DiagnosticsScanExecutionCoordinator(
             scanRecordStore = stores,
@@ -1929,13 +1954,16 @@ internal fun scanReportWithResolverRecommendation(sessionId: String) =
                 ProbeResult(
                     probeType = "dns_integrity",
                     target = "blocked.example",
-                    outcome = "udp_blocked",
+                    outcome = "dns_nxdomain_mismatch",
                     details =
                         listOf(
                             ProbeDetail("encryptedResolverId", com.poyka.ripdpi.data.DnsProviderCloudflare),
                             ProbeDetail("encryptedProtocol", com.poyka.ripdpi.data.EncryptedDnsProtocolDoh),
                             ProbeDetail("encryptedAddresses", "1.1.1.1"),
                             ProbeDetail("encryptedBootstrapValidated", "true"),
+                            ProbeDetail("oracleTrust", "trusted_agreement"),
+                            ProbeDetail("oracleTermination", "quorum_reached"),
+                            ProbeDetail("oracleSelectedResolverId", com.poyka.ripdpi.data.DnsProviderCloudflare),
                             ProbeDetail("encryptedLatencyMs", "32"),
                         ),
                 ),

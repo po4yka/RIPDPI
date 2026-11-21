@@ -45,6 +45,9 @@ private const val DefaultPortDoh = 443
 private const val DefaultPortDot = 853
 private const val EmptyAddressSet = "[]"
 private const val DetailSeparator = "|"
+private const val MinimumFailedDnsAttempts = 2
+private val TrustedDnsOracleResults = setOf("trusted_agreement", "primary_only")
+private val CompletedDnsOracleResults = setOf("quorum_reached", "fallback_limit_reached")
 
 private data class Candidate(
     val path: EncryptedDnsPathCandidate,
@@ -67,33 +70,42 @@ internal object ResolverRecommendationEngine {
         preferredPath: EncryptedDnsPathCandidate?,
     ): ResolverRecommendation? {
         val dnsResults = report.results.filter { it.probeType == ProbeTypeDnsIntegrity }
+        val triggers = dnsResults.recommendationTriggers(report.pathMode)
+        val advisoryTrigger = triggers.firstOrNull() ?: return null
         val blockedBootstrapIps = extractBlockedBootstrapIps(report.results)
         val dpiBlockedBootstrapIps = extractBlockedBootstrapIps(report.results, TcpFatHeaderDpiBlockedOutcomes)
-        return dnsResults.firstRecommendationTrigger(report.pathMode)?.let { trigger ->
-            val currentPath = settings.activeDnsSettings().toEncryptedDnsPathCandidate()
-            selectCandidate(
-                collectCandidates(dnsResults),
-                preferredPath,
-                currentPath,
-                blockedBootstrapIps,
-            )?.let { selected ->
-                ResolverRecommendation(
-                    triggerOutcome = trigger.outcome,
-                    selectedResolverId = selected.path.resolverId,
-                    selectedProtocol = selected.path.protocol,
-                    selectedEndpoint = selected.path.endpointLabel(),
-                    selectedBootstrapIps = selected.path.bootstrapIps,
-                    selectedHost = selected.path.host,
-                    selectedPort = selected.path.port,
-                    selectedTlsServerName = selected.path.tlsServerName,
-                    selectedDohUrl = selected.path.dohUrl,
-                    selectedDnscryptProviderName = selected.path.dnscryptProviderName,
-                    selectedDnscryptPublicKey = selected.path.dnscryptPublicKey,
-                    rationale = selected.rationale(trigger.outcome, preferredPath, currentPath, dpiBlockedBootstrapIps),
-                    appliedTemporarily = false,
-                    persistable = true,
+        val currentPath = settings.activeDnsSettings().toEncryptedDnsPathCandidate()
+        val confirmed =
+            if (report.hasCompleteResolverEvidence()) {
+                triggers.mapNotNull(
+                    ProbeResult::confirmedRecovery,
                 )
+            } else {
+                emptyList()
             }
+        val confirmedCandidate =
+            selectCandidate(confirmed.toCandidates(), preferredPath, currentPath, blockedBootstrapIps)
+        val selected =
+            confirmedCandidate
+                ?: selectCandidate(collectCandidates(dnsResults), preferredPath, currentPath, blockedBootstrapIps)
+        return selected?.let { candidate ->
+            val trigger =
+                confirmed.firstOrNull { it.path.pathKey() == candidate.path.pathKey() }?.result ?: advisoryTrigger
+            ResolverRecommendation(
+                triggerOutcome = trigger.outcome,
+                selectedResolverId = candidate.path.resolverId,
+                selectedProtocol = candidate.path.protocol,
+                selectedEndpoint = candidate.path.endpointLabel(),
+                selectedBootstrapIps = candidate.path.bootstrapIps,
+                selectedHost = candidate.path.host,
+                selectedPort = candidate.path.port,
+                selectedTlsServerName = candidate.path.tlsServerName,
+                selectedDohUrl = candidate.path.dohUrl,
+                selectedDnscryptProviderName = candidate.path.dnscryptProviderName,
+                selectedDnscryptPublicKey = candidate.path.dnscryptPublicKey,
+                rationale = candidate.rationale(trigger.outcome, preferredPath, currentPath, dpiBlockedBootstrapIps),
+                persistable = confirmedCandidate != null,
+            )
         }
     }
 
@@ -219,18 +231,54 @@ internal object ResolverRecommendationEngine {
         )
 }
 
-private fun collectCandidates(dnsResults: List<ProbeResult>): List<Candidate> =
-    dnsResults
-        .mapNotNull { result ->
-            val details = result.details.associate { it.key to it.value }
-            ResolverRecommendationEngine.parseResolverPathCandidate(details)?.let { path ->
-                CandidateObservation(result = result, details = details, path = path)
-            }
-        }.groupBy { it.path.pathKey() }
-        .mapNotNull { (_, entries) -> entries.toCandidate() }
+internal fun ScanReport.resolverRecommendationForAutomaticUse(): ResolverRecommendation? =
+    resolverRecommendation?.takeIf { it.persistable && hasCompleteResolverEvidence() }
 
-private fun List<ProbeResult>.firstRecommendationTrigger(pathMode: ScanPathMode): ProbeResult? =
-    firstOrNull {
+private fun ScanReport.hasCompleteResolverEvidence(): Boolean =
+    completionKind == ScanCompletionKind.NORMAL &&
+        terminationReason == null &&
+        strategyProbeReport?.completionKind != StrategyProbeCompletionKind.PARTIAL_RESULTS
+
+private fun collectCandidates(dnsResults: List<ProbeResult>): List<Candidate> =
+    dnsResults.mapNotNull(ProbeResult::resolverObservation).toCandidates()
+
+private fun List<CandidateObservation>.toCandidates(): List<Candidate> =
+    groupBy { it.path.pathKey() }.mapNotNull { (_, entries) -> entries.toCandidate() }
+
+private fun ProbeResult.resolverObservation(): CandidateObservation? {
+    val details = details.associate { it.key to it.value }
+    val path = ResolverRecommendationEngine.parseResolverPathCandidate(details) ?: return null
+    return CandidateObservation(this, details, path)
+}
+
+// One native DNS-integrity row measures the plain and encrypted answers to the same question.
+private fun ProbeResult.confirmedRecovery(): CandidateObservation? {
+    val candidate = resolverObservation() ?: return null
+    val details = candidate.details
+    val resolverId = details["encryptedResolverId"].orEmpty().ifBlank { candidate.path.host }
+    val trustedAssessment =
+        details["oracleTrust"] in TrustedDnsOracleResults && details["oracleTermination"] in CompletedDnsOracleResults
+    val verifiedResolver = details["oracleSelectedResolverId"] == resolverId && candidate.hasValidatedBootstrap()
+    val hasEncryptedAnswer =
+        details["encryptedAddresses"].orEmpty().split(DetailSeparator).any { NumericIp.parseAddress(it) != null }
+    val confirmedFailure =
+        when (outcome) {
+            "dns_nxdomain_mismatch", "dns_sinkhole_substitution" -> {
+                true
+            }
+
+            else -> {
+                details["udpAttemptCount"]?.toIntOrNull()?.let { it >= MinimumFailedDnsAttempts } == true &&
+                    details["udpSuccessCount"] == "0" &&
+                    details["udpRetryRecovered"] == "false" &&
+                    details["udpCacheHit"] == "false"
+            }
+        }
+    return candidate.takeIf { trustedAssessment && verifiedResolver && hasEncryptedAnswer && confirmedFailure }
+}
+
+private fun List<ProbeResult>.recommendationTriggers(pathMode: ScanPathMode): List<ProbeResult> =
+    filter {
         it.isDnsInterference(pathMode) && (!hasHealthyPrimaryDnsFor(it.target) || it.isPrimaryOrSystemDnsObservation())
     }
 

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::types::{Diagnosis, ProbeResult, ScanRequest};
+use crate::types::{Diagnosis, ProbeResult};
 
 mod circumvention;
 mod common;
@@ -23,15 +23,14 @@ pub fn failure_detail_value<'a>(result: &'a ProbeResult, key: &str) -> Option<&'
     result.details.iter().find_map(|detail| (detail.key == key).then_some(detail.value.as_str()))
 }
 
-pub fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[ProbeResult]) -> Vec<Diagnosis> {
+pub fn classify_connectivity_diagnoses(results: &[ProbeResult]) -> Vec<Diagnosis> {
     let mut sink = DiagnosisSink::new();
 
     let domain_outcomes = collect_domain_outcomes(results);
-    let tcp_whitelist_bypass = has_tcp_whitelist_bypass(results);
 
     dns::classify_dns_diagnoses(results, &domain_outcomes, &mut sink);
     domain::classify_domain_diagnoses(results, &mut sink);
-    tcp::classify_tcp_diagnoses(request, results, tcp_whitelist_bypass, &mut sink);
+    tcp::classify_tcp_diagnoses(results, &mut sink);
     quic::classify_quic_diagnoses(results, &mut sink);
     service::classify_service_diagnoses(results, &mut sink);
     circumvention::classify_circumvention_diagnoses(results, &mut sink);
@@ -49,8 +48,4 @@ fn collect_domain_outcomes(results: &[ProbeResult]) -> BTreeMap<String, Vec<&Pro
         }
     }
     domain_outcomes
-}
-
-fn has_tcp_whitelist_bypass(results: &[ProbeResult]) -> bool {
-    results.iter().any(|result| result.probe_type == "tcp_fat_header" && result.outcome == "whitelist_sni_ok")
 }

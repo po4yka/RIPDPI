@@ -21,7 +21,7 @@ internal class VpnRuntimeTelemetryReporter(
         state: VpnTelemetryStateAccess,
         failureReason: FailureReason? = null,
     ) {
-        directPathPolicyTelemetryConsumer.consume(telemetry.proxyTelemetry)
+        directPathPolicyTelemetryConsumer.consume(telemetry.proxyTelemetry, telemetry.directPathLearningOrigin)
         statusReporter.reportTelemetry(
             activePolicy = state.runtimeSession()?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = { null },

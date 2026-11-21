@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.DirectPathLearningSignal
 import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.DnsMode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.NoTcpFallbackAppMemory
 import com.poyka.ripdpi.data.PreferredStack
@@ -24,12 +25,22 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import javax.inject.Inject
 
+internal fun interface DirectPathLearningOrigin {
+    fun isCurrent(): Boolean
+}
+
 internal interface DirectPathPolicyTelemetryConsumer {
-    suspend fun consume(snapshot: NativeRuntimeSnapshot)
+    suspend fun consume(
+        snapshot: NativeRuntimeSnapshot,
+        origin: DirectPathLearningOrigin?,
+    )
 }
 
 internal object NoOpDirectPathPolicyTelemetryConsumer : DirectPathPolicyTelemetryConsumer {
-    override suspend fun consume(snapshot: NativeRuntimeSnapshot) = Unit
+    override suspend fun consume(
+        snapshot: NativeRuntimeSnapshot,
+        origin: DirectPathLearningOrigin?,
+    ) = Unit
 }
 
 @ServiceSessionScope
@@ -41,6 +52,7 @@ internal class DirectPathPolicyLearner
         private val flowAppAttributionStore: FlowAppAttributionStore,
     ) : DirectPathPolicyTelemetryConsumer {
         private var cachedFingerprintHash: String? = null
+        private var previousOrigin: DirectPathLearningOrigin? = null
         private val cachedEnvelopes = linkedMapOf<DirectPathTupleKey, TransportPolicyEnvelope>()
         private val lastAppliedSignatures = linkedMapOf<DirectPathTupleKey, String>()
         private val pendingNoDirectSolutions = linkedMapOf<DirectPathTupleKey, Long>()
@@ -56,7 +68,11 @@ internal class DirectPathPolicyLearner
          */
         private val noTcpFallbackMemory = NoTcpFallbackAppMemory()
 
-        override suspend fun consume(snapshot: NativeRuntimeSnapshot) {
+        override suspend fun consume(
+            snapshot: NativeRuntimeSnapshot,
+            origin: DirectPathLearningOrigin?,
+        ) {
+            if (origin == null || !origin.isCurrent()) return
             // Events this build cannot map to a policy are ignored entirely --
             // not learned, not persisted, never fatal -- so a newer runtime
             // emitting an unrecognized event name stays compatible.
@@ -65,13 +81,33 @@ internal class DirectPathPolicyLearner
             if (knownSignals.isEmpty()) {
                 return
             }
-            val fingerprint = networkFingerprintProvider.capture() ?: return
-            val fingerprintHash = fingerprint.scopeKey()
-            ensureFingerprintCache(fingerprintHash)
+            consumeCurrent(knownSignals, origin)
+        }
+
+        private suspend fun consumeCurrent(
+            knownSignals: List<DirectPathLearningSignal>,
+            origin: DirectPathLearningOrigin,
+        ) {
+            val fingerprint = networkFingerprintProvider.capture()?.takeIf { origin.isCurrent() } ?: return
+            ensureFingerprintCache(fingerprint.scopeKey())
+            if (!origin.isCurrent()) return
+            if (previousOrigin !== origin) {
+                previousOrigin = origin
+                pendingNoDirectSolutions.clear()
+            }
             // App evidence must survive authority-level signal coalescing.
             knownSignals.forEach(::recordNoTcpFallbackIfAttributed)
 
+            persistSignals(knownSignals, fingerprint, origin)
+        }
+
+        private suspend fun persistSignals(
+            knownSignals: List<DirectPathLearningSignal>,
+            fingerprint: NetworkFingerprint,
+            origin: DirectPathLearningOrigin,
+        ) {
             collapseSignals(knownSignals).forEach { (tupleKey, signal) ->
+                if (!origin.isCurrent()) return
                 val current = cachedEnvelopes[tupleKey]
                 if (signal.event == DirectPathLearningEvent.ALL_IPS_FAILED &&
                     !shouldPersistNoDirectSolution(tupleKey, current)
@@ -88,6 +124,7 @@ internal class DirectPathPolicyLearner
                 if (current == next || lastAppliedSignatures[tupleKey] == signature) {
                     return@forEach
                 }
+                if (!origin.isCurrent()) return
                 val stored =
                     serverCapabilityStore.rememberDirectPathObservation(
                         fingerprint = fingerprint,

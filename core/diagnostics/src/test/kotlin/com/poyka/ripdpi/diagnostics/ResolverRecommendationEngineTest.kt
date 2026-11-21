@@ -7,8 +7,10 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ResolverRecommendationEngineTest {
@@ -612,6 +614,90 @@ class ResolverRecommendationEngineComputeTest {
     }
 }
 
+class ResolverRecommendationEngineEvidenceTest {
+    @Test
+    fun `trusted encrypted answers for another question remain advisory`() {
+        val failure = confirmedDnsRecovery().copy(details = emptyList())
+        val unrelated = confirmedDnsRecovery().copy(target = "other.example", outcome = "dns_match")
+
+        assertFalse(requireNotNull(computeRecoveryRecommendation(listOf(failure, unrelated))).persistable)
+    }
+
+    @Test
+    fun `same question requires a completed oracle assessment for the selected resolver`() {
+        val recovery = confirmedDnsRecovery()
+        val cases =
+            listOf(
+                "oracleTrust" to "single_fallback",
+                "oracleTermination" to "cancelled",
+                "oracleSelectedResolverId" to DnsProviderGoogle,
+                "encryptedBootstrapValidated" to "false",
+                "encryptedAddresses" to "not-an-ip",
+            )
+        cases.forEach { (key, value) ->
+            val weakened =
+                recovery.copy(
+                    details =
+                        recovery.details.map {
+                            if (it.key ==
+                                key
+                            ) {
+                                ProbeDetail(key, value)
+                            } else {
+                                it
+                            }
+                        },
+                )
+            assertFalse(key, requireNotNull(computeRecoveryRecommendation(listOf(weakened))).persistable)
+        }
+    }
+
+    @Test
+    fun `confirmed same-question recovery outranks advisory candidates and requires a complete scan`() {
+        val recovery = confirmedDnsRecovery()
+        val unrelated = confirmedDnsRecovery().copy(target = "other.example", outcome = "dns_match")
+
+        val recommendation = requireNotNull(computeRecoveryRecommendation(listOf(recovery, unrelated)))
+        assertEquals(DnsProviderCloudflare, recommendation.selectedResolverId)
+        assertTrue(recommendation.persistable)
+        val partial = computeRecoveryRecommendation(listOf(recovery), ScanCompletionKind.PARTIAL_RESULTS)
+        assertFalse(requireNotNull(partial).persistable)
+    }
+
+    @Test
+    fun `system DNS failure requires repeated failed attempts without a recovered retry`() {
+        val timeout = confirmedDnsRecovery().copy(outcome = "dns_system_resolution_failed")
+        val repeatedTimeout =
+            timeout.copy(
+                details =
+                    timeout.details +
+                        listOf(
+                            ProbeDetail("udpAttemptCount", "2"),
+                            ProbeDetail("udpSuccessCount", "0"),
+                            ProbeDetail("udpRetryRecovered", "false"),
+                            ProbeDetail("udpCacheHit", "false"),
+                        ),
+            )
+        val recovered =
+            repeatedTimeout.copy(
+                details =
+                    repeatedTimeout.details.map {
+                        if (it.key ==
+                            "udpRetryRecovered"
+                        ) {
+                            it.copy(value = "true")
+                        } else {
+                            it
+                        }
+                    },
+            )
+
+        assertFalse(requireNotNull(computeRecoveryRecommendation(listOf(timeout))).persistable)
+        assertTrue(requireNotNull(computeRecoveryRecommendation(listOf(repeatedTimeout))).persistable)
+        assertFalse(requireNotNull(computeRecoveryRecommendation(listOf(recovered))).persistable)
+    }
+}
+
 internal fun dnsIntegrityResult(
     outcome: String,
     resolverId: String,
@@ -638,4 +724,49 @@ internal fun dnsIntegrityResult(
                 add(ProbeDetail("encryptedLatencyMs", latencyMs))
                 if (bootstrapValidated) add(ProbeDetail("encryptedBootstrapValidated", "true"))
             },
+    )
+
+private fun confirmedDnsRecovery(): ProbeResult =
+    dnsIntegrityResult(
+        outcome = "dns_nxdomain_mismatch",
+        resolverId = DnsProviderCloudflare,
+        protocol = EncryptedDnsProtocolDoh,
+        host = "cloudflare-dns.com",
+        endpoint = "https://cloudflare-dns.com/dns-query",
+        bootstrapIps = "1.1.1.1",
+        encryptedAddresses = "192.0.2.10",
+        latencyMs = "25",
+        bootstrapValidated = true,
+    ).let { result ->
+        result.copy(
+            details =
+                result.details +
+                    listOf(
+                        ProbeDetail("oracleTrust", "trusted_agreement"),
+                        ProbeDetail("oracleTermination", "quorum_reached"),
+                        ProbeDetail("oracleSelectedResolverId", DnsProviderCloudflare),
+                    ),
+        )
+    }
+
+private fun computeRecoveryRecommendation(
+    results: List<ProbeResult>,
+    completionKind: ScanCompletionKind = ScanCompletionKind.NORMAL,
+): ResolverRecommendation? =
+    ResolverRecommendationEngine.compute(
+        report =
+            ScanReport(
+                sessionId = "resolver",
+                profileId = "default",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 100,
+                summary = "",
+                completionKind = completionKind,
+                results = results,
+            ),
+        settings =
+            com.poyka.ripdpi.proto.AppSettings
+                .getDefaultInstance(),
+        preferredPath = null,
     )

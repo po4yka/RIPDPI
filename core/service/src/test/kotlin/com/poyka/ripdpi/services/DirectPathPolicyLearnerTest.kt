@@ -64,6 +64,28 @@ private class FakeFlowAppAttributionStore : FlowAppAttributionStore {
 
 class DirectPathPolicyLearnerTest {
     @Test
+    fun `late proxy evidence does not update the replacement network`() =
+        runTest {
+            val wifi = sampleFingerprint()
+            val cellular = wifi.copy(transport = "cellular")
+            val provider = TestNetworkFingerprintProvider(cellular)
+            val store = TestServerCapabilityStore()
+            val learner = DirectPathPolicyLearner(provider, store, FakeFlowAppAttributionStore())
+            learner.consumeSignal(
+                "example.org:443",
+                "deadbeef",
+                DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
+                100L,
+                origin = DirectPathLearningOrigin { false },
+            )
+            assertTrue(store.directPathCapabilitiesForFingerprint(wifi.scopeKey()).isEmpty())
+            assertTrue(store.directPathCapabilitiesForFingerprint(cellular.scopeKey()).isEmpty())
+
+            learner.consumeSignal("example.org:443", "deadbeef", DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK, 200L)
+            assertEquals(1, store.directPathCapabilitiesForFingerprint(cellular.scopeKey()).size)
+        }
+
+    @Test
     fun `a scoped app does not inherit another app's cached no fallback reason`() =
         runTest {
             val fingerprint = sampleFingerprint()
@@ -587,6 +609,11 @@ class DirectPathPolicyLearnerTest {
         }
 }
 
+private val TestDirectPathLearningOrigin = DirectPathLearningOrigin { true }
+
+private suspend fun DirectPathPolicyLearner.consume(snapshot: NativeRuntimeSnapshot) =
+    consume(snapshot, TestDirectPathLearningOrigin)
+
 private suspend fun DirectPathPolicyLearner.consumeSignal(
     authority: String,
     ipSetDigest: String,
@@ -594,6 +621,7 @@ private suspend fun DirectPathPolicyLearner.consumeSignal(
     capturedAt: Long,
     strategyFamily: String? = null,
     appScope: String? = null,
+    origin: DirectPathLearningOrigin = TestDirectPathLearningOrigin,
 ) {
     consume(
         NativeRuntimeSnapshot(
@@ -611,5 +639,6 @@ private suspend fun DirectPathPolicyLearner.consumeSignal(
                     ),
                 ),
         ),
+        origin,
     )
 }

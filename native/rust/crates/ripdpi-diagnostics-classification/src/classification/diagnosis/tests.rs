@@ -1,6 +1,6 @@
 use super::*;
 use crate::classification::strategy::strategy_probe_failure_priority;
-use crate::types::{DiagnosticProfileFamily, ProbeDetail, ScanKind, ScanPathMode, ScanRequest};
+use crate::types::ProbeDetail;
 use ripdpi_failure_classifier::{FailureClass, FailureStage};
 
 #[test]
@@ -88,44 +88,6 @@ fn successful_https_baseline_has_no_failure_class() {
     assert!(classify_strategy_probe_baseline_results(&[result]).is_none());
 }
 
-fn connectivity_request() -> ScanRequest {
-    ScanRequest {
-        profile_id: "ru-dpi-full".to_string(),
-        display_name: "Russia DPI Full".to_string(),
-        path_mode: ScanPathMode::RawPath,
-        kind: ScanKind::Connectivity,
-        family: DiagnosticProfileFamily::DpiFull,
-        region_tag: Some("ru".to_string()),
-        manual_only: true,
-        pack_refs: vec!["ru-independent-media@1".to_string()],
-        proxy_host: None,
-        proxy_port: None,
-        in_path_route: None,
-        probe_tasks: vec![],
-        domain_targets: vec![],
-        dns_targets: vec![],
-        tcp_targets: vec![],
-        quic_targets: vec![],
-        service_targets: vec![],
-        circumvention_targets: vec![],
-        throughput_targets: vec![],
-        selective_matrix: None,
-        ip_family_probe: None,
-        http3_probe: None,
-        pmtu_probe: None,
-        tls_hop_comparison: None,
-        quic_version_matrix: None,
-        whitelist_sni: vec![],
-        telegram_target: None,
-        strategy_probe: None,
-        network_snapshot: None,
-        route_probe: None,
-        scan_deadline_ms: None,
-        diagnostic_tls_keylog_path: None,
-        confirm_good_dpi_evidence: None,
-    }
-}
-
 fn connectivity_probe(probe_type: &str, target: &str, outcome: &str, details: &[(&str, &str)]) -> ProbeResult {
     ProbeResult {
         probe_type: probe_type.to_string(),
@@ -140,70 +102,64 @@ fn connectivity_probe(probe_type: &str, target: &str, outcome: &str, details: &[
 
 #[test]
 fn classify_connectivity_diagnoses_detects_dns_blockpage_fingerprint() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[
-            connectivity_probe(
-                "dns_integrity",
-                "blocked.example",
-                "dns_sinkhole_substitution",
-                &[("udpAddresses", "203.0.113.10"), ("encryptedAddresses", "104.22.1.1")],
-            ),
-            connectivity_probe(
-                "domain_reachability",
-                "blocked.example",
-                "http_blockpage",
-                &[("httpStatus", "http_blockpage"), ("httpResponse", "403 blocked")],
-            ),
-        ],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[
+        connectivity_probe(
+            "dns_integrity",
+            "blocked.example",
+            "dns_sinkhole_substitution",
+            &[("udpAddresses", "203.0.113.10"), ("encryptedAddresses", "104.22.1.1")],
+        ),
+        connectivity_probe(
+            "domain_reachability",
+            "blocked.example",
+            "http_blockpage",
+            &[("httpStatus", "http_blockpage"), ("httpResponse", "403 blocked")],
+        ),
+    ]);
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "dns_tampering"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "dns_blockpage_fingerprint"));
 }
 
 #[test]
 fn classify_connectivity_diagnoses_detects_tls_timeout_rst_close_and_mitm() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[
-            connectivity_probe(
-                "domain_reachability",
-                "discord.com",
-                "unreachable",
-                &[
-                    ("tlsError", "operation timed out"),
-                    ("tlsStatus", "tls_handshake_failed"),
-                    ("tlsFailureStage", "tls_handshake"),
-                ],
-            ),
-            connectivity_probe(
-                "domain_reachability",
-                "signal.org",
-                "unreachable",
-                &[
-                    ("tlsError", "connection reset by peer"),
-                    ("tlsStatus", "tls_handshake_failed"),
-                    ("tlsFailureStage", "tls_handshake"),
-                ],
-            ),
-            connectivity_probe(
-                "domain_reachability",
-                "whatsapp.com",
-                "unreachable",
-                &[
-                    ("tlsError", "unexpected eof"),
-                    ("tlsStatus", "tls_handshake_failed"),
-                    ("tlsFailureStage", "tls_handshake"),
-                ],
-            ),
-            connectivity_probe(
-                "domain_reachability",
-                "torproject.org",
-                "tls_cert_invalid",
-                &[("tlsSignal", "tls_cert_invalid"), ("tlsError", "unknown issuer")],
-            ),
-        ],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[
+        connectivity_probe(
+            "domain_reachability",
+            "discord.com",
+            "unreachable",
+            &[
+                ("tlsError", "operation timed out"),
+                ("tlsStatus", "tls_handshake_failed"),
+                ("tlsFailureStage", "tls_handshake"),
+            ],
+        ),
+        connectivity_probe(
+            "domain_reachability",
+            "signal.org",
+            "unreachable",
+            &[
+                ("tlsError", "connection reset by peer"),
+                ("tlsStatus", "tls_handshake_failed"),
+                ("tlsFailureStage", "tls_handshake"),
+            ],
+        ),
+        connectivity_probe(
+            "domain_reachability",
+            "whatsapp.com",
+            "unreachable",
+            &[
+                ("tlsError", "unexpected eof"),
+                ("tlsStatus", "tls_handshake_failed"),
+                ("tlsFailureStage", "tls_handshake"),
+            ],
+        ),
+        connectivity_probe(
+            "domain_reachability",
+            "torproject.org",
+            "tls_cert_invalid",
+            &[("tlsSignal", "tls_cert_invalid"), ("tlsError", "unknown issuer")],
+        ),
+    ]);
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "tls_clienthello_timeout"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "tls_clienthello_rst"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "tls_clienthello_close"));
@@ -211,62 +167,61 @@ fn classify_connectivity_diagnoses_detects_tls_timeout_rst_close_and_mitm() {
 }
 
 #[test]
-fn classify_connectivity_diagnoses_detects_http_quic_whitelist_and_tcp_cutoff() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[
-            connectivity_probe(
-                "tcp_fat_header",
-                "1.1.1.1:443 (Cloudflare)",
-                "tcp_16kb_blocked",
-                &[("bytesSent", "16384"), ("responsesSeen", "1"), ("lastError", "unexpected eof")],
-            ),
-            connectivity_probe(
-                "tcp_fat_header",
-                "1.1.1.1:443 (Cloudflare)",
-                "whitelist_sni_ok",
-                &[("selectedSni", "vk.com"), ("attempts", "example.com:reset|vk.com:ok")],
-            ),
-            connectivity_probe(
-                "domain_reachability",
-                "youtube.com",
-                "unreachable",
-                &[
-                    ("tlsError", "connection reset by peer"),
-                    ("tlsStatus", "tls_handshake_failed"),
-                    ("tlsFailureStage", "tls_handshake"),
-                ],
-            ),
-            connectivity_probe(
-                "quic_reachability",
-                "youtube.com",
-                "quic_timeout",
-                &[("status", "quic_timeout"), ("error", "timeout"), ("latencyMs", "800")],
-            ),
-        ],
-    );
+fn classify_connectivity_diagnoses_keeps_sni_success_and_unrelated_tls_failure_separate() {
+    let diagnoses = classify_connectivity_diagnoses(&[
+        connectivity_probe(
+            "tcp_fat_header",
+            "1.1.1.1:443 (Cloudflare)",
+            "tcp_16kb_blocked",
+            &[("bytesSent", "16384"), ("responsesSeen", "1"), ("lastError", "unexpected eof")],
+        ),
+        connectivity_probe(
+            "tcp_fat_header",
+            "1.1.1.1:443 (Cloudflare)",
+            "whitelist_sni_ok",
+            &[("selectedSni", "vk.com"), ("attempts", "example.com:reset|vk.com:ok")],
+        ),
+        connectivity_probe(
+            "domain_reachability",
+            "youtube.com",
+            "unreachable",
+            &[
+                ("tlsError", "connection reset by peer"),
+                ("tlsStatus", "tls_handshake_failed"),
+                ("tlsFailureStage", "tls_handshake"),
+            ],
+        ),
+        connectivity_probe(
+            "quic_reachability",
+            "youtube.com",
+            "quic_timeout",
+            &[("status", "quic_timeout"), ("error", "timeout"), ("latencyMs", "800")],
+        ),
+    ]);
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "tcp_16kb_cutoff"));
-    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "whitelist_sni_bypassable"));
-    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "sni_triggered_tls_interference"));
+    assert!(diagnoses.iter().any(|diagnosis| {
+        diagnosis.code == "whitelist_sni_bypassable" && diagnosis.target.as_deref() == Some("1.1.1.1:443 (Cloudflare)")
+    }));
+    assert!(diagnoses.iter().any(|diagnosis| {
+        diagnosis.code == "tls_clienthello_rst" && diagnosis.target.as_deref() == Some("youtube.com")
+    }));
+    assert!(!diagnoses.iter().any(|diagnosis| diagnosis.code == "sni_triggered_tls_interference"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "quic_initial_unobserved"));
 }
 
 #[test]
 fn classify_connectivity_diagnoses_detects_connection_freeze() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[connectivity_probe(
-            "tcp_fat_header",
-            "1.1.1.1:443 (Cloudflare)",
-            "tcp_freeze_after_threshold",
-            &[
-                ("bytesSent", "16384"),
-                ("responsesSeen", "1"),
-                ("lastError", "timed out"),
-                ("freezeThresholdBytes", "16384"),
-            ],
-        )],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[connectivity_probe(
+        "tcp_fat_header",
+        "1.1.1.1:443 (Cloudflare)",
+        "tcp_freeze_after_threshold",
+        &[
+            ("bytesSent", "16384"),
+            ("responsesSeen", "1"),
+            ("lastError", "timed out"),
+            ("freezeThresholdBytes", "16384"),
+        ],
+    )]);
     assert!(diagnoses.iter().any(|d| d.code == "connection_freeze_detected"));
     let diag = diagnoses.iter().find(|d| d.code == "connection_freeze_detected").unwrap();
     assert_eq!(diag.severity, "negative");
@@ -275,24 +230,21 @@ fn classify_connectivity_diagnoses_detects_connection_freeze() {
 
 #[test]
 fn classify_connectivity_diagnoses_detects_port_443_policing() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[connectivity_probe(
-            "tcp_fat_header",
-            "1.1.1.1:443 (Cloudflare)",
-            "tcp_freeze_after_threshold",
-            &[
-                ("bytesSent", "16384"),
-                ("responsesSeen", "1"),
-                ("lastError", "timed out"),
-                ("freezeThresholdBytes", "16384"),
-                ("port", "443"),
-                ("altPort", "8443"),
-                ("altPortStatus", "ok"),
-                ("altPortResponsesSeen", "16"),
-            ],
-        )],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[connectivity_probe(
+        "tcp_fat_header",
+        "1.1.1.1:443 (Cloudflare)",
+        "tcp_freeze_after_threshold",
+        &[
+            ("bytesSent", "16384"),
+            ("responsesSeen", "1"),
+            ("lastError", "timed out"),
+            ("freezeThresholdBytes", "16384"),
+            ("port", "443"),
+            ("altPort", "8443"),
+            ("altPortStatus", "ok"),
+            ("altPortResponsesSeen", "16"),
+        ],
+    )]);
     assert!(diagnoses.iter().any(|d| d.code == "connection_freeze_detected"));
     assert!(diagnoses.iter().any(|d| d.code == "port_443_policed"));
     let diag = diagnoses.iter().find(|d| d.code == "port_443_policed").unwrap();
@@ -302,59 +254,53 @@ fn classify_connectivity_diagnoses_detects_port_443_policing() {
 
 #[test]
 fn classify_connectivity_diagnoses_no_port_policing_when_alt_port_also_fails() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[connectivity_probe(
-            "tcp_fat_header",
-            "1.1.1.1:443 (Cloudflare)",
-            "tcp_freeze_after_threshold",
-            &[
-                ("bytesSent", "16384"),
-                ("responsesSeen", "1"),
-                ("lastError", "timed out"),
-                ("port", "443"),
-                ("altPort", "8443"),
-                ("altPortStatus", "timeout"),
-            ],
-        )],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[connectivity_probe(
+        "tcp_fat_header",
+        "1.1.1.1:443 (Cloudflare)",
+        "tcp_freeze_after_threshold",
+        &[
+            ("bytesSent", "16384"),
+            ("responsesSeen", "1"),
+            ("lastError", "timed out"),
+            ("port", "443"),
+            ("altPort", "8443"),
+            ("altPortStatus", "timeout"),
+        ],
+    )]);
     assert!(diagnoses.iter().any(|d| d.code == "connection_freeze_detected"));
     assert!(!diagnoses.iter().any(|d| d.code == "port_443_policed"));
 }
 
 #[test]
 fn classify_connectivity_diagnoses_detects_service_and_circumvention_blocking() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[
-            connectivity_probe(
-                "service_reachability",
-                "Signal",
-                "service_blocked",
-                &[
-                    ("service", "Signal"),
-                    ("bootstrapStatus", "http_blockpage"),
-                    ("bootstrapDetail", "451 blocked"),
-                    ("mediaStatus", "http_ok"),
-                    ("mediaDetail", "200 ok"),
-                    ("quicStatus", "quic_error"),
-                    ("quicError", "timeout"),
-                ],
-            ),
-            connectivity_probe(
-                "circumvention_reachability",
-                "Psiphon",
-                "circumvention_blocked",
-                &[
-                    ("tool", "Psiphon"),
-                    ("bootstrapStatus", "http_blockpage"),
-                    ("bootstrapDetail", "403 blocked"),
-                    ("handshakeStatus", "tls_handshake_failed"),
-                    ("handshakeError", "connection reset"),
-                ],
-            ),
-        ],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[
+        connectivity_probe(
+            "service_reachability",
+            "Signal",
+            "service_blocked",
+            &[
+                ("service", "Signal"),
+                ("bootstrapStatus", "http_blockpage"),
+                ("bootstrapDetail", "451 blocked"),
+                ("mediaStatus", "http_ok"),
+                ("mediaDetail", "200 ok"),
+                ("quicStatus", "quic_error"),
+                ("quicError", "timeout"),
+            ],
+        ),
+        connectivity_probe(
+            "circumvention_reachability",
+            "Psiphon",
+            "circumvention_blocked",
+            &[
+                ("tool", "Psiphon"),
+                ("bootstrapStatus", "http_blockpage"),
+                ("bootstrapDetail", "403 blocked"),
+                ("handshakeStatus", "tls_handshake_failed"),
+                ("handshakeError", "connection reset"),
+            ],
+        ),
+    ]);
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "service_bootstrap_blocked"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "service_quic_probe_failed"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "circumvention_bootstrap_blocked"));
@@ -374,23 +320,20 @@ fn no_blockpage_signal_does_not_yield_a_blocked_diagnosis() {
         "invalid_target",
         "interrupted",
     ] {
-        let diagnoses = classify_connectivity_diagnoses(
-            &connectivity_request(),
-            &[
-                connectivity_probe(
-                    "service_reachability",
-                    "Signal",
-                    "service_ok",
-                    &[("service", "Signal"), ("bootstrapStatus", status), ("mediaStatus", status)],
-                ),
-                connectivity_probe(
-                    "circumvention_reachability",
-                    "Psiphon",
-                    "circumvention_degraded",
-                    &[("tool", "Psiphon"), ("bootstrapStatus", status), ("handshakeStatus", "tls_ok")],
-                ),
-            ],
-        );
+        let diagnoses = classify_connectivity_diagnoses(&[
+            connectivity_probe(
+                "service_reachability",
+                "Signal",
+                "service_ok",
+                &[("service", "Signal"), ("bootstrapStatus", status), ("mediaStatus", status)],
+            ),
+            connectivity_probe(
+                "circumvention_reachability",
+                "Psiphon",
+                "circumvention_degraded",
+                &[("tool", "Psiphon"), ("bootstrapStatus", status), ("handshakeStatus", "tls_ok")],
+            ),
+        ]);
         let blocked = ["service_bootstrap_blocked", "service_media_blocked", "circumvention_bootstrap_blocked"];
         assert!(!diagnoses.iter().any(|d| blocked.contains(&d.code.as_str())), "no blockpage in {status}");
     }
@@ -416,28 +359,22 @@ fn throughput_probe(target: &str, is_control: bool, median_body_goodput_bps: &st
 
 #[test]
 fn evidence_throughput_comparison_does_not_depend_on_target_label() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[
-            throughput_probe("Arbitrary transfer target", false, "1000000", "8388608"),
-            throughput_probe("Cloudflare Control", true, "8000000", "8388608"),
-        ],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[
+        throughput_probe("Arbitrary transfer target", false, "1000000", "8388608"),
+        throughput_probe("Cloudflare Control", true, "8000000", "8388608"),
+    ]);
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "throughput_degradation"));
 }
 
 #[test]
 fn diagnoses_describe_ech_and_quic_observations_without_blocking_attribution() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[
-            connectivity_probe("domain_reachability", "target.example", "tls_ech_only", &[]),
-            connectivity_probe("quic_reachability", "target.example", "quic_invalid_response", &[]),
-            connectivity_probe("quic_reachability", "skipped.example", "capability_skipped", &[]),
-            connectivity_probe("quic_reachability", "setup.example", "quic_setup_error", &[]),
-            connectivity_probe("quic_reachability", "retry.example", "quic_retry", &[]),
-        ],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[
+        connectivity_probe("domain_reachability", "target.example", "tls_ech_only", &[]),
+        connectivity_probe("quic_reachability", "target.example", "quic_invalid_response", &[]),
+        connectivity_probe("quic_reachability", "skipped.example", "capability_skipped", &[]),
+        connectivity_probe("quic_reachability", "setup.example", "quic_setup_error", &[]),
+        connectivity_probe("quic_reachability", "retry.example", "quic_retry", &[]),
+    ]);
     assert_eq!(
         diagnoses.iter().find(|diagnosis| diagnosis.code == "tls_ech_only").unwrap().summary,
         "Plain TLS attempts failed for target.example, but ECH succeeded"
@@ -451,52 +388,43 @@ fn diagnoses_describe_ech_and_quic_observations_without_blocking_attribution() {
 
 #[test]
 fn failed_throughput_control_cannot_support_a_comparison() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[
-            connectivity_probe(
-                "throughput_window",
-                "control",
-                "http_unreachable",
-                &[("isControl", "true"), ("medianBps", "10000000")],
-            ),
-            connectivity_probe("throughput_window", "youtube", "throughput_measured", &[("medianBps", "100000")]),
-        ],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[
+        connectivity_probe(
+            "throughput_window",
+            "control",
+            "http_unreachable",
+            &[("isControl", "true"), ("medianBps", "10000000")],
+        ),
+        connectivity_probe("throughput_window", "youtube", "throughput_measured", &[("medianBps", "100000")]),
+    ]);
     assert!(!diagnoses.iter().any(|diagnosis| diagnosis.code == "throughput_degradation"));
 }
 
 #[test]
 fn evidence_unrelated_domain_failure_keeps_measured_throughput_comparison() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[
-            connectivity_probe("domain_reachability", "unrelated.example", "tls_cert_invalid", &[]),
-            throughput_probe("YouTube Web", false, "1000000", "8388608"),
-            throughput_probe("Control", true, "8000000", "8388608"),
-        ],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[
+        connectivity_probe("domain_reachability", "unrelated.example", "tls_cert_invalid", &[]),
+        throughput_probe("YouTube Web", false, "1000000", "8388608"),
+        throughput_probe("Control", true, "8000000", "8388608"),
+    ]);
     assert!(diagnoses.iter().any(|d| d.code == "tls_cert_invalid"));
     assert!(diagnoses.iter().any(|d| d.code == "throughput_degradation"));
 }
 
 #[test]
 fn evidence_tcp_port_difference_keeps_measurement_without_cause_attribution() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[connectivity_probe(
-            "tcp_fat_header",
-            "127.0.0.1:443 (fixture)",
-            "tcp_freeze_after_threshold",
-            &[
-                ("port", "443"),
-                ("altPort", "8443"),
-                ("altPortStatus", "ok"),
-                ("bytesSent", "16384"),
-                ("responsesSeen", "1"),
-            ],
-        )],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[connectivity_probe(
+        "tcp_fat_header",
+        "127.0.0.1:443 (fixture)",
+        "tcp_freeze_after_threshold",
+        &[
+            ("port", "443"),
+            ("altPort", "8443"),
+            ("altPortStatus", "ok"),
+            ("bytesSent", "16384"),
+            ("responsesSeen", "1"),
+        ],
+    )]);
     let difference = diagnoses.iter().find(|d| d.code == "port_443_policed").unwrap();
     assert_eq!(
         difference.summary,
@@ -515,26 +443,20 @@ fn evidence_tcp_port_difference_keeps_measurement_without_cause_attribution() {
 
 #[test]
 fn evidence_throughput_requires_comparable_windows() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[
-            throughput_probe("YouTube Web", false, "100000", "65536"),
-            throughput_probe("Control", true, "8000000", "8388608"),
-        ],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[
+        throughput_probe("YouTube Web", false, "100000", "65536"),
+        throughput_probe("Control", true, "8000000", "8388608"),
+    ]);
     assert!(!diagnoses.iter().any(|d| matches!(d.code.as_str(), "youtube_throttled" | "throughput_degradation")));
 }
 
 #[test]
 fn evidence_throughput_uses_the_median_of_two_controls() {
-    let diagnoses = classify_connectivity_diagnoses(
-        &connectivity_request(),
-        &[
-            throughput_probe("Transfer", false, "3500000", "8388608"),
-            throughput_probe("First control", true, "8000000", "8388608"),
-            throughput_probe("Second control", true, "16000000", "8388608"),
-        ],
-    );
+    let diagnoses = classify_connectivity_diagnoses(&[
+        throughput_probe("Transfer", false, "3500000", "8388608"),
+        throughput_probe("First control", true, "8000000", "8388608"),
+        throughput_probe("Second control", true, "16000000", "8388608"),
+    ]);
     assert!(!diagnoses.iter().any(|d| d.code == "throughput_degradation"));
 }
 
@@ -551,7 +473,7 @@ fn evidence_throughput_rejects_partial_or_mismatched_controls() {
         let mut control = throughput_probe("Control", true, "8000000", "8388608");
         control.details.iter_mut().find(|detail| detail.key == key).unwrap().value = value.into();
         let target = throughput_probe("Transfer", false, "100000", "8388608");
-        let diagnoses = classify_connectivity_diagnoses(&connectivity_request(), &[target, control]);
+        let diagnoses = classify_connectivity_diagnoses(&[target, control]);
         assert!(!diagnoses.iter().any(|d| d.code == "throughput_degradation"), "{key}={value}");
     }
 }

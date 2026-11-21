@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProbeTypes
 import com.poyka.ripdpi.diagnostics.ScanReport
+import com.poyka.ripdpi.diagnostics.StrategyActivePathAuthority
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
@@ -24,13 +25,28 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 internal const val NetworkScopeUnverifiedDiagnosis = "network_scope_unverified"
-private const val NetworkScopeUnverifiedSummary =
-    "Network continuity could not be verified. Results are inconclusive; repeat the scan."
+
+internal enum class DiagnosticsScopeLoss(
+    val diagnosisCode: String,
+    val summary: String,
+) {
+    NETWORK(
+        NetworkScopeUnverifiedDiagnosis,
+        "Network continuity could not be verified. Results are inconclusive; repeat the scan.",
+    ),
+    VPN_ROUTE(
+        "in_path_route_unverified",
+        "The VPN route changed during diagnostics. Results are inconclusive; repeat the scan.",
+    ),
+}
 
 /** Preserve measurements, but do not let history or Home consumers apply mixed-network advice. */
 internal fun EngineScanReportWire.withoutNetworkScopeAuthority(): EngineScanReportWire =
+    withoutScopeAuthority(DiagnosticsScopeLoss.NETWORK)
+
+private fun EngineScanReportWire.withoutScopeAuthority(loss: DiagnosticsScopeLoss): EngineScanReportWire =
     copy(
-        summary = NetworkScopeUnverifiedSummary,
+        summary = loss.summary,
         completionKind =
             if (completionKind ==
                 ScanCompletionKind.NORMAL
@@ -48,20 +64,26 @@ internal fun EngineScanReportWire.withoutNetworkScopeAuthority(): EngineScanRepo
             strategyProbeReport?.copy(
                 recommendation = null,
                 completionKind = StrategyProbeCompletionKind.PARTIAL_RESULTS,
-                activePathObservation = null,
+                activePathObservation =
+                    strategyProbeReport.activePathObservation
+                        ?.takeIf { loss == DiagnosticsScopeLoss.VPN_ROUTE }
+                        ?.copy(activePathAuthority = StrategyActivePathAuthority.UNVERIFIED),
                 domainStrategySeeds = emptyList(),
             ),
         diagnoses =
-            diagnoses.filterNot { it.code == NetworkScopeUnverifiedDiagnosis } +
+            listOf(
                 Diagnosis(
-                    code = NetworkScopeUnverifiedDiagnosis,
-                    summary = NetworkScopeUnverifiedSummary,
+                    code = loss.diagnosisCode,
+                    summary = loss.summary,
                     severity = "warning",
                 ),
+            ),
     )
 
-internal fun ScanReport.withoutNetworkScopeAuthority(): ScanReport =
-    toEngineScanReportWire().withoutNetworkScopeAuthority().toScanReport()
+internal fun ScanReport.withoutNetworkScopeAuthority(): ScanReport = withoutScopeAuthority(DiagnosticsScopeLoss.NETWORK)
+
+internal fun ScanReport.withoutScopeAuthority(loss: DiagnosticsScopeLoss): ScanReport =
+    toEngineScanReportWire().withoutScopeAuthority(loss).toScanReport()
 
 /** Invalid JSON cannot carry actionable evidence and must not escape a failed finalization. */
 internal fun PreparedDiagnosticsScan?.scopeReportJson(
@@ -84,16 +106,22 @@ internal suspend fun revokePersistedNetworkScope(
     sessionId: String,
     scanRecordStore: DiagnosticsScanRecordStore,
     json: Json,
+    loss: DiagnosticsScopeLoss = DiagnosticsScopeLoss.NETWORK,
+    inPathFinishedAt: Long? = null,
 ) {
     val session = scanRecordStore.getScanSession(sessionId) ?: return
-    val report = session.reportJson?.let { json.decodeEngineScanReportWire(it).withoutNetworkScopeAuthority() }
+    val report = session.reportJson?.let { json.decodeEngineScanReportWire(it).withoutScopeAuthority(loss) }
+    val manualConflict = session.hasAuthoritativeManualConflictCancellation()
+    val finishScan = inPathFinishedAt != null && !manualConflict
     val scopedSession =
         session.copy(
+            status = if (finishScan) "completed" else session.status,
+            finishedAt = if (finishScan) inPathFinishedAt else session.finishedAt,
             summary =
-                if (session.hasAuthoritativeManualConflictCancellation()) {
+                if (manualConflict) {
                     session.summary
                 } else {
-                    NetworkScopeUnverifiedSummary
+                    loss.summary
                 },
             reportJson = report?.let { json.encodeToString(EngineScanReportWire.serializer(), it) },
             reportCompletionKind = report?.completionKind?.name ?: session.reportCompletionKind,

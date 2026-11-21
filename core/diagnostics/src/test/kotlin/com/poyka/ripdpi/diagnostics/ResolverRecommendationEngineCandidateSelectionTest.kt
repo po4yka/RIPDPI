@@ -287,7 +287,7 @@ class ResolverRecommendationEngineCandidateSelectionTest {
         assertEquals(DnsProviderGoogle, result!!.selectedResolverId)
         assertEquals(EncryptedDnsProtocolDot, result.selectedProtocol)
         assertEquals("dns_sinkhole_substitution", result.triggerOutcome)
-        assertTrue(result.persistable)
+        assertFalse(result.persistable)
     }
 
     @Test

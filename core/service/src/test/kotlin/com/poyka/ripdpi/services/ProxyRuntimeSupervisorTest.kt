@@ -2,6 +2,8 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpoch
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
@@ -20,6 +22,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -28,6 +31,45 @@ import org.junit.Test
 import java.io.IOException
 
 private const val TestLocalProxyAuth = "alpha-123"
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class ProxyRuntimeLearningOriginTest {
+    @Test
+    fun `learning authority belongs to the starting epoch and the proxy run`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            var epoch: DiagnosticsNetworkEpoch? = object : DiagnosticsNetworkEpoch {}
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { TestProxyRuntime() },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    networkEpochProvider = DiagnosticsNetworkEpochProvider { epoch },
+                )
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+            val original = requireNotNull(supervisor.pollTelemetryAndForwardingEvidence().directPathLearningOrigin)
+            assertTrue(original.isCurrent())
+
+            epoch = object : DiagnosticsNetworkEpoch {}
+            assertFalse(original.isCurrent())
+            supervisor.stop()
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+            val replacement = requireNotNull(supervisor.pollTelemetryAndForwardingEvidence().directPathLearningOrigin)
+            assertFalse(original.isCurrent())
+            assertTrue(replacement.isCurrent())
+
+            supervisor.stop()
+            assertFalse(replacement.isCurrent())
+
+            epoch = null
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+            val unverified = requireNotNull(supervisor.pollTelemetryAndForwardingEvidence().directPathLearningOrigin)
+            epoch = object : DiagnosticsNetworkEpoch {}
+            assertFalse(unverified.isCurrent())
+            supervisor.stop()
+        }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyRuntimeSupervisorTest {

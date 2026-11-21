@@ -312,6 +312,25 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
+    fun `advisory recommendation and a terminated report cannot apply resolver override`() {
+        val complete = scanReportWithResolverRecommendation()
+        val advisory = complete.copy(resolverRecommendation = resolverRecommendation().copy(persistable = false))
+        val terminated = complete.copy(terminationReason = ScanTerminationReason.DEADLINE_EXCEEDED)
+
+        listOf(advisory, terminated).forEach { report ->
+            assertFalse(
+                DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
+                    report = report,
+                    settings = settingsWithPlainUdpDns(),
+                    serviceStatus = AppStatus.Running,
+                    serviceMode = Mode.VPN,
+                    pathMode = ScanPathMode.RAW_PATH,
+                ),
+            )
+        }
+    }
+
+    @Test
     fun `temporary resolver override blocked when strategy probe completed normally`() {
         val report =
             scanReportWithStrategyProbe(
@@ -334,7 +353,7 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
-    fun `temporary resolver override applied for system DNS failure after partial strategy completion`() {
+    fun `temporary resolver override skipped for system DNS failure after partial strategy completion`() {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
@@ -347,7 +366,7 @@ class DiagnosticsScanWorkflowTest {
             )
         val plainUdpSettings = settingsWithPlainUdpDns()
 
-        assertTrue(
+        assertFalse(
             DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
                 report = report,
                 settings = plainUdpSettings,
@@ -432,7 +451,7 @@ class DiagnosticsScanWorkflowTest {
                 tcpFamily = "hostfake",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
-            )
+            ).copy(resolverRecommendation = resolverRecommendation())
 
         assertTrue(
             DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
@@ -451,7 +470,7 @@ class DiagnosticsScanWorkflowTest {
                 tcpFamily = "hostfake",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK,
-            )
+            ).copy(resolverRecommendation = resolverRecommendation())
 
         assertTrue(
             DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
@@ -520,7 +539,7 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
-    fun `reprobe recommended for system DNS failure after partial strategy completion`() {
+    fun `reprobe skipped for system DNS failure after partial strategy completion`() {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
@@ -532,7 +551,7 @@ class DiagnosticsScanWorkflowTest {
                     resolverRecommendation().copy(triggerOutcome = "dns_system_resolution_failed"),
             )
 
-        assertTrue(
+        assertFalse(
             DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
                 report = report,
                 pathMode = ScanPathMode.RAW_PATH,
@@ -542,7 +561,7 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
-    fun `confirmed DNS evidence survives strategy stage budget exhaustion`() {
+    fun `confirmed DNS evidence stays advisory when the strategy is partial`() {
         for (outcome in listOf("dns_nxdomain_mismatch", "dns_sinkhole_substitution")) {
             val report =
                 scanReportWithStrategyProbe(
@@ -552,7 +571,7 @@ class DiagnosticsScanWorkflowTest {
                     completionKind = StrategyProbeCompletionKind.PARTIAL_RESULTS,
                 ).copy(resolverRecommendation = resolverRecommendation().copy(triggerOutcome = outcome))
 
-            assertTrue(
+            assertFalse(
                 DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
                     report = report,
                     settings = settingsWithPlainUdpDns(),
@@ -561,7 +580,7 @@ class DiagnosticsScanWorkflowTest {
                     pathMode = ScanPathMode.RAW_PATH,
                 ),
             )
-            assertTrue(
+            assertFalse(
                 DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
                     report = report,
                     pathMode = ScanPathMode.RAW_PATH,
@@ -663,6 +682,7 @@ private fun resolverRecommendation(): ResolverRecommendation =
         selectedProtocol = "doh",
         selectedEndpoint = "https://cloudflare-dns.com/dns-query",
         rationale = "DNS tampering detected",
+        persistable = true,
     )
 
 internal fun scanReportWithStrategyProbe(
