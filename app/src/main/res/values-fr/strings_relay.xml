@@ -116,6 +116,7 @@
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">Valeur non valide pour ce champ.</string>
+    <string name="awg_field_from_subscription">Fourni par l’abonnement</string>
     <string name="awg_hp_prefix_min">Pour protéger les en-têtes, définissez %1$s sur %2$d ou plus.</string>
     <string name="awg_v3_title">AmneziaWG 3.x</string>
     <string name="awg_v3_help">Utilisez les valeurs du serveur. Clé : 32 octets en Base64. Remplissage : octets ; temporisateurs : secondes ; tentatives : nombre. Les plages vides utilisent les valeurs par défaut.</string>

@@ -115,6 +115,7 @@
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">Недопустимое значение для этого поля.</string>
+    <string name="awg_field_from_subscription">Из подписки</string>
     <string name="awg_hp_prefix_min">Для защиты заголовка установите %1$s не менее %2$d.</string>
     <string name="awg_v3_title">AmneziaWG 3.x</string>
     <string name="awg_v3_help">Используйте значения сервера. Ключ: 32 байта в Base64. Дополнение: байты; таймеры: секунды; попытки: количество. Пустые поля диапазонов используют значения по умолчанию.</string>

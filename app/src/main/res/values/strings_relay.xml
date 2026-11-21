@@ -118,6 +118,7 @@
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">Not a valid value for this field.</string>
+    <string name="awg_field_from_subscription">From subscription</string>
     <string name="awg_hp_prefix_min">Set %1$s to %2$d or more for header protection.</string>
     <string name="awg_v3_title">AmneziaWG 3.x</string>
     <string name="awg_v3_help">Use server values. Key: 32 bytes in Base64. Padding: bytes; timers: seconds; attempts: count. Leave range fields empty for defaults.</string>

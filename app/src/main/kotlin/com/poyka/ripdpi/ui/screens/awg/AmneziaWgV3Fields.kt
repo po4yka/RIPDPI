@@ -39,6 +39,7 @@ internal fun AwgV3Fields(
                     null
                 },
             enabled = !editor.obfuscationLocked,
+            readOnly = editor.isManaged(AwgEditorField.HEADER_PROTECTION_KEY),
             testTag = RipDpiTestTags.awgField(AwgEditorField.HEADER_PROTECTION_KEY.name),
         )
         listOf(
@@ -66,7 +67,7 @@ internal fun AwgV3Fields(
                     },
                 onCheckedChange = { onFieldChanged(field, it.toString()) },
                 label = stringResource(label),
-                enabled = !editor.obfuscationLocked,
+                enabled = !editor.obfuscationLocked && !editor.isManaged(field),
                 testTag = RipDpiTestTags.awgField(field.name),
             )
         }

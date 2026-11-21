@@ -132,15 +132,27 @@ enum class AwgEditorField(
  * [form] is the canonical [AwgProfileForm] (the persistable shape). [rawTextByField] keeps
  * the user-typed text per field so an in-progress invalid edit is not silently discarded.
  * [obfuscationLocked] is `true` exactly when a non-`Custom` cohort preset owns the
- * obfuscation group.
+ * obfuscation group. [subscriptionOwned] is `true` for a profile a subscription refresh rewrites: only the
+ * [subscriptionUserFields] stay editable.
  */
 data class AmneziaWgEditorState(
     val form: AwgProfileForm,
     val rawTextByField: Map<AwgEditorField, String>,
     val obfuscationLocked: Boolean,
+    val subscriptionOwned: Boolean = false,
 ) {
     override fun toString(): String =
-        "AmneziaWgEditorState(form=$form, editedFields=${rawTextByField.keys}, obfuscationLocked=$obfuscationLocked)"
+        "AmneziaWgEditorState(form=$form, editedFields=${rawTextByField.keys}, " +
+            "obfuscationLocked=$obfuscationLocked, subscriptionOwned=$subscriptionOwned)"
+
+    /** `true` when a subscription refresh owns [field], so the editor shows it read-only. */
+    fun isManaged(field: AwgEditorField): Boolean = subscriptionOwned && field !in subscriptionUserFields
+
+    /** A pasted `.conf` for a subscription profile fills only the fields the user owns. */
+    fun withUserFieldsFrom(pasted: AmneziaWgEditorState): AmneziaWgEditorState =
+        subscriptionUserFields.fold(this) { state, field ->
+            pasted.rawTextByField[field]?.takeIf { it.isNotBlank() }?.let { state.updateField(field, it) } ?: state
+        }
 
     fun hasV3Edits(): Boolean = form.v3.isSet || AwgEditorField.entries.any { it.isV3 && hasFieldError(it) }
 
@@ -230,7 +242,7 @@ data class AmneziaWgEditorState(
         field: AwgEditorField,
         raw: String,
     ): AmneziaWgEditorState {
-        if (field.isObfuscation && obfuscationLocked) return this
+        if ((field.isObfuscation && obfuscationLocked) || isManaged(field)) return this
         val nextRaw = rawTextByField + (field to raw)
         val parsed = field.validate(raw)
         val nextForm = if (parsed == null) form else form.applyField(field, parsed)
@@ -243,6 +255,7 @@ data class AmneziaWgEditorState(
      * untouched.
      */
     fun selectCohort(preset: AwgCohortPreset): AmneziaWgEditorState {
+        if (subscriptionOwned) return this
         val nextForm = applyCohortPreset(form, preset)
         return copy(
             form = nextForm,
@@ -256,10 +269,14 @@ data class AmneziaWgEditorState(
      * their current numeric values so the user can tweak from a known-good baseline.
      */
     fun selectCustom(): AmneziaWgEditorState =
-        copy(
-            form = form.copy(cohortId = AwgProfileForm.CUSTOM_COHORT_ID),
-            obfuscationLocked = false,
-        )
+        if (subscriptionOwned) {
+            this
+        } else {
+            copy(
+                form = form.copy(cohortId = AwgProfileForm.CUSTOM_COHORT_ID),
+                obfuscationLocked = false,
+            )
+        }
 
     /**
      * Selects the transport [carrier] ([AwgActivationRequest.CARRIER_UDP] or
@@ -533,3 +550,15 @@ internal fun AwgProfileForm.obfuscationRawText(): Map<AwgEditorField, String> =
         put(AwgEditorField.RANDOM_TRAILERS, v3.randomTrailers.toString())
         put(AwgEditorField.DISABLE_COOKIES, v3.disableCookies.toString())
     }
+
+/**
+ * The fields a subscription refresh leaves to the user, as `AwgProfileRepository` merges a refresh: the private key
+ * import leaves empty, the DNS and route policy, and the WebSocket carrier URL. The refresh rewrites every other field.
+ */
+val subscriptionUserFields: Set<AwgEditorField> =
+    setOf(
+        AwgEditorField.INTERFACE_PRIVATE_KEY,
+        AwgEditorField.DNS,
+        AwgEditorField.ALLOWED_IPS,
+        AwgEditorField.CARRIER_WS_URL,
+    )

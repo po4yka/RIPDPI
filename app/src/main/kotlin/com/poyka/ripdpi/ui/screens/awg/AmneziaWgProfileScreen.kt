@@ -345,6 +345,10 @@ private fun PeerSection(
             revealed = uiState.presharedKeyRevealed,
             onValueChange = { onFieldChanged(AwgEditorField.PRESHARED_KEY, it) },
             onReveal = onRevealPresharedKey,
+            readOnly = editor.isManaged(AwgEditorField.PRESHARED_KEY),
+            helperText =
+                stringResource(R.string.awg_field_from_subscription)
+                    .takeIf { editor.isManaged(AwgEditorField.PRESHARED_KEY) },
             errorText =
                 if (editor.hasFieldError(
                         AwgEditorField.PRESHARED_KEY,
@@ -393,6 +397,8 @@ private fun ObfuscationSection(
                     }.toImmutableList(),
             selectedValue = editor.form.cohortId,
             onValueSelected = onCohortSelected,
+            readOnly = editor.subscriptionOwned,
+            helperText = stringResource(R.string.awg_field_from_subscription).takeIf { editor.subscriptionOwned },
             label = stringResource(R.string.awg_cohort_picker_label),
             testTag = RipDpiTestTags.AwgCohortPicker,
         )
@@ -464,11 +470,12 @@ internal fun PlainField(
 ) {
     val hasError = editor.hasFieldError(field)
     val conflict = editor.conflictingField(field)
+    val managed = editor.isManaged(field)
     val valueField =
         RelayValueField(
             label = stringResource(labelRes),
             placeholder = placeholder,
-            helperText = helperText,
+            helperText = if (managed) stringResource(R.string.awg_field_from_subscription) else helperText,
             errorText =
                 when {
                     conflict != null -> {
@@ -492,6 +499,7 @@ internal fun PlainField(
                     }
                 },
             testTag = RipDpiTestTags.awgField(field.name),
+            readOnly = managed,
             enabled = enabled,
         )
     val value = editor.rawText(field)
@@ -523,11 +531,11 @@ internal fun PlainField(
                     RipDpiTextFieldDecoration(
                         label = valueField.label,
                         placeholder = placeholder,
-                        helperText = helperText,
+                        helperText = valueField.helperText,
                         errorText = valueField.errorText,
                         testTag = valueField.testTag,
                     ),
-                behavior = RipDpiTextFieldBehavior(enabled = enabled),
+                behavior = RipDpiTextFieldBehavior(enabled = enabled, readOnly = managed),
             )
         }
     }

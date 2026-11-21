@@ -301,6 +301,7 @@ app:awg_field_allowed_ips
 app:awg_field_carrier_ws_url
 app:awg_field_content_padding_addition
 app:awg_field_disable_cookies
+app:awg_field_from_subscription
 app:awg_field_h1
 app:awg_field_h2
 app:awg_field_h3

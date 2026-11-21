@@ -155,6 +155,7 @@
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">इस फ़ील्ड के लिए मान्य मान नहीं है।</string>
+    <string name="awg_field_from_subscription">सदस्यता से</string>
     <string name="awg_hp_prefix_min">हेडर सुरक्षा के लिए %1$s को %2$d या अधिक पर सेट करें।</string>
     <string name="awg_v3_title">AmneziaWG 3.x</string>
     <string name="awg_v3_help">सर्वर के मान इस्तेमाल करें। कुंजी: Base64 में 32 बाइट। पैडिंग: बाइट; टाइमर: सेकंड; प्रयास: संख्या। डिफ़ॉल्ट मानों के लिए रेंज फ़ील्ड खाली छोड़ें।</string>

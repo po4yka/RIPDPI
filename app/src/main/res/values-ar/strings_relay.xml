@@ -115,6 +115,7 @@
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">القيمة غير صالحة لهذا الحقل.</string>
+    <string name="awg_field_from_subscription">من الاشتراك</string>
     <string name="awg_hp_prefix_min">لحماية الترويسة، اضبط %1$s على %2$d أو أكثر.</string>
     <string name="awg_v3_title">AmneziaWG 3.x</string>
     <string name="awg_v3_help">استخدم قيم الخادم. المفتاح: 32 بايت بصيغة Base64. الحشو: بايت؛ المؤقتات: ثوانٍ؛ المحاولات: عدد. اترك حقول النطاق فارغة لاستخدام القيم الافتراضية.</string>

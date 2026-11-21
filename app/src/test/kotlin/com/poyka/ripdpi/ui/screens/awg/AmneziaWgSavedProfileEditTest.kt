@@ -100,6 +100,35 @@ class AmneziaWgSavedProfileEditTest {
         }
 
     @Test
+    fun `a subscription profile keeps refresh-owned fields read-only and the user's fields editable`() =
+        runTest {
+            val id =
+                fixture.repository
+                    .saveSubscriptionProfiles(listOf(member))
+                    .single()
+                    .id
+            val viewModel = fixture.viewModel()
+            viewModel.onLoadProfile(id)
+            val loadedMtu =
+                viewModel.uiState.value.editor
+                    .rawText(AwgEditorField.MTU)
+
+            viewModel.onFieldChanged(AwgEditorField.SERVER, "other.example.com")
+            viewModel.onFieldChanged(AwgEditorField.MTU, "1200")
+            viewModel.onFieldChanged(AwgEditorField.DNS, "9.9.9.9")
+            viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
+
+            val editor = viewModel.uiState.value.editor
+            assertTrue(editor.isManaged(AwgEditorField.SERVER))
+            assertFalse(editor.isManaged(AwgEditorField.INTERFACE_PRIVATE_KEY))
+            assertEquals("vpn.example.com", editor.form.server)
+            assertEquals(loadedMtu, editor.rawText(AwgEditorField.MTU))
+            assertEquals("9.9.9.9", editor.rawText(AwgEditorField.DNS))
+            assertEquals(AwgPrivateTestKey, editor.form.interfacePrivateKey)
+            assertFalse(viewModel.uiState.value.subscriptionServerChanged)
+        }
+
+    @Test
     fun `a conf for another server cannot retarget a subscription profile`() =
         runTest {
             val id =
@@ -148,15 +177,13 @@ class AmneziaWgSavedProfileEditTest {
         }
 
     @Test
-    fun `a typed server, port, or invalid peer key is never saved under the subscription row`() =
+    fun `a typed server, port, or peer key never changes the subscription row`() =
         runTest {
             val id =
                 fixture.repository
                     .saveSubscriptionProfiles(listOf(member))
                     .single()
                     .id
-            // Consent is pending, so a refused save must not reach the consent dialog.
-            fixture.permissionBridge.vpnPermissionIntent = android.content.Intent("test.vpn.consent")
             listOf(
                 AwgEditorField.SERVER to "other.example.com",
                 AwgEditorField.SERVER_PORT to "443",
@@ -165,22 +192,13 @@ class AmneziaWgSavedProfileEditTest {
             ).forEach { (field, value) ->
                 val viewModel = fixture.viewModel()
                 viewModel.onLoadProfile(id)
-                viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
+                val loaded = viewModel.uiState.value.editor
                 viewModel.onFieldChanged(field, value)
 
-                viewModel.onConnect()
-                advanceUntilIdle()
-
-                assertEquals(field.name, AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
-                assertNull(fixture.activator.lastActivated)
-                assertEquals(bundled.copy(profileId = id), fixture.repository.load(id)!!.request)
+                // The field is read-only: the edit never reaches the form, so Connect cannot save it.
+                assertEquals(field.name, loaded, viewModel.uiState.value.editor)
             }
-            val viewModel = fixture.viewModel()
-            viewModel.onLoadProfile(id)
-            viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
-            viewModel.onFieldChanged(AwgEditorField.SERVER, "other.example.com")
-            viewModel.onConnect()
-            assertTrue(viewModel.uiState.value.subscriptionServerChanged)
+            assertEquals(bundled.copy(profileId = id), fixture.repository.load(id)!!.request)
         }
 
     @Test

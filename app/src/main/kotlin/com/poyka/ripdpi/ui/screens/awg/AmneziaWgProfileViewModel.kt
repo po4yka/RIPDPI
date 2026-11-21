@@ -226,15 +226,20 @@ class AmneziaWgProfileViewModel
                                     ),
                             )
                         }
+                        // A subscription refresh owns everything but the user's fields, so only those are taken.
+                        val pasted =
+                            if (state.editor.subscriptionOwned) {
+                                state.editor.withUserFieldsFrom(result.editor)
+                            } else {
+                                result.editor
+                            }
                         // A conf without a key value only refreshes the other fields.
                         val currentKey = state.editor.form.interfacePrivateKey
                         val imported =
-                            if (result.editor.form.interfacePrivateKey
-                                    .isBlank() && currentKey.isNotBlank()
-                            ) {
-                                result.editor.updateField(AwgEditorField.INTERFACE_PRIVATE_KEY, currentKey)
+                            if (pasted.form.interfacePrivateKey.isBlank() && currentKey.isNotBlank()) {
+                                pasted.updateField(AwgEditorField.INTERFACE_PRIVATE_KEY, currentKey)
                             } else {
-                                result.editor
+                                pasted
                             }
                         state.withEditor(imported).copy(
                             ignoredPeerCount = result.ignoredPeerCount,
@@ -289,7 +294,8 @@ class AmneziaWgProfileViewModel
             savedProfileId = saved.id
             savedProfileName = saved.name
             subscriptionServer = saved.request.takeIf { saved.subscriptionOwned }?.serverIdentity()
-            _uiState.update { it.withEditor(saved.request.toEditorState()).copy(loadingProfile = false) }
+            val editor = saved.request.toEditorState().copy(subscriptionOwned = saved.subscriptionOwned)
+            _uiState.update { it.withEditor(editor).copy(loadingProfile = false) }
         }
 
         /** Reads the clipboard only in response to the editor's explicit Paste action. */

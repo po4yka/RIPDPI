@@ -35,6 +35,7 @@ internal fun RelaySecretField(
     testTag: String? = null,
     enabled: Boolean = true,
     helperText: String? = null,
+    readOnly: Boolean = false,
 ) {
     RipDpiTextField(
         value = value,
@@ -53,6 +54,7 @@ internal fun RelaySecretField(
                 // A revealed secret is a plain field; keep autocorrect from learning or changing it.
                 keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
                 enabled = enabled,
+                readOnly = readOnly,
             ),
         trailingContent = {
             RipDpiIconButton(
