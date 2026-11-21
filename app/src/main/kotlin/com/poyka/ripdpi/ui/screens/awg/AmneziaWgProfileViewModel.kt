@@ -218,7 +218,7 @@ class AmneziaWgProfileViewModel
                     }
 
                     is AwgConfImport.Imported -> {
-                        if (changesSubscriptionServer(result.editor)) {
+                        if (subscriptionServer.isChangedBy(result.editor)) {
                             return@update state.copy(
                                 confImportFailure =
                                     AwgConfImport.Failed(
@@ -292,10 +292,6 @@ class AmneziaWgProfileViewModel
             _uiState.update { it.withEditor(saved.request.toEditorState()).copy(loadingProfile = false) }
         }
 
-        /** The one server check for paste and save: a subscription row keeps the server its bundle names. */
-        private fun changesSubscriptionServer(editor: AmneziaWgEditorState): Boolean =
-            subscriptionServer?.let { it != editor.serverIdentity() } ?: false
-
         /** Reads the clipboard only in response to the editor's explicit Paste action. */
         fun onPasteConf() {
             clipboardReader.readPrimaryClipText()?.let(::onConfPasted)
@@ -303,11 +299,14 @@ class AmneziaWgProfileViewModel
 
         /** Requests system VPN consent before saving or activating the selected profile. */
         fun onConnect() {
-            if (_uiState.value.pendingCohortId != null || _uiState.value.loadingProfile) return
-            val editor = _uiState.value.editor
-            if (!editor.isActivatable() || _uiState.value.activationStatus == AwgActivationStatus.Connecting) return
+            val state = _uiState.value
+            val editor = state.editor
+            val busy =
+                state.pendingCohortId != null || state.loadingProfile ||
+                    state.activationStatus == AwgActivationStatus.Connecting
+            if (busy || !editor.isActivatable()) return
             // Refuse before the consent dialog: the save it would authorize is refused anyway.
-            if (changesSubscriptionServer(editor)) {
+            if (subscriptionServer.isChangedBy(editor)) {
                 _uiState.update { it.copy(subscriptionServerChanged = true) }
                 return
             }
@@ -369,7 +368,7 @@ class AmneziaWgProfileViewModel
             }
             // An editor opened for a saved row never saves a new, unlinked row.
             check(requestedProfileId == null || savedProfileId != null) { "Saved AmneziaWG profile is not loaded" }
-            if (changesSubscriptionServer(editor)) {
+            if (subscriptionServer.isChangedBy(editor)) {
                 _uiState.update {
                     it.copy(
                         activationStatus = AwgActivationStatus.Idle,
@@ -435,3 +434,7 @@ private fun AmneziaWgProfileUiState.withEditor(nextEditor: AmneziaWgEditorState)
 private fun buildCohortOptions(catalog: AwgCohortCatalogData): List<AwgCohortOption> =
     catalog.presets.map { AwgCohortOption(id = it.id, displayNameKey = it.displayNameKey) } +
         AwgCohortOption(id = AwgProfileForm.CUSTOM_COHORT_ID, displayNameKey = "")
+
+/** The one server check for paste and save: a subscription row keeps the server its bundle names. */
+private fun AwgServerIdentity?.isChangedBy(editor: AmneziaWgEditorState): Boolean =
+    this != null && this != editor.serverIdentity()

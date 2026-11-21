@@ -50,17 +50,21 @@ object ImportPayloadClassifier {
     fun classify(
         text: String,
         maxBundleBytes: Int = MaxImportFileBytes,
-    ): ImportPayload? {
-        localBundle(text, maxBundleBytes)?.let { return ImportPayload.Subscription(it) }
-        val trimmed = text.takeIf(::isWithinImportTextLimit)?.let { it.trim().removePrefix(ByteOrderMark).trim() }
-        if (trimmed.isNullOrEmpty()) return null
-        return (ProxyUriShareDispatcher.dispatch(trimmed) as? ProxyImportRequest.Profile)?.let(ImportPayload::Profile)
+    ): ImportPayload? =
+        localBundle(text, maxBundleBytes)?.let(ImportPayload::Subscription)
+            ?: text
+                .takeIf(::isWithinImportTextLimit)
+                ?.let { it.trim().removePrefix(ByteOrderMark).trim() }
+                ?.takeIf { it.isNotEmpty() }
+                ?.let(::classifyText)
+
+    private fun classifyText(trimmed: String): ImportPayload? =
+        (ProxyUriShareDispatcher.dispatch(trimmed) as? ProxyImportRequest.Profile)?.let(ImportPayload::Profile)
             ?: SubscriptionLinkClassifier.classify(trimmed)?.let(ImportPayload::Subscription)
             ?: embeddedShareProfile(trimmed)?.let(ImportPayload::Profile)
             ?: AmneziaVpnKeyDecoder.confFromKey(trimmed)?.let(::boundedConf)
             ?: amneziaWgConf(trimmed)?.let(::boundedConf)
             ?: trimmed.takeIf(WireGuardConfParser::hasInterfaceAndPeerSections)?.let(ImportPayload::WireGuardConf)
-    }
 
     /**
      * Raw RIPDPI bundle JSON (a top-level object with a `ripdpi` block). Any schema version is
@@ -71,27 +75,20 @@ object ImportPayloadClassifier {
         maxBytes: Int,
     ): PendingSubscriptionImportRequest? {
         // Cheap prefix check before any size or JSON work.
-        if (text
-                .trimStart()
-                .removePrefix(ByteOrderMark)
-                .trimStart()
-                .firstOrNull() != '{'
-        ) {
-            return null
-        }
-        if (!isWithinImportTextLimit(text, maxBytes)) return null
-        val json = text.trim().removePrefix(ByteOrderMark).trim()
-        val root = runCatching { Json.parseToJsonElement(json) }.getOrNull() as? JsonObject ?: return null
-        return if (root["ripdpi"] is JsonObject) {
-            PendingSubscriptionImportRequest(
-                "",
-                "",
-                false,
-                bundle = json,
-            )
-        } else {
-            null
-        }
+        val json =
+            text
+                .takeIf {
+                    it
+                        .trimStart()
+                        .removePrefix(ByteOrderMark)
+                        .trimStart()
+                        .startsWith('{')
+                }?.takeIf { isWithinImportTextLimit(it, maxBytes) }
+                ?.let { it.trim().removePrefix(ByteOrderMark).trim() }
+        val root = json?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() as? JsonObject }
+        return json
+            ?.takeIf { root?.get("ripdpi") is JsonObject }
+            ?.let { PendingSubscriptionImportRequest("", "", false, bundle = it) }
     }
 
     private fun boundedConf(text: String): ImportPayload.WireGuardConf? =

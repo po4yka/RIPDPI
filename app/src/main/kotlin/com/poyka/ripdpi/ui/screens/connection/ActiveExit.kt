@@ -58,22 +58,29 @@ private fun RuntimeConfigurationApplication.runningConfiguration(): AppliedRunti
 private fun AppliedRuntimeConfiguration.exit(
     groups: List<ProxyGroup>,
     awgProfiles: List<SavedAwgProfile>,
-): ActiveExit? {
-    val profileId = effectiveSelection.profileId ?: return null
-    if (effectiveSelection.relayKind == AmneziaWgRelayKind) return awgExit(profileId, awgProfiles)
-    val groupId = requestedSelection.selectorGroupId?.takeIf { requestedSelection.profileId == profileId }
-    return groupId?.let { memberExit(it, profileId, groups) }
-}
+): ActiveExit? =
+    effectiveSelection.profileId?.let { profileId ->
+        if (effectiveSelection.relayKind == AmneziaWgRelayKind) {
+            awgExit(profileId, awgProfiles)
+        } else {
+            requestedSelection.selectorGroupId
+                ?.takeIf { requestedSelection.profileId == profileId }
+                ?.let { memberExit(it, profileId, groups) }
+        }
+    }
 
 private fun SavedExitSelection.exit(
     groups: List<ProxyGroup>,
     awgProfiles: List<SavedAwgProfile>,
 ): ActiveExit? {
-    if (selections.xray.kind == VpnProviderKind.Xray) return null
     val awgId = selections.awgProfileId?.takeIf { mode == Mode.VPN }
-    if (awgId != null) return awgExit(awgId, awgProfiles)
-    val groupId = selections.selectorGroupId ?: return null
-    return selectorMemberId?.let { memberExit(groupId, it, groups) }
+    val groupId = selections.selectorGroupId
+    return when {
+        selections.xray.kind == VpnProviderKind.Xray -> null
+        awgId != null -> awgExit(awgId, awgProfiles)
+        groupId != null -> selectorMemberId?.let { memberExit(groupId, it, groups) }
+        else -> null
+    }
 }
 
 private fun awgExit(

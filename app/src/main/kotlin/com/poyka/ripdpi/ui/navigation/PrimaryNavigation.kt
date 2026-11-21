@@ -96,16 +96,7 @@ internal fun NavGraphBuilder.addPrimaryRoutes(
     }
     addSubscriptionFailoverRoute(navController)
     addSubscriptionStatusRoute(navController)
-    composable<Route.ProfileUtility> {
-        ProfileUtilityRoute(
-            onBack = { navController.popBackStack() },
-            // The Relay section holds the paste-link, scan-QR and add-server entries.
-            onImportProfile = { navController.navigateConnectionSubRoute(Route.ConnectionRelay) },
-            onOpenAwgProfile = { id, needsPrivateKey ->
-                navController.navigate(Route.AmneziaWgProfile(profileId = id, keyOnly = needsPrivateKey))
-            },
-        )
-    }
+    addProfileUtilityRoute(navController)
     composable<Route.StrategyTuner> {
         StrategyTunerRoute(onBack = { navController.popBackStack() })
     }
@@ -171,6 +162,19 @@ private fun NavGraphBuilder.addSubscriptionStatusRoute(navController: NavHostCon
         SubscriptionStatusRoute(
             onBack = { navController.popBackStack() },
             onAddSubscription = { navController.navigate(Route.SubscriptionAdd) { launchSingleTop = true } },
+        )
+    }
+}
+
+private fun NavGraphBuilder.addProfileUtilityRoute(navController: NavHostController) {
+    composable<Route.ProfileUtility> {
+        ProfileUtilityRoute(
+            onBack = { navController.popBackStack() },
+            // The Relay section holds the paste-link, scan-QR and add-server entries.
+            onImportProfile = { navController.navigateConnectionSubRoute(Route.ConnectionRelay) },
+            onOpenAwgProfile = { id, needsPrivateKey ->
+                navController.navigate(Route.AmneziaWgProfile(profileId = id, keyOnly = needsPrivateKey))
+            },
         )
     }
 }

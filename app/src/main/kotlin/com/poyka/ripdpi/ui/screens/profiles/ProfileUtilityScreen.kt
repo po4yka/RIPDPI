@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -130,26 +131,28 @@ internal fun ProfileUtilityScreen(
                 }
             }
         }
-        val openAwgProfile = actions.openAwgProfile
-        if (openAwgProfile != null && awgProfiles.isNotEmpty()) {
-            item(key = "section:awg", contentType = "section") {
-                SettingsCategoryHeader(title = "AmneziaWG")
-            }
-            items(awgProfiles, key = { ProfileUtilityTestTags.awgRow(it.id) }, contentType = { "awg" }) { profile ->
-                RipDpiCard {
-                    SettingsRow(
-                        title = profile.name,
-                        subtitle = stringResource(R.string.awg_field_private_key).takeIf { profile.needsPrivateKey },
-                        value =
-                            stringResource(R.string.settings_permission_status_required).takeIf {
-                                profile.needsPrivateKey
-                            },
-                        onClick = { openAwgProfile(profile.id, profile.needsPrivateKey) },
-                        showChevron = true,
-                        testTag = ProfileUtilityTestTags.awgRow(profile.id),
-                    )
-                }
-            }
+        actions.openAwgProfile?.let { awgProfileSection(awgProfiles, it) }
+    }
+}
+
+private fun LazyListScope.awgProfileSection(
+    awgProfiles: ImmutableList<AwgProfileItem>,
+    openAwgProfile: (id: String, needsPrivateKey: Boolean) -> Unit,
+) {
+    if (awgProfiles.isEmpty()) return
+    item(key = "section:awg", contentType = "section") {
+        SettingsCategoryHeader(title = "AmneziaWG")
+    }
+    items(awgProfiles, key = { ProfileUtilityTestTags.awgRow(it.id) }, contentType = { "awg" }) { profile ->
+        RipDpiCard {
+            SettingsRow(
+                title = profile.name,
+                subtitle = stringResource(R.string.awg_field_private_key).takeIf { profile.needsPrivateKey },
+                value = stringResource(R.string.settings_permission_status_required).takeIf { profile.needsPrivateKey },
+                onClick = { openAwgProfile(profile.id, profile.needsPrivateKey) },
+                showChevron = true,
+                testTag = ProfileUtilityTestTags.awgRow(profile.id),
+            )
         }
     }
 }
