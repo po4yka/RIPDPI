@@ -234,6 +234,7 @@
     <string name="backup_export_action">Sicherung exportieren</string>
     <string name="backup_export_success">Sicherung gespeichert (%1$s)</string>
     <string name="backup_export_failed">Sicherungsdatei konnte nicht geschrieben werden</string>
+    <string name="backup_share_unavailable">Keine App konnte das Teilen-Menü öffnen. Die Sicherung wurde nicht geteilt.</string>
     <string name="backup_export_share_action">Teilen</string>
     <string name="backup_export_policy_blocked_title">Export deaktiviert</string>
     <string name="backup_export_policy_blocked_body">Ihr Geräteadministrator hat den Sicherungsexport deaktiviert.</string>
@@ -317,6 +318,7 @@
     <string name="settings_community_source_default">Standard</string>
     <string name="settings_clear_community_cache_body">Löscht heruntergeladene Community-Statistiken. Ihr Prüfverlauf bleibt erhalten.</string>
     <string name="advanced_settings_unsaved_change">Nicht gespeichert</string>
+    <string name="settings_storage_failed">RIPDPI konnte die Einstellungen nicht speichern. Gib Speicherplatz frei und versuche es erneut.</string>
     <string name="root_mode_access_checking">Root-Zugriff wird geprüft…</string>
     <string name="root_mode_access_granted">Auf diesem Gerät ist Root-Zugriff verfügbar.</string>
     <string name="root_mode_access_denied">Root-Zugriff wurde verweigert. Erlauben Sie RIPDPI in Ihrer Root-Verwaltung und schalten Sie den Root-Modus erneut ein.</string>

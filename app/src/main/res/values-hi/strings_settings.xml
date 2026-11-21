@@ -243,6 +243,7 @@
     <string name="backup_export_action">बैकअप एक्सपोर्ट करें</string>
     <string name="backup_export_success">बैकअप सहेजा गया (%1$s)</string>
     <string name="backup_export_failed">बैकअप फ़ाइल नहीं लिखी जा सकी</string>
+    <string name="backup_share_unavailable">कोई ऐप शेयर मेनू नहीं खोल सका। बैकअप शेयर नहीं किया गया।</string>
     <string name="backup_export_share_action">साझा करें</string>
     <string name="backup_export_policy_blocked_title">एक्सपोर्ट अक्षम</string>
     <string name="backup_export_policy_blocked_body">आपके डिवाइस प्रशासक ने बैकअप एक्सपोर्ट बंद कर दिया है।</string>
@@ -315,6 +316,7 @@
     <string name="settings_community_source_default">डिफ़ॉल्ट</string>
     <string name="settings_clear_community_cache_body">डाउनलोड किए गए कम्युनिटी आँकड़े हटाता है। आपका जाँच इतिहास बना रहता है।</string>
     <string name="advanced_settings_unsaved_change">सहेजा नहीं गया</string>
+    <string name="settings_storage_failed">RIPDPI सेटिंग्स को स्टोरेज में नहीं लिख सका। कुछ जगह खाली करें और फिर से कोशिश करें।</string>
     <string name="root_mode_access_checking">रूट एक्सेस की जाँच हो रही है…</string>
     <string name="root_mode_access_granted">इस डिवाइस पर रूट एक्सेस उपलब्ध है।</string>
     <string name="root_mode_access_denied">रूट एक्सेस अस्वीकार कर दिया गया। अपने रूट मैनेजर में RIPDPI को अनुमति दें, फिर रूट मोड दोबारा चालू करें।</string>

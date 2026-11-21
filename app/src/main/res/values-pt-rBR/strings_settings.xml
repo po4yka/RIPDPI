@@ -232,6 +232,7 @@
     <string name="backup_export_action">Exportar backup</string>
     <string name="backup_export_success">Backup salvo (%1$s)</string>
     <string name="backup_export_failed">Não foi possível gravar o arquivo de backup</string>
+    <string name="backup_share_unavailable">Nenhum app conseguiu abrir o menu de compartilhamento. O backup não foi compartilhado.</string>
     <string name="backup_export_share_action">Compartilhar</string>
     <string name="backup_export_policy_blocked_title">Exportação desativada</string>
     <string name="backup_export_policy_blocked_body">O administrador do seu dispositivo desativou a exportação de backup.</string>
@@ -315,6 +316,7 @@
     <string name="settings_community_source_default">Padrão</string>
     <string name="settings_clear_community_cache_body">Exclui as estatísticas da comunidade baixadas. Seu histórico de verificações é mantido.</string>
     <string name="advanced_settings_unsaved_change">Não salvo</string>
+    <string name="settings_storage_failed">O RIPDPI não conseguiu gravar as configurações no armazenamento. Libere espaço e tente novamente.</string>
     <string name="root_mode_access_checking">Verificando o acesso root…</string>
     <string name="root_mode_access_granted">O acesso root está disponível neste dispositivo.</string>
     <string name="root_mode_access_denied">O acesso root foi negado. Permita o RIPDPI no seu gerenciador de root e ative o modo root novamente.</string>

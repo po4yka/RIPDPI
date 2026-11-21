@@ -271,7 +271,7 @@ private fun rememberBackupExportController(
         flow = viewModel.effects,
         snackbarHostState = snackbarHostState,
         context = context,
-        onShare = { lastWrittenUri?.let { uri -> shareBackup(context, uri) } },
+        onShare = { lastWrittenUri?.let { uri -> shareBackup(context, uri) } == true },
     )
 
     BackupExportOverlays(
@@ -337,22 +337,21 @@ private fun rememberBackupShareController(
         snackbarHostState = snackbarHostState,
         onReady = {
             val file = viewModel.shareTempFiles.current()
-            if (file == null) {
-                return@BackupShareEffectHandler
-            }
             val launched =
-                launchShareIntent(
-                    context = context,
-                    file = file,
-                    subject = subject,
-                    chooserTitle = chooserTitle,
-                )
+                file != null &&
+                    launchShareIntent(
+                        context = context,
+                        file = file,
+                        subject = subject,
+                        chooserTitle = chooserTitle,
+                    )
             if (launched) {
                 viewModel.shareTempFiles.releaseForShare()
             } else {
                 // No share target / launch failure: clean up the temp file now.
                 viewModel.shareTempFiles.clear()
             }
+            launched
         },
         onFailed = {
             viewModel.shareTempFiles.clear()
@@ -560,7 +559,7 @@ private fun deletePartialDocument(
 private fun shareBackup(
     context: android.content.Context,
     uri: Uri,
-) {
+): Boolean {
     val intent =
         Intent(Intent.ACTION_SEND).apply {
             type = BackupMimeType
@@ -568,7 +567,7 @@ private fun shareBackup(
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
     val chooser = Intent.createChooser(intent, context.getString(R.string.backup_export_share_action))
-    runCatching { context.startActivity(chooser) }
+    return runCatching { context.startActivity(chooser) }.isSuccess
 }
 
 /** FileProvider authority for the redacted-share grant (mirrors the manifest entry). */
@@ -618,15 +617,22 @@ private fun backupTooLargeMessage(): String =
 private fun BackupShareEffectHandler(
     flow: Flow<com.poyka.ripdpi.backup.BackupShareEffect>,
     snackbarHostState: SnackbarHostState,
-    onReady: () -> Unit,
+    onReady: () -> Boolean,
     onFailed: () -> Unit,
 ) {
     val tooLargeMessage = backupTooLargeMessage()
     val failedMessage = stringResource(R.string.backup_export_failed)
+    val shareUnavailableMessage = stringResource(R.string.backup_share_unavailable)
     BackupEffectCollector(flow) { effect ->
         when (effect) {
             com.poyka.ripdpi.backup.BackupShareEffect.Ready -> {
-                onReady()
+                if (!onReady()) {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = shareUnavailableMessage,
+                        tone = RipDpiSnackbarTone.Error,
+                        testTag = RipDpiTestTags.BackupExportSnackbar,
+                    )
+                }
             }
 
             com.poyka.ripdpi.backup.BackupShareEffect.Failed, BackupArchiveTooLarge -> {
@@ -673,8 +679,9 @@ private fun BackupExportEffectHandler(
     flow: Flow<BackupExportEffect>,
     snackbarHostState: SnackbarHostState,
     context: Context,
-    onShare: () -> Unit,
+    onShare: () -> Boolean,
 ) {
+    val shareUnavailableMessage = stringResource(R.string.backup_share_unavailable)
     val exportSuccessTemplate = stringResource(R.string.backup_export_success)
     val shareActionLabel = stringResource(R.string.backup_export_share_action)
     val tooLargeMessage = backupTooLargeMessage()
@@ -692,7 +699,13 @@ private fun BackupExportEffectHandler(
                             actionLabel = shareActionLabel,
                             testTag = RipDpiTestTags.BackupExportSnackbar,
                         )
-                    if (result == SnackbarResult.ActionPerformed) onShare()
+                    if (result == SnackbarResult.ActionPerformed && !onShare()) {
+                        snackbarHostState.showRipDpiSnackbar(
+                            message = shareUnavailableMessage,
+                            tone = RipDpiSnackbarTone.Error,
+                            testTag = RipDpiTestTags.BackupExportSnackbar,
+                        )
+                    }
                 } else {
                     snackbarHostState.showRipDpiSnackbar(
                         message = message,

@@ -240,6 +240,7 @@
     <string name="backup_export_action">Export backup</string>
     <string name="backup_export_success">Backup saved (%1$s)</string>
     <string name="backup_export_failed">Could not write the backup file</string>
+    <string name="backup_share_unavailable">No app could open the share sheet. The backup was not shared.</string>
     <string name="backup_export_share_action">Share</string>
     <string name="backup_export_policy_blocked_title">Export disabled</string>
     <string name="backup_export_policy_blocked_body">Your device administrator has turned off backup export.</string>
@@ -323,6 +324,7 @@
     <string name="settings_community_source_default">Default</string>
     <string name="settings_clear_community_cache_body">Deletes downloaded community statistics. Your check history stays.</string>
     <string name="advanced_settings_unsaved_change">Not saved</string>
+    <string name="settings_storage_failed">RIPDPI could not write settings to storage. Free some space and try again.</string>
     <string name="root_mode_access_checking">Checking root access…</string>
     <string name="root_mode_access_granted">Root access is available on this device.</string>
     <string name="root_mode_access_denied">Root access was denied. Allow RIPDPI in your root manager, then turn root mode on again.</string>

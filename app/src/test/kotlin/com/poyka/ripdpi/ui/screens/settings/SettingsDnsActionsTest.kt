@@ -267,7 +267,8 @@ class SettingsDnsActionsTest {
                     }
                 }
             val controller = FakeServiceController()
-            val actions = createActions(repository, serviceStateStore, controller)
+            val notices = mutableListOf<SettingsEffect.Notice>()
+            val actions = createActions(repository, serviceStateStore, controller, notices = notices)
             val before = backing.snapshot()
 
             actions.setCustomDotResolver(
@@ -282,6 +283,7 @@ class SettingsDnsActionsTest {
 
             assertEquals(before, backing.snapshot())
             assertEquals(0, controller.stopCount)
+            assertEquals(listOf(com.poyka.ripdpi.R.string.dns_custom_doq_unavailable), notices.map { it.message })
         }
 
     @Test
@@ -378,7 +380,8 @@ class SettingsDnsActionsTest {
         runTest {
             val repository = FakeAppSettingsRepository()
             val serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.VPN)
-            val actions = createActions(repository, serviceStateStore)
+            val notices = mutableListOf<SettingsEffect.Notice>()
+            val actions = createActions(repository, serviceStateStore, notices = notices)
             val before = repository.snapshot()
 
             actions.setCustomDotResolver(
@@ -392,6 +395,7 @@ class SettingsDnsActionsTest {
             advanceUntilIdle()
 
             assertEquals(before, repository.snapshot())
+            assertEquals(listOf(com.poyka.ripdpi.R.string.dns_custom_doq_unavailable), notices.map { it.message })
         }
 
     @Test
@@ -466,6 +470,7 @@ class SettingsDnsActionsTest {
                     .testPauseAuthority(),
             ),
         scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
+        notices: MutableList<SettingsEffect.Notice> = mutableListOf(),
     ): SettingsDnsActions =
         SettingsDnsActions(
             mutations =
@@ -482,6 +487,7 @@ class SettingsDnsActionsTest {
             reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
             onReconnectFailure = {},
             serviceIntentArbiter = serviceIntentArbiter,
+            onNotice = { notices += it },
         )
 
     private suspend fun withPersistentRepository(block: suspend (AppSettingsRepository) -> Unit) {

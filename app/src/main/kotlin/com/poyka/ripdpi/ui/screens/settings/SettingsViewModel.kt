@@ -126,6 +126,7 @@ class SettingsViewModel
                     )
                 },
                 onReconnectSuccess = dnsNoticeState::clear,
+                onNotice = dnsNoticeState::post,
                 serviceIntentArbiter = serviceIntentArbiter,
             )
         internal val customizationActions by lazy {

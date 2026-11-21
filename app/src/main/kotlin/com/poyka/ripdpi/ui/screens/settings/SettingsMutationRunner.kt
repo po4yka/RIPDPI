@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CancellationException
@@ -43,8 +44,12 @@ internal class SettingsMutationRunner(
         return applied
     }
 
-    fun launch(block: suspend SettingsMutationRunner.() -> Unit) {
-        scope.launch { guarded { block() } }
+    /** [onFailure] takes the storage-failure notice for a screen that shows its own notices. */
+    fun launch(
+        onFailure: (suspend (SettingsEffect.Notice) -> Unit)? = null,
+        block: suspend SettingsMutationRunner.() -> Unit,
+    ) {
+        scope.launch { guarded(onFailure) { block() } }
     }
 
     suspend fun updateDirect(transform: SettingsMutation) {
@@ -76,15 +81,26 @@ internal class SettingsMutationRunner(
     }
 
     // A storage failure (full disk, EIO) must not reach the uncaught handler and kill the app and its
-    // VPN service. The settings flow keeps showing the stored value. The log names only the class:
-    // the message can carry stored values.
-    private suspend fun guarded(block: suspend () -> Unit) {
+    // VPN service. The settings flow keeps showing the stored value, and a notice says the change was not
+    // saved. The log names only the class: the message can carry stored values.
+    private suspend fun guarded(
+        onFailure: (suspend (SettingsEffect.Notice) -> Unit)? = null,
+        block: suspend () -> Unit,
+    ) {
         try {
             block()
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (ignored: Exception) {
-            Logger.w { "Settings action failed: ${ignored.javaClass.simpleName}" }
+        } catch (failure: Exception) {
+            Logger.w { "Settings action failed: ${failure.javaClass.simpleName}" }
+            if (onFailure != null) onFailure(StorageFailureNotice) else effects.emit(StorageFailureNotice)
         }
     }
 }
+
+private val StorageFailureNotice =
+    SettingsEffect.Notice(
+        R.string.advanced_settings_unsaved_change,
+        R.string.settings_storage_failed,
+        SettingsNoticeTone.Error,
+    )

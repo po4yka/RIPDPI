@@ -233,6 +233,7 @@
     <string name="backup_export_action">Экспортировать копию</string>
     <string name="backup_export_success">Копия сохранена (%1$s)</string>
     <string name="backup_export_failed">Не удалось записать файл копии</string>
+    <string name="backup_share_unavailable">Не удалось открыть меню «Поделиться». Резервная копия не отправлена.</string>
     <string name="backup_export_share_action">Поделиться</string>
     <string name="backup_export_policy_blocked_title">Экспорт отключён</string>
     <string name="backup_export_policy_blocked_body">Администратор устройства отключил экспорт резервных копий.</string>
@@ -316,6 +317,7 @@
     <string name="settings_community_source_default">По умолчанию</string>
     <string name="settings_clear_community_cache_body">Удаляет загруженную статистику сообщества. История проверок сохраняется.</string>
     <string name="advanced_settings_unsaved_change">Не сохранено</string>
+    <string name="settings_storage_failed">RIPDPI не удалось записать настройки в хранилище. Освободите место и попробуйте снова.</string>
     <string name="root_mode_access_checking">Проверка root-доступа…</string>
     <string name="root_mode_access_granted">На этом устройстве есть root-доступ.</string>
     <string name="root_mode_access_denied">В root-доступе отказано. Разрешите RIPDPI в менеджере root и снова включите root-режим.</string>

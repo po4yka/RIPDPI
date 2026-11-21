@@ -235,6 +235,7 @@
     <string name="backup_export_action">Exportar copia</string>
     <string name="backup_export_success">Copia guardada (%1$s)</string>
     <string name="backup_export_failed">No se pudo escribir el archivo de copia</string>
+    <string name="backup_share_unavailable">Ninguna app pudo abrir el menú para compartir. La copia de seguridad no se compartió.</string>
     <string name="backup_export_share_action">Compartir</string>
     <string name="backup_export_policy_blocked_title">Exportación desactivada</string>
     <string name="backup_export_policy_blocked_body">El administrador del dispositivo ha desactivado la exportación de copias.</string>
@@ -318,6 +319,7 @@
     <string name="settings_community_source_default">Predeterminada</string>
     <string name="settings_clear_community_cache_body">Elimina las estadísticas de la comunidad descargadas. Tu historial de comprobaciones se conserva.</string>
     <string name="advanced_settings_unsaved_change">Sin guardar</string>
+    <string name="settings_storage_failed">RIPDPI no pudo escribir los ajustes en el almacenamiento. Libera espacio e inténtalo de nuevo.</string>
     <string name="root_mode_access_checking">Comprobando el acceso root…</string>
     <string name="root_mode_access_granted">Este dispositivo tiene acceso root.</string>
     <string name="root_mode_access_denied">Se denegó el acceso root. Permite RIPDPI en tu gestor de root y vuelve a activar el modo root.</string>

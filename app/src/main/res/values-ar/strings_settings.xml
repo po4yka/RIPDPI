@@ -224,6 +224,7 @@
     <string name="backup_export_action">تصدير النسخة الاحتياطية</string>
     <string name="backup_export_success">تم حفظ النسخة الاحتياطية (%1$s)</string>
     <string name="backup_export_failed">تعذّر كتابة ملف النسخة الاحتياطية</string>
+    <string name="backup_share_unavailable">تعذّر على أي تطبيق فتح قائمة المشاركة. لم تتم مشاركة النسخة الاحتياطية.</string>
     <string name="backup_export_share_action">مشاركة</string>
     <string name="backup_export_policy_blocked_title">التصدير معطّل</string>
     <string name="backup_export_policy_blocked_body">أوقف مسؤول جهازك تصدير النسخة الاحتياطية.</string>
@@ -318,6 +319,7 @@
     <string name="settings_community_source_default">الافتراضي</string>
     <string name="settings_clear_community_cache_body">يحذف إحصاءات المجتمع التي جرى تنزيلها. يبقى سجل الفحوص لديك.</string>
     <string name="advanced_settings_unsaved_change">غير محفوظ</string>
+    <string name="settings_storage_failed">تعذّر على RIPDPI حفظ الإعدادات في التخزين. أفرغ بعض المساحة وحاول مرة أخرى.</string>
     <string name="root_mode_access_checking">جارٍ التحقق من صلاحية الجذر…</string>
     <string name="root_mode_access_granted">صلاحية الجذر متاحة على هذا الجهاز.</string>
     <string name="root_mode_access_denied">رُفضت صلاحية الجذر. اسمح لـ RIPDPI في مدير صلاحيات الجذر، ثم فعّل وضع الجذر مرة أخرى.</string>

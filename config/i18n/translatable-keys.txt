@@ -399,6 +399,7 @@ app:backup_share_reminder_body
 app:backup_share_reminder_cancel
 app:backup_share_reminder_confirm
 app:backup_share_reminder_title
+app:backup_share_unavailable
 app:backup_variant_full_action
 app:backup_variant_full_warning_body
 app:backup_variant_full_warning_title
@@ -4259,6 +4260,7 @@ app:settings_seqovl_unsupported_reason
 app:settings_split_tunnel_body
 app:settings_start_on_boot_battery_warning
 app:settings_start_on_boot_title
+app:settings_storage_failed
 app:settings_strategy_pack_allow_rollback_override_body
 app:settings_strategy_pack_allow_rollback_override_title
 app:settings_support_debug_bundle_body

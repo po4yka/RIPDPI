@@ -235,6 +235,7 @@
     <string name="backup_export_action">Exporter la sauvegarde</string>
     <string name="backup_export_success">Sauvegarde enregistrée (%1$s)</string>
     <string name="backup_export_failed">Impossible d\'écrire le fichier de sauvegarde</string>
+    <string name="backup_share_unavailable">Aucune app n’a pu ouvrir le menu de partage. La sauvegarde n’a pas été partagée.</string>
     <string name="backup_export_share_action">Partager</string>
     <string name="backup_export_policy_blocked_title">Export désactivé</string>
     <string name="backup_export_policy_blocked_body">Votre administrateur d\'appareil a désactivé l\'export des sauvegardes.</string>
@@ -318,6 +319,7 @@
     <string name="settings_community_source_default">Par défaut</string>
     <string name="settings_clear_community_cache_body">Supprime les statistiques communautaires téléchargées. Votre historique de vérifications est conservé.</string>
     <string name="advanced_settings_unsaved_change">Non enregistré</string>
+    <string name="settings_storage_failed">RIPDPI n’a pas pu enregistrer les paramètres dans le stockage. Libérez de l’espace et réessayez.</string>
     <string name="root_mode_access_checking">Vérification de l\'accès root…</string>
     <string name="root_mode_access_granted">L\'accès root est disponible sur cet appareil.</string>
     <string name="root_mode_access_denied">L\'accès root a été refusé. Autorisez RIPDPI dans votre gestionnaire root, puis réactivez le mode root.</string>

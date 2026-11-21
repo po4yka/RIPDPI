@@ -234,6 +234,7 @@
     <string name="backup_export_action">导出备份</string>
     <string name="backup_export_success">备份已保存（%1$s）</string>
     <string name="backup_export_failed">无法写入备份文件</string>
+    <string name="backup_share_unavailable">没有应用可以打开分享菜单。备份未分享。</string>
     <string name="backup_export_share_action">分享</string>
     <string name="backup_export_policy_blocked_title">导出已停用</string>
     <string name="backup_export_policy_blocked_body">设备管理员已关闭备份导出。</string>
@@ -317,6 +318,7 @@
     <string name="settings_community_source_default">默认</string>
     <string name="settings_clear_community_cache_body">删除已下载的社区统计数据。您的检查历史会保留。</string>
     <string name="advanced_settings_unsaved_change">未保存</string>
+    <string name="settings_storage_failed">RIPDPI 无法将设置写入存储。请释放一些空间后重试。</string>
     <string name="root_mode_access_checking">正在检查 root 权限…</string>
     <string name="root_mode_access_granted">此设备可获取 root 权限。</string>
     <string name="root_mode_access_denied">root 权限被拒绝。请在 root 管理器中允许 RIPDPI，然后重新开启 root 模式。</string>

@@ -26,6 +26,7 @@ internal class SettingsDnsActions(
     private val onReconnectFailure: (com.poyka.ripdpi.services.RunningReconnectResult.Failed) -> Unit,
     private val serviceIntentArbiter: ServiceIntentArbiter,
     private val onReconnectSuccess: () -> Unit = {},
+    private val onNotice: (SettingsEffect.Notice) -> Unit = {},
 ) {
     fun selectBuiltInDnsProvider(providerId: String) {
         val resolver = dnsProviderById(providerId) ?: return
@@ -112,7 +113,7 @@ internal class SettingsDnsActions(
         bootstrapIps: List<String>,
     ) {
         require(protocol == EncryptedDnsProtocolDot || protocol == EncryptedDnsProtocolDoq)
-        if (protocol == EncryptedDnsProtocolDoq && !canSaveDoq(selectedMode)) return
+        if (protocol == EncryptedDnsProtocolDoq && !canSaveDoq(selectedMode)) return onNotice(DoqRejectedNotice)
         val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
         updateDnsSetting(
             key = "encryptedDnsHost",
@@ -218,15 +219,16 @@ internal class SettingsDnsActions(
         requiresVpnStartReservation: Boolean = false,
         transform: SettingsMutation,
     ) {
-        mutations.launch {
-            if (!canApply()) return@launch
+        mutations.launch(onFailure = { onNotice(it) }) {
+            // Only DoQ can be refused here: the VPN started, or is starting, after the save was requested.
+            if (!canApply()) return@launch onNotice(DoqRejectedNotice)
             val lease =
                 if (requiresVpnStartReservation) {
                     serviceIntentArbiter.tryReserveDoqSave(canApply)
                 } else {
                     null
                 }
-            if (requiresVpnStartReservation && lease == null) return@launch
+            if (requiresVpnStartReservation && lease == null) return@launch onNotice(DoqRejectedNotice)
             val applied =
                 try {
                     updateSettingAndAwait(
@@ -238,7 +240,7 @@ internal class SettingsDnsActions(
                 } finally {
                     lease?.close()
                 }
-            if (!applied) return@launch
+            if (!applied) return@launch onNotice(DoqRejectedNotice)
             if (canApply()) applySavedDnsToRunningService()
         }
     }
@@ -265,3 +267,10 @@ internal class SettingsDnsActions(
         }
     }
 }
+
+private val DoqRejectedNotice =
+    SettingsEffect.Notice(
+        com.poyka.ripdpi.R.string.advanced_settings_unsaved_change,
+        com.poyka.ripdpi.R.string.dns_custom_doq_unavailable,
+        SettingsNoticeTone.Warning,
+    )
