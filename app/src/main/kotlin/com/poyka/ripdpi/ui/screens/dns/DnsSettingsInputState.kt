@@ -266,7 +266,7 @@ private fun DnsUiState.isCustomDotDirty(
         encryptedDnsProtocol != protocol ||
         dnsProviderId != DnsProviderCustom ||
         host != encryptedDnsHost ||
-        port != encryptedDnsPort ||
+        port != savedEncryptedDnsPort() ||
         tlsServerName != encryptedDnsTlsServerName ||
         bootstrapIps != encryptedDnsBootstrapIps
 
@@ -281,7 +281,11 @@ private fun DnsUiState.isCustomDnsCryptDirty(
         encryptedDnsProtocol != EncryptedDnsProtocolDnsCrypt ||
         dnsProviderId != DnsProviderCustom ||
         host != encryptedDnsHost ||
-        port != encryptedDnsPort ||
+        port != savedEncryptedDnsPort() ||
         provider != encryptedDnsDnscryptProviderName ||
         publicKey != encryptedDnsDnscryptPublicKey ||
         bootstrapIps != encryptedDnsBootstrapIps
+
+// A saved port of 0 means the protocol default, which the port field shows; comparing with 0 would read as an edit.
+private fun DnsUiState.savedEncryptedDnsPort(): Int =
+    encryptedDnsPort.takeIf { it > 0 } ?: defaultEncryptedDnsPort(encryptedDnsProtocol)

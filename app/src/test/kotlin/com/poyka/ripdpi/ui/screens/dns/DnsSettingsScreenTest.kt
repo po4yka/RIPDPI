@@ -189,6 +189,42 @@ class DnsSettingsScreenTest {
     }
 
     @Test
+    fun savedDotWithoutAPortIsNotAnUnsavedEdit() {
+        composeRule.setContent {
+            RipDpiTheme {
+                DnsSettingsScreen(
+                    uiState =
+                        SettingsUiState(
+                            dns =
+                                DnsUiState(
+                                    dnsMode = DnsModeEncrypted,
+                                    dnsProviderId = DnsProviderCustom,
+                                    encryptedDnsProtocol = EncryptedDnsProtocolDot,
+                                    encryptedDnsHost = "resolver.example",
+                                    encryptedDnsPort = 0,
+                                    encryptedDnsTlsServerName = "resolver.example",
+                                    encryptedDnsBootstrapIps = persistentListOf("1.1.1.1"),
+                                ),
+                        ),
+                    onBack = {},
+                    onModeSelected = {},
+                    onProtocolSelected = {},
+                    onResolverSelected = {},
+                    onSaveCustomDoh = { _, _ -> },
+                    onSaveCustomDot = { _, _, _, _, _ -> },
+                    onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+                    onSaveCustomOdoh = { _, _ -> },
+                    onSavePlainDns = {},
+                    onIpv6Changed = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomPort).assert(hasEditableText("853"))
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()
+    }
+
+    @Test
     fun switchingFromDohToDotSeedsTheDotPort() {
         composeRule.setContent {
             RipDpiTheme {
