@@ -18,6 +18,7 @@ import javax.inject.Inject
 internal data class SelectorVpnPath(
     val configuration: AppliedRuntimeConfiguration,
     val lease: DiagnosticsInPathRouteLease?,
+    val usesIsolatedProbes: Boolean = false,
 )
 
 internal class SelectorVpnPayloadProbe
@@ -29,31 +30,33 @@ internal class SelectorVpnPayloadProbe
         private val http: CandidateHttpPayloadProbe,
     ) {
         /**
-         * Returns null when the VPN does not carry [groupId], or when noDomain is on: the in-path listener cannot
-         * resolve control host names then, and resolving them in the app would leave the tunnel (as the field
-         * report does). The selector then measures the active member with isolated candidate probes.
+         * With noDomain, the active member needs an isolated candidate probe but the applied VPN revision still
+         * owns the choice. Resolving the control names in the app would leave the tunnel.
          */
         suspend fun capture(groupId: String): SelectorVpnPath? {
             val application = applied.applications.value[Mode.VPN]
             val configuration =
                 application?.runningConfiguration()?.takeIf { it.effectiveSelection.selectorGroupId == groupId }
-            if (configuration == null || settings.snapshot().noDomain) return null
+            if (configuration == null) return null
+            val isolated = settings.snapshot().noDomain
             val lease =
-                if (application is RuntimeConfigurationApplication.Applied) {
+                if (!isolated && application is RuntimeConfigurationApplication.Applied) {
                     (diagnostics.acquireInPathRouteLease() as? InPathRouteLeaseAcquisition.Acquired)?.lease
                 } else {
                     null
                 }
-            val path = SelectorVpnPath(configuration, lease)
+            val path = SelectorVpnPath(configuration, lease, isolated)
             return path.takeIf(::isCurrent) ?: path.copy(lease = null)
         }
 
         fun isCurrent(path: SelectorVpnPath): Boolean {
-            val lease = path.lease ?: return false
             val application = applied.applications.value[Mode.VPN] as? RuntimeConfigurationApplication.Applied
             return application?.configuration == path.configuration &&
-                lease.runtimeId == path.configuration.runtimeId &&
-                diagnostics.validateInPathRouteLease(lease) == null
+                (
+                    path.usesIsolatedProbes || path.lease?.let {
+                        it.runtimeId == path.configuration.runtimeId && diagnostics.validateInPathRouteLease(it) == null
+                    } == true
+                )
         }
 
         suspend fun measure(

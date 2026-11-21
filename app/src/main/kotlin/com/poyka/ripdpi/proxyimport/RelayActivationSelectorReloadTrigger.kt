@@ -2,20 +2,30 @@ package com.poyka.ripdpi.proxyimport
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
+import com.poyka.ripdpi.data.PauseAuthorityRef
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RejectedSwitchReverter
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
+import com.poyka.ripdpi.data.RuntimeConfigurationApplyFailure
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.runningConfiguration
+import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.services.RuntimePolicyReloadIntent
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.selector.SelectorReloadTrigger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -61,6 +71,13 @@ class RelayActivationSelectorReloadTrigger
         private val activationMutex = Mutex()
         private var preparedProfile: ProxyProfile? = null
 
+        private data class AutomaticReload(
+            val groupId: String,
+            val selection: SelectorSelectionSnapshot,
+            val previous: AppliedRuntimeConfiguration,
+            val authority: PauseAuthorityRef,
+        )
+
         suspend fun prepare() =
             activationMutex.withLock {
                 val request = selectionProvider.selectionChanges().first() ?: return@withLock
@@ -93,65 +110,128 @@ class RelayActivationSelectorReloadTrigger
         ) {
             val group = request.groupId
             val profileId = request.memberId
+            val selection = selections.snapshot(group)
+            val matchesSelection =
+                selection.profileId == profileId && (request.manualReceipt != null || !selection.isManual)
             val profile =
-                if (selectionProvider.activeGroupId() == group &&
-                    selections.snapshot(group).profileId == profileId
-                ) {
+                if (matchesSelection && selectionProvider.activeGroupId() == group) {
                     memberProfile(group, profileId)
                 } else {
                     null
                 }
             val intent = profile?.let { reloadIntent(request) }
+            val mode = stateStore.status.value.second
+            val current = applied.applications.value[mode]
             // An automatic selection that names the member already carrying traffic needs no stack replacement.
             val alreadyApplied =
-                skipApplied && intent == RuntimePolicyReloadIntent.Automatic && appliedMember(group) == profileId
+                skipApplied && intent == RuntimePolicyReloadIntent.Automatic &&
+                    current.appliedMember(group) == profileId
             if (profile == null || intent == null || alreadyApplied) return
-            val reason =
-                try {
-                    if (relayRefresher.refresh(intent) { isCurrent(group, profileId, profile) }) null else "rejected"
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    // Stable code only: the message can name the server, and R8 renames exception classes.
-                    "failed"
+            val automatic =
+                current?.runningConfiguration()?.takeIf { intent == RuntimePolicyReloadIntent.Automatic }?.let {
+                    AutomaticReload(group, selection, it, authority.reference())
                 }
-            if (reason != null) {
-                val manual = request.manualReceipt
-                val restored =
-                    if (manual != null) switches.revertRejectedSwitch(manual) else restoreLiveMember(group, profileId)
+            val reason = dispatchReload(intent, automatic != null) { isCurrent(group, selection, profile) }
+            val manual = request.manualReceipt
+            if (automatic != null) {
+                reconcileAutomatic(automatic, reason)
+            } else if (reason != null && manual != null) {
+                val restored = switches.revertRejectedSwitch(manual)
                 Logger.w { "Selector reload $reason; previous selection restored: $restored" }
             }
         }
 
+        private suspend fun dispatchReload(
+            intent: RuntimePolicyReloadIntent,
+            reconcileTimeout: Boolean,
+            isCurrent: suspend () -> Boolean,
+        ): String? =
+            try {
+                if (relayRefresher.refresh(intent, isCurrent)) null else "rejected"
+            } catch (timedOut: TimeoutCancellationException) {
+                currentCoroutineContext().ensureActive()
+                if (!reconcileTimeout) throw timedOut
+                "timed out"
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // The server name can appear in the exception message.
+                "failed"
+            }
+
         private suspend fun isCurrent(
             group: String,
-            profileId: String,
+            selection: SelectorSelectionSnapshot,
             profile: ProxyProfile,
         ) = selectionProvider.activeGroupId() == group &&
-            selections.snapshot(group).profileId == profileId && memberProfile(group, profileId) == profile
+            selections.snapshot(group) == selection && memberProfile(group, profile.id) == profile
 
-        /**
-         * A rejected automatic reload leaves traffic on the member the confirmed configuration names, so the selection
-         * goes back to it unless a refresh removed it; the rejected member then stays as the next start's member.
-         */
-        private suspend fun restoreLiveMember(
-            group: String,
-            rejected: String,
-        ): Boolean {
-            val live = appliedMember(group)
-            val selection = selections.snapshot(group)
-            return live != null && live != rejected && selection.profileId == rejected &&
-                memberProfile(group, live) != null && selections.selectAutomatically(group, selection, live) { true }
+        private suspend fun reconcileAutomatic(
+            reload: AutomaticReload,
+            dispatchFailure: String?,
+        ) {
+            val settled = settledApplication(reload)
+            val configuration = (settled as? RuntimeConfigurationApplication.Applied)?.configuration
+            val live = settled.appliedMember(reload.groupId)
+            val desired = reload.selection.profileId
+            if (configuration?.isAppliedSelectorSuccessor(reload.previous, reload.groupId, desired) == true) {
+                Logger.i { "Automatic selector reload applied at revision ${configuration.revision}" }
+            } else {
+                val failure =
+                    when {
+                        (settled as? RuntimeConfigurationApplication.Failed)?.failure ==
+                            RuntimeConfigurationApplyFailure.TimedOut -> "timed out"
+
+                        else -> dispatchFailure ?: "unconfirmed"
+                    }
+                val restored = live != null && live != desired && restoreLiveMember(reload, live, settled)
+                Logger.w { "Automatic selector reload $failure; live selection restored: $restored" }
+            }
         }
 
-        private fun appliedMember(group: String): String? =
-            applied.applications.value.values.firstNotNullOfOrNull { application ->
-                (application as? RuntimeConfigurationApplication.Applied)
-                    ?.configuration
-                    ?.effectiveSelection
-                    ?.takeIf { it.selectorGroupId == group }
-                    ?.selectorMemberId
+        private suspend fun settledApplication(reload: AutomaticReload): RuntimeConfigurationApplication {
+            val mode = reload.previous.mode
+            val current = applied.applications.value[mode] ?: RuntimeConfigurationApplication.Unknown
+            if (!current.isApplying(reload.previous)) return current
+            val changes =
+                combine(
+                    applied.applications,
+                    selections.selection(reload.groupId),
+                    selectionProvider.activeGroupChanges,
+                    authority.states,
+                ) { applications, _, activeGroup, authorityState ->
+                    val ownsReload =
+                        activeGroup == reload.groupId && authorityState?.generation == reload.authority.generation
+                    if (ownsReload && selections.snapshot(reload.groupId) == reload.selection) {
+                        applications[mode] ?: RuntimeConfigurationApplication.Unknown
+                    } else {
+                        RuntimeConfigurationApplication.Unknown
+                    }
+                }
+            return withTimeoutOrNull(SelectorApplySettleTimeoutMillis) {
+                changes.first { !it.isApplying(reload.previous) }
             }
+                ?: run {
+                    Logger.w { "Automatic selector reload timed out with an application still in progress" }
+                    // Keep the fence until that application settles or a new choice supersedes it.
+                    changes.first { !it.isApplying(reload.previous) }
+                }
+        }
+
+        private suspend fun restoreLiveMember(
+            reload: AutomaticReload,
+            live: String,
+            application: RuntimeConfigurationApplication?,
+        ): Boolean {
+            val mode = reload.previous.mode
+            val configuration = (application as? RuntimeConfigurationApplication.Applied)?.configuration
+            return configuration?.runtimeId == reload.previous.runtimeId &&
+                selectionProvider.activeGroupId() == reload.groupId && memberProfile(reload.groupId, live) != null &&
+                selections.selectAutomatically(reload.groupId, reload.selection, live) {
+                    authority.reference() == reload.authority && applied.applications.value[mode] == application &&
+                        stateStore.status.value == (AppStatus.Running to mode)
+                }
+        }
 
         private fun reloadIntent(
             request: com.poyka.ripdpi.services.selector.SelectorReloadRequest,
@@ -205,10 +285,30 @@ class ServiceControllerRunningRelayRefresher
         ): Boolean {
             val (status, mode) = serviceStateStore.status.value
             if (status != AppStatus.Running) return true
-            return runtimeRegistry.current(mode)?.reloadConnectionPolicy(intent, isCurrent) ?: true
+            return runtimeRegistry.current(mode)?.reloadConnectionPolicy(intent, isCurrent) ?: false
         }
 
         override suspend fun teardown() {
             serviceController.stop()
         }
     }
+
+internal fun AppliedRuntimeConfiguration.isAppliedSelectorSuccessor(
+    previous: AppliedRuntimeConfiguration,
+    groupId: String,
+    memberId: String?,
+): Boolean =
+    memberId != null && runtimeId == previous.runtimeId && mode == previous.mode && revision > previous.revision &&
+        effectiveSelection.selectorGroupId == groupId && effectiveSelection.selectorMemberId == memberId
+
+private fun RuntimeConfigurationApplication?.appliedMember(group: String): String? =
+    (this as? RuntimeConfigurationApplication.Applied)
+        ?.configuration
+        ?.effectiveSelection
+        ?.takeIf { it.selectorGroupId == group }
+        ?.selectorMemberId
+
+private fun RuntimeConfigurationApplication.isApplying(previous: AppliedRuntimeConfiguration): Boolean =
+    this is RuntimeConfigurationApplication.Applying && attempt.runtimeId == previous.runtimeId
+
+private const val SelectorApplySettleTimeoutMillis = 60_000L
