@@ -131,6 +131,7 @@ pub(super) fn expire_udp_flows(
             || !entry.awaiting_response
             || !entry.session.feedback_is_eligible()
             || entry.session.has_unverifiable_client_offer()
+            || entry.session.has_provisional_retry()
         {
             state.discard_evolver_attempt(entry.evolution_attempt);
             continue;

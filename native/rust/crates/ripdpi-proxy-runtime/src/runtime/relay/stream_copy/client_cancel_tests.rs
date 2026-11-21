@@ -212,7 +212,6 @@ fn run_rotation(end: RotationEnd) -> Option<String> {
         None,
     )
     .expect("real first exchange accepted");
-    assert!(prepared.success_recorded, "fixture must pass the production first-response path");
     assert_eq!(prepared.success_host.as_deref(), Some("fixture.test"));
     // One prior signal is unconfirmed. Cancellation must not provide its second confirmation.
     state.note_block_signal("fixture.test", crate::runtime::failure::RuntimeBlockSignal::TcpReset, None, true);

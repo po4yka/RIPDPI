@@ -8,7 +8,9 @@ use std::time::Duration;
 use crate::runtime::desync::{
     DesyncSendRequest, FakeTtlAttempt, OutboundSendError, OutboundSendOutcome, TcpExecutionDisposition,
 };
+use crate::runtime::relay::execution::{RelayResultContext, record_relay_result};
 use crate::runtime::relay::session::FirstOutboundSession;
+use crate::runtime::types::RuntimeConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::config::{
     ActivationFilter, AutoTtlConfig, NumericRange, OffsetExpr, RuntimeConfig, TcpChainStep, TcpChainStepKind,
 };
@@ -99,11 +101,8 @@ fn pending_response_feedback(delayed_publication: bool) {
     let pending = PendingFirstResponse {
         reader: *reader,
         target,
-        route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 },
         host: HOST.map(str::to_owned),
         original_request: request.to_vec(),
-        success_strategy_family: Some("fake"),
-        primary_strategy_family: Some("fake"),
         tls_send_start: None,
     };
     let session = FirstOutboundSession::new().into_relay_session().into_shared();
@@ -125,10 +124,7 @@ fn pending_response_feedback(delayed_publication: bool) {
         assert_eq!(error.execution_receipt().expect("failed receipt").adaptive_fake_ttl, Some(7));
         attempt_tx.send(attempt.expect("actual sender attempt")).expect("report attempted send");
         publish_rx.recv_timeout(Duration::from_secs(5)).expect("release receipt publication");
-        if let Some(feedback) = outbound_session.finish_fake_ttl_send(attempt).expect("publish receipt") {
-            record_stream_fake_ttl_success(&outbound_state, target, 0, HOST, feedback).expect("deferred fake feedback");
-            outbound_session.complete_fake_ttl_feedback().expect("complete fake feedback");
-        }
+        let _ = outbound_session.finish_fake_ttl_send(attempt).expect("publish receipt");
     });
     let active = attempt_rx.recv_timeout(Duration::from_secs(5)).expect("sender invoked before response");
     assert_eq!(active.ttl, 7);
@@ -152,10 +148,27 @@ fn pending_response_feedback(delayed_publication: bool) {
         publish_tx.send(()).expect("publish after accepted response");
         publisher.take().expect("publisher").join().expect("deferred feedback completed");
     }
+    assert_eq!(selected_attempt(&state, &mut parallel).ttl, 6, "feedback waits for clean completion");
+    let terminal = session.snapshot().expect("session snapshot");
+    assert!(terminal.permits_success());
+    let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
+    record_relay_result(
+        &Ok(terminal),
+        &state,
+        RelayResultContext {
+            relay_timeouts: state.relay_timeouts(0).expect("timeouts"),
+            target,
+            route: &route,
+            success_host: HOST,
+            success_payload: Some(request),
+            success_strategy_family: Some("fake"),
+            primary_strategy_family: Some("fake"),
+        },
+    )
+    .expect("clean relay feedback");
     let after = selected_attempt(&state, &mut parallel);
     assert_eq!(after.ttl, 7, "response must pin the shared attempted TTL");
     assert_eq!(after.revision, before.revision + 1, "fake success must run exactly once");
-    assert!(!session.snapshot().expect("session snapshot").permits_success());
 }
 
 #[test]

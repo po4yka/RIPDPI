@@ -83,6 +83,78 @@ fn independent_tls_flight(
 }
 
 #[test]
+fn late_tcp_freeze_does_not_pin_the_strategy_after_forwarding_an_accepted_response() {
+    use crate::runtime::relay::RelayFlow;
+    use crate::runtime::routing::select_route;
+    use crate::runtime::types::RuntimeConnectionRoute;
+    use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+    use std::sync::mpsc;
+
+    let mut config = RuntimeConfig::default();
+    config.groups.push(DesyncGroup::new(1));
+    config.adaptive.cache_ttl = 60;
+    config.host_autolearn.enabled = true;
+    config.timeouts.freeze_window_ms = 40;
+    config.timeouts.freeze_min_bytes = 512;
+    config.timeouts.freeze_max_stalls = 2;
+    let state = RuntimeState::test(config);
+    let (client, mut app) = pair();
+    let (upstream, mut origin) = pair();
+    let target = upstream.peer_addr().expect("owned origin");
+    for socket in [&app, &origin] {
+        socket.set_read_timeout(Some(Duration::from_secs(3))).expect("bounded reads");
+    }
+    let (request, response) = independent_tls_flight(&rustls::version::TLS12, false, None, true);
+    let partial = [0x17, 0x03, 0x03, 0x00, 0x0a, 0x11];
+    app.write_all(&request).expect("application ClientHello");
+
+    let selected = || select_route(&state, target, None, None, true).expect("next route").group_index;
+    std::thread::scope(|workers| {
+        let (received, proceed) = mpsc::sync_channel(1);
+        let flight = response.as_slice();
+        let request = request.as_slice();
+        let origin = workers.spawn(move || {
+            let mut incoming = vec![0; request.len()];
+            origin.read_exact(&mut incoming).expect("initial request forwarded");
+            assert_eq!(incoming, request);
+            origin.write_all(flight).expect("send independent TLS flight");
+            proceed.recv_timeout(Duration::from_secs(3)).expect("first response visible to app");
+            origin.write_all(&partial).expect("server sends an incomplete record after the first response");
+            assert_eq!(origin.read(&mut [0]).expect("relay closes the stalled upstream"), 0);
+        });
+        let app = workers.spawn(move || {
+            let mut bytes = vec![0; flight.len()];
+            app.read_exact(&mut bytes).expect("accepted response before relay completion");
+            assert_eq!(bytes, flight);
+            assert_eq!(selected(), 0, "an accepted response cannot pin the route before completion");
+            received.send(()).expect("allow the late record");
+            let mut bytes = [0; 6];
+            app.read_exact(&mut bytes).expect("partial data is forwarded without waiting for completion");
+            assert_eq!(bytes, partial);
+            assert_eq!(
+                app.read(&mut [0]).expect_err("a frozen relay resets the connection").kind(),
+                io::ErrorKind::ConnectionReset
+            );
+        });
+        let error = crate::runtime::relay::relay(
+            client,
+            upstream,
+            &state,
+            target,
+            RuntimeConnectionRoute { group_index: 1, attempted_mask: 3, route_advances: 1 },
+            None,
+            RelayFlow::default(),
+            None,
+        )
+        .expect_err("late freeze");
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        app.join().expect("app worker");
+        origin.join().expect("origin worker");
+    });
+    assert_eq!(selected(), 0, "a later transport freeze must leave the route cache unchanged");
+}
+
+#[test]
 fn dpi38_tls12_warning_survives_each_first_record_split() {
     for record_split in [None, Some(1), Some(38)] {
         let (request, response) = independent_tls_flight(&rustls::version::TLS12, true, record_split, true);

@@ -13,6 +13,7 @@ use super::feedback::note_udp_first_response_success;
 use super::flow::{UdpFlowActivationState, UdpFlowKey, retire_failed_udp_flow};
 use super::migration::maybe_rebind_udp_source_port;
 use super::remote_feedback::{self, Nonce, udp_feedback};
+use super::session::UpstreamResponse;
 use crate::runtime::state::RuntimeState;
 use ripdpi_proxy_runtime_adapter::udp_desync::UdpDesyncAction;
 
@@ -64,17 +65,9 @@ pub(super) fn pump_udp_upstream_responses(
                 } else {
                     &upstream_buffer[..n]
                 };
-                let matches_outbound = entry.session.response_matches_outbound(response);
-                if matches_outbound || !entry.session.feedback_is_eligible() {
+                let disposition = entry.session.classify_upstream_response(response);
+                if disposition != UpstreamResponse::Unmatched || !entry.session.feedback_is_eligible() {
                     entry.last_used = Instant::now();
-                }
-                if matches_outbound {
-                    entry.answered = true;
-                    note_udp_first_response_success(state, entry)?;
-                    entry.session.observe_upstream_response(response);
-                    if entry.session.has_quic_response_context() {
-                        maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
-                    }
                 }
                 if key.preserve_host_in_response
                     && let Some(host) = entry.host.as_deref()
@@ -111,6 +104,14 @@ pub(super) fn pump_udp_upstream_responses(
                         return Err(err);
                     }
                     Err(_) => {}
+                }
+                if disposition == UpstreamResponse::Progress {
+                    entry.answered = true;
+                    note_udp_first_response_success(state, entry)?;
+                    entry.session.observe_upstream_response(response);
+                    if entry.session.has_quic_response_context() {
+                        maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
+                    }
                 }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}

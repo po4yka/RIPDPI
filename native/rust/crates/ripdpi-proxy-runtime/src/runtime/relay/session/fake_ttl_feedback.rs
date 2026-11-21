@@ -1,7 +1,7 @@
 use super::FakeTtlAttempt;
 use std::io;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(in crate::runtime::relay) struct FakeTtlFeedback {
     pub(in crate::runtime::relay) attempt: FakeTtlAttempt,
     pub(in crate::runtime::relay) server_ttl: Option<u8>,
@@ -10,7 +10,7 @@ pub(in crate::runtime::relay) struct FakeTtlFeedback {
 enum FirstResponseFeedback {
     Waiting,
     Accepted { server_ttl: Option<u8> },
-    Claimed,
+    Claimed(FakeTtlFeedback),
     Completed,
 }
 
@@ -70,9 +70,13 @@ impl FakeTtlFeedbackLedger {
         None
     }
 
-    pub(super) fn complete_feedback(&mut self) {
-        if matches!(self.response, FirstResponseFeedback::Claimed) {
-            self.response = FirstResponseFeedback::Completed;
+    pub(super) fn final_feedback(&self) -> Option<FakeTtlFeedback> {
+        match self.response {
+            FirstResponseFeedback::Claimed(feedback) => Some(feedback),
+            FirstResponseFeedback::Waiting => {
+                self.bound_attempt.map(|attempt| FakeTtlFeedback { attempt, server_ttl: None })
+            }
+            _ => None,
         }
     }
 
@@ -82,8 +86,9 @@ impl FakeTtlFeedbackLedger {
 
     fn claim_or_complete(&mut self, server_ttl: Option<u8>) -> Option<FakeTtlFeedback> {
         if let Some(attempt) = self.bound_attempt {
-            self.response = FirstResponseFeedback::Claimed;
-            Some(FakeTtlFeedback { attempt, server_ttl })
+            let feedback = FakeTtlFeedback { attempt, server_ttl };
+            self.response = FirstResponseFeedback::Claimed(feedback);
+            Some(feedback)
         } else {
             self.response = FirstResponseFeedback::Completed;
             None

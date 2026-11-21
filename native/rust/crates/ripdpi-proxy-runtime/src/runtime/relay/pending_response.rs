@@ -1,4 +1,3 @@
-use crate::runtime::relay::session::AdaptiveFeedbackAttempts;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
@@ -6,8 +5,6 @@ use std::time::Instant;
 use super::super::failure::{RuntimeFailureAction, RuntimeFailureClass};
 use super::super::routing::emit_failure_classified;
 use super::super::state::RuntimeState;
-use super::super::types::RuntimeConnectionRoute;
-use super::failure_retry::{record_stream_fake_ttl_success, record_stream_relay_success};
 use super::first_exchange::{FirstResponse, FirstResponseReader, read_first_response};
 use super::session::{FirstResponseOutcome, RelaySharedSession};
 
@@ -16,11 +13,8 @@ use super::session::{FirstResponseOutcome, RelaySharedSession};
 pub(super) struct PendingFirstResponse {
     pub(super) reader: FirstResponseReader,
     pub(super) target: SocketAddr,
-    pub(super) route: RuntimeConnectionRoute,
     pub(super) host: Option<String>,
     pub(super) original_request: Vec<u8>,
-    pub(super) success_strategy_family: Option<&'static str>,
-    pub(super) primary_strategy_family: Option<&'static str>,
     pub(super) tls_send_start: Option<Instant>,
 }
 
@@ -44,39 +38,19 @@ impl PendingFirstResponse {
             reader,
         )? {
             FirstResponse::Forward(bytes, server_ttl) => {
-                let fake_ttl_feedback = session.accept_fake_ttl_response(server_ttl)?;
                 if let Some(start) = self.tls_send_start {
                     state.note_tls_handshake_completed(self.target, start.elapsed().as_millis() as u64);
                 }
                 let has_payload = session.observe_first_response_payload(&bytes)?;
+                if has_payload {
+                    let _ = session.accept_fake_ttl_response(server_ttl)?;
+                }
                 session.finish_evolution_response(state, has_payload)?;
                 // A client can send its next request as soon as this response is visible.
-                session.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: false })?;
+                session.finish_first_response(FirstResponseOutcome::Accepted)?;
                 client.write_all(&bytes)?;
                 state.note_application_traffic(0, bytes.len() as u64);
-                if has_payload {
-                    if let Some(feedback) = fake_ttl_feedback {
-                        record_stream_fake_ttl_success(
-                            state,
-                            self.target,
-                            self.route.group_index,
-                            self.host.as_deref(),
-                            feedback,
-                        )?;
-                        session.complete_fake_ttl_feedback()?;
-                    }
-                    record_stream_relay_success(
-                        state,
-                        self.target,
-                        &self.route,
-                        self.host.as_deref(),
-                        Some(&self.original_request),
-                        self.success_strategy_family,
-                        self.primary_strategy_family,
-                        AdaptiveFeedbackAttempts { fake_ttl: None, evolution: None },
-                    )?;
-                }
-                session.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: has_payload })
+                Ok(())
             }
             FirstResponse::Neutral(bytes) => {
                 session.finish_first_response(FirstResponseOutcome::Neutral)?;

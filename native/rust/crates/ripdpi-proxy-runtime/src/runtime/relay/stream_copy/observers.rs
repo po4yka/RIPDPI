@@ -340,9 +340,7 @@ mod tests {
                 origin.shutdown(Shutdown::Write).expect("real upstream EOF");
             });
             let session = FirstOutboundSession::new().into_relay_session().into_shared();
-            session
-                .finish_first_response(FirstResponseOutcome::Accepted { success_recorded: true })
-                .expect("previous accepted exchange");
+            session.finish_first_response(FirstResponseOutcome::Accepted).expect("previous accepted exchange");
             super::super::copy_halves::copy_inbound_half(
                 &mut upstream,
                 &mut writer,
@@ -440,9 +438,7 @@ mod tests {
                 origin.shutdown(Shutdown::Write).expect("graceful source EOF");
             });
             let session = FirstOutboundSession::new().into_relay_session().into_shared();
-            session
-                .finish_first_response(FirstResponseOutcome::Accepted { success_recorded: true })
-                .expect("earlier exchange");
+            session.finish_first_response(FirstResponseOutcome::Accepted).expect("earlier exchange");
             super::super::copy_halves::copy_inbound_half(
                 &mut upstream,
                 &mut writer,
