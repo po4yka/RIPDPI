@@ -587,6 +587,7 @@
     <string name="config_chain_remove_block">Remove block</string>
     <string name="config_error_invalid_chain">Enter a valid bypass strategy DSL.</string>
     <string name="config_error_unsupported">This option is not supported in the current build.</string>
+    <string name="config_error_conflicts_with">Conflicts with %1$s</string>
     <string name="config_placeholder_split_marker">host</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_fake_tls_size">0</string>

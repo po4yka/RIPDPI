@@ -33,6 +33,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 internal fun VlessTransportFields(
     draft: ConnectionDraft,
     actions: RelayVlessActions,
+    errors: Map<String, String> = emptyMap(),
 ) {
     Text(
         text = stringResource(R.string.config_relay_vless_transport),
@@ -59,11 +60,12 @@ internal fun VlessTransportFields(
             )
         }
     }
+    RelayChoiceError(errors[ConnectionFieldRelayVlessTransport])
     if (draft.relayKind in setOf(RelayKindVless, RelayKindVlessReality)) {
-        VlessFlowFields(draft, actions)
+        VlessFlowFields(draft, actions, errors)
     }
     if (draft.showsXhttpFields()) {
-        XhttpFields(draft = draft, actions = actions)
+        XhttpFields(draft = draft, actions = actions, errors = errors)
     }
 }
 
@@ -71,11 +73,13 @@ internal fun VlessTransportFields(
 internal fun VlessUuidField(
     draft: ConnectionDraft,
     actions: RelayVlessActions,
+    errors: Map<String, String> = emptyMap(),
 ) {
     RelayPasswordField(
         label = stringResource(R.string.config_relay_vless_uuid),
         value = draft.relayVlessUuid,
         onValueChange = actions.onRelayVlessUuidChanged,
+        errorText = validationMessage(errors[ConnectionFieldRelayVlessUuid]),
     )
 }
 
@@ -84,6 +88,7 @@ internal fun VlessUuidField(
 internal fun XhttpFields(
     draft: ConnectionDraft,
     actions: RelayVlessActions,
+    errors: Map<String, String> = emptyMap(),
 ) {
     RipDpiTextField(
         value = draft.relayXhttpPath,
@@ -119,6 +124,7 @@ internal fun XhttpFields(
             )
         }
     }
+    RelayChoiceError(errors[ConnectionFieldRelayXhttpMode])
 }
 
 @Composable
@@ -182,6 +188,7 @@ internal fun ConnectionDraft.withValidVlessChoices(): ConnectionDraft {
 internal fun VlessFlowFields(
     draft: ConnectionDraft,
     actions: RelayVlessActions,
+    errors: Map<String, String> = emptyMap(),
 ) {
     Text(
         text = stringResource(R.string.config_relay_vless_flow),
@@ -207,5 +214,18 @@ internal fun VlessFlowFields(
                 onClick = { actions.onRelayVlessFlowChanged(flow) },
             )
         }
+    }
+    RelayChoiceError(errors[ConnectionFieldRelayVlessFlow])
+}
+
+/** The error under a row of choice chips, where a text field would show it. */
+@Composable
+internal fun RelayChoiceError(errorKey: String?) {
+    validationMessage(errorKey)?.let {
+        Text(
+            text = it,
+            style = RipDpiThemeTokens.type.caption,
+            color = RipDpiThemeTokens.colors.destructive,
+        )
     }
 }

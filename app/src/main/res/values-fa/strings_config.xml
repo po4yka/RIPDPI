@@ -572,6 +572,7 @@
     <string name="config_chain_remove_block">حذف بلوک</string>
     <string name="config_error_invalid_chain">یک DSL راهبرد عبور معتبر وارد کنید.</string>
     <string name="config_error_unsupported">این گزینه در ساخت فعلی پشتیبانی نمی‌شود.</string>
+    <string name="config_error_conflicts_with">با %1$s ناسازگار است</string>
     <string name="config_placeholder_split_marker">host</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_fake_tls_size">0</string>

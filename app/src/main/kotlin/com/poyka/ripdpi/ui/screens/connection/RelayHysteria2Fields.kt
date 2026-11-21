@@ -9,11 +9,13 @@ import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 internal fun HysteriaRelayFields(
     draft: ConnectionDraft,
     actions: RelayHysteriaActions,
+    errors: Map<String, String> = emptyMap(),
 ) {
     RelayPasswordField(
         label = stringResource(R.string.config_relay_hysteria_password),
         value = draft.relayHysteriaPassword,
         onValueChange = actions.onRelayHysteriaPasswordChanged,
+        errorText = validationMessage(errors[ConnectionFieldRelayPassword]),
     )
     RelayPasswordField(
         label = stringResource(R.string.config_relay_hysteria_salamander),

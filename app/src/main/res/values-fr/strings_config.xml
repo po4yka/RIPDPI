@@ -46,6 +46,7 @@
     <string name="config_editor_body">Modification de %1$s. Les changements sont enregistrés sur cet appareil lorsque vous appuyez sur Enregistrer.</string>
     <string name="config_error_invalid_marker">Saisissez une expression de marqueur valide.</string>
     <string name="config_error_unsupported">Cette option n\'est pas prise en charge dans la version actuelle.</string>
+    <string name="config_error_conflicts_with">Incompatible avec %1$s</string>
     <string name="config_max_connections_helper">Limite supérieure des sessions locales simultanées.</string>
     <string name="config_overrides_section">Remplacements</string>
     <string name="config_placeholder_dns">1.1.1.1</string>

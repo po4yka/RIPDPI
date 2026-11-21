@@ -20,16 +20,19 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 internal fun TuicRelayFields(
     draft: ConnectionDraft,
     actions: RelayTuicActions,
+    errors: Map<String, String> = emptyMap(),
 ) {
     RelayPasswordField(
         label = stringResource(R.string.config_relay_tuic_uuid),
         value = draft.relayTuicUuid,
         onValueChange = actions.onRelayTuicUuidChanged,
+        errorText = validationMessage(errors[ConnectionFieldRelayTuicUuid]),
     )
     RelayPasswordField(
         label = stringResource(R.string.config_relay_tuic_password),
         value = draft.relayTuicPassword,
         onValueChange = actions.onRelayTuicPasswordChanged,
+        errorText = validationMessage(errors[ConnectionFieldRelayPassword]),
     )
     RipDpiTextField(
         value = draft.relayTuicRootCertificatePem,

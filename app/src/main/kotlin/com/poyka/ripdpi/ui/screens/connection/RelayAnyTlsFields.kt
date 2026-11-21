@@ -9,10 +9,12 @@ import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 internal fun AnyTlsRelayFields(
     draft: ConnectionDraft,
     onPasswordChanged: (String) -> Unit,
+    errors: Map<String, String> = emptyMap(),
 ) {
     RelayPasswordField(
         label = stringResource(R.string.anytls_field_password),
         value = draft.relayAnyTlsPassword,
         onValueChange = onPasswordChanged,
+        errorText = validationMessage(errors[ConnectionFieldRelayPassword]),
     )
 }

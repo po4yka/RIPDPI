@@ -469,6 +469,7 @@ internal fun PlainField(
     enabled: Boolean = true,
 ) {
     val hasError = editor.hasFieldError(field)
+    val conflict = editor.conflictingField(field)
     RipDpiTextField(
         value = editor.rawText(field),
         onValueChange = { onFieldChanged(field, it) },
@@ -480,6 +481,13 @@ internal fun PlainField(
                 helperText = helperText,
                 errorText =
                     when {
+                        conflict != null -> {
+                            stringResource(
+                                R.string.config_error_conflicts_with,
+                                stringResource(awgFieldLabel(conflict)),
+                            )
+                        }
+
                         editor.hasHeaderProtectionPrefixError(field) -> {
                             stringResource(
                                 R.string.awg_hp_prefix_min,
@@ -505,3 +513,11 @@ internal fun PlainField(
             ),
     )
 }
+
+/** Labels of the fields another field can conflict with. */
+private fun awgFieldLabel(field: AwgEditorField): Int =
+    when (field) {
+        AwgEditorField.JMIN -> R.string.awg_field_jmin
+        AwgEditorField.JMAX -> R.string.awg_field_jmax
+        else -> R.string.awg_field_mtu
+    }

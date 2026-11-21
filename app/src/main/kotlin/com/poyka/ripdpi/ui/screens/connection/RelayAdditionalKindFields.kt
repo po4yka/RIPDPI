@@ -19,22 +19,25 @@ import kotlinx.collections.immutable.toImmutableList
 internal fun VlessPlainRelayFields(
     draft: ConnectionDraft,
     actions: RelayVlessActions,
+    errors: Map<String, String> = emptyMap(),
 ) {
     // The plain TLS backend supports xHTTP only; the Reality transport selector does not apply.
-    VlessUuidField(draft, actions)
-    VlessFlowFields(draft, actions)
-    XhttpFields(draft, actions)
+    VlessUuidField(draft, actions, errors)
+    VlessFlowFields(draft, actions, errors)
+    XhttpFields(draft, actions, errors)
 }
 
 @Composable
 internal fun TrojanRelayFields(
     draft: ConnectionDraft,
     actions: RelayAdditionalKindActions,
+    errors: Map<String, String> = emptyMap(),
 ) {
     RelayPasswordField(
         label = stringResource(R.string.config_relay_trojan_password),
         value = draft.relayTrojanPassword,
         onValueChange = actions.onTrojanPasswordChanged,
+        errorText = validationMessage(errors[ConnectionFieldRelayPassword]),
     )
     RipDpiTextField(
         value = draft.relayTrojanRootCertificatePem,
@@ -48,6 +51,7 @@ internal fun TrojanRelayFields(
 internal fun ShadowsocksRelayFields(
     draft: ConnectionDraft,
     actions: RelayAdditionalKindActions,
+    errors: Map<String, String> = emptyMap(),
 ) {
     val method = draft.relayShadowsocksMethod.trim().lowercase()
     RipDpiDropdown(
@@ -57,15 +61,13 @@ internal fun ShadowsocksRelayFields(
         label = stringResource(R.string.config_relay_shadowsocks_method),
         // An imported stream cipher has no entry in the list; the field names it until another method is picked.
         placeholder = draft.relayShadowsocksMethod.takeUnless { isSupportedShadowsocksMethod(it) },
-        errorText =
-            stringResource(R.string.config_error_unsupported).takeIf {
-                method.isNotEmpty() && !isSupportedShadowsocksMethod(method)
-            },
+        errorText = validationMessage(errors[ConnectionFieldRelayShadowsocksMethod]),
     )
     RelayPasswordField(
         label = stringResource(R.string.config_relay_shadowsocks_password),
         value = draft.relayShadowsocksPassword,
         onValueChange = actions.onShadowsocksPasswordChanged,
+        errorText = validationMessage(errors[ConnectionFieldRelayPassword]),
     )
 }
 

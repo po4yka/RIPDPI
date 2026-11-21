@@ -37,7 +37,11 @@ internal fun RelayEndpointFields(
     RipDpiTextField(
         value = draft.relayServerName,
         onValueChange = actions.onRelayServerNameChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_server_name)),
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_server_name),
+                errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayServerName]),
+            ),
     )
 }
 

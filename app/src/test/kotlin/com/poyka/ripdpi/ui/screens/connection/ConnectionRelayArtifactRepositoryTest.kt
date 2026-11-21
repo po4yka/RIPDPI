@@ -157,7 +157,14 @@ class ConnectionRelayArtifactRepositoryTest {
                         relayVlessTransport = RelayVlessTransportXhttp,
                     ),
                 )
-            assertNotNull("$kind accepted empty credentials", errors[ConnectionFieldRelayCredentials])
+            val credentialFields =
+                setOf(
+                    ConnectionFieldRelayCredentials,
+                    ConnectionFieldRelayPassword,
+                    ConnectionFieldRelayVlessUuid,
+                    ConnectionFieldRelayShadowsocksMethod,
+                )
+            assertTrue("$kind accepted empty credentials", errors.keys.any { it in credentialFields })
         }
     }
 
@@ -534,7 +541,7 @@ class ConnectionRelayArtifactRepositoryTest {
                 ),
             )
 
-        assertEquals("required", errors[ConnectionFieldRelayCredentials])
+        assertEquals("required", errors[ConnectionFieldRelayPassword])
     }
 
     @Test

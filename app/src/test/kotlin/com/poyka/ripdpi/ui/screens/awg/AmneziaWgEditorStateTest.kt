@@ -386,6 +386,8 @@ class AmneziaWgEditorStateTest {
 
         assertFalse(state.obfuscationConsistent())
         assertFalse(state.isActivatable())
+        assertEquals(AwgEditorField.JMAX, state.conflictingField(AwgEditorField.JMIN))
+        assertEquals(AwgEditorField.JMIN, state.conflictingField(AwgEditorField.JMAX))
     }
 
     @Test
@@ -409,6 +411,32 @@ class AmneziaWgEditorStateTest {
                 .updateField(AwgEditorField.JMIN, "40")
                 .updateField(AwgEditorField.JMAX, "2000")
 
+        assertFalse(state.isActivatable())
+    }
+
+    @Test
+    fun `junk above a lowered MTU names the MTU on the Jmax field`() {
+        val state =
+            activatableAwgEditor()
+                .updateField(AwgEditorField.MTU, "1000")
+                .updateField(AwgEditorField.JC, "4")
+                .updateField(AwgEditorField.JMIN, "40")
+                .updateField(AwgEditorField.JMAX, "1200")
+
+        assertEquals(AwgEditorField.MTU, state.conflictingField(AwgEditorField.JMAX))
+        assertNull(state.conflictingField(AwgEditorField.JMIN))
+        assertFalse(state.isActivatable())
+    }
+
+    @Test
+    fun `padding above the configured MTU names the MTU on the padding field`() {
+        val state =
+            activatableAwgEditor()
+                .updateField(AwgEditorField.MTU, "1000")
+                .updateField(AwgEditorField.S2, "1200")
+
+        assertEquals(AwgEditorField.MTU, state.conflictingField(AwgEditorField.S2))
+        assertNull(state.conflictingField(AwgEditorField.S1))
         assertFalse(state.isActivatable())
     }
 }

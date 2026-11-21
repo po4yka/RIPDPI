@@ -798,6 +798,7 @@ fakeddisorder endhost</string>
     <string name="adaptive_fallback_torst_title">Сброс TCP / TORST</string>
     <string name="config_error_required">Это поле обязательно.</string>
     <string name="config_error_unsupported">Эта опция не поддерживается в текущей сборке.</string>
+    <string name="config_error_conflicts_with">Несовместимо с полем «%1$s»</string>
     <string name="config_local_bypass_enabled">Вкл.</string>
     <string name="config_local_bypass_disabled">Выкл.</string>
     <string name="config_local_bypass_strategy_title">Стратегия обхода</string>

@@ -144,6 +144,50 @@ data class AmneziaWgEditorState(
 
     fun hasV3Edits(): Boolean = form.v3.isSet || AwgEditorField.entries.any { it.isV3 && hasFieldError(it) }
 
+    /**
+     * The field this one conflicts with, or `null`: a `Jmin` above `Jmax`, or a junk or padding size above the
+     * tunnel MTU, which fragments on the wire.
+     */
+    fun conflictingField(field: AwgEditorField): AwgEditorField? {
+        val mtu = effectiveMtu()
+        val junkActive = form.jc > 0
+        // The wire profile rejects an inverted range even when no junk packets are sent.
+        val junkRangeBroken = form.jmin > form.jmax
+        return when (field) {
+            AwgEditorField.JMIN -> {
+                AwgEditorField.JMAX.takeIf { junkRangeBroken }
+            }
+
+            AwgEditorField.JMAX -> {
+                when {
+                    junkRangeBroken -> AwgEditorField.JMIN
+                    junkActive && form.jmax > mtu -> AwgEditorField.MTU
+                    else -> null
+                }
+            }
+
+            AwgEditorField.S1 -> {
+                AwgEditorField.MTU.takeIf { form.s1 > mtu }
+            }
+
+            AwgEditorField.S2 -> {
+                AwgEditorField.MTU.takeIf { form.s2 > mtu }
+            }
+
+            AwgEditorField.S3 -> {
+                AwgEditorField.MTU.takeIf { form.s3 > mtu }
+            }
+
+            AwgEditorField.S4 -> {
+                AwgEditorField.MTU.takeIf { form.s4 > mtu }
+            }
+
+            else -> {
+                null
+            }
+        }
+    }
+
     /** Raw user-typed text for [field] (empty when never edited). */
     fun rawText(field: AwgEditorField): String = rawTextByField[field].orEmpty()
 
@@ -249,11 +293,7 @@ data class AmneziaWgEditorState(
      * The named wire profile bounds scalar values even when `Jc == 0`.
      */
     fun obfuscationConsistent(): Boolean {
-        val mtu = effectiveMtu()
-        val junkActive = form.jc > 0
-        val junkRangeOk = !junkActive || form.jmin <= form.jmax
-        val junkSizeFitsMtu = !junkActive || form.jmax <= mtu
-        val paddingFitsMtu = form.s1 <= mtu && form.s2 <= mtu && form.s3 <= mtu && form.s4 <= mtu
+        val noConflicts = AwgEditorField.entries.none { conflictingField(it) != null }
         val wireProfileValid =
             runCatching {
                 AmneziaWgWireProfile.requireScalars(form.jc, form.jmin, form.jmax, form.s1, form.s2, form.s3, form.s4)
@@ -265,7 +305,7 @@ data class AmneziaWgEditorState(
                 )
             }.isSuccess
         val fieldsValid = AwgEditorField.entries.filter { it.isObfuscation }.none(::hasFieldError)
-        return junkRangeOk && junkSizeFitsMtu && paddingFitsMtu && wireProfileValid && fieldsValid
+        return noConflicts && wireProfileValid && fieldsValid
     }
 
     /** The runtime input check reports invalid explicit MTU values separately. */

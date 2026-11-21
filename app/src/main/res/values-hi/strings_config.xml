@@ -572,6 +572,7 @@
     <string name="config_chain_remove_block">ब्लॉक हटाएँ</string>
     <string name="config_error_invalid_chain">एक मान्य बायपास स्ट्रैटेजी DSL दर्ज करें।</string>
     <string name="config_error_unsupported">यह विकल्प मौजूदा बिल्ड में समर्थित नहीं है।</string>
+    <string name="config_error_conflicts_with">%1$s से मेल नहीं खाता</string>
     <string name="config_placeholder_split_marker">host</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_fake_tls_size">0</string>

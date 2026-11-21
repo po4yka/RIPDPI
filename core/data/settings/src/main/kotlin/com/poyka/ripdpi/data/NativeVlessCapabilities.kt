@@ -63,6 +63,35 @@ object NativeVlessCapabilities {
                 else -> false
             }
 
+    /** The first choice the native backend rejects, or `null`; editors put the error on that choice. */
+    fun rejectedChoice(
+        security: String,
+        transport: String,
+        flow: String,
+        xhttpMode: String = RelayXhttpModeAuto,
+        udpEnabled: Boolean = false,
+    ): NativeVlessChoice? {
+        val selectedFlow = flow.trim().let { if (it in listOf("none", "off")) "" else it }
+        val selectedMode = xhttpMode.trim().ifEmpty { RelayXhttpModeAuto }
+        return when {
+            transports(security).isEmpty() -> NativeVlessChoice.Security
+
+            transport !in transports(security) -> NativeVlessChoice.Transport
+
+            selectedFlow !in flows(security, transport) -> NativeVlessChoice.Flow
+
+            transport == RelayVlessTransportXhttp && selectedMode !in
+                xhttpModes(
+                    security,
+                )
+            -> NativeVlessChoice.XhttpMode
+
+            udpEnabled && !supportsUdp(security, transport, selectedFlow) -> NativeVlessChoice.Udp
+
+            else -> null
+        }
+    }
+
     /** Return a static reason without copying imported values into diagnostics. */
     fun rejection(
         security: String,
@@ -70,35 +99,7 @@ object NativeVlessCapabilities {
         flow: String,
         xhttpMode: String = RelayXhttpModeAuto,
         udpEnabled: Boolean = false,
-    ): String? {
-        val selectedFlow = flow.trim().let { if (it in listOf("none", "off")) "" else it }
-        val selectedMode = xhttpMode.trim().ifEmpty { RelayXhttpModeAuto }
-        return when {
-            transports(security).isEmpty() -> {
-                "VLESS security is unsupported"
-            }
-
-            transport !in transports(security) -> {
-                "VLESS transport is unsupported with this security"
-            }
-
-            selectedFlow !in flows(security, transport) -> {
-                "VLESS flow is unsupported with this transport"
-            }
-
-            transport == RelayVlessTransportXhttp && selectedMode !in xhttpModes(security) -> {
-                "VLESS XHTTP mode is unsupported with this security"
-            }
-
-            udpEnabled && !supportsUdp(security, transport, selectedFlow) -> {
-                "VLESS UDP requires xHTTP or REALITY TCP with Vision"
-            }
-
-            else -> {
-                null
-            }
-        }
-    }
+    ): String? = rejectedChoice(security, transport, flow, xhttpMode, udpEnabled)?.reason
 
     fun validate(
         security: String,
@@ -110,4 +111,15 @@ object NativeVlessCapabilities {
         val reason = rejection(security, transport, flow, xhttpMode, udpEnabled)
         require(reason == null) { reason.orEmpty() }
     }
+}
+
+/** A VLESS choice that [NativeVlessCapabilities] can reject, with its static diagnostic reason. */
+enum class NativeVlessChoice(
+    val reason: String,
+) {
+    Security("VLESS security is unsupported"),
+    Transport("VLESS transport is unsupported with this security"),
+    Flow("VLESS flow is unsupported with this transport"),
+    XhttpMode("VLESS XHTTP mode is unsupported with this security"),
+    Udp("VLESS UDP requires xHTTP or REALITY TCP with Vision"),
 }

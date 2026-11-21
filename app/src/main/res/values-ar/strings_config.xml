@@ -572,6 +572,7 @@
     <string name="config_chain_remove_block">إزالة الكتلة</string>
     <string name="config_error_invalid_chain">أدخل لغة DSL صالحة لاستراتيجية التجاوز.</string>
     <string name="config_error_unsupported">هذا الخيار غير مدعوم في الإصدار الحالي.</string>
+    <string name="config_error_conflicts_with">يتعارض مع %1$s</string>
     <string name="config_placeholder_split_marker">host</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_fake_tls_size">0</string>

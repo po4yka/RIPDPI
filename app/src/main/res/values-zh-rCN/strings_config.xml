@@ -532,6 +532,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_engine_section">引擎</string>
     <string name="config_error_invalid_port">请输入有效的 TCP 端口。</string>
     <string name="config_error_unsupported">当前构建不支持此选项。</string>
+    <string name="config_error_conflicts_with">与%1$s冲突</string>
     <string name="config_local_bypass_enabled">开启</string>
     <string name="config_local_bypass_disabled">关闭</string>
     <string name="config_local_bypass_strategy_title">绕过策略</string>

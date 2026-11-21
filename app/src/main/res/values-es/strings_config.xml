@@ -46,6 +46,7 @@
     <string name="config_editor_body">Editando %1$s. Los cambios se guardan en este dispositivo al tocar Guardar.</string>
     <string name="config_error_invalid_marker">Introduce una expresión de marcador válida.</string>
     <string name="config_error_unsupported">Esta opción no es compatible con la compilación actual.</string>
+    <string name="config_error_conflicts_with">Incompatible con %1$s</string>
     <string name="config_max_connections_helper">Límite superior de sesiones locales concurrentes.</string>
     <string name="config_overrides_section">Anulaciones</string>
     <string name="config_placeholder_dns">1.1.1.1</string>

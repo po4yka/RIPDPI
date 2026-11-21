@@ -572,6 +572,7 @@
     <string name="config_chain_remove_block">Remover bloco</string>
     <string name="config_error_invalid_chain">Informe uma DSL de estratégia de desvio válida.</string>
     <string name="config_error_unsupported">Esta opção não é compatível com a build atual.</string>
+    <string name="config_error_conflicts_with">Incompatível com %1$s</string>
     <string name="config_placeholder_split_marker">host</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_fake_tls_size">0</string>

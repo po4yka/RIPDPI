@@ -46,6 +46,7 @@
     <string name="config_editor_body">%1$s wird bearbeitet. Änderungen werden auf diesem Gerät gespeichert, wenn Sie auf Speichern tippen.</string>
     <string name="config_error_invalid_marker">Gültigen Markerausdruck eingeben.</string>
     <string name="config_error_unsupported">Diese Option wird im aktuellen Build nicht unterstützt.</string>
+    <string name="config_error_conflicts_with">Nicht vereinbar mit %1$s</string>
     <string name="config_max_connections_helper">Obergrenze für gleichzeitige lokale Sitzungen.</string>
     <string name="config_overrides_section">Overrides</string>
     <string name="config_placeholder_dns">1.1.1.1</string>

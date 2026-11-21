@@ -200,16 +200,16 @@ class ConnectionViewModelTest {
                 editingRelayProfileAtOpen = source,
                 relayVlessTransport = RelayVlessTransportXhttp,
             )
-        assertEquals("unsupported", validateConfigDraft(draft)[ConnectionFieldRelayCredentials])
+        assertEquals("conflict_vless_transport", validateConfigDraft(draft)[ConnectionFieldRelayVlessFlow])
         assertEquals(source.vlessFlow, draft.toRelayProfileRecord(source.id).vlessFlow)
         val selected = draft.copy(relayVlessFlow = "")
-        assertEquals(null, validateConfigDraft(selected)[ConnectionFieldRelayCredentials])
+        assertEquals(null, validateConfigDraft(selected)[ConnectionFieldRelayVlessFlow])
         assertEquals("", selected.toRelayProfileRecord(source.id).vlessFlow)
         assertEquals(source.vlessFlow, selected.withRelayArtifacts(source, null).selectedVlessFlow())
         assertEquals(com.poyka.ripdpi.data.RelayVlessFlowVision, source.vlessFlow)
         assertEquals(
             null,
-            validateConfigDraft(selected.copy(relayUdpEnabled = true))[ConnectionFieldRelayCredentials],
+            validateConfigDraft(selected.copy(relayUdpEnabled = true))[ConnectionFieldRelayVlessFlow],
         )
         assertTrue(selected.copy(relayUdpEnabled = true).toRelayProfileRecord(source.id).udpEnabled)
     }
@@ -372,7 +372,7 @@ class ConnectionViewModelTest {
                 ),
             )
 
-        assertEquals("invalid", errors[ConnectionFieldRelayCredentials])
+        assertEquals("invalid", errors[ConnectionFieldRelayRealityPublicKey])
     }
 
     @Test
@@ -391,7 +391,7 @@ class ConnectionViewModelTest {
                 ),
             )
 
-        assertEquals("invalid", errors[ConnectionFieldRelayCredentials])
+        assertEquals("invalid", errors[ConnectionFieldRelayRealityShortId])
     }
 
     @Test
@@ -410,7 +410,7 @@ class ConnectionViewModelTest {
                 ),
             )
 
-        assertEquals("invalid", errors[ConnectionFieldRelayCredentials])
+        assertEquals("invalid", errors[ConnectionFieldRelayVlessUuid])
     }
 
     @Test

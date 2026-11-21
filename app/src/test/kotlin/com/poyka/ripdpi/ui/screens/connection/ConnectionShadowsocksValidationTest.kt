@@ -21,10 +21,10 @@ class ConnectionShadowsocksValidationTest {
                 relayShadowsocksMethod = "2022-blake3-aes-128-gcm",
                 relayShadowsocksPassword = "AAECAwQFBgcICQoLDA0ODw==", // Public key fixture.
             )
-        assertNull(validateConfigDraft(draft)[ConnectionFieldRelayCredentials])
+        assertNull(validateConfigDraft(draft)[ConnectionFieldRelayPassword])
         assertEquals(
             "invalid",
-            validateConfigDraft(draft.copy(relayShadowsocksPassword = "foo"))[ConnectionFieldRelayCredentials],
+            validateConfigDraft(draft.copy(relayShadowsocksPassword = "foo"))[ConnectionFieldRelayPassword],
         )
         assertEquals(
             "invalid",
@@ -33,7 +33,7 @@ class ConnectionShadowsocksValidationTest {
                     relayShadowsocksMethod = "2022-blake3-aes-256-gcm",
                     relayShadowsocksPassword = "AAECAwQFBgcICQoLDA0ODw==", // Public key fixture.
                 ),
-            )[ConnectionFieldRelayCredentials],
+            )[ConnectionFieldRelayPassword],
         )
     }
 
@@ -53,13 +53,13 @@ class ConnectionShadowsocksValidationTest {
                     relayShadowsocksMethod = method,
                     relayShadowsocksPassword = "$key:$key:$key", // Public key fixture.
                 )
-            assertNull(validateConfigDraft(draft)[ConnectionFieldRelayCredentials])
+            assertNull(validateConfigDraft(draft)[ConnectionFieldRelayPassword])
             for (invalid in listOf("Zm9v:$key", "$key:Zm9v", "$key:Zm9v:$key", "$key:*", ":$key", "$key:")) {
                 assertEquals(
                     "invalid",
                     validateConfigDraft(
                         draft.copy(relayShadowsocksPassword = invalid),
-                    )[ConnectionFieldRelayCredentials],
+                    )[ConnectionFieldRelayPassword],
                 )
             }
         }
@@ -78,12 +78,12 @@ class ConnectionShadowsocksValidationTest {
                 relayShadowsocksMethod = "2022-blake3-chacha20-poly1305",
                 relayShadowsocksPassword = key,
             )
-        assertNull(validateConfigDraft(draft)[ConnectionFieldRelayCredentials])
+        assertNull(validateConfigDraft(draft)[ConnectionFieldRelayPassword])
         assertEquals(
             "invalid",
             validateConfigDraft(
                 draft.copy(relayShadowsocksPassword = "$key:$key"), // Public key fixture.
-            )[ConnectionFieldRelayCredentials],
+            )[ConnectionFieldRelayPassword],
         )
     }
 
@@ -101,7 +101,7 @@ class ConnectionShadowsocksValidationTest {
                 relayUdpEnabled = true,
             )
         assertFalse(draft.supportsUdpRelay())
-        assertNull(validateConfigDraft(draft)[ConnectionFieldRelayCredentials])
+        assertNull(validateConfigDraft(draft)[ConnectionFieldRelayPassword])
         assertFalse(draft.toRelayProfileRecord(draft.relayProfileId).udpEnabled)
 
         val ss2022 =
@@ -110,7 +110,7 @@ class ConnectionShadowsocksValidationTest {
                 relayShadowsocksPassword = "AAECAwQFBgcICQoLDA0ODw==", // Public key fixture.
             )
         assertTrue(ss2022.supportsUdpRelay())
-        assertNull(validateConfigDraft(ss2022)[ConnectionFieldRelayCredentials])
+        assertNull(validateConfigDraft(ss2022)[ConnectionFieldRelayPassword])
         assertTrue(ss2022.toRelayProfileRecord(ss2022.relayProfileId).udpEnabled)
 
         // AppSettings snapshots carry no credentials; re-applying one must keep UDP.

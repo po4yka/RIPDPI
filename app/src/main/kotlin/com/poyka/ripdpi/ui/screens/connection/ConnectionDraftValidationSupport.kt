@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.NativeMieruMultiplexingLevels
 import com.poyka.ripdpi.data.NativeMieruProtocols
 import com.poyka.ripdpi.data.NativeVlessCapabilities
+import com.poyka.ripdpi.data.NativeVlessChoice
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
@@ -45,6 +46,8 @@ import com.poyka.ripdpi.data.isSupportedChainExitHop
 import com.poyka.ripdpi.data.isSupportedChainNonEntryHop
 import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
 import com.poyka.ripdpi.data.isValidNaiveCredentials
+import com.poyka.ripdpi.data.isValidRealityPublicKey
+import com.poyka.ripdpi.data.isValidRealityShortId
 import com.poyka.ripdpi.data.isValidRelayMieruUsername
 import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.isValidTuicUuid
@@ -56,7 +59,6 @@ import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.torBridgeValidationError
 import com.poyka.ripdpi.data.validateStrategyChainUsage
-import com.poyka.ripdpi.data.validateVlessRealityProfileFields
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
@@ -143,25 +145,30 @@ private fun validateRelayKindDraft(
 
         RelayKindHysteria2 -> {
             validateEndpointRelayDraft(
-                draft = draft,
-                credentialsMissing = draft.relayServerName.isBlank() || draft.relayHysteriaPassword.isBlank(),
+                draft,
+                ConnectionFieldRelayServerName to requiredError(draft.relayServerName),
+                ConnectionFieldRelayPassword to requiredError(draft.relayHysteriaPassword),
             )
         }
 
         RelayKindTuicV5 -> {
             validateEndpointRelayDraft(
-                draft = draft,
-                credentialsMissing =
-                    draft.relayServerName.isBlank() ||
-                        !isValidTuicUuid(draft.relayTuicUuid) ||
-                        draft.relayTuicPassword.isBlank(),
+                draft,
+                ConnectionFieldRelayServerName to requiredError(draft.relayServerName),
+                ConnectionFieldRelayTuicUuid to
+                    (
+                        requiredError(
+                            draft.relayTuicUuid,
+                        ) ?: "invalid".takeUnless { isValidTuicUuid(draft.relayTuicUuid) }
+                    ),
+                ConnectionFieldRelayPassword to requiredError(draft.relayTuicPassword),
             )
         }
 
         RelayKindAnyTls -> {
             validateEndpointRelayDraft(
-                draft = draft,
-                credentialsMissing = draft.relayAnyTlsPassword.isBlank(),
+                draft,
+                ConnectionFieldRelayPassword to requiredError(draft.relayAnyTlsPassword),
             )
         }
 
@@ -216,7 +223,8 @@ private fun validateImportedKindDraft(draft: ConnectionDraft): Map<String, Strin
         RelayKindTrojan -> {
             validateEndpointRelayDraft(
                 draft,
-                draft.relayServerName.isBlank() || draft.relayTrojanPassword.isBlank(),
+                ConnectionFieldRelayServerName to requiredError(draft.relayServerName),
+                ConnectionFieldRelayPassword to requiredError(draft.relayTrojanPassword),
             )
         }
 
@@ -246,32 +254,30 @@ private fun validatePlainVlessDraft(draft: ConnectionDraft): Map<String, String>
         putAll(
             validateEndpointRelayDraft(
                 draft,
-                draft.relayServerName.isBlank() || !isValidVlessUuid(draft.relayVlessUuid),
+                ConnectionFieldRelayServerName to requiredError(draft.relayServerName),
+                ConnectionFieldRelayVlessUuid to vlessUuidError(draft.relayVlessUuid),
             ),
         )
-        if (draft.nativeVlessRejection(RelaySecurityLayerTls) != null) {
-            put(ConnectionFieldRelayCredentials, "unsupported")
-        }
+        putAll(draft.nativeVlessErrors(RelaySecurityLayerTls))
     }
 
 private fun validateShadowsocksDraft(draft: ConnectionDraft): Map<String, String> =
     buildMap {
+        val method = draft.relayShadowsocksMethod
+        val password = draft.relayShadowsocksPassword
         putAll(
             validateEndpointRelayDraft(
                 draft,
-                draft.relayShadowsocksMethod.isBlank() || draft.relayShadowsocksPassword.isBlank(),
+                ConnectionFieldRelayShadowsocksMethod to
+                    (requiredError(method) ?: "unsupported".takeUnless { isSupportedShadowsocksMethod(method) }),
+                ConnectionFieldRelayPassword to
+                    (
+                        requiredError(password) ?: "invalid".takeIf {
+                            isSupportedShadowsocksMethod(method) && !isValidShadowsocksCredentials(method, password)
+                        }
+                    ),
             ),
         )
-        if (draft.relayShadowsocksMethod.isNotBlank() &&
-            !isSupportedShadowsocksMethod(draft.relayShadowsocksMethod)
-        ) {
-            put(ConnectionFieldRelayCredentials, "unsupported")
-        } else if (draft.relayShadowsocksMethod.isNotBlank() &&
-            draft.relayShadowsocksPassword.isNotBlank() &&
-            !isValidShadowsocksCredentials(draft.relayShadowsocksMethod, draft.relayShadowsocksPassword)
-        ) {
-            put(ConnectionFieldRelayCredentials, "invalid")
-        }
     }
 
 private fun validateAppsScriptDraft(draft: ConnectionDraft): Map<String, String> =
@@ -292,7 +298,10 @@ private fun validateMieruDraft(draft: ConnectionDraft): Map<String, String> =
         putAll(
             validateEndpointRelayDraft(
                 draft,
-                !isValidRelayMieruUsername(draft.relayMieruUsername) || draft.relayMieruPassword.isBlank(),
+                ConnectionFieldRelayCredentials to
+                    "required".takeIf {
+                        !isValidRelayMieruUsername(draft.relayMieruUsername) || draft.relayMieruPassword.isBlank()
+                    },
             ),
         )
         // The native relay rejects the UDP carrier at connect time, so only TCP can activate.
@@ -308,7 +317,12 @@ private fun validateMieruDraft(draft: ConnectionDraft): Map<String, String> =
 
 private fun validateSshDraft(draft: ConnectionDraft): Map<String, String> =
     buildMap {
-        putAll(validateEndpointRelayDraft(draft, draft.relaySshUsername.isBlank()))
+        putAll(
+            validateEndpointRelayDraft(
+                draft,
+                ConnectionFieldRelayCredentials to requiredError(draft.relaySshUsername),
+            ),
+        )
         val authTypeInvalid = draft.relaySshAuthType !in setOf(RelaySshAuthTypePassword, RelaySshAuthTypePrivateKey)
         val credentialMissing =
             when (draft.relaySshAuthType) {
@@ -323,22 +337,47 @@ private fun validateSshDraft(draft: ConnectionDraft): Map<String, String> =
 
 private fun validateVlessRealityDraft(draft: ConnectionDraft): Map<String, String> =
     buildMap {
-        if (draft.relayServer.isBlank()) put(ConnectionFieldRelayServer, "required")
-        if (!validatePort(draft.relayServerPort)) put(ConnectionFieldRelayServerPort, "invalid_port")
-        vlessRealityCredentialError(draft)?.let { put(ConnectionFieldRelayCredentials, it) }
-        if (draft.nativeVlessRejection(RelaySecurityLayerReality) != null) {
-            put(ConnectionFieldRelayCredentials, "unsupported")
-        }
+        // The per-field checks are the ones validateVlessRealityProfileFields runs before activation.
+        putAll(
+            validateEndpointRelayDraft(
+                draft,
+                ConnectionFieldRelayServerName to requiredError(draft.relayServerName),
+                ConnectionFieldRelayVlessUuid to vlessUuidError(draft.relayVlessUuid),
+                ConnectionFieldRelayRealityPublicKey to
+                    (
+                        requiredError(draft.relayRealityPublicKey)
+                            ?: "invalid".takeUnless { isValidRealityPublicKey(draft.relayRealityPublicKey) }
+                    ),
+                ConnectionFieldRelayRealityShortId to
+                    "invalid".takeUnless { isValidRealityShortId(draft.relayRealityShortId) },
+            ),
+        )
+        putAll(draft.nativeVlessErrors(RelaySecurityLayerReality))
     }
 
-private fun ConnectionDraft.nativeVlessRejection(security: String): String? =
-    NativeVlessCapabilities.rejection(
-        security,
-        relayVlessTransport,
-        selectedVlessFlow(),
-        relayXhttpMode,
-        relayUdpEnabled,
-    )
+/** Puts the native VLESS rejection on the choice it names, naming the choice it conflicts with. */
+private fun ConnectionDraft.nativeVlessErrors(security: String): Map<String, String> =
+    when (
+        NativeVlessCapabilities.rejectedChoice(
+            security,
+            relayVlessTransport,
+            selectedVlessFlow(),
+            relayXhttpMode,
+            relayUdpEnabled,
+        )
+    ) {
+        null -> emptyMap()
+        NativeVlessChoice.Security -> mapOf(ConnectionFieldRelayCredentials to "unsupported")
+        NativeVlessChoice.Transport -> mapOf(ConnectionFieldRelayVlessTransport to "unsupported")
+        NativeVlessChoice.Flow -> mapOf(ConnectionFieldRelayVlessFlow to "conflict_vless_transport")
+        NativeVlessChoice.XhttpMode -> mapOf(ConnectionFieldRelayXhttpMode to "unsupported")
+        NativeVlessChoice.Udp -> mapOf(ConnectionFieldRelayVlessFlow to "conflict_udp")
+    }
+
+private fun requiredError(value: String): String? = "required".takeIf { value.isBlank() }
+
+private fun vlessUuidError(value: String): String? =
+    requiredError(value) ?: "invalid".takeUnless { isValidVlessUuid(value) }
 
 private fun validateCloudflareTunnelDraft(draft: ConnectionDraft): Map<String, String> =
     buildMap {
@@ -362,16 +401,15 @@ private fun validateCloudflareTunnelDraft(draft: ConnectionDraft): Map<String, S
         }
     }
 
+/** Server and port checks plus each field's error, keyed by field; a `null` error means the field is valid. */
 private fun validateEndpointRelayDraft(
     draft: ConnectionDraft,
-    credentialsMissing: Boolean,
+    vararg fieldErrors: Pair<String, String?>,
 ): Map<String, String> =
     buildMap {
         if (draft.relayServer.isBlank()) put(ConnectionFieldRelayServer, "required")
         if (!validatePort(draft.relayServerPort)) put(ConnectionFieldRelayServerPort, "invalid_port")
-        if (credentialsMissing) {
-            put(ConnectionFieldRelayCredentials, "required")
-        }
+        fieldErrors.forEach { (field, error) -> error?.let { put(field, it) } }
     }
 
 private fun validateShadowTlsDraft(draft: ConnectionDraft): Map<String, String> =
@@ -384,9 +422,9 @@ private fun validateNaiveProxyDraft(draft: ConnectionDraft): Map<String, String>
     buildMap {
         putAll(
             validateEndpointRelayDraft(
-                draft = draft,
-                credentialsMissing =
-                    draft.relayServerName.isBlank() || draft.relayNaiveUsername.isBlank(),
+                draft,
+                ConnectionFieldRelayServerName to requiredError(draft.relayServerName),
+                ConnectionFieldRelayCredentials to requiredError(draft.relayNaiveUsername),
             ),
         )
         if (draft.relayNaiveUsername.isNotBlank() &&
@@ -541,33 +579,6 @@ private fun validateStrategyDraft(
             }
         if (chainValidation.isFailure) "invalid_chain" else null
     }
-
-private fun vlessRealityCredentialError(draft: ConnectionDraft): String? {
-    val isIncomplete =
-        draft.relayServerName.isBlank() ||
-            draft.relayRealityPublicKey.isBlank() ||
-            draft.relayVlessUuid.isBlank()
-    return when {
-        isIncomplete -> "required"
-        draft.relayServer.isBlank() || !validatePort(draft.relayServerPort) -> null
-        else -> validateCompleteVlessRealityCredentials(draft)
-    }
-}
-
-private fun validateCompleteVlessRealityCredentials(draft: ConnectionDraft): String? =
-    runCatching {
-        validateVlessRealityProfileFields(
-            server = draft.relayServer,
-            serverPort = draft.relayServerPort.toInt(),
-            uuid = draft.relayVlessUuid,
-            serverName = draft.relayServerName,
-            realityPublicKey = draft.relayRealityPublicKey,
-            realityShortId = draft.relayRealityShortId,
-        )
-    }.fold(
-        onSuccess = { null },
-        onFailure = { "invalid" },
-    )
 
 private fun validateChainRelayProfileSelection(
     draft: ConnectionDraft,

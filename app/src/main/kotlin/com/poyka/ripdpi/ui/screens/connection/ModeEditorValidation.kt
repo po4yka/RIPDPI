@@ -15,6 +15,9 @@ internal fun validationMessage(errorKey: String?): String? =
         "required" -> stringResource(R.string.config_error_required)
         "taken" -> stringResource(R.string.config_relay_profile_id_taken)
         "unsupported" -> stringResource(R.string.config_error_unsupported)
+        "invalid" -> stringResource(R.string.awg_field_invalid)
+        "conflict_vless_transport" -> conflictMessage(R.string.config_relay_vless_transport)
+        "conflict_udp" -> conflictMessage(R.string.config_relay_udp)
         "same_hop" -> stringResource(R.string.config_relay_chain_error_same_hop)
         "invalid_headers" -> stringResource(R.string.config_relay_naive_extra_headers_error_invalid)
         "reserved_header" -> stringResource(R.string.config_relay_naive_extra_headers_error_reserved)
@@ -25,3 +28,7 @@ internal fun validationMessage(errorKey: String?): String? =
 
 internal fun editorPresetKind(uiState: ConnectionUiState): ConnectionPresetKind =
     uiState.editingPreset?.kind ?: ConnectionPresetKind.Custom
+
+@Composable
+private fun conflictMessage(otherFieldLabel: Int): String =
+    stringResource(R.string.config_error_conflicts_with, stringResource(otherFieldLabel))

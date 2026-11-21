@@ -54,19 +54,19 @@ internal fun RelayFieldsContent(
     RelayStandardEndpointFields(draft = draft, uiState = uiState, actions = actions.endpoint)
     when (draft.relayKind) {
         RelayKindVlessReality -> {
-            VlessRealityRelayFields(draft = draft, actions = actions.vless)
+            VlessRealityRelayFields(draft = draft, actions = actions.vless, errors = uiState.validationErrors)
         }
 
         RelayKindVless -> {
-            VlessPlainRelayFields(draft = draft, actions = actions.vless)
+            VlessPlainRelayFields(draft = draft, actions = actions.vless, errors = uiState.validationErrors)
         }
 
         RelayKindTrojan -> {
-            TrojanRelayFields(draft = draft, actions = actions.additional)
+            TrojanRelayFields(draft = draft, actions = actions.additional, errors = uiState.validationErrors)
         }
 
         RelayKindShadowsocks -> {
-            ShadowsocksRelayFields(draft = draft, actions = actions.additional)
+            ShadowsocksRelayFields(draft = draft, actions = actions.additional, errors = uiState.validationErrors)
         }
 
         RelayKindGoogleAppsScript -> {
@@ -82,15 +82,15 @@ internal fun RelayFieldsContent(
         }
 
         RelayKindAnyTls -> {
-            AnyTlsRelayFields(draft, actions.onAnyTlsPasswordChanged)
+            AnyTlsRelayFields(draft, actions.onAnyTlsPasswordChanged, errors = uiState.validationErrors)
         }
 
         RelayKindHysteria2 -> {
-            HysteriaRelayFields(draft = draft, actions = actions.hysteria)
+            HysteriaRelayFields(draft = draft, actions = actions.hysteria, errors = uiState.validationErrors)
         }
 
         RelayKindTuicV5 -> {
-            TuicRelayFields(draft = draft, actions = actions.tuic)
+            TuicRelayFields(draft = draft, actions = actions.tuic, errors = uiState.validationErrors)
         }
 
         RelayKindChainRelay -> {
