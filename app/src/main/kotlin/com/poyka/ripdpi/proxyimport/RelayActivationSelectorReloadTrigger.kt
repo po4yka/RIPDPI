@@ -17,6 +17,7 @@ import com.poyka.ripdpi.services.RuntimePolicyReloadIntent
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.selector.SelectorReloadTrigger
+import com.poyka.ripdpi.subscription.isAppliedSelectorSuccessor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -292,14 +293,6 @@ class ServiceControllerRunningRelayRefresher
             serviceController.stop()
         }
     }
-
-internal fun AppliedRuntimeConfiguration.isAppliedSelectorSuccessor(
-    previous: AppliedRuntimeConfiguration,
-    groupId: String,
-    memberId: String?,
-): Boolean =
-    memberId != null && runtimeId == previous.runtimeId && mode == previous.mode && revision > previous.revision &&
-        effectiveSelection.selectorGroupId == groupId && effectiveSelection.selectorMemberId == memberId
 
 private fun RuntimeConfigurationApplication?.appliedMember(group: String): String? =
     (this as? RuntimeConfigurationApplication.Applied)
