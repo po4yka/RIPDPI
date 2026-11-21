@@ -102,6 +102,8 @@ internal abstract class RelayEditorPage<T : RelayEditorPage<T>>(
 
     fun revealSecret(fieldTag: String) = click(RipDpiTestTags.secretReveal(fieldTag))
 
+    fun openAdvanced() = activate(RipDpiTestTags.RelayEditorAdvanced)
+
     fun assertSaveDisabled() {
         require(save)
         node(save).assertIsNotEnabled()

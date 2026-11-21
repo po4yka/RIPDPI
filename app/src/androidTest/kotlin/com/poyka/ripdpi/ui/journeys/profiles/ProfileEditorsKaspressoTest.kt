@@ -29,7 +29,7 @@ private const val MieruHost = "203.0.113.12"
 private const val MieruPort = "2999"
 private const val MieruUser = "mieru-journey-user"
 private const val MieruPasswordFixture = "mieru-journey-pass"
-private const val MieruMtu = "1400"
+private const val MieruMtu = "1380"
 
 private const val SshName = "Journey SSH"
 private const val SshHost = "203.0.113.13"
@@ -82,6 +82,7 @@ class ProfileEditorsKaspressoTest :
                     type(field(MieruEditorField.SERVER_PORT.name), MieruPort)
                     type(field(MieruEditorField.USERNAME.name), MieruUser)
                     type(field(MieruEditorField.PASSWORD.name), MieruPasswordFixture)
+                    openAdvanced()
                     type(field(MieruEditorField.MTU.name), MieruMtu)
                     tapSave()
                     waitGone(screenTag, 15_000)
@@ -98,6 +99,7 @@ class ProfileEditorsKaspressoTest :
                     awaitText(field(MieruEditorField.SERVER.name), MieruHost)
                     assertEquals(MieruPort, text(field(MieruEditorField.SERVER_PORT.name)))
                     assertEquals(MieruUser, text(field(MieruEditorField.USERNAME.name)))
+                    openAdvanced()
                     assertEquals(MieruMtu, text(field(MieruEditorField.MTU.name)))
                     revealSecret(field(MieruEditorField.PASSWORD.name))
                     awaitText(field(MieruEditorField.PASSWORD.name), MieruPasswordFixture)
@@ -125,6 +127,7 @@ class ProfileEditorsKaspressoTest :
                     type(field(SshEditorField.SERVER_PORT.name), SshPort)
                     type(field(SshEditorField.USERNAME.name), SshUser)
                     type(field(SshEditorField.PASSWORD.name), SshPasswordFixture)
+                    openAdvanced()
                     // An unpinned profile makes Save fetch the host key from the server; pin one up front.
                     type(field(SshEditorField.HOST_KEY_FINGERPRINT.name), SshHostKeyPin)
                     tapSave()
@@ -142,9 +145,10 @@ class ProfileEditorsKaspressoTest :
                     awaitText(field(SshEditorField.SERVER.name), SshHost)
                     assertEquals(SshPort, text(field(SshEditorField.SERVER_PORT.name)))
                     assertEquals(SshUser, text(field(SshEditorField.USERNAME.name)))
+                    openAdvanced()
+                    assertEquals(SshHostKeyPin, text(field(SshEditorField.HOST_KEY_FINGERPRINT.name)))
                     revealSecret(field(SshEditorField.PASSWORD.name))
                     awaitText(field(SshEditorField.PASSWORD.name), SshPasswordFixture)
-                    assertEquals(SshHostKeyPin, text(field(SshEditorField.HOST_KEY_FINGERPRINT.name)))
                 }
             }
         }
@@ -168,6 +172,7 @@ class ProfileEditorsKaspressoTest :
                     type(field(AnyTlsEditorField.SERVER.name), AnyTlsHost)
                     type(field(AnyTlsEditorField.SERVER_PORT.name), AnyTlsPort)
                     type(field(AnyTlsEditorField.PASSWORD.name), AnyTlsPasswordFixture)
+                    openAdvanced()
                     type(field(AnyTlsEditorField.SNI.name), AnyTlsSni)
                     tapSave()
                     waitGone(screenTag, 15_000)
