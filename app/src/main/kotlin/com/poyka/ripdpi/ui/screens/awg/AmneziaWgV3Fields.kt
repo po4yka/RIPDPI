@@ -11,6 +11,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.screens.relayeditor.RelaySecretField
+import com.poyka.ripdpi.ui.screens.relayeditor.fieldErrorText
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -33,11 +34,10 @@ internal fun AwgV3Fields(
             onValueChange = { onFieldChanged(AwgEditorField.HEADER_PROTECTION_KEY, it) },
             onReveal = onRevealHeaderProtectionKey,
             errorText =
-                if (editor.hasFieldError(AwgEditorField.HEADER_PROTECTION_KEY)) {
-                    stringResource(R.string.field_error_invalid)
-                } else {
-                    null
-                },
+                fieldErrorText(
+                    editor.rawText(AwgEditorField.HEADER_PROTECTION_KEY),
+                    editor.hasFieldError(AwgEditorField.HEADER_PROTECTION_KEY),
+                ),
             enabled = !editor.obfuscationLocked,
             readOnly = editor.isManaged(AwgEditorField.HEADER_PROTECTION_KEY),
             testTag = RipDpiTestTags.awgField(AwgEditorField.HEADER_PROTECTION_KEY.name),

@@ -115,7 +115,7 @@ internal class RelayFieldBinding<F : Enum<F>>(
                     placeholder = placeholder,
                     helperText = helperText,
                     testTag = RipDpiTestTags.relayEditorField(kind, field.name),
-                    errorText = if (hasError(field)) stringResource(invalidRes) else null,
+                    errorText = fieldErrorText(rawText(field), hasError(field), invalidRes),
                 ),
             behavior =
                 RipDpiTextFieldBehavior(
@@ -153,7 +153,7 @@ internal class RelayFieldBinding<F : Enum<F>>(
     ): RelayValueField =
         RelayValueField(
             label = stringResource(labelRes),
-            errorText = stringResource(invalidRes).takeIf { hasError(field) },
+            errorText = fieldErrorText(rawText(field), hasError(field), invalidRes),
             testTag = RipDpiTestTags.relayEditorField(kind, field.name),
         )
 
@@ -167,7 +167,7 @@ internal class RelayFieldBinding<F : Enum<F>>(
             value = rawText(field),
             onValueChange = { onChanged(field, it) },
             testTag = RipDpiTestTags.relayEditorField(kind, field.name),
-            errorText = stringResource(invalidRes).takeIf { hasError(field) },
+            errorText = fieldErrorText(rawText(field), hasError(field), invalidRes),
         )
     }
 

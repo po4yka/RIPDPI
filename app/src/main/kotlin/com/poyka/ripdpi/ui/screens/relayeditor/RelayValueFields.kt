@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.relayeditor
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
@@ -14,6 +15,19 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 
 /** The TCP/UDP port range every server and listener port field accepts. */
 internal val RelayPortRange: IntRange = 1..65_535
+
+/** Why a field the editor marks as wrong is wrong: an empty field is required, any other value is not valid. */
+@Composable
+internal fun fieldErrorText(
+    value: String,
+    hasError: Boolean,
+    @StringRes invalidRes: Int = R.string.field_error_invalid,
+): String? =
+    when {
+        !hasError -> null
+        value.isBlank() -> stringResource(R.string.config_error_required)
+        else -> stringResource(invalidRes)
+    }
 
 /** Look and keyboard shared by the value fields; [RelaySecretField] is the secret counterpart. */
 internal data class RelayValueField(
@@ -96,8 +110,8 @@ internal fun RelayUrlField(
 }
 
 /**
- * A whole number. With a [range] the field shows the bounds and reports a value outside them when the caller has no
- * other error for it; without one the caller owns the check.
+ * A whole number. With a [range] the field shows the bounds, and a value outside them shows the bounds as its error
+ * in place of the caller's more general one; without a range the caller owns the check.
  */
 @Composable
 internal fun RelayNumberField(
@@ -109,15 +123,12 @@ internal fun RelayNumberField(
 ) {
     val outOfRange =
         range != null && value.isNotBlank() && value.trim().toIntOrNull()?.let { it in range } != true
+    val bounds = range?.let { stringResource(R.string.relay_editor_range_helper, it.first, it.last) }
     RelayValueInput(
         field =
             field.copy(
-                helperText =
-                    field.helperText
-                        ?: range?.let { stringResource(R.string.relay_editor_range_helper, it.first, it.last) },
-                errorText =
-                    field.errorText
-                        ?: stringResource(R.string.config_error_out_of_range).takeIf { outOfRange },
+                helperText = field.helperText ?: bounds,
+                errorText = bounds.takeIf { outOfRange } ?: field.errorText,
             ),
         value = value,
         onValueChange = { onValueChange(it.trim()) },

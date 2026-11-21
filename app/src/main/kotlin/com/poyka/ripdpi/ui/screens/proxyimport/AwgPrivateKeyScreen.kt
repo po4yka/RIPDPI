@@ -33,6 +33,7 @@ import com.poyka.ripdpi.ui.screens.awg.AwgEditorField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
 import com.poyka.ripdpi.ui.screens.relayeditor.RelaySecretField
+import com.poyka.ripdpi.ui.screens.relayeditor.fieldErrorText
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 
@@ -125,8 +126,10 @@ internal fun AwgPrivateKeyScreen(
             onValueChange = onKeyChanged,
             onReveal = onRevealKey,
             errorText =
-                stringResource(R.string.field_error_invalid)
-                    .takeIf { editor.hasFieldError(AwgEditorField.INTERFACE_PRIVATE_KEY) },
+                fieldErrorText(
+                    editor.rawText(AwgEditorField.INTERFACE_PRIVATE_KEY),
+                    editor.hasFieldError(AwgEditorField.INTERFACE_PRIVATE_KEY),
+                ),
         )
         // The provider's .conf for this server carries the key; the editor keeps the bundle's server.
         RipDpiButton(

@@ -47,6 +47,7 @@ import com.poyka.ripdpi.ui.screens.relayeditor.RelayPortField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelaySecretField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayUrlField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
+import com.poyka.ripdpi.ui.screens.relayeditor.fieldErrorText
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -298,11 +299,10 @@ private fun AdvancedConnectionSection(
                 stringResource(R.string.awg_field_from_subscription)
                     .takeIf { editor.isManaged(AwgEditorField.PRESHARED_KEY) },
             errorText =
-                if (editor.hasFieldError(AwgEditorField.PRESHARED_KEY)) {
-                    stringResource(R.string.field_error_invalid)
-                } else {
-                    null
-                },
+                fieldErrorText(
+                    editor.rawText(AwgEditorField.PRESHARED_KEY),
+                    editor.hasFieldError(AwgEditorField.PRESHARED_KEY),
+                ),
         )
         PlainField(
             AwgEditorField.PERSISTENT_KEEPALIVE,
@@ -385,14 +385,10 @@ private fun InterfaceSection(
             onValueChange = { onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, it) },
             onReveal = onRevealPrivateKey,
             errorText =
-                if (editor.hasFieldError(
-                        AwgEditorField.INTERFACE_PRIVATE_KEY,
-                    )
-                ) {
-                    stringResource(R.string.field_error_invalid)
-                } else {
-                    null
-                },
+                fieldErrorText(
+                    editor.rawText(AwgEditorField.INTERFACE_PRIVATE_KEY),
+                    editor.hasFieldError(AwgEditorField.INTERFACE_PRIVATE_KEY),
+                ),
         )
         PlainField(AwgEditorField.SERVER, R.string.awg_field_server, editor, onFieldChanged)
         PlainField(
@@ -545,7 +541,7 @@ internal fun PlainField(
                     }
 
                     hasError -> {
-                        stringResource(R.string.field_error_invalid)
+                        fieldErrorText(value, hasError = true)
                     }
 
                     // An empty field the runtime requires, inside Advanced where the user may not have looked.
