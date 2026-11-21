@@ -63,6 +63,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -1252,12 +1253,27 @@ class DiagnosticsViewModelTest {
             assertTrue(recommendation?.persistable == true)
             assertTrue(recommendation?.fields?.any { it.label == "Protocol" && it.value == "DOH" } == true)
 
+            val savedEffects = mutableListOf<DiagnosticsEffect.ScanCompleted>()
+            val effectCollector =
+                backgroundScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                    viewModel.effects.collect { if (it is DiagnosticsEffect.ScanCompleted) savedEffects += it }
+                }
+            manager.resolverActions.actionsSucceed = false
+            viewModel.saveResolverRecommendation()
+            advanceUntilIdle()
+            runCurrent()
+            assertTrue("a refused save must not report success", savedEffects.isEmpty())
+
+            manager.resolverActions.actionsSucceed = true
             viewModel.keepResolverRecommendationForSession()
             viewModel.saveResolverRecommendation()
             advanceUntilIdle()
+            runCurrent()
 
             assertEquals("resolver-session", manager.keptResolverRecommendationSessionId)
             assertEquals("resolver-session", manager.savedResolverRecommendationSessionId)
+            assertEquals(DiagnosticsTone.Positive, savedEffects.single().tone)
+            effectCollector.cancel()
             collector.cancel()
         }
 

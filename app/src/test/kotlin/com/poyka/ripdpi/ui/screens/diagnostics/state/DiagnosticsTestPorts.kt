@@ -234,13 +234,16 @@ internal class FakeDiagnosticsShareService : DiagnosticsShareService {
 internal class FakeDiagnosticsResolverActions : DiagnosticsResolverActions {
     var onKeep: (suspend (String) -> Unit)? = null
     var onSave: (suspend (String) -> Unit)? = null
+    var actionsSucceed = true
 
-    override suspend fun keepResolverRecommendationForSession(sessionId: String) {
+    override suspend fun keepResolverRecommendationForSession(sessionId: String): Boolean {
         onKeep?.invoke(sessionId)
+        return actionsSucceed
     }
 
-    override suspend fun saveResolverRecommendation(sessionId: String) {
+    override suspend fun saveResolverRecommendation(sessionId: String): Boolean {
         onSave?.invoke(sessionId)
+        return actionsSucceed
     }
 }
 

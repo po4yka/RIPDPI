@@ -509,12 +509,14 @@ class StubDiagnosticsResolverActions : DiagnosticsResolverActions {
     var keptSessionId: String? = null
     var savedSessionId: String? = null
 
-    override suspend fun keepResolverRecommendationForSession(sessionId: String) {
+    override suspend fun keepResolverRecommendationForSession(sessionId: String): Boolean {
         keptSessionId = sessionId
+        return true
     }
 
-    override suspend fun saveResolverRecommendation(sessionId: String) {
+    override suspend fun saveResolverRecommendation(sessionId: String): Boolean {
         savedSessionId = sessionId
+        return true
     }
 }
 

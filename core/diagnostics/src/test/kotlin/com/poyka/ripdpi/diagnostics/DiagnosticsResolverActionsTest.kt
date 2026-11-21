@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverAction
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -32,7 +33,7 @@ class DiagnosticsResolverActionsTest {
                     resolverOverrideStore = resolverOverrideStore,
                 )
 
-            actions.keepResolverRecommendationForSession(session.id)
+            assertTrue(actions.keepResolverRecommendationForSession(session.id))
 
             val override = resolverOverrideStore.override.value
             assertNotNull(override)
@@ -77,7 +78,7 @@ class DiagnosticsResolverActionsTest {
                     resolverOverrideStore = resolverOverrideStore,
                 )
 
-            actions.saveResolverRecommendation(session.id)
+            assertTrue(actions.saveResolverRecommendation(session.id))
 
             val savedSettings = appSettingsRepository.snapshot()
             val preferredPath =
@@ -117,8 +118,8 @@ class DiagnosticsResolverActionsTest {
                     resolverOverrideStore = resolverOverrideStore,
                 )
 
-            actions.keepResolverRecommendationForSession(session.id)
-            actions.saveResolverRecommendation(session.id)
+            assertFalse(actions.keepResolverRecommendationForSession(session.id))
+            assertFalse(actions.saveResolverRecommendation(session.id))
 
             assertNull(resolverOverrideStore.override.value)
             assertNull(
@@ -152,8 +153,8 @@ class DiagnosticsResolverActionsTest {
                     resolverOverrideStore = resolverOverrideStore,
                 )
 
-            actions.keepResolverRecommendationForSession("session-1")
-            actions.saveResolverRecommendation("session-1")
+            assertFalse(actions.keepResolverRecommendationForSession("session-1"))
+            assertFalse(actions.saveResolverRecommendation("session-1"))
 
             assertNull(resolverOverrideStore.override.value)
             assertNull(

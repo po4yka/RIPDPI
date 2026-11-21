@@ -418,9 +418,9 @@ class StubInstrumentedDiagnosticsDetailLoader : DiagnosticsDetailLoader {
 }
 
 class StubInstrumentedDiagnosticsResolverActions : DiagnosticsResolverActions {
-    override suspend fun keepResolverRecommendationForSession(sessionId: String) = Unit
+    override suspend fun keepResolverRecommendationForSession(sessionId: String) = false
 
-    override suspend fun saveResolverRecommendation(sessionId: String) = Unit
+    override suspend fun saveResolverRecommendation(sessionId: String) = false
 }
 
 class StubInstrumentedDiagnosticsHistorySource : DiagnosticsHistorySource {

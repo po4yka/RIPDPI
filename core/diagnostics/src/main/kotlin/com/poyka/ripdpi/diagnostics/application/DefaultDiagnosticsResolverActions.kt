@@ -20,19 +20,20 @@ class DefaultDiagnosticsResolverActions
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val resolverOverrideStore: ResolverOverrideStore,
     ) : DiagnosticsResolverActions {
-        override suspend fun keepResolverRecommendationForSession(sessionId: String) {
-            val fingerprint = networkFingerprintProvider.capture() ?: return
+        override suspend fun keepResolverRecommendationForSession(sessionId: String): Boolean {
+            val fingerprint = networkFingerprintProvider.capture() ?: return false
             val recommendation =
-                recommendationStore.loadResolverRecommendation(sessionId, fingerprint.scopeKey()) ?: return
+                recommendationStore.loadResolverRecommendation(sessionId, fingerprint.scopeKey()) ?: return false
             resolverOverrideStore.setTemporaryOverride(
                 DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation),
             )
+            return true
         }
 
-        override suspend fun saveResolverRecommendation(sessionId: String) {
-            val fingerprint = networkFingerprintProvider.capture() ?: return
+        override suspend fun saveResolverRecommendation(sessionId: String): Boolean {
+            val fingerprint = networkFingerprintProvider.capture() ?: return false
             val recommendation =
-                recommendationStore.loadResolverRecommendation(sessionId, fingerprint.scopeKey()) ?: return
+                recommendationStore.loadResolverRecommendation(sessionId, fingerprint.scopeKey()) ?: return false
             val selectedPath = with(ResolverRecommendationEngine) { recommendation.toEncryptedDnsPathCandidate() }
             appSettingsRepository.update {
                 dnsMode = com.poyka.ripdpi.data.DnsModeEncrypted
@@ -53,5 +54,6 @@ class DefaultDiagnosticsResolverActions
                 path = selectedPath,
             )
             resolverOverrideStore.clear()
+            return true
         }
     }

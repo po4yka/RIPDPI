@@ -392,7 +392,7 @@ internal class DiagnosticsScanActions(
                 .scan.latestSession
                 ?.id ?: return
         mutations.launch {
-            diagnosticsResolverActions.saveResolverRecommendation(targetSessionId)
+            if (!diagnosticsResolverActions.saveResolverRecommendation(targetSessionId)) return@launch
             emit(
                 DiagnosticsEffect.ScanCompleted(
                     summary = stringResolver.getString(R.string.diagnostics_snackbar_dns_setting_saved),

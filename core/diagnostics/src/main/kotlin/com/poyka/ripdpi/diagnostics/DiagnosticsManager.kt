@@ -175,10 +175,11 @@ interface DiagnosticsShareService {
     ): Unit = error("Direct archive export is unavailable")
 }
 
+/** Each action returns false when it applied nothing, for example on a different or unknown network. */
 interface DiagnosticsResolverActions {
-    suspend fun keepResolverRecommendationForSession(sessionId: String)
+    suspend fun keepResolverRecommendationForSession(sessionId: String): Boolean
 
-    suspend fun saveResolverRecommendation(sessionId: String)
+    suspend fun saveResolverRecommendation(sessionId: String): Boolean
 }
 
 @Serializable
