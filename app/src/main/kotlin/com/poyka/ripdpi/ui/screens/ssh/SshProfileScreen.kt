@@ -25,6 +25,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayAdvancedSection
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayFieldBinding
@@ -151,7 +152,9 @@ internal fun SshProfileScreen(
             uiState.editing,
         )
         AuthSection(editor, fields, onFieldChanged, onAuthTypeSelected, onRevealPrivateKey, onRevealPassphrase)
-        HostKeySection(uiState, fields, onStrictHostKeyChanged, onFetchHostKey)
+        RelayAdvancedSection(hasError = editor.hasFieldError(SshEditorField.HOST_KEY_FINGERPRINT)) {
+            HostKeySection(uiState, fields, onStrictHostKeyChanged, onFetchHostKey)
+        }
         (uiState.hostKeyFetch as? SshHostKeyFetchState.PendingConfirmation)?.let { pending ->
             SshHostKeyTrustDialog(pending, onConfirm = onHostKeyTrustConfirmed, onDismiss = onHostKeyTrustDismissed)
         }

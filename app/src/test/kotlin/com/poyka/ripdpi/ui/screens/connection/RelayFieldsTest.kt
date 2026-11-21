@@ -81,7 +81,7 @@ class RelayFieldsTest {
             )
         var draft by mutableStateOf(editors.first().first)
         composeRule.setContent {
-            RipDpiTheme { RelayKindFields(draft = draft, uiState = ConnectionUiState()) }
+            RipDpiTheme { RelayFieldsWithAdvanced(draft = draft, uiState = ConnectionUiState()) }
         }
         val leaks =
             SemanticsMatcher("exposes the marker") { node ->
@@ -195,7 +195,7 @@ class RelayFieldsTest {
         val notice = "This path is not sent without a certificate pin. Set a pin below to use the path."
         var draft by mutableStateOf(ConnectionDraft(relayKind = RelayKindNaiveProxy, relayNaivePath = "/proxy"))
         composeRule.setContent {
-            RipDpiTheme { RelayKindFields(draft = draft, uiState = ConnectionUiState()) }
+            RipDpiTheme { RelayFieldsWithAdvanced(draft = draft, uiState = ConnectionUiState()) }
         }
 
         composeRule.onNodeWithText(notice).assertExists()

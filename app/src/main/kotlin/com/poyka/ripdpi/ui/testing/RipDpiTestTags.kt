@@ -176,6 +176,7 @@ internal object RipDpiTestTags {
     const val ConnectionImportClipboardMenuItem = "connection-import-clipboard-menu-item"
     const val AwgCohortPicker = "awg-cohort-picker"
     const val AwgCarrierPicker = "awg-carrier-picker"
+    const val RelayEditorAdvanced = "relay-editor-advanced"
     const val AwgConnectAction = "awg-connect-action"
     const val ConnectionRelayImportAwgConf = "connection-relay-import-awg-conf"
     const val AwgConfImportFailed = "awg-conf-import-failed"

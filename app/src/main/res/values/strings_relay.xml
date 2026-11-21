@@ -358,6 +358,7 @@
     <string name="relay_editor_section_credentials">Credentials</string>
     <string name="relay_editor_save_incomplete_hint">To save, fill in the server, port, and credentials, and fix any field marked as invalid.</string>
     <string name="relay_editor_range_helper">From %1$d to %2$d</string>
+    <string name="relay_editor_advanced">Advanced</string>
     <string name="awg_keepalive_helper">Seconds between keepalive packets. Leave empty or enter 0 to turn it off.</string>
     <string name="awg_obfuscation_show_values">Show values</string>
     <string name="awg_obfuscation_hide_values">Hide values</string>

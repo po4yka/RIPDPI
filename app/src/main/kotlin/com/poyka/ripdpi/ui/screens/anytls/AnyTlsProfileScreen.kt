@@ -13,6 +13,7 @@ import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayAdvancedSection
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayFieldBinding
@@ -90,9 +91,11 @@ internal fun AnyTlsProfileScreen(
             RipDpiPanelHeader(title = stringResource(R.string.relay_editor_section_credentials))
             fields.Password(AnyTlsEditorField.PASSWORD, R.string.anytls_field_password)
         }
-        RipDpiCard {
-            RipDpiPanelHeader(title = stringResource(R.string.anytls_section_tls))
-            fields.Host(AnyTlsEditorField.SNI, R.string.anytls_field_sni)
+        RelayAdvancedSection(hasError = uiState.editor.hasFieldError(AnyTlsEditorField.SNI)) {
+            RipDpiCard {
+                RipDpiPanelHeader(title = stringResource(R.string.anytls_section_tls))
+                fields.Host(AnyTlsEditorField.SNI, R.string.anytls_field_sni)
+            }
         }
     }
 }

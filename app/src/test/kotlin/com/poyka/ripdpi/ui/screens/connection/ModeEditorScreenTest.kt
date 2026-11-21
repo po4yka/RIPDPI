@@ -341,7 +341,7 @@ class ModeEditorScreenTest {
             "Split each payload write into the configured number of TCP frames when the size fits the byte range.",
             "Send a prelude of random bytes once before the real payload. " +
                 "Choose its length from the configured range.",
-        ).forEach { helpText ->
+        ).also { openRelayAdvanced() }.forEach { helpText ->
             composeRule.onNodeWithText(helpText).performScrollTo().assertExists()
         }
     }
@@ -361,6 +361,7 @@ class ModeEditorScreenTest {
             onStatefulDraftChanged = { observedDraft = it },
         )
 
+        openRelayAdvanced()
         composeRule.onNodeWithText("xHTTP mode").performScrollTo().assertExists()
         composeRule.onNodeWithText("stream-one").performScrollTo().performClick()
         composeRule.waitForIdle()
@@ -440,4 +441,9 @@ class ModeEditorScreenTest {
         section: String,
         index: Int,
     ): String = RipDpiTestTags.ModeEditorChainMoveUpPrefix + section + "-" + index
+
+    private fun openRelayAdvanced() {
+        composeRule.onNodeWithTag(RipDpiTestTags.RelayEditorAdvanced).performScrollTo().performClick()
+        composeRule.waitForIdle()
+    }
 }

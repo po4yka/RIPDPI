@@ -132,7 +132,48 @@ internal fun RelayFieldsContent(
             TorRelayFields(draft = draft, actions = actions.misc)
         }
     }
+}
 
+/** Error keys of the fields [RelayKindAdvancedFields] and the editor's Advanced group show. */
+internal val RelayAdvancedErrorKeys =
+    setOf(
+        ConnectionFieldRelayVlessTransport,
+        ConnectionFieldRelayVlessFlow,
+        ConnectionFieldRelayXhttpMode,
+        ConnectionFieldRelayFinalmask,
+        ConnectionFieldRelayLocalSocksPort,
+    )
+
+/** The kind's fields most profiles leave at their default; the editor shows them under Advanced. */
+@Composable
+internal fun RelayKindAdvancedFields(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: RelayKindFieldActions = RelayKindFieldActions(),
+) {
+    val errors = uiState.validationErrors
+    when (draft.relayKind) {
+        RelayKindVlessReality, RelayKindCloudflareTunnel -> {
+            VlessTransportFields(draft = draft, actions = actions.vless, errors = errors)
+        }
+
+        RelayKindVless -> {
+            VlessFlowFields(draft, actions.vless, errors)
+            XhttpFields(draft, actions.vless, errors)
+        }
+
+        RelayKindTrojan -> {
+            TrojanAdvancedFields(draft = draft, actions = actions.additional)
+        }
+
+        RelayKindHysteria2 -> {
+            HysteriaAdvancedFields(draft = draft, actions = actions.hysteria)
+        }
+
+        RelayKindTuicV5 -> {
+            TuicAdvancedFields(draft = draft, actions = actions.tuic)
+        }
+    }
     RelaySupportedFinalmaskFields(draft = draft, uiState = uiState, actions = actions.finalmask)
 }
 

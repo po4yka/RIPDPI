@@ -38,6 +38,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayAdvancedSection
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayPortField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -133,13 +134,13 @@ private fun ModeEditorRelayEnabledFields(
             tone = WarningBannerTone.Warning,
         )
     }
-    RelayKindFields(
-        draft = draft,
-        uiState = uiState,
-        actions = relayKindFieldActions(actions),
-    )
-    ModeEditorRelayUdpToggle(draft = draft, actions = actions)
-    ModeEditorRelayLocalPortField(draft = draft, uiState = uiState, actions = actions)
+    val kindActions = relayKindFieldActions(actions)
+    RelayKindFields(draft = draft, uiState = uiState, actions = kindActions)
+    RelayAdvancedSection(hasError = uiState.validationErrors.keys.any { it in RelayAdvancedErrorKeys }) {
+        RelayKindAdvancedFields(draft = draft, uiState = uiState, actions = kindActions)
+        ModeEditorRelayUdpToggle(draft = draft, actions = actions)
+        ModeEditorRelayLocalPortField(draft = draft, uiState = uiState, actions = actions)
+    }
 }
 
 @Composable

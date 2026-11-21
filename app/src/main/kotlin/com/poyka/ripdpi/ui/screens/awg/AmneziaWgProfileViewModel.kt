@@ -97,9 +97,8 @@ data class AmneziaWgProfileUiState(
  * Backing [ViewModel] for the AmneziaWG profile editor screen.
  *
  * The editor exposes every standard WireGuard field plus all 16 AmneziaWG obfuscation
- * fields inline (`Jc`, `Jmin`, `Jmax`, `S1`-`S4`, `H1`-`H4`, `I1`-`I5`) — they are not
- * hidden behind an "Advanced" toggle because they are server-coordinated and pasted
- * verbatim. Picking a cohort preset fills and locks the obfuscation group; the `Custom`
+ * fields (`Jc`, `Jmin`, `Jmax`, `S1`-`S4`, `H1`-`H4`, `I1`-`I5`); all but the key, server,
+ * address and peer key sit in the collapsed Advanced group, which opens while one is invalid. Picking a cohort preset fills and locks the obfuscation group; the `Custom`
  * sentinel frees it again. Secret fields (private key, preshared key) stay hidden until a
  * biometric reveal is authorized.
  */

@@ -1,8 +1,14 @@
 package com.poyka.ripdpi.ui.screens.connection
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
@@ -30,7 +36,7 @@ class RelayFinalmaskVisibilityTest {
         val title = RuntimeEnvironment.getApplication().getString(R.string.config_relay_finalmask_title)
         val draft = ConnectionUiState().draft.copy(relayKind = RelayKindVlessReality, relayVlessTransport = "tcp")
         composeRule.setContent {
-            RipDpiTheme { RelayFieldsContent(draft = draft, uiState = ConnectionUiState(draft = draft)) }
+            RipDpiTheme { RelayFieldsWithAdvanced(draft = draft, uiState = ConnectionUiState(draft = draft)) }
         }
         composeRule.onNodeWithText(title).assertDoesNotExist()
     }
@@ -44,7 +50,7 @@ class RelayFinalmaskVisibilityTest {
                 relayVlessTransport = RelayVlessTransportXhttp,
             )
         composeRule.setContent {
-            RipDpiTheme { RelayFieldsContent(draft = draft, uiState = ConnectionUiState(draft = draft)) }
+            RipDpiTheme { RelayFieldsWithAdvanced(draft = draft, uiState = ConnectionUiState(draft = draft)) }
         }
         composeRule.onNodeWithText(title).assertExists()
     }
@@ -58,7 +64,7 @@ class RelayFinalmaskVisibilityTest {
                 relayVlessTransport = RelayVlessTransportXhttp,
             )
         composeRule.setContent {
-            RipDpiTheme { RelayFieldsContent(draft = draft, uiState = ConnectionUiState(draft = draft)) }
+            RipDpiTheme { RelayFieldsWithAdvanced(draft = draft, uiState = ConnectionUiState(draft = draft)) }
         }
         composeRule.onNodeWithText(title).assertExists()
     }
@@ -75,7 +81,7 @@ class RelayFinalmaskVisibilityTest {
             )
         composeRule.setContent {
             RipDpiTheme {
-                RelayFieldsContent(
+                RelayFieldsWithAdvanced(
                     draft = draft,
                     uiState = ConnectionUiState(draft = draft),
                     actions =
@@ -85,8 +91,24 @@ class RelayFinalmaskVisibilityTest {
                 )
             }
         }
-        composeRule.onNodeWithText(context.getString(R.string.config_relay_finalmask_off)).performClick()
+        composeRule
+            .onNodeWithText(context.getString(R.string.config_relay_finalmask_off))
+            .performScrollTo()
+            .performClick()
         composeRule.onNodeWithText(context.getString(R.string.config_relay_finalmask_fragment)).assertDoesNotExist()
         assertEquals(RelayFinalmaskTypeOff, selectedType)
+    }
+}
+
+/** The kind's fields with its Advanced group open, as the editor shows them once Advanced is expanded. */
+@Composable
+internal fun RelayFieldsWithAdvanced(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: RelayKindFieldActions = RelayKindFieldActions(),
+) {
+    Column(Modifier.verticalScroll(rememberScrollState())) {
+        RelayFieldsContent(draft = draft, uiState = uiState, actions = actions)
+        RelayKindAdvancedFields(draft = draft, uiState = uiState, actions = actions)
     }
 }

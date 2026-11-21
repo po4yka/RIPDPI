@@ -23,8 +23,6 @@ internal fun VlessPlainRelayFields(
 ) {
     // The plain TLS backend supports xHTTP only; the Reality transport selector does not apply.
     VlessUuidField(draft, actions, errors)
-    VlessFlowFields(draft, actions, errors)
-    XhttpFields(draft, actions, errors)
 }
 
 @Composable
@@ -39,6 +37,13 @@ internal fun TrojanRelayFields(
         onValueChange = actions.onTrojanPasswordChanged,
         errorText = validationMessage(errors[ConnectionFieldRelayPassword]),
     )
+}
+
+@Composable
+internal fun TrojanAdvancedFields(
+    draft: ConnectionDraft,
+    actions: RelayAdditionalKindActions,
+) {
     RipDpiTextField(
         value = draft.relayTrojanRootCertificatePem,
         onValueChange = actions.onTrojanRootCertificatePemChanged,

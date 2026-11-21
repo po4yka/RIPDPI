@@ -13,7 +13,6 @@ internal fun VlessRealityRelayFields(
     errors: Map<String, String> = emptyMap(),
 ) {
     RealityTlsFields(draft = draft, actions = actions, errors = errors)
-    VlessTransportFields(draft = draft, actions = actions, errors = errors)
     VlessUuidField(draft = draft, actions = actions, errors = errors)
 }
 

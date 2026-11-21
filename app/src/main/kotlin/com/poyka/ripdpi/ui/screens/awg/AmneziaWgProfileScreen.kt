@@ -38,6 +38,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayAdvancedSection
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayHostField
@@ -174,52 +175,154 @@ internal fun AmneziaWgProfileScreen(
             variant = RipDpiButtonVariant.Secondary,
             leadingIcon = RipDpiIcons.Paste,
         )
-        uiState.confImportFailure?.let { failure ->
-            WarningBanner(
-                title = stringResource(R.string.awg_conf_import_failed_title),
-                message =
-                    when (failure.reason) {
-                        AwgConfImportFailure.UNREADABLE -> {
-                            stringResource(R.string.awg_conf_import_unreadable_body)
-                        }
-
-                        AwgConfImportFailure.INVALID,
-                        AwgConfImportFailure.UNSUPPORTED_OPTION,
-                        -> {
-                            stringResource(R.string.awg_conf_import_failed_body)
-                        }
-
-                        AwgConfImportFailure.UNSUPPORTED_LISTEN_PORT -> {
-                            stringResource(R.string.awg_conf_unsupported_option_body, "ListenPort")
-                        }
-
-                        AwgConfImportFailure.SUBSCRIPTION_SERVER_MISMATCH -> {
-                            stringResource(R.string.awg_conf_subscription_server_mismatch_body)
-                        }
-                    },
-                testTag = RipDpiTestTags.AwgConfImportFailed,
-            )
-        }
-        if (uiState.ignoredPeerCount > 0) {
-            WarningBanner(
-                title = stringResource(R.string.awg_conf_extra_peers_title),
-                message = stringResource(R.string.awg_conf_extra_peers_body, uiState.ignoredPeerCount),
-                tone = WarningBannerTone.Info,
-            )
-        }
-        if (uiState.ignoredConfOptions.isNotEmpty()) {
-            WarningBanner(
-                title = stringResource(R.string.awg_conf_ignored_options_title),
-                message = uiState.ignoredConfOptions.joinToString(),
-                tone = WarningBannerTone.Info,
-            )
-        }
+        AwgConfImportFeedback(uiState)
         InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
-        PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
+        PeerSection(uiState, onFieldChanged)
+        AwgAdvancedSection(
+            uiState = uiState,
+            onFieldChanged = onFieldChanged,
+            onCohortSelected = onCohortSelected,
+            onCarrierSelected = onCarrierSelected,
+            onRevealPresharedKey = onRevealPresharedKey,
+            onRevealHeaderProtectionKey = onRevealHeaderProtectionKey,
+        )
+    }
+}
+
+/** Why the last pasted `.conf` was refused, and what it carried that the editor ignores. */
+@Composable
+private fun AwgConfImportFeedback(uiState: AmneziaWgProfileUiState) {
+    uiState.confImportFailure?.let { failure ->
+        WarningBanner(
+            title = stringResource(R.string.awg_conf_import_failed_title),
+            message =
+                when (failure.reason) {
+                    AwgConfImportFailure.UNREADABLE -> {
+                        stringResource(R.string.awg_conf_import_unreadable_body)
+                    }
+
+                    AwgConfImportFailure.INVALID,
+                    AwgConfImportFailure.UNSUPPORTED_OPTION,
+                    -> {
+                        stringResource(R.string.awg_conf_import_failed_body)
+                    }
+
+                    AwgConfImportFailure.UNSUPPORTED_LISTEN_PORT -> {
+                        stringResource(R.string.awg_conf_unsupported_option_body, "ListenPort")
+                    }
+
+                    AwgConfImportFailure.SUBSCRIPTION_SERVER_MISMATCH -> {
+                        stringResource(R.string.awg_conf_subscription_server_mismatch_body)
+                    }
+                },
+            testTag = RipDpiTestTags.AwgConfImportFailed,
+        )
+    }
+    if (uiState.ignoredPeerCount > 0) {
+        WarningBanner(
+            title = stringResource(R.string.awg_conf_extra_peers_title),
+            message = stringResource(R.string.awg_conf_extra_peers_body, uiState.ignoredPeerCount),
+            tone = WarningBannerTone.Info,
+        )
+    }
+    if (uiState.ignoredConfOptions.isNotEmpty()) {
+        WarningBanner(
+            title = stringResource(R.string.awg_conf_ignored_options_title),
+            message = uiState.ignoredConfOptions.joinToString(),
+            tone = WarningBannerTone.Info,
+        )
+    }
+}
+
+@Composable
+private fun AwgAdvancedSection(
+    uiState: AmneziaWgProfileUiState,
+    onFieldChanged: (AwgEditorField, String) -> Unit,
+    onCohortSelected: (String) -> Unit,
+    onCarrierSelected: (String) -> Unit,
+    onRevealPresharedKey: () -> Unit,
+    onRevealHeaderProtectionKey: () -> Unit,
+) {
+    val editor = uiState.editor
+    RelayAdvancedSection(
+        hasError = AwgAdvancedFields.any { editor.hasFieldError(it) || editor.conflictingField(it) != null },
+    ) {
+        AdvancedConnectionSection(uiState, onFieldChanged, onRevealPresharedKey)
         CarrierSection(uiState, onFieldChanged, onCarrierSelected)
         ObfuscationSection(uiState, onFieldChanged, onCohortSelected, onRevealHeaderProtectionKey)
     }
 }
+
+/** The interface and peer settings most profiles take from the imported `.conf` unchanged. */
+@Composable
+private fun AdvancedConnectionSection(
+    uiState: AmneziaWgProfileUiState,
+    onFieldChanged: (AwgEditorField, String) -> Unit,
+    onRevealPresharedKey: () -> Unit,
+) {
+    val editor = uiState.editor
+    RipDpiCard {
+        PlainField(
+            AwgEditorField.DNS,
+            R.string.awg_field_dns,
+            editor,
+            onFieldChanged,
+            placeholder = stringResource(R.string.awg_dns_placeholder),
+        )
+        PlainField(
+            AwgEditorField.MTU,
+            R.string.awg_field_mtu,
+            editor,
+            onFieldChanged,
+            placeholder = AwgActivationRequest.DEFAULT_MTU.toString(),
+        )
+        PlainField(AwgEditorField.PEER_ENDPOINT, R.string.awg_field_peer_endpoint, editor, onFieldChanged)
+        PlainField(
+            AwgEditorField.ALLOWED_IPS,
+            R.string.awg_field_allowed_ips,
+            editor,
+            onFieldChanged,
+            placeholder = stringResource(R.string.awg_allowed_ips_placeholder),
+        )
+        RelaySecretField(
+            testTag = RipDpiTestTags.awgField(AwgEditorField.PRESHARED_KEY.name),
+            label = stringResource(R.string.awg_field_preshared_key),
+            value = editor.rawText(AwgEditorField.PRESHARED_KEY),
+            revealed = uiState.presharedKeyRevealed,
+            onValueChange = { onFieldChanged(AwgEditorField.PRESHARED_KEY, it) },
+            onReveal = onRevealPresharedKey,
+            readOnly = editor.isManaged(AwgEditorField.PRESHARED_KEY),
+            helperText =
+                stringResource(R.string.awg_field_from_subscription)
+                    .takeIf { editor.isManaged(AwgEditorField.PRESHARED_KEY) },
+            errorText =
+                if (editor.hasFieldError(AwgEditorField.PRESHARED_KEY)) {
+                    stringResource(R.string.awg_field_invalid)
+                } else {
+                    null
+                },
+        )
+        PlainField(
+            AwgEditorField.PERSISTENT_KEEPALIVE,
+            R.string.awg_field_persistent_keepalive,
+            editor,
+            onFieldChanged,
+            placeholder = stringResource(R.string.awg_keepalive_placeholder),
+            helperText = stringResource(R.string.awg_keepalive_helper),
+        )
+    }
+}
+
+/** The fields the editor shows under Advanced; the rest stay in view. */
+private val AwgAdvancedFields =
+    AwgEditorField.entries -
+        setOf(
+            AwgEditorField.INTERFACE_PRIVATE_KEY,
+            AwgEditorField.SERVER,
+            AwgEditorField.SERVER_PORT,
+            AwgEditorField.ADDRESS,
+            AwgEditorField.PEER_PUBLIC_KEY,
+        )
 
 /**
  * Transport carrier section: a UDP/WebSocket picker plus a WS request-URL field
@@ -303,20 +406,6 @@ private fun InterfaceSection(
             onFieldChanged,
             placeholder = stringResource(R.string.awg_address_placeholder),
         )
-        PlainField(
-            AwgEditorField.DNS,
-            R.string.awg_field_dns,
-            editor,
-            onFieldChanged,
-            placeholder = stringResource(R.string.awg_dns_placeholder),
-        )
-        PlainField(
-            AwgEditorField.MTU,
-            R.string.awg_field_mtu,
-            editor,
-            onFieldChanged,
-            placeholder = AwgActivationRequest.DEFAULT_MTU.toString(),
-        )
     }
 }
 
@@ -324,49 +413,11 @@ private fun InterfaceSection(
 private fun PeerSection(
     uiState: AmneziaWgProfileUiState,
     onFieldChanged: (AwgEditorField, String) -> Unit,
-    onRevealPresharedKey: () -> Unit,
 ) {
     val editor = uiState.editor
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.awg_section_peer))
         PlainField(AwgEditorField.PEER_PUBLIC_KEY, R.string.awg_field_peer_public_key, editor, onFieldChanged)
-        PlainField(AwgEditorField.PEER_ENDPOINT, R.string.awg_field_peer_endpoint, editor, onFieldChanged)
-        PlainField(
-            AwgEditorField.ALLOWED_IPS,
-            R.string.awg_field_allowed_ips,
-            editor,
-            onFieldChanged,
-            placeholder = stringResource(R.string.awg_allowed_ips_placeholder),
-        )
-        RelaySecretField(
-            testTag = RipDpiTestTags.awgField(AwgEditorField.PRESHARED_KEY.name),
-            label = stringResource(R.string.awg_field_preshared_key),
-            value = editor.rawText(AwgEditorField.PRESHARED_KEY),
-            revealed = uiState.presharedKeyRevealed,
-            onValueChange = { onFieldChanged(AwgEditorField.PRESHARED_KEY, it) },
-            onReveal = onRevealPresharedKey,
-            readOnly = editor.isManaged(AwgEditorField.PRESHARED_KEY),
-            helperText =
-                stringResource(R.string.awg_field_from_subscription)
-                    .takeIf { editor.isManaged(AwgEditorField.PRESHARED_KEY) },
-            errorText =
-                if (editor.hasFieldError(
-                        AwgEditorField.PRESHARED_KEY,
-                    )
-                ) {
-                    stringResource(R.string.awg_field_invalid)
-                } else {
-                    null
-                },
-        )
-        PlainField(
-            AwgEditorField.PERSISTENT_KEEPALIVE,
-            R.string.awg_field_persistent_keepalive,
-            editor,
-            onFieldChanged,
-            placeholder = stringResource(R.string.awg_keepalive_placeholder),
-            helperText = stringResource(R.string.awg_keepalive_helper),
-        )
     }
 }
 

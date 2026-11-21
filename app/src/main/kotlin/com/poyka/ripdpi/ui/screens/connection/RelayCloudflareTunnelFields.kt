@@ -53,8 +53,7 @@ internal fun CloudflareTunnelRelayFields(
     if (draft.relayCloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin) {
         CloudflareLocalOriginFields(draft = draft, uiState = uiState, actions = actions)
     }
-    VlessTransportFields(draft = draft, actions = actions)
-    VlessUuidField(draft = draft, actions = actions)
+    VlessUuidField(draft = draft, actions = actions, errors = uiState.validationErrors)
 }
 
 @Composable

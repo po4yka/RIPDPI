@@ -28,6 +28,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayAdvancedSection
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayFieldBinding
@@ -154,7 +155,11 @@ internal fun MieruProfileScreen(
             fields.Text(MieruEditorField.USERNAME, R.string.mieru_field_username)
             fields.Password(MieruEditorField.PASSWORD, R.string.mieru_field_password)
         }
-        TransportSection(editor, fields, onProtocolSelected, onMultiplexingSelected)
+        RelayAdvancedSection(
+            hasError = editor.hasFieldError(MieruEditorField.MTU) || editor.protocol !in NativeMieruProtocols,
+        ) {
+            TransportSection(editor, fields, onProtocolSelected, onMultiplexingSelected)
+        }
     }
 }
 

@@ -15,7 +15,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TuicRelayFields(
     draft: ConnectionDraft,
@@ -34,6 +33,14 @@ internal fun TuicRelayFields(
         onValueChange = actions.onRelayTuicPasswordChanged,
         errorText = validationMessage(errors[ConnectionFieldRelayPassword]),
     )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun TuicAdvancedFields(
+    draft: ConnectionDraft,
+    actions: RelayTuicActions,
+) {
     RipDpiTextField(
         value = draft.relayTuicRootCertificatePem,
         onValueChange = actions.onRelayTuicRootCertificatePemChanged,

@@ -17,6 +17,13 @@ internal fun HysteriaRelayFields(
         onValueChange = actions.onRelayHysteriaPasswordChanged,
         errorText = validationMessage(errors[ConnectionFieldRelayPassword]),
     )
+}
+
+@Composable
+internal fun HysteriaAdvancedFields(
+    draft: ConnectionDraft,
+    actions: RelayHysteriaActions,
+) {
     RelayPasswordField(
         label = stringResource(R.string.config_relay_hysteria_salamander),
         value = draft.relayHysteriaSalamanderKey,

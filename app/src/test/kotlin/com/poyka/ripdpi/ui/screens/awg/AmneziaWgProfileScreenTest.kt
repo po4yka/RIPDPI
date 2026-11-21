@@ -334,6 +334,7 @@ class AmneziaWgProfileScreenTest {
         val vm = viewModel()
         val context = RuntimeEnvironment.getApplication()
         composeRule.setContent { RipDpiTheme { ScreenUnderTest(vm) } }
+        openAdvanced()
         composeRule
             .onNodeWithTag(RipDpiTestTags.awgField(AwgEditorField.RANDOM_TRAILERS.name))
             .performScrollTo()
@@ -360,6 +361,7 @@ class AmneziaWgProfileScreenTest {
     fun `the editor renders the standard wireguard fields`() {
         val viewModel = viewModel()
         composeRule.setContent { RipDpiTheme { ScreenUnderTest(viewModel) } }
+        openAdvanced()
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.awgField(AwgEditorField.INTERFACE_PRIVATE_KEY.name))
@@ -381,6 +383,7 @@ class AmneziaWgProfileScreenTest {
     fun `the editor renders every obfuscation field inline`() {
         val viewModel = viewModel()
         composeRule.setContent { RipDpiTheme { ScreenUnderTest(viewModel) } }
+        openAdvanced()
 
         listOf(
             AwgEditorField.JC,
@@ -409,6 +412,7 @@ class AmneziaWgProfileScreenTest {
     fun `obfuscation fields show while custom and collapse behind a preset`() {
         val viewModel = viewModel()
         composeRule.setContent { RipDpiTheme { ScreenUnderTest(viewModel) } }
+        openAdvanced()
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.awgField(AwgEditorField.JC.name))
@@ -443,6 +447,7 @@ class AmneziaWgProfileScreenTest {
     fun `fields show their format and range`() {
         val viewModel = viewModel()
         composeRule.setContent { RipDpiTheme { ScreenUnderTest(viewModel) } }
+        openAdvanced()
         val app = RuntimeEnvironment.getApplication()
 
         listOf(
@@ -493,6 +498,11 @@ class AmneziaWgProfileScreenTest {
                 viewModel.uiState.value.editor.form.server,
             )
         }
+    }
+
+    private fun openAdvanced() {
+        composeRule.onNodeWithTag(RipDpiTestTags.RelayEditorAdvanced).performScrollTo().performClick()
+        composeRule.waitForIdle()
     }
 }
 
