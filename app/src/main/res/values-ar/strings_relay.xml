@@ -183,7 +183,6 @@
     <string name="mieru_field_protocol">البروتوكول</string>
     <string name="mieru_field_multiplexing">التعدد</string>
     <string name="mieru_transport_tcp">TCP</string>
-    <string name="mieru_transport_udp">UDP</string>
     <string name="mieru_mux_off">إيقاف</string>
     <string name="mieru_mux_low">منخفض</string>
     <string name="mieru_mux_middle">متوسط</string>

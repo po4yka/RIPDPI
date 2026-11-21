@@ -162,7 +162,6 @@
     <string name="mieru_field_protocol">Protokoll</string>
     <string name="mieru_field_multiplexing">Multiplexing</string>
     <string name="mieru_transport_tcp">TCP</string>
-    <string name="mieru_transport_udp">UDP</string>
     <string name="mieru_mux_off">Aus</string>
     <string name="mieru_mux_low">Niedrig</string>
     <string name="mieru_mux_middle">Mittel</string>

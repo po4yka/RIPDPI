@@ -200,7 +200,6 @@
     <string name="mieru_field_protocol">प्रोटोकॉल</string>
     <string name="mieru_field_multiplexing">मल्टीप्लेक्सिंग</string>
     <string name="mieru_transport_tcp">TCP</string>
-    <string name="mieru_transport_udp">UDP</string>
     <string name="mieru_mux_off">बंद</string>
     <string name="mieru_mux_low">कम</string>
     <string name="mieru_mux_middle">मध्यम</string>

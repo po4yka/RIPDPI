@@ -3266,7 +3266,6 @@ app:mieru_section_credentials
 app:mieru_section_endpoint
 app:mieru_section_transport
 app:mieru_transport_tcp
-app:mieru_transport_udp
 app:migration_awg_help
 app:migration_changed
 app:migration_check_awg

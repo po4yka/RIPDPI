@@ -162,7 +162,6 @@
     <string name="mieru_field_protocol">پروتکل</string>
     <string name="mieru_field_multiplexing">چندگانه‌سازی</string>
     <string name="mieru_transport_tcp">TCP</string>
-    <string name="mieru_transport_udp">UDP</string>
     <string name="mieru_mux_off">خاموش</string>
     <string name="mieru_mux_low">کم</string>
     <string name="mieru_mux_middle">متوسط</string>

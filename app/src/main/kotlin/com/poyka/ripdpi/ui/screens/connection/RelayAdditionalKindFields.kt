@@ -1,13 +1,19 @@
 package com.poyka.ripdpi.ui.screens.connection
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.SupportedShadowsocksMethods
+import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
+import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
+import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 internal fun VlessPlainRelayFields(
@@ -43,10 +49,18 @@ internal fun ShadowsocksRelayFields(
     draft: ConnectionDraft,
     actions: RelayAdditionalKindActions,
 ) {
-    RelayPlainField(
-        draft.relayShadowsocksMethod,
-        R.string.config_relay_shadowsocks_method,
-        actions.onShadowsocksMethodChanged,
+    val method = draft.relayShadowsocksMethod.trim().lowercase()
+    RipDpiDropdown(
+        options = remember { SupportedShadowsocksMethods.map { RipDpiDropdownOption(it, it) }.toImmutableList() },
+        selectedValue = method.takeIf(::isSupportedShadowsocksMethod),
+        onValueSelected = actions.onShadowsocksMethodChanged,
+        label = stringResource(R.string.config_relay_shadowsocks_method),
+        // An imported stream cipher has no entry in the list; the field names it until another method is picked.
+        placeholder = draft.relayShadowsocksMethod.takeUnless { isSupportedShadowsocksMethod(it) },
+        errorText =
+            stringResource(R.string.config_error_unsupported).takeIf {
+                method.isNotEmpty() && !isSupportedShadowsocksMethod(method)
+            },
     )
     RelayPasswordField(
         label = stringResource(R.string.config_relay_shadowsocks_password),

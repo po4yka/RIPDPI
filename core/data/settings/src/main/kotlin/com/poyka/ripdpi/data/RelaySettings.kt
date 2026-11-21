@@ -30,6 +30,18 @@ const val RelayMieruMultiplexingMiddle = "middle"
 const val RelayMieruMultiplexingHigh = "high"
 const val RelayMieruMtuMin = 1280
 const val RelayMieruMtuMax = 1500
+
+/** The Mieru carriers the native relay runs; it rejects the UDP carrier at connect time. */
+val NativeMieruProtocols: List<String> = listOf(RelayMieruProtocolTcp)
+
+/** The Mieru multiplexing levels the native relay accepts. */
+val NativeMieruMultiplexingLevels: List<String> =
+    listOf(
+        RelayMieruMultiplexingOff,
+        RelayMieruMultiplexingLow,
+        RelayMieruMultiplexingMiddle,
+        RelayMieruMultiplexingHigh,
+    )
 const val RelayMieruMtuDefault = 1400
 
 /** Upstream Mieru `MaxUserNameLen`: the longest accepted user name, in UTF-8 bytes. */

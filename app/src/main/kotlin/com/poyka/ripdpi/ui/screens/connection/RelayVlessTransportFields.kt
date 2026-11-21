@@ -155,6 +155,28 @@ internal fun ConnectionDraft.showsXhttpFields(): Boolean =
 private fun ConnectionDraft.vlessSecurity(): String =
     if (relayKind == RelayKindVless) RelaySecurityLayerTls else RelaySecurityLayerReality
 
+/**
+ * After a kind, transport, or flow change, moves each dependent VLESS choice that the native backend no longer
+ * accepts to its default, so the pickers show the value that will be saved.
+ */
+internal fun ConnectionDraft.withValidVlessChoices(): ConnectionDraft {
+    if (relayKind != RelayKindVless && relayKind != RelayKindVlessReality) return this
+    val security = vlessSecurity()
+    val transports = NativeVlessCapabilities.transports(security)
+    val transport = relayVlessTransport.takeIf { it in transports } ?: transports.first()
+    val flow = selectedVlessFlow().trim().let { if (it in listOf("none", "off")) "" else it }
+    val validFlow =
+        flow.takeIf { it in NativeVlessCapabilities.flows(security, transport) }
+            ?: NativeVlessCapabilities.defaultFlow(security, transport)
+    val modeValid = relayXhttpMode.trim().ifEmpty { RelayXhttpModeAuto } in NativeVlessCapabilities.xhttpModes(security)
+    return copy(
+        relayVlessTransport = transport,
+        relayVlessFlow = if (validFlow == flow) relayVlessFlow else validFlow,
+        relayXhttpMode = if (modeValid) relayXhttpMode else RelayXhttpModeAuto,
+        relayUdpEnabled = relayUdpEnabled && NativeVlessCapabilities.supportsUdp(security, transport, validFlow),
+    )
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun VlessFlowFields(

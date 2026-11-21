@@ -34,13 +34,21 @@ fun isValidShadowsocksCredentials(
         }
 }
 
-private fun shadowsocksKeyBytes(method: String): Int? =
-    when (method) {
-        "aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305" -> 0
-        "2022-blake3-aes-128-gcm" -> ShadowsocksAes128KeyBytes
-        "2022-blake3-aes-256-gcm", "2022-blake3-chacha20-poly1305" -> ShadowsocksAes256KeyBytes
-        else -> null
-    }
+/** The AEAD methods the native relay accepts, with their key size in bytes (0 = password-derived). */
+private val shadowsocksKeyBytesByMethod: Map<String, Int> =
+    linkedMapOf(
+        "aes-128-gcm" to 0,
+        "aes-256-gcm" to 0,
+        "chacha20-ietf-poly1305" to 0,
+        "2022-blake3-aes-128-gcm" to ShadowsocksAes128KeyBytes,
+        "2022-blake3-aes-256-gcm" to ShadowsocksAes256KeyBytes,
+        "2022-blake3-chacha20-poly1305" to ShadowsocksAes256KeyBytes,
+    )
+
+/** Every method [isSupportedShadowsocksMethod] accepts, in display order. */
+val SupportedShadowsocksMethods: List<String> = shadowsocksKeyBytesByMethod.keys.toList()
+
+private fun shadowsocksKeyBytes(method: String): Int? = shadowsocksKeyBytesByMethod[method]
 
 private const val ShadowsocksAes128KeyBytes = 16
 private const val ShadowsocksAes256KeyBytes = 32

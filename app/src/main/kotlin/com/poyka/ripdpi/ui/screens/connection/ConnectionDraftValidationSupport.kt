@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.MaxNaiveConcurrency
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NaiveExtraHeadersError
 import com.poyka.ripdpi.data.NaiveExtraHeadersResult
+import com.poyka.ripdpi.data.NativeMieruMultiplexingLevels
+import com.poyka.ripdpi.data.NativeMieruProtocols
 import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayKindAnyTls
@@ -33,11 +35,6 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayMieruMtuMax
 import com.poyka.ripdpi.data.RelayMieruMtuMin
-import com.poyka.ripdpi.data.RelayMieruMultiplexingHigh
-import com.poyka.ripdpi.data.RelayMieruMultiplexingLow
-import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
-import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
-import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelaySecurityLayerReality
 import com.poyka.ripdpi.data.RelaySecurityLayerTls
@@ -299,15 +296,8 @@ private fun validateMieruDraft(draft: ConnectionDraft): Map<String, String> =
             ),
         )
         // The native relay rejects the UDP carrier at connect time, so only TCP can activate.
-        val protocolUnsupported = draft.relayMieruProtocol != RelayMieruProtocolTcp
-        val multiplexingInvalid =
-            draft.relayMieruMultiplexing !in
-                setOf(
-                    RelayMieruMultiplexingOff,
-                    RelayMieruMultiplexingLow,
-                    RelayMieruMultiplexingMiddle,
-                    RelayMieruMultiplexingHigh,
-                )
+        val protocolUnsupported = draft.relayMieruProtocol !in NativeMieruProtocols
+        val multiplexingInvalid = draft.relayMieruMultiplexing !in NativeMieruMultiplexingLevels
         val mtuInvalid = draft.relayMieruMtu.toIntOrNull() !in RelayMieruMtuMin..RelayMieruMtuMax
         if (multiplexingInvalid || mtuInvalid) {
             put(ConnectionFieldRelayCredentials, "invalid")

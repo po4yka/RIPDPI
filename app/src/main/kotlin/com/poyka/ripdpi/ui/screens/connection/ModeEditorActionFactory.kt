@@ -60,8 +60,10 @@ private fun ModeEditorActions.withRelayTransportActions(viewModel: ConnectionVie
     copy(
         onRelayRealityPublicKeyChanged = { viewModel.updateDraft { copy(relayRealityPublicKey = it) } },
         onRelayRealityShortIdChanged = { viewModel.updateDraft { copy(relayRealityShortId = it) } },
-        onRelayVlessTransportChanged = { viewModel.updateDraft { copy(relayVlessTransport = it) } },
-        onRelayVlessFlowChanged = { viewModel.updateDraft { copy(relayVlessFlow = it) } },
+        onRelayVlessTransportChanged = {
+            viewModel.updateDraft { copy(relayVlessTransport = it).withValidVlessChoices() }
+        },
+        onRelayVlessFlowChanged = { viewModel.updateDraft { copy(relayVlessFlow = it).withValidVlessChoices() } },
         onRelayXhttpPathChanged = { viewModel.updateDraft { copy(relayXhttpPath = it) } },
         onRelayXhttpHostChanged = { viewModel.updateDraft { copy(relayXhttpHost = it) } },
         onRelayXhttpModeChanged = { viewModel.updateDraft { copy(relayXhttpMode = it) } },

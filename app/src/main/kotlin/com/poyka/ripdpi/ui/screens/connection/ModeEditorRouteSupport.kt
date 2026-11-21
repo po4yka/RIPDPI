@@ -10,33 +10,34 @@ internal fun updateRelayKind(
     viewModel: ConnectionViewModel,
     relayKind: String,
 ) {
-    viewModel.updateDraft {
-        when (relayKind) {
-            RelayKindCloudflareTunnel,
-            RelayKindVless,
-            -> {
-                copy(
-                    relayKind = relayKind,
-                    relayVlessTransport = RelayVlessTransportXhttp,
-                    relayUdpEnabled = false,
-                )
-            }
+    viewModel.updateDraft { withRelayKind(relayKind).withValidVlessChoices() }
+}
 
-            RelayKindShadowTlsV3,
-            RelayKindNaiveProxy,
-            -> {
-                copy(
-                    relayKind = relayKind,
-                    relayUdpEnabled = false,
-                )
-            }
+private fun ConnectionDraft.withRelayKind(relayKind: String): ConnectionDraft =
+    when (relayKind) {
+        RelayKindCloudflareTunnel,
+        RelayKindVless,
+        -> {
+            copy(
+                relayKind = relayKind,
+                relayVlessTransport = RelayVlessTransportXhttp,
+                relayUdpEnabled = false,
+            )
+        }
 
-            else -> {
-                copy(relayKind = relayKind)
-            }
+        RelayKindShadowTlsV3,
+        RelayKindNaiveProxy,
+        -> {
+            copy(
+                relayKind = relayKind,
+                relayUdpEnabled = false,
+            )
+        }
+
+        else -> {
+            copy(relayKind = relayKind)
         }
     }
-}
 
 internal fun createModeEditorExternalActions(
     viewModel: ConnectionViewModel,

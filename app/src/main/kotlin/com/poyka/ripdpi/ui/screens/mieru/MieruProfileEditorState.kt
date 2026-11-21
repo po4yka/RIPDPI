@@ -1,15 +1,13 @@
 package com.poyka.ripdpi.ui.screens.mieru
 
+import com.poyka.ripdpi.data.NativeMieruMultiplexingLevels
+import com.poyka.ripdpi.data.NativeMieruProtocols
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelayMieruMtuMax
 import com.poyka.ripdpi.data.RelayMieruMtuMin
-import com.poyka.ripdpi.data.RelayMieruMultiplexingHigh
-import com.poyka.ripdpi.data.RelayMieruMultiplexingLow
 import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
-import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
-import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.data.isValidRelayMieruUsername
 import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 import java.util.UUID
@@ -19,19 +17,6 @@ private const val MinPort = 1
 
 /** Upper bound (inclusive) of a valid TCP/UDP port. */
 private const val MaxPort = 65535
-
-/** The transport protocols the native `ripdpi-mieru` backend accepts. */
-val MieruProtocolOptions: List<String> =
-    listOf(RelayMieruProtocolTcp, RelayMieruProtocolUdp)
-
-/** The multiplexing levels the native `ripdpi-mieru` backend accepts. */
-val MieruMultiplexingOptions: List<String> =
-    listOf(
-        RelayMieruMultiplexingOff,
-        RelayMieruMultiplexingLow,
-        RelayMieruMultiplexingMiddle,
-        RelayMieruMultiplexingHigh,
-    )
 
 /**
  * Every editable field of the Mieru profile editor.
@@ -95,11 +80,11 @@ data class MieruProfileEditorState(
 
     /** Selects the protocol [value] from the whitelist; an unknown value is ignored. */
     fun selectProtocol(value: String): MieruProfileEditorState =
-        if (value in MieruProtocolOptions) copy(protocol = value) else this
+        if (value in NativeMieruProtocols) copy(protocol = value) else this
 
     /** Selects the multiplexing [value] from the whitelist; an unknown value is ignored. */
     fun selectMultiplexing(value: String): MieruProfileEditorState =
-        if (value in MieruMultiplexingOptions) copy(multiplexing = value) else this
+        if (value in NativeMieruMultiplexingLevels) copy(multiplexing = value) else this
 
     /**
      * `true` when every required field (server, port, username, password)
@@ -120,7 +105,7 @@ data class MieruProfileEditorState(
      * the native relay rejects the UDP carrier at connect time.
      */
     fun toProfile(): ProxyProfile.Mieru? {
-        if (!isComplete || protocol != RelayMieruProtocolTcp) return null
+        if (!isComplete || protocol !in NativeMieruProtocols) return null
         val server = rawText(MieruEditorField.SERVER).trim()
         val port = rawText(MieruEditorField.SERVER_PORT).toIntOrNull()
         val username = rawText(MieruEditorField.USERNAME)

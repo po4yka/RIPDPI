@@ -10,6 +10,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.NativeMieruMultiplexingLevels
+import com.poyka.ripdpi.data.NativeMieruProtocols
 import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelayMieruMtuMax
@@ -19,7 +21,6 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingLow
 import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
 import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
-import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
@@ -38,12 +39,11 @@ import kotlinx.collections.immutable.toImmutableList
 @Composable
 private fun rememberMieruProtocolDropdownOptions():
     ImmutableList<com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption<String>> =
-    MieruProtocolOptions
+    NativeMieruProtocols
         .map { value ->
             val label =
                 when (value) {
                     RelayMieruProtocolTcp -> stringResource(R.string.mieru_transport_tcp)
-                    RelayMieruProtocolUdp -> stringResource(R.string.mieru_transport_udp)
                     else -> value
                 }
             RipDpiDropdownOption(value = value, label = label)
@@ -52,7 +52,7 @@ private fun rememberMieruProtocolDropdownOptions():
 @Composable
 private fun rememberMieruMultiplexingDropdownOptions():
     ImmutableList<com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption<String>> =
-    MieruMultiplexingOptions
+    NativeMieruMultiplexingLevels
         .map { value ->
             val label =
                 when (value) {
@@ -170,12 +170,16 @@ private fun TransportSection(
         RipDpiPanelHeader(
             title = stringResource(R.string.mieru_section_transport),
         )
-        RipDpiDropdown(
-            options = rememberMieruProtocolDropdownOptions(),
-            selectedValue = editor.protocol,
-            onValueSelected = onProtocolSelected,
-            label = stringResource(R.string.mieru_field_protocol),
-        )
+        // TCP is the only carrier the native relay runs; the picker appears only to replace an imported one.
+        if (editor.protocol !in NativeMieruProtocols) {
+            RipDpiDropdown(
+                options = rememberMieruProtocolDropdownOptions(),
+                selectedValue = editor.protocol,
+                onValueSelected = onProtocolSelected,
+                label = stringResource(R.string.mieru_field_protocol),
+                errorText = stringResource(R.string.config_error_unsupported),
+            )
+        }
         RipDpiDropdown(
             options = rememberMieruMultiplexingDropdownOptions(),
             selectedValue = editor.multiplexing,
