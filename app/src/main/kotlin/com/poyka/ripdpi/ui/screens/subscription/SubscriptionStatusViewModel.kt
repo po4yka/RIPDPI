@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.screens.subscription
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.data.PauseMutationPreparationSource
+import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.subscription.ImportRejection
 import com.poyka.ripdpi.subscription.SubscriptionExpiryClock
@@ -28,12 +30,14 @@ data class SubscriptionStatusUiState(
     val refreshFailedGroupId: String? = null,
     /** The named cause of the failed manual refresh of [refreshFailedGroupId], when the payload was refused. */
     val refreshRejection: ImportRejection? = null,
+    val deleteFailedGroupId: String? = null,
 )
 
 @HiltViewModel
 class SubscriptionStatusViewModel internal constructor(
     private val repository: ProxyGroupRepository,
     private val expiryClock: SubscriptionExpiryClock,
+    private val profileMutations: PauseMutationPreparationSource,
     private val refreshGroup: suspend (String) -> SubscriptionRefreshResult,
 ) : ViewModel() {
     @Inject
@@ -41,13 +45,15 @@ class SubscriptionStatusViewModel internal constructor(
         repository: ProxyGroupRepository,
         refreshCoordinator: SubscriptionRefreshCoordinator,
         expiryClock: SubscriptionExpiryClock,
-    ) : this(repository, expiryClock, { groupId ->
+        profileMutations: PauseMutationPreparationSource,
+    ) : this(repository, expiryClock, profileMutations, { groupId ->
         refreshCoordinator.refresh(groupId)
     })
 
     private val secretsRevealed = MutableStateFlow(false)
     private val refreshingGroupId = MutableStateFlow<String?>(null)
     private val refreshFailedGroupId = MutableStateFlow<String?>(null)
+    private val deleteFailedGroupId = MutableStateFlow<String?>(null)
 
     // shortcut: the cause lives only in this screen's memory, persist it with the subscription if it must survive.
     private var refreshRejection: ImportRejection? = null
@@ -87,11 +93,12 @@ class SubscriptionStatusViewModel internal constructor(
                 refreshFailedGroupId = failedGroup,
                 refreshRejection = refreshRejection.takeIf { failedGroup != null },
             )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = SubscriptionStatusUiState(),
-        )
+        }.combine(deleteFailedGroupId) { state, deleteFailed -> state.copy(deleteFailedGroupId = deleteFailed) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = SubscriptionStatusUiState(),
+            )
 
     fun toggleSecrets() {
         secretsRevealed.value = !secretsRevealed.value
@@ -120,6 +127,19 @@ class SubscriptionStatusViewModel internal constructor(
                 }
             }
         job.invokeOnCompletion { refreshingGroupId.compareAndSet(groupId, null) }
+    }
+
+    fun delete(groupId: String) {
+        deleteFailedGroupId.value = null
+        viewModelScope.launch {
+            try {
+                repository.delete(profileMutations.captureMutation(ProfileMutationOrigin.ExplicitDeletion), groupId)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                deleteFailedGroupId.value = groupId
+            }
+        }
     }
 
     override fun onCleared() {

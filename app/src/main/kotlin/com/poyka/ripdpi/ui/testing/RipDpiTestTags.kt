@@ -178,6 +178,9 @@ internal object RipDpiTestTags {
     const val AwgCarrierPicker = "awg-carrier-picker"
     const val RelayEditorAdvanced = "relay-editor-advanced"
     const val AwgConnectAction = "awg-connect-action"
+    const val AwgDeleteAction = "awg-delete-action"
+    const val AwgDeleteConfirm = "awg-delete-confirm"
+    const val SubscriptionDeleteConfirm = "subscription-delete-confirm"
     const val ConnectionRelayImportAwgConf = "connection-relay-import-awg-conf"
     const val AwgConfImportFailed = "awg-conf-import-failed"
     const val SubscriptionAddUrl = "subscription-add-url"
@@ -677,6 +680,8 @@ internal object RipDpiTestTags {
     }
 
     fun awgField(field: String): String = "awg-field-${sanitize(field)}"
+
+    val subscriptionDelete: (String) -> String = { groupId -> "subscription-delete-${sanitize(groupId)}" }
 
     val appPickerApp: (String) -> String = { packageName -> "app-picker-app-${sanitize(packageName)}" }
 

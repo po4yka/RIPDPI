@@ -134,6 +134,10 @@
     <string name="awg_cohort_replace_title">Replace obfuscation settings?</string>
     <string name="awg_cohort_replace_body">This preset replaces all obfuscation settings and clears the header-protection key. Use it only if the server has matching settings.</string>
     <string name="awg_cohort_replace_action">Replace</string>
+    <string name="awg_delete_action">Delete profile</string>
+    <string name="awg_delete_title">Delete this profile?</string>
+    <string name="awg_delete_body">The profile and its keys are removed from this device.</string>
+    <string name="awg_delete_failed">Couldn\'t delete the profile. Try again.</string>
     <string name="awg_cohort_picker_label">Cohort preset</string>
     <string name="awg_cohort_custom">Custom</string>
     <string name="awg_cohort_locked_hint">Obfuscation fields are set by the selected cohort. Choose \"Custom\" to edit them.</string>
@@ -346,6 +350,10 @@
     <string name="subscription_status_refresh_format">Refresh status: %1$s</string>
     <string name="subscription_status_refresh_ready">Ready</string>
     <string name="subscription_status_refresh_failed">Refresh failed</string>
+    <string name="subscription_status_delete_action">Delete</string>
+    <string name="subscription_status_delete_title">Delete “%1$s”?</string>
+    <string name="subscription_status_delete_body">This subscription and its profiles are removed from this device.</string>
+    <string name="subscription_status_delete_failed">Delete failed</string>
     <string name="subscription_status_url_format">Subscription URL: %1$s</string>
     <string name="subscription_status_token_format">Token: %1$s</string>
     <string name="subscription_home_expiring_title">Subscription expires soon</string>

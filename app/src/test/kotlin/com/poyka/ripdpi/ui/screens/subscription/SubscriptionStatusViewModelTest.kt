@@ -2,12 +2,14 @@ package com.poyka.ripdpi.ui.screens.subscription
 
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.DurableCommandReceipt
+import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProfileMutationPreparation
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.subscription.SubscriptionExpiryClock
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
+import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -112,18 +114,59 @@ class SubscriptionStatusViewModelTest {
             assertEquals(1, calls)
         }
 
-    private fun newViewModel(refresh: suspend (String) -> SubscriptionRefreshResult) =
-        SubscriptionStatusViewModel(
-            EmptyGroups(),
-            object : SubscriptionExpiryClock {
-                override fun nowMillis(): Long = 0
+    @Test
+    fun `delete removes the group as an explicit deletion`() =
+        runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val groups = EmptyGroups()
+            val viewModel = newViewModel(groups) { SubscriptionRefreshResult.Updated(0) }
+            backgroundScope.launch { viewModel.uiState.collect {} }
 
-                override fun ticks(): Flow<Long> = flowOf(0)
-            },
-            refresh,
-        )
+            viewModel.delete("first")
+            runCurrent()
 
-    private class EmptyGroups : ProxyGroupRepository {
+            assertEquals(listOf("first" to ProfileMutationOrigin.ExplicitDeletion), groups.deletions)
+            assertNull(viewModel.uiState.value.deleteFailedGroupId)
+        }
+
+    @Test
+    fun `failed delete reports the group and a retry clears it`() =
+        runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val groups = EmptyGroups(deleteFailure = IOException("controlled delete failure"))
+            val viewModel = newViewModel(groups) { SubscriptionRefreshResult.Updated(0) }
+            backgroundScope.launch { viewModel.uiState.collect {} }
+
+            viewModel.delete("first")
+            runCurrent()
+            assertEquals("first", viewModel.uiState.value.deleteFailedGroupId)
+
+            groups.deleteFailure = null
+            viewModel.delete("first")
+            runCurrent()
+            assertNull(viewModel.uiState.value.deleteFailedGroupId)
+            assertEquals(2, groups.deletions.size)
+        }
+
+    private fun newViewModel(
+        groups: ProxyGroupRepository = EmptyGroups(),
+        refresh: suspend (String) -> SubscriptionRefreshResult,
+    ) = SubscriptionStatusViewModel(
+        groups,
+        object : SubscriptionExpiryClock {
+            override fun nowMillis(): Long = 0
+
+            override fun ticks(): Flow<Long> = flowOf(0)
+        },
+        NoOpProfileMutationCoordinator,
+        refresh,
+    )
+
+    private class EmptyGroups(
+        var deleteFailure: Exception? = null,
+    ) : ProxyGroupRepository {
+        val deletions = mutableListOf<Pair<String, ProfileMutationOrigin>>()
+
         override suspend fun add(group: ProxyGroup) = Unit
 
         override suspend fun update(group: ProxyGroup) = Unit
@@ -138,7 +181,10 @@ class SubscriptionStatusViewModelTest {
         override suspend fun delete(
             preparation: ProfileMutationPreparation,
             id: String,
-        ) = Unit
+        ) {
+            deletions += id to preparation.origin
+            deleteFailure?.let { throw it }
+        }
 
         override suspend fun list(): List<ProxyGroup> = emptyList()
 

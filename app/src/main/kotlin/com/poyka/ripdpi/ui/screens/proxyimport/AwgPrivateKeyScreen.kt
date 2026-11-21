@@ -29,6 +29,7 @@ import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileUiState
 import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel
 import com.poyka.ripdpi.ui.screens.awg.AwgActivationStatus
 import com.poyka.ripdpi.ui.screens.awg.AwgConfImportFailure
+import com.poyka.ripdpi.ui.screens.awg.AwgDeleteProfileAction
 import com.poyka.ripdpi.ui.screens.awg.AwgEditorField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
@@ -71,6 +72,7 @@ fun AwgPrivateKeyRoute(
             viewModel.onVpnConsentResult(request.id, granted = false)
         }
     }
+    LifecycleEventEffect(viewModel.profileDeleted) { onBack() }
     LifecycleStartEffect(viewModel) { onStopOrDispose { viewModel.onSecretsRelocked() } }
     AwgPrivateKeyScreen(
         uiState = uiState,
@@ -79,6 +81,7 @@ fun AwgPrivateKeyRoute(
         onPasteConf = viewModel::onPasteConf,
         onRevealKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized, appPin),
         onConnect = viewModel::onConnect,
+        onDelete = viewModel::onDelete,
         modifier = modifier,
     )
 }
@@ -91,6 +94,7 @@ internal fun AwgPrivateKeyScreen(
     onPasteConf: () -> Unit,
     onRevealKey: () -> Unit,
     onConnect: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val connectFailed = uiState.activationStatus == AwgActivationStatus.Failed
@@ -111,6 +115,7 @@ internal fun AwgPrivateKeyScreen(
         hintRes =
             when {
                 connectFailed -> R.string.awg_connect_error
+                uiState.deleteFailed -> R.string.awg_delete_failed
                 uiState.subscriptionServerChanged -> R.string.awg_conf_subscription_server_mismatch_body
                 else -> null
             },
@@ -154,5 +159,6 @@ internal fun AwgPrivateKeyScreen(
                 testTag = RipDpiTestTags.AwgConfImportFailed,
             )
         }
+        if (uiState.savedProfile) AwgDeleteProfileAction(onDelete)
     }
 }

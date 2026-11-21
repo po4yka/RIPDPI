@@ -333,6 +333,7 @@ class ArabicLargeFontScreensTest {
                 onBack = {},
                 onToggleSecrets = {},
                 onRefresh = {},
+                onDelete = {},
                 onAddSubscription = {},
                 migrationContent = {},
             )
@@ -425,6 +426,7 @@ class ArabicLargeFontScreensTest {
                 onRevealHeaderProtectionKey = {},
                 onConfirmCohortReplacement = {},
                 onCancelCohortReplacement = {},
+                onDelete = {},
             )
         }
         composeRule.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsDisplayed()

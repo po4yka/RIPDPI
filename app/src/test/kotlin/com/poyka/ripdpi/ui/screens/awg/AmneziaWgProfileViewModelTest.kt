@@ -1,12 +1,15 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import app.cash.turbine.test
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -358,5 +361,45 @@ class AmneziaWgProfileViewModelTest {
                 vm.uiState.value.editor
                     .rawText(AwgEditorField.HEADER_PROTECTION_KEY),
             )
+        }
+
+    @Test
+    fun `deleting a saved profile removes it and closes the editor`() =
+        runTest {
+            val viewModel = fixture.viewModel()
+            fixture.fillRequiredIdentity(viewModel)
+            assertFalse(viewModel.uiState.value.savedProfile)
+            viewModel.onConnect()
+            advanceUntilIdle()
+            val id = checkNotNull(fixture.activator.lastActivated).profileId
+            assertTrue(viewModel.uiState.value.savedProfile)
+
+            viewModel.profileDeleted.test {
+                viewModel.onDelete()
+                awaitItem()
+            }
+
+            assertNull(fixture.repository.load(id))
+            assertFalse(viewModel.uiState.value.deleteFailed)
+        }
+
+    @Test
+    fun `a failed delete keeps the profile and the editor and reports the failure`() =
+        runTest {
+            val viewModel = fixture.viewModel()
+            fixture.fillRequiredIdentity(viewModel)
+            viewModel.onConnect()
+            advanceUntilIdle()
+            val id = checkNotNull(fixture.activator.lastActivated).profileId
+            fixture.dao.failReads = true
+
+            viewModel.profileDeleted.test {
+                viewModel.onDelete()
+                viewModel.uiState.first { it.deleteFailed }
+                expectNoEvents()
+            }
+
+            fixture.dao.failReads = false
+            assertNotNull(fixture.repository.load(id))
         }
 }

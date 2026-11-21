@@ -100,6 +100,7 @@ fun AmneziaWgProfileRoute(
             viewModel.onVpnConsentResult(request.id, granted = false)
         }
     }
+    LifecycleEventEffect(viewModel.profileDeleted) { onBack() }
     // Revealed secrets hide again when the app goes to the background or the screen closes.
     LifecycleStartEffect(viewModel) { onStopOrDispose { viewModel.onSecretsRelocked() } }
     val revealPrivateKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized, appPin)
@@ -118,6 +119,7 @@ fun AmneziaWgProfileRoute(
         onRevealPresharedKey = onRequestPresharedKeyReveal ?: revealPresharedKey,
         onRevealHeaderProtectionKey = revealHeaderProtectionKey,
         onConnect = viewModel::onConnect,
+        onDelete = viewModel::onDelete,
         modifier = modifier,
     )
 }
@@ -136,6 +138,7 @@ internal fun AmneziaWgProfileScreen(
     onRevealHeaderProtectionKey: () -> Unit,
     onConfirmCohortReplacement: () -> Unit,
     onCancelCohortReplacement: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (uiState.pendingCohortId != null) {
@@ -160,11 +163,12 @@ internal fun AmneziaWgProfileScreen(
         hintRes =
             when {
                 connectFailed -> R.string.awg_connect_error
+                uiState.deleteFailed -> R.string.awg_delete_failed
                 uiState.subscriptionServerChanged -> R.string.awg_conf_subscription_server_mismatch_body
                 uiState.canActivate -> R.string.awg_connect_ready_hint
                 else -> R.string.awg_connect_incomplete_hint
             },
-        hintIsError = connectFailed || uiState.subscriptionServerChanged,
+        hintIsError = connectFailed || uiState.deleteFailed || uiState.subscriptionServerChanged,
     ) {
         // A saved profile replaces the whole form when it loads, so nothing is shown to edit before then.
         if (uiState.loadingProfile) return@RelayEditorScaffold
@@ -187,6 +191,7 @@ internal fun AmneziaWgProfileScreen(
             onRevealPresharedKey = onRevealPresharedKey,
             onRevealHeaderProtectionKey = onRevealHeaderProtectionKey,
         )
+        if (uiState.savedProfile) AwgDeleteProfileAction(onDelete)
     }
 }
 

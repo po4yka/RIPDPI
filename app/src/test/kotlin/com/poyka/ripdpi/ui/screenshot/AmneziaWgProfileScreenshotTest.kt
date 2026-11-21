@@ -152,6 +152,7 @@ class AmneziaWgProfileScreenshotTest {
                 onRevealHeaderProtectionKey = {},
                 onConfirmCohortReplacement = {},
                 onCancelCohortReplacement = {},
+                onDelete = {},
             )
         }
     }

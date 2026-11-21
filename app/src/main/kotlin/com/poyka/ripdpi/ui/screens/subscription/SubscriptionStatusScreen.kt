@@ -7,6 +7,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -19,8 +22,12 @@ import com.poyka.ripdpi.data.subscription.ImportRejection
 import com.poyka.ripdpi.subscription.SubscriptionExpiryItemUiState
 import com.poyka.ripdpi.subscription.SubscriptionExpiryStatus
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.proxyimport.importRejectionText
@@ -66,6 +73,7 @@ fun SubscriptionStatusRoute(
         onBack = onBack,
         onToggleSecrets = viewModel::toggleSecrets,
         onRefresh = viewModel::refresh,
+        onDelete = viewModel::delete,
         onAddSubscription = onAddSubscription,
         migrationContent = { groupId ->
             migrations[groupId]?.let { state ->
@@ -86,11 +94,23 @@ internal fun SubscriptionStatusScreen(
     onBack: () -> Unit,
     onToggleSecrets: () -> Unit,
     onRefresh: (String) -> Unit,
+    onDelete: (String) -> Unit,
     onAddSubscription: () -> Unit,
     migrationContent: @Composable (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (uiState.secretsRevealed) SecureWindowEffect()
+    var pendingDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
+    uiState.summary.items.firstOrNull { it.groupId == pendingDeleteId }?.let { item ->
+        SubscriptionDeleteDialog(
+            groupName = item.groupName,
+            onConfirm = {
+                pendingDeleteId = null
+                onDelete(item.groupId)
+            },
+            onCancel = { pendingDeleteId = null },
+        )
+    }
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.subscription_status_title),
         navigationIcon = RipDpiIcons.Back,
@@ -127,6 +147,8 @@ internal fun SubscriptionStatusScreen(
                     refreshFailed = uiState.refreshFailedGroupId == item.groupId,
                     refreshRejection = uiState.refreshRejection,
                     onRefresh = { onRefresh(item.groupId) },
+                    deleteFailed = uiState.deleteFailedGroupId == item.groupId,
+                    onDelete = { pendingDeleteId = item.groupId },
                     migrationContent = { migrationContent(item.groupId) },
                 )
             }
@@ -142,6 +164,8 @@ private fun SubscriptionStatusCard(
     refreshFailed: Boolean,
     refreshRejection: ImportRejection?,
     onRefresh: () -> Unit,
+    deleteFailed: Boolean,
+    onDelete: () -> Unit,
     migrationContent: @Composable () -> Unit,
 ) {
     RipDpiCard {
@@ -217,7 +241,50 @@ private fun SubscriptionStatusCard(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+        SubscriptionDeleteAction(item.groupId, deleteFailed, onDelete)
     }
+}
+
+@Composable
+private fun SubscriptionDeleteAction(
+    groupId: String,
+    failed: Boolean,
+    onDelete: () -> Unit,
+) {
+    if (failed) {
+        Text(
+            stringResource(R.string.subscription_status_delete_failed),
+            style = RipDpiThemeTokens.type.body,
+            color = RipDpiThemeTokens.colors.destructive,
+        )
+    }
+    RipDpiButton(
+        text = stringResource(R.string.subscription_status_delete_action),
+        onClick = onDelete,
+        variant = RipDpiButtonVariant.Destructive,
+        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.subscriptionDelete(groupId)),
+    )
+}
+
+@Composable
+private fun SubscriptionDeleteDialog(
+    groupName: String,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onCancel,
+        title = stringResource(R.string.subscription_status_delete_title, groupName),
+        dismissAction = RipDpiDialogAction(stringResource(R.string.config_cancel), onCancel),
+        confirmAction =
+            RipDpiDialogAction(
+                stringResource(R.string.subscription_status_delete_action),
+                onConfirm,
+                testTag = RipDpiTestTags.SubscriptionDeleteConfirm,
+                destructive = true,
+            ),
+        visuals = RipDpiDialogVisuals(message = stringResource(R.string.subscription_status_delete_body)),
+    )
 }
 
 @Composable

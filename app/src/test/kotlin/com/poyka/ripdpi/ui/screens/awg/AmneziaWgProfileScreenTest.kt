@@ -522,6 +522,7 @@ private fun ScreenUnderTest(viewModel: AmneziaWgProfileViewModel) {
         onRevealHeaderProtectionKey = viewModel::onHeaderProtectionKeyRevealAuthorized,
         onConfirmCohortReplacement = viewModel::onCohortReplacementConfirmed,
         onCancelCohortReplacement = viewModel::onCohortReplacementCancelled,
+        onDelete = viewModel::onDelete,
     )
 }
 

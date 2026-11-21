@@ -132,6 +132,10 @@
     <string name="awg_cohort_replace_title">¿Reemplazar la configuración de ofuscación?</string>
     <string name="awg_cohort_replace_body">Este ajuste reemplaza toda la configuración de ofuscación y borra la clave de protección de cabeceras. Úselo solo si coincide con la configuración del servidor.</string>
     <string name="awg_cohort_replace_action">Reemplazar</string>
+    <string name="awg_delete_action">Eliminar perfil</string>
+    <string name="awg_delete_title">¿Eliminar este perfil?</string>
+    <string name="awg_delete_body">El perfil y sus claves se eliminarán de este dispositivo.</string>
+    <string name="awg_delete_failed">No se pudo eliminar el perfil. Inténtelo de nuevo.</string>
     <string name="awg_cohort_picker_label">Preajuste de cohorte</string>
     <string name="awg_cohort_custom">Personalizado</string>
     <string name="awg_cohort_locked_hint">Los campos de ofuscación los define la cohorte seleccionada. Elige \"Personalizado\" para editarlos.</string>
@@ -341,6 +345,10 @@
     <string name="subscription_status_refresh_format">Estado de actualización: %1$s</string>
     <string name="subscription_status_refresh_ready">Listo</string>
     <string name="subscription_status_refresh_failed">Falló la actualización</string>
+    <string name="subscription_status_delete_action">Eliminar</string>
+    <string name="subscription_status_delete_title">¿Eliminar «%1$s»?</string>
+    <string name="subscription_status_delete_body">Esta suscripción y sus perfiles se eliminarán de este dispositivo.</string>
+    <string name="subscription_status_delete_failed">No se pudo eliminar</string>
     <string name="subscription_status_url_format">URL de suscripción: %1$s</string>
     <string name="subscription_status_token_format">Token: %1$s</string>
     <string name="subscription_home_expiring_title">La suscripción caduca pronto</string>

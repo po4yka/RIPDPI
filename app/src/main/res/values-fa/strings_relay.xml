@@ -132,6 +132,10 @@
     <string name="awg_cohort_replace_title">تنظیمات مبهم‌سازی جایگزین شود؟</string>
     <string name="awg_cohort_replace_body">این پیش‌تنظیم تمام تنظیمات مبهم‌سازی را جایگزین و کلید محافظت از سربرگ را پاک می‌کند. فقط در صورت تطابق با تنظیمات سرور از آن استفاده کنید.</string>
     <string name="awg_cohort_replace_action">جایگزینی</string>
+    <string name="awg_delete_action">حذف نمایه</string>
+    <string name="awg_delete_title">این نمایه حذف شود؟</string>
+    <string name="awg_delete_body">نمایه و کلیدهای آن از این دستگاه حذف می‌شوند.</string>
+    <string name="awg_delete_failed">حذف نمایه ممکن نشد. دوباره تلاش کنید.</string>
     <string name="awg_cohort_picker_label">پیش‌تنظیم گروه</string>
     <string name="awg_cohort_custom">سفارشی</string>
     <string name="awg_cohort_locked_hint">فیلدهای مبهم‌سازی توسط گروه برگزیده تعیین می‌شوند. برای ویرایش آن‌ها «سفارشی» را برگزینید.</string>
@@ -341,6 +345,10 @@
     <string name="subscription_status_refresh_format">وضعیت تازه‌سازی: %1$s</string>
     <string name="subscription_status_refresh_ready">آماده</string>
     <string name="subscription_status_refresh_failed">تازه‌سازی ناموفق بود</string>
+    <string name="subscription_status_delete_action">حذف</string>
+    <string name="subscription_status_delete_title">«%1$s» حذف شود؟</string>
+    <string name="subscription_status_delete_body">این اشتراک و نمایه‌های آن از این دستگاه حذف می‌شوند.</string>
+    <string name="subscription_status_delete_failed">حذف ناموفق بود</string>
     <string name="subscription_status_url_format">نشانی اشتراک: %1$s</string>
     <string name="subscription_status_token_format">توکن: %1$s</string>
     <string name="subscription_home_expiring_title">اشتراک به‌زودی منقضی می‌شود</string>

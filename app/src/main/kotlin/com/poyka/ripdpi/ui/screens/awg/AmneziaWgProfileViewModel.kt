@@ -91,6 +91,10 @@ data class AmneziaWgProfileUiState(
     val subscriptionServerChanged: Boolean = false,
     /** A saved profile is loading; the form stays hidden so nothing typed can be lost or merged. */
     val loadingProfile: Boolean = false,
+    /** The editor is bound to a stored profile, so it can be deleted. */
+    val savedProfile: Boolean = false,
+    /** The last delete failed; the next edit clears it. */
+    val deleteFailed: Boolean = false,
 )
 
 /**
@@ -134,6 +138,10 @@ class AmneziaWgProfileViewModel
         private var pendingConsent: Pair<String, AmneziaWgEditorState>? = null
         private val consentRequests = Channel<AwgVpnConsentRequest>(Channel.BUFFERED)
         val vpnConsentRequests = consentRequests.receiveAsFlow()
+        private val deletions = Channel<Unit>(Channel.BUFFERED)
+
+        /** Emits once the bound profile is deleted, so the screen can close. */
+        val profileDeleted = deletions.receiveAsFlow()
 
         private val _uiState =
             MutableStateFlow(
@@ -295,7 +303,28 @@ class AmneziaWgProfileViewModel
             savedProfileName = saved.name
             subscriptionServer = saved.request.takeIf { saved.subscriptionOwned }?.serverIdentity()
             val editor = saved.request.toEditorState().copy(subscriptionOwned = saved.subscriptionOwned)
-            _uiState.update { it.withEditor(editor).copy(loadingProfile = false) }
+            _uiState.update { it.withEditor(editor).copy(loadingProfile = false, savedProfile = true) }
+        }
+
+        /** Deletes the bound saved profile; a failure keeps the editor open and reports it. */
+        fun onDelete() {
+            val id = savedProfileId ?: return
+            val state = _uiState.value
+            if (state.loadingProfile || state.activationStatus == AwgActivationStatus.Connecting) return
+            _uiState.update { it.copy(deleteFailed = false) }
+            viewModelScope.launch {
+                try {
+                    profileRepository.delete(id)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: Exception) {
+                    _uiState.update { it.copy(deleteFailed = true) }
+                    return@launch
+                }
+                savedProfileId = null
+                _uiState.update { it.copy(savedProfile = false) }
+                deletions.send(Unit)
+            }
         }
 
         /** Reads the clipboard only in response to the editor's explicit Paste action. */
@@ -385,22 +414,16 @@ class AmneziaWgProfileViewModel
             }
             val draft = editor.toActivationRequest(profileId = "")
             draft.requireRuntimeReady()
-            val stableId = profileRepository.save(profileName(editor), draft, existingId = savedProfileId)
+            val stableId =
+                profileRepository.save(
+                    profileName(savedProfileName, editor),
+                    draft,
+                    existingId = savedProfileId,
+                )
             savedProfileId = stableId
+            _uiState.update { it.copy(savedProfile = true) }
             amneziaWgActivator.activate(draft.copy(profileId = stableId))
             _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
-        }
-
-        /**
-         * A non-sensitive display label for the saved profile, derived from the cohort id
-         * (server-coordinated, not user-private) rather than the endpoint host. The
-         * endpoint host is intentionally NOT used as the name so it never surfaces in a
-         * profile-list UI label; it lives only inside the serialized blob as user config.
-         */
-        private fun profileName(editor: AmneziaWgEditorState): String {
-            savedProfileName?.let { return it }
-            val cohort = editor.form.cohortId
-            return if (cohort == AwgProfileForm.CUSTOM_COHORT_ID) "AmneziaWG" else "AmneziaWG ($cohort)"
         }
 
         /** Reveals the private-key field after the biometric gate authorizes it. */
@@ -425,6 +448,21 @@ class AmneziaWgProfileViewModel
         }
     }
 
+/**
+ * A non-sensitive display label for the saved profile, derived from the cohort id
+ * (server-coordinated, not user-private) rather than the endpoint host. The
+ * endpoint host is intentionally NOT used as the name so it never surfaces in a
+ * profile-list UI label; it lives only inside the serialized blob as user config.
+ */
+private fun profileName(
+    savedName: String?,
+    editor: AmneziaWgEditorState,
+): String {
+    savedName?.let { return it }
+    val cohort = editor.form.cohortId
+    return if (cohort == AwgProfileForm.CUSTOM_COHORT_ID) "AmneziaWG" else "AmneziaWG ($cohort)"
+}
+
 /** Replaces the editor and clears the stale failure flags that described the previous input. */
 private fun AmneziaWgProfileUiState.withEditor(nextEditor: AmneziaWgEditorState): AmneziaWgProfileUiState =
     copy(
@@ -433,6 +471,7 @@ private fun AmneziaWgProfileUiState.withEditor(nextEditor: AmneziaWgEditorState)
         canActivate = nextEditor.isActivatable(),
         confImportFailure = null,
         subscriptionServerChanged = false,
+        deleteFailed = false,
         activationStatus =
             if (activationStatus == AwgActivationStatus.Failed) AwgActivationStatus.Idle else activationStatus,
     )

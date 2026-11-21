@@ -295,6 +295,10 @@ app:awg_connect_action
 app:awg_connect_error
 app:awg_connect_incomplete_hint
 app:awg_connect_ready_hint
+app:awg_delete_action
+app:awg_delete_body
+app:awg_delete_failed
+app:awg_delete_title
 app:awg_editor_title
 app:awg_field_address
 app:awg_field_allowed_ips
@@ -4967,6 +4971,10 @@ app:subscription_signal_notification_title
 app:subscription_signal_notification_unavailable
 app:subscription_status_active
 app:subscription_status_credential_expiry_format
+app:subscription_status_delete_action
+app:subscription_status_delete_body
+app:subscription_status_delete_failed
+app:subscription_status_delete_title
 app:subscription_status_empty_body
 app:subscription_status_empty_title
 app:subscription_status_expired
