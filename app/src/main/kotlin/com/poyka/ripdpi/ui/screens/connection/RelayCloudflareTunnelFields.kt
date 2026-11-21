@@ -12,6 +12,8 @@ import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayUrlField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -61,14 +63,14 @@ private fun CloudflareLocalOriginFields(
     uiState: ConnectionUiState,
     actions: RelayVlessActions,
 ) {
-    RipDpiTextField(
-        value = draft.relayCloudflarePublishLocalOriginUrl,
-        onValueChange = actions.onRelayCloudflarePublishLocalOriginUrlChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
+    RelayUrlField(
+        field =
+            RelayValueField(
                 label = stringResource(R.string.relay_cloudflare_local_origin_url_label),
                 errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayCloudflarePublishOrigin]),
             ),
+        value = draft.relayCloudflarePublishLocalOriginUrl,
+        onValueChange = actions.onRelayCloudflarePublishLocalOriginUrlChanged,
     )
     RipDpiTextField(
         value = draft.relayCloudflareCredentialsRef,

@@ -11,6 +11,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayUrlField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 
 @Composable
 internal fun MasqueRelayFields(
@@ -18,10 +20,10 @@ internal fun MasqueRelayFields(
     uiState: ConnectionUiState,
     actions: RelayMasqueActions,
 ) {
-    RipDpiTextField(
+    RelayUrlField(
+        field = RelayValueField(label = stringResource(R.string.config_relay_masque_url)),
         value = draft.relayMasqueUrl,
         onValueChange = actions.onRelayMasqueUrlChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_masque_url)),
     )
     RipDpiTextField(
         value = draft.relayMasqueRootCertificatePem,

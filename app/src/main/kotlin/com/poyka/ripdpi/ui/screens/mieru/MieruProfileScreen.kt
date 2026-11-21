@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -186,12 +185,11 @@ private fun TransportSection(
             onValueSelected = onMultiplexingSelected,
             label = stringResource(R.string.mieru_field_multiplexing),
         )
-        fields.Text(
+        fields.Number(
             MieruEditorField.MTU,
             R.string.mieru_field_mtu,
-            keyboardType = KeyboardType.Number,
+            range = RelayMieruMtuMin..RelayMieruMtuMax,
             placeholder = RelayMieruMtuDefault.toString(),
-            helperText = stringResource(R.string.relay_editor_range_helper, RelayMieruMtuMin, RelayMieruMtuMax),
         )
     }
 }

@@ -92,7 +92,7 @@ internal fun AnyTlsProfileScreen(
         }
         RipDpiCard {
             RipDpiPanelHeader(title = stringResource(R.string.anytls_section_tls))
-            fields.Text(AnyTlsEditorField.SNI, R.string.anytls_field_sni)
+            fields.Host(AnyTlsEditorField.SNI, R.string.anytls_field_sni)
         }
     }
 }

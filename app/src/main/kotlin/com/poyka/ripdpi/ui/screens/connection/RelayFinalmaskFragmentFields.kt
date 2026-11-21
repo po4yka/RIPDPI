@@ -1,13 +1,10 @@
 package com.poyka.ripdpi.ui.screens.connection
 
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayNumberField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 
 @Composable
 internal fun RelayFinalmaskFragmentFields(
@@ -15,37 +12,23 @@ internal fun RelayFinalmaskFragmentFields(
     uiState: ConnectionUiState,
     actions: RelayFinalmaskActions,
 ) {
-    RipDpiTextField(
-        value = draft.relayFinalmaskFragmentPackets,
-        onValueChange = actions.onRelayFinalmaskFragmentPacketsChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
+    RelayNumberField(
+        field =
+            RelayValueField(
                 label = stringResource(R.string.relay_finalmask_fragment_packets_label),
                 errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayFinalmask]),
             ),
-        behavior = finalmaskNumericTextFieldBehavior(),
+        value = draft.relayFinalmaskFragmentPackets,
+        onValueChange = actions.onRelayFinalmaskFragmentPacketsChanged,
     )
-    RipDpiTextField(
+    RelayNumberField(
+        field = RelayValueField(label = stringResource(R.string.relay_finalmask_fragment_min_bytes_label)),
         value = draft.relayFinalmaskFragmentMinBytes,
         onValueChange = actions.onRelayFinalmaskFragmentMinBytesChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(R.string.relay_finalmask_fragment_min_bytes_label),
-            ),
-        behavior = finalmaskNumericTextFieldBehavior(),
     )
-    RipDpiTextField(
+    RelayNumberField(
+        field = RelayValueField(label = stringResource(R.string.relay_finalmask_fragment_max_bytes_label)),
         value = draft.relayFinalmaskFragmentMaxBytes,
         onValueChange = actions.onRelayFinalmaskFragmentMaxBytesChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(R.string.relay_finalmask_fragment_max_bytes_label),
-            ),
-        behavior = finalmaskNumericTextFieldBehavior(),
     )
 }
-
-private fun finalmaskNumericTextFieldBehavior(): RipDpiTextFieldBehavior =
-    RipDpiTextFieldBehavior(
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-    )

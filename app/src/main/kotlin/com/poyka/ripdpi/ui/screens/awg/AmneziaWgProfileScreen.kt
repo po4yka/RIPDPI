@@ -7,7 +7,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -16,7 +15,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,8 +40,12 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayHostField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayNumberField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPortField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelaySecretField
-import com.poyka.ripdpi.ui.screens.relayeditor.relayPortRangeHelper
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayUrlField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -293,8 +295,6 @@ private fun InterfaceSection(
             R.string.awg_field_server_port,
             editor,
             onFieldChanged,
-            keyboardType = KeyboardType.Number,
-            helperText = relayPortRangeHelper(),
         )
         PlainField(
             AwgEditorField.ADDRESS,
@@ -315,7 +315,6 @@ private fun InterfaceSection(
             R.string.awg_field_mtu,
             editor,
             onFieldChanged,
-            keyboardType = KeyboardType.Number,
             placeholder = AwgActivationRequest.DEFAULT_MTU.toString(),
         )
     }
@@ -361,7 +360,6 @@ private fun PeerSection(
             R.string.awg_field_persistent_keepalive,
             editor,
             onFieldChanged,
-            keyboardType = KeyboardType.Number,
             placeholder = stringResource(R.string.awg_keepalive_placeholder),
             helperText = stringResource(R.string.awg_keepalive_helper),
         )
@@ -443,14 +441,11 @@ private fun ObfuscationFields(
     val spacing = RipDpiThemeTokens.spacing
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         obfuscationFields.forEach { (field, labelRes) ->
-            // Headers accept ranges; signatures accept tag programs.
-            val isTextField = field.name.startsWith("I") || field.name.startsWith("H")
             PlainField(
                 field = field,
                 labelRes = labelRes,
                 editor = editor,
                 onFieldChanged = onFieldChanged,
-                keyboardType = if (isTextField) KeyboardType.Text else KeyboardType.Number,
                 enabled = !editor.obfuscationLocked,
             )
         }
@@ -463,56 +458,94 @@ internal fun PlainField(
     labelRes: Int,
     editor: AmneziaWgEditorState,
     onFieldChanged: (AwgEditorField, String) -> Unit,
-    keyboardType: KeyboardType = KeyboardType.Text,
     placeholder: String? = null,
     helperText: String? = null,
     enabled: Boolean = true,
 ) {
     val hasError = editor.hasFieldError(field)
     val conflict = editor.conflictingField(field)
-    RipDpiTextField(
-        value = editor.rawText(field),
-        onValueChange = { onFieldChanged(field, it) },
-        modifier = Modifier.fillMaxWidth(),
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(labelRes),
-                placeholder = placeholder,
-                helperText = helperText,
-                errorText =
-                    when {
-                        conflict != null -> {
-                            stringResource(
-                                R.string.config_error_conflicts_with,
-                                stringResource(awgFieldLabel(conflict)),
-                            )
-                        }
+    val valueField =
+        RelayValueField(
+            label = stringResource(labelRes),
+            placeholder = placeholder,
+            helperText = helperText,
+            errorText =
+                when {
+                    conflict != null -> {
+                        stringResource(R.string.config_error_conflicts_with, stringResource(awgFieldLabel(conflict)))
+                    }
 
-                        editor.hasHeaderProtectionPrefixError(field) -> {
-                            stringResource(
-                                R.string.awg_hp_prefix_min,
-                                field.name,
-                                AmneziaWgV3Parameters.HeaderNonceBytes,
-                            )
-                        }
+                    editor.hasHeaderProtectionPrefixError(field) -> {
+                        stringResource(
+                            R.string.awg_hp_prefix_min,
+                            field.name,
+                            AmneziaWgV3Parameters.HeaderNonceBytes,
+                        )
+                    }
 
-                        hasError -> {
-                            stringResource(R.string.awg_field_invalid)
-                        }
+                    hasError -> {
+                        stringResource(R.string.awg_field_invalid)
+                    }
 
-                        else -> {
-                            null
-                        }
-                    },
-                testTag = RipDpiTestTags.awgField(field.name),
-            ),
-        behavior =
-            RipDpiTextFieldBehavior(
-                enabled = enabled,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            ),
-    )
+                    else -> {
+                        null
+                    }
+                },
+            testTag = RipDpiTestTags.awgField(field.name),
+            enabled = enabled,
+        )
+    val value = editor.rawText(field)
+    val onValueChange: (String) -> Unit = { onFieldChanged(field, it) }
+    when (field) {
+        AwgEditorField.SERVER -> {
+            RelayHostField(valueField, value, onValueChange)
+        }
+
+        AwgEditorField.SERVER_PORT -> {
+            RelayPortField(valueField, value, onValueChange)
+        }
+
+        AwgEditorField.CARRIER_WS_URL -> {
+            RelayUrlField(valueField, value, onValueChange)
+        }
+
+        in AwgNumberFields -> {
+            RelayNumberField(valueField, value, onValueChange)
+        }
+
+        // Addresses, keys, routes, header ranges and signature programs are free text.
+        else -> {
+            RipDpiTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = valueField.label,
+                        placeholder = placeholder,
+                        helperText = helperText,
+                        errorText = valueField.errorText,
+                        testTag = valueField.testTag,
+                    ),
+                behavior = RipDpiTextFieldBehavior(enabled = enabled),
+            )
+        }
+    }
 }
+
+/** Fields that hold one whole number; the editor state owns their range checks. */
+private val AwgNumberFields =
+    setOf(
+        AwgEditorField.MTU,
+        AwgEditorField.PERSISTENT_KEEPALIVE,
+        AwgEditorField.JC,
+        AwgEditorField.JMIN,
+        AwgEditorField.JMAX,
+        AwgEditorField.S1,
+        AwgEditorField.S2,
+        AwgEditorField.S3,
+        AwgEditorField.S4,
+    )
 
 /** Labels of the fields another field can conflict with. */
 private fun awgFieldLabel(field: AwgEditorField): Int =

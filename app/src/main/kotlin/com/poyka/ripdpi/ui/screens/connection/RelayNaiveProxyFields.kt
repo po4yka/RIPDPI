@@ -13,7 +13,9 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayNumberField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayPasswordField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 
 @Composable
 internal fun NaiveProxyRelayFields(
@@ -99,20 +101,15 @@ private fun NaiveProxyTransportFields(
         label = stringResource(R.string.config_relay_naive_quic),
         helperText = stringResource(R.string.config_relay_naive_quic_helper),
     )
-    RipDpiTextField(
-        value = draft.relayNaiveConcurrency,
-        onValueChange = actions.onRelayNaiveConcurrencyChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
+    RelayNumberField(
+        field =
+            RelayValueField(
                 label = stringResource(R.string.config_relay_naive_concurrency),
                 helperText = stringResource(R.string.config_relay_naive_concurrency_helper),
                 errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayNaiveConcurrency]),
             ),
-        behavior =
-            RipDpiTextFieldBehavior(
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            ),
+        value = draft.relayNaiveConcurrency,
+        onValueChange = actions.onRelayNaiveConcurrencyChanged,
     )
     RipDpiButton(
         text = stringResource(R.string.config_relay_naive_check),

@@ -4,11 +4,9 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiTopBarAction
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -103,7 +101,6 @@ internal class RelayFieldBinding<F : Enum<F>>(
     fun Text(
         field: F,
         @StringRes labelRes: Int,
-        keyboardType: KeyboardType = KeyboardType.Text,
         placeholder: String? = null,
         helperText: String? = null,
         readOnly: Boolean = false,
@@ -122,11 +119,43 @@ internal class RelayFieldBinding<F : Enum<F>>(
                 ),
             behavior =
                 RipDpiTextFieldBehavior(
-                    keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                     readOnly = readOnly,
                 ),
         )
     }
+
+    /** A host name or address field. */
+    @Composable
+    fun Host(
+        field: F,
+        @StringRes labelRes: Int,
+    ) {
+        RelayHostField(valueField(field, labelRes), rawText(field)) { onChanged(field, it) }
+    }
+
+    /** A whole-number field; [range] bounds it and shows the bounds. */
+    @Composable
+    fun Number(
+        field: F,
+        @StringRes labelRes: Int,
+        range: IntRange? = null,
+        placeholder: String? = null,
+    ) {
+        RelayNumberField(valueField(field, labelRes).copy(placeholder = placeholder), rawText(field), {
+            onChanged(field, it)
+        }, range)
+    }
+
+    @Composable
+    private fun valueField(
+        field: F,
+        @StringRes labelRes: Int,
+    ): RelayValueField =
+        RelayValueField(
+            label = stringResource(labelRes),
+            errorText = stringResource(invalidRes).takeIf { hasError(field) },
+            testTag = RipDpiTestTags.relayEditorField(kind, field.name),
+        )
 
     @Composable
     fun Password(
@@ -157,8 +186,8 @@ internal class RelayFieldBinding<F : Enum<F>>(
         RipDpiCard {
             RipDpiPanelHeader(title = stringResource(titleRes))
             Text(name, nameRes, readOnly = nameReadOnly)
-            Text(server, serverRes)
-            Text(port, portRes, keyboardType = KeyboardType.Number, helperText = relayPortRangeHelper())
+            Host(server, serverRes)
+            Number(port, portRes, RelayPortRange)
         }
     }
 }

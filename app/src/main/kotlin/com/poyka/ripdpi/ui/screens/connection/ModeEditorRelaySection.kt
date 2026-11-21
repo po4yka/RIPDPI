@@ -6,13 +6,11 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindAnyTls
@@ -40,6 +38,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPortField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -360,22 +360,15 @@ private fun ModeEditorRelayLocalPortField(
     uiState: ConnectionUiState,
     actions: ModeEditorActions,
 ) {
-    RipDpiTextField(
-        value = draft.relayLocalSocksPort,
-        onValueChange = actions.onRelayLocalSocksPortChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
+    RelayPortField(
+        field =
+            RelayValueField(
                 label = stringResource(R.string.config_relay_local_port),
                 helperText = stringResource(R.string.config_relay_local_port_helper),
-                errorText =
-                    validationMessage(
-                        uiState.validationErrors[ConnectionFieldRelayLocalSocksPort],
-                    ),
+                errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayLocalSocksPort]),
             ),
-        behavior =
-            RipDpiTextFieldBehavior(
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            ),
+        value = draft.relayLocalSocksPort,
+        onValueChange = actions.onRelayLocalSocksPortChanged,
     )
 }
 

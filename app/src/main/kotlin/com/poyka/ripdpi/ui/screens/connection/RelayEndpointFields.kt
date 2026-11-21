@@ -1,13 +1,11 @@
 package com.poyka.ripdpi.ui.screens.connection
 
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayHostField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayPortField
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 
 @Composable
 internal fun RelayEndpointFields(
@@ -15,37 +13,31 @@ internal fun RelayEndpointFields(
     uiState: ConnectionUiState,
     actions: RelayEndpointActions,
 ) {
-    RipDpiTextField(
-        value = draft.relayServer,
-        onValueChange = actions.onRelayServerChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
+    RelayHostField(
+        field =
+            RelayValueField(
                 label = stringResource(R.string.config_relay_server),
                 errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayServer]),
             ),
+        value = draft.relayServer,
+        onValueChange = actions.onRelayServerChanged,
     )
-    RipDpiTextField(
-        value = draft.relayServerPort,
-        onValueChange = actions.onRelayServerPortChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
+    RelayPortField(
+        field =
+            RelayValueField(
                 label = stringResource(R.string.config_relay_server_port),
                 errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayServerPort]),
             ),
-        behavior = numericTextFieldBehavior(),
+        value = draft.relayServerPort,
+        onValueChange = actions.onRelayServerPortChanged,
     )
-    RipDpiTextField(
-        value = draft.relayServerName,
-        onValueChange = actions.onRelayServerNameChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
+    RelayHostField(
+        field =
+            RelayValueField(
                 label = stringResource(R.string.config_relay_server_name),
                 errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayServerName]),
             ),
+        value = draft.relayServerName,
+        onValueChange = actions.onRelayServerNameChanged,
     )
 }
-
-internal fun numericTextFieldBehavior(): RipDpiTextFieldBehavior =
-    RipDpiTextFieldBehavior(
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-    )
