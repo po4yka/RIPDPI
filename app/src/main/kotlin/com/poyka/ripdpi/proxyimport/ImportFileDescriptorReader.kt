@@ -18,8 +18,9 @@ private const val ImportDeadlineWorkers = 2
 internal fun readImportDescriptor(
     asset: AssetFileDescriptor,
     deadlineNanos: Long,
-    cancelled: () -> Boolean,
     maxBytes: Int = MaxImportFileBytes,
+    // Last, so callers can pass it as a trailing lambda.
+    cancelled: () -> Boolean,
 ): String? {
     val length = asset.declaredLength
     if (length > maxBytes || cancelled()) return null

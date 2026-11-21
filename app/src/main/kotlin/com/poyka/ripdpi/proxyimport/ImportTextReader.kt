@@ -86,7 +86,7 @@ private class ImportReadRequest(
             runCatching {
                 if (cancelled.get() || System.nanoTime() >= deadlineNanos) return@runCatching null
                 resolver.openAssetFileDescriptor(uri, "r", cancellationSignal)?.use { descriptor ->
-                    readImportDescriptor(descriptor, deadlineNanos, cancelled::get, maxBytes)
+                    readImportDescriptor(descriptor, deadlineNanos, maxBytes, cancelled::get)
                 }
             }.getOrNull()
         complete(text)
