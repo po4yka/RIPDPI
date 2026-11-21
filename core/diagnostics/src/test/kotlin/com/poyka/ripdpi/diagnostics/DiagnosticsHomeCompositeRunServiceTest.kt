@@ -910,91 +910,95 @@ class DiagnosticsHomeCompositeRunServiceTest {
         }
 
     @Test
-    fun `network change during run appends warning to summary`() =
+    fun `network change during run, or an audit measured on another network, appends warning to summary`() =
         runTest {
-            val stores = FakeDiagnosticsHistoryStores()
-            val timelineSource = MutableDiagnosticsTimelineSource()
-            val monitor = ControllableNetworkHandoverMonitor()
+            for ((handover, auditOnAnotherNetwork) in listOf(true to false, false to true)) {
+                val stores = FakeDiagnosticsHistoryStores()
+                val timelineSource = MutableDiagnosticsTimelineSource()
+                val monitor = ControllableNetworkHandoverMonitor()
 
-            val scanController =
-                RecordingHomeCompositeScanController(
-                    timelineSource = timelineSource,
-                    onStart = { _, profileId, sessionId ->
-                        if (profileId == "default") {
-                            monitor.emit(cellularNetworkHandoverEvent())
-                        }
-                        val session =
-                            diagnosticsSession(
-                                id = sessionId,
-                                profileId = requireNotNull(profileId),
-                                pathMode = ScanPathMode.RAW_PATH.name,
-                                summary = "$profileId complete",
+                val scanController =
+                    RecordingHomeCompositeScanController(
+                        timelineSource = timelineSource,
+                        onStart = { _, profileId, sessionId ->
+                            if (handover && profileId == "default") {
+                                monitor.emit(cellularNetworkHandoverEvent())
+                            }
+                            val session =
+                                diagnosticsSession(
+                                    id = sessionId,
+                                    profileId = requireNotNull(profileId),
+                                    pathMode = ScanPathMode.RAW_PATH.name,
+                                    summary = "$profileId complete",
+                                )
+                            stores.sessionsState.value = stores.sessionsState.value + session
+                            timelineSource.sessions.value =
+                                timelineSource.sessions.value + diagnosticScanSession(sessionId, profileId, "completed")
+                        },
+                    )
+                val workflowService =
+                    object : DiagnosticsHomeWorkflowService {
+                        override suspend fun currentFingerprintHash(): String = "fp-net"
+
+                        override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
+                            DiagnosticsHomeAuditOutcome(
+                                sessionId = sessionId,
+                                fingerprintHash = "fp-net",
+                                actionable = false,
+                                headline = "Analysis complete",
+                                summary = "No reusable settings found.",
+                                networkChanged = auditOnAnotherNetwork,
                             )
-                        stores.sessionsState.value = stores.sessionsState.value + session
-                        timelineSource.sessions.value =
-                            timelineSource.sessions.value + diagnosticScanSession(sessionId, profileId, "completed")
-                    },
+
+                        override suspend fun summarizeVerification(
+                            sessionId: String,
+                        ): DiagnosticsHomeVerificationOutcome = error("unused")
+                    }
+                val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+                val service =
+                    DefaultDiagnosticsHomeCompositeRunService(
+                        detectionStageRunner = NoopHomeDetectionStageRunner,
+                        detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                        analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                        networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                        diagnosticsProfileCatalog = stores,
+                        diagnosticsHomeWorkflowService = workflowService,
+                        persistencePorts =
+                            HomeCompositePersistencePorts(
+                                scanRecordStore = stores,
+                                comparisonScanCoordinator = ComparisonScanCoordinator(),
+                                homeRunPersistence =
+                                    HomeDiagnosticsRunPersistence(
+                                        stores,
+                                        TestDiagnosticsHistoryClock(),
+                                        diagnosticsTestJson(),
+                                    ),
+                                probeResultCache = NoOpProbeResultCache(),
+                            ),
+                        networkHandoverMonitor = monitor,
+                        networkScopeFactory = stableHomeNetworkScopeFactory(),
+                        serviceStateStore = serviceStateStore,
+                        vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
+                        stageExecutor =
+                            HomeCompositeStageExecutor(
+                                diagnosticsScanController = scanController,
+                                diagnosticsTimelineSource = timelineSource,
+                                serviceStateStore = serviceStateStore,
+                                homeRunLease = DiagnosticsHomeRunLease(),
+                            ),
+                        json = diagnosticsTestJson(),
+                        scope = backgroundScope,
+                    )
+
+                val started = service.startHomeAnalysis()
+                advanceUntilIdle()
+                val outcome = service.finalizeHomeRun(started.runId)
+
+                assertTrue(
+                    "Expected summary to mention network change, got: ${outcome.summary}",
+                    outcome.summary.contains("Network changed during analysis"),
                 )
-            val workflowService =
-                object : DiagnosticsHomeWorkflowService {
-                    override suspend fun currentFingerprintHash(): String = "fp-net"
-
-                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
-                        DiagnosticsHomeAuditOutcome(
-                            sessionId = sessionId,
-                            fingerprintHash = "fp-net",
-                            actionable = false,
-                            headline = "Analysis complete",
-                            summary = "No reusable settings found.",
-                        )
-
-                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
-                        error("unused")
-                }
-            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
-            val service =
-                DefaultDiagnosticsHomeCompositeRunService(
-                    detectionStageRunner = NoopHomeDetectionStageRunner,
-                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
-                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
-                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
-                    diagnosticsProfileCatalog = stores,
-                    diagnosticsHomeWorkflowService = workflowService,
-                    persistencePorts =
-                        HomeCompositePersistencePorts(
-                            scanRecordStore = stores,
-                            comparisonScanCoordinator = ComparisonScanCoordinator(),
-                            homeRunPersistence =
-                                HomeDiagnosticsRunPersistence(
-                                    stores,
-                                    TestDiagnosticsHistoryClock(),
-                                    diagnosticsTestJson(),
-                                ),
-                            probeResultCache = NoOpProbeResultCache(),
-                        ),
-                    networkHandoverMonitor = monitor,
-                    networkScopeFactory = stableHomeNetworkScopeFactory(),
-                    serviceStateStore = serviceStateStore,
-                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
-                    stageExecutor =
-                        HomeCompositeStageExecutor(
-                            diagnosticsScanController = scanController,
-                            diagnosticsTimelineSource = timelineSource,
-                            serviceStateStore = serviceStateStore,
-                            homeRunLease = DiagnosticsHomeRunLease(),
-                        ),
-                    json = diagnosticsTestJson(),
-                    scope = backgroundScope,
-                )
-
-            val started = service.startHomeAnalysis()
-            advanceUntilIdle()
-            val outcome = service.finalizeHomeRun(started.runId)
-
-            assertTrue(
-                "Expected summary to mention network change, got: ${outcome.summary}",
-                outcome.summary.contains("Network changed during analysis"),
-            )
+            }
         }
 
     @Test

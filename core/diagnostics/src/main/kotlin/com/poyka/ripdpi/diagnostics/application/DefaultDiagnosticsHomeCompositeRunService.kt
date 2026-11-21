@@ -711,7 +711,9 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     auditOutcome = auditOutcome,
                     coverageNote = coverageNote,
                     dnsIssuesDetected = dnsIssuesDetected,
-                    networkChanged = networkChanged,
+                    // The audit applies nothing when its session was measured on another or an unknown network;
+                    // both the full and the Quick scan run report that through the same flag.
+                    networkChanged = networkChanged || auditOutcome?.networkChanged == true,
                     networkScope = networkScope,
                     detectionResult = detectionResult,
                     previousOutcome = previousOutcome,
