@@ -14,6 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -103,7 +107,7 @@ internal fun SubscriptionStatusScreen(
     var pendingDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
     uiState.summary.items.firstOrNull { it.groupId == pendingDeleteId }?.let { item ->
         SubscriptionDeleteDialog(
-            groupName = item.groupName,
+            groupName = item.groupName.takeUnless { item.groupId in uiState.addressNamedGroupIds },
             onConfirm = {
                 pendingDeleteId = null
                 onDelete(item.groupId)
@@ -147,7 +151,7 @@ internal fun SubscriptionStatusScreen(
                     refreshFailed = uiState.refreshFailedGroupId == item.groupId,
                     refreshRejection = uiState.refreshRejection,
                     onRefresh = { onRefresh(item.groupId) },
-                    deleteFailed = uiState.deleteFailedGroupId == item.groupId,
+                    deleteStatus = uiState.deleteStatus(item.groupId),
                     onDelete = { pendingDeleteId = item.groupId },
                     migrationContent = { migrationContent(item.groupId) },
                 )
@@ -164,7 +168,7 @@ private fun SubscriptionStatusCard(
     refreshFailed: Boolean,
     refreshRejection: ImportRejection?,
     onRefresh: () -> Unit,
-    deleteFailed: Boolean,
+    deleteStatus: SubscriptionDeleteStatus,
     onDelete: () -> Unit,
     migrationContent: @Composable () -> Unit,
 ) {
@@ -241,40 +245,64 @@ private fun SubscriptionStatusCard(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        SubscriptionDeleteAction(item.groupId, deleteFailed, onDelete)
+        SubscriptionDeleteAction(item.groupId, deleteStatus, onDelete)
     }
 }
+
+/** One status per card: a running session's use wins over an in-flight delete, which wins over a failed one. */
+private enum class SubscriptionDeleteStatus { Ready, InUse, Deleting, Failed }
+
+private fun SubscriptionStatusUiState.deleteStatus(groupId: String): SubscriptionDeleteStatus =
+    when (groupId) {
+        in inUseGroupIds -> SubscriptionDeleteStatus.InUse
+        in deletingGroupIds -> SubscriptionDeleteStatus.Deleting
+        deleteFailedGroupId -> SubscriptionDeleteStatus.Failed
+        else -> SubscriptionDeleteStatus.Ready
+    }
 
 @Composable
 private fun SubscriptionDeleteAction(
     groupId: String,
-    failed: Boolean,
+    status: SubscriptionDeleteStatus,
     onDelete: () -> Unit,
 ) {
-    if (failed) {
+    if (status == SubscriptionDeleteStatus.InUse) {
+        Text(stringResource(R.string.relay_delete_in_use), style = RipDpiThemeTokens.type.body)
+    }
+    if (status == SubscriptionDeleteStatus.Failed) {
+        val failure = stringResource(R.string.subscription_status_delete_failed)
         Text(
-            stringResource(R.string.subscription_status_delete_failed),
+            failure,
             style = RipDpiThemeTokens.type.body,
             color = RipDpiThemeTokens.colors.destructive,
+            modifier =
+                Modifier.semantics {
+                    liveRegion = LiveRegionMode.Polite
+                    error(failure)
+                },
         )
     }
     RipDpiButton(
         text = stringResource(R.string.subscription_status_delete_action),
         onClick = onDelete,
         variant = RipDpiButtonVariant.Destructive,
+        loading = status == SubscriptionDeleteStatus.Deleting,
+        enabled = status == SubscriptionDeleteStatus.Ready || status == SubscriptionDeleteStatus.Failed,
         modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.subscriptionDelete(groupId)),
     )
 }
 
 @Composable
 private fun SubscriptionDeleteDialog(
-    groupName: String,
+    groupName: String?,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
     RipDpiDialog(
         onDismissRequest = onCancel,
-        title = stringResource(R.string.subscription_status_delete_title, groupName),
+        title =
+            groupName?.let { stringResource(R.string.subscription_status_delete_title, it) }
+                ?: stringResource(R.string.subscription_status_delete_title_unnamed),
         dismissAction = RipDpiDialogAction(stringResource(R.string.config_cancel), onCancel),
         confirmAction =
             RipDpiDialogAction(

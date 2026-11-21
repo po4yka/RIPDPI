@@ -135,6 +135,7 @@
     <string name="awg_delete_title">Excluir este perfil?</string>
     <string name="awg_delete_body">O perfil e suas chaves serão removidos deste dispositivo.</string>
     <string name="awg_delete_failed">Não foi possível excluir o perfil. Tente novamente.</string>
+    <string name="relay_delete_in_use">Em uso pela conexão ativa</string>
     <string name="awg_cohort_picker_label">Predefinição de coorte</string>
     <string name="awg_cohort_custom">Personalizado</string>
     <string name="awg_cohort_locked_hint">Os campos de ofuscação são definidos pela coorte selecionada. Escolha \"Personalizado\" para editá-los.</string>
@@ -344,6 +345,7 @@
     <string name="subscription_status_refresh_failed">Falha na atualização</string>
     <string name="subscription_status_delete_action">Excluir</string>
     <string name="subscription_status_delete_title">Excluir “%1$s”?</string>
+    <string name="subscription_status_delete_title_unnamed">Excluir esta assinatura?</string>
     <string name="subscription_status_delete_body">Esta assinatura e seus perfis serão removidos deste dispositivo.</string>
     <string name="subscription_status_delete_failed">Falha ao excluir</string>
     <string name="subscription_status_url_format">URL da assinatura: %1$s</string>

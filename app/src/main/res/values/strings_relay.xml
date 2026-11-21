@@ -138,6 +138,7 @@
     <string name="awg_delete_title">Delete this profile?</string>
     <string name="awg_delete_body">The profile and its keys are removed from this device.</string>
     <string name="awg_delete_failed">Couldn\'t delete the profile. Try again.</string>
+    <string name="relay_delete_in_use">In use by the active connection</string>
     <string name="awg_cohort_picker_label">Cohort preset</string>
     <string name="awg_cohort_custom">Custom</string>
     <string name="awg_cohort_locked_hint">Obfuscation fields are set by the selected cohort. Choose \"Custom\" to edit them.</string>
@@ -352,6 +353,7 @@
     <string name="subscription_status_refresh_failed">Refresh failed</string>
     <string name="subscription_status_delete_action">Delete</string>
     <string name="subscription_status_delete_title">Delete “%1$s”?</string>
+    <string name="subscription_status_delete_title_unnamed">Delete this subscription?</string>
     <string name="subscription_status_delete_body">This subscription and its profiles are removed from this device.</string>
     <string name="subscription_status_delete_failed">Delete failed</string>
     <string name="subscription_status_url_format">Subscription URL: %1$s</string>

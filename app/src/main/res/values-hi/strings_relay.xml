@@ -41,6 +41,7 @@
     <string name="subscription_status_refresh_failed">रीफ़्रेश विफल</string>
     <string name="subscription_status_delete_action">हटाएँ</string>
     <string name="subscription_status_delete_title">“%1$s” हटाएँ?</string>
+    <string name="subscription_status_delete_title_unnamed">यह सदस्यता हटाएँ?</string>
     <string name="subscription_status_delete_body">यह सदस्यता और इसकी प्रोफ़ाइलें इस डिवाइस से हटा दी जाएँगी।</string>
     <string name="subscription_status_delete_failed">हटाना विफल रहा</string>
     <string name="subscription_status_url_format">सदस्यता URL: %1$s</string>
@@ -179,6 +180,7 @@
     <string name="awg_delete_title">यह प्रोफ़ाइल हटाएँ?</string>
     <string name="awg_delete_body">प्रोफ़ाइल और उसकी कुंजियाँ इस डिवाइस से हटा दी जाएँगी।</string>
     <string name="awg_delete_failed">प्रोफ़ाइल नहीं हटाई जा सकी। फिर से कोशिश करें।</string>
+    <string name="relay_delete_in_use">सक्रिय कनेक्शन द्वारा उपयोग में</string>
     <string name="awg_cohort_picker_label">Cohort प्रीसेट</string>
     <string name="awg_cohort_custom">कस्टम</string>
     <string name="awg_cohort_locked_hint">Obfuscation फ़ील्ड चुने गए cohort द्वारा सेट किए जाते हैं। इन्हें संपादित करने के लिए \"कस्टम\" चुनें।</string>

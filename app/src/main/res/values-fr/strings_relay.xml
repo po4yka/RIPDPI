@@ -136,6 +136,7 @@
     <string name="awg_delete_title">Supprimer ce profil ?</string>
     <string name="awg_delete_body">Le profil et ses clés seront supprimés de cet appareil.</string>
     <string name="awg_delete_failed">Impossible de supprimer le profil. Réessayez.</string>
+    <string name="relay_delete_in_use">Utilisé par la connexion active</string>
     <string name="awg_cohort_picker_label">Préréglage de cohorte</string>
     <string name="awg_cohort_custom">Personnalisé</string>
     <string name="awg_cohort_locked_hint">Les champs d\'obfuscation sont définis par la cohorte sélectionnée. Choisissez \"Personnalisé\" pour les modifier.</string>
@@ -347,6 +348,7 @@
     <string name="subscription_status_refresh_failed">Échec de l’actualisation</string>
     <string name="subscription_status_delete_action">Supprimer</string>
     <string name="subscription_status_delete_title">Supprimer « %1$s » ?</string>
+    <string name="subscription_status_delete_title_unnamed">Supprimer cet abonnement ?</string>
     <string name="subscription_status_delete_body">Cet abonnement et ses profils seront supprimés de cet appareil.</string>
     <string name="subscription_status_delete_failed">Échec de la suppression</string>
     <string name="subscription_status_url_format">URL d’abonnement : %1$s</string>

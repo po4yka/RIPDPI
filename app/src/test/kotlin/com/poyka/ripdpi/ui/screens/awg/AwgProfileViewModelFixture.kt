@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import com.poyka.ripdpi.activities.FakeAppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.activities.FakePermissionPlatformBridge
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
@@ -46,6 +47,7 @@ internal class AwgProfileViewModelFixture : TestWatcher() {
                 .TestDirectAwgProfileMutationCoordinator(dao, credentialStore),
         )
     val permissionBridge = FakePermissionPlatformBridge(vpnPermissionIntent = null)
+    val applied = FakeAppliedRuntimeConfigurationSource()
 
     fun viewModel() =
         AmneziaWgProfileViewModel(
@@ -54,6 +56,7 @@ internal class AwgProfileViewModelFixture : TestWatcher() {
             repository,
             permissionBridge,
             FakeAwgClipboardReader(),
+            applied,
         )
 
     fun fillRequiredIdentity(viewModel: AmneziaWgProfileViewModel) {
@@ -129,7 +132,7 @@ internal class InMemoryAwgProfileDao : AwgProfileDao {
  * In-memory [AwgCredentialStore] so the ViewModel test drives the REAL
  * [AwgProfileRepository] secret-split without an AndroidKeyStore dependency.
  */
-private class InMemoryAwgCredentialStore : AwgCredentialStore {
+internal class InMemoryAwgCredentialStore : AwgCredentialStore {
     private val secrets = mutableMapOf<String, AwgSecrets>()
 
     override suspend fun load(profileId: String): AwgSecrets? = secrets[profileId]

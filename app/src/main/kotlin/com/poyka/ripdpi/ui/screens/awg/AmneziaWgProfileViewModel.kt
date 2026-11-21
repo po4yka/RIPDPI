@@ -3,6 +3,10 @@ package com.poyka.ripdpi.ui.screens.awg
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgProfileForm
@@ -12,6 +16,8 @@ import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.proxyimport.ClipboardReader
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
+import com.poyka.ripdpi.ui.screens.connection.awgProfileId
+import com.poyka.ripdpi.ui.screens.connection.runningSelections
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -91,8 +97,12 @@ data class AmneziaWgProfileUiState(
     val subscriptionServerChanged: Boolean = false,
     /** A saved profile is loading; the form stays hidden so nothing typed can be lost or merged. */
     val loadingProfile: Boolean = false,
-    /** The editor is bound to a stored profile, so it can be deleted. */
-    val savedProfile: Boolean = false,
+    /** The editor is bound to a stored profile that is not a subscription's; that subscription's delete removes it. */
+    val deletable: Boolean = false,
+    /** A running session carries traffic through the bound profile, so it cannot be deleted. */
+    val inUse: Boolean = false,
+    /** A delete runs; Connect and Delete wait for it, and a successful one closes the editor. */
+    val deleting: Boolean = false,
     /** The last delete failed; the next edit clears it. */
     val deleteFailed: Boolean = false,
 )
@@ -116,6 +126,7 @@ class AmneziaWgProfileViewModel
         private val profileRepository: AwgProfileRepository,
         private val permissionPlatformBridge: PermissionPlatformBridge,
         private val clipboardReader: ClipboardReader,
+        private val applied: AppliedRuntimeConfigurationSource,
     ) : ViewModel() {
         private val catalog: AwgCohortCatalogData = catalogProvider.catalog()
 
@@ -152,6 +163,14 @@ class AmneziaWgProfileViewModel
                 ),
             )
         val uiState: StateFlow<AmneziaWgProfileUiState> = _uiState.asStateFlow()
+
+        init {
+            viewModelScope.launch {
+                applied.applications.collect { applications ->
+                    _uiState.update { it.copy(inUse = applications.runsAwgProfile(savedProfileId)) }
+                }
+            }
+        }
 
         /**
          * Replaces the editor, recomputes the derived [AmneziaWgProfileUiState.canActivate],
@@ -303,26 +322,39 @@ class AmneziaWgProfileViewModel
             savedProfileName = saved.name
             subscriptionServer = saved.request.takeIf { saved.subscriptionOwned }?.serverIdentity()
             val editor = saved.request.toEditorState().copy(subscriptionOwned = saved.subscriptionOwned)
-            _uiState.update { it.withEditor(editor).copy(loadingProfile = false, savedProfile = true) }
+            _uiState.update {
+                it.withEditor(editor).copy(
+                    loadingProfile = false,
+                    deletable = !saved.subscriptionOwned,
+                    inUse = applied.applications.value.runsAwgProfile(saved.id),
+                )
+            }
         }
 
-        /** Deletes the bound saved profile; a failure keeps the editor open and reports it. */
+        /**
+         * Deletes the bound saved profile. It runs once: a repeat tap, a Connect in progress, or a profile the running
+         * session uses is ignored. A failure keeps the editor open and reports it; success closes the editor once.
+         */
         fun onDelete() {
             val id = savedProfileId ?: return
             val state = _uiState.value
-            if (state.loadingProfile || state.activationStatus == AwgActivationStatus.Connecting) return
-            _uiState.update { it.copy(deleteFailed = false) }
+            val busy =
+                state.loadingProfile || state.deleting || state.activationStatus == AwgActivationStatus.Connecting
+            if (busy || !state.deletable || applied.applications.value.runsAwgProfile(id)) return
+            _uiState.update { it.copy(deleting = true, deleteFailed = false) }
             viewModelScope.launch {
                 try {
                     profileRepository.delete(id)
                 } catch (cancellation: CancellationException) {
+                    _uiState.update { it.copy(deleting = false) }
                     throw cancellation
-                } catch (_: Exception) {
-                    _uiState.update { it.copy(deleteFailed = true) }
+                } catch (expectedFailure: Exception) {
+                    Logger.w { "AmneziaWG profile delete failed: ${expectedFailure::class.simpleName}" }
+                    _uiState.update { it.copy(deleting = false, deleteFailed = true) }
                     return@launch
                 }
                 savedProfileId = null
-                _uiState.update { it.copy(savedProfile = false) }
+                _uiState.update { it.copy(deletable = false) }
                 deletions.send(Unit)
             }
         }
@@ -337,7 +369,7 @@ class AmneziaWgProfileViewModel
             val state = _uiState.value
             val editor = state.editor
             val busy =
-                state.pendingCohortId != null || state.loadingProfile ||
+                state.pendingCohortId != null || state.loadingProfile || state.deleting ||
                     state.activationStatus == AwgActivationStatus.Connecting
             if (busy || !editor.isActivatable()) return
             // Refuse before the consent dialog: the save it would authorize is refused anyway.
@@ -421,7 +453,7 @@ class AmneziaWgProfileViewModel
                     existingId = savedProfileId,
                 )
             savedProfileId = stableId
-            _uiState.update { it.copy(savedProfile = true) }
+            _uiState.update { it.copy(deletable = !editor.subscriptionOwned) }
             amneziaWgActivator.activate(draft.copy(profileId = stableId))
             _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
         }
@@ -462,6 +494,9 @@ private fun profileName(
     val cohort = editor.form.cohortId
     return if (cohort == AwgProfileForm.CUSTOM_COHORT_ID) "AmneziaWG" else "AmneziaWG ($cohort)"
 }
+
+private fun Map<Mode, RuntimeConfigurationApplication>.runsAwgProfile(profileId: String?): Boolean =
+    profileId != null && runningSelections().any { it.awgProfileId() == profileId }
 
 /** Replaces the editor and clears the stale failure flags that described the previous input. */
 private fun AmneziaWgProfileUiState.withEditor(nextEditor: AmneziaWgEditorState): AmneziaWgProfileUiState =

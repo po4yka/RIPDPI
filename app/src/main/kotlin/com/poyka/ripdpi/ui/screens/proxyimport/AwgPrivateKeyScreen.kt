@@ -107,6 +107,7 @@ internal fun AwgPrivateKeyScreen(
             RelayEditorStatus(
                 complete = uiState.canActivate,
                 saving = uiState.activationStatus == AwgActivationStatus.Connecting,
+                loading = uiState.deleting,
                 failed = connectFailed,
             ),
         onBack = onBack,
@@ -159,6 +160,6 @@ internal fun AwgPrivateKeyScreen(
                 testTag = RipDpiTestTags.AwgConfImportFailed,
             )
         }
-        if (uiState.savedProfile) AwgDeleteProfileAction(onDelete)
+        if (uiState.deletable) AwgDeleteProfileAction(uiState, onDelete)
     }
 }

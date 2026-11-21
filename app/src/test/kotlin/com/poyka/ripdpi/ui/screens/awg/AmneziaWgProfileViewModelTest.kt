@@ -1,7 +1,11 @@
 package com.poyka.ripdpi.ui.screens.awg
 
 import app.cash.turbine.test
+import com.poyka.ripdpi.activities.runningOn
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.data.awg.AwgSubscriptionProfile
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -364,19 +368,20 @@ class AmneziaWgProfileViewModelTest {
         }
 
     @Test
-    fun `deleting a saved profile removes it and closes the editor`() =
+    fun `a double delete removes the profile once and closes the editor once`() =
         runTest {
             val viewModel = fixture.viewModel()
-            fixture.fillRequiredIdentity(viewModel)
-            assertFalse(viewModel.uiState.value.savedProfile)
-            viewModel.onConnect()
-            advanceUntilIdle()
-            val id = checkNotNull(fixture.activator.lastActivated).profileId
-            assertTrue(viewModel.uiState.value.savedProfile)
+            assertFalse(viewModel.uiState.value.deletable)
+            val id = savedProfile(viewModel)
+            assertTrue(viewModel.uiState.value.deletable)
 
             viewModel.profileDeleted.test {
                 viewModel.onDelete()
+                viewModel.onDelete()
                 awaitItem()
+                viewModel.onDelete()
+                advanceUntilIdle()
+                expectNoEvents()
             }
 
             assertNull(fixture.repository.load(id))
@@ -384,13 +389,89 @@ class AmneziaWgProfileViewModelTest {
         }
 
     @Test
+    fun `connect waits for a running delete`() =
+        runTest {
+            val viewModel = fixture.viewModel()
+            savedProfile(viewModel)
+
+            viewModel.onDelete()
+            viewModel.onConnect()
+
+            assertTrue(viewModel.uiState.value.deleting)
+            assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
+            advanceUntilIdle()
+            assertEquals(1, fixture.activator.activationCount)
+        }
+
+    @Test
+    fun `delete waits for a running connect`() =
+        runTest {
+            val viewModel = fixture.viewModel()
+            val id = savedProfile(viewModel)
+            fixture.permissionBridge.vpnPermissionIntent = android.content.Intent("fake.vpn.permission")
+            viewModel.onConnect()
+            advanceUntilIdle()
+            assertEquals(AwgActivationStatus.Connecting, viewModel.uiState.value.activationStatus)
+
+            viewModel.onDelete()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.deleting)
+            assertNotNull(fixture.repository.load(id))
+        }
+
+    @Test
+    fun `a profile the running session uses cannot be deleted`() =
+        runTest {
+            val viewModel = fixture.viewModel()
+            val id = savedProfile(viewModel)
+            fixture.applied.applications.value =
+                runningOn(RuntimeConfigurationSelection("relay", relayKind = "amneziawg", profileId = id))
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.inUse)
+
+            viewModel.onDelete()
+            advanceUntilIdle()
+
+            assertNotNull(fixture.repository.load(id))
+            fixture.applied.applications.value =
+                runningOn(RuntimeConfigurationSelection("relay", relayKind = "amneziawg", profileId = "awg-other"))
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.inUse)
+        }
+
+    @Test
+    fun `a subscription profile has no delete of its own`() =
+        runTest {
+            val request =
+                AwgActivationRequest(
+                    profileId = "",
+                    privateKey = "",
+                    peerPublicKey = AwgPeerTestKey,
+                    endpointHost = "vpn.example.com",
+                    endpointPort = 51820,
+                    interfaceAddressV4 = "10.8.0.2/32",
+                )
+            val id =
+                fixture.repository
+                    .saveSubscriptionProfiles(listOf(AwgSubscriptionProfile("group", "tag:home", "Home", request)))
+                    .single()
+                    .id
+            val viewModel = fixture.viewModel()
+            viewModel.onLoadProfile(id)
+            assertFalse(viewModel.uiState.value.deletable)
+
+            viewModel.onDelete()
+            advanceUntilIdle()
+
+            assertNotNull(fixture.repository.load(id))
+        }
+
+    @Test
     fun `a failed delete keeps the profile and the editor and reports the failure`() =
         runTest {
             val viewModel = fixture.viewModel()
-            fixture.fillRequiredIdentity(viewModel)
-            viewModel.onConnect()
-            advanceUntilIdle()
-            val id = checkNotNull(fixture.activator.lastActivated).profileId
+            val id = savedProfile(viewModel)
             fixture.dao.failReads = true
 
             viewModel.profileDeleted.test {
@@ -399,7 +480,16 @@ class AmneziaWgProfileViewModelTest {
                 expectNoEvents()
             }
 
+            assertFalse(viewModel.uiState.value.deleting)
             fixture.dao.failReads = false
             assertNotNull(fixture.repository.load(id))
         }
+
+    /** Saves a new profile through Connect and returns its stored id. */
+    private suspend fun kotlinx.coroutines.test.TestScope.savedProfile(viewModel: AmneziaWgProfileViewModel): String {
+        fixture.fillRequiredIdentity(viewModel)
+        viewModel.onConnect()
+        advanceUntilIdle()
+        return checkNotNull(fixture.activator.lastActivated).profileId
+    }
 }

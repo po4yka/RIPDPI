@@ -1,15 +1,25 @@
 package com.poyka.ripdpi.ui.screens.subscription
 
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.activities.FakeAppliedRuntimeConfigurationSource
+import com.poyka.ripdpi.activities.runningOn
 import com.poyka.ripdpi.data.DurableCommandReceipt
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProfileMutationPreparation
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.awg.AwgSubscriptionProfile
+import com.poyka.ripdpi.data.awg.TestDirectAwgProfileMutationCoordinator
+import com.poyka.ripdpi.data.awg.testAwgProfileRepository
 import com.poyka.ripdpi.subscription.SubscriptionExpiryClock
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
 import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
+import com.poyka.ripdpi.ui.screens.awg.AwgPeerTestKey
+import com.poyka.ripdpi.ui.screens.awg.InMemoryAwgCredentialStore
+import com.poyka.ripdpi.ui.screens.awg.InMemoryAwgProfileDao
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +33,9 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
@@ -115,18 +127,41 @@ class SubscriptionStatusViewModelTest {
         }
 
     @Test
-    fun `delete removes the group as an explicit deletion`() =
+    fun `delete removes the group as a saved edit`() =
         runTest {
             Dispatchers.setMain(StandardTestDispatcher(testScheduler))
             val groups = EmptyGroups()
-            val viewModel = newViewModel(groups) { SubscriptionRefreshResult.Updated(0) }
+            val viewModel = newViewModel(groups)
             backgroundScope.launch { viewModel.uiState.collect {} }
 
             viewModel.delete("first")
             runCurrent()
 
-            assertEquals(listOf("first" to ProfileMutationOrigin.ExplicitDeletion), groups.deletions)
+            assertEquals(listOf("first" to ProfileMutationOrigin.SavedEdit), groups.deletions)
             assertNull(viewModel.uiState.value.deleteFailedGroupId)
+        }
+
+    @Test
+    fun `a repeated delete while one runs deletes once and disables the card`() =
+        runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val gate = CompletableDeferred<Unit>()
+            val groups = EmptyGroups(gate = gate)
+            val viewModel = newViewModel(groups)
+            backgroundScope.launch { viewModel.uiState.collect {} }
+
+            viewModel.delete("first")
+            viewModel.delete("first")
+            runCurrent()
+
+            assertEquals(setOf("first"), viewModel.uiState.value.deletingGroupIds)
+            gate.complete(Unit)
+            runCurrent()
+            assertEquals(1, groups.deletions.size)
+            assertTrue(
+                viewModel.uiState.value.deletingGroupIds
+                    .isEmpty(),
+            )
         }
 
     @Test
@@ -134,7 +169,7 @@ class SubscriptionStatusViewModelTest {
         runTest {
             Dispatchers.setMain(StandardTestDispatcher(testScheduler))
             val groups = EmptyGroups(deleteFailure = IOException("controlled delete failure"))
-            val viewModel = newViewModel(groups) { SubscriptionRefreshResult.Updated(0) }
+            val viewModel = newViewModel(groups)
             backgroundScope.launch { viewModel.uiState.collect {} }
 
             viewModel.delete("first")
@@ -148,9 +183,76 @@ class SubscriptionStatusViewModelTest {
             assertEquals(2, groups.deletions.size)
         }
 
+    @Test
+    fun `a group the running session uses directly or by its AmneziaWG profile is not deleted`() =
+        runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val groups = EmptyGroups()
+            val viewModel = newViewModel(groups)
+            val awgId = awgRepository.saveSubscriptionProfiles(listOf(awgMember("second"))).single().id
+            backgroundScope.launch { viewModel.uiState.collect {} }
+            applied.applications.value = runningOn(RuntimeConfigurationSelection("relay", selectorGroupId = "first"))
+            runCurrent()
+            assertEquals(setOf("first"), viewModel.uiState.value.inUseGroupIds)
+
+            viewModel.delete("first")
+            runCurrent()
+            applied.applications.value =
+                runningOn(RuntimeConfigurationSelection("relay", relayKind = "amneziawg", profileId = awgId))
+            runCurrent()
+            assertEquals(setOf("second"), viewModel.uiState.value.inUseGroupIds)
+            viewModel.delete("second")
+            runCurrent()
+
+            assertTrue(groups.deletions.isEmpty())
+            assertNotNull(awgRepository.load(awgId))
+        }
+
+    @Test
+    fun `delete also removes the AmneziaWG profiles that subscription imported`() =
+        runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val groups = EmptyGroups()
+            val viewModel = newViewModel(groups)
+            val (owned, other) =
+                awgRepository.saveSubscriptionProfiles(listOf(awgMember("first"), awgMember("second"))).map { it.id }
+
+            viewModel.delete("first")
+            runCurrent()
+
+            assertEquals(listOf("first" to ProfileMutationOrigin.SavedEdit), groups.deletions)
+            assertNull(awgRepository.load(owned))
+            assertNotNull(awgRepository.load(other))
+        }
+
+    private val applied = FakeAppliedRuntimeConfigurationSource()
+    private val awgDao = InMemoryAwgProfileDao()
+    private val awgCredentials = InMemoryAwgCredentialStore()
+    private val awgRepository =
+        testAwgProfileRepository(
+            awgDao,
+            awgCredentials,
+            TestDirectAwgProfileMutationCoordinator(awgDao, awgCredentials),
+        )
+
+    private fun awgMember(groupId: String) =
+        AwgSubscriptionProfile(
+            groupId,
+            "tag:home",
+            "Home",
+            AwgActivationRequest(
+                profileId = "",
+                privateKey = "",
+                peerPublicKey = AwgPeerTestKey,
+                endpointHost = "$groupId.example.com",
+                endpointPort = 51820,
+                interfaceAddressV4 = "10.8.0.2/32",
+            ),
+        )
+
     private fun newViewModel(
         groups: ProxyGroupRepository = EmptyGroups(),
-        refresh: suspend (String) -> SubscriptionRefreshResult,
+        refresh: suspend (String) -> SubscriptionRefreshResult = { SubscriptionRefreshResult.Updated(0) },
     ) = SubscriptionStatusViewModel(
         groups,
         object : SubscriptionExpiryClock {
@@ -159,11 +261,14 @@ class SubscriptionStatusViewModelTest {
             override fun ticks(): Flow<Long> = flowOf(0)
         },
         NoOpProfileMutationCoordinator,
+        awgRepository,
+        applied,
         refresh,
     )
 
     private class EmptyGroups(
         var deleteFailure: Exception? = null,
+        private val gate: CompletableDeferred<Unit>? = null,
     ) : ProxyGroupRepository {
         val deletions = mutableListOf<Pair<String, ProfileMutationOrigin>>()
 
@@ -182,6 +287,7 @@ class SubscriptionStatusViewModelTest {
             preparation: ProfileMutationPreparation,
             id: String,
         ) {
+            gate?.await()
             deletions += id to preparation.origin
             deleteFailure?.let { throw it }
         }

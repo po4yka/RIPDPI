@@ -3619,6 +3619,7 @@ app:relay_cloudflare_tunnel_caption
 app:relay_cloudflare_tunnel_mode_label
 app:relay_cloudflare_tunnel_token_helper
 app:relay_cloudflare_tunnel_token_label
+app:relay_delete_in_use
 app:relay_editor_activation_failed
 app:relay_editor_advanced
 app:relay_editor_profile_not_found_body
@@ -4975,6 +4976,7 @@ app:subscription_status_delete_action
 app:subscription_status_delete_body
 app:subscription_status_delete_failed
 app:subscription_status_delete_title
+app:subscription_status_delete_title_unnamed
 app:subscription_status_empty_body
 app:subscription_status_empty_title
 app:subscription_status_expired

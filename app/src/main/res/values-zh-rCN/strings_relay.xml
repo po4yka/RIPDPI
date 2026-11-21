@@ -136,6 +136,7 @@
     <string name="awg_delete_title">删除此配置？</string>
     <string name="awg_delete_body">该配置及其密钥将从此设备中移除。</string>
     <string name="awg_delete_failed">无法删除配置，请重试。</string>
+    <string name="relay_delete_in_use">当前连接正在使用</string>
     <string name="awg_cohort_picker_label">群组预设</string>
     <string name="awg_cohort_custom">自定义</string>
     <string name="awg_cohort_locked_hint">混淆字段由所选群组设定。选择“自定义”可编辑这些字段。</string>
@@ -346,6 +347,7 @@
     <string name="subscription_status_refresh_failed">刷新失败</string>
     <string name="subscription_status_delete_action">删除</string>
     <string name="subscription_status_delete_title">删除“%1$s”？</string>
+    <string name="subscription_status_delete_title_unnamed">删除此订阅？</string>
     <string name="subscription_status_delete_body">此订阅及其配置文件将从此设备中移除。</string>
     <string name="subscription_status_delete_failed">删除失败</string>
     <string name="subscription_status_url_format">订阅网址：%1$s</string>

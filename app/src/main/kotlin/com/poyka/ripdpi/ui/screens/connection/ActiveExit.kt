@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileSelections
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.awg.SavedAwgProfile
 import com.poyka.ripdpi.data.exitName
 import com.poyka.ripdpi.data.kindLabel
@@ -83,5 +84,15 @@ private fun memberExit(
     val member = groups.firstOrNull { it.id == groupId }?.members?.firstOrNull { it.id == memberId } ?: return null
     return ActiveExit(member.exitName(), member.kindLabel())
 }
+
+/** The selections that running sessions carry traffic through now; empty when no session runs. */
+internal fun Map<Mode, RuntimeConfigurationApplication>.runningSelections(): List<RuntimeConfigurationSelection> =
+    values.mapNotNull { it.runningConfiguration()?.effectiveSelection }
+
+/** The AmneziaWG profile this running selection uses, or null when it runs another kind. */
+internal fun RuntimeConfigurationSelection.awgProfileId(): String? =
+    profileId.takeIf {
+        relayKind == AmneziaWgRelayKind
+    }
 
 private const val AmneziaWgRelayKind = "amneziawg"

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.awg
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,15 +17,29 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
-/** The destructive "Delete profile" button of a saved AmneziaWG profile, confirmed by a dialog. */
+/**
+ * The destructive "Delete profile" button of a saved AmneziaWG profile, confirmed by a dialog. It waits while Connect
+ * or a delete runs, and stays off while the running session uses the profile.
+ */
 @Composable
-internal fun AwgDeleteProfileAction(onDelete: () -> Unit) {
+internal fun AwgDeleteProfileAction(
+    uiState: AmneziaWgProfileUiState,
+    onDelete: () -> Unit,
+) {
     var confirming by rememberSaveable { mutableStateOf(false) }
+    if (uiState.inUse) {
+        Text(stringResource(R.string.relay_delete_in_use), style = RipDpiThemeTokens.type.body)
+    }
     RipDpiButton(
         text = stringResource(R.string.awg_delete_action),
         onClick = { confirming = true },
         variant = RipDpiButtonVariant.Destructive,
+        loading = uiState.deleting,
+        enabled =
+            !uiState.inUse && !uiState.deleting && !uiState.loadingProfile &&
+                uiState.activationStatus != AwgActivationStatus.Connecting,
         modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AwgDeleteAction),
     )
     if (confirming) {

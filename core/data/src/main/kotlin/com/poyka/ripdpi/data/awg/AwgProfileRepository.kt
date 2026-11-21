@@ -24,6 +24,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,9 +41,11 @@ data class SavedAwgProfile(
     val id: String,
     val name: String,
     val request: AwgActivationRequest,
-    /** A subscription refresh owns this row's server; local edits keep the key and network policy. */
-    val subscriptionOwned: Boolean = false,
-)
+    /** The subscription group that imported this row; its refresh owns the server, local edits keep the rest. */
+    val subscriptionGroupId: String? = null,
+) {
+    val subscriptionOwned: Boolean get() = subscriptionGroupId != null
+}
 
 /**
  * Repository over the durable standalone-AmneziaWG profile store.
@@ -125,6 +128,20 @@ class AwgProfileRepository
                     current == expected && action()
                 }
             }
+
+        /** Deletes every saved profile the subscription group [groupId] imported, including unsupported rows. */
+        suspend fun deleteSubscriptionProfiles(groupId: String) {
+            val ids =
+                mutationMutex.withLock {
+                    profileMutations.recover()
+                    readStore
+                        .list()
+                        .map { it.profile }
+                        .filter { it.subscriptionOrigin().originGroupId() == groupId }
+                        .map { it.id }
+                }
+            ids.forEach { delete(it) }
+        }
 
         private suspend fun savedProfile(id: String): SavedAwgProfile? = readStore.load(id)?.toSavedProfile()
 
@@ -305,12 +322,12 @@ class AwgProfileRepository
             )
         }
 
-        /** Deletes the saved profile identified by [id]; a no-op when it does not exist. */
+        /**
+         * Deletes the saved profile identified by [id]; a no-op when it does not exist. Callers refuse a profile the
+         * running session uses, so the delete is a saved edit: it neither stops the runtime nor cancels a user pause.
+         */
         suspend fun delete(id: String) {
-            val preparation =
-                profileMutations.captureMutation(
-                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitDeletion,
-                )
+            val preparation = profileMutations.captureMutation(ProfileMutationOrigin.SavedEdit)
             mutationMutex.withLock {
                 profileMutations.recover()
                 val existing = profileRow(id) ?: return@withLock
@@ -342,13 +359,9 @@ class AwgProfileRepository
                                     ),
                             ),
                     ),
-                subscriptionOwned = subscriptionOrigin() != null,
+                subscriptionGroupId = subscriptionOrigin().originGroupId(),
             )
         }
-
-        private fun JsonObject.hasSupportedStoredObfuscation(): Boolean =
-            this["wireProfile"] == JsonPrimitive(AmneziaWgWireProfile.ID) &&
-                listOf("h1", "h2", "h3", "h4").all { (this[it] as? JsonPrimitive)?.isString == true }
 
         /** Incompatible rows stay intact in Room and the keystore until refresh, reimport, or deletion. */
         private fun AwgProfileEntity.supportedStoredRequest(): AwgActivationRequest? =
@@ -381,3 +394,9 @@ class AwgProfileRepository
             fun generateProfileId(): String = "awg-${UUID.randomUUID()}"
         }
     }
+
+private fun JsonElement?.originGroupId(): String? = (this as? JsonObject)?.get("groupId")?.jsonPrimitive?.content
+
+private fun JsonObject.hasSupportedStoredObfuscation(): Boolean =
+    this["wireProfile"] == JsonPrimitive(AmneziaWgWireProfile.ID) &&
+        listOf("h1", "h2", "h3", "h4").all { (this[it] as? JsonPrimitive)?.isString == true }

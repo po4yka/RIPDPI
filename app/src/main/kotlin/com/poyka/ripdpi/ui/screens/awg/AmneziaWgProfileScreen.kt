@@ -154,6 +154,7 @@ internal fun AmneziaWgProfileScreen(
             RelayEditorStatus(
                 complete = uiState.canActivate,
                 saving = uiState.activationStatus == AwgActivationStatus.Connecting,
+                loading = uiState.deleting,
                 failed = connectFailed,
             ),
         onBack = onBack,
@@ -191,7 +192,7 @@ internal fun AmneziaWgProfileScreen(
             onRevealPresharedKey = onRevealPresharedKey,
             onRevealHeaderProtectionKey = onRevealHeaderProtectionKey,
         )
-        if (uiState.savedProfile) AwgDeleteProfileAction(onDelete)
+        if (uiState.deletable) AwgDeleteProfileAction(uiState, onDelete)
     }
 }
 

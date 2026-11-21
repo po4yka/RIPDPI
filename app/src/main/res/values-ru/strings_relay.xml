@@ -135,6 +135,7 @@
     <string name="awg_delete_title">Удалить этот профиль?</string>
     <string name="awg_delete_body">Профиль и его ключи будут удалены с этого устройства.</string>
     <string name="awg_delete_failed">Не удалось удалить профиль. Попробуйте снова.</string>
+    <string name="relay_delete_in_use">Используется активным подключением</string>
     <string name="awg_cohort_picker_label">Пресет когорты</string>
     <string name="awg_cohort_custom">Свой</string>
     <string name="awg_cohort_locked_hint">Поля обфускации заданы выбранной когортой. Выберите \"Свой\", чтобы их изменить.</string>
@@ -346,6 +347,7 @@
     <string name="subscription_status_refresh_failed">Обновление не удалось</string>
     <string name="subscription_status_delete_action">Удалить</string>
     <string name="subscription_status_delete_title">Удалить «%1$s»?</string>
+    <string name="subscription_status_delete_title_unnamed">Удалить эту подписку?</string>
     <string name="subscription_status_delete_body">Эта подписка и её профили будут удалены с этого устройства.</string>
     <string name="subscription_status_delete_failed">Не удалось удалить</string>
     <string name="subscription_status_url_format">Ссылка подписки: %1$s</string>

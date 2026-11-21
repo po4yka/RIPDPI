@@ -116,6 +116,8 @@ class AmneziaWgProfileScreenTest {
             ),
             permissionBridge,
             clipboard,
+            com.poyka.ripdpi.activities
+                .FakeAppliedRuntimeConfigurationSource(),
         )
 
     @Test

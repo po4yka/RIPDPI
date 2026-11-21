@@ -135,6 +135,7 @@
     <string name="awg_delete_title">حذف هذا الملف؟</string>
     <string name="awg_delete_body">ستتم إزالة الملف ومفاتيحه من هذا الجهاز.</string>
     <string name="awg_delete_failed">تعذّر حذف الملف. حاول مرة أخرى.</string>
+    <string name="relay_delete_in_use">قيد الاستخدام في الاتصال النشط</string>
     <string name="awg_cohort_picker_label">إعداد مسبق للمجموعة</string>
     <string name="awg_cohort_custom">مخصص</string>
     <string name="awg_cohort_locked_hint">يتم تعيين حقول التشويش من خلال المجموعة المحددة. اختر \"مخصص\" لتعديلها.</string>
@@ -349,6 +350,7 @@
     <string name="subscription_status_refresh_failed">فشل التحديث</string>
     <string name="subscription_status_delete_action">حذف</string>
     <string name="subscription_status_delete_title">حذف «%1$s»؟</string>
+    <string name="subscription_status_delete_title_unnamed">حذف هذا الاشتراك؟</string>
     <string name="subscription_status_delete_body">ستتم إزالة هذا الاشتراك وملفاته من هذا الجهاز.</string>
     <string name="subscription_status_delete_failed">فشل الحذف</string>
     <string name="subscription_status_url_format">رابط الاشتراك: %1$s</string>
