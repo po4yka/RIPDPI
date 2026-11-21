@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.RawPathSettlementDurableStatePrefix
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
@@ -45,6 +46,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -163,6 +165,72 @@ class DiagnosticsScanPolicyFinalizationTest {
 
             assertNull(resolverOverrideStore.override.value)
             assertNull(stores.getNetworkDnsPathPreference(networkFingerprintProvider.capture().scopeKey()))
+        }
+
+    @Test
+    fun `only a raw path scan records direct edge preferences`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val networkFingerprintProvider = FakeNetworkFingerprintProvider()
+            val fingerprint = networkFingerprintProvider.capture()
+            val edgeStore = DefaultNetworkEdgePreferenceStore(stores, TestDiagnosticsHistoryClock())
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource(stores, backgroundScope),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    networkFingerprintProvider = networkFingerprintProvider,
+                    networkEdgePreferenceStore = edgeStore,
+                    json = json,
+                )
+
+            suspend fun finalizeEdgeScan(
+                sessionId: String,
+                pathMode: ScanPathMode,
+            ) {
+                val base =
+                    preparedDiagnosticsScan(
+                        sessionId,
+                        defaultDiagnosticsAppSettings(),
+                        networkFingerprint = fingerprint,
+                    )
+                val prepared =
+                    base.copy(
+                        pathMode = pathMode,
+                        context = base.context.copy(pathMode = pathMode),
+                        initialSession = base.initialSession.copy(pathMode = pathMode.name),
+                    )
+                seedPreparedScan(stores, prepared)
+                val report =
+                    ScanReport(
+                        sessionId = sessionId,
+                        profileId = prepared.initialSession.profileId,
+                        pathMode = pathMode,
+                        startedAt = 10L,
+                        finishedAt = 20L,
+                        summary = "edge probe",
+                        results =
+                            listOf(
+                                ProbeResult(
+                                    probeType = "strategy_https",
+                                    target = "example.org",
+                                    outcome = "tls_ok",
+                                    details =
+                                        listOf(
+                                            ProbeDetail("connectedIp", "203.0.113.7"),
+                                            ProbeDetail("targetHost", "example.org"),
+                                        ),
+                                ),
+                            ),
+                    )
+                fixtures.finalizationService.finalize(prepared, json.encodeToString(report.toEngineScanReportWire()))
+            }
+
+            finalizeEdgeScan("in-path-edge", ScanPathMode.IN_PATH)
+            assertTrue(edgeStore.getPreferredEdgesForRuntime(fingerprint.scopeKey()).isEmpty())
+
+            finalizeEdgeScan("raw-path-edge", ScanPathMode.RAW_PATH)
+            assertFalse(edgeStore.getPreferredEdgesForRuntime(fingerprint.scopeKey()).isEmpty())
         }
 
     @Test

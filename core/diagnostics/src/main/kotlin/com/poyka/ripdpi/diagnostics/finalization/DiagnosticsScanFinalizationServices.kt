@@ -166,13 +166,12 @@ class ScanFinalizationService
             ) {
                 targetOptimizer.record(fingerprint.scopeKey(), report, prepared.settings)
             }
-            rememberEdgeProbeResults(prepared, fingerprint, report)
             // An in-path scan measured the active tunnel or proxy, not the raw network's direct path.
-            if (
-                prepared.pathMode == ScanPathMode.RAW_PATH &&
-                prepared.hasCurrentNetworkScope(networkFingerprintProvider)
-            ) {
-                rememberCapabilityEvidence(prepared, fingerprint, report)
+            if (prepared.pathMode == ScanPathMode.RAW_PATH) {
+                rememberEdgeProbeResults(prepared, fingerprint, report)
+                if (prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
+                    rememberCapabilityEvidence(prepared, fingerprint, report)
+                }
             }
             if (winningCombination?.id != "remembered" && prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
                 if (report.isCompleteScan()) {
