@@ -71,11 +71,12 @@ fn authenticated_udp_association_preserves_app_scope_in_its_worker() {
     let mut response = [0; 32];
     let count = client.recv(&mut response).expect("receive relayed UDP echo");
     assert_eq!(&response[..count], datagram.as_slice());
+    // The worker sends the datagram before it records feedback.
+    control.shutdown(std::net::Shutdown::Both).expect("close control");
+    handler.join().expect("join association handler").expect("finish association");
+    echo.join().expect("join echo peer");
     assert_eq!(
         *telemetry.scoped_signals.lock().expect("scope events"),
         vec![("QUIC_SUCCESS".to_string(), Some(APP_A.to_string()))]
     );
-    control.shutdown(std::net::Shutdown::Both).expect("close control");
-    handler.join().expect("join association handler").expect("finish association");
-    echo.join().expect("join echo peer");
 }
