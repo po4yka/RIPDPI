@@ -100,6 +100,32 @@ class SelectorUrltestProberTest {
         }
 
     @Test
+    fun `a health-only refresh keeps the payload switch streak`() =
+        runTest {
+            val store = ProbeTestSelectionStore()
+            store.set("g", "active")
+            val group =
+                selectorTestGroup(listOf(selectorTestMember("active"), selectorTestMember("reserve"))).copy(
+                    failover = SelectorFailover("unused", 60, 0, policy()),
+                )
+            var now = 0L
+            var scope = selectorTestScope(group)
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { member, _ -> if (member.id == "reserve") MemberProbeResult(20L) else null },
+                    SelectorProbeScopeProvider { scope },
+                    { now },
+                )
+            prober.runProbePass(group, "unused", 0)
+            val healthy = EndpointHealth(EndpointHealthStatus.HEALTHY, 0L, 60)
+            scope = scope.copy(memberHealth = mapOf("active" to healthy, "reserve" to healthy))
+            now = 60_000
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("reserve", store.selectedProfileId("g").value)
+        }
+
+    @Test
     fun `payload network changes discard evidence and in-flight switches`() =
         runTest {
             val store = ProbeTestSelectionStore()

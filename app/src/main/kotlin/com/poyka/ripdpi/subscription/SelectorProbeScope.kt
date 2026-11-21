@@ -22,7 +22,10 @@ internal data class SelectorProbeScope(
     val underlayGeneration: Long?,
     val networkEpoch: com.poyka.ripdpi.services.CandidatePhysicalNetworkToken,
     val environment: CandidateRelayProbeEnvironment,
-)
+) {
+    /** Member health changes with every bundle refresh: each pass reads it, but it never resets failover state. */
+    fun sameProbe(other: SelectorProbeScope?) = other != null && copy(memberHealth = other.memberHealth) == other
+}
 
 internal fun interface SelectorProbeScopeProvider {
     suspend fun capture(group: ProxyGroup): SelectorProbeScope?

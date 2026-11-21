@@ -70,7 +70,7 @@ class SelectorUrltestProber internal constructor(
     private val unreachablePasses = ConcurrentHashMap<String, Pair<String, Int>>()
 
     private data class ScopedPayloadState(
-        val scope: SelectorProbeScope,
+        var scope: SelectorProbeScope,
         var selection: SelectorSelectionSnapshot,
         val state: PayloadFailoverState,
         val quality: PayloadQualityEvidence = PayloadQualityEvidence(),
@@ -171,7 +171,7 @@ class SelectorUrltestProber internal constructor(
         val scoped = payloadStates[group.id] ?: return
         val selection = selectionStore.snapshot(group.id)
         val manualChanged = selection.isManual && selection != scoped.selection
-        if (manualChanged || scopeProvider.capture(group) != scoped.scope) {
+        if (manualChanged || !scoped.scope.sameProbe(scopeProvider.capture(group))) {
             if (payloadStates.remove(group.id, scoped)) {
                 selectionStore.invalidatePendingSelection(group.id)
                 qualityStore.invalidate(group.id)
@@ -217,7 +217,7 @@ class SelectorUrltestProber internal constructor(
                 )
             }
         currentCoroutineContext().ensureActive()
-        if (scopeProvider.capture(group) == scope) {
+        if (scope.sameProbe(scopeProvider.capture(group))) {
             currentCoroutineContext().ensureActive()
             // Keep the last active exit when no direct candidate is reachable. A prior automatic
             // Cloudflare choice is displaced as soon as a direct candidate recovers, never re-promoted.
@@ -281,10 +281,11 @@ class SelectorUrltestProber internal constructor(
             null
         } else {
             val previous =
-                payloadStates[group.id]?.takeIf {
-                    it.scope == scope && it.selection == selection &&
-                        it.qualityGeneration == qualityStore.generation(group.id)
-                }
+                payloadStates[group.id]
+                    ?.takeIf {
+                        it.scope.sameProbe(scope) && it.selection == selection &&
+                            it.qualityGeneration == qualityStore.generation(group.id)
+                    }?.also { it.scope = scope }
             previous ?: ScopedPayloadState(scope, selection, PayloadFailoverState(policy)).also {
                 qualityStore.invalidate(group.id)
                 it.qualityGeneration = qualityStore.generation(group.id)
@@ -359,7 +360,7 @@ class SelectorUrltestProber internal constructor(
         group: ProxyGroup,
         scoped: ScopedPayloadState,
     ): Boolean =
-        scopeProvider.capture(group) == scoped.scope && selectionStore.snapshot(group.id) == scoped.selection &&
+        scoped.scope.sameProbe(scopeProvider.capture(group)) && selectionStore.snapshot(group.id) == scoped.selection &&
             matchesPayloadGeneration(group.id, scoped)
 
     private fun matchesPayloadGeneration(
