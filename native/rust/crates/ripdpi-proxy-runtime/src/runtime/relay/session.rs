@@ -305,7 +305,9 @@ impl RelaySharedSession {
 }
 
 fn apply_evolution_feedback(state: &RuntimeState, feedback: Option<(EvolutionAttempt, bool)>) {
-    if let Some((attempt, false)) = feedback {
-        state.discard_evolver_attempt(Some(attempt));
+    match feedback {
+        Some((attempt, true)) => state.note_evolver_answered(Some(attempt)),
+        Some((attempt, false)) => state.discard_evolver_attempt(Some(attempt)),
+        None => {}
     }
 }

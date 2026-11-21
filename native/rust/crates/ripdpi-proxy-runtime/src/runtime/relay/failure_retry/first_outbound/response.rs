@@ -54,6 +54,7 @@ pub(super) fn handle_first_response(
             context.state.note_application_traffic(0, bytes.len() as u64);
             if has_inbound_payload {
                 session_state.accept_first_response(server_ttl);
+                context.state.note_evolver_answered(session_state.evolution_attempt);
             }
             Ok(FirstResponseDecision::Complete)
         }

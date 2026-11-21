@@ -11,6 +11,8 @@ pub struct StrategyExperiment {
     pub(super) context: LearningContext,
     pub(super) family: StrategyFamily,
     started_ms: u64,
+    // The TTL bounds the wait for an answer. A relay can report its outcome much later.
+    answered_ms: Option<u64>,
 }
 
 impl StrategyExperiment {
@@ -44,6 +46,7 @@ impl StrategyEvolver {
             context: self.current_experiment_context.take().unwrap_or_else(|| self.current_learning_context.clone()),
             family: self.current_experiment_family.take().unwrap_or_else(|| combo.family()),
             started_ms: self.current_experiment_started_ms.take().unwrap_or_else(|| self.monotonic_now_ms()),
+            answered_ms: None,
             combo,
         })
     }
@@ -55,6 +58,14 @@ impl StrategyEvolver {
 
     /// Expired observations are neutral, including feedback after the TTL boundary.
     pub fn experiment_expired(&self, experiment: &StrategyExperiment) -> bool {
-        self.expired_experiment_age(experiment.started_ms, self.monotonic_now_ms()).is_some()
+        let end_ms = experiment.answered_ms.unwrap_or_else(|| self.monotonic_now_ms());
+        self.expired_experiment_age(experiment.started_ms, end_ms).is_some()
+    }
+
+    /// Stop the TTL at the first accepted answer. A later answer cannot revive an expired attempt.
+    pub fn note_experiment_answered(&self, experiment: &mut StrategyExperiment) {
+        if experiment.answered_ms.is_none() {
+            experiment.answered_ms = Some(self.monotonic_now_ms());
+        }
     }
 }

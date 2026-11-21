@@ -51,6 +51,12 @@ impl StrategyEvolutionResolver {
         }
     }
 
+    pub(crate) fn note_answered(&mut self, attempt: EvolutionAttempt) {
+        if let Some(experiment) = self.pending.get_mut(&attempt) {
+            self.evolver.note_experiment_answered(experiment);
+        }
+    }
+
     pub(crate) fn discard(&mut self, attempt: EvolutionAttempt) {
         self.pending.remove(&attempt);
     }
