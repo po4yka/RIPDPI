@@ -208,7 +208,7 @@ class ProfileMutationRecoveryCoordinator private constructor(
                             }
                         },
                     ) { rows ->
-                        if (!measuredLeaseMatches(lease, payload, rows)) return@withAuthority null
+                        if (!pauseAuthority.measuredLeaseMatches(lease, payload, rows)) return@withAuthority null
                         val selected =
                             pauseAuthority.reserveMeasuredActivation(
                                 lease.expectedAuthority,
@@ -272,21 +272,6 @@ class ProfileMutationRecoveryCoordinator private constructor(
             }
             written
         }
-
-    private fun measuredLeaseMatches(
-        lease: ProfileUtilitySelectionLease,
-        payload: ProfileUtilitySelectionPayload,
-        rows: ProfileRows,
-    ): Boolean {
-        val utility = checkNotNull(pauseAuthority.states.value).profileUtility
-        if (!utility.catalogReady || utility.catalogGeneration != lease.catalogGeneration ||
-            lease.reference !in utility.catalog
-        ) {
-            return false
-        }
-        return pauseAuthority.snapshotAuthority() == lease.expectedAuthority &&
-            lease.environmentMatchesNow() && rows.measuredPayloadMatches(lease.reference, payload)
-    }
 
     override suspend fun recover() = mutex.withLock { runtime.recover() }
 
@@ -506,6 +491,21 @@ private suspend fun ProfileMutationStores.measuredPayloadMatches(
                     ?.singleOrNull { it.id == payload.memberId } == payload.member
         }
     }
+
+private fun PauseIntentAuthority.measuredLeaseMatches(
+    lease: ProfileUtilitySelectionLease,
+    payload: ProfileUtilitySelectionPayload,
+    rows: ProfileRows,
+): Boolean {
+    val utility = checkNotNull(states.value).profileUtility
+    if (!utility.catalogReady || utility.catalogGeneration != lease.catalogGeneration ||
+        lease.reference !in utility.catalog
+    ) {
+        return false
+    }
+    return snapshotAuthority() == lease.expectedAuthority &&
+        lease.environmentMatchesNow() && rows.measuredPayloadMatches(lease.reference, payload)
+}
 
 private fun ProfileRows.measuredPayloadMatches(
     reference: ProfileUtilityReference,

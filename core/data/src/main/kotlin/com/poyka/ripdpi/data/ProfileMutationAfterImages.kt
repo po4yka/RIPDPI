@@ -109,11 +109,7 @@ internal class ProfileMutationRowWriter(
             }
 
             is WarpDeactivateIntent -> {
-                if (rows.warpProfiles.activeProfileId() == intent.profileId ||
-                    rows.settings.snapshot().warpProfileId == intent.profileId
-                ) {
-                    clearWarp()
-                }
+                deactivateWarp(intent)
             }
 
             is PrivateBackupReplaceIntent -> {
@@ -154,6 +150,14 @@ internal class ProfileMutationRowWriter(
         }
     }
 
+    private fun deactivateWarp(intent: WarpDeactivateIntent) {
+        if (rows.warpProfiles.activeProfileId() == intent.profileId ||
+            rows.settings.snapshot().warpProfileId == intent.profileId
+        ) {
+            clearWarp()
+        }
+    }
+
     /**
      * Each row goes back only while it still holds the switch's value, so a newer write (a settings edit, a refresh
      * fallback) survives. A previous member that a refresh removed is never restored.
@@ -184,9 +188,9 @@ internal class ProfileMutationRowWriter(
                 .singleOrNull { it.id == groupId }
                 ?.members
                 .orEmpty()
-        if (now.choiceProfileId == switched.choiceProfileId && now.choiceManual == switched.choiceManual &&
-            (previous == null || members.any { it.id == previous })
-        ) {
+        val choiceUnchanged =
+            now.choiceProfileId == switched.choiceProfileId && now.choiceManual == switched.choiceManual
+        if (choiceUnchanged && (previous == null || members.any { it.id == previous })) {
             rows.selection.setChoice(groupId, previous, before.choiceManual)
         }
     }
