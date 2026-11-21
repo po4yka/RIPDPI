@@ -67,7 +67,8 @@ impl Fixture {
                 }
                 request.push(byte[0]);
             }
-            assert!(String::from_utf8_lossy(&request).contains("Host: example.com\r\n"));
+            let authority = if socks { "example.com".into() } else { format!("example.com:{port}") };
+            assert!(String::from_utf8_lossy(&request).contains(&format!("Host: {authority}\r\n")));
             if stall {
                 std::thread::sleep(Duration::from_millis(450));
                 return;
@@ -123,11 +124,11 @@ fn verified_direct_tls_rejects_untrusted_certificate_or_wrong_name() {
         let server = Fixture::start(false, false);
         let mut parsed = parse_http_target(url, None, &[], None).unwrap();
         parsed.port = server.port;
+        parsed.connect_targets = vec![TargetAddress::Ip(Ipv4Addr::LOCALHOST.into())];
         let mut result = base_result(&config, &config.targets[0], 1);
         with_scan_io_deadline(Some(Instant::now() + Duration::from_secs(2)), || {
             execute_https(
                 &parsed,
-                &[TargetAddress::Ip(Ipv4Addr::LOCALHOST.into())],
                 1024,
                 &TransportConfig::Direct { route_experiment: None },
                 &AttemptControl {
@@ -137,6 +138,7 @@ fn verified_direct_tls_rejects_untrusted_certificate_or_wrong_name() {
                 },
                 trusted.then_some(&server.verifier),
                 &mut result,
+                false,
             );
         });
         assert_eq!(result.outcome, "matrix_target_tls_error", "{:?}", result.details);
@@ -149,11 +151,11 @@ fn verified_direct_tls_completes_body() {
     let config = config();
     let mut parsed = parse_http_target("https://example.com/", None, &[], None).unwrap();
     parsed.port = server.port;
+    parsed.connect_targets = vec![TargetAddress::Ip(Ipv4Addr::LOCALHOST.into())];
     let mut result = base_result(&config, &config.targets[0], 1);
     with_scan_io_deadline(Some(Instant::now() + Duration::from_secs(2)), || {
         execute_https(
             &parsed,
-            &[TargetAddress::Ip(Ipv4Addr::LOCALHOST.into())],
             1024,
             &TransportConfig::Direct { route_experiment: None },
             &AttemptControl {
@@ -163,6 +165,7 @@ fn verified_direct_tls_completes_body() {
             },
             Some(&server.verifier),
             &mut result,
+            false,
         );
     });
     assert_eq!(result.outcome, "matrix_target_available", "{:?}", result.details);

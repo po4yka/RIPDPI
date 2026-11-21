@@ -134,7 +134,7 @@ private fun StageText(
 }
 
 @StringRes
-private fun ConnectionStage.labelResource(): Int =
+internal fun ConnectionStage.labelResource(): Int =
     when (this) {
         ConnectionStage.DNS -> R.string.diagnostics_stages_dns
         ConnectionStage.TCP -> R.string.diagnostics_stages_tcp

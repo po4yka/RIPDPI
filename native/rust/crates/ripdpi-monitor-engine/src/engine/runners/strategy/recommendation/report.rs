@@ -2,8 +2,7 @@ use crate::candidates::{
     build_strategy_probe_summary, probe_fake_ttl_capability, probe_ip_fragmentation_capabilities,
     probe_tcp_fast_open_capability,
 };
-use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime};
-use crate::transport::TransportConfig;
+use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime, authenticated_in_path_transport_matches};
 use crate::types::{
     ProbeResult, STRATEGY_PROBE_METHODOLOGY_VERSION, ScanPathMode, StrategyActivePathAuthority,
     StrategyActivePathObservation, StrategyProbeCompletionKind, StrategyProbeObservationRole,
@@ -147,16 +146,6 @@ fn active_path_evidence(plan: &ExecutionPlan, runtime: &ExecutionRuntime) -> Opt
     classify_active_path_evidence(&plan.request.path_mode, authenticated_route_matches, &runtime.results)
 }
 
-fn authenticated_in_path_transport_matches(route: &crate::types::InPathRoute, transport: &TransportConfig) -> bool {
-    let TransportConfig::Socks5 { host, port, credentials: Some(credentials) } = transport else {
-        return false;
-    };
-    host == &route.host
-        && port == &route.port
-        && credentials.username() == route.credentials.username.as_str()
-        && credentials.password() == route.credentials.password.as_str()
-}
-
 fn classify_active_path_evidence(
     path_mode: &ScanPathMode,
     has_in_path_route: bool,
@@ -179,19 +168,27 @@ fn classify_active_path_evidence(
     let mut route_reached_targets = 0;
     for result in results.iter().filter(|result| result.probe_type == "domain_reachability") {
         let outcome = result.outcome.as_str();
+        let transfer_stage = result
+            .details
+            .iter()
+            .find(|detail| detail.key == "activeControlTransferStage")
+            .filter(|_| result.details.iter().any(|detail| detail.key == "isControl" && detail.value == "true"))
+            .map(|detail| detail.value.as_str());
         let route_reached = result.details.iter().any(|detail| detail.key == "connectedIp")
+            || matches!(transfer_stage, Some("tls" | "http_headers" | "first_body_byte" | "body"))
             || matches!(
                 outcome,
                 "tls_ok" | "tls_version_split" | "http_ok" | "tls_ech_only" | "tls_cert_invalid" | "http_blockpage"
             );
         route_reached_targets += usize::from(route_reached);
-        match outcome {
-            "tls_ok" | "tls_version_split" | "http_ok" => {
+        match (outcome, transfer_stage) {
+            ("tls_ok" | "tls_version_split" | "http_ok", _) | (_, Some("body")) => {
                 response_observed_targets += 1;
                 successful_targets += 1;
             }
-            "tls_ech_only" | "tls_cert_invalid" | "http_blockpage" => response_observed_targets += 1,
-            "unreachable" => response_not_observed_targets += 1,
+            ("tls_ech_only" | "tls_cert_invalid" | "http_blockpage", _)
+            | (_, Some("tls" | "http_headers" | "first_body_byte")) => response_observed_targets += 1,
+            ("unreachable", _) => response_not_observed_targets += 1,
             _ => {}
         }
     }
@@ -216,7 +213,26 @@ fn classify_active_path_evidence(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transport::Socks5Credentials;
+    use crate::transport::{Socks5Credentials, TransportConfig};
+
+    #[test]
+    fn control_transfer_can_confirm_a_response_even_if_the_separate_reachability_probe_failed() {
+        for (stage, expected_successes) in [("http_headers", 0), ("body", 1)] {
+            let result = ProbeResult {
+                probe_type: "domain_reachability".into(),
+                target: "control.example".into(),
+                outcome: "unreachable".into(),
+                details: [("isControl", "true"), ("activeControlTransferStage", stage)]
+                    .into_iter()
+                    .map(|(key, value)| crate::types::ProbeDetail { key: key.into(), value: value.into() })
+                    .collect(),
+            };
+            let evidence = classify_active_path_evidence(&ScanPathMode::InPath, true, &[result]).unwrap();
+            assert_eq!(evidence.response_stage, StrategyProbeResponseStage::ResponseObserved);
+            assert_eq!(evidence.route_reached_targets, 1);
+            assert_eq!(evidence.successful_targets, expected_successes);
+        }
+    }
 
     #[test]
     fn active_service_observation_is_separate_and_unverified_until_route_lease_is_correlated() {

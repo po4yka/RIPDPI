@@ -64,6 +64,7 @@ internal object CurrentStrategyVerdictEvaluator {
                     baseline = baselines.single(),
                     expectedStrategySignature = expectedStrategySignature,
                     activePathObservation = strategyProbe.activePathObservation,
+                    activeControlStage = report.results.activeControlTransferStage(),
                 )
             }
         }
@@ -74,12 +75,14 @@ internal object CurrentStrategyVerdictEvaluator {
         baseline: StrategyProbeCandidateSummary,
         expectedStrategySignature: BypassStrategySignature,
         activePathObservation: StrategyActivePathObservation?,
+        activeControlStage: ConnectionStage?,
     ): CurrentStrategyAssessment {
         val pathAssessment =
             assessObservationPath(
                 pathMode = pathMode,
                 candidateRole = baseline.observationRole,
                 activePathObservation = activePathObservation,
+                activeControlStage = activeControlStage,
                 signature = expectedStrategySignature,
             )
         val attempts = baseline.executionAttempts
@@ -158,6 +161,7 @@ internal object CurrentStrategyVerdictEvaluator {
             reason = reason,
             lastProvenStage = CurrentStrategyLastProvenStage.CANDIDATE_RUNTIME,
             activePathUnavailableReason = pathAssessment.unavailableReason,
+            activePathLastProvenStage = pathAssessment.lastProvenStage,
         )
 
     private fun evaluatedAssessment(
@@ -190,6 +194,7 @@ internal object CurrentStrategyVerdictEvaluator {
                     CurrentStrategyLastProvenStage.DESYNC_WRITES_COMMITTED
                 },
             activePathUnavailableReason = pathAssessment.unavailableReason,
+            activePathLastProvenStage = pathAssessment.lastProvenStage,
         )
     }
 
@@ -197,6 +202,7 @@ internal object CurrentStrategyVerdictEvaluator {
         pathMode: ScanPathMode,
         candidateRole: StrategyProbeObservationRole,
         activePathObservation: StrategyActivePathObservation?,
+        activeControlStage: ConnectionStage?,
         signature: BypassStrategySignature,
     ): ObservationPathAssessment? {
         if (candidateRole != StrategyProbeObservationRole.EPHEMERAL_CANDIDATE_RAW_PATH) {
@@ -217,34 +223,7 @@ internal object CurrentStrategyVerdictEvaluator {
                     StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN &&
                     activePathObservation.hasCoherentResponseCounts()
                 ) {
-                    when (activePathObservation.responseStage) {
-                        StrategyProbeResponseStage.RESPONSE_OBSERVED -> {
-                            ObservationPathAssessment(
-                                outcome =
-                                    if (activePathObservation.successfulTargets > 0) {
-                                        ActiveStrategyPathOutcome.WORKING
-                                    } else {
-                                        ActiveStrategyPathOutcome.INEFFECTIVE
-                                    },
-                                unavailableReason = null,
-                            )
-                        }
-
-                        StrategyProbeResponseStage.RESPONSE_NOT_OBSERVED -> {
-                            ObservationPathAssessment(
-                                outcome = ActiveStrategyPathOutcome.INEFFECTIVE,
-                                unavailableReason = null,
-                            )
-                        }
-
-                        StrategyProbeResponseStage.UNAVAILABLE -> {
-                            ObservationPathAssessment(
-                                outcome = ActiveStrategyPathOutcome.UNVERIFIED,
-                                unavailableReason =
-                                    ActiveStrategyPathUnavailableReason.ACTIVE_SERVICE_PATH_NOT_OBSERVED,
-                            )
-                        }
-                    }
+                    assessOwnedPath(activePathObservation, activeControlStage)
                 } else {
                     ObservationPathAssessment(
                         outcome = ActiveStrategyPathOutcome.UNVERIFIED,
@@ -255,15 +234,57 @@ internal object CurrentStrategyVerdictEvaluator {
         }
     }
 
+    private fun assessOwnedPath(
+        observation: StrategyActivePathObservation,
+        stage: ConnectionStage?,
+    ): ObservationPathAssessment {
+        val provenStage = stage.takeIf { observation.responseStage == StrategyProbeResponseStage.RESPONSE_OBSERVED }
+        val outcome =
+            when {
+                provenStage == ConnectionStage.BODY && observation.successfulTargets > 0 -> {
+                    ActiveStrategyPathOutcome.WORKING
+                }
+
+                provenStage != null -> {
+                    ActiveStrategyPathOutcome.UNVERIFIED
+                }
+
+                observation.successfulTargets == 0 -> {
+                    ActiveStrategyPathOutcome.INEFFECTIVE
+                }
+
+                else -> {
+                    ActiveStrategyPathOutcome.UNVERIFIED
+                }
+            }
+        return ObservationPathAssessment(outcome, unavailableReason = null, lastProvenStage = provenStage)
+    }
+
     private data class ObservationPathAssessment(
         val outcome: ActiveStrategyPathOutcome,
         val unavailableReason: ActiveStrategyPathUnavailableReason?,
+        val lastProvenStage: ConnectionStage? = null,
     )
 
     private const val BaselineCurrentCandidateId = "baseline_current"
 }
 
 private const val HostSplitActionCount = 3
+
+private fun List<ProbeResult>.activeControlTransferStage(): ConnectionStage? {
+    val markers =
+        filter { result ->
+            result.probeType == "domain_reachability" &&
+                result.details.singleOrNull { it.key == "isControl" }?.value == "true"
+        }.flatMap { result -> result.details.filter { it.key == "activeControlTransferStage" } }
+    return when (markers.singleOrNull()?.value) {
+        "tls" -> ConnectionStage.TLS
+        "http_headers" -> ConnectionStage.HTTP_HEADERS
+        "first_body_byte" -> ConnectionStage.FIRST_BODY_BYTE
+        "body" -> ConnectionStage.BODY
+        else -> null
+    }
+}
 
 private fun StrategyProbeRuntimeTerminalStatus.isEvaluable(): Boolean =
     this == StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN ||

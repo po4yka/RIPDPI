@@ -219,6 +219,13 @@ Candidates are a **plan**, not an executor: the spec describes the required
 packet-level behaviour and the runtime capabilities it needs; the engine builds
 the emitter from it.
 
+An in-path strategy scan can verify the active service with one HTTPS transfer
+to the first configured control on its authenticated route. The transfer has
+a three-second deadline and a 16 KiB body limit. A nonempty HTTP 200 body must
+complete with explicit framing and pass the block-page check. A TLS handshake,
+headers, or a first body byte can identify the last proven stage. Only a
+verified body on the current owned route supports the active `WORKING` verdict.
+
 ---
 
 ## The probe descriptor seam

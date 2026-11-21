@@ -121,6 +121,7 @@ data class CurrentStrategyAssessment(
     val reason: CurrentStrategyEvidenceReason,
     val lastProvenStage: CurrentStrategyLastProvenStage = CurrentStrategyLastProvenStage.NONE,
     val activePathUnavailableReason: ActiveStrategyPathUnavailableReason? = null,
+    val activePathLastProvenStage: ConnectionStage? = null,
 )
 
 @Serializable
