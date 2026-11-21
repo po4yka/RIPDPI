@@ -178,13 +178,48 @@ class DnsSettingsScreenTest {
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()
+        // A saved DoT resolver without a port uses the port the runtime falls back to.
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomPort).assert(hasEditableText("853"))
 
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomHost).performTextInput("resolver.example")
-        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomPort).performTextInput("853")
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomBootstrap).performTextInput("1.1.1.1, 1.0.0.1")
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomTlsServerName).performTextInput("resolver.example")
 
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsEnabled()
+    }
+
+    @Test
+    fun switchingFromDohToDotSeedsTheDotPort() {
+        composeRule.setContent {
+            RipDpiTheme {
+                DnsSettingsScreen(
+                    uiState =
+                        SettingsUiState(
+                            dns =
+                                DnsUiState(
+                                    dnsMode = DnsModeEncrypted,
+                                    dnsProviderId = DnsProviderCloudflare,
+                                    encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                                    encryptedDnsPort = 443,
+                                ),
+                        ),
+                    onBack = {},
+                    onModeSelected = {},
+                    onProtocolSelected = {},
+                    onResolverSelected = {},
+                    onSaveCustomDoh = { _, _ -> },
+                    onSaveCustomDot = { _, _, _, _, _ -> },
+                    onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+                    onSaveCustomOdoh = { _, _ -> },
+                    onSavePlainDns = {},
+                    onIpv6Changed = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolDot)).performScrollTo().performClick()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomPort).assert(hasEditableText("853"))
     }
 
     @Test
@@ -411,5 +446,12 @@ class DnsSettingsScreenTest {
         composeRule.runOnIdle { assertEquals(listOf("8.8.8.8"), savedBootstrap) }
     }
 }
+
+private fun hasEditableText(text: String) =
+    SemanticsMatcher.expectValue(
+        SemanticsProperties.EditableText,
+        androidx.compose.ui.text
+            .AnnotatedString(text),
+    )
 
 private const val Ipv6Dns = "2606:4700:4700::1111"

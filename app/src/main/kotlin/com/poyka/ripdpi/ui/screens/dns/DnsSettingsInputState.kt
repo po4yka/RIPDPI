@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.defaultEncryptedDnsPort
 import com.poyka.ripdpi.utility.checkNotLocalIp
 
 private const val dnsPortMax = 65535
@@ -168,10 +169,7 @@ private fun encryptedPortInput(dns: DnsUiState): String =
         dns.encryptedDnsProtocol == EncryptedDnsProtocolDoq ||
         dns.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt
     ) {
-        dns.encryptedDnsPort
-            .takeIf { it > 0 }
-            ?.toString()
-            .orEmpty()
+        (dns.encryptedDnsPort.takeIf { it > 0 } ?: defaultEncryptedDnsPort(dns.encryptedDnsProtocol)).toString()
     } else {
         ""
     }

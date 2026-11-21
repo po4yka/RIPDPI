@@ -16,6 +16,13 @@ const val EncryptedDnsProtocolDnsCrypt = "dnscrypt"
 const val EncryptedDnsProtocolDoq = "doq"
 const val EncryptedDnsProtocolOdoh = "odoh"
 
+/** The port a resolver of [protocol] uses when its settings name none: 853 for DoT and DoQ, 443 otherwise. */
+fun defaultEncryptedDnsPort(protocol: String): Int =
+    when (protocol) {
+        EncryptedDnsProtocolDot, EncryptedDnsProtocolDoq -> DefaultDoTPort
+        else -> DefaultHttpsPort
+    }
+
 const val EncryptedDnsOdohConfigSourceCustomBytes = "custom_bytes"
 const val EncryptedDnsOdohConfigSourceBundled = "bundled"
 
@@ -385,20 +392,12 @@ fun activeDnsSettings(
                 parsePortFromUrl(effectiveDohUrl).takeIf { it > 0 } ?: DefaultHttpsPort
             }
 
-            normalizedProtocol == EncryptedDnsProtocolDot -> {
-                DefaultDoTPort
-            }
-
-            normalizedProtocol == EncryptedDnsProtocolDoq -> {
-                DefaultDoTPort
-            }
-
             normalizedProtocol == EncryptedDnsProtocolOdoh -> {
                 parsePortFromUrl(effectiveOdohProxyUrl).takeIf { it > 0 } ?: DefaultHttpsPort
             }
 
             else -> {
-                DefaultHttpsPort
+                defaultEncryptedDnsPort(normalizedProtocol)
             }
         }
     val effectiveTlsServerName =

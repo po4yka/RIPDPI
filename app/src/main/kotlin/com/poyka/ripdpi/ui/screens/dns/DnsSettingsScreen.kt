@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.defaultEncryptedDnsPort
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
@@ -52,8 +53,13 @@ internal fun DnsSettingsScreen(
 ) {
     var draftProtocol by rememberSaveable(uiState.dns.encryptedDnsProtocol) { mutableStateOf<String?>(null) }
     val editorUiState =
-        draftProtocol?.let { protocol -> uiState.copy(dns = uiState.dns.copy(encryptedDnsProtocol = protocol)) }
-            ?: uiState
+        draftProtocol?.let { protocol ->
+            // Another protocol's saved port never carries over: the draft starts at the new protocol's default.
+            val port =
+                uiState.dns.encryptedDnsPort.takeIf { protocol == uiState.dns.encryptedDnsProtocol }
+                    ?: defaultEncryptedDnsPort(protocol)
+            uiState.copy(dns = uiState.dns.copy(encryptedDnsProtocol = protocol, encryptedDnsPort = port))
+        } ?: uiState
     val input = rememberDnsSettingsInputState(editorUiState.dns)
     val validation =
         rememberDnsSettingsValidation(
