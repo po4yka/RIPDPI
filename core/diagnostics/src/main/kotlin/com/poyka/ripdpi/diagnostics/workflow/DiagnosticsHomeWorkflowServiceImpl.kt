@@ -157,8 +157,11 @@ internal class DiagnosticsHomeResolverActionCoordinator
             strategyApplied: StrategyApplyResult?,
             resolverRecommendation: ResolverRecommendation?,
         ): List<DiagnosticsAppliedSetting> =
-            if (strategyApplied == null && resolverRecommendation?.persistable == true) {
+            if (
+                strategyApplied == null &&
+                resolverRecommendation?.persistable == true &&
                 resolverActions.saveResolverRecommendation(sessionId)
+            ) {
                 buildResolverAppliedSettings(resolverRecommendation)
             } else {
                 emptyList()

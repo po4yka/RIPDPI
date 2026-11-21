@@ -299,6 +299,26 @@ class DiagnosticsHomeWorkflowServiceTest {
         }
 
     @Test
+    fun `a resolver recommendation that was not saved is not listed as applied`() =
+        runTest {
+            val refusingActions =
+                object : DiagnosticsResolverActions {
+                    override suspend fun keepResolverRecommendationForSession(sessionId: String) = false
+
+                    override suspend fun saveResolverRecommendation(sessionId: String) = false
+                }
+
+            val applied =
+                DiagnosticsHomeResolverActionCoordinator(refusingActions).applyResolverRecommendation(
+                    sessionId = "resolver-session",
+                    strategyApplied = null,
+                    resolverRecommendation = resolverOnlyAuditReport("resolver-session").resolverRecommendation,
+                )
+
+            assertEquals(emptyList<DiagnosticsAppliedSetting>(), applied)
+        }
+
+    @Test
     fun `finalizeHomeAudit reports but does not apply low coverage secondary recommendation`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
