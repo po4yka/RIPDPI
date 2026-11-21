@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiDirectPathCapability
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
@@ -18,11 +19,11 @@ import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DirectPolicyEnvironment
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
-import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import com.poyka.ripdpi.data.isRuntimeUsableDirectPolicy
 import com.poyka.ripdpi.data.toSettingsSections
@@ -241,42 +242,49 @@ internal class ConnectionPolicyRuntimeContextAssembler
 
         /**
          * The current settings with only the remembered policy's measured strategy lanes laid over them, the same
-         * overlay a recommendation uses when it is applied. Every other setting stays as the user has it now.
+         * overlay a recommendation uses when it is applied. Every other setting stays as the user has it now. Null
+         * when the policy has no lane this overlay can replay; the caller then uses the baseline.
          */
         suspend fun rememberedPreferences(
-            configJson: String,
-            rememberedPolicy: RememberedNetworkPolicyJson?,
+            policy: RememberedNetworkPolicyEntity,
             hostAutolearnStorePath: String,
             networkScopeKey: String?,
             runtimeContext: RipDpiRuntimeContext?,
             settings: AppSettings,
             destinationRouting: DestinationRoutingPolicy,
             awg: AwgActivationRequest? = null,
-        ): RipDpiProxyPreferences {
+        ): RipDpiProxyPreferences? {
+            // A lane with a winning family was measured; the other lane keeps the current settings.
+            val applyTcp = policy.winningTcpStrategyFamily != null
+            val applyQuic = policy.winningQuicStrategyFamily != null
+            if (!applyTcp && !applyQuic) return notReplayable(policy, "no_measured_lane")
             val remembered =
                 checkNotNull(
                     decodeRipDpiProxyUiPreferences(
                         com.poyka.ripdpi.core
-                            .RipDpiProxyJsonPreferences(configJson)
+                            .RipDpiProxyJsonPreferences(policy.proxyConfigJson)
                             .toNativeConfigJson(),
                     ),
                 ) { "Remembered proxy policy is not a UI config" }
-            // A lane with a winning family was measured; the other lane keeps the current settings.
-            val applyTcp = rememberedPolicy?.winningTcpStrategyFamily != null
-            val applyQuic = rememberedPolicy?.winningQuicStrategyFamily != null
-            val overlaid =
-                if (applyTcp || applyQuic) {
-                    remembered.applyStrategyToSettings(settings, applyTcp, applyQuic)
-                } else {
-                    settings
-                }
+            // applyStrategyToSettings cannot carry these TCP options into the settings.
+            if (applyTcp && (remembered.chains.tcpRotation != null || remembered.chains.payloadDisable.isNotEmpty())) {
+                return notReplayable(policy, "tcp_rotation_or_payload_disable")
+            }
             return baselinePreferences(
-                settings = overlaid,
+                settings = remembered.applyStrategyToSettings(settings, applyTcp, applyQuic),
                 hostAutolearnStorePath = hostAutolearnStorePath,
                 networkScopeKey = networkScopeKey,
                 runtimeContext = runtimeContext,
                 destinationRouting = destinationRouting,
                 awg = awg,
             )
+        }
+
+        private fun notReplayable(
+            policy: RememberedNetworkPolicyEntity,
+            reason: String,
+        ): Nothing? {
+            Logger.i { "Remembered policy ${policy.id} not replayable: $reason; using baseline" }
+            return null
         }
     }

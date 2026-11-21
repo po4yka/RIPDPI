@@ -780,6 +780,17 @@ class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
                     updatedAt = clock.now(),
                 ),
             )
+            // Nothing measured to replay: it must neither be replayed nor keep automatic probing away.
+            store.upsertRememberedNetworkPolicy(
+                rememberedPolicy(
+                    fingerprintHash = "fp-no-lane",
+                    mode = "vpn",
+                    status = RememberedNetworkPolicyStatusValidated,
+                    lastValidatedAt = clock.now() - 100L,
+                    updatedAt = clock.now(),
+                    winningTcpStrategyFamily = null,
+                ),
+            )
             repeat(RememberedNetworkPolicyRetentionLimit + 2) { index ->
                 store.upsertRememberedNetworkPolicy(
                     rememberedPolicy(
@@ -795,6 +806,7 @@ class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
             assertNull(store.findValidatedRememberedNetworkPolicy("fp-expired", "vpn"))
             assertNull(store.findValidatedRememberedNetworkPolicy("fp-session", "vpn"))
             assertNull(store.findValidatedRememberedNetworkPolicy("fp-future", "vpn"))
+            assertNull(store.findValidatedRememberedNetworkPolicy("fp-no-lane", "vpn"))
 
             store.pruneRememberedNetworkPolicies()
 
@@ -1615,11 +1627,13 @@ private fun rememberedPolicy(
     lastValidatedAt: Long? = null,
     suppressedUntil: Long? = null,
     source: RememberedNetworkPolicySource = RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND,
+    winningTcpStrategyFamily: String? = "split",
 ) = RememberedNetworkPolicyEntity(
     fingerprintHash = fingerprintHash,
     mode = mode,
     summaryJson = "{}",
     proxyConfigJson = "{}",
+    winningTcpStrategyFamily = winningTcpStrategyFamily,
     source = source.encodeStorageValue(),
     status = status,
     firstObservedAt = updatedAt,

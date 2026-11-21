@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
+import com.poyka.ripdpi.core.RipDpiChainConfig
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
@@ -609,6 +610,78 @@ class ConnectionPolicyResolverTest {
             assertNull(resolution.matchedNetworkPolicy)
             assertNull(resolution.rememberedPolicyAppliedByExactMatch)
             assertEquals(1, rememberedStore.failures.size)
+        }
+
+    @Test
+    fun `a remembered policy with no replayable lane resolves the baseline without a failure`() =
+        runTest {
+            val withoutLane =
+                sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
+                    proxyConfigJson =
+                        RipDpiProxyUIPreferences(protocols = RipDpiProtocolConfig(desyncHttp = false))
+                            .toNativeConfigJson(),
+                    winningTcpStrategyFamily = null,
+                    winningQuicStrategyFamily = null,
+                )
+            // applyStrategyToSettings cannot carry payload disable into the settings.
+            val withPayloadDisable =
+                sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
+                    proxyConfigJson =
+                        RipDpiProxyUIPreferences(chains = RipDpiChainConfig(payloadDisable = listOf("tls")))
+                            .toNativeConfigJson(),
+                    winningTcpStrategyFamily = "split",
+                )
+            for (policy in listOf(withoutLane, withPayloadDisable)) {
+                val rememberedStore = TestRememberedNetworkPolicyStore().apply { validatedMatch = policy }
+                val settings =
+                    AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setNetworkStrategyMemoryEnabled(true)
+                        .build()
+                val resolver =
+                    DefaultConnectionPolicyResolver(
+                        runtimeConfigurationCapture =
+                            testRequestedRuntimeConfigurationCapture(
+                                ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                                EmptyDestinationRoutingPolicySource,
+                            ),
+                        context = RuntimeEnvironment.getApplication(),
+                        appSettingsRepository = TestAppSettingsRepository(settings),
+                        networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                        networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                        rememberedNetworkPolicyStore = rememberedStore,
+                        awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                        destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                        runtimeContextAssembler =
+                            ConnectionPolicyRuntimeContextAssembler(
+                                context = RuntimeEnvironment.getApplication(),
+                                networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                                serverCapabilityStore = TestServerCapabilityStore(),
+                                antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                                rootHelperManager = RootHelperManager(),
+                                environmentDetector = EnvironmentDetector(),
+                                proxySessionSecretResolver =
+                                    ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                                activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                                strategyPackStateStore = InMemoryStrategyPackStateStore(),
+                            ),
+                    )
+
+                val resolution = resolver.resolve(mode = Mode.VPN)
+                val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+
+                assertNull(resolution.matchedNetworkPolicy)
+                assertNull(resolution.rememberedPolicyAppliedByExactMatch)
+                assertEquals(settings.desyncHttp, uiPreferences?.protocols?.desyncHttp)
+                assertTrue(
+                    uiPreferences
+                        ?.chains
+                        ?.payloadDisable
+                        .orEmpty()
+                        .isEmpty(),
+                )
+                assertTrue(rememberedStore.failures.isEmpty())
+            }
         }
 }
 

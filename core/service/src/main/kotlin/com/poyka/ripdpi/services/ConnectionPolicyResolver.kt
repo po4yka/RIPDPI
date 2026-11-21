@@ -320,13 +320,14 @@ internal class DefaultConnectionPolicyResolver
                         routingSnapshot = baseline.destinationRoutingSnapshot,
                         fingerprint = baseline.fingerprint,
                     )
+                // A policy that cannot be replayed is not a failure of the policy: the session runs the baseline.
                 val proxyPreferences =
                     rememberedProxyPreferences(
                         baseline = baseline,
                         effectiveDns = effectiveDns,
                         rememberedPolicy = rememberedPolicy,
-                        configJson = matchedPolicy.proxyConfigJson,
-                    )
+                        matchedPolicy = matchedPolicy,
+                    ) ?: return null
                 val appliedPolicy =
                     rememberedPolicyMatcher.appliedPolicy(
                         rememberedPolicy = rememberedPolicy,
@@ -410,8 +411,8 @@ internal class DefaultConnectionPolicyResolver
             baseline: BaselineConnectionPolicy,
             effectiveDns: ActiveDnsSettings,
             rememberedPolicy: RememberedNetworkPolicyJson?,
-            configJson: String,
-        ): RipDpiProxyPreferences {
+            matchedPolicy: RememberedNetworkPolicyEntity,
+        ): RipDpiProxyPreferences? {
             val baseRuntimeContext =
                 runtimeContextAssembler.runtimeContext(
                     activeDns = effectiveDns,
@@ -422,8 +423,7 @@ internal class DefaultConnectionPolicyResolver
             val effectiveRuntimeContext =
                 applyRememberedConnectionConcurrencyPolicy(baseRuntimeContext, rememberedPolicy)
             return runtimeContextAssembler.rememberedPreferences(
-                configJson = configJson,
-                rememberedPolicy = rememberedPolicy,
+                policy = matchedPolicy,
                 hostAutolearnStorePath = baseline.hostAutolearnStorePath,
                 networkScopeKey = baseline.networkScopeKey,
                 runtimeContext = effectiveRuntimeContext,
