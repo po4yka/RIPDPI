@@ -259,9 +259,8 @@ class DefaultHomeAnalysisAugmentationSource
             // The next target is tried only when the previous one sent no byte; a partial load is still a load.
             var successful = false
             for (url in BufferbloatLoadedUrls) {
-                if (!isActive()) break
+                if (successful || firstByteNs != null || !isActive()) break
                 successful = download(url)
-                if (successful || firstByteNs != null) break
             }
             started.complete(false)
             return HomeLoadEvidence(successful, bytesRead, firstByteNs, lastByteNs)
