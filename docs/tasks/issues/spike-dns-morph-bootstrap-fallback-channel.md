@@ -2,7 +2,7 @@
 id: TRN-1786264762917575
 title: "Spike: DNS-Morph bootstrap as fallback bootstrap channel"
 kind: feature
-status: doing
+status: review
 area: transport
 priority: medium
 owner: dns-morph-client session
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917575-spike-dns-morph-bootstrap-fallback-channel
 created: 2026-05-22
-updated: 2026-11-20
+updated: 2026-11-21
 source_wiki_pages:
   - dns-morph-bootstrap
 linked_task: null
