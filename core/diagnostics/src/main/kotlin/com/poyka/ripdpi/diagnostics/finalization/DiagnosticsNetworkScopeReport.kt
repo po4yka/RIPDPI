@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProbeTypes
 import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.StrategyActivePathAuthority
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
+import com.poyka.ripdpi.diagnostics.TlsHopComparisonProbeType
 import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
@@ -25,6 +26,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 internal const val NetworkScopeUnverifiedDiagnosis = "network_scope_unverified"
+private val ScopeSensitiveTlsHopOutcomes = setOf("tls_hop_divergence", "tls_hop_inconclusive")
 
 internal enum class DiagnosticsScopeLoss(
     val diagnosisCode: String,
@@ -137,8 +139,7 @@ internal suspend fun revokePersistedNetworkScope(
 
 private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeResultWire =
     when {
-        probeType == "tls_hop_comparison" &&
-            (outcome == "tls_hop_divergence" || outcome == "tls_hop_inconclusive") -> {
+        probeType == TlsHopComparisonProbeType && outcome in ScopeSensitiveTlsHopOutcomes -> {
             copy(outcome = "tls_hop_inconclusive", details = details.withoutTlsHopScopeAuthority())
         }
 
