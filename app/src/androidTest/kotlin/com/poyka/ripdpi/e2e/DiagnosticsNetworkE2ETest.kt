@@ -26,6 +26,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.Http3TransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -41,6 +42,7 @@ import com.poyka.ripdpi.diagnostics.TcpTarget
 import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonInput
 import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
+import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
@@ -177,6 +179,52 @@ class DiagnosticsNetworkE2ETest {
         )
         assertTrue(detail.snapshots.isNotEmpty())
         assertTrue(detail.events.isNotEmpty())
+    }
+
+    @Test
+    fun manualRawHttp3ComparisonPersistsBodyDivergence() {
+        assumeTrue(
+            "Requires the instrumented build with the fixture HTTPS certificate",
+            InstrumentationRegistry.getArguments().getString(VerifiedHttpsFixtureTrustArg) == "true",
+        )
+        val port = requireNotNull(fixture.verifiedHttpsPort) { "Fixture did not publish its verified HTTPS port" }
+        val input =
+            VerifiedTransferComparisonInput(
+                url = "https://${fixture.fixtureDomain}:$port/verified-short",
+                connectIp = fixture.androidHost,
+                expectedBodyBytes = "2",
+                sha256 = ShortFixtureSha256,
+            )
+        val sessionId =
+            runBlocking {
+                startScanSessionId(
+                    pathMode = ScanPathMode.RAW_PATH,
+                    selectedProfileId = Http3TransferComparisonProfileId,
+                    targetOverrides = DiagnosticsScanTargetOverrides(http3Comparison = input),
+                )
+            }
+
+        val history = awaitCompletedSession(sessionId)
+        assertEquals(Http3TransferComparisonProfileId, history.session.profileId)
+        assertEquals(ScanPathMode.RAW_PATH.name, history.session.pathMode)
+        val comparisons = history.results.filter { it.probeType == "throughput_window" }
+        assertEquals(diagnosticOutcomes(history), 1, comparisons.size)
+        val comparison = comparisons.single()
+        assertEquals(diagnosticOutcomes(history), "http3_transfer_comparison_recorded", comparison.outcome)
+        val expectedDetails =
+            mapOf(
+                "tcpOutcome" to "verified",
+                "tcpStage" to "complete",
+                "tcpBytes" to "2",
+                "http3Outcome" to "body_timeout",
+                "http3Stage" to "body",
+                "http3Bytes" to "1",
+                "differenceStage" to "body",
+            )
+        for ((key, expected) in expectedDetails) {
+            val actual = comparison.details.singleOrNull { it.key == key }?.value
+            assertEquals("Persisted HTTP/3 comparison detail $key", expected, actual)
+        }
     }
 
     @Test

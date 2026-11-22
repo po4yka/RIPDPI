@@ -1,5 +1,5 @@
 use std::io::{self, ErrorKind, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{TcpListener, TcpStream, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
@@ -12,6 +12,7 @@ use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use crate::http::read_until_marker;
 use crate::types::{FixtureConfig, IO_POLL_DELAY};
 use crate::util;
+use crate::verified_http3;
 
 pub(crate) struct TlsMaterial {
     pub(crate) certificate_pem: String,
@@ -22,10 +23,11 @@ pub(crate) fn start_verified_https_server(
     bind_host: &str,
     stop: Arc<AtomicBool>,
     server_config: Arc<ServerConfig>,
-) -> io::Result<(JoinHandle<()>, u16)> {
-    let listener = TcpListener::bind((bind_host, 0))?;
+) -> io::Result<([JoinHandle<()>; 2], u16)> {
+    let (listener, socket) = bind_verified_sockets(bind_host)?;
     listener.set_nonblocking(true)?;
     let port = listener.local_addr()?.port();
+    let http3_handle = verified_http3::start(socket, stop.clone(), &server_config)?;
     let handle = thread::spawn(move || {
         while !stop.load(Ordering::Relaxed) {
             match listener.accept() {
@@ -40,7 +42,19 @@ pub(crate) fn start_verified_https_server(
             }
         }
     });
-    Ok((handle, port))
+    Ok(([handle, http3_handle], port))
+}
+
+fn bind_verified_sockets(bind_host: &str) -> io::Result<(TcpListener, UdpSocket)> {
+    let mut retries = 7;
+    loop {
+        let listener = TcpListener::bind((bind_host, 0))?;
+        match UdpSocket::bind(listener.local_addr()?) {
+            Ok(socket) => return Ok((listener, socket)),
+            Err(err) if err.kind() == ErrorKind::AddrInUse && retries > 0 => retries -= 1,
+            Err(err) => return Err(err),
+        }
+    }
 }
 
 fn serve_verified_https(socket: TcpStream, server_config: Arc<ServerConfig>) -> io::Result<()> {

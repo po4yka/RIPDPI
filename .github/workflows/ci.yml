@@ -3238,7 +3238,7 @@ jobs:
           RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
         run: bash scripts/ci/run-android-e2e-emulator.sh
 
-      - name: Run manual RAW HTTPS transfer E2E
+      - name: Run manual RAW HTTPS and HTTP/3 E2E
         timeout-minutes: 60
         env:
           RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}

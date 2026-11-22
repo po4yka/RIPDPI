@@ -34,6 +34,7 @@ mod trojan;
 mod tuic;
 mod types;
 mod util;
+mod verified_http3;
 mod vless;
 mod webtunnel;
 mod xhttp;
@@ -628,6 +629,61 @@ mod tests {
         long.sock.set_read_timeout(Some(Duration::from_millis(1400))).expect("set stall timeout");
         let err = long.read(&mut [0u8; 1]).expect_err("long response should stall without EOF");
         assert!(matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock), "{err}");
+    }
+
+    #[test]
+    fn verified_http3_keeps_the_body_open_on_the_manifest_https_port() {
+        use bytes::Buf;
+
+        let _serial = lock_fixture_stack_tests();
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+        let manifest = stack.manifest();
+        let certificate = CertificateDer::from_pem_slice(manifest.tls_certificate_pem.as_bytes())
+            .expect("decode fixture certificate");
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(certificate).expect("trust fixture certificate");
+        let mut tls = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("supported TLS versions")
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+        tls.alpn_protocols = vec![b"h3".to_vec()];
+        let quic = quinn::crypto::rustls::QuicClientConfig::try_from(tls).expect("create QUIC client config");
+        let address = SocketAddr::new(manifest.bind_host.parse().expect("fixture IP"), manifest.verified_https_port);
+        let domain = manifest.fixture_domain.clone();
+        let url = format!("https://{domain}:{}/verified-short", address.port());
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("client runtime");
+        runtime.block_on(async {
+            tokio::time::timeout(Duration::from_secs(3), async {
+                let mut endpoint =
+                    quinn::Endpoint::client((Ipv4Addr::LOCALHOST, 0).into()).expect("create client endpoint");
+                endpoint.set_default_client_config(quinn::ClientConfig::new(Arc::new(quic)));
+                let connection = endpoint
+                    .connect(address, &domain)
+                    .expect("start QUIC handshake")
+                    .await
+                    .expect("authenticate fixture TLS");
+                let (mut driver, mut sender) =
+                    h3::client::new(h3_quinn::Connection::new(connection)).await.expect("create HTTP/3 client");
+                tokio::spawn(async move {
+                    let _ = std::future::poll_fn(|cx| driver.poll_close(cx)).await;
+                });
+                let request = ::http::Request::get(url).body(()).expect("create fixture request");
+                let mut stream = sender.send_request(request).await.expect("send fixture request");
+                stream.finish().await.expect("finish request");
+                let response = stream.recv_response().await.expect("receive response headers");
+                assert_eq!(response.status(), ::http::StatusCode::OK);
+                assert_eq!(response.headers()[::http::header::CONTENT_LENGTH], "2");
+                let mut body = stream.recv_data().await.expect("receive body prefix").expect("body prefix bytes");
+                assert_eq!(body.copy_to_bytes(body.remaining()).as_ref(), b"o");
+                drop(body);
+                assert!(tokio::time::timeout(Duration::from_millis(200), stream.recv_data()).await.is_err());
+                drop(stack);
+                UdpSocket::bind(address).expect("fixture releases its UDP port during an active stall");
+            })
+            .await
+            .expect("HTTP/3 response prefix and stall");
+        });
     }
 
     #[test]
