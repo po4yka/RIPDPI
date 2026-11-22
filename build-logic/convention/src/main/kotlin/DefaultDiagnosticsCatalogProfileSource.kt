@@ -18,6 +18,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             pmtuCloudflareConnectivityProfile(),
             tlsHopComparisonProfile(),
             quicVersionMatrixProfile(),
+            verifiedHttpsDownloadProfile(),
             automaticProbingProfile(index),
             automaticAuditProfile(index),
             dpiDetectorFullProfile(),

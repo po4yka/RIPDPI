@@ -508,7 +508,16 @@
           "allowBackground": false,
           "requiresRawPath": false,
           "probePersistencePolicy": "MANUAL_ONLY"
-        }
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": []
       }
     },
     {
