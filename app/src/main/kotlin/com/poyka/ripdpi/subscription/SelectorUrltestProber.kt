@@ -74,6 +74,7 @@ class SelectorUrltestProber internal constructor(
 
     /** Consecutive reachability passes in which the selected member, keyed by group, failed its check. */
     private val unreachablePasses = ConcurrentHashMap<String, Pair<String, Int>>()
+    private val lastDownFailures = ConcurrentHashMap<String, String>()
 
     private data class VpnRecovery(
         val previous: AppliedRuntimeConfiguration,
@@ -98,6 +99,7 @@ class SelectorUrltestProber internal constructor(
         var recoveringReserve: String? = null,
         val failedReserves: MutableSet<String> = mutableSetOf(),
         var lastResortFailed: Boolean = false,
+        var lastDownFailure: String? = null,
         var routeUnavailable: Boolean = false,
         var vpnRecovery: VpnRecovery? = null,
     ) {
@@ -243,8 +245,8 @@ class SelectorUrltestProber internal constructor(
             val reserves = if (tcpPriority) selected.preferTcpReserves() else selected
             val reserve =
                 reserves.takeIf { it.isNotEmpty() && (!useDown || scopeProvider.isCurrent(scope)) }?.let { members ->
-                    val index = if (useDown) 0 else reserveIndex.mod(members.size)
-                    members.firstOrNull { it.id == recoveringReserve } ?: members[index]
+                    members.firstOrNull { it.id == recoveringReserve }
+                        ?: if (useDown) members.after(lastDownFailure) else members[reserveIndex.mod(members.size)]
                 } ?: return null
             val result = measure(reserve)
             if (result.latencyMillis != null) {
@@ -254,6 +256,7 @@ class SelectorUrltestProber internal constructor(
                 recoveringReserve = null
                 if (useDown) {
                     lastResortFailed = result.isTransferFailure
+                    if (lastResortFailed) lastDownFailure = reserve.id
                 } else {
                     if (activeFailed && result.isTransferFailure) failedReserves.add(reserve.id)
                     reserveIndex = (reserves.indexOf(reserve) + 1).mod(reserves.size)
@@ -272,6 +275,7 @@ class SelectorUrltestProber internal constructor(
     internal fun invalidatePendingSelection(groupId: String) {
         payloadStates.remove(groupId)
         unreachablePasses.remove(groupId)
+        lastDownFailures.remove(groupId)
         qualityStore.invalidate(groupId)
         selectionStore.invalidatePendingSelection(groupId)
     }
@@ -399,8 +403,9 @@ class SelectorUrltestProber internal constructor(
             (listOfNotNull(active) + reserves.ordinary).map { member ->
                 probeRoundMutex.withLock { measureMember(member, target) }
             }
+        val down = reserves.down.after(lastDownFailures[group.id])
         val fallback =
-            reserves.down.firstOrNull()?.takeIf { latencies.all(MemberLatency::isTransferFailure) }?.let { member ->
+            down?.takeIf { latencies.all(MemberLatency::isTransferFailure) }?.let { member ->
                 probeRoundMutex.withLock {
                     if (scope.sameProbe(scopeProvider.capture(group)) &&
                         selectionStore.snapshot(group.id) == selection
@@ -411,6 +416,7 @@ class SelectorUrltestProber internal constructor(
                     }
                 }
             }
+        if (fallback?.isTransferFailure == true) lastDownFailures[group.id] = fallback.profileId
         currentCoroutineContext().ensureActive()
         if (scope.sameProbe(scopeProvider.capture(group))) {
             currentCoroutineContext().ensureActive()
