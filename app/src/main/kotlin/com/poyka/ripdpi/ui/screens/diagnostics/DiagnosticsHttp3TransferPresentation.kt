@@ -7,6 +7,8 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 internal val DiagnosticsProbeResultUiModel.isHttp3TransferComparison: Boolean
     get() =
@@ -24,7 +26,7 @@ internal data class Http3TransferLegUiModel(
 )
 
 internal data class Http3TransferComparisonUiModel(
-    val legs: List<Http3TransferLegUiModel>,
+    val legs: ImmutableList<Http3TransferLegUiModel>,
     @StringRes val difference: Int,
 )
 
@@ -53,7 +55,7 @@ internal fun DiagnosticsProbeResultUiModel.http3TransferComparison(): Http3Trans
             values["differenceStage"] == "none" -> R.string.diagnostics_http3_transfer_no_difference
             else -> transferComparisonStageResource(values["differenceStage"])
         }
-    return Http3TransferComparisonUiModel(legs, difference)
+    return Http3TransferComparisonUiModel(legs.toImmutableList(), difference)
 }
 
 @StringRes
