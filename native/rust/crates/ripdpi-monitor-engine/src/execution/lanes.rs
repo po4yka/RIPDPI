@@ -72,6 +72,7 @@ mod tests {
             http_port: None,
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         }];
         let cancel = AtomicBool::new(false);

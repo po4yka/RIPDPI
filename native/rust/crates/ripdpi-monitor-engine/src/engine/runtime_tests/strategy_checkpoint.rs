@@ -16,6 +16,7 @@ fn checkpoint_keeps_completed_candidate_evidence_without_a_recommendation() {
         http_port: Some(http.port()),
         http_path: "/".to_string(),
         is_control: false,
+        control_tier: None,
         concurrency_probe: None,
     }];
     plan.request.strategy_probe.as_mut().expect("strategy request").max_candidates = Some(2);

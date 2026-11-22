@@ -19,14 +19,15 @@ internal fun policy(
 internal fun domainTargets(
     multiline: String,
     legalSafety: CatalogLegalSafety = CatalogLegalSafety.SAFE,
-    isControl: Boolean = false,
+    control: CatalogControlTier? = null,
     httpPath: String = "/",
     concurrencyProbe: ConcurrencyProbeTargetMetadataDefinition? = null,
 ): List<DomainTargetDefinition> =
     lines(multiline).map { host ->
         DomainTargetDefinition(
             host = host,
-            isControl = isControl,
+            isControl = control != null,
+            controlTier = control,
             httpPath = httpPath,
             concurrencyProbe = concurrencyProbe,
             legalSafety = legalSafety,

@@ -13,6 +13,7 @@ fn loopback_target() -> crate::types::DomainTarget {
         http_port: None,
         http_path: "/".to_string(),
         is_control: false,
+        control_tier: None,
         concurrency_probe: None,
     }
 }

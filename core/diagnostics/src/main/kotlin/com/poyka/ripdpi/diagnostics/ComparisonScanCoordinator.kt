@@ -26,6 +26,7 @@ class ComparisonScanCoordinator
             val resolverAssessment = buildResolverAssessment(completeRawReports)
             val rawControlSuccess = rawEvidence.controlSuccessCount > 0
             val rawControlFailure = rawEvidence.controlFailureCount > 0
+            val controlTiers = ControlTierOutcome.of(rawTargets.values)
             val rawAffectedFailure = rawEvidence.affectedTargetFailureCount > 0
             val resolverMismatchAuthorities =
                 resolverAssessment.mismatchTargets.map(String::normalizedProbeAuthority).toSet()
@@ -38,6 +39,7 @@ class ComparisonScanCoordinator
                 deriveAssessmentCode(
                     rawControlSuccess = rawControlSuccess,
                     rawControlFailure = rawControlFailure,
+                    controlTiers = controlTiers,
                     rawAffectedFailure = rawAffectedFailure,
                     resolverLinkedFailure = resolverLinkedFailureCount > 0,
                     inPathRegression = inPathRegression,
@@ -58,6 +60,8 @@ class ComparisonScanCoordinator
             val controlOutcome =
                 when {
                     rawEvidence.controls.isEmpty() -> "no_controls"
+                    controlTiers.internationalFailure -> "raw_controls_international_failed"
+                    controlTiers.cdnOnlyFailure -> "raw_controls_cdn_blocked"
                     rawControlSuccess && !rawControlFailure -> "raw_controls_passed"
                     rawControlSuccess -> "raw_controls_mixed"
                     rawControlFailure -> "raw_controls_failed"
@@ -86,6 +90,7 @@ class ComparisonScanCoordinator
             private fun deriveAssessmentCode(
                 rawControlSuccess: Boolean,
                 rawControlFailure: Boolean,
+                controlTiers: ControlTierOutcome,
                 rawAffectedFailure: Boolean,
                 resolverLinkedFailure: Boolean,
                 inPathRegression: Boolean,
@@ -98,6 +103,10 @@ class ComparisonScanCoordinator
                         ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE
                     }
 
+                    controlTiers.internationalFailure && rawAffectedFailure -> {
+                        ConnectivityAssessmentCode.RAW_NETWORK_INTERNATIONAL_FAILURE
+                    }
+
                     inPathRegression -> {
                         ConnectivityAssessmentCode.VPN_PATH_REGRESSION
                     }
@@ -106,7 +115,8 @@ class ComparisonScanCoordinator
                         ConnectivityAssessmentCode.RESOLVER_INTERFERENCE
                     }
 
-                    rawControlSuccess && rawAffectedFailure -> {
+                    // Only a foreign control proves the path the affected targets use; a domestic one does not.
+                    controlTiers.foreignBaselinePassed(rawControlSuccess) && rawAffectedFailure -> {
                         ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING
                     }
 
@@ -132,6 +142,12 @@ class ComparisonScanCoordinator
                     ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE -> {
                         "Observed pattern: raw-path control and affected targets failed together. " +
                             "This is consistent with a broader direct-network problem; cause is not established."
+                    }
+
+                    ConnectivityAssessmentCode.RAW_NETWORK_INTERNATIONAL_FAILURE -> {
+                        "Observed pattern: domestic controls passed while every foreign control and affected " +
+                            "targets failed. This is consistent with a degraded international link; " +
+                            "cause is not established."
                     }
 
                     ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING -> {
@@ -176,6 +192,11 @@ class ComparisonScanCoordinator
                     ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE -> {
                         "Run a paired raw-path and in-path reproduction, then inspect underlying " +
                             "network evidence before attributing a cause."
+                    }
+
+                    ConnectivityAssessmentCode.RAW_NETWORK_INTERNATIONAL_FAILURE -> {
+                        "Compare the in-path run with the domestic and foreign controls; a working in-path " +
+                            "route means the bypass carries traffic the direct international link drops."
                     }
 
                     ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING -> {
@@ -318,20 +339,24 @@ class ComparisonScanCoordinator
                 when (kind) {
                     ObservationKind.DOMAIN -> {
                         domain?.let { fact ->
+                            val result =
+                                report.results.firstOrNull {
+                                    it.probeType == "domain_reachability" && it.target == fact.host
+                                }
                             val normalized =
-                                report.results
-                                    .firstOrNull {
-                                        it.probeType == "domain_reachability" &&
-                                            it.target == fact.host
-                                    }?.let {
-                                        DiagnosticsOutcomeTaxonomy
-                                            .classifyProbeResult(
-                                                report.pathMode,
-                                                it,
-                                                report.results,
-                                            ).bucket
-                                    }
-                            domainTargetOutcome(fact, normalized)
+                                result?.let {
+                                    DiagnosticsOutcomeTaxonomy
+                                        .classifyProbeResult(
+                                            report.pathMode,
+                                            it,
+                                            report.results,
+                                        ).bucket
+                                }
+                            val tier =
+                                ControlTier.fromWireName(
+                                    result?.details?.firstOrNull { it.key == "controlTier" }?.value,
+                                )
+                            domainTargetOutcome(fact, normalized).copy(controlTier = tier?.takeIf { fact.isControl })
                         }
                     }
 
@@ -367,9 +392,48 @@ private data class TargetOutcome(
     val isControl: Boolean = false,
     val bucket: DiagnosticsOutcomeBucket,
     val components: Map<String, DiagnosticsOutcomeBucket>,
+    val controlTier: ControlTier? = null,
 ) {
     val success: Boolean get() = bucket == DiagnosticsOutcomeBucket.Healthy
     val failed: Boolean get() = bucket == DiagnosticsOutcomeBucket.Failed
+}
+
+/**
+ * Control results by where the control lives. A control without a tier counts as foreign; a report with no tier
+ * at all (an older catalog) keeps its previous verdicts.
+ */
+private class ControlTierOutcome(
+    private val domesticPassed: Boolean,
+    private val foreignPassed: Boolean,
+    private val foreignAllFailed: Boolean,
+    private val hasTiers: Boolean,
+    val cdnOnlyFailure: Boolean,
+) {
+    /** The local network works while every foreign control failed: the international link is the problem. */
+    val internationalFailure: Boolean get() = domesticPassed && foreignAllFailed
+
+    fun foreignBaselinePassed(anyControlPassed: Boolean): Boolean = if (hasTiers) foreignPassed else anyControlPassed
+
+    companion object {
+        fun of(targets: Collection<TargetOutcome>): ControlTierOutcome {
+            val controls = targets.filter { it.isControl }
+            val domestic = controls.filter { it.controlTier == ControlTier.DOMESTIC }
+            val foreign = controls - domestic.toSet()
+            val cdn = foreign.filter { it.controlTier == ControlTier.CDN }
+            val otherForeign = foreign - cdn.toSet()
+            return ControlTierOutcome(
+                domesticPassed = domestic.any { it.success },
+                foreignPassed = foreign.any { it.success },
+                // Every foreign control failed; an inconclusive one is not proof of a broken link.
+                foreignAllFailed = foreign.isNotEmpty() && foreign.all { it.failed },
+                hasTiers = controls.any { it.controlTier != null },
+                // Only the CDN provider is unreachable: every other control answered.
+                cdnOnlyFailure =
+                    cdn.isNotEmpty() && cdn.all { it.failed } && otherForeign.isNotEmpty() &&
+                        otherForeign.all { it.success } && domestic.none { it.failed },
+            )
+        }
+    }
 }
 
 private fun merge(
@@ -380,6 +444,7 @@ private fun merge(
         next
     } else {
         existing.copy(
+            controlTier = existing.controlTier ?: next.controlTier,
             bucket = if (existing.bucket == next.bucket) existing.bucket else DiagnosticsOutcomeBucket.Inconclusive,
             components =
                 (existing.components.keys + next.components.keys).associateWith { component ->

@@ -497,6 +497,109 @@ class ComparisonScanCoordinatorTest {
         assertTrue(assessment.recommendedNextAction.contains("Inspect proxy/tunnel runtime errors"))
     }
 
+    @Test
+    fun `domestic controls passing while every foreign control fails is an international link failure`() {
+        val assessment =
+            assessTiered(
+                "ya.ru" to (ControlTier.DOMESTIC to Up),
+                "vk.com" to (ControlTier.DOMESTIC to Up),
+                "proof.ovh.net" to (ControlTier.GLOBAL to Down),
+                "speed.cloudflare.com" to (ControlTier.CDN to Down),
+            )
+
+        assertEquals(ConnectivityAssessmentCode.RAW_NETWORK_INTERNATIONAL_FAILURE, assessment.assessmentCode)
+        assertEquals("raw_controls_international_failed", assessment.controlOutcome)
+        assertEquals(listOf("blocked.example"), assessment.affectedTargets)
+    }
+
+    @Test
+    fun `a blocked CDN control with a working global control is selective blocking, not a broken baseline`() {
+        val assessment =
+            assessTiered(
+                "ya.ru" to (ControlTier.DOMESTIC to Up),
+                "proof.ovh.net" to (ControlTier.GLOBAL to Up),
+                "speed.cloudflare.com" to (ControlTier.CDN to Down),
+            )
+
+        assertEquals(ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING, assessment.assessmentCode)
+        assertEquals("raw_controls_cdn_blocked", assessment.controlOutcome)
+    }
+
+    @Test
+    fun `a domestic control alone does not prove the path that affected targets use`() {
+        val assessment = assessTiered("ya.ru" to (ControlTier.DOMESTIC to Up))
+
+        assertEquals(ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE, assessment.assessmentCode)
+    }
+
+    @Test
+    fun `every control failing, domestic included, stays a general network failure`() {
+        val assessment =
+            assessTiered(
+                "ya.ru" to (ControlTier.DOMESTIC to Down),
+                "proof.ovh.net" to (ControlTier.GLOBAL to Down),
+            )
+
+        assertEquals(ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE, assessment.assessmentCode)
+        assertEquals("raw_controls_failed", assessment.controlOutcome)
+    }
+
+    @Test
+    fun `an unproven foreign control keeps an international failure from being claimed`() {
+        val assessment =
+            assessTiered(
+                "ya.ru" to (ControlTier.DOMESTIC to Up),
+                "proof.ovh.net" to (ControlTier.GLOBAL to Unproven),
+                "speed.cloudflare.com" to (ControlTier.CDN to Down),
+            )
+
+        assertEquals(ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE, assessment.assessmentCode)
+        assertTrue(assessment.controlOutcome != "raw_controls_international_failed")
+    }
+
+    @Test
+    fun `a failed domestic control is not hidden behind a CDN block`() {
+        val assessment =
+            assessTiered(
+                "ya.ru" to (ControlTier.DOMESTIC to Down),
+                "proof.ovh.net" to (ControlTier.GLOBAL to Up),
+                "speed.cloudflare.com" to (ControlTier.CDN to Down),
+            )
+
+        assertEquals("raw_controls_mixed", assessment.controlOutcome)
+    }
+
+    /** Controls as host to (tier to domain_reachability outcome), plus one failed affected target. */
+    private fun assessTiered(vararg controls: Pair<String, Pair<ControlTier, String>>): ConnectivityAssessment {
+        val results =
+            controls.map { (host, tierAndReachable) ->
+                ProbeResult(
+                    probeType = "domain_reachability",
+                    target = host,
+                    outcome = tierAndReachable.second,
+                    details =
+                        listOf(
+                            ProbeDetail("isControl", "true"),
+                            ProbeDetail("controlTier", tierAndReachable.first.wireName),
+                        ),
+                )
+            }
+        val observations =
+            controls.map { (host, tierAndReachable) ->
+                domainObservation(
+                    host = host,
+                    isControl = true,
+                    httpStatus = if (tierAndReachable.second == Up) HttpProbeStatus.OK else HttpProbeStatus.UNREACHABLE,
+                )
+            } + domainObservation(host = "blocked.example", tls13Status = TlsProbeStatus.HANDSHAKE_FAILED)
+        return coordinator.assessConnectivity(
+            rawReports = listOf(minimalReport(results = results, observations = observations)),
+            inPathReport = null,
+            rawPathSessionIds = listOf("raw-1"),
+            inPathSessionId = null,
+        )
+    }
+
     private fun minimalReport(
         results: List<ProbeResult> = emptyList(),
         observations: List<ObservationFact> = emptyList(),
@@ -541,3 +644,8 @@ class ComparisonScanCoordinatorTest {
             ),
     )
 }
+
+// domain_reachability outcomes by bucket: healthy, failed, and attention (neither passed nor failed).
+private const val Up = "tls_ok"
+private const val Down = "unreachable"
+private const val Unproven = "http_ok"

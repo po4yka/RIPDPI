@@ -416,6 +416,7 @@ fn strategy_tcp_runner_enforces_stage_deadline_before_global_deadline() {
         http_port: Some(80),
         http_path: "/".to_string(),
         is_control: false,
+        control_tier: None,
         concurrency_probe: None,
     });
     plan.strategy.as_mut().expect("strategy plan").suite.tcp_candidates.truncate(2);

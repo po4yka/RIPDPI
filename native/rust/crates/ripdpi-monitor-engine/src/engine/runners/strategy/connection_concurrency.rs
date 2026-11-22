@@ -867,6 +867,7 @@ mod tests {
             http_port: None,
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: Some(crate::types::ConcurrencyProbeTargetMetadata {
                 cohort_id: "fixture".to_string(),
                 max_parallelism: 8,
@@ -1131,6 +1132,7 @@ mod tests {
             http_port: None,
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: Some(crate::types::ConcurrencyProbeTargetMetadata {
                 cohort_id: "fixture".to_string(),
                 max_parallelism: 8,

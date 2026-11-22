@@ -232,6 +232,7 @@ fn strategy_probe_request_with_runtime_context(
             http_port: Some(8080),
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         }],
         dns_targets: vec![],
@@ -404,6 +405,7 @@ fn domain_probe_reports_tls_certificate_anomaly() {
         http_port: Some(9),
         http_path: "/".to_string(),
         is_control: false,
+        control_tier: None,
         concurrency_probe: None,
     };
 
@@ -553,6 +555,7 @@ fn domain_probe_reports_http_blockpage() {
         http_port: Some(server.port()),
         http_path: "/".to_string(),
         is_control: false,
+        control_tier: None,
         concurrency_probe: None,
     };
 
@@ -959,6 +962,7 @@ fn strategy_dns_baseline_does_not_compare_a_connection_pin_as_a_system_answer() 
             http_port: Some(80),
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         }],
         Some(&runtime_context),
@@ -1085,6 +1089,7 @@ fn monitor_session_full_matrix_reports_single_lane_recommendation_and_audit_cove
         http_port: Some(server.port()),
         http_path: "/".to_string(),
         is_control: false,
+        control_tier: None,
         concurrency_probe: None,
     }];
     request.quic_targets = vec![QuicTarget {
@@ -1133,6 +1138,7 @@ fn monitor_session_full_matrix_keeps_coverage_when_pinned_candidates_fail() {
         http_port: Some(9),
         http_path: "/".to_string(),
         is_control: false,
+        control_tier: None,
         concurrency_probe: None,
     }];
     request.quic_targets = vec![QuicTarget {
@@ -1284,6 +1290,7 @@ fn monitor_session_drains_passive_events_with_probe_details() {
             http_port: Some(server.port()),
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         }],
         dns_targets: vec![],
@@ -1516,6 +1523,7 @@ fn monitor_json_contracts_match_goldens() {
             http_port: Some(server.port()),
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         }],
         dns_targets: vec![],

@@ -357,6 +357,7 @@ mod tests {
             http_port: Some(80),
             http_path: "/".to_string(),
             is_control: true,
+            control_tier: None,
             concurrency_probe: Some(crate::types::ConcurrencyProbeTargetMetadata {
                 cohort_id: "test".to_string(),
                 max_parallelism: 4,

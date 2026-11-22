@@ -113,12 +113,16 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
             ),
             TargetPackDefinition(
                 id = "neutral-control",
-                version = 5,
+                version = 6,
                 // Each control carries the in-path transfer check, which needs a small complete body. Controls
                 // come from independent providers, so one blocked provider (Cloudflare in Russia) leaves a baseline.
                 domainTargets =
-                    domainTargets("proof.ovh.net", isControl = true, httpPath = "/robots.txt") +
-                        domainTargets("speed.cloudflare.com", isControl = true, httpPath = "/__down?bytes=1024"),
+                    domainTargets("proof.ovh.net", control = CatalogControlTier.GLOBAL, httpPath = "/robots.txt") +
+                        domainTargets(
+                            "speed.cloudflare.com",
+                            control = CatalogControlTier.CDN,
+                            httpPath = "/__down?bytes=1024",
+                        ),
                 tcpTargets = DiagnosticsCatalogSharedData.tcpTlsControls,
                 throughputTargets =
                     listOf(
@@ -134,6 +138,21 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
                             url = "https://proof.ovh.net/files/10Mb.dat",
                             isControl = true,
                         ),
+                    ),
+            ),
+            // Raw-path baseline for the local network: if these answer while every foreign control fails, the
+            // international link is the problem. Two providers, so one outage does not read as a broken network.
+            TargetPackDefinition(
+                id = "domestic-control",
+                version = 1,
+                domainTargets =
+                    domainTargets(
+                        """
+                        ya.ru
+                        vk.com
+                        """.trimIndent(),
+                        control = CatalogControlTier.DOMESTIC,
+                        httpPath = "/robots.txt",
                     ),
             ),
         )

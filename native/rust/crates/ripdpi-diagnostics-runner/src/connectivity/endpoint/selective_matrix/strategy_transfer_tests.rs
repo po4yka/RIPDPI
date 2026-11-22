@@ -49,6 +49,7 @@ fn control_stage(response: &[u8], hold_open: bool) -> String {
         http_port: None,
         http_path: "/control".into(),
         is_control: true,
+        control_tier: None,
         concurrency_probe: None,
     };
     thread::scope(|scope| {

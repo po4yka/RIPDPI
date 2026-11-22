@@ -167,6 +167,9 @@ fn run_domain_probe_with_tls_probe(
             ProbeDetail { key: "probeRetryCount".to_string(), value: usize::from(retry.is_some()).to_string() },
         ],
     };
+    if let Some(tier) = target.control_tier.filter(|_| target.is_control) {
+        result.details.push(ProbeDetail { key: "controlTier".to_string(), value: tier.wire_name().to_string() });
+    }
     for (prefix, attempt) in [("tls13", &tls13), ("tls12", &tls12), ("tlsEch", &tls_ech)] {
         append_tls_attempt_details(&mut result.details, prefix, attempt, transport);
     }
@@ -317,6 +320,7 @@ mod tests {
             http_port: Some(http_server.port()),
             http_path: "/".into(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         };
         let mut attempts = 0;
@@ -379,6 +383,7 @@ mod tests {
             http_port: Some(http_server.port()),
             http_path: "/".into(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         };
         let result = super::run_domain_probe_with_tls_probe(
@@ -431,6 +436,7 @@ mod tests {
             http_port: Some(http_server.port()),
             http_path: "/".into(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         };
         let result = super::run_domain_probe_with_tls_probe(
@@ -480,6 +486,7 @@ mod tests {
             http_port: Some(80),
             http_path: "/".into(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         };
         proxy.set_nonblocking(true).unwrap();
@@ -544,6 +551,7 @@ mod tests {
             http_port: Some(server.port()),
             http_path: "/".into(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         };
         let result = super::run_domain_probe(&target, &super::TransportConfig::Direct { route_experiment: None }, None);

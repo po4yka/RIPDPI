@@ -232,6 +232,9 @@ enum class ConnectivityAssessmentCode {
     @SerialName("raw_network_general_failure")
     RAW_NETWORK_GENERAL_FAILURE,
 
+    @SerialName("raw_network_international_failure")
+    RAW_NETWORK_INTERNATIONAL_FAILURE,
+
     @SerialName("raw_network_selective_blocking")
     RAW_NETWORK_SELECTIVE_BLOCKING,
 

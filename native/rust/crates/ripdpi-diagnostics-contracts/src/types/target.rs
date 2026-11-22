@@ -10,6 +10,26 @@ pub struct ConcurrencyProbeTargetMetadata {
     pub max_parallelism: u16,
 }
 
+/// Where a control lives, so one blocked provider or a broken international link is not read as a
+/// broken network. Domestic controls answer on any working local network and never prove a bypass path.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ControlTier {
+    Domestic,
+    Global,
+    Cdn,
+}
+
+impl ControlTier {
+    pub fn wire_name(self) -> &'static str {
+        match self {
+            Self::Domestic => "domestic",
+            Self::Global => "global",
+            Self::Cdn => "cdn",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DomainTarget {
@@ -26,6 +46,8 @@ pub struct DomainTarget {
     pub http_path: String,
     #[serde(default)]
     pub is_control: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_tier: Option<ControlTier>,
     /// Presence explicitly opts this safe catalog target into the bounded
     /// same-SNI connection-concurrency matrix.
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -56,6 +56,7 @@ data class DomainTarget(
     val httpPort: Int? = null,
     val httpPath: String = "/",
     val isControl: Boolean = false,
+    val controlTier: ControlTier? = null,
     val concurrencyProbe: ConcurrencyProbeTargetMetadata? = null,
 )
 

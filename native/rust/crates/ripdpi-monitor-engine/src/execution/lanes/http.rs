@@ -98,6 +98,7 @@ mod tests {
             http_port: Some(port),
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         };
         let candidate = crate::candidates::candidate_spec(

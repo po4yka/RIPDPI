@@ -234,6 +234,24 @@ fails only when none answers. The HTTP/3 and PMTU profiles use `www.google.com`
 by default; the `-cloudflare` profile variants keep the Cloudflare control as
 an option.
 
+Every control declares a tier in the catalog (`controlTier`): `domestic`
+(`domestic-control` pack: ya.ru and vk.com), `global` (proof.ovh.net), or `cdn`
+(speed.cloudflare.com). The domain probe reports it as the `controlTier`
+detail, and `ComparisonScanCoordinator` reads it:
+
+- Every control failing, domestic included, is `raw_network_general_failure`.
+- Domestic controls passing while every foreign control fails is
+  `raw_network_international_failure`.
+- Selective blocking needs a foreign control that passed; a domestic control
+  alone does not prove the path that affected targets use.
+- A CDN control failing while the global control passes is reported as
+  `raw_controls_cdn_blocked`, not as a broken baseline.
+
+Domestic controls answer without any bypass, so the catalog validator rejects
+them in strategy profiles and the in-path transfer check skips them. A control
+without a tier counts as foreign, which keeps older reports on their previous
+verdicts.
+
 ---
 
 ## The probe descriptor seam

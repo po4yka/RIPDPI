@@ -34,6 +34,7 @@ fn target(port: u16) -> DomainTarget {
         http_port: Some(port),
         http_path: "/".to_string(),
         is_control: false,
+        control_tier: None,
         concurrency_probe: None,
     }
 }

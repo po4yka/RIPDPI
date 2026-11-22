@@ -46,6 +46,30 @@ class PathComparisonSelectionBuilderTest {
             assertTrue(requiredSelection.domainTargets.single { it.host == "control.example" }.isControl)
         }
 
+    @Test
+    fun `a domestic control is never a comparison control`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val domestic = DomainTarget(host = "ya.ru", isControl = true, controlTier = ControlTier.DOMESTIC)
+            val failed = DomainTarget(host = "failed.example")
+            stores.profilesState.value = listOf(profile(domestic, failed))
+            val report = report(domestic, failed)
+            stores.sessionsState.value = listOf(session(report))
+
+            val selection =
+                buildPathComparisonSelection(
+                    runId = "run",
+                    progressState = progress(report),
+                    diagnosticsProfileCatalog = stores,
+                    scanRecordStore = stores,
+                    json = json,
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                )
+
+            // The domestic site answers on the direct path anyway, so it cannot show what the bypass changes.
+            assertTrue(selection?.domainTargets.orEmpty().none { it.host == "ya.ru" })
+        }
+
     private fun profile(
         control: DomainTarget,
         failed: DomainTarget,

@@ -78,7 +78,7 @@ mod interrupted_probe_tests {
         let mut request: ScanRequest = serde_json::from_str(
             r#"{
                 "profileId":"web","displayName":"Web","kind":"STRATEGY_PROBE","pathMode":"IN_PATH",
-                "domainTargets":[{"host":"test.example"},{"host":"control1.example","isControl":true},{"host":"control2.example","isControl":true}],
+                "domainTargets":[{"host":"test.example"},{"host":"control1.example","isControl":true},{"host":"control2.example","isControl":true,"controlTier":"cdn"},{"host":"domestic.example","isControl":true,"controlTier":"domestic"}],
                 "dnsTargets":[],"tcpTargets":[],"whitelistSni":[],
                 "strategyProbe":{"suiteId":"quick_v1"},
                 "inPathRoute":{"host":"127.0.0.1","port":1090,"credentials":{"username":"diagnostics","password":"fixture"}}
@@ -105,15 +105,15 @@ mod interrupted_probe_tests {
         assert!(plan.stage_order.contains(&ExecutionStageId::Web));
         let transfer_flags =
             |plan: &_| WebFamily::targets(plan).into_iter().map(|(_, check)| check).collect::<Vec<_>>();
-        assert_eq!(transfer_flags(&plan), [false, true, true]);
+        assert_eq!(transfer_flags(&plan), [false, true, true, false]);
         let strategy = plan.strategy.take();
-        assert_eq!(transfer_flags(&plan), [false, false, false]);
+        assert_eq!(transfer_flags(&plan), [false, false, false, false]);
         plan.strategy = strategy;
         plan.request.path_mode = ScanPathMode::RawPath;
-        assert_eq!(transfer_flags(&plan), [false, false, false]);
+        assert_eq!(transfer_flags(&plan), [false, false, false, false]);
         plan.request.path_mode = ScanPathMode::InPath;
         plan.transport = direct_transport();
-        assert_eq!(transfer_flags(&plan), [false, false, false]);
+        assert_eq!(transfer_flags(&plan), [false, false, false, false]);
     }
 
     #[test]
@@ -133,6 +133,7 @@ mod interrupted_probe_tests {
                 http_port: Some(port),
                 http_path: "/".into(),
                 is_control: false,
+                control_tier: None,
                 concurrency_probe: None,
             });
             let mut plan = build_execution_plan("test-web".into(), request, 0, direct_transport()).unwrap();

@@ -164,6 +164,18 @@ internal class DiagnosticsCatalogValidator(
             profile.validatePmtuProbe()
             profile.validateTlsHopComparison()
             profile.validateQuicVersionMatrix()
+            profile.domainTargets.forEach { target ->
+                require(target.isControl == (target.controlTier != null)) {
+                    "Profile ${profile.id} control ${target.host} must declare exactly one control tier"
+                }
+            }
+            // A domestic site answers without any bypass, so it cannot prove a strategy or an in-path route.
+            require(
+                profile.kind != CatalogScanKind.STRATEGY_PROBE ||
+                    profile.domainTargets.none { it.controlTier == CatalogControlTier.DOMESTIC },
+            ) {
+                "Strategy profile ${profile.id} must not use a domestic control"
+            }
             profile.packRefs.forEach { reference ->
                 val (packId, version) = parsePackRef(reference)
                 val pack =
@@ -379,6 +391,7 @@ private fun DomainTargetDefinition.toJson(): JsonObject =
     buildJsonObject {
         put("host", host)
         if (isControl) put("isControl", true)
+        controlTier?.let { put("controlTier", it.wireName) }
         if (httpPath != "/") put("httpPath", httpPath)
         concurrencyProbe?.let { put("concurrencyProbe", it.toJson()) }
         effectiveMetadata()?.let { put("legalSafety", it.toJson()) }

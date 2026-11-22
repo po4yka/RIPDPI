@@ -57,6 +57,8 @@ private fun collectControls(
                 ?.host
         }.distinct()
         .map { host -> domainCatalog[host.lowercase()] ?: DomainTarget(host = host, isControl = true) }
+        // A domestic control answers without any bypass, so it cannot show what the in-path route changes.
+        .filter { it.controlTier != ControlTier.DOMESTIC }
         .take(MaxControlsForComparison)
 
 private fun collectFailedDomains(
@@ -70,8 +72,9 @@ private fun collectFailedDomains(
                 ?.takeIf { !it.isControl && domainObservationFailed(it) }
                 ?.host
         }.distinct()
-        .map { host -> domainCatalog[host.lowercase()]?.copy(isControl = false) ?: DomainTarget(host = host) }
-        .take(MaxFailedDomainsForComparison)
+        .map { host ->
+            domainCatalog[host.lowercase()]?.copy(isControl = false, controlTier = null) ?: DomainTarget(host = host)
+        }.take(MaxFailedDomainsForComparison)
 
 private fun collectFailedServices(
     reports: List<Pair<HomeCompositeStageSpec, ScanReport>>,

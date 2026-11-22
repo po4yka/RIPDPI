@@ -38,6 +38,15 @@ internal enum class CatalogDiagnosticProfileFamily {
     AUTOMATIC_AUDIT,
 }
 
+// Where a control lives: one blocked provider or a broken international link must not read as a broken network.
+internal enum class CatalogControlTier(
+    val wireName: String,
+) {
+    DOMESTIC("domestic"),
+    GLOBAL("global"),
+    CDN("cdn"),
+}
+
 internal enum class CatalogLegalSafety {
     SAFE,
     SENSITIVE,
@@ -79,6 +88,7 @@ internal data class ProfileExecutionPolicyDefinition(
 internal data class DomainTargetDefinition(
     val host: String,
     val isControl: Boolean = false,
+    val controlTier: CatalogControlTier? = null,
     val httpPath: String = "/",
     val concurrencyProbe: ConcurrencyProbeTargetMetadataDefinition? = null,
     val legalSafety: CatalogLegalSafety = CatalogLegalSafety.SAFE,

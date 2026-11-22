@@ -13,6 +13,7 @@ fn dns_baseline_completes_its_step_for_a_numeric_target() {
         http_port: None,
         http_path: "/".to_string(),
         is_control: false,
+        control_tier: None,
         concurrency_probe: None,
     }];
     plan.stage_order = vec![ExecutionStageId::StrategyDnsBaseline];

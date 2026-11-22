@@ -661,6 +661,7 @@ fn stratified_pilot_targets_prefers_distinct_bucket_mix() {
             http_port: None,
             http_path: "/".to_string(),
             is_control: true,
+            control_tier: None,
             concurrency_probe: None,
         },
         DomainTarget {
@@ -671,6 +672,7 @@ fn stratified_pilot_targets_prefers_distinct_bucket_mix() {
             http_port: None,
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         },
         DomainTarget {
@@ -681,6 +683,7 @@ fn stratified_pilot_targets_prefers_distinct_bucket_mix() {
             http_port: None,
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         },
         DomainTarget {
@@ -691,6 +694,7 @@ fn stratified_pilot_targets_prefers_distinct_bucket_mix() {
             http_port: None,
             http_path: "/".to_string(),
             is_control: false,
+            control_tier: None,
             concurrency_probe: None,
         },
     ]);
@@ -711,6 +715,7 @@ fn pilot_bucket_label_captures_reachability_hosting_and_ech_bias() {
         http_port: None,
         http_path: "/".to_string(),
         is_control: false,
+        control_tier: None,
         concurrency_probe: None,
     });
 
