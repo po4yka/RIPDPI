@@ -141,16 +141,7 @@ class DiagnosticsSummaryProjector
                         }
                     }
                 }
-                addAll(buildProbeEvidenceLines(report))
-                if (report?.results.orEmpty().none { it.probeType == TlsHopComparisonProbeType }) {
-                    addAll(storedTlsHopSummaryLines(selectedResults))
-                }
-                if (report?.results.orEmpty().any(ProbeResult::isQuicInitialProbe) ||
-                    selectedResults.any { isQuicInitialProbeType(it.probeType) } ||
-                    report?.diagnoses.orEmpty().any { it.code == "quic_initial_unobserved" }
-                ) {
-                    add("quicInitialLimit=$QuicInitialMeasurementLimit")
-                }
+                addAll(buildProbeEvidenceLines(report, selectedResults))
                 report?.engineAnalysisVersion?.let { add("engineAnalysisVersion=$it") }
                 report?.classifierVersion?.let { add("classifierVersion=$it") }
                 if (report?.packVersions?.isNotEmpty() == true) {
@@ -163,13 +154,25 @@ class DiagnosticsSummaryProjector
                 }
             }
 
-        private fun buildProbeEvidenceLines(report: DiagnosticsSessionProjection?): List<String> =
+        private fun buildProbeEvidenceLines(
+            report: DiagnosticsSessionProjection?,
+            selectedResults: List<ProbeResultEntity>,
+        ): List<String> =
             buildList {
                 addAll(report?.results.orEmpty().selectiveMatrixSummaryLines())
                 addAll(report?.results.orEmpty().ipFamilySummaryLines())
                 addAll(report?.results.orEmpty().http3SummaryLines())
                 addAll(report?.results.orEmpty().pmtuSummaryLines())
                 addAll(report?.results.orEmpty().tlsHopComparisonSummaryLines())
+                if (report?.results.orEmpty().none { it.probeType == TlsHopComparisonProbeType }) {
+                    addAll(storedTlsHopSummaryLines(selectedResults))
+                }
+                if (report?.results.orEmpty().any(ProbeResult::isQuicInitialProbe) ||
+                    selectedResults.any { isQuicInitialProbeType(it.probeType) } ||
+                    report?.diagnoses.orEmpty().any { it.code == "quic_initial_unobserved" }
+                ) {
+                    add("quicInitialLimit=$QuicInitialMeasurementLimit")
+                }
                 addAll(report?.results.orEmpty().quicVersionMatrixSummaryLines())
                 addAll(transferEvidenceSummaryLines(report?.results.orEmpty()))
                 addAll(dnsSemanticsSummaryLines(report?.results.orEmpty()))

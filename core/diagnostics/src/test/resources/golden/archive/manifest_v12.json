@@ -99,10 +99,8 @@
     "mode": "vpn",
     "networkScope": "redacted",
     "networkSummary": {
-        "captivePortalDetected": false,
         "dnsServers": "redacted(1)",
         "localAddresses": "redacted(1)",
-        "networkValidated": true,
         "privateDnsMode": "strict",
         "publicAsn": "redacted",
         "publicIp": "redacted",

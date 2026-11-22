@@ -2,7 +2,7 @@
 id: DGN-1791484787190798
 title: Expose diagnostic measurement limits
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: medium
 owner: Root presentation writer
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: diagnostic-measurement-limits
 created: 2026-10-08
-updated: 2026-10-08
+updated: 2026-11-22
 ---
 
 ## Goal
