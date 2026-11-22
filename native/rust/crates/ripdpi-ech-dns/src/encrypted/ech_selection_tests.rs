@@ -112,10 +112,14 @@ fn published_port_matches_only_the_requested_port() {
 fn dns_error_and_unusable_config_are_distinct_from_missing_ech() {
     let mut servfail = answer(&[]);
     servfail[3] = 0x82;
+    // An unpublished `_port._https` owner name has no node, so the answer is NXDOMAIN.
+    let mut nxdomain = answer(&[]);
+    nxdomain[3] = 0x83;
     let unsupported = list(&[unknown_version_entry()]);
 
     for (response, expected) in [
         (servfail, "dns_failed"),
+        (nxdomain, "not_published"),
         (answer(&[(1, ".", None, Some(&[0, 0]))]), "invalid_config"),
         (answer(&[(1, ".", None, Some(&unsupported))]), "invalid_config"),
         (answer(&[]), "not_published"),
