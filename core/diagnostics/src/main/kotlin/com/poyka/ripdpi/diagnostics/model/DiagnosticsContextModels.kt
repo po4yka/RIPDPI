@@ -295,6 +295,7 @@ data class ConnectivityAssessment(
     val resolverAssessment: ConnectivityResolverAssessment = ConnectivityResolverAssessment(),
     val serviceRuntimeAssessment: ConnectivityServiceRuntimeAssessment = ConnectivityServiceRuntimeAssessment(),
     val recommendedNextAction: String = "Review archive details.",
+    val pathComparison: ConnectivityPathComparison? = null,
 )
 
 @Serializable

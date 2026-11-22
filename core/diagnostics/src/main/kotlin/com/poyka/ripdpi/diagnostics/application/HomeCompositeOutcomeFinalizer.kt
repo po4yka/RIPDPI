@@ -31,6 +31,7 @@ internal data class HomeCompositeFinalizationRequest(
     val previousOutcome: DiagnosticsHomeCompositeOutcome?,
     val packetCaptureDisposition: DiagnosticsHomePacketCaptureDisposition,
     val networkScope: DiagnosticsNetworkScope? = null,
+    val comparisonSelection: PathComparisonSelection? = null,
 )
 
 internal class HomeCompositeOutcomeFinalizer(
@@ -120,6 +121,7 @@ internal class HomeCompositeOutcomeFinalizer(
                     json = json,
                     serviceStateStore = serviceStateStore,
                     comparisonScanCoordinator = persistencePorts.comparisonScanCoordinator,
+                    selection = request.comparisonSelection,
                 ),
         )
     }

@@ -309,14 +309,19 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 return
             }
 
-            runMiddleStages(runId)
+            val comparisonSelection = runMiddleStages(runId)
 
             val auditOutcome = runDpiStrategyStage(runId, auditOutcomeAfterAudit)
             eventCollector.cancel()
-            val networkChangedDuringRun = networkEvents.isNotEmpty()
-            val coverageNote = crossValidateHomeStrategy(runId, progressState, scanRecordStore, json)
-            val dnsIssuesDetected = detectHomeRunDnsIssues(runId, progressState, scanRecordStore, json)
-            finalizeRun(runId, auditOutcome, coverageNote, dnsIssuesDetected, networkChangedDuringRun, networkScope)
+            finalizeRun(
+                runId = runId,
+                auditOutcome = auditOutcome,
+                coverageNote = crossValidateHomeStrategy(runId, progressState, scanRecordStore, json),
+                dnsIssuesDetected = detectHomeRunDnsIssues(runId, progressState, scanRecordStore, json),
+                networkChanged = networkEvents.isNotEmpty(),
+                networkScope = networkScope,
+                comparisonSelection = comparisonSelection,
+            )
             log.i {
                 val outcome = completedRuns[runId]
                 "run completed: completed=${outcome?.completedStageCount}" +
@@ -459,7 +464,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         }
 
         /** Runs raw-path middle stages serially, then performs the targeted in-path comparison leg. */
-        private suspend fun runMiddleStages(runId: String) {
+        private suspend fun runMiddleStages(runId: String): PathComparisonSelection? {
             HomeCompositeStageSpecs
                 .drop(1)
                 .dropLast(1)
@@ -491,9 +496,12 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     }
                 }
             val pathComparisonIndex = HomeCompositeStageSpecs.indexOfFirst { it.key == "path_comparison" }
-            if (pathComparisonIndex >= 0) {
-                runPathComparisonStage(runId, pathComparisonIndex, HomeCompositeStageSpecs[pathComparisonIndex])
-            }
+            val comparisonSelection =
+                if (pathComparisonIndex >= 0) {
+                    runPathComparisonStage(runId, pathComparisonIndex, HomeCompositeStageSpecs[pathComparisonIndex])
+                } else {
+                    null
+                }
             val passiveVpnEvidenceIndex = HomeCompositeStageSpecs.indexOfFirst { it.key == "vpn_route_evidence" }
             if (passiveVpnEvidenceIndex >= 0) {
                 runPassiveVpnRouteEvidenceStage(
@@ -502,6 +510,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     spec = HomeCompositeStageSpecs[passiveVpnEvidenceIndex],
                 )
             }
+            return comparisonSelection
         }
 
         private fun runPassiveVpnRouteEvidenceStage(
@@ -539,8 +548,8 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             runId: String,
             stageIndex: Int,
             spec: HomeCompositeStageSpec,
-        ) {
-            if (!stageExecutor.requireInPathRuntime(progressState, runId, stageIndex, spec)) return
+        ): PathComparisonSelection? {
+            if (!stageExecutor.requireInPathRuntime(progressState, runId, stageIndex, spec)) return null
             val selection =
                 buildPathComparisonSelection(
                     runId = runId,
@@ -558,49 +567,50 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                         summary = "Raw-path evidence did not justify a focused in-path confirmation leg.",
                     )
                 }
-                return
-            }
-            stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
-                current.copy(
-                    summary =
-                        "Comparing ${selection.domainTargets.size} domain targets and " +
-                            "${selection.serviceTargets.size + selection.circumventionTargets.size}" +
-                            " service targets in path.",
-                )
-            }
-            val result =
-                executeProfileStageWithRetry(
-                    runId = runId,
-                    stageIndex = stageIndex,
-                    spec = spec,
-                    targetOverrides =
-                        DiagnosticsScanTargetOverrides(
-                            domainTargets = selection.domainTargets,
-                            serviceTargets = selection.serviceTargets,
-                            circumventionTargets = selection.circumventionTargets,
-                        ),
-                )
-            if (result != null) {
-                val (sessionId, session) = result
-                val completedSummary =
-                    buildCompletedStageSummary(
-                        spec = spec,
-                        sessionId = sessionId,
-                        session = session,
-                        scanRecordStore = scanRecordStore,
-                        json = json,
-                    )
-                stageExecutor.updateStage(progressState, runId, stageIndex) {
-                    completedSummary.copy(
+            } else {
+                stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
+                    current.copy(
                         summary =
-                            completedSummary.summary +
-                                " Controls=${selection.domainTargets.filter(
-                                    DomainTarget::isControl,
-                                ).map(DomainTarget::host)}" +
-                                " failed=${selection.failedTargetLabels}",
+                            "Comparing ${selection.domainTargets.size} domain targets and " +
+                                "${selection.serviceTargets.size + selection.circumventionTargets.size}" +
+                                " service targets in path.",
                     )
                 }
+                val result =
+                    executeProfileStageWithRetry(
+                        runId = runId,
+                        stageIndex = stageIndex,
+                        spec = spec,
+                        targetOverrides =
+                            DiagnosticsScanTargetOverrides(
+                                domainTargets = selection.domainTargets,
+                                serviceTargets = selection.serviceTargets,
+                                circumventionTargets = selection.circumventionTargets,
+                            ),
+                    )
+                if (result != null) {
+                    val (sessionId, session) = result
+                    val completedSummary =
+                        buildCompletedStageSummary(
+                            spec = spec,
+                            sessionId = sessionId,
+                            session = session,
+                            scanRecordStore = scanRecordStore,
+                            json = json,
+                        )
+                    stageExecutor.updateStage(progressState, runId, stageIndex) {
+                        completedSummary.copy(
+                            summary =
+                                completedSummary.summary +
+                                    " Controls=${selection.domainTargets.filter(
+                                        DomainTarget::isControl,
+                                    ).map(DomainTarget::host)}" +
+                                    " failed=${selection.failedTargetLabels}",
+                        )
+                    }
+                }
             }
+            return selection
         }
 
         private suspend fun executeProfileStageWithRetry(
@@ -701,6 +711,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             dnsIssuesDetected: Boolean,
             networkChanged: Boolean,
             networkScope: DiagnosticsNetworkScope,
+            comparisonSelection: PathComparisonSelection? = null,
         ) {
             packetCaptureCoordinator.settle(runId)
             val detectionResult = runDetectionResults.remove(runId)
@@ -716,6 +727,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     networkChanged = networkChanged || auditOutcome?.networkChanged == true,
                     networkScope = networkScope,
                     detectionResult = detectionResult,
+                    comparisonSelection = comparisonSelection,
                     previousOutcome = previousOutcome,
                     packetCaptureDisposition = packetCaptureCoordinator.disposition(runId),
                 ),

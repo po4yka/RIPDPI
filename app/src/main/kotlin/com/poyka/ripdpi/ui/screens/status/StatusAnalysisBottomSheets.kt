@@ -250,6 +250,7 @@ private fun StatusAnalysisSheetCoreContent(sheet: StatusDiagnosticsAnalysisSheet
     sheet.recommendationSummary?.let { value ->
         SettingsRow(title = stringResource(R.string.status_diagnostics_recommendation_label), value = value)
     }
+    sheet.connectivityComparison?.let { StatusConnectivityComparisonSection(it) }
     StatusAppliedSettingsSection(sheet)
 }
 

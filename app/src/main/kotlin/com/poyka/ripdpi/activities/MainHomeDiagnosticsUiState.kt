@@ -46,6 +46,7 @@ import com.poyka.ripdpi.ui.screens.status.homeStageLabel
 import com.poyka.ripdpi.ui.screens.status.homeStageSummary
 import com.poyka.ripdpi.ui.screens.status.homeSummary
 import com.poyka.ripdpi.ui.screens.status.homeUiModel
+import com.poyka.ripdpi.ui.screens.status.toStatusConnectivityComparison
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun buildHomeDiagnosticsUiState(
@@ -405,6 +406,7 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         runId = runId,
         headline = homeHeadline(stringResolver),
         summary = homeSummary(stringResolver),
+        connectivityComparison = connectivityAssessment?.toStatusConnectivityComparison(stringResolver),
         confidenceSummary = stringResolver.homeConfidence(confidenceSummary),
         confidenceLevel = confidenceSummary.homeConfidenceLevel(),
         coverageSummary = coverageSummary?.let(stringResolver::homeGeneratedText),

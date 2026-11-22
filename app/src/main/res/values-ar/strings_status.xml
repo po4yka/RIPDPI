@@ -689,4 +689,20 @@
         <item quantity="other">%1$d من التطبيقات المثبّتة معروفة بكشف الـ VPN.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="status_path_comparison">مقارنة المسارات</string>
+    <string name="status_path_direct">مباشر</string>
+    <string name="status_path_active">الاتصال النشط</string>
+    <string name="status_path_complete">مكتمل</string>
+    <string name="status_path_unmeasured">لم يُقَس</string>
+    <string name="status_path_conflicting">نتائج متعارضة</string>
+    <string name="status_path_stage_pair">%1$s %2$s (%3$d) · %4$s %5$s (%6$d)</string>
+    <string name="status_path_coverage">تقارير RAW %1$d/%2$d · %3$s %4$s · المراحل المقارنة %5$d/%6$d</string>
+    <string name="status_path_http_recovery">استُعيد HTTP · %1$s</string>
+    <string name="status_path_general_failure">إخفاقات واسعة على المسار المباشر</string>
+    <string name="status_path_external_failure">إخفاقات على المسار الخارجي</string>
+    <string name="status_path_selective_failure">إخفاقات مباشرة لأهداف محددة</string>
+    <string name="status_path_regression">تراجع على المسار النشط</string>
+    <string name="status_path_resolver_interference">احتمال تداخل DNS</string>
+    <string name="status_path_service_failure">إخفاق خدمة الاتصال</string>
+    <string name="status_path_inconclusive">النتيجة غير حاسمة</string>
 </resources>

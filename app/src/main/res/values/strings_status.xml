@@ -643,4 +643,20 @@
         <item quantity="other">%1$d installed apps are known VPN detectors.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="status_path_comparison">Path comparison</string>
+    <string name="status_path_direct">Direct</string>
+    <string name="status_path_active">Active connection</string>
+    <string name="status_path_complete">Complete</string>
+    <string name="status_path_unmeasured">Unmeasured</string>
+    <string name="status_path_conflicting">Conflicting</string>
+    <string name="status_path_stage_pair">%1$s %2$s (%3$d) · %4$s %5$s (%6$d)</string>
+    <string name="status_path_coverage">RAW reports %1$d/%2$d · %3$s %4$s · Matched stages %5$d/%6$d</string>
+    <string name="status_path_http_recovery">HTTP recovered · %1$s</string>
+    <string name="status_path_general_failure">Widespread direct failures</string>
+    <string name="status_path_external_failure">External path failures</string>
+    <string name="status_path_selective_failure">Target-specific direct failures</string>
+    <string name="status_path_regression">Active path regression</string>
+    <string name="status_path_resolver_interference">Possible DNS interference</string>
+    <string name="status_path_service_failure">Connection service failure</string>
+    <string name="status_path_inconclusive">Inconclusive</string>
 </resources>

@@ -646,4 +646,20 @@
         <item quantity="other">%1$d apps instalados são detectores de VPN conhecidos.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="status_path_comparison">Comparação de rotas</string>
+    <string name="status_path_direct">Direta</string>
+    <string name="status_path_active">Conexão ativa</string>
+    <string name="status_path_complete">Concluída</string>
+    <string name="status_path_unmeasured">Não medido</string>
+    <string name="status_path_conflicting">Resultados conflitantes</string>
+    <string name="status_path_stage_pair">%1$s %2$s (%3$d) · %4$s %5$s (%6$d)</string>
+    <string name="status_path_coverage">Relatórios RAW %1$d/%2$d · %3$s %4$s · Etapas comparadas %5$d/%6$d</string>
+    <string name="status_path_http_recovery">HTTP restabelecido · %1$s</string>
+    <string name="status_path_general_failure">Falhas generalizadas na rota direta</string>
+    <string name="status_path_external_failure">Falhas na rota externa</string>
+    <string name="status_path_selective_failure">Falhas diretas em destinos específicos</string>
+    <string name="status_path_regression">Piora na rota ativa</string>
+    <string name="status_path_resolver_interference">Possível interferência de DNS</string>
+    <string name="status_path_service_failure">Falha do serviço de conexão</string>
+    <string name="status_path_inconclusive">Resultado inconclusivo</string>
 </resources>

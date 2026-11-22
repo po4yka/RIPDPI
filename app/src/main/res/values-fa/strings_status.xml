@@ -638,4 +638,20 @@
         <item quantity="other">%1$d برنامهٔ نصب‌شده شناخته‌شده به‌عنوان تشخیص‌دهندهٔ VPN.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="status_path_comparison">مقایسهٔ مسیرها</string>
+    <string name="status_path_direct">مستقیم</string>
+    <string name="status_path_active">اتصال فعال</string>
+    <string name="status_path_complete">کامل</string>
+    <string name="status_path_unmeasured">اندازه‌گیری نشده</string>
+    <string name="status_path_conflicting">نتایج متناقض</string>
+    <string name="status_path_stage_pair">%1$s %2$s (%3$d) · %4$s %5$s (%6$d)</string>
+    <string name="status_path_coverage">گزارش‌های RAW %1$d/%2$d · %3$s %4$s · مراحل مقایسه‌شده %5$d/%6$d</string>
+    <string name="status_path_http_recovery">HTTP بازیابی شد · %1$s</string>
+    <string name="status_path_general_failure">اختلال گسترده در مسیر مستقیم</string>
+    <string name="status_path_external_failure">اختلال در مسیر خارجی</string>
+    <string name="status_path_selective_failure">اختلال مسیر مستقیم برای مقصدهای خاص</string>
+    <string name="status_path_regression">افت عملکرد مسیر فعال</string>
+    <string name="status_path_resolver_interference">احتمال اختلال DNS</string>
+    <string name="status_path_service_failure">اختلال سرویس اتصال</string>
+    <string name="status_path_inconclusive">نتیجه نامشخص</string>
 </resources>

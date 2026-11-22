@@ -141,6 +141,7 @@ data class StatusDiagnosticsAnalysisSheetUiState(
     val dnsCharacterizationSummary: String? = null,
     val dnsCharacterizationNotes: ImmutableList<String> = persistentListOf(),
     val confidenceLevel: StatusConfidenceLevel? = confidenceSummary.homeConfidenceLevel(),
+    val connectivityComparison: StatusConnectivityComparisonUiModel? = null,
 )
 
 @Immutable

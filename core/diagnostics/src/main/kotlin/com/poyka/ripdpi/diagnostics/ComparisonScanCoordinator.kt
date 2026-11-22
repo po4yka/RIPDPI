@@ -7,22 +7,39 @@ import javax.inject.Singleton
 class ComparisonScanCoordinator
     @Inject
     constructor() {
-        fun assessConnectivity(
+        internal fun assessConnectivity(
             rawReports: List<ScanReport>,
             inPathReport: ScanReport?,
             rawPathSessionIds: List<String>,
             inPathSessionId: String?,
             serviceRuntimeAssessment: ConnectivityServiceRuntimeAssessment = ConnectivityServiceRuntimeAssessment(),
+            rawProfilesByTarget: Map<ConnectivityTargetKey, Set<String>>? = null,
+            activePathIsVpn: Boolean = false,
         ): ConnectivityAssessment {
             val completeRawReports = rawReports.filter { it.completionKind == ScanCompletionKind.NORMAL }
+            val completedRawCount = completeRawReports.distinctBy(ScanReport::sessionId).size
+            val rawReportCount =
+                maxOf(rawReports.distinctBy(ScanReport::sessionId).size, rawPathSessionIds.distinct().size)
             val completeInPathReport = inPathReport?.takeIf { it.completionKind == ScanCompletionKind.NORMAL }
-            val rawTargets = aggregateTargets(completeRawReports)
-            val inPathTargets = aggregateTargets(listOfNotNull(completeInPathReport))
-            val rawEvidence = rawTargets.toConnectivityEvidence(rawPathSessionIds)
+            val rawObservations = targetObservations(completeRawReports)
+            val activeObservations = targetObservations(listOfNotNull(completeInPathReport))
+            val rawTargets = rawObservations.aggregateTargets()
+            val inPathTargets = activeObservations.aggregateTargets()
+            val comparisonInputs =
+                ConnectivityComparisonInputs(rawObservations, activeObservations, rawProfilesByTarget)
+            val comparison =
+                ConnectivityPathComparison(
+                    completeRawReports = completedRawCount,
+                    incompleteRawReports = rawReportCount - completedRawCount,
+                    activePathCoverage = inPathReport.activePathCoverage(inPathSessionId),
+                    activePathIsVpn = activePathIsVpn,
+                ).withObservations(comparisonInputs)
+            val matchedRawTargets = comparisonInputs.matchedRaw().aggregateTargets()
+            val rawEvidence = rawTargets.toConnectivityEvidence(completeRawReports.map(ScanReport::sessionId))
             val inPathEvidence =
                 inPathTargets
-                    .filterKeys { it in rawTargets.keys }
-                    .toConnectivityEvidence(listOfNotNull(inPathSessionId))
+                    .filterKeys { it in matchedRawTargets.keys }
+                    .toConnectivityEvidence(listOfNotNull(completeInPathReport?.sessionId))
             val resolverAssessment = buildResolverAssessment(completeRawReports)
             val rawControlSuccess = rawEvidence.controlSuccessCount > 0
             val rawControlFailure = rawEvidence.controlFailureCount > 0
@@ -34,7 +51,7 @@ class ComparisonScanCoordinator
                 rawEvidence.affectedTargets.count { affectedTarget ->
                     affectedTarget.normalizedProbeAuthority() in resolverMismatchAuthorities
                 }
-            val inPathRegression = detectInPathRegression(rawTargets, inPathTargets)
+            val inPathRegression = detectInPathRegression(matchedRawTargets, inPathTargets)
             val code =
                 deriveAssessmentCode(
                     rawControlSuccess = rawControlSuccess,
@@ -47,16 +64,6 @@ class ComparisonScanCoordinator
                     inPathReport = completeInPathReport,
                     inPathEvidence = inPathEvidence,
                 )
-            val confidence =
-                when (code) {
-                    ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE -> "low"
-
-                    ConnectivityAssessmentCode.SERVICE_RUNTIME_FAILURE,
-                    ConnectivityAssessmentCode.RESOLVER_INTERFERENCE,
-                    -> "medium"
-
-                    else -> "high"
-                }
             val controlOutcome =
                 when {
                     rawEvidence.controls.isEmpty() -> "no_controls"
@@ -75,7 +82,8 @@ class ComparisonScanCoordinator
                         resolverLinkedFailureCount = resolverLinkedFailureCount,
                         affectedTargetFailureCount = rawEvidence.affectedTargetFailureCount,
                     ),
-                confidence = confidence,
+                confidence = comparison.confidenceFor(code),
+                pathComparison = comparison,
                 rawPathEvidence = rawEvidence,
                 inPathEvidence = inPathEvidence,
                 controlOutcome = controlOutcome,
@@ -238,8 +246,8 @@ class ComparisonScanCoordinator
             private val LimitedResolverEvidence = setOf("single_fallback", "disagreement", "unavailable")
 
             private fun detectInPathRegression(
-                rawTargets: Map<String, TargetOutcome>,
-                inPathTargets: Map<String, TargetOutcome>,
+                rawTargets: Map<ConnectivityTargetKey, TargetOutcome>,
+                inPathTargets: Map<ConnectivityTargetKey, TargetOutcome>,
             ): Boolean =
                 rawTargets.any { (target, rawOutcome) ->
                     val inPathOutcome = inPathTargets[target] ?: return@any false
@@ -325,14 +333,22 @@ class ComparisonScanCoordinator
                 )
             }
 
-            private fun aggregateTargets(reports: List<ScanReport>): Map<String, TargetOutcome> =
-                buildMap {
-                    reports.forEach { report ->
-                        report.observations.forEach observationLoop@{ observation ->
-                            val outcome = observation.toTargetOutcome(report) ?: return@observationLoop
-                            put(outcome.id, merge(get(outcome.id), outcome))
+            private fun targetObservations(
+                reports: List<ScanReport>,
+            ): Map<ConnectivityTargetKey, List<ConnectivityTargetObservation>> =
+                reports
+                    .flatMap { report ->
+                        report.observations.mapNotNull { observation ->
+                            observation.toTargetOutcome(report)?.let { target ->
+                                ConnectivityTargetObservation(report.sessionId, report.profileId, target)
+                            }
                         }
-                    }
+                    }.groupBy { it.target.key }
+
+            private fun Map<ConnectivityTargetKey, List<ConnectivityTargetObservation>>.aggregateTargets():
+                Map<ConnectivityTargetKey, TargetOutcome> =
+                mapValues { (_, observations) ->
+                    observations.map(ConnectivityTargetObservation::target).reduce(::merge)
                 }
 
             private fun ObservationFact.toTargetOutcome(report: ScanReport): TargetOutcome? =
@@ -370,7 +386,7 @@ class ComparisonScanCoordinator
                     }
                 }
 
-            private fun Map<String, TargetOutcome>.toConnectivityEvidence(
+            private fun Map<ConnectivityTargetKey, TargetOutcome>.toConnectivityEvidence(
                 sessionIds: List<String>,
             ): ConnectivityEvidence {
                 val controls = values.filter { it.isControl }.map(TargetOutcome::id).sorted()
@@ -388,13 +404,21 @@ class ComparisonScanCoordinator
         }
     }
 
-private data class TargetOutcome(
-    val id: String,
+private fun ScanReport?.activePathCoverage(sessionId: String?): ConnectivityActivePathCoverage =
+    when {
+        this?.completionKind == ScanCompletionKind.NORMAL -> ConnectivityActivePathCoverage.COMPLETE
+        this != null || sessionId != null -> ConnectivityActivePathCoverage.INCOMPLETE
+        else -> ConnectivityActivePathCoverage.NOT_RUN
+    }
+
+internal data class TargetOutcome(
+    val key: ConnectivityTargetKey,
     val isControl: Boolean = false,
     val bucket: DiagnosticsOutcomeBucket,
     val components: Map<String, DiagnosticsOutcomeBucket>,
     val controlTier: ControlTier? = null,
 ) {
+    val id: String get() = key.id
     val success: Boolean get() = bucket == DiagnosticsOutcomeBucket.Healthy
     val failed: Boolean get() = bucket == DiagnosticsOutcomeBucket.Failed
 }
@@ -499,7 +523,7 @@ private fun domainTargetOutcome(
 
             else -> domainBucket
         }
-    return TargetOutcome(fact.host, fact.isControl, bucket, components)
+    return TargetOutcome(ConnectivityTargetKey(ObservationKind.DOMAIN, fact.host), fact.isControl, bucket, components)
 }
 
 internal fun ScanReport.domainResult(host: String): ProbeResult? =
@@ -554,7 +578,7 @@ private fun ObservationFact.endpointTargetOutcome(report: ScanReport): TargetOut
             DiagnosticsOutcomeBucket.Healthy in components.values -> DiagnosticsOutcomeBucket.Healthy
             else -> DiagnosticsOutcomeBucket.Inconclusive
         }
-    return TargetOutcome(target, bucket = bucket, components = components)
+    return TargetOutcome(ConnectivityTargetKey(kind, target), bucket = bucket, components = components)
 }
 
 private fun ServiceObservationFact.componentBuckets(
