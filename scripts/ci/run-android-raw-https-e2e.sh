@@ -8,7 +8,12 @@ work_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-raw-https-e2e.XXXXXX")"
 trap 'rm -rf -- "$work_dir"' EXIT
 control_port="${RIPDPI_FIXTURE_CONTROL_PORT:-46090}"
 android_host="${RIPDPI_FIXTURE_ANDROID_HOST:-10.0.2.2}"
-test_name="com.poyka.ripdpi.e2e.DiagnosticsNetworkE2ETest#manualRawVolumeComparisonPersistsVerifiedShortAndStalledLongTransfers"
+test_class="com.poyka.ripdpi.e2e.DiagnosticsNetworkE2ETest"
+tests=(
+  "$test_class#manualRawVolumeComparisonPersistsVerifiedShortAndStalledLongTransfers"
+  "$test_class#manualRawHttp3ComparisonPersistsBodyDivergence"
+)
+test_filter="$(IFS=,; printf '%s' "${tests[*]}")"
 results_dir="app/build/outputs/androidTest-results/connected/debug/flavors/github"
 
 curl --fail --silent --show-error --max-time 5 "http://127.0.0.1:$control_port/manifest" |
@@ -16,16 +21,18 @@ curl --fail --silent --show-error --max-time 5 "http://127.0.0.1:$control_port/m
   openssl x509 -outform DER -out "$work_dir/fixture-root.der"
 
 bash "$script_dir/wait-for-android-package-manager.sh"
-printf '%s\n' "$test_name" | tee "${RUNNER_TEMP:-/tmp}/android-instrumented-target.txt"
+printf '%s\n' "$test_filter" | tee "${RUNNER_TEMP:-/tmp}/android-instrumented-target.txt"
 rm -rf -- "$results_dir"
 ./gradlew :app:connectedGithubDebugAndroidTest \
   "$@" \
   "-Pripdpi.instrumentedDiagnosticsRoot=$work_dir/fixture-root.der" \
-  "-Pandroid.testInstrumentationRunnerArguments.class=$test_name" \
+  "-Pandroid.testInstrumentationRunnerArguments.class=$test_filter" \
   "-Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=$android_host" \
   "-Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=$control_port" \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.verifiedHttpsFixtureTrust=true \
   -Pandroid.testInstrumentationRunnerArguments.coverage=false
 
-python3 "$script_dir/validate_android_junit_results.py" "$results_dir" \
-  --require-test "$test_name" --expected-count 1 --expected-total-count 1 --forbid-skips
+for test_name in "${tests[@]}"; do
+  python3 "$script_dir/validate_android_junit_results.py" "$results_dir" \
+    --require-test "$test_name" --expected-count 1 --expected-total-count "${#tests[@]}" --forbid-skips
+done

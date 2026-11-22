@@ -33,7 +33,7 @@ struct EchoServices {
     tcp_handle: JoinHandle<()>,
     udp_handle: JoinHandle<()>,
     tls_handle: JoinHandle<()>,
-    verified_https_handle: JoinHandle<()>,
+    verified_https_handles: [JoinHandle<()>; 2],
     tcp_port: u16,
     udp_port: u16,
     tls_port: u16,
@@ -93,7 +93,6 @@ impl FixtureStack {
             echo.tcp_handle,
             echo.udp_handle,
             echo.tls_handle,
-            echo.verified_https_handle,
             dns.udp_handle,
             dns.http_handle,
             dns.dot_handle,
@@ -104,6 +103,7 @@ impl FixtureStack {
             socks.handle,
             control.handle,
         ];
+        handles.extend(echo.verified_https_handles);
         handles.extend(icmp_ipv4);
         handles.extend(icmp_ipv6);
 
@@ -179,14 +179,14 @@ fn start_echo_services(
         tls.server_config.clone(),
     )?;
 
-    let (verified_https_handle, verified_https_port) =
+    let (verified_https_handles, verified_https_port) =
         start_verified_https_server(&config.bind_host, context.stop.clone(), tls.server_config.clone())?;
 
     Ok(EchoServices {
         tcp_handle,
         udp_handle,
         tls_handle,
-        verified_https_handle,
+        verified_https_handles,
         tcp_port,
         udp_port,
         tls_port,
