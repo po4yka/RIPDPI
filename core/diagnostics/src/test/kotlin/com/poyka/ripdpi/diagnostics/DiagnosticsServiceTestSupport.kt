@@ -222,6 +222,15 @@ internal class FakeDiagnosticsHistoryStores :
                 .take(limit)
         }
 
+    override suspend fun getLatestCompletedScanSession(): ScanSessionEntity? =
+        sessionsState.value
+            .filter { session ->
+                session.status == "completed" && session.finishedAt != null &&
+                    session.launchOrigin != DiagnosticsHomeDetectionLaunchOriginStorageValue
+            }.maxWithOrNull(
+                compareBy(ScanSessionEntity::finishedAt, ScanSessionEntity::startedAt, ScanSessionEntity::id),
+            )
+
     override fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?> =
         sessionsState.map { sessions ->
             sessions.firstOrNull { session -> session.reportJson?.contains("strategyProbeReport") == true }

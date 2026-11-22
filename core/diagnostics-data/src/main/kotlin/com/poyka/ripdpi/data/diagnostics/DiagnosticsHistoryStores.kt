@@ -51,6 +51,8 @@ interface DiagnosticsScanRecordStore {
     /** The newest scan whose report holds a strategy test, at any age. */
     fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?>
 
+    suspend fun getLatestCompletedScanSession(): ScanSessionEntity?
+
     suspend fun getScanSession(sessionId: String): ScanSessionEntity?
 
     suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity>
@@ -444,6 +446,8 @@ class RoomDiagnosticsScanRecordStore
 
         override fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?> =
             dao.observeLatestStrategyProbeSession()
+
+        override suspend fun getLatestCompletedScanSession(): ScanSessionEntity? = dao.getLatestCompletedScanSession()
 
         override suspend fun getScanSession(sessionId: String): ScanSessionEntity? = dao.getScanSession(sessionId)
 

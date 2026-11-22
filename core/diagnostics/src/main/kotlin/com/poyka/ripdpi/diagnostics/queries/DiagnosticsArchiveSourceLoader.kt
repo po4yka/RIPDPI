@@ -86,7 +86,6 @@ internal class DiagnosticsArchiveSourceLoader
                     contextCount = contexts.size,
                 )
             return DiagnosticsArchiveSourceData(
-                sessions = sessions,
                 usageSessions = usageSessions,
                 snapshots = snapshots,
                 telemetry = telemetry,
@@ -148,6 +147,9 @@ internal class DiagnosticsArchiveSourceLoader
                     add("diagnostic_contexts_truncated_at_${DiagnosticsArchiveFormat.snapshotLimit}")
                 }
             }
+
+        internal suspend fun getLatestCompletedScanSession(): ScanSessionEntity? =
+            scanRecordStore.getLatestCompletedScanSession()
 
         internal suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
             scanRecordStore.getScanSession(sessionId)

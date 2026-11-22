@@ -3442,6 +3442,14 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
+            val automaticArchiveEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
+            viewModel.shareActions.shareArchive()
+            advanceUntilIdle()
+            val automaticArchive =
+                (automaticArchiveEffect.await() as DiagnosticsEffect.PrepareExportRequested)
+                    .preparation as DiagnosticsExportPreparation.Archive
+            assertNull(automaticArchive.request.requestedSessionId)
+
             val shareEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
             viewModel.shareActions.shareSummary("session-1")
             advanceUntilIdle()

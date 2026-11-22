@@ -308,6 +308,9 @@ class DebugAutomationControllerTest {
         override fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?> =
             sessions.map { values -> values.firstOrNull { it.reportJson?.contains("strategyProbeReport") == true } }
 
+        override suspend fun getLatestCompletedScanSession(): ScanSessionEntity? =
+            error("Archive selection is outside this fixture")
+
         override suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
             sessions.value.firstOrNull { it.id == sessionId }
 

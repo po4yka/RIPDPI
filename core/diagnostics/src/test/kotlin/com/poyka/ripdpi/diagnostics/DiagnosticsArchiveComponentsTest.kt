@@ -36,7 +36,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Test
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermission
@@ -245,24 +244,17 @@ class DiagnosticsArchiveComponentsTest {
     }
 
     @Test
-    fun `selector chooses latest completed session and partitions passive data`() =
+    fun `selector partitions completed session and passive data`() =
         runTest {
             val latestCompleted =
                 scanSession(
                     id = "session-latest",
+                    status = "completed",
                     reportJson = json.encodeToString(scanReport("session-latest").toEngineScanReportWire()),
                     strategyId = "strategy-fast",
                 )
-            val running =
-                scanSession(
-                    id = "session-running",
-                    status = "running",
-                    reportJson = null,
-                    startedAt = 20L,
-                )
             val sourceData =
                 DiagnosticsArchiveSourceData(
-                    sessions = listOf(latestCompleted, running),
                     usageSessions = emptyList(),
                     snapshots =
                         listOf(
@@ -287,11 +279,10 @@ class DiagnosticsArchiveComponentsTest {
                     fileLogSnapshot = null,
                 )
 
-            val selectedSession = selector.selectPrimarySession(null, null, sourceData.sessions)
             val selection =
                 selector.buildSelection(
                     request = archiveRequest(sessionId = null),
-                    primarySession = selectedSession,
+                    primarySession = latestCompleted,
                     primaryResults = listOf(probeResult(sessionId = "session-latest")),
                     sourceData = sourceData,
                     loadProbeResults = { emptyList() },
@@ -303,7 +294,6 @@ class DiagnosticsArchiveComponentsTest {
                     },
                 )
 
-            assertEquals("session-latest", selectedSession?.id)
             assertEquals("session-latest", selection.payload.session?.id)
             assertEquals(1, selection.primarySnapshots.size)
             assertEquals(1, selection.primaryContexts.size)
@@ -513,7 +503,6 @@ class DiagnosticsArchiveCompositeSelectionTest {
 
     private fun sessionlessCompositeSourceData() =
         DiagnosticsArchiveSourceData(
-            sessions = emptyList(),
             usageSessions = emptyList(),
             snapshots = listOf(networkSnapshotEntity(id = "snap-passive", sessionId = null)),
             telemetry = emptyList(),
@@ -567,7 +556,6 @@ class DiagnosticsArchiveCompositeSelectionTest {
         runTest {
             val sourceData =
                 DiagnosticsArchiveSourceData(
-                    sessions = listOf(scanSession(id = "session-1")),
                     usageSessions = emptyList(),
                     snapshots = emptyList(),
                     telemetry = emptyList(),
@@ -584,7 +572,7 @@ class DiagnosticsArchiveCompositeSelectionTest {
             val selection =
                 selector.buildSelection(
                     request = archiveRequest(reason = DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE, sessionId = null),
-                    primarySession = sourceData.sessions.single(),
+                    primarySession = scanSession(id = "session-1"),
                     primaryResults = emptyList(),
                     sourceData = sourceData,
                     loadProbeResults = { emptyList() },
@@ -620,7 +608,6 @@ class DiagnosticsArchiveCompositeSelectionTest {
                 )
             val sourceData =
                 DiagnosticsArchiveSourceData(
-                    sessions = emptyList(),
                     usageSessions = emptyList(),
                     snapshots = emptyList(),
                     telemetry = emptyList(),
@@ -660,24 +647,6 @@ class DiagnosticsArchiveCompositeSelectionTest {
             assertEquals(0, selection.selectedApproachSummary?.usageCount)
             assertEquals("strategy-1", selection.selectedApproachProjection()?.approachId?.value)
         }
-
-    @Test
-    fun `selector rejects missing requested session`() {
-        val error =
-            try {
-                selector.selectPrimarySession(
-                    requestedSessionId = "missing-session",
-                    requestedSession = null,
-                    sessions = listOf(scanSession(id = "session-1")),
-                )
-                fail("Expected selectPrimarySession to reject a missing requested session")
-                null
-            } catch (error: IllegalArgumentException) {
-                error
-            }
-
-        assertTrue(error?.message.orEmpty().contains("missing-session"))
-    }
 }
 
 class DiagnosticsArchiveContextSelectionTest {
@@ -712,7 +681,6 @@ class DiagnosticsArchiveContextSelectionTest {
                     primaryResults = emptyList(),
                     sourceData =
                         fixture.sourceData.copy(
-                            sessions = listOf(session),
                             contexts = genericContexts + receipt,
                         ),
                     loadProbeResults = { emptyList() },
@@ -739,7 +707,6 @@ private fun compositeSelectionFixture(): CompositeSelectionFixture {
         stage = stage,
         sourceData =
             DiagnosticsArchiveSourceData(
-                sessions = listOf(primary, stage),
                 usageSessions = emptyList(),
                 snapshots = emptyList(),
                 telemetry = emptyList(),

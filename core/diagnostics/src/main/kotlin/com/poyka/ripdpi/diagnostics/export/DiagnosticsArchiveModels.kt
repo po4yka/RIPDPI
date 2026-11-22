@@ -140,7 +140,6 @@ internal data class DiagnosticsArchiveEntry(
 )
 
 internal data class DiagnosticsArchiveSourceData(
-    val sessions: List<ScanSessionEntity>,
     val usageSessions: List<BypassUsageSessionEntity>,
     val snapshots: List<NetworkSnapshotEntity>,
     val telemetry: List<TelemetrySampleEntity>,
