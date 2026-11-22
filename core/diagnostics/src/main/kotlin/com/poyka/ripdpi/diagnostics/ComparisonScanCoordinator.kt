@@ -473,10 +473,12 @@ private fun domainTargetOutcome(
             "tls12" to fact.tls12Status.bucket(),
             "ech" to fact.tlsEchStatus.bucket(),
         ).measuredComponents()
+    val certificateFailure =
+        fact.certificateAnomaly || fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
+            fact.tls12Status == TlsProbeStatus.CERT_INVALID
     val domainBucket =
         normalized ?: when {
-            fact.certificateAnomaly || fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
-                fact.tls12Status == TlsProbeStatus.CERT_INVALID -> DiagnosticsOutcomeBucket.Failed
+            certificateFailure -> DiagnosticsOutcomeBucket.Failed
 
             DiagnosticsOutcomeBucket.Healthy in components.values -> DiagnosticsOutcomeBucket.Healthy
 
@@ -487,7 +489,8 @@ private fun domainTargetOutcome(
         }
     val bucket =
         when {
-            fact.isControl && http == DiagnosticsOutcomeBucket.Healthy -> http
+            // Plain HTTP cannot clear a control whose TLS certificate failed.
+            fact.isControl && http == DiagnosticsOutcomeBucket.Healthy && !certificateFailure -> http
 
             http == DiagnosticsOutcomeBucket.Failed && result?.detailValue("httpStatus") == "http_unreachable" -> http
 

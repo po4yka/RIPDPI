@@ -172,6 +172,25 @@ class ComparisonScanEvidenceTest {
     }
 
     @Test
+    fun `plain HTTP success does not hide an invalid control certificate`() {
+        val report =
+            minimalReport(
+                observations =
+                    listOf(
+                        domainObservation(
+                            "control.example",
+                            isControl = true,
+                            httpStatus = HttpProbeStatus.OK,
+                            tls13Status = TlsProbeStatus.CERT_INVALID,
+                        ),
+                    ),
+            )
+        val evidence = assessmentFor(report).rawPathEvidence
+        assertEquals(0, evidence.controlSuccessCount)
+        assertEquals(1, evidence.controlFailureCount)
+    }
+
+    @Test
     fun `a local HTTP response cap or a server error does not imply a VPN regression`() {
         val host = "example.com"
         val raw = minimalReport(observations = listOf(domainObservation(host, httpStatus = HttpProbeStatus.OK)))
