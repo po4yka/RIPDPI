@@ -504,6 +504,9 @@ private fun DiagnosticsArchiveSelection.completenessReasons(
     relayCompleteness: DiagnosticsArchiveRelayCompleteness,
 ): List<DiagnosticsArchiveCompletenessReason> =
     buildList {
+        if (primarySession?.status == "completed" && primaryReport == null) {
+            add(DiagnosticsArchiveCompletenessReason("report", "full_report_unavailable"))
+        }
         if (decodeFailures.snapshotCount > 0) {
             add(DiagnosticsArchiveCompletenessReason("snapshots", "decode_failed", decodeFailures.snapshotCount))
         }

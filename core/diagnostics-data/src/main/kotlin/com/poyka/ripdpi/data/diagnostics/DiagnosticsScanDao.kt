@@ -7,37 +7,31 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DiagnosticsScanDao {
-    // reportJson is projected via CASE (see DiagnosticsReportPersister.MaxInlineReportJsonBytes)
-    // to null payloads above ~1.5MB; larger rows overflow Android's 2MB CursorWindow.
     @Query(
-        """
-        SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
-               pathMode, serviceMode, status, summary,
-               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
-               reportCompletionKind, reportTerminationReason,
-               startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
-               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey,
-               networkTransport, matrixTargetSetRevision, matrixProbeRevision, matrixConfigRevision
-        FROM scan_sessions
+        ScanSessionProjection + """
         WHERE launchOrigin IS NULL OR launchOrigin != 'home_detection_local'
         ORDER BY startedAt DESC LIMIT :limit
         """,
     )
     fun observeRecentScanSessions(limit: Int = 50): Flow<List<ScanSessionEntity>>
 
+    @Query(
+        ScanSessionProjection + """
+        WHERE id = (
+            SELECT id FROM scan_sessions
+            WHERE status = 'completed' AND finishedAt IS NOT NULL
+              AND (launchOrigin IS NULL OR launchOrigin != 'home_detection_local')
+            ORDER BY finishedAt DESC, startedAt DESC, id DESC LIMIT 1
+        )
+        """,
+    )
+    suspend fun getLatestCompletedScanSession(): ScanSessionEntity?
+
     // A strategy test can be older than any row limit, so the stored report says which scan was one:
     // the key is there and is not null, in compact or pretty JSON. The key cannot match inside a JSON
     // string, where a quote is escaped. The reader still decodes the report and decides.
     @Query(
-        """
-        SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
-               pathMode, serviceMode, status, summary,
-               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
-               reportCompletionKind, reportTerminationReason,
-               startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
-               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey,
-               networkTransport, matrixTargetSetRevision, matrixProbeRevision, matrixConfigRevision
-        FROM scan_sessions
+        ScanSessionProjection + """
         WHERE (launchOrigin IS NULL OR launchOrigin != 'home_detection_local')
           AND reportJson LIKE '%"strategyProbeReport"%'
           AND reportJson NOT LIKE '%"strategyProbeReport":null%'
@@ -48,18 +42,7 @@ interface DiagnosticsScanDao {
     )
     fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?>
 
-    @Query(
-        """
-        SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
-               pathMode, serviceMode, status, summary,
-               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
-               reportCompletionKind, reportTerminationReason,
-               startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
-               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey,
-               networkTransport, matrixTargetSetRevision, matrixProbeRevision, matrixConfigRevision
-        FROM scan_sessions WHERE id = :sessionId LIMIT 1
-        """,
-    )
+    @Query("$ScanSessionProjection WHERE id = :sessionId LIMIT 1")
     suspend fun getScanSession(sessionId: String): ScanSessionEntity?
 
     @Upsert
@@ -80,3 +63,16 @@ interface DiagnosticsScanDao {
     @Query("DELETE FROM scan_sessions")
     suspend fun deleteAllScanSessions()
 }
+
+// reportJson is projected via CASE (see DiagnosticsReportPersister.MaxInlineReportJsonBytes)
+// to null payloads above ~1.5MB; larger rows overflow Android's 2MB CursorWindow.
+private const val ScanSessionProjection = """
+        SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
+               pathMode, serviceMode, status, summary,
+               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
+               reportCompletionKind, reportTerminationReason,
+               startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash, networkScopeKey,
+               networkTransport, matrixTargetSetRevision, matrixProbeRevision, matrixConfigRevision
+        FROM scan_sessions
+"""

@@ -37,7 +37,7 @@ internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
             latestReport = latestReport,
         )
     return DiagnosticsShareUiModel(
-        targetSessionId = selectedSessionDetail?.session?.id ?: latestCompletedSession?.id,
+        targetSessionId = selectedSessionDetail?.session?.id,
         previewTitle = sharePreview.title,
         previewBody =
             buildString {

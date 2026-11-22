@@ -45,23 +45,6 @@ class DiagnosticsArchiveSessionSelector
     ) {
         private val compositeStageSelector = DiagnosticsArchiveCompositeStageSelector(json)
 
-        internal fun selectPrimarySession(
-            requestedSessionId: String?,
-            requestedSession: ScanSessionEntity?,
-            sessions: List<ScanSessionEntity>,
-        ): ScanSessionEntity? =
-            when {
-                requestedSessionId != null -> {
-                    requireNotNull(requestedSession) {
-                        "Requested diagnostics session '$requestedSessionId' is no longer available"
-                    }
-                }
-
-                else -> {
-                    sessions.firstOrNull { it.reportJson != null } ?: sessions.firstOrNull()
-                }
-            }
-
         internal suspend fun buildSelection(
             request: DiagnosticsArchiveRequest,
             primarySession: ScanSessionEntity?,
@@ -563,7 +546,7 @@ class DiagnosticsArchiveSessionSelector
                     DiagnosticsArchiveSessionSelectionStatus.REQUESTED_SESSION
                 }
 
-                primarySession?.reportJson != null -> {
+                primarySession?.status == "completed" -> {
                     DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION
                 }
 

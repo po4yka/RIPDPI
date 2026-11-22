@@ -15,7 +15,7 @@ internal class DiagnosticsArchiveSelectionBuilder(
         val sourceData = sourceLoader.load()
         val compositeOutcome = loadCompositeOutcome(request)
         val compositeSessions = loadCompositeSessions(request, compositeOutcome)
-        val primarySession = selectPrimarySession(request, sourceData, compositeOutcome, compositeSessions)
+        val primarySession = selectPrimarySession(request, compositeOutcome, compositeSessions)
         val primaryResults = primarySession?.id?.let { sourceLoader.getProbeResults(it) }.orEmpty()
         val selectedSessionIds =
             (listOfNotNull(primarySession?.id) + compositeSessions.map { it.id }).distinct()
@@ -80,16 +80,15 @@ internal class DiagnosticsArchiveSelectionBuilder(
 
     private suspend fun selectPrimarySession(
         request: DiagnosticsArchiveRequest,
-        sourceData: DiagnosticsArchiveSourceData,
         outcome: DiagnosticsHomeCompositeOutcome?,
         compositeSessions: List<ScanSessionEntity>,
     ): ScanSessionEntity? {
         if (outcome == null) {
-            return sessionSelector.selectPrimarySession(
-                requestedSessionId = request.requestedSessionId,
-                requestedSession = request.requestedSessionId?.let { sourceLoader.getScanSession(it) },
-                sessions = sourceData.sessions,
-            )
+            return request.requestedSessionId?.let { sessionId ->
+                requireNotNull(sourceLoader.getScanSession(sessionId)) {
+                    "Requested diagnostics session '$sessionId' is no longer available"
+                }
+            } ?: sourceLoader.getLatestCompletedScanSession()
         }
         val recommendedSessionId = outcome.recommendedSessionId
         require(recommendedSessionId != null || !outcome.actionable) {
