@@ -18,6 +18,18 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Maven Central rate-limits these large SDK downloads on shared CI runners.
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "RobolectricSdkMirror"
+                    url = uri("https://maven-central.storage-download.googleapis.com/maven2/")
+                }
+            }
+            filter {
+                includeModule("org.robolectric", "android-all-instrumented")
+            }
+        }
     }
 }
 
