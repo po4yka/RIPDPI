@@ -4,6 +4,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
 import com.poyka.ripdpi.platform.StringResolver
 
 internal fun DiagnosticProfile.localizedBundledName(strings: StringResolver): String =
@@ -34,6 +35,7 @@ private val bundledProfileTitles =
         "default" to ("Default diagnostics" to R.string.diagnostics_profile_connectivity_title),
         "resolver-audit" to ("Resolver audit" to R.string.diagnostics_profile_resolver_audit_title),
         "selective-availability-matrix" to ("Selective availability matrix" to R.string.diagnostics_matrix_title),
+        VerifiedDownloadProfileId to ("Verified HTTPS download" to R.string.diagnostics_verified_download_title),
         "ip-family-connectivity" to ("IPv4, IPv6 and NAT64 connectivity" to R.string.diagnostics_ip_title),
         "http3-connectivity" to ("HTTP/3 connectivity" to R.string.diagnostics_http3_title),
         "http3-connectivity-cloudflare" to

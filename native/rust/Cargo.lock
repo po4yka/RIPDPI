@@ -5901,6 +5901,7 @@ name = "ripdpi-diagnostics-runner"
 version = "0.1.0"
 dependencies = [
  "rcgen",
+ "ring",
  "ripdpi-diagnostics-candidates",
  "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",

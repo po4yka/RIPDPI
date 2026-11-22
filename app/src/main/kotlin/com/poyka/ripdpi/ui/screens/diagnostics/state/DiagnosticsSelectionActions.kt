@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
+import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.update
 data class DiagnosticsManualProbeInputActions(
     val onTlsHopComparisonChanged: (TlsHopComparisonConfig) -> Unit = {},
     val onQuicVersionMatrixChanged: (QuicVersionMatrixConfig) -> Unit = {},
+    val onVerifiedDownloadChanged: (VerifiedDownloadInput) -> Unit = {},
 )
 
 internal class DiagnosticsSelectionActions(
@@ -67,7 +69,12 @@ internal class DiagnosticsSelectionActions(
         selection.update { it.copy(selectiveMatrixHostsInput = input) }
     }
 
-    val manualProbeInput = DiagnosticsManualProbeInputActions(::updateTlsHopComparison, ::updateQuicVersionMatrix)
+    val manualProbeInput =
+        DiagnosticsManualProbeInputActions(
+            onTlsHopComparisonChanged = ::updateTlsHopComparison,
+            onQuicVersionMatrixChanged = ::updateQuicVersionMatrix,
+            onVerifiedDownloadChanged = ::updateVerifiedDownload,
+        )
 
     fun updateTlsHopComparison(input: TlsHopComparisonConfig) {
         if ((
@@ -89,6 +96,15 @@ internal class DiagnosticsSelectionActions(
             return
         }
         selection.update { it.copy(quicVersionMatrixInput = input) }
+    }
+
+    private fun updateVerifiedDownload(input: VerifiedDownloadInput) {
+        if (mutations.diagnosticsTimelineSource.activeScanProgress.value != null ||
+            mutations.diagnosticsScanController.hasActiveHomeRun()
+        ) {
+            return
+        }
+        selection.update { it.copy(verifiedDownloadInput = input) }
     }
 
     fun selectProfile(profileId: String) {

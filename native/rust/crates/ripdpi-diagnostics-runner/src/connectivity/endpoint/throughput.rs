@@ -48,12 +48,30 @@ pub(in crate::connectivity) fn measure_throughput_run(
     progress: &mut dyn FnMut(&TransferMeasurement),
 ) -> ThroughputSample {
     let mut tracker = TransferTracker::new(run_index, target.runs.clamp(1, 10), progress);
+    if target.verification.is_some() {
+        tracker.verify_body();
+    }
     let deadline = (tracker.started + Duration::from_secs(30))
         .min(active_scan_io_deadline().unwrap_or(tracker.started + Duration::from_secs(30)));
     let (mut sample, reason) = with_scan_io_deadline(Some(deadline), || {
         measure_run(target, transport, key_log, tls_verifier, cancel, deadline, &mut tracker)
     });
     tracker.finish(reason, target.window_bytes);
+    sample.verification_outcome = target.verification.as_ref().map(|expected| match reason {
+        "idle_timeout" | "deadline" => "verified_download_timeout",
+        "early_eof" => "verified_download_early_eof",
+        "cancelled" => "verified_download_inconclusive",
+        "window_limit" => "verified_download_size_mismatch",
+        "eof_complete" if tracker.measurement.received_body_byte_count < expected.expected_body_bytes as u64 => {
+            "verified_download_early_eof"
+        }
+        _ if !tracker.measurement.response_complete => "verified_download_failed",
+        _ if tracker.measurement.received_body_byte_count != expected.expected_body_bytes as u64 => {
+            "verified_download_size_mismatch"
+        }
+        _ if tracker.matches_sha256(&expected.sha256) => "verified_download_complete",
+        _ => "verified_download_hash_mismatch",
+    });
     sample.duration_ms = tracker.measurement.elapsed_ms.max(1);
     sample.bytes_read = tracker.measurement.received_body_byte_count as usize;
     sample.bps =
@@ -75,6 +93,9 @@ fn measure_run(
     let started = tracker.started;
     if let Some(reason) = interruption(cancel, deadline) {
         return (failed_sample(started, "stream_setup", reason.to_string()), reason);
+    }
+    if let Err(error) = target.validate_download() {
+        return (failed_sample(started, "target_parse", error.to_string()), "setup_error");
     }
     let parsed = match parse_http_target(&target.url, target.connect_ip.as_deref(), &target.connect_ips, target.port) {
         Ok(parsed) => parsed,
@@ -161,6 +182,9 @@ fn read_response(
 ) -> &'static str {
     let mut bounded_stream = BoundedTransferStream { stream, deadline };
     let mut reader = TransferReader::new(&mut bounded_stream, cancel, deadline, IO_TIMEOUT);
+    if tracker.verifies_body() {
+        reader.limit_header_read_ahead(window);
+    }
     sample.failure_stage = "response_headers".to_string();
     let (headers, mut response) = match response_headers(&mut reader, tracker) {
         Ok(response) => response,
@@ -172,7 +196,14 @@ fn read_response(
     };
     sample.status = classify_http_response(&response);
     sample.http_status_code = Some(response.status_code);
-    if !sample.accepted_response() {
+    let accepts_response = if tracker.verifies_body() {
+        response.status_code == 200
+            && !response.headers.contains_key("content-range")
+            && response.headers.get("content-encoding").is_none_or(|coding| coding.eq_ignore_ascii_case("identity"))
+    } else {
+        sample.accepted_response()
+    };
+    if !accepts_response {
         sample.failure_stage = "response_status".to_string();
         sample.failure_class = "http_status".to_string();
         sample.error = format!("http_status_{}", response.status_code);
@@ -289,6 +320,7 @@ fn failed_stream_sample(error: ProbeStreamError, transport: &TransportConfig) ->
         read_completion: "not_started".to_string(),
         retry_attempt: 0,
         measurement: None,
+        verification_outcome: None,
     }
 }
 
@@ -311,6 +343,7 @@ fn failed_sample(started: std::time::Instant, failure_stage: &str, error: String
         read_completion: "not_started".to_string(),
         retry_attempt: 0,
         measurement: None,
+        verification_outcome: None,
     }
 }
 

@@ -35,7 +35,7 @@ internal fun diagnosticProbeTitleResource(type: String): Int =
 
 @StringRes
 internal fun diagnosticProbeOutcomeResource(probe: DiagnosticsProbeResultUiModel): Int =
-    when (probe.outcome) {
+    verifiedDownloadOutcomeResource(probe.outcome) ?: when (probe.outcome) {
         "matrix_available" -> {
             R.string.diagnostics_matrix_available
         }
@@ -95,6 +95,19 @@ internal fun diagnosticProbeOutcomeResource(probe: DiagnosticsProbeResultUiModel
         }
     }
 
+@StringRes
+private fun verifiedDownloadOutcomeResource(outcome: String): Int? =
+    when (outcome) {
+        "verified_download_complete" -> R.string.diagnostics_verified_download_complete
+        "verified_download_timeout" -> R.string.diagnostics_verified_download_timeout
+        "verified_download_early_eof" -> R.string.diagnostics_verified_download_early_eof
+        "verified_download_hash_mismatch" -> R.string.diagnostics_verified_download_hash_mismatch
+        "verified_download_size_mismatch" -> R.string.diagnostics_verified_download_size_mismatch
+        "verified_download_failed" -> R.string.diagnostics_stages_failed
+        "verified_download_inconclusive" -> R.string.diagnostics_matrix_inconclusive
+        else -> null
+    }
+
 @Composable
 internal fun diagnosticProbeTitle(
     probe: DiagnosticsProbeResultUiModel,
@@ -106,6 +119,8 @@ internal fun diagnosticProbeTitle(
         probe.http3.title
     } else if (probe.ipFamily != null) {
         stringResource(R.string.diagnostics_ip_title)
+    } else if (verifiedDownloadOutcomeResource(probe.outcome) != null) {
+        stringResource(R.string.diagnostics_verified_download_title)
     } else if (expertMode) {
         probe.probeType
     } else {
@@ -121,6 +136,7 @@ internal fun diagnosticProbeOutcome(
         ?.fields
         ?.firstOrNull()
         ?.value
+        ?: verifiedDownloadOutcomeResource(probe.outcome)?.let { stringResource(it) }
         ?: if (expertMode) probe.outcome else stringResource(diagnosticProbeOutcomeResource(probe))
 
 internal fun formatDiagnosticsProbeEvidence(probe: DiagnosticsProbeResultUiModel): String =

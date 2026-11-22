@@ -5,7 +5,8 @@ use super::common::{base_observation, detail_list, detail_value, throughput_stat
 const PROBE_TYPE: &str = "throughput_window";
 
 pub(crate) fn build_observation(result: &ProbeResult) -> Option<ProbeObservation> {
-    (result.probe_type == PROBE_TYPE).then(|| build_throughput_observation(result))
+    (result.probe_type == PROBE_TYPE && !result.outcome.starts_with("verified_download_"))
+        .then(|| build_throughput_observation(result))
 }
 
 pub(crate) fn build_throughput_observation(result: &ProbeResult) -> ProbeObservation {

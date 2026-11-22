@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+ring = { workspace = true }
 tracing = { workspace = true }
 ripdpi-diagnostics-candidates = { workspace = true }
 ripdpi-diagnostics-classification = { workspace = true }

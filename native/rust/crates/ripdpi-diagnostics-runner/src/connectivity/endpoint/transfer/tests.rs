@@ -42,6 +42,25 @@ fn transfer_window_limit_is_not_response_completion() {
 }
 
 #[test]
+fn verified_transfer_requests_only_the_bounded_plaintext_body() {
+    let head = b"HTTP/1.1 200 OK\r\nContent-Length: 20\r\n\r\n";
+    let response = [head.as_slice(), b"abcdefghijklmnopqrst"].concat();
+    let mut source = Cursor::new(&response);
+    let cancel = AtomicBool::new(false);
+    let mut progress = |_: &TransferMeasurement| {};
+    let mut tracker = TransferTracker::new(1, 1, &mut progress);
+    tracker.verify_body();
+    let deadline = Instant::now() + Duration::from_secs(1);
+    let mut reader = TransferReader::new(&mut source, &cancel, deadline, Duration::from_secs(1));
+    let window = 3;
+    reader.limit_header_read_ahead(window);
+    let headers = reader.headers(&mut tracker).expect("headers");
+    assert_eq!(reader.body(&mut tracker, &headers, window), Ok("window_limit"));
+    assert_eq!(tracker.measurement.received_body_byte_count, 3);
+    assert_eq!(source.position(), (head.len() + 3) as u64);
+}
+
+#[test]
 fn transfer_chunked_excludes_metadata_and_supports_trailers() {
     let result = read_fixture(
         b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2;ext=yes\r\nab\r\n1\r\nc\r\n0\r\nX-Test: yes\r\n\r\n",

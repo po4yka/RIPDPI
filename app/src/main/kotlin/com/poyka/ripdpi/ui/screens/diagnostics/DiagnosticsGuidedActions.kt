@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -60,6 +61,7 @@ private val guidedToolSummaries =
     mapOf(
         "selective-availability-matrix" to R.string.diagnostics_guided_tool_matrix_summary,
         "ru-throttling" to R.string.diagnostics_profile_desc_throttling,
+        VerifiedDownloadProfileId to R.string.diagnostics_verified_download_description,
     )
 
 @Composable

@@ -205,6 +205,11 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
     ] {
         tokens.extend(quoted_outcome_tokens(&function_body(&repo.join(path), signature)));
     }
+    let download = function_body(
+        &repo.join("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/endpoint/throughput.rs"),
+        "pub(in crate::connectivity) fn measure_throughput_run",
+    );
+    tokens.extend(quoted_outcome_tokens(&download).into_iter().filter(|token| token.starts_with("verified_download_")));
     tokens.extend(quoted_outcome_tokens(&section(
         &repo.join("native/rust/crates/ripdpi-failure-classifier/src/types.rs"),
         "impl FailureClass",

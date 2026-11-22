@@ -23,6 +23,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
@@ -175,6 +176,8 @@ internal class FakeDiagnosticsScanController : DiagnosticsScanController {
     override fun hasActiveHomeRun(): Boolean = homeRunActive
 
     var onStartScan: (suspend (ScanPathMode, String?) -> DiagnosticsManualScanStartResult)? = null
+    var lastScanTargetOverrides: DiagnosticsScanTargetOverrides? = null
+        private set
     var onResolveHiddenProbeConflict:
         (suspend (String, HiddenProbeConflictAction) -> DiagnosticsManualScanResolution)? = null
     var onCancel: (suspend () -> Unit)? = null
@@ -187,9 +190,11 @@ internal class FakeDiagnosticsScanController : DiagnosticsScanController {
         allowSensitiveProfileStart: Boolean,
         scanDeadlineMs: Long?,
         maxCandidates: Int?,
-        targetOverrides: com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides?,
-    ): DiagnosticsManualScanStartResult =
-        onStartScan?.invoke(pathMode, selectedProfileId) ?: DiagnosticsManualScanStartResult.Started("session")
+        targetOverrides: DiagnosticsScanTargetOverrides?,
+    ): DiagnosticsManualScanStartResult {
+        lastScanTargetOverrides = targetOverrides
+        return onStartScan?.invoke(pathMode, selectedProfileId) ?: DiagnosticsManualScanStartResult.Started("session")
+    }
 
     override suspend fun resolveHiddenProbeConflict(
         requestId: String,

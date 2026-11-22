@@ -12,6 +12,8 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
+import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
+import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.ui.screens.diagnostics.toScopeLabel
 import com.poyka.ripdpi.ui.screens.onboarding.isBusy
@@ -21,6 +23,7 @@ internal data class BuildScanUiModelParams(
     val selectiveMatrixHostsInput: String = "",
     val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
     val quicVersionMatrixInput: QuicVersionMatrixConfig = QuicVersionMatrixConfig(),
+    val verifiedDownloadInput: VerifiedDownloadInput = VerifiedDownloadInput(),
     val profiles: List<DiagnosticProfile>,
     val omittedProfileCount: Int = 0,
     val activeProfile: DiagnosticProfile?,
@@ -57,6 +60,7 @@ private fun BuildScanUiModelParams.manualInputValid(
         SelectiveMatrixProfileId -> matrixInputValid
         TlsHopComparisonProfileId -> tlsHopComparisonInput.isValid()
         QuicVersionMatrixProfileId -> quicVersionMatrixInput.isValid()
+        VerifiedDownloadProfileId -> verifiedDownloadInput.isValid()
         else -> true
     }
 
@@ -88,6 +92,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         selectiveMatrixInputValid = matrixInputValid,
         tlsHopComparisonInput = params.tlsHopComparisonInput,
         quicVersionMatrixInput = params.quicVersionMatrixInput,
+        verifiedDownloadInput = params.verifiedDownloadInput,
         selectiveMatrixTargets = params.activeProfileRequest.matrixTargetRows(),
         profiles = params.profiles.map(::toProfileOptionUiModel).toImmutableList(),
         selectedProfileId = params.activeProfile?.id,

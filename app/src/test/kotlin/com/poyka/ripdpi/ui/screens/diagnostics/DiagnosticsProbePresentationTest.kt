@@ -121,6 +121,27 @@ class DiagnosticsProbePresentationTest {
     }
 
     @Test
+    fun verifiedDownloadDistinguishesCompletionAndFailureReasons() {
+        val outcomes =
+            mapOf(
+                "verified_download_complete" to R.string.diagnostics_verified_download_complete,
+                "verified_download_timeout" to R.string.diagnostics_verified_download_timeout,
+                "verified_download_early_eof" to R.string.diagnostics_verified_download_early_eof,
+                "verified_download_hash_mismatch" to R.string.diagnostics_verified_download_hash_mismatch,
+                "verified_download_size_mismatch" to R.string.diagnostics_verified_download_size_mismatch,
+                "verified_download_failed" to R.string.diagnostics_stages_failed,
+                "verified_download_inconclusive" to R.string.diagnostics_matrix_inconclusive,
+            )
+        outcomes.forEach { (outcome, label) ->
+            assertEquals(
+                outcome,
+                label,
+                diagnosticProbeOutcomeResource(probe("throughput_window", outcome, DiagnosticsTone.Warning)),
+            )
+        }
+    }
+
+    @Test
     fun unknownProbeTypeHasNeutralLocalizedTitle() {
         assertEquals(R.string.diagnostics_probe_check_title, diagnosticProbeTitleResource("future_probe"))
         assertEquals(R.string.diagnostics_matrix_title, diagnosticProbeTitleResource("selective_availability"))

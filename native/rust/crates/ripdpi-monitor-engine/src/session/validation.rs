@@ -114,9 +114,49 @@ mod tests {
     }
 
     #[test]
+    fn verified_download_is_one_bounded_https_target_in_its_own_profile() {
+        use crate::types::{DownloadVerification, VERIFIED_DOWNLOAD_PROFILE_ID};
+        let mut specimen = request();
+        specimen.throughput_targets.push(ThroughputTarget {
+            id: "download".into(),
+            label: "Verified HTTPS download".into(),
+            url: "https://example.test/control.bin".into(),
+            connect_ip: None,
+            connect_ips: Vec::new(),
+            port: None,
+            is_control: false,
+            window_bytes: 3,
+            runs: 1,
+            verification: Some(DownloadVerification {
+                expected_body_bytes: 2,
+                sha256: "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df".into(),
+            }),
+        });
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.profile_id = VERIFIED_DOWNLOAD_PROFILE_ID.into();
+        assert!(validate_scan_request(&specimen).is_ok());
+        let good = specimen.throughput_targets[0].clone();
+        for url in ["http://example.test/control.bin", "https://user@example.test/", "https://example.test/?key=bad"] {
+            specimen.throughput_targets[0].url = url.into();
+            assert!(validate_scan_request(&specimen).is_err(), "{url}");
+        }
+        specimen.throughput_targets[0] = good.clone();
+        specimen.throughput_targets[0].runs = 2;
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.throughput_targets[0] = good.clone();
+        specimen.throughput_targets[0].window_bytes = 1024 * 1024 + 2;
+        specimen.throughput_targets[0].verification.as_mut().unwrap().expected_body_bytes = 1024 * 1024 + 1;
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.throughput_targets[0] = good.clone();
+        specimen.throughput_targets.push(good);
+        assert!(validate_scan_request(&specimen).is_err());
+    }
+
+    #[test]
     fn rejects_unbounded_throughput_work() {
         let mut request = request();
         request.throughput_targets.push(ThroughputTarget {
+            verification: None,
             id: "throughput".to_string(),
             label: "Throughput".to_string(),
             url: "https://example.com/payload".to_string(),

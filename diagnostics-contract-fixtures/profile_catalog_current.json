@@ -489,6 +489,25 @@
       }
     },
     {
+      "id": "verified-https-download",
+      "name": "Verified HTTPS download",
+      "version": 1,
+      "request": {
+        "profileId": "verified-https-download",
+        "displayName": "Verified HTTPS download",
+        "kind": "CONNECTIVITY",
+        "family": "WEB_CONNECTIVITY",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        }
+      }
+    },
+    {
       "id": "automatic-probing",
       "name": "Automatic probing",
       "version": 7,

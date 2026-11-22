@@ -153,6 +153,7 @@ data class DiagnosticsScanTargetOverrides(
     val selectiveMatrixHosts: List<String> = emptyList(),
     val tlsHopComparison: TlsHopComparisonConfig? = null,
     val quicVersionMatrix: QuicVersionMatrixConfig? = null,
+    val verifiedDownload: VerifiedDownloadInput? = null,
 )
 
 interface DiagnosticsDetailLoader {

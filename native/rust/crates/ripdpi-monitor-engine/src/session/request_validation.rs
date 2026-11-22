@@ -4,7 +4,7 @@ use std::net::IpAddr;
 use ripdpi_diagnostics_contracts::util::MAX_ROUTE_EXPERIMENT_ATTEMPTS;
 use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
-use crate::types::{ProbeTaskFamily, ScanKind, ScanPathMode};
+use crate::types::{ProbeTaskFamily, ScanKind, ScanPathMode, VERIFIED_DOWNLOAD_PROFILE_ID};
 use ripdpi_diagnostics_contracts::util::{
     FAT_HEADER_MAX_ALTERNATES, FAT_HEADER_MAX_REQUESTS, FAT_HEADER_REQUESTS, is_valid_fat_header_authority,
 };
@@ -165,8 +165,10 @@ fn validate_resource_limits(request: &EngineScanRequestWire) -> Result<(), Strin
     }
     validate_count("total targets", total_targets, MAX_TOTAL_TARGETS)?;
 
+    validate_download_profile(request)?;
     let mut total_throughput_bytes = 0usize;
     for target in &request.throughput_targets {
+        target.validate_download().map_err(str::to_string)?;
         if !(1..=MAX_THROUGHPUT_RUNS).contains(&target.runs) {
             return Err(format!("throughput runs must be between 1 and {MAX_THROUGHPUT_RUNS}"));
         }
@@ -210,6 +212,22 @@ fn validate_resource_limits(request: &EngineScanRequestWire) -> Result<(), Strin
         return Err(format!("scanDeadlineMs must be between {MIN_SCAN_DEADLINE_MS} and {MAX_SCAN_DEADLINE_MS}"));
     }
     Ok(())
+}
+
+fn validate_download_profile(request: &EngineScanRequestWire) -> Result<(), String> {
+    if request.profile_id == VERIFIED_DOWNLOAD_PROFILE_ID {
+        if request.kind == ScanKind::Connectivity
+            && matches!(request.throughput_targets.as_slice(), [target] if target.verification.is_some())
+        {
+            Ok(())
+        } else {
+            Err("verified download profile requires one verified download target".into())
+        }
+    } else if request.throughput_targets.iter().any(|target| target.verification.is_some()) {
+        Err("verified download requires its dedicated profile".into())
+    } else {
+        Ok(())
+    }
 }
 
 fn validate_count(label: &str, count: usize, max: usize) -> Result<(), String> {
