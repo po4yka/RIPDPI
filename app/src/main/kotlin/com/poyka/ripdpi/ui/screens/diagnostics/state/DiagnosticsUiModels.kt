@@ -21,6 +21,7 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
+import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
@@ -794,6 +795,7 @@ data class DiagnosticsScanUiModel(
     val selectiveMatrixInputValid: Boolean = true,
     val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
     val quicVersionMatrixInput: QuicVersionMatrixConfig = QuicVersionMatrixConfig(),
+    val verifiedDownloadInput: VerifiedDownloadInput = VerifiedDownloadInput(),
     val selectiveMatrixTargets: ImmutableList<SelectiveMatrixTargetUiModel> = persistentListOf(),
     val profiles: ImmutableList<DiagnosticsProfileOptionUiModel> = persistentListOf(),
     val selectedProfileId: String? = null,

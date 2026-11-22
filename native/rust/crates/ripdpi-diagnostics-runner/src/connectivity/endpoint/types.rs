@@ -3,6 +3,7 @@ use crate::connectivity::adapters::transport::{RouteExperimentReport, TargetAddr
 #[derive(Clone, Debug)]
 pub(crate) struct ThroughputSample {
     pub(crate) measurement: Option<crate::types::TransferMeasurement>,
+    pub(crate) verification_outcome: Option<&'static str>,
     pub(crate) status: String,
     pub(crate) bytes_read: usize,
     pub(crate) bps: u64,

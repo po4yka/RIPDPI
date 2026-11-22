@@ -2079,4 +2079,15 @@
     <string name="diagnostics_quic_version_limit_local_port">नया लोकल पोर्ट अलग NAT मैपिंग सिद्ध नहीं करता</string>
     <string name="diagnostics_quic_version_limit_residual">फ़्लो स्थिति और गंतव्य स्थिति में अंतर नहीं किया जा सकता</string>
     <string name="diagnostics_quic_version_limit_network_changed">रन के बाद नेटवर्क बदल गया</string>
+    <string name="diagnostics_verified_download_title">सत्यापित HTTPS डाउनलोड</string>
+    <string name="diagnostics_verified_download_description">HTTPS एंडपॉइंट से डाउनलोड करें और जवाब के आकार और SHA-256 की जाँच करें।</string>
+    <string name="diagnostics_verified_download_url">HTTPS यूआरएल</string>
+    <string name="diagnostics_verified_download_bytes">अपेक्षित आकार (बाइट में)</string>
+    <string name="diagnostics_verified_download_sha256">अपेक्षित SHA-256</string>
+    <string name="diagnostics_verified_download_input_error">बिना क्रेडेंशियल, क्वेरी या फ़्रैगमेंट वाला HTTPS यूआरएल दें। 1 से 10,48,576 बाइट तक का आकार और 64 हेक्साडेसिमल अंकों वाला SHA-256 डालें।</string>
+    <string name="diagnostics_verified_download_complete">डाउनलोड सत्यापित है</string>
+    <string name="diagnostics_verified_download_timeout">डाउनलोड रुक गया</string>
+    <string name="diagnostics_verified_download_early_eof">जवाब समय से पहले खत्म हो गया</string>
+    <string name="diagnostics_verified_download_hash_mismatch">SHA-256 मेल नहीं खाता</string>
+    <string name="diagnostics_verified_download_size_mismatch">आकार मेल नहीं खाता</string>
 </resources>

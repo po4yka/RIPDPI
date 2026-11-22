@@ -189,6 +189,52 @@ pub struct ThroughputTarget {
     pub window_bytes: usize,
     #[serde(default = "default_throughput_runs")]
     pub runs: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification: Option<DownloadVerification>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DownloadVerification {
+    pub expected_body_bytes: usize,
+    pub sha256: String,
+}
+
+pub const VERIFIED_DOWNLOAD_PROFILE_ID: &str = "verified-https-download";
+pub const MAX_VERIFIED_DOWNLOAD_BYTES: usize = 1024 * 1024;
+
+impl ThroughputTarget {
+    /// Validate the verification request before any socket is opened.
+    pub fn validate_download(&self) -> Result<(), &'static str> {
+        let Some(expected) = &self.verification else {
+            return Ok(());
+        };
+        let Some(url) = self.url.strip_prefix("https://") else {
+            return Err("verified download requires HTTPS");
+        };
+        let authority = url.split('/').next().unwrap_or_default();
+        if authority.is_empty()
+            || authority.contains('@')
+            || self.url.len() > 2048
+            || self.url.contains(['?', '#', '\\'])
+            || self.url.bytes().any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
+            || self.connect_ip.is_some()
+            || !self.connect_ips.is_empty()
+            || self.port.is_some()
+        {
+            return Err("invalid verified download URL");
+        }
+        if !(1..=MAX_VERIFIED_DOWNLOAD_BYTES).contains(&expected.expected_body_bytes)
+            || self.window_bytes != expected.expected_body_bytes + 1
+            || self.runs != 1
+        {
+            return Err("invalid verified download size or run count");
+        }
+        if expected.sha256.len() != 64 || !expected.sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err("verified download requires a SHA-256 digest");
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

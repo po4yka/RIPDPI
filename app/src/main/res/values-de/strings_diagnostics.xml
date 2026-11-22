@@ -2072,4 +2072,15 @@
     <string name="diagnostics_quic_version_limit_local_port">Ein neuer lokaler Port beweist keine separate NAT-Zuordnung</string>
     <string name="diagnostics_quic_version_limit_residual">Flusszustand und Zielzustand sind nicht unterscheidbar</string>
     <string name="diagnostics_quic_version_limit_network_changed">Das Netzwerk hat sich nach dem Lauf geändert</string>
+    <string name="diagnostics_verified_download_title">HTTPS-Download mit Prüfung</string>
+    <string name="diagnostics_verified_download_description">Von einem HTTPS-Endpunkt herunterladen und die Größe und den SHA-256-Wert der Antwort prüfen.</string>
+    <string name="diagnostics_verified_download_url">HTTPS-URL</string>
+    <string name="diagnostics_verified_download_bytes">Erwartete Größe in Byte</string>
+    <string name="diagnostics_verified_download_sha256">Erwarteter SHA-256-Wert</string>
+    <string name="diagnostics_verified_download_input_error">Verwende eine HTTPS-URL ohne Zugangsdaten, Abfrage oder Fragment. Gib 1–1.048.576 Byte und einen 64-stelligen hexadezimalen SHA-256-Wert ein.</string>
+    <string name="diagnostics_verified_download_complete">Download bestätigt</string>
+    <string name="diagnostics_verified_download_timeout">Download hängt</string>
+    <string name="diagnostics_verified_download_early_eof">Antwort endete vorzeitig</string>
+    <string name="diagnostics_verified_download_hash_mismatch">SHA-256 stimmt nicht überein</string>
+    <string name="diagnostics_verified_download_size_mismatch">Größe stimmt nicht überein</string>
 </resources>

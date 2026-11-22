@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::types::{TransferMeasurement, TransferSample};
+use ring::digest::{Context, SHA256};
 use ripdpi_diagnostics_http::http::{HttpBodyFraming, HttpResponseDecoder, HttpResponseEvent, parse_http_response};
 
 const MAX_HEADER_BYTES: usize = 16 * 1024;
@@ -16,6 +17,7 @@ pub(super) struct TransferTracker<'a> {
     pub(super) body_prefix: Vec<u8>,
     last_publish_ms: u64,
     first_body_read_bytes: u64,
+    digest: Option<Context>,
     progress: &'a mut dyn FnMut(&TransferMeasurement),
 }
 
@@ -40,9 +42,33 @@ impl<'a> TransferTracker<'a> {
             started: Instant::now(),
             last_publish_ms: 0,
             first_body_read_bytes: 0,
+            digest: None,
             progress,
             body_prefix: Vec::new(),
         }
+    }
+
+    pub(super) fn verify_body(&mut self) {
+        self.digest = Some(Context::new(&SHA256));
+    }
+
+    pub(super) fn verifies_body(&self) -> bool {
+        self.digest.is_some()
+    }
+
+    pub(super) fn matches_sha256(&mut self, expected: &str) -> bool {
+        let Some(context) = self.digest.take() else {
+            return false;
+        };
+        let digest = context.finish();
+        let bytes = digest.as_ref();
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        let (pairs, remainder) = expected.as_bytes().as_chunks::<2>();
+        remainder.is_empty()
+            && pairs.len() == bytes.len()
+            && bytes.iter().zip(pairs).all(|(&byte, pair)| {
+                [HEX[usize::from(byte >> 4)], HEX[usize::from(byte & 15)]].eq_ignore_ascii_case(pair)
+            })
     }
 
     fn elapsed_ms(&self) -> u64 {
@@ -81,9 +107,13 @@ impl<'a> TransferTracker<'a> {
     }
 
     fn payload_received(&mut self, bytes: &[u8]) {
-        // The existing classifier exempts bodies longer than 8192 bytes.
-        let take = bytes.len().min(8193usize.saturating_sub(self.body_prefix.len()));
-        self.body_prefix.extend_from_slice(&bytes[..take]);
+        if let Some(digest) = &mut self.digest {
+            digest.update(bytes);
+        } else {
+            // The existing classifier exempts bodies longer than 8192 bytes.
+            let take = bytes.len().min(8193usize.saturating_sub(self.body_prefix.len()));
+            self.body_prefix.extend_from_slice(&bytes[..take]);
+        }
         self.received(bytes.len());
     }
 
@@ -134,6 +164,7 @@ pub(super) struct TransferReader<'a, R> {
     idle_timeout: Duration,
     last_activity: Instant,
     buffer: [u8; 8192],
+    header_read_limit: usize,
     position: usize,
     filled: usize,
 }
@@ -147,12 +178,17 @@ impl<'a, R: Read> TransferReader<'a, R> {
             idle_timeout,
             last_activity: Instant::now(),
             buffer: [0; 8192],
+            header_read_limit: 8192,
             position: 0,
             filled: 0,
         }
     }
 
-    fn fill(&mut self, tracker: &mut TransferTracker<'_>) -> Result<bool, &'static str> {
+    pub(super) fn limit_header_read_ahead(&mut self, bytes: usize) {
+        self.header_read_limit = bytes;
+    }
+
+    fn fill(&mut self, tracker: &mut TransferTracker<'_>, max_read: usize) -> Result<bool, &'static str> {
         loop {
             if let Some(reason) = interruption(self.cancel, self.deadline) {
                 return Err(reason);
@@ -163,7 +199,8 @@ impl<'a, R: Read> TransferReader<'a, R> {
             if self.position < self.filled {
                 return Ok(true);
             }
-            match self.stream.read(&mut self.buffer) {
+            let amount = self.buffer.len().min(max_read);
+            match self.stream.read(&mut self.buffer[..amount]) {
                 Ok(0) => return Ok(false),
                 Ok(count) => {
                     self.position = 0;
@@ -190,7 +227,7 @@ impl<'a, R: Read> TransferReader<'a, R> {
     }
 
     fn byte(&mut self, tracker: &mut TransferTracker<'_>) -> Result<u8, &'static str> {
-        if !self.fill(tracker)? {
+        if !self.fill(tracker, self.header_read_limit)? {
             return Err("early_eof");
         }
         let byte = self.buffer[self.position];
@@ -231,11 +268,16 @@ impl<'a, R: Read> TransferReader<'a, R> {
                 .map_err(|reason| if reason == "response_truncated" { "early_eof" } else { reason })?
             {
                 HttpResponseEvent::NeedInput => {
+                    let max_read = if tracker.verifies_body() {
+                        window.saturating_sub(tracker.measurement.received_body_byte_count as usize)
+                    } else {
+                        self.buffer.len()
+                    };
                     if !head.is_empty() {
                         let take = head.len().min(decoder.input_capacity());
                         decoder.feed(&head[..take])?;
                         head = &head[take..];
-                    } else if self.fill(tracker)? {
+                    } else if self.fill(tracker, max_read)? {
                         let take = (self.filled - self.position).min(decoder.input_capacity());
                         decoder.feed(&self.buffer[self.position..self.position + take])?;
                         self.position += take;

@@ -2239,4 +2239,15 @@
     <string name="diagnostics_quic_version_limit_local_port">المنفذ المحلي الجديد لا يثبت تعيين NAT منفصلًا</string>
     <string name="diagnostics_quic_version_limit_residual">لا يمكن التمييز بين حالة التدفق وحالة الوجهة</string>
     <string name="diagnostics_quic_version_limit_network_changed">تغيّرت الشبكة بعد التشغيل</string>
+    <string name="diagnostics_verified_download_title">تنزيل HTTPS مع التحقق</string>
+    <string name="diagnostics_verified_download_description">نزّل من نقطة نهاية HTTPS وتحقق من حجم الاستجابة وبصمة SHA-256.</string>
+    <string name="diagnostics_verified_download_url">عنوان HTTPS</string>
+    <string name="diagnostics_verified_download_bytes">الحجم المتوقع بالبايت</string>
+    <string name="diagnostics_verified_download_sha256">بصمة SHA-256 المتوقعة</string>
+    <string name="diagnostics_verified_download_input_error">استخدم عنوان HTTPS بلا بيانات اعتماد أو استعلام أو جزء. أدخل حجمًا من 1 إلى 1,048,576 بايت وبصمة SHA-256 من 64 رمزًا سداسيًا عشريًا.</string>
+    <string name="diagnostics_verified_download_complete">تم التحقق من التنزيل</string>
+    <string name="diagnostics_verified_download_timeout">توقف التنزيل</string>
+    <string name="diagnostics_verified_download_early_eof">انتهت الاستجابة مبكرًا</string>
+    <string name="diagnostics_verified_download_hash_mismatch">بصمة SHA-256 غير مطابقة</string>
+    <string name="diagnostics_verified_download_size_mismatch">الحجم غير مطابق</string>
 </resources>

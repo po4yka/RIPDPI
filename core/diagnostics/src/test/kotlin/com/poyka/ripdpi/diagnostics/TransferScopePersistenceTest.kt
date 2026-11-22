@@ -48,6 +48,16 @@ class TransferScopePersistenceTest {
     }
 
     @Test
+    fun `revoked verified download retains bytes and downgrades its verdict`() {
+        val result = ProbeResult("throughput_window", "control", "verified_download_early_eof", details)
+
+        val scoped = report(listOf(result)).withoutNetworkScopeAuthority().results.single()
+
+        assertEquals("verified_download_inconclusive", scoped.outcome)
+        assertEquals(details + ProbeDetail("transferNetworkScope", "unverified"), scoped.details)
+    }
+
+    @Test
     fun `late revocation atomically updates transfer and matrix rows without duplicate ids`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

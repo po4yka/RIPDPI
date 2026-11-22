@@ -345,6 +345,7 @@ internal class DiagnosticsUiStateAssembler
                 selectiveMatrixHostsInput = controls.selection.selectiveMatrixHostsInput,
                 tlsHopComparisonInput = controls.selection.tlsHopComparisonInput,
                 quicVersionMatrixInput = controls.selection.quicVersionMatrixInput,
+                verifiedDownloadInput = controls.selection.verifiedDownloadInput,
                 selectedApproachMode = controls.selection.selectedApproachMode,
                 selectedProbe = controls.selection.selectedProbe,
                 selectedEventId = controls.selection.selectedEventId,

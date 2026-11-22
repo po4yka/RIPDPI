@@ -2088,4 +2088,15 @@
     <string name="diagnostics_quic_version_limit_local_port">Un nouveau port local ne prouve pas un mappage NAT distinct</string>
     <string name="diagnostics_quic_version_limit_residual">Impossible de distinguer l’état du flux de celui de la destination</string>
     <string name="diagnostics_quic_version_limit_network_changed">Le réseau a changé après l’exécution</string>
+    <string name="diagnostics_verified_download_title">Téléchargement HTTPS vérifié</string>
+    <string name="diagnostics_verified_download_description">Téléchargez depuis un point de terminaison HTTPS et vérifiez la taille et le SHA-256 de la réponse.</string>
+    <string name="diagnostics_verified_download_url">URL HTTPS</string>
+    <string name="diagnostics_verified_download_bytes">Taille attendue en octets</string>
+    <string name="diagnostics_verified_download_sha256">SHA-256 attendu</string>
+    <string name="diagnostics_verified_download_input_error">Utilisez une URL HTTPS sans identifiants, requête ni fragment. Saisissez de 1 à 1 048 576 octets et un SHA-256 de 64 chiffres hexadécimaux.</string>
+    <string name="diagnostics_verified_download_complete">Téléchargement vérifié</string>
+    <string name="diagnostics_verified_download_timeout">Téléchargement bloqué</string>
+    <string name="diagnostics_verified_download_early_eof">Réponse terminée prématurément</string>
+    <string name="diagnostics_verified_download_hash_mismatch">SHA-256 différent</string>
+    <string name="diagnostics_verified_download_size_mismatch">Taille différente</string>
 </resources>

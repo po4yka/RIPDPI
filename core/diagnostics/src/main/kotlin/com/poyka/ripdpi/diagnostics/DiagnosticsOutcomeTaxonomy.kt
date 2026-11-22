@@ -285,9 +285,18 @@ private fun bucketTelegramAvailability(outcome: String): DiagnosticsOutcomeBucke
 
 private fun bucketThroughputWindow(outcome: String): DiagnosticsOutcomeBucket =
     when (outcome) {
-        "throughput_measured" -> DiagnosticsOutcomeBucket.Healthy
-        "throughput_inconclusive" -> DiagnosticsOutcomeBucket.Inconclusive
-        "throughput_failed" -> DiagnosticsOutcomeBucket.Failed
+        "throughput_measured", "verified_download_complete" -> DiagnosticsOutcomeBucket.Healthy
+
+        "throughput_inconclusive", "verified_download_inconclusive" -> DiagnosticsOutcomeBucket.Inconclusive
+
+        "throughput_failed",
+        "verified_download_timeout",
+        "verified_download_early_eof",
+        "verified_download_hash_mismatch",
+        "verified_download_size_mismatch",
+        "verified_download_failed",
+        -> DiagnosticsOutcomeBucket.Failed
+
         else -> legacyBucketForOutcome(outcome)
     }
 

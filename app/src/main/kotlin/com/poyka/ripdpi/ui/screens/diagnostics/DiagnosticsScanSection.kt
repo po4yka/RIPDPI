@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
+import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -199,6 +200,15 @@ internal fun ScanSection(
                     steps = scan.activeProgress?.let { it.completedSteps to it.totalSteps },
                     onSelectProbe = onSelectProbe,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanScope),
+                )
+            }
+        }
+        if (selectedProfile?.id == VerifiedDownloadProfileId) {
+            item(key = "verified-download-input") {
+                VerifiedDownloadInputCard(
+                    input = scan.verifiedDownloadInput,
+                    enabled = !effectiveBusy,
+                    onInputChanged = manualProbeInput.onVerifiedDownloadChanged,
                 )
             }
         }

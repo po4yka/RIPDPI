@@ -166,11 +166,16 @@ private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeRes
             )
         }
 
+        probeType == "throughput_window" && outcome.startsWith("verified_download_") -> {
+            copy(
+                outcome = "verified_download_inconclusive",
+                details = details.withoutTransferScopeAuthority(),
+            )
+        }
+
         probeType == "throughput_window" && details.any { it.key == "transferEvidence" } -> {
             copy(
-                details =
-                    details.filterNot { it.key == "transferNetworkScope" } +
-                        ProbeDetail("transferNetworkScope", "unverified"),
+                details = details.withoutTransferScopeAuthority(),
             )
         }
 
@@ -178,6 +183,9 @@ private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeRes
             this
         }
     }
+
+private fun List<ProbeDetail>.withoutTransferScopeAuthority(): List<ProbeDetail> =
+    filterNot { it.key == "transferNetworkScope" } + ProbeDetail("transferNetworkScope", "unverified")
 
 private fun ProbeResultEntity.withoutNetworkScopeAuthority(json: Json): ProbeResultEntity {
     if (probeType !in

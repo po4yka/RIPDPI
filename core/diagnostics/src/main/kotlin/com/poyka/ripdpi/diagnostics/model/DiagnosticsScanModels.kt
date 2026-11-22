@@ -173,6 +173,7 @@ data class ThroughputTarget(
     val isControl: Boolean = false,
     val windowBytes: Int = 8_388_608,
     val runs: Int = 2,
+    val verification: DownloadVerification? = null,
 )
 
 @Serializable

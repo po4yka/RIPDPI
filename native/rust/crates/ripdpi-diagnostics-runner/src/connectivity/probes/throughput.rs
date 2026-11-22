@@ -10,6 +10,10 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
+mod verified_download;
+#[cfg(test)]
+mod verified_download_tests;
+
 pub fn run_throughput_probe(
     target: &ThroughputTarget,
     transport: &TransportConfig,
@@ -26,6 +30,9 @@ pub fn run_throughput_probe_with_progress(
     cancel: &AtomicBool,
     progress: &mut dyn FnMut(&TransferMeasurement),
 ) -> ProbeResult {
+    if target.verification.is_some() {
+        return verified_download::run(target, transport, key_log, tls_verifier, cancel, progress);
+    }
     let planned_runs = target.runs.clamp(1, 10);
     let mut samples = Vec::new();
     let mut stop_reason = "none";
@@ -216,6 +223,7 @@ mod tests {
     #[test]
     fn throughput_failure_details_include_stage_and_protocol_context() {
         let target = ThroughputTarget {
+            verification: None,
             id: "bad-url".to_string(),
             label: "Bad URL".to_string(),
             url: "not-a-url".to_string(),
@@ -322,6 +330,7 @@ mod tests {
 
     fn local_target(port: u16, window_bytes: usize, runs: usize) -> ThroughputTarget {
         ThroughputTarget {
+            verification: None,
             id: "body-completion".into(),
             label: "Body completion".into(),
             url: format!("http://127.0.0.1:{port}/"),

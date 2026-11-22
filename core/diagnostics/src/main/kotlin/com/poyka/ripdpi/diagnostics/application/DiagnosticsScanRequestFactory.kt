@@ -48,6 +48,7 @@ import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogPathValidator
 import com.poyka.ripdpi.diagnostics.prepareScanEndpoints
 import com.poyka.ripdpi.diagnostics.selectiveMatrixRevisions
 import com.poyka.ripdpi.diagnostics.withUserHosts
+import com.poyka.ripdpi.diagnostics.withVerifiedDownload
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -307,6 +308,7 @@ internal class DiagnosticsScanRequestFactory
                     scanOrigin = scanOrigin,
                     activeProbeSafetyPolicy = activeProbeSafetyPolicy,
                 ).applyTargetOverrides(targetOverrides, pathMode)
+                    .withVerifiedDownload(targetOverrides?.verifiedDownload)
                     .let { selectedIntent ->
                         activeProbeSafetyPolicy.enforceTargetBudget(
                             intent = selectedIntent,

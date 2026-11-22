@@ -214,7 +214,7 @@ internal class DefaultDiagnosticsPlanner
             val quicTargets = planQuicTargets(intent, context)
             val throughputTargets =
                 intent.throughputTargets.map { target ->
-                    target.hostFromUrl()?.let { host ->
+                    target.hostFromUrl()?.takeIf { target.verification == null }?.let { host ->
                         target.withPreferredEdges(
                             context.preferredEdges[host.lowercase()].orEmpty(),
                             PreferredEdgeTransportThroughput,

@@ -487,6 +487,9 @@ pub ripdpi_diagnostics_contracts::types::DomainTarget::http_path: alloc::string:
 pub ripdpi_diagnostics_contracts::types::DomainTarget::http_port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::types::DomainTarget::https_port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::types::DomainTarget::is_control: bool
+pub struct ripdpi_diagnostics_contracts::types::DownloadVerification
+pub ripdpi_diagnostics_contracts::types::DownloadVerification::expected_body_bytes: usize
+pub ripdpi_diagnostics_contracts::types::DownloadVerification::sha256: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::pack_refs: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::path_mode: ripdpi_diagnostics_contracts::types::ScanPathMode
@@ -1090,7 +1093,10 @@ pub ripdpi_diagnostics_contracts::types::ThroughputTarget::label: alloc::string:
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::runs: usize
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::url: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::ThroughputTarget::verification: core::option::Option<ripdpi_diagnostics_contracts::types::DownloadVerification>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::window_bytes: usize
+impl ripdpi_diagnostics_contracts::types::ThroughputTarget
+pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::validate_download(&self) -> core::result::Result<(), &'static str>
 pub struct ripdpi_diagnostics_contracts::types::TlsHopAttempt
 pub ripdpi_diagnostics_contracts::types::TlsHopAttempt::elapsed_ms: u64
 pub ripdpi_diagnostics_contracts::types::TlsHopAttempt::outcome: alloc::string::String
@@ -1154,7 +1160,9 @@ pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::viability
 pub const ripdpi_diagnostics_contracts::types::CLIENT_FIELD_REPORT_CONTRACT_VERSION: u32
 pub const ripdpi_diagnostics_contracts::types::CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str
 pub const ripdpi_diagnostics_contracts::types::EXECUTION_PLAN_VERSION: &str
+pub const ripdpi_diagnostics_contracts::types::MAX_VERIFIED_DOWNLOAD_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::STRATEGY_PROBE_METHODOLOGY_VERSION: &str
+pub const ripdpi_diagnostics_contracts::types::VERIFIED_DOWNLOAD_PROFILE_ID: &str
 pub mod ripdpi_diagnostics_contracts::util
 pub enum ripdpi_diagnostics_contracts::util::DnsAnswerOverlap
 pub ripdpi_diagnostics_contracts::util::DnsAnswerOverlap::CompatibleDivergence
@@ -2202,7 +2210,10 @@ pub ripdpi_diagnostics_contracts::ThroughputTarget::label: alloc::string::String
 pub ripdpi_diagnostics_contracts::ThroughputTarget::port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::runs: usize
 pub ripdpi_diagnostics_contracts::ThroughputTarget::url: alloc::string::String
+pub ripdpi_diagnostics_contracts::ThroughputTarget::verification: core::option::Option<ripdpi_diagnostics_contracts::types::DownloadVerification>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::window_bytes: usize
+impl ripdpi_diagnostics_contracts::types::ThroughputTarget
+pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::validate_download(&self) -> core::result::Result<(), &'static str>
 pub struct ripdpi_diagnostics_contracts::TlsHopAttempt
 pub ripdpi_diagnostics_contracts::TlsHopAttempt::elapsed_ms: u64
 pub ripdpi_diagnostics_contracts::TlsHopAttempt::outcome: alloc::string::String

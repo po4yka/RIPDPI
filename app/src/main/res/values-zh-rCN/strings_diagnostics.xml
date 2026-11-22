@@ -2030,4 +2030,15 @@
     <string name="diagnostics_quic_version_limit_local_port">新的本地端口不能证明使用了单独的 NAT 映射</string>
     <string name="diagnostics_quic_version_limit_residual">无法区分流状态与目标状态</string>
     <string name="diagnostics_quic_version_limit_network_changed">运行后网络已变化</string>
+    <string name="diagnostics_verified_download_title">HTTPS 下载验证</string>
+    <string name="diagnostics_verified_download_description">从 HTTPS 端点下载，并检查响应大小和 SHA-256。</string>
+    <string name="diagnostics_verified_download_url">HTTPS 网址</string>
+    <string name="diagnostics_verified_download_bytes">预期大小（字节）</string>
+    <string name="diagnostics_verified_download_sha256">预期 SHA-256</string>
+    <string name="diagnostics_verified_download_input_error">请使用不含凭据、查询参数或片段的 HTTPS 网址。输入 1 至 1,048,576 字节和 64 位十六进制 SHA-256。</string>
+    <string name="diagnostics_verified_download_complete">下载已验证</string>
+    <string name="diagnostics_verified_download_timeout">下载停滞</string>
+    <string name="diagnostics_verified_download_early_eof">响应提前结束</string>
+    <string name="diagnostics_verified_download_hash_mismatch">SHA-256 不匹配</string>
+    <string name="diagnostics_verified_download_size_mismatch">大小不匹配</string>
 </resources>

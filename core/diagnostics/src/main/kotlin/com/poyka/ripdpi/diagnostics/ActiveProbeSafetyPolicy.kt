@@ -92,6 +92,7 @@ data class ActiveProbeSafetyPolicy(
             }
             matrix.validate()
         }
+        validateVerifiedDownloadAdmission(intent, scanOrigin, isManual)
         if (intent.strategyProbe == null) return intent
         val limits = targetLimits(scanOrigin, isManual)
         val distinctDomains = intent.domainTargets.distinctBy(DomainTarget::host)
@@ -173,4 +174,16 @@ data class ActiveProbeSafetyPolicy(
         val domainTargets: Int,
         val quicTargets: Int,
     )
+}
+
+private fun validateVerifiedDownloadAdmission(
+    intent: DiagnosticsIntent,
+    scanOrigin: DiagnosticsScanOrigin,
+    isManual: Boolean,
+) {
+    if (intent.throughputTargets.any { it.verification != null }) {
+        require(intent.profileId == VerifiedDownloadProfileId)
+        require(isManual && scanOrigin == DiagnosticsScanOrigin.USER_INITIATED)
+        require(intent.throughputTargets.singleOrNull()?.isValidVerifiedDownload() == true)
+    }
 }
