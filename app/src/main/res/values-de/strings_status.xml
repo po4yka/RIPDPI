@@ -121,6 +121,8 @@
     <string name="status_diagnostics_dns_resolver_doh_unreachable">DoH-Endpunkte nicht erreichbar; der DNS-Pfad könnte gekapert sein.</string>
     <string name="status_diagnostics_dns_section">DNS-Resolver</string>
     <string name="status_diagnostics_network_captive_portal">Captive Portal</string>
+    <string name="status_diagnostics_local_network_sign_in">Öffne die Anmeldeseite des Netzwerks. Führe die Prüfung nach der Anmeldung erneut aus.</string>
+    <string name="status_diagnostics_local_network_unvalidated">Android hat den Internetzugang in diesem Netzwerk nicht bestätigt.</string>
     <string name="status_diagnostics_network_section">In diesem Netzwerk</string>
     <string name="status_diagnostics_open_diagnostics_action">Diagnose öffnen</string>
     <string name="status_diagnostics_regression_summary">Neu fehlgeschlagen: %1$d, neu wiederhergestellt: %2$d, unverändert: %3$d.</string>

@@ -154,6 +154,8 @@
     <string name="status_diagnostics_network_asn">ASN / ISP</string>
     <string name="status_diagnostics_network_public_ip">IP público</string>
     <string name="status_diagnostics_network_captive_portal">Portal cativo</string>
+    <string name="status_diagnostics_local_network_sign_in">Abra a página de login da rede. Execute a verificação novamente depois de entrar.</string>
+    <string name="status_diagnostics_local_network_unvalidated">O Android não confirmou o acesso à Internet nesta rede.</string>
     <string name="status_diagnostics_network_ipv6">IPv6</string>
     <string name="status_diagnostics_network_transparent_proxy">Proxy transparente</string>
     <string name="status_diagnostics_effectiveness_section">Efetividade da estratégia de desvio nesta rede</string>

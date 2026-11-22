@@ -23,7 +23,8 @@ class HomeCompositeNetworkScopeTest {
     fun `stable original scope retains network measurements and recommendation`() =
         runTest {
             val outcome = HomeNetworkScopeFixture(backgroundScope).finalize()
-            assertNotNull(outcome.networkCharacter)
+            assertEquals(true, outcome.networkCharacter?.captivePortalDetected)
+            assertEquals(false, outcome.networkCharacter?.networkValidated)
             assertNotNull(outcome.bufferbloat)
             assertNotNull(outcome.dnsCharacterization)
             assertEquals("audit", outcome.recommendedSessionId)
@@ -48,12 +49,25 @@ class HomeCompositeNetworkScopeTest {
             val fixture = HomeNetworkScopeFixture(backgroundScope)
             fixture.source.afterDns = { fixture.epoch.epoch = FakeDiagnosticsNetworkEpoch(3) }
             val outcome = fixture.finalize()
+            assertEquals(3, fixture.source.networkCalls)
             assertNull(outcome.networkCharacter)
             assertNull(outcome.bufferbloat)
             assertNull(outcome.dnsCharacterization)
             assertNull(outcome.recommendedSessionId)
             assertFalse(outcome.actionable)
             assertEquals(2, outcome.routingSanity?.totalConfiguredApps)
+        }
+
+    @Test
+    fun `network change during persistence removes the local network observation before publication`() =
+        runTest {
+            val fixture = HomeNetworkScopeFixture(backgroundScope)
+            fixture.afterPersist = { fixture.epoch.epoch = FakeDiagnosticsNetworkEpoch(2) }
+
+            val outcome = fixture.finalize()
+
+            assertEquals(3, fixture.source.networkCalls)
+            assertNull(outcome.networkCharacter)
         }
 
     @Test
@@ -64,6 +78,7 @@ class HomeCompositeNetworkScopeTest {
                 fixture.fingerprint.fingerprint = fixture.fingerprint.fingerprint?.copy(transport = "cellular")
             }
             val outcome = fixture.finalize()
+            assertNull(outcome.networkCharacter)
             assertNull(outcome.dnsCharacterization)
             assertNull(outcome.recommendedSessionId)
         }

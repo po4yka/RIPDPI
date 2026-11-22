@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.diagnostics.HomeDiagnosticsRunEntity
+import com.poyka.ripdpi.data.diagnostics.HomeDiagnosticsRunStore
+import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsNetworkScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,10 +16,22 @@ internal class HomeNetworkScopeFixture(
     private val detection: HomeDetectionStageOutcome? = null,
 ) {
     val source = FakeHomeScopeAugmentationSource()
+    var afterPersist: () -> Unit = {}
     private val originalScope = DiagnosticsNetworkScope(epoch, fingerprint)
     private val completed = ConcurrentHashMap<String, DiagnosticsHomeCompositeOutcome>()
     val hasCompletedOutcome: Boolean get() = completed.isNotEmpty()
     private val stores = FakeDiagnosticsHistoryStores()
+    private val homeRunStore =
+        object : HomeDiagnosticsRunStore by stores {
+            override suspend fun persistCompletedHomeRun(
+                run: HomeDiagnosticsRunEntity,
+                detectionSession: ScanSessionEntity?,
+                detectionResults: List<ProbeResultEntity>,
+            ) {
+                stores.persistCompletedHomeRun(run, detectionSession, detectionResults)
+                afterPersist()
+            }
+        }
     private val json = diagnosticsTestJson()
     private val finalizer =
         HomeCompositeOutcomeFinalizer(
@@ -29,7 +45,12 @@ internal class HomeNetworkScopeFixture(
                 HomeCompositePersistencePorts(
                     scanRecordStore = stores,
                     comparisonScanCoordinator = ComparisonScanCoordinator(),
-                    homeRunPersistence = HomeDiagnosticsRunPersistence(stores, TestDiagnosticsHistoryClock(), json),
+                    homeRunPersistence =
+                        HomeDiagnosticsRunPersistence(
+                            homeRunStore,
+                            TestDiagnosticsHistoryClock(),
+                            json,
+                        ),
                     probeResultCache = FakeHomeScopeProbeResultCache(),
                 ),
             serviceStateStore = FakeServiceStateStore(),
@@ -89,7 +110,7 @@ internal class FakeHomeScopeAugmentationSource : HomeAnalysisAugmentationSource 
 
     override suspend fun networkCharacter(): HomeNetworkCharacterSummary {
         networkCalls++
-        return HomeNetworkCharacterSummary(transport = "wifi")
+        return HomeNetworkCharacterSummary(transport = "wifi", captivePortalDetected = true, networkValidated = false)
     }
 
     override suspend fun routingSanity() = HomeRoutingSanitySummary(totalConfiguredApps = 2)

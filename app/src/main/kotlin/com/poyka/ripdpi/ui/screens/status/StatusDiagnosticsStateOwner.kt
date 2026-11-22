@@ -27,7 +27,7 @@ internal class StatusDiagnosticsStateOwner(
     connectionRuntimeState: MutableStateFlow<ConnectionRuntimeState>,
     permissionState: MutableStateFlow<PermissionRuntimeState>,
     mutations: MainMutationRunner,
-    diagnosticsDependencies: MainDiagnosticsDependencies,
+    private val diagnosticsDependencies: MainDiagnosticsDependencies,
     stringResolver: StringResolver,
     requestVpnStart: () -> Unit,
     pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
@@ -102,6 +102,6 @@ internal class StatusDiagnosticsStateOwner(
     }
 
     fun initialize() {
-        actions.initialize()
+        actions.initialize(diagnosticsDependencies.networkHandoverMonitor)
     }
 }

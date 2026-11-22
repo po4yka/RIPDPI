@@ -121,6 +121,8 @@
     <string name="status_diagnostics_dns_resolver_doh_unreachable">Points de terminaison DoH inaccessibles ; le chemin DNS peut être détourné.</string>
     <string name="status_diagnostics_dns_section">Résolveur DNS</string>
     <string name="status_diagnostics_network_captive_portal">Portail captif</string>
+    <string name="status_diagnostics_local_network_sign_in">Ouvrez la page de connexion au réseau. Relancez la vérification après vous être connecté.</string>
+    <string name="status_diagnostics_local_network_unvalidated">Android n’a pas confirmé l’accès à Internet sur ce réseau.</string>
     <string name="status_diagnostics_network_section">Sur ce réseau</string>
     <string name="status_diagnostics_open_diagnostics_action">Ouvrir le diagnostic</string>
     <string name="status_diagnostics_regression_summary">Nouveaux échecs : %1$d, nouvellement rétablis : %2$d, inchangés : %3$d.</string>

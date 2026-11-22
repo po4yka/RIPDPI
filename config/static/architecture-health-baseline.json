@@ -167,17 +167,6 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-mainhomediagnosticsactions.kt:adaptive-desync-diagnostics-dns-relay-telemetry",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainHomeDiagnosticsActions.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainHomeDiagnosticsActions.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-mainstateresolvers.kt:adaptive-diagnostics-dns-routing-telemetry-tunnel-warp",
       "rule": "kotlin-feature-spread",
       "priority": 3,

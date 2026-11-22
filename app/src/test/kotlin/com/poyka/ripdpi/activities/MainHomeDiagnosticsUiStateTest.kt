@@ -15,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.ConnectivityStageOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
+import com.poyka.ripdpi.diagnostics.HomeNetworkCharacterSummary
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import com.poyka.ripdpi.ui.screens.status.StatusConfidenceLevel
@@ -22,6 +23,7 @@ import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAuditSource
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -88,6 +90,35 @@ class MainHomeDiagnosticsUiStateTest {
                 .value
                 .contains(R.string.diagnostics_stages_succeeded.toString()),
         )
+    }
+
+    @Test
+    fun `analysis sheet hides sign-in guidance from a different network`() {
+        val outcome =
+            DiagnosticsHomeCompositeOutcome(
+                runId = "audit",
+                fingerprintHash = "previous-wifi",
+                actionable = false,
+                headline = "Analysis",
+                summary = "Analysis complete",
+                networkCharacter = HomeNetworkCharacterSummary(captivePortalDetected = true, networkValidated = false),
+            )
+
+        val state =
+            buildHomeDiagnosticsUiState(
+                settings = AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime =
+                    HomeDiagnosticsRuntimeState(
+                        latestCompositeOutcome = outcome,
+                        currentFingerprintHash = "current-cellular",
+                        analysisSheetVisible = true,
+                    ),
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertNull(requireNotNull(state.analysisSheet).localNetworkNotice)
     }
 
     @Test

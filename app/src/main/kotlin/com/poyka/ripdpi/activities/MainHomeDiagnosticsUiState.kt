@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.isMeasuredOn
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
@@ -37,6 +38,7 @@ import com.poyka.ripdpi.ui.screens.status.homeConfidenceLevel
 import com.poyka.ripdpi.ui.screens.status.homeDescription
 import com.poyka.ripdpi.ui.screens.status.homeGeneratedText
 import com.poyka.ripdpi.ui.screens.status.homeHeadline
+import com.poyka.ripdpi.ui.screens.status.homeLocalNetworkNotice
 import com.poyka.ripdpi.ui.screens.status.homeNetworkNote
 import com.poyka.ripdpi.ui.screens.status.homeNote
 import com.poyka.ripdpi.ui.screens.status.homeOperator
@@ -407,6 +409,10 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         headline = homeHeadline(stringResolver),
         summary = homeSummary(stringResolver),
         connectivityComparison = connectivityAssessment?.toStatusConnectivityComparison(stringResolver),
+        localNetworkNotice =
+            networkCharacter
+                ?.takeIf { isMeasuredOn(fingerprintHash, runtime.currentFingerprintHash) }
+                ?.homeLocalNetworkNotice(stringResolver),
         confidenceSummary = stringResolver.homeConfidence(confidenceSummary),
         confidenceLevel = confidenceSummary.homeConfidenceLevel(),
         coverageSummary = coverageSummary?.let(stringResolver::homeGeneratedText),
