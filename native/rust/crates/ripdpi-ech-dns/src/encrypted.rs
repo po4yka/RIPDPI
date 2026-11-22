@@ -271,6 +271,10 @@ fn https_response_ech_step(response: &[u8], port: Option<u16>) -> EchStep {
     if let Ok(header) = Header::read(&mut BinDecoder::new(response))
         && header.metadata.response_code != ResponseCode::NoError
     {
+        // NXDOMAIN proves no record exists at the name, such as an unpublished `_port._https` owner (RFC 8020).
+        if header.metadata.response_code == ResponseCode::NXDomain {
+            return EchStep::Done(EchResolutionOutcome::NotPublished);
+        }
         return EchStep::Done(EchResolutionOutcome::ResolutionFailed(format!(
             "HTTPS query returned {}",
             header.metadata.response_code
