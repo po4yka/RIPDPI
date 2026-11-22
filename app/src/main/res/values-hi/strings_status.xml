@@ -639,4 +639,20 @@
         <item quantity="other">%1$d इंस्टॉल किए गए ऐप्स ज्ञात VPN डिटेक्टर हैं.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="status_path_comparison">पथों की तुलना</string>
+    <string name="status_path_direct">सीधा</string>
+    <string name="status_path_active">सक्रिय कनेक्शन</string>
+    <string name="status_path_complete">पूरा</string>
+    <string name="status_path_unmeasured">मापा नहीं गया</string>
+    <string name="status_path_conflicting">परस्पर विरोधी नतीजे</string>
+    <string name="status_path_stage_pair">%1$s %2$s (%3$d) · %4$s %5$s (%6$d)</string>
+    <string name="status_path_coverage">RAW रिपोर्ट %1$d/%2$d · %3$s %4$s · मिलान किए चरण %5$d/%6$d</string>
+    <string name="status_path_http_recovery">HTTP फिर से उपलब्ध · %1$s</string>
+    <string name="status_path_general_failure">सीधे पथ पर व्यापक विफलताएँ</string>
+    <string name="status_path_external_failure">बाहरी पथ पर विफलताएँ</string>
+    <string name="status_path_selective_failure">कुछ लक्ष्यों पर सीधी पहुँच विफल</string>
+    <string name="status_path_regression">सक्रिय पथ पर गिरावट</string>
+    <string name="status_path_resolver_interference">संभावित DNS हस्तक्षेप</string>
+    <string name="status_path_service_failure">कनेक्शन सेवा विफल</string>
+    <string name="status_path_inconclusive">नतीजा अनिर्णायक</string>
 </resources>

@@ -8,6 +8,121 @@ class ComparisonScanEvidenceTest {
     private val coordinator = ComparisonScanCoordinator()
 
     @Test
+    fun `one direct failure and one control without comparison provide low confidence`() {
+        val raw =
+            minimalReport(
+                observations =
+                    listOf(
+                        domainObservation("control.example", isControl = true, httpStatus = HttpProbeStatus.OK),
+                        domainObservation("affected.example", httpStatus = HttpProbeStatus.UNREACHABLE),
+                    ),
+            )
+
+        val assessment = assessmentFor(raw)
+
+        assertEquals(ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING, assessment.assessmentCode)
+        assertEquals("low", assessment.confidence)
+    }
+
+    @Test
+    fun `a completed matching HTTP exchange reports recovery separately`() {
+        val raw = comparisonHttpReport("raw", HttpProbeStatus.UNREACHABLE)
+        val active = comparisonHttpReport("active", HttpProbeStatus.OK).copy(pathMode = ScanPathMode.IN_PATH)
+
+        val assessment = assessmentFor(raw, active)
+        val comparison = requireNotNull(assessment.pathComparison)
+        val row = comparison.stages.single { it.target == "affected.example" && it.stage == "http" }
+
+        assertEquals(ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING, assessment.assessmentCode)
+        assertEquals("medium", assessment.confidence)
+        assertEquals(listOf("affected.example"), comparison.httpRecoveredTargets)
+        assertEquals(ConnectivityStageMeasurement(ConnectivityStageOutcome.FAILED, 1), row.raw)
+        assertEquals(ConnectivityStageMeasurement(ConnectivityStageOutcome.SUCCEEDED, 1), row.inPath)
+    }
+
+    @Test
+    fun `partial and conflicting measurements cannot confirm recovery`() {
+        val raw = comparisonHttpReport("raw", HttpProbeStatus.UNREACHABLE)
+        val active = comparisonHttpReport("active", HttpProbeStatus.OK).copy(pathMode = ScanPathMode.IN_PATH)
+        val partial = assessmentFor(raw, active.copy(completionKind = ScanCompletionKind.PARTIAL_RESULTS))
+        val contradictory = comparisonHttpReport("raw-second", HttpProbeStatus.OK)
+        val conflicting =
+            coordinator.assessConnectivity(listOf(raw, contradictory), active, listOf("raw", "raw-second"), "active")
+
+        val partialComparison = requireNotNull(partial.pathComparison)
+        assertEquals(ConnectivityActivePathCoverage.INCOMPLETE, partialComparison.activePathCoverage)
+        assertTrue(partialComparison.httpRecoveredTargets.isEmpty())
+        assertEquals("low", partial.confidence)
+
+        val conflictingComparison = requireNotNull(conflicting.pathComparison)
+        val row = conflictingComparison.stages.single { it.target == "affected.example" && it.stage == "http" }
+        assertEquals(ConnectivityStageMeasurement(ConnectivityStageOutcome.CONFLICTING, 2), row.raw)
+        assertTrue(conflictingComparison.httpRecoveredTargets.isEmpty())
+        assertEquals("low", conflicting.confidence)
+    }
+
+    @Test
+    fun `a different configured RAW probe cannot confirm recovery on the same host`() {
+        val raw = comparisonHttpReport("raw", HttpProbeStatus.UNREACHABLE)
+        val active = comparisonHttpReport("active", HttpProbeStatus.OK).copy(pathMode = ScanPathMode.IN_PATH)
+
+        val assessment =
+            coordinator.assessConnectivity(
+                rawReports = listOf(raw),
+                inPathReport = active,
+                rawPathSessionIds = listOf("raw"),
+                inPathSessionId = "active",
+                rawProfilesByTarget =
+                    mapOf(ConnectivityTargetKey(ObservationKind.DOMAIN, "affected.example") to setOf("other")),
+            )
+
+        val comparison = requireNotNull(assessment.pathComparison)
+        assertEquals(
+            ConnectivityStageOutcome.UNMEASURED,
+            comparison.stages
+                .single()
+                .raw.outcome,
+        )
+        assertTrue(comparison.httpRecoveredTargets.isEmpty())
+    }
+
+    @Test
+    fun `high confidence requires distinct RAW observations and multiple paired targets`() {
+        val raw = comparisonHttpReport("raw", HttpProbeStatus.UNREACHABLE, secondTarget = true)
+        val active =
+            comparisonHttpReport(
+                "active",
+                HttpProbeStatus.OK,
+                secondTarget = true,
+            ).copy(pathMode = ScanPathMode.IN_PATH)
+        val duplicate = coordinator.assessConnectivity(listOf(raw, raw), active, listOf("raw"), "active")
+        val repeated =
+            coordinator.assessConnectivity(
+                listOf(raw, raw.copy(sessionId = "raw-second")),
+                active,
+                listOf("raw", "raw-second"),
+                "active",
+            )
+
+        assertEquals("medium", duplicate.confidence)
+        assertEquals("high", repeated.confidence)
+        assertEquals(2, repeated.pathComparison?.completeRawReports)
+    }
+
+    private fun comparisonHttpReport(
+        sessionId: String,
+        status: HttpProbeStatus,
+        secondTarget: Boolean = false,
+    ) = minimalReport(
+        observations =
+            buildList {
+                add(domainObservation("control.example", isControl = true, httpStatus = HttpProbeStatus.OK))
+                add(domainObservation("affected.example", httpStatus = status))
+                if (secondTarget) add(domainObservation("other-affected.example", httpStatus = status))
+            },
+    ).copy(sessionId = sessionId)
+
+    @Test
     fun `normalized domain success preserves supported TLS version`() {
         val observation = domainObservation("modern.example", tls13Status = TlsProbeStatus.OK)
         val report =

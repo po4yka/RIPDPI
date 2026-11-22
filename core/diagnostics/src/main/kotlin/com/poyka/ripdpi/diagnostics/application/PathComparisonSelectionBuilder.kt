@@ -17,12 +17,13 @@ internal data class PathComparisonSelection(
     val serviceTargets: List<ServiceTarget>,
     val circumventionTargets: List<CircumventionTarget>,
     val failedTargetLabels: List<String>,
+    val rawProfilesByTarget: Map<ConnectivityTargetKey, Set<String>>,
 )
 
 private data class ComparisonTargetCatalogs(
     val domainCatalog: Map<Pair<String, String>, DomainTarget>,
-    val serviceCatalog: Map<String, ServiceTarget>,
-    val circumventionCatalog: Map<String, CircumventionTarget>,
+    val serviceCatalog: Map<Pair<String, String>, ServiceTarget>,
+    val circumventionCatalog: Map<Pair<String, String>, CircumventionTarget>,
 )
 
 private suspend fun buildTargetCatalogs(
@@ -43,9 +44,16 @@ private suspend fun buildTargetCatalogs(
                 .flatMap { (profileId, spec) ->
                     spec.domainTargets.map { target -> (profileId to target.host.lowercase()) to target }
                 }.toMap(),
-        serviceCatalog = profileSpecs.values.flatMap { it.serviceTargets }.associateBy { it.id.lowercase() },
+        serviceCatalog =
+            profileSpecs
+                .flatMap { (profileId, spec) ->
+                    spec.serviceTargets.map { target -> (profileId to target.id.lowercase()) to target }
+                }.toMap(),
         circumventionCatalog =
-            profileSpecs.values.flatMap { it.circumventionTargets }.associateBy { it.id.lowercase() },
+            profileSpecs
+                .flatMap { (profileId, spec) ->
+                    spec.circumventionTargets.map { target -> (profileId to target.id.lowercase()) to target }
+                }.toMap(),
     )
 }
 
@@ -65,19 +73,19 @@ private fun matchingDomainTargets(
 
 private fun collectFailedServices(
     reports: List<ScanReport>,
-    serviceCatalog: Map<String, ServiceTarget>,
-    circumventionCatalog: Map<String, CircumventionTarget>,
+    serviceCatalog: Map<Pair<String, String>, ServiceTarget>,
+    circumventionCatalog: Map<Pair<String, String>, CircumventionTarget>,
 ): List<Any> =
     reports
-        .flatMap(ScanReport::observations)
-        .mapNotNull { observation ->
+        .flatMap { report -> report.observations.map { report.profileId to it } }
+        .mapNotNull { (profileId, observation) ->
             when {
                 observation.service?.let(::serviceObservationFailed) == true -> {
-                    serviceCatalog[observation.target.lowercase()]
+                    serviceCatalog[profileId to observation.target.lowercase()]
                 }
 
                 observation.circumvention?.let(::circumventionObservationFailed) == true -> {
-                    circumventionCatalog[observation.target.lowercase()]
+                    circumventionCatalog[profileId to observation.target.lowercase()]
                 }
 
                 else -> {
@@ -128,15 +136,40 @@ private fun buildPathSelection(
     val hasActionableTargets =
         affectedDomainTargets.isNotEmpty() || failedServices.isNotEmpty() || serviceRuntime.actionable
     val failedDomainLabels = affectedDomainTargets.filterNot { it == workingDomain }.map(DomainTarget::host)
+    val domainTargets = controls + affectedDomainTargets
     return PathComparisonSelection(
-        domainTargets = controls + affectedDomainTargets,
+        domainTargets = domainTargets,
         serviceTargets = serviceTargets,
         circumventionTargets = circumventionTargets,
         failedTargetLabels =
             failedDomainLabels + serviceTargets.map(ServiceTarget::id) +
                 circumventionTargets.map(CircumventionTarget::id),
+        rawProfilesByTarget =
+            buildMap {
+                domainTargets.forEach { target ->
+                    put(
+                        ConnectivityTargetKey(ObservationKind.DOMAIN, target.host),
+                        catalogs.domainCatalog.profilesFor(target),
+                    )
+                }
+                serviceTargets.forEach { target ->
+                    put(
+                        ConnectivityTargetKey(ObservationKind.SERVICE, target.id),
+                        catalogs.serviceCatalog.profilesFor(target),
+                    )
+                }
+                circumventionTargets.forEach { target ->
+                    put(
+                        ConnectivityTargetKey(ObservationKind.CIRCUMVENTION, target.id),
+                        catalogs.circumventionCatalog.profilesFor(target),
+                    )
+                }
+            },
     ).takeIf { hasActionableTargets }
 }
+
+private fun <T> Map<Pair<String, String>, T>.profilesFor(target: T): Set<String> =
+    entries.filter { it.value == target }.mapTo(mutableSetOf()) { it.key.first }
 
 private suspend fun resolvePathComparisonSelection(
     progress: DiagnosticsHomeCompositeProgress,
@@ -179,14 +212,25 @@ private suspend fun resolveConnectivityAssessment(
     json: Json,
     serviceStateStore: ServiceStateStore,
     comparisonScanCoordinator: ComparisonScanCoordinator,
+    selection: PathComparisonSelection?,
 ): ConnectivityAssessment? {
+    val rawStages = progress.stages.filter { it.pathMode == ScanPathMode.RAW_PATH }
+    val rawSessionIds = rawStages.mapNotNull { it.sessionId }
+    if (rawSessionIds.isEmpty()) return null
     val rawReports =
-        progress.stages
-            .filter { it.pathMode == ScanPathMode.RAW_PATH }
-            .mapNotNull { decodeReport(scanRecordStore, it.sessionId, json) }
-    if (rawReports.isEmpty()) return null
+        rawStages.filter { it.isCompletedStage() }.mapNotNull { stage ->
+            decodeReport(scanRecordStore, stage.sessionId, json)?.takeIf { it.pathMode == ScanPathMode.RAW_PATH }
+        }
     val inPathStage = progress.stages.firstOrNull { it.stageKey == "path_comparison" }
-    val inPathReport = decodeReport(scanRecordStore, inPathStage?.sessionId, json)
+    val inPathSession = inPathStage?.sessionId?.let { scanRecordStore.getScanSession(it) }
+    val inPathReport =
+        inPathSession
+            ?.reportJson
+            ?.takeIf {
+                inPathStage?.isCompletedStage() == true &&
+                    inPathSession.status == "completed"
+            }?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
+            ?.takeIf { it.pathMode == ScanPathMode.IN_PATH }
     val serviceRuntime =
         buildServiceRuntimeAssessment(
             serviceStatus = serviceStateStore.status.value.first,
@@ -195,12 +239,11 @@ private suspend fun resolveConnectivityAssessment(
     return comparisonScanCoordinator.assessConnectivity(
         rawReports = rawReports,
         inPathReport = inPathReport,
-        rawPathSessionIds =
-            progress.stages
-                .filter { it.pathMode == ScanPathMode.RAW_PATH }
-                .mapNotNull { it.sessionId },
+        rawPathSessionIds = rawSessionIds,
         inPathSessionId = inPathStage?.sessionId,
         serviceRuntimeAssessment = serviceRuntime,
+        rawProfilesByTarget = selection?.rawProfilesByTarget,
+        activePathIsVpn = inPathSession?.serviceMode.equals("VPN", ignoreCase = true),
     )
 }
 
@@ -211,9 +254,17 @@ internal suspend fun buildConnectivityAssessment(
     json: Json,
     serviceStateStore: ServiceStateStore,
     comparisonScanCoordinator: ComparisonScanCoordinator,
+    selection: PathComparisonSelection?,
 ): ConnectivityAssessment? {
     val progress = progressState.value[runId] ?: return null
-    return resolveConnectivityAssessment(progress, scanRecordStore, json, serviceStateStore, comparisonScanCoordinator)
+    return resolveConnectivityAssessment(
+        progress,
+        scanRecordStore,
+        json,
+        serviceStateStore,
+        comparisonScanCoordinator,
+        selection,
+    )
 }
 
 private fun domainObservationFailed(

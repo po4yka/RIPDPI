@@ -625,4 +625,20 @@
         <item quantity="other">%1$d 个已安装应用属于已知 VPN 检测应用。</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="status_path_comparison">路径对比</string>
+    <string name="status_path_direct">直连</string>
+    <string name="status_path_active">当前连接</string>
+    <string name="status_path_complete">已完成</string>
+    <string name="status_path_unmeasured">未测量</string>
+    <string name="status_path_conflicting">结果冲突</string>
+    <string name="status_path_stage_pair">%1$s %2$s (%3$d) · %4$s %5$s (%6$d)</string>
+    <string name="status_path_coverage">RAW 报告 %1$d/%2$d · %3$s %4$s · 已匹配阶段 %5$d/%6$d</string>
+    <string name="status_path_http_recovery">HTTP 已恢复 · %1$s</string>
+    <string name="status_path_general_failure">直连路径广泛故障</string>
+    <string name="status_path_external_failure">外部路径故障</string>
+    <string name="status_path_selective_failure">部分目标直连失败</string>
+    <string name="status_path_regression">当前路径性能下降</string>
+    <string name="status_path_resolver_interference">可能存在 DNS 干扰</string>
+    <string name="status_path_service_failure">连接服务故障</string>
+    <string name="status_path_inconclusive">结果不确定</string>
 </resources>

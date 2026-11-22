@@ -69,6 +69,41 @@ class HomeCompositeVpnRuntimePathComparisonTest {
             assertEquals(ConnectivityAssessmentCode.VPN_PATH_REGRESSION, outcome.connectivityAssessment?.assessmentCode)
             assertEquals(listOf("affected.example"), outcome.connectivityAssessment?.inPathEvidence?.affectedTargets)
         }
+
+    @Test
+    fun `home shows direct measurements when the active comparison was skipped`() =
+        runTest {
+            val fixture = vpnPathComparisonFixture(backgroundScope, controlTier = ControlTier.DOMESTIC)
+
+            val run = fixture.service.startHomeAnalysis()
+            advanceUntilIdle()
+            val outcome = fixture.service.finalizeHomeRun(run.runId)
+            val assessment = requireNotNull(outcome.connectivityAssessment)
+            val comparison = requireNotNull(assessment.pathComparison)
+            val affected = comparison.stages.single { it.target == "affected.example" && it.stage == "http" }
+
+            assertEquals(0, fixture.scanController.inPathStarts)
+            assertEquals("low", assessment.confidence)
+            assertEquals(ConnectivityActivePathCoverage.NOT_RUN, comparison.activePathCoverage)
+            assertEquals(ConnectivityStageMeasurement(ConnectivityStageOutcome.FAILED, 1), affected.raw)
+            assertEquals(ConnectivityStageMeasurement(ConnectivityStageOutcome.UNMEASURED, 0), affected.inPath)
+        }
+
+    @Test
+    fun `home reports HTTP recovery from its planned pair on an owned VPN route`() =
+        runTest {
+            val fixture = vpnPathComparisonFixture(backgroundScope, targetRecoversInPath = true)
+
+            val run = fixture.service.startHomeAnalysis()
+            advanceUntilIdle()
+            val outcome = fixture.service.finalizeHomeRun(run.runId)
+            val assessment = requireNotNull(outcome.connectivityAssessment)
+            val comparison = requireNotNull(assessment.pathComparison)
+
+            assertEquals(true, comparison.activePathIsVpn)
+            assertEquals(listOf("affected.example"), comparison.httpRecoveredTargets)
+            assertEquals("medium", assessment.confidence)
+        }
 }
 
 private data class VpnPathComparisonFixture(
@@ -82,6 +117,7 @@ private class VpnPathScanController(
     private val control: DomainTarget,
     private val affected: DomainTarget,
     private val targetWorksOnRaw: Boolean,
+    private val targetRecoversInPath: Boolean,
 ) : DiagnosticsScanController {
     override val hiddenAutomaticProbeActive = MutableStateFlow(false)
     var inPathStarts = 0
@@ -115,12 +151,13 @@ private class VpnPathScanController(
                 }
 
                 "path-comparison" -> {
+                    val activeStatus = if (targetRecoversInPath) HttpProbeStatus.OK else HttpProbeStatus.UNREACHABLE
                     vpnPathComparisonEvidenceReport(
                         sessionId,
                         profileId,
                         pathMode,
                         requireNotNull(targetOverrides).domainTargets.orEmpty(),
-                        HttpProbeStatus.UNREACHABLE,
+                        activeStatus,
                     )
                 }
 
@@ -156,14 +193,16 @@ private class VpnPathScanController(
 private fun vpnPathComparisonFixture(
     scope: CoroutineScope,
     targetWorksOnRaw: Boolean = false,
+    targetRecoversInPath: Boolean = false,
+    controlTier: ControlTier? = null,
 ): VpnPathComparisonFixture {
     val json = diagnosticsTestJson()
     val stores = FakeDiagnosticsHistoryStores()
     val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
-    val control = DomainTarget(host = "control.example", isControl = true)
+    val control = DomainTarget(host = "control.example", isControl = true, controlTier = controlTier)
     val affected = DomainTarget(host = "affected.example")
     stores.profilesState.value = listOf(vpnPathProfile(json, control, affected))
-    val scanController = VpnPathScanController(stores, json, control, affected, targetWorksOnRaw)
+    val scanController = VpnPathScanController(stores, json, control, affected, targetWorksOnRaw, targetRecoversInPath)
     val timelineSource = vpnPathTimelineSource(stores, json, scope)
     val service =
         createVpnPathCompositeService(

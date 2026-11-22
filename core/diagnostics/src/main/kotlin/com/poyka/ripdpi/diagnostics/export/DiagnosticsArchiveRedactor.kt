@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.ConnectivityAssessment
-import com.poyka.ripdpi.diagnostics.ConnectivityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
@@ -260,32 +259,6 @@ class DiagnosticsArchiveRedactor
             )
         }
     }
-
-internal fun redactConnectivityAssessment(assessment: ConnectivityAssessment?): ConnectivityAssessment? =
-    assessment?.copy(
-        assessmentSummary = redactDiagnosticsArchiveText(assessment.assessmentSummary),
-        rawPathEvidence = assessment.rawPathEvidence.redactForArchive(),
-        inPathEvidence = assessment.inPathEvidence.redactForArchive(),
-        affectedTargets = archiveTargetListProjection(assessment.affectedTargets),
-        resolverAssessment =
-            assessment.resolverAssessment.copy(
-                mismatchTargets = archiveTargetListProjection(assessment.resolverAssessment.mismatchTargets),
-                summary = redactDiagnosticsArchiveText(assessment.resolverAssessment.summary),
-            ),
-        serviceRuntimeAssessment =
-            assessment.serviceRuntimeAssessment.copy(
-                lastNativeErrorHeadline =
-                    redactDiagnosticsArchiveText(assessment.serviceRuntimeAssessment.lastNativeErrorHeadline),
-                summary = redactDiagnosticsArchiveText(assessment.serviceRuntimeAssessment.summary),
-            ),
-        recommendedNextAction = redactDiagnosticsArchiveText(assessment.recommendedNextAction),
-    )
-
-private fun ConnectivityEvidence.redactForArchive(): ConnectivityEvidence =
-    copy(
-        controls = archiveTargetListProjection(controls),
-        affectedTargets = archiveTargetListProjection(affectedTargets),
-    )
 
 private fun RuntimeComponentSummary.redactForArchive(): RuntimeComponentSummary =
     copy(

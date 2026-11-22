@@ -5,6 +5,13 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
+import com.poyka.ripdpi.diagnostics.ConnectivityActivePathCoverage
+import com.poyka.ripdpi.diagnostics.ConnectivityAssessment
+import com.poyka.ripdpi.diagnostics.ConnectivityAssessmentCode
+import com.poyka.ripdpi.diagnostics.ConnectivityComparedStage
+import com.poyka.ripdpi.diagnostics.ConnectivityPathComparison
+import com.poyka.ripdpi.diagnostics.ConnectivityStageMeasurement
+import com.poyka.ripdpi.diagnostics.ConnectivityStageOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
@@ -15,9 +22,74 @@ import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAuditSource
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MainHomeDiagnosticsUiStateTest {
+    @Test
+    fun `analysis sheet shows paired HTTP outcomes and recovery separately from strategy confidence`() {
+        val evidence =
+            ConnectivityPathComparison(
+                completeRawReports = 1,
+                incompleteRawReports = 0,
+                activePathCoverage = ConnectivityActivePathCoverage.COMPLETE,
+                activePathIsVpn = true,
+                stages =
+                    listOf(
+                        ConnectivityComparedStage(
+                            target = "video.example",
+                            stage = "http",
+                            control = false,
+                            raw = ConnectivityStageMeasurement(ConnectivityStageOutcome.FAILED, 1),
+                            inPath = ConnectivityStageMeasurement(ConnectivityStageOutcome.SUCCEEDED, 1),
+                        ),
+                    ),
+                httpRecoveredTargets = listOf("video.example"),
+            )
+        val outcome =
+            DiagnosticsHomeCompositeOutcome(
+                runId = "audit",
+                actionable = false,
+                headline = "Analysis",
+                summary = "Analysis complete",
+                confidenceSummary = "Confidence low (25)",
+                connectivityAssessment =
+                    ConnectivityAssessment(
+                        assessmentCode = ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING,
+                        assessmentSummary = "Observed pattern",
+                        confidence = "medium",
+                        pathComparison = evidence,
+                    ),
+            )
+        val state =
+            buildHomeDiagnosticsUiState(
+                settings = AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime = HomeDiagnosticsRuntimeState(latestCompositeOutcome = outcome, analysisSheetVisible = true),
+                stringResolver = FakeStringResolver(),
+            )
+        val sheet = requireNotNull(state.analysisSheet)
+        val comparison = requireNotNull(sheet.connectivityComparison)
+
+        assertEquals(StatusConfidenceLevel.LOW, sheet.confidenceLevel)
+        assertEquals(R.string.diagnostics_audit_confidence_medium.toString(), comparison.confidence)
+        assertEquals(listOf("video.example"), comparison.recoveredTargets)
+        assertTrue(comparison.recoveryLabel.contains(R.string.logs_mode_vpn.toString()))
+        assertTrue(
+            comparison.stageRows
+                .single()
+                .value
+                .contains(R.string.diagnostics_stages_failed.toString()),
+        )
+        assertTrue(
+            comparison.stageRows
+                .single()
+                .value
+                .contains(R.string.diagnostics_stages_succeeded.toString()),
+        )
+    }
+
     @Test
     fun `latest composite metadata stays with its run and nullable network match`() {
         val state =

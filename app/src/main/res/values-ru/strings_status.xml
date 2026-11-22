@@ -663,4 +663,20 @@
         <item quantity="other">%1$d установленных приложения известны как детекторы VPN.</item>
     </plurals>
     <!-- TODO(po4yka): placeholder copy for review -->
+    <string name="status_path_comparison">Сравнение путей</string>
+    <string name="status_path_direct">Напрямую</string>
+    <string name="status_path_active">Активное подключение</string>
+    <string name="status_path_complete">Завершено</string>
+    <string name="status_path_unmeasured">Не измерено</string>
+    <string name="status_path_conflicting">Противоречивые результаты</string>
+    <string name="status_path_stage_pair">%1$s %2$s (%3$d) · %4$s %5$s (%6$d)</string>
+    <string name="status_path_coverage">Отчёты RAW %1$d/%2$d · %3$s %4$s · Сопоставлено стадий %5$d/%6$d</string>
+    <string name="status_path_http_recovery">HTTP восстановился · %1$s</string>
+    <string name="status_path_general_failure">Массовые сбои прямого пути</string>
+    <string name="status_path_external_failure">Сбои внешнего пути</string>
+    <string name="status_path_selective_failure">Сбои отдельных целей напрямую</string>
+    <string name="status_path_regression">Сбой на активном пути</string>
+    <string name="status_path_resolver_interference">Возможные помехи DNS</string>
+    <string name="status_path_service_failure">Сбой службы подключения</string>
+    <string name="status_path_inconclusive">Недостаточно данных</string>
 </resources>
