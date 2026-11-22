@@ -16,7 +16,7 @@ internal val DiagnosticsProbeResultUiModel.isHttp3TransferComparison: Boolean
             (outcome == "http3_transfer_comparison_recorded" || outcome == "http3_transfer_comparison_inconclusive")
 
 internal val DiagnosticsProbeResultUiModel.isVerifiedTransferComparison: Boolean
-    get() = isEchTransferComparison || isHttp3TransferComparison
+    get() = isEchTransferComparison || isHttp3TransferComparison || volumeTransferLegTitleResource() != null
 
 internal data class Http3TransferLegUiModel(
     @StringRes val protocol: Int,

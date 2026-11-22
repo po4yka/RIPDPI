@@ -52,6 +52,7 @@ internal class DiagnosticsScanUiStateFactory
                     verifiedDownloadInput = input.verifiedDownloadInput,
                     verifiedUploadInput = input.verifiedUploadInput,
                     transferComparisonInput = input.transferComparisonInput,
+                    volumeComparisonInput = input.volumeComparisonInput,
                     profiles = resolvedInput.visibleProfiles,
                     omittedProfileCount = resolvedInput.omittedProfileCount,
                     activeProfile = resolvedInput.activeProfile,

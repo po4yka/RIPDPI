@@ -106,6 +106,25 @@ class DiagnosticsEndpointScanRequestFactoryTest {
             assertNull(intent.routeProbe)
         }
 
+    @Test
+    fun `volume comparison binds both manual endpoints before validating the empty catalog template`() =
+        runTest {
+            val input =
+                TransferVolumeComparisonInput(
+                    connectIp = "192.0.2.7",
+                    short = VerifiedDownloadInput("https://fixture.example:4443/short", "128", "a".repeat(64)),
+                    long = VerifiedDownloadInput("https://fixture.example:4443/long", "256", "b".repeat(64)),
+                )
+            val intent =
+                prepareEndpointScan(
+                    template = endpointTemplate(TransferVolumeComparisonProfileId).copy(quicTargets = emptyList()),
+                    overrides = DiagnosticsScanTargetOverrides(volumeComparison = input),
+                )
+            assertEquals(listOf(input.short.url, input.long.url), intent.throughputTargets.map { it.url })
+            assertEquals(listOf(input.connectIp, input.connectIp), intent.throughputTargets.map { it.connectIp })
+            assertNull(intent.routeProbe)
+        }
+
     private fun endpointTemplate(profileId: String): DiagnosticsIntent =
         strategyProbeIntent(settings = defaultDiagnosticsAppSettings(), baseProxyConfigJson = null).copy(
             profileId = profileId,

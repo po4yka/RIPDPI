@@ -2107,4 +2107,9 @@
     <string name="diagnostics_http3_transfer_no_difference">اختلافی مشاهده نشد</string>
     <string name="diagnostics_http3_transfer_connect">برقراری اتصال</string>
     <string name="diagnostics_http3_transfer_integrity">بررسی اندازه و SHA-256</string>
+    <string name="diagnostics_volume_transfer_title">بارگیری‌های کوتاه و بلند HTTPS</string>
+    <string name="diagnostics_volume_transfer_description">دو بارگیری را از یک سرور مقایسه کنید. اندازهٔ پاسخ کوتاه حداکثر ۳۲ کیبی‌بایت و پاسخ بلند حداکثر ۱ مبی‌بایت است.</string>
+    <string name="diagnostics_volume_transfer_short">پاسخ کوتاه</string>
+    <string name="diagnostics_volume_transfer_long">پاسخ بلند</string>
+    <string name="diagnostics_volume_transfer_input_error">یک نشانی IP و دو نشانی متفاوت HTTPS با میزبان و درگاه یکسان وارد کنید. اندازه‌ها و هش‌های SHA-256 را بررسی کنید.</string>
 </resources>

@@ -2,12 +2,13 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
+import java.net.URI
 
 const val EchTransferComparisonProfileId = "ech-transfer-comparison"
 const val Http3TransferComparisonProfileId = "http3-transfer-comparison"
 
-private const val MaxComparisonBodyBytes = 32_768
-private const val MaxHttp3ComparisonPathLength = 1024
+internal const val MaxComparisonBodyBytes = 32_768
+private const val MaxPinnedTransferPathLength = 1024
 
 data class VerifiedTransferComparisonInput(
     val url: String = "",
@@ -21,13 +22,8 @@ data class VerifiedTransferComparisonInput(
         return isDnsHost && hasValidIntegrityAndPin()
     }
 
-    fun isValidForHttp3(): Boolean {
-        val uri = url.verifiedTransferUriOrNull() ?: return false
-        val path = uri.rawPath.orEmpty().ifEmpty { "/" }
-        return '%' !in uri.host && !uri.host.endsWith('.') && path.length <= MaxHttp3ComparisonPathLength &&
-            path.startsWith('/') && !path.startsWith("//") && path.all { it in '!'..'~' && it != '\\' } &&
-            hasValidIntegrityAndPin(excludeBroadcast = true)
-    }
+    fun isValidForHttp3(): Boolean =
+        url.verifiedPinnedTransferUriOrNull() != null && hasValidIntegrityAndPin(excludeBroadcast = true)
 
     private fun hasValidIntegrityAndPin(excludeBroadcast: Boolean = false): Boolean {
         val bytes = expectedBodyBytes.toIntOrNull()
@@ -94,11 +90,20 @@ internal fun ThroughputTarget.isValidVerifiedHttp3Comparison(): Boolean =
     id == Http3TransferComparisonProfileId && verification?.echComparisonIp == null && hasComparisonShape() &&
         connectIp?.let { address -> comparisonInput(address).isValidForHttp3() } == true
 
-private fun ThroughputTarget.hasComparisonShape(): Boolean =
+internal fun ThroughputTarget.hasComparisonShape(): Boolean =
     connectIps.isEmpty() && port == null && uploadBodyBytes == null && runs == 1 &&
         verification?.let { windowBytes == it.expectedBodyBytes + 1 } == true
 
 private fun ThroughputTarget.comparisonInput(address: String): VerifiedTransferComparisonInput {
     val integrity = requireNotNull(verification)
     return VerifiedTransferComparisonInput(url, address, integrity.expectedBodyBytes.toString(), integrity.sha256)
+}
+
+internal fun String.verifiedPinnedTransferUriOrNull(): URI? {
+    val uri = verifiedTransferUriOrNull() ?: return null
+    val path = uri.rawPath.orEmpty().ifEmpty { "/" }
+    return uri.takeIf {
+        '%' !in uri.host && !uri.host.endsWith('.') && path.length <= MaxPinnedTransferPathLength &&
+            path.startsWith('/') && !path.startsWith("//") && path.all { char -> char in '!'..'~' && char != '\\' }
+    }
 }

@@ -28,6 +28,7 @@ import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.Http3TransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -221,6 +222,15 @@ internal fun ScanSection(
                     input = scan.verifiedUploadInput,
                     enabled = !effectiveBusy,
                     onInputChanged = manualProbeInput.onVerifiedUploadChanged,
+                )
+            }
+        }
+        if (selectedProfile?.id == TransferVolumeComparisonProfileId) {
+            item(key = "volume-comparison-input") {
+                TransferVolumeComparisonInputCard(
+                    input = scan.volumeComparisonInput,
+                    enabled = !effectiveBusy,
+                    onInputChanged = manualProbeInput.onVolumeComparisonChanged,
                 )
             }
         }

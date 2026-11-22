@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
@@ -23,6 +24,7 @@ data class DiagnosticsManualProbeInputActions(
     val onVerifiedDownloadChanged: (VerifiedDownloadInput) -> Unit = {},
     val onVerifiedUploadChanged: (VerifiedUploadInput) -> Unit = {},
     val onTransferComparisonChanged: (VerifiedTransferComparisonInput) -> Unit = {},
+    val onVolumeComparisonChanged: (TransferVolumeComparisonInput) -> Unit = {},
 )
 
 internal class DiagnosticsSelectionActions(
@@ -80,6 +82,7 @@ internal class DiagnosticsSelectionActions(
             onVerifiedDownloadChanged = { input -> updateTransferInput { it.copy(verifiedDownloadInput = input) } },
             onVerifiedUploadChanged = { input -> updateTransferInput { it.copy(verifiedUploadInput = input) } },
             onTransferComparisonChanged = { input -> updateTransferInput { it.copy(transferComparisonInput = input) } },
+            onVolumeComparisonChanged = { input -> updateTransferInput { it.copy(volumeComparisonInput = input) } },
         )
 
     fun updateTlsHopComparison(input: TlsHopComparisonConfig) {

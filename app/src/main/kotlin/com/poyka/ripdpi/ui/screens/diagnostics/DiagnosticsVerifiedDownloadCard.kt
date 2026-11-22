@@ -9,8 +9,11 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
@@ -27,46 +30,105 @@ internal fun VerifiedDownloadInputCard(
     enabled: Boolean,
     onInputChanged: (VerifiedDownloadInput) -> Unit,
 ) {
-    val url = remember { LaggingInputText(input.url) }
-    val size = remember { LaggingInputText(input.expectedBodyBytes) }
-    val digest = remember { LaggingInputText(input.sha256) }
-    SideEffect {
+    val fields = rememberVerifiedDownloadFields(input)
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+        VerifiedDownloadFields(fields, enabled) { onInputChanged(fields.input()) }
+        if (fields.isFilled() && !fields.input().isValid()) {
+            VerifiedTransferInputError(R.string.diagnostics_verified_download_input_error)
+        }
+    }
+}
+
+@Composable
+internal fun TransferVolumeComparisonInputCard(
+    input: TransferVolumeComparisonInput,
+    enabled: Boolean,
+    onInputChanged: (TransferVolumeComparisonInput) -> Unit,
+) {
+    val address = remember { LaggingInputText(input.connectIp) }
+    SideEffect { address.sync(input.connectIp) }
+    val short = rememberVerifiedDownloadFields(input.short)
+    val long = rememberVerifiedDownloadFields(input.long)
+
+    fun currentInput() = TransferVolumeComparisonInput(address.text, short.input(), long.input())
+    val publishInput = { onInputChanged(currentInput()) }
+
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+        VerifiedTransferField(
+            R.string.diagnostics_ech_transfer_ip,
+            address,
+            enabled,
+            KeyboardType.Ascii,
+            onEdited = publishInput,
+        )
+        VolumeTransferHeading(R.string.diagnostics_volume_transfer_short)
+        VerifiedDownloadFields(short, enabled, publishInput)
+        VolumeTransferHeading(R.string.diagnostics_volume_transfer_long)
+        VerifiedDownloadFields(long, enabled, publishInput)
+        val isFilled = address.text.isNotBlank() && short.isFilled() && long.isFilled()
+        if (isFilled && !currentInput().isValid()) {
+            VerifiedTransferInputError(R.string.diagnostics_volume_transfer_input_error)
+        }
+    }
+}
+
+@Composable
+private fun VolumeTransferHeading(
+    @StringRes label: Int,
+) {
+    Text(
+        stringResource(label),
+        modifier = Modifier.semantics { heading() },
+        style = RipDpiThemeTokens.type.bodyEmphasis,
+    )
+}
+
+private class VerifiedDownloadFieldState(
+    input: VerifiedDownloadInput,
+) {
+    val url = LaggingInputText(input.url)
+    val size = LaggingInputText(input.expectedBodyBytes)
+    val digest = LaggingInputText(input.sha256)
+
+    fun sync(input: VerifiedDownloadInput) {
         url.sync(input.url)
         size.sync(input.expectedBodyBytes)
         digest.sync(input.sha256)
     }
 
-    fun currentInput() = VerifiedDownloadInput(url.text, size.text, digest.text)
+    fun isFilled(): Boolean = url.text.isNotBlank() && size.text.isNotBlank() && digest.text.isNotBlank()
 
-    val allFieldsFilled = url.text.isNotBlank() && size.text.isNotBlank() && digest.text.isNotBlank()
-    val showError = allFieldsFilled && !currentInput().isValid()
-    val publishInput = { onInputChanged(currentInput()) }
-    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
-        VerifiedTransferField(
-            R.string.diagnostics_verified_download_url,
-            url,
-            enabled,
-            KeyboardType.Uri,
-            onEdited = publishInput,
-        )
-        VerifiedTransferField(
-            R.string.diagnostics_verified_download_bytes,
-            size,
-            enabled,
-            KeyboardType.Number,
-            onEdited = publishInput,
-        )
-        VerifiedTransferField(
-            R.string.diagnostics_verified_download_sha256,
-            digest,
-            enabled,
-            KeyboardType.Ascii,
-            onEdited = publishInput,
-        )
-        if (showError) {
-            VerifiedTransferInputError(R.string.diagnostics_verified_download_input_error)
-        }
-    }
+    fun input(): VerifiedDownloadInput = VerifiedDownloadInput(url.text, size.text, digest.text)
+}
+
+@Composable
+private fun rememberVerifiedDownloadFields(input: VerifiedDownloadInput): VerifiedDownloadFieldState {
+    val fields = remember { VerifiedDownloadFieldState(input) }
+    SideEffect { fields.sync(input) }
+    return fields
+}
+
+@Composable
+private fun VerifiedDownloadFields(
+    fields: VerifiedDownloadFieldState,
+    enabled: Boolean,
+    onEdited: () -> Unit,
+) {
+    VerifiedTransferField(R.string.diagnostics_verified_download_url, fields.url, enabled, KeyboardType.Uri, onEdited)
+    VerifiedTransferField(
+        R.string.diagnostics_verified_download_bytes,
+        fields.size,
+        enabled,
+        KeyboardType.Number,
+        onEdited,
+    )
+    VerifiedTransferField(
+        R.string.diagnostics_verified_download_sha256,
+        fields.digest,
+        enabled,
+        KeyboardType.Ascii,
+        onEdited,
+    )
 }
 
 @Composable

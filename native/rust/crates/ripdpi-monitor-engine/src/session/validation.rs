@@ -197,6 +197,66 @@ mod tests {
     }
 
     #[test]
+    fn volume_comparison_accepts_a_short_and_long_object_at_one_pinned_raw_origin() {
+        let mut specimen = request();
+        specimen.profile_id = "transfer-volume-comparison".into();
+        for (id, path, bytes) in [("transfer-volume-short", "short.bin", 2), ("transfer-volume-long", "long.bin", 4096)]
+        {
+            specimen.probe_tasks.push(
+                serde_json::from_value(serde_json::json!({
+                    "family": "THROUGHPUT", "targetId": id, "label": id
+                }))
+                .unwrap(),
+            );
+            specimen.throughput_targets.push(
+                serde_json::from_value(serde_json::json!({
+                    "id": id,
+                    "label": id,
+                    "url": format!("https://control.example:8443/{path}"),
+                    "connectIp": "192.0.2.10",
+                    "windowBytes": bytes + 1,
+                    "runs": 1,
+                    "verification": {
+                        "expectedBodyBytes": bytes,
+                        "sha256": "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df",
+                    }
+                }))
+                .unwrap(),
+            );
+        }
+        assert!(validate_scan_request(&specimen).is_ok());
+
+        for (url, ip) in [
+            ("https://control.example:443/long.bin", "192.0.2.10"),
+            ("https://other.example:8443/long.bin", "192.0.2.10"),
+            ("https://control.example:8443/short.bin", "192.0.2.10"),
+            ("https://control.example:8443/long.bin", "192.0.2.11"),
+            ("https://control.example:8443/long.bin", "255.255.255.255"),
+        ] {
+            let mut bad = specimen.clone();
+            bad.throughput_targets[1].url = url.into();
+            bad.throughput_targets[1].connect_ip = Some(ip.into());
+            assert!(validate_scan_request(&bad).is_err(), "{url}, {ip}");
+        }
+        let mut bad = specimen.clone();
+        bad.throughput_targets[1].window_bytes = 3;
+        bad.throughput_targets[1].verification.as_mut().unwrap().expected_body_bytes = 2;
+        assert!(validate_scan_request(&bad).is_err());
+        let mut bad = specimen.clone();
+        bad.probe_tasks.swap(0, 1);
+        assert!(validate_scan_request(&bad).is_err());
+        let mut bad = specimen.clone();
+        bad.route_probe = Some(crate::types::RouteProbeConfig {
+            stable_flow_attempts: 2,
+            diversity_buckets: 1,
+            diversity_on_failure_only: true,
+        });
+        assert!(validate_scan_request(&bad).is_err());
+        specimen.path_mode = ScanPathMode::InPath;
+        assert!(validate_scan_request(&specimen).is_err());
+    }
+
+    #[test]
     fn ech_comparison_requires_its_own_profile_fixed_ip_and_short_body() {
         use crate::types::{
             ECH_TRANSFER_COMPARISON_PROFILE_ID, MAX_ECH_COMPARISON_BODY_BYTES, VERIFIED_DOWNLOAD_PROFILE_ID,

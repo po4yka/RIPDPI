@@ -2065,4 +2065,9 @@
     <string name="diagnostics_http3_transfer_no_difference">未发现差异</string>
     <string name="diagnostics_http3_transfer_connect">建立连接</string>
     <string name="diagnostics_http3_transfer_integrity">验证大小和 SHA-256</string>
+    <string name="diagnostics_volume_transfer_title">比较短、长 HTTPS 下载</string>
+    <string name="diagnostics_volume_transfer_description">比较来自同一服务器的两次下载。短响应最大为 32 KiB，长响应最大为 1 MiB。</string>
+    <string name="diagnostics_volume_transfer_short">短响应</string>
+    <string name="diagnostics_volume_transfer_long">长响应</string>
+    <string name="diagnostics_volume_transfer_input_error">输入一个 IP 地址和两个不同的 HTTPS 网址，且主机和端口相同。检查大小和 SHA-256 哈希值。</string>
 </resources>

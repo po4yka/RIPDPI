@@ -157,6 +157,7 @@ data class DiagnosticsScanTargetOverrides(
     val verifiedUpload: VerifiedUploadInput? = null,
     val echComparison: VerifiedTransferComparisonInput? = null,
     val http3Comparison: VerifiedTransferComparisonInput? = null,
+    val volumeComparison: TransferVolumeComparisonInput? = null,
 )
 
 interface DiagnosticsDetailLoader {

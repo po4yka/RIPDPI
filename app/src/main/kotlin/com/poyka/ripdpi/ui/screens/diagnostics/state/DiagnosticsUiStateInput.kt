@@ -16,6 +16,7 @@ import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
@@ -52,6 +53,7 @@ internal data class DiagnosticsUiStateInput(
     val verifiedDownloadInput: VerifiedDownloadInput = VerifiedDownloadInput(),
     val verifiedUploadInput: VerifiedUploadInput = VerifiedUploadInput(),
     val transferComparisonInput: VerifiedTransferComparisonInput = VerifiedTransferComparisonInput(),
+    val volumeComparisonInput: TransferVolumeComparisonInput = TransferVolumeComparisonInput(),
     val selectedApproachMode: DiagnosticsApproachMode,
     val selectedProbe: DiagnosticsProbeResultUiModel?,
     val selectedEventId: String?,

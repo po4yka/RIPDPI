@@ -14,6 +14,8 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonInput
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
@@ -31,6 +33,7 @@ internal data class BuildScanUiModelParams(
     val verifiedDownloadInput: VerifiedDownloadInput = VerifiedDownloadInput(),
     val verifiedUploadInput: VerifiedUploadInput = VerifiedUploadInput(),
     val transferComparisonInput: VerifiedTransferComparisonInput = VerifiedTransferComparisonInput(),
+    val volumeComparisonInput: TransferVolumeComparisonInput = TransferVolumeComparisonInput(),
     val profiles: List<DiagnosticProfile>,
     val omittedProfileCount: Int = 0,
     val activeProfile: DiagnosticProfile?,
@@ -71,6 +74,7 @@ private fun BuildScanUiModelParams.manualInputValid(
         VerifiedUploadProfileId -> verifiedUploadInput.isValid()
         EchTransferComparisonProfileId -> transferComparisonInput.isValidForEch()
         Http3TransferComparisonProfileId -> transferComparisonInput.isValidForHttp3()
+        TransferVolumeComparisonProfileId -> volumeComparisonInput.isValid()
         else -> true
     }
 
@@ -106,6 +110,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         verifiedDownloadInput = params.verifiedDownloadInput,
         verifiedUploadInput = params.verifiedUploadInput,
         transferComparisonInput = params.transferComparisonInput,
+        volumeComparisonInput = params.volumeComparisonInput,
         selectiveMatrixTargets = params.activeProfileRequest.matrixTargetRows(),
         profiles = params.profiles.map(::toProfileOptionUiModel).toImmutableList(),
         selectedProfileId = params.activeProfile?.id,

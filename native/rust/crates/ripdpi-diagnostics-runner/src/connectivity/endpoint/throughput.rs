@@ -14,7 +14,7 @@ use crate::connectivity::adapters::tls::{
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{
     ECH_TRANSFER_COMPARISON_LEGS, HTTP3_TRANSFER_COMPARISON_LEGS, HTTP3_TRANSFER_COMPARISON_PROFILE_ID,
-    ThroughputTarget, TransferMeasurement,
+    TRANSFER_VOLUME_SHORT_ID, ThroughputTarget, TransferMeasurement,
 };
 use ripdpi_diagnostics_tls::tls::open_probe_stream_targets_with_options_and_abort;
 
@@ -83,6 +83,9 @@ pub(in crate::connectivity) fn measure_throughput_with_options(
     if is_ech_comparison {
         // One slow leg must leave time for the other two.
         deadline = deadline.min(tracker.started + Duration::from_secs(8));
+    } else if target.id == TRANSFER_VOLUME_SHORT_ID {
+        // Preserve the rest of the shared deadline for the long response.
+        deadline = tracker.started + deadline.saturating_duration_since(tracker.started) / 3;
     }
     let (mut sample, reason) = with_scan_io_deadline(Some(deadline), || {
         measure_run(target, transport, options, cancel, deadline, &mut tracker)
@@ -138,7 +141,18 @@ fn measure_run(
             Ok(parsed) => parsed,
             Err(err) => return (failed_sample(started, "target_parse", err), "setup_error"),
         };
-    if let Some(ip) = target.verification.as_ref().and_then(|proof| proof.ech_comparison_ip) {
+    if target.transfer_volume_leg().is_some() {
+        let Some(ip) = target.pinned_download_ip() else {
+            return (failed_sample(started, "target_parse", "missing fixed IP".into()), "setup_error");
+        };
+        if !matches!(transport, TransportConfig::Direct { route_experiment: None }) || target.verification.is_none() {
+            return (
+                failed_sample(started, "target_parse", "volume comparison requires verified RAW".into()),
+                "setup_error",
+            );
+        }
+        parsed.connect_targets = vec![TargetAddress::Ip(ip)];
+    } else if let Some(ip) = target.verification.as_ref().and_then(|proof| proof.ech_comparison_ip) {
         parsed.connect_targets = vec![TargetAddress::Ip(ip)];
     }
     let result = open_probe_stream_targets_with_options_and_abort(

@@ -1105,6 +1105,8 @@ pub ripdpi_diagnostics_contracts::types::ThroughputTarget::url: alloc::string::S
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::verification: core::option::Option<ripdpi_diagnostics_contracts::types::DownloadVerification>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::window_bytes: usize
 impl ripdpi_diagnostics_contracts::types::ThroughputTarget
+pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::pinned_download_ip(&self) -> core::option::Option<core::net::ip_addr::IpAddr>
+pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::transfer_volume_leg(&self) -> core::option::Option<&'static str>
 pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::validate_download(&self) -> core::result::Result<(), &'static str>
 pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::validate_upload(&self) -> core::result::Result<(), &'static str>
 pub struct ripdpi_diagnostics_contracts::types::TlsHopAttempt
@@ -1182,9 +1184,13 @@ pub const ripdpi_diagnostics_contracts::types::HTTP3_TRANSFER_COMPARISON_LEGS: u
 pub const ripdpi_diagnostics_contracts::types::HTTP3_TRANSFER_COMPARISON_PROFILE_ID: &str
 pub const ripdpi_diagnostics_contracts::types::MAX_ECH_COMPARISON_BODY_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::MAX_HTTP3_COMPARISON_BODY_BYTES: usize
+pub const ripdpi_diagnostics_contracts::types::MAX_TRANSFER_VOLUME_SHORT_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::MAX_VERIFIED_DOWNLOAD_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::MAX_VERIFIED_UPLOAD_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::STRATEGY_PROBE_METHODOLOGY_VERSION: &str
+pub const ripdpi_diagnostics_contracts::types::TRANSFER_VOLUME_LONG_ID: &str
+pub const ripdpi_diagnostics_contracts::types::TRANSFER_VOLUME_PROFILE_ID: &str
+pub const ripdpi_diagnostics_contracts::types::TRANSFER_VOLUME_SHORT_ID: &str
 pub const ripdpi_diagnostics_contracts::types::VERIFIED_DOWNLOAD_PROFILE_ID: &str
 pub const ripdpi_diagnostics_contracts::types::VERIFIED_UPLOAD_PROFILE_ID: &str
 pub mod ripdpi_diagnostics_contracts::util
@@ -2245,6 +2251,8 @@ pub ripdpi_diagnostics_contracts::ThroughputTarget::url: alloc::string::String
 pub ripdpi_diagnostics_contracts::ThroughputTarget::verification: core::option::Option<ripdpi_diagnostics_contracts::types::DownloadVerification>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::window_bytes: usize
 impl ripdpi_diagnostics_contracts::types::ThroughputTarget
+pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::pinned_download_ip(&self) -> core::option::Option<core::net::ip_addr::IpAddr>
+pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::transfer_volume_leg(&self) -> core::option::Option<&'static str>
 pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::validate_download(&self) -> core::result::Result<(), &'static str>
 pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::validate_upload(&self) -> core::result::Result<(), &'static str>
 pub struct ripdpi_diagnostics_contracts::TlsHopAttempt
