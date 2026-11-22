@@ -155,7 +155,8 @@ data class DiagnosticsScanTargetOverrides(
     val quicVersionMatrix: QuicVersionMatrixConfig? = null,
     val verifiedDownload: VerifiedDownloadInput? = null,
     val verifiedUpload: VerifiedUploadInput? = null,
-    val echComparison: VerifiedEchComparisonInput? = null,
+    val echComparison: VerifiedTransferComparisonInput? = null,
+    val http3Comparison: VerifiedTransferComparisonInput? = null,
 )
 
 interface DiagnosticsDetailLoader {

@@ -2099,4 +2099,12 @@
     <string name="diagnostics_ech_transfer_body_timeout">دریافت بدنهٔ پاسخ متوقف شد</string>
     <string name="diagnostics_ech_transfer_response_timeout">مهلت دریافت سرآیندهای HTTP تمام شد</string>
     <string name="diagnostics_ech_transfer_http_failed">تبادل HTTP ناموفق بود</string>
+    <string name="diagnostics_http3_transfer_title">مقایسهٔ HTTPS/TCP و HTTP/3</string>
+    <string name="diagnostics_http3_transfer_description">بارگیری یکسان HTTPS را روی TCP و HTTP/3 با یک نشانی IP و یک درگاه مقایسه کنید. در هر دو انتقال، اندازه و SHA-256 بررسی می‌شوند.</string>
+    <string name="diagnostics_http3_transfer_input_error">یک نشانی HTTPS بدون اطلاعات ورود، پرس‌وجو یا بخش نشانی وارد کنید. از نشانی IPv4 یا IPv6، مسیر حداکثر ۱۰۲۴ نویسهٔ ASCII، اندازهٔ ۱ تا ۳۲٬۷۶۸ بایت و SHA-256 با ۶۴ رقم شانزده‌شانزدهی استفاده کنید.</string>
+    <string name="diagnostics_http3_transfer_tcp">HTTPS/TCP</string>
+    <string name="diagnostics_http3_transfer_difference">اولین اختلاف</string>
+    <string name="diagnostics_http3_transfer_no_difference">اختلافی مشاهده نشد</string>
+    <string name="diagnostics_http3_transfer_connect">برقراری اتصال</string>
+    <string name="diagnostics_http3_transfer_integrity">بررسی اندازه و SHA-256</string>
 </resources>

@@ -33,14 +33,14 @@ internal fun DiagnosticsProbeResultUiModel.echTransferRows(): List<EchTransferRo
     return echTransferModes.map { (prefix, mode) ->
         EchTransferRow(
             mode = mode,
-            status = echTransferStatusResource(values["${prefix}Outcome"]),
+            status = transferComparisonStatusResource(values["${prefix}Outcome"]),
             receivedBytes = values["${prefix}Bytes"]?.toLongOrNull()?.takeIf { it >= 0 },
         )
     }
 }
 
 @StringRes
-private fun echTransferStatusResource(outcome: String?): Int =
+internal fun transferComparisonStatusResource(outcome: String?): Int =
     when (outcome) {
         "verified" -> R.string.diagnostics_verified_download_complete
         "ech_config_missing" -> R.string.diagnostics_ech_transfer_config_missing

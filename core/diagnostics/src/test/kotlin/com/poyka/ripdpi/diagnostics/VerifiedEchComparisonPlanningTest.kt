@@ -23,7 +23,7 @@ class VerifiedEchComparisonPlanningTest {
             quicTargets = emptyList(),
         ).copy(kind = ScanKind.CONNECTIVITY, strategyProbe = null, routeProbe = RouteProbeConfig())
     private val input =
-        VerifiedEchComparisonInput(
+        VerifiedTransferComparisonInput(
             url = "https://control.example:8443/body",
             connectIp = "192.0.2.10",
             expectedBodyBytes = "7",
@@ -32,8 +32,8 @@ class VerifiedEchComparisonPlanningTest {
 
     @Test
     fun `comparison requires a DNS origin a fixed IP and a short verified body`() {
-        assertTrue(input.isValid())
-        assertTrue(input.copy(connectIp = "2001:db8::10", expectedBodyBytes = "32768").isValid())
+        assertTrue(input.isValidForEch())
+        assertTrue(input.copy(connectIp = "2001:db8::10", expectedBodyBytes = "32768").isValidForEch())
         listOf(
             input.copy(url = "http://control.example/body"),
             input.copy(url = "https://user@control.example/body"),
@@ -51,7 +51,7 @@ class VerifiedEchComparisonPlanningTest {
             input.copy(expectedBodyBytes = "0"),
             input.copy(expectedBodyBytes = "32769"),
             input.copy(sha256 = "a".repeat(63)),
-        ).forEach { assertFalse(it.toString(), it.isValid()) }
+        ).forEach { assertFalse(it.toString(), it.isValidForEch()) }
     }
 
     @Test

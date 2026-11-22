@@ -50,6 +50,7 @@ import com.poyka.ripdpi.diagnostics.selectiveMatrixRevisions
 import com.poyka.ripdpi.diagnostics.withUserHosts
 import com.poyka.ripdpi.diagnostics.withVerifiedDownload
 import com.poyka.ripdpi.diagnostics.withVerifiedEchComparison
+import com.poyka.ripdpi.diagnostics.withVerifiedHttp3Comparison
 import com.poyka.ripdpi.diagnostics.withVerifiedUpload
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.Json
@@ -463,6 +464,7 @@ private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyEndpointO
         .withVerifiedDownload(overrides?.verifiedDownload)
         .withVerifiedUpload(overrides?.verifiedUpload)
         .withVerifiedEchComparison(overrides?.echComparison)
+        .withVerifiedHttp3Comparison(overrides?.http3Comparison)
 }
 
 private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyTargetOverrides(

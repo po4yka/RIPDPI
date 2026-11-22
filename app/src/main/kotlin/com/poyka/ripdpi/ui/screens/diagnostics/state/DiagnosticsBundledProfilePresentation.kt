@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
+import com.poyka.ripdpi.diagnostics.Http3TransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.platform.StringResolver
@@ -40,6 +41,8 @@ private val bundledProfileTitles =
         VerifiedDownloadProfileId to ("Verified HTTPS download" to R.string.diagnostics_verified_download_title),
         VerifiedUploadProfileId to ("Verified HTTPS upload" to R.string.diagnostics_verified_upload_title),
         EchTransferComparisonProfileId to ("ECH transfer comparison" to R.string.diagnostics_ech_transfer_title),
+        Http3TransferComparisonProfileId to
+            ("HTTPS/TCP and HTTP/3 comparison" to R.string.diagnostics_http3_transfer_title),
         "ip-family-connectivity" to ("IPv4, IPv6 and NAT64 connectivity" to R.string.diagnostics_ip_title),
         "http3-connectivity" to ("HTTP/3 connectivity" to R.string.diagnostics_http3_title),
         "http3-connectivity-cloudflare" to

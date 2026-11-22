@@ -75,7 +75,8 @@ class DiagnosticsEndpointScanRequestFactoryTest {
     @Test
     fun `ECH comparison binds the manual endpoint before the catalog template is validated`() =
         runTest {
-            val input = VerifiedEchComparisonInput("https://control.example/body", "2001:db8::7", "128", "a".repeat(64))
+            val input =
+                VerifiedTransferComparisonInput("https://control.example/body", "2001:db8::7", "128", "a".repeat(64))
             val intent =
                 prepareEndpointScan(
                     template = endpointTemplate(EchTransferComparisonProfileId),
@@ -84,6 +85,24 @@ class DiagnosticsEndpointScanRequestFactoryTest {
             val target = intent.throughputTargets.single()
             assertEquals(input.url, target.url)
             assertEquals(DownloadVerification(128, input.sha256, input.connectIp), target.verification)
+            assertNull(intent.routeProbe)
+        }
+
+    @Test
+    fun `HTTP3 comparison binds the manual endpoint before the catalog template is validated`() =
+        runTest {
+            val input =
+                VerifiedTransferComparisonInput("https://fixture.example:4443/body", "192.0.2.7", "128", "a".repeat(64))
+            val intent =
+                prepareEndpointScan(
+                    template = endpointTemplate(Http3TransferComparisonProfileId).copy(quicTargets = emptyList()),
+                    overrides = DiagnosticsScanTargetOverrides(http3Comparison = input),
+                )
+            val target = intent.throughputTargets.single()
+            assertEquals(Http3TransferComparisonProfileId, target.id)
+            assertEquals(input.url, target.url)
+            assertEquals(input.connectIp, target.connectIp)
+            assertEquals(DownloadVerification(128, input.sha256), target.verification)
             assertNull(intent.routeProbe)
         }
 

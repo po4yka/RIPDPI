@@ -2106,4 +2106,12 @@
     <string name="diagnostics_ech_transfer_body_timeout">जवाब की सामग्री आना रुक गई</string>
     <string name="diagnostics_ech_transfer_response_timeout">HTTP हेडर मिलने से पहले समय खत्म हुआ</string>
     <string name="diagnostics_ech_transfer_http_failed">HTTP संचार विफल रहा</string>
+    <string name="diagnostics_http3_transfer_title">HTTPS/TCP और HTTP/3 की तुलना</string>
+    <string name="diagnostics_http3_transfer_description">एक ही IP पते और पोर्ट पर TCP और HTTP/3 के ज़रिए एक ही HTTPS डाउनलोड की तुलना करें। दोनों ट्रांसफ़र में आकार और SHA-256 की जाँच होती है।</string>
+    <string name="diagnostics_http3_transfer_input_error">बिना क्रेडेंशियल, क्वेरी या फ़्रैगमेंट वाला HTTPS URL डालें। IPv4 या IPv6 पता, अधिकतम 1,024 ASCII वर्णों वाला पथ, 1 से 32,768 बाइट का आकार और 64 हेक्साडेसिमल अंकों वाला SHA-256 डालें।</string>
+    <string name="diagnostics_http3_transfer_tcp">HTTPS/TCP</string>
+    <string name="diagnostics_http3_transfer_difference">पहला अंतर</string>
+    <string name="diagnostics_http3_transfer_no_difference">कोई अंतर नहीं मिला</string>
+    <string name="diagnostics_http3_transfer_connect">कनेक्शन स्थापित करना</string>
+    <string name="diagnostics_http3_transfer_integrity">आकार और SHA-256 का सत्यापन</string>
 </resources>

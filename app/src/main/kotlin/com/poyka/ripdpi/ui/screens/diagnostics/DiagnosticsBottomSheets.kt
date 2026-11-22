@@ -354,12 +354,12 @@ private fun probeDetail(
     return DiagnosticsDetail(
         onDismiss = onDismiss,
         title =
-            if (probe.isEchTransferComparison) {
+            if (probe.isVerifiedTransferComparison) {
                 diagnosticProbeTitle(probe, expertMode)
             } else {
                 probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target
             },
-        message = if (probe.isEchTransferComparison) null else diagnosticProbeTitle(probe, expertMode),
+        message = if (probe.isVerifiedTransferComparison) null else diagnosticProbeTitle(probe, expertMode),
         icon = RipDpiIcons.Search,
         testTag = RipDpiTestTags.DiagnosticsProbeDetailSheet,
     ) {
@@ -373,7 +373,7 @@ private fun probeDetail(
             label = diagnosticProbeOutcome(probe, expertMode),
             tone = statusTone(probe.tone),
         )
-        EchTransferRows(probe)
+        VerifiedTransferComparisonRows(probe)
         probe.probeRetryCount?.takeIf { it > 0 }?.let { retryCount ->
             SettingsRow(
                 title = stringResource(R.string.diagnostics_probe_retry_count_label),

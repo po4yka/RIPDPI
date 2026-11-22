@@ -5,7 +5,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
-import com.poyka.ripdpi.diagnostics.VerifiedEchComparisonInput
+import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 
 internal data class SelectionState(
@@ -16,7 +16,7 @@ internal data class SelectionState(
     val quicVersionMatrixInput: QuicVersionMatrixConfig = QuicVersionMatrixConfig(),
     val verifiedDownloadInput: VerifiedDownloadInput = VerifiedDownloadInput(),
     val verifiedUploadInput: VerifiedUploadInput = VerifiedUploadInput(),
-    val echComparisonInput: VerifiedEchComparisonInput = VerifiedEchComparisonInput(),
+    val transferComparisonInput: VerifiedTransferComparisonInput = VerifiedTransferComparisonInput(),
     val selectedApproachMode: DiagnosticsApproachMode = DiagnosticsApproachMode.Profiles,
     val selectedApproachDetail: BypassApproachDetail? = null,
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,

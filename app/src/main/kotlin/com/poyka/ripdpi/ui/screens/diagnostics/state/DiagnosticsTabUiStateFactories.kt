@@ -51,7 +51,7 @@ internal class DiagnosticsScanUiStateFactory
                     quicVersionMatrixInput = input.quicVersionMatrixInput,
                     verifiedDownloadInput = input.verifiedDownloadInput,
                     verifiedUploadInput = input.verifiedUploadInput,
-                    echComparisonInput = input.echComparisonInput,
+                    transferComparisonInput = input.transferComparisonInput,
                     profiles = resolvedInput.visibleProfiles,
                     omittedProfileCount = resolvedInput.omittedProfileCount,
                     activeProfile = resolvedInput.activeProfile,

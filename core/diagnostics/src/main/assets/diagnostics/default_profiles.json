@@ -577,6 +577,34 @@
       }
     },
     {
+      "id": "http3-transfer-comparison",
+      "name": "HTTPS/TCP and HTTP/3 comparison",
+      "version": 1,
+      "request": {
+        "profileId": "http3-transfer-comparison",
+        "displayName": "HTTPS/TCP and HTTP/3 comparison",
+        "kind": "CONNECTIVITY",
+        "family": "WEB_CONNECTIVITY",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": true,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": []
+      }
+    },
+    {
       "id": "automatic-probing",
       "name": "Automatic probing",
       "version": 8,

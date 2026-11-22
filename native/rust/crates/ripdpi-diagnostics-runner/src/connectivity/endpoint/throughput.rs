@@ -12,7 +12,10 @@ use crate::connectivity::adapters::tls::{
     ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
 };
 use crate::connectivity::adapters::transport::TransportConfig;
-use crate::types::{ECH_TRANSFER_COMPARISON_LEGS, ThroughputTarget, TransferMeasurement};
+use crate::types::{
+    ECH_TRANSFER_COMPARISON_LEGS, HTTP3_TRANSFER_COMPARISON_LEGS, HTTP3_TRANSFER_COMPARISON_PROFILE_ID,
+    ThroughputTarget, TransferMeasurement,
+};
 use ripdpi_diagnostics_tls::tls::open_probe_stream_targets_with_options_and_abort;
 
 use super::target_parse::parse_http_target;
@@ -65,7 +68,13 @@ pub(in crate::connectivity) fn measure_throughput_with_options(
     progress: &mut dyn FnMut(&TransferMeasurement),
 ) -> ThroughputSample {
     let is_ech_comparison = target.verification.as_ref().is_some_and(|proof| proof.ech_comparison_ip.is_some());
-    let runs = if is_ech_comparison { ECH_TRANSFER_COMPARISON_LEGS } else { target.runs.clamp(1, 10) };
+    let runs = if target.id == HTTP3_TRANSFER_COMPARISON_PROFILE_ID {
+        HTTP3_TRANSFER_COMPARISON_LEGS
+    } else if is_ech_comparison {
+        ECH_TRANSFER_COMPARISON_LEGS
+    } else {
+        target.runs.clamp(1, 10)
+    };
     let mut tracker = TransferTracker::new(run_index, runs, progress);
     if target.verification.is_some() {
         tracker.verify_body();

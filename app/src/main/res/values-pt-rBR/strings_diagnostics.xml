@@ -2113,4 +2113,12 @@
     <string name="diagnostics_ech_transfer_body_timeout">O recebimento do corpo da resposta travou</string>
     <string name="diagnostics_ech_transfer_response_timeout">Tempo esgotado antes dos cabeçalhos HTTP</string>
     <string name="diagnostics_ech_transfer_http_failed">Falha na troca HTTP</string>
+    <string name="diagnostics_http3_transfer_title">Comparação de HTTPS/TCP e HTTP/3</string>
+    <string name="diagnostics_http3_transfer_description">Compare o mesmo download HTTPS por TCP e HTTP/3 com um único endereço IP e uma única porta. Ambas as transferências verificam o tamanho e o SHA-256.</string>
+    <string name="diagnostics_http3_transfer_input_error">Digite uma URL HTTPS sem credenciais, consulta ou fragmento. Use um endereço IPv4 ou IPv6, um caminho de até 1.024 caracteres ASCII, de 1 a 32.768 bytes e um SHA-256 de 64 dígitos hexadecimais.</string>
+    <string name="diagnostics_http3_transfer_tcp">HTTPS/TCP</string>
+    <string name="diagnostics_http3_transfer_difference">Primeira diferença</string>
+    <string name="diagnostics_http3_transfer_no_difference">Nenhuma diferença observada</string>
+    <string name="diagnostics_http3_transfer_connect">Estabelecimento da conexão</string>
+    <string name="diagnostics_http3_transfer_integrity">Verificação de tamanho e SHA-256</string>
 </resources>

@@ -155,6 +155,48 @@ mod tests {
     }
 
     #[test]
+    fn http3_transfer_comparison_requires_one_pinned_raw_target() {
+        let mut specimen = request();
+        specimen.profile_id = "http3-transfer-comparison".into();
+        specimen.probe_tasks = vec![
+            serde_json::from_value(serde_json::json!({
+                "family": "THROUGHPUT", "targetId": "http3-transfer-comparison", "label": "Transfer comparison"
+            }))
+            .unwrap(),
+        ];
+        let target: ThroughputTarget = serde_json::from_value(serde_json::json!({
+            "id": "http3-transfer-comparison",
+            "label": "Transfer comparison",
+            "url": "https://control.example:8443/control.bin",
+            "connectIp": "192.0.2.10",
+            "windowBytes": 3,
+            "runs": 1,
+            "verification": {
+                "expectedBodyBytes": 2,
+                "sha256": "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df",
+            }
+        }))
+        .unwrap();
+        specimen.throughput_targets.push(target.clone());
+        assert!(validate_scan_request(&specimen).is_ok());
+        specimen.path_mode = ScanPathMode::InPath;
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.path_mode = ScanPathMode::RawPath;
+        specimen.throughput_targets[0].connect_ip = None;
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.throughput_targets[0] = target;
+        specimen.route_probe = Some(crate::types::RouteProbeConfig {
+            stable_flow_attempts: 2,
+            diversity_buckets: 1,
+            diversity_on_failure_only: true,
+        });
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.route_probe = None;
+        specimen.probe_tasks.push(specimen.probe_tasks[0].clone());
+        assert!(validate_scan_request(&specimen).is_err());
+    }
+
+    #[test]
     fn ech_comparison_requires_its_own_profile_fixed_ip_and_short_body() {
         use crate::types::{
             ECH_TRANSFER_COMPARISON_PROFILE_ID, MAX_ECH_COMPARISON_BODY_BYTES, VERIFIED_DOWNLOAD_PROFILE_ID,

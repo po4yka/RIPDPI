@@ -1,8 +1,8 @@
 use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
-use crate::types::{ProbeDetail, ProbeResult, ThroughputTarget};
+use crate::types::{HTTP3_TRANSFER_COMPARISON_PROFILE_ID, ProbeDetail, ProbeResult, ThroughputTarget};
 
-use super::super::endpoint::{measure_throughput_run, run_verified_upload};
+use super::super::endpoint::{measure_throughput_run, run_http3_comparison, run_verified_upload};
 use crate::types::{TransferEvidence, TransferMeasurement};
 use rustls::client::danger::ServerCertVerifier;
 use std::sync::{
@@ -11,6 +11,8 @@ use std::sync::{
 };
 
 mod ech_comparison;
+#[cfg(test)]
+mod http3_comparison_tests;
 #[cfg(test)]
 mod https_fixture;
 mod verified_download;
@@ -35,6 +37,9 @@ pub fn run_throughput_probe_with_progress(
     cancel: &AtomicBool,
     progress: &mut dyn FnMut(&TransferMeasurement),
 ) -> ProbeResult {
+    if target.id == HTTP3_TRANSFER_COMPARISON_PROFILE_ID {
+        return run_http3_comparison(target, transport, tls_verifier, cancel, progress);
+    }
     if target.upload_body_bytes.is_some() {
         return run_verified_upload(target, transport, key_log, tls_verifier, cancel);
     }

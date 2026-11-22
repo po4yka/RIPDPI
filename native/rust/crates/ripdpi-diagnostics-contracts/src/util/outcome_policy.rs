@@ -167,11 +167,12 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             "throughput_measured" | "verified_download_complete" | "verified_upload_complete" => {
                 ProbeOutcomeBucket::Healthy
             }
-            "ech_transfer_comparison_recorded" => ProbeOutcomeBucket::Attention,
+            "ech_transfer_comparison_recorded" | "http3_transfer_comparison_recorded" => ProbeOutcomeBucket::Attention,
             "throughput_inconclusive"
             | "verified_download_inconclusive"
             | "verified_upload_inconclusive"
-            | "ech_transfer_comparison_inconclusive" => ProbeOutcomeBucket::Inconclusive,
+            | "ech_transfer_comparison_inconclusive"
+            | "http3_transfer_comparison_inconclusive" => ProbeOutcomeBucket::Inconclusive,
             "throughput_failed"
             | "verified_download_timeout"
             | "verified_download_early_eof"

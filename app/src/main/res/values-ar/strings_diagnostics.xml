@@ -2266,4 +2266,12 @@
     <string name="diagnostics_ech_transfer_body_timeout">توقف استلام متن الرد</string>
     <string name="diagnostics_ech_transfer_response_timeout">انتهت المهلة قبل استلام ترويسات HTTP</string>
     <string name="diagnostics_ech_transfer_http_failed">فشل تبادل HTTP</string>
+    <string name="diagnostics_http3_transfer_title">مقارنة HTTPS/TCP وHTTP/3</string>
+    <string name="diagnostics_http3_transfer_description">قارن تنزيل الملف نفسه عبر HTTPS باستخدام TCP وHTTP/3 على عنوان IP ومنفذ واحد. يتحقق كلا النقلين من الحجم وقيمة SHA-256.</string>
+    <string name="diagnostics_http3_transfer_input_error">أدخل عنوان HTTPS بدون بيانات اعتماد أو استعلام أو جزء. استخدم عنوان IPv4 أو IPv6 ومسارًا بطول لا يتجاوز 1024 حرف ASCII وحجمًا من 1 إلى 32768 بايت وقيمة SHA-256 من 64 رقمًا سداسيًا عشريًا.</string>
+    <string name="diagnostics_http3_transfer_tcp">HTTPS/TCP</string>
+    <string name="diagnostics_http3_transfer_difference">أول اختلاف</string>
+    <string name="diagnostics_http3_transfer_no_difference">لم يُلاحظ أي اختلاف</string>
+    <string name="diagnostics_http3_transfer_connect">إنشاء الاتصال</string>
+    <string name="diagnostics_http3_transfer_integrity">التحقق من الحجم وقيمة SHA-256</string>
 </resources>

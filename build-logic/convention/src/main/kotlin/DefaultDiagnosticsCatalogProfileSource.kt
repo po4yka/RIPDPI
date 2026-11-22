@@ -21,6 +21,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             verifiedHttpsDownloadProfile(),
             verifiedHttpsUploadProfile(),
             echTransferComparisonProfile(),
+            http3TransferComparisonProfile(),
             automaticProbingProfile(index),
             automaticAuditProfile(index),
             dpiDetectorFullProfile(),

@@ -85,6 +85,26 @@ class TransferScopePersistenceTest {
     }
 
     @Test
+    fun `scope loss keeps both protocol measurements and revokes the HTTP3 verdict`() {
+        val rows =
+            listOf(
+                ProbeDetail("tcpOutcome", "verified"),
+                ProbeDetail("tcpStage", "complete"),
+                ProbeDetail("tcpBytes", "128"),
+                ProbeDetail("http3Outcome", "body_timeout"),
+                ProbeDetail("http3Stage", "body"),
+                ProbeDetail("http3Bytes", "41"),
+                ProbeDetail("differenceStage", "body"),
+            )
+        val result = ProbeResult("throughput_window", "control", "http3_transfer_comparison_recorded", rows)
+
+        val scoped = report(listOf(result)).withoutNetworkScopeAuthority().results.single()
+
+        assertEquals("http3_transfer_comparison_inconclusive", scoped.outcome)
+        assertEquals(rows + ProbeDetail("transferNetworkScope", "unverified"), scoped.details)
+    }
+
+    @Test
     fun `late revocation atomically updates transfer and matrix rows without duplicate ids`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

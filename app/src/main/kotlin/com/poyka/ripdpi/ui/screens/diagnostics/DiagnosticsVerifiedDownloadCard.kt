@@ -12,7 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
-import com.poyka.ripdpi.diagnostics.VerifiedEchComparisonInput
+import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -108,10 +108,11 @@ internal fun VerifiedUploadInputCard(
 }
 
 @Composable
-internal fun VerifiedEchComparisonInputCard(
-    input: VerifiedEchComparisonInput,
+internal fun VerifiedTransferComparisonInputCard(
+    http3: Boolean,
+    input: VerifiedTransferComparisonInput,
     enabled: Boolean,
-    onInputChanged: (VerifiedEchComparisonInput) -> Unit,
+    onInputChanged: (VerifiedTransferComparisonInput) -> Unit,
 ) {
     val url = remember { LaggingInputText(input.url) }
     val address = remember { LaggingInputText(input.connectIp) }
@@ -124,7 +125,7 @@ internal fun VerifiedEchComparisonInputCard(
         digest.sync(input.sha256)
     }
 
-    fun currentInput() = VerifiedEchComparisonInput(url.text, address.text, size.text, digest.text)
+    fun currentInput() = VerifiedTransferComparisonInput(url.text, address.text, size.text, digest.text)
 
     val allFieldsFilled = listOf(url, address, size, digest).all { it.text.isNotBlank() }
     val publishInput = { onInputChanged(currentInput()) }
@@ -157,8 +158,17 @@ internal fun VerifiedEchComparisonInputCard(
             KeyboardType.Ascii,
             onEdited = publishInput,
         )
-        if (allFieldsFilled && !currentInput().isValid()) {
-            VerifiedTransferInputError(R.string.diagnostics_ech_transfer_input_error)
+        if (allFieldsFilled) {
+            val input = currentInput()
+            when {
+                http3 && !input.isValidForHttp3() -> {
+                    VerifiedTransferInputError(R.string.diagnostics_http3_transfer_input_error)
+                }
+
+                !http3 && !input.isValidForEch() -> {
+                    VerifiedTransferInputError(R.string.diagnostics_ech_transfer_input_error)
+                }
+            }
         }
     }
 }
