@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.datastore.core.DataStoreFactory
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -22,8 +23,10 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyActivePathAuthority
@@ -35,10 +38,14 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeObservationRole
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.StrategyProbeResponseStage
 import com.poyka.ripdpi.diagnostics.TcpTarget
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonInput
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonProfileId
+import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
+import com.poyka.ripdpi.diagnostics.parseTransferEvidence
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.ServiceController
@@ -54,12 +61,16 @@ import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import javax.inject.Inject
 
 private const val FixtureDnsTimeoutFaultDelayMs = 2_500L
+private const val VerifiedHttpsFixtureTrustArg = "ripdpi.verifiedHttpsFixtureTrust"
+private const val ShortFixtureSha256 = "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df"
+private const val LongFixtureSha256 = "73834addcec75fafd7d73717ca1614a1324652ffa70b4b6c44fa359ae5a69dab"
 
 @HiltAndroidTest
 class DiagnosticsNetworkE2ETest {
@@ -166,6 +177,66 @@ class DiagnosticsNetworkE2ETest {
         )
         assertTrue(detail.snapshots.isNotEmpty())
         assertTrue(detail.events.isNotEmpty())
+    }
+
+    @Test
+    fun manualRawVolumeComparisonPersistsVerifiedShortAndStalledLongTransfers() {
+        assumeTrue(
+            "Requires the instrumented build with the fixture HTTPS certificate",
+            InstrumentationRegistry.getArguments().getString(VerifiedHttpsFixtureTrustArg) == "true",
+        )
+        val port = requireNotNull(fixture.verifiedHttpsPort) { "Fixture did not publish its verified HTTPS port" }
+        val origin = "https://${fixture.fixtureDomain}:$port"
+        val input =
+            TransferVolumeComparisonInput(
+                connectIp = fixture.androidHost,
+                short = VerifiedDownloadInput("$origin/verified-short", "2", ShortFixtureSha256),
+                long = VerifiedDownloadInput("$origin/verified-long", "6", LongFixtureSha256),
+            )
+        val sessionId =
+            runBlocking {
+                startScanSessionId(
+                    pathMode = ScanPathMode.RAW_PATH,
+                    selectedProfileId = TransferVolumeComparisonProfileId,
+                    targetOverrides = DiagnosticsScanTargetOverrides(volumeComparison = input),
+                )
+            }
+
+        val history = awaitCompletedSession(sessionId)
+        assertEquals(TransferVolumeComparisonProfileId, history.session.profileId)
+        assertEquals(ScanPathMode.RAW_PATH.name, history.session.pathMode)
+        val transfers = history.results.filter { it.probeType == "throughput_window" }
+        assertEquals(diagnosticOutcomes(history), 2, transfers.size)
+        val byLeg = transfers.associateBy { result -> result.details.single { it.key == "transferVolumeLeg" }.value }
+        val short = byLeg.getValue("short")
+        val long = byLeg.getValue("long")
+        assertEquals(diagnosticOutcomes(history), "verified_download_complete", short.outcome)
+        assertEquals(diagnosticOutcomes(history), "verified_download_timeout", long.outcome)
+        assertPersistedTransfer(short, expectedBytes = 2, receivedBytes = 2, reason = "content_length_complete")
+        assertPersistedTransfer(long, expectedBytes = 6, receivedBytes = 3, reason = "idle_timeout")
+    }
+
+    private fun assertPersistedTransfer(
+        result: ProbeResult,
+        expectedBytes: Long,
+        receivedBytes: Long,
+        reason: String,
+    ) {
+        val run =
+            requireNotNull(parseTransferEvidence(result.details)?.runs?.singleOrNull()) {
+                "Missing persisted transfer measurement for ${result.target}"
+            }
+        assertEquals(expectedBytes, run.expectedBodyByteCount)
+        assertEquals(receivedBytes, run.receivedBodyByteCount)
+        assertEquals(reason, run.terminationReason)
+        val first =
+            requireNotNull(run.firstBodyByteMs) { "Missing persisted first body byte time for ${result.target}" }
+        val last =
+            requireNotNull(run.lastBodyProgressMs) { "Missing persisted last body progress time for ${result.target}" }
+        assertTrue(
+            "Invalid persisted body timings for ${result.target}: $first, $last, ${run.elapsedMs}",
+            last in first..run.elapsedMs,
+        )
     }
 
     @Test
@@ -644,8 +715,19 @@ class DiagnosticsNetworkE2ETest {
         return runBlocking { diagnosticsDetailLoader.loadSessionDetail(sessionId) }
     }
 
-    private suspend fun startScanSessionId(pathMode: ScanPathMode): String =
-        when (val result = diagnosticsScanController.startScan(pathMode)) {
+    private suspend fun startScanSessionId(
+        pathMode: ScanPathMode,
+        selectedProfileId: String? = null,
+        targetOverrides: DiagnosticsScanTargetOverrides? = null,
+    ): String =
+        when (
+            val result =
+                diagnosticsScanController.startScan(
+                    pathMode,
+                    selectedProfileId,
+                    targetOverrides = targetOverrides,
+                )
+        ) {
             is DiagnosticsManualScanStartResult.Started -> {
                 result.sessionId
             }

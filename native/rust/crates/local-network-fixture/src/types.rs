@@ -86,6 +86,7 @@ pub struct FixtureManifest {
     pub tcp_echo_port: u16,
     pub udp_echo_port: u16,
     pub tls_echo_port: u16,
+    pub verified_https_port: u16,
     pub dns_udp_port: u16,
     pub dns_http_port: u16,
     pub dns_dot_port: u16,
