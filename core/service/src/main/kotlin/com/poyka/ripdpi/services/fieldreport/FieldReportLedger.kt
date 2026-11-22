@@ -3,6 +3,8 @@ package com.poyka.ripdpi.services.fieldreport
 import android.content.Context
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpoch
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.serialization.RipDpiJson
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
@@ -14,6 +16,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,18 +33,32 @@ class FieldReportLedger(
     private val consent: suspend () -> Boolean,
     private val clock: () -> Long,
     private val network: () -> FieldReportNetwork,
+    private val networkEpoch: DiagnosticsNetworkEpochProvider,
 ) {
     @Inject
     constructor(
         @ApplicationContext context: Context,
         settings: AppSettingsRepository,
         networkContext: FieldReportNetworkContext,
+        networkEpoch: DiagnosticsNetworkEpochProvider,
     ) : this(
         File(context.noBackupFilesDir, "field_report_pending.json"),
         { settings.snapshot().fieldReportEnabled },
         System::currentTimeMillis,
         networkContext::current,
+        networkEpoch,
     )
+
+    /** Transient evidence for one probe. Only the existing coarse network label goes into the report. */
+    class ProbeContext internal constructor(
+        internal val network: FieldReportNetwork,
+        internal val generation: DiagnosticsNetworkEpoch,
+        internal val consentEpoch: Long,
+    ) {
+        private val recorded = AtomicBoolean()
+
+        internal fun markRecorded(): Boolean = recorded.compareAndSet(false, true)
+    }
 
     private val log = Logger.withTag("field-report")
     private val mutex = Mutex()
@@ -53,26 +70,34 @@ class FieldReportLedger(
     /** Bumped by every [clear]: a probe counted under an older epoch raced a revocation and is discarded. */
     private val consentEpoch = AtomicLong()
 
-    /**
-     * Counts one member probe of [profile] while consent is on, in the hour of the current network; a probe that
-     * never reached the server is ignored. Without consent, nothing else runs, not even the network lookup.
-     */
+    /** Capture the report label before the probe and fence the lookup with physical network evidence. */
+    suspend fun captureProbe(): ProbeContext? {
+        val epoch = consentEpoch.get()
+        val generation = (if (consent() && epoch == consentEpoch.get()) networkEpoch.capture() else null) ?: return null
+        val label = network()
+        return if (networkEpoch.capture() == generation && consentEpoch.get() == epoch) {
+            ProbeContext(label, generation, epoch)
+        } else {
+            null
+        }
+    }
+
+    /** Count a reached probe while the evidence from its start still holds. */
     suspend fun recordProbe(
+        origin: ProbeContext,
         profile: ProxyProfile,
         measured: CandidateRelayMeasurement?,
         elapsedMillis: Long,
     ) {
         val attempt = fieldReportAttempt(profile, measured, elapsedMillis) ?: return
-        val epoch = consentEpoch.get()
-        if (!consent()) return
-        val measuredOn = network()
         mutex.withLock {
-            // The cheap check above ran outside the lock; a revocation may have cleared the state since.
-            if (epoch != consentEpoch.get() || !consent()) return@withLock
             withContext(Dispatchers.IO) {
+                if (origin.consentEpoch != consentEpoch.get() || !consent()) return@withContext
                 val now = clock()
-                cached = current().record(attempt, measuredOn, now)
-                if (flushedAt.let { it == null || now - it >= FlushIntervalMillis }) persist(current(), now)
+                val next = current().record(attempt, origin.network, now)
+                if (networkEpoch.capture() != origin.generation || !origin.markRecorded()) return@withContext
+                cached = next
+                if (flushedAt.let { it == null || now - it >= FlushIntervalMillis }) persist(next, now)
             }
         }
     }

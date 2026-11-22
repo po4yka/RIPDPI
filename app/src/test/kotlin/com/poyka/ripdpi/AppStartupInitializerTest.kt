@@ -1003,6 +1003,7 @@ private fun createInitializer(
                     { false },
                     { 0L },
                     { FieldReportNetwork("none", "other") },
+                    { null },
                 ),
                 FieldReportNetworkContext(application, NoOpAppSettingsRepository, UnusedTlsClientFactory),
             ),

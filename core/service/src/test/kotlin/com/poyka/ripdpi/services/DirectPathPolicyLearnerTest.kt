@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpoch
 import com.poyka.ripdpi.data.DirectModeNoDirectSolutionCooldownMs
 import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
@@ -281,6 +282,7 @@ class DirectPathPolicyLearnerTest {
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
                     flowAppAttributionStore = FakeFlowAppAttributionStore(),
+                    clock = TestServiceClock(),
                 )
             val authority = "example.org:443"
             val digest = "feedface"
@@ -337,6 +339,7 @@ class DirectPathPolicyLearnerTest {
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
                     flowAppAttributionStore = FakeFlowAppAttributionStore(),
+                    clock = TestServiceClock(),
                 )
             val authority = "example.org:443"
             val digest = "feedface"
@@ -609,7 +612,160 @@ class DirectPathPolicyLearnerTest {
         }
 }
 
-private val TestDirectPathLearningOrigin = DirectPathLearningOrigin(run = Any()) { true }
+class DirectPathPolicyLearnerFreshnessTest {
+    private val fingerprint = sampleFingerprint()
+    private val store = TestServerCapabilityStore()
+    private val clock = TestServiceClock()
+    private val learner =
+        DirectPathPolicyLearner(
+            TestNetworkFingerprintProvider(fingerprint),
+            store,
+            FakeFlowAppAttributionStore(),
+            clock,
+        )
+    private val run = Any()
+    private val epoch = object : DiagnosticsNetworkEpoch {}
+    private val origin = DirectPathLearningOrigin(run, epoch) { true }
+
+    @Test
+    fun `duplicate and older failures neither confirm nor renew a negative verdict`() =
+        runTest {
+            failBatch(100L, 100L)
+            fail(99L)
+            assertTrue(records().isEmpty())
+
+            fail(101L)
+            val confirmed = records().single()
+            assertEquals(
+                DirectModeOutcome.NO_DIRECT_SOLUTION,
+                confirmed.effectiveTransportPolicyEnvelope().policy.outcome,
+            )
+            assertEquals(101L, confirmed.updatedAt)
+
+            failBatch(100L, 101L, 102L, 102L)
+            assertEquals(confirmed, records().single())
+        }
+
+    @Test
+    fun `different failures from one telemetry batch can confirm a negative verdict`() =
+        runTest {
+            failBatch(101L, 100L, 101L)
+
+            assertEquals(101L, records().single().updatedAt)
+        }
+
+    @Test
+    fun `an expired first failure cannot confirm a newer one`() =
+        runTest {
+            fail(clock.now)
+            clock.advanceBy(120_001L)
+            fail(clock.now - 120_001L)
+            fail(clock.now + 1L)
+            fail(0L)
+
+            fail(clock.now)
+            assertTrue(records().isEmpty())
+
+            clock.advanceBy(1)
+            fail(clock.now)
+            assertEquals(clock.now, records().single().updatedAt)
+        }
+
+    @Test
+    fun `returning to the same fingerprint starts confirmation on the new epoch`() =
+        runTest {
+            fail(100L)
+            val returned = DirectPathLearningOrigin(run, object : DiagnosticsNetworkEpoch {}) { true }
+            fail(101L, returned)
+            assertTrue(records().isEmpty())
+            fail(102L, returned)
+            assertEquals(102L, records().single().updatedAt)
+        }
+
+    @Test
+    fun `confirmation needs a known epoch and cannot cross proxy runs`() =
+        runTest {
+            val unverified = DirectPathLearningOrigin(run) { true }
+            fail(100L, unverified)
+            fail(101L, unverified)
+            assertTrue(records().isEmpty())
+
+            fail(102L)
+            val newRun = DirectPathLearningOrigin(Any(), epoch) { true }
+            fail(103L, newRun)
+            assertTrue(records().isEmpty())
+            fail(104L, newRun)
+            assertEquals(104L, records().single().updatedAt)
+        }
+
+    @Test
+    fun `intervening success breaks confirmation even if a later failure wins the same batch`() =
+        runTest {
+            fail(100L)
+            learner.consume(
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    directPathLearningSignals =
+                        listOf(
+                            DirectPathLearningSignal(
+                                Authority,
+                                Digest,
+                                DirectPathLearningEvent.QUIC_SUCCESS,
+                                capturedAt = 101L,
+                            ),
+                            DirectPathLearningSignal(
+                                Authority,
+                                Digest,
+                                DirectPathLearningEvent.ALL_IPS_FAILED,
+                                capturedAt = 102L,
+                            ),
+                        ),
+                ),
+                origin,
+            )
+            assertTrue(records().isEmpty())
+            fail(103L)
+            assertEquals(103L, records().single().updatedAt)
+        }
+
+    private suspend fun fail(
+        capturedAt: Long,
+        signalOrigin: DirectPathLearningOrigin = origin,
+    ) = learner.consumeSignal(
+        Authority,
+        Digest,
+        DirectPathLearningEvent.ALL_IPS_FAILED,
+        capturedAt,
+        origin = signalOrigin,
+    )
+
+    private suspend fun records() = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey())
+
+    private suspend fun failBatch(vararg timestamps: Long) =
+        learner.consume(
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                directPathLearningSignals =
+                    timestamps.map {
+                        DirectPathLearningSignal(
+                            Authority,
+                            Digest,
+                            DirectPathLearningEvent.ALL_IPS_FAILED,
+                            capturedAt = it,
+                        )
+                    },
+            ),
+            origin,
+        )
+
+    private companion object {
+        const val Authority = "example.org:443"
+        const val Digest = "feedface"
+    }
+}
+
+private val TestDirectPathLearningOrigin =
+    DirectPathLearningOrigin(run = Any(), networkEpoch = object : DiagnosticsNetworkEpoch {}) { true }
 
 private suspend fun DirectPathPolicyLearner.consume(snapshot: NativeRuntimeSnapshot) =
     consume(snapshot, TestDirectPathLearningOrigin)

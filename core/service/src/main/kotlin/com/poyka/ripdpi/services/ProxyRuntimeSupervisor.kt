@@ -294,7 +294,7 @@ internal class ProxyRuntimeSupervisor(
                 evidence.takeIf { forwardingLease.get() === lease }
                     ?: RuntimeForwardingEvidence.Unavailable,
             directPathLearningOrigin =
-                DirectPathLearningOrigin(run = lease) {
+                DirectPathLearningOrigin(run = lease, networkEpoch = intervalEpoch) {
                     intervalEpoch != null &&
                         forwardingLease.get() === lease &&
                         networkEpochProvider.capture() == intervalEpoch

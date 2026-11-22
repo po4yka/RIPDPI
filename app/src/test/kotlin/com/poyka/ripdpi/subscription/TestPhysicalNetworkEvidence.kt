@@ -7,15 +7,21 @@ internal class TestPhysicalNetworkEvidence {
     private val type = Class.forName("com.poyka.ripdpi.services.CandidatePhysicalNetworkObserver")
     private val observer = type.getDeclaredConstructor(Boolean::class.javaPrimitiveType).newInstance(false)
     private val registration = type.getDeclaredMethod("beginRegistration").invoke(observer) as Long
+    private var selected = "physical"
 
     init {
+        handover(selected)
+    }
+
+    fun handover(network: String) {
+        selected = network
         type
             .getDeclaredMethod(
                 "available",
                 Long::class.javaPrimitiveType,
                 Any::class.java,
                 Boolean::class.javaPrimitiveType,
-            ).invoke(observer, registration, "physical", true)
+            ).invoke(observer, registration, network, true)
         type
             .getDeclaredMethod(
                 "capabilities",
@@ -23,7 +29,7 @@ internal class TestPhysicalNetworkEvidence {
                 Any::class.java,
                 String::class.java,
                 Boolean::class.javaPrimitiveType,
-            ).invoke(observer, registration, "physical", "internet-not-vpn", true)
+            ).invoke(observer, registration, network, "internet-not-vpn", true)
         links("initial-route")
     }
 
@@ -40,6 +46,6 @@ internal class TestPhysicalNetworkEvidence {
                 Any::class.java,
                 String::class.java,
                 Boolean::class.javaPrimitiveType,
-            ).invoke(observer, registration, "physical", fingerprint, true)
+            ).invoke(observer, registration, selected, fingerprint, true)
     }
 }

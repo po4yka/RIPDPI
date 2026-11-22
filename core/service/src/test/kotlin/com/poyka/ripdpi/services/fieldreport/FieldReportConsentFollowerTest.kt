@@ -37,6 +37,7 @@ class FieldReportConsentFollowerTest {
             { false },
             { 0L },
             { FieldReportNetwork("none", "other") },
+            { null },
         )
 
     @Test
