@@ -644,6 +644,14 @@ class DirectPathPolicyLearnerFreshnessTest {
 
             failBatch(100L, 101L, 102L, 102L)
             assertEquals(confirmed, records().single())
+
+            fail(103L)
+            val renewed = records().single()
+            assertEquals(103L, renewed.updatedAt)
+            assertEquals(
+                103L + DirectModeNoDirectSolutionCooldownMs,
+                renewed.effectiveTransportPolicyEnvelope().cooldownUntil,
+            )
         }
 
     @Test
