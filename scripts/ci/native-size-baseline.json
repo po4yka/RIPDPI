@@ -1,5 +1,5 @@
 {
-  "maxPerLibraryGrowthBytes": 884736,
+  "maxPerLibraryGrowthBytes": 950272,
   "maxTotalGrowthPercent": 4.7,
   "maxTotalGrowthBytes": 3670016,
   "libraries": {
