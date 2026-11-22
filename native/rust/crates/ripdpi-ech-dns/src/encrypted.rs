@@ -1,9 +1,11 @@
+use hickory_proto::op::{Header, ResponseCode};
+use hickory_proto::serialize::binary::{BinDecodable, BinDecoder};
 use std::time::Duration;
 
 use ripdpi_dns_resolver::{
     EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsResolver, EncryptedDnsSocks5Credentials,
-    EncryptedDnsTransport, HttpsRr, HttpsServiceSelection, extract_ip_answers, parse_ech_config_list,
-    select_https_service_bindings,
+    EncryptedDnsTransport, HttpsRr, HttpsServiceSelection, HttpsSvcbParseError, extract_ip_answers,
+    parse_ech_config_list, select_https_service_bindings,
 };
 
 use crate::transport::TransportConfig;
@@ -19,6 +21,8 @@ pub enum EchResolutionOutcome {
     NotPublished,
     /// DoH query itself failed (network error, timeout, blocked, etc.).
     ResolutionFailed(String),
+    /// The HTTPS answer advertised a malformed or unsupported ECHConfigList.
+    InvalidConfig(String),
 }
 
 pub struct EncryptedDnsEchResolver {
@@ -75,7 +79,7 @@ fn ech_lookup_outcome(
             Ok(ripdpi_tls_profiles::EchLookupOutcome::Available { public_name, config_list })
         }
         EchResolutionOutcome::NotPublished => Ok(ripdpi_tls_profiles::EchLookupOutcome::NotPublished),
-        EchResolutionOutcome::ResolutionFailed(error) => {
+        EchResolutionOutcome::ResolutionFailed(error) | EchResolutionOutcome::InvalidConfig(error) => {
             Ok(ripdpi_tls_profiles::EchLookupOutcome::ResolutionFailed(error))
         }
     }
@@ -144,7 +148,7 @@ async fn lookup_https_ech_async(
                     Ok(response) => response,
                 },
             };
-        match https_response_ech_step(&response) {
+        match https_response_ech_step(&response, None) {
             EchStep::Done(outcome) => return outcome,
             EchStep::Alias(target) => name = target,
         }
@@ -195,17 +199,19 @@ pub fn resolve_https_ech_configs_via_encrypted_dns_with_endpoint(
     endpoint: EncryptedDnsEndpoint,
     transport: &TransportConfig,
 ) -> EchResolutionOutcome {
-    resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort(domain, endpoint, transport, &|| None)
+    resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort(domain, None, endpoint, transport, &|| None)
 }
 
 /// Resolve ECH without starting another HTTPS alias lookup after cancellation.
+/// An explicit HTTPS record port is compatible only when it matches the selected endpoint port.
 pub fn resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort(
     domain: &str,
+    port: Option<u16>,
     endpoint: EncryptedDnsEndpoint,
     transport: &TransportConfig,
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> EchResolutionOutcome {
-    follow_https_aliases(domain, |name| {
+    follow_https_aliases(domain, port, |name| {
         if let Some(reason) = should_abort() {
             return Err(format!("probe_aborted:{reason}"));
         }
@@ -220,7 +226,7 @@ pub fn resolve_https_ech_configs_via_encrypted_dns_with_hooks(
     transport: &TransportConfig,
     connect_hooks: EncryptedDnsConnectHooks,
 ) -> EchResolutionOutcome {
-    follow_https_aliases(domain, |name| {
+    follow_https_aliases(domain, None, |name| {
         exchange_encrypted_dns_query_with_hooks(
             name,
             DNS_RECORD_TYPE_HTTPS,
@@ -235,6 +241,7 @@ pub fn resolve_https_ech_configs_via_encrypted_dns_with_hooks(
 /// TargetNames up to [`MAX_HTTPS_ALIAS_HOPS`] times.
 fn follow_https_aliases(
     domain: &str,
+    port: Option<u16>,
     mut exchange: impl FnMut(&str) -> Result<Vec<u8>, String>,
 ) -> EchResolutionOutcome {
     let mut name = domain.to_string();
@@ -243,7 +250,7 @@ fn follow_https_aliases(
             Err(err) => return EchResolutionOutcome::ResolutionFailed(err),
             Ok(response) => response,
         };
-        match https_response_ech_step(&response) {
+        match https_response_ech_step(&response, port) {
             EchStep::Done(outcome) => return outcome,
             EchStep::Alias(target) => name = target,
         }
@@ -260,19 +267,28 @@ enum EchStep {
     Alias(String),
 }
 
-fn https_response_ech_step(response: &[u8]) -> EchStep {
+fn https_response_ech_step(response: &[u8], port: Option<u16>) -> EchStep {
+    if let Ok(header) = Header::read(&mut BinDecoder::new(response))
+        && header.metadata.response_code != ResponseCode::NoError
+    {
+        return EchStep::Done(EchResolutionOutcome::ResolutionFailed(format!(
+            "HTTPS query returned {}",
+            header.metadata.response_code
+        )));
+    }
     match select_https_service_bindings(response) {
+        Err(error @ (HttpsSvcbParseError::EmptyEchConfigList | HttpsSvcbParseError::MalformedEchConfigList(_))) => {
+            EchStep::Done(EchResolutionOutcome::InvalidConfig(error.to_string()))
+        }
         Err(error) => EchStep::Done(EchResolutionOutcome::ResolutionFailed(error.to_string())),
         Ok(HttpsServiceSelection::Alias(target)) => EchStep::Alias(target.trim_end_matches('.').to_string()),
         Ok(HttpsServiceSelection::Service(bindings)) => {
-            // The consumer connects to the URL host and port, so it cannot honour another
-            // TargetName or a `port` SvcParam (RFC 9460 9, RFC 9848 4): skip those bindings.
-            // shortcut: a port equal to the URL port is skipped too, the lookup does not know the port.
+            // The consumer connects to the selected host and port (RFC 9460 9, RFC 9848 4).
             // After AliasMode the owner is the alias target: its keys are kept because the
             // origin's A/AAAA records name the same pool (RFC 9848 7, Figure 4).
             let compatible = |binding: &HttpsRr| {
                 let target = binding.target_name.trim_end_matches('.');
-                binding.port.is_none()
+                (binding.port.is_none() || binding.port == port)
                     && (target.is_empty() || target.eq_ignore_ascii_case(binding.owner_name.trim_end_matches('.')))
             };
             let configs: Vec<_> =
@@ -282,7 +298,7 @@ fn https_response_ech_step(response: &[u8]) -> EchStep {
                 None if configs.is_empty() => EchResolutionOutcome::NotPublished,
                 // No usable key: ECH cannot run, so the lookup degrades to GREASE like a failed
                 // lookup (RFC 9849 6.1) instead of stopping the connection.
-                None => EchResolutionOutcome::ResolutionFailed("the HTTPS record has no supported ECHConfig".into()),
+                None => EchResolutionOutcome::InvalidConfig("the HTTPS record has no supported ECHConfig".into()),
             })
         }
     }
@@ -387,9 +403,11 @@ fn encrypted_dns_connect_hooks(hooks: EncryptedDnsConnectHooks) -> EncryptedDnsC
 /// The ECHConfigList of the highest-priority ServiceMode binding for the query
 /// name. An AliasMode answer yields `None`: this helper does not query again.
 pub fn extract_ech_config_list_from_https_response(packet: &[u8]) -> Result<Option<Vec<u8>>, String> {
-    match https_response_ech_step(packet) {
+    match https_response_ech_step(packet, None) {
         EchStep::Done(EchResolutionOutcome::Available(config_list)) => Ok(Some(config_list)),
-        EchStep::Done(EchResolutionOutcome::ResolutionFailed(error)) => Err(error),
+        EchStep::Done(EchResolutionOutcome::ResolutionFailed(error) | EchResolutionOutcome::InvalidConfig(error)) => {
+            Err(error)
+        }
         EchStep::Done(EchResolutionOutcome::NotPublished) | EchStep::Alias(_) => Ok(None),
     }
 }
@@ -513,7 +531,7 @@ mod tests {
     #[test]
     fn https_ech_lookup_follows_alias_mode() {
         let mut queried = Vec::new();
-        let outcome = follow_https_aliases("relay.example", |name| {
+        let outcome = follow_https_aliases("relay.example", None, |name| {
             queried.push(name.to_string());
             Ok(match name {
                 "relay.example" => https_answer(name, &[(0, "svc.example.net.", None)]),
@@ -528,7 +546,7 @@ mod tests {
     #[test]
     fn https_ech_lookup_bounds_the_alias_chain() {
         let mut queries = 0;
-        let outcome = follow_https_aliases("relay.example", |name| {
+        let outcome = follow_https_aliases("relay.example", None, |name| {
             queries += 1;
             Ok(https_answer(name, &[(0, "relay.example.", None)]))
         });

@@ -211,6 +211,26 @@ class DiagnosticsProbePresentationTest {
     }
 
     @Test
+    fun echComparisonShowsDistinctDnsConfigAndRejectionReasons() {
+        val expected =
+            listOf(
+                "ech_config_missing" to R.string.diagnostics_ech_transfer_config_missing,
+                "ech_dns_failed" to R.string.diagnostics_ip_dns_error,
+                "ech_config_invalid" to R.string.diagnostics_dpi_suite_ech_config_unusable,
+                "ech_rejected" to R.string.diagnostics_dpi_suite_ech_rejected,
+                "ech_config_error" to R.string.diagnostics_dpi_suite_ech_config_unusable,
+            )
+        expected.forEach { (cause, label) ->
+            val probe =
+                probe("throughput_window", "ech_transfer_comparison_recorded", DiagnosticsTone.Warning).copy(
+                    details = persistentListOf(DiagnosticsFieldUiModel("echOutcome", cause)),
+                )
+
+            assertEquals(cause, label, probe.echTransferRows().last().status)
+        }
+    }
+
+    @Test
     fun unknownProbeTypeHasNeutralLocalizedTitle() {
         assertEquals(R.string.diagnostics_probe_check_title, diagnosticProbeTitleResource("future_probe"))
         assertEquals(R.string.diagnostics_matrix_title, diagnosticProbeTitleResource("selective_availability"))

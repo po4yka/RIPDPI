@@ -7,7 +7,8 @@ use std::time::{Duration, Instant};
 use ripdpi_tls_profiles::{TlsTemplateFirstFlightPlan, plan_first_flight};
 use rustls::client::EchStatus;
 use rustls::client::danger::ServerCertVerifier;
-use rustls::{ClientConnection, StreamOwned};
+use rustls::pki_types::ServerName;
+use rustls::{ClientConfig, ClientConnection, StreamOwned};
 
 use crate::ja3::{self, RecordingStream};
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
@@ -46,6 +47,7 @@ pub(crate) struct CaptureTlsError {
     pub(super) client_hello: Option<Box<ClientHelloEvidence>>,
     pub(super) ech_config_source: Option<EchConfigSource>,
     pub(super) ech_status: Option<EchStatus>,
+    pub(super) ech_rejected: bool,
     pub(super) ech_lookup_failure: Option<Box<EchLookupFailure>>,
     pub(super) ech_retry_skipped_reason: Option<&'static str>,
     pub(crate) ech_retry_configs: Option<Box<[u8]>>,
@@ -63,6 +65,7 @@ impl From<String> for CaptureTlsError {
             client_hello: None,
             ech_config_source: None,
             ech_status: None,
+            ech_rejected: false,
             ech_lookup_failure: None,
             ech_retry_skipped_reason: None,
             ech_retry_configs: None,
@@ -105,39 +108,7 @@ pub(crate) fn capture_tls_handshake(
     let template_profile = planned_tls_template_profile(options.profile);
     let server_name = make_server_name(options.tls_name, target)?;
     let (config, ech_config_source) = if options.profile.uses_real_ech() {
-        let (bytes, source) = if let Some(configs) = options.ech_retry_configs {
-            (configs.to_vec(), EchConfigSource::RetryConfigs)
-        } else {
-            // A comparison needs the config published for this origin. The peer-IP fallback is legacy-only.
-            let fallback_peer = if options.profile.is_comparison() { None } else { connected_addr };
-            let origin_name = server_name.to_str();
-            let query_name = if options.profile.is_comparison() {
-                comparison_ech_query_name(&origin_name, options.port)
-            } else {
-                Cow::Borrowed(origin_name.as_ref())
-            };
-            let resolved = resolve_ech_config(
-                &query_name,
-                fallback_peer,
-                options.transport,
-                should_abort,
-                #[cfg(test)]
-                options.fixture_ech_lookup,
-            );
-            if let Some(reason) = should_abort() {
-                return Err(format!("probe_aborted:{reason}").into());
-            }
-            resolved.map_err(|failure| ech_setup_error(failure, None))?
-        };
-        let config = build_ech_client_config_from_list(
-            bytes,
-            options.tls_verifier,
-            options.key_log,
-            options.application_protocol,
-            #[cfg(test)]
-            options.fixture_ech_roots,
-        )
-        .map_err(|error| ech_setup_error(EchLookupFailure::InvalidConfig(error), Some(source)))?;
+        let (config, source) = capture_real_ech_config(&server_name, connected_addr, options)?;
         (config, Some(source))
     } else if options.profile.is_comparison() {
         let config = build_ech_comparison_control_config(
@@ -160,8 +131,14 @@ pub(crate) fn capture_tls_handshake(
             None,
         )
     };
-    let mut connection = ClientConnection::new(config, server_name)
-        .map_err(|error| CaptureTlsError { ech_config_source, ..error.to_string().into() })?;
+    let mut connection = ClientConnection::new(config, server_name).map_err(|error| {
+        if matches!(options.profile, TlsClientProfile::ComparisonEch) && matches!(error, rustls::Error::Other(_)) {
+            // The provider can reject the published key when preparing HPKE for the first ClientHello.
+            ech_setup_error(EchLookupFailure::InvalidConfig(error.to_string()), ech_config_source)
+        } else {
+            CaptureTlsError { ech_config_source, ..error.to_string().into() }
+        }
+    })?;
     let mut recording = RecordingStream::new(socket);
 
     let tls_start = Instant::now();
@@ -193,13 +170,14 @@ pub(crate) fn capture_tls_handshake(
             let ech_retry_configs = tls_error
                 .filter(|_| options.tls_verifier.is_none())
                 .and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
+            let ech_rejection = match tls_error {
+                Some(rustls::Error::PeerIncompatible(
+                    rustls::PeerIncompatible::ServerRejectedEncryptedClientHello(configs),
+                )) => Some(configs),
+                _ => None,
+            };
             let ech_retry_skipped_reason = (options.tls_verifier.is_some()
-                && matches!(
-                    tls_error,
-                    Some(rustls::Error::PeerIncompatible(
-                        rustls::PeerIncompatible::ServerRejectedEncryptedClientHello(Some(_))
-                    ))
-                ))
+                && ech_rejection.is_some_and(Option::is_some))
             .then_some("certificate_policy_override");
             let ech_status = ech_config_source
                 .filter(|_| client_hello.capture == ClientHelloCapture::Complete)
@@ -214,6 +192,7 @@ pub(crate) fn capture_tls_handshake(
                 client_hello: Some(Box::new(client_hello)),
                 ech_config_source,
                 ech_status,
+                ech_rejected: ech_rejection.is_some(),
                 ech_lookup_failure: None,
                 ech_retry_skipped_reason,
                 ech_retry_configs: ech_retry_configs.map(Vec::into_boxed_slice),
@@ -224,10 +203,11 @@ pub(crate) fn capture_tls_handshake(
     let tls_handshake_ms = tls_start.elapsed().as_millis() as u64;
     let comparison_rejected =
         matches!(options.profile, TlsClientProfile::ComparisonEch) && connection.ech_status() != EchStatus::Accepted;
-    let setup_error = administrative_error_after_io(should_abort)
-        .or_else(|| refresh_tls_handshake_timeout(&mut recording).err())
-        .or_else(|| comparison_rejected.then(|| "ech_not_accepted".to_owned()));
-    if let Some(message) = setup_error {
+    let setup_error =
+        administrative_error_after_io(should_abort).or_else(|| refresh_tls_handshake_timeout(&mut recording).err());
+    if setup_error.is_some() || comparison_rejected {
+        let ech_rejected = setup_error.is_none() && connection.ech_status() == EchStatus::Rejected;
+        let message = setup_error.unwrap_or_else(|| "ech_not_accepted".to_owned());
         return Err(CaptureTlsError {
             server_hello_received: Some(true),
             peer_response_after_client_hello: Some(true),
@@ -235,6 +215,7 @@ pub(crate) fn capture_tls_handshake(
             client_hello: Some(Box::new(client_hello)),
             ech_config_source,
             ech_status: ech_config_source.map(|_| connection.ech_status()),
+            ech_rejected,
             ..message.into()
         });
     }
@@ -261,6 +242,49 @@ pub(crate) fn capture_tls_handshake(
         ja3_fingerprint: client_hello.ja3_fingerprint,
         client_hello_capture: client_hello.capture,
     })
+}
+
+fn capture_real_ech_config(
+    server_name: &ServerName<'_>,
+    connected_addr: Option<SocketAddr>,
+    options: &CaptureTlsHandshakeOptions<'_>,
+) -> Result<(Arc<ClientConfig>, EchConfigSource), CaptureTlsError> {
+    let should_abort = options.should_abort;
+    let (bytes, source) = if let Some(configs) = options.ech_retry_configs {
+        (configs.to_vec(), EchConfigSource::RetryConfigs)
+    } else {
+        // A comparison needs the config published for this origin. The peer-IP fallback is legacy-only.
+        let fallback_peer = if options.profile.is_comparison() { None } else { connected_addr };
+        let origin_name = server_name.to_str();
+        let query_name = if options.profile.is_comparison() {
+            comparison_ech_query_name(&origin_name, options.port)
+        } else {
+            Cow::Borrowed(origin_name.as_ref())
+        };
+        let resolved = resolve_ech_config(
+            &query_name,
+            options.profile.is_comparison().then_some(options.port),
+            fallback_peer,
+            options.transport,
+            should_abort,
+            #[cfg(test)]
+            options.fixture_ech_lookup,
+        );
+        if let Some(reason) = should_abort() {
+            return Err(format!("probe_aborted:{reason}").into());
+        }
+        resolved.map_err(|failure| ech_setup_error(failure, None))?
+    };
+    let config = build_ech_client_config_from_list(
+        bytes,
+        options.tls_verifier,
+        options.key_log,
+        options.application_protocol,
+        #[cfg(test)]
+        options.fixture_ech_roots,
+    )
+    .map_err(|error| ech_setup_error(EchLookupFailure::InvalidConfig(error), Some(source)))?;
+    Ok((config, source))
 }
 
 fn ech_setup_error(failure: EchLookupFailure, ech_config_source: Option<EchConfigSource>) -> CaptureTlsError {

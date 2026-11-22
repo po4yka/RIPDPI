@@ -58,7 +58,9 @@ fn comparison_distinguishes_a_verified_body_from_a_stall_on_the_same_pinned_peer
 #[test]
 fn comparison_keeps_no_config_distinct_from_handshake_and_http_failure() {
     assert_eq!(leg_outcome("ech_config_missing", "stream_setup"), "ech_config_missing");
-    assert_eq!(leg_outcome("ech_config_error", "stream_setup"), "ech_config_error");
+    assert_eq!(leg_outcome("ech_dns_failed", "stream_setup"), "ech_dns_failed");
+    assert_eq!(leg_outcome("ech_config_invalid", "stream_setup"), "ech_config_invalid");
+    assert_eq!(leg_outcome("ech_rejected", "tls_handshake"), "ech_rejected");
     assert_eq!(leg_outcome("verified_download_failed", "tls_handshake"), "tls_failed");
     assert_eq!(leg_outcome("verified_download_timeout", "response_headers"), "response_timeout");
     assert_eq!(leg_outcome("verified_download_failed", "response_status"), "http_failed");

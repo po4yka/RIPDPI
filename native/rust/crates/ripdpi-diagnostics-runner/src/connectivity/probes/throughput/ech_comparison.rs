@@ -59,10 +59,9 @@ pub(super) fn run(
     }
 }
 
-fn leg_outcome(outcome: &str, stage: &str) -> &'static str {
+fn leg_outcome(outcome: &'static str, stage: &str) -> &'static str {
     match outcome {
-        "ech_config_missing" => "ech_config_missing",
-        "ech_config_error" => "ech_config_error",
+        "ech_config_missing" | "ech_dns_failed" | "ech_config_invalid" | "ech_rejected" => outcome,
         "verified_download_complete" => "verified",
         "verified_download_inconclusive" => "not_run",
         _ if stage == "tls_handshake" => "tls_failed",

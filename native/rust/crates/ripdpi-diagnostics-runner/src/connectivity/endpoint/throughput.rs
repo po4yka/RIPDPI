@@ -83,8 +83,7 @@ pub(in crate::connectivity) fn measure_throughput_with_options(
         "idle_timeout" | "deadline" => "verified_download_timeout",
         "early_eof" => "verified_download_early_eof",
         "cancelled" => "verified_download_inconclusive",
-        "ech_config_missing" => "ech_config_missing",
-        "ech_config_error" => "ech_config_error",
+        "ech_config_missing" | "ech_dns_failed" | "ech_config_invalid" | "ech_rejected" => reason,
         "window_limit" => "verified_download_size_mismatch",
         "eof_complete" if tracker.measurement.received_body_byte_count < expected.expected_body_bytes as u64 => {
             "verified_download_early_eof"
@@ -145,7 +144,7 @@ fn measure_run(
         Ok(result) => result,
         Err(error) => {
             let reason = interruption(cancel, deadline)
-                .or_else(|| error.comparison_ech_setup_outcome())
+                .or_else(|| error.comparison_ech_failure_outcome())
                 .unwrap_or("setup_error");
             return (failed_stream_sample(error, transport), reason);
         }

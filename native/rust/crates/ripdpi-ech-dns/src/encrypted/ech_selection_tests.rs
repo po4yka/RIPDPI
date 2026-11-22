@@ -85,7 +85,7 @@ impl ripdpi_tls_profiles::OutboundEchResolver for FixedLookup {
         &self,
         _request: &ripdpi_tls_profiles::EchLookupRequest<'_>,
     ) -> Result<ripdpi_tls_profiles::EchLookupOutcome, EchFacadeError> {
-        super::ech_lookup_outcome(match https_response_ech_step(&self.0) {
+        super::ech_lookup_outcome(match https_response_ech_step(&self.0, None) {
             EchStep::Done(outcome) => outcome,
             EchStep::Alias(_) => EchResolutionOutcome::NotPublished,
         })
@@ -94,6 +94,41 @@ impl ripdpi_tls_profiles::OutboundEchResolver for FixedLookup {
 
 fn setup(records: &[(u16, &str, Option<u16>, Option<&[u8]>)]) -> Result<Option<OutboundEchConfig>, EchFacadeError> {
     outbound_ech_config(NAME, &FixedLookup(answer(records)))
+}
+
+#[test]
+fn published_port_matches_only_the_requested_port() {
+    let published = list(&[entry(1, b"ech.example")]);
+    let response = answer(&[(1, ".", Some(8443), Some(&published))]);
+
+    let matching = super::follow_https_aliases(NAME, Some(8443), |_| Ok(response.clone()));
+    let other_port = super::follow_https_aliases(NAME, Some(443), |_| Ok(response.clone()));
+
+    assert!(matches!(matching, EchResolutionOutcome::Available(config) if config == published));
+    assert!(matches!(other_port, EchResolutionOutcome::NotPublished));
+}
+
+#[test]
+fn dns_error_and_unusable_config_are_distinct_from_missing_ech() {
+    let mut servfail = answer(&[]);
+    servfail[3] = 0x82;
+    let unsupported = list(&[unknown_version_entry()]);
+
+    for (response, expected) in [
+        (servfail, "dns_failed"),
+        (answer(&[(1, ".", None, Some(&[0, 0]))]), "invalid_config"),
+        (answer(&[(1, ".", None, Some(&unsupported))]), "invalid_config"),
+        (answer(&[]), "not_published"),
+    ] {
+        let outcome = super::follow_https_aliases(NAME, Some(443), |_| Ok(response.clone()));
+        let status = match outcome {
+            EchResolutionOutcome::Available(_) => "available",
+            EchResolutionOutcome::NotPublished => "not_published",
+            EchResolutionOutcome::ResolutionFailed(_) => "dns_failed",
+            EchResolutionOutcome::InvalidConfig(_) => "invalid_config",
+        };
+        assert_eq!(status, expected);
+    }
 }
 
 #[test]

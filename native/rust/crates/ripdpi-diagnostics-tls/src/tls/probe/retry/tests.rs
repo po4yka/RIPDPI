@@ -118,33 +118,49 @@ fn comparison_connects_plain_grease_and_real_ech_on_the_same_trusted_peer() {
 }
 
 #[test]
-fn comparison_ech_reports_missing_config_even_for_a_cdn_peer() {
+fn comparison_ech_distinguishes_setup_failures_even_for_a_cdn_peer() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let socket = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
     let cdn_peer = "104.16.0.1:443".parse::<SocketAddr>().unwrap();
     let transport = crate::transport::direct_transport();
     let targets = [TargetAddress::Ip(cdn_peer.ip())];
-    let options = CaptureTlsHandshakeOptions {
-        targets: &targets,
-        port: cdn_peer.port(),
-        ech_retry_configs: None,
-        transport: &transport,
-        tls_name: "inner.example",
-        profile: TlsClientProfile::ComparisonEch,
-        tls_verifier: None,
-        fixture_ech_roots: None,
-        fixture_ech_lookup: Some(&EchResolutionOutcome::NotPublished),
-        key_log: None,
-        application_protocol: ApplicationProtocolPolicy::Http11Only,
-        should_abort: &|| None,
-    };
+    let mut unusable_key = BORING_ECH_CONFIG_LIST.to_vec();
+    // An all-zero X25519 public key cannot be used for key agreement.
+    unusable_key[11..43].fill(0);
 
-    let (result, retry) = capture_with_ech_retry(socket, Some(cdn_peer), 0, &options);
+    for (lookup, expected) in [
+        (EchResolutionOutcome::NotPublished, "missing"),
+        (EchResolutionOutcome::ResolutionFailed("SERVFAIL".into()), "dns"),
+        (EchResolutionOutcome::InvalidConfig("empty ECHConfigList".into()), "config"),
+        (EchResolutionOutcome::Available(unusable_key), "config"),
+    ] {
+        let socket = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let options = CaptureTlsHandshakeOptions {
+            targets: &targets,
+            port: cdn_peer.port(),
+            ech_retry_configs: None,
+            transport: &transport,
+            tls_name: "inner.example",
+            profile: TlsClientProfile::ComparisonEch,
+            tls_verifier: None,
+            fixture_ech_roots: None,
+            fixture_ech_lookup: Some(&lookup),
+            key_log: None,
+            application_protocol: ApplicationProtocolPolicy::Http11Only,
+            should_abort: &|| None,
+        };
+        let (result, retry) = capture_with_ech_retry(socket, Some(cdn_peer), 0, &options);
 
-    let Err(error) = result else { panic!("an unpublished ECH config allowed a handshake") };
-    assert_eq!(error.ech_lookup_failure.as_deref(), Some(&EchLookupFailure::NotPublished));
-    assert!(error.client_hello.is_none());
-    assert!(retry.is_none());
+        let Err(error) = result else { panic!("an unusable ECH setup allowed a handshake") };
+        let reason = match error.ech_lookup_failure.as_deref() {
+            Some(EchLookupFailure::NotPublished) => "missing",
+            Some(EchLookupFailure::ResolutionFailed(_)) => "dns",
+            Some(EchLookupFailure::InvalidConfig(_)) => "config",
+            None => "unknown",
+        };
+        assert_eq!(reason, expected);
+        assert!(error.client_hello.is_none());
+        assert!(retry.is_none());
+    }
 }
 
 #[test]
@@ -186,6 +202,7 @@ fn comparison_never_retries_rejected_ech_with_authenticated_retry_configs() {
 
     let Err(error) = result else { panic!("rejected ECH yielded a stream") };
     assert_eq!(error.ech_status, Some(EchStatus::Rejected));
+    assert!(error.ech_rejected);
     assert!(error.ech_retry_configs.is_some());
     assert!(retry.is_none());
     server.join().unwrap();
