@@ -7,7 +7,8 @@ const PROBE_TYPE: &str = "throughput_window";
 pub(crate) fn build_observation(result: &ProbeResult) -> Option<ProbeObservation> {
     (result.probe_type == PROBE_TYPE
         && !result.outcome.starts_with("verified_download_")
-        && !result.outcome.starts_with("verified_upload_"))
+        && !result.outcome.starts_with("verified_upload_")
+        && !result.outcome.starts_with("ech_transfer_comparison_"))
     .then(|| build_throughput_observation(result))
 }
 

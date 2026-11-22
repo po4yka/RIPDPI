@@ -18,7 +18,7 @@ data class VerifiedDownloadInput(
     fun isValid(): Boolean {
         val bytes = expectedBodyBytes.toIntOrNull()
         return bytes != null && bytes in 1..MaxVerifiedDownloadBodyBytes &&
-            VerifiedDownloadSha256.matches(sha256) && url.isVerifiedTransferUrl()
+            sha256.isVerifiedTransferSha256() && url.isVerifiedTransferUrl()
     }
 
     internal fun toTarget(label: String): ThroughputTarget {
@@ -39,21 +39,26 @@ data class VerifiedDownloadInput(
 data class DownloadVerification(
     val expectedBodyBytes: Int,
     val sha256: String,
+    val echComparisonIp: String? = null,
 )
 
-internal fun String.isVerifiedTransferUrl(): Boolean {
+internal fun String.isVerifiedTransferSha256(): Boolean = VerifiedDownloadSha256.matches(this)
+
+internal fun String.isVerifiedTransferUrl(): Boolean = verifiedTransferUriOrNull() != null
+
+internal fun String.verifiedTransferUriOrNull(): URI? {
     val fitsUrlLimit =
         length in 1..MaxVerifiedDownloadUrlLength && encodeToByteArray().size <= MaxVerifiedDownloadUrlLength
-    if (!fitsUrlLimit || any(Char::isISOControl)) return false
+    if (!fitsUrlLimit || any(Char::isISOControl)) return null
     return try {
         val uri = URI(this)
         val validAuthority =
             !uri.host.isNullOrBlank() && uri.rawAuthority?.endsWith(':') == false &&
                 (uri.port == -1 || uri.port in 1..IpProbeMaxPort)
         val noExtraParts = uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null
-        uri.scheme == "https" && validAuthority && noExtraParts
+        uri.takeIf { it.scheme == "https" && validAuthority && noExtraParts }
     } catch (_: URISyntaxException) {
-        false
+        null
     }
 }
 
@@ -67,7 +72,7 @@ internal fun DiagnosticsIntent.withVerifiedDownload(input: VerifiedDownloadInput
 }
 
 internal fun ThroughputTarget.isValidVerifiedDownload(): Boolean {
-    val integrity = verification ?: return false
+    val integrity = verification?.takeIf { it.echComparisonIp == null } ?: return false
     val usesEndpoint = connectIp == null && connectIps.isEmpty() && port == null
     return VerifiedDownloadInput(url, integrity.expectedBodyBytes.toString(), integrity.sha256).isValid() &&
         usesEndpoint && uploadBodyBytes == null && runs == 1 && windowBytes == integrity.expectedBodyBytes + 1

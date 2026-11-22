@@ -69,6 +69,22 @@ class TransferScopePersistenceTest {
     }
 
     @Test
+    fun `scope loss keeps all three ECH comparison rows and revokes the result`() {
+        val rows =
+            listOf(
+                ProbeDetail("tls13Outcome", "verified"),
+                ProbeDetail("echGreaseOutcome", "body_timeout"),
+                ProbeDetail("echOutcome", "ech_config_missing"),
+            )
+        val result = ProbeResult("throughput_window", "control", "ech_transfer_comparison_recorded", rows)
+
+        val scoped = report(listOf(result)).withoutNetworkScopeAuthority().results.single()
+
+        assertEquals("ech_transfer_comparison_inconclusive", scoped.outcome)
+        assertEquals(rows + ProbeDetail("transferNetworkScope", "unverified"), scoped.details)
+    }
+
+    @Test
     fun `late revocation atomically updates transfer and matrix rows without duplicate ids`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

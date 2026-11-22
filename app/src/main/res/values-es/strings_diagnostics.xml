@@ -2106,4 +2106,13 @@
     <string name="diagnostics_verified_upload_complete">El servidor confirmó la recepción</string>
     <string name="diagnostics_verified_upload_timeout">Se agotó el tiempo de espera de la subida</string>
     <string name="diagnostics_verified_upload_early_eof">La confirmación de recepción quedó incompleta</string>
+    <string name="diagnostics_ech_transfer_title">Comparación de transferencia con ECH</string>
+    <string name="diagnostics_ech_transfer_description">Verifica una misma respuesta HTTPS con TLS 1.3, ECH GREASE y ECH en una dirección IP fija.</string>
+    <string name="diagnostics_ech_transfer_ip">IP del servidor (IPv4 o IPv6)</string>
+    <string name="diagnostics_ech_transfer_input_error">Introduce una URL HTTPS con nombre de host, sin credenciales, consulta ni fragmento. Usa una dirección IPv4 o IPv6, de 1 a 32 768 bytes y un SHA-256 de 64 dígitos hexadecimales.</string>
+    <string name="diagnostics_ech_transfer_grease">ECH GREASE</string>
+    <string name="diagnostics_ech_transfer_config_missing">DNS sin configuración ECH</string>
+    <string name="diagnostics_ech_transfer_body_timeout">El cuerpo de la respuesta se quedó bloqueado</string>
+    <string name="diagnostics_ech_transfer_response_timeout">Tiempo agotado antes de recibir los encabezados HTTP</string>
+    <string name="diagnostics_ech_transfer_http_failed">Falló el intercambio HTTP</string>
 </resources>

@@ -10,6 +10,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
+mod ech_comparison;
 #[cfg(test)]
 mod https_fixture;
 mod verified_download;
@@ -36,6 +37,9 @@ pub fn run_throughput_probe_with_progress(
 ) -> ProbeResult {
     if target.upload_body_bytes.is_some() {
         return run_verified_upload(target, transport, key_log, tls_verifier, cancel);
+    }
+    if target.verification.as_ref().is_some_and(|proof| proof.ech_comparison_ip.is_some()) {
+        return ech_comparison::run(target, transport, key_log, tls_verifier, cancel, progress);
     }
     if target.verification.is_some() {
         return verified_download::run(target, transport, key_log, tls_verifier, cancel, progress);

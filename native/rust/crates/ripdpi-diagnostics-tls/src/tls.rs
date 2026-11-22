@@ -202,7 +202,11 @@ mod tests {
                     .with_protocol_versions(&[&rustls::version::TLS12])
                     .expect("ring provider supports TLS1.2")
             }
-            TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEch => {
+            TlsClientProfile::Tls13Only
+            | TlsClientProfile::Tls13WithEch
+            | TlsClientProfile::ComparisonTls13
+            | TlsClientProfile::ComparisonEchGrease
+            | TlsClientProfile::ComparisonEch => {
                 ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                     .with_protocol_versions(&[&rustls::version::TLS13])
                     .expect("ring provider supports TLS1.3")

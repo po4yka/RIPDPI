@@ -4,7 +4,10 @@ use std::net::IpAddr;
 use ripdpi_diagnostics_contracts::util::MAX_ROUTE_EXPERIMENT_ATTEMPTS;
 use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
-use crate::types::{ProbeTaskFamily, ScanKind, ScanPathMode, VERIFIED_DOWNLOAD_PROFILE_ID, VERIFIED_UPLOAD_PROFILE_ID};
+use crate::types::{
+    ECH_TRANSFER_COMPARISON_LEGS, ECH_TRANSFER_COMPARISON_PROFILE_ID, ProbeTaskFamily, ScanKind, ScanPathMode,
+    VERIFIED_DOWNLOAD_PROFILE_ID, VERIFIED_UPLOAD_PROFILE_ID,
+};
 use ripdpi_diagnostics_contracts::util::{
     FAT_HEADER_MAX_ALTERNATES, FAT_HEADER_MAX_REQUESTS, FAT_HEADER_REQUESTS, is_valid_fat_header_authority,
 };
@@ -176,8 +179,13 @@ fn validate_resource_limits(request: &EngineScanRequestWire) -> Result<(), Strin
         if !(1..=MAX_THROUGHPUT_WINDOW_BYTES).contains(&target.window_bytes) {
             return Err(format!("throughput windowBytes must be between 1 and {MAX_THROUGHPUT_WINDOW_BYTES}"));
         }
+        let runs = if request.profile_id == ECH_TRANSFER_COMPARISON_PROFILE_ID {
+            ECH_TRANSFER_COMPARISON_LEGS
+        } else {
+            target.runs
+        };
         let target_bytes =
-            target.window_bytes.checked_mul(target.runs).ok_or_else(|| "throughput work size overflow".to_string())?;
+            target.window_bytes.checked_mul(runs).ok_or_else(|| "throughput work size overflow".to_string())?;
         total_throughput_bytes = total_throughput_bytes
             .checked_add(target_bytes)
             .ok_or_else(|| "total throughput work size overflow".to_string())?;
@@ -220,7 +228,13 @@ fn validate_verified_transfer_profile(request: &EngineScanRequestWire) -> Result
     let valid = match request.profile_id.as_str() {
         VERIFIED_DOWNLOAD_PROFILE_ID => {
             request.kind == ScanKind::Connectivity
-                && matches!(targets, [target] if target.verification.is_some() && target.upload_body_bytes.is_none())
+                && matches!(targets, [target] if target.verification.as_ref().is_some_and(|proof| proof.ech_comparison_ip.is_none())
+                    && target.upload_body_bytes.is_none())
+        }
+        ECH_TRANSFER_COMPARISON_PROFILE_ID => {
+            request.kind == ScanKind::Connectivity
+                && matches!(targets, [target] if target.verification.as_ref().is_some_and(|proof| proof.ech_comparison_ip.is_some())
+                    && target.upload_body_bytes.is_none())
         }
         VERIFIED_UPLOAD_PROFILE_ID => {
             request.kind == ScanKind::Connectivity

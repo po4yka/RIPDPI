@@ -222,6 +222,8 @@ pub struct ThroughputTarget {
 pub struct DownloadVerification {
     pub expected_body_bytes: usize,
     pub sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ech_comparison_ip: Option<std::net::IpAddr>,
 }
 
 #[derive(Deserialize)]
@@ -247,6 +249,9 @@ impl VerifiedUploadReceipt {
 
 pub const VERIFIED_DOWNLOAD_PROFILE_ID: &str = "verified-https-download";
 pub const VERIFIED_UPLOAD_PROFILE_ID: &str = "verified-https-upload";
+pub const ECH_TRANSFER_COMPARISON_PROFILE_ID: &str = "ech-transfer-comparison";
+pub const ECH_TRANSFER_COMPARISON_LEGS: usize = 3;
+pub const MAX_ECH_COMPARISON_BODY_BYTES: usize = 32 * 1024;
 pub const MAX_VERIFIED_DOWNLOAD_BYTES: usize = 1024 * 1024;
 pub const MAX_VERIFIED_UPLOAD_BYTES: usize = 1024 * 1024;
 
@@ -259,7 +264,19 @@ impl ThroughputTarget {
         if !self.has_verified_https_endpoint() {
             return Err("invalid verified download URL");
         }
-        if !(1..=MAX_VERIFIED_DOWNLOAD_BYTES).contains(&expected.expected_body_bytes)
+        let max_bytes = if let Some(ip) = expected.ech_comparison_ip {
+            let ip = ip.to_canonical();
+            if ip.is_unspecified() || ip.is_multicast() {
+                return Err("ECH comparison requires a unicast destination");
+            }
+            if !has_ech_comparison_authority(&self.url) {
+                return Err("ECH comparison requires a DNS origin");
+            }
+            MAX_ECH_COMPARISON_BODY_BYTES
+        } else {
+            MAX_VERIFIED_DOWNLOAD_BYTES
+        };
+        if !(1..=max_bytes).contains(&expected.expected_body_bytes)
             || self.window_bytes != expected.expected_body_bytes + 1
             || self.runs != 1
         {
@@ -303,6 +320,23 @@ impl ThroughputTarget {
             && self.connect_ips.is_empty()
             && self.port.is_none()
     }
+}
+
+fn has_ech_comparison_authority(url: &str) -> bool {
+    let authority = url.strip_prefix("https://").and_then(|suffix| suffix.split('/').next()).unwrap_or_default();
+    let (host, port) = authority.split_once(':').map_or((authority, None), |(host, port)| (host, Some(port)));
+    let name = host.strip_suffix('.').unwrap_or(host);
+    !name.is_empty()
+        && name.len() <= 253
+        && name.parse::<std::net::IpAddr>().is_err()
+        && name.split('.').all(|label| {
+            !label.is_empty()
+                && label.len() <= 63
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        })
+        && port.is_none_or(|value| value.parse::<u16>().is_ok_and(|parsed| parsed > 0))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

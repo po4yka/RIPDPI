@@ -207,9 +207,18 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
     }
     let download = function_body(
         &repo.join("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/endpoint/throughput.rs"),
-        "pub(in crate::connectivity) fn measure_throughput_run",
+        "pub(in crate::connectivity) fn measure_throughput_with_options",
     );
     tokens.extend(quoted_outcome_tokens(&download).into_iter().filter(|token| token.starts_with("verified_download_")));
+    let ech_comparison = function_body(
+        &repo.join("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/throughput/ech_comparison.rs"),
+        "pub(super) fn run",
+    );
+    tokens.extend(
+        quoted_outcome_tokens(&ech_comparison)
+            .into_iter()
+            .filter(|token| token.starts_with("ech_transfer_comparison_")),
+    );
     let upload = function_body(
         &repo.join("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/endpoint/verified_upload.rs"),
         "pub(in crate::connectivity) fn run_verified_upload",

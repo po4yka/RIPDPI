@@ -131,6 +131,7 @@ mod tests {
             verification: Some(DownloadVerification {
                 expected_body_bytes: 2,
                 sha256: "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df".into(),
+                ech_comparison_ip: None,
             }),
         });
         assert!(validate_scan_request(&specimen).is_err());
@@ -150,6 +151,49 @@ mod tests {
         assert!(validate_scan_request(&specimen).is_err());
         specimen.throughput_targets[0] = good.clone();
         specimen.throughput_targets.push(good);
+        assert!(validate_scan_request(&specimen).is_err());
+    }
+
+    #[test]
+    fn ech_comparison_requires_its_own_profile_fixed_ip_and_short_body() {
+        use crate::types::{
+            ECH_TRANSFER_COMPARISON_PROFILE_ID, MAX_ECH_COMPARISON_BODY_BYTES, VERIFIED_DOWNLOAD_PROFILE_ID,
+        };
+        let mut specimen = request();
+        let good: ThroughputTarget = serde_json::from_value(serde_json::json!({
+            "id": "ech-control",
+            "label": "ECH comparison",
+            "url": "https://control.example:8443/control.bin",
+            "windowBytes": MAX_ECH_COMPARISON_BODY_BYTES + 1,
+            "runs": 1,
+            "verification": {
+                "expectedBodyBytes": MAX_ECH_COMPARISON_BODY_BYTES,
+                "sha256": "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df",
+                "echComparisonIp": "192.0.2.10",
+            },
+        }))
+        .unwrap();
+        specimen.throughput_targets.push(good.clone());
+        specimen.profile_id = VERIFIED_DOWNLOAD_PROFILE_ID.into();
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.profile_id = ECH_TRANSFER_COMPARISON_PROFILE_ID.into();
+        assert!(validate_scan_request(&specimen).is_ok());
+
+        for url in
+            ["https://192.0.2.10/control.bin", "http://control.example/control.bin", "https://control.example:0/"]
+        {
+            specimen.throughput_targets[0].url = url.into();
+            assert!(validate_scan_request(&specimen).is_err(), "{url}");
+        }
+        specimen.throughput_targets[0] = good.clone();
+        specimen.throughput_targets[0].verification.as_mut().unwrap().ech_comparison_ip = None;
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.throughput_targets[0] = good.clone();
+        specimen.throughput_targets[0].verification.as_mut().unwrap().ech_comparison_ip = Some("::".parse().unwrap());
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.throughput_targets[0] = good;
+        specimen.throughput_targets[0].verification.as_mut().unwrap().expected_body_bytes += 1;
+        specimen.throughput_targets[0].window_bytes += 1;
         assert!(validate_scan_request(&specimen).is_err());
     }
 

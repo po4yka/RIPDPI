@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides
+import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
@@ -41,6 +42,12 @@ internal fun DiagnosticsScanUiModel.manualScanTargets(profileId: String?): Manua
             verifiedUploadInput
                 .takeIf { it.isValid() }
                 ?.let { ManualScanTargets(DiagnosticsScanTargetOverrides(verifiedUpload = it)) }
+        }
+
+        EchTransferComparisonProfileId -> {
+            echComparisonInput
+                .takeIf { it.isValid() }
+                ?.let { ManualScanTargets(DiagnosticsScanTargetOverrides(echComparison = it)) }
         }
 
         else -> {

@@ -1,11 +1,12 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use ripdpi_tls_profiles::ech::{EchSetup, configure_rustls_ech};
 use ripdpi_tls_profiles::{ProfileMetadata, selected_profile_config, selected_profile_metadata};
 use rustls::client::danger::ServerCertVerifier;
 use rustls::client::{EchConfig, EchMode};
 use rustls::pki_types::{EchConfigListBytes, ServerName};
-use rustls::{ClientConfig, RootCertStore};
+use rustls::{ClientConfig, ConfigBuilder, RootCertStore, WantsVerifier};
 
 use super::key_log::TlsKeyLogCallback;
 use super::types::{ApplicationProtocolPolicy, EchConfigSource, TlsClientProfile};
@@ -49,7 +50,11 @@ pub(super) fn build_standard_client_config_with_key_log(
                 .with_protocol_versions(&[&rustls::version::TLS12])
                 .expect("ring provider supports TLS1.2")
         }
-        TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEch => {
+        TlsClientProfile::Tls13Only
+        | TlsClientProfile::Tls13WithEch
+        | TlsClientProfile::ComparisonTls13
+        | TlsClientProfile::ComparisonEchGrease
+        | TlsClientProfile::ComparisonEch => {
             ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                 .with_protocol_versions(&[&rustls::version::TLS13])
                 .expect("ring provider supports TLS1.3")
@@ -70,21 +75,53 @@ pub(super) fn build_standard_client_config_with_key_log(
     Arc::new(config)
 }
 
+pub(super) fn build_ech_comparison_control_config(
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
+    application_protocol: ApplicationProtocolPolicy,
+    #[cfg(test)] fixture_ech_roots: Option<&RootCertStore>,
+) -> Result<Arc<ClientConfig>, String> {
+    // The real ECH leg uses AWS-LC too. Keep all other controls on that provider and TLS 1.3.
+    let builder = ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into());
+    let builder = if matches!(profile, TlsClientProfile::ComparisonEchGrease) {
+        configure_rustls_ech(builder, &EchSetup::Grease).map_err(|error| error.to_string())?
+    } else {
+        builder.with_protocol_versions(&[&rustls::version::TLS13]).map_err(|error| error.to_string())?
+    };
+    finish_aws_lc_client_config(
+        builder,
+        profile,
+        tls_verifier,
+        key_log,
+        application_protocol,
+        #[cfg(test)]
+        fixture_ech_roots,
+    )
+}
+
 pub(super) fn resolve_ech_config(
     server_name: &str,
     connected_addr: Option<SocketAddr>,
     transport: &TransportConfig,
     should_abort: &dyn Fn() -> Option<&'static str>,
+    #[cfg(test)] fixture_ech_lookup: Option<&EchResolutionOutcome>,
 ) -> Result<(Vec<u8>, EchConfigSource), EchLookupFailure> {
     let template_metadata = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
     let resolver_id = template_metadata.template.ech_bootstrap_resolver_id.unwrap_or("adguard");
     let bootstrap_endpoint = encrypted_dns_endpoint_for_resolver_id(resolver_id);
-    let lookup = resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort(
-        server_name,
-        bootstrap_endpoint,
-        transport,
-        should_abort,
-    );
+    let lookup = || {
+        resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort(
+            server_name,
+            bootstrap_endpoint,
+            transport,
+            should_abort,
+        )
+    };
+    #[cfg(not(test))]
+    let lookup = lookup();
+    #[cfg(test)]
+    let lookup = fixture_ech_lookup.cloned().unwrap_or_else(lookup);
     select_ech_config(lookup, connected_addr)
 }
 
@@ -119,7 +156,25 @@ pub(super) fn build_ech_client_config_from_list(
     let builder = ClientConfig::builder_with_provider(provider.into())
         .with_ech(EchMode::Enable(ech_config))
         .map_err(|err| err.to_string())?;
-    let template_profile = planned_tls_template_profile(TlsClientProfile::Tls13WithEch);
+    finish_aws_lc_client_config(
+        builder,
+        TlsClientProfile::Tls13WithEch,
+        tls_verifier,
+        key_log,
+        application_protocol,
+        #[cfg(test)]
+        fixture_ech_roots,
+    )
+}
+
+fn finish_aws_lc_client_config(
+    builder: ConfigBuilder<ClientConfig, WantsVerifier>,
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
+    application_protocol: ApplicationProtocolPolicy,
+    #[cfg(test)] fixture_ech_roots: Option<&RootCertStore>,
+) -> Result<Arc<ClientConfig>, String> {
     let mut config = if let Some(verifier) = tls_verifier {
         builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
@@ -133,7 +188,7 @@ pub(super) fn build_ech_client_config_from_list(
     if let Some(key_log) = key_log {
         config.key_log = key_log.clone();
     }
-    apply_application_protocol_policy(&mut config, template_profile, application_protocol);
+    apply_application_protocol_policy(&mut config, planned_tls_template_profile(profile), application_protocol);
     Ok(Arc::new(config))
 }
 
@@ -159,7 +214,10 @@ pub fn planned_tls_template_profile(profile: TlsClientProfile) -> &'static str {
     match profile {
         TlsClientProfile::Auto | TlsClientProfile::Tls13Only => "chrome_stable",
         TlsClientProfile::Tls12Only => "chrome_desktop_stable",
-        TlsClientProfile::Tls13WithEch => "firefox_ech_stable",
+        TlsClientProfile::Tls13WithEch
+        | TlsClientProfile::ComparisonTls13
+        | TlsClientProfile::ComparisonEchGrease
+        | TlsClientProfile::ComparisonEch => "firefox_ech_stable",
     }
 }
 
@@ -184,6 +242,24 @@ fn apply_application_protocol_policy(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn comparison_controls_emit_client_hellos_without_and_with_the_ech_extension() {
+        for (profile, expected_ech) in
+            [(TlsClientProfile::ComparisonTls13, false), (TlsClientProfile::ComparisonEchGrease, true)]
+        {
+            let config =
+                build_ech_comparison_control_config(profile, None, None, ApplicationProtocolPolicy::Http11Only, None)
+                    .unwrap();
+            let name = ServerName::try_from("inner.example").unwrap();
+            let mut client = rustls::ClientConnection::new(config, name).unwrap();
+            let mut hello = Vec::new();
+            client.write_tls(&mut hello).unwrap();
+
+            let plan = ripdpi_tls_profiles::plan_first_flight(planned_tls_template_profile(profile), &hello).unwrap();
+            assert_eq!(plan.ech_present_in_input, expected_ech, "{profile:?}");
+        }
+    }
 
     #[test]
     fn ech_fallback_requires_the_connected_cdn_peer() {

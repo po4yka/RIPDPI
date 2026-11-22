@@ -72,6 +72,21 @@ class DiagnosticsEndpointScanRequestFactoryTest {
             assertNull(downloadIntent.routeProbe)
         }
 
+    @Test
+    fun `ECH comparison binds the manual endpoint before the catalog template is validated`() =
+        runTest {
+            val input = VerifiedEchComparisonInput("https://control.example/body", "2001:db8::7", "128", "a".repeat(64))
+            val intent =
+                prepareEndpointScan(
+                    template = endpointTemplate(EchTransferComparisonProfileId),
+                    overrides = DiagnosticsScanTargetOverrides(echComparison = input),
+                )
+            val target = intent.throughputTargets.single()
+            assertEquals(input.url, target.url)
+            assertEquals(DownloadVerification(128, input.sha256, input.connectIp), target.verification)
+            assertNull(intent.routeProbe)
+        }
+
     private fun endpointTemplate(profileId: String): DiagnosticsIntent =
         strategyProbeIntent(settings = defaultDiagnosticsAppSettings(), baseProxyConfigJson = null).copy(
             profileId = profileId,

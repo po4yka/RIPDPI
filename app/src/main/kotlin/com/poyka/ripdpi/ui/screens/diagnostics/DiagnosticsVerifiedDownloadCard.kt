@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
+import com.poyka.ripdpi.diagnostics.VerifiedEchComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -102,6 +103,62 @@ internal fun VerifiedUploadInputCard(
         )
         if (showError) {
             VerifiedTransferInputError(R.string.diagnostics_verified_upload_input_error)
+        }
+    }
+}
+
+@Composable
+internal fun VerifiedEchComparisonInputCard(
+    input: VerifiedEchComparisonInput,
+    enabled: Boolean,
+    onInputChanged: (VerifiedEchComparisonInput) -> Unit,
+) {
+    val url = remember { LaggingInputText(input.url) }
+    val address = remember { LaggingInputText(input.connectIp) }
+    val size = remember { LaggingInputText(input.expectedBodyBytes) }
+    val digest = remember { LaggingInputText(input.sha256) }
+    SideEffect {
+        url.sync(input.url)
+        address.sync(input.connectIp)
+        size.sync(input.expectedBodyBytes)
+        digest.sync(input.sha256)
+    }
+
+    fun currentInput() = VerifiedEchComparisonInput(url.text, address.text, size.text, digest.text)
+
+    val allFieldsFilled = listOf(url, address, size, digest).all { it.text.isNotBlank() }
+    val publishInput = { onInputChanged(currentInput()) }
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+        VerifiedTransferField(
+            R.string.diagnostics_verified_download_url,
+            url,
+            enabled,
+            KeyboardType.Uri,
+            onEdited = publishInput,
+        )
+        VerifiedTransferField(
+            R.string.diagnostics_ech_transfer_ip,
+            address,
+            enabled,
+            KeyboardType.Ascii,
+            onEdited = publishInput,
+        )
+        VerifiedTransferField(
+            R.string.diagnostics_verified_download_bytes,
+            size,
+            enabled,
+            KeyboardType.Number,
+            onEdited = publishInput,
+        )
+        VerifiedTransferField(
+            R.string.diagnostics_verified_download_sha256,
+            digest,
+            enabled,
+            KeyboardType.Ascii,
+            onEdited = publishInput,
+        )
+        if (allFieldsFilled && !currentInput().isValid()) {
+            VerifiedTransferInputError(R.string.diagnostics_ech_transfer_input_error)
         }
     }
 }

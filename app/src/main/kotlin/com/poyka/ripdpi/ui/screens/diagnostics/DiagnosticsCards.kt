@@ -96,20 +96,28 @@ internal fun CompactProbeRow(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                text = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
+                text =
+                    if (probe.isEchTransferComparison) {
+                        diagnosticProbeTitle(probe, expertMode)
+                    } else {
+                        probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target
+                    },
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = RipDpiThemeTokens.colors.foreground,
             )
-            Text(
-                text = diagnosticProbeTitle(probe, expertMode),
-                style = RipDpiThemeTokens.type.smallLabel,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
+            if (!probe.isEchTransferComparison) {
+                Text(
+                    text = diagnosticProbeTitle(probe, expertMode),
+                    style = RipDpiThemeTokens.type.smallLabel,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
         }
         StatusIndicator(
             label = diagnosticProbeOutcome(probe, expertMode),
             tone = statusTone(probe.tone),
         )
+        EchTransferRows(probe)
     }
 }
 
@@ -316,16 +324,6 @@ internal fun ProbeResultRow(
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("ProbeResultRow")
-    val colors = RipDpiThemeTokens.colors
-    val title = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target
-    val subtitle =
-        when {
-            probe.pmtu != null -> probe.pmtu.title
-            probe.http3 != null -> probe.http3.title
-            probe.ipFamily != null -> stringResource(R.string.diagnostics_ip_title)
-            else -> probe.probeType
-        }
-    val outcome = (probe.pmtu ?: probe.http3 ?: probe.ipFamily)?.fields?.firstOrNull()?.value ?: probe.outcome
     RipDpiCard(
         modifier = modifier,
         onClick = onClick,
@@ -335,35 +333,70 @@ internal fun ProbeResultRow(
                 vertical = RipDpiThemeTokens.spacing.sm,
             ),
     ) {
-        DiagnosticRowHeader(
-            contentTexts =
-                listOf(
-                    title to RipDpiThemeTokens.type.bodyEmphasis,
-                    subtitle to RipDpiThemeTokens.type.secondaryBody,
-                ),
-            metadata = outcome to RipDpiThemeTokens.type.brandStatus,
-            metadataDecorationWidth =
-                RipDpiThemeTokens.components.indicators.statusMarkerLarge +
-                    RipDpiThemeTokens.components.indicators.statusMarkerSpacing,
-            alignment = Alignment.CenterVertically,
-            trailing = { metadataModifier ->
-                StatusIndicator(
-                    modifier = metadataModifier,
-                    label = outcome,
-                    tone = statusTone(probe.tone),
-                )
-            },
-        ) { textModifier ->
-            Column(
-                modifier = textModifier,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = title,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = colors.foreground,
-                )
+        ProbeResultHeader(probe)
+        EchTransferRows(probe)
+        probe.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
+        probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
+        probe.ipFamily?.let { ContextGroupCard(it) }
+        probe.http3?.let { ContextGroupCard(it) }
+        probe.pmtu?.let { ContextGroupCard(it) }
+        DiagnosticsDnsResponseCards(probe.dnsResponses)
+    }
+}
+
+@Composable
+private fun ProbeResultHeader(probe: DiagnosticsProbeResultUiModel) {
+    val colors = RipDpiThemeTokens.colors
+    val title =
+        if (probe.isEchTransferComparison) {
+            diagnosticProbeTitle(probe, expertMode = false)
+        } else {
+            probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target
+        }
+    val subtitle =
+        when {
+            probe.isEchTransferComparison -> null
+            probe.pmtu != null -> probe.pmtu.title
+            probe.http3 != null -> probe.http3.title
+            probe.ipFamily != null -> stringResource(R.string.diagnostics_ip_title)
+            else -> probe.probeType
+        }
+    val outcome =
+        if (probe.isEchTransferComparison) {
+            diagnosticProbeOutcome(probe, expertMode = false)
+        } else {
+            (probe.pmtu ?: probe.http3 ?: probe.ipFamily)?.fields?.firstOrNull()?.value ?: probe.outcome
+        }
+    DiagnosticRowHeader(
+        contentTexts =
+            listOfNotNull(
+                title to RipDpiThemeTokens.type.bodyEmphasis,
+                subtitle?.let { it to RipDpiThemeTokens.type.secondaryBody },
+            ),
+        metadata = outcome to RipDpiThemeTokens.type.brandStatus,
+        metadataDecorationWidth =
+            RipDpiThemeTokens.components.indicators.statusMarkerLarge +
+                RipDpiThemeTokens.components.indicators.statusMarkerSpacing,
+        alignment = Alignment.CenterVertically,
+        trailing = { metadataModifier ->
+            StatusIndicator(
+                modifier = metadataModifier,
+                label = outcome,
+                tone = statusTone(probe.tone),
+            )
+        },
+    ) { textModifier ->
+        Column(
+            modifier = textModifier,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = title,
+                modifier = Modifier.fillMaxWidth(),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            if (subtitle != null) {
                 Text(
                     text = subtitle,
                     modifier = Modifier.fillMaxWidth(),
@@ -372,12 +405,6 @@ internal fun ProbeResultRow(
                 )
             }
         }
-        probe.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
-        probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
-        probe.ipFamily?.let { ContextGroupCard(it) }
-        probe.http3?.let { ContextGroupCard(it) }
-        probe.pmtu?.let { ContextGroupCard(it) }
-        DiagnosticsDnsResponseCards(probe.dnsResponses)
     }
 }
 

@@ -180,6 +180,13 @@ private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeRes
             )
         }
 
+        probeType == "throughput_window" && outcome.startsWith("ech_transfer_comparison_") -> {
+            copy(
+                outcome = "ech_transfer_comparison_inconclusive",
+                details = details.withoutTransferScopeAuthority(),
+            )
+        }
+
         probeType == "throughput_window" && details.any { it.key == "transferEvidence" } -> {
             copy(
                 details = details.withoutTransferScopeAuthority(),

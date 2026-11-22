@@ -2117,4 +2117,13 @@
     <string name="diagnostics_verified_upload_complete">Server confirmed receipt</string>
     <string name="diagnostics_verified_upload_timeout">Upload timed out</string>
     <string name="diagnostics_verified_upload_early_eof">Server receipt was cut short</string>
+    <string name="diagnostics_ech_transfer_title">ECH transfer comparison</string>
+    <string name="diagnostics_ech_transfer_description">Verify one HTTPS response with TLS 1.3, ECH GREASE, and ECH at a fixed IP address.</string>
+    <string name="diagnostics_ech_transfer_ip">Server IP (IPv4 or IPv6)</string>
+    <string name="diagnostics_ech_transfer_input_error">Enter an HTTPS URL with a hostname and without credentials, a query, or a fragment. Use an IPv4 or IPv6 address, 1–32,768 bytes, and a 64-digit hexadecimal SHA-256.</string>
+    <string name="diagnostics_ech_transfer_grease">ECH GREASE</string>
+    <string name="diagnostics_ech_transfer_config_missing">No ECH configuration in DNS</string>
+    <string name="diagnostics_ech_transfer_body_timeout">Response body stalled</string>
+    <string name="diagnostics_ech_transfer_response_timeout">Timed out before HTTP headers</string>
+    <string name="diagnostics_ech_transfer_http_failed">HTTP exchange failed</string>
 </resources>

@@ -149,6 +149,68 @@ class DiagnosticsProbePresentationTest {
     }
 
     @Test
+    fun echComparisonKeepsModeAndStatusSeparateAcrossScopeLoss() {
+        val result =
+            probe("throughput_window", "ech_transfer_comparison_recorded", DiagnosticsTone.Warning).copy(
+                details =
+                    persistentListOf(
+                        DiagnosticsFieldUiModel("tls13Outcome", "verified"),
+                        DiagnosticsFieldUiModel("tls13Bytes", "31"),
+                        DiagnosticsFieldUiModel("echGreaseOutcome", "body_timeout"),
+                        DiagnosticsFieldUiModel("echGreaseBytes", "7"),
+                        DiagnosticsFieldUiModel("echOutcome", "ech_config_missing"),
+                    ),
+            )
+        val stalled =
+            EchTransferRow(
+                R.string.diagnostics_ech_transfer_grease,
+                R.string.diagnostics_ech_transfer_body_timeout,
+                7L,
+            )
+        assertEquals(
+            listOf(
+                EchTransferRow(
+                    R.string.diagnostics_stages_lane_tls13,
+                    R.string.diagnostics_verified_download_complete,
+                    31L,
+                ),
+                stalled,
+                EchTransferRow(
+                    R.string.diagnostics_stages_lane_ech,
+                    R.string.diagnostics_ech_transfer_config_missing,
+                    null,
+                ),
+            ),
+            result.echTransferRows(),
+        )
+        val stale = result.copy(outcome = "ech_transfer_comparison_inconclusive")
+        assertEquals(R.string.diagnostics_matrix_inconclusive, diagnosticProbeOutcomeResource(stale))
+        assertEquals(result.echTransferRows(), stale.echTransferRows())
+        assertTrue(result.copy(outcome = "verified_download_complete").echTransferRows().isEmpty())
+    }
+
+    @Test
+    fun echComparisonDistinguishesHandshakeFailureFromHeaderTimeoutAndUnrunAttempt() {
+        val result =
+            probe("throughput_window", "ech_transfer_comparison_recorded", DiagnosticsTone.Warning).copy(
+                details =
+                    persistentListOf(
+                        DiagnosticsFieldUiModel("tls13Outcome", "response_timeout"),
+                        DiagnosticsFieldUiModel("echGreaseOutcome", "tls_failed"),
+                        DiagnosticsFieldUiModel("echOutcome", "not_run"),
+                    ),
+            )
+        assertEquals(
+            listOf(
+                R.string.diagnostics_ech_transfer_response_timeout,
+                R.string.diagnostics_replay_error_tls_handshake_failed,
+                R.string.diagnostics_stages_not_reached,
+            ),
+            result.echTransferRows().map(EchTransferRow::status),
+        )
+    }
+
+    @Test
     fun unknownProbeTypeHasNeutralLocalizedTitle() {
         assertEquals(R.string.diagnostics_probe_check_title, diagnosticProbeTitleResource("future_probe"))
         assertEquals(R.string.diagnostics_matrix_title, diagnosticProbeTitleResource("selective_availability"))

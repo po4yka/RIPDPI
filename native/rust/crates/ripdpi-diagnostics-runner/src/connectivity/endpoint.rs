@@ -20,7 +20,7 @@ use crate::connectivity::adapters::transport::TransportConfig;
 
 pub(super) use quic_endpoint::run_quic_endpoint_probe;
 pub(super) use tcp_tls_endpoint::run_endpoint_probe;
-pub(super) use throughput::measure_throughput_run;
+pub(super) use throughput::{measure_throughput_run, measure_throughput_with_options};
 pub(super) use verified_upload::run_verified_upload;
 
 pub(super) fn probe_http_url(

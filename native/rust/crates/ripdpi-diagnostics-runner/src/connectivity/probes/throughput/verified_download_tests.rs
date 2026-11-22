@@ -66,7 +66,11 @@ fn assert_download(response: &[u8], hold_open: bool, outcome: &str, received: u6
                 window_bytes: 3,
                 runs: 1,
                 upload_body_bytes: None,
-                verification: Some(DownloadVerification { expected_body_bytes: 2, sha256: OK_SHA256.into() }),
+                verification: Some(DownloadVerification {
+                    expected_body_bytes: 2,
+                    sha256: OK_SHA256.into(),
+                    ech_comparison_ip: None,
+                }),
             };
             let mut progress = Vec::new();
             let result = run_throughput_probe_with_progress(

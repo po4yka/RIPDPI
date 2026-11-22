@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
@@ -14,8 +15,8 @@ use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::super::certs::extract_cert_info;
 use super::super::config::{
-    EchLookupFailure, build_ech_client_config_from_list, build_standard_client_config_with_key_log, make_server_name,
-    planned_tls_template_profile, resolve_ech_config,
+    EchLookupFailure, build_ech_client_config_from_list, build_ech_comparison_control_config,
+    build_standard_client_config_with_key_log, make_server_name, planned_tls_template_profile, resolve_ech_config,
 };
 use super::super::key_log::TlsKeyLogCallback;
 use super::super::types::{
@@ -71,6 +72,7 @@ impl From<String> for CaptureTlsError {
 
 pub(crate) struct CaptureTlsHandshakeOptions<'a> {
     pub(crate) targets: &'a [TargetAddress],
+    pub(crate) port: u16,
     pub(crate) ech_retry_configs: Option<&'a [u8]>,
     pub(crate) transport: &'a TransportConfig,
     pub(crate) tls_name: &'a str,
@@ -78,9 +80,16 @@ pub(crate) struct CaptureTlsHandshakeOptions<'a> {
     pub(crate) tls_verifier: Option<&'a Arc<dyn ServerCertVerifier>>,
     #[cfg(test)]
     pub(crate) fixture_ech_roots: Option<&'a rustls::RootCertStore>,
+    #[cfg(test)]
+    pub(crate) fixture_ech_lookup: Option<&'a ripdpi_diagnostics_dns::dns::EchResolutionOutcome>,
     pub(crate) key_log: Option<&'a TlsKeyLogCallback>,
     pub(crate) application_protocol: ApplicationProtocolPolicy,
     pub(crate) should_abort: &'a dyn Fn() -> Option<&'static str>,
+}
+
+fn comparison_ech_query_name(server_name: &str, port: u16) -> Cow<'_, str> {
+    // RFC 9460 section 9.1 prefixes HTTPS query names for non-default ports.
+    if port == 443 { Cow::Borrowed(server_name) } else { Cow::Owned(format!("_{port}._https.{server_name}")) }
 }
 
 pub(crate) fn capture_tls_handshake(
@@ -95,11 +104,26 @@ pub(crate) fn capture_tls_handshake(
     let target = options.targets.first().ok_or_else(|| "no_tls_targets".to_string())?;
     let template_profile = planned_tls_template_profile(options.profile);
     let server_name = make_server_name(options.tls_name, target)?;
-    let (config, ech_config_source) = if matches!(options.profile, TlsClientProfile::Tls13WithEch) {
+    let (config, ech_config_source) = if options.profile.uses_real_ech() {
         let (bytes, source) = if let Some(configs) = options.ech_retry_configs {
             (configs.to_vec(), EchConfigSource::RetryConfigs)
         } else {
-            let resolved = resolve_ech_config(&server_name.to_str(), connected_addr, options.transport, should_abort);
+            // A comparison needs the config published for this origin. The peer-IP fallback is legacy-only.
+            let fallback_peer = if options.profile.is_comparison() { None } else { connected_addr };
+            let origin_name = server_name.to_str();
+            let query_name = if options.profile.is_comparison() {
+                comparison_ech_query_name(&origin_name, options.port)
+            } else {
+                Cow::Borrowed(origin_name.as_ref())
+            };
+            let resolved = resolve_ech_config(
+                &query_name,
+                fallback_peer,
+                options.transport,
+                should_abort,
+                #[cfg(test)]
+                options.fixture_ech_lookup,
+            );
             if let Some(reason) = should_abort() {
                 return Err(format!("probe_aborted:{reason}").into());
             }
@@ -115,6 +139,16 @@ pub(crate) fn capture_tls_handshake(
         )
         .map_err(|error| ech_setup_error(EchLookupFailure::InvalidConfig(error), Some(source)))?;
         (config, Some(source))
+    } else if options.profile.is_comparison() {
+        let config = build_ech_comparison_control_config(
+            options.profile,
+            options.tls_verifier,
+            options.key_log,
+            options.application_protocol,
+            #[cfg(test)]
+            options.fixture_ech_roots,
+        )?;
+        (config, None)
     } else {
         (
             build_standard_client_config_with_key_log(
@@ -188,8 +222,11 @@ pub(crate) fn capture_tls_handshake(
     }
     let client_hello = capture_client_hello(recording.recorded_writes());
     let tls_handshake_ms = tls_start.elapsed().as_millis() as u64;
-    let setup_error =
-        administrative_error_after_io(should_abort).or_else(|| refresh_tls_handshake_timeout(&mut recording).err());
+    let comparison_rejected =
+        matches!(options.profile, TlsClientProfile::ComparisonEch) && connection.ech_status() != EchStatus::Accepted;
+    let setup_error = administrative_error_after_io(should_abort)
+        .or_else(|| refresh_tls_handshake_timeout(&mut recording).err())
+        .or_else(|| comparison_rejected.then(|| "ech_not_accepted".to_owned()));
     if let Some(message) = setup_error {
         return Err(CaptureTlsError {
             server_hello_received: Some(true),
@@ -202,8 +239,11 @@ pub(crate) fn capture_tls_handshake(
         });
     }
 
-    let tls_template_first_flight_plan = first_tls_record(recording.recorded_writes())
-        .and_then(|client_hello| plan_first_flight(template_profile, client_hello));
+    let tls_template_first_flight_plan = if options.profile.is_comparison() {
+        None
+    } else {
+        first_tls_record(recording.recorded_writes()).and_then(|hello| plan_first_flight(template_profile, hello))
+    };
     let (socket, _recorded) = recording.into_parts();
     let tls_stream = StreamOwned::new(connection, socket);
     let negotiated_alpn =
@@ -331,6 +371,19 @@ mod tests {
 
     use crate::tls::{ClientHelloCapture, TlsClientProfile, open_probe_stream, try_tls_handshake};
     use crate::transport::{ConnectionStream, TargetAddress, direct_transport};
+
+    #[test]
+    fn comparison_ech_query_names_use_origin_port() {
+        use ripdpi_diagnostics_dns::dns::build_dns_query_with_type;
+
+        let default_port = super::comparison_ech_query_name("inner.example", 443);
+        assert_eq!(default_port, "inner.example");
+        let other_port = super::comparison_ech_query_name("inner.example", 8443);
+        assert_eq!(other_port, "_8443._https.inner.example");
+
+        let packet = build_dns_query_with_type(&other_port, 1, 65).unwrap();
+        assert_eq!(&packet[12..], b"\x05_8443\x06_https\x05inner\x07example\0\0\x41\0\x01");
+    }
 
     #[test]
     fn successful_handshakes_keep_the_first_client_hello_plan() {

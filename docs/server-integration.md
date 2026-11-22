@@ -178,6 +178,13 @@ For **Diagnostics → Verified HTTPS upload**, provide an HTTPS endpoint with a 
 - Read the full request body. Count the bytes and compute the SHA-256 of those bytes. After the full read, return HTTP 200 with a JSON body of at most 512 bytes. Use an integer in `bytes` and a 64-digit hexadecimal string in `sha256`.
 - For example, if the server receives the two bytes `ok`, the receipt is `{"bytes":2,"sha256":"2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df"}`.
 
+## ECH transfer comparison
+
+For **Diagnostics → ECH transfer comparison**, use an HTTPS URL with a DNS host and give the app one IP address for that origin. All three requests use the chosen address and port. Use a certificate that the app trusts with TLS 1.3 and HTTP/1.1 enabled.
+
+- Serve the same body of 1 to 32,768 bytes for each request. Return HTTP 200 with identity encoding. Enter the exact size and SHA-256 in the app.
+- Publish an ECH configuration in the origin's DNS HTTPS record and enable ECH reception on the chosen IP for the real ECH leg. For a non-default port such as 8443, publish the record at `_8443._https.<host>`. The app reports an absent configuration separately from a handshake failure.
+
 ## Deployment protocol boundaries
 
 The recipient contract below was checked against `ripdpi-vpn-deploy`
