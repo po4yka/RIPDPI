@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.isMeasuredOn
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
@@ -85,14 +86,15 @@ internal class MainHomeDiagnosticsActions(
     private var activeRunObservation: Job? = null
     private var analysisStartJob: Job? = null
 
-    fun initialize() {
+    fun initialize(networkHandoverMonitor: NetworkHandoverMonitor) {
         mutations.launch { refreshFingerprint() }
         observeActiveScanProgress()
         observeLatestManualDiagnosticSession()
         observeVerificationSessions()
         observeVerifiedVpnConnection()
         observeBlockingPermissionWhileWaiting()
-        observeServiceStatusForFingerprint()
+        mutations.launch { serviceStateStore.status.collect { refreshFingerprint() } }
+        mutations.launch { networkHandoverMonitor.observe().collect { refreshFingerprint() } }
     }
 
     private fun observeLatestManualDiagnosticSession() {
@@ -216,14 +218,6 @@ internal class MainHomeDiagnosticsActions(
         }
     }
 
-    private fun observeServiceStatusForFingerprint() {
-        mutations.launch {
-            serviceStateStore.status.collect {
-                refreshFingerprint()
-            }
-        }
-    }
-
     fun runFullAnalysis() {
         startAnalysis(quickScan = false, start = diagnosticsHomeCompositeRunService::startHomeAnalysis)
     }
@@ -285,15 +279,10 @@ internal class MainHomeDiagnosticsActions(
                     }
                     activeRunObservation =
                         mutations.launch {
-                            diagnosticsHomeCompositeRunService.observeHomeRun(started.runId).collect { progress ->
-                                homeDiagnosticsState.update { current ->
-                                    current.withCompositeProgress(progress)
-                                }
-                                progress.outcome?.let { outcome ->
-                                    refreshFingerprint(outcome.fingerprintHash)
-                                    publishLatestDirectModeOutcome(outcome)
-                                }
-                            }
+                            diagnosticsHomeCompositeRunService
+                                .observeHomeRun(
+                                    started.runId,
+                                ).collect(::publishHomeProgress)
                         }
                 } catch (_: TimeoutCancellationException) {
                     failStart()
@@ -446,8 +435,18 @@ internal class MainHomeDiagnosticsActions(
         }
     }
 
-    private suspend fun refreshFingerprint(fallback: String? = null) {
-        val fingerprint = fallback ?: diagnosticsHomeWorkflowService.currentFingerprintHash()
+    private suspend fun publishHomeProgress(progress: DiagnosticsHomeCompositeProgress) {
+        val outcome = progress.outcome
+        val fingerprint = outcome?.let { diagnosticsHomeWorkflowService.currentFingerprintHash() }
+        homeDiagnosticsState.update { current ->
+            val updated = current.withCompositeProgress(progress)
+            if (outcome == null) updated else updated.copy(currentFingerprintHash = fingerprint)
+        }
+        outcome?.let(::publishLatestDirectModeOutcome)
+    }
+
+    private suspend fun refreshFingerprint() {
+        val fingerprint = diagnosticsHomeWorkflowService.currentFingerprintHash()
         homeDiagnosticsState.update { it.copy(currentFingerprintHash = fingerprint) }
     }
 

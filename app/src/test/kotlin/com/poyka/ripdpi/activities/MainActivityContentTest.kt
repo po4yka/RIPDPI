@@ -30,6 +30,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.screens.connection.ConnectionExternalProvider
 import com.poyka.ripdpi.ui.screens.connection.ConnectionExternalProviders
 import com.poyka.ripdpi.ui.screens.connection.NoExternalProviders
+import com.poyka.ripdpi.ui.screens.diagnostics.state.SilentNetworkHandoverMonitor
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsServices
 import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -647,6 +648,7 @@ class MainActivityContentTest {
                         ),
                     latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
                     networkPathValidationSource = FakeNetworkPathValidationSource(),
+                    networkHandoverMonitor = SilentNetworkHandoverMonitor(),
                 ),
             mainControlPlaneDependencies =
                 MainControlPlaneDependencies(

@@ -50,6 +50,7 @@ internal class HomeCompositeOutcomeFinalizer(
         val reproAction = augmentedOutcome.internetLossReproAction()
         val (synthHeadline, synthSteps) = synthesizeActionableSummary(augmentedOutcome)
         publish(
+            request,
             augmentedOutcome.copy(
                 actionableHeadline = synthHeadline,
                 actionableNextSteps = synthSteps,
@@ -126,20 +127,29 @@ internal class HomeCompositeOutcomeFinalizer(
         )
     }
 
-    private suspend fun publish(outcome: DiagnosticsHomeCompositeOutcome) {
+    private suspend fun publish(
+        request: HomeCompositeFinalizationRequest,
+        outcome: DiagnosticsHomeCompositeOutcome,
+    ) {
         val persistedOutcome = persistencePorts.homeRunPersistence.persistCompletedRun(outcome)
-        runtime.completionOrder.recordCompleted(persistedOutcome)
-        runtime.completedRuns[persistedOutcome.runId] = persistedOutcome
-        cacheOutcome(persistedOutcome)
+        val publishedOutcome =
+            if (persistedOutcome.networkCharacter != null && !request.hasCurrentNetworkScope()) {
+                persistedOutcome.copy(networkCharacter = null)
+            } else {
+                persistedOutcome
+            }
+        runtime.completionOrder.recordCompleted(publishedOutcome)
+        runtime.completedRuns[publishedOutcome.runId] = publishedOutcome
+        cacheOutcome(publishedOutcome)
         runtime.progressState.update { current ->
-            current.updatedRun(persistedOutcome.runId) { progress ->
+            current.updatedRun(publishedOutcome.runId) { progress ->
                 progress.copy(
-                    fingerprintHash = persistedOutcome.fingerprintHash,
+                    fingerprintHash = publishedOutcome.fingerprintHash,
                     status = DiagnosticsHomeCompositeRunStatus.COMPLETED,
                     activeStageIndex = null,
                     activeSessionId = null,
-                    stages = persistedOutcome.stageSummaries,
-                    outcome = persistedOutcome,
+                    stages = publishedOutcome.stageSummaries,
+                    outcome = publishedOutcome,
                 )
             }
         }

@@ -154,6 +154,8 @@
     <string name="status_diagnostics_network_asn">ASN / مزوّد الإنترنت</string>
     <string name="status_diagnostics_network_public_ip">IP العامة</string>
     <string name="status_diagnostics_network_captive_portal">البوابة المقيّدة</string>
+    <string name="status_diagnostics_local_network_sign_in">افتح صفحة تسجيل الدخول إلى الشبكة. أعد تشغيل الفحص بعد تسجيل الدخول.</string>
+    <string name="status_diagnostics_local_network_unvalidated">لم يؤكد نظام Android إمكانية الوصول إلى الإنترنت عبر هذه الشبكة.</string>
     <string name="status_diagnostics_network_ipv6">IPv6</string>
     <string name="status_diagnostics_network_transparent_proxy">وكيل شفاف</string>
     <string name="status_diagnostics_effectiveness_section">فاعلية استراتيجية التجاوز على هذه الشبكة</string>

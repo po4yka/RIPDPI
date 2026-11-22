@@ -54,6 +54,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.connection.ActiveExit
 import com.poyka.ripdpi.ui.screens.connection.NoExternalProviders
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionKindUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.SilentNetworkHandoverMonitor
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigApplyResult
@@ -2500,6 +2501,7 @@ class MainViewModelTest {
                     homeDiagnosticsServices = homeDiagnosticsServices,
                     latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
                     networkPathValidationSource = networkPathValidationSource,
+                    networkHandoverMonitor = SilentNetworkHandoverMonitor(),
                 ),
             mainControlPlaneDependencies =
                 MainControlPlaneDependencies(

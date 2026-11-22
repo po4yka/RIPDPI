@@ -39,6 +39,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.screens.connection.NoExternalProviders
+import com.poyka.ripdpi.ui.screens.diagnostics.state.SilentNetworkHandoverMonitor
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -187,6 +188,7 @@ private fun homeRouteDiagnosticsDependencies(): MainDiagnosticsDependencies =
             ),
         latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
         networkPathValidationSource = FakeNetworkPathValidationSource(),
+        networkHandoverMonitor = SilentNetworkHandoverMonitor(),
     )
 
 private fun homeRouteControlPlaneDependencies(): MainControlPlaneDependencies =

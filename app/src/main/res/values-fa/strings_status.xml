@@ -154,6 +154,8 @@
     <string name="status_diagnostics_network_asn">ASN / ISP</string>
     <string name="status_diagnostics_network_public_ip">IP عمومی</string>
     <string name="status_diagnostics_network_captive_portal">پورتال اسیر</string>
+    <string name="status_diagnostics_local_network_sign_in">صفحه ورود به شبکه را باز کنید. پس از ورود، بررسی را دوباره اجرا کنید.</string>
+    <string name="status_diagnostics_local_network_unvalidated">اندروید دسترسی به اینترنت را در این شبکه تأیید نکرده است.</string>
     <string name="status_diagnostics_network_ipv6">IPv6</string>
     <string name="status_diagnostics_network_transparent_proxy">پراکسی شفاف</string>
     <string name="status_diagnostics_effectiveness_section">اثربخشی راهبرد عبور در این شبکه</string>

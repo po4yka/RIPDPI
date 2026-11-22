@@ -121,6 +121,8 @@
     <string name="status_diagnostics_dns_resolver_doh_unreachable">Endpoints DoH inalcanzables; la ruta DNS puede estar secuestrada.</string>
     <string name="status_diagnostics_dns_section">Resolver DNS</string>
     <string name="status_diagnostics_network_captive_portal">Portal cautivo</string>
+    <string name="status_diagnostics_local_network_sign_in">Abre la página de inicio de sesión de la red. Vuelve a ejecutar la comprobación después de iniciar sesión.</string>
+    <string name="status_diagnostics_local_network_unvalidated">Android no ha confirmado el acceso a Internet en esta red.</string>
     <string name="status_diagnostics_network_section">En esta red</string>
     <string name="status_diagnostics_open_diagnostics_action">Abrir diagnóstico</string>
     <string name="status_diagnostics_regression_summary">Nuevos fallos: %1$d, recuperados: %2$d, sin cambios: %3$d.</string>

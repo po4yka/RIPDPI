@@ -44,6 +44,27 @@ internal fun StringResolver.homeNetworkNote(note: String): String =
         else -> note
     }
 
+internal fun HomeNetworkCharacterSummary.homeLocalNetworkNotice(strings: StringResolver): StatusAnalysisLabeledRow? =
+    when {
+        captivePortalDetected == true -> {
+            StatusAnalysisLabeledRow(
+                strings.getString(R.string.status_network_condition_captive_title),
+                strings.getString(R.string.status_diagnostics_local_network_sign_in),
+            )
+        }
+
+        captivePortalDetected == false && networkValidated == false -> {
+            StatusAnalysisLabeledRow(
+                strings.getString(R.string.diagnostics_scan_network_not_validated),
+                strings.getString(R.string.status_diagnostics_local_network_unvalidated),
+            )
+        }
+
+        else -> {
+            null
+        }
+    }
+
 internal fun HomeNetworkCharacterSummary.homeOperator(strings: StringResolver): String? =
     operatorOrSsid?.let { operator ->
         val code = operator.removePrefix("Carrier ")

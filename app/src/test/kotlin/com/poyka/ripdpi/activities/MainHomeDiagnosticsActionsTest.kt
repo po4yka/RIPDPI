@@ -7,6 +7,8 @@ import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
@@ -17,6 +19,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
+import com.poyka.ripdpi.diagnostics.HomeNetworkCharacterSummary
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
@@ -25,6 +28,7 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
+import com.poyka.ripdpi.ui.screens.diagnostics.state.SilentNetworkHandoverMonitor
 import com.poyka.ripdpi.ui.screens.diagnostics.state.isFullAudit
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
@@ -44,6 +48,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -148,7 +153,7 @@ class MainHomeDiagnosticsActionsTest {
                     requestVpnStart = {},
                 )
 
-            actions.initialize()
+            actions.initialize(SilentNetworkHandoverMonitor())
             advanceUntilIdle()
 
             serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
@@ -310,7 +315,7 @@ class MainHomeDiagnosticsActionsTest {
                     homeDiagnosticsState = homeDiagnosticsState,
                 )
 
-            actions.initialize()
+            actions.initialize(SilentNetworkHandoverMonitor())
             advanceUntilIdle()
 
             serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
@@ -354,7 +359,7 @@ class MainHomeDiagnosticsActionsTest {
                     homeDiagnosticsState = homeDiagnosticsState,
                 )
 
-            actions.initialize()
+            actions.initialize(SilentNetworkHandoverMonitor())
             advanceUntilIdle()
             permissionState.value =
                 permissionState.value.copy(
@@ -789,7 +794,7 @@ class MainHomeDiagnosticsConcurrencyTest {
                     diagnosticsHomeCompositeRunService = compositeRunService,
                     homeDiagnosticsState = homeDiagnosticsState,
                 )
-            actions.initialize()
+            actions.initialize(SilentNetworkHandoverMonitor())
             actions.runFullAnalysis()
             runCurrent()
 
@@ -855,7 +860,7 @@ class MainHomeDiagnosticsConcurrencyTest {
                     diagnosticsHomeCompositeRunService = compositeRunService,
                     homeDiagnosticsState = homeDiagnosticsState,
                 )
-            actions.initialize()
+            actions.initialize(SilentNetworkHandoverMonitor())
             actions.runFullAnalysis()
             runCurrent()
 
@@ -1076,6 +1081,64 @@ class MainHomeDiagnosticsShareFailureTest {
             assertEquals(compositeOutcome().bundleSessionIds, preparation.request.sessionIds)
             assertEquals(compositeOutcome().runId, preparation.request.homeRunId)
             assertEquals(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareArchive, preparation.purpose)
+        }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class MainHomeDiagnosticsNetworkHandoverTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `physical handover clears the completed portal notice without a service status change`() =
+        runTest {
+            val wifi =
+                NetworkFingerprint(
+                    transport = "wifi",
+                    networkValidated = false,
+                    captivePortalDetected = true,
+                    privateDnsMode = "system",
+                    dnsServers = emptyList(),
+                )
+            val lte = wifi.copy(transport = "cellular", networkValidated = true, captivePortalDetected = false)
+            val homeDiagnosticsState =
+                MutableStateFlow(
+                    HomeDiagnosticsRuntimeState(
+                        latestCompositeOutcome =
+                            compositeOutcome(fingerprintHash = wifi.scopeKey()).copy(
+                                networkCharacter =
+                                    HomeNetworkCharacterSummary(captivePortalDetected = true, networkValidated = false),
+                            ),
+                        analysisSheetVisible = true,
+                    ),
+                )
+            val workflow = StubDiagnosticsHomeWorkflowService().apply { currentFingerprint = wifi.scopeKey() }
+            val handovers = SilentNetworkHandoverMonitor()
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    diagnosticsHomeWorkflowService = workflow,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                )
+            val notice = {
+                buildHomeDiagnosticsUiState(
+                    settings = AppSettingsSerializer.defaultValue,
+                    appStatus = AppStatus.Halted,
+                    connectionState = ConnectionState.Disconnected,
+                    runtime = homeDiagnosticsState.value,
+                    stringResolver = FakeStringResolver(),
+                ).analysisSheet?.localNetworkNotice
+            }
+            actions.initialize(handovers)
+            runCurrent()
+            assertNotNull(notice())
+
+            workflow.currentFingerprint = lte.scopeKey()
+            handovers.events.emit(NetworkHandoverEvent(wifi, lte, "transport_switch", occurredAt = 1))
+            runCurrent()
+
+            assertNull(notice())
         }
 }
 

@@ -165,6 +165,8 @@
     <string name="status_diagnostics_effectiveness_section">Эффективность стратегии обхода в этой сети</string>
     <string name="status_diagnostics_network_asn">ASN / ISP</string>
     <string name="status_diagnostics_network_captive_portal">Captive-портал</string>
+    <string name="status_diagnostics_local_network_sign_in">Откройте страницу входа в сеть. После входа запустите проверку снова.</string>
+    <string name="status_diagnostics_local_network_unvalidated">Android не подтвердил доступ в интернет в этой сети.</string>
     <string name="status_diagnostics_network_ipv6">IPv6</string>
     <string name="status_diagnostics_network_operator">Оператор / сеть</string>
     <string name="status_diagnostics_network_public_ip">Публичный IP</string>

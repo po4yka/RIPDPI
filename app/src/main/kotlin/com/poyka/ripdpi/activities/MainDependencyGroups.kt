@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.AppStartupReadiness
 import com.poyka.ripdpi.ReadyAppStartupReadiness
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
+import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.StrategyPackStateStore
@@ -51,6 +52,7 @@ class MainDiagnosticsDependencies
         val homeDiagnosticsServices: StatusDiagnosticsServices,
         val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
         val networkPathValidationSource: NetworkPathValidationSource,
+        val networkHandoverMonitor: NetworkHandoverMonitor,
     )
 
 class MainControlPlaneDependencies

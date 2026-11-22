@@ -99,6 +99,9 @@ private fun RemediationBottomSheet(
             ),
         secondaryAction = StatusAnalysisSecondaryAction(sheet, openDiagnosticsFromSheet),
     ) {
+        sheet.localNetworkNotice?.let { notice ->
+            SettingsRow(title = notice.label, subtitle = notice.value)
+        }
         StatusAnalysisSheetLeadContent(
             sheet = sheet,
             onOpenDiagnostics = onOpenDiagnostics,

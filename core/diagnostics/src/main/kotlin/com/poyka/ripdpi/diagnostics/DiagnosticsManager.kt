@@ -340,6 +340,7 @@ data class HomeNetworkCharacterSummary(
     val mtu: Int? = null,
     val transparentProxyDetected: Boolean? = null,
     val notes: List<String> = emptyList(),
+    val networkValidated: Boolean? = null,
 )
 
 data class HomeStrategyEffectivenessEntry(

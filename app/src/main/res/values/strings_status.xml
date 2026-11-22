@@ -154,6 +154,8 @@
     <string name="status_diagnostics_network_asn">ASN / ISP</string>
     <string name="status_diagnostics_network_public_ip">Public IP</string>
     <string name="status_diagnostics_network_captive_portal">Captive portal</string>
+    <string name="status_diagnostics_local_network_sign_in">Open the network sign-in page. Run the check again after signing in.</string>
+    <string name="status_diagnostics_local_network_unvalidated">Android has not confirmed internet access on this network.</string>
     <string name="status_diagnostics_network_ipv6">IPv6</string>
     <string name="status_diagnostics_network_mtu" translatable="false">MTU</string>
     <string name="status_diagnostics_network_transparent_proxy">Transparent proxy</string>

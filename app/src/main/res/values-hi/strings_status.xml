@@ -153,6 +153,8 @@
     <string name="status_diagnostics_network_asn">ASN / ISP</string>
     <string name="status_diagnostics_network_public_ip">सार्वजनिक IP</string>
     <string name="status_diagnostics_network_captive_portal">कैप्टिव पोर्टल</string>
+    <string name="status_diagnostics_local_network_sign_in">नेटवर्क का साइन-इन पेज खोलें। साइन इन करने के बाद फिर से जाँच चलाएँ।</string>
+    <string name="status_diagnostics_local_network_unvalidated">Android ने इस नेटवर्क पर इंटरनेट की पुष्टि नहीं की है।</string>
     <string name="status_diagnostics_network_ipv6">IPv6</string>
     <string name="status_diagnostics_network_transparent_proxy">पारदर्शी प्रॉक्सी</string>
     <string name="status_diagnostics_effectiveness_section">इस नेटवर्क पर बायपास रणनीति की प्रभावशीलता</string>

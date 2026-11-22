@@ -74,8 +74,6 @@ class DefaultHomeAnalysisAugmentationSource
                             transport = transport,
                             cellularOperatorCode = fingerprint?.cellular?.operatorCode,
                         )
-                    val captivePortal =
-                        capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)
                     val mtu = linkPropertiesMtuOrNull(linkProps)
                     val ipv6Reachable =
                         measureHomeIpv6Reachability(
@@ -95,7 +93,8 @@ class DefaultHomeAnalysisAugmentationSource
                         asn = null,
                         publicIp = null,
                         ipv6Reachable = ipv6Reachable,
-                        captivePortalDetected = captivePortal,
+                        captivePortalDetected = fingerprint?.captivePortalDetected,
+                        networkValidated = fingerprint?.networkValidated,
                         mtu = mtu,
                         transparentProxyDetected = null,
                         notes = notes,

@@ -120,6 +120,8 @@
     <string name="status_diagnostics_dns_resolver_ok">系统解析器与 DoH 基准事实匹配。</string>
     <string name="status_diagnostics_dns_section">DNS 解析器</string>
     <string name="status_diagnostics_network_captive_portal">强制门户</string>
+    <string name="status_diagnostics_local_network_sign_in">打开网络登录页面。登录后重新运行检查。</string>
+    <string name="status_diagnostics_local_network_unvalidated">Android 尚未确认此网络可以访问互联网。</string>
     <string name="status_diagnostics_network_public_ip">公网 IP</string>
     <string name="status_diagnostics_no_settings_applied">未自动应用任何设置。</string>
     <string name="status_diagnostics_regression_recovered_label">新近恢复</string>
