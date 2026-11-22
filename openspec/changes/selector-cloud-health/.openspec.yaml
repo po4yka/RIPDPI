@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-22
+goal: OUT-1795326656806182 Prefer selector probe evidence over cloud down health

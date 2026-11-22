@@ -325,7 +325,7 @@ class SelectorUrltestProberTest {
         }
 
     @Test
-    fun `every member down keeps failover running on all members`() =
+    fun `all members down keeps a working active member without probing a reserve`() =
         runTest {
             val store = ProbeTestSelectionStore()
             store.set("g", "slow")
@@ -334,10 +334,14 @@ class SelectorUrltestProberTest {
                 selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast"))).copy(
                     memberHealth = mapOf("slow" to down, "fast" to down),
                 )
+            val measured = mutableListOf<String>()
             val prober =
                 SelectorUrltestProber(
                     store,
-                    FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)),
+                    MemberLatencyProbe { member, _ ->
+                        measured.add(member.id)
+                        MemberProbeResult(if (member.id == "slow") 300L else 100L)
+                    },
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     wallClockMillis = { 1_000_000L },
                     reserveBudget = ::admitTestPayloadPass,
@@ -345,11 +349,12 @@ class SelectorUrltestProberTest {
 
             prober.runProbePass(group, "https://probe", toleranceMs = 50)
 
-            assertEquals("fast", store.selectedProfileId("g").value)
+            assertEquals(listOf("slow"), measured)
+            assertEquals("slow", store.selectedProfileId("g").value)
         }
 
     @Test
-    fun `direct members all down fail open while a Cloudflare member is up`() =
+    fun `all direct members down admits one direct member while Cloudflare is up`() =
         runTest {
             val store = ProbeTestSelectionStore()
             val down = EndpointHealth(EndpointHealthStatus.DOWN, 1_000_000L, 60)
@@ -357,10 +362,14 @@ class SelectorUrltestProberTest {
                 selectorTestGroup(
                     listOf(selectorTestMember("edge"), selectorTestMember("slow"), selectorTestMember("fast")),
                 ).copy(cloudflareMemberIds = setOf("edge"), memberHealth = mapOf("slow" to down, "fast" to down))
+            val measured = mutableListOf<String>()
             val prober =
                 SelectorUrltestProber(
                     store,
-                    FixedMemberLatencyProbe(mapOf("edge" to 1L, "slow" to 300L, "fast" to 100L)),
+                    MemberLatencyProbe { member, _ ->
+                        measured.add(member.id)
+                        MemberProbeResult(100L)
+                    },
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     wallClockMillis = { 1_000_000L },
                     reserveBudget = ::admitTestPayloadPass,
@@ -368,7 +377,8 @@ class SelectorUrltestProberTest {
 
             prober.runProbePass(group, "https://probe", toleranceMs = 50)
 
-            assertEquals("fast", store.selectedProfileId("g").value)
+            assertEquals(listOf("slow"), measured)
+            assertEquals("slow", store.selectedProfileId("g").value)
         }
 
     @Test
