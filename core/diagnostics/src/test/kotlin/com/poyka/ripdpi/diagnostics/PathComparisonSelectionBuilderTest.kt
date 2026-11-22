@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -22,19 +23,7 @@ class PathComparisonSelectionBuilderTest {
             val stores = FakeDiagnosticsHistoryStores()
             val control = DomainTarget(host = "control.example", isControl = true)
             val failed = DomainTarget(host = "failed.example")
-            stores.profilesState.value = listOf(profile(control, failed))
-            val report = report(control, failed)
-            stores.sessionsState.value = listOf(session(report))
-
-            val selection =
-                buildPathComparisonSelection(
-                    runId = "run",
-                    progressState = progress(report),
-                    diagnosticsProfileCatalog = stores,
-                    scanRecordStore = stores,
-                    json = json,
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
-                )
+            val selection = select(stores, listOf(control, failed), report(control, failed))
 
             assertNotNull(selection)
             val requiredSelection = requireNotNull(selection)
@@ -52,41 +41,93 @@ class PathComparisonSelectionBuilderTest {
             val stores = FakeDiagnosticsHistoryStores()
             val domestic = DomainTarget(host = "ya.ru", isControl = true, controlTier = ControlTier.DOMESTIC)
             val failed = DomainTarget(host = "failed.example")
-            stores.profilesState.value = listOf(profile(domestic, failed))
-            val report = report(domestic, failed)
-            stores.sessionsState.value = listOf(session(report))
-
-            val selection =
-                buildPathComparisonSelection(
-                    runId = "run",
-                    progressState = progress(report),
-                    diagnosticsProfileCatalog = stores,
-                    scanRecordStore = stores,
-                    json = json,
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
-                )
+            val selection = select(stores, listOf(domestic, failed), report(domestic, failed))
 
             // The domestic site answers on the direct path anyway, so it cannot show what the bypass changes.
             assertTrue(selection?.domainTargets.orEmpty().none { it.host == "ya.ru" })
         }
 
-    private fun profile(
-        control: DomainTarget,
-        failed: DomainTarget,
-    ) = DiagnosticProfileEntity(
-        id = "ru-dpi-full",
-        name = "Russia DPI Full",
-        source = "bundled",
-        version = 1,
-        requestJson =
-            diagnosticsProfileRequestJson(
-                json = json,
-                profileId = "ru-dpi-full",
-                displayName = "Russia DPI Full",
-                targets = DiagnosticsProfileTargets(domainTargets = listOf(control, failed)),
-            ),
-        updatedAt = 1L,
-    )
+    @Test
+    fun `a TLS-only control cannot establish an HTTP comparison baseline`() =
+        runTest {
+            val control = DomainTarget(host = "control.example", isControl = true)
+            val failed = DomainTarget(host = "failed.example")
+            val raw =
+                report(control, failed).copy(
+                    observations =
+                        listOf(
+                            successfulHttpObservation(control, HttpProbeStatus.NOT_RUN),
+                            failedObservation(failed),
+                        ),
+                )
+
+            assertNull(select(FakeDiagnosticsHistoryStores(), listOf(control, failed), raw))
+        }
+
+    @Test
+    fun `partial RAW reports cannot seed a path comparison`() =
+        runTest {
+            val control = DomainTarget(host = "control.example", isControl = true)
+            val failed = DomainTarget(host = "failed.example")
+            val raw = report(control, failed).copy(completionKind = ScanCompletionKind.PARTIAL_RESULTS)
+
+            assertNull(select(FakeDiagnosticsHistoryStores(), listOf(control, failed), raw))
+        }
+
+    @Test
+    fun `the working domain keeps its HTTP parameters and takes one existing target slot`() =
+        runTest {
+            val control = DomainTarget(host = "control.example", isControl = true)
+            val working = DomainTarget(host = "working.example", httpPort = 8080, httpPath = "/probe")
+            val failed = List(3) { index -> DomainTarget(host = "failed-$index.example") }
+            val raw =
+                report(control, failed.first()).copy(
+                    observations =
+                        listOf(
+                            successfulHttpObservation(control, HttpProbeStatus.NOT_RUN),
+                            successfulHttpObservation(working),
+                        ) +
+                            failed.map(::failedObservation),
+                )
+            val selection =
+                requireNotNull(select(FakeDiagnosticsHistoryStores(), listOf(control, working) + failed, raw))
+
+            assertEquals(listOf(working) + failed.take(2), selection.domainTargets)
+            assertEquals(listOf("failed-0.example", "failed-1.example"), selection.failedTargetLabels)
+        }
+
+    private suspend fun select(
+        stores: FakeDiagnosticsHistoryStores,
+        targets: List<DomainTarget>,
+        report: ScanReport,
+    ): PathComparisonSelection? {
+        stores.profilesState.value = listOf(profile(targets))
+        stores.sessionsState.value = listOf(session(report))
+        return buildPathComparisonSelection(
+            runId = "run",
+            progressState = progress(report),
+            diagnosticsProfileCatalog = stores,
+            scanRecordStore = stores,
+            json = json,
+            serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+        )
+    }
+
+    private fun profile(targets: List<DomainTarget>) =
+        DiagnosticProfileEntity(
+            id = "ru-dpi-full",
+            name = "Russia DPI Full",
+            source = "bundled",
+            version = 1,
+            requestJson =
+                diagnosticsProfileRequestJson(
+                    json = json,
+                    profileId = "ru-dpi-full",
+                    displayName = "Russia DPI Full",
+                    targets = DiagnosticsProfileTargets(domainTargets = targets),
+                ),
+            updatedAt = 1L,
+        )
 
     private fun report(
         control: DomainTarget,
@@ -98,20 +139,23 @@ class PathComparisonSelectionBuilderTest {
         startedAt = 1L,
         finishedAt = 2L,
         summary = "Control succeeds while target fails",
-        observations = listOf(controlObservation(control), failedObservation(failed)),
+        observations = listOf(successfulHttpObservation(control), failedObservation(failed)),
     )
 
-    private fun controlObservation(control: DomainTarget) =
-        ObservationFact(
-            kind = ObservationKind.DOMAIN,
-            target = control.host,
-            domain =
-                DomainObservationFact(
-                    host = control.host,
-                    tls13Status = TlsProbeStatus.OK,
-                    isControl = true,
-                ),
-        )
+    private fun successfulHttpObservation(
+        target: DomainTarget,
+        httpStatus: HttpProbeStatus = HttpProbeStatus.OK,
+    ) = ObservationFact(
+        kind = ObservationKind.DOMAIN,
+        target = target.host,
+        domain =
+            DomainObservationFact(
+                host = target.host,
+                httpStatus = httpStatus,
+                tls13Status = TlsProbeStatus.OK,
+                isControl = target.isControl,
+            ),
+    )
 
     private fun failedObservation(failed: DomainTarget) =
         ObservationFact(
