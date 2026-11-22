@@ -286,6 +286,7 @@ pub struct ProbeStreamError {
 pub(super) struct EchErrorEvidence {
     pub(super) config_source: Option<EchConfigSource>,
     pub(super) status: Option<EchStatus>,
+    pub(super) rejected: bool,
     pub(super) lookup_failure: Option<super::config::EchLookupFailure>,
     pub(super) initial_attempt: Option<Box<EchInitialAttempt>>,
     pub(super) retry_skipped_reason: Option<&'static str>,
@@ -296,15 +297,18 @@ impl ProbeStreamError {
         self.certificate_anomaly
     }
 
-    /// Classify ECH setup before a handshake independently of connection and TLS failure.
-    pub fn comparison_ech_setup_outcome(&self) -> Option<&'static str> {
+    /// Report the ECH-specific setup or authenticated rejection observed in the comparison.
+    pub fn comparison_ech_failure_outcome(&self) -> Option<&'static str> {
         use super::config::EchLookupFailure;
 
-        let failure = self.ech.as_ref()?.lookup_failure.as_ref()?;
-        Some(match failure {
-            EchLookupFailure::NotPublished => "ech_config_missing",
-            EchLookupFailure::ResolutionFailed(_) | EchLookupFailure::InvalidConfig(_) => "ech_config_error",
-        })
+        let evidence = self.ech.as_ref()?;
+        match evidence.lookup_failure.as_ref() {
+            Some(EchLookupFailure::NotPublished) => Some("ech_config_missing"),
+            Some(EchLookupFailure::ResolutionFailed(_)) => Some("ech_dns_failed"),
+            Some(EchLookupFailure::InvalidConfig(_)) => Some("ech_config_invalid"),
+            None if evidence.rejected => Some("ech_rejected"),
+            None => None,
+        }
     }
 }
 

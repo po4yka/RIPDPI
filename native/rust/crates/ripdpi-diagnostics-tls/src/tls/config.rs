@@ -102,6 +102,7 @@ pub(super) fn build_ech_comparison_control_config(
 
 pub(super) fn resolve_ech_config(
     server_name: &str,
+    port: Option<u16>,
     connected_addr: Option<SocketAddr>,
     transport: &TransportConfig,
     should_abort: &dyn Fn() -> Option<&'static str>,
@@ -113,6 +114,7 @@ pub(super) fn resolve_ech_config(
     let lookup = || {
         resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort(
             server_name,
+            port,
             bootstrap_endpoint,
             transport,
             should_abort,
@@ -133,6 +135,7 @@ fn select_ech_config(
         EchResolutionOutcome::Available(bytes) => return Ok((bytes, EchConfigSource::DnsHttps)),
         EchResolutionOutcome::NotPublished => EchLookupFailure::NotPublished,
         EchResolutionOutcome::ResolutionFailed(error) => EchLookupFailure::ResolutionFailed(error),
+        EchResolutionOutcome::InvalidConfig(error) => EchLookupFailure::InvalidConfig(error),
     };
     let config = connected_addr.and_then(|peer| opportunistic_ech_config_for_ip(peer.ip())).ok_or(failure)?;
     // A fallback cache read must not start a direct lookup on an in-path scan.

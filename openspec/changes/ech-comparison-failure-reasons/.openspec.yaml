@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-22
+goal: DGN-1795351267598237 Preserve ECH comparison failure reasons

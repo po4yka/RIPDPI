@@ -110,7 +110,7 @@ impl EchConfigSource for RemoteEchConfigSource {
                     self.domain, self.resolver_id
                 )));
             }
-            EchResolutionOutcome::ResolutionFailed(error) => {
+            EchResolutionOutcome::ResolutionFailed(error) | EchResolutionOutcome::InvalidConfig(error) => {
                 return Err(EchSourceError::InvalidConfig(format!(
                     "DoH HTTPS-RR query for {} via {} failed: {error}",
                     self.domain, self.resolver_id

@@ -121,6 +121,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                         Box::new(EchErrorEvidence {
                             config_source: err.ech_config_source,
                             status: err.ech_status,
+                            rejected: err.ech_rejected,
                             lookup_failure: err.ech_lookup_failure.map(|failure| *failure),
                             initial_attempt: ech_initial_attempt,
                             retry_skipped_reason: err.ech_retry_skipped_reason,

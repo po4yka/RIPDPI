@@ -44,7 +44,9 @@ private fun echTransferStatusResource(outcome: String?): Int =
     when (outcome) {
         "verified" -> R.string.diagnostics_verified_download_complete
         "ech_config_missing" -> R.string.diagnostics_ech_transfer_config_missing
-        "ech_config_error" -> R.string.diagnostics_dpi_suite_ech_config_unusable
+        "ech_dns_failed" -> R.string.diagnostics_ip_dns_error
+        "ech_config_error", "ech_config_invalid" -> R.string.diagnostics_dpi_suite_ech_config_unusable
+        "ech_rejected" -> R.string.diagnostics_dpi_suite_ech_rejected
         "connection_failed" -> R.string.diagnostics_transfer_stop_setup
         "tls_failed" -> R.string.diagnostics_replay_error_tls_handshake_failed
         "body_timeout" -> R.string.diagnostics_ech_transfer_body_timeout
