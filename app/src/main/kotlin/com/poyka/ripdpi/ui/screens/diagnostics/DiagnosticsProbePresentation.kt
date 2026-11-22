@@ -35,7 +35,7 @@ internal fun diagnosticProbeTitleResource(type: String): Int =
 
 @StringRes
 internal fun diagnosticProbeOutcomeResource(probe: DiagnosticsProbeResultUiModel): Int =
-    verifiedDownloadOutcomeResource(probe.outcome) ?: when (probe.outcome) {
+    verifiedTransferOutcomeResource(probe.outcome) ?: when (probe.outcome) {
         "matrix_available" -> {
             R.string.diagnostics_matrix_available
         }
@@ -96,16 +96,51 @@ internal fun diagnosticProbeOutcomeResource(probe: DiagnosticsProbeResultUiModel
     }
 
 @StringRes
-private fun verifiedDownloadOutcomeResource(outcome: String): Int? =
+private fun verifiedTransferOutcomeResource(outcome: String): Int? =
     when (outcome) {
-        "verified_download_complete" -> R.string.diagnostics_verified_download_complete
-        "verified_download_timeout" -> R.string.diagnostics_verified_download_timeout
-        "verified_download_early_eof" -> R.string.diagnostics_verified_download_early_eof
-        "verified_download_hash_mismatch" -> R.string.diagnostics_verified_download_hash_mismatch
-        "verified_download_size_mismatch" -> R.string.diagnostics_verified_download_size_mismatch
-        "verified_download_failed" -> R.string.diagnostics_stages_failed
-        "verified_download_inconclusive" -> R.string.diagnostics_matrix_inconclusive
-        else -> null
+        "verified_download_complete" -> {
+            R.string.diagnostics_verified_download_complete
+        }
+
+        "verified_download_timeout" -> {
+            R.string.diagnostics_verified_download_timeout
+        }
+
+        "verified_download_early_eof" -> {
+            R.string.diagnostics_verified_download_early_eof
+        }
+
+        "verified_upload_complete" -> {
+            R.string.diagnostics_verified_upload_complete
+        }
+
+        "verified_upload_timeout" -> {
+            R.string.diagnostics_verified_upload_timeout
+        }
+
+        "verified_upload_early_eof" -> {
+            R.string.diagnostics_verified_upload_early_eof
+        }
+
+        "verified_download_hash_mismatch", "verified_upload_hash_mismatch" -> {
+            R.string.diagnostics_verified_download_hash_mismatch
+        }
+
+        "verified_download_size_mismatch", "verified_upload_size_mismatch" -> {
+            R.string.diagnostics_verified_download_size_mismatch
+        }
+
+        "verified_download_failed", "verified_upload_failed" -> {
+            R.string.diagnostics_stages_failed
+        }
+
+        "verified_download_inconclusive", "verified_upload_inconclusive" -> {
+            R.string.diagnostics_matrix_inconclusive
+        }
+
+        else -> {
+            null
+        }
     }
 
 @Composable
@@ -119,7 +154,9 @@ internal fun diagnosticProbeTitle(
         probe.http3.title
     } else if (probe.ipFamily != null) {
         stringResource(R.string.diagnostics_ip_title)
-    } else if (verifiedDownloadOutcomeResource(probe.outcome) != null) {
+    } else if (probe.outcome.startsWith("verified_upload_")) {
+        stringResource(R.string.diagnostics_verified_upload_title)
+    } else if (probe.outcome.startsWith("verified_download_")) {
         stringResource(R.string.diagnostics_verified_download_title)
     } else if (expertMode) {
         probe.probeType
@@ -136,7 +173,7 @@ internal fun diagnosticProbeOutcome(
         ?.fields
         ?.firstOrNull()
         ?.value
-        ?: verifiedDownloadOutcomeResource(probe.outcome)?.let { stringResource(it) }
+        ?: verifiedTransferOutcomeResource(probe.outcome)?.let { stringResource(it) }
         ?: if (expertMode) probe.outcome else stringResource(diagnosticProbeOutcomeResource(probe))
 
 internal fun formatDiagnosticsProbeEvidence(probe: DiagnosticsProbeResultUiModel): String =

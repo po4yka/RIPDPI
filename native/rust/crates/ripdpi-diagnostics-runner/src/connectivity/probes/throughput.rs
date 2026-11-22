@@ -2,7 +2,7 @@ use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{ProbeDetail, ProbeResult, ThroughputTarget};
 
-use super::super::endpoint::measure_throughput_run;
+use super::super::endpoint::{measure_throughput_run, run_verified_upload};
 use crate::types::{TransferEvidence, TransferMeasurement};
 use rustls::client::danger::ServerCertVerifier;
 use std::sync::{
@@ -10,9 +10,13 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
+#[cfg(test)]
+mod https_fixture;
 mod verified_download;
 #[cfg(test)]
 mod verified_download_tests;
+#[cfg(test)]
+mod verified_upload_tests;
 
 pub fn run_throughput_probe(
     target: &ThroughputTarget,
@@ -30,6 +34,9 @@ pub fn run_throughput_probe_with_progress(
     cancel: &AtomicBool,
     progress: &mut dyn FnMut(&TransferMeasurement),
 ) -> ProbeResult {
+    if target.upload_body_bytes.is_some() {
+        return run_verified_upload(target, transport, key_log, tls_verifier, cancel);
+    }
     if target.verification.is_some() {
         return verified_download::run(target, transport, key_log, tls_verifier, cancel, progress);
     }
@@ -223,6 +230,7 @@ mod tests {
     #[test]
     fn throughput_failure_details_include_stage_and_protocol_context() {
         let target = ThroughputTarget {
+            upload_body_bytes: None,
             verification: None,
             id: "bad-url".to_string(),
             label: "Bad URL".to_string(),
@@ -330,6 +338,7 @@ mod tests {
 
     fn local_target(port: u16, window_bytes: usize, runs: usize) -> ThroughputTarget {
         ThroughputTarget {
+            upload_body_bytes: None,
             verification: None,
             id: "body-completion".into(),
             label: "Body completion".into(),

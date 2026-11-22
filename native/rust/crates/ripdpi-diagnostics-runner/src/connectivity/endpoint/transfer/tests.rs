@@ -53,7 +53,7 @@ fn verified_transfer_requests_only_the_bounded_plaintext_body() {
     let deadline = Instant::now() + Duration::from_secs(1);
     let mut reader = TransferReader::new(&mut source, &cancel, deadline, Duration::from_secs(1));
     let window = 3;
-    reader.limit_header_read_ahead(window);
+    reader.limit_read_ahead(window);
     let headers = reader.headers(&mut tracker).expect("headers");
     assert_eq!(reader.body(&mut tracker, &headers, window), Ok("window_limit"));
     assert_eq!(tracker.measurement.received_body_byte_count, 3);

@@ -210,6 +210,11 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         "pub(in crate::connectivity) fn measure_throughput_run",
     );
     tokens.extend(quoted_outcome_tokens(&download).into_iter().filter(|token| token.starts_with("verified_download_")));
+    let upload = function_body(
+        &repo.join("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/endpoint/verified_upload.rs"),
+        "pub(in crate::connectivity) fn run_verified_upload",
+    );
+    tokens.extend(quoted_outcome_tokens(&upload).into_iter().filter(|token| token.starts_with("verified_upload_")));
     tokens.extend(quoted_outcome_tokens(&section(
         &repo.join("native/rust/crates/ripdpi-failure-classifier/src/types.rs"),
         "impl FailureClass",

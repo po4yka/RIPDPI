@@ -2083,4 +2083,11 @@
     <string name="diagnostics_verified_download_early_eof">پاسخ زودتر از موعد پایان یافت</string>
     <string name="diagnostics_verified_download_hash_mismatch">SHA-256 مطابقت ندارد</string>
     <string name="diagnostics_verified_download_size_mismatch">اندازه مطابقت ندارد</string>
+    <string name="diagnostics_verified_upload_title">بارگذاری HTTPS تأییدشده</string>
+    <string name="diagnostics_verified_upload_description">داده‌های آزمایشی تولیدشده را به سرور HTTPS خود بفرستید و رسید آن را بررسی کنید.</string>
+    <string name="diagnostics_verified_upload_bytes">اندازهٔ بارگذاری به بایت</string>
+    <string name="diagnostics_verified_upload_input_error">یک نشانی HTTPS بدون اطلاعات ورود، پارامتر پرس‌وجو یا قطعه و اندازه‌ای از ۱ تا ۱٬۰۴۸٬۵۷۶ بایت وارد کنید.</string>
+    <string name="diagnostics_verified_upload_complete">سرور دریافت را تأیید کرد</string>
+    <string name="diagnostics_verified_upload_timeout">مهلت بارگذاری تمام شد</string>
+    <string name="diagnostics_verified_upload_early_eof">رسید سرور ناقص بود</string>
 </resources>

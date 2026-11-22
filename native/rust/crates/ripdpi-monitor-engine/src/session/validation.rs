@@ -127,6 +127,7 @@ mod tests {
             is_control: false,
             window_bytes: 3,
             runs: 1,
+            upload_body_bytes: None,
             verification: Some(DownloadVerification {
                 expected_body_bytes: 2,
                 sha256: "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df".into(),
@@ -153,9 +154,52 @@ mod tests {
     }
 
     #[test]
+    fn verified_upload_requires_its_profile_and_a_single_bounded_target() {
+        use crate::types::{MAX_VERIFIED_UPLOAD_BYTES, VERIFIED_UPLOAD_PROFILE_ID};
+        let mut specimen = request();
+        let target = ThroughputTarget {
+            id: VERIFIED_UPLOAD_PROFILE_ID.into(),
+            label: "Verified HTTPS upload".into(),
+            url: "https://example.test/upload".into(),
+            connect_ip: None,
+            connect_ips: Vec::new(),
+            port: None,
+            is_control: false,
+            window_bytes: MAX_VERIFIED_UPLOAD_BYTES,
+            runs: 1,
+            verification: None,
+            upload_body_bytes: Some(MAX_VERIFIED_UPLOAD_BYTES),
+        };
+        specimen.throughput_targets.push(target.clone());
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.profile_id = VERIFIED_UPLOAD_PROFILE_ID.into();
+        assert!(validate_scan_request(&specimen).is_ok());
+
+        for invalid in [
+            ThroughputTarget { url: "http://example.test/upload".into(), ..target.clone() },
+            ThroughputTarget { url: "https://example.test/upload?key=bad".into(), ..target.clone() },
+            ThroughputTarget { connect_ip: Some("192.0.2.1".into()), ..target.clone() },
+            ThroughputTarget { runs: 2, ..target.clone() },
+            ThroughputTarget { window_bytes: 1, ..target.clone() },
+            ThroughputTarget { upload_body_bytes: None, ..target.clone() },
+            ThroughputTarget {
+                window_bytes: MAX_VERIFIED_UPLOAD_BYTES + 1,
+                upload_body_bytes: Some(MAX_VERIFIED_UPLOAD_BYTES + 1),
+                ..target.clone()
+            },
+        ] {
+            specimen.throughput_targets[0] = invalid;
+            assert!(validate_scan_request(&specimen).is_err());
+        }
+        specimen.throughput_targets = vec![target.clone(), target];
+        assert!(validate_scan_request(&specimen).is_err());
+    }
+
+    #[test]
     fn rejects_unbounded_throughput_work() {
         let mut request = request();
         request.throughput_targets.push(ThroughputTarget {
+            upload_body_bytes: None,
             verification: None,
             id: "throughput".to_string(),
             label: "Throughput".to_string(),

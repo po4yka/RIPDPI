@@ -61,14 +61,7 @@ impl<'a> TransferTracker<'a> {
             return false;
         };
         let digest = context.finish();
-        let bytes = digest.as_ref();
-        const HEX: &[u8; 16] = b"0123456789abcdef";
-        let (pairs, remainder) = expected.as_bytes().as_chunks::<2>();
-        remainder.is_empty()
-            && pairs.len() == bytes.len()
-            && bytes.iter().zip(pairs).all(|(&byte, pair)| {
-                [HEX[usize::from(byte >> 4)], HEX[usize::from(byte & 15)]].eq_ignore_ascii_case(pair)
-            })
+        matches_hex_digest(digest.as_ref(), expected)
     }
 
     fn elapsed_ms(&self) -> u64 {
@@ -147,6 +140,17 @@ impl<'a> TransferTracker<'a> {
     }
 }
 
+pub(super) fn matches_hex_digest(bytes: &[u8], expected: &str) -> bool {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let (pairs, remainder) = expected.as_bytes().as_chunks::<2>();
+    remainder.is_empty()
+        && pairs.len() == bytes.len()
+        && bytes
+            .iter()
+            .zip(pairs)
+            .all(|(&byte, pair)| [HEX[usize::from(byte >> 4)], HEX[usize::from(byte & 15)]].eq_ignore_ascii_case(pair))
+}
+
 pub(super) fn interruption(cancel: &AtomicBool, deadline: Instant) -> Option<&'static str> {
     if cancel.load(Ordering::Acquire) {
         Some("cancelled")
@@ -164,7 +168,7 @@ pub(super) struct TransferReader<'a, R> {
     idle_timeout: Duration,
     last_activity: Instant,
     buffer: [u8; 8192],
-    header_read_limit: usize,
+    strict_window: Option<usize>,
     position: usize,
     filled: usize,
 }
@@ -178,14 +182,14 @@ impl<'a, R: Read> TransferReader<'a, R> {
             idle_timeout,
             last_activity: Instant::now(),
             buffer: [0; 8192],
-            header_read_limit: 8192,
+            strict_window: None,
             position: 0,
             filled: 0,
         }
     }
 
-    pub(super) fn limit_header_read_ahead(&mut self, bytes: usize) {
-        self.header_read_limit = bytes;
+    pub(super) fn limit_read_ahead(&mut self, bytes: usize) {
+        self.strict_window = Some(bytes);
     }
 
     fn fill(&mut self, tracker: &mut TransferTracker<'_>, max_read: usize) -> Result<bool, &'static str> {
@@ -227,7 +231,7 @@ impl<'a, R: Read> TransferReader<'a, R> {
     }
 
     fn byte(&mut self, tracker: &mut TransferTracker<'_>) -> Result<u8, &'static str> {
-        if !self.fill(tracker, self.header_read_limit)? {
+        if !self.fill(tracker, self.strict_window.unwrap_or(self.buffer.len()))? {
             return Err("early_eof");
         }
         let byte = self.buffer[self.position];
@@ -268,8 +272,8 @@ impl<'a, R: Read> TransferReader<'a, R> {
                 .map_err(|reason| if reason == "response_truncated" { "early_eof" } else { reason })?
             {
                 HttpResponseEvent::NeedInput => {
-                    let max_read = if tracker.verifies_body() {
-                        window.saturating_sub(tracker.measurement.received_body_byte_count as usize)
+                    let max_read = if let Some(limit) = self.strict_window {
+                        limit.saturating_sub(tracker.measurement.received_body_byte_count as usize)
                     } else {
                         self.buffer.len()
                     };

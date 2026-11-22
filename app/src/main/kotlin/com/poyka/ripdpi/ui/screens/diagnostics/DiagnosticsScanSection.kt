@@ -27,6 +27,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
+import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -209,6 +210,15 @@ internal fun ScanSection(
                     input = scan.verifiedDownloadInput,
                     enabled = !effectiveBusy,
                     onInputChanged = manualProbeInput.onVerifiedDownloadChanged,
+                )
+            }
+        }
+        if (selectedProfile?.id == VerifiedUploadProfileId) {
+            item(key = "verified-upload-input") {
+                VerifiedUploadInputCard(
+                    input = scan.verifiedUploadInput,
+                    enabled = !effectiveBusy,
+                    onInputChanged = manualProbeInput.onVerifiedUploadChanged,
                 )
             }
         }

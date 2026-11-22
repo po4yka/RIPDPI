@@ -2083,4 +2083,11 @@
     <string name="diagnostics_verified_download_early_eof">Antwort endete vorzeitig</string>
     <string name="diagnostics_verified_download_hash_mismatch">SHA-256 stimmt nicht überein</string>
     <string name="diagnostics_verified_download_size_mismatch">Größe stimmt nicht überein</string>
+    <string name="diagnostics_verified_upload_title">Verifizierter HTTPS-Upload</string>
+    <string name="diagnostics_verified_upload_description">Sende erzeugte Testdaten an deinen HTTPS-Server und prüfe seine Empfangsbestätigung.</string>
+    <string name="diagnostics_verified_upload_bytes">Upload-Größe in Byte</string>
+    <string name="diagnostics_verified_upload_input_error">Gib eine HTTPS-URL ohne Zugangsdaten, Abfrageparameter oder Fragment und eine Größe von 1 bis 1.048.576 Byte ein.</string>
+    <string name="diagnostics_verified_upload_complete">Server hat den Empfang bestätigt</string>
+    <string name="diagnostics_verified_upload_timeout">Zeitüberschreitung beim Upload</string>
+    <string name="diagnostics_verified_upload_early_eof">Empfangsbestätigung wurde abgeschnitten</string>
 </resources>

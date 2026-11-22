@@ -14,6 +14,8 @@ import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
+import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
+import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.ui.screens.diagnostics.toScopeLabel
 import com.poyka.ripdpi.ui.screens.onboarding.isBusy
@@ -24,6 +26,7 @@ internal data class BuildScanUiModelParams(
     val tlsHopComparisonInput: TlsHopComparisonConfig = TlsHopComparisonConfig(),
     val quicVersionMatrixInput: QuicVersionMatrixConfig = QuicVersionMatrixConfig(),
     val verifiedDownloadInput: VerifiedDownloadInput = VerifiedDownloadInput(),
+    val verifiedUploadInput: VerifiedUploadInput = VerifiedUploadInput(),
     val profiles: List<DiagnosticProfile>,
     val omittedProfileCount: Int = 0,
     val activeProfile: DiagnosticProfile?,
@@ -61,6 +64,7 @@ private fun BuildScanUiModelParams.manualInputValid(
         TlsHopComparisonProfileId -> tlsHopComparisonInput.isValid()
         QuicVersionMatrixProfileId -> quicVersionMatrixInput.isValid()
         VerifiedDownloadProfileId -> verifiedDownloadInput.isValid()
+        VerifiedUploadProfileId -> verifiedUploadInput.isValid()
         else -> true
     }
 
@@ -93,15 +97,12 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         tlsHopComparisonInput = params.tlsHopComparisonInput,
         quicVersionMatrixInput = params.quicVersionMatrixInput,
         verifiedDownloadInput = params.verifiedDownloadInput,
+        verifiedUploadInput = params.verifiedUploadInput,
         selectiveMatrixTargets = params.activeProfileRequest.matrixTargetRows(),
         profiles = params.profiles.map(::toProfileOptionUiModel).toImmutableList(),
         selectedProfileId = params.activeProfile?.id,
         selectedProfile = selectedProfile,
-        activePathMode =
-            params.runningSession?.pathMode?.let(::parsePathMode)
-                ?: params.activeScanPathMode
-                ?: params.latestProfileSession?.pathMode?.let(::parsePathMode)
-                ?: ScanPathMode.RAW_PATH,
+        activePathMode = displayedPathMode(params),
         activeProgress = activeProgress,
         latestSession = params.latestProfileSession?.let(::toSessionRowUiModel),
         diagnoses =
@@ -144,6 +145,12 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         isBusy = params.progress != null,
     )
 }
+
+private fun DiagnosticsUiFactorySupport.displayedPathMode(params: BuildScanUiModelParams): ScanPathMode =
+    params.runningSession?.pathMode?.let(::parsePathMode)
+        ?: params.activeScanPathMode
+        ?: params.latestProfileSession?.pathMode?.let(::parsePathMode)
+        ?: ScanPathMode.RAW_PATH
 
 private fun DiagnosticsUiFactorySupport.buildRawScanHint(
     strategyProbeSelected: Boolean,

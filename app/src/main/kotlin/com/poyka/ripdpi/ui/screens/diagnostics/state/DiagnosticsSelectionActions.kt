@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
+import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -19,6 +20,7 @@ data class DiagnosticsManualProbeInputActions(
     val onTlsHopComparisonChanged: (TlsHopComparisonConfig) -> Unit = {},
     val onQuicVersionMatrixChanged: (QuicVersionMatrixConfig) -> Unit = {},
     val onVerifiedDownloadChanged: (VerifiedDownloadInput) -> Unit = {},
+    val onVerifiedUploadChanged: (VerifiedUploadInput) -> Unit = {},
 )
 
 internal class DiagnosticsSelectionActions(
@@ -74,6 +76,7 @@ internal class DiagnosticsSelectionActions(
             onTlsHopComparisonChanged = ::updateTlsHopComparison,
             onQuicVersionMatrixChanged = ::updateQuicVersionMatrix,
             onVerifiedDownloadChanged = ::updateVerifiedDownload,
+            onVerifiedUploadChanged = ::updateVerifiedUpload,
         )
 
     fun updateTlsHopComparison(input: TlsHopComparisonConfig) {
@@ -105,6 +108,15 @@ internal class DiagnosticsSelectionActions(
             return
         }
         selection.update { it.copy(verifiedDownloadInput = input) }
+    }
+
+    private fun updateVerifiedUpload(input: VerifiedUploadInput) {
+        if (mutations.diagnosticsTimelineSource.activeScanProgress.value != null ||
+            mutations.diagnosticsScanController.hasActiveHomeRun()
+        ) {
+            return
+        }
+        selection.update { it.copy(verifiedUploadInput = input) }
     }
 
     fun selectProfile(profileId: String) {

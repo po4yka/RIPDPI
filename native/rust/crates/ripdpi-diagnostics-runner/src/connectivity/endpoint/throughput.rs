@@ -51,8 +51,7 @@ pub(in crate::connectivity) fn measure_throughput_run(
     if target.verification.is_some() {
         tracker.verify_body();
     }
-    let deadline = (tracker.started + Duration::from_secs(30))
-        .min(active_scan_io_deadline().unwrap_or(tracker.started + Duration::from_secs(30)));
+    let deadline = transfer_deadline(tracker.started);
     let (mut sample, reason) = with_scan_io_deadline(Some(deadline), || {
         measure_run(target, transport, key_log, tls_verifier, cancel, deadline, &mut tracker)
     });
@@ -79,6 +78,11 @@ pub(in crate::connectivity) fn measure_throughput_run(
     sample.body_goodput_bps = tracker.body_goodput_bps();
     sample.measurement = Some(tracker.measurement);
     sample
+}
+
+pub(super) fn transfer_deadline(started: Instant) -> Instant {
+    let limit = started + Duration::from_secs(30);
+    active_scan_io_deadline().map_or(limit, |deadline| limit.min(deadline))
 }
 
 fn measure_run(
@@ -150,13 +154,10 @@ fn measure_run(
         sample.error = error.to_string();
         return (sample, "setup_error");
     }
-    let mut authority = if parsed.host.contains(':') { format!("[{}]", parsed.host) } else { parsed.host.clone() };
-    if parsed.port != if parsed.secure { 443 } else { 80 } {
-        authority.push_str(&format!(":{}", parsed.port));
-    }
     let request = format!(
         "GET {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n",
-        parsed.path, authority
+        parsed.path,
+        parsed.authority()
     );
     if let Some(reason) = interruption(cancel, deadline) {
         stream.shutdown();
@@ -180,10 +181,10 @@ fn read_response(
     tracker: &mut TransferTracker<'_>,
     sample: &mut ThroughputSample,
 ) -> &'static str {
-    let mut bounded_stream = BoundedTransferStream { stream, deadline };
+    let mut bounded_stream = BoundedTransferStream::new(stream, deadline);
     let mut reader = TransferReader::new(&mut bounded_stream, cancel, deadline, IO_TIMEOUT);
     if tracker.verifies_body() {
-        reader.limit_header_read_ahead(window);
+        reader.limit_read_ahead(window);
     }
     sample.failure_stage = "response_headers".to_string();
     let (headers, mut response) = match response_headers(&mut reader, tracker) {
@@ -245,9 +246,15 @@ fn read_response(
 }
 
 /// Recheck the deadline between TLS records, including records with no application data.
-struct BoundedTransferStream<'a> {
+pub(super) struct BoundedTransferStream<'a> {
     stream: &'a mut ConnectionStream,
     deadline: Instant,
+}
+
+impl<'a> BoundedTransferStream<'a> {
+    pub(super) fn new(stream: &'a mut ConnectionStream, deadline: Instant) -> Self {
+        Self { stream, deadline }
+    }
 }
 
 impl Read for BoundedTransferStream<'_> {
@@ -279,7 +286,7 @@ impl Read for BoundedTransferStream<'_> {
     }
 }
 
-fn response_headers<R: std::io::Read>(
+pub(super) fn response_headers<R: std::io::Read>(
     reader: &mut TransferReader<'_, R>,
     tracker: &mut TransferTracker<'_>,
 ) -> Result<(Vec<u8>, ripdpi_diagnostics_http::http::HttpResponse), &'static str> {

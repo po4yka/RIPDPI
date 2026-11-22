@@ -7,6 +7,7 @@ mod tcp_tls_endpoint;
 mod throughput;
 mod transfer;
 mod types;
+mod verified_upload;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
@@ -20,6 +21,7 @@ use crate::connectivity::adapters::transport::TransportConfig;
 pub(super) use quic_endpoint::run_quic_endpoint_probe;
 pub(super) use tcp_tls_endpoint::run_endpoint_probe;
 pub(super) use throughput::measure_throughput_run;
+pub(super) use verified_upload::run_verified_upload;
 
 pub(super) fn probe_http_url(
     url: &str,

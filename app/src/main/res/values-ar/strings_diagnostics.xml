@@ -2250,4 +2250,11 @@
     <string name="diagnostics_verified_download_early_eof">انتهت الاستجابة مبكرًا</string>
     <string name="diagnostics_verified_download_hash_mismatch">بصمة SHA-256 غير مطابقة</string>
     <string name="diagnostics_verified_download_size_mismatch">الحجم غير مطابق</string>
+    <string name="diagnostics_verified_upload_title">رفع HTTPS متحقق منه</string>
+    <string name="diagnostics_verified_upload_description">أرسل بيانات اختبار مُولّدة إلى خادم HTTPS الخاص بك وتحقق من إيصال الاستلام.</string>
+    <string name="diagnostics_verified_upload_bytes">حجم الرفع بالبايت</string>
+    <string name="diagnostics_verified_upload_input_error">أدخل عنوان HTTPS بلا بيانات اعتماد أو استعلام أو جزء، وحجمًا من ١ إلى ١٬٠٤٨٬٥٧٦ بايت.</string>
+    <string name="diagnostics_verified_upload_complete">أكّد الخادم الاستلام</string>
+    <string name="diagnostics_verified_upload_timeout">انتهت مهلة الرفع</string>
+    <string name="diagnostics_verified_upload_early_eof">إيصال الخادم غير مكتمل</string>
 </resources>

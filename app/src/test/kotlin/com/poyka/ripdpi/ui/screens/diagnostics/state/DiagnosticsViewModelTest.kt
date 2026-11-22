@@ -48,6 +48,8 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
+import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
+import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
@@ -935,6 +937,73 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
             assertEquals(1, starts)
             assertEquals(valid, manager.scanController.lastScanTargetOverrides?.verifiedDownload)
+            collector.cancel()
+        }
+
+    @Test
+    fun `upload starts only with its own valid HTTPS endpoint and size`() =
+        runTest {
+            val profileId = VerifiedUploadProfileId
+            val title = "Verified HTTPS upload"
+            var starts = 0
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = profileId,
+                                name = title,
+                                source = "bundled",
+                                version = 1,
+                                requestJson = profileRequest(profileId, title, manualOnly = true),
+                                updatedAt = 1L,
+                            ),
+                        )
+                    scanController.onStartScan = { pathMode, selectedProfile ->
+                        assertEquals(ScanPathMode.IN_PATH, pathMode)
+                        assertEquals(profileId, selectedProfile)
+                        starts++
+                        DiagnosticsManualScanStartResult.Started("verified-upload")
+                    }
+                }
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+            viewModel.selectionActions.selectProfile(profileId)
+            advanceUntilIdle()
+            val input = viewModel.selectionActions.manualProbeInput
+            input.onVerifiedDownloadChanged(VerifiedDownloadInput("https://download.example/body", "3", "a".repeat(64)))
+
+            val valid = VerifiedUploadInput("https://upload.example/check", "1048576")
+            listOf(
+                VerifiedUploadInput(),
+                valid.copy(url = "http://upload.example/check"),
+                valid.copy(bodyBytes = "1048577"),
+            ).forEach { invalid ->
+                input.onVerifiedUploadChanged(invalid)
+                advanceUntilIdle()
+                assertFalse(viewModel.uiState.value.scan.runRawEnabled)
+                assertFalse(viewModel.uiState.value.scan.runInPathEnabled)
+                viewModel.scanActions.startInPathScan()
+                advanceUntilIdle()
+                assertEquals(0, starts)
+            }
+
+            input.onVerifiedUploadChanged(valid)
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.scan.runRawEnabled)
+            assertTrue(viewModel.uiState.value.scan.runInPathEnabled)
+            viewModel.scanActions.startInPathScan()
+            advanceUntilIdle()
+            assertEquals(1, starts)
+            assertEquals(valid, manager.scanController.lastScanTargetOverrides?.verifiedUpload)
+            assertNull(manager.scanController.lastScanTargetOverrides?.verifiedDownload)
             collector.cancel()
         }
 

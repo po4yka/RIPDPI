@@ -213,6 +213,8 @@ pub struct ThroughputTarget {
     pub runs: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification: Option<DownloadVerification>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_body_bytes: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -222,8 +224,31 @@ pub struct DownloadVerification {
     pub sha256: String,
 }
 
+#[derive(Deserialize)]
+pub struct VerifiedUploadReceipt {
+    pub bytes: u64,
+    pub sha256: String,
+}
+
+impl VerifiedUploadReceipt {
+    pub const MAX_BYTES: usize = 512;
+
+    pub fn from_json(body: &[u8]) -> Result<Self, &'static str> {
+        if body.len() > Self::MAX_BYTES {
+            return Err("receipt_too_large");
+        }
+        let receipt: Self = serde_json::from_slice(body).map_err(|_| "invalid_receipt")?;
+        if receipt.sha256.len() != 64 || !receipt.sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err("invalid_receipt");
+        }
+        Ok(receipt)
+    }
+}
+
 pub const VERIFIED_DOWNLOAD_PROFILE_ID: &str = "verified-https-download";
+pub const VERIFIED_UPLOAD_PROFILE_ID: &str = "verified-https-upload";
 pub const MAX_VERIFIED_DOWNLOAD_BYTES: usize = 1024 * 1024;
+pub const MAX_VERIFIED_UPLOAD_BYTES: usize = 1024 * 1024;
 
 impl ThroughputTarget {
     /// Validate the verification request before any socket is opened.
@@ -231,19 +256,7 @@ impl ThroughputTarget {
         let Some(expected) = &self.verification else {
             return Ok(());
         };
-        let Some(url) = self.url.strip_prefix("https://") else {
-            return Err("verified download requires HTTPS");
-        };
-        let authority = url.split('/').next().unwrap_or_default();
-        if authority.is_empty()
-            || authority.contains('@')
-            || self.url.len() > 2048
-            || self.url.contains(['?', '#', '\\'])
-            || self.url.bytes().any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
-            || self.connect_ip.is_some()
-            || !self.connect_ips.is_empty()
-            || self.port.is_some()
-        {
+        if !self.has_verified_https_endpoint() {
             return Err("invalid verified download URL");
         }
         if !(1..=MAX_VERIFIED_DOWNLOAD_BYTES).contains(&expected.expected_body_bytes)
@@ -256,6 +269,39 @@ impl ThroughputTarget {
             return Err("verified download requires a SHA-256 digest");
         }
         Ok(())
+    }
+
+    /// Validate the upload request before any socket is opened.
+    pub fn validate_upload(&self) -> Result<(), &'static str> {
+        let Some(bytes) = self.upload_body_bytes else {
+            return Ok(());
+        };
+        if !self.has_verified_https_endpoint() {
+            return Err("invalid verified upload URL");
+        }
+        if !(1..=MAX_VERIFIED_UPLOAD_BYTES).contains(&bytes)
+            || self.window_bytes != bytes
+            || self.runs != 1
+            || self.verification.is_some()
+        {
+            return Err("invalid verified upload size, run count, or mode");
+        }
+        Ok(())
+    }
+
+    fn has_verified_https_endpoint(&self) -> bool {
+        let Some(url) = self.url.strip_prefix("https://") else {
+            return false;
+        };
+        let authority = url.split('/').next().unwrap_or_default();
+        !authority.is_empty()
+            && !authority.contains('@')
+            && self.url.len() <= 2048
+            && !self.url.contains(['?', '#', '\\'])
+            && !self.url.bytes().any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
+            && self.connect_ip.is_none()
+            && self.connect_ips.is_empty()
+            && self.port.is_none()
     }
 }
 

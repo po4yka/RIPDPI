@@ -2099,4 +2099,11 @@
     <string name="diagnostics_verified_download_early_eof">La respuesta terminó antes de tiempo</string>
     <string name="diagnostics_verified_download_hash_mismatch">El SHA-256 no coincide</string>
     <string name="diagnostics_verified_download_size_mismatch">El tamaño no coincide</string>
+    <string name="diagnostics_verified_upload_title">Subida HTTPS verificada</string>
+    <string name="diagnostics_verified_upload_description">Envía datos de prueba generados a tu servidor HTTPS y verifica su confirmación de recepción.</string>
+    <string name="diagnostics_verified_upload_bytes">Tamaño de subida en bytes</string>
+    <string name="diagnostics_verified_upload_input_error">Introduce una URL HTTPS sin credenciales, consulta ni fragmento, y un tamaño de 1 a 1 048 576 bytes.</string>
+    <string name="diagnostics_verified_upload_complete">El servidor confirmó la recepción</string>
+    <string name="diagnostics_verified_upload_timeout">Se agotó el tiempo de espera de la subida</string>
+    <string name="diagnostics_verified_upload_early_eof">La confirmación de recepción quedó incompleta</string>
 </resources>

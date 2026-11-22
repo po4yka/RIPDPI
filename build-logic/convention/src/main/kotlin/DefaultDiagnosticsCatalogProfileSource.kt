@@ -19,6 +19,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             tlsHopComparisonProfile(),
             quicVersionMatrixProfile(),
             verifiedHttpsDownloadProfile(),
+            verifiedHttpsUploadProfile(),
             automaticProbingProfile(index),
             automaticAuditProfile(index),
             dpiDetectorFullProfile(),

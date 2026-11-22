@@ -1099,11 +1099,13 @@ pub ripdpi_diagnostics_contracts::types::ThroughputTarget::is_control: bool
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::label: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::runs: usize
+pub ripdpi_diagnostics_contracts::types::ThroughputTarget::upload_body_bytes: core::option::Option<usize>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::url: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::verification: core::option::Option<ripdpi_diagnostics_contracts::types::DownloadVerification>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::window_bytes: usize
 impl ripdpi_diagnostics_contracts::types::ThroughputTarget
 pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::validate_download(&self) -> core::result::Result<(), &'static str>
+pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::validate_upload(&self) -> core::result::Result<(), &'static str>
 pub struct ripdpi_diagnostics_contracts::types::TlsHopAttempt
 pub ripdpi_diagnostics_contracts::types::TlsHopAttempt::elapsed_ms: u64
 pub ripdpi_diagnostics_contracts::types::TlsHopAttempt::outcome: alloc::string::String
@@ -1164,12 +1166,20 @@ pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::preferred
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::reason_code: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::selected_relay_role: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::viability: ripdpi_diagnostics_contracts::types::TransportPivotViability
+pub struct ripdpi_diagnostics_contracts::types::VerifiedUploadReceipt
+pub ripdpi_diagnostics_contracts::types::VerifiedUploadReceipt::bytes: u64
+pub ripdpi_diagnostics_contracts::types::VerifiedUploadReceipt::sha256: alloc::string::String
+impl ripdpi_diagnostics_contracts::types::VerifiedUploadReceipt
+pub const ripdpi_diagnostics_contracts::types::VerifiedUploadReceipt::MAX_BYTES: usize
+pub fn ripdpi_diagnostics_contracts::types::VerifiedUploadReceipt::from_json(&[u8]) -> core::result::Result<Self, &'static str>
 pub const ripdpi_diagnostics_contracts::types::CLIENT_FIELD_REPORT_CONTRACT_VERSION: u32
 pub const ripdpi_diagnostics_contracts::types::CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str
 pub const ripdpi_diagnostics_contracts::types::EXECUTION_PLAN_VERSION: &str
 pub const ripdpi_diagnostics_contracts::types::MAX_VERIFIED_DOWNLOAD_BYTES: usize
+pub const ripdpi_diagnostics_contracts::types::MAX_VERIFIED_UPLOAD_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::STRATEGY_PROBE_METHODOLOGY_VERSION: &str
 pub const ripdpi_diagnostics_contracts::types::VERIFIED_DOWNLOAD_PROFILE_ID: &str
+pub const ripdpi_diagnostics_contracts::types::VERIFIED_UPLOAD_PROFILE_ID: &str
 pub mod ripdpi_diagnostics_contracts::util
 pub enum ripdpi_diagnostics_contracts::util::DnsAnswerOverlap
 pub ripdpi_diagnostics_contracts::util::DnsAnswerOverlap::CompatibleDivergence
@@ -2223,11 +2233,13 @@ pub ripdpi_diagnostics_contracts::ThroughputTarget::is_control: bool
 pub ripdpi_diagnostics_contracts::ThroughputTarget::label: alloc::string::String
 pub ripdpi_diagnostics_contracts::ThroughputTarget::port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::runs: usize
+pub ripdpi_diagnostics_contracts::ThroughputTarget::upload_body_bytes: core::option::Option<usize>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::url: alloc::string::String
 pub ripdpi_diagnostics_contracts::ThroughputTarget::verification: core::option::Option<ripdpi_diagnostics_contracts::types::DownloadVerification>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::window_bytes: usize
 impl ripdpi_diagnostics_contracts::types::ThroughputTarget
 pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::validate_download(&self) -> core::result::Result<(), &'static str>
+pub fn ripdpi_diagnostics_contracts::types::ThroughputTarget::validate_upload(&self) -> core::result::Result<(), &'static str>
 pub struct ripdpi_diagnostics_contracts::TlsHopAttempt
 pub ripdpi_diagnostics_contracts::TlsHopAttempt::elapsed_ms: u64
 pub ripdpi_diagnostics_contracts::TlsHopAttempt::outcome: alloc::string::String

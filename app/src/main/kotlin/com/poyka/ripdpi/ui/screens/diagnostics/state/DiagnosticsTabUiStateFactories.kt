@@ -50,6 +50,7 @@ internal class DiagnosticsScanUiStateFactory
                     tlsHopComparisonInput = input.tlsHopComparisonInput,
                     quicVersionMatrixInput = input.quicVersionMatrixInput,
                     verifiedDownloadInput = input.verifiedDownloadInput,
+                    verifiedUploadInput = input.verifiedUploadInput,
                     profiles = resolvedInput.visibleProfiles,
                     omittedProfileCount = resolvedInput.omittedProfileCount,
                     activeProfile = resolvedInput.activeProfile,

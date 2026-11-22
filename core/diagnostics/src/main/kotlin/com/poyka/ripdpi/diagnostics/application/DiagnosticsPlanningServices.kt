@@ -212,15 +212,7 @@ internal class DefaultDiagnosticsPlanner
                     )
                 }
             val quicTargets = planQuicTargets(intent, context)
-            val throughputTargets =
-                intent.throughputTargets.map { target ->
-                    target.hostFromUrl()?.takeIf { target.verification == null }?.let { host ->
-                        target.withPreferredEdges(
-                            context.preferredEdges[host.lowercase()].orEmpty(),
-                            PreferredEdgeTransportThroughput,
-                        )
-                    } ?: target
-                }
+            val throughputTargets = intent.throughputTargets.map { it.withPreferredEdges(context) }
             val probeTasks =
                 buildList {
                     intent.http3Probe?.let {
@@ -391,11 +383,13 @@ private fun QuicTarget.withPreferredEdges(
     return copy(connectIps = ordered, connectIp = ordered.firstOrNull() ?: connectIp)
 }
 
-private fun ThroughputTarget.withPreferredEdges(
-    edges: List<com.poyka.ripdpi.data.PreferredEdgeCandidate>,
-    transportKind: String,
-): ThroughputTarget {
-    val ordered = edges.filter { it.transportKind == transportKind }.map { it.ip }
+private fun ThroughputTarget.withPreferredEdges(context: ScanContext): ThroughputTarget {
+    val host = hostFromUrl()?.lowercase()?.takeIf { verification == null && uploadBodyBytes == null } ?: return this
+    val ordered =
+        context.preferredEdges[host]
+            .orEmpty()
+            .filter { it.transportKind == PreferredEdgeTransportThroughput }
+            .map { it.ip }
     return copy(connectIps = ordered, connectIp = ordered.firstOrNull() ?: connectIp)
 }
 

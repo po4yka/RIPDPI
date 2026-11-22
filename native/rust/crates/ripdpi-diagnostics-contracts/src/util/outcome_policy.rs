@@ -164,14 +164,23 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             _ => legacy_outcome_bucket(outcome),
         },
         "throughput_window" => match outcome {
-            "throughput_measured" | "verified_download_complete" => ProbeOutcomeBucket::Healthy,
-            "throughput_inconclusive" | "verified_download_inconclusive" => ProbeOutcomeBucket::Inconclusive,
+            "throughput_measured" | "verified_download_complete" | "verified_upload_complete" => {
+                ProbeOutcomeBucket::Healthy
+            }
+            "throughput_inconclusive" | "verified_download_inconclusive" | "verified_upload_inconclusive" => {
+                ProbeOutcomeBucket::Inconclusive
+            }
             "throughput_failed"
             | "verified_download_timeout"
             | "verified_download_early_eof"
             | "verified_download_hash_mismatch"
             | "verified_download_size_mismatch"
-            | "verified_download_failed" => ProbeOutcomeBucket::Failed,
+            | "verified_download_failed"
+            | "verified_upload_timeout"
+            | "verified_upload_early_eof"
+            | "verified_upload_hash_mismatch"
+            | "verified_upload_size_mismatch"
+            | "verified_upload_failed" => ProbeOutcomeBucket::Failed,
             _ => legacy_outcome_bucket(outcome),
         },
         "strategy_http" => match outcome {

@@ -2097,4 +2097,11 @@
     <string name="diagnostics_verified_download_early_eof">A resposta terminou antes da hora</string>
     <string name="diagnostics_verified_download_hash_mismatch">O SHA-256 não corresponde</string>
     <string name="diagnostics_verified_download_size_mismatch">O tamanho não corresponde</string>
+    <string name="diagnostics_verified_upload_title">Envio HTTPS verificado</string>
+    <string name="diagnostics_verified_upload_description">Envie dados de teste gerados ao seu servidor HTTPS e verifique a confirmação de recebimento.</string>
+    <string name="diagnostics_verified_upload_bytes">Tamanho do envio em bytes</string>
+    <string name="diagnostics_verified_upload_input_error">Digite um URL HTTPS sem credenciais, consulta ou fragmento e um tamanho de 1 a 1.048.576 bytes.</string>
+    <string name="diagnostics_verified_upload_complete">O servidor confirmou o recebimento</string>
+    <string name="diagnostics_verified_upload_timeout">O tempo limite do envio expirou</string>
+    <string name="diagnostics_verified_upload_early_eof">A confirmação de recebimento está incompleta</string>
 </resources>

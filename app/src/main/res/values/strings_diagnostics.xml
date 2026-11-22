@@ -2110,4 +2110,11 @@
     <string name="diagnostics_verified_download_early_eof">Response ended early</string>
     <string name="diagnostics_verified_download_hash_mismatch">SHA-256 mismatch</string>
     <string name="diagnostics_verified_download_size_mismatch">Size mismatch</string>
+    <string name="diagnostics_verified_upload_title">Verified HTTPS upload</string>
+    <string name="diagnostics_verified_upload_description">Send generated test data to your HTTPS server and verify its receipt.</string>
+    <string name="diagnostics_verified_upload_bytes">Upload size in bytes</string>
+    <string name="diagnostics_verified_upload_input_error">Enter an HTTPS URL without credentials, a query, or a fragment, and a size from 1 to 1,048,576 bytes.</string>
+    <string name="diagnostics_verified_upload_complete">Server confirmed receipt</string>
+    <string name="diagnostics_verified_upload_timeout">Upload timed out</string>
+    <string name="diagnostics_verified_upload_early_eof">Server receipt was cut short</string>
 </resources>

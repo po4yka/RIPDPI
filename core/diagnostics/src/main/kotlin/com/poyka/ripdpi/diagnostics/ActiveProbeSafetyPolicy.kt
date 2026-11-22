@@ -92,7 +92,7 @@ data class ActiveProbeSafetyPolicy(
             }
             matrix.validate()
         }
-        validateVerifiedDownloadAdmission(intent, scanOrigin, isManual)
+        validateVerifiedTransferAdmission(intent, scanOrigin, isManual)
         if (intent.strategyProbe == null) return intent
         val limits = targetLimits(scanOrigin, isManual)
         val distinctDomains = intent.domainTargets.distinctBy(DomainTarget::host)
@@ -176,14 +176,27 @@ data class ActiveProbeSafetyPolicy(
     )
 }
 
-private fun validateVerifiedDownloadAdmission(
+private fun validateVerifiedTransferAdmission(
     intent: DiagnosticsIntent,
     scanOrigin: DiagnosticsScanOrigin,
     isManual: Boolean,
 ) {
-    if (intent.throughputTargets.any { it.verification != null }) {
-        require(intent.profileId == VerifiedDownloadProfileId)
-        require(isManual && scanOrigin == DiagnosticsScanOrigin.USER_INITIATED)
-        require(intent.throughputTargets.singleOrNull()?.isValidVerifiedDownload() == true)
-    }
+    val target = intent.throughputTargets.singleOrNull()
+    val validTarget =
+        when (intent.profileId) {
+            VerifiedDownloadProfileId -> {
+                target?.isValidVerifiedDownload() == true
+            }
+
+            VerifiedUploadProfileId -> {
+                target?.isValidVerifiedUpload() == true
+            }
+
+            else -> {
+                require(intent.throughputTargets.none { it.verification != null || it.uploadBodyBytes != null })
+                return
+            }
+        }
+    require(validTarget && intent.kind == ScanKind.CONNECTIVITY)
+    require(isManual && scanOrigin == DiagnosticsScanOrigin.USER_INITIATED)
 }

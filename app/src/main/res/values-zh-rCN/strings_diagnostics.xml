@@ -2041,4 +2041,11 @@
     <string name="diagnostics_verified_download_early_eof">响应提前结束</string>
     <string name="diagnostics_verified_download_hash_mismatch">SHA-256 不匹配</string>
     <string name="diagnostics_verified_download_size_mismatch">大小不匹配</string>
+    <string name="diagnostics_verified_upload_title">HTTPS 上传验证</string>
+    <string name="diagnostics_verified_upload_description">向您的 HTTPS 服务器发送生成的测试数据，并验证服务器回执。</string>
+    <string name="diagnostics_verified_upload_bytes">上传大小（字节）</string>
+    <string name="diagnostics_verified_upload_input_error">请输入不含凭据、查询参数或片段的 HTTPS 网址，以及 1 到 1,048,576 字节之间的大小。</string>
+    <string name="diagnostics_verified_upload_complete">服务器已确认收到数据</string>
+    <string name="diagnostics_verified_upload_timeout">上传超时</string>
+    <string name="diagnostics_verified_upload_early_eof">服务器回执不完整</string>
 </resources>

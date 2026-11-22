@@ -52,3 +52,10 @@ pub(super) struct ParsedHttpTarget {
     pub(super) secure: bool,
     pub(super) connect_targets: Vec<TargetAddress>,
 }
+
+impl ParsedHttpTarget {
+    pub(super) fn authority(&self) -> String {
+        let host = if self.host.contains(':') { format!("[{}]", self.host) } else { self.host.clone() };
+        if self.port == if self.secure { 443 } else { 80 } { host } else { format!("{host}:{}", self.port) }
+    }
+}

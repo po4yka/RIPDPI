@@ -521,6 +521,34 @@
       }
     },
     {
+      "id": "verified-https-upload",
+      "name": "Verified HTTPS upload",
+      "version": 1,
+      "request": {
+        "profileId": "verified-https-upload",
+        "displayName": "Verified HTTPS upload",
+        "kind": "CONNECTIVITY",
+        "family": "WEB_CONNECTIVITY",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": []
+      }
+    },
+    {
       "id": "automatic-probing",
       "name": "Automatic probing",
       "version": 8,

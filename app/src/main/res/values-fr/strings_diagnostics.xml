@@ -2099,4 +2099,11 @@
     <string name="diagnostics_verified_download_early_eof">Réponse terminée prématurément</string>
     <string name="diagnostics_verified_download_hash_mismatch">SHA-256 différent</string>
     <string name="diagnostics_verified_download_size_mismatch">Taille différente</string>
+    <string name="diagnostics_verified_upload_title">Envoi HTTPS vérifié</string>
+    <string name="diagnostics_verified_upload_description">Envoyez des données de test générées à votre serveur HTTPS et vérifiez son accusé de réception.</string>
+    <string name="diagnostics_verified_upload_bytes">Taille de l’envoi en octets</string>
+    <string name="diagnostics_verified_upload_input_error">Saisissez une URL HTTPS sans identifiants, paramètres ou fragment et une taille de 1 à 1 048 576 octets.</string>
+    <string name="diagnostics_verified_upload_complete">Le serveur a confirmé la réception</string>
+    <string name="diagnostics_verified_upload_timeout">Le délai d’envoi a expiré</string>
+    <string name="diagnostics_verified_upload_early_eof">L’accusé de réception est incomplet</string>
 </resources>
