@@ -339,10 +339,7 @@ class ComparisonScanCoordinator
                 when (kind) {
                     ObservationKind.DOMAIN -> {
                         domain?.let { fact ->
-                            val result =
-                                report.results.firstOrNull {
-                                    it.probeType == "domain_reachability" && it.target == fact.host
-                                }
+                            val result = report.domainResult(fact.host)
                             val normalized =
                                 result?.let {
                                     DiagnosticsOutcomeTaxonomy
@@ -356,7 +353,11 @@ class ComparisonScanCoordinator
                                 ControlTier.fromWireName(
                                     result?.details?.firstOrNull { it.key == "controlTier" }?.value,
                                 )
-                            domainTargetOutcome(fact, normalized).copy(controlTier = tier?.takeIf { fact.isControl })
+                            domainTargetOutcome(
+                                fact,
+                                normalized,
+                                result,
+                            ).copy(controlTier = tier?.takeIf { fact.isControl })
                         }
                     }
 
@@ -462,15 +463,17 @@ private fun merge(
 private fun domainTargetOutcome(
     fact: DomainObservationFact,
     normalized: DiagnosticsOutcomeBucket?,
+    result: ProbeResult?,
 ): TargetOutcome {
+    val http = fact.httpComparisonBucket(result)
     val components =
         mapOf(
-            "http" to fact.httpStatus.bucket(),
+            "http" to http,
             "tls13" to fact.tls13Status.bucket(),
             "tls12" to fact.tls12Status.bucket(),
             "ech" to fact.tlsEchStatus.bucket(),
         ).measuredComponents()
-    val bucket =
+    val domainBucket =
         normalized ?: when {
             fact.certificateAnomaly || fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
                 fact.tls12Status == TlsProbeStatus.CERT_INVALID -> DiagnosticsOutcomeBucket.Failed
@@ -482,8 +485,35 @@ private fun domainTargetOutcome(
 
             else -> DiagnosticsOutcomeBucket.Inconclusive
         }
+    val bucket =
+        when {
+            fact.isControl && http == DiagnosticsOutcomeBucket.Healthy -> http
+
+            http == DiagnosticsOutcomeBucket.Failed && result?.detailValue("httpStatus") == "http_unreachable" -> http
+
+            domainBucket == DiagnosticsOutcomeBucket.Healthy &&
+                (fact.isControl || http == DiagnosticsOutcomeBucket.Failed) -> http
+
+            else -> domainBucket
+        }
     return TargetOutcome(fact.host, fact.isControl, bucket, components)
 }
+
+internal fun ScanReport.domainResult(host: String): ProbeResult? =
+    results.firstOrNull { it.probeType == "domain_reachability" && it.target == host }
+
+internal fun DomainObservationFact.httpComparisonBucket(result: ProbeResult?): DiagnosticsOutcomeBucket =
+    if (
+        httpStatus == HttpProbeStatus.UNREACHABLE &&
+        (
+            result?.detailValue("httpStatus")?.startsWith("http_status_") == true ||
+                result?.detailValue("httpResponse") in setOf("response_too_large", "unsupported_content_encoding")
+        )
+    ) {
+        DiagnosticsOutcomeBucket.Attention
+    } else {
+        httpStatus.bucket()
+    }
 
 private fun ObservationFact.endpointTargetOutcome(report: ScanReport): TargetOutcome? {
     val isService = kind == ObservationKind.SERVICE

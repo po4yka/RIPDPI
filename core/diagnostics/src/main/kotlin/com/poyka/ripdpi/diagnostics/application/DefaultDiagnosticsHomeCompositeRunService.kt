@@ -563,7 +563,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
                 current.copy(
                     summary =
-                        "Comparing ${selection.domainTargets.size} domain controls/failures and " +
+                        "Comparing ${selection.domainTargets.size} domain targets and " +
                             "${selection.serviceTargets.size + selection.circumventionTargets.size}" +
                             " service targets in path.",
                 )

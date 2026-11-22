@@ -147,6 +147,57 @@ class ComparisonScanEvidenceTest {
     }
 
     @Test
+    fun `HTTP body timeout is comparable when only one TLS version works`() {
+        val host = "example.com"
+        val raw = minimalReport(observations = listOf(domainObservation(host, httpStatus = HttpProbeStatus.OK)))
+        val observation =
+            domainObservation(host, httpStatus = HttpProbeStatus.UNREACHABLE, tls13Status = TlsProbeStatus.OK)
+        val timedOut =
+            ProbeResult(
+                "domain_reachability",
+                host,
+                "tls_version_split",
+                listOf(
+                    ProbeDetail("httpStatus", "http_unreachable"),
+                    ProbeDetail("httpResponse", "operation timed out"),
+                ),
+            )
+        val inPath =
+            minimalReport(
+                results = listOf(timedOut),
+                observations = listOf(observation),
+            ).copy(pathMode = ScanPathMode.IN_PATH)
+
+        assertEquals(ConnectivityAssessmentCode.VPN_PATH_REGRESSION, assessmentFor(raw, inPath).assessmentCode)
+    }
+
+    @Test
+    fun `a local HTTP response cap or a server error does not imply a VPN regression`() {
+        val host = "example.com"
+        val raw = minimalReport(observations = listOf(domainObservation(host, httpStatus = HttpProbeStatus.OK)))
+        val observation =
+            domainObservation(host, httpStatus = HttpProbeStatus.UNREACHABLE, tls13Status = TlsProbeStatus.OK)
+        val outcomes =
+            listOf(
+                listOf(
+                    ProbeDetail("httpStatus", "http_unreachable"),
+                    ProbeDetail("httpResponse", "response_too_large"),
+                ),
+                listOf(ProbeDetail("httpStatus", "http_status_503"), ProbeDetail("httpResponse", "503 Unavailable")),
+            )
+        outcomes.forEach { details ->
+            val result = ProbeResult("domain_reachability", host, "tls_ok", details)
+            val inPath =
+                minimalReport(
+                    results = listOf(result),
+                    observations = listOf(observation),
+                ).copy(pathMode = ScanPathMode.IN_PATH)
+
+            assertEquals(ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE, assessmentFor(raw, inPath).assessmentCode)
+        }
+    }
+
+    @Test
     fun `service media regression is preserved when bootstrap still works`() {
         fun report(media: HttpProbeStatus) =
             minimalReport(

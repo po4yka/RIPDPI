@@ -235,7 +235,13 @@ private fun pathComparisonEvidenceReport(
             ObservationFact(
                 kind = ObservationKind.DOMAIN,
                 target = control.host,
-                domain = DomainObservationFact(host = control.host, tls13Status = TlsProbeStatus.OK, isControl = true),
+                domain =
+                    DomainObservationFact(
+                        host = control.host,
+                        httpStatus = HttpProbeStatus.OK,
+                        tls13Status = TlsProbeStatus.OK,
+                        isControl = true,
+                    ),
             ),
             ObservationFact(
                 kind = ObservationKind.DOMAIN,

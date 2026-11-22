@@ -52,6 +52,23 @@ class HomeCompositeVpnRuntimePathComparisonTest {
             assertEquals(7L, passiveVpn.passiveVpnRouteEvidence?.vpnRouteEvidence?.lifecycleGeneration)
             assertEquals(HomeCompositeTargetReachability.UNVERIFIED, passiveVpn.targetReachability)
         }
+
+    @Test
+    fun `home compares a target with a complete RAW response and reports its VPN body stall`() =
+        runTest {
+            val fixture = vpnPathComparisonFixture(backgroundScope, targetWorksOnRaw = true)
+
+            val run = fixture.service.startHomeAnalysis()
+            advanceUntilIdle()
+            val outcome = fixture.service.finalizeHomeRun(run.runId)
+
+            assertEquals(
+                DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                outcome.stageSummaries.single { it.stageKey == "path_comparison" }.status,
+            )
+            assertEquals(ConnectivityAssessmentCode.VPN_PATH_REGRESSION, outcome.connectivityAssessment?.assessmentCode)
+            assertEquals(listOf("affected.example"), outcome.connectivityAssessment?.inPathEvidence?.affectedTargets)
+        }
 }
 
 private data class VpnPathComparisonFixture(
@@ -63,7 +80,8 @@ private class VpnPathScanController(
     private val stores: FakeDiagnosticsHistoryStores,
     private val json: Json,
     private val control: DomainTarget,
-    private val failed: DomainTarget,
+    private val affected: DomainTarget,
+    private val targetWorksOnRaw: Boolean,
 ) : DiagnosticsScanController {
     override val hiddenAutomaticProbeActive = MutableStateFlow(false)
     var inPathStarts = 0
@@ -84,17 +102,31 @@ private class VpnPathScanController(
         val sessionId = "scan-$nextSessionId"
         val profileId = requireNotNull(selectedProfileId)
         val report =
-            if (profileId == "ru-dpi-full") {
-                vpnPathComparisonEvidenceReport(sessionId, control, failed)
-            } else {
-                ScanReport(
-                    sessionId = sessionId,
-                    profileId = profileId,
-                    pathMode = pathMode,
-                    startedAt = 10L,
-                    finishedAt = 20L,
-                    summary = "$profileId complete",
-                )
+            when (profileId) {
+                "ru-dpi-full" -> {
+                    val rawStatus = if (targetWorksOnRaw) HttpProbeStatus.OK else HttpProbeStatus.UNREACHABLE
+                    vpnPathComparisonEvidenceReport(
+                        sessionId,
+                        profileId,
+                        pathMode,
+                        listOf(control, affected),
+                        rawStatus,
+                    )
+                }
+
+                "path-comparison" -> {
+                    vpnPathComparisonEvidenceReport(
+                        sessionId,
+                        profileId,
+                        pathMode,
+                        requireNotNull(targetOverrides).domainTargets.orEmpty(),
+                        HttpProbeStatus.UNREACHABLE,
+                    )
+                }
+
+                else -> {
+                    ScanReport(sessionId, profileId, pathMode, 10L, 20L, "$profileId complete")
+                }
             }
         stores.sessionsState.value =
             stores.sessionsState.value +
@@ -121,14 +153,17 @@ private class VpnPathScanController(
     override suspend fun setActiveProfile(profileId: String) = Unit
 }
 
-private fun vpnPathComparisonFixture(scope: CoroutineScope): VpnPathComparisonFixture {
+private fun vpnPathComparisonFixture(
+    scope: CoroutineScope,
+    targetWorksOnRaw: Boolean = false,
+): VpnPathComparisonFixture {
     val json = diagnosticsTestJson()
     val stores = FakeDiagnosticsHistoryStores()
     val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
     val control = DomainTarget(host = "control.example", isControl = true)
-    val failed = DomainTarget(host = "failed.example")
-    stores.profilesState.value = listOf(vpnPathProfile(json, control, failed))
-    val scanController = VpnPathScanController(stores, json, control, failed)
+    val affected = DomainTarget(host = "affected.example")
+    stores.profilesState.value = listOf(vpnPathProfile(json, control, affected))
+    val scanController = VpnPathScanController(stores, json, control, affected, targetWorksOnRaw)
     val timelineSource = vpnPathTimelineSource(stores, json, scope)
     val service =
         createVpnPathCompositeService(
@@ -303,29 +338,49 @@ private fun FakeDiagnosticsHistoryStores.publishRawPathSettlementContext(
 
 private fun vpnPathComparisonEvidenceReport(
     sessionId: String,
-    control: DomainTarget,
-    failed: DomainTarget,
-) = ScanReport(
-    sessionId = sessionId,
-    profileId = "ru-dpi-full",
-    pathMode = ScanPathMode.IN_PATH,
-    startedAt = 10L,
-    finishedAt = 20L,
-    summary = "Control succeeds while target fails",
-    observations =
-        listOf(
+    profileId: String,
+    pathMode: ScanPathMode,
+    targets: List<DomainTarget>,
+    affectedStatus: HttpProbeStatus,
+): ScanReport {
+    val observations =
+        targets.map { target ->
             ObservationFact(
                 kind = ObservationKind.DOMAIN,
-                target = control.host,
-                domain = DomainObservationFact(host = control.host, tls13Status = TlsProbeStatus.OK, isControl = true),
-            ),
-            ObservationFact(
-                kind = ObservationKind.DOMAIN,
-                target = failed.host,
-                domain = DomainObservationFact(host = failed.host, transportFailure = TransportFailureKind.RESET),
-            ),
-        ),
-)
+                target = target.host,
+                domain =
+                    DomainObservationFact(
+                        host = target.host,
+                        httpStatus = if (target.isControl) HttpProbeStatus.OK else affectedStatus,
+                        tls13Status = TlsProbeStatus.OK,
+                        tls12Status = TlsProbeStatus.OK,
+                        isControl = target.isControl,
+                    ),
+            )
+        }
+    return ScanReport(
+        sessionId = sessionId,
+        profileId = profileId,
+        pathMode = pathMode,
+        startedAt = 10L,
+        finishedAt = 20L,
+        summary = "Domain reachability",
+        results =
+            observations.map { observation ->
+                val httpOk = observation.domain?.httpStatus == HttpProbeStatus.OK
+                ProbeResult(
+                    "domain_reachability",
+                    observation.target,
+                    "tls_ok",
+                    listOf(
+                        ProbeDetail("httpStatus", if (httpOk) "http_ok" else "http_unreachable"),
+                        ProbeDetail("httpResponse", if (httpOk) "200 OK server=fixture" else "operation timed out"),
+                    ),
+                )
+            },
+        observations = observations,
+    )
+}
 
 private fun Json.encodeVpnPathReport(report: ScanReport): String =
     encodeToString(EngineScanReportWire.serializer(), report.toEngineScanReportWire())

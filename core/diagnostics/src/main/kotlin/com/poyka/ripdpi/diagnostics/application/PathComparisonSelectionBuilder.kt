@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.Json
 
 private const val MaxControlsForComparison = 2
-private const val MaxFailedDomainsForComparison = 3
+private const val MaxDomainsForComparison = 3
 private const val MaxFailedServicesForComparison = 2
 
 internal data class PathComparisonSelection(
@@ -20,7 +20,7 @@ internal data class PathComparisonSelection(
 )
 
 private data class ComparisonTargetCatalogs(
-    val domainCatalog: Map<String, DomainTarget>,
+    val domainCatalog: Map<Pair<String, String>, DomainTarget>,
     val serviceCatalog: Map<String, ServiceTarget>,
     val circumventionCatalog: Map<String, CircumventionTarget>,
 )
@@ -38,51 +38,38 @@ private suspend fun buildTargetCatalogs(
                 }
             }.toMap()
     return ComparisonTargetCatalogs(
-        domainCatalog = profileSpecs.values.flatMap { it.domainTargets }.associateBy { it.host.lowercase() },
+        domainCatalog =
+            profileSpecs
+                .flatMap { (profileId, spec) ->
+                    spec.domainTargets.map { target -> (profileId to target.host.lowercase()) to target }
+                }.toMap(),
         serviceCatalog = profileSpecs.values.flatMap { it.serviceTargets }.associateBy { it.id.lowercase() },
         circumventionCatalog =
             profileSpecs.values.flatMap { it.circumventionTargets }.associateBy { it.id.lowercase() },
     )
 }
 
-private fun collectControls(
-    reports: List<Pair<HomeCompositeStageSpec, ScanReport>>,
-    domainCatalog: Map<String, DomainTarget>,
-): List<DomainTarget> =
-    reports
-        .flatMap { (_, report) -> report.observations }
-        .mapNotNull { observation ->
-            observation.domain
-                ?.takeIf { it.isControl && domainObservationSuccessful(it) }
-                ?.host
-        }.distinct()
-        .map { host -> domainCatalog[host.lowercase()] ?: DomainTarget(host = host, isControl = true) }
-        // A domestic control answers without any bypass, so it cannot show what the in-path route changes.
-        .filter { it.controlTier != ControlTier.DOMESTIC }
-        .take(MaxControlsForComparison)
-
-private fun collectFailedDomains(
-    reports: List<Pair<HomeCompositeStageSpec, ScanReport>>,
-    domainCatalog: Map<String, DomainTarget>,
-): List<DomainTarget> =
-    reports
-        .flatMap { (_, report) -> report.observations }
-        .mapNotNull { observation ->
-            observation.domain
-                ?.takeIf { !it.isControl && domainObservationFailed(it) }
-                ?.host
-        }.distinct()
-        .map { host ->
-            domainCatalog[host.lowercase()]?.copy(isControl = false, controlTier = null) ?: DomainTarget(host = host)
-        }.take(MaxFailedDomainsForComparison)
+private fun matchingDomainTargets(
+    reports: List<ScanReport>,
+    domainCatalog: Map<Pair<String, String>, DomainTarget>,
+    matches: (DomainObservationFact, DiagnosticsOutcomeBucket) -> Boolean,
+): Sequence<DomainTarget> =
+    reports.asSequence().flatMap { report ->
+        report.observations.asSequence().mapNotNull { observation ->
+            val fact = observation.domain ?: return@mapNotNull null
+            val http = fact.httpComparisonBucket(report.domainResult(fact.host))
+            domainCatalog[report.profileId to fact.host.lowercase()]
+                ?.takeIf { it.isControl == fact.isControl && matches(fact, http) }
+        }
+    }
 
 private fun collectFailedServices(
-    reports: List<Pair<HomeCompositeStageSpec, ScanReport>>,
+    reports: List<ScanReport>,
     serviceCatalog: Map<String, ServiceTarget>,
     circumventionCatalog: Map<String, CircumventionTarget>,
 ): List<Any> =
     reports
-        .flatMap { (_, report) -> report.observations }
+        .flatMap(ScanReport::observations)
         .mapNotNull { observation ->
             when {
                 observation.service?.let(::serviceObservationFailed) == true -> {
@@ -105,22 +92,31 @@ private fun collectFailedServices(
             }
         }.take(MaxFailedServicesForComparison)
 
-private fun hasNoActionableTargets(
-    failedDomains: List<DomainTarget>,
-    serviceTargets: List<ServiceTarget>,
-    circumventionTargets: List<CircumventionTarget>,
-    serviceRuntime: ConnectivityServiceRuntimeAssessment,
-): Boolean =
-    failedDomains.isEmpty() && serviceTargets.isEmpty() &&
-        circumventionTargets.isEmpty() && !serviceRuntime.actionable
-
-private suspend fun buildSelectionFromControls(
-    controls: List<DomainTarget>,
-    reports: List<Pair<HomeCompositeStageSpec, ScanReport>>,
+private fun buildPathSelection(
+    reports: List<ScanReport>,
     catalogs: ComparisonTargetCatalogs,
     serviceStateStore: ServiceStateStore,
 ): PathComparisonSelection? {
-    val failedDomains = collectFailedDomains(reports, catalogs.domainCatalog)
+    val workingDomains =
+        matchingDomainTargets(reports, catalogs.domainCatalog) { _, http -> http == DiagnosticsOutcomeBucket.Healthy }
+    val controls =
+        workingDomains
+            .filter { it.isControl && it.controlTier != ControlTier.DOMESTIC }
+            .distinctBy { it.host.lowercase() }
+            .take(MaxControlsForComparison)
+            .toList()
+    val workingDomain = workingDomains.firstOrNull { !it.isControl }
+    if (controls.isEmpty() && workingDomain == null) return null
+
+    val failedDomains =
+        matchingDomainTargets(reports, catalogs.domainCatalog) { fact, http ->
+            !fact.isControl && domainObservationFailed(fact, http)
+        }
+    val affectedDomainTargets =
+        (listOfNotNull(workingDomain).asSequence() + failedDomains)
+            .distinctBy { it.host.lowercase() }
+            .take(MaxDomainsForComparison)
+            .toList()
     val failedServices = collectFailedServices(reports, catalogs.serviceCatalog, catalogs.circumventionCatalog)
     val serviceTargets = failedServices.filterIsInstance<ServiceTarget>()
     val circumventionTargets = failedServices.filterIsInstance<CircumventionTarget>()
@@ -129,18 +125,17 @@ private suspend fun buildSelectionFromControls(
             serviceStatus = serviceStateStore.status.value.first,
             telemetry = serviceStateStore.telemetry.value,
         )
-    if (hasNoActionableTargets(failedDomains, serviceTargets, circumventionTargets, serviceRuntime)) return null
-    val domainTargets =
-        (controls.map { it.copy(isControl = true) } + failedDomains)
-            .distinctBy { it.host.lowercase() }
+    val hasActionableTargets =
+        affectedDomainTargets.isNotEmpty() || failedServices.isNotEmpty() || serviceRuntime.actionable
+    val failedDomainLabels = affectedDomainTargets.filterNot { it == workingDomain }.map(DomainTarget::host)
     return PathComparisonSelection(
-        domainTargets = domainTargets,
+        domainTargets = controls + affectedDomainTargets,
         serviceTargets = serviceTargets,
         circumventionTargets = circumventionTargets,
         failedTargetLabels =
-            failedDomains.map(DomainTarget::host) + serviceTargets.map(ServiceTarget::id) +
+            failedDomainLabels + serviceTargets.map(ServiceTarget::id) +
                 circumventionTargets.map(CircumventionTarget::id),
-    )
+    ).takeIf { hasActionableTargets }
 }
 
 private suspend fun resolvePathComparisonSelection(
@@ -157,14 +152,13 @@ private suspend fun resolvePathComparisonSelection(
     val catalogs = buildTargetCatalogs(rawStageSpecs, diagnosticsProfileCatalog, json)
     val reports =
         rawStageSpecs.mapNotNull { spec ->
-            val sessionId =
-                progress.stages.firstOrNull { it.stageKey == spec.key }?.sessionId ?: return@mapNotNull null
-            decodeReport(scanRecordStore, sessionId, json)?.let { spec to it }
+            val stage = progress.stages.firstOrNull { it.stageKey == spec.key } ?: return@mapNotNull null
+            if (!stage.isCompletedStage()) return@mapNotNull null
+            decodeReport(scanRecordStore, stage.sessionId, json)?.takeIf {
+                it.pathMode == ScanPathMode.RAW_PATH && it.completionKind == ScanCompletionKind.NORMAL
+            }
         }
-    val controls = collectControls(reports, catalogs.domainCatalog)
-    return controls
-        .takeIf { it.isNotEmpty() }
-        ?.let { buildSelectionFromControls(it, reports, catalogs, serviceStateStore) }
+    return buildPathSelection(reports, catalogs, serviceStateStore)
 }
 
 internal suspend fun buildPathComparisonSelection(
@@ -222,16 +216,12 @@ internal suspend fun buildConnectivityAssessment(
     return resolveConnectivityAssessment(progress, scanRecordStore, json, serviceStateStore, comparisonScanCoordinator)
 }
 
-private fun domainObservationSuccessful(fact: DomainObservationFact): Boolean =
-    fact.httpStatus == HttpProbeStatus.OK ||
-        fact.tls13Status == TlsProbeStatus.OK ||
-        fact.tls12Status == TlsProbeStatus.OK ||
-        fact.tls13Status == TlsProbeStatus.VERSION_SPLIT ||
-        fact.tls12Status == TlsProbeStatus.VERSION_SPLIT
-
-private fun domainObservationFailed(fact: DomainObservationFact): Boolean =
+private fun domainObservationFailed(
+    fact: DomainObservationFact,
+    http: DiagnosticsOutcomeBucket,
+): Boolean =
     fact.transportFailure != TransportFailureKind.NONE ||
-        fact.httpStatus == HttpProbeStatus.UNREACHABLE ||
+        http == DiagnosticsOutcomeBucket.Failed ||
         fact.tls13Status == TlsProbeStatus.HANDSHAKE_FAILED ||
         fact.tls12Status == TlsProbeStatus.HANDSHAKE_FAILED ||
         fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
