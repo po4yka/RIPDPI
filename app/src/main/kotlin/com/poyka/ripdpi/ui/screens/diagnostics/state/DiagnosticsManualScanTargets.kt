@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.Http3TransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 
@@ -55,6 +56,12 @@ internal fun DiagnosticsScanUiModel.manualScanTargets(profileId: String?): Manua
             transferComparisonInput
                 .takeIf { it.isValidForHttp3() }
                 ?.let { ManualScanTargets(DiagnosticsScanTargetOverrides(http3Comparison = it)) }
+        }
+
+        TransferVolumeComparisonProfileId -> {
+            volumeComparisonInput
+                .takeIf { it.isValid() }
+                ?.let { ManualScanTargets(DiagnosticsScanTargetOverrides(volumeComparison = it)) }
         }
 
         else -> {

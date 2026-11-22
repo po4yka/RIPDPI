@@ -118,6 +118,13 @@ internal fun CompactProbeRow(
             tone = statusTone(probe.tone),
         )
         VerifiedTransferComparisonRows(probe)
+        if (probe.volumeTransferLegTitleResource() != null) {
+            probe.transferEvidence?.runs?.singleOrNull()?.let { run ->
+                TransferByteCount(run)
+                TransferElapsed(run)
+                TransferBodyTiming(run)
+            }
+        }
     }
 }
 
@@ -336,7 +343,9 @@ internal fun ProbeResultRow(
         ProbeResultHeader(probe)
         VerifiedTransferComparisonRows(probe)
         probe.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
-        probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
+        probe.transferEvidence?.let {
+            DiagnosticsTransferCard(transfer = it, showTarget = probe.volumeTransferLegTitleResource() == null)
+        }
         probe.ipFamily?.let { ContextGroupCard(it) }
         probe.http3?.let { ContextGroupCard(it) }
         probe.pmtu?.let { ContextGroupCard(it) }

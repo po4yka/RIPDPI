@@ -196,9 +196,8 @@ private fun validateVerifiedTransferAdmission(
                 target?.isValidVerifiedEchComparison() == true
             }
 
-            Http3TransferComparisonProfileId -> {
-                intent.requestedPathMode == ScanPathMode.RAW_PATH && target?.isValidVerifiedHttp3Comparison() == true &&
-                    intent.hasNoOtherProbes()
+            Http3TransferComparisonProfileId, TransferVolumeComparisonProfileId -> {
+                intent.hasValidRawTransferComparison()
             }
 
             else -> {
@@ -208,6 +207,15 @@ private fun validateVerifiedTransferAdmission(
         }
     require(validTarget && intent.kind == ScanKind.CONNECTIVITY)
     require(isManual && scanOrigin == DiagnosticsScanOrigin.USER_INITIATED)
+}
+
+private fun DiagnosticsIntent.hasValidRawTransferComparison(): Boolean {
+    if (requestedPathMode != ScanPathMode.RAW_PATH || !hasNoOtherProbes()) return false
+    return if (profileId == Http3TransferComparisonProfileId) {
+        throughputTargets.singleOrNull()?.isValidVerifiedHttp3Comparison() == true
+    } else {
+        throughputTargets.isValidTransferVolumeComparison()
+    }
 }
 
 private fun DiagnosticsIntent.hasNoOtherProbes(): Boolean =

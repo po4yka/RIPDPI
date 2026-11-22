@@ -7,6 +7,7 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.Http3TransferComparisonProfileId
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
@@ -48,6 +49,11 @@ internal fun diagnosticProfileTextResources(profile: DiagnosticsProfileOptionUiM
         profile.id == Http3TransferComparisonProfileId -> {
             stringResource(R.string.diagnostics_profile_connectivity_badge) to
                 stringResource(R.string.diagnostics_http3_transfer_description)
+        }
+
+        profile.id == TransferVolumeComparisonProfileId -> {
+            stringResource(R.string.diagnostics_profile_connectivity_badge) to
+                stringResource(R.string.diagnostics_volume_transfer_description)
         }
 
         profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> {

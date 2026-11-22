@@ -2178,4 +2178,9 @@
     <string name="diagnostics_http3_transfer_no_difference">Расхождений не обнаружено</string>
     <string name="diagnostics_http3_transfer_connect">Установка соединения</string>
     <string name="diagnostics_http3_transfer_integrity">Проверка размера и SHA-256</string>
+    <string name="diagnostics_volume_transfer_title">Сравнение короткой и длинной загрузки HTTPS</string>
+    <string name="diagnostics_volume_transfer_description">Сравните две загрузки с одного сервера. Короткий ответ может занимать до 32 КиБ, длинный — до 1 МиБ.</string>
+    <string name="diagnostics_volume_transfer_short">Короткий ответ</string>
+    <string name="diagnostics_volume_transfer_long">Длинный ответ</string>
+    <string name="diagnostics_volume_transfer_input_error">Укажите один IP-адрес и два разных URL HTTPS с одним хостом и портом. Проверьте размеры и хеши SHA-256.</string>
 </resources>

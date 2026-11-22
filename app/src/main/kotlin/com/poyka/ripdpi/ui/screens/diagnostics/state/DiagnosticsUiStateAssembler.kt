@@ -348,6 +348,7 @@ internal class DiagnosticsUiStateAssembler
                 verifiedDownloadInput = controls.selection.verifiedDownloadInput,
                 verifiedUploadInput = controls.selection.verifiedUploadInput,
                 transferComparisonInput = controls.selection.transferComparisonInput,
+                volumeComparisonInput = controls.selection.volumeComparisonInput,
                 selectedApproachMode = controls.selection.selectedApproachMode,
                 selectedProbe = controls.selection.selectedProbe,
                 selectedEventId = controls.selection.selectedEventId,

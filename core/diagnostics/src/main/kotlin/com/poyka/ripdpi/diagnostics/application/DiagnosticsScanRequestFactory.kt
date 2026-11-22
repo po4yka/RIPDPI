@@ -47,6 +47,7 @@ import com.poyka.ripdpi.diagnostics.domain.ScanPlan
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogPathValidator
 import com.poyka.ripdpi.diagnostics.prepareScanEndpoints
 import com.poyka.ripdpi.diagnostics.selectiveMatrixRevisions
+import com.poyka.ripdpi.diagnostics.withTransferVolumeComparison
 import com.poyka.ripdpi.diagnostics.withUserHosts
 import com.poyka.ripdpi.diagnostics.withVerifiedDownload
 import com.poyka.ripdpi.diagnostics.withVerifiedEchComparison
@@ -465,6 +466,7 @@ private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyEndpointO
         .withVerifiedUpload(overrides?.verifiedUpload)
         .withVerifiedEchComparison(overrides?.echComparison)
         .withVerifiedHttp3Comparison(overrides?.http3Comparison)
+        .withTransferVolumeComparison(overrides?.volumeComparison)
 }
 
 private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyTargetOverrides(

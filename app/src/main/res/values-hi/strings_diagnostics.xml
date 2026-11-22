@@ -2114,4 +2114,9 @@
     <string name="diagnostics_http3_transfer_no_difference">कोई अंतर नहीं मिला</string>
     <string name="diagnostics_http3_transfer_connect">कनेक्शन स्थापित करना</string>
     <string name="diagnostics_http3_transfer_integrity">आकार और SHA-256 का सत्यापन</string>
+    <string name="diagnostics_volume_transfer_title">छोटे और बड़े HTTPS डाउनलोड</string>
+    <string name="diagnostics_volume_transfer_description">एक ही सर्वर से दो डाउनलोड की तुलना करें। छोटे जवाब का आकार अधिकतम 32 KiB और बड़े जवाब का अधिकतम 1 MiB हो सकता है।</string>
+    <string name="diagnostics_volume_transfer_short">छोटा जवाब</string>
+    <string name="diagnostics_volume_transfer_long">बड़ा जवाब</string>
+    <string name="diagnostics_volume_transfer_input_error">एक IP पता और एक ही होस्ट और पोर्ट के दो अलग HTTPS URL डालें। आकार और SHA-256 हैश जाँचें।</string>
 </resources>

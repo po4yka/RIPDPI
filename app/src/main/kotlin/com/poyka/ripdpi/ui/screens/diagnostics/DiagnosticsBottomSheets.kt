@@ -364,7 +364,9 @@ private fun probeDetail(
         testTag = RipDpiTestTags.DiagnosticsProbeDetailSheet,
     ) {
         probe.connectionStages?.let { DiagnosticsConnectionStageCard(it, initiallyExpanded = true) }
-        probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
+        probe.transferEvidence?.let {
+            DiagnosticsTransferCard(transfer = it, showTarget = probe.volumeTransferLegTitleResource() == null)
+        }
         probe.ipFamily?.let { ContextGroupCard(it) }
         probe.http3?.let { ContextGroupCard(it) }
         probe.pmtu?.let { ContextGroupCard(it) }

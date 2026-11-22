@@ -2274,4 +2274,9 @@
     <string name="diagnostics_http3_transfer_no_difference">لم يُلاحظ أي اختلاف</string>
     <string name="diagnostics_http3_transfer_connect">إنشاء الاتصال</string>
     <string name="diagnostics_http3_transfer_integrity">التحقق من الحجم وقيمة SHA-256</string>
+    <string name="diagnostics_volume_transfer_title">تنزيل HTTPS قصير وآخر طويل</string>
+    <string name="diagnostics_volume_transfer_description">قارن تنزيلين من الخادم نفسه. يصل حجم الاستجابة القصيرة إلى ٣٢ كيبي بايت وحجم الطويلة إلى ١ ميبي بايت.</string>
+    <string name="diagnostics_volume_transfer_short">استجابة قصيرة</string>
+    <string name="diagnostics_volume_transfer_long">استجابة طويلة</string>
+    <string name="diagnostics_volume_transfer_input_error">أدخل عنوان IP واحدًا ورابطَي HTTPS مختلفين على المضيف والمنفذ نفسيهما. تحقق من الأحجام وقيم تجزئة SHA-256.</string>
 </resources>

@@ -2134,4 +2134,9 @@
     <string name="diagnostics_http3_transfer_no_difference">No difference observed</string>
     <string name="diagnostics_http3_transfer_connect">Connection setup</string>
     <string name="diagnostics_http3_transfer_integrity">Size and SHA-256 verification</string>
+    <string name="diagnostics_volume_transfer_title">Short and long HTTPS downloads</string>
+    <string name="diagnostics_volume_transfer_description">Compare two downloads from one server by size. Use up to 32 KiB for the short response and up to 1 MiB for the long response.</string>
+    <string name="diagnostics_volume_transfer_short">Short response</string>
+    <string name="diagnostics_volume_transfer_long">Long response</string>
+    <string name="diagnostics_volume_transfer_input_error">Enter one IP address and two distinct HTTPS URLs on the same host and port. Check the sizes and SHA-256 hashes.</string>
 </resources>

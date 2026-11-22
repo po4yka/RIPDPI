@@ -1,8 +1,11 @@
 mod family;
 mod live;
+#[cfg(test)]
+mod volume_tests;
 
 use std::sync::Arc;
 
+use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, with_scan_io_deadline};
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::engine::runtime::{
@@ -30,7 +33,9 @@ impl ExecutionStageRunner for ThroughputRunner {
         cancel: &std::sync::atomic::AtomicBool,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> CollectedStageOutcome {
-        super::support::collect_family_steps::<ThroughputFamily>(plan, cancel, tls_verifier)
+        with_scan_io_deadline(ThroughputFamily::deadline(plan, active_scan_io_deadline()), || {
+            super::support::collect_family_steps::<ThroughputFamily>(plan, cancel, tls_verifier)
+        })
     }
     fn run(
         &self,

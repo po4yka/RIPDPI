@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Instant;
 
 use rustls::client::danger::ServerCertVerifier;
 
@@ -15,12 +16,12 @@ pub(super) fn run(
     runtime: &mut ExecutionRuntime,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> RunnerOutcome {
+    let deadline = ThroughputFamily::deadline(plan, runtime.stage_deadline().or_else(|| runtime.scan_deadline()));
     for target in &plan.request.throughput_targets {
-        if runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline() {
+        if runtime.is_cancelled() || deadline.is_some_and(|deadline| Instant::now() >= deadline) {
             return RunnerOutcome::Cancelled;
         }
         let key_log = plan.request.diagnostic_tls_keylog_path.as_deref().map(tls_key_log_callback_for_path);
-        let deadline = runtime.stage_deadline().or_else(|| runtime.scan_deadline());
         let probe = crate::util::with_scan_io_deadline(deadline, || {
             run_throughput_probe_with_progress(
                 target,

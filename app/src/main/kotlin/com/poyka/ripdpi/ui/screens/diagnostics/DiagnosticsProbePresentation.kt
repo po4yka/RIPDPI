@@ -156,6 +156,14 @@ internal fun diagnosticProbeTitle(
     probe: DiagnosticsProbeResultUiModel,
     expertMode: Boolean,
 ): String =
+    probe.volumeTransferLegTitleResource()?.let { stringResource(it) }
+        ?: diagnosticProbeTitleFallback(probe, expertMode)
+
+@Composable
+private fun diagnosticProbeTitleFallback(
+    probe: DiagnosticsProbeResultUiModel,
+    expertMode: Boolean,
+): String =
     if (probe.pmtu != null) {
         probe.pmtu.title
     } else if (probe.http3 != null) {
@@ -175,6 +183,16 @@ internal fun diagnosticProbeTitle(
     } else {
         stringResource(diagnosticProbeTitleResource(probe.probeType))
     }
+
+@StringRes
+internal fun DiagnosticsProbeResultUiModel.volumeTransferLegTitleResource(): Int? {
+    if (probeType != "throughput_window" || !outcome.startsWith("verified_download_")) return null
+    return when (details.firstOrNull { it.label == "transferVolumeLeg" }?.value) {
+        "short" -> R.string.diagnostics_volume_transfer_short
+        "long" -> R.string.diagnostics_volume_transfer_long
+        else -> null
+    }
+}
 
 @Composable
 internal fun diagnosticProbeOutcome(

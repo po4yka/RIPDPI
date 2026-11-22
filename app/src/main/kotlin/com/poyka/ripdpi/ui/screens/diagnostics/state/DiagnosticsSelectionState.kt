@@ -4,6 +4,7 @@ import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
@@ -17,6 +18,7 @@ internal data class SelectionState(
     val verifiedDownloadInput: VerifiedDownloadInput = VerifiedDownloadInput(),
     val verifiedUploadInput: VerifiedUploadInput = VerifiedUploadInput(),
     val transferComparisonInput: VerifiedTransferComparisonInput = VerifiedTransferComparisonInput(),
+    val volumeComparisonInput: TransferVolumeComparisonInput = TransferVolumeComparisonInput(),
     val selectedApproachMode: DiagnosticsApproachMode = DiagnosticsApproachMode.Profiles,
     val selectedApproachDetail: BypassApproachDetail? = null,
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,

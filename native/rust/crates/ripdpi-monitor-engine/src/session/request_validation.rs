@@ -6,8 +6,8 @@ use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
 use crate::types::{
     ECH_TRANSFER_COMPARISON_LEGS, ECH_TRANSFER_COMPARISON_PROFILE_ID, HTTP3_TRANSFER_COMPARISON_LEGS,
-    HTTP3_TRANSFER_COMPARISON_PROFILE_ID, ProbeTaskFamily, ScanKind, ScanPathMode, VERIFIED_DOWNLOAD_PROFILE_ID,
-    VERIFIED_UPLOAD_PROFILE_ID,
+    HTTP3_TRANSFER_COMPARISON_PROFILE_ID, ProbeTaskFamily, ScanKind, ScanPathMode, TRANSFER_VOLUME_LONG_ID,
+    TRANSFER_VOLUME_PROFILE_ID, TRANSFER_VOLUME_SHORT_ID, VERIFIED_DOWNLOAD_PROFILE_ID, VERIFIED_UPLOAD_PROFILE_ID,
 };
 use ripdpi_diagnostics_contracts::util::{
     FAT_HEADER_MAX_ALTERNATES, FAT_HEADER_MAX_REQUESTS, FAT_HEADER_REQUESTS, is_valid_fat_header_authority,
@@ -231,6 +231,14 @@ fn validate_verified_transfer_profile(request: &EngineScanRequestWire) -> Result
     {
         return Err("HTTP/3 comparison requires its dedicated RAW profile".into());
     }
+    if request.profile_id == TRANSFER_VOLUME_PROFILE_ID {
+        return validate_volume_comparison(request).then_some(()).ok_or_else(|| {
+            "volume comparison requires one short and one long RAW download at the same pinned HTTPS origin".into()
+        });
+    }
+    if targets.iter().any(|target| target.transfer_volume_leg().is_some()) {
+        return Err("volume comparison targets require their dedicated RAW profile".into());
+    }
     let valid = match request.profile_id.as_str() {
         VERIFIED_DOWNLOAD_PROFILE_ID => {
             request.kind == ScanKind::Connectivity
@@ -261,6 +269,64 @@ fn validate_verified_transfer_profile(request: &EngineScanRequestWire) -> Result
         return Err("verified transfer requires one matching target in its dedicated connectivity profile".into());
     }
     Ok(())
+}
+
+fn validate_volume_comparison(request: &EngineScanRequestWire) -> bool {
+    let ([short, long], [first_task, second_task]) =
+        (request.throughput_targets.as_slice(), request.probe_tasks.as_slice())
+    else {
+        return false;
+    };
+    let Some((short_proof, long_proof)) = short.verification.as_ref().zip(long.verification.as_ref()) else {
+        return false;
+    };
+    let Some(((short_host, short_port, short_path), (long_host, long_port, long_path))) =
+        volume_endpoint(&short.url).zip(volume_endpoint(&long.url))
+    else {
+        return false;
+    };
+    request.kind == ScanKind::Connectivity
+        && request.path_mode == ScanPathMode::RawPath
+        && request.route_probe.is_none()
+        && request.proxy_host.is_none()
+        && request.proxy_port.is_none()
+        && request.strategy_probe.is_none()
+        && request.telegram_target.is_none()
+        && request.domain_targets.is_empty()
+        && request.dns_targets.is_empty()
+        && request.tcp_targets.is_empty()
+        && request.quic_targets.is_empty()
+        && request.service_targets.is_empty()
+        && request.circumvention_targets.is_empty()
+        && short.id == TRANSFER_VOLUME_SHORT_ID
+        && long.id == TRANSFER_VOLUME_LONG_ID
+        && first_task.family == ProbeTaskFamily::Throughput
+        && second_task.family == ProbeTaskFamily::Throughput
+        && first_task.target_id == short.id
+        && second_task.target_id == long.id
+        && short_proof.expected_body_bytes < long_proof.expected_body_bytes
+        && short_host.eq_ignore_ascii_case(&long_host)
+        && short_port == long_port
+        && short_path != long_path
+        && short.pinned_download_ip().is_some_and(|ip| long.pinned_download_ip() == Some(ip))
+}
+
+fn volume_endpoint(url: &str) -> Option<(String, u16, &str)> {
+    let url = url.strip_prefix("https://")?;
+    let path_start = url.find('/').unwrap_or(url.len());
+    let (authority, path) = url.split_at(path_start);
+    let (host, port) = if authority.starts_with('[') {
+        let (host, suffix) = authority.split_at(authority.find(']')? + 1);
+        (host, if suffix.is_empty() { None } else { Some(suffix.strip_prefix(':')?) })
+    } else {
+        authority.split_once(':').map_or((authority, None), |(host, port)| (host, Some(port)))
+    };
+    let port = port.map(str::parse).transpose().ok()?.unwrap_or(443);
+    if port == 0 || host.ends_with('.') {
+        return None;
+    }
+    let host = normalize_server_name(host).ok()?;
+    Some((host, port, if path.is_empty() { "/" } else { path }))
 }
 
 fn validate_count(label: &str, count: usize, max: usize) -> Result<(), String> {

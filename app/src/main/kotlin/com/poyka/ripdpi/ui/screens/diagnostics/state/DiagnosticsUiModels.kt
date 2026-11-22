@@ -21,6 +21,8 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonInput
+import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
@@ -42,7 +44,8 @@ internal val DiagnosticsProfileOptionUiModel.isRawPathOnly: Boolean
         isStrategyProbe ||
             id == com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId ||
             id == com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId ||
-            id == com.poyka.ripdpi.diagnostics.Http3TransferComparisonProfileId
+            id == com.poyka.ripdpi.diagnostics.Http3TransferComparisonProfileId ||
+            id == TransferVolumeComparisonProfileId
 
 internal val DiagnosticsProfileOptionUiModel.isFullAudit: Boolean
     get() = strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1
@@ -801,6 +804,7 @@ data class DiagnosticsScanUiModel(
     val verifiedDownloadInput: VerifiedDownloadInput = VerifiedDownloadInput(),
     val verifiedUploadInput: VerifiedUploadInput = VerifiedUploadInput(),
     val transferComparisonInput: VerifiedTransferComparisonInput = VerifiedTransferComparisonInput(),
+    val volumeComparisonInput: TransferVolumeComparisonInput = TransferVolumeComparisonInput(),
     val selectiveMatrixTargets: ImmutableList<SelectiveMatrixTargetUiModel> = persistentListOf(),
     val profiles: ImmutableList<DiagnosticsProfileOptionUiModel> = persistentListOf(),
     val selectedProfileId: String? = null,

@@ -33,6 +33,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 internal fun DiagnosticsTransferCard(
     transfer: DiagnosticsTransferUiModel,
     modifier: Modifier = Modifier,
+    showTarget: Boolean = true,
 ) {
     RipDpiCard(
         variant = RipDpiCardVariant.Tonal,
@@ -44,7 +45,9 @@ internal fun DiagnosticsTransferCard(
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = RipDpiThemeTokens.colors.foreground,
         )
-        TransferText(transfer.target)
+        if (showTarget) {
+            TransferText(transfer.target)
+        }
         TransferText(stringResource(R.string.diagnostics_transfer_observation))
         if (transfer.comparisonUnavailable) {
             TransferText(stringResource(R.string.diagnostics_transfer_comparison_unavailable))
@@ -87,16 +90,11 @@ private fun TransferRun(
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         TransferText(stringResource(R.string.diagnostics_transfer_run, run.runIndex, run.runCount))
-        TransferText(
-            run.expectedBodyByteCount?.let { expected ->
-                stringResource(R.string.diagnostics_transfer_bytes_known, run.receivedBodyByteCount, expected)
-            } ?: stringResource(R.string.diagnostics_transfer_bytes_unknown, run.receivedBodyByteCount),
-        )
-        TransferText(stringResource(R.string.diagnostics_transfer_elapsed, run.elapsedMs))
+        TransferByteCount(run)
+        TransferElapsed(run)
         requestRateBps?.let { TransferText(stringResource(R.string.diagnostics_transfer_request_rate, it)) }
         bodyGoodputBps?.let { TransferText(stringResource(R.string.diagnostics_transfer_body_rate, it)) }
-        TransferText(stringResource(R.string.diagnostics_transfer_first, transferTime(run.firstBodyByteMs)))
-        TransferText(stringResource(R.string.diagnostics_transfer_last, transferTime(run.lastBodyProgressMs)))
+        TransferBodyTiming(run)
         TransferText(stringResource(transferReasonResource(run.terminationReason)))
         if (run.terminationReason != null) {
             TransferText(
@@ -114,6 +112,26 @@ private fun TransferRun(
         }
         TransferTimeline(run)
     }
+}
+
+@Composable
+internal fun TransferByteCount(run: DiagnosticsTransferRunUiModel) {
+    TransferText(
+        run.expectedBodyByteCount?.let { expected ->
+            stringResource(R.string.diagnostics_transfer_bytes_known, run.receivedBodyByteCount, expected)
+        } ?: stringResource(R.string.diagnostics_transfer_bytes_unknown, run.receivedBodyByteCount),
+    )
+}
+
+@Composable
+internal fun TransferElapsed(run: DiagnosticsTransferRunUiModel) {
+    TransferText(stringResource(R.string.diagnostics_transfer_elapsed, run.elapsedMs))
+}
+
+@Composable
+internal fun TransferBodyTiming(run: DiagnosticsTransferRunUiModel) {
+    TransferText(stringResource(R.string.diagnostics_transfer_first, transferTime(run.firstBodyByteMs)))
+    TransferText(stringResource(R.string.diagnostics_transfer_last, transferTime(run.lastBodyProgressMs)))
 }
 
 @Composable

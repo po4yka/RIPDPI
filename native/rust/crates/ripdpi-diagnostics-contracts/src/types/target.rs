@@ -253,26 +253,54 @@ pub const ECH_TRANSFER_COMPARISON_PROFILE_ID: &str = "ech-transfer-comparison";
 pub const ECH_TRANSFER_COMPARISON_LEGS: usize = 3;
 pub const HTTP3_TRANSFER_COMPARISON_PROFILE_ID: &str = "http3-transfer-comparison";
 pub const HTTP3_TRANSFER_COMPARISON_LEGS: usize = 2;
+pub const TRANSFER_VOLUME_PROFILE_ID: &str = "transfer-volume-comparison";
+pub const TRANSFER_VOLUME_SHORT_ID: &str = "transfer-volume-short";
+pub const TRANSFER_VOLUME_LONG_ID: &str = "transfer-volume-long";
+pub const MAX_TRANSFER_VOLUME_SHORT_BYTES: usize = 32 * 1024;
 pub const MAX_HTTP3_COMPARISON_BODY_BYTES: usize = 32 * 1024;
 pub const MAX_ECH_COMPARISON_BODY_BYTES: usize = 32 * 1024;
 pub const MAX_VERIFIED_DOWNLOAD_BYTES: usize = 1024 * 1024;
 pub const MAX_VERIFIED_UPLOAD_BYTES: usize = 1024 * 1024;
 
 impl ThroughputTarget {
+    pub fn transfer_volume_leg(&self) -> Option<&'static str> {
+        match self.id.as_str() {
+            TRANSFER_VOLUME_SHORT_ID => Some("short"),
+            TRANSFER_VOLUME_LONG_ID => Some("long"),
+            _ => None,
+        }
+    }
+
+    pub fn pinned_download_ip(&self) -> Option<std::net::IpAddr> {
+        self.connect_ip.as_deref()?.parse::<std::net::IpAddr>().ok().map(|ip| ip.to_canonical()).filter(|ip| {
+            !ip.is_unspecified() && !ip.is_multicast() && *ip != std::net::IpAddr::V4(std::net::Ipv4Addr::BROADCAST)
+        })
+    }
+
     /// Validate the verification request before any socket is opened.
     pub fn validate_download(&self) -> Result<(), &'static str> {
         let Some(expected) = &self.verification else {
             return Ok(());
         };
         let http3_comparison = self.id == HTTP3_TRANSFER_COMPARISON_PROFILE_ID;
-        if !self.has_verified_https_endpoint(http3_comparison) {
+        let volume_comparison = self.transfer_volume_leg().is_some();
+        if !self.has_verified_https_endpoint(http3_comparison || volume_comparison) {
             return Err("invalid verified download URL");
         }
         let max_bytes = if http3_comparison {
-            if expected.ech_comparison_ip.is_some() || !self.has_pinned_http3_endpoint() {
+            if expected.ech_comparison_ip.is_some() || !self.has_pinned_download_endpoint() {
                 return Err("HTTP/3 comparison requires one fixed IP and HTTPS path");
             }
             MAX_HTTP3_COMPARISON_BODY_BYTES
+        } else if volume_comparison {
+            if expected.ech_comparison_ip.is_some() || !self.has_pinned_download_endpoint() {
+                return Err("volume comparison requires a fixed IP and HTTPS path");
+            }
+            if self.id == TRANSFER_VOLUME_SHORT_ID {
+                MAX_TRANSFER_VOLUME_SHORT_BYTES
+            } else {
+                MAX_VERIFIED_DOWNLOAD_BYTES
+            }
         } else if let Some(ip) = expected.ech_comparison_ip {
             let ip = ip.to_canonical();
             if ip.is_unspecified() || ip.is_multicast() {
@@ -315,19 +343,10 @@ impl ThroughputTarget {
         Ok(())
     }
 
-    fn has_pinned_http3_endpoint(&self) -> bool {
-        let valid_ip = self
-            .connect_ip
-            .as_deref()
-            .and_then(|value| value.parse::<std::net::IpAddr>().ok())
-            .map(|address| address.to_canonical())
-            .is_some_and(|address| {
-                !address.is_unspecified()
-                    && !address.is_multicast()
-                    && address != std::net::IpAddr::V4(std::net::Ipv4Addr::BROADCAST)
-            });
+    fn has_pinned_download_endpoint(&self) -> bool {
         let path = self.url.strip_prefix("https://").and_then(|url| url.find('/').map(|start| &url[start..]));
-        valid_ip && path.is_none_or(|value| value.is_ascii() && value.len() <= 1024 && !value.starts_with("//"))
+        self.pinned_download_ip().is_some()
+            && path.is_none_or(|value| value.is_ascii() && value.len() <= 1024 && !value.starts_with("//"))
     }
 
     fn has_verified_https_endpoint(&self, allow_pin: bool) -> bool {

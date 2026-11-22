@@ -1,15 +1,26 @@
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::{ProbeExecutionContext, run_throughput_probe_with_progress};
 use crate::engine::runtime::ExecutionPlan;
 use crate::tls::tls_key_log_callback_for_path;
-use crate::types::{ProbeResult, ThroughputTarget};
+use crate::types::{ProbeResult, TRANSFER_VOLUME_PROFILE_ID, ThroughputTarget};
 
 use super::super::support::ConnectivityProbeFamily;
 
 pub(super) struct ThroughputFamily;
+
+impl ThroughputFamily {
+    pub(super) fn deadline(plan: &ExecutionPlan, inherited: Option<Instant>) -> Option<Instant> {
+        if plan.request.profile_id != TRANSFER_VOLUME_PROFILE_ID {
+            return inherited;
+        }
+        let pair_limit = Instant::now() + Duration::from_secs(30);
+        Some(inherited.map_or(pair_limit, |deadline| deadline.min(pair_limit)))
+    }
+}
 
 impl ConnectivityProbeFamily for ThroughputFamily {
     type Target = ThroughputTarget;

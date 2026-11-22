@@ -58,6 +58,35 @@ class TransferScopePersistenceTest {
     }
 
     @Test
+    fun `scope loss withdraws both volume verdicts and retains leg identities and timing`() {
+        val measuredPair =
+            listOf(
+                ProbeResult(
+                    "throughput_window",
+                    "Short response",
+                    "verified_download_complete",
+                    listOf(ProbeDetail("transferVolumeLeg", "short")),
+                ),
+                ProbeResult(
+                    "throughput_window",
+                    "Long response",
+                    "verified_download_timeout",
+                    details + ProbeDetail("transferVolumeLeg", "long"),
+                ),
+            )
+        val scoped = report(measuredPair).withoutNetworkScopeAuthority().results
+        assertEquals(
+            listOf("verified_download_inconclusive", "verified_download_inconclusive"),
+            scoped.map { it.outcome },
+        )
+        assertEquals(
+            measuredPair.map { it.details + ProbeDetail("transferNetworkScope", "unverified") },
+            scoped.map { it.details },
+        )
+        assertEquals(parseTransferEvidence(details), parseTransferEvidence(scoped.last().details))
+    }
+
+    @Test
     fun `revoked upload retains receipt size and downgrades its verdict`() {
         val receipt = listOf(ProbeDetail("expectedBodyBytes", "128"), ProbeDetail("receivedBodyBytes", "128"))
         val result = ProbeResult("throughput_window", "control", "verified_upload_complete", receipt)
