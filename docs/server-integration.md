@@ -170,6 +170,14 @@ is a possession proof, not tamper-resistant device attestation or a promise that
 every application works. Export omits credentials, endpoints, local profile IDs,
 network identifiers and the receipt key. Nothing is uploaded automatically.
 
+## HTTPS upload diagnostic
+
+For **Diagnostics → Verified HTTPS upload**, provide an HTTPS endpoint with a certificate that the app trusts. The URL can include a port and path. Keep it free of credentials, a query, and a fragment.
+
+- The app sends one POST with `Content-Type: application/octet-stream` and a `Content-Length` from 1 to 1,048,576. The body contains generated test data.
+- Read the full request body. Count the bytes and compute the SHA-256 of those bytes. After the full read, return HTTP 200 with a JSON body of at most 512 bytes. Use an integer in `bytes` and a 64-digit hexadecimal string in `sha256`.
+- For example, if the server receives the two bytes `ok`, the receipt is `{"bytes":2,"sha256":"2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df"}`.
+
 ## Deployment protocol boundaries
 
 The recipient contract below was checked against `ripdpi-vpn-deploy`

@@ -6,6 +6,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
+import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.StrategyProbeSuiteFullMatrixV1
 
@@ -30,6 +31,11 @@ internal fun diagnosticProfileTextResources(profile: DiagnosticsProfileOptionUiM
         profile.id == VerifiedDownloadProfileId -> {
             stringResource(R.string.diagnostics_profile_connectivity_badge) to
                 stringResource(R.string.diagnostics_verified_download_description)
+        }
+
+        profile.id == VerifiedUploadProfileId -> {
+            stringResource(R.string.diagnostics_profile_connectivity_badge) to
+                stringResource(R.string.diagnostics_verified_upload_description)
         }
 
         profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> {

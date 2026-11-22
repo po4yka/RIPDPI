@@ -49,6 +49,7 @@ import com.poyka.ripdpi.diagnostics.prepareScanEndpoints
 import com.poyka.ripdpi.diagnostics.selectiveMatrixRevisions
 import com.poyka.ripdpi.diagnostics.withUserHosts
 import com.poyka.ripdpi.diagnostics.withVerifiedDownload
+import com.poyka.ripdpi.diagnostics.withVerifiedUpload
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -298,7 +299,9 @@ internal class DiagnosticsScanRequestFactory
                             intentResolver
                                 .resolve(profile.id, pathMode)
                                 .copy(settings = settings)
-                                .applyEndpointOverrides(targetOverrides),
+                                .applyEndpointOverrides(targetOverrides)
+                                .withVerifiedDownload(targetOverrides?.verifiedDownload)
+                                .withVerifiedUpload(targetOverrides?.verifiedUpload),
                             networkFingerprintProvider.capture()?.scopeKey(),
                             scanOrigin,
                             activeProbeSafetyPolicy,
@@ -308,7 +311,6 @@ internal class DiagnosticsScanRequestFactory
                     scanOrigin = scanOrigin,
                     activeProbeSafetyPolicy = activeProbeSafetyPolicy,
                 ).applyTargetOverrides(targetOverrides, pathMode)
-                    .withVerifiedDownload(targetOverrides?.verifiedDownload)
                     .let { selectedIntent ->
                         activeProbeSafetyPolicy.enforceTargetBudget(
                             intent = selectedIntent,
@@ -468,7 +470,7 @@ private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyTargetOve
         serviceTargets = overrides.serviceTargets ?: serviceTargets,
         circumventionTargets = overrides.circumventionTargets ?: circumventionTargets,
         quicTargets = emptyList(),
-        throughputTargets = emptyList(),
+        throughputTargets = throughputTargets.filter { it.verification != null || it.uploadBodyBytes != null },
         requestedPathMode = pathMode,
     )
 }

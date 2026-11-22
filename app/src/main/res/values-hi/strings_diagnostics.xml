@@ -2090,4 +2090,11 @@
     <string name="diagnostics_verified_download_early_eof">जवाब समय से पहले खत्म हो गया</string>
     <string name="diagnostics_verified_download_hash_mismatch">SHA-256 मेल नहीं खाता</string>
     <string name="diagnostics_verified_download_size_mismatch">आकार मेल नहीं खाता</string>
+    <string name="diagnostics_verified_upload_title">सत्यापित HTTPS अपलोड</string>
+    <string name="diagnostics_verified_upload_description">अपने HTTPS सर्वर पर जाँच के लिए तैयार किया गया डेटा भेजें और उसकी प्राप्ति की पुष्टि करें।</string>
+    <string name="diagnostics_verified_upload_bytes">अपलोड का आकार बाइट में</string>
+    <string name="diagnostics_verified_upload_input_error">क्रेडेंशियल, क्वेरी या फ़्रैगमेंट के बिना HTTPS URL और 1 से 10,48,576 बाइट का आकार डालें।</string>
+    <string name="diagnostics_verified_upload_complete">सर्वर ने प्राप्ति की पुष्टि की</string>
+    <string name="diagnostics_verified_upload_timeout">अपलोड का समय समाप्त हो गया</string>
+    <string name="diagnostics_verified_upload_early_eof">सर्वर की प्राप्ति की पुष्टि अधूरी है</string>
 </resources>

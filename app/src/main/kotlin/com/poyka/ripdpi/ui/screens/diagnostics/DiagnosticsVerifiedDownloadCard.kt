@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
+import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -40,21 +41,21 @@ internal fun VerifiedDownloadInputCard(
     val showError = allFieldsFilled && !currentInput().isValid()
     val publishInput = { onInputChanged(currentInput()) }
     RipDpiCard(variant = RipDpiCardVariant.Tonal) {
-        VerifiedDownloadField(
+        VerifiedTransferField(
             R.string.diagnostics_verified_download_url,
             url,
             enabled,
             KeyboardType.Uri,
             onEdited = publishInput,
         )
-        VerifiedDownloadField(
+        VerifiedTransferField(
             R.string.diagnostics_verified_download_bytes,
             size,
             enabled,
             KeyboardType.Number,
             onEdited = publishInput,
         )
-        VerifiedDownloadField(
+        VerifiedTransferField(
             R.string.diagnostics_verified_download_sha256,
             digest,
             enabled,
@@ -62,17 +63,62 @@ internal fun VerifiedDownloadInputCard(
             onEdited = publishInput,
         )
         if (showError) {
-            Text(
-                stringResource(R.string.diagnostics_verified_download_input_error),
-                style = RipDpiThemeTokens.type.caption,
-                color = RipDpiThemeTokens.colors.destructive,
-            )
+            VerifiedTransferInputError(R.string.diagnostics_verified_download_input_error)
         }
     }
 }
 
 @Composable
-private fun VerifiedDownloadField(
+internal fun VerifiedUploadInputCard(
+    input: VerifiedUploadInput,
+    enabled: Boolean,
+    onInputChanged: (VerifiedUploadInput) -> Unit,
+) {
+    val url = remember { LaggingInputText(input.url) }
+    val size = remember { LaggingInputText(input.bodyBytes) }
+    SideEffect {
+        url.sync(input.url)
+        size.sync(input.bodyBytes)
+    }
+
+    fun currentInput() = VerifiedUploadInput(url.text, size.text)
+
+    val showError = url.text.isNotBlank() && size.text.isNotBlank() && !currentInput().isValid()
+    val publishInput = { onInputChanged(currentInput()) }
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+        VerifiedTransferField(
+            R.string.diagnostics_verified_download_url,
+            url,
+            enabled,
+            KeyboardType.Uri,
+            onEdited = publishInput,
+        )
+        VerifiedTransferField(
+            R.string.diagnostics_verified_upload_bytes,
+            size,
+            enabled,
+            KeyboardType.Number,
+            onEdited = publishInput,
+        )
+        if (showError) {
+            VerifiedTransferInputError(R.string.diagnostics_verified_upload_input_error)
+        }
+    }
+}
+
+@Composable
+private fun VerifiedTransferInputError(
+    @StringRes message: Int,
+) {
+    Text(
+        stringResource(message),
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.destructive,
+    )
+}
+
+@Composable
+private fun VerifiedTransferField(
     @StringRes label: Int,
     state: LaggingInputText,
     enabled: Boolean,

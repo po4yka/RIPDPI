@@ -18,7 +18,7 @@ data class VerifiedDownloadInput(
     fun isValid(): Boolean {
         val bytes = expectedBodyBytes.toIntOrNull()
         return bytes != null && bytes in 1..MaxVerifiedDownloadBodyBytes &&
-            VerifiedDownloadSha256.matches(sha256) && url.isVerifiedDownloadUrl()
+            VerifiedDownloadSha256.matches(sha256) && url.isVerifiedTransferUrl()
     }
 
     internal fun toTarget(label: String): ThroughputTarget {
@@ -41,7 +41,7 @@ data class DownloadVerification(
     val sha256: String,
 )
 
-private fun String.isVerifiedDownloadUrl(): Boolean {
+internal fun String.isVerifiedTransferUrl(): Boolean {
     val fitsUrlLimit =
         length in 1..MaxVerifiedDownloadUrlLength && encodeToByteArray().size <= MaxVerifiedDownloadUrlLength
     if (!fitsUrlLimit || any(Char::isISOControl)) return false
@@ -70,5 +70,5 @@ internal fun ThroughputTarget.isValidVerifiedDownload(): Boolean {
     val integrity = verification ?: return false
     val usesEndpoint = connectIp == null && connectIps.isEmpty() && port == null
     return VerifiedDownloadInput(url, integrity.expectedBodyBytes.toString(), integrity.sha256).isValid() &&
-        usesEndpoint && runs == 1 && windowBytes == integrity.expectedBodyBytes + 1
+        usesEndpoint && uploadBodyBytes == null && runs == 1 && windowBytes == integrity.expectedBodyBytes + 1
 }

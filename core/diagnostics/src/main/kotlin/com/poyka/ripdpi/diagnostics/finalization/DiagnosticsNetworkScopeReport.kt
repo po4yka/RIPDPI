@@ -173,6 +173,13 @@ private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeRes
             )
         }
 
+        probeType == "throughput_window" && outcome.startsWith("verified_upload_") -> {
+            copy(
+                outcome = "verified_upload_inconclusive",
+                details = details.withoutTransferScopeAuthority(),
+            )
+        }
+
         probeType == "throughput_window" && details.any { it.key == "transferEvidence" } -> {
             copy(
                 details = details.withoutTransferScopeAuthority(),

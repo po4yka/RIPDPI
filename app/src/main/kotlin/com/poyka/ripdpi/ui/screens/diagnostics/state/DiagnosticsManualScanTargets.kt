@@ -4,6 +4,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
+import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 
 /** User-entered targets for a manual scan; [overrides] is null for profiles that take no input. */
 internal data class ManualScanTargets(
@@ -34,6 +35,12 @@ internal fun DiagnosticsScanUiModel.manualScanTargets(profileId: String?): Manua
             verifiedDownloadInput
                 .takeIf { it.isValid() }
                 ?.let { ManualScanTargets(DiagnosticsScanTargetOverrides(verifiedDownload = it)) }
+        }
+
+        VerifiedUploadProfileId -> {
+            verifiedUploadInput
+                .takeIf { it.isValid() }
+                ?.let { ManualScanTargets(DiagnosticsScanTargetOverrides(verifiedUpload = it)) }
         }
 
         else -> {

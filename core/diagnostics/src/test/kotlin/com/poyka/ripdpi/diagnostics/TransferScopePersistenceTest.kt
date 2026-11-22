@@ -58,6 +58,17 @@ class TransferScopePersistenceTest {
     }
 
     @Test
+    fun `revoked upload retains receipt size and downgrades its verdict`() {
+        val receipt = listOf(ProbeDetail("expectedBodyBytes", "128"), ProbeDetail("receivedBodyBytes", "128"))
+        val result = ProbeResult("throughput_window", "control", "verified_upload_complete", receipt)
+
+        val scoped = report(listOf(result)).withoutNetworkScopeAuthority().results.single()
+
+        assertEquals("verified_upload_inconclusive", scoped.outcome)
+        assertEquals(receipt + ProbeDetail("transferNetworkScope", "unverified"), scoped.details)
+    }
+
+    @Test
     fun `late revocation atomically updates transfer and matrix rows without duplicate ids`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

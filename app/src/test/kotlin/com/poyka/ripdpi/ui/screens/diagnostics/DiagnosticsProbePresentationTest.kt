@@ -121,7 +121,7 @@ class DiagnosticsProbePresentationTest {
     }
 
     @Test
-    fun verifiedDownloadDistinguishesCompletionAndFailureReasons() {
+    fun verifiedTransfersDistinguishCompletionAndFailureReasons() {
         val outcomes =
             mapOf(
                 "verified_download_complete" to R.string.diagnostics_verified_download_complete,
@@ -131,6 +131,13 @@ class DiagnosticsProbePresentationTest {
                 "verified_download_size_mismatch" to R.string.diagnostics_verified_download_size_mismatch,
                 "verified_download_failed" to R.string.diagnostics_stages_failed,
                 "verified_download_inconclusive" to R.string.diagnostics_matrix_inconclusive,
+                "verified_upload_complete" to R.string.diagnostics_verified_upload_complete,
+                "verified_upload_timeout" to R.string.diagnostics_verified_upload_timeout,
+                "verified_upload_early_eof" to R.string.diagnostics_verified_upload_early_eof,
+                "verified_upload_hash_mismatch" to R.string.diagnostics_verified_download_hash_mismatch,
+                "verified_upload_size_mismatch" to R.string.diagnostics_verified_download_size_mismatch,
+                "verified_upload_failed" to R.string.diagnostics_stages_failed,
+                "verified_upload_inconclusive" to R.string.diagnostics_matrix_inconclusive,
             )
         outcomes.forEach { (outcome, label) ->
             assertEquals(

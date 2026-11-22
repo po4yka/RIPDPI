@@ -2154,4 +2154,11 @@
     <string name="diagnostics_verified_download_early_eof">Ответ оборвался</string>
     <string name="diagnostics_verified_download_hash_mismatch">SHA-256 не совпадает</string>
     <string name="diagnostics_verified_download_size_mismatch">Размер не совпадает</string>
+    <string name="diagnostics_verified_upload_title">Проверка отправки по HTTPS</string>
+    <string name="diagnostics_verified_upload_description">Отправьте тестовые данные на свой HTTPS-сервер и проверьте его квитанцию.</string>
+    <string name="diagnostics_verified_upload_bytes">Размер отправки в байтах</string>
+    <string name="diagnostics_verified_upload_input_error">Укажите HTTPS-адрес без учётных данных, параметров запроса и фрагмента, а также размер от 1 до 1 048 576 байт.</string>
+    <string name="diagnostics_verified_upload_complete">Сервер подтвердил приём</string>
+    <string name="diagnostics_verified_upload_timeout">Истекло время ожидания отправки</string>
+    <string name="diagnostics_verified_upload_early_eof">Ответ с квитанцией оборвался</string>
 </resources>
