@@ -1,5 +1,11 @@
 use super::*;
+use crate::tls::config::EchLookupFailure;
+use crate::tls::types::ApplicationProtocolPolicy;
+use crate::transport::ConnectionStream;
+use ripdpi_diagnostics_dns::dns::EchResolutionOutcome;
+use rustls::client::EchStatus;
 use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -40,6 +46,151 @@ fn monitor_does_not_retry_ech_with_custom_certificate_verification() {
     check_monitor_ech_retry(RetryFixture::CustomVerifier);
 }
 
+#[test]
+fn comparison_connects_plain_grease_and_real_ech_on_the_same_trusted_peer() {
+    const REQUEST: &[u8] = b"GET /probe HTTP/1.1\r\nHost: inner.example\r\nConnection: close\r\n\r\n";
+    const RESPONSE: &[u8] = b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\npass";
+
+    let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "inner.example".into()]).unwrap();
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add(certificate.cert.der().clone()).unwrap();
+    let mut context = ech_server_context(&certificate);
+    context.set_min_proto_version(Some(boring::ssl::SslVersion::TLS1_3)).unwrap();
+    context.set_max_proto_version(Some(boring::ssl::SslVersion::TLS1_3)).unwrap();
+    context.set_alpn_select_callback(|_, offered| {
+        boring::ssl::select_next_proto(b"\x08http/1.1", offered).ok_or(boring::ssl::AlpnError::ALERT_FATAL)
+    });
+    let context = context.build();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        for accepted_ech in [false, false, true] {
+            let (socket, _) = listener.accept().unwrap();
+            socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            socket.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
+            let mut tls = boring::ssl::Ssl::new(&context).unwrap().accept(socket).unwrap();
+            assert_eq!(tls.ssl().ech_accepted(), accepted_ech);
+            assert_eq!(tls.ssl().selected_alpn_protocol(), Some(b"http/1.1".as_slice()));
+            let mut request = [0; REQUEST.len()];
+            tls.read_exact(&mut request).unwrap();
+            assert_eq!(&request[..], REQUEST);
+            tls.write_all(RESPONSE).unwrap();
+        }
+    });
+    let targets = [TargetAddress::Ip(address.ip())];
+    let transport = crate::transport::direct_transport();
+    let published = EchResolutionOutcome::Available([&[0, 62][..], BORING_ECH_CONFIG_2].concat());
+    for (profile, expected_status) in [
+        (TlsClientProfile::ComparisonTls13, EchStatus::NotOffered),
+        (TlsClientProfile::ComparisonEchGrease, EchStatus::Grease),
+        (TlsClientProfile::ComparisonEch, EchStatus::Accepted),
+    ] {
+        let options = CaptureTlsHandshakeOptions {
+            targets: &targets,
+            port: address.port(),
+            ech_retry_configs: None,
+            transport: &transport,
+            tls_name: "inner.example",
+            profile,
+            tls_verifier: None,
+            fixture_ech_roots: Some(&roots),
+            fixture_ech_lookup: Some(&published),
+            key_log: None,
+            application_protocol: ApplicationProtocolPolicy::Http11Only,
+            should_abort: &|| None,
+        };
+        let socket = TcpStream::connect(address).unwrap();
+        socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        socket.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
+        let (result, retry) = capture_with_ech_retry(socket, Some(address), 0, &options);
+        let mut handshake = result.unwrap_or_else(|error| panic!("{profile:?}: {}", error.message));
+        let ConnectionStream::Tls(stream) = &handshake.stream else { panic!("expected TLS") };
+        assert_eq!(stream.conn.ech_status(), expected_status);
+        assert_eq!(stream.conn.protocol_version(), Some(rustls::ProtocolVersion::TLSv1_3));
+        assert_eq!(handshake.negotiated_alpn.as_deref(), Some("http/1.1"));
+        assert!(retry.is_none());
+        handshake.stream.write_all(REQUEST).unwrap();
+        let mut response = [0; RESPONSE.len()];
+        handshake.stream.read_exact(&mut response).unwrap();
+        assert_eq!(&response[..], RESPONSE);
+    }
+    server.join().unwrap();
+}
+
+#[test]
+fn comparison_ech_reports_missing_config_even_for_a_cdn_peer() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let socket = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let cdn_peer = "104.16.0.1:443".parse::<SocketAddr>().unwrap();
+    let transport = crate::transport::direct_transport();
+    let targets = [TargetAddress::Ip(cdn_peer.ip())];
+    let options = CaptureTlsHandshakeOptions {
+        targets: &targets,
+        port: cdn_peer.port(),
+        ech_retry_configs: None,
+        transport: &transport,
+        tls_name: "inner.example",
+        profile: TlsClientProfile::ComparisonEch,
+        tls_verifier: None,
+        fixture_ech_roots: None,
+        fixture_ech_lookup: Some(&EchResolutionOutcome::NotPublished),
+        key_log: None,
+        application_protocol: ApplicationProtocolPolicy::Http11Only,
+        should_abort: &|| None,
+    };
+
+    let (result, retry) = capture_with_ech_retry(socket, Some(cdn_peer), 0, &options);
+
+    let Err(error) = result else { panic!("an unpublished ECH config allowed a handshake") };
+    assert_eq!(error.ech_lookup_failure.as_deref(), Some(&EchLookupFailure::NotPublished));
+    assert!(error.client_hello.is_none());
+    assert!(retry.is_none());
+}
+
+#[test]
+fn comparison_never_retries_rejected_ech_with_authenticated_retry_configs() {
+    let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "inner.example".into()]).unwrap();
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add(certificate.cert.der().clone()).unwrap();
+    let context = ech_server_context(&certificate).build();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        let (socket, _) = listener.accept().unwrap();
+        socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        if let Ok(mut tls) = boring::ssl::Ssl::new(&context).unwrap().accept(socket) {
+            assert!(!tls.ssl().ech_accepted());
+            assert!(matches!(tls.read(&mut [0]), Ok(0) | Err(_)));
+        }
+    });
+    let transport = crate::transport::direct_transport();
+    let targets = [TargetAddress::Ip(address.ip())];
+    let published = EchResolutionOutcome::Available(BORING_ECH_CONFIG_LIST.to_vec());
+    let options = CaptureTlsHandshakeOptions {
+        targets: &targets,
+        port: address.port(),
+        ech_retry_configs: None,
+        transport: &transport,
+        tls_name: "inner.example",
+        profile: TlsClientProfile::ComparisonEch,
+        tls_verifier: None,
+        fixture_ech_roots: Some(&roots),
+        fixture_ech_lookup: Some(&published),
+        key_log: None,
+        application_protocol: ApplicationProtocolPolicy::Http11Only,
+        should_abort: &|| None,
+    };
+
+    let socket = TcpStream::connect(address).unwrap();
+    let (result, retry) = capture_with_ech_retry(socket, Some(address), 0, &options);
+
+    let Err(error) = result else { panic!("rejected ECH yielded a stream") };
+    assert_eq!(error.ech_status, Some(EchStatus::Rejected));
+    assert!(error.ech_retry_configs.is_some());
+    assert!(retry.is_none());
+    server.join().unwrap();
+}
+
 #[derive(Clone, Copy)]
 enum RetryFixture {
     Accepted,
@@ -48,11 +199,7 @@ enum RetryFixture {
     CustomVerifier,
 }
 
-fn check_monitor_ech_retry(fixture: RetryFixture) {
-    let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "inner.example".into()]).unwrap();
-    let mut roots = rustls::RootCertStore::empty();
-    roots.add(certificate.cert.der().clone()).unwrap();
-    let verifier: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(crate::tls::NoCertificateVerification);
+fn ech_server_context(certificate: &rcgen::CertifiedKey<rcgen::KeyPair>) -> boring::ssl::SslContextBuilder {
     let mut context = boring::ssl::SslContext::builder(boring::ssl::SslMethod::tls()).unwrap();
     context.set_certificate(&boring::x509::X509::from_der(certificate.cert.der().as_ref()).unwrap()).unwrap();
     context
@@ -62,8 +209,16 @@ fn check_monitor_ech_retry(fixture: RetryFixture) {
     keys.add_key(true, BORING_ECH_CONFIG_2, boring::hpke::HpkeKey::dhkem_p256_sha256(BORING_ECH_KEY_2).unwrap())
         .unwrap();
     context.set_ech_keys(&keys.build()).unwrap();
-    let context = context.build();
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    context
+}
+
+fn check_monitor_ech_retry(fixture: RetryFixture) {
+    let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "inner.example".into()]).unwrap();
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add(certificate.cert.der().clone()).unwrap();
+    let verifier: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(crate::tls::NoCertificateVerification);
+    let context = ech_server_context(&certificate).build();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let server = std::thread::spawn(move || {
         let mut listener = Some(listener);
@@ -102,12 +257,14 @@ fn check_monitor_ech_retry(fixture: RetryFixture) {
     let transport = crate::transport::direct_transport();
     let options = CaptureTlsHandshakeOptions {
         targets: &targets,
+        port: address.port(),
         ech_retry_configs: Some(BORING_ECH_CONFIG_LIST),
         transport: &transport,
         tls_name: "inner.example",
         profile: crate::tls::types::TlsClientProfile::Tls13WithEch,
         tls_verifier: matches!(fixture, RetryFixture::CustomVerifier).then_some(&verifier),
         fixture_ech_roots: Some(&roots),
+        fixture_ech_lookup: None,
         key_log: None,
         application_protocol: crate::tls::types::ApplicationProtocolPolicy::Http11Only,
         should_abort: &|| None,

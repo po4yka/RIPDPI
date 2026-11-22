@@ -95,6 +95,7 @@ pub(super) fn capture_with_ech_retry(
         };
         let retry_options = CaptureTlsHandshakeOptions {
             targets: options.targets,
+            port: options.port,
             ech_retry_configs: Some(&configs),
             transport: options.transport,
             tls_name: options.tls_name,
@@ -102,6 +103,8 @@ pub(super) fn capture_with_ech_retry(
             tls_verifier: options.tls_verifier,
             #[cfg(test)]
             fixture_ech_roots: options.fixture_ech_roots,
+            #[cfg(test)]
+            fixture_ech_lookup: options.fixture_ech_lookup,
             key_log: options.key_log,
             application_protocol: options.application_protocol,
             should_abort: options.should_abort,

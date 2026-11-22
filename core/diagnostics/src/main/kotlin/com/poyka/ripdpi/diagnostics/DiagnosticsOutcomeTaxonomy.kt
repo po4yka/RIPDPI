@@ -293,7 +293,10 @@ private fun bucketThroughputWindow(outcome: String): DiagnosticsOutcomeBucket =
         "throughput_inconclusive",
         "verified_download_inconclusive",
         "verified_upload_inconclusive",
+        "ech_transfer_comparison_inconclusive",
         -> DiagnosticsOutcomeBucket.Inconclusive
+
+        "ech_transfer_comparison_recorded" -> DiagnosticsOutcomeBucket.Attention
 
         "throughput_failed",
         "verified_download_timeout",
@@ -447,7 +450,8 @@ private fun attentionKindForProbeOutcome(
             DiagnosticsAttentionKind.ProbeArtifact
         }
 
-        probeType == "quic_reachability" -> {
+        probeType == "quic_reachability" ||
+            (probeType == "throughput_window" && outcome == "ech_transfer_comparison_recorded") -> {
             DiagnosticsAttentionKind.ProbeArtifact
         }
 

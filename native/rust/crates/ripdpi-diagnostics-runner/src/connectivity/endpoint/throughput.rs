@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
 use ripdpi_diagnostics_contracts::util::{IO_TIMEOUT, active_scan_io_deadline, with_scan_io_deadline};
-use ripdpi_diagnostics_transport::transport::ConnectionStream;
+use ripdpi_diagnostics_transport::transport::{ConnectionStream, TargetAddress};
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::adapters::http::{classify_http_response, parse_http_response};
@@ -12,7 +12,7 @@ use crate::connectivity::adapters::tls::{
     ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
 };
 use crate::connectivity::adapters::transport::TransportConfig;
-use crate::types::{ThroughputTarget, TransferMeasurement};
+use crate::types::{ECH_TRANSFER_COMPARISON_LEGS, ThroughputTarget, TransferMeasurement};
 use ripdpi_diagnostics_tls::tls::open_probe_stream_targets_with_options_and_abort;
 
 use super::target_parse::parse_http_target;
@@ -47,19 +47,44 @@ pub(in crate::connectivity) fn measure_throughput_run(
     run_index: usize,
     progress: &mut dyn FnMut(&TransferMeasurement),
 ) -> ThroughputSample {
-    let mut tracker = TransferTracker::new(run_index, target.runs.clamp(1, 10), progress);
+    let options = ProbeStreamOptions {
+        profile: TlsClientProfile::Auto,
+        application_protocol: ApplicationProtocolPolicy::Http11Only,
+        certificate_policy: tls_verifier.into(),
+        key_log,
+    };
+    measure_throughput_with_options(target, transport, &options, cancel, run_index, progress)
+}
+
+pub(in crate::connectivity) fn measure_throughput_with_options(
+    target: &ThroughputTarget,
+    transport: &TransportConfig,
+    options: &ProbeStreamOptions<'_>,
+    cancel: &AtomicBool,
+    run_index: usize,
+    progress: &mut dyn FnMut(&TransferMeasurement),
+) -> ThroughputSample {
+    let is_ech_comparison = target.verification.as_ref().is_some_and(|proof| proof.ech_comparison_ip.is_some());
+    let runs = if is_ech_comparison { ECH_TRANSFER_COMPARISON_LEGS } else { target.runs.clamp(1, 10) };
+    let mut tracker = TransferTracker::new(run_index, runs, progress);
     if target.verification.is_some() {
         tracker.verify_body();
     }
-    let deadline = transfer_deadline(tracker.started);
+    let mut deadline = transfer_deadline(tracker.started);
+    if is_ech_comparison {
+        // One slow leg must leave time for the other two.
+        deadline = deadline.min(tracker.started + Duration::from_secs(8));
+    }
     let (mut sample, reason) = with_scan_io_deadline(Some(deadline), || {
-        measure_run(target, transport, key_log, tls_verifier, cancel, deadline, &mut tracker)
+        measure_run(target, transport, options, cancel, deadline, &mut tracker)
     });
     tracker.finish(reason, target.window_bytes);
     sample.verification_outcome = target.verification.as_ref().map(|expected| match reason {
         "idle_timeout" | "deadline" => "verified_download_timeout",
         "early_eof" => "verified_download_early_eof",
         "cancelled" => "verified_download_inconclusive",
+        "ech_config_missing" => "ech_config_missing",
+        "ech_config_error" => "ech_config_error",
         "window_limit" => "verified_download_size_mismatch",
         "eof_complete" if tracker.measurement.received_body_byte_count < expected.expected_body_bytes as u64 => {
             "verified_download_early_eof"
@@ -88,8 +113,7 @@ pub(super) fn transfer_deadline(started: Instant) -> Instant {
 fn measure_run(
     target: &ThroughputTarget,
     transport: &TransportConfig,
-    key_log: Option<&TlsKeyLogCallback>,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    options: &ProbeStreamOptions<'_>,
     cancel: &AtomicBool,
     deadline: Instant,
     tracker: &mut TransferTracker<'_>,
@@ -101,28 +125,29 @@ fn measure_run(
     if let Err(error) = target.validate_download() {
         return (failed_sample(started, "target_parse", error.to_string()), "setup_error");
     }
-    let parsed = match parse_http_target(&target.url, target.connect_ip.as_deref(), &target.connect_ips, target.port) {
-        Ok(parsed) => parsed,
-        Err(err) => return (failed_sample(started, "target_parse", err), "setup_error"),
-    };
-    let options = ProbeStreamOptions {
-        profile: TlsClientProfile::Auto,
-        application_protocol: ApplicationProtocolPolicy::Http11Only,
-        certificate_policy: tls_verifier.into(),
-        key_log,
-    };
+    let mut parsed =
+        match parse_http_target(&target.url, target.connect_ip.as_deref(), &target.connect_ips, target.port) {
+            Ok(parsed) => parsed,
+            Err(err) => return (failed_sample(started, "target_parse", err), "setup_error"),
+        };
+    if let Some(ip) = target.verification.as_ref().and_then(|proof| proof.ech_comparison_ip) {
+        parsed.connect_targets = vec![TargetAddress::Ip(ip)];
+    }
     let result = open_probe_stream_targets_with_options_and_abort(
         &parsed.connect_targets,
         parsed.port,
         transport,
         parsed.secure.then_some(parsed.host.as_str()),
-        &options,
+        options,
         &|| interruption(cancel, deadline),
     );
     let result = match result {
         Ok(result) => result,
         Err(error) => {
-            return (failed_stream_sample(error, transport), interruption(cancel, deadline).unwrap_or("setup_error"));
+            let reason = interruption(cancel, deadline)
+                .or_else(|| error.comparison_ech_setup_outcome())
+                .unwrap_or("setup_error");
+            return (failed_stream_sample(error, transport), reason);
         }
     };
     let address_family = result

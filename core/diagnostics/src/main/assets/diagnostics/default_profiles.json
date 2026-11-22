@@ -549,6 +549,34 @@
       }
     },
     {
+      "id": "ech-transfer-comparison",
+      "name": "ECH transfer comparison",
+      "version": 1,
+      "request": {
+        "profileId": "ech-transfer-comparison",
+        "displayName": "ECH transfer comparison",
+        "kind": "CONNECTIVITY",
+        "family": "WEB_CONNECTIVITY",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": []
+      }
+    },
+    {
       "id": "automatic-probing",
       "name": "Automatic probing",
       "version": 8,

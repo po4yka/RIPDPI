@@ -192,6 +192,10 @@ private fun validateVerifiedTransferAdmission(
                 target?.isValidVerifiedUpload() == true
             }
 
+            EchTransferComparisonProfileId -> {
+                target?.isValidVerifiedEchComparison() == true
+            }
+
             else -> {
                 require(intent.throughputTargets.none { it.verification != null || it.uploadBodyBytes != null })
                 return

@@ -2090,4 +2090,13 @@
     <string name="diagnostics_verified_upload_complete">سرور دریافت را تأیید کرد</string>
     <string name="diagnostics_verified_upload_timeout">مهلت بارگذاری تمام شد</string>
     <string name="diagnostics_verified_upload_early_eof">رسید سرور ناقص بود</string>
+    <string name="diagnostics_ech_transfer_title">مقایسهٔ انتقال با ECH</string>
+    <string name="diagnostics_ech_transfer_description">یک پاسخ HTTPS را با TLS 1.3، ‏ECH GREASE و ECH روی یک نشانی IP ثابت بررسی کنید.</string>
+    <string name="diagnostics_ech_transfer_ip">‏IP سرور (IPv4 یا IPv6)</string>
+    <string name="diagnostics_ech_transfer_input_error">نشانی HTTPS با نام میزبان و بدون اطلاعات ورود، پرس‌وجو یا بخش پایانی وارد کنید. یک نشانی IPv4 یا IPv6، اندازهٔ ۱ تا ۳۲٬۷۶۸ بایت و SHA-256 با ۶۴ رقم شانزده‌شانزدهی وارد کنید.</string>
+    <string name="diagnostics_ech_transfer_grease">ECH GREASE</string>
+    <string name="diagnostics_ech_transfer_config_missing">پیکربندی ECH در DNS یافت نشد</string>
+    <string name="diagnostics_ech_transfer_body_timeout">دریافت بدنهٔ پاسخ متوقف شد</string>
+    <string name="diagnostics_ech_transfer_response_timeout">مهلت دریافت سرآیندهای HTTP تمام شد</string>
+    <string name="diagnostics_ech_transfer_http_failed">تبادل HTTP ناموفق بود</string>
 </resources>

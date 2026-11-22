@@ -2106,4 +2106,13 @@
     <string name="diagnostics_verified_upload_complete">Le serveur a confirmé la réception</string>
     <string name="diagnostics_verified_upload_timeout">Le délai d’envoi a expiré</string>
     <string name="diagnostics_verified_upload_early_eof">L’accusé de réception est incomplet</string>
+    <string name="diagnostics_ech_transfer_title">Comparaison des transferts avec ECH</string>
+    <string name="diagnostics_ech_transfer_description">Vérifiez une même réponse HTTPS avec TLS 1.3, ECH GREASE et ECH sur une adresse IP fixe.</string>
+    <string name="diagnostics_ech_transfer_ip">IP du serveur (IPv4 ou IPv6)</string>
+    <string name="diagnostics_ech_transfer_input_error">Saisissez une URL HTTPS avec un nom d’hôte, sans identifiants, requête ni fragment. Utilisez une adresse IPv4 ou IPv6, 1 à 32 768 octets et un SHA-256 de 64 chiffres hexadécimaux.</string>
+    <string name="diagnostics_ech_transfer_grease">ECH GREASE</string>
+    <string name="diagnostics_ech_transfer_config_missing">Aucune configuration ECH dans le DNS</string>
+    <string name="diagnostics_ech_transfer_body_timeout">La réception du corps est bloquée</string>
+    <string name="diagnostics_ech_transfer_response_timeout">Délai dépassé avant la réception des en-têtes HTTP</string>
+    <string name="diagnostics_ech_transfer_http_failed">Échec de l’échange HTTP</string>
 </resources>

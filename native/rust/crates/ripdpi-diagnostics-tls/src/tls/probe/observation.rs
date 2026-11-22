@@ -174,7 +174,7 @@ fn map_success_observation(
         },
         ConnectionStream::Tls(stream) => {
             let version = tls_version_label(stream.conn.protocol_version());
-            if matches!(profile, TlsClientProfile::Tls13WithEch) {
+            if profile.uses_real_ech() {
                 let outcome = ech::from_accepted_status(stream.conn.ech_status(), plan);
                 SuccessObservationParts {
                     status: outcome.status,

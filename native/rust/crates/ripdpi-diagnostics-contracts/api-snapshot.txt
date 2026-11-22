@@ -495,6 +495,7 @@ pub ripdpi_diagnostics_contracts::types::DomainTarget::http_port: core::option::
 pub ripdpi_diagnostics_contracts::types::DomainTarget::https_port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::types::DomainTarget::is_control: bool
 pub struct ripdpi_diagnostics_contracts::types::DownloadVerification
+pub ripdpi_diagnostics_contracts::types::DownloadVerification::ech_comparison_ip: core::option::Option<core::net::ip_addr::IpAddr>
 pub ripdpi_diagnostics_contracts::types::DownloadVerification::expected_body_bytes: usize
 pub ripdpi_diagnostics_contracts::types::DownloadVerification::sha256: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot
@@ -1174,7 +1175,10 @@ pub const ripdpi_diagnostics_contracts::types::VerifiedUploadReceipt::MAX_BYTES:
 pub fn ripdpi_diagnostics_contracts::types::VerifiedUploadReceipt::from_json(&[u8]) -> core::result::Result<Self, &'static str>
 pub const ripdpi_diagnostics_contracts::types::CLIENT_FIELD_REPORT_CONTRACT_VERSION: u32
 pub const ripdpi_diagnostics_contracts::types::CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str
+pub const ripdpi_diagnostics_contracts::types::ECH_TRANSFER_COMPARISON_LEGS: usize
+pub const ripdpi_diagnostics_contracts::types::ECH_TRANSFER_COMPARISON_PROFILE_ID: &str
 pub const ripdpi_diagnostics_contracts::types::EXECUTION_PLAN_VERSION: &str
+pub const ripdpi_diagnostics_contracts::types::MAX_ECH_COMPARISON_BODY_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::MAX_VERIFIED_DOWNLOAD_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::MAX_VERIFIED_UPLOAD_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::STRATEGY_PROBE_METHODOLOGY_VERSION: &str

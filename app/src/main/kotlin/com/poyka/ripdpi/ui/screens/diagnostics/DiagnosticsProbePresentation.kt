@@ -134,8 +134,12 @@ private fun verifiedTransferOutcomeResource(outcome: String): Int? =
             R.string.diagnostics_stages_failed
         }
 
-        "verified_download_inconclusive", "verified_upload_inconclusive" -> {
+        "verified_download_inconclusive", "verified_upload_inconclusive", "ech_transfer_comparison_inconclusive" -> {
             R.string.diagnostics_matrix_inconclusive
+        }
+
+        "ech_transfer_comparison_recorded" -> {
+            R.string.diagnostics_probe_result_recorded
         }
 
         else -> {
@@ -154,6 +158,8 @@ internal fun diagnosticProbeTitle(
         probe.http3.title
     } else if (probe.ipFamily != null) {
         stringResource(R.string.diagnostics_ip_title)
+    } else if (probe.isEchTransferComparison) {
+        stringResource(R.string.diagnostics_ech_transfer_title)
     } else if (probe.outcome.startsWith("verified_upload_")) {
         stringResource(R.string.diagnostics_verified_upload_title)
     } else if (probe.outcome.startsWith("verified_download_")) {

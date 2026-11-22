@@ -136,6 +136,19 @@ pub enum TlsClientProfile {
     Tls12Only,
     Tls13Only,
     Tls13WithEch,
+    ComparisonTls13,
+    ComparisonEchGrease,
+    ComparisonEch,
+}
+
+impl TlsClientProfile {
+    pub(super) const fn is_comparison(self) -> bool {
+        matches!(self, Self::ComparisonTls13 | Self::ComparisonEchGrease | Self::ComparisonEch)
+    }
+
+    pub(super) const fn uses_real_ech(self) -> bool {
+        matches!(self, Self::Tls13WithEch | Self::ComparisonEch)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -281,6 +294,17 @@ pub(super) struct EchErrorEvidence {
 impl ProbeStreamError {
     pub fn rejected_server_certificate(&self) -> bool {
         self.certificate_anomaly
+    }
+
+    /// Classify ECH setup before a handshake independently of connection and TLS failure.
+    pub fn comparison_ech_setup_outcome(&self) -> Option<&'static str> {
+        use super::config::EchLookupFailure;
+
+        let failure = self.ech.as_ref()?.lookup_failure.as_ref()?;
+        Some(match failure {
+            EchLookupFailure::NotPublished => "ech_config_missing",
+            EchLookupFailure::ResolutionFailed(_) | EchLookupFailure::InvalidConfig(_) => "ech_config_error",
+        })
     }
 }
 

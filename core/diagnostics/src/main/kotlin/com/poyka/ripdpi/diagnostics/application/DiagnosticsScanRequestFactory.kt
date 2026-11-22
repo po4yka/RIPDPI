@@ -49,6 +49,7 @@ import com.poyka.ripdpi.diagnostics.prepareScanEndpoints
 import com.poyka.ripdpi.diagnostics.selectiveMatrixRevisions
 import com.poyka.ripdpi.diagnostics.withUserHosts
 import com.poyka.ripdpi.diagnostics.withVerifiedDownload
+import com.poyka.ripdpi.diagnostics.withVerifiedEchComparison
 import com.poyka.ripdpi.diagnostics.withVerifiedUpload
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.Json
@@ -299,9 +300,7 @@ internal class DiagnosticsScanRequestFactory
                             intentResolver
                                 .resolve(profile.id, pathMode)
                                 .copy(settings = settings)
-                                .applyEndpointOverrides(targetOverrides)
-                                .withVerifiedDownload(targetOverrides?.verifiedDownload)
-                                .withVerifiedUpload(targetOverrides?.verifiedUpload),
+                                .applyEndpointOverrides(targetOverrides),
                             networkFingerprintProvider.capture()?.scopeKey(),
                             scanOrigin,
                             activeProbeSafetyPolicy,
@@ -447,15 +446,23 @@ internal class DiagnosticsScanRequestFactory
 
 // The catalog's endpoint templates are empty, so user endpoints must replace them before any budget validation.
 private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyEndpointOverrides(
-    targetOverrides: DiagnosticsScanTargetOverrides?,
+    overrides: DiagnosticsScanTargetOverrides?,
 ): com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent {
-    val overrides = targetOverrides ?: return this
-    require(overrides.tlsHopComparison == null || tlsHopComparison != null)
-    require(overrides.quicVersionMatrix == null || quicVersionMatrix != null)
-    return copy(
-        tlsHopComparison = overrides.tlsHopComparison ?: tlsHopComparison,
-        quicVersionMatrix = overrides.quicVersionMatrix ?: quicVersionMatrix,
-    )
+    require(overrides?.tlsHopComparison == null || tlsHopComparison != null)
+    require(overrides?.quicVersionMatrix == null || quicVersionMatrix != null)
+    val intent =
+        if (overrides == null) {
+            this
+        } else {
+            copy(
+                tlsHopComparison = overrides.tlsHopComparison ?: tlsHopComparison,
+                quicVersionMatrix = overrides.quicVersionMatrix ?: quicVersionMatrix,
+            )
+        }
+    return intent
+        .withVerifiedDownload(overrides?.verifiedDownload)
+        .withVerifiedUpload(overrides?.verifiedUpload)
+        .withVerifiedEchComparison(overrides?.echComparison)
 }
 
 private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyTargetOverrides(

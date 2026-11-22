@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
@@ -219,6 +220,15 @@ internal fun ScanSection(
                     input = scan.verifiedUploadInput,
                     enabled = !effectiveBusy,
                     onInputChanged = manualProbeInput.onVerifiedUploadChanged,
+                )
+            }
+        }
+        if (selectedProfile?.id == EchTransferComparisonProfileId) {
+            item(key = "ech-comparison-input") {
+                VerifiedEchComparisonInputCard(
+                    input = scan.echComparisonInput,
+                    enabled = !effectiveBusy,
+                    onInputChanged = manualProbeInput.onEchComparisonChanged,
                 )
             }
         }

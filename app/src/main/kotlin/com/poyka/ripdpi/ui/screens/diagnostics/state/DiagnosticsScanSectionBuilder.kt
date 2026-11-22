@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -14,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
+import com.poyka.ripdpi.diagnostics.VerifiedEchComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
@@ -27,6 +29,7 @@ internal data class BuildScanUiModelParams(
     val quicVersionMatrixInput: QuicVersionMatrixConfig = QuicVersionMatrixConfig(),
     val verifiedDownloadInput: VerifiedDownloadInput = VerifiedDownloadInput(),
     val verifiedUploadInput: VerifiedUploadInput = VerifiedUploadInput(),
+    val echComparisonInput: VerifiedEchComparisonInput = VerifiedEchComparisonInput(),
     val profiles: List<DiagnosticProfile>,
     val omittedProfileCount: Int = 0,
     val activeProfile: DiagnosticProfile?,
@@ -65,6 +68,7 @@ private fun BuildScanUiModelParams.manualInputValid(
         QuicVersionMatrixProfileId -> quicVersionMatrixInput.isValid()
         VerifiedDownloadProfileId -> verifiedDownloadInput.isValid()
         VerifiedUploadProfileId -> verifiedUploadInput.isValid()
+        EchTransferComparisonProfileId -> echComparisonInput.isValid()
         else -> true
     }
 
@@ -90,6 +94,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
             latestSession = params.latestProfileSession?.let(::toSessionRowUiModel),
         )
     val activeProgress = buildActiveScanProgress(params, selectedProfile)
+    val latestReport = params.latestProfileSession?.report
 
     return DiagnosticsScanUiModel(
         selectiveMatrixHostsInput = params.selectiveMatrixHostsInput,
@@ -98,6 +103,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         quicVersionMatrixInput = params.quicVersionMatrixInput,
         verifiedDownloadInput = params.verifiedDownloadInput,
         verifiedUploadInput = params.verifiedUploadInput,
+        echComparisonInput = params.echComparisonInput,
         selectiveMatrixTargets = params.activeProfileRequest.matrixTargetRows(),
         profiles = params.profiles.map(::toProfileOptionUiModel).toImmutableList(),
         selectedProfileId = params.activeProfile?.id,
@@ -106,11 +112,10 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         activeProgress = activeProgress,
         latestSession = params.latestProfileSession?.let(::toSessionRowUiModel),
         diagnoses =
-            params.latestProfileSession
-                ?.report
+            latestReport
                 ?.diagnoses
-                ?.map(::toDiagnosisUiModel)
                 .orEmpty()
+                .map(::toDiagnosisUiModel)
                 .toImmutableList(),
         latestResults = params.latestReportResults.toImmutableList(),
         selectedProfileScopeLabel = toScopeLabel(params.activeProfileRequest, params.rawArgsEnabled),

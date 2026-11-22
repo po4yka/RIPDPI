@@ -2161,4 +2161,13 @@
     <string name="diagnostics_verified_upload_complete">Сервер подтвердил приём</string>
     <string name="diagnostics_verified_upload_timeout">Истекло время ожидания отправки</string>
     <string name="diagnostics_verified_upload_early_eof">Ответ с квитанцией оборвался</string>
+    <string name="diagnostics_ech_transfer_title">Сравнение передачи с ECH</string>
+    <string name="diagnostics_ech_transfer_description">Проверьте один HTTPS-ответ с TLS 1.3, ECH GREASE и ECH на фиксированном IP-адресе.</string>
+    <string name="diagnostics_ech_transfer_ip">IP-адрес сервера (IPv4 или IPv6)</string>
+    <string name="diagnostics_ech_transfer_input_error">Укажите HTTPS-адрес с именем хоста без учётных данных, параметров запроса и фрагмента. Введите адрес IPv4 или IPv6, размер от 1 до 32 768 байт и SHA-256 из 64 шестнадцатеричных цифр.</string>
+    <string name="diagnostics_ech_transfer_grease">ECH GREASE</string>
+    <string name="diagnostics_ech_transfer_config_missing">В DNS нет конфигурации ECH</string>
+    <string name="diagnostics_ech_transfer_body_timeout">Передача тела ответа зависла</string>
+    <string name="diagnostics_ech_transfer_response_timeout">Тайм-аут до получения заголовков HTTP</string>
+    <string name="diagnostics_ech_transfer_http_failed">Сбой обмена по HTTP</string>
 </resources>

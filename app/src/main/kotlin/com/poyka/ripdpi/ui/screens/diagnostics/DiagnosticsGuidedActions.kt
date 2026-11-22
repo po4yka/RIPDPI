@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -64,6 +65,7 @@ private val guidedToolSummaries =
         "ru-throttling" to R.string.diagnostics_profile_desc_throttling,
         VerifiedDownloadProfileId to R.string.diagnostics_verified_download_description,
         VerifiedUploadProfileId to R.string.diagnostics_verified_upload_description,
+        EchTransferComparisonProfileId to R.string.diagnostics_ech_transfer_description,
     )
 
 @Composable

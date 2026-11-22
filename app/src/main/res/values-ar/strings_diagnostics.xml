@@ -2257,4 +2257,13 @@
     <string name="diagnostics_verified_upload_complete">أكّد الخادم الاستلام</string>
     <string name="diagnostics_verified_upload_timeout">انتهت مهلة الرفع</string>
     <string name="diagnostics_verified_upload_early_eof">إيصال الخادم غير مكتمل</string>
+    <string name="diagnostics_ech_transfer_title">مقارنة النقل باستخدام ECH</string>
+    <string name="diagnostics_ech_transfer_description">تحقق من رد HTTPS واحد باستخدام TLS 1.3 وECH GREASE وECH على عنوان IP ثابت.</string>
+    <string name="diagnostics_ech_transfer_ip">عنوان IP للخادم (IPv4 أو IPv6)</string>
+    <string name="diagnostics_ech_transfer_input_error">أدخل عنوان HTTPS باسم مضيف، دون بيانات اعتماد أو استعلام أو جزء. استخدم عنوان IPv4 أو IPv6 وحجمًا من ١ إلى ٣٢٬٧٦٨ بايت وقيمة SHA-256 من ٦٤ رقمًا سداسيًا عشريًا.</string>
+    <string name="diagnostics_ech_transfer_grease">ECH GREASE</string>
+    <string name="diagnostics_ech_transfer_config_missing">لا يوجد إعداد ECH في DNS</string>
+    <string name="diagnostics_ech_transfer_body_timeout">توقف استلام متن الرد</string>
+    <string name="diagnostics_ech_transfer_response_timeout">انتهت المهلة قبل استلام ترويسات HTTP</string>
+    <string name="diagnostics_ech_transfer_http_failed">فشل تبادل HTTP</string>
 </resources>

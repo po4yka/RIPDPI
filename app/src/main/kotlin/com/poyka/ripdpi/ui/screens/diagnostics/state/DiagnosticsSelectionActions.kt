@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
+import com.poyka.ripdpi.diagnostics.VerifiedEchComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -21,6 +22,7 @@ data class DiagnosticsManualProbeInputActions(
     val onQuicVersionMatrixChanged: (QuicVersionMatrixConfig) -> Unit = {},
     val onVerifiedDownloadChanged: (VerifiedDownloadInput) -> Unit = {},
     val onVerifiedUploadChanged: (VerifiedUploadInput) -> Unit = {},
+    val onEchComparisonChanged: (VerifiedEchComparisonInput) -> Unit = {},
 )
 
 internal class DiagnosticsSelectionActions(
@@ -75,8 +77,9 @@ internal class DiagnosticsSelectionActions(
         DiagnosticsManualProbeInputActions(
             onTlsHopComparisonChanged = ::updateTlsHopComparison,
             onQuicVersionMatrixChanged = ::updateQuicVersionMatrix,
-            onVerifiedDownloadChanged = ::updateVerifiedDownload,
-            onVerifiedUploadChanged = ::updateVerifiedUpload,
+            onVerifiedDownloadChanged = { input -> updateTransferInput { it.copy(verifiedDownloadInput = input) } },
+            onVerifiedUploadChanged = { input -> updateTransferInput { it.copy(verifiedUploadInput = input) } },
+            onEchComparisonChanged = { input -> updateTransferInput { it.copy(echComparisonInput = input) } },
         )
 
     fun updateTlsHopComparison(input: TlsHopComparisonConfig) {
@@ -101,22 +104,13 @@ internal class DiagnosticsSelectionActions(
         selection.update { it.copy(quicVersionMatrixInput = input) }
     }
 
-    private fun updateVerifiedDownload(input: VerifiedDownloadInput) {
+    private fun updateTransferInput(update: (SelectionState) -> SelectionState) {
         if (mutations.diagnosticsTimelineSource.activeScanProgress.value != null ||
             mutations.diagnosticsScanController.hasActiveHomeRun()
         ) {
             return
         }
-        selection.update { it.copy(verifiedDownloadInput = input) }
-    }
-
-    private fun updateVerifiedUpload(input: VerifiedUploadInput) {
-        if (mutations.diagnosticsTimelineSource.activeScanProgress.value != null ||
-            mutations.diagnosticsScanController.hasActiveHomeRun()
-        ) {
-            return
-        }
-        selection.update { it.copy(verifiedUploadInput = input) }
+        selection.update(update)
     }
 
     fun selectProfile(profileId: String) {

@@ -28,6 +28,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
+import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
@@ -48,6 +49,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
+import com.poyka.ripdpi.diagnostics.VerifiedEchComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
@@ -937,6 +939,73 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
             assertEquals(1, starts)
             assertEquals(valid, manager.scanController.lastScanTargetOverrides?.verifiedDownload)
+            collector.cancel()
+        }
+
+    @Test
+    fun `ECH comparison needs its own valid HTTPS input and forwards the selected path`() =
+        runTest {
+            val profileId = EchTransferComparisonProfileId
+            val title = "ECH transfer comparison"
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = profileId,
+                                name = title,
+                                source = "bundled",
+                                version = 1,
+                                requestJson = profileRequest(profileId, title, manualOnly = true),
+                                updatedAt = 1L,
+                            ),
+                        )
+                }
+            val paths = mutableListOf<ScanPathMode>()
+            manager.scanController.onStartScan = { pathMode, selectedProfile ->
+                assertEquals(profileId, selectedProfile)
+                paths += pathMode
+                DiagnosticsManualScanStartResult.Started("ech-comparison")
+            }
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+            viewModel.selectionActions.selectProfile(profileId)
+            val input = viewModel.selectionActions.manualProbeInput
+            input.onVerifiedDownloadChanged(
+                VerifiedDownloadInput("https://download.example/body", "10", "a".repeat(64)),
+            )
+            val valid = VerifiedEchComparisonInput("https://fixture.example/body", "192.0.2.8", "32768", "b".repeat(64))
+            listOf(
+                VerifiedEchComparisonInput(),
+                valid.copy(connectIp = "fixture.example"),
+                valid.copy(expectedBodyBytes = "32769"),
+                valid.copy(sha256 = "bad"),
+            ).forEach { invalid ->
+                input.onEchComparisonChanged(invalid)
+                advanceUntilIdle()
+                assertFalse(viewModel.uiState.value.scan.runRawEnabled)
+                assertFalse(viewModel.uiState.value.scan.runInPathEnabled)
+                viewModel.scanActions.startInPathScan()
+                advanceUntilIdle()
+                assertTrue(paths.isEmpty())
+            }
+
+            input.onEchComparisonChanged(valid)
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.scan.runRawEnabled)
+            assertTrue(viewModel.uiState.value.scan.runInPathEnabled)
+            viewModel.scanActions.startInPathScan()
+            advanceUntilIdle()
+            assertEquals(listOf(ScanPathMode.IN_PATH), paths)
+            assertEquals(valid, manager.scanController.lastScanTargetOverrides?.echComparison)
+            assertNull(manager.scanController.lastScanTargetOverrides?.verifiedDownload)
             collector.cancel()
         }
 

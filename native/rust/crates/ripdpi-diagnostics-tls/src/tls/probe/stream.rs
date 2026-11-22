@@ -66,6 +66,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 opened.transport_open_ms,
                 &CaptureTlsHandshakeOptions {
                     targets,
+                    port,
                     ech_retry_configs: None,
                     transport,
                     tls_name: name,
@@ -73,6 +74,8 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                     tls_verifier: options.certificate_policy.override_verifier(),
                     #[cfg(test)]
                     fixture_ech_roots: None,
+                    #[cfg(test)]
+                    fixture_ech_lookup: None,
                     key_log: options.key_log,
                     application_protocol: options.application_protocol,
                     should_abort,
@@ -114,16 +117,15 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                     } else {
                         ProbeStreamFailureStage::TlsHandshake
                     });
-                    let ech =
-                        matches!(options.profile, super::super::types::TlsClientProfile::Tls13WithEch).then(|| {
-                            Box::new(EchErrorEvidence {
-                                config_source: err.ech_config_source,
-                                status: err.ech_status,
-                                lookup_failure: err.ech_lookup_failure.map(|failure| *failure),
-                                initial_attempt: ech_initial_attempt,
-                                retry_skipped_reason: err.ech_retry_skipped_reason,
-                            })
-                        });
+                    let ech = options.profile.uses_real_ech().then(|| {
+                        Box::new(EchErrorEvidence {
+                            config_source: err.ech_config_source,
+                            status: err.ech_status,
+                            lookup_failure: err.ech_lookup_failure.map(|failure| *failure),
+                            initial_attempt: ech_initial_attempt,
+                            retry_skipped_reason: err.ech_retry_skipped_reason,
+                        })
+                    });
                     let certificate_verification = match options.certificate_policy {
                         ProbeCertificatePolicy::WebPki if err.certificate_anomaly => {
                             CertificateVerification::RejectedWebPki
