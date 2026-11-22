@@ -11,6 +11,10 @@ internal data class SelectorReserves(
     fun ordinaryFailed(failedIds: Set<String>): Boolean = ordinary.all { it.id in failedIds }
 }
 
+/** The member after [failedId], so successive sweeps give the down slot to each down member in turn. */
+internal fun List<ProxyProfile>.after(failedId: String?): ProxyProfile? =
+    getOrNull(indexOfFirst { it.id == failedId } + 1) ?: firstOrNull()
+
 internal fun SelectorProbeScope.automaticActive(profileId: String?): ProxyProfile? =
     members.firstOrNull { it.id == profileId && it.id !in cloudflareMemberIds }
 

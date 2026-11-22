@@ -58,6 +58,30 @@ class SelectorCloudHealthTest {
         }
 
     @Test
+    fun `the sweep after backoff gives the down slot to the next down member`() =
+        runTest {
+            val check = fixture { member -> if (member == "down-b") MemberProbeResult(20L) else null }
+
+            repeat(12) { check.pass() }
+
+            assertEquals(
+                listOf("active", "regular", "active", "down-a", "active", "regular", "active", "down-b"),
+                check.measured.take(8),
+            )
+        }
+
+    @Test
+    fun `reachability gives the down slot to the next down member after a failure`() =
+        runTest {
+            val check = fixture(payload = false) { member -> if (member == "down-b") MemberProbeResult(20L) else null }
+
+            repeat(2) { check.pass() }
+
+            assertEquals(listOf("active", "regular", "down-a", "active", "regular", "down-b"), check.measured)
+            assertEquals("down-b", check.selected)
+        }
+
+    @Test
     fun `budget denial before the down slot starts neither candidate`() =
         runTest {
             val check = fixture { null }
