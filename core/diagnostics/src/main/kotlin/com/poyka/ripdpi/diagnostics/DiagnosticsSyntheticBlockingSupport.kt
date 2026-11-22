@@ -93,7 +93,9 @@ internal fun ScanReport.resultsForDirectModePolicy(): List<ProbeResult> =
             }
         }
 
-internal fun ProbeResult.isQuicInitialProbe(): Boolean =
+internal fun ProbeResult.isQuicInitialProbe(): Boolean = isQuicInitialProbeType(probeType)
+
+fun isQuicInitialProbeType(probeType: String): Boolean =
     probeType == ProbeTypeQuicReachability || probeType == "strategy_quic"
 
 internal fun ProbeResult.isDirectModePolicyEvidence(): Boolean =

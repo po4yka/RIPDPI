@@ -2279,4 +2279,10 @@
     <string name="diagnostics_volume_transfer_short">استجابة قصيرة</string>
     <string name="diagnostics_volume_transfer_long">استجابة طويلة</string>
     <string name="diagnostics_volume_transfer_input_error">أدخل عنوان IP واحدًا ورابطَي HTTPS مختلفين على المضيف والمنفذ نفسيهما. تحقق من الأحجام وقيم تجزئة SHA-256.</string>
+    <string name="diagnostics_control_passed">نجح اختبار الضبط</string>
+    <string name="diagnostics_control_failed">فشل اختبار الضبط</string>
+    <string name="diagnostics_control_unknown">اختبار الضبط: لا بيانات</string>
+    <string name="diagnostics_quic_initial_limit">تبادل QUIC الأولي فقط. لا يختبر هذا الفحص طلب HTTP/3 كاملاً.</string>
+    <string name="diagnostics_field_interface_mtu">MTU الواجهة</string>
+    <string name="diagnostics_interface_mtu_value">%1$d بايت · لم يُقَس MTU المسار</string>
 </resources>

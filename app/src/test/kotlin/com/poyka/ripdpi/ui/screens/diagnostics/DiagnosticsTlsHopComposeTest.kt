@@ -45,7 +45,8 @@ class DiagnosticsTlsHopComposeTest {
             requireNotNull(
                 result(
                     """{"status":"DIVERGENCE","firstHop":5,"lastHop":5,"pathLength":9,""" +
-                        """"limits":["server_hello_near_client"],"controlAttempts":18,"testAttempts":18}""",
+                        """"limits":["server_hello_near_client"],"stop":"COMPLETED",""" +
+                        """"controlAttempts":18,"testAttempts":18}""",
                 ).toTlsHopResult(),
             )
         composeRule.setContent { RipDpiTheme { TlsHopResultsCard(model) } }
@@ -53,6 +54,7 @@ class DiagnosticsTlsHopComposeTest {
         composeRule.onNodeWithText("Test SNI draws a reaction at hops 5–5").assertIsDisplayed()
         composeRule.onNodeWithText("An observed hop interval, not an identified device").assertIsDisplayed()
         composeRule.onNodeWithText("Server answers at hop 9").assertIsDisplayed()
+        composeRule.onNodeWithText("Control check passed").assertIsDisplayed()
         composeRule
             .onNodeWithText("ServerHello within 2 hops: a local proxy or interception answers")
             .assertIsDisplayed()
@@ -70,6 +72,7 @@ class DiagnosticsTlsHopComposeTest {
         composeRule.setContent { RipDpiTheme { TlsHopResultsCard(model) } }
 
         composeRule.onNodeWithText("Not supported on this path").assertIsDisplayed()
+        composeRule.onNodeWithText("Control check: no data").assertIsDisplayed()
         composeRule.onNodeWithText("This device cannot set the packet TTL").assertIsDisplayed()
         composeRule.onNodeWithText("An observed hop interval, not an identified device").assertDoesNotExist()
     }

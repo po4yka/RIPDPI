@@ -450,6 +450,7 @@ private fun DiagnosisSummaryCard(
                         style = RipDpiThemeTokens.type.bodyEmphasis,
                         color = colors.foreground,
                     )
+                    DiagnosisMeasurementNotes(diagnosis)
                     diagnosis.target?.let { target ->
                         Text(
                             text = target,

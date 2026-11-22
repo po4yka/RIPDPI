@@ -43,7 +43,17 @@ data class TlsHopComparisonEvidence(
     val stop: String? = null,
     val controlAttempts: Int = 0,
     val testAttempts: Int = 0,
-)
+) {
+    val controlValidated: Boolean?
+        get() =
+            when {
+                stop != "COMPLETED" || reason != null || controlAttempts == 0 || "network_changed" in limits -> null
+                status != TlsHopStatus.DIVERGENCE && status != TlsHopStatus.INCONCLUSIVE -> null
+                pathLength != null -> true
+                "control_never_reached_server" in limits -> false
+                else -> null
+            }
+}
 
 /** Local history only: the SNIs and per-attempt timings. */
 @Serializable
@@ -125,7 +135,8 @@ internal fun List<ProbeResult>.tlsHopComparisonSummaryLines(): List<String> =
             parseTlsHopComparisonEvidence(result.details)?.let {
                 "tlsHop status=${it.status}; firstHop=${it.firstHop ?: "none"}; lastHop=${it.lastHop ?: "none"}; " +
                     "pathLength=${it.pathLength ?: "unknown"}; limits=${it.limits.joinToString(",")}; " +
-                    "controlAttempts=${it.controlAttempts}; testAttempts=${it.testAttempts}"
+                    "controlAttempts=${it.controlAttempts}; testAttempts=${it.testAttempts}; " +
+                    "controlStatus=${it.controlValidated.controlStatusText()}"
             }
         }.toList()
 

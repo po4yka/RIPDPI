@@ -4,6 +4,9 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsHighlight
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryDocument
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummarySection
 
+internal const val QuicInitialMeasurementLimit =
+    "QUIC Initial exchange only. This probe does not test a complete HTTP/3 request."
+
 object DiagnosticsSummaryTextRenderer {
     fun render(
         document: DiagnosticsSummaryDocument,
@@ -54,6 +57,14 @@ object DiagnosticsSummaryTextRenderer {
         appendLine("$title:")
         document.diagnoses.forEach { diagnosis ->
             appendLine("${diagnosis.code}=${diagnosis.summary}")
+            appendLine("controlStatus=${diagnosis.controlValidated.controlStatusText()}")
         }
     }
 }
+
+internal fun Boolean?.controlStatusText(): String =
+    when (this) {
+        true -> "passed"
+        false -> "failed"
+        null -> "unknown"
+    }

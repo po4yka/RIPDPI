@@ -11,8 +11,8 @@ internal data class RedactedNetworkSummary(
     val publicIp: String,
     val publicAsn: String,
     val localAddresses: String,
-    val networkValidated: Boolean,
-    val captivePortalDetected: Boolean,
+    val networkValidated: Boolean?,
+    val captivePortalDetected: Boolean?,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val pathValidation: NetworkPathValidationEvidence? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
@@ -105,8 +105,8 @@ internal fun NetworkSnapshotModel.toRedactedSummary(): RedactedNetworkSummary =
         publicIp = publicIp?.let { "redacted" } ?: "unknown",
         publicAsn = publicAsn?.let { "redacted" } ?: "unknown",
         localAddresses = if (localAddresses.isEmpty()) "unknown" else "redacted(${localAddresses.size})",
-        networkValidated = networkValidated,
-        captivePortalDetected = captivePortalDetected,
+        networkValidated = networkValidated.takeIf { hasObservedNetworkCapabilities },
+        captivePortalDetected = captivePortalDetected.takeIf { hasObservedNetworkCapabilities },
         pathValidation = pathValidation?.sanitizeVpnRouteEvidenceForArchive(),
         pathSnapshots = pathSnapshots,
         wifiDetails =

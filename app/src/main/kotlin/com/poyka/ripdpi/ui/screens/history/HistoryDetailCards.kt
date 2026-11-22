@@ -8,6 +8,7 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryEntry
 import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryRows
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.screens.diagnostics.QuicInitialMeasurementNote
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsContextGroupUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsNetworkSnapshotUiModel
@@ -25,6 +26,7 @@ internal fun ProbeGroupCard(group: DiagnosticsProbeGroupUiModel) {
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = RipDpiThemeTokens.colors.foreground,
         )
+        group.items.firstOrNull()?.let { QuicInitialMeasurementNote(it.probeType) }
         group.items.forEach { probe ->
             SettingsRow(
                 title = probe.target,

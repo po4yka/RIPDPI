@@ -332,7 +332,6 @@
     <string name="diagnostics_field_capabilities">Capabilities</string>
     <string name="diagnostics_field_dns" translatable="false">DNS</string>
     <string name="diagnostics_field_private_dns">Private DNS</string>
-    <string name="diagnostics_field_mtu" translatable="false">MTU</string>
     <string name="diagnostics_field_local">Local</string>
     <string name="diagnostics_field_public_ip">Public IP</string>
     <string name="diagnostics_field_asn">ASN</string>
@@ -2139,4 +2138,10 @@
     <string name="diagnostics_volume_transfer_short">Short response</string>
     <string name="diagnostics_volume_transfer_long">Long response</string>
     <string name="diagnostics_volume_transfer_input_error">Enter one IP address and two distinct HTTPS URLs on the same host and port. Check the sizes and SHA-256 hashes.</string>
+    <string name="diagnostics_control_passed">Control check passed</string>
+    <string name="diagnostics_control_failed">Control check failed</string>
+    <string name="diagnostics_control_unknown">Control check: no data</string>
+    <string name="diagnostics_quic_initial_limit">QUIC Initial exchange only. This probe does not test a complete HTTP/3 request.</string>
+    <string name="diagnostics_field_interface_mtu">Interface MTU</string>
+    <string name="diagnostics_interface_mtu_value">%1$d B · path MTU outside snapshot scope</string>
 </resources>

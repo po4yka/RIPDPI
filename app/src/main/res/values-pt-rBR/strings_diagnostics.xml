@@ -2126,4 +2126,10 @@
     <string name="diagnostics_volume_transfer_short">Resposta curta</string>
     <string name="diagnostics_volume_transfer_long">Resposta longa</string>
     <string name="diagnostics_volume_transfer_input_error">Insira um endereço IP e dois URLs HTTPS diferentes com o mesmo host e porta. Confira os tamanhos e os hashes SHA-256.</string>
+    <string name="diagnostics_control_passed">Verificação de controle aprovada</string>
+    <string name="diagnostics_control_failed">Falha na verificação de controle</string>
+    <string name="diagnostics_control_unknown">Verificação de controle: sem dados</string>
+    <string name="diagnostics_quic_initial_limit">Apenas a troca inicial do QUIC. Esta sonda não testa uma solicitação HTTP/3 completa.</string>
+    <string name="diagnostics_field_interface_mtu">MTU da interface</string>
+    <string name="diagnostics_interface_mtu_value">%1$d B · MTU do caminho fora do escopo da captura</string>
 </resources>

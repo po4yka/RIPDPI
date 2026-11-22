@@ -2119,4 +2119,10 @@
     <string name="diagnostics_volume_transfer_short">छोटा जवाब</string>
     <string name="diagnostics_volume_transfer_long">बड़ा जवाब</string>
     <string name="diagnostics_volume_transfer_input_error">एक IP पता और एक ही होस्ट और पोर्ट के दो अलग HTTPS URL डालें। आकार और SHA-256 हैश जाँचें।</string>
+    <string name="diagnostics_control_passed">नियंत्रण जाँच सफल</string>
+    <string name="diagnostics_control_failed">नियंत्रण जाँच विफल</string>
+    <string name="diagnostics_control_unknown">नियंत्रण जाँच: कोई डेटा नहीं</string>
+    <string name="diagnostics_quic_initial_limit">केवल शुरुआती QUIC आदान-प्रदान। यह जाँच पूरे HTTP/3 अनुरोध को नहीं परखती।</string>
+    <string name="diagnostics_field_interface_mtu">इंटरफ़ेस MTU</string>
+    <string name="diagnostics_interface_mtu_value">%1$d बाइट · पाथ MTU इस स्नैपशॉट में नहीं मापा गया</string>
 </resources>

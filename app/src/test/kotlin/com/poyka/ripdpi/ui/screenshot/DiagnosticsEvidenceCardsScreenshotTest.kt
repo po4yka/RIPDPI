@@ -103,6 +103,7 @@ private fun TlsHopCard() =
                     firstHop = 5,
                     lastHop = 5,
                     pathLength = 9,
+                    stop = "COMPLETED",
                     controlAttempts = 18,
                     testAttempts = 18,
                 ),

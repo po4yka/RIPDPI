@@ -11,6 +11,7 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.screens.diagnostics.DedicatedProbeEvidenceCards
+import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsSessionDiagnosesCard
 import com.poyka.ripdpi.ui.screens.diagnostics.hasDedicatedEvidenceCard
 import com.poyka.ripdpi.ui.screens.diagnostics.isSelectiveMatrixProbe
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
@@ -120,6 +121,9 @@ internal fun DiagnosticsDetailContent(
         label = detail.session.completionLabel ?: detail.session.status,
         tone = statusTone(detail.session.tone),
     )
+    if (detail.diagnoses.isNotEmpty()) {
+        DiagnosticsSessionDiagnosesCard(diagnoses = detail.diagnoses, reportMetadata = emptyList())
+    }
     if (detail.reportMetadata.isNotEmpty()) {
         RipDpiCard {
             Text(

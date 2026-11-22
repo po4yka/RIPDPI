@@ -23,15 +23,16 @@ internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis
             } else {
                 diagnosis.summary
             },
+        controlStatus = context.getString(diagnosticControlStatusResource(diagnosis.controlValidated)),
+        measurementLimit =
+            if (diagnosis.code == "quic_initial_unobserved") {
+                context.getString(R.string.diagnostics_quic_initial_limit)
+            } else {
+                null
+            },
         severity = diagnosis.severity,
         target = diagnosis.target,
-        tone =
-            when (diagnosis.severity.lowercase(Locale.US)) {
-                "negative", "error", "blocked" -> DiagnosticsTone.Negative
-                "warning", "degraded" -> DiagnosticsTone.Warning
-                "positive", "ok" -> DiagnosticsTone.Positive
-                else -> DiagnosticsTone.Info
-            },
+        tone = diagnosisTone(diagnosis.severity),
         evidence =
             (
                 if (isConfirmGood) {
@@ -67,6 +68,21 @@ internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis
             },
     )
 }
+
+private fun diagnosisTone(severity: String): DiagnosticsTone =
+    when (severity.lowercase(Locale.US)) {
+        "negative", "error", "blocked" -> DiagnosticsTone.Negative
+        "warning", "degraded" -> DiagnosticsTone.Warning
+        "positive", "ok" -> DiagnosticsTone.Positive
+        else -> DiagnosticsTone.Info
+    }
+
+internal fun diagnosticControlStatusResource(value: Boolean?): Int =
+    when (value) {
+        true -> R.string.diagnostics_control_passed
+        false -> R.string.diagnostics_control_failed
+        null -> R.string.diagnostics_control_unknown
+    }
 
 private const val ConnectionConcurrencyInfoRecommendation =
     "A confirmed interaction applies the learned owned-stack profile and cap on the next service start; " +

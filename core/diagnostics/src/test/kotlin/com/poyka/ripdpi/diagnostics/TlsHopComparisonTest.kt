@@ -33,6 +33,23 @@ class TlsHopComparisonTest {
     private val details = listOf(ProbeDetail(TlsHopEvidenceKey, evidenceJson), ProbeDetail(TlsHopLocalKey, localJson))
 
     @Test
+    fun `TLS hop control state follows terminal matched attempt evidence`() {
+        val passed = requireNotNull(parseTlsHopComparisonEvidence(evidenceJson))
+        val inconclusive =
+            passed.copy(status = TlsHopStatus.INCONCLUSIVE, firstHop = null, lastHop = null)
+        val failed = inconclusive.copy(pathLength = null, limits = listOf("control_never_reached_server"))
+
+        assertEquals(true, passed.controlValidated)
+        assertEquals(true, inconclusive.controlValidated)
+        assertEquals(false, failed.controlValidated)
+        assertNull(passed.copy(stop = "DEADLINE_EXCEEDED").controlValidated)
+        assertNull(failed.copy(stop = "CANCELLED", status = TlsHopStatus.CANCELLED).controlValidated)
+        assertNull(failed.copy(stop = null).controlValidated)
+        assertNull(failed.copy(controlAttempts = 0).controlValidated)
+        assertNull(failed.copy(reason = "network_scope_unverified").controlValidated)
+    }
+
+    @Test
     fun `config needs an endpoint and two different DNS names`() {
         assertTrue(config.isValid())
         listOf(
@@ -96,8 +113,45 @@ class TlsHopComparisonTest {
         val exported = Json.decodeFromString(ListSerializer(ProbeDetail.serializer()), redacted.detailJson)
         val evidence = requireNotNull(parseTlsHopComparisonEvidence(exported))
         assertEquals(TlsHopStatus.DIVERGENCE, evidence.status)
+        assertEquals(true, evidence.controlValidated)
+        val partial =
+            DiagnosticsSummaryProjector().project(null, null, null, null, null, listOf(redacted), emptyList())
+        assertTrue(partial.reportMetadata.lines.any { it.contains("controlStatus=passed") })
         assertEquals(listOf(5, 5, 9), listOf(evidence.firstHop, evidence.lastHop, evidence.pathLength))
         assertEquals(listOf("inconsistent_repetitions"), evidence.limits)
+    }
+
+    @Test
+    fun `network change withdraws completed inconclusive control results`() {
+        val successfulControl =
+            """{"status":"INCONCLUSIVE","pathLength":9,"stop":"COMPLETED","controlAttempts":18}"""
+        val failedControl =
+            """{"status":"INCONCLUSIVE","limits":["control_never_reached_server"],"stop":"COMPLETED",""" +
+                """"controlAttempts":18}"""
+        val report =
+            EngineScanReportWire(
+                sessionId = "s",
+                profileId = TlsHopComparisonProfileId,
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 1,
+                summary = "TLS hop",
+                results =
+                    listOf(successfulControl, failedControl).map { evidence ->
+                        EngineProbeResultWire(
+                            TlsHopComparisonProbeType,
+                            "203.0.113.7",
+                            "tls_hop_inconclusive",
+                            listOf(ProbeDetail(TlsHopEvidenceKey, evidence)),
+                        )
+                    },
+            ).withoutNetworkScopeAuthority()
+
+        report.results.forEach { result ->
+            val evidence = requireNotNull(parseTlsHopComparisonEvidence(result.details))
+            assertNull(evidence.controlValidated)
+            assertEquals("network_scope_unverified", evidence.reason)
+        }
     }
 
     @Test
@@ -121,6 +175,7 @@ class TlsHopComparisonTest {
         assertEquals(TlsHopStatus.INCONCLUSIVE, evidence.status)
         assertNull(evidence.firstHop)
         assertNull(evidence.pathLength)
+        assertNull(evidence.controlValidated)
         assertTrue("network_changed" in evidence.limits)
         assertEquals(1, parseTlsHopComparisonLocal(result.details)?.attempts?.size)
 

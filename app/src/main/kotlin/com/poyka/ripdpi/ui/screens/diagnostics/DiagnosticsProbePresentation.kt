@@ -1,11 +1,16 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.annotation.StringRes
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.isQuicInitialProbeType
+import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDiagnosisUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @StringRes
 internal fun diagnosticProbeTitleResource(type: String): Int =
@@ -243,3 +248,34 @@ internal fun formatDiagnosticsProbeEvidence(probe: DiagnosticsProbeResultUiModel
         }
         probe.details.forEach { appendLine("${it.label}: ${it.value}") }
     }.trimEnd()
+
+@Composable
+internal fun DiagnosisMeasurementNotes(diagnosis: DiagnosticsDiagnosisUiModel) {
+    MeasurementNote(diagnosis.controlStatus)
+    diagnosis.measurementLimit?.let { MeasurementNote(it) }
+}
+
+@Composable
+internal fun ProbeOutcome(
+    probe: DiagnosticsProbeResultUiModel,
+    expertMode: Boolean,
+) {
+    StatusIndicator(label = diagnosticProbeOutcome(probe, expertMode), tone = statusTone(probe.tone))
+    QuicInitialMeasurementNote(probe.probeType)
+}
+
+@Composable
+internal fun QuicInitialMeasurementNote(probeType: String) {
+    if (isQuicInitialProbeType(probeType)) {
+        MeasurementNote(stringResource(R.string.diagnostics_quic_initial_limit))
+    }
+}
+
+@Composable
+private fun MeasurementNote(text: String) {
+    Text(
+        text = text,
+        style = RipDpiThemeTokens.type.secondaryBody,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+    )
+}

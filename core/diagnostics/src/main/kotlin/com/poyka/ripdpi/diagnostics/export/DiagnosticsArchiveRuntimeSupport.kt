@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
+import com.poyka.ripdpi.diagnostics.hasObservedNetworkCapabilities
 import java.security.MessageDigest
 
 private const val SuccessRatePercentScale = 100
@@ -423,8 +424,8 @@ private fun resolveNetworkConfig(snapshot: NetworkSnapshotModel?): ResolvedNetwo
             transport = snapshot.transport,
             privateDnsMode = redactPrivateDnsMode(snapshot.privateDnsMode),
             mtu = snapshot.mtu,
-            networkValidated = snapshot.networkValidated,
-            captivePortalDetected = snapshot.captivePortalDetected,
+            networkValidated = snapshot.networkValidated.takeIf { snapshot.hasObservedNetworkCapabilities },
+            captivePortalDetected = snapshot.captivePortalDetected.takeIf { snapshot.hasObservedNetworkCapabilities },
         )
     }
 

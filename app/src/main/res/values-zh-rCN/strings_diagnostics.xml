@@ -2070,4 +2070,10 @@
     <string name="diagnostics_volume_transfer_short">短响应</string>
     <string name="diagnostics_volume_transfer_long">长响应</string>
     <string name="diagnostics_volume_transfer_input_error">输入一个 IP 地址和两个不同的 HTTPS 网址，且主机和端口相同。检查大小和 SHA-256 哈希值。</string>
+    <string name="diagnostics_control_passed">对照检查通过</string>
+    <string name="diagnostics_control_failed">对照检查失败</string>
+    <string name="diagnostics_control_unknown">对照检查：无数据</string>
+    <string name="diagnostics_quic_initial_limit">仅检查 QUIC 初始交换。此探测不会测试完整的 HTTP/3 请求。</string>
+    <string name="diagnostics_field_interface_mtu">接口 MTU</string>
+    <string name="diagnostics_interface_mtu_value">%1$d 字节 · 此快照未测量路径 MTU</string>
 </resources>

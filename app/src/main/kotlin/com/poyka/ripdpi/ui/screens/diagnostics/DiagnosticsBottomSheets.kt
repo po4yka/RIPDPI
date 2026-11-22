@@ -185,7 +185,7 @@ private fun ColumnScope.SessionDetailContent(
         )
     }
     if (detail.diagnoses.isNotEmpty() || detail.reportMetadata.isNotEmpty()) {
-        DiagnosisSummaryCard(
+        DiagnosticsSessionDiagnosesCard(
             diagnoses = detail.diagnoses,
             reportMetadata = detail.reportMetadata,
         )
@@ -371,10 +371,7 @@ private fun probeDetail(
         probe.http3?.let { ContextGroupCard(it) }
         probe.pmtu?.let { ContextGroupCard(it) }
         DiagnosticsDnsResponseCards(probe.dnsResponses, initiallyExpanded = true)
-        StatusIndicator(
-            label = diagnosticProbeOutcome(probe, expertMode),
-            tone = statusTone(probe.tone),
-        )
+        ProbeOutcome(probe, expertMode)
         VerifiedTransferComparisonRows(probe)
         probe.probeRetryCount?.takeIf { it > 0 }?.let { retryCount ->
             SettingsRow(
@@ -537,7 +534,7 @@ internal fun ProfileSelectionBottomSheet(
 }
 
 @Composable
-private fun DiagnosisSummaryCard(
+internal fun DiagnosticsSessionDiagnosesCard(
     diagnoses: List<DiagnosticsDiagnosisUiModel>,
     reportMetadata: List<com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsFieldUiModel>,
 ) {
@@ -555,6 +552,7 @@ private fun DiagnosisSummaryCard(
                 style = RipDpiThemeTokens.type.secondaryBody,
                 color = colors.foreground,
             )
+            DiagnosisMeasurementNotes(diagnosis)
         }
         reportMetadata.forEach { field ->
             SettingsRow(title = field.label, value = field.value)

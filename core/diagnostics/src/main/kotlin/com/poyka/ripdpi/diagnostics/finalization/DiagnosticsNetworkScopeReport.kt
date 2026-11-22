@@ -137,7 +137,8 @@ internal suspend fun revokePersistedNetworkScope(
 
 private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeResultWire =
     when {
-        probeType == "tls_hop_comparison" && outcome == "tls_hop_divergence" -> {
+        probeType == "tls_hop_comparison" &&
+            (outcome == "tls_hop_divergence" || outcome == "tls_hop_inconclusive") -> {
             copy(outcome = "tls_hop_inconclusive", details = details.withoutTlsHopScopeAuthority())
         }
 

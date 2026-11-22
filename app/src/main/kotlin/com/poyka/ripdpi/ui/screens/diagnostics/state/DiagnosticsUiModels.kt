@@ -567,6 +567,8 @@ data class DiagnosticsProbeGroupUiModel(
 data class DiagnosticsDiagnosisUiModel(
     val code: String,
     val summary: String,
+    val controlStatus: String,
+    val measurementLimit: String?,
     val severity: String,
     val target: String? = null,
     val tone: DiagnosticsTone,
