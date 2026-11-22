@@ -25,12 +25,6 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import javax.inject.Inject
 
-/** [run] identifies the producing proxy run; [isCurrent] says whether the batch may still teach policy. */
-internal class DirectPathLearningOrigin(
-    val run: Any,
-    val isCurrent: () -> Boolean,
-)
-
 internal interface DirectPathPolicyTelemetryConsumer {
     suspend fun consume(
         snapshot: NativeRuntimeSnapshot,
@@ -47,17 +41,24 @@ internal object NoOpDirectPathPolicyTelemetryConsumer : DirectPathPolicyTelemetr
 
 @ServiceSessionScope
 internal class DirectPathPolicyLearner
-    @Inject
     constructor(
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val serverCapabilityStore: ServerCapabilityStore,
         private val flowAppAttributionStore: FlowAppAttributionStore,
+        private val clock: ServiceClock,
     ) : DirectPathPolicyTelemetryConsumer {
+        @Inject
+        constructor(
+            networkFingerprintProvider: NetworkFingerprintProvider,
+            serverCapabilityStore: ServerCapabilityStore,
+            flowAppAttributionStore: FlowAppAttributionStore,
+        ) : this(networkFingerprintProvider, serverCapabilityStore, flowAppAttributionStore, SystemServiceClock)
+
         private var cachedFingerprintHash: String? = null
-        private var previousRun: Any? = null
+        private var previousOrigin: DirectPathLearningOrigin? = null
         private val cachedEnvelopes = linkedMapOf<DirectPathTupleKey, TransportPolicyEnvelope>()
         private val lastAppliedSignatures = linkedMapOf<DirectPathTupleKey, String>()
-        private val pendingNoDirectSolutions = linkedMapOf<DirectPathTupleKey, Long>()
+        private val failureEvidence = linkedMapOf<DirectPathTupleKey, DirectPathFailureEvidence>()
 
         /**
          * Per-app-family NO_TCP_FALLBACK memory. Consulted before a soft-disable
@@ -93,9 +94,9 @@ internal class DirectPathPolicyLearner
             val fingerprint = networkFingerprintProvider.capture()?.takeIf { origin.isCurrent() } ?: return
             ensureFingerprintCache(fingerprint.scopeKey())
             if (!origin.isCurrent()) return
-            if (previousRun !== origin.run) {
-                previousRun = origin.run
-                pendingNoDirectSolutions.clear()
+            if (!origin.sameScope(previousOrigin)) {
+                previousOrigin = origin
+                failureEvidence.clear()
             }
             // App evidence must survive authority-level signal coalescing.
             knownSignals.forEach(::recordNoTcpFallbackIfAttributed)
@@ -108,19 +109,11 @@ internal class DirectPathPolicyLearner
             fingerprint: NetworkFingerprint,
             origin: DirectPathLearningOrigin,
         ) {
-            collapseSignals(knownSignals).forEach { (tupleKey, signal) ->
+            collapseSignals(knownSignals).forEach { batch ->
                 if (!origin.isCurrent()) return
+                if (!acceptsFailureEvidence(batch, origin.hasNetworkEpoch)) return@forEach
+                val (tupleKey, signal) = batch
                 val current = cachedEnvelopes[tupleKey]
-                if (signal.event == DirectPathLearningEvent.ALL_IPS_FAILED &&
-                    !shouldPersistNoDirectSolution(tupleKey, current)
-                ) {
-                    pendingNoDirectSolutions[tupleKey] = signal.capturedAt
-                    trimCaches()
-                    return@forEach
-                }
-                if (signal.event != DirectPathLearningEvent.ALL_IPS_FAILED) {
-                    pendingNoDirectSolutions.remove(tupleKey)
-                }
                 val next = computeEnvelope(signal, current) ?: return@forEach
                 val signature = envelopeSignature(next)
                 if (current == next || lastAppliedSignatures[tupleKey] == signature) {
@@ -156,7 +149,7 @@ internal class DirectPathPolicyLearner
             cachedFingerprintHash = fingerprintHash
             cachedEnvelopes.clear()
             lastAppliedSignatures.clear()
-            pendingNoDirectSolutions.clear()
+            failureEvidence.clear()
             serverCapabilityStore
                 .directPathCapabilitiesForFingerprint(fingerprintHash)
                 .forEach { record ->
@@ -170,19 +163,59 @@ internal class DirectPathPolicyLearner
                 }
         }
 
-        private fun shouldPersistNoDirectSolution(
-            tupleKey: DirectPathTupleKey,
-            current: TransportPolicyEnvelope?,
+        private fun acceptsFailureEvidence(
+            batch: DirectPathSignalBatch,
+            hasNetworkEpoch: Boolean,
         ): Boolean {
-            if (current?.policy?.outcome == DirectModeOutcome.NO_DIRECT_SOLUTION) {
-                return true
-            }
-            return pendingNoDirectSolutions.remove(tupleKey) != null
+            val (tupleKey, signal, lastNonFailureAt) = batch
+            if (!hasNetworkEpoch) return signal.event != DirectPathLearningEvent.ALL_IPS_FAILED
+            val now = clock.nowMillis()
+            if (lastNonFailureAt != null) breakFailureConfirmation(tupleKey, lastNonFailureAt, now)
+            return signal.event != DirectPathLearningEvent.ALL_IPS_FAILED ||
+                confirmDirectPathFailure(tupleKey, signal.capturedAt, batch.precedingFailureAt, now)
         }
 
-        private fun collapseSignals(
-            signals: List<DirectPathLearningSignal>,
-        ): List<Pair<DirectPathTupleKey, DirectPathLearningSignal>> =
+        private fun breakFailureConfirmation(
+            tupleKey: DirectPathTupleKey,
+            capturedAt: Long,
+            now: Long,
+        ) {
+            val previous = failureEvidence[tupleKey]
+            if (capturedAt.isFreshDirectPathEvidence(now) && capturedAt >= (previous?.capturedAt ?: 0L)) {
+                rememberFailureEvidence(tupleKey, DirectPathFailureEvidence(capturedAt, pending = false))
+            }
+        }
+
+        private fun confirmDirectPathFailure(
+            tupleKey: DirectPathTupleKey,
+            capturedAt: Long,
+            precedingFailureAt: Long?,
+            now: Long,
+        ): Boolean {
+            val previous = failureEvidence[tupleKey]
+            val seenThrough = previous?.capturedAt ?: 0L
+            if (!capturedAt.isFreshDirectPathEvidence(now) || capturedAt <= seenThrough) return false
+            val confirmsPending = previous?.pending == true && previous.capturedAt.isFreshDirectPathEvidence(now)
+            val confirmsBatch =
+                precedingFailureAt != null && precedingFailureAt > seenThrough &&
+                    precedingFailureAt.isFreshDirectPathEvidence(now)
+            val confirmed = confirmsPending || confirmsBatch
+            rememberFailureEvidence(tupleKey, DirectPathFailureEvidence(capturedAt, pending = !confirmed))
+            return confirmed
+        }
+
+        private fun rememberFailureEvidence(
+            tupleKey: DirectPathTupleKey,
+            evidence: DirectPathFailureEvidence,
+        ) {
+            failureEvidence.remove(tupleKey)
+            failureEvidence[tupleKey] = evidence
+            if (failureEvidence.size > CacheLimit) {
+                failureEvidence.remove(failureEvidence.keys.first())
+            }
+        }
+
+        private fun collapseSignals(signals: List<DirectPathLearningSignal>): List<DirectPathSignalBatch> =
             signals
                 .map { signal ->
                     DirectPathTupleKey(
@@ -191,11 +224,25 @@ internal class DirectPathPolicyLearner
                     ) to signal
                 }.filter { (tupleKey, _) -> tupleKey.authority.isNotEmpty() }
                 .groupBy({ it.first }, { it.second })
-                .mapNotNull { (tupleKey, groupedSignals) ->
-                    groupedSignals
-                        .maxWithOrNull(
+                .map { (tupleKey, groupedSignals) ->
+                    val latest =
+                        groupedSignals.maxWith(
                             compareBy<DirectPathLearningSignal> { it.capturedAt }.thenBy { signalOrder(it.event) },
-                        )?.let { tupleKey to it }
+                        )
+                    // An intervening non-failure still breaks confirmation if a later failure won the batch.
+                    val lastNonFailureAt =
+                        groupedSignals
+                            .asSequence()
+                            .filter { it.event != DirectPathLearningEvent.ALL_IPS_FAILED }
+                            .maxOfOrNull { it.capturedAt }
+                    val precedingFailureAt =
+                        groupedSignals
+                            .asSequence()
+                            .filter { it.event == DirectPathLearningEvent.ALL_IPS_FAILED }
+                            .map { it.capturedAt }
+                            .filter { it > (lastNonFailureAt ?: 0L) && it < latest.capturedAt }
+                            .maxOrNull()
+                    DirectPathSignalBatch(tupleKey, latest, lastNonFailureAt, precedingFailureAt)
                 }
 
         private fun computeEnvelope(
@@ -254,14 +301,26 @@ internal class DirectPathPolicyLearner
                 cachedEnvelopes.remove(eldest)
                 lastAppliedSignatures.remove(eldest)
             }
-            while (pendingNoDirectSolutions.size > CacheLimit) {
-                val eldest = pendingNoDirectSolutions.entries.firstOrNull()?.key ?: break
-                pendingNoDirectSolutions.remove(eldest)
-            }
         }
     }
 
 private const val CacheLimit = 256
+private const val DirectPathFailureWindowMillis = 120_000L
+
+private fun Long.isFreshDirectPathEvidence(now: Long): Boolean =
+    this in 1..now && now - this <= DirectPathFailureWindowMillis
+
+private data class DirectPathFailureEvidence(
+    val capturedAt: Long,
+    val pending: Boolean,
+)
+
+private data class DirectPathSignalBatch(
+    val tupleKey: DirectPathTupleKey,
+    val signal: DirectPathLearningSignal,
+    val lastNonFailureAt: Long?,
+    val precedingFailureAt: Long?,
+)
 
 private data class DirectPathTupleKey(
     val authority: String,

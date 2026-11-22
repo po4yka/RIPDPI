@@ -273,7 +273,7 @@ class FieldReportTest {
             var consent = true
             val file = File.createTempFile("field-report", ".json")
             val at = epoch("2026-11-19T10:00:00Z")
-            val ledger = FieldReportLedger(file, { consent }, { at }, { network })
+            val ledger = FieldReportLedger(file, { consent }, { at }, { network }, { null })
             ledger.update { it.record(FieldReportAttempt(reality, "xhttp", null, 10, member), network, at) }
             assertTrue(file.exists())
             assertNotNull(ledger.snapshot().hours.singleOrNull())

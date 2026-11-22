@@ -57,7 +57,7 @@ class FieldReportUploaderTest {
         var upstream: FieldReportUpstream? = FieldReportUpstream("bundle-group", "bundle-member"),
     ) {
         val requests = mutableListOf<Pair<String, String>>()
-        val ledger = FieldReportLedger(file, { consent }, { now }, { network })
+        val ledger = FieldReportLedger(file, { consent }, { now }, { network }, { null })
         var beforePost: suspend () -> Unit = {}
         var afterPost: () -> Unit = {}
         var routeCurrent = true
@@ -277,7 +277,7 @@ class FieldReportUploaderTest {
         runTest {
             val harness = harnessWithHours(1)
             val interrupted = CancellationException("worker stopped")
-            val reopened = FieldReportLedger(harness.file, { true }, { harness.now }, { harness.network })
+            val reopened = FieldReportLedger(harness.file, { true }, { harness.now }, { harness.network }, { null })
             harness.afterPost = { throw interrupted }
 
             try {

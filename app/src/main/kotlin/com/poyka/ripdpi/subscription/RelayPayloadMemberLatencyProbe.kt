@@ -28,6 +28,12 @@ class RelayPayloadMemberLatencyProbe
                 } catch (_: IllegalArgumentException) {
                     null
                 } ?: return null
+            val report =
+                if (target.fieldReportGroupId == profile.groupId) {
+                    fieldReportOrNull { fieldReports.captureProbe() }
+                } else {
+                    null
+                }
             val startedNanos = System.nanoTime()
             val measured =
                 when (target) {
@@ -48,18 +54,7 @@ class RelayPayloadMemberLatencyProbe
                     }
                 }
             val elapsedMillis = (System.nanoTime() - startedNanos) / NanosPerMilli
-            // An opt-in count must never fail the selector probe that it observes.
-            try {
-                if (target.fieldReportGroupId == profile.groupId) {
-                    fieldReports.recordProbe(profile, measured, elapsedMillis)
-                }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (
-                @Suppress("TooGenericExceptionCaught") ignored: Exception,
-            ) {
-                Logger.withTag("field-report").w { "field report count failed: ${ignored.javaClass.simpleName}" }
-            }
+            if (report != null) fieldReportOrNull { fieldReports.recordProbe(report, profile, measured, elapsedMillis) }
             return when (measured) {
                 is CandidateRelayMeasurement.Succeeded -> {
                     MemberProbeResult(measured.latencyMillis, measured.quality)
@@ -78,6 +73,19 @@ class RelayPayloadMemberLatencyProbe
                 }
             }
         }
+    }
+
+// An opt-in report must never fail the selector probe that it observes.
+private suspend fun <T> fieldReportOrNull(operation: suspend () -> T): T? =
+    try {
+        operation()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (
+        @Suppress("TooGenericExceptionCaught") ignored: Exception,
+    ) {
+        Logger.withTag("field-report").w { "field report probe evidence failed: ${ignored.javaClass.simpleName}" }
+        null
     }
 
 private const val NanosPerMilli = 1_000_000L
