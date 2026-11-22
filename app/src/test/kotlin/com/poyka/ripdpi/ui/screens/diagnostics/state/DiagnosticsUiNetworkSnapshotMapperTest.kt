@@ -16,6 +16,15 @@ class DiagnosticsUiNetworkSnapshotMapperTest {
     private val support = DiagnosticsUiFactorySupport(RuntimeEnvironment.getApplication())
 
     @Test
+    fun `snapshot labels interface MTU and does not infer legacy capabilities`() {
+        val legacy = fieldsFor(historySnapshot(), showSensitiveDetails = false)
+
+        assertEquals("1500 B · path MTU outside snapshot scope", legacy["Interface MTU"])
+        assertEquals("Unknown", legacy[valueLabel(R.string.diagnostics_field_validated)])
+        assertEquals("Unknown", legacy[valueLabel(R.string.diagnostics_field_captive_portal)])
+    }
+
+    @Test
     fun `new stored snapshot explains redaction and preserves address counts`() {
         val original = historySnapshot()
         val snapshot = requireNotNull(original.snapshot)

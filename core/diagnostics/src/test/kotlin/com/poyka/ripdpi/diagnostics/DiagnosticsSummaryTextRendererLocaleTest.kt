@@ -15,7 +15,8 @@ class DiagnosticsSummaryTextRendererLocaleTest {
     @Test
     fun `explicit translated headings preserve evidence and section order`() {
         assertEquals(
-            "Höhepunkte:\nRAW_CODE=Exact_Raw_Highlight\nDiagnosen:\nRAW_CODE=Exact_Raw_Diagnosis",
+            "Höhepunkte:\nRAW_CODE=Exact_Raw_Highlight\nDiagnosen:\nRAW_CODE=Exact_Raw_Diagnosis" +
+                "\ncontrolStatus=unknown",
             DiagnosticsSummaryTextRenderer.render(
                 document,
                 highlightsTitle = "Höhepunkte",
@@ -27,7 +28,8 @@ class DiagnosticsSummaryTextRendererLocaleTest {
     @Test
     fun `default headings preserve existing technical export output`() {
         assertEquals(
-            "Highlights:\nRAW_CODE=Exact_Raw_Highlight\nDiagnoses:\nRAW_CODE=Exact_Raw_Diagnosis",
+            "Highlights:\nRAW_CODE=Exact_Raw_Highlight\nDiagnoses:\nRAW_CODE=Exact_Raw_Diagnosis" +
+                "\ncontrolStatus=unknown",
             DiagnosticsSummaryTextRenderer.render(document),
         )
     }

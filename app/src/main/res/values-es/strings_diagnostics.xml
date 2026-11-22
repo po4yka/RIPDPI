@@ -2128,4 +2128,10 @@
     <string name="diagnostics_volume_transfer_short">Respuesta corta</string>
     <string name="diagnostics_volume_transfer_long">Respuesta larga</string>
     <string name="diagnostics_volume_transfer_input_error">Introduce una dirección IP y dos URL HTTPS distintas con el mismo host y puerto. Comprueba los tamaños y los hashes SHA-256.</string>
+    <string name="diagnostics_control_passed">Comprobación de control superada</string>
+    <string name="diagnostics_control_failed">Comprobación de control fallida</string>
+    <string name="diagnostics_control_unknown">Comprobación de control: sin datos</string>
+    <string name="diagnostics_quic_initial_limit">Solo intercambio inicial de QUIC. Esta prueba no comprueba una solicitud HTTP/3 completa.</string>
+    <string name="diagnostics_field_interface_mtu">MTU de la interfaz</string>
+    <string name="diagnostics_interface_mtu_value">%1$d B · sin medir la MTU de la ruta</string>
 </resources>

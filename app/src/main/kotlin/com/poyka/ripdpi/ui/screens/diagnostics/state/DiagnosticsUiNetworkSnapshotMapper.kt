@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
+import com.poyka.ripdpi.diagnostics.hasObservedNetworkCapabilities
 import com.poyka.ripdpi.ui.screens.status.labelRes
 import kotlinx.collections.immutable.toImmutableList
 
@@ -59,7 +60,11 @@ private fun DiagnosticsUiFactorySupport.networkFields(
             R.string.diagnostics_field_private_dns,
             privateDnsModeValue(snapshot.privateDnsMode, showSensitiveDetails),
         ),
-        field(R.string.diagnostics_field_mtu, snapshot.mtu?.toString() ?: unknownFieldLabel()),
+        field(
+            R.string.diagnostics_field_interface_mtu,
+            snapshot.mtu?.let { context.getString(R.string.diagnostics_interface_mtu_value, it) }
+                ?: unknownFieldLabel(),
+        ),
         field(
             R.string.diagnostics_field_local,
             networkAddressListValue(snapshot.localAddresses, showSensitiveDetails),
@@ -69,8 +74,16 @@ private fun DiagnosticsUiFactorySupport.networkFields(
             sensitiveNetworkValue(snapshot.publicIp, showSensitiveDetails),
         ),
         field(R.string.diagnostics_field_asn, sensitiveNetworkValue(snapshot.publicAsn, showSensitiveDetails)),
-        field(R.string.diagnostics_field_validated, snapshot.networkValidated.toString()),
-        field(R.string.diagnostics_field_captive_portal, snapshot.captivePortalDetected.toString()),
+        field(
+            R.string.diagnostics_field_validated,
+            snapshot.networkValidated.takeIf { snapshot.hasObservedNetworkCapabilities }?.toString()
+                ?: unknownFieldLabel(),
+        ),
+        field(
+            R.string.diagnostics_field_captive_portal,
+            snapshot.captivePortalDetected.takeIf { snapshot.hasObservedNetworkCapabilities }?.toString()
+                ?: unknownFieldLabel(),
+        ),
     )
 
 private fun DiagnosticsUiFactorySupport.transportSectionHeader(snapshot: NetworkSnapshotModel): String =

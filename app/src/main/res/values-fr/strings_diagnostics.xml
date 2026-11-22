@@ -2128,4 +2128,10 @@
     <string name="diagnostics_volume_transfer_short">Réponse courte</string>
     <string name="diagnostics_volume_transfer_long">Réponse longue</string>
     <string name="diagnostics_volume_transfer_input_error">Saisissez une adresse IP et deux URL HTTPS distinctes sur le même hôte et le même port. Vérifiez les tailles et les empreintes SHA-256.</string>
+    <string name="diagnostics_control_passed">Contrôle réussi</string>
+    <string name="diagnostics_control_failed">Échec du contrôle</string>
+    <string name="diagnostics_control_unknown">Contrôle : aucune donnée</string>
+    <string name="diagnostics_quic_initial_limit">Échange initial QUIC uniquement. Ce test ne vérifie pas une requête HTTP/3 complète.</string>
+    <string name="diagnostics_field_interface_mtu">MTU de l’interface</string>
+    <string name="diagnostics_interface_mtu_value">%1$d o · MTU du chemin non mesurée</string>
 </resources>

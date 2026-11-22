@@ -1375,6 +1375,9 @@ app:diagnostics_connection_concurrency_info_recommendation
 app:diagnostics_connection_concurrency_recommendation
 app:diagnostics_connection_concurrency_summary
 app:diagnostics_context_section
+app:diagnostics_control_failed
+app:diagnostics_control_passed
+app:diagnostics_control_unknown
 app:diagnostics_current_match
 app:diagnostics_dashboard_section
 app:diagnostics_device_gate_body
@@ -1596,6 +1599,7 @@ app:diagnostics_field_environment
 app:diagnostics_field_hidden
 app:diagnostics_field_hidden_count_format
 app:diagnostics_field_host_learning
+app:diagnostics_field_interface_mtu
 app:diagnostics_field_last_action
 app:diagnostics_field_last_autolearn_action
 app:diagnostics_field_last_block_provider
@@ -1757,6 +1761,7 @@ app:diagnostics_in_path_route_changed
 app:diagnostics_in_path_route_revoked
 app:diagnostics_in_path_route_unverified
 app:diagnostics_in_path_runtime_absent
+app:diagnostics_interface_mtu_value
 app:diagnostics_ip_attempts
 app:diagnostics_ip_cancelled
 app:diagnostics_ip_caution
@@ -2211,6 +2216,7 @@ app:diagnostics_pt_status_invalid_response
 app:diagnostics_pt_status_invalid_target
 app:diagnostics_pt_status_network_error
 app:diagnostics_pt_status_not_configured
+app:diagnostics_quic_initial_limit
 app:diagnostics_quic_version_cancelled
 app:diagnostics_quic_version_connect_ip
 app:diagnostics_quic_version_control_sni

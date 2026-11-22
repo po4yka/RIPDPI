@@ -44,6 +44,9 @@ data class NetworkSnapshotModel(
     val capturedAt: Long,
 )
 
+val NetworkSnapshotModel.hasObservedNetworkCapabilities: Boolean
+    get() = pathValidation?.captureStatus == "captured" && transport != "unavailable"
+
 @Serializable
 data class NetworkPathSnapshotPair(
     val captureGeneration: Long,

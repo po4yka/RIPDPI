@@ -28,6 +28,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.TlsHopResultUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.diagnosticControlStatusResource
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -95,6 +96,7 @@ internal fun TlsHopResultsCard(result: TlsHopResultUiModel) {
     ) {
         TlsHopHeading(stringResource(R.string.diagnostics_tls_hop_title))
         TlsHopHeading(tlsHopVerdict(evidence))
+        TlsHopText(stringResource(diagnosticControlStatusResource(evidence.controlValidated)))
         if (evidence.status == TlsHopStatus.DIVERGENCE) {
             TlsHopText(stringResource(R.string.diagnostics_tls_hop_observation))
         }
@@ -233,6 +235,7 @@ private fun TlsHopResultsPreview() {
                         firstHop = 5,
                         lastHop = 5,
                         pathLength = 9,
+                        stop = "COMPLETED",
                         controlAttempts = 18,
                         testAttempts = 18,
                     ),

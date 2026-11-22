@@ -1,9 +1,13 @@
 package com.poyka.ripdpi.ui.screens.history
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
@@ -11,14 +15,21 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import com.poyka.ripdpi.diagnostics.Diagnosis
+import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiFactory
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionFiltersUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionsUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFactorySupport
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -26,6 +37,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -35,6 +47,49 @@ import org.robolectric.annotation.GraphicsMode
 class HistoryScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    @Config(qualifiers = "en-rUS-w411dp-h839dp-mdpi")
+    fun diagnosticsHistoryShowsControlStatesAndQuicScope() {
+        val input = historyDiagnosticsDetail("partial-controls")
+        val history =
+            input.copy(
+                session =
+                    input.session.copy(
+                        report =
+                            DiagnosticsSessionProjection(
+                                completionKind = ScanCompletionKind.TERMINATED,
+                                diagnoses =
+                                    listOf(
+                                        Diagnosis("verified", "Control result", controlValidated = true),
+                                        Diagnosis("failed", "Control result", controlValidated = false),
+                                        Diagnosis("legacy", "Control result"),
+                                    ),
+                            ),
+                    ),
+                results = listOf(historyProbeResult("quic_initial_response").copy(probeType = "quic_reachability")),
+            )
+        val factory =
+            DiagnosticsSessionDetailUiFactory(DiagnosticsUiFactorySupport(RuntimeEnvironment.getApplication()))
+        val ui = factory.toSessionDetailUiModel(history, showSensitiveDetails = false)
+
+        composeRule.setContent {
+            RipDpiTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    DiagnosticsDetailContent(ui, matrixPairing = null, onCompareMatrixSession = {})
+                }
+            }
+        }
+
+        listOf(
+            "Control check passed",
+            "Control check failed",
+            "Control check: no data",
+            "QUIC Initial exchange only. This probe does not test a complete HTTP/3 request.",
+        ).forEach { text ->
+            composeRule.onNodeWithText(text).performScrollTo().assertIsDisplayed()
+        }
+    }
 
     @Test
     fun historyDiagnosticsCardShowsAutomaticProbeBadge() {

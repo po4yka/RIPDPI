@@ -1,10 +1,116 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import com.poyka.ripdpi.serialization.RipDpiJson
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DiagnosticsSummaryProjectorTest {
+    @Test
+    fun `export preserves control outcomes in current partial and legacy reports`() {
+        val legacyDiagnosis = """{"code":"quic_initial_unobserved","summary":"No Initial reply"}"""
+        val currentDiagnoses =
+            """
+            {"code":"verified","summary":"Recorded control","controlValidated":true},
+            {"code":"failed","summary":"Recorded control","controlValidated":false},
+            {"code":"partial","summary":"No control","controlValidated":null}
+            """.trimIndent()
+        val current = renderStoredReport(schemaVersion = 11, diagnoses = currentDiagnoses, terminated = true)
+        assertEquals(
+            listOf("controlStatus=passed", "controlStatus=failed", "controlStatus=unknown"),
+            current.lineSequence().filter { it.startsWith("controlStatus=") }.toList(),
+        )
+        assertTrue("completionKind=TERMINATED" in current)
+        assertFalse("quicInitialLimit=" in current)
+
+        val legacy = renderStoredReport(schemaVersion = 10, diagnoses = legacyDiagnosis, terminated = false)
+        assertTrue("controlStatus=unknown" in legacy)
+        val initialLimit = "QUIC Initial exchange only. This probe does not test a complete HTTP/3 request."
+        assertTrue("quicInitialLimit=$initialLimit" in legacy)
+    }
+
+    @Test
+    fun `partial export labels QUIC Initial even when only probe rows survived`() {
+        val probe = ProbeResultEntity("result", "scan", "quic_reachability", "example.test", "quic_timeout", "[]", 1L)
+        val document = project(selectedResults = listOf(probe))
+        assertTrue(document.reportMetadata.lines.any { it.startsWith("quicInitialLimit=") })
+        assertFalse(
+            project(selectedResults = listOf(probe.copy(probeType = "http3")))
+                .reportMetadata.lines
+                .any { it.startsWith("quicInitialLimit=") },
+        )
+    }
+
+    @Test
+    fun `export distinguishes interface MTU and unknown capabilities on legacy snapshots`() {
+        val snapshot =
+            NetworkSnapshotModel(
+                transport = "wifi",
+                capabilities = emptyList(),
+                dnsServers = emptyList(),
+                privateDnsMode = "system",
+                mtu = 1500,
+                localAddresses = emptyList(),
+                publicIp = null,
+                publicAsn = null,
+                captivePortalDetected = false,
+                networkValidated = false,
+                capturedAt = 1L,
+            )
+        val legacy = project(snapshot = snapshot).environment.lines
+        assertTrue("interfaceMtuBytes=1500" in legacy)
+        assertTrue("interfaceMtuLimit=Path MTU is outside the scope of this snapshot." in legacy)
+        assertTrue("validated=unknown" in legacy)
+        assertTrue("captivePortal=unknown" in legacy)
+
+        val observed = snapshot.copy(pathValidation = NetworkPathValidationEvidence(captureStatus = "captured"))
+        val current = project(snapshot = observed).environment.lines
+        assertTrue("validated=false" in current)
+        assertTrue("captivePortal=false" in current)
+
+        val missing = project(snapshot = observed.copy(transport = "unavailable", mtu = null)).environment.lines
+        assertTrue("validated=unknown" in missing)
+        assertTrue("captivePortal=unknown" in missing)
+        assertFalse(missing.any { it.startsWith("interfaceMtu") })
+    }
+
+    private fun renderStoredReport(
+        schemaVersion: Int,
+        diagnoses: String,
+        terminated: Boolean,
+    ): String {
+        val completion = if (terminated) "TERMINATED" else "NORMAL"
+        val json = RipDpiJson
+        val report =
+            json.decodeStoredEngineScanReportWire(
+                """
+                {"schemaVersion":$schemaVersion,"sessionId":"scan","profileId":"p","pathMode":"RAW_PATH",
+                "startedAt":0,"finishedAt":1,"summary":"scan","completionKind":"$completion",
+                "diagnoses":[$diagnoses]}
+                """.trimIndent(),
+            )
+        val redacted = DiagnosticsArchiveRedactor(json).redact(report)?.toSessionProjection()
+        return DiagnosticsSummaryTextRenderer.render(project(report = redacted))
+    }
+
+    private fun project(
+        report: DiagnosticsSessionProjection? = null,
+        snapshot: NetworkSnapshotModel? = null,
+        selectedResults: List<ProbeResultEntity> = emptyList(),
+    ) = DiagnosticsSummaryProjector().project(
+        session = null,
+        report = report,
+        latestSnapshotModel = snapshot,
+        latestContextModel = null,
+        latestTelemetry = null,
+        selectedResults = selectedResults,
+        warnings = emptyList(),
+    )
+
     @Test
     fun `standalone termination is included in report metadata`() {
         val document =

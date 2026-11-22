@@ -38,7 +38,8 @@ class DiagnosticsSummaryProjector
         ): DiagnosticsSummaryDocument =
             DiagnosticsSummaryDocument(
                 header = DiagnosticsSummarySection(title = "Header", lines = buildHeaderLines(session, report)),
-                reportMetadata = DiagnosticsSummarySection(title = "Report", lines = buildMetadataLines(report)),
+                reportMetadata =
+                    DiagnosticsSummarySection(title = "Report", lines = buildMetadataLines(report, selectedResults)),
                 environment =
                     DiagnosticsSummarySection(
                         title = "Environment",
@@ -79,7 +80,10 @@ class DiagnosticsSummaryProjector
                 }
             }
 
-        private fun buildMetadataLines(report: DiagnosticsSessionProjection?): List<String> =
+        private fun buildMetadataLines(
+            report: DiagnosticsSessionProjection?,
+            selectedResults: List<ProbeResultEntity>,
+        ): List<String> =
             buildList {
                 report
                     ?.takeIf {
@@ -138,6 +142,15 @@ class DiagnosticsSummaryProjector
                     }
                 }
                 addAll(buildProbeEvidenceLines(report))
+                if (report?.results.orEmpty().none { it.probeType == TlsHopComparisonProbeType }) {
+                    addAll(storedTlsHopSummaryLines(selectedResults))
+                }
+                if (report?.results.orEmpty().any(ProbeResult::isQuicInitialProbe) ||
+                    selectedResults.any { isQuicInitialProbeType(it.probeType) } ||
+                    report?.diagnoses.orEmpty().any { it.code == "quic_initial_unobserved" }
+                ) {
+                    add("quicInitialLimit=$QuicInitialMeasurementLimit")
+                }
                 report?.engineAnalysisVersion?.let { add("engineAnalysisVersion=$it") }
                 report?.classifierVersion?.let { add("classifierVersion=$it") }
                 if (report?.packVersions?.isNotEmpty() == true) {
@@ -168,6 +181,13 @@ class DiagnosticsSummaryProjector
                 )
             }
 
+        private fun storedTlsHopSummaryLines(selectedResults: List<ProbeResultEntity>): List<String> =
+            selectedResults
+                .firstOrNull { it.probeType == TlsHopComparisonProbeType }
+                ?.let { DiagnosticsBoundaryMapper(probeDetailJson).toProbeResult(it) }
+                ?.let { listOf(it).tlsHopComparisonSummaryLines() }
+                .orEmpty()
+
         private fun buildEnvironmentLines(
             latestSnapshotModel: NetworkSnapshotModel?,
             latestContextModel: DiagnosticContextModel?,
@@ -178,13 +198,19 @@ class DiagnosticsSummaryProjector
             }
 
         private fun MutableList<String>.appendSnapshotLines(latestSnapshotModel: NetworkSnapshotModel?) {
-            latestSnapshotModel?.toRedactedSummary()?.let { snapshot ->
+            latestSnapshotModel?.let { model ->
+                val snapshot = model.toRedactedSummary()
                 add("transport=${snapshot.transport}")
                 add("publicIp=${snapshot.publicIp}")
                 add("publicAsn=${snapshot.publicAsn}")
                 add("dns=${snapshot.dnsServers}")
                 add("privateDns=${snapshot.privateDnsMode}")
-                add("validated=${snapshot.networkValidated}")
+                add("validated=${snapshot.networkValidated ?: "unknown"}")
+                add("captivePortal=${snapshot.captivePortalDetected ?: "unknown"}")
+                model.mtu?.let { mtu ->
+                    add("interfaceMtuBytes=$mtu")
+                    add("interfaceMtuLimit=Path MTU is outside the scope of this snapshot.")
+                }
                 snapshot.wifiDetails?.let { wifi ->
                     add("wifiSsid=${wifi.ssid}")
                     add("wifiBand=${wifi.band}")
