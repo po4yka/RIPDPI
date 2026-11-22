@@ -152,8 +152,11 @@ internal class DiagnosticsUiInputResolver
                     ?: selected
             }
 
+        // Matches the automatic archive: a running scan can hold a staged report.
         private fun List<DiagnosticScanSession>.firstCompletedOrLatest(): DiagnosticScanSession? =
-            firstOrNull { it.report != null } ?: firstOrNull()
+            filter { it.status == "completed" && it.finishedAt != null }.maxByOrNull { it.finishedAt ?: 0L }
+                ?: firstOrNull { it.report != null }
+                ?: firstOrNull()
 
         private fun List<DiagnosticScanSession>.latestSessionForProfile(profileId: String?): DiagnosticScanSession? =
             profileId?.let { selectedId ->

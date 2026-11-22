@@ -617,6 +617,34 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `share preview describes the completed session that an automatic archive exports`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(id = "running", profileId = "default", pathMode = "RAW_PATH", summary = "Staged")
+                                .copy(status = "running", finishedAt = null),
+                            session(id = "done", profileId = "default", pathMode = "RAW_PATH", summary = "Final"),
+                        )
+                }
+            val viewModel =
+                createDiagnosticsViewModel(
+                    appContext = RuntimeEnvironment.getApplication(),
+                    diagnosticsManager = manager,
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val share = viewModel.uiState.value.share
+            assertNull(share.targetSessionId)
+            assertTrue(share.previewBody.contains("Session done"))
+            assertFalse(share.previewBody.contains("Session running"))
+            collector.cancel()
+        }
+
+    @Test
     fun `active scan focuses scan section once and blocks profile changes`() =
         runTest {
             val manager =
