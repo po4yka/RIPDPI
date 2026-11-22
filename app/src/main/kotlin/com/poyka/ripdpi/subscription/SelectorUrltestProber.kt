@@ -16,8 +16,6 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
-import com.poyka.ripdpi.data.subscription.EndpointHealthOrder
-import com.poyka.ripdpi.data.subscription.orderByEndpointHealth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.coroutineScope
@@ -99,6 +97,7 @@ class SelectorUrltestProber internal constructor(
         var tcpPriority: Boolean = false,
         var recoveringReserve: String? = null,
         val failedReserves: MutableSet<String> = mutableSetOf(),
+        var lastResortFailed: Boolean = false,
         var routeUnavailable: Boolean = false,
         var vpnRecovery: VpnRecovery? = null,
     ) {
@@ -132,6 +131,7 @@ class SelectorUrltestProber internal constructor(
             group: ProxyGroup,
             results: List<MemberLatency>,
             recoveryPass: Boolean,
+            reserves: SelectorReserves,
         ): Boolean {
             val now = monotonicMillis()
             val recovery = observeVpnApplication(group.id, now) { scopeProvider.isCurrent(scope) }
@@ -141,13 +141,13 @@ class SelectorUrltestProber internal constructor(
                 publishQuality(group, this, results, now)
                 return false
             }
-            val eligibleReserves = probeCandidates(group, scope).count { it.id != selection.profileId }
             val healthWinner =
                 state.observe(
                     results,
                     selection.profileId,
                     now,
-                    allCandidatesObserved = failedReserves.size >= eligibleReserves,
+                    allCandidatesObserved =
+                        reserves.ordinaryFailed(failedReserves) && (reserves.down.isEmpty() || lastResortFailed),
                     recoveryPass = recoveryPass,
                 )
             val activeFailed = activeTransferFailed(results)
@@ -217,7 +217,7 @@ class SelectorUrltestProber internal constructor(
         ): ProfileQualityDecision? {
             quality.discard()
             recoveringReserve = null
-            failedReserves.clear()
+            clearReserveFailures()
             val vpn = scope.vpnPath
             return if (vpn == null) {
                 state.switched(now)
@@ -231,27 +231,40 @@ class SelectorUrltestProber internal constructor(
 
         /** Measures one reserve, preferring the one that is recovering, and advances the reserve rotation. */
         suspend fun measureReserve(
-            candidates: List<ProxyProfile>,
+            candidates: SelectorReserves,
             tcpPriority: Boolean,
+            activeFailed: Boolean,
             measure: suspend (ProxyProfile) -> MemberLatency,
         ): MemberLatency? {
-            val reserves = if (tcpPriority) candidates.preferTcpReserves() else candidates
+            // A failed last resort ends this sweep. A later admitted pass starts with ordinary candidates again.
+            if (lastResortFailed || !activeFailed) clearReserveFailures()
+            val useDown = activeFailed && candidates.down.isNotEmpty() && candidates.ordinaryFailed(failedReserves)
+            val selected = if (useDown) candidates.down else candidates.ordinary
+            val reserves = if (tcpPriority) selected.preferTcpReserves() else selected
             val reserve =
-                reserves.takeIf { it.isNotEmpty() }?.let { members ->
-                    members.firstOrNull { it.id == recoveringReserve } ?: members[reserveIndex.mod(members.size)]
-                }
-            return reserve?.let {
-                val result = measure(it)
-                if (result.latencyMillis != null) {
-                    recoveringReserve = it.id
-                    failedReserves.clear()
+                reserves.takeIf { it.isNotEmpty() && (!useDown || scopeProvider.isCurrent(scope)) }?.let { members ->
+                    val index = if (useDown) 0 else reserveIndex.mod(members.size)
+                    members.firstOrNull { it.id == recoveringReserve } ?: members[index]
+                } ?: return null
+            val result = measure(reserve)
+            if (result.latencyMillis != null) {
+                recoveringReserve = reserve.id
+                if (!useDown) clearReserveFailures()
+            } else {
+                recoveringReserve = null
+                if (useDown) {
+                    lastResortFailed = result.isTransferFailure
                 } else {
-                    failedReserves.add(it.id)
-                    recoveringReserve = null
-                    reserveIndex = (reserves.indexOf(it) + 1).mod(reserves.size)
+                    if (activeFailed && result.isTransferFailure) failedReserves.add(reserve.id)
+                    reserveIndex = (reserves.indexOf(reserve) + 1).mod(reserves.size)
                 }
-                result
             }
+            return result
+        }
+
+        fun clearReserveFailures() {
+            failedReserves.clear()
+            lastResortFailed = false
         }
     }
 
@@ -324,34 +337,6 @@ class SelectorUrltestProber internal constructor(
         }
     }
 
-    /**
-     * Members that may win this pass. Cloudflare members never win automatically, so health is ranked over the
-     * direct members only: when all of them are down they fail open even while a Cloudflare member is up. Bundle
-     * health is evaluated now, so expired down health is neutral again.
-     */
-    private fun probeCandidates(
-        group: ProxyGroup,
-        scope: SelectorProbeScope,
-    ): List<ProxyProfile> =
-        when (
-            val order =
-                orderByEndpointHealth(
-                    group.members.filterNot { it.id in group.cloudflareMemberIds },
-                    // Health refreshes with every bundle refresh and is read per pass, not from the loop's start.
-                    scope.memberHealth,
-                    wallClockMillis(),
-                )
-        ) {
-            is EndpointHealthOrder.Ranked -> {
-                order.members
-            }
-
-            is EndpointHealthOrder.AllDownFailOpen -> {
-                log.i { "urltest group ${group.id}: every member reported down; health ignored" }
-                order.members
-            }
-        }
-
     // A storage or capture failure (failed prefs commit, Room error) skips this round only. Uncaught,
     // it would reach the handler-less reload scope and kill the app together with its VPN service.
     private suspend fun contained(
@@ -408,19 +393,28 @@ class SelectorUrltestProber internal constructor(
         // A manual pick pins its member; the store refuses an automatic move anyway, so skip the probes.
         if (selection.isManual) return
         val target = MemberProbeTarget.Reachability(probeUrl, group.id.takeIf { group.fieldReport != null })
+        val active = scope.automaticActive(selection.profileId)
+        val reserves = scope.reserves(selection.profileId, wallClockMillis())
         val latencies =
-            probeCandidates(group, scope).map { member ->
-                val result = probeRoundMutex.withLock { probe.measure(member, target) }
-                MemberLatency(
-                    member.id,
-                    result?.latencyMillis,
-                    reason = result?.reason ?: ProfileQualityReason.TransferFailed,
-                )
+            (listOfNotNull(active) + reserves.ordinary).map { member ->
+                probeRoundMutex.withLock { measureMember(member, target) }
+            }
+        val fallback =
+            reserves.down.firstOrNull()?.takeIf { latencies.all(MemberLatency::isTransferFailure) }?.let { member ->
+                probeRoundMutex.withLock {
+                    if (scope.sameProbe(scopeProvider.capture(group)) &&
+                        selectionStore.snapshot(group.id) == selection
+                    ) {
+                        measureMember(member, target)
+                    } else {
+                        null
+                    }
+                }
             }
         currentCoroutineContext().ensureActive()
         if (scope.sameProbe(scopeProvider.capture(group))) {
             currentCoroutineContext().ensureActive()
-            applyReachabilityPass(group, selection, latencies, toleranceMs)
+            applyReachabilityPass(group, selection, latencies + listOfNotNull(fallback), toleranceMs)
         }
     }
 
@@ -483,10 +477,11 @@ class SelectorUrltestProber internal constructor(
             try {
                 if (!admitPayloadPass(group, scoped, policy, purpose)) return@withLock false
                 val probePolicy = if (recovery) policy.copy(quality = null) else policy
+                val reserves = scoped.scope.reserves(scoped.selection.profileId, wallClockMillis())
                 var routeUnavailable = false
                 val results =
                     withTimeoutOrNull(payloadPassDeadlineMillis(probePolicy)) {
-                        measurePayloadRound(group, scoped, probePolicy).also { routeUnavailable = it == null }
+                        measurePayloadRound(group, scoped, probePolicy, reserves).also { routeUnavailable = it == null }
                     }
                 if (routeUnavailable) {
                     // The applied VPN route could not be measured: this pass observed nothing, so earlier
@@ -503,7 +498,7 @@ class SelectorUrltestProber internal constructor(
                     scoped.quality.discard()
                 } else {
                     scoped.routeUnavailable = false
-                    return@withLock commitPayloadObservation(group, scoped, results, recovery)
+                    return@withLock commitPayloadObservation(group, scoped, results, recovery, reserves)
                 }
                 false
             } finally {
@@ -541,6 +536,7 @@ class SelectorUrltestProber internal constructor(
         scoped: ScopedPayloadState,
         results: List<MemberLatency>,
         recoveryPass: Boolean,
+        reserves: SelectorReserves,
     ): Boolean {
         currentCoroutineContext().ensureActive()
         val latestScope = scopeProvider.capture(group)
@@ -552,7 +548,7 @@ class SelectorUrltestProber internal constructor(
         currentCoroutineContext().ensureActive()
         val sameRoute = scoped.scope.vpnPath == latestScope?.vpnPath
         val usable = scopeMatches && sameRoute && scopeProvider.isCurrent(scoped.scope)
-        return usable && scoped.commitResults(group, results, recoveryPass)
+        return usable && scoped.commitResults(group, results, recoveryPass, reserves)
     }
 
     private suspend fun matchesCurrentScope(
@@ -615,6 +611,7 @@ class SelectorUrltestProber internal constructor(
         group: ProxyGroup,
         scoped: ScopedPayloadState,
         policy: PayloadFailoverPolicy,
+        reserves: SelectorReserves,
     ): List<MemberLatency>? {
         // Returns null when the applied VPN route could not be measured; such a pass decides nothing.
         val path = scoped.scope.vpnPath
@@ -623,11 +620,12 @@ class SelectorUrltestProber internal constructor(
         ) {
             return null
         }
-        val eligible = probeCandidates(group, scoped.scope)
         val vpnPath = path?.takeUnless { it.usesIsolatedProbes }
         val active =
-            (if (vpnPath == null) eligible else scoped.scope.members).firstOrNull {
-                it.id == scoped.selection.profileId
+            if (vpnPath == null) {
+                scoped.scope.automaticActive(scoped.selection.profileId)
+            } else {
+                scoped.scope.members.firstOrNull { it.id == scoped.selection.profileId }
             }
         val target = MemberProbeTarget.Payload(policy, group.id.takeIf { group.fieldReport != null })
         val activeResult =
@@ -643,7 +641,7 @@ class SelectorUrltestProber internal constructor(
             scoped.tcpPriority = tcpPriority
             scoped.reserveIndex = 0
             scoped.recoveringReserve = null
-            scoped.failedReserves.clear()
+            scoped.clearReserveFailures()
         }
         // A verified recovery starts with the live exit alone. Challenger cleanup or a slow comparison cannot hide it.
         val confirmRecovery = vpnPath != null && scoped.vpnRecovery?.matches(vpnPath, group.id, active?.id) == true
@@ -654,14 +652,16 @@ class SelectorUrltestProber internal constructor(
 
             activeResult?.latencyMillis != null && (policy.quality == null || confirmRecovery) -> {
                 scoped.recoveringReserve = null
-                scoped.failedReserves.clear()
+                scoped.clearReserveFailures()
                 listOf(activeResult)
             }
 
             else -> {
-                val reserves = eligible.filterNot { it.id == active?.id }
+                val activeFailed = activeResult == null || activeResult.isTransferFailure
                 listOfNotNull(activeResult) +
-                    listOfNotNull(scoped.measureReserve(reserves, tcpPriority) { measureMember(it, target) })
+                    listOfNotNull(
+                        scoped.measureReserve(reserves, tcpPriority, activeFailed) { measureMember(it, target) },
+                    )
             }
         }
     }
@@ -758,6 +758,9 @@ class SelectorUrltestProber internal constructor(
         const val CandidateLifecycleBudgetMillis = 10_000L
     }
 }
+
+private val MemberLatency.isTransferFailure: Boolean
+    get() = latencyMillis == null && reason == ProfileQualityReason.TransferFailed
 
 private suspend fun measureActiveVpnMember(
     path: SelectorVpnPath,
