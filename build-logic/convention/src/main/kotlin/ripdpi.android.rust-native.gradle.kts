@@ -77,6 +77,11 @@ abstract class BuildRustNativeLibsTask
         @get:Optional
         abstract val sharedPriorsPublicKey: Property<String>
 
+        @get:InputFile
+        @get:Optional
+        @get:PathSensitive(PathSensitivity.NONE)
+        abstract val instrumentedDiagnosticsRoot: RegularFileProperty
+
         @get:Input
         abstract val cargoProfile: Property<String>
 
@@ -384,6 +389,9 @@ abstract class BuildRustNativeLibsTask
                     // Always set (possibly empty) so a stale value in the daemon environment
                     // never leaks into the build; empty means "shared priors not configured".
                     put("RIPDPI_SHARED_PRIORS_PUB_KEY", sharedPriorsPublicKey.orNull.orEmpty())
+                    instrumentedDiagnosticsRoot.orNull?.asFile?.let { certificate ->
+                        put("RIPDPI_INSTRUMENTED_DIAGNOSTICS_ROOT_DER", certificate.absolutePath)
+                    }
                     // The cmake crate (used by boring-sys) reads CMAKE to select the cmake
                     // binary.  The Android SDK cmake lacks macOS platform defaults, preventing
                     // `-isysroot MacOSX.sdk` from being injected when cross-compiling for Android.
@@ -407,6 +415,10 @@ abstract class BuildRustNativeLibsTask
                         add(packageName)
                     }
                     add("--locked")
+                    if (instrumentedDiagnosticsRoot.isPresent) {
+                        add("--features")
+                        add("ripdpi-android/instrumented-diagnostics-tls")
+                    }
                     add("--target")
                     add(config.target)
                     add("--profile")
@@ -1706,6 +1718,22 @@ val buildNfqws2 =
 
 val sharedPriorsPublicKeyProvider = SharedPriorsKey.resolve(project)
 
+val instrumentedDiagnosticsRootFile =
+    providers.gradleProperty("ripdpi.instrumentedDiagnosticsRoot").orNull?.let { path ->
+        val connectedTask = "app:connectedGithubDebugAndroidTest"
+        require(
+            gradle.startParameter.taskNames
+                .singleOrNull()
+                ?.removePrefix(":") == connectedTask,
+        ) {
+            "ripdpi.instrumentedDiagnosticsRoot is only valid for $connectedTask"
+        }
+        require(!shouldSkipNativeBuild() && !providers.gradleProperty("ripdpi.prebuiltJniLibsDir").isPresent) {
+            "The instrumented diagnostics root requires a native build from source"
+        }
+        rootProject.file(path)
+    }
+
 val buildRustNativeLibs =
     tasks.register<BuildRustNativeLibsTask>("buildRustNativeLibs") {
         group = "build"
@@ -1738,6 +1766,7 @@ val buildRustNativeLibs =
         cmakeVersion.set(providers.gradleProperty("ripdpi.nativeCmakeVersion"))
         cargoProfile.set(rustNativeCargoProfile)
         sharedPriorsPublicKey.set(sharedPriorsPublicKeyProvider)
+        instrumentedDiagnosticsRootFile?.let { instrumentedDiagnosticsRoot.set(it) }
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)

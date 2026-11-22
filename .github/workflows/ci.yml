@@ -3238,6 +3238,16 @@ jobs:
           RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
         run: bash scripts/ci/run-android-e2e-emulator.sh
 
+      - name: Run manual RAW HTTPS transfer E2E
+        timeout-minutes: 60
+        env:
+          RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
+        run: |
+          bash scripts/ci/run-android-raw-https-e2e.sh \
+            -Pripdpi.nativeAbisOverride=x86_64 \
+            "-Pripdpi.prebuiltPluggableTransportAssetsDir=$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
+            "-Pripdpi.prebuiltPluggableTransportAssetsManifestSha256=$RIPDPI_PREBUILT_PT_MANIFEST_SHA256"
+
       - name: Capture fixture state
         if: always()
         timeout-minutes: 2

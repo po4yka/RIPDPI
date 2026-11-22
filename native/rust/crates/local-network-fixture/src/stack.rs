@@ -11,7 +11,7 @@ use crate::event::EventLog;
 use crate::fault::FaultController;
 use crate::icmp;
 use crate::socks;
-use crate::tls::TlsMaterial;
+use crate::tls::{TlsMaterial, start_verified_https_server};
 use crate::types::{FixtureConfig, FixtureManifest};
 use crate::util;
 
@@ -33,9 +33,11 @@ struct EchoServices {
     tcp_handle: JoinHandle<()>,
     udp_handle: JoinHandle<()>,
     tls_handle: JoinHandle<()>,
+    verified_https_handle: JoinHandle<()>,
     tcp_port: u16,
     udp_port: u16,
     tls_port: u16,
+    verified_https_port: u16,
 }
 
 struct DnsServices {
@@ -91,6 +93,7 @@ impl FixtureStack {
             echo.tcp_handle,
             echo.udp_handle,
             echo.tls_handle,
+            echo.verified_https_handle,
             dns.udp_handle,
             dns.http_handle,
             dns.dot_handle,
@@ -125,6 +128,7 @@ impl Drop for FixtureStack {
         self.stop.store(true, Ordering::Relaxed);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.tcp_echo_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.tls_echo_port);
+        util::wake_tcp(&self.manifest.bind_host, self.manifest.verified_https_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_http_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_dot_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_dnscrypt_port);
@@ -175,7 +179,19 @@ fn start_echo_services(
         tls.server_config.clone(),
     )?;
 
-    Ok(EchoServices { tcp_handle, udp_handle, tls_handle, tcp_port, udp_port, tls_port })
+    let (verified_https_handle, verified_https_port) =
+        start_verified_https_server(&config.bind_host, context.stop.clone(), tls.server_config.clone())?;
+
+    Ok(EchoServices {
+        tcp_handle,
+        udp_handle,
+        tls_handle,
+        verified_https_handle,
+        tcp_port,
+        udp_port,
+        tls_port,
+        verified_https_port,
+    })
 }
 
 fn start_dns_services(config: &FixtureConfig, context: &ServiceContext, tls: &TlsMaterial) -> io::Result<DnsServices> {
@@ -297,6 +313,7 @@ fn build_manifest(
         tcp_echo_port: echo.tcp_port,
         udp_echo_port: echo.udp_port,
         tls_echo_port: echo.tls_port,
+        verified_https_port: echo.verified_https_port,
         dns_udp_port: dns.udp_port,
         dns_http_port: dns.http_port,
         dns_dot_port: dns.dot_port,

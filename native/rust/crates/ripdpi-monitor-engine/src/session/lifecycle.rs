@@ -59,7 +59,11 @@ impl MonitorSession {
         platform_bridge: Arc<dyn MonitorPlatformBridge>,
         candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
     ) -> Self {
-        Self::with_parts(None, platform_bridge, candidate_runtime_launcher)
+        #[cfg(all(target_os = "android", feature = "instrumented-diagnostics-tls"))]
+        let tls_verifier = instrumented_tls_verifier();
+        #[cfg(not(all(target_os = "android", feature = "instrumented-diagnostics-tls")))]
+        let tls_verifier = None;
+        Self::with_parts(tls_verifier, platform_bridge, candidate_runtime_launcher)
     }
 
     fn with_parts(
@@ -90,6 +94,20 @@ impl MonitorSession {
             poisoned.into_inner()
         })
     }
+}
+
+#[cfg(all(target_os = "android", feature = "instrumented-diagnostics-tls"))]
+fn instrumented_tls_verifier() -> Option<Arc<dyn ServerCertVerifier>> {
+    let der = include_bytes!(env!("RIPDPI_INSTRUMENTED_DIAGNOSTICS_ROOT_DER"));
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add(rustls::pki_types::CertificateDer::from(der.as_slice())).ok()?;
+    let verifier = rustls::client::WebPkiServerVerifier::builder_with_provider(
+        Arc::new(roots),
+        rustls::crypto::ring::default_provider().into(),
+    )
+    .build()
+    .ok()?;
+    Some(verifier)
 }
 
 #[cfg(test)]

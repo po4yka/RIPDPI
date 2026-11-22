@@ -35,4 +35,5 @@ native-soak-support = { workspace = true }
 rcgen = { workspace = true }
 
 [features]
+instrumented-diagnostics-tls = []
 loom = ["dep:loom"]

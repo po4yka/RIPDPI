@@ -1,16 +1,73 @@
-use std::io;
+use std::io::{self, ErrorKind, Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use rcgen::generate_simple_self_signed;
-use rustls::ServerConfig;
 use rustls::pki_types::PrivateKeyDer;
+use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
-use crate::types::FixtureConfig;
+use crate::http::read_until_marker;
+use crate::types::{FixtureConfig, IO_POLL_DELAY};
 use crate::util;
 
 pub(crate) struct TlsMaterial {
     pub(crate) certificate_pem: String,
     pub(crate) server_config: Arc<ServerConfig>,
+}
+
+pub(crate) fn start_verified_https_server(
+    bind_host: &str,
+    stop: Arc<AtomicBool>,
+    server_config: Arc<ServerConfig>,
+) -> io::Result<(JoinHandle<()>, u16)> {
+    let listener = TcpListener::bind((bind_host, 0))?;
+    listener.set_nonblocking(true)?;
+    let port = listener.local_addr()?.port();
+    let handle = thread::spawn(move || {
+        while !stop.load(Ordering::Relaxed) {
+            match listener.accept() {
+                Ok((socket, _)) => {
+                    let config = server_config.clone();
+                    thread::spawn(move || {
+                        let _ = serve_verified_https(socket, config);
+                    });
+                }
+                Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
+                Err(_) => break,
+            }
+        }
+    });
+    Ok((handle, port))
+}
+
+fn serve_verified_https(socket: TcpStream, server_config: Arc<ServerConfig>) -> io::Result<()> {
+    let timeout = Some(Duration::from_secs(4));
+    socket.set_nonblocking(false)?;
+    socket.set_read_timeout(timeout)?;
+    socket.set_write_timeout(timeout)?;
+    let connection = ServerConnection::new(server_config).map_err(util::other_io)?;
+    let mut stream = StreamOwned::new(connection, socket);
+    let request = read_until_marker(&mut Read::by_ref(&mut stream).take(2048), b"\r\n\r\n");
+    if !request.ends_with(b"\r\n\r\n") {
+        return Ok(());
+    }
+
+    if request.starts_with(b"GET /verified-short HTTP/1.1\r\n") {
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")?;
+    } else if request.starts_with(b"GET /verified-long HTTP/1.1\r\n") {
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\nlon")?;
+        stream.flush()?;
+        // Wait for the peer or the socket timeout before closing the unfinished response.
+        let _ = stream.sock.peek(&mut [0u8; 1]);
+    } else {
+        stream.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
+    }
+
+    stream.conn.send_close_notify();
+    stream.flush()
 }
 
 impl TlsMaterial {

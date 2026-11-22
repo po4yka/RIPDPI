@@ -131,6 +131,7 @@ mod tests {
             tcp_echo_port: 1,
             udp_echo_port: 2,
             tls_echo_port: 3,
+            verified_https_port: 13,
             dns_udp_port: 4,
             dns_http_port: 5,
             dns_dot_port: 6,
@@ -151,8 +152,9 @@ mod tests {
         };
 
         assert_eq!(manifest.control_url_for_host("10.0.2.2"), "http://10.0.2.2:10");
-        let json = serde_json::to_string(&manifest).expect("serialize manifest");
-        assert!(json.contains("fixture.test"));
+        let json = serde_json::to_value(&manifest).expect("serialize manifest");
+        assert_eq!(json["fixtureDomain"], "fixture.test");
+        assert_eq!(json["verifiedHttpsPort"], 13);
     }
 
     #[test]
@@ -580,6 +582,52 @@ mod tests {
             event.service == "tls_echo" && event.detail == "handshake" && event.sni.as_deref() == Some("fixture.test")
         }));
         assert!(events.iter().any(|event| event.service == "tls_echo" && event.detail.starts_with("handshake_error:")));
+    }
+
+    #[test]
+    fn verified_https_serves_complete_short_body_and_holds_long_response_open() {
+        let _serial = lock_fixture_stack_tests();
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+        let manifest = stack.manifest();
+        let certificate = CertificateDer::from_pem_slice(manifest.tls_certificate_pem.as_bytes())
+            .expect("decode fixture certificate");
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(certificate).expect("trust fixture certificate");
+        let config = Arc::new(
+            ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("supported TLS versions")
+                .with_root_certificates(roots)
+                .with_no_client_auth(),
+        );
+
+        let request = |path: &str| {
+            let socket = TcpStream::connect((manifest.bind_host.as_str(), manifest.verified_https_port))
+                .expect("connect verified HTTPS fixture");
+            socket.set_read_timeout(Some(Duration::from_secs(3))).expect("set response timeout");
+            let name = ServerName::try_from(manifest.fixture_domain.clone()).expect("fixture TLS name");
+            let connection = ClientConnection::new(config.clone(), name).expect("create TLS connection");
+            let mut tls = StreamOwned::new(connection, socket);
+            write!(tls, "GET {path} HTTP/1.1\r\nHost: {}\r\n\r\n", manifest.fixture_domain)
+                .expect("send fixture request");
+            tls.flush().expect("flush fixture request");
+            tls
+        };
+
+        let mut short = request("/verified-short");
+        let mut response = String::new();
+        short.read_to_string(&mut response).expect("read complete short response");
+        assert_eq!(response, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+
+        let mut long = request("/verified-long");
+        let headers = read_until_marker(&mut long, b"\r\n\r\n");
+        assert_eq!(headers, b"HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\n");
+        let mut prefix = [0u8; 3];
+        long.read_exact(&mut prefix).expect("read long response prefix");
+        assert_eq!(&prefix, b"lon");
+        long.sock.set_read_timeout(Some(Duration::from_millis(1400))).expect("set stall timeout");
+        let err = long.read(&mut [0u8; 1]).expect_err("long response should stall without EOF");
+        assert!(matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock), "{err}");
     }
 
     #[test]

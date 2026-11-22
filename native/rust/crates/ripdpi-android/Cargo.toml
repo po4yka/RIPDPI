@@ -32,4 +32,5 @@ thiserror = { workspace = true }
 jni = { workspace = true, features = ["invocation"] }
 
 [features]
+instrumented-diagnostics-tls = ["ripdpi-android-diagnostics-adapter/instrumented-diagnostics-tls"]
 loom = ["ripdpi-android-proxy-adapter/loom"]
