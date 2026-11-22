@@ -2170,4 +2170,12 @@
     <string name="diagnostics_ech_transfer_body_timeout">Передача тела ответа зависла</string>
     <string name="diagnostics_ech_transfer_response_timeout">Тайм-аут до получения заголовков HTTP</string>
     <string name="diagnostics_ech_transfer_http_failed">Сбой обмена по HTTP</string>
+    <string name="diagnostics_http3_transfer_title">Сравнение HTTPS/TCP и HTTP/3</string>
+    <string name="diagnostics_http3_transfer_description">Сравните загрузку одного объекта по HTTPS/TCP и HTTP/3 на одном IP-адресе и порту. В обоих случаях проверяются размер и SHA-256.</string>
+    <string name="diagnostics_http3_transfer_input_error">Укажите HTTPS-адрес без учётных данных, параметров запроса и фрагмента. Введите адрес IPv4 или IPv6, используйте путь до 1024 символов ASCII, размер от 1 до 32 768 байт и SHA-256 из 64 шестнадцатеричных цифр.</string>
+    <string name="diagnostics_http3_transfer_tcp">HTTPS/TCP</string>
+    <string name="diagnostics_http3_transfer_difference">Первое расхождение</string>
+    <string name="diagnostics_http3_transfer_no_difference">Расхождений не обнаружено</string>
+    <string name="diagnostics_http3_transfer_connect">Установка соединения</string>
+    <string name="diagnostics_http3_transfer_integrity">Проверка размера и SHA-256</string>
 </resources>

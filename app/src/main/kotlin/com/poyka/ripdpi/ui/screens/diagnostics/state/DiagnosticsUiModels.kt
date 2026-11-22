@@ -22,7 +22,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
-import com.poyka.ripdpi.diagnostics.VerifiedEchComparisonInput
+import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -41,7 +41,8 @@ internal val DiagnosticsProfileOptionUiModel.isRawPathOnly: Boolean
     get() =
         isStrategyProbe ||
             id == com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId ||
-            id == com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
+            id == com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId ||
+            id == com.poyka.ripdpi.diagnostics.Http3TransferComparisonProfileId
 
 internal val DiagnosticsProfileOptionUiModel.isFullAudit: Boolean
     get() = strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1
@@ -799,7 +800,7 @@ data class DiagnosticsScanUiModel(
     val quicVersionMatrixInput: QuicVersionMatrixConfig = QuicVersionMatrixConfig(),
     val verifiedDownloadInput: VerifiedDownloadInput = VerifiedDownloadInput(),
     val verifiedUploadInput: VerifiedUploadInput = VerifiedUploadInput(),
-    val echComparisonInput: VerifiedEchComparisonInput = VerifiedEchComparisonInput(),
+    val transferComparisonInput: VerifiedTransferComparisonInput = VerifiedTransferComparisonInput(),
     val selectiveMatrixTargets: ImmutableList<SelectiveMatrixTargetUiModel> = persistentListOf(),
     val profiles: ImmutableList<DiagnosticsProfileOptionUiModel> = persistentListOf(),
     val selectedProfileId: String? = null,

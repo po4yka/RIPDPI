@@ -2099,4 +2099,12 @@
     <string name="diagnostics_ech_transfer_body_timeout">Antwortkörper blieb hängen</string>
     <string name="diagnostics_ech_transfer_response_timeout">Zeitlimit vor den HTTP-Headern erreicht</string>
     <string name="diagnostics_ech_transfer_http_failed">HTTP-Austausch fehlgeschlagen</string>
+    <string name="diagnostics_http3_transfer_title">Vergleich von HTTPS/TCP und HTTP/3</string>
+    <string name="diagnostics_http3_transfer_description">Vergleichen Sie denselben HTTPS-Download über TCP und HTTP/3 an einer IP-Adresse und einem Port. Beide Übertragungen prüfen die Größe und SHA-256.</string>
+    <string name="diagnostics_http3_transfer_input_error">Geben Sie eine HTTPS-URL ohne Anmeldedaten, Abfrage oder Fragment ein. Verwenden Sie eine IPv4- oder IPv6-Adresse, einen Pfad mit bis zu 1.024 ASCII-Zeichen, 1–32.768 Byte und einen 64-stelligen hexadezimalen SHA-256-Wert.</string>
+    <string name="diagnostics_http3_transfer_tcp">HTTPS/TCP</string>
+    <string name="diagnostics_http3_transfer_difference">Erste Abweichung</string>
+    <string name="diagnostics_http3_transfer_no_difference">Keine Abweichung festgestellt</string>
+    <string name="diagnostics_http3_transfer_connect">Verbindungsaufbau</string>
+    <string name="diagnostics_http3_transfer_integrity">Größen- und SHA-256-Prüfung</string>
 </resources>

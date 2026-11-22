@@ -32,6 +32,14 @@ fn throughput_probe_builds_typed_observation() {
 }
 
 #[test]
+fn transport_comparisons_do_not_create_throughput_observations() {
+    for outcome in ["http3_transfer_comparison_recorded", "http3_transfer_comparison_inconclusive"] {
+        let result = probe("throughput_window", "Transport comparison", outcome, &[]);
+        assert!(observation_for_probe(&result).is_none());
+    }
+}
+
+#[test]
 fn transport_failure_parses_timeout_reset_and_close() {
     assert_eq!(transport_failure("operation timed out"), TransportFailureKind::Timeout);
     assert_eq!(transport_failure("connection reset by peer"), TransportFailureKind::Reset);

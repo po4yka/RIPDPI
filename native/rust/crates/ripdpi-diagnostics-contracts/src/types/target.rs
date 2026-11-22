@@ -251,6 +251,9 @@ pub const VERIFIED_DOWNLOAD_PROFILE_ID: &str = "verified-https-download";
 pub const VERIFIED_UPLOAD_PROFILE_ID: &str = "verified-https-upload";
 pub const ECH_TRANSFER_COMPARISON_PROFILE_ID: &str = "ech-transfer-comparison";
 pub const ECH_TRANSFER_COMPARISON_LEGS: usize = 3;
+pub const HTTP3_TRANSFER_COMPARISON_PROFILE_ID: &str = "http3-transfer-comparison";
+pub const HTTP3_TRANSFER_COMPARISON_LEGS: usize = 2;
+pub const MAX_HTTP3_COMPARISON_BODY_BYTES: usize = 32 * 1024;
 pub const MAX_ECH_COMPARISON_BODY_BYTES: usize = 32 * 1024;
 pub const MAX_VERIFIED_DOWNLOAD_BYTES: usize = 1024 * 1024;
 pub const MAX_VERIFIED_UPLOAD_BYTES: usize = 1024 * 1024;
@@ -261,10 +264,16 @@ impl ThroughputTarget {
         let Some(expected) = &self.verification else {
             return Ok(());
         };
-        if !self.has_verified_https_endpoint() {
+        let http3_comparison = self.id == HTTP3_TRANSFER_COMPARISON_PROFILE_ID;
+        if !self.has_verified_https_endpoint(http3_comparison) {
             return Err("invalid verified download URL");
         }
-        let max_bytes = if let Some(ip) = expected.ech_comparison_ip {
+        let max_bytes = if http3_comparison {
+            if expected.ech_comparison_ip.is_some() || !self.has_pinned_http3_endpoint() {
+                return Err("HTTP/3 comparison requires one fixed IP and HTTPS path");
+            }
+            MAX_HTTP3_COMPARISON_BODY_BYTES
+        } else if let Some(ip) = expected.ech_comparison_ip {
             let ip = ip.to_canonical();
             if ip.is_unspecified() || ip.is_multicast() {
                 return Err("ECH comparison requires a unicast destination");
@@ -293,7 +302,7 @@ impl ThroughputTarget {
         let Some(bytes) = self.upload_body_bytes else {
             return Ok(());
         };
-        if !self.has_verified_https_endpoint() {
+        if !self.has_verified_https_endpoint(false) {
             return Err("invalid verified upload URL");
         }
         if !(1..=MAX_VERIFIED_UPLOAD_BYTES).contains(&bytes)
@@ -306,7 +315,22 @@ impl ThroughputTarget {
         Ok(())
     }
 
-    fn has_verified_https_endpoint(&self) -> bool {
+    fn has_pinned_http3_endpoint(&self) -> bool {
+        let valid_ip = self
+            .connect_ip
+            .as_deref()
+            .and_then(|value| value.parse::<std::net::IpAddr>().ok())
+            .map(|address| address.to_canonical())
+            .is_some_and(|address| {
+                !address.is_unspecified()
+                    && !address.is_multicast()
+                    && address != std::net::IpAddr::V4(std::net::Ipv4Addr::BROADCAST)
+            });
+        let path = self.url.strip_prefix("https://").and_then(|url| url.find('/').map(|start| &url[start..]));
+        valid_ip && path.is_none_or(|value| value.is_ascii() && value.len() <= 1024 && !value.starts_with("//"))
+    }
+
+    fn has_verified_https_endpoint(&self, allow_pin: bool) -> bool {
         let Some(url) = self.url.strip_prefix("https://") else {
             return false;
         };
@@ -316,7 +340,7 @@ impl ThroughputTarget {
             && self.url.len() <= 2048
             && !self.url.contains(['?', '#', '\\'])
             && !self.url.bytes().any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
-            && self.connect_ip.is_none()
+            && (allow_pin || self.connect_ip.is_none())
             && self.connect_ips.is_empty()
             && self.port.is_none()
     }

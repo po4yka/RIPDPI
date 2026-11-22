@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
+import com.poyka.ripdpi.diagnostics.Http3TransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixProfileId
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonProfileId
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
@@ -223,12 +224,16 @@ internal fun ScanSection(
                 )
             }
         }
-        if (selectedProfile?.id == EchTransferComparisonProfileId) {
-            item(key = "ech-comparison-input") {
-                VerifiedEchComparisonInputCard(
-                    input = scan.echComparisonInput,
+        val comparisonProfileId = selectedProfile?.id
+        if (comparisonProfileId == EchTransferComparisonProfileId ||
+            comparisonProfileId == Http3TransferComparisonProfileId
+        ) {
+            item(key = "transfer-comparison-input") {
+                VerifiedTransferComparisonInputCard(
+                    http3 = comparisonProfileId == Http3TransferComparisonProfileId,
+                    input = scan.transferComparisonInput,
                     enabled = !effectiveBusy,
-                    onInputChanged = manualProbeInput.onEchComparisonChanged,
+                    onInputChanged = manualProbeInput.onTransferComparisonChanged,
                 )
             }
         }

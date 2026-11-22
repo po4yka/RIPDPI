@@ -21,6 +21,36 @@ pub fn probe_http3(
     cancel: &AtomicBool,
     verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Http3Evidence {
+    probe(config, transport, raw_path, cancel, verifier, None)
+}
+
+/// Stream the bounded body of a pinned RAW download to its integrity checker.
+/// The receiver gets body bytes only. It does not receive headers or trailers.
+pub fn probe_http3_download(
+    config: &Http3ProbeConfig,
+    transport: &TransportConfig,
+    cancel: &AtomicBool,
+    verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    receive_body: &mut dyn FnMut(&[u8]),
+) -> Http3Evidence {
+    if config.connect_ip.is_none() {
+        let mut evidence = Http3Evidence::default();
+        fail(&mut evidence, "INVALID", "missing_pinned_address");
+        return evidence;
+    }
+    probe(config, transport, true, cancel, verifier, Some(receive_body))
+}
+
+type BodyReceiver<'a> = Option<&'a mut dyn FnMut(&[u8])>;
+
+fn probe(
+    config: &Http3ProbeConfig,
+    transport: &TransportConfig,
+    raw_path: bool,
+    cancel: &AtomicBool,
+    verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    mut receive_body: BodyReceiver<'_>,
+) -> Http3Evidence {
     let started = Instant::now();
     let mut evidence = Http3Evidence::default();
     let own_deadline = started + Duration::from_millis(config.timeout_ms.min(15000));
@@ -45,7 +75,7 @@ pub fn probe_http3(
                         biased;
                         () = cancelled(cancel) => Err(("CANCELLED", "cancelled")),
                         () = tokio::time::sleep_until(deadline.into()) => Err(("TIMEOUT", if scan_deadline.is_some_and(|d| d <= own_deadline) { "deadline_exceeded" } else { "timeout" })),
-                        result = execute(config, verifier, started, deadline, &mut evidence) => result,
+                        result = execute(config, verifier, started, deadline, &mut evidence, &mut receive_body) => result,
                     }
                 });
                 if let Err((status, reason)) = result {
@@ -95,6 +125,7 @@ async fn execute(
     started: Instant,
     deadline: Instant,
     evidence: &mut Http3Evidence,
+    receive_body: &mut BodyReceiver<'_>,
 ) -> Result<(), Failure> {
     let addresses = if let Some(ip) =
         config.connect_ip.as_ref().and_then(|s| s.parse::<IpAddr>().ok()).or_else(|| config.host.parse::<IpAddr>().ok())
@@ -126,7 +157,7 @@ async fn execute(
             }
         }
     };
-    attempt_addresses(config, verifier, addresses, started, deadline, evidence).await
+    attempt_addresses(config, verifier, addresses, started, deadline, evidence, receive_body).await
 }
 
 /// Minimum QUIC handshake budget of an attempt that is not the last one.
@@ -142,6 +173,7 @@ async fn attempt_addresses(
     started: Instant,
     deadline: Instant,
     evidence: &mut Http3Evidence,
+    receive_body: &mut BodyReceiver<'_>,
 ) -> Result<(), Failure> {
     if addresses.is_empty() {
         return Err(("NOT_OBSERVED", "no_addresses"));
@@ -155,7 +187,8 @@ async fn attempt_addresses(
         let dns_status = evidence.dns_status.clone();
         *evidence = Http3Evidence { attempt_count: attempts, dns_status, ..Http3Evidence::default() };
         let handshake_deadline = handshake_deadline(deadline, count - index);
-        last = attempt(config, verifier, address, started, deadline, handshake_deadline, evidence).await;
+        last =
+            attempt(config, verifier, address, started, (deadline, handshake_deadline), evidence, receive_body).await;
         if last.is_ok() || evidence.http3_validated {
             break;
         }
@@ -208,9 +241,9 @@ async fn attempt(
     verifier: Option<&Arc<dyn ServerCertVerifier>>,
     address: SocketAddr,
     started: Instant,
-    deadline: Instant,
-    handshake_deadline: Instant,
+    (deadline, handshake_deadline): (Instant, Instant),
     evidence: &mut Http3Evidence,
+    receive_body: &mut BodyReceiver<'_>,
 ) -> Result<(), Failure> {
     evidence.stage = "QUIC_HANDSHAKE".into();
     let socket = socket::protected_socket(address, deadline).await?;
@@ -244,11 +277,7 @@ async fn attempt(
     let request = async {
         evidence.stage = "HTTP_REQUEST".into();
         let host = if config.host.contains(':') { format!("[{}]", config.host) } else { config.host.clone() };
-        let request = http::Request::builder()
-            .method(http::Method::GET)
-            .uri(format!("https://{host}:{}{}", config.port, config.path))
-            .body(())
-            .map_err(|_| ("INVALID", "invalid_config"))?;
+        let request = get_request(config, &host, receive_body.is_some())?;
         let mut stream = sender.send_request(request).await.map_err(|_| ("FAILED", "http3_error"))?;
         evidence.request_sent = true;
         stream.finish().await.map_err(|_| ("FAILED", "http3_error"))?;
@@ -271,25 +300,26 @@ async fn attempt(
         evidence.http_status = Some(status);
         evidence.http3_validated = true;
         evidence.headers_elapsed_ms = Some(elapsed(started));
+        if receive_body.is_some() {
+            validate_download_headers(status, response.headers())?;
+        }
         evidence.stage = "HTTP_BODY".into();
         let expected_length = content_length(response.headers())?;
         while let Some(data) = stream.recv_data().await.map_err(|_| ("FAILED", "http3_error"))? {
-            let size = data.remaining() as u64;
-            if size > 0 && evidence.first_byte_elapsed_ms.is_none() {
-                evidence.first_byte_elapsed_ms = Some(elapsed(started));
-            }
-            let remaining = config.max_response_bytes.saturating_sub(evidence.response_bytes);
-            evidence.response_bytes += size.min(remaining);
-            if size > remaining {
-                return Err(("BODY_LIMIT", "body_limit"));
-            }
+            record_body_data(evidence, config.max_response_bytes, started, data, receive_body)?;
         }
         // Trailers, if any, must also be drained so a body FIN is confirmed.
         stream.recv_trailers().await.map_err(|_| ("FAILED", "http3_error"))?;
         if expected_length.is_some_and(|length| length != evidence.response_bytes)
             || (status == 204 && (evidence.response_bytes != 0 || expected_length.is_some()))
         {
-            return Err(("FAILED", "http3_error"));
+            let reason =
+                if receive_body.is_some() && expected_length.is_some_and(|length| length > evidence.response_bytes) {
+                    "early_eof"
+                } else {
+                    "http3_error"
+                };
+            return Err(("FAILED", reason));
         }
         evidence.body_complete = true;
         evidence.status = if (200..300).contains(&status) { "COMPLETE" } else { "HTTP_ERROR" }.into();
@@ -305,6 +335,59 @@ async fn attempt(
     endpoint.close(0u32.into(), b"probe complete");
     result
 }
+fn get_request(config: &Http3ProbeConfig, host: &str, download: bool) -> Result<http::Request<()>, Failure> {
+    let authority = if download && config.port == 443 { host.to_owned() } else { format!("{host}:{}", config.port) };
+    let mut request =
+        http::Request::builder().method(http::Method::GET).uri(format!("https://{authority}{}", config.path));
+    if download {
+        request = request.header(http::header::ACCEPT, "*/*").header(http::header::ACCEPT_ENCODING, "identity");
+    }
+    request.body(()).map_err(|_| ("INVALID", "invalid_config"))
+}
+
+fn validate_download_headers(status: u16, headers: &http::HeaderMap) -> Result<(), Failure> {
+    if status != 200 || headers.contains_key(http::header::CONTENT_RANGE) {
+        return Err(("HTTP_ERROR", "http_status_error"));
+    }
+    let mut encodings = headers.get_all(http::header::CONTENT_ENCODING).into_iter();
+    if encodings.next().is_some_and(|value| !value.as_bytes().eq_ignore_ascii_case(b"identity"))
+        || encodings.next().is_some()
+    {
+        return Err(("FAILED", "unsupported_content_encoding"));
+    }
+    Ok(())
+}
+
+fn record_body_data(
+    evidence: &mut Http3Evidence,
+    limit: u64,
+    started: Instant,
+    mut data: impl Buf,
+    receive_body: &mut BodyReceiver<'_>,
+) -> Result<(), Failure> {
+    let size = data.remaining() as u64;
+    if size > 0 && evidence.first_byte_elapsed_ms.is_none() {
+        evidence.first_byte_elapsed_ms = Some(elapsed(started));
+    }
+    let remaining = limit.saturating_sub(evidence.response_bytes);
+    if let Some(receive) = receive_body {
+        let mut left = size.min(remaining) as usize;
+        while left > 0 {
+            let chunk = data.chunk();
+            let count = chunk.len().min(left);
+            receive(&chunk[..count]);
+            data.advance(count);
+            left -= count;
+        }
+    }
+    evidence.response_bytes += size.min(remaining);
+    if size > remaining || (receive_body.is_some() && evidence.response_bytes == limit) {
+        Err(("BODY_LIMIT", "body_limit"))
+    } else {
+        Ok(())
+    }
+}
+
 fn content_length(headers: &http::HeaderMap) -> Result<Option<u64>, Failure> {
     let mut length = None;
     for value in headers.get_all(http::header::CONTENT_LENGTH) {

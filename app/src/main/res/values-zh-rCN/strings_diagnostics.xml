@@ -2057,4 +2057,12 @@
     <string name="diagnostics_ech_transfer_body_timeout">响应正文停止传输</string>
     <string name="diagnostics_ech_transfer_response_timeout">接收 HTTP 响应头前超时</string>
     <string name="diagnostics_ech_transfer_http_failed">HTTP 交换失败</string>
+    <string name="diagnostics_http3_transfer_title">比较 HTTPS/TCP 和 HTTP/3</string>
+    <string name="diagnostics_http3_transfer_description">在同一个 IP 地址和端口上比较通过 TCP 和 HTTP/3 进行的同一 HTTPS 下载。两次传输都验证大小和 SHA-256。</string>
+    <string name="diagnostics_http3_transfer_input_error">输入不含凭据、查询参数或片段的 HTTPS URL。请使用 IPv4 或 IPv6 地址、最多 1024 个 ASCII 字符的路径、1 至 32768 字节的大小以及 64 位十六进制 SHA-256 值。</string>
+    <string name="diagnostics_http3_transfer_tcp">HTTPS/TCP</string>
+    <string name="diagnostics_http3_transfer_difference">首个差异</string>
+    <string name="diagnostics_http3_transfer_no_difference">未发现差异</string>
+    <string name="diagnostics_http3_transfer_connect">建立连接</string>
+    <string name="diagnostics_http3_transfer_integrity">验证大小和 SHA-256</string>
 </resources>

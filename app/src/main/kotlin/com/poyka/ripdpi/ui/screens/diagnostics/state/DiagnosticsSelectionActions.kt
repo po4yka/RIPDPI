@@ -7,7 +7,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.QuicVersionMatrixConfig
 import com.poyka.ripdpi.diagnostics.TlsHopComparisonConfig
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
-import com.poyka.ripdpi.diagnostics.VerifiedEchComparisonInput
+import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -22,7 +22,7 @@ data class DiagnosticsManualProbeInputActions(
     val onQuicVersionMatrixChanged: (QuicVersionMatrixConfig) -> Unit = {},
     val onVerifiedDownloadChanged: (VerifiedDownloadInput) -> Unit = {},
     val onVerifiedUploadChanged: (VerifiedUploadInput) -> Unit = {},
-    val onEchComparisonChanged: (VerifiedEchComparisonInput) -> Unit = {},
+    val onTransferComparisonChanged: (VerifiedTransferComparisonInput) -> Unit = {},
 )
 
 internal class DiagnosticsSelectionActions(
@@ -79,7 +79,7 @@ internal class DiagnosticsSelectionActions(
             onQuicVersionMatrixChanged = ::updateQuicVersionMatrix,
             onVerifiedDownloadChanged = { input -> updateTransferInput { it.copy(verifiedDownloadInput = input) } },
             onVerifiedUploadChanged = { input -> updateTransferInput { it.copy(verifiedUploadInput = input) } },
-            onEchComparisonChanged = { input -> updateTransferInput { it.copy(echComparisonInput = input) } },
+            onTransferComparisonChanged = { input -> updateTransferInput { it.copy(transferComparisonInput = input) } },
         )
 
     fun updateTlsHopComparison(input: TlsHopComparisonConfig) {

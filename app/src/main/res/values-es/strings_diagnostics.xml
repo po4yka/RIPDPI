@@ -2115,4 +2115,12 @@
     <string name="diagnostics_ech_transfer_body_timeout">El cuerpo de la respuesta se quedó bloqueado</string>
     <string name="diagnostics_ech_transfer_response_timeout">Tiempo agotado antes de recibir los encabezados HTTP</string>
     <string name="diagnostics_ech_transfer_http_failed">Falló el intercambio HTTP</string>
+    <string name="diagnostics_http3_transfer_title">Comparación de HTTPS/TCP y HTTP/3</string>
+    <string name="diagnostics_http3_transfer_description">Compara la misma descarga HTTPS a través de TCP y HTTP/3 en una misma dirección IP y puerto. Ambas transferencias comprueban el tamaño y SHA-256.</string>
+    <string name="diagnostics_http3_transfer_input_error">Introduce una URL HTTPS sin credenciales, consulta ni fragmento. Usa una dirección IPv4 o IPv6, una ruta de hasta 1024 caracteres ASCII, de 1 a 32 768 bytes y un SHA-256 de 64 dígitos hexadecimales.</string>
+    <string name="diagnostics_http3_transfer_tcp">HTTPS/TCP</string>
+    <string name="diagnostics_http3_transfer_difference">Primera diferencia</string>
+    <string name="diagnostics_http3_transfer_no_difference">No se observó ninguna diferencia</string>
+    <string name="diagnostics_http3_transfer_connect">Inicio de la conexión</string>
+    <string name="diagnostics_http3_transfer_integrity">Verificación de tamaño y SHA-256</string>
 </resources>

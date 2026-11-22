@@ -2126,4 +2126,12 @@
     <string name="diagnostics_ech_transfer_body_timeout">Response body stalled</string>
     <string name="diagnostics_ech_transfer_response_timeout">Timed out before HTTP headers</string>
     <string name="diagnostics_ech_transfer_http_failed">HTTP exchange failed</string>
+    <string name="diagnostics_http3_transfer_title">HTTPS/TCP and HTTP/3 comparison</string>
+    <string name="diagnostics_http3_transfer_description">Compare the same HTTPS download over TCP and HTTP/3 at one IP address and port. Both transfers verify the size and SHA-256.</string>
+    <string name="diagnostics_http3_transfer_input_error">Enter an HTTPS URL without credentials, a query, or a fragment. Use an IPv4 or IPv6 address, a URL path of up to 1,024 ASCII characters, 1–32,768 bytes, and a 64-digit hexadecimal SHA-256.</string>
+    <string name="diagnostics_http3_transfer_tcp">HTTPS/TCP</string>
+    <string name="diagnostics_http3_transfer_difference">First difference</string>
+    <string name="diagnostics_http3_transfer_no_difference">No difference observed</string>
+    <string name="diagnostics_http3_transfer_connect">Connection setup</string>
+    <string name="diagnostics_http3_transfer_integrity">Size and SHA-256 verification</string>
 </resources>

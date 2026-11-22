@@ -31,6 +31,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.EchTransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
+import com.poyka.ripdpi.diagnostics.Http3TransferComparisonProfileId
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
@@ -49,7 +50,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadProfileId
-import com.poyka.ripdpi.diagnostics.VerifiedEchComparisonInput
+import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadProfileId
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
@@ -1009,14 +1010,15 @@ class DiagnosticsViewModelTest {
             input.onVerifiedDownloadChanged(
                 VerifiedDownloadInput("https://download.example/body", "10", "a".repeat(64)),
             )
-            val valid = VerifiedEchComparisonInput("https://fixture.example/body", "192.0.2.8", "32768", "b".repeat(64))
+            val valid =
+                VerifiedTransferComparisonInput("https://fixture.example/body", "192.0.2.8", "32768", "b".repeat(64))
             listOf(
-                VerifiedEchComparisonInput(),
+                VerifiedTransferComparisonInput(),
                 valid.copy(connectIp = "fixture.example"),
                 valid.copy(expectedBodyBytes = "32769"),
                 valid.copy(sha256 = "bad"),
             ).forEach { invalid ->
-                input.onEchComparisonChanged(invalid)
+                input.onTransferComparisonChanged(invalid)
                 advanceUntilIdle()
                 assertFalse(viewModel.uiState.value.scan.runRawEnabled)
                 assertFalse(viewModel.uiState.value.scan.runInPathEnabled)
@@ -1025,7 +1027,7 @@ class DiagnosticsViewModelTest {
                 assertTrue(paths.isEmpty())
             }
 
-            input.onEchComparisonChanged(valid)
+            input.onTransferComparisonChanged(valid)
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.scan.runRawEnabled)
             assertTrue(viewModel.uiState.value.scan.runInPathEnabled)
@@ -1034,6 +1036,65 @@ class DiagnosticsViewModelTest {
             assertEquals(listOf(ScanPathMode.IN_PATH), paths)
             assertEquals(valid, manager.scanController.lastScanTargetOverrides?.echComparison)
             assertNull(manager.scanController.lastScanTargetOverrides?.verifiedDownload)
+            collector.cancel()
+        }
+
+    @Test
+    fun `HTTP3 comparison requires valid input and starts only on the direct path`() =
+        runTest {
+            val profileId = Http3TransferComparisonProfileId
+            val title = "HTTPS/TCP and HTTP/3 comparison"
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = profileId,
+                                name = title,
+                                source = "bundled",
+                                version = 1,
+                                requestJson = profileRequest(profileId, title, manualOnly = true),
+                                updatedAt = 1L,
+                            ),
+                        )
+                }
+            val paths = mutableListOf<ScanPathMode>()
+            manager.scanController.onStartScan = { pathMode, selectedProfile ->
+                assertEquals(profileId, selectedProfile)
+                paths += pathMode
+                DiagnosticsManualScanStartResult.Started("http3-comparison")
+            }
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+            viewModel.selectionActions.selectProfile(profileId)
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.scan.runRawEnabled)
+            viewModel.scanActions.startRawScan()
+            advanceUntilIdle()
+            assertTrue(paths.isEmpty())
+
+            val valid =
+                VerifiedTransferComparisonInput("https://fixture.example/body", "192.0.2.8", "7", "b".repeat(64))
+            viewModel.selectionActions.manualProbeInput.onTransferComparisonChanged(valid)
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.scan.runRawEnabled)
+            assertFalse(viewModel.uiState.value.scan.runInPathEnabled)
+            viewModel.scanActions.startInPathScan()
+            advanceUntilIdle()
+            assertTrue(paths.isEmpty())
+
+            viewModel.scanActions.startRawScan()
+            advanceUntilIdle()
+            assertEquals(listOf(ScanPathMode.RAW_PATH), paths)
+            assertEquals(valid, manager.scanController.lastScanTargetOverrides?.http3Comparison)
+            assertNull(manager.scanController.lastScanTargetOverrides?.echComparison)
             collector.cancel()
         }
 

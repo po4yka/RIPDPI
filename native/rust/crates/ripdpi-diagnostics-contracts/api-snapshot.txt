@@ -1178,7 +1178,10 @@ pub const ripdpi_diagnostics_contracts::types::CONNECTION_CONCURRENCY_CLASSIFIER
 pub const ripdpi_diagnostics_contracts::types::ECH_TRANSFER_COMPARISON_LEGS: usize
 pub const ripdpi_diagnostics_contracts::types::ECH_TRANSFER_COMPARISON_PROFILE_ID: &str
 pub const ripdpi_diagnostics_contracts::types::EXECUTION_PLAN_VERSION: &str
+pub const ripdpi_diagnostics_contracts::types::HTTP3_TRANSFER_COMPARISON_LEGS: usize
+pub const ripdpi_diagnostics_contracts::types::HTTP3_TRANSFER_COMPARISON_PROFILE_ID: &str
 pub const ripdpi_diagnostics_contracts::types::MAX_ECH_COMPARISON_BODY_BYTES: usize
+pub const ripdpi_diagnostics_contracts::types::MAX_HTTP3_COMPARISON_BODY_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::MAX_VERIFIED_DOWNLOAD_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::MAX_VERIFIED_UPLOAD_BYTES: usize
 pub const ripdpi_diagnostics_contracts::types::STRATEGY_PROBE_METHODOLOGY_VERSION: &str

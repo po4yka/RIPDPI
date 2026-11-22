@@ -5900,6 +5900,11 @@ dependencies = [
 name = "ripdpi-diagnostics-runner"
 version = "0.1.0"
 dependencies = [
+ "bytes",
+ "h3",
+ "h3-quinn",
+ "http",
+ "quinn",
  "rcgen",
  "ring",
  "ripdpi-diagnostics-candidates",
@@ -5916,6 +5921,7 @@ dependencies = [
  "ripdpi-packets",
  "ripdpi-proxy-config",
  "rustls",
+ "tokio",
  "tracing",
 ]
 

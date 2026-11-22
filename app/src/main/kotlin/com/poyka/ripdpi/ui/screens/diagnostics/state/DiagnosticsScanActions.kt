@@ -411,7 +411,7 @@ internal class DiagnosticsScanActions(
         allowSensitiveProfileStart: Boolean = false,
         strategyTest: Boolean = false,
     ) {
-        if (manualStartInFlight) return
+        if (manualStartInFlight || (selectedProfile?.isRawPathOnly == true && pathMode != ScanPathMode.RAW_PATH)) return
         val profileId = if (strategyTest) AutomaticProbingProfileId else selectedProfile?.id
         val command =
             mutations.prepareManualScan(

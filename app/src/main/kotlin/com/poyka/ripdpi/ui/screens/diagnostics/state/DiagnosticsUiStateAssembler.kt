@@ -347,7 +347,7 @@ internal class DiagnosticsUiStateAssembler
                 quicVersionMatrixInput = controls.selection.quicVersionMatrixInput,
                 verifiedDownloadInput = controls.selection.verifiedDownloadInput,
                 verifiedUploadInput = controls.selection.verifiedUploadInput,
-                echComparisonInput = controls.selection.echComparisonInput,
+                transferComparisonInput = controls.selection.transferComparisonInput,
                 selectedApproachMode = controls.selection.selectedApproachMode,
                 selectedProbe = controls.selection.selectedProbe,
                 selectedEventId = controls.selection.selectedEventId,

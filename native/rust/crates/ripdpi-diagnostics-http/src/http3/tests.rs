@@ -353,7 +353,7 @@ fn silent_first_address_leaves_time_for_the_next_one() {
     let result = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
         tokio::time::timeout_at(
             deadline.into(),
-            attempt_addresses(&config, Some(&server.verifier), addresses, started, deadline, &mut evidence),
+            attempt_addresses(&config, Some(&server.verifier), addresses, started, deadline, &mut evidence, &mut None),
         )
         .await
     });

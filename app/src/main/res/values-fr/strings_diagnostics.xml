@@ -2115,4 +2115,12 @@
     <string name="diagnostics_ech_transfer_body_timeout">La réception du corps est bloquée</string>
     <string name="diagnostics_ech_transfer_response_timeout">Délai dépassé avant la réception des en-têtes HTTP</string>
     <string name="diagnostics_ech_transfer_http_failed">Échec de l’échange HTTP</string>
+    <string name="diagnostics_http3_transfer_title">Comparaison de HTTPS/TCP et HTTP/3</string>
+    <string name="diagnostics_http3_transfer_description">Comparez le même téléchargement HTTPS sur TCP et HTTP/3 à une seule adresse IP et un seul port. Les deux transferts vérifient la taille et le SHA-256.</string>
+    <string name="diagnostics_http3_transfer_input_error">Saisissez une URL HTTPS sans identifiants, requête ni fragment. Utilisez une adresse IPv4 ou IPv6, un chemin de 1 024 caractères ASCII maximum, de 1 à 32 768 octets et un SHA-256 de 64 chiffres hexadécimaux.</string>
+    <string name="diagnostics_http3_transfer_tcp">HTTPS/TCP</string>
+    <string name="diagnostics_http3_transfer_difference">Première différence</string>
+    <string name="diagnostics_http3_transfer_no_difference">Aucune différence observée</string>
+    <string name="diagnostics_http3_transfer_connect">Établissement de la connexion</string>
+    <string name="diagnostics_http3_transfer_integrity">Vérification de la taille et du SHA-256</string>
 </resources>

@@ -196,6 +196,11 @@ private fun validateVerifiedTransferAdmission(
                 target?.isValidVerifiedEchComparison() == true
             }
 
+            Http3TransferComparisonProfileId -> {
+                intent.requestedPathMode == ScanPathMode.RAW_PATH && target?.isValidVerifiedHttp3Comparison() == true &&
+                    intent.hasNoOtherProbes()
+            }
+
             else -> {
                 require(intent.throughputTargets.none { it.verification != null || it.uploadBodyBytes != null })
                 return
@@ -204,3 +209,16 @@ private fun validateVerifiedTransferAdmission(
     require(validTarget && intent.kind == ScanKind.CONNECTIVITY)
     require(isManual && scanOrigin == DiagnosticsScanOrigin.USER_INITIATED)
 }
+
+private fun DiagnosticsIntent.hasNoOtherProbes(): Boolean =
+    listOf(
+        domainTargets,
+        dnsTargets,
+        tcpTargets,
+        quicTargets,
+        serviceTargets,
+        circumventionTargets,
+    ).all { it.isEmpty() } &&
+        routeProbe == null && strategyProbe == null && telegramTarget == null && selectiveMatrix == null &&
+        ipFamilyProbe == null && http3Probe == null && pmtuProbe == null &&
+        tlsHopComparison == null && quicVersionMatrix == null

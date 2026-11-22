@@ -1,3 +1,4 @@
+mod http3_comparison;
 mod matrix_body;
 mod selective_matrix;
 pub use selective_matrix::{run_selective_matrix_attempt, run_strategy_control_transfer};
@@ -18,6 +19,7 @@ use crate::connectivity::adapters::http::{HttpObservation, try_http_request_targ
 use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
 
+pub(super) use http3_comparison::run_http3_comparison;
 pub(super) use quic_endpoint::run_quic_endpoint_probe;
 pub(super) use tcp_tls_endpoint::run_endpoint_probe;
 pub(super) use throughput::{measure_throughput_run, measure_throughput_with_options};

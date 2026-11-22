@@ -180,9 +180,9 @@ private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeRes
             )
         }
 
-        probeType == "throughput_window" && outcome.startsWith("ech_transfer_comparison_") -> {
+        probeType == "throughput_window" && outcome.isTransferComparisonOutcome() -> {
             copy(
-                outcome = "ech_transfer_comparison_inconclusive",
+                outcome = "${outcome.substringBefore("_comparison_")}_comparison_inconclusive",
                 details = details.withoutTransferScopeAuthority(),
             )
         }
@@ -197,6 +197,9 @@ private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeRes
             this
         }
     }
+
+private fun String.isTransferComparisonOutcome(): Boolean =
+    startsWith("ech_transfer_comparison_") || startsWith("http3_transfer_comparison_")
 
 private fun List<ProbeDetail>.withoutTransferScopeAuthority(): List<ProbeDetail> =
     filterNot { it.key == "transferNetworkScope" } + ProbeDetail("transferNetworkScope", "unverified")

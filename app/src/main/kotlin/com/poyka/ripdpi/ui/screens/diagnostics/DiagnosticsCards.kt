@@ -97,7 +97,7 @@ internal fun CompactProbeRow(
         ) {
             Text(
                 text =
-                    if (probe.isEchTransferComparison) {
+                    if (probe.isVerifiedTransferComparison) {
                         diagnosticProbeTitle(probe, expertMode)
                     } else {
                         probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target
@@ -105,7 +105,7 @@ internal fun CompactProbeRow(
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = RipDpiThemeTokens.colors.foreground,
             )
-            if (!probe.isEchTransferComparison) {
+            if (!probe.isVerifiedTransferComparison) {
                 Text(
                     text = diagnosticProbeTitle(probe, expertMode),
                     style = RipDpiThemeTokens.type.smallLabel,
@@ -117,7 +117,7 @@ internal fun CompactProbeRow(
             label = diagnosticProbeOutcome(probe, expertMode),
             tone = statusTone(probe.tone),
         )
-        EchTransferRows(probe)
+        VerifiedTransferComparisonRows(probe)
     }
 }
 
@@ -334,7 +334,7 @@ internal fun ProbeResultRow(
             ),
     ) {
         ProbeResultHeader(probe)
-        EchTransferRows(probe)
+        VerifiedTransferComparisonRows(probe)
         probe.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
         probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
         probe.ipFamily?.let { ContextGroupCard(it) }
@@ -348,21 +348,21 @@ internal fun ProbeResultRow(
 private fun ProbeResultHeader(probe: DiagnosticsProbeResultUiModel) {
     val colors = RipDpiThemeTokens.colors
     val title =
-        if (probe.isEchTransferComparison) {
+        if (probe.isVerifiedTransferComparison) {
             diagnosticProbeTitle(probe, expertMode = false)
         } else {
             probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target
         }
     val subtitle =
         when {
-            probe.isEchTransferComparison -> null
+            probe.isVerifiedTransferComparison -> null
             probe.pmtu != null -> probe.pmtu.title
             probe.http3 != null -> probe.http3.title
             probe.ipFamily != null -> stringResource(R.string.diagnostics_ip_title)
             else -> probe.probeType
         }
     val outcome =
-        if (probe.isEchTransferComparison) {
+        if (probe.isVerifiedTransferComparison) {
             diagnosticProbeOutcome(probe, expertMode = false)
         } else {
             (probe.pmtu ?: probe.http3 ?: probe.ipFamily)?.fields?.firstOrNull()?.value ?: probe.outcome

@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{TcpListener, TcpStream};
+use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -49,6 +49,14 @@ pub(super) struct HttpsPeer {
 }
 
 impl HttpsPeer {
+    pub(super) fn address(&self) -> SocketAddr {
+        self.listener.local_addr().unwrap()
+    }
+
+    pub(super) fn server_config(&self) -> ServerConfig {
+        self.config.as_ref().clone()
+    }
+
     pub(super) fn accept(&self) -> StreamOwned<ServerConnection, TcpStream> {
         let deadline = Instant::now() + Duration::from_secs(5);
         let socket = loop {

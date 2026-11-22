@@ -219,6 +219,15 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
             .into_iter()
             .filter(|token| token.starts_with("ech_transfer_comparison_")),
     );
+    let http3_comparison = function_body(
+        &repo.join("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/endpoint/http3_comparison.rs"),
+        "fn report(",
+    );
+    tokens.extend(
+        quoted_outcome_tokens(&http3_comparison)
+            .into_iter()
+            .filter(|token| token.starts_with("http3_transfer_comparison_")),
+    );
     let upload = function_body(
         &repo.join("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/endpoint/verified_upload.rs"),
         "pub(in crate::connectivity) fn run_verified_upload",
