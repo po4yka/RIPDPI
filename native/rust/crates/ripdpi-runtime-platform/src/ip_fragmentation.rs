@@ -13,6 +13,7 @@
 
 mod capabilities;
 mod multi_disorder;
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 mod replacement_fd;
 mod tcp_fragment;
 mod udp;

@@ -3,11 +3,11 @@ use std::net::TcpStream;
 
 use ripdpi_config::IpIdMode;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use super::{raw_path_ids, root_helper_dispatch};
 use crate::TcpFlagOverrides;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_fake_rst_reserved(
     stream: &TcpStream,
     default_ttl: u8,
@@ -21,7 +21,7 @@ pub fn send_fake_rst_reserved(
     ripdpi_privileged_ops::send_fake_rst(stream, default_ttl, protect_path, flags, ipv4_identification)
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_fake_rst_reserved(
     _stream: &TcpStream,
     _default_ttl: u8,
@@ -33,7 +33,7 @@ pub fn send_fake_rst_reserved(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_fake_rst(
     stream: &TcpStream,
     default_ttl: u8,
@@ -51,7 +51,7 @@ pub fn send_fake_rst(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_fake_rst(
     _stream: &TcpStream,
     _default_ttl: u8,

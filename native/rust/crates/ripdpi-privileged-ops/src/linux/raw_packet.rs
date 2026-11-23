@@ -4,22 +4,28 @@
 //! state capture.
 
 mod fake_tcp;
+#[cfg(feature = "privileged-packets")]
 mod packet_builder;
+#[cfg(feature = "privileged-packets")]
 mod raw_socket;
+#[cfg(feature = "privileged-packets")]
 mod tcp_payload;
 
 pub use fake_tcp::send_fake_tcp;
+#[cfg(feature = "privileged-packets")]
 pub(crate) use packet_builder::{
     build_error_to_io, build_tcp_segment_packet, fragment_identification, resolve_raw_ttl,
 };
+#[cfg(feature = "privileged-packets")]
 pub(crate) use raw_socket::{probe_raw_socket, raw_send_target, send_raw_fragments, send_raw_packets_with_delay};
+#[cfg(feature = "privileged-packets")]
 pub use tcp_payload::{send_fake_rst, send_flagged_tcp_payload, send_ordered_tcp_segments, send_seqovl_tcp};
 
-#[cfg(test)]
+#[cfg(all(test, feature = "privileged-packets"))]
 pub(super) use fake_tcp::mutate_fake_timestamp;
-#[cfg(test)]
+#[cfg(all(test, feature = "privileged-packets"))]
 pub(super) use packet_builder::{
     build_fake_tcp_packets, build_ordered_tcp_packets, validate_explicit_ipv4_identifications,
 };
-#[cfg(test)]
+#[cfg(all(test, feature = "privileged-packets"))]
 pub(super) use raw_socket::inherit_socket_mark;

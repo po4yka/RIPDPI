@@ -13,12 +13,12 @@ pub fn enable_tcp_fastopen_connect<T>(_socket: &T) -> io::Result<()> {
     crate::unsupported()
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
     crate::linux::set_tcp_md5sig(stream, key_len)
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn set_tcp_md5sig(_stream: &TcpStream, _key_len: u16) -> io::Result<()> {
     crate::unsupported()
 }

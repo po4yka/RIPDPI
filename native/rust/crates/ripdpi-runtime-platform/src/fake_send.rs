@@ -11,9 +11,9 @@ mod fake_rst;
 mod fake_tcp;
 mod flagged_payload;
 mod ordered_segments;
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 mod raw_path_ids;
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 mod root_helper_dispatch;
 mod seqovl;
 

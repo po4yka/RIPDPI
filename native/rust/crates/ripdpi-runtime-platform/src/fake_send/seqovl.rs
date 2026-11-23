@@ -3,11 +3,11 @@ use std::net::TcpStream;
 
 use ripdpi_config::IpIdMode;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use super::{raw_path_ids, root_helper_dispatch};
 use crate::TcpFlagOverrides;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_seqovl_tcp_reserved(
     stream: &TcpStream,
     real_chunk: &[u8],
@@ -41,7 +41,7 @@ pub fn send_seqovl_tcp_reserved(
     )
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_seqovl_tcp_reserved(
     _stream: &TcpStream,
     _real_chunk: &[u8],
@@ -52,10 +52,10 @@ pub fn send_seqovl_tcp_reserved(
     _flags: TcpFlagOverrides,
     _ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_seqovl_tcp(
     stream: &TcpStream,
     real_chunk: &[u8],
@@ -79,7 +79,7 @@ pub fn send_seqovl_tcp(
     )
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_seqovl_tcp(
     _stream: &TcpStream,
     _real_chunk: &[u8],
@@ -90,5 +90,5 @@ pub fn send_seqovl_tcp(
     _flags: TcpFlagOverrides,
     _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
 }

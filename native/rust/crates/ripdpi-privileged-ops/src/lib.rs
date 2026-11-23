@@ -49,7 +49,7 @@ pub use {
     fd::protect_socket,
 };
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 fn unsupported() -> std::io::Result<()> {
-    Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
 }

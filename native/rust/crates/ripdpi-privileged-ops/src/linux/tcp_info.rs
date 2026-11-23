@@ -17,8 +17,11 @@ use crate::linux::socket_options::getsockopt_raw;
 
 pub(crate) const TCP_ESTABLISHED: u8 = 1;
 pub(crate) const TCPI_OPT_TIMESTAMPS: u8 = 1;
+#[cfg(feature = "privileged-packets")]
 pub(crate) const TCPI_OPT_SACK: u8 = 2;
+#[cfg(feature = "privileged-packets")]
 pub(crate) const TCPI_OPT_WSCALE: u8 = 4;
+#[cfg(feature = "privileged-packets")]
 pub(crate) const TCPI_OPT_USEC_TS: u8 = 64;
 
 #[repr(C)]

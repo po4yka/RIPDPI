@@ -17,21 +17,21 @@
 
 use std::io;
 use std::net::TcpStream;
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use std::os::fd::{AsFd, AsRawFd, IntoRawFd};
 
 use ripdpi_config::IpIdMode;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use super::super::ipv4_ids::reserve_stream_ipv4_identifications;
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use super::super::root_helper;
 use super::super::{TcpFlagOverrides, TcpPayloadSegment};
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use super::replacement_fd::swap_replacement_fd;
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_multi_disorder_tcp_reserved(
     stream: &TcpStream,
     payload: &[u8],
@@ -79,7 +79,7 @@ pub fn send_multi_disorder_tcp_reserved(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_multi_disorder_tcp_reserved(
     _stream: &TcpStream,
     _payload: &[u8],
@@ -91,11 +91,11 @@ pub fn send_multi_disorder_tcp_reserved(
     _flags: TcpFlagOverrides,
     _ipv4_identifications: &[u16],
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_multi_disorder_tcp(
     stream: &TcpStream,
     payload: &[u8],
@@ -122,7 +122,7 @@ pub fn send_multi_disorder_tcp(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_multi_disorder_tcp(
     _stream: &TcpStream,
     _payload: &[u8],
@@ -134,5 +134,5 @@ pub fn send_multi_disorder_tcp(
     _flags: TcpFlagOverrides,
     _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
 }

@@ -10,18 +10,18 @@
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use std::os::fd::AsFd;
 
 use ripdpi_config::IpIdMode;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use super::super::ipv4_ids::{fragment_identification, reserve_udp_ipv4_identifications};
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use super::super::root_helper;
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_ip_fragmented_udp_reserved(
     upstream: &UdpSocket,
     target: SocketAddr,
@@ -63,7 +63,7 @@ pub fn send_ip_fragmented_udp_reserved(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_ip_fragmented_udp_reserved(
     _upstream: &UdpSocket,
     _target: SocketAddr,
@@ -75,11 +75,11 @@ pub fn send_ip_fragmented_udp_reserved(
     _ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
     _ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_ip_fragmented_udp(
     upstream: &UdpSocket,
     target: SocketAddr,
@@ -106,7 +106,7 @@ pub fn send_ip_fragmented_udp(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_ip_fragmented_udp(
     _upstream: &UdpSocket,
     _target: SocketAddr,
@@ -118,5 +118,5 @@ pub fn send_ip_fragmented_udp(
     _ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
     _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
 }

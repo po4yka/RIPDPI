@@ -16,7 +16,7 @@ use ripdpi_config::IpIdMode;
 use std::sync::Mutex;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 struct Ipv4FlowKey {
     source: SocketAddrV4,
     target: SocketAddrV4,
@@ -28,7 +28,7 @@ struct Ipv4FlowKey {
 pub(crate) const MAX_TRACKED_FLOWS: usize = 4096;
 
 #[derive(Debug, Default)]
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub(crate) struct Ipv4IdAllocator {
     next_seq_by_flow: HashMap<Ipv4FlowKey, FlowSequence>,
     use_counter: u64,
@@ -41,7 +41,7 @@ struct FlowSequence {
     last_used: u64,
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 impl Ipv4IdAllocator {
     pub(crate) fn reserve(
         &mut self,
@@ -98,15 +98,15 @@ impl Ipv4IdAllocator {
     }
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 static IPV4_ID_ALLOCATOR: OnceLock<Mutex<Ipv4IdAllocator>> = OnceLock::new();
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 fn advance_ipv4_identification(value: u16) -> u16 {
     if value == u16::MAX { 1 } else { value + 1 }
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub(crate) fn reserve_ipv4_identifications(
     source: SocketAddr,
     target: SocketAddr,
@@ -128,12 +128,12 @@ pub(crate) fn reserve_ipv4_identifications(
 /// two fragments would carry different IDs and never reassemble. This is only
 /// a preferred ID: the privileged sender owns the fragment ID lease and can
 /// replace a live duplicate. `None` requests a new nonzero ID.
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub(crate) fn fragment_identification(reserved: Option<u16>) -> Option<u16> {
     reserved.filter(|id| *id != 0)
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub(crate) fn reserve_stream_ipv4_identifications(
     stream: &TcpStream,
     mode: Option<IpIdMode>,
@@ -142,7 +142,7 @@ pub(crate) fn reserve_stream_ipv4_identifications(
     Ok(reserve_ipv4_identifications(stream.local_addr()?, stream.peer_addr()?, mode, count))
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub(crate) fn reserve_udp_ipv4_identifications(
     socket: &UdpSocket,
     target: SocketAddr,

@@ -4,6 +4,7 @@ use std::net::TcpStream;
 use ripdpi_config::IpIdMode;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(feature = "privileged-packets")]
 use super::{raw_path_ids, root_helper_dispatch};
 use crate::TcpFlagOverrides;
 
@@ -17,6 +18,7 @@ pub fn send_flagged_tcp_payload_reserved(
     flags: TcpFlagOverrides,
     ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
+    #[cfg(feature = "privileged-packets")]
     if let Some(result) =
         root_helper_dispatch::send_flagged_tcp_payload(stream, payload, default_ttl, md5sig, flags, ipv4_identification)
     {
@@ -56,7 +58,13 @@ pub fn send_flagged_tcp_payload(
     flags: TcpFlagOverrides,
     ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
+    #[cfg(feature = "privileged-packets")]
     let ipv4_identification = raw_path_ids::reserve_one_for_stream(stream, ip_id_mode)?;
+    #[cfg(not(feature = "privileged-packets"))]
+    let ipv4_identification = {
+        let _ = ip_id_mode;
+        None
+    };
     send_flagged_tcp_payload_reserved(stream, payload, default_ttl, protect_path, md5sig, flags, ipv4_identification)
 }
 

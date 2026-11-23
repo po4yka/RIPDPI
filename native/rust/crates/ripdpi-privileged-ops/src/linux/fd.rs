@@ -4,7 +4,9 @@
 //! and `getsockopt(SO_ORIGINAL_DST)`.
 
 use std::io::{self, Read};
-use std::mem::{size_of, zeroed};
+use std::mem::size_of;
+#[cfg(feature = "privileged-packets")]
+use std::mem::zeroed;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream};
 use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd};
 use std::os::unix::net::UnixStream;
@@ -88,6 +90,7 @@ pub fn original_dst(stream: &TcpStream) -> io::Result<SocketAddr> {
     storage_to_socket_addr(&storage)
 }
 
+#[cfg(feature = "privileged-packets")]
 pub(crate) fn peer_addr(fd: libc::c_int) -> io::Result<libc::sockaddr_storage> {
     // SAFETY: `storage` is zero-initialized and `getpeername` writes at most
     // `len` bytes into it for the valid socket descriptor `fd`.

@@ -12,7 +12,7 @@ use crate::linux::socket_options::{
 };
 use crate::linux::{
     attach_drop_sack, attach_strip_timestamps, bind_udp_low_port, detach_drop_sack, enable_recv_ttl,
-    enable_tcp_fastopen_connect, read_chunk_with_ttl, set_rcvbuf, set_tcp_md5sig, set_tcp_window_clamp,
+    enable_tcp_fastopen_connect, read_chunk_with_ttl, set_rcvbuf, set_tcp_window_clamp,
 };
 
 /// Query the number of BPF instructions in the currently attached socket filter.
@@ -47,10 +47,11 @@ fn get_recv_ttl(fd: RawFd) -> io::Result<bool> {
     Ok(get_c_int_sockopt(fd, libc::IPPROTO_IP, libc::IP_RECVTTL)? != 0)
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn set_tcp_md5sig_rejects_key_lengths_above_linux_limit() {
     let (client, _server) = connected_pair();
-    let err = set_tcp_md5sig(&client, 81).expect_err("reject oversized md5 key");
+    let err = crate::linux::set_tcp_md5sig(&client, 81).expect_err("reject oversized md5 key");
     assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
 }
 

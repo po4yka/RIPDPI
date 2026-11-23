@@ -45,7 +45,7 @@ fn ipv4_id_allocator_evicts_least_recently_used_flow_at_capacity() {
     assert_eq!(allocator.reserve(flow(1), target, IpIdMode::Seq, 1), vec![1], "evicted flow restarts");
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 #[test]
 fn fragment_senders_never_send_ipv4_id_zero() {
     use crate::root_helper::tests::{FakeHelper, TEST_MUTEX};
@@ -174,4 +174,14 @@ fn vpn_protect_callback_absent_produces_unavailable_outcome() {
         }
         other => panic!("expected Unavailable{{VpnProtectCallback, NotProbed}}, got {other:?}"),
     }
+}
+
+#[cfg(not(feature = "privileged-packets"))]
+#[test]
+fn packet_capabilities_are_unavailable_without_the_feature() {
+    let capabilities = crate::raw_packet::probe_ip_fragmentation_capabilities(None).expect("query capabilities");
+    assert!(!capabilities.raw_ipv4);
+    assert!(!capabilities.raw_ipv6);
+    assert!(!capabilities.tcp_repair);
+    assert!(!crate::tcp::seqovl_supported());
 }

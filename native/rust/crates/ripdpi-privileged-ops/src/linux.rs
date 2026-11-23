@@ -18,29 +18,37 @@
 //! acceptable.
 
 mod bpf;
+#[cfg(feature = "privileged-packets")]
 mod experimental_tier3;
 mod fd;
+#[cfg(feature = "privileged-packets")]
 mod fragmentation;
 mod mmap_region;
 mod raw_packet;
 mod socket_options;
 mod tcp_info;
+#[cfg(feature = "privileged-packets")]
 mod tcp_repair;
 
 pub use bpf::{attach_drop_sack, attach_strip_timestamps, detach_drop_sack};
+#[cfg(feature = "privileged-packets")]
 pub(crate) use experimental_tier3::send_ip_packet;
+#[cfg(feature = "privileged-packets")]
 pub use experimental_tier3::{recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp};
 pub(crate) use fd::{close_owned_fd, replace_fd_cloexec};
 pub use fd::{original_dst, protect_socket};
+#[cfg(feature = "privileged-packets")]
 pub use fragmentation::{
     probe_ip_fragmentation_capabilities, send_ip_fragmented_tcp, send_ip_fragmented_udp, send_multi_disorder_tcp,
 };
-pub use raw_packet::{
-    send_fake_rst, send_fake_tcp, send_flagged_tcp_payload, send_ordered_tcp_segments, send_seqovl_tcp,
-};
+pub use raw_packet::send_fake_tcp;
+#[cfg(feature = "privileged-packets")]
+pub use raw_packet::{send_fake_rst, send_flagged_tcp_payload, send_ordered_tcp_segments, send_seqovl_tcp};
+#[cfg(feature = "privileged-packets")]
+pub use socket_options::set_tcp_md5sig;
 pub use socket_options::{
     bind_udp_low_port, enable_recv_ttl, enable_tcp_fastopen_connect, get_rcvbuf, get_tcp_window_clamp,
-    read_chunk_with_ttl, set_rcvbuf, set_tcp_md5sig, set_tcp_window_clamp, try_set_stream_ttl_with_outcome,
+    read_chunk_with_ttl, set_rcvbuf, set_tcp_window_clamp, try_set_stream_ttl_with_outcome,
 };
 pub use tcp_info::{
     tcp_activation_state, tcp_round_trip_time_ms, tcp_segment_hint, tcp_total_retransmissions, wait_tcp_stage,

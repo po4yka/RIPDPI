@@ -13,12 +13,12 @@ pub use ripdpi_privileged_ops::{
     SynHideTcpSpec,
 };
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use super::root_helper;
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub fn send_syn_hide_tcp(spec: SynHideTcpSpec, protect_path: Option<&str>) -> io::Result<()> {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     {
         if let Some(result) = root_helper::with_reachable_root_helper(|helper| helper.send_syn_hide_tcp(spec)) {
             return result;
@@ -26,16 +26,16 @@ pub fn send_syn_hide_tcp(spec: SynHideTcpSpec, protect_path: Option<&str>) -> io
         ripdpi_privileged_ops::send_syn_hide_tcp(spec, protect_path)
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     {
         let _ = (spec, protect_path);
-        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+        Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
     }
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub fn send_icmp_wrapped_udp(spec: &IcmpWrappedUdpSpec, protect_path: Option<&str>) -> io::Result<()> {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     {
         if let Some(result) = root_helper::with_reachable_root_helper(|helper| helper.send_icmp_wrapped_udp(spec)) {
             return result;
@@ -43,19 +43,19 @@ pub fn send_icmp_wrapped_udp(spec: &IcmpWrappedUdpSpec, protect_path: Option<&st
         ripdpi_privileged_ops::send_icmp_wrapped_udp(spec, protect_path)
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     {
         let _ = (spec, protect_path);
-        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+        Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
     }
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub fn recv_icmp_wrapped_udp(
     filter: IcmpWrappedUdpRecvFilter,
     protect_path: Option<&str>,
 ) -> io::Result<ReceivedIcmpWrappedUdp> {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     {
         if let Some(result) = root_helper::with_reachable_root_helper(|helper| helper.recv_icmp_wrapped_udp(filter)) {
             return result;
@@ -63,16 +63,16 @@ pub fn recv_icmp_wrapped_udp(
         ripdpi_privileged_ops::recv_icmp_wrapped_udp(filter, protect_path)
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     {
         let _ = (filter, protect_path);
-        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+        Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
     }
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub fn send_raw_ip_packet(target: SocketAddr, packet: &[u8], protect_path: Option<&str>) -> io::Result<()> {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     {
         if let Some(result) =
             root_helper::with_reachable_root_helper(|helper| helper.send_raw_ip_packet(target, packet))
@@ -82,9 +82,9 @@ pub fn send_raw_ip_packet(target: SocketAddr, packet: &[u8], protect_path: Optio
         ripdpi_privileged_ops::send_raw_ip_packet(target, packet, protect_path)
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     {
         let _ = (target, packet, protect_path);
-        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+        Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
     }
 }

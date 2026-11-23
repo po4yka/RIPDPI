@@ -5,10 +5,12 @@
 //! `seqovl_supported` memoizes TCP repair and raw-family capabilities per root-helper
 //! registration. Surfaced through the `tcp` facade.
 
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use std::sync::RwLock;
 
 /// Probe result keyed by the root-helper registration it was taken under:
 /// the probe asks the registered helper, else the unprivileged local path.
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 static SEQOVL_SUPPORTED: RwLock<Option<(u64, bool)>> = RwLock::new(None);
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -21,26 +23,24 @@ pub const fn supports_fake_retransmit() -> bool {
     false
 }
 
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn seqovl_supported() -> bool {
-    cached_for_registration(&SEQOVL_SUPPORTED, root_helper_registration(), || {
+    cached_for_registration(&SEQOVL_SUPPORTED, crate::root_helper::registration_id(), || {
         crate::ip_fragmentation::probe_ip_fragmentation_capabilities(None).is_ok_and(has_seqovl_capabilities)
     })
 }
 
+#[cfg(any(test, all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 fn has_seqovl_capabilities(caps: crate::IpFragmentationCapabilities) -> bool {
     caps.tcp_repair && (caps.raw_ipv4 || caps.raw_ipv6)
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn root_helper_registration() -> u64 {
-    crate::root_helper::registration_id()
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
+pub fn seqovl_supported() -> bool {
+    false
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-fn root_helper_registration() -> u64 {
-    0
-}
-
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 fn cached_for_registration(
     cache: &RwLock<Option<(u64, bool)>>,
     registration: u64,
@@ -59,7 +59,7 @@ fn cached_for_registration(
     supported
 }
 
-#[cfg(all(test, any(target_os = "linux", target_os = "android")))]
+#[cfg(all(test, feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 mod tests {
     use super::seqovl_supported;
     use crate::root_helper::tests::{FakeHelper, TEST_MUTEX};

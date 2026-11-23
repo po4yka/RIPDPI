@@ -15,15 +15,15 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use super::linux;
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 const ICMP_UDP_MAGIC: [u8; 4] = *b"RDP1";
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 const ICMP_UDP_VERSION: u8 = 1;
 const ICMP_UDP_FLAG_REPLY: u8 = 0x01;
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 const ICMP_UDP_FLAG_XOR: u8 = 0x02;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -112,41 +112,41 @@ pub struct ReceivedIcmpWrappedUdp {
 }
 
 pub fn send_syn_hide_tcp(spec: SynHideTcpSpec, protect_path: Option<&str>) -> io::Result<()> {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     {
         linux::send_syn_hide_tcp(&spec, protect_path)
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     {
         let _ = (spec, protect_path);
-        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+        Err(io::Error::from(io::ErrorKind::Unsupported))
     }
 }
 
 pub fn send_icmp_wrapped_udp(spec: &IcmpWrappedUdpSpec, protect_path: Option<&str>) -> io::Result<()> {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     {
         linux::send_icmp_wrapped_udp(spec, protect_path)
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     {
         let _ = (spec, protect_path);
-        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+        Err(io::Error::from(io::ErrorKind::Unsupported))
     }
 }
 
 pub fn send_raw_ip_packet(target: SocketAddr, packet: &[u8], protect_path: Option<&str>) -> io::Result<()> {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     {
         linux::send_ip_packet(target, packet, protect_path)
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     {
         let _ = (target, packet, protect_path);
-        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+        Err(io::Error::from(io::ErrorKind::Unsupported))
     }
 }
 
@@ -154,19 +154,19 @@ pub fn recv_icmp_wrapped_udp(
     filter: IcmpWrappedUdpRecvFilter,
     protect_path: Option<&str>,
 ) -> io::Result<ReceivedIcmpWrappedUdp> {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     {
         linux::recv_icmp_wrapped_udp(filter, protect_path)
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     {
         let _ = (filter, protect_path);
-        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+        Err(io::Error::from(io::ErrorKind::Unsupported))
     }
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub(crate) fn encode_icmp_wrapped_udp_envelope(spec: &IcmpWrappedUdpSpec) -> io::Result<Vec<u8>> {
     if spec.payload.len() > ICMP_UDP_MAX_PAYLOAD {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "ICMP-wrapped UDP payload does not fit one packet"));
@@ -189,7 +189,7 @@ pub(crate) fn encode_icmp_wrapped_udp_envelope(spec: &IcmpWrappedUdpSpec) -> io:
     Ok(out)
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub(crate) fn decode_icmp_wrapped_udp_envelope(
     peer_ip: IpAddr,
     icmp_code: u8,
@@ -234,7 +234,7 @@ const ICMP_UDP_MAX_PAYLOAD: usize = 65_535 - 20 - 8 - 14;
 
 /// Decides whether one received ICMP echo carries a payload for `filter`.
 /// `icmp_role` comes from the ICMP type, the rest from the echo body.
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 pub(crate) fn match_received_envelope(
     filter: &IcmpWrappedUdpRecvFilter,
     peer_ip: IpAddr,
@@ -262,7 +262,7 @@ pub(crate) fn match_received_envelope(
     Some(decoded)
 }
 
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+#[cfg_attr(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))), allow(dead_code))]
 fn xor_payload(payload: &mut [u8], session_id: u32) {
     let key = session_id.to_be_bytes();
     for (index, byte) in payload.iter_mut().enumerate() {

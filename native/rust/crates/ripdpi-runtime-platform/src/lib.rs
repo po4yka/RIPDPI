@@ -85,12 +85,13 @@ mod ttl;
 mod experimental_tier3;
 mod fake_send;
 mod ip_fragmentation;
+#[cfg(any(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")), test))]
 mod ipv4_ids;
 mod vpn_protect;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub mod root_helper;
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub mod root_helper_client;
 
 #[cfg(test)]

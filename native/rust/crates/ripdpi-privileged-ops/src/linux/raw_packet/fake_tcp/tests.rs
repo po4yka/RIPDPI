@@ -70,6 +70,7 @@ fn failed_fake_send_without_progress_preserves_errno() {
     assert_eq!(stream.ttl().expect("read restored TTL"), 37);
 }
 
+#[cfg(feature = "privileged-packets")]
 fn clear_child_capabilities() {
     #[repr(C)]
     struct CapHeader {
@@ -96,6 +97,7 @@ fn clear_child_capabilities() {
     assert_eq!(result, 0, "clear child capabilities: {}", io::Error::last_os_error());
 }
 
+#[cfg(feature = "privileged-packets")]
 fn assert_raw_fake_modifier_does_not_fall_back(test_name: &str, options: FakeTcpOptions<'_>, fake_prefix: &[u8]) {
     const CHILD_ENV: &str = "RIPDPI_RAW_FAKE_MODIFIER_TEST_CHILD";
     if std::env::var(CHILD_ENV).ok().as_deref() != Some(test_name) {
@@ -127,6 +129,7 @@ fn assert_raw_fake_modifier_does_not_fall_back(test_name: &str, options: FakeTcp
     assert!(actual.is_empty(), "a failed raw modifier must not send a plain fallback");
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn secondary_raw_fake_modifier_requires_raw_transport() {
     assert_raw_fake_modifier_does_not_fall_back(
@@ -136,6 +139,7 @@ fn secondary_raw_fake_modifier_requires_raw_transport() {
     );
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn timestamp_raw_fake_modifier_requires_raw_transport() {
     assert_raw_fake_modifier_does_not_fall_back(
@@ -196,6 +200,7 @@ fn stream_fake_failure_restores_queued_real_bytes_before_ttl() {
     assert_eq!(&actual, b"real-payload");
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn enlarged_fake_requires_packet_owned_transport() {
     assert_raw_fake_modifier_does_not_fall_back(
@@ -203,4 +208,22 @@ fn enlarged_fake_requires_packet_owned_transport() {
         FakeTcpOptions::default(),
         b"PADDED-FAKE",
     );
+}
+
+#[cfg(not(feature = "privileged-packets"))]
+#[test]
+fn build_without_privileged_packets_uses_only_the_existing_stream() {
+    let (stream, mut peer) = connected_pair();
+
+    let error =
+        send_fake_tcp(&stream, b"real", b"oversized", 1, false, 37, FakeTcpOptions::default(), (false, Duration::ZERO))
+            .expect_err("oversized fake requires crafted packets");
+    assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+
+    crate::send_flagged_tcp_payload(&stream, b"real", 37, None, false, crate::TcpFlagOverrides::default(), None)
+        .expect("plain writes use the stream");
+    stream.shutdown(std::net::Shutdown::Write).expect("finish stream");
+    let mut actual = Vec::new();
+    peer.read_to_end(&mut actual).expect("read peer bytes");
+    assert_eq!(&actual, b"real");
 }

@@ -195,15 +195,6 @@ pub fn send_flagged_tcp_payload(
     flags: TcpFlagOverrides,
     ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
-    if payload.is_empty() {
-        return Ok(());
-    }
-    if flags.is_empty() {
-        use std::io::Write;
-        (&*stream).write_all(payload)?;
-        return Ok(());
-    }
-
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
     validate_explicit_ipv4_identifications(source, target, ipv4_identification.as_slice())?;

@@ -1,6 +1,6 @@
-#[cfg(any(target_os = "linux", target_os = "android", test))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android", test)))]
 mod identification;
-#[cfg(any(target_os = "linux", target_os = "android", test))]
+#[cfg(all(feature = "privileged-packets", any(any(target_os = "linux", target_os = "android"), test)))]
 pub(crate) mod preflight;
 
 use std::io;
@@ -8,7 +8,7 @@ use std::net::{SocketAddr, TcpStream, UdpSocket};
 
 use crate::types::TcpFlagOverrides;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub(crate) use identification::reserve_fragment_identification;
 
 /// Error from a fragment or fake-RST operation, with its delivery and socket-state boundary.
@@ -60,7 +60,7 @@ pub(crate) fn fragment_send_error(mut source: io::Error, payload_commit_uncertai
     io::Error::new(source.kind(), IpFragmentSendError { source, payload_commit_uncertain })
 }
 
-#[cfg(any(target_os = "linux", target_os = "android", test))]
+#[cfg(any(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")), test))]
 pub(crate) fn finish_fragment_send(operation: io::Result<()>, restoration: io::Result<()>) -> io::Result<()> {
     match restoration {
         Ok(()) => operation,
@@ -69,7 +69,7 @@ pub(crate) fn finish_fragment_send(operation: io::Result<()>, restoration: io::R
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_ip_fragmented_tcp(
     stream: &TcpStream,
     payload: &[u8],
@@ -96,7 +96,7 @@ pub fn send_ip_fragmented_tcp(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_ip_fragmented_tcp(
     _stream: &TcpStream,
     _payload: &[u8],
@@ -112,7 +112,7 @@ pub fn send_ip_fragmented_tcp(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_ip_fragmented_udp(
     upstream: &UdpSocket,
     target: SocketAddr,
@@ -139,7 +139,7 @@ pub fn send_ip_fragmented_udp(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_ip_fragmented_udp(
     _upstream: &UdpSocket,
     _target: SocketAddr,
@@ -156,12 +156,12 @@ pub fn send_ip_fragmented_udp(
 
 #[cfg(test)]
 mod tests {
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     use super::send_ip_fragmented_tcp;
     use super::{IpFragmentSendError, finish_fragment_send, fragment_send_error};
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     use std::io::Read;
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     use std::net::{Shutdown, TcpListener, TcpStream};
 
     #[test]
@@ -198,7 +198,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     fn unsupported_udp_fragment_send_reports_pre_send_failure() {
         let socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("UDP socket");
         let error = super::send_ip_fragmented_udp(
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
     fn unsupported_fragment_send_reports_pre_send_failure() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();

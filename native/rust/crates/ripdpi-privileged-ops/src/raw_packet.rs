@@ -4,7 +4,7 @@ use std::net::TcpStream;
 use crate::types::{FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpPayloadSegment, TcpStageWait};
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_fake_rst(
     stream: &TcpStream,
     default_ttl: u8,
@@ -17,7 +17,7 @@ pub fn send_fake_rst(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_fake_rst(
     _stream: &TcpStream,
     _default_ttl: u8,
@@ -69,15 +69,32 @@ pub fn send_flagged_tcp_payload(
     flags: TcpFlagOverrides,
     ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
-    crate::linux::send_flagged_tcp_payload(
-        stream,
-        payload,
-        default_ttl,
-        protect_path,
-        md5sig,
-        flags,
-        ipv4_identification,
-    )
+    use std::io::Write;
+
+    if payload.is_empty() {
+        return Ok(());
+    }
+    if flags.is_empty() {
+        return (&*stream).write_all(payload);
+    }
+
+    #[cfg(feature = "privileged-packets")]
+    {
+        crate::linux::send_flagged_tcp_payload(
+            stream,
+            payload,
+            default_ttl,
+            protect_path,
+            md5sig,
+            flags,
+            ipv4_identification,
+        )
+    }
+    #[cfg(not(feature = "privileged-packets"))]
+    {
+        let _ = (default_ttl, protect_path, md5sig, ipv4_identification);
+        crate::unsupported()
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -95,7 +112,7 @@ pub fn send_flagged_tcp_payload(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_seqovl_tcp(
     stream: &TcpStream,
     real_chunk: &[u8],
@@ -119,7 +136,7 @@ pub fn send_seqovl_tcp(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_seqovl_tcp(
     _stream: &TcpStream,
     _real_chunk: &[u8],
@@ -134,7 +151,7 @@ pub fn send_seqovl_tcp(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_multi_disorder_tcp(
     stream: &TcpStream,
     payload: &[u8],
@@ -160,7 +177,7 @@ pub fn send_multi_disorder_tcp(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_multi_disorder_tcp(
     _stream: &TcpStream,
     _payload: &[u8],
@@ -176,7 +193,7 @@ pub fn send_multi_disorder_tcp(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_ordered_tcp_segments(
     stream: &TcpStream,
     segments: &[OrderedTcpSegment<'_>],
@@ -202,7 +219,7 @@ pub fn send_ordered_tcp_segments(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_ordered_tcp_segments(
     _stream: &TcpStream,
     _segments: &[OrderedTcpSegment<'_>],

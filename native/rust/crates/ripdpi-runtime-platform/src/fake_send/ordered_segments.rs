@@ -3,12 +3,12 @@ use std::net::TcpStream;
 
 use ripdpi_config::IpIdMode;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use super::{raw_path_ids, root_helper_dispatch};
 use crate::{OrderedTcpSegment, TcpStageWait};
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_ordered_tcp_segments_reserved(
     stream: &TcpStream,
     segments: &[OrderedTcpSegment<'_>],
@@ -34,7 +34,7 @@ pub fn send_ordered_tcp_segments_reserved(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 pub fn send_ordered_tcp_segments(
     stream: &TcpStream,
     segments: &[OrderedTcpSegment<'_>],
@@ -75,7 +75,7 @@ pub fn send_ordered_tcp_segments(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_ordered_tcp_segments_reserved(
     _stream: &TcpStream,
     _segments: &[OrderedTcpSegment<'_>],
@@ -87,11 +87,11 @@ pub fn send_ordered_tcp_segments_reserved(
     _ipv4_identifications: &[u16],
     _wait: TcpStageWait,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(not(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android"))))]
 pub fn send_ordered_tcp_segments(
     _stream: &TcpStream,
     _segments: &[OrderedTcpSegment<'_>],
@@ -103,5 +103,5 @@ pub fn send_ordered_tcp_segments(
     _ip_id_mode: Option<IpIdMode>,
     _wait: TcpStageWait,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "operation is unavailable on this build or platform"))
 }

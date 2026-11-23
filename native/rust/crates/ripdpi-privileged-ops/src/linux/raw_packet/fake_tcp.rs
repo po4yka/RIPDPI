@@ -10,10 +10,15 @@ use std::os::fd::{AsFd, AsRawFd};
 use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable};
 
 use crate::linux::mmap_region::MmapRegion;
+#[cfg(feature = "privileged-packets")]
 use crate::linux::raw_packet::packet_builder::{build_fake_tcp_packets, validate_explicit_ipv4_identifications};
+#[cfg(feature = "privileged-packets")]
 use crate::linux::raw_packet::raw_socket::send_raw_packets;
-use crate::linux::socket_options::{get_stream_ttl, set_stream_ttl, set_tcp_md5sig, try_set_stream_ttl_with_outcome};
+#[cfg(feature = "privileged-packets")]
+use crate::linux::socket_options::set_tcp_md5sig;
+use crate::linux::socket_options::{get_stream_ttl, set_stream_ttl, try_set_stream_ttl_with_outcome};
 use crate::linux::tcp_info::wait_tcp_stage_fd;
+#[cfg(feature = "privileged-packets")]
 use crate::linux::tcp_repair::{
     TCP_NO_QUEUE, TCP_REPAIR_ON, TcpTimestampSnapshot, disable_tcp_repair, finish_tcp_repair, queue_payload_as_sent,
     set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
@@ -42,6 +47,7 @@ pub fn send_fake_tcp(
     if options.original_ttl == Some(0) {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "original TCP TTL must be nonzero"));
     }
+    #[cfg(feature = "privileged-packets")]
     validate_explicit_ipv4_identifications(stream.local_addr()?, stream.peer_addr()?, &options.ipv4_identifications)?;
     let real_ttl = if default_ttl != 0 { default_ttl } else { get_stream_ttl(stream)? };
     // Spliced pages share the real TCP sequence space and cannot carry an enlarged decoy.
@@ -52,6 +58,7 @@ pub fn send_fake_tcp(
         || options.secondary_fake_prefix.is_some()
         || options.timestamp_delta_ticks.is_some();
     if requires_raw_path {
+        #[cfg(feature = "privileged-packets")]
         return send_fake_tcp_via_raw_packets(
             stream,
             original_prefix,
@@ -62,6 +69,8 @@ pub fn send_fake_tcp(
             options,
             wait,
         );
+        #[cfg(not(feature = "privileged-packets"))]
+        return crate::unsupported();
     }
 
     let fd = stream.as_raw_fd();
@@ -69,7 +78,13 @@ pub fn send_fake_tcp(
     let mut region = MmapRegion::new(region_len)?;
 
     let restore_ttl = real_ttl;
+    #[cfg(feature = "privileged-packets")]
     let mut md5_applied = false;
+    #[cfg(not(feature = "privileged-packets"))]
+    let md5_applied = {
+        let _ = md5sig;
+        false
+    };
     let mut moved = 0usize;
 
     let result = (|| {
@@ -97,6 +112,7 @@ pub fn send_fake_tcp(
                 return Err(io::Error::other(error));
             }
         }
+        #[cfg(feature = "privileged-packets")]
         if md5sig {
             md5_applied = apply_fake_md5sig(stream)?;
         }
@@ -143,9 +159,12 @@ fn finish_stream_fake_send(
 ) -> io::Result<()> {
     // TCP can retain these pages after any partial splice or wait failure.
     region.write(original_prefix);
-    let md5_result = if md5_applied { set_tcp_md5sig(stream, 0) } else { Ok(()) };
+    #[cfg(feature = "privileged-packets")]
+    let result = result.and(if md5_applied { set_tcp_md5sig(stream, 0) } else { Ok(()) });
+    #[cfg(not(feature = "privileged-packets"))]
+    let _ = md5_applied;
     let ttl_result = set_stream_ttl(stream, restore_ttl);
-    result.and(md5_result).and(ttl_result).map_err(|source| {
+    result.and(ttl_result).map_err(|source| {
         if moved == 0 {
             source
         } else {
@@ -157,6 +176,7 @@ fn finish_stream_fake_send(
 /// Adds the TCP MD5 option to the fake. Returns false when the kernel lacks
 /// the option or policy refuses it: the option is a best-effort extra on top
 /// of the low TTL, as on the plain action path, so the fake still goes out.
+#[cfg(feature = "privileged-packets")]
 fn apply_fake_md5sig(stream: &TcpStream) -> io::Result<bool> {
     match set_tcp_md5sig(stream, 5) {
         Ok(()) => Ok(true),
@@ -168,10 +188,12 @@ fn apply_fake_md5sig(stream: &TcpStream) -> io::Result<bool> {
     }
 }
 
+#[cfg(feature = "privileged-packets")]
 fn is_optional_md5sig_error(error: &io::Error) -> bool {
     matches!(error.raw_os_error(), Some(libc::EPERM | libc::EACCES | libc::ENOPROTOOPT | libc::EOPNOTSUPP))
 }
 
+#[cfg(feature = "privileged-packets")]
 fn send_fake_tcp_via_raw_packets(
     stream: &TcpStream,
     original_prefix: &[u8],
@@ -222,6 +244,7 @@ fn send_fake_tcp_via_raw_packets(
     finish_tcp_repair(result, disable_tcp_repair(fd))
 }
 
+#[cfg(feature = "privileged-packets")]
 pub(crate) fn mutate_fake_timestamp(
     timestamp: Option<TcpTimestampSnapshot>,
     delta_ticks: Option<i32>,

@@ -13,6 +13,7 @@ use socket2::SockRef;
 
 use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
 
+#[cfg(feature = "privileged-packets")]
 use crate::linux::fd::peer_addr;
 
 /// Thin wrapper around `libc::setsockopt` that handles the return-code check
@@ -77,6 +78,7 @@ pub(crate) fn get_c_int_sockopt(fd: libc::c_int, level: libc::c_int, name: libc:
 }
 
 /// Safe wrapper for socket options whose Linux ABI returns exactly `u32`.
+#[cfg(feature = "privileged-packets")]
 pub(crate) fn get_u32_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int) -> io::Result<u32> {
     // SAFETY: callers provide a live socket descriptor and this helper is only
     // used for options whose payload type is exactly `u32`.
@@ -84,6 +86,7 @@ pub(crate) fn get_u32_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c
     Ok(value)
 }
 
+#[cfg(feature = "privileged-packets")]
 #[repr(C)]
 struct TcpMd5Sig {
     addr: libc::sockaddr_storage,
@@ -101,6 +104,7 @@ struct TcpMd5Sig {
 // least sockaddr_storage + 88 bytes — rather than a fixed byte count.
 // Alignment must match sockaddr_storage (the `__ss_align` field is the
 // strictest alignment).
+#[cfg(feature = "privileged-packets")]
 const _: () = {
     assert!(std::mem::size_of::<TcpMd5Sig>() >= std::mem::size_of::<libc::sockaddr_storage>() + 2 + 2 + 4 + 80);
     assert!(std::mem::align_of::<TcpMd5Sig>() == std::mem::align_of::<libc::sockaddr_storage>());
@@ -110,6 +114,7 @@ pub fn enable_tcp_fastopen_connect<T: AsRawFd>(socket: &T) -> io::Result<()> {
     set_c_int_sockopt(socket.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_FASTOPEN_CONNECT, 1)
 }
 
+#[cfg(feature = "privileged-packets")]
 pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
     if usize::from(key_len) > 80 {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "md5 key length exceeds linux tcp_md5sig limit"));

@@ -1,14 +1,19 @@
 mod fake_send_failures;
 mod fd;
 mod ffi_boundary_validation;
+#[cfg(feature = "privileged-packets")]
 mod ffi_layout;
+#[cfg(feature = "privileged-packets")]
 mod multi_disorder;
+#[cfg(feature = "privileged-packets")]
 mod raw_packet;
 mod socket_options;
+#[cfg(feature = "privileged-packets")]
 mod tcp_repair;
 
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 
+#[cfg(feature = "privileged-packets")]
 use crate::linux::tcp_repair::{
     TcpRepairOptionsSnapshot, TcpRepairSnapshot, TcpRepairWindow, TcpTimestampSnapshot, TcpWindowScaleSnapshot,
 };
@@ -21,6 +26,7 @@ fn connected_pair() -> (TcpStream, TcpStream) {
     (client, server)
 }
 
+#[cfg(feature = "privileged-packets")]
 fn sample_tcp_repair_snapshot() -> TcpRepairSnapshot {
     TcpRepairSnapshot {
         sequence_number: 0x0102_0304,
@@ -36,6 +42,7 @@ fn sample_tcp_repair_snapshot() -> TcpRepairSnapshot {
     }
 }
 
+#[cfg(feature = "privileged-packets")]
 fn missing_protect_socket_path(label: &str) -> String {
     let path = std::env::temp_dir().join(format!("ripdpi-missing-protect-{}-{label}.sock", std::process::id()));
     let _ = std::fs::remove_file(&path);
