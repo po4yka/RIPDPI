@@ -232,9 +232,17 @@ val qualityModulePaths =
 val lintTaskPaths =
     qualityModulePaths.flatMap { modulePath ->
         when (modulePath) {
-            ":app" -> listOf(":app:lintGithubDebug")
-            ":core:service" -> listOf(":core:service:lintStandardDebug", ":core:service:lintExtendedDebug")
-            else -> listOf("$modulePath:lintDebug")
+            ":app" -> {
+                listOf(":app:lintGithubDebug")
+            }
+
+            ":core:service", ":core:engine", ":core:data:model", ":core:diagnostics" -> {
+                listOf("$modulePath:lintStandardDebug", "$modulePath:lintExtendedDebug")
+            }
+
+            else -> {
+                listOf("$modulePath:lintDebug")
+            }
         }
     } + ":xray-protos:lint"
 
@@ -245,7 +253,7 @@ fun moduleBuildDir(modulePath: String) = layout.projectDirectory.dir(moduleRelat
 fun coverageVariantName(modulePath: String): String =
     when (modulePath) {
         ":app" -> "githubDebug"
-        ":core:service" -> "extendedDebug"
+        ":core:service", ":core:engine", ":core:data:model", ":core:diagnostics" -> "extendedDebug"
         else -> "debug"
     }
 
@@ -314,7 +322,7 @@ fun debugCoverageSources(modulePath: String) =
         val moduleDir = layout.projectDirectory.dir(moduleRelativePath(modulePath))
         add(moduleDir.dir("src/main/java"))
         add(moduleDir.dir("src/main/kotlin"))
-        if (modulePath == ":app" || modulePath == ":core:service") {
+        if (coverageVariantName(modulePath) != "debug") {
             add(moduleDir.dir("src/extended/kotlin"))
         }
     }

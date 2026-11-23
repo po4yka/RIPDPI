@@ -573,7 +573,7 @@ fn summary_with(
         label: id.to_string(),
         family: "test".to_string(),
         emitter_tier: StrategyEmitterTier::NonRootProduction,
-        exact_emitter_requires_root: false,
+        requires_external_emitter: false,
         emitter_downgraded: false,
         quic_layout_family: None,
         outcome: if skipped { "skipped" } else { "success" }.to_string(),

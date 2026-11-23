@@ -15,8 +15,8 @@ class DistributionStrategyProbePresentationTest {
                 id = "tcp-historical",
                 label = "TCP candidate",
                 family = "split",
-                emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
-                exactEmitterRequiresRoot = true,
+                emitterTier = StrategyEmitterTier.UNAVAILABLE,
+                requiresExternalEmitter = false,
                 outcome = "skipped",
                 rationale = "Requires root",
                 notes = listOf("Enable root mode"),
@@ -33,8 +33,8 @@ class DistributionStrategyProbePresentationTest {
 
         val ordinary =
             historical.copy(
-                emitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
-                exactEmitterRequiresRoot = false,
+                emitterTier = StrategyEmitterTier.PRODUCTION,
+                requiresExternalEmitter = false,
                 rationale = "Ordinary observation",
                 notes = listOf("The target timed out."),
             )

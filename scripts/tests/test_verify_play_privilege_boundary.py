@@ -85,6 +85,11 @@ class PlayPrivilegeBoundaryTest(unittest.TestCase):
         stream = io.BytesIO(b"\x00" * (1024 * 1024 - 3) + b"/data/adb/magisk")
         self.assertIn("root detection", boundary.content_findings(stream))
 
+    def test_scan_detects_retired_settings_and_helper_state(self) -> None:
+        for field in ("fakeMd5Sig", "fake_md5sig", "RootHelperAvailabilityChange", "NON_ROOT_PRODUCTION"):
+            with self.subTest(field=field):
+                self.assertIn("root settings", boundary.content_findings(io.BytesIO(field.encode())))
+
     def test_scan_distinguishes_executable_name_from_socket_lua_compatibility_constant(self) -> None:
         for encoding in ("utf-8", "utf-16-le"):
             with self.subTest(encoding=encoding):

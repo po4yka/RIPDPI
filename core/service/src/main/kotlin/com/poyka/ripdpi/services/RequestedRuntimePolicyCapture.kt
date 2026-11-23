@@ -35,7 +35,7 @@ internal class RequestedRuntimePolicyCapture(
                 }
             }
         val preferences: RipDpiProxyPreferences =
-            if (settings.enableCmdSettings && awg == null) {
+            if (settings.enableCmdSettings && awg == null && packetBackend.acceptsCommandLine(settings.cmdArgs)) {
                 RipDpiProxyCmdPreferences(
                     settings.cmdArgs,
                     hostAutolearnStorePath = null,
@@ -46,7 +46,7 @@ internal class RequestedRuntimePolicyCapture(
                 RipDpiProxyUIPreferences.fromSettings(
                     settings,
                     destinationRouting = destination,
-                    rootMode = packetBackend.allowsExternalOperations(settings),
+                    packetBackendRequested = packetBackend.allowsExternalOperations(settings),
                     awg = awg,
                     workerBearer = secrets.currentBearer(settings),
                 )

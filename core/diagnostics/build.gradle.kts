@@ -11,6 +11,11 @@ plugins {
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.diagnostics"
+    flavorDimensions += "runtimeEdition"
+    productFlavors {
+        create("standard") { dimension = "runtimeEdition" }
+        create("extended") { dimension = "runtimeEdition" }
+    }
 }
 
 dependencies {

@@ -57,7 +57,7 @@ class StrategyChainsIpFragTest {
                 udpSteps,
                 Mode.Proxy,
                 useCommandLineSettings = false,
-                rootModeEnabled = true,
+                externalPacketOperationsEnabled = true,
             )
         }
         assertThrows(IllegalArgumentException::class.java) {
@@ -66,7 +66,7 @@ class StrategyChainsIpFragTest {
                 udpSteps,
                 Mode.VPN,
                 useCommandLineSettings = true,
-                rootModeEnabled = true,
+                externalPacketOperationsEnabled = true,
             )
         }
 
@@ -75,7 +75,7 @@ class StrategyChainsIpFragTest {
             udpSteps,
             Mode.VPN,
             useCommandLineSettings = false,
-            rootModeEnabled = true,
+            externalPacketOperationsEnabled = true,
         )
     }
 
@@ -86,10 +86,16 @@ class StrategyChainsIpFragTest {
         listOf(tcp to emptyList(), emptyList<TcpChainStepModel>() to udp).forEach { (tcpSteps, udpSteps) ->
             val error =
                 assertThrows(IllegalArgumentException::class.java) {
-                    validateStrategyChainUsage(tcpSteps, udpSteps, Mode.VPN, false, rootModeEnabled = false)
+                    validateStrategyChainUsage(
+                        tcpSteps,
+                        udpSteps,
+                        Mode.VPN,
+                        false,
+                        externalPacketOperationsEnabled = false,
+                    )
                 }
             assertEquals("ipfrag2 requires root mode", error.message)
-            validateStrategyChainUsage(tcpSteps, udpSteps, Mode.VPN, false, rootModeEnabled = true)
+            validateStrategyChainUsage(tcpSteps, udpSteps, Mode.VPN, false, externalPacketOperationsEnabled = true)
         }
     }
 
@@ -100,7 +106,7 @@ class StrategyChainsIpFragTest {
             listOf(UdpChainStepModel(count = 1, kind = UdpChainStepKind.FakeBurst)),
             Mode.VPN,
             useCommandLineSettings = false,
-            rootModeEnabled = false,
+            externalPacketOperationsEnabled = false,
         )
     }
 
@@ -114,11 +120,17 @@ class StrategyChainsIpFragTest {
 
         val error =
             assertThrows(IllegalArgumentException::class.java) {
-                validateStrategyChainUsage(tcpSteps, emptyList(), Mode.VPN, false, rootModeEnabled = false)
+                validateStrategyChainUsage(
+                    tcpSteps,
+                    emptyList(),
+                    Mode.VPN,
+                    false,
+                    externalPacketOperationsEnabled = false,
+                )
             }
         assertEquals("fakerst requires root mode", error.message)
 
-        validateStrategyChainUsage(tcpSteps, emptyList(), Mode.VPN, false, rootModeEnabled = true)
+        validateStrategyChainUsage(tcpSteps, emptyList(), Mode.VPN, false, externalPacketOperationsEnabled = true)
     }
 
     @Test

@@ -23,6 +23,31 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
     private val json = diagnosticsTestJson()
 
     @Test
+    fun `root enabled settings retain a measured tlsrec seqovl family`() {
+        val report =
+            invariantScanReportWithStrategyProbe(
+                proxyConfigJson = validSeqovlRecommendedProxyConfigJson(),
+                tcpFamily = "tlsrec_seqovl",
+                quicFamily = "quic_realistic_burst",
+                tcpEmitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
+                tcpExactEmitterRequiresRoot = true,
+            )
+
+        val enriched =
+            DiagnosticsScanWorkflow.enrichScanReport(
+                report = report,
+                settings = rootEnabledSettings(),
+                preferredDnsPath = null,
+            )
+
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
+        val strategySignature = requireNotNull(recommendation.strategySignature)
+
+        assertEquals("tlsrec_seqovl", recommendation.tcpCandidateFamily)
+        assertEquals("tlsrec_seqovl", strategySignature.tcpStrategyFamily)
+    }
+
+    @Test
     fun `a TCP-only recommendation retains validated measured family`() {
         val original =
             invariantScanReportWithStrategyProbe(
@@ -516,7 +541,7 @@ private fun invariantScanReportWithStrategyProbe(
                             skipped = tcpSkipped,
                             succeededTargets = tcpSucceededTargets,
                             emitterTier = tcpEmitterTier,
-                            exactEmitterRequiresRoot = tcpExactEmitterRequiresRoot,
+                            requiresExternalEmitter = tcpExactEmitterRequiresRoot,
                             emitterDowngraded = tcpEmitterDowngraded,
                         ),
                     ),
@@ -552,7 +577,7 @@ private fun invariantStrategyCandidateSummary(
     skipped: Boolean = false,
     succeededTargets: Int = 1,
     emitterTier: StrategyEmitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
-    exactEmitterRequiresRoot: Boolean = false,
+    requiresExternalEmitter: Boolean = false,
     emitterDowngraded: Boolean = false,
 ): StrategyProbeCandidateSummary =
     StrategyProbeCandidateSummary(
@@ -561,7 +586,7 @@ private fun invariantStrategyCandidateSummary(
         family = family,
         proxyConfigJson = proxyConfigJson,
         emitterTier = emitterTier,
-        exactEmitterRequiresRoot = exactEmitterRequiresRoot,
+        requiresExternalEmitter = requiresExternalEmitter,
         emitterDowngraded = emitterDowngraded,
         outcome = outcome,
         rationale = "best",
@@ -648,3 +673,26 @@ private fun rootEnabledSettings(): AppSettings =
         .toBuilder()
         .setRootModeEnabled(true)
         .build()
+
+private fun validSeqovlRecommendedProxyConfigJson(): String =
+    RipDpiProxyUIPreferences(
+        protocols = RipDpiProtocolConfig(desyncUdp = true),
+        chains =
+            RipDpiChainConfig(
+                tcpSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.TlsRec,
+                            marker = "extlen",
+                        ),
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.SeqOverlap,
+                            marker = "midsld",
+                            overlapSize = 12,
+                            fakeMode = "profile",
+                        ),
+                    ),
+                udpSteps = listOf(UdpChainStepModel(count = 4)),
+            ),
+        quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
+    ).toNativeConfigJson()

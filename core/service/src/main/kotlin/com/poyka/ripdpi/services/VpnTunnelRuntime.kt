@@ -49,7 +49,7 @@ internal data class VpnTunnelRuntimeEnvironment(
      * jails `lua`-step `script_paths` to. `null` falls back to the process CWD.
      */
     val luaScriptBaseDir: String? = null,
-    val rootHelperSocketPathProvider: () -> String? = { null },
+    val packetBackendSocketPathProvider: () -> String? = { null },
     val geositeDbPath: String? = null,
     val tunIdentityReader: (Int) -> PrivateTunIdentity? =
         TunKernelIdentityReader(TunKernelIdentityNativeBindings())::read,

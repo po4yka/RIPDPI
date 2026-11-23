@@ -167,7 +167,7 @@ internal object VpnServiceSessionModule {
                     // directly under <filesDir>, so derive it from the socket's parent
                     // ("lua" mirrors LuaAssetManager's target directory name).
                     luaScriptBaseDir = File(File(protectSocketServer.socketPath).parentFile, "lua").absolutePath,
-                    rootHelperSocketPathProvider = { packetBackendRuntime.socketPath },
+                    packetBackendSocketPathProvider = { packetBackendRuntime.socketPath },
                     geositeDbPath = geositeDbPath,
                 ),
             flowAttributionBridge = flowAttributionBridge,

@@ -136,6 +136,7 @@ class StrategyCandidateApplierTest {
         id = id,
         label = id,
         family = "split",
+        emitterTier = productionEmitterForTests,
         outcome = outcome,
         rationale = "",
         succeededTargets = succeeded,

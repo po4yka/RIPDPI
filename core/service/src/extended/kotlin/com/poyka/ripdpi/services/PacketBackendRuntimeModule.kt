@@ -2,7 +2,6 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.Module
 import dagger.Provides
@@ -35,7 +34,7 @@ private class ExtendedPacketBackendRuntime(
         settings: AppSettings,
     ) {
         manager.claimedBy = mode
-        manager.syncRootMode(context, settings.toSettingsSections().root)
+        manager.syncRootMode(context, settings.rootModeEnabled)
         manager.syncNfqws(context, settings)
     }
 

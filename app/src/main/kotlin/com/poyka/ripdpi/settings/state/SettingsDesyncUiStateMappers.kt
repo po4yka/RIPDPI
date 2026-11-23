@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.advancedTcpSignatureRequested
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
@@ -142,7 +143,7 @@ internal fun AppSettings.buildFakeUiState(): FakeTransportUiState =
         udpFakeProfile = effectiveUdpFakeProfile(),
         oobData = oobData.ifEmpty { "a" },
         dropSack = dropSack,
-        md5sig = fakeMd5Sig,
+        md5sig = advancedTcpSignatureRequested(),
         tlsMinorEnabled = tlsMinorEnabled,
         tlsMinorValue = tlsMinorValue,
         ipIdMode = effectiveIpIdMode(),

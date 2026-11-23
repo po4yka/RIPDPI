@@ -33,17 +33,17 @@ fun validateStrategyChainUsage(
     udpSteps: List<UdpChainStepModel>,
     mode: Mode,
     useCommandLineSettings: Boolean,
-    rootModeEnabled: Boolean,
+    externalPacketOperationsEnabled: Boolean,
 ) {
     validateTcpChain(tcpSteps)
-    require(rootModeEnabled || tcpSteps.none { it.kind == TcpChainStepKind.FakeRst }) {
-        "fakerst requires root mode"
+    require(externalPacketOperationsEnabled || tcpSteps.none { it.kind == TcpChainStepKind.FakeRst }) {
+        packetOperationUnavailable("fakerst")
     }
     validateUdpChain(udpSteps)
     if (usesIpFragmentation(tcpSteps = tcpSteps, udpSteps = udpSteps)) {
         require(mode == Mode.VPN) { "ipfrag2 is only supported in VPN mode" }
         require(!useCommandLineSettings) { "ipfrag2 is not supported while command line settings are enabled" }
-        require(rootModeEnabled) { "ipfrag2 requires root mode" }
+        require(externalPacketOperationsEnabled) { packetOperationUnavailable("ipfrag2") }
     }
     require(
         tcpSteps.none {

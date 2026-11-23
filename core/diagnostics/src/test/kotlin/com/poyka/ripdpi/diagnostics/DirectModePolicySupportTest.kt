@@ -373,7 +373,7 @@ class DirectModePolicySupportTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment =
                     scanWorkflowAuditAssessment().copy(
@@ -454,7 +454,7 @@ class DirectModePolicySupportTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment = scanWorkflowAuditAssessment(),
             ).copy(
@@ -469,7 +469,7 @@ class DirectModePolicySupportTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment = scanWorkflowAuditAssessment(),
             ).copy(
@@ -656,7 +656,7 @@ class DirectModePolicySupportTest {
             strategyProbeReport =
                 scanReportWithStrategyProbe(
                     proxyConfigJson = validRecommendedProxyConfigJson(),
-                    tcpFamily = "hostfake",
+                    tcpFamily = "tlsrec_split",
                     quicFamily = "quic_realistic_burst",
                     auditAssessment = scanWorkflowAuditAssessment(),
                 ).strategyProbeReport,

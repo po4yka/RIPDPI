@@ -175,7 +175,6 @@ class MigrationTransportE2ETest {
             runBlocking {
                 settings.update {
                     ripdpiMode = Mode.VPN.preferenceValue
-                    rootModeEnabled = false
                     enableCmdSettings = false
                     ipv6Enable = false
                     setSplitTunnelMode(SplitTunnelMode.Off)

@@ -413,7 +413,7 @@ The contract test framework ensures Rust and Kotlin stay in sync:
   probe outcomes.
 - **Kotlin side** (`DiagnosticsContractGovernanceTest.kt`): decodes the same
   fixtures, verifies schema version, checks bundled catalog matches fixture.
-- **Wire field tests** (`DiagnosticsWireContractTest.kt`): compares field
+- **Wire field tests** (`core/diagnostics/src/testExtended/kotlin/.../DiagnosticsWireContractTest.kt`): compare field
   paths between Rust-produced manifests and Kotlin serialization.
 
 ### Golden file support
@@ -439,7 +439,7 @@ artifacts are written to `core/diagnostics/build/golden-diffs/`.
 After any wire type change:
 1. Run `cargo test --locked -p ripdpi-monitor-engine` -- catches fixture decode failures and
    outcome token coverage gaps.
-2. Run `:core:diagnostics:testDebugUnitTest` -- catches field manifest and
+2. Run `:core:diagnostics:testExtendedDebugUnitTest` -- catches field manifest and
    schema version mismatches.
 3. If fields were added: follow the `golden-test-management` skill, which requires explicit user authorization for the fixture family, then commit the updated fixtures.
 

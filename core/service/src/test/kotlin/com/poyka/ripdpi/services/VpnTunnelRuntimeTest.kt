@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.services
 
 import android.os.Build
+import com.google.protobuf.CodedOutputStream
+import com.poyka.ripdpi.core.service.BuildConfig
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -11,6 +14,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -391,17 +395,17 @@ class VpnTunnelRuntimeTest {
         }
 
     @Test
-    fun rootModeAddsRootHelperSocketToTunnelConfig() =
+    fun onlyExtendedEditionAddsPacketBackendSocketToTunnelConfig() =
         runTest {
             val events = mutableListOf<String>()
             val bridge = TestTun2SocksBridge(events)
             val settings =
                 AppSettingsSerializer.defaultValue
                     .toBuilder()
-                    .setRootModeEnabled(true)
+                    .withLegacyPacketRequest(true)
                     .setStrategyChainYaml("version: 1\nstrategies: []")
                     .build()
-            var rootHelperSocketPath: String? = null
+            var packetBackendSocketPath: String? = null
             val runtime =
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
@@ -415,10 +419,10 @@ class VpnTunnelRuntimeTest {
                         ),
                     environment =
                         VpnTunnelRuntimeEnvironment(
-                            rootHelperSocketPathProvider = { rootHelperSocketPath },
+                            packetBackendSocketPathProvider = { packetBackendSocketPath },
                         ),
                 )
-            rootHelperSocketPath = "/data/user/0/com.poyka.ripdpi/files/root_helper.sock"
+            packetBackendSocketPath = "/data/user/0/com.poyka.ripdpi/files/root_helper.sock"
 
             runtime.start(
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
@@ -429,10 +433,10 @@ class VpnTunnelRuntimeTest {
             )
 
             assertEquals(
-                "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",
-                bridge.startedConfig?.rootHelperSocketPath,
+                packetBackendSocketPath.takeIf { BuildConfig.FLAVOR == "extended" },
+                bridge.startedConfig?.packetBackendSocketPath,
             )
-            assertEquals(false, bridge.startedConfig?.luaSocketOwned)
+            assertEquals(BuildConfig.FLAVOR == "standard", bridge.startedConfig?.luaSocketOwned)
         }
 
     @Test
@@ -653,4 +657,14 @@ class VpnTunnelRuntimeTest {
             assertNull(runtime.currentDnsSignature)
             assertEquals(0L, runtime.tunnelRecoveryRetryCount)
         }
+}
+
+private fun AppSettings.Builder.withLegacyPacketRequest(enabled: Boolean): AppSettings.Builder {
+    val output = ByteArrayOutputStream()
+    build().writeTo(output)
+    CodedOutputStream.newInstance(output).apply {
+        writeBool(135, enabled)
+        flush()
+    }
+    return AppSettings.parseFrom(output.toByteArray()).toBuilder()
 }

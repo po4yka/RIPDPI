@@ -2,6 +2,8 @@ package com.poyka.ripdpi.data.persistence
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.decodeStoredAppSettings
+import com.poyka.ripdpi.data.encodeStoredAppSettings
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -15,14 +17,14 @@ internal class SettingsRows(
 
     fun update(transform: AppSettings.Builder.() -> Unit) = replace(snapshot().toBuilder().apply(transform).build())
 
-    fun replace(settings: AppSettings) = records.write(Namespace, Current, settings.toByteArray())
+    fun replace(settings: AppSettings) = records.write(Namespace, Current, encodeStoredAppSettings(settings))
 
     companion object {
         const val Namespace = "app_settings"
         const val Current = "current"
 
         fun decode(bytes: ByteArray?): AppSettings =
-            bytes?.let(AppSettings::parseFrom) ?: AppSettingsSerializer.defaultValue
+            bytes?.let(::decodeStoredAppSettings) ?: AppSettingsSerializer.defaultValue
     }
 }
 

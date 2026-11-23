@@ -163,7 +163,7 @@ class DiagnosticsSummaryProjectorTest {
                                             label = "TCP candidate",
                                             family = "tlsrec_seqovl",
                                             emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
-                                            exactEmitterRequiresRoot = true,
+                                            requiresExternalEmitter = true,
                                             emitterDowngraded = true,
                                             outcome = "success",
                                             rationale = "winner",

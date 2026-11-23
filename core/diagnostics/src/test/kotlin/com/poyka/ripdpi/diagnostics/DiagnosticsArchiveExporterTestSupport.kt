@@ -148,7 +148,7 @@ internal fun createArchiveExporterForTest(
     val appSettings =
         defaultDiagnosticsAppSettings()
             .toBuilder()
-            .setRootModeEnabled(rootModeEnabled)
+            .withHistoricalPacketMode(rootModeEnabled)
             .build()
     return DefaultDiagnosticsArchiveExporter(
         preparedExports = preparedManager,
@@ -229,3 +229,7 @@ internal fun probeResultEntityForArchiveTest(
         detailJson = "[]",
         createdAt = 30L,
     )
+
+internal fun com.poyka.ripdpi.proto.AppSettings.Builder.withHistoricalPacketMode(
+    enabled: Boolean,
+): com.poyka.ripdpi.proto.AppSettings.Builder = mergeFrom(byteArrayOf(0xB8.toByte(), 0x08, if (enabled) 1 else 0))

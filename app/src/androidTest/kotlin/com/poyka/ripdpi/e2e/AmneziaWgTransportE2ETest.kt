@@ -141,7 +141,6 @@ class AmneziaWgTransportE2ETest {
                 settings.update {
                     ripdpiMode = Mode.VPN.preferenceValue
                     ipv6Enable = true
-                    rootModeEnabled = false
                     setSplitTunnelMode(SplitTunnelMode.Off)
                     clearSplitTunnelPackages()
                     enableCmdSettings = false

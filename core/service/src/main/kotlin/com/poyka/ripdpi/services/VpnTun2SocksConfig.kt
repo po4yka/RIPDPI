@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.core.routing.DestinationDomainMatcherKind
 import com.poyka.ripdpi.core.routing.DestinationRoutingAction
 import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
+import com.poyka.ripdpi.data.externalPacketOperationsEnabled
 import com.poyka.ripdpi.services.lua.relativizeLuaScriptPaths
 import java.util.Locale
 
@@ -33,7 +34,7 @@ internal fun buildVpnTun2SocksConfig(
     encryptedDnsTlsRootsPem: String? = null,
     strategyChainYaml: String? = null,
     protectPath: String? = null,
-    rootHelperSocketPath: String? = null,
+    packetBackendSocketPath: String? = null,
     luaScriptBaseDir: String? = null,
     luaSocketOwned: Boolean = false,
     uidPolicy: NativeUidPolicy = NativeUidPolicy.Disarmed,
@@ -84,7 +85,7 @@ internal fun buildVpnTun2SocksConfig(
         splitDnsPolicy = dnsPlan.splitStrictPolicy?.toNativeSplitDnsPolicy(geositeDbPath),
         strategyChainYaml = strategyChainYaml,
         protectPath = protectPath,
-        rootHelperSocketPath = rootHelperSocketPath,
+        packetBackendSocketPath = packetBackendSocketPath,
         luaScriptBaseDir = luaScriptBaseDir,
         luaSocketOwned = luaSocketOwned,
         webrtcProtectionEnabled = webrtcProtectionEnabled,
@@ -154,7 +155,11 @@ internal fun buildConsumedVpnTunConfig(
     logContext: RipDpiLogContext?,
     uidPolicy: NativeUidPolicy,
 ): Tun2SocksConfig {
-    val rootSocket = environment.rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled }
+    val backendSocket =
+        environment.packetBackendSocketPathProvider().takeIf {
+            settings
+                .externalPacketOperationsEnabled()
+        }
     return buildVpnTun2SocksConfig(
         dnsPlan = dnsPlan,
         overrideReason = overrideReason,
@@ -166,9 +171,9 @@ internal fun buildConsumedVpnTunConfig(
         encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },
         strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() }?.jailedFor(environment),
         protectPath = environment.protectPath,
-        rootHelperSocketPath = rootSocket,
+        packetBackendSocketPath = backendSocket,
         luaScriptBaseDir = environment.luaScriptBaseDir,
-        luaSocketOwned = settings.strategyChainYaml.isNotBlank() && rootSocket == null,
+        luaSocketOwned = settings.strategyChainYaml.isNotBlank() && backendSocket == null,
         uidPolicy = uidPolicy,
         geositeDbPath = environment.geositeDbPath,
     )

@@ -30,7 +30,7 @@ internal typealias AdaptiveFallbackTextHandler =
 
 internal val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
     bindToggleHandlers(coreToggleHandlers) { core } +
-        bindToggleHandlers(desyncToggleHandlers) { desync } +
+        bindToggleHandlers(desyncToggleHandlers + editionDesyncToggleHandlers) { desync } +
         bindToggleHandlers(quicToggleHandlers) { quic } +
         bindToggleHandlers(warpToggleHandlers) { warp } +
         bindToggleHandlers(hostAutolearnToggleHandlers) { autolearn } +

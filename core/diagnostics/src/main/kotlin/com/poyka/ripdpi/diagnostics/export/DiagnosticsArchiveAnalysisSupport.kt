@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.TransportFailureKind
+import com.poyka.ripdpi.diagnostics.isExternalEmitter
 import com.poyka.ripdpi.diagnostics.toScanReport
 
 private const val TlsErrorSampleLimit = 5
@@ -17,16 +18,6 @@ private const val AcceptanceMatrixCoverageMin = 75
 private const val AcceptanceWinnerCoverageMin = 60
 private const val RecommendedLatencyBudgetMs = 250L
 private const val InstabilityRetryBudget = 2L
-private val KnownRuntimeCapabilityIds =
-    setOf(
-        "ttl_write",
-        "raw_tcp_fake_send",
-        "raw_udp_fragmentation",
-        "replacement_socket",
-        "root_helper_available",
-        "vpn_protect_callback",
-        "network_binding",
-    )
 
 internal fun buildAnalysis(
     selection: DiagnosticsArchiveSelection,
@@ -340,12 +331,12 @@ private fun buildDetectabilityMetrics(
     recommendedTcp: StrategyProbeCandidateSummary?,
     recommendedQuic: StrategyProbeCandidateSummary?,
 ): DiagnosticsArchiveDetectabilityMetrics {
-    val rootedProductionCandidates =
-        candidates.count { it.emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION }
+    val externalProductionCandidates =
+        candidates.count { it.emitterTier.isExternalEmitter }
     val labOnlyCandidates =
         candidates.count { it.emitterTier == StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY }
     val downgradedCandidates = candidates.count(StrategyProbeCandidateSummary::emitterDowngraded)
-    val exactRootRequiredCandidates = candidates.count(StrategyProbeCandidateSummary::exactEmitterRequiresRoot)
+    val externalEmitterRequiredCandidates = candidates.count(StrategyProbeCandidateSummary::requiresExternalEmitter)
     val capabilitySkippedCandidates =
         candidates.count { candidate ->
             candidate.notes.any(::containsUnavailableCapabilityId) ||
@@ -354,16 +345,8 @@ private fun buildDetectabilityMetrics(
         }
     val notes =
         buildList {
-            if (recommendedTcp?.emitterTier ==
-                StrategyEmitterTier.ROOTED_PRODUCTION
-            ) {
-                add("recommended_tcp_rooted_emitter")
-            }
-            if (recommendedQuic?.emitterTier ==
-                StrategyEmitterTier.ROOTED_PRODUCTION
-            ) {
-                add("recommended_quic_rooted_emitter")
-            }
+            recommendedTcp?.editionArchiveRecommendationNote(lane = "tcp")?.let(::add)
+            recommendedQuic?.editionArchiveRecommendationNote(lane = "quic")?.let(::add)
             if (recommendedTcp?.emitterDowngraded == true) add("recommended_tcp_downgraded")
             if (recommendedQuic?.emitterDowngraded == true) add("recommended_quic_downgraded")
             if (labOnlyCandidates > 0) add("lab_only_candidates_present")
@@ -373,29 +356,33 @@ private fun buildDetectabilityMetrics(
             }
         }
     return DiagnosticsArchiveDetectabilityMetrics(
-        rootedProductionCandidates = rootedProductionCandidates,
+        externalProductionCandidates = externalProductionCandidates,
         labOnlyCandidates = labOnlyCandidates,
         downgradedCandidates = downgradedCandidates,
-        exactRootRequiredCandidates = exactRootRequiredCandidates,
+        externalEmitterRequiredCandidates = externalEmitterRequiredCandidates,
         capabilitySkippedCandidates = capabilitySkippedCandidates,
         skippedCandidates = candidates.count(StrategyProbeCandidateSummary::skipped),
-        recommendedUsesRootedEmitter =
-            recommendedTcp?.emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION ||
-                recommendedQuic?.emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION,
+        recommendedUsesExternalEmitter =
+            recommendedTcp?.emitterTier?.isExternalEmitter == true ||
+                recommendedQuic?.emitterTier?.isExternalEmitter == true,
         recommendedWasDowngraded =
             recommendedTcp?.emitterDowngraded == true || recommendedQuic?.emitterDowngraded == true,
         evidence =
-            listOfNotNull(
-                recommendedTcp?.toDetectabilityEvidence(lane = "tcp"),
-                recommendedQuic?.toDetectabilityEvidence(lane = "quic"),
-            ),
+            if (listOfNotNull(recommendedTcp, recommendedQuic).all { it.hasEditionDetectabilityEvidence() }) {
+                listOfNotNull(
+                    recommendedTcp?.toDetectabilityEvidence(lane = "tcp"),
+                    recommendedQuic?.toDetectabilityEvidence(lane = "quic"),
+                )
+            } else {
+                emptyList()
+            },
         notes = notes,
     )
 }
 
 private fun StrategyProbeCandidateSummary.toDetectabilityEvidence(lane: String): String =
     "lane=$lane;candidateId=$id;emitterTier=${emitterTier.name};" +
-        "emitterDowngraded=$emitterDowngraded;exactEmitterRequiresRoot=$exactEmitterRequiresRoot"
+        "emitterDowngraded=$emitterDowngraded" + editionArchiveEvidence()
 
 private fun buildCapabilitySnapshot(
     candidates: List<StrategyProbeCandidateSummary>,
@@ -463,13 +450,12 @@ private fun buildRolloutGateAssessment(
                 id = "detectability_budget",
                 passed =
                     hasDetectabilityEvidence &&
-                        !detectabilityMetrics.recommendedUsesRootedEmitter &&
+                        !detectabilityMetrics.recommendedUsesExternalEmitter &&
                         !detectabilityMetrics.recommendedWasDowngraded,
-                threshold = "recommended winner stays non-root and non-downgraded",
+                threshold = detectabilityBudgetThreshold,
                 actual =
                     if (hasDetectabilityEvidence) {
-                        "rooted=${detectabilityMetrics.recommendedUsesRootedEmitter};" +
-                            "downgraded=${detectabilityMetrics.recommendedWasDowngraded}"
+                        detectabilityMetrics.editionDetectabilityBudgetActual()
                     } else {
                         "unknown"
                     },
@@ -499,7 +485,7 @@ private fun buildRolloutGateAssessment(
 private fun containsUnavailableCapabilityId(text: String): Boolean = extractCapabilityIds(text).isNotEmpty()
 
 private fun extractCapabilityIds(text: String): List<String> =
-    KnownRuntimeCapabilityIds.filter { capability ->
+    archiveCapabilityTokens.filter { capability ->
         text == capability || text.contains("($capability)") || text.contains("$capability unavailable")
     }
 

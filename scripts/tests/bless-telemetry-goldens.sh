@@ -15,7 +15,7 @@ cargo test --manifest-path "$workspace_manifest" -p ripdpi-monitor-engine
 
 echo "==> bless JVM telemetry/logging goldens"
 (cd "$repo_root" && ./gradlew \
-  :core:engine:testDebugUnitTest \
+  :core:engine:testExtendedDebugUnitTest \
   --tests com.poyka.ripdpi.core.NativeTelemetryGoldenTest \
   :core:service:testExtendedDebugUnitTest \
   --tests com.poyka.ripdpi.services.ServiceTelemetryGoldenTest)

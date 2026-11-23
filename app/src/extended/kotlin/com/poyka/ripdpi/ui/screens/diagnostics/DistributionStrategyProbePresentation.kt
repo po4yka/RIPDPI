@@ -44,7 +44,7 @@ private fun strategyRealizationMetric(
         tone =
             when {
                 summary.emitterDowngraded -> DiagnosticsTone.Warning
-                summary.exactEmitterRequiresRoot -> DiagnosticsTone.Info
+                summary.requiresExternalEmitter -> DiagnosticsTone.Info
                 else -> DiagnosticsTone.Neutral
             },
     )
@@ -78,7 +78,7 @@ private fun strategyEmitterRealizationLabel(
             stringResolver.getString(R.string.diagnostics_strategy_realization_approximate)
         }
 
-        summary.exactEmitterRequiresRoot -> {
+        summary.requiresExternalEmitter -> {
             stringResolver.getString(R.string.diagnostics_strategy_realization_rooted)
         }
 
@@ -98,7 +98,7 @@ internal fun strategyEmitterNotes(
     stringResolver: StringResolver,
 ): List<String> =
     buildList {
-        if (summary.exactEmitterRequiresRoot && !summary.emitterDowngraded) {
+        if (summary.requiresExternalEmitter && !summary.emitterDowngraded) {
             add(stringResolver.getString(R.string.diagnostics_strategy_note_rooted))
         }
         if (summary.emitterDowngraded) {
@@ -108,3 +108,6 @@ internal fun strategyEmitterNotes(
             add(stringResolver.getString(R.string.diagnostics_strategy_note_lab))
         }
     }
+
+@Suppress("UNUSED_PARAMETER")
+internal fun StrategyProbeCandidateSummary.presentedLabel(stringResolver: StringResolver): String = label

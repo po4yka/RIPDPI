@@ -32,7 +32,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
             )
 
@@ -48,36 +48,13 @@ class DiagnosticsScanWorkflowTest {
         val activeDns = settings.activeDnsSettings()
         assertEquals("tcp-1", recommendation.tcpCandidateId)
         assertEquals("quic-1", recommendation.quicCandidateId)
-        assertEquals("hostfake", recommendation.tcpCandidateFamily)
+        assertEquals("tlsrec_split", recommendation.tcpCandidateFamily)
         assertEquals("quic_realistic_burst", recommendation.quicCandidateFamily)
         assertEquals(activeDns.strategyFamily(), recommendation.dnsStrategyFamily)
         assertEquals(activeDns.strategyLabel(), recommendation.dnsStrategyLabel)
-        assertEquals("hostfake", strategySignature.tcpStrategyFamily)
+        assertEquals("tlsrec_split", strategySignature.tcpStrategyFamily)
         assertEquals("quic_realistic_burst", strategySignature.quicStrategyFamily)
         assertEquals(activeDns.strategyFamily(), strategySignature.dnsStrategyFamily)
-    }
-
-    @Test
-    fun `valid seqovl recommendation config yields derived tlsrec seqovl family`() {
-        val report =
-            scanReportWithStrategyProbe(
-                proxyConfigJson = validSeqovlRecommendedProxyConfigJson(),
-                tcpFamily = "tlsrec_seqovl",
-                quicFamily = "quic_realistic_burst",
-            )
-
-        val enriched =
-            DiagnosticsScanWorkflow.enrichScanReport(
-                report = report,
-                settings = settings,
-                preferredDnsPath = null,
-            )
-
-        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
-        val strategySignature = requireNotNull(recommendation.strategySignature)
-
-        assertEquals("tlsrec_seqovl", recommendation.tcpCandidateFamily)
-        assertEquals("tlsrec_seqovl", strategySignature.tcpStrategyFamily)
     }
 
     @Test
@@ -117,7 +94,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
             )
 
@@ -164,7 +141,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment = unreliableAssessment,
                 pilotBucketLabels = emptyList(),
@@ -278,7 +255,7 @@ class DiagnosticsScanWorkflowTest {
             scanReportWithStrategyProbe(
                 suiteId = "full_matrix_v1",
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment = scanWorkflowAuditAssessment(),
             )
@@ -335,7 +312,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.NORMAL,
             ).copy(resolverRecommendation = resolverRecommendation())
@@ -357,7 +334,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.PARTIAL_RESULTS,
             ).copy(
@@ -382,7 +359,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
             ).copy(resolverRecommendation = resolverRecommendation())
@@ -404,7 +381,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK,
             ).copy(resolverRecommendation = resolverRecommendation())
@@ -426,7 +403,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
             )
@@ -448,7 +425,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
             ).copy(resolverRecommendation = resolverRecommendation())
@@ -467,7 +444,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK,
             ).copy(resolverRecommendation = resolverRecommendation())
@@ -486,7 +463,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
             )
@@ -505,7 +482,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
             )
@@ -524,7 +501,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.NORMAL,
             )
@@ -543,7 +520,7 @@ class DiagnosticsScanWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.PARTIAL_RESULTS,
             ).copy(
@@ -566,7 +543,7 @@ class DiagnosticsScanWorkflowTest {
             val report =
                 scanReportWithStrategyProbe(
                     proxyConfigJson = validRecommendedProxyConfigJson(),
-                    tcpFamily = "hostfake",
+                    tcpFamily = "tlsrec_split",
                     quicFamily = "quic_realistic_burst",
                     completionKind = StrategyProbeCompletionKind.PARTIAL_RESULTS,
                 ).copy(resolverRecommendation = resolverRecommendation().copy(triggerOutcome = outcome))
@@ -758,6 +735,7 @@ private fun strategyCandidateSummary(
         id = id,
         label = label,
         family = family,
+        emitterTier = productionEmitterForTests,
         proxyConfigJson = proxyConfigJson,
         outcome = "success",
         rationale = "best",
@@ -771,24 +749,10 @@ private fun strategyCandidateSummary(
         domainOutcomes = domainOutcomes,
     )
 
-internal fun validRecommendedProxyConfigJson(): String =
-    RipDpiProxyUIPreferences(
-        protocols = RipDpiProtocolConfig(desyncUdp = true),
-        chains =
-            RipDpiChainConfig(
-                tcpSteps =
-                    listOf(
-                        TcpChainStepModel(
-                            kind = TcpChainStepKind.HostFake,
-                            marker = "midhost+1",
-                        ),
-                    ),
-                udpSteps = listOf(UdpChainStepModel(count = 4)),
-            ),
-        quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
-    ).toNativeConfigJson()
+internal val productionEmitterForTests =
+    StrategyEmitterTier.entries.single { it.isProductionEmitter && !it.isExternalEmitter }
 
-private fun validSeqovlRecommendedProxyConfigJson(): String =
+internal fun validRecommendedProxyConfigJson(): String =
     RipDpiProxyUIPreferences(
         protocols = RipDpiProtocolConfig(desyncUdp = true),
         chains =
@@ -800,10 +764,8 @@ private fun validSeqovlRecommendedProxyConfigJson(): String =
                             marker = "extlen",
                         ),
                         TcpChainStepModel(
-                            kind = TcpChainStepKind.SeqOverlap,
+                            kind = TcpChainStepKind.Split,
                             marker = "midsld",
-                            overlapSize = 12,
-                            fakeMode = "profile",
                         ),
                     ),
                 udpSteps = listOf(UdpChainStepModel(count = 4)),

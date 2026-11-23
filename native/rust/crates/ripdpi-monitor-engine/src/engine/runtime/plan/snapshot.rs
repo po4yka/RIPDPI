@@ -72,7 +72,7 @@ fn candidate_snapshot(candidate: &StrategyCandidateSpec) -> StrategyCandidatePla
         label: candidate.label.to_string(),
         family: candidate.family.to_string(),
         emitter_tier: candidate.emitter_tier,
-        exact_emitter_requires_root: candidate.exact_emitter_requires_root,
+        requires_external_emitter: candidate.requires_external_emitter,
         approximate_fallback_family: candidate.approximate_fallback_family.map(str::to_string),
         quic_layout_family: candidate.quic_layout_family.map(str::to_string),
         eligibility: match candidate.eligibility {

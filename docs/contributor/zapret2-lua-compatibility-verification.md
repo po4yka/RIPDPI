@@ -43,8 +43,8 @@ cargo clippy --locked --offline -p ripdpi-strategy-lua \
   -p ripdpi-root-helper -p ripdpi-root-helper-protocol --all-targets -- -D warnings
 cargo fmt --all --check
 cd ../..
-./gradlew -Pripdpi.skipNativeBuild=true :core:service:testDebugUnitTest \
-  :core:engine:testDebugUnitTest :core:service:detekt :core:engine:detekt \
+./gradlew -Pripdpi.skipNativeBuild=true :core:service:testExtendedDebugUnitTest \
+  :core:engine:testExtendedDebugUnitTest :core:service:detekt :core:engine:detekt \
   :core:service:ktlintCheck :core:engine:ktlintCheck
 ./gradlew :core:engine:buildRustNativeLibs :core:engine:buildRustRootHelper \
   :core:engine:buildNfqws2

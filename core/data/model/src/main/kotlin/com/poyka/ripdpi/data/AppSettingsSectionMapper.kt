@@ -22,7 +22,6 @@ fun AppSettings.toSettingsSections(): SettingsSections =
         relay = relaySection(),
         warp = warpSection(),
         strategy = strategySection(),
-        root = rootSection(),
         detection = detectionSection(),
         telemetry = telemetrySection(),
     )
@@ -207,11 +206,6 @@ private fun AppSettings.strategySection(): StrategySettingsSection =
         strategyPackPinnedVersion = strategyPackPinnedVersion,
         strategyPackRefreshPolicy = strategyPackRefreshPolicy,
         strategyPackAllowRollbackOverride = strategyPackAllowRollbackOverride,
-    )
-
-private fun AppSettings.rootSection(): RootSettingsSection =
-    RootSettingsSection(
-        rootModeEnabled = rootModeEnabled,
     )
 
 private fun AppSettings.detectionSection(): DetectionSettingsSection =

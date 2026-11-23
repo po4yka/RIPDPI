@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.normalizeIpIdMode
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
 import com.poyka.ripdpi.data.normalizeRelayXhttpMode
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
+import com.poyka.ripdpi.data.setAdvancedTcpSignatureRequested
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.toWarpSettingsModel
@@ -82,7 +83,7 @@ internal fun AppSettings.Builder.applyFakePacketPreferences(
     setFakeOffsetMarker(fakePackets.fakeOffsetMarker)
     setOobData(fakePackets.oobChar.toString())
     setDropSack(fakePackets.dropSack)
-    setFakeMd5Sig(fakePackets.md5sig)
+    setAdvancedTcpSignatureRequested(fakePackets.md5sig)
     setTlsMinorEnabled(fakePackets.tlsMinorEnabled)
     setTlsMinorValue(fakePackets.tlsMinorValue)
     setWindowClamp(fakePackets.windowClamp ?: 0)

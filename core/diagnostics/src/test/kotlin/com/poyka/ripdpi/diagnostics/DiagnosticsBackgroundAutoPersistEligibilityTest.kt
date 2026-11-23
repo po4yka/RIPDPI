@@ -32,7 +32,7 @@ class DiagnosticsBackgroundAutoPersistEligibilityTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment = scanWorkflowAuditAssessment(),
                 pilotBucketLabels = listOf("control:neutral:success"),
@@ -57,7 +57,7 @@ class DiagnosticsBackgroundAutoPersistEligibilityTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment = scanWorkflowAuditAssessment(),
                 tcpDomainOutcomes =
@@ -83,7 +83,7 @@ class DiagnosticsBackgroundAutoPersistEligibilityTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment = scanWorkflowAuditAssessment(),
                 tcpDomainOutcomes =
@@ -164,7 +164,7 @@ class DiagnosticsBackgroundAutoPersistEligibilityTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment = assessment,
                 tcpSucceededTargets = tcpSucceededTargets,

@@ -333,7 +333,9 @@ class RipDpiProxy : RipDpiProxyRuntime {
                     val createdHandle =
                         withContext(NonCancellable) {
                             withContext(Dispatchers.IO) {
-                                nativeBindings.create(preferences.toNativeConfigJson())
+                                nativeBindings.create(
+                                    RipDpiProxyJsonCodec.prepareNativeCreateJson(preferences.toNativeConfigJson()),
+                                )
                             }.also { if (it != 0L) this@RipDpiProxy.handle = it }
                         }
                     if (createdHandle == 0L) {

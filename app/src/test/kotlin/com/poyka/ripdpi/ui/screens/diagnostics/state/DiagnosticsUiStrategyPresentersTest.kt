@@ -141,7 +141,7 @@ private fun strategyPresenterCandidate(
         id = id,
         label = label,
         family = family,
-        emitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
+        emitterTier = StrategyEmitterTier.entries.first { it.isProductionEmitter },
         outcome = "success",
         rationale = "Recovered target set.",
         succeededTargets = 1,

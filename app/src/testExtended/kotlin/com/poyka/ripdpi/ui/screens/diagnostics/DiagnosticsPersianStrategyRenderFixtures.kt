@@ -69,6 +69,6 @@ private fun persianRenderCandidate(
         qualityScore = 7,
         averageLatencyMs = 17,
         emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
-        exactEmitterRequiresRoot = true,
+        requiresExternalEmitter = true,
         notes = listOf("User note 0012"),
     )

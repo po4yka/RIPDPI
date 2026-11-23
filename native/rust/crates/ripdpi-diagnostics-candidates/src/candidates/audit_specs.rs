@@ -55,7 +55,7 @@ pub fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCandidateSp
         label: "Adaptive fake TTL",
         family: "adaptive_fake_ttl",
         emitter_tier: StrategyEmitterTier::LabDiagnosticsOnly,
-        exact_emitter_requires_root: false,
+        requires_external_emitter: false,
         approximate_fallback_family: None,
         quic_layout_family: None,
         eligibility: CandidateEligibility::Always,

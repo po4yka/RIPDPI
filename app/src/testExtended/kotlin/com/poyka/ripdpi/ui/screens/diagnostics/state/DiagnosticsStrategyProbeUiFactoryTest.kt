@@ -162,7 +162,7 @@ class DiagnosticsStrategyProbeUiFactoryTest {
                             label = "TCP winner",
                             family = "seqovl",
                             emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
-                            exactEmitterRequiresRoot = true,
+                            requiresExternalEmitter = true,
                         ),
                     ),
             )
@@ -196,7 +196,7 @@ class DiagnosticsStrategyProbeUiFactoryTest {
                             label = "TCP fallback winner",
                             family = "hostfake",
                             emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
-                            exactEmitterRequiresRoot = true,
+                            requiresExternalEmitter = true,
                             emitterDowngraded = true,
                         ),
                         strategyProbeCandidate(id = "tcp-2", label = "TCP alternate", family = "split"),
@@ -321,7 +321,7 @@ private fun strategyProbeCandidate(
     skipped: Boolean = false,
     outcome: String = "success",
     emitterTier: StrategyEmitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
-    exactEmitterRequiresRoot: Boolean = false,
+    requiresExternalEmitter: Boolean = false,
     emitterDowngraded: Boolean = false,
 ): StrategyProbeCandidateSummary =
     StrategyProbeCandidateSummary(
@@ -329,7 +329,7 @@ private fun strategyProbeCandidate(
         label = label,
         family = family,
         emitterTier = emitterTier,
-        exactEmitterRequiresRoot = exactEmitterRequiresRoot,
+        requiresExternalEmitter = requiresExternalEmitter,
         emitterDowngraded = emitterDowngraded,
         outcome = outcome,
         rationale = "Recovered target set.",

@@ -755,7 +755,7 @@ jobs:
 
       - name: Run engine and service tests with the real gomobile API
         run: >-
-          ./gradlew :core:engine:testDebugUnitTest :core:service:testStandardDebugUnitTest :core:service:testExtendedDebugUnitTest
+          ./gradlew :core:engine:testExtendedDebugUnitTest :core:service:testStandardDebugUnitTest :core:service:testExtendedDebugUnitTest
           -Pripdpi.skipNativeBuild=true --max-workers=4 --profile
 
       - uses: ./.github/actions/upload-build-observability
@@ -1145,8 +1145,8 @@ jobs:
           name: relay-config-contract-results
           path: |
             core/engine/build/reports/relay-native-wire.json
-            core/engine/build/test-results/testDebugUnitTest/
-            core/engine/build/reports/tests/testDebugUnitTest/
+            core/engine/build/test-results/testExtendedDebugUnitTest/
+            core/engine/build/reports/tests/testExtendedDebugUnitTest/
           retention-days: 7
 
   owned-stack-tls-fingerprint:
@@ -2142,6 +2142,15 @@ jobs:
       # JaCoCo, so it is also the only CI run of those tests.
       - name: Run Kotlin unit tests with coverage
         run: ./gradlew coverageReport -Pripdpi.skipNativeBuild=true --profile
+
+      - name: Run Play and standard edition tests
+        run: >-
+          ./gradlew -Pripdpi.skipNativeBuild=true
+          :app:testPlayDebugUnitTest
+          :core:data:model:testStandardDebugUnitTest
+          :core:diagnostics:testStandardDebugUnitTest
+          :core:engine:testStandardDebugUnitTest
+          :core:service:testStandardDebugUnitTest
 
       - name: Summarize Kotlin coverage
         run: |

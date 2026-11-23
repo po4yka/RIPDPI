@@ -859,13 +859,13 @@ pub struct ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::approximate_fallback_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::eligibility: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::emitter_tier: ripdpi_diagnostics_contracts::types::StrategyEmitterTier
-pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::exact_emitter_requires_root: bool
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::family: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::label: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::preserve_adaptive_fake_ttl: bool
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::quic_layout_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::required_capabilities: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::requires_external_emitter: bool
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::requires_fake_ttl: bool
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::requires_tcp_fast_open: bool
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::warmup: alloc::string::String
@@ -961,7 +961,6 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::desync_e
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::domain_outcomes: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::StrategyProbeDomainOutcome>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::emitter_downgraded: bool
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::emitter_tier: ripdpi_diagnostics_contracts::types::StrategyEmitterTier
-pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::exact_emitter_requires_root: bool
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::execution_attempts: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::StrategyProbeAttemptExecutionEvidence>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::execution_evidence_complete: bool
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::family: alloc::string::String
@@ -974,6 +973,7 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::proxy_co
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::quality_score: usize
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::quic_layout_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::rationale: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::requires_external_emitter: bool
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::route_features: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::StrategyProbeRouteFeature>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::runtime_terminal_status: ripdpi_diagnostics_contracts::types::StrategyProbeRuntimeTerminalStatus
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::skipped: bool
@@ -2111,7 +2111,6 @@ pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::desync_executio
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::domain_outcomes: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::StrategyProbeDomainOutcome>
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::emitter_downgraded: bool
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::emitter_tier: ripdpi_diagnostics_contracts::types::StrategyEmitterTier
-pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::exact_emitter_requires_root: bool
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::execution_attempts: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::StrategyProbeAttemptExecutionEvidence>
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::execution_evidence_complete: bool
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::family: alloc::string::String
@@ -2124,6 +2123,7 @@ pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::proxy_config_js
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::quality_score: usize
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::quic_layout_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::rationale: alloc::string::String
+pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::requires_external_emitter: bool
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::route_features: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::StrategyProbeRouteFeature>
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::runtime_terminal_status: ripdpi_diagnostics_contracts::types::StrategyProbeRuntimeTerminalStatus
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::skipped: bool

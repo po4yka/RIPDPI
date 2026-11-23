@@ -13,7 +13,7 @@ internal fun strategyEmitterMetrics(
 ): List<DiagnosticsMetricUiModel> =
     buildList {
         val lab = summary.emitterTier == StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY
-        if (summary.canReplayInDistribution() || summary.emitterDowngraded) {
+        if (summary.canReplayInDistribution()) {
             val emitter =
                 if (lab) R.string.diagnostics_strategy_emitter_lab else R.string.diagnostics_strategy_emitter_standard
             add(
@@ -55,18 +55,17 @@ internal fun strategyEmitterNotes(
 internal fun StrategyProbeCandidateSummary.presentedRationale(): String =
     rationale
         .takeUnless {
-            exactEmitterRequiresRoot
+            !canReplayInDistribution()
         }.orEmpty()
 
 internal fun StrategyProbeCandidateSummary.presentedNotes(): List<String> =
     notes
         .takeUnless {
-            exactEmitterRequiresRoot
+            !canReplayInDistribution()
         }.orEmpty()
 
 internal fun StrategyProbeCandidateSummary.canReplayInDistribution(): Boolean =
-    !exactEmitterRequiresRoot &&
-        (
-            emitterTier == StrategyEmitterTier.NON_ROOT_PRODUCTION ||
-                emitterTier == StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY
-        )
+    !requiresExternalEmitter && emitterTier != StrategyEmitterTier.UNAVAILABLE
+
+internal fun StrategyProbeCandidateSummary.presentedLabel(stringResolver: StringResolver): String =
+    if (canReplayInDistribution()) label else stringResolver.getString(R.string.diagnostics_local_value_unknown)

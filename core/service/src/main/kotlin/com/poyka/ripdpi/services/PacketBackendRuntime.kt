@@ -12,6 +12,8 @@ internal interface PacketBackendRuntime {
 
     fun allowsExternalOperations(settings: AppSettings): Boolean
 
+    fun acceptsCommandLine(arguments: String): Boolean = true
+
     suspend fun prepare(
         context: Context,
         mode: Mode,

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.support
 
 import com.google.protobuf.MessageLite
+import com.poyka.ripdpi.data.sensitiveEditionSettingsPaths
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.StrategyTcpStep
 import com.poyka.ripdpi.proto.StrategyUdpStep
@@ -295,13 +296,12 @@ private val sensitivePathFragments = setOf("token", "credential", "password", "p
 
 private val sensitivePaths =
     setOf(
-        "settings.root_mode_enabled",
         "settings.proxy_allow_lan",
         "settings.relay_dns_over_tunnel_enabled",
         "settings.community_comparison_enabled",
         "settings.detection_diagnostic_tls_keylog_path",
         "settings.ws_tunnel_allow_insecure_sni",
-    )
+    ) + sensitiveEditionSettingsPaths
 
 private fun String.toSnakeCase(): String =
     replace(Regex("([a-z0-9])([A-Z])"), "$1_$2")

@@ -21,7 +21,7 @@
         "native/rust/crates/ripdpi-monitor-engine/tests/contract_fixtures.rs",
         "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/contract/engine/EngineContract.kt",
         "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsEngineSchemaValidationTest.kt",
-        "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsWireContractTest.kt",
+        "core/diagnostics/src/testExtended/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsWireContractTest.kt",
         "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContractGovernanceTest.kt",
         "native/rust/crates/ripdpi-diagnostics-contracts/src/types/field_failure_stage.rs",
         "native/rust/crates/ripdpi-diagnostics-classification/src/classification/field_failure_stage.rs",
@@ -59,18 +59,18 @@
         },
         {
           "id": "kotlin-diagnostics-wire-contract",
-          "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsWireContractTest.kt",
-          "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsWireContractTest' -Pripdpi.skipNativeBuild=true"
+          "path": "core/diagnostics/src/testExtended/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsWireContractTest.kt",
+          "command": "./gradlew :core:diagnostics:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsWireContractTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "kotlin-diagnostics-governance-contract",
           "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContractGovernanceTest.kt",
-          "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsContractGovernanceTest' -Pripdpi.skipNativeBuild=true"
+          "command": "./gradlew :core:diagnostics:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsContractGovernanceTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "kotlin-diagnostics-schema-contract",
           "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsEngineSchemaValidationTest.kt",
-          "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsEngineSchemaValidationTest' -Pripdpi.skipNativeBuild=true"
+          "command": "./gradlew :core:diagnostics:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsEngineSchemaValidationTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "rust-field-failure-stage-mapping",
@@ -80,7 +80,7 @@
         {
           "id": "kotlin-field-failure-stage-contract",
           "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/FieldFailureStageContractTest.kt",
-          "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.FieldFailureStageContractTest' -Pripdpi.skipNativeBuild=true"
+          "command": "./gradlew :core:diagnostics:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.FieldFailureStageContractTest' -Pripdpi.skipNativeBuild=true"
         }
       ],
       "invariants": [
@@ -127,7 +127,7 @@
         {
           "id": "kotlin-proxy-setting-feature-contract",
           "path": "core/data/model/src/test/kotlin/com/poyka/ripdpi/data/ProxySettingFeatureContractTest.kt",
-          "command": "./gradlew :core:data:model:testDebugUnitTest --tests 'com.poyka.ripdpi.data.ProxySettingFeatureContractTest'"
+          "command": "./gradlew :core:data:model:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.data.ProxySettingFeatureContractTest'"
         },
         {
           "id": "rust-proxy-setting-feature-contract",
@@ -161,7 +161,7 @@
         "core/service/src/main/kotlin/com/poyka/ripdpi/services/VpnTun2SocksConfig.kt",
         "core/service/src/test/kotlin/com/poyka/ripdpi/services/RipDpiVpnServiceConfigTest.kt",
         "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigSchemaVersionTest.kt",
-        "core/engine/src/test/kotlin/com/poyka/ripdpi/core/ConfigContractRoundTripTest.kt",
+        "core/engine/src/testExtended/kotlin/com/poyka/ripdpi/core/ConfigContractRoundTripTest.kt",
         "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigContractSnapshotTest.kt",
         "native/rust/crates/ripdpi-proxy-config/src/lib.rs",
         "native/rust/crates/ripdpi-tunnel-config/src/raw.rs",
@@ -187,18 +187,18 @@
       "gateTests": [
         {
           "id": "kotlin-native-config-round-trip",
-          "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/ConfigContractRoundTripTest.kt",
-          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.ConfigContractRoundTripTest' -Pripdpi.skipNativeBuild=true"
+          "path": "core/engine/src/testExtended/kotlin/com/poyka/ripdpi/core/ConfigContractRoundTripTest.kt",
+          "command": "./gradlew :core:engine:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.core.ConfigContractRoundTripTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "kotlin-native-config-snapshot",
           "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigContractSnapshotTest.kt",
-          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeConfigContractSnapshotTest' -Pripdpi.skipNativeBuild=true"
+          "command": "./gradlew :core:engine:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeConfigContractSnapshotTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "kotlin-native-config-schema",
           "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigSchemaVersionTest.kt",
-          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeConfigSchemaVersionTest' -Pripdpi.skipNativeBuild=true"
+          "command": "./gradlew :core:engine:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeConfigSchemaVersionTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "rust-proxy-config-round-trip",
@@ -274,12 +274,12 @@
         {
           "id": "kotlin-native-binary-contract",
           "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeBinaryContractTest.kt",
-          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeBinaryContractTest' -Pripdpi.skipNativeBuild=true"
+          "command": "./gradlew :core:engine:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeBinaryContractTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "kotlin-engine-api-contract-binding",
           "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/EngineApiContractBindingTest.kt",
-          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.EngineApiContractBindingTest' -Pripdpi.skipNativeBuild=true"
+          "command": "./gradlew :core:engine:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.core.EngineApiContractBindingTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "python-ffi-panic-boundary",
@@ -345,12 +345,12 @@
         {
           "id": "kotlin-native-telemetry-goldens",
           "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeTelemetryGoldenTest.kt",
-          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeTelemetryGoldenTest' -Pripdpi.skipNativeBuild=true"
+          "command": "./gradlew :core:engine:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeTelemetryGoldenTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "kotlin-native-telemetry-schema",
           "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeRuntimeTelemetryCodecTest.kt",
-          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeRuntimeTelemetryCodecTest' -Pripdpi.skipNativeBuild=true"
+          "command": "./gradlew :core:engine:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeRuntimeTelemetryCodecTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "kotlin-service-telemetry-goldens",

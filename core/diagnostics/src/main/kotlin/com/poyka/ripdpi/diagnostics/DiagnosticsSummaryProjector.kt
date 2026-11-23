@@ -124,18 +124,14 @@ class DiagnosticsSummaryProjector
                     }
                     recommendedTcp?.let { tcp ->
                         add("strategyRecommendedTcpEmitterTier=${tcp.emitterTier.name}")
-                        if (tcp.exactEmitterRequiresRoot) {
-                            add("strategyRecommendedTcpRequiresRoot=true")
-                        }
+                        tcp.editionRecommendationMetadata(lane = "Tcp")?.let(::add)
                         if (tcp.emitterDowngraded) {
                             add("strategyRecommendedTcpDowngraded=true")
                         }
                     }
                     recommendedQuic?.let { quic ->
                         add("strategyRecommendedQuicEmitterTier=${quic.emitterTier.name}")
-                        if (quic.exactEmitterRequiresRoot) {
-                            add("strategyRecommendedQuicRequiresRoot=true")
-                        }
+                        quic.editionRecommendationMetadata(lane = "Quic")?.let(::add)
                         if (quic.emitterDowngraded) {
                             add("strategyRecommendedQuicDowngraded=true")
                         }

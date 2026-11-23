@@ -186,7 +186,7 @@ Retrieved by Kotlin via `MonitorSession::take_report_json()`.
 - `bundled catalog fixture matches committed asset and schema version`
 - `engine schema version matches rust contract constant` -- reads Rust source
 
-`core/diagnostics/src/test/kotlin/.../DiagnosticsWireContractTest.kt`:
+`core/diagnostics/src/testExtended/kotlin/.../DiagnosticsWireContractTest.kt`:
 - `diagnostics schema version matches contract fixture`
 - `kotlin diagnostics progress fields match contract fixture`
 - `kotlin diagnostics report fields are superset of contract fixture`

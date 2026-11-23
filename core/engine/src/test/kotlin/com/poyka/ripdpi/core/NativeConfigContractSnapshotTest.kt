@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.core.codec.PacketBackendWire
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.EntropyModeCombined
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
@@ -661,7 +662,7 @@ class NativeConfigContractSnapshotTest {
                     put("canonicalDigest", JsonPrimitive(""))
                 },
             )
-            put("rootMode", JsonPrimitive(false))
+            if (PacketBackendWire.preserveUnknownProxyFields) put("rootMode", JsonPrimitive(false))
             put("logContext", JsonNull)
             put("runtimeContext", JsonNull)
             put("schemaVersion", JsonPrimitive(2))

@@ -36,7 +36,7 @@ This section is the only bless procedure in the repository; other skills, agents
 | Rust telemetry/logging | `native/rust/crates/{crate}/tests/golden/` | `RIPDPI_BLESS_GOLDENS=1 cargo test --locked -p {crate} --manifest-path native/rust/Cargo.toml` |
 | JVM telemetry/logging | `core/{module}/src/test/resources/golden/` | `RIPDPI_BLESS_GOLDENS=1 ./gradlew :{module}:testDebugUnitTest --tests "*.{TestClass}"` |
 | Rust contract_fixtures | `native/rust/crates/{crate}/tests/contract_fixtures/` | `RIPDPI_BLESS_GOLDENS=1 cargo test --locked --manifest-path native/rust/Cargo.toml -p {crate}` |
-| Wire contract (shared) | Read through `GoldenContractSupport.readSharedFixture()` | `RIPDPI_BLESS_GOLDENS=1 ./gradlew :core:engine:testDebugUnitTest --tests "*.{TestClass}"` |
+| Wire contract (shared) | Read through `GoldenContractSupport.readSharedFixture()` | `RIPDPI_BLESS_GOLDENS=1 ./gradlew :core:engine:testExtendedDebugUnitTest --tests "*.{TestClass}"` |
 | Android instrumentation | `app/src/androidTest/assets/golden/` | Copied from JVM fixtures by `scripts/tests/bless-telemetry-goldens.sh` |
 
 ### Bless All Telemetry/Logging Goldens
@@ -57,7 +57,7 @@ This script:
 RIPDPI_BLESS_GOLDENS=1 cargo test --locked -p ripdpi-android --manifest-path native/rust/Cargo.toml
 
 # Kotlin
-RIPDPI_BLESS_GOLDENS=1 ./gradlew :core:engine:testDebugUnitTest --tests "*.NativeTelemetryGoldenTest"
+RIPDPI_BLESS_GOLDENS=1 ./gradlew :core:engine:testExtendedDebugUnitTest --tests "*.NativeTelemetryGoldenTest"
 ```
 
 ### After Blessing

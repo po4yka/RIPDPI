@@ -4,7 +4,9 @@ package com.poyka.ripdpi.diagnostics
 
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonIgnoreUnknownKeys
 
 @Serializable
 data class ExecutionPlanSnapshot(
@@ -82,15 +84,17 @@ data class StrategyExecutionPlanSnapshot(
     val familyFailureThreshold: Int,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
+@JsonIgnoreUnknownKeys
 @Serializable
 data class StrategyCandidatePlanSnapshot(
     val id: String,
     val label: String,
     val family: String,
     val emitterTier: StrategyEmitterTier,
-    @OptIn(ExperimentalSerializationApi::class)
     @EncodeDefault(EncodeDefault.Mode.ALWAYS)
-    val exactEmitterRequiresRoot: Boolean = false,
+    @SerialName(RequiresExternalEmitterWireName)
+    val requiresExternalEmitter: Boolean = false,
     val approximateFallbackFamily: String? = null,
     val quicLayoutFamily: String? = null,
     val eligibility: String,

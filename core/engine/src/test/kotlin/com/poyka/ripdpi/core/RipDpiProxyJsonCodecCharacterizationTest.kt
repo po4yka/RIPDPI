@@ -28,13 +28,11 @@ import org.junit.Test
  *
  * These complement:
  *  - [NativeConfigContractSnapshotTest] — whole-payload snapshot pinning.
- *  - [ConfigContractRoundTripTest] — encode/decode structural round trips.
+ *  - `ConfigContractRoundTripTest` — encode/decode structural round trips in the extended variant.
  *  - [RipDpiProxyJsonCodecTest] — session-override / geo-path / chain round trips.
  *
  * Focus here is the gaps those leave open:
  *  - encrypted DNS / runtime-context sections (area 5 + 7).
- *  - root-mode true/false and the `EncodeDefault.NEVER` handling of
- *    `rootHelperSocketPath` (area 6).
  *  - section-level structure of an *enabled* relay / WARP payload emitted
  *    directly through [RipDpiProxyJsonCodec.encodeUiPreferences] (area 4).
  *
@@ -45,16 +43,12 @@ import org.junit.Test
 class RipDpiProxyJsonCodecCharacterizationTest {
     private fun encode(
         preferences: RipDpiProxyUIPreferences,
-        rootMode: Boolean = false,
-        rootHelperSocketPath: String? = null,
         environmentKind: EnvironmentKind = EnvironmentKind.Unknown,
     ): JsonObject =
         Json
             .parseToJsonElement(
                 RipDpiProxyJsonCodec.encodeUiPreferences(
                     preferences = preferences,
-                    rootMode = rootMode,
-                    rootHelperSocketPath = rootHelperSocketPath,
                     environmentKind = environmentKind,
                 ),
             ).jsonObject
@@ -90,14 +84,12 @@ class RipDpiProxyJsonCodecCharacterizationTest {
             assertNotNull("section `$section` must be present", payload[section]?.jsonObject)
         }
         assertEquals("Unknown", payload["environmentKind"]?.jsonPrimitive?.content)
-        assertEquals(false, payload["rootMode"]?.jsonPrimitive?.boolean)
         // Deterministic runtime / session slots default to JSON null.
         assertNull(payload["runtimeContext"]?.jsonPrimitive?.contentOrNull)
         assertNull(payload["logContext"]?.jsonPrimitive?.contentOrNull)
         assertNull(payload["sessionOverrides"]?.jsonPrimitive?.contentOrNull)
         assertNull(payload["strategyPreset"]?.jsonPrimitive?.contentOrNull)
         // EncodeDefault.NEVER fields are absent (not null) when at default.
-        assertFalse("rootHelperSocketPath omitted at default", payload.containsKey("rootHelperSocketPath"))
         assertFalse("geoipDbPath omitted at default", payload.containsKey("geoipDbPath"))
         assertFalse("geositeDbPath omitted at default", payload.containsKey("geositeDbPath"))
         assertFalse("nativeLogLevel omitted at default", payload.containsKey("nativeLogLevel"))
@@ -355,61 +347,6 @@ class RipDpiProxyJsonCodecCharacterizationTest {
             "/data/local/tmp/ripdpi-protect.sock",
             runtimeContext["protectPath"]?.jsonPrimitive?.content,
         )
-    }
-
-    // ------------------------------------------------------------------
-    // Area 6: root mode enabled vs disabled.
-    // rootMode is always emitted (plain Boolean default); rootHelperSocketPath
-    // is EncodeDefault.NEVER so it appears only when non-null.
-    // ------------------------------------------------------------------
-
-    @Test
-    fun `root mode disabled emits rootMode false and omits helper socket path`() {
-        val payload = encode(RipDpiProxyUIPreferences(), rootMode = false, rootHelperSocketPath = null)
-
-        assertEquals(false, payload["rootMode"]?.jsonPrimitive?.boolean)
-        assertFalse(
-            "rootHelperSocketPath must be absent when null (EncodeDefault.NEVER)",
-            payload.containsKey("rootHelperSocketPath"),
-        )
-    }
-
-    @Test
-    fun `root mode enabled emits rootMode true and includes helper socket path`() {
-        val payload =
-            encode(
-                RipDpiProxyUIPreferences(),
-                rootMode = true,
-                rootHelperSocketPath = "/data/local/tmp/ripdpi-root-helper.sock",
-            )
-
-        assertEquals(true, payload["rootMode"]?.jsonPrimitive?.boolean)
-        assertTrue(
-            "rootHelperSocketPath must be present when supplied",
-            payload.containsKey("rootHelperSocketPath"),
-        )
-        assertEquals(
-            "/data/local/tmp/ripdpi-root-helper.sock",
-            payload["rootHelperSocketPath"]?.jsonPrimitive?.content,
-        )
-    }
-
-    @Test
-    fun `root mode survives encode and decode round trip`() {
-        val rootEnabled =
-            decodeRipDpiProxyUiPreferences(
-                RipDpiProxyJsonCodec.encodeUiPreferences(
-                    preferences = RipDpiProxyUIPreferences(),
-                    rootMode = true,
-                    rootHelperSocketPath = "/data/local/tmp/ripdpi-root-helper.sock",
-                ),
-            )
-        assertEquals(true, rootEnabled?.rootMode)
-        assertEquals("/data/local/tmp/ripdpi-root-helper.sock", rootEnabled?.rootHelperSocketPath)
-
-        val rootDisabled = decodeRipDpiProxyUiPreferences(RipDpiProxyUIPreferences().toNativeConfigJson())
-        assertEquals(false, rootDisabled?.rootMode)
-        assertNull(rootDisabled?.rootHelperSocketPath)
     }
 
     // ------------------------------------------------------------------

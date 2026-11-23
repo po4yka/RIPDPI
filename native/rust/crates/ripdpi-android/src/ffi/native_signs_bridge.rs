@@ -28,15 +28,19 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_detection_checker_JniNativeSig
 }
 
 fn native_signs_snapshot_json() -> String {
+    let maps = read_lines("/proc/self/maps");
     let snapshot = json!({
         "nativeInterfaces": proc_net_devices(),
-        "mapsLines": read_lines("/proc/self/maps"),
+        "mapsLines": &maps,
         "selinuxMode": selinux_mode(),
     });
     #[cfg(feature = "privileged-packets")]
     let snapshot = {
         let mut snapshot = snapshot;
         snapshot["reviewSignals"] = json!(root_review_signals());
+        let mappings = maps.join("\n").to_ascii_lowercase();
+        snapshot["additionalHookMarkers"] =
+            json!(["zygisk", "riru"].into_iter().filter(|marker| mappings.contains(*marker)).collect::<Vec<_>>());
         snapshot
     };
 
@@ -108,6 +112,10 @@ mod tests {
         assert!(value.get("rootArtifacts").is_none());
         assert_eq!(
             value.get("reviewSignals").is_some_and(serde_json::Value::is_array),
+            cfg!(feature = "privileged-packets")
+        );
+        assert_eq!(
+            value.get("additionalHookMarkers").is_some_and(serde_json::Value::is_array),
             cfg!(feature = "privileged-packets")
         );
         assert!(value.get("selinuxMode").is_some());

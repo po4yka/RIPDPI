@@ -35,7 +35,7 @@ pub fn candidate_spec_with_notes_and_eligibility(
         label,
         family,
         emitter_tier: candidate_emitter_tier(id, &config),
-        exact_emitter_requires_root: candidate_exact_emitter_requires_root(id),
+        requires_external_emitter: candidate_requires_external_emitter(id),
         approximate_fallback_family: candidate_approximate_fallback_family(id),
         quic_layout_family: None,
         eligibility,

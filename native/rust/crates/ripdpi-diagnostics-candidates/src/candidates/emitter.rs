@@ -63,7 +63,7 @@ pub(super) fn candidate_emitter_tier(candidate_id: &str, config: &ProxyUiConfig)
     tier_override(candidate_id).unwrap_or_else(|| strategy_emitter_tier(config_emitter_tier(config)))
 }
 
-pub(super) fn candidate_exact_emitter_requires_root(candidate_id: &str) -> bool {
+pub(super) fn candidate_requires_external_emitter(candidate_id: &str) -> bool {
     matches!(
         candidate_id,
         "tlsrec_seqovl_midsld"

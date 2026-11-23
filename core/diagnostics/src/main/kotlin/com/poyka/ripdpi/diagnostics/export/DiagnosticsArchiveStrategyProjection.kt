@@ -5,23 +5,24 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 
-private val ArchiveCapabilityTokens =
+internal val archiveCapabilityTokens =
     setOf(
         "ttl_write",
         "raw_tcp_fake_send",
         "raw_udp_fragmentation",
         "replacement_socket",
-        "root_helper_available",
         "vpn_protect_callback",
         "network_binding",
-    )
+    ) + editionArchiveCapabilities
 
 internal fun EngineScanReportWire.projectStrategyEvidenceForArchive(): EngineScanReportWire {
-    val strategyProbe = strategyProbeReport ?: return this
+    val editionPlan = executionPlan?.projectEditionPlanForArchive()
+    val strategyProbe = strategyProbeReport ?: return copy(executionPlan = editionPlan)
     val tcpAliases = strategyProbe.tcpCandidates.archiveAliases("tcp")
     val quicAliases = strategyProbe.quicCandidates.archiveAliases("quic")
     val aliases = tcpAliases + quicAliases
     return copy(
+        executionPlan = editionPlan,
         strategyProbeReport = strategyProbe.projectForArchive(tcpAliases, quicAliases),
         observations = observations.map { it.projectStrategyForArchive(aliases) },
     )
@@ -89,7 +90,7 @@ private fun StrategyProbeCandidateSummary.projectForArchive(
         proxyConfigJson = proxyConfigJson?.let { "redacted" },
         notes =
             notes
-                .flatMap { note -> ArchiveCapabilityTokens.filter(note::contains) }
+                .flatMap { note -> archiveCapabilityTokens.filter(note::contains) }
                 .distinct()
                 .sorted(),
         domainOutcomes = domainOutcomes.map { it.copy(domain = "redacted") },

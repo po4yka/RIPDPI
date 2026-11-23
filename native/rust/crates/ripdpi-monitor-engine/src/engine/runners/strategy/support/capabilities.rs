@@ -3,7 +3,7 @@ mod suffix;
 use ripdpi_runtime_platform::capability::RuntimeCapability;
 
 use crate::candidates::StrategyCandidateSpec;
-use crate::types::StrategyProbeCandidateSummary;
+use crate::types::{StrategyEmitterTier, StrategyProbeCandidateSummary};
 
 pub(in crate::engine::runners::strategy) use suffix::capability_suffix;
 
@@ -42,19 +42,17 @@ pub(in crate::engine::runners::strategy) fn annotate_emitter_execution(
     #[cfg(not(feature = "privileged-packets"))]
     let _ = (summary, spec, fake_ttl_available, ipfrag_caps);
     #[cfg(feature = "privileged-packets")]
-    if spec.exact_emitter_requires_root
+    if spec.requires_external_emitter
         && !ripdpi_runtime_platform::tcp::seqovl_supported()
-        && spec.approximate_fallback_family.is_some()
+        && let Some(fallback_family) = spec.approximate_fallback_family
     {
         summary.emitter_downgraded = true;
-        if let Some(fallback_family) = spec.approximate_fallback_family {
-            summary
-                .notes
-                .push(format!("Exact rooted emitter unavailable; executed approximate {fallback_family} fallback"));
-        }
+        summary
+            .notes
+            .push(format!("Exact rooted emitter unavailable; executed approximate {fallback_family} fallback"));
     }
     #[cfg(feature = "privileged-packets")]
-    if summary.exact_emitter_requires_root
+    if summary.requires_external_emitter
         && let Some(capability) = spec
             .requires_capabilities
             .iter()
@@ -67,12 +65,9 @@ pub(in crate::engine::runners::strategy) fn annotate_emitter_execution(
 
 #[cfg(feature = "privileged-packets")]
 fn missing_capability_note(spec: &StrategyCandidateSpec, capability: RuntimeCapability) -> String {
-    #[cfg(feature = "privileged-packets")]
-    if spec.exact_emitter_requires_root
-        || matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::RootedProduction)
-    {
+    if spec.requires_external_emitter || spec.emitter_tier == StrategyEmitterTier::RootedProduction {
         format!("Requires rooted production emitter tier ({})", capability.as_str())
-    } else if matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::LabDiagnosticsOnly) {
+    } else if spec.emitter_tier == StrategyEmitterTier::LabDiagnosticsOnly {
         format!("Lab-only emitter tier unavailable ({})", capability.as_str())
     } else {
         format!("Required emitter capability unavailable ({})", capability.as_str())
@@ -81,12 +76,10 @@ fn missing_capability_note(spec: &StrategyCandidateSpec, capability: RuntimeCapa
 
 pub(in crate::engine::runners::strategy) fn missing_capability_rationale(spec: &StrategyCandidateSpec) -> &'static str {
     #[cfg(feature = "privileged-packets")]
-    if spec.exact_emitter_requires_root
-        || matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::RootedProduction)
-    {
+    if spec.requires_external_emitter || spec.emitter_tier == StrategyEmitterTier::RootedProduction {
         return ROOTED_EMITTER_ELIGIBILITY_RATIONALE;
     }
-    if matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::LabDiagnosticsOnly) {
+    if spec.emitter_tier == StrategyEmitterTier::LabDiagnosticsOnly {
         LAB_EMITTER_ELIGIBILITY_RATIONALE
     } else {
         GENERIC_EMITTER_ELIGIBILITY_RATIONALE

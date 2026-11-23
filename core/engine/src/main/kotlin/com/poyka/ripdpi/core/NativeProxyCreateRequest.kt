@@ -24,8 +24,8 @@ import com.poyka.ripdpi.data.EnvironmentKind
 internal data class NativeProxyCreateRequest(
     val preferences: RipDpiProxyUIPreferences,
     val strategyPreset: String? = null,
-    val rootMode: Boolean = false,
-    val rootHelperSocketPath: String? = null,
+    val packetBackendRequested: Boolean = false,
+    val packetBackendSocketPath: String? = null,
     val geoipDbPath: String? = null,
     val geositeDbPath: String? = null,
     val listenAuthToken: String? = null,

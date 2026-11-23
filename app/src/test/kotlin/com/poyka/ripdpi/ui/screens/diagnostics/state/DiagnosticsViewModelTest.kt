@@ -40,6 +40,7 @@ import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
+import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidence
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
@@ -1725,7 +1726,9 @@ class DiagnosticsViewModelTest {
     fun `automatic audit report exposes full matrix summary and candidate detail`() =
         runTest {
             val profileId = "automatic-audit"
-            val hostfakeConfigJson = HostfakeProxyConfigJson
+            val splitConfigJson =
+                """{"kind":"ui","chains":{"tcpSteps":[{"kind":"tlsrec","marker":"extlen"},""" +
+                    """{"kind":"split","marker":"host+1"}]},"schemaVersion":2}"""
             val manager =
                 FakeDiagnosticsManager().apply {
                     profilesState.value =
@@ -1768,7 +1771,7 @@ class DiagnosticsViewModelTest {
                                                         outcome = "ok",
                                                         details =
                                                             listOf(
-                                                                ProbeDetail("candidateId", "tlsrec_hostfake"),
+                                                                ProbeDetail("candidateId", "tlsrec_split"),
                                                                 ProbeDetail("protocol", "https"),
                                                                 ProbeDetail("latencyMs", "180"),
                                                             ),
@@ -1802,9 +1805,9 @@ class DiagnosticsViewModelTest {
                                                         averageLatencyMs = 140,
                                                     ),
                                                     StrategyProbeCandidateSummary(
-                                                        id = "tlsrec_hostfake",
-                                                        label = "TLS record + hostfake",
-                                                        family = "hostfake",
+                                                        id = "tlsrec_split",
+                                                        label = "TLS record + split",
+                                                        family = "split",
                                                         outcome = "success",
                                                         rationale = "Recovered HTTPS",
                                                         succeededTargets = 3,
@@ -1813,7 +1816,11 @@ class DiagnosticsViewModelTest {
                                                         totalWeight = 5,
                                                         qualityScore = 9,
                                                         averageLatencyMs = 180,
-                                                        proxyConfigJson = hostfakeConfigJson,
+                                                        proxyConfigJson = splitConfigJson,
+                                                        emitterTier =
+                                                            StrategyEmitterTier.entries.first {
+                                                                it.isProductionEmitter
+                                                            },
                                                         notes = listOf("Adaptive warm-up applied"),
                                                     ),
                                                 ),
@@ -1847,12 +1854,12 @@ class DiagnosticsViewModelTest {
                                                 ),
                                             recommendation =
                                                 StrategyProbeRecommendation(
-                                                    tcpCandidateId = "tlsrec_hostfake",
-                                                    tcpCandidateLabel = "TLS record + hostfake",
+                                                    tcpCandidateId = "tlsrec_split",
+                                                    tcpCandidateLabel = "TLS record + split",
                                                     quicCandidateId = "quic_realistic_burst",
                                                     quicCandidateLabel = "QUIC realistic burst",
                                                     rationale = "Best combined recovery",
-                                                    recommendedProxyConfigJson = hostfakeConfigJson,
+                                                    recommendedProxyConfigJson = splitConfigJson,
                                                 ),
                                             auditAssessment =
                                                 StrategyProbeAuditAssessment(
@@ -1914,14 +1921,14 @@ class DiagnosticsViewModelTest {
             )
             assertEquals(38, requireNotNull(report.auditAssessment).coverage.matrixCoveragePercent)
 
-            viewModel.selectionActions.selectStrategyProbeCandidate(report.candidateDetails.getValue("tlsrec_hostfake"))
+            viewModel.selectionActions.selectStrategyProbeCandidate(report.candidateDetails.getValue("tlsrec_split"))
             advanceUntilIdle()
 
             val selected = requireNotNull(viewModel.uiState.value.selectedStrategyProbeCandidate)
-            assertEquals("Hostfake", selected.familyLabel)
+            assertEquals("Host split", selected.familyLabel)
             assertEquals("Automatic audit", selected.suiteLabel)
             assertTrue(selected.notes.contains("Adaptive warm-up applied"))
-            assertTrue(selected.signature.any { it.label == "Chain" && it.value.contains("hostfake") })
+            assertTrue(selected.signature.any { it.label == "Chain" && it.value.contains("split", ignoreCase = true) })
             assertEquals("HTTPS results", selected.resultGroups.first().title)
             assertEquals(
                 "audit.example",

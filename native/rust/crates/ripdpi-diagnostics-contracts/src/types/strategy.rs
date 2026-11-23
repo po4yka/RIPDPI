@@ -48,6 +48,7 @@ fn default_strategy_probe_methodology_version() -> String {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum StrategyEmitterTier {
     #[default]
+    #[cfg_attr(not(feature = "privileged-packets"), serde(rename = "PRODUCTION"))]
     NonRootProduction,
     #[cfg(feature = "privileged-packets")]
     RootedProduction,
@@ -158,8 +159,9 @@ pub struct StrategyProbeCandidateSummary {
     #[serde(default)]
     pub emitter_tier: StrategyEmitterTier,
     #[serde(default)]
+    #[cfg_attr(feature = "privileged-packets", serde(rename = "exactEmitterRequiresRoot"))]
     #[cfg_attr(not(feature = "privileged-packets"), serde(skip))]
-    pub exact_emitter_requires_root: bool,
+    pub requires_external_emitter: bool,
     #[serde(default)]
     pub emitter_downgraded: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]

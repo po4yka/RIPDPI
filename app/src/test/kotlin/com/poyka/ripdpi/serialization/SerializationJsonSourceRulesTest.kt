@@ -12,6 +12,7 @@ class SerializationJsonSourceRulesTest {
     val temporaryFolder = TemporaryFolder()
 
     private val jsonBuilder = Regex("""(?:kotlinx\.serialization\.json\.)?Json\s*\{""")
+    private val testSourceSet = Regex("""/src/(?:test|androidTest)[^/]*/""")
     private val sharedJsonFile =
         normalizedPath("core/data/model/src/main/kotlin/com/poyka/ripdpi/serialization/RipDpiJson.kt")
 
@@ -43,13 +44,21 @@ class SerializationJsonSourceRulesTest {
 
             val current = source("core/src/main/kotlin/CurrentViolation.kt")
             source("nested/app/src/main/kotlin/OtherViolation.kt")
+            source("app/src/play/kotlin/PlayViolation.kt")
+            source("app/src/testPlay/kotlin/PlayUnitTest.kt")
+            source("app/src/androidTestExtended/kotlin/ExtendedDeviceTest.kt")
+            source("core/src/testFixtures/kotlin/SharedFixtures.kt")
             source(".worktrees/foreign/core/src/main/kotlin/ForeignViolation.kt")
             File(root, ".worktrees/foreign/.git").writeText("gitdir: elsewhere")
             source("other-copy/app/src/main/kotlin/ForeignViolation.kt")
             File(root, "other-copy/.git").mkdir()
 
             assertEquals(
-                setOf("core/src/main/kotlin/CurrentViolation.kt", "nested/app/src/main/kotlin/OtherViolation.kt"),
+                setOf(
+                    "app/src/play/kotlin/PlayViolation.kt",
+                    "core/src/main/kotlin/CurrentViolation.kt",
+                    "nested/app/src/main/kotlin/OtherViolation.kt",
+                ),
                 productionKotlinSources(root).map { it.relativeTo(root).invariantSeparatorsPath }.toSet(),
             )
             assertTrue(jsonBuilder.containsMatchIn(current.readText()))
@@ -67,8 +76,7 @@ class SerializationJsonSourceRulesTest {
                 file.isFile &&
                     file.extension == "kt" &&
                     (file.path.contains("/app/") || file.path.contains("/core/")) &&
-                    !file.path.contains("/src/test/") &&
-                    !file.path.contains("/src/androidTest/")
+                    !testSourceSet.containsMatchIn(file.invariantSeparatorsPath)
             }
 
     private fun repoRoot(): File {

@@ -210,7 +210,11 @@ internal class ConnectionPolicyRuntimeContextAssembler
         ): RipDpiProxyPreferences {
             val geoPaths = resolveGeoDatabasePaths(context)
             val effectiveRuntimeContext = withLuaSocketContext(runtimeContext, settings)
-            return if (settings.enableCmdSettings && !packetBackendRuntime.ownsPacketStrategies) {
+            return if (
+                settings.enableCmdSettings &&
+                !packetBackendRuntime.ownsPacketStrategies &&
+                packetBackendRuntime.acceptsCommandLine(settings.cmdArgs)
+            ) {
                 RipDpiProxyCmdPreferences(
                     settings.cmdArgs,
                     hostAutolearnStorePath = hostAutolearnStorePath,
@@ -227,8 +231,8 @@ internal class ConnectionPolicyRuntimeContextAssembler
                         hostAutolearnStorePath,
                         networkScopeKey,
                         effectiveRuntimeContext,
-                        rootMode = packetBackendRuntime.allowsExternalOperations(settings),
-                        rootHelperSocketPath = packetBackendRuntime.socketPath,
+                        packetBackendRequested = packetBackendRuntime.allowsExternalOperations(settings),
+                        packetBackendSocketPath = packetBackendRuntime.socketPath,
                         environmentKind = environmentDetector.kind,
                         destinationRouting = destinationRouting,
                         geoipDbPath = geoPaths.geoipDbPath,

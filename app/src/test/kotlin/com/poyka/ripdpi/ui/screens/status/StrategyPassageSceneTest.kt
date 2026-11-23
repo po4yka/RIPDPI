@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.status
 
+import com.google.protobuf.CodedOutputStream
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.NumericRangeModel
@@ -16,6 +17,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 
 /**
  * Expected orders are written from the native planner (`plan_tcp`, `plan_udp`, `tcp_fake_family`),
@@ -429,14 +431,14 @@ class StrategyPassageSceneTest {
                 ?.toSet()
         }
 
-        assertEquals(setOf(PassagePieceKind.Real), kinds(settings.clone().setRootModeEnabled(false)))
+        assertEquals(setOf(PassagePieceKind.Real), kinds(settings.clone().withLegacyPacketRequest(false)))
         val supportedKinds =
             if (BuildConfig.DISTRIBUTION_CHANNEL == "play") {
                 setOf(PassagePieceKind.Real)
             } else {
                 setOf(PassagePieceKind.Real, PassagePieceKind.Decoy)
             }
-        assertEquals(supportedKinds, kinds(settings.clone().setRootModeEnabled(true)))
+        assertEquals(supportedKinds, kinds(settings.clone().withLegacyPacketRequest(true)))
     }
 
     @Test
@@ -455,7 +457,7 @@ class StrategyPassageSceneTest {
 
         blocked.forEach { builder ->
             assertNull(strategyPassageFor(builder.clone().build()))
-            val configuredScene = strategyPassageFor(builder.clone().setRootModeEnabled(true).build())
+            val configuredScene = strategyPassageFor(builder.clone().withLegacyPacketRequest(true).build())
             if (BuildConfig.DISTRIBUTION_CHANNEL == "play") {
                 assertNull(configuredScene)
             } else {
@@ -501,7 +503,7 @@ class StrategyPassageSceneTest {
                         .setFakeMode("rand"),
                 ).addTcpChainSteps(StrategyTcpStep.newBuilder().setKind("split").setMarker("endhost"))
 
-        assertNull(strategyPassageFor(settings.setRootModeEnabled(true).build()))
+        assertNull(strategyPassageFor(settings.withLegacyPacketRequest(true).build()))
     }
 
     @Test
@@ -571,4 +573,14 @@ class StrategyPassageSceneTest {
     }
 
     private fun activeSettings() = AppSettings.newBuilder().setDesyncHttp(true).setDesyncHttps(true)
+}
+
+private fun AppSettings.Builder.withLegacyPacketRequest(enabled: Boolean): AppSettings.Builder {
+    val output = ByteArrayOutputStream()
+    build().writeTo(output)
+    CodedOutputStream.newInstance(output).apply {
+        writeBool(135, enabled)
+        flush()
+    }
+    return AppSettings.parseFrom(output.toByteArray()).toBuilder()
 }

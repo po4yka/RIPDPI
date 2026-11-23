@@ -29,7 +29,7 @@ val jacocoExcludes =
 val coverageVariantName =
     when (project.path) {
         ":app" -> "githubDebug"
-        ":core:service" -> "extendedDebug"
+        ":core:service", ":core:engine", ":core:data:model", ":core:diagnostics" -> "extendedDebug"
         else -> "debug"
     }
 val coverageSources =

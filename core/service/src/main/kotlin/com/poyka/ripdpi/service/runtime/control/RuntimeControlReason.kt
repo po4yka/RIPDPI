@@ -28,9 +28,6 @@ internal enum class RuntimeControlReason {
     /** The active relay profile changed and the relay layer must be refreshed. */
     RelayProfileChange,
 
-    /** The privileged root helper became available or unavailable. */
-    RootHelperAvailabilityChange,
-
     /** The per-network policy memory was updated and should be re-applied. */
     PolicyMemoryUpdate,
 }

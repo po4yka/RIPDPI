@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.LibraryExtension
+import com.android.build.api.variant.LibraryAndroidComponentsExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -25,6 +26,14 @@ extensions.configure<LibraryExtension> {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+extensions.configure<LibraryAndroidComponentsExtension> {
+    finalizeDsl { library ->
+        if ("runtimeEdition" !in library.flavorDimensions) {
+            library.defaultConfig.missingDimensionStrategy("runtimeEdition", "extended")
+        }
     }
 }
 

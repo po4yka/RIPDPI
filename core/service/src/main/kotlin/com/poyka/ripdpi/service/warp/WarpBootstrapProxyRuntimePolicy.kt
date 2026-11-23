@@ -56,8 +56,8 @@ internal class WarpBootstrapProxyRuntimePolicy
                 nativeLogLevel = basePreferences.nativeLogLevel,
                 runtimeContext = basePreferences.runtimeContext,
                 logContext = basePreferences.logContext,
-                rootMode = basePreferences.rootMode,
-                rootHelperSocketPath = basePreferences.rootHelperSocketPath,
+                packetBackendRequested = basePreferences.packetBackendRequested,
+                packetBackendSocketPath = basePreferences.packetBackendSocketPath,
             )
         }
 

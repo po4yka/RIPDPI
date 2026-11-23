@@ -93,7 +93,7 @@ class RipDpiProxyUIPreferenceMappersTest {
     }
 
     @Test
-    fun runtimeMapperCarriesSessionRootAndEnvironmentInputs() {
+    fun runtimeMapperCarriesSessionBackendAndEnvironmentInputs() {
         val runtimeContext = RipDpiRuntimeContext(protectPath = "/tmp/protect.sock")
         val logContext = RipDpiLogContext(runtimeId = "runtime-1", mode = "VPN")
         val preferences =
@@ -108,8 +108,8 @@ class RipDpiProxyUIPreferenceMappersTest {
                 networkScopeKey = "network-a",
                 runtimeContext = runtimeContext,
                 logContext = logContext,
-                rootMode = true,
-                rootHelperSocketPath = "/tmp/root-helper.sock",
+                packetBackendRequested = true,
+                packetBackendSocketPath = "/tmp/packet-backend.sock",
                 geoipDbPath = " /tmp/geo/geoip.db ",
                 geositeDbPath = "/tmp/geo/geosite.db",
                 environmentKind = EnvironmentKind.Emulator,
@@ -119,8 +119,8 @@ class RipDpiProxyUIPreferenceMappersTest {
         assertEquals("network-a", preferences.hostAutolearn.networkScopeKey)
         assertEquals(runtimeContext, preferences.runtimeContext)
         assertEquals("vpn", preferences.logContext?.mode)
-        assertTrue(preferences.rootMode)
-        assertEquals("/tmp/root-helper.sock", preferences.rootHelperSocketPath)
+        assertTrue(preferences.packetBackendRequested)
+        assertEquals("/tmp/packet-backend.sock", preferences.packetBackendSocketPath)
         assertEquals("/tmp/geo/geoip.db", preferences.geoipDbPath)
         assertEquals("/tmp/geo/geosite.db", preferences.geositeDbPath)
         assertEquals(EnvironmentKind.Emulator, preferences.environmentKind)

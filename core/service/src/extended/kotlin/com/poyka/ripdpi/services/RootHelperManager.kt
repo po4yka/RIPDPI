@@ -3,7 +3,6 @@ package com.poyka.ripdpi.services
 import android.content.Context
 import android.os.Build
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.data.RootSettingsSection
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -224,9 +223,9 @@ open class RootHelperManager
         }
 
         /**
-         * Reconcile the helper process with the [RootSettingsSection].
+         * Reconcile the helper process with the saved opt-in.
          *
-         * When [root]'s `rootModeEnabled` is `false` the helper is stopped and
+         * When [enabled] is false the helper is stopped and
          * `null` is returned — preserving the non-root baseline. When `true`,
          * the helper is started if it is not already running.
          *
@@ -237,9 +236,9 @@ open class RootHelperManager
          */
         open suspend fun syncRootMode(
             context: Context,
-            root: RootSettingsSection,
+            enabled: Boolean,
         ): String? {
-            if (!root.rootModeEnabled) {
+            if (!enabled) {
                 stop()
                 return null
             }

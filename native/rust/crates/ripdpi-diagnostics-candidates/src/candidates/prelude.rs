@@ -30,8 +30,8 @@ pub(super) use super::audit_specs::{
 };
 pub(super) use super::config_builders::*;
 pub(super) use super::emitter::{
-    candidate_approximate_fallback_family, candidate_emitter_tier, candidate_exact_emitter_requires_root,
-    tcp_step_kind, udp_step_kind,
+    candidate_approximate_fallback_family, candidate_emitter_tier, candidate_requires_external_emitter, tcp_step_kind,
+    udp_step_kind,
 };
 pub(super) use super::platform::*;
 pub(super) use super::quic_pool::{build_full_matrix_quic_candidates, build_quic_candidates};

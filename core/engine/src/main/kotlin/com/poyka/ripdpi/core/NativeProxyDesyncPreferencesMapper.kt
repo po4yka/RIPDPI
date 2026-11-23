@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.core.codec.PacketBackendWire
 import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
 import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
 import com.poyka.ripdpi.data.DefaultEvolutionCooldownAfterFailures
@@ -64,7 +65,7 @@ internal fun buildFakePacketConfig(settings: AppSettings): RipDpiFakePacketConfi
         oobChar = oobDataChar(settings.oobData),
         dropSack = settings.dropSack,
         // Root-gated: never request TCP_MD5SIG unless root mode is enabled.
-        md5sig = settings.fakeMd5Sig && settings.rootModeEnabled,
+        md5sig = PacketBackendWire.md5SignatureEnabled(settings),
         tlsMinorEnabled = settings.tlsMinorEnabled,
         tlsMinorValue = settings.tlsMinorValue,
         windowClamp = settings.windowClamp.takeIf { it > 0 },

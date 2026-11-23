@@ -10,7 +10,7 @@ pub struct StrategyCandidateSpec {
     pub label: &'static str,
     pub family: &'static str,
     pub emitter_tier: StrategyEmitterTier,
-    pub exact_emitter_requires_root: bool,
+    pub requires_external_emitter: bool,
     pub approximate_fallback_family: Option<&'static str>,
     pub quic_layout_family: Option<&'static str>,
     pub eligibility: CandidateEligibility,

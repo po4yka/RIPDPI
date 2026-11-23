@@ -511,7 +511,7 @@ private fun ConnectionDraft.chainValidationState(
             udpSteps = parsed.udpSteps,
             mode = mode,
             useCommandLineSettings = useCommandLineSettings,
-            rootModeEnabled = rawPacketsEnabled,
+            externalPacketOperationsEnabled = rawPacketsEnabled,
         )
     }.fold(
         onSuccess = { ChainValidationState(chain = parsed, error = null) },

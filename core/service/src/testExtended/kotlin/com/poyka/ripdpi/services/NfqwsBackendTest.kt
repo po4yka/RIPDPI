@@ -27,8 +27,8 @@ class NfqwsBackendTest {
                 parserEvasions = RipDpiParserEvasionConfig(hostMixedCase = true, httpMethodEol = true),
                 fakePackets = RipDpiFakePacketConfig(dropSack = true, windowClamp = 1234),
                 hostAutolearn = RipDpiHostAutolearnConfig(enabled = true),
-                rootMode = true,
-                rootHelperSocketPath = "/private/root_helper.sock",
+                packetBackendRequested = true,
+                packetBackendSocketPath = "/private/root_helper.sock",
             )
         assertTrue(source.chains.tcpSteps.isNotEmpty())
         val plain = source.withoutPacketStrategies()
@@ -36,7 +36,7 @@ class NfqwsBackendTest {
         assertEquals(source.destinationRouting, plain.destinationRouting)
         assertEquals(source.relay, plain.relay)
         assertEquals(source.wsTunnel, plain.wsTunnel)
-        assertEquals(source.rootHelperSocketPath, plain.rootHelperSocketPath)
+        assertEquals(source.packetBackendSocketPath, plain.packetBackendSocketPath)
         assertTrue(plain.chains.tcpSteps.isEmpty())
         assertTrue(plain.chains.udpSteps.isEmpty())
         assertEquals(RipDpiParserEvasionConfig(), plain.parserEvasions)

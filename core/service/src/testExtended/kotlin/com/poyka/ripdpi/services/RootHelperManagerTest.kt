@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.RootSettingsSection
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -338,7 +337,7 @@ class RootHelperManagerTest {
                     shutdownRequester = { _, _ -> shutdownRequests += 1 },
                     endpointCleanup = { _, _ -> },
                 )
-            val enabled = RootSettingsSection(rootModeEnabled = true)
+            val enabled = true
             manager.claimedBy = Mode.Proxy
             val socket = manager.syncRootMode(context, enabled)
             assertNotNull(socket)
@@ -376,8 +375,8 @@ class RootHelperManagerTest {
                     endpointCleanup = { _, _ -> },
                 )
 
-            assertNotNull(manager.syncRootMode(context, RootSettingsSection(rootModeEnabled = true)))
-            val disabledResult = manager.syncRootMode(context, RootSettingsSection(rootModeEnabled = false))
+            assertNotNull(manager.syncRootMode(context, true))
+            val disabledResult = manager.syncRootMode(context, false)
 
             assertNull(disabledResult)
             assertNull(manager.socketPath)

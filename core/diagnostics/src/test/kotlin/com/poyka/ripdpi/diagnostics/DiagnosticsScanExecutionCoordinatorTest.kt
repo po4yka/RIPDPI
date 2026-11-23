@@ -1,9 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.core.RipDpiChainConfig
-import com.poyka.ripdpi.core.RipDpiProtocolConfig
-import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
-import com.poyka.ripdpi.core.RipDpiQuicConfig
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
@@ -14,9 +10,6 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RawPathExecutionCancelledException
 import com.poyka.ripdpi.data.RawPathExecutionOutcome
 import com.poyka.ripdpi.data.RawPathExecutionResult
-import com.poyka.ripdpi.data.TcpChainStepKind
-import com.poyka.ripdpi.data.TcpChainStepModel
-import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
@@ -2020,7 +2013,7 @@ internal fun scanReportWithStrategyProbe(
                         coordinatorStrategyCandidate(
                             id = "tcp-1",
                             label = "TCP candidate",
-                            family = "hostfake",
+                            family = "tlsrec_split",
                             succeededTargets = tcpSucceededTargets,
                         ),
                     ),
@@ -2040,7 +2033,7 @@ internal fun scanReportWithStrategyProbe(
                         quicCandidateId = "quic-1",
                         quicCandidateLabel = "QUIC candidate",
                         rationale = "best path",
-                        recommendedProxyConfigJson = validRecommendedProxyConfigJsonForCoordinator(),
+                        recommendedProxyConfigJson = validRecommendedProxyConfigJson(),
                     ),
                 completionKind = completionKind,
                 auditAssessment = auditAssessment,
@@ -2058,7 +2051,8 @@ private fun coordinatorStrategyCandidate(
         id = id,
         label = label,
         family = family,
-        proxyConfigJson = validRecommendedProxyConfigJsonForCoordinator(),
+        emitterTier = productionEmitterForTests,
+        proxyConfigJson = validRecommendedProxyConfigJson(),
         outcome = "success",
         rationale = "best",
         succeededTargets = succeededTargets,
@@ -2105,23 +2099,6 @@ internal fun strategyProbeAuditAssessmentForCoordinator(
                 rationale = "Matrix coverage and winner strength are consistent",
             ),
     )
-
-internal fun validRecommendedProxyConfigJsonForCoordinator(): String =
-    RipDpiProxyUIPreferences(
-        protocols = RipDpiProtocolConfig(desyncUdp = true),
-        chains =
-            RipDpiChainConfig(
-                tcpSteps =
-                    listOf(
-                        TcpChainStepModel(
-                            kind = TcpChainStepKind.HostFake,
-                            marker = "midhost+1",
-                        ),
-                    ),
-                udpSteps = listOf(UdpChainStepModel(count = 4)),
-            ),
-        quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
-    ).toNativeConfigJson()
 
 internal fun resolverRecommendationForCoordinator(): ResolverRecommendation =
     ResolverRecommendation(

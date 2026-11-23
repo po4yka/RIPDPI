@@ -333,8 +333,8 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("if: always()", job)
         for artifact in (
             "core/engine/build/reports/relay-native-wire.json",
-            "core/engine/build/test-results/testDebugUnitTest/",
-            "core/engine/build/reports/tests/testDebugUnitTest/",
+            "core/engine/build/test-results/testExtendedDebugUnitTest/",
+            "core/engine/build/reports/tests/testExtendedDebugUnitTest/",
         ):
             self.assertIn(artifact, job)
         self.assertNotIn("secrets.", job)

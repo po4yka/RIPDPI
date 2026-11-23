@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiWsTunnelConfig
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.core.service.BuildConfig
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AsnRoutingMapCatalog
 import com.poyka.ripdpi.data.AsnRoutingMapEntry
@@ -551,7 +552,7 @@ class ConnectionPolicyResolverTest {
                             TestAppSettingsRepository(
                                 AppSettingsSerializer.defaultValue
                                     .toBuilder()
-                                    .setRootModeEnabled(true)
+                                    .setUiPersona("advanced")
                                     .build(),
                             ),
                         networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
@@ -579,8 +580,9 @@ class ConnectionPolicyResolverTest {
                 val resolution = resolver.resolve(mode = Mode.Proxy)
                 val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
 
-                assertEquals(expectedPath, uiPreferences?.rootHelperSocketPath)
-                assertEquals(expectedPath != null, uiPreferences?.rootMode)
+                val decodedPath = expectedPath.takeIf { BuildConfig.FLAVOR == "extended" }
+                assertEquals(decodedPath, uiPreferences?.packetBackendSocketPath)
+                assertEquals(decodedPath != null, uiPreferences?.packetBackendRequested)
             }
         }
 
@@ -910,7 +912,7 @@ class LuaConnectionPolicyResolverTest {
                             plainUdpSettings()
                                 .toBuilder()
                                 .setStrategyChainYaml(yaml)
-                                .setRootModeEnabled(root)
+                                .setUiPersona(if (root) "advanced" else "simple")
                                 .setEnableCmdSettings(commandLine)
                                 .setCmdArgs("--port 1081")
                                 .build()
@@ -993,14 +995,14 @@ private class FakePacketBackendRuntime(
     override var socketPath: String? = null
         private set
 
-    override fun allowsExternalOperations(settings: AppSettings): Boolean = settings.rootModeEnabled
+    override fun allowsExternalOperations(settings: AppSettings): Boolean = (settings.uiPersona == "advanced")
 
     override suspend fun prepare(
         context: Context,
         mode: Mode,
         settings: AppSettings,
     ) {
-        socketPath = startedSocketPath?.takeIf { settings.rootModeEnabled }
+        socketPath = startedSocketPath?.takeIf { (settings.uiPersona == "advanced") }
     }
 }
 

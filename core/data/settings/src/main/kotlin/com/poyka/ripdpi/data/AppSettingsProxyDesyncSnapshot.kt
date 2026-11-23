@@ -40,7 +40,6 @@ internal data class AppSettingsProxyDesyncSnapshot(
     val tlsFakeProfile: String = defaultSettings.tlsFakeProfile,
     val oobData: String = defaultSettings.oobData,
     val dropSack: Boolean = defaultSettings.dropSack,
-    val fakeMd5Sig: Boolean = defaultSettings.fakeMd5Sig,
     val tlsMinorEnabled: Boolean = defaultSettings.tlsMinorEnabled,
     val tlsMinorValue: Int = defaultSettings.tlsMinorValue,
     val desyncHttp: Boolean = defaultSettings.desyncHttp,

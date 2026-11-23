@@ -31,6 +31,18 @@ class DiagnosticsWireContractTest {
         }
 
     @Test
+    fun `execution plan accepts a missing emitter requirement flag`() {
+        val plan = sampleCandidatePlan("baseline_current")
+        val encoded = contractJson.encodeToJsonElement(plan).jsonObject
+        assertEquals(JsonPrimitive(false), encoded["exactEmitterRequiresRoot"])
+        val decoded =
+            contractJson.decodeFromJsonElement<StrategyCandidatePlanSnapshot>(
+                JsonObject(encoded - "exactEmitterRequiresRoot"),
+            )
+        assertEquals(plan, decoded)
+    }
+
+    @Test
     fun `candidate cap omissions are optional and distinct from deadline skips`() {
         val stage = ExecutionStageSnapshot("strategy_tcp_candidates", 1, 1, 0, 0)
         val legacy = contractJson.encodeToJsonElement(stage).jsonObject
@@ -372,7 +384,7 @@ class DiagnosticsWireContractTest {
             label = "Candidate",
             family = "baseline",
             emitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
-            exactEmitterRequiresRoot = false,
+            requiresExternalEmitter = false,
             approximateFallbackFamily = "split",
             quicLayoutFamily = "initial",
             eligibility = "always",

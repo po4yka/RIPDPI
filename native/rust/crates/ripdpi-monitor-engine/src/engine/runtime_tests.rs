@@ -162,7 +162,7 @@ fn candidate_summary(
         label: id.replace('_', " "),
         family: family.to_string(),
         emitter_tier: StrategyEmitterTier::NonRootProduction,
-        exact_emitter_requires_root: false,
+        requires_external_emitter: false,
         emitter_downgraded: false,
         quic_layout_family: None,
         outcome: "success".to_string(),

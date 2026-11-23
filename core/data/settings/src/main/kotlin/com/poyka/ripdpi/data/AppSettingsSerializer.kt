@@ -169,7 +169,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
 
     override suspend fun readFrom(input: InputStream): AppSettings {
         try {
-            return AppSettings.parseFrom(input)
+            return decodeStoredAppSettings(input.readBytes())
         } catch (e: InvalidProtocolBufferException) {
             throw CorruptionException("Cannot read proto.", e)
         }
@@ -179,6 +179,6 @@ object AppSettingsSerializer : Serializer<AppSettings> {
         t: AppSettings,
         output: OutputStream,
     ) {
-        t.writeTo(output)
+        output.write(encodeStoredAppSettings(t))
     }
 }

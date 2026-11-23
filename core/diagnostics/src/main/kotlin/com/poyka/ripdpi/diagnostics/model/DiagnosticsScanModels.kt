@@ -714,13 +714,6 @@ enum class StrategyProbeCompletionKind {
 }
 
 @Serializable
-enum class StrategyEmitterTier {
-    NON_ROOT_PRODUCTION,
-    ROOTED_PRODUCTION,
-    LAB_DIAGNOSTICS_ONLY,
-}
-
-@Serializable
 data class StrategyProbeReport(
     val suiteId: String,
     val methodologyVersion: String = "strategy_learning_v3",

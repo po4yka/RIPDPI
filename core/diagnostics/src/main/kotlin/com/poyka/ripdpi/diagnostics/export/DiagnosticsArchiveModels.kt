@@ -531,20 +531,6 @@ internal data class DiagnosticsArchiveAcceptanceMetrics(
 )
 
 @Serializable
-internal data class DiagnosticsArchiveDetectabilityMetrics(
-    val rootedProductionCandidates: Int = 0,
-    val labOnlyCandidates: Int = 0,
-    val downgradedCandidates: Int = 0,
-    val exactRootRequiredCandidates: Int = 0,
-    val capabilitySkippedCandidates: Int = 0,
-    val skippedCandidates: Int = 0,
-    val recommendedUsesRootedEmitter: Boolean = false,
-    val recommendedWasDowngraded: Boolean = false,
-    val evidence: List<String> = emptyList(),
-    val notes: List<String> = emptyList(),
-)
-
-@Serializable
 internal data class DiagnosticsArchiveRolloutGateResult(
     val id: String,
     val passed: Boolean,

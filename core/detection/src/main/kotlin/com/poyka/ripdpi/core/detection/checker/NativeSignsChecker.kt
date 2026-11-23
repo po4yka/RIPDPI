@@ -15,6 +15,7 @@ data class NativeSignsSnapshot(
     val nativeInterfaces: List<String> = emptyList(),
     val mapsLines: List<String> = emptyList(),
     val reviewSignals: List<String> = emptyList(),
+    val additionalHookMarkers: List<String> = emptyList(),
     val selinuxMode: String? = null,
 )
 
@@ -39,7 +40,7 @@ object NativeSignsChecker {
                 .filter { it.isNotBlank() && it !in jvmInterfaces }
                 .distinct()
                 .sorted()
-        val hookMarkers = hookMarkers(snapshot.mapsLines)
+        val hookMarkers = (hookMarkers(snapshot.mapsLines) + snapshot.additionalHookMarkers).distinct()
         val rwxRegions = rwxRegions(snapshot.mapsLines)
         return result(
             hiddenInterfaces = hiddenInterfaces,
@@ -200,7 +201,7 @@ object NativeSignsChecker {
         }.getOrDefault(emptyList())
 
     private const val LargeRwxRegionBytes = 4L * 1024L * 1024L
-    private val HookMarkers = listOf("frida", "substrate", "xposed", "lspatch", "zygisk", "riru")
+    private val HookMarkers = listOf("frida", "substrate", "xposed", "lspatch")
 }
 
 class JniNativeSignsBridge : NativeSignsBridge {
@@ -218,6 +219,7 @@ private fun JSONObject.toNativeSignsSnapshot(): NativeSignsSnapshot =
         nativeInterfaces = stringArray("nativeInterfaces"),
         mapsLines = stringArray("mapsLines"),
         reviewSignals = stringArray("reviewSignals"),
+        additionalHookMarkers = stringArray("additionalHookMarkers"),
         selinuxMode = optString("selinuxMode").takeIf(String::isNotBlank),
     )
 

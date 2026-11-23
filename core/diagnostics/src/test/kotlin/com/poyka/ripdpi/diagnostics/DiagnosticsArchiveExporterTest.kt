@@ -88,7 +88,7 @@ internal abstract class DiagnosticsArchiveExporterTestBase {
         startupJournal: StartupJournal,
     ): DefaultDiagnosticsArchiveExporter {
         val context = TestContext()
-        val appSettings = defaultDiagnosticsAppSettings().toBuilder().setRootModeEnabled(false).build()
+        val appSettings = defaultDiagnosticsAppSettings().toBuilder().withHistoricalPacketMode(false).build()
         return DefaultDiagnosticsArchiveExporter(
             preparedExports = preparedExportManagerForTest(context, stores, json),
             exportRecordStore = stores,

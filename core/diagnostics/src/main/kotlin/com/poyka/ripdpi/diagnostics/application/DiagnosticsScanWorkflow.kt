@@ -26,6 +26,7 @@ import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.strategyLabel
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
+import com.poyka.ripdpi.diagnostics.hasSupportedEmitter
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -605,10 +606,6 @@ internal object DiagnosticsScanWorkflow {
         // Same bar as the engine: at least half the targets, so one success out of several does not promote.
         val hasTargetSuccess = !skipped && succeededTargets > 0 && succeededTargets * 2 >= totalTargets
         val hasPromotableOutcome = outcome.lowercase() !in NonPromotableStrategyProbeOutcomes
-        val hasProductionEmitter = emitterTier != StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY
-        val hasExactEmitter = !exactEmitterRequiresRoot || !emitterDowngraded
-        val rootedCandidate = exactEmitterRequiresRoot || emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION
-        val hasRootAccess = !rootedCandidate || settings.rootModeEnabled
         val hasExecutionEvidence = !desyncExecutionRequired || executionEvidenceComplete
         val terminalSucceeded =
             runtimeTerminalStatus == StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN ||
@@ -617,9 +614,7 @@ internal object DiagnosticsScanWorkflow {
             hasExecutionEvidence &&
             terminalSucceeded &&
             hasPromotableOutcome &&
-            hasProductionEmitter &&
-            hasExactEmitter &&
-            hasRootAccess
+            hasSupportedEmitter(settings)
     }
 
     private fun hasWinningTargetSuccess(strategyProbe: StrategyProbeReport): Boolean {

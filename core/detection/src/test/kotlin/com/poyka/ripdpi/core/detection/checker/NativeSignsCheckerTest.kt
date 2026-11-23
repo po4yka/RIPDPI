@@ -55,6 +55,19 @@ class NativeSignsCheckerTest {
     }
 
     @Test
+    fun nativeHookMarkersKeepTheirHighConfidenceClassification() {
+        val result =
+            NativeSignsChecker.check(
+                bridge = { NativeSignsSnapshot(additionalHookMarkers = listOf("injected-hook")) },
+                jvmInterfaceProvider = { emptyList() },
+            )
+
+        assertEquals(listOf("injected-hook"), result.hookMarkers)
+        assertTrue(result.category.detected)
+        assertTrue(result.category.evidence.any { it.confidence == EvidenceConfidence.HIGH })
+    }
+
+    @Test
     fun libraryLoadFailureDoesNotCrash() {
         val result =
             NativeSignsChecker.check(

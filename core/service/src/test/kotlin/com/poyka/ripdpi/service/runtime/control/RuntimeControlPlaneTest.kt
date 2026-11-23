@@ -124,7 +124,7 @@ class RuntimeControlPlaneTest {
                         RuntimePolicyPatch(summary = "test-patch"),
                     ),
                     RuntimeControlCommand.RefreshRelay(RuntimeControlReason.RelayProfileChange),
-                    RuntimeControlCommand.RefreshDns(RuntimeControlReason.RootHelperAvailabilityChange),
+                    RuntimeControlCommand.RefreshDns(RuntimeControlReason.SettingsChange),
                 )
 
             sessionScoped.forEach { command ->

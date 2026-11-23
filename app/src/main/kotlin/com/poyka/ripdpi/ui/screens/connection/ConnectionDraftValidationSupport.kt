@@ -576,7 +576,7 @@ private fun validateStrategyDraft(
                     udpSteps = chain.udpSteps,
                     mode = draft.mode,
                     useCommandLineSettings = draft.useCommandLineSettings,
-                    rootModeEnabled = rawPacketOperationsEnabled,
+                    externalPacketOperationsEnabled = rawPacketOperationsEnabled,
                 )
             }
         if (chainValidation.isFailure) "invalid_chain" else null

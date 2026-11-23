@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.FakeSeqModeSequential
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.toWarpSettingsModel
+import com.poyka.ripdpi.platform.hasExtendedPacketControls
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -63,8 +64,10 @@ class AdvancedSettingsRouteBinderTest {
     }
 
     @Test
-    fun `toggle handler registry covers every toggle setting`() {
-        assertEquals(AdvancedToggleSetting.entries.toSet(), toggleHandlers.keys)
+    fun `toggle handler registry covers the settings available in this edition`() {
+        val expected =
+            AdvancedToggleSetting.entries.filter { hasExtendedPacketControls || it != AdvancedToggleSetting.Md5Sig }
+        assertEquals(expected.toSet(), toggleHandlers.keys)
     }
 
     @Test

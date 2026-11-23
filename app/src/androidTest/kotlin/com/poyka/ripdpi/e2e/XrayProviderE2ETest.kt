@@ -325,7 +325,6 @@ class XrayProviderE2ETest {
                 proxyIp = "127.0.0.1"
                 proxyPort = reserveLoopbackPort()
                 ipv6Enable = false
-                rootModeEnabled = false
                 setSplitTunnelMode(SplitTunnelMode.Off)
                 clearSplitTunnelPackages()
                 enableCmdSettings = false

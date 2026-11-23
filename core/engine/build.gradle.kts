@@ -68,6 +68,12 @@ abstract class XrayAarPresenceValueSource : ValueSource<Boolean, XrayAarPresence
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.engine"
 
+    flavorDimensions += "runtimeEdition"
+    productFlavors {
+        create("standard") { dimension = "runtimeEdition" }
+        create("extended") { dimension = "runtimeEdition" }
+    }
+
     // Exactly ONE of xrayLinked / xrayStub is added to `main`, so the FQN
     // com.poyka.ripdpi.core.XrayNativeBridgeLibXrayImpl is defined once. The
     // engine-api throwing stub was removed in the same change to avoid a

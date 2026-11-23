@@ -236,7 +236,7 @@ private fun ScanReport.withAcceptedStrategyEvidence(): ScanReport =
         strategyProbeReport =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment = scanWorkflowAuditAssessment(),
             ).strategyProbeReport,

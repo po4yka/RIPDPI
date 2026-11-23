@@ -474,7 +474,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                 val outcome = homeAuditOutcome(report.copy(strategyProbeReport = partialLane))
 
                 assertTrue(outcome.actionable)
-                assertEquals(if (tcpOnly) "TCP hostfake" else "QUIC realistic", outcome.recommendationSummary)
+                assertEquals(if (tcpOnly) "TCP TLS record split" else "QUIC realistic", outcome.recommendationSummary)
                 assertEquals(tcpOnly, outcome.appliedSettings.any { it.label == "TCP/TLS lane" })
                 assertEquals(!tcpOnly, outcome.appliedSettings.any { it.label == "QUIC lane" })
             }

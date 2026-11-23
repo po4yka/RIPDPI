@@ -16,7 +16,7 @@ def main() -> None:
     output = ROOT / "core/engine/build/reports/relay-native-wire.json"
     subprocess.run(
         [
-            "./gradlew", ":core:engine:testDebugUnitTest",
+            "./gradlew", ":core:engine:testExtendedDebugUnitTest",
             "--tests", "com.poyka.ripdpi.core.RelayNativeWireExportTest",
             "--max-workers=4", "-Pripdpi.skipNativeBuild=true",
             "-Pripdpi.requireLibXray=false", "-Pripdpi.exportRelayWire=true",

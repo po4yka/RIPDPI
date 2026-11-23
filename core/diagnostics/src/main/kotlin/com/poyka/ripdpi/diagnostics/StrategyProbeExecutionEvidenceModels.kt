@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.diagnostics
 
 import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonIgnoreUnknownKeys
 
 @Serializable
 data class StrategyProbeDomainOutcome(
@@ -10,13 +13,16 @@ data class StrategyProbeDomainOutcome(
     val isControl: Boolean = false,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
+@JsonIgnoreUnknownKeys
 @Serializable
 data class StrategyProbeCandidateSummary(
     val id: String,
     val label: String,
     val family: String,
-    val emitterTier: StrategyEmitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
-    val exactEmitterRequiresRoot: Boolean = false,
+    val emitterTier: StrategyEmitterTier = defaultStrategyEmitterTier,
+    @SerialName(RequiresExternalEmitterWireName)
+    val requiresExternalEmitter: Boolean = false,
     val emitterDowngraded: Boolean = false,
     val quicLayoutFamily: String? = null,
     val outcome: String,

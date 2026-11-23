@@ -46,7 +46,7 @@ echo "==> Engine wrapper baseline"
   cd "$repo_root"
   RIPDPI_BASELINE_OUTPUT="$wrapper_report" \
     ./gradlew \
-    :core:engine:testDebugUnitTest \
+    :core:engine:testExtendedDebugUnitTest \
     --tests 'com.poyka.ripdpi.core.NativeWrapperBaselineCaptureTest' \
     -x :core:engine:buildRustNativeLibs \
     -x :core:engine:buildRustCloudflareOrigin \

@@ -45,9 +45,10 @@ internal fun strategyAuditReport(
                 tcpCandidates =
                     listOf(
                         StrategyProbeCandidateSummary(
-                            id = "tcp-hostfake",
-                            label = "TCP hostfake",
-                            family = "hostfake",
+                            id = "tcp-tlsrec-split",
+                            label = "TCP TLS record split",
+                            family = "tlsrec_split",
+                            emitterTier = productionEmitterForTests,
                             outcome = "ok",
                             proxyConfigJson = recommendedProxyConfigJson,
                             executionEvidenceComplete = true,
@@ -74,6 +75,7 @@ internal fun strategyAuditReport(
                             id = "quic-realistic",
                             label = "QUIC realistic",
                             family = "quic_realistic_burst",
+                            emitterTier = productionEmitterForTests,
                             outcome = "ok",
                             proxyConfigJson = recommendedProxyConfigJson,
                             executionEvidenceComplete = true,
@@ -96,8 +98,8 @@ internal fun strategyAuditReport(
                     ),
                 recommendation =
                     StrategyProbeRecommendation(
-                        tcpCandidateId = "tcp-hostfake",
-                        tcpCandidateLabel = "TCP hostfake",
+                        tcpCandidateId = "tcp-tlsrec-split",
+                        tcpCandidateLabel = "TCP TLS record split",
                         quicCandidateId = "quic-realistic",
                         quicCandidateLabel = "QUIC realistic",
                         rationale = "Best combined result",

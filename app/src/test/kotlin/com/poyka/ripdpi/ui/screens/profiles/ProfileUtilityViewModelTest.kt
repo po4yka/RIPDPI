@@ -1194,6 +1194,7 @@ private class Fixture(
             object : RuntimeExperimentSelectionProvider {
                 override fun current() = RuntimeExperimentSelection()
             },
+            Class.forName("com.poyka.ripdpi.services.LocalPacketBackendRuntime").getField("INSTANCE").get(null),
         )
     }
 

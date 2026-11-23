@@ -53,9 +53,6 @@ internal sealed interface NativeProxyConfig {
         val destinationRouting: NativeDestinationRoutingConfig = NativeDestinationRoutingConfig(),
         @EncodeDefault(EncodeDefault.Mode.NEVER)
         val nativeLogLevel: String? = null,
-        val rootMode: Boolean = false,
-        @EncodeDefault(EncodeDefault.Mode.NEVER)
-        val rootHelperSocketPath: String? = null,
         @EncodeDefault(EncodeDefault.Mode.NEVER)
         val geoipDbPath: String? = null,
         @EncodeDefault(EncodeDefault.Mode.NEVER)

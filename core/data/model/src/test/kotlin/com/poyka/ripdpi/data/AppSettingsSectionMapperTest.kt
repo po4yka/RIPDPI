@@ -26,7 +26,6 @@ class AppSettingsSectionMapperTest {
                 relay = RelaySettingsSection(),
                 warp = WarpSettingsSection(),
                 strategy = StrategySettingsSection(),
-                root = RootSettingsSection(),
                 detection = DetectionSettingsSection(),
                 telemetry = TelemetrySettingsSection(),
             ),
@@ -98,7 +97,7 @@ class AppSettingsSectionMapperTest {
     }
 
     @Test
-    fun `populated AppSettings projects the strategy, root, detection, and telemetry sections`() {
+    fun `populated AppSettings projects the strategy, detection, and telemetry sections`() {
         val sections = populatedSettings().toSettingsSections()
 
         assertEquals(
@@ -110,7 +109,6 @@ class AppSettingsSectionMapperTest {
             ),
             sections.strategy,
         )
-        assertEquals(RootSettingsSection(rootModeEnabled = true), sections.root)
         assertEquals(
             DetectionSettingsSection(
                 detectionCheckIncludeBypass = true,
@@ -171,7 +169,6 @@ class AppSettingsSectionMapperTest {
             .setEvolutionEpsilon(0.25)
             .setEvolutionExperimentTtlMs(45_000L)
             .setStrategyPackChannel("beta")
-            .setRootModeEnabled(true)
             .setDetectionCheckIncludeBypass(true)
             .setDetectionCheckTunProbeMode("strict_same_path")
             .setDpiSuiteConcurrency(50)

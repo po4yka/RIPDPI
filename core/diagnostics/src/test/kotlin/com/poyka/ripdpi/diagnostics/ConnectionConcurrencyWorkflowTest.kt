@@ -10,7 +10,7 @@ class ConnectionConcurrencyWorkflowTest {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
+                tcpFamily = "tlsrec_split",
                 quicFamily = "quic_realistic_burst",
                 suiteId = "full_matrix_v1",
                 connectionConcurrencyAssessment =

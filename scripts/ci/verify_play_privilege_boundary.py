@@ -30,7 +30,7 @@ CLASS_MAPPING = re.compile(rb"^([^\s]+) -> ([^\s]+):$")
 OWNED_PRIVILEGE_CLASS = re.compile(
     rb"(?<![\w./$])L?com[./]poyka[./]ripdpi[./](?:[\w]+[./$])*"
     rb"(?:RootDetector|(?:Runtime)?RootCommand(?:Runner|Result)|RootAccess(?:Checker|Result|State)\w*"
-    rb"|RootModeStrategies\w*|RootHelper(?:Manager|Ipc|Endpoint|State)\w*|NfqwsBackend\w*)(?![\w])"
+    rb"|RootModeStrategies\w*|RootHelper(?:Manager|Ipc|Endpoint|State|Availability)\w*|NfqwsBackend\w*)(?![\w])"
 )
 NFQWS_EXECUTABLE_NAME = (
     re.compile(rb"(?<![a-z0-9_])nfqws2(?![a-z0-9_])"),
@@ -49,8 +49,8 @@ FINGERPRINTS = {
     "root detection": ("/data/adb/", "com.topjohnwu.magisk", "rootArtifacts", "rootArtifact="),
     "root settings": (
         "root_mode_", "rootModeEnabled", "rootHelperSocketPath", "root_helper_socket_path",
-        "root_helper_available", "rooted_production", "exact_emitter_requires_root",
-        "diagnostics_strategy_emitter_rooted",
+        "root_helper_available", "rooted_production", "non_root_production", "exact_emitter_requires_root",
+        "diagnostics_strategy_emitter_rooted", "fakeMd5Sig", "fake_md5sig", "RootHelperAvailabilityChange",
     ),
     "privileged IPC": ("v4/probe_capabilities", "v4/send_raw_ip_packet", "v4/send_fake_rst", "v4/start_nfqws2"),
     "privileged Lua": ("rawsend_dissect_ipfrag",),

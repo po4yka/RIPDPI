@@ -1,9 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.core.RipDpiChainConfig
-import com.poyka.ripdpi.core.RipDpiProtocolConfig
-import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
-import com.poyka.ripdpi.core.RipDpiQuicConfig
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
@@ -11,9 +7,6 @@ import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
-import com.poyka.ripdpi.data.TcpChainStepKind
-import com.poyka.ripdpi.data.TcpChainStepModel
-import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
@@ -56,7 +49,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             val matching =
                 strategyProbeReport(
                     sessionId = prepared.sessionId,
-                    proxyConfigJson = validPersistenceProxyConfigJson(),
+                    proxyConfigJson = validRecommendedProxyConfigJson(),
                     tcpFamily = "split",
                     quicFamily = "quic_burst",
                 )
@@ -229,8 +222,8 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             val report =
                 strategyProbeReport(
                     sessionId = prepared.sessionId,
-                    proxyConfigJson = validPersistenceProxyConfigJson(),
-                    tcpFamily = "hostfake",
+                    proxyConfigJson = validRecommendedProxyConfigJson(),
+                    tcpFamily = "tlsrec_split",
                     quicFamily = "quic_realistic_burst",
                     auditAssessment = auditAssessment(),
                 ).copy(pathMode = ScanPathMode.IN_PATH)
@@ -261,8 +254,8 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             val report =
                 strategyProbeReport(
                     sessionId = prepared.sessionId,
-                    proxyConfigJson = validPersistenceProxyConfigJson(),
-                    tcpFamily = "hostfake",
+                    proxyConfigJson = validRecommendedProxyConfigJson(),
+                    tcpFamily = "tlsrec_split",
                     quicFamily = "quic_realistic_burst",
                     auditAssessment = auditAssessment(),
                     connectionConcurrencyAssessment =
@@ -325,8 +318,8 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                 json.encodeToString(
                     strategyProbeReport(
                         sessionId = prepared.sessionId,
-                        proxyConfigJson = validPersistenceProxyConfigJson(),
-                        tcpFamily = "hostfake",
+                        proxyConfigJson = validRecommendedProxyConfigJson(),
+                        tcpFamily = "tlsrec_split",
                         quicFamily = "quic_realistic_burst",
                         auditAssessment = auditAssessment(),
                     ).toEngineScanReportWire(),
@@ -340,7 +333,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
 
             val remembered = stores.rememberedPoliciesState.value.single()
             assertEquals(fingerprint.scopeKey(), remembered.fingerprintHash)
-            assertEquals("hostfake", remembered.winningTcpStrategyFamily)
+            assertEquals("tlsrec_split", remembered.winningTcpStrategyFamily)
             assertEquals("quic_realistic_burst", remembered.winningQuicStrategyFamily)
             assertEquals(
                 RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND,
@@ -348,7 +341,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             )
             val signatureJson = requireNotNull(remembered.strategySignatureJson)
             val signature = json.decodeFromString<BypassStrategySignature>(signatureJson)
-            assertEquals("hostfake", signature.tcpStrategyFamily)
+            assertEquals("tlsrec_split", signature.tcpStrategyFamily)
             assertEquals("quic_realistic_burst", signature.quicStrategyFamily)
             assertEquals(activeDns.strategyFamily(), signature.dnsStrategyFamily)
         }
@@ -373,7 +366,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                 json.encodeToString(
                     strategyProbeReport(
                         sessionId = prepared.sessionId,
-                        proxyConfigJson = validPersistenceProxyConfigJson(),
+                        proxyConfigJson = validRecommendedProxyConfigJson(),
                         tcpFamily = "split",
                         quicFamily = "quic_burst",
                         auditAssessment = auditAssessment(),
@@ -421,8 +414,8 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             val report =
                 strategyProbeReport(
                     sessionId = prepared.sessionId,
-                    proxyConfigJson = validPersistenceProxyConfigJson(),
-                    tcpFamily = "hostfake",
+                    proxyConfigJson = validRecommendedProxyConfigJson(),
+                    tcpFamily = "tlsrec_split",
                     quicFamily = "quic_realistic_burst",
                     auditAssessment = auditAssessment(),
                 )
@@ -476,8 +469,8 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                 json.encodeToString(
                     strategyProbeReport(
                         sessionId = prepared.sessionId,
-                        proxyConfigJson = validPersistenceProxyConfigJson(),
-                        tcpFamily = "hostfake",
+                        proxyConfigJson = validRecommendedProxyConfigJson(),
+                        tcpFamily = "tlsrec_split",
                         quicFamily = "quic_multi_initial_realistic",
                         auditAssessment = auditAssessment(),
                     ).copy(
@@ -576,8 +569,8 @@ internal fun ownedActiveObservationFixture(sessionId: String): Pair<PreparedDiag
     val baseReport =
         strategyProbeReport(
             sessionId = prepared.sessionId,
-            proxyConfigJson = validPersistenceProxyConfigJson(),
-            tcpFamily = "hostfake",
+            proxyConfigJson = validRecommendedProxyConfigJson(),
+            tcpFamily = "tlsrec_split",
             quicFamily = "quic_realistic_burst",
             auditAssessment = auditAssessment(),
         )
@@ -755,6 +748,7 @@ private fun strategyProbeReport(
                             id = "tcp-1",
                             label = "TCP candidate",
                             family = tcpFamily,
+                            emitterTier = productionEmitterForTests,
                             proxyConfigJson = proxyConfigJson,
                             outcome = "success",
                             rationale = "best",
@@ -781,6 +775,7 @@ private fun strategyProbeReport(
                             id = "quic-1",
                             label = "QUIC candidate",
                             family = quicFamily,
+                            emitterTier = productionEmitterForTests,
                             proxyConfigJson = proxyConfigJson,
                             outcome = "success",
                             rationale = "best",
@@ -807,23 +802,6 @@ private fun strategyProbeReport(
                 pilotBucketLabels = listOf("control:neutral:success"),
             ),
     )
-
-private fun validPersistenceProxyConfigJson(): String =
-    RipDpiProxyUIPreferences(
-        protocols = RipDpiProtocolConfig(desyncUdp = true),
-        chains =
-            RipDpiChainConfig(
-                tcpSteps =
-                    listOf(
-                        TcpChainStepModel(
-                            kind = TcpChainStepKind.HostFake,
-                            marker = "midhost+1",
-                        ),
-                    ),
-                udpSteps = listOf(UdpChainStepModel(count = 4)),
-            ),
-        quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
-    ).toNativeConfigJson()
 
 private fun networkFingerprint(ssid: String): NetworkFingerprint =
     NetworkFingerprint(

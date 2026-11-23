@@ -202,11 +202,6 @@ data class StrategySettingsSection(
     val strategyPackAllowRollbackOverride: Boolean = false,
 )
 
-/** Root-mode enablement — the single seam for the opt-in root-helper feature. */
-data class RootSettingsSection(
-    val rootModeEnabled: Boolean = false,
-)
-
 /** Detection-check probe settings — every `detection_check_*` and diagnostic-probe field. */
 data class DetectionSettingsSection(
     val detectionCheckIncludeBypass: Boolean = false,
@@ -257,7 +252,6 @@ data class SettingsSections(
     val relay: RelaySettingsSection,
     val warp: WarpSettingsSection,
     val strategy: StrategySettingsSection,
-    val root: RootSettingsSection,
     val detection: DetectionSettingsSection,
     val telemetry: TelemetrySettingsSection,
 )

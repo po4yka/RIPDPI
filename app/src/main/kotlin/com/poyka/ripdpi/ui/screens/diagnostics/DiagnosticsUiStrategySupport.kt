@@ -476,7 +476,7 @@ internal fun StrategyProbeCandidateSummary.toCandidateUiModel(
 ): DiagnosticsStrategyProbeCandidateUiModel =
     DiagnosticsStrategyProbeCandidateUiModel(
         id = id,
-        label = label,
+        label = presentedLabel(stringResolver),
         outcome = strategyProbeOutcomeLabel(outcome = outcome, skipped = skipped, stringResolver = stringResolver),
         rationale = presentedRationale(),
         metrics = buildStrategyProbeCandidateMetrics(this, recommended, stringResolver).toImmutableList(),
@@ -495,7 +495,7 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
 ): DiagnosticsStrategyProbeCandidateDetailUiModel =
     DiagnosticsStrategyProbeCandidateDetailUiModel(
         id = candidate.id,
-        label = candidate.label,
+        label = candidate.presentedLabel(context),
         familyLabel = strategyProbeFamilyLabel(candidate.family),
         suiteLabel = strategyProbeSuiteLabel(suiteId),
         outcome =

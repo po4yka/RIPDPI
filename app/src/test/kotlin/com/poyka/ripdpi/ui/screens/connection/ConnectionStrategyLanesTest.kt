@@ -28,6 +28,7 @@ import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.StrategyCandidateApplier
+import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeLiveProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
@@ -462,12 +463,11 @@ class ConnectionStrategyLanesTest {
         runTest {
             // :core:engine stays off the app's classpath, so the config is written by hand.
             val config =
-                """{"kind":"ui","chains":{"tcpSteps":[{"kind":"hostfake","marker":"endhost+8","midhostMarker":"",""" +
-                    """"fakeHostTemplate":"googlevideo.com","fragmentCount":0,"minFragmentSize":0,""" +
-                    """"maxFragmentSize":0}]},"schemaVersion":2}"""
+                """{"kind":"ui","chains":{"tcpSteps":[{"kind":"split","marker":"host+1"}]},"schemaVersion":2}"""
             val passing =
                 candidate("oob", "OOB byte", succeeded = 6, latency = 110).copy(
                     proxyConfigJson = config,
+                    emitterTier = StrategyEmitterTier.entries.first { it.isProductionEmitter },
                     desyncExecutionRequired = false,
                     runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
                 )

@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.core
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.codec.PacketBackendWire
+import com.poyka.ripdpi.core.codec.insertWireFields
 import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -14,6 +16,9 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import javax.inject.Inject
 
 /**
@@ -250,8 +255,6 @@ private object TunForwardingEvidenceNativeBindings {
 class Tun2SocksTunnel(
     private val nativeBindings: Tun2SocksBindings,
 ) {
-    private val configJson =
-        RipDpiEncodeDefaultsJson
     private val telemetryJson = RipDpiJson
     private val reservations = HandleReservation()
     private var handle = 0L
@@ -277,7 +280,7 @@ class Tun2SocksTunnel(
             val createdHandle =
                 withContext(NonCancellable) {
                     withContext(Dispatchers.IO) {
-                        nativeBindings.create(configJson.encodeToString(config))
+                        nativeBindings.create(encodeTunnelConfig(config))
                     }.also { handle = it }
                 }
             if (createdHandle == 0L) {
@@ -425,6 +428,12 @@ const val defaultTun2SocksTunnelMtu: Int = 1500
  */
 const val Tun2SocksConfigSchemaVersion: Int = 3
 
+internal fun encodeTunnelConfig(config: Tun2SocksConfig): String =
+    insertWireFields(
+        RipDpiEncodeDefaultsJson.encodeToJsonElement(config).jsonObject,
+        PacketBackendWire.tunnelFields(config.packetBackendSocketPath),
+    ) { it == "luaScriptBaseDir" }.toString()
+
 @Serializable
 data class Tun2SocksConfig(
     val tunnelName: String = "tun0",
@@ -470,7 +479,8 @@ data class Tun2SocksConfig(
     val splitDnsPolicy: Tun2SocksSplitDnsPolicy? = null,
     val strategyChainYaml: String? = null,
     val protectPath: String? = null,
-    val rootHelperSocketPath: String? = null,
+    @Transient
+    val packetBackendSocketPath: String? = null,
     val luaScriptBaseDir: String? = null,
     val luaSocketOwned: Boolean = false,
     val taskStackSize: Int = 81_920,

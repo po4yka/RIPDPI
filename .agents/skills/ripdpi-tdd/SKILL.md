@@ -25,13 +25,13 @@ Run the gate that `AGENTS.md` assigns to the change once, after the last cycle o
 
 ```bash
 # Single test method
-./gradlew :core:engine:testDebugUnitTest --tests "ClassName.method name"
+./gradlew :core:engine:testExtendedDebugUnitTest --tests "ClassName.method name"
 
 # Single test class
-./gradlew :core:engine:testDebugUnitTest --tests "ClassName"
+./gradlew :core:engine:testExtendedDebugUnitTest --tests "ClassName"
 
 # Single module
-./gradlew :core:engine:testDebugUnitTest
+./gradlew :core:engine:testExtendedDebugUnitTest
 ```
 
 Replace `:core:engine` with the target module (`:core:service`, `:core:data`, `:core:diagnostics`). `:app` tasks are flavor-qualified (`:app:testGithubDebugUnitTest`).

@@ -214,13 +214,13 @@ class DiagnosticsStrategyPersianPresentationTest {
         val lab =
             candidate().copy(
                 emitterTier = StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY,
-                exactEmitterRequiresRoot = false,
+                requiresExternalEmitter = false,
             )
         val direct =
             candidate().copy(
                 id = "direct",
                 emitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
-                exactEmitterRequiresRoot = false,
+                requiresExternalEmitter = false,
             )
         val emitters =
             factory.toStrategyProbeReportUiModel(
@@ -393,7 +393,7 @@ class DiagnosticsStrategyPersianPresentationTest {
             averageLatencyMs = 17,
             notes = listOf("User note 0012"),
             emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
-            exactEmitterRequiresRoot = true,
+            requiresExternalEmitter = true,
         )
 
     private fun approach(): BypassApproachDetail =

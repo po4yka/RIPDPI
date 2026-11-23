@@ -364,7 +364,7 @@ fn seqovl_candidates_keep_rooted_tier_and_fallback_metadata() {
     let seqovl = candidates.iter().find(|candidate| candidate.id == "tlsrec_seqovl_midsld").expect("seqovl");
 
     assert_eq!(seqovl.emitter_tier, StrategyEmitterTier::RootedProduction);
-    assert!(seqovl.exact_emitter_requires_root);
+    assert!(seqovl.requires_external_emitter);
     assert_eq!(seqovl.approximate_fallback_family, Some("tlsrec_split"));
     assert_eq!(seqovl.requires_capabilities, &[RuntimeCapability::ReplacementSocket]);
 }
@@ -378,7 +378,7 @@ fn hostfake_candidates_need_the_raw_sender_and_have_no_fallback_family() {
         let hostfake = candidates.iter().find(|candidate| candidate.id == id).expect(id);
 
         assert_eq!(hostfake.emitter_tier, StrategyEmitterTier::RootedProduction, "{id}");
-        assert!(hostfake.exact_emitter_requires_root, "{id}");
+        assert!(hostfake.requires_external_emitter, "{id}");
         assert_eq!(hostfake.approximate_fallback_family, None, "{id}");
         assert_eq!(
             hostfake.requires_capabilities,
@@ -705,7 +705,7 @@ fn rooted_pool_contains_root_only_candidates() {
         multi_disorder.requires_capabilities.contains(&RuntimeCapability::RootHelperAvailable),
         "multi_disorder must advertise the root-helper capability requirement"
     );
-    assert!(multi_disorder.exact_emitter_requires_root, "multi_disorder must remain rooted-only");
+    assert!(multi_disorder.requires_external_emitter, "multi_disorder must remain rooted-only");
     let primary = build_primary_candidates(&minimal_ui_config());
     assert!(!primary.iter().any(|c| c.id == "fake_rst"), "fake_rst must not be in primary pool");
     assert!(!primary.iter().any(|c| c.id == "multi_disorder"), "multi_disorder must not be in primary pool");
@@ -756,7 +756,7 @@ fn full_tcp_candidates_is_superset_of_primary_and_opportunistic() {
 fn full_probe_catalog_has_no_candidates_that_need_privileged_packets() {
     let suite = build_strategy_probe_suite("full_matrix_v1", &minimal_ui_config()).expect("full matrix");
     for candidate in suite.tcp_candidates.iter().chain(&suite.quic_candidates) {
-        assert!(!candidate.exact_emitter_requires_root, "{}", candidate.id);
+        assert!(!candidate.requires_external_emitter, "{}", candidate.id);
         assert!(!candidate.requires_capabilities.contains(&RuntimeCapability::RawUdpFragmentation), "{}", candidate.id);
     }
     assert!(suite.tcp_candidates.iter().any(|candidate| candidate.id == "split_host"));

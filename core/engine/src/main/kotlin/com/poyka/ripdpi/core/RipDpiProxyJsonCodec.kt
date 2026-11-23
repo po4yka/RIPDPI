@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.codec.DestinationRoutingSectionCodec
 import com.poyka.ripdpi.core.codec.NativeProxyConfig
 import com.poyka.ripdpi.core.codec.NativeProxyConfigValidation
 import com.poyka.ripdpi.core.codec.NetworkSectionCodec
+import com.poyka.ripdpi.core.codec.PacketBackendWire
 import com.poyka.ripdpi.core.codec.PacketCodec
 import com.poyka.ripdpi.core.codec.ProxyLogContextCodec
 import com.poyka.ripdpi.core.codec.ProxyRuntimeContextCodec
@@ -14,8 +15,11 @@ import com.poyka.ripdpi.core.codec.SessionOverrideCodec
 import com.poyka.ripdpi.core.codec.WarpSectionCodec
 import com.poyka.ripdpi.core.codec.WsTunnelSectionCodec
 import com.poyka.ripdpi.core.codec.decodeEnvironmentKind
+import com.poyka.ripdpi.core.codec.insertWireFields
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.serialization.RipDpiNativeProxyJson
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -55,8 +59,8 @@ internal object RipDpiProxyJsonCodec {
     fun encodeUiPreferences(
         preferences: RipDpiProxyUIPreferences,
         strategyPreset: String? = null,
-        rootMode: Boolean = false,
-        rootHelperSocketPath: String? = null,
+        packetBackendRequested: Boolean = false,
+        packetBackendSocketPath: String? = null,
         geoipDbPath: String? = null,
         geositeDbPath: String? = null,
         listenAuthToken: String? = null,
@@ -84,8 +88,6 @@ internal object RipDpiProxyJsonCodec {
                 wsTunnel = WsTunnelSectionCodec.toNative(preferences.wsTunnel),
                 destinationRouting = DestinationRoutingSectionCodec.toNative(preferences.destinationRouting),
                 nativeLogLevel = preferences.nativeLogLevel,
-                rootMode = rootMode,
-                rootHelperSocketPath = rootHelperSocketPath,
                 geoipDbPath = geoipDbPath,
                 geositeDbPath = geositeDbPath,
                 environmentKind = environmentKind.name,
@@ -93,14 +95,15 @@ internal object RipDpiProxyJsonCodec {
                 logContext = ProxyLogContextCodec.toNative(preferences.logContext),
                 sessionOverrides = SessionOverrideCodec.toNative(localListenPortOverride, localAuthToken),
             ),
+            PacketBackendWire.proxyFields(packetBackendRequested, packetBackendSocketPath),
         )
 
     fun encodeUiPreferences(request: NativeProxyCreateRequest): String =
         encodeUiPreferences(
             preferences = request.preferences,
             strategyPreset = request.strategyPreset,
-            rootMode = request.rootMode,
-            rootHelperSocketPath = request.rootHelperSocketPath,
+            packetBackendRequested = request.packetBackendRequested,
+            packetBackendSocketPath = request.packetBackendSocketPath,
             geoipDbPath = request.geoipDbPath,
             geositeDbPath = request.geositeDbPath,
             listenAuthToken = request.listenAuthToken,
@@ -110,8 +113,10 @@ internal object RipDpiProxyJsonCodec {
         )
 
     fun decodeUiPreferences(configJson: String): RipDpiProxyUIPreferences? {
-        val payload = decodeOrNull(configJson) as? NativeProxyConfig.Ui ?: return null
         return runCatching {
+            val original = json.parseToJsonElement(configJson).jsonObject
+            val payload = decode(original) as? NativeProxyConfig.Ui ?: return null
+            val packetBackend = PacketBackendWire.readProxyFields(original)
             RipDpiProxyUIPreferences(
                 listen = NetworkSectionCodec.toModel(payload.listen),
                 protocols = NetworkSectionCodec.toModel(payload.protocols),
@@ -129,8 +134,8 @@ internal object RipDpiProxyJsonCodec {
                 nativeLogLevel = payload.nativeLogLevel,
                 runtimeContext = ProxyRuntimeContextCodec.toModel(payload.runtimeContext),
                 logContext = ProxyLogContextCodec.toModel(payload.logContext),
-                rootMode = payload.rootMode,
-                rootHelperSocketPath = payload.rootHelperSocketPath,
+                packetBackendRequested = packetBackend.requested,
+                packetBackendSocketPath = packetBackend.socketPath,
                 geoipDbPath = payload.geoipDbPath,
                 geositeDbPath = payload.geositeDbPath,
                 environmentKind = decodeEnvironmentKind(payload.environmentKind),
@@ -139,8 +144,8 @@ internal object RipDpiProxyJsonCodec {
     }
 
     fun stripRuntimeContext(configJson: String): String {
-        val payload = decode(configJson)
         val original = json.parseToJsonElement(configJson).jsonObject
+        val payload = decode(original)
         val updates =
             mutableMapOf<String, JsonElement>(
                 "runtimeContext" to JsonNull,
@@ -171,10 +176,10 @@ internal object RipDpiProxyJsonCodec {
         configJson: String,
         enabled: Boolean,
     ): String {
-        require(decode(configJson) is NativeProxyConfig.Ui) {
+        val original = json.parseToJsonElement(configJson).jsonObject
+        require(decode(original) is NativeProxyConfig.Ui) {
             "UDP ASSOCIATE override requires proxy UI preferences"
         }
-        val original = json.parseToJsonElement(configJson).jsonObject
         val protocols =
             patchObject(
                 original["protocols"]?.jsonObject ?: JsonObject(emptyMap()),
@@ -189,8 +194,8 @@ internal object RipDpiProxyJsonCodec {
         networkScopeKey: String?,
         runtimeContext: RipDpiRuntimeContext?,
         logContext: RipDpiLogContext?,
-        rootMode: Boolean = false,
-        rootHelperSocketPath: String? = null,
+        packetBackendRequested: Boolean = false,
+        packetBackendSocketPath: String? = null,
         geoipDbPath: String? = null,
         geositeDbPath: String? = null,
         localListenPortOverride: Int? = null,
@@ -198,8 +203,8 @@ internal object RipDpiProxyJsonCodec {
         environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
         relayRuntimeSelection: RipDpiRelayConfig? = null,
     ): String {
-        val payload = decode(configJson)
         val original = json.parseToJsonElement(configJson).jsonObject
+        val payload = decode(original)
         val rewritten =
             when (payload) {
                 is NativeProxyConfig.CommandLine -> {
@@ -245,18 +250,22 @@ internal object RipDpiProxyJsonCodec {
                         ProxyRuntimeContextCodec.toNative(runtimeContext) ?: payload.runtimeContext
                     val nextLogContext = ProxyLogContextCodec.toNative(logContext) ?: payload.logContext
                     val updates =
-                        mutableMapOf<String, JsonElement>(
-                            "hostAutolearn" to hostAutolearn,
-                            "rootMode" to JsonPrimitive(rootMode),
-                            "rootHelperSocketPath" to
-                                jsonPrimitiveOrNull(rootHelperSocketPath ?: payload.rootHelperSocketPath),
-                            "geoipDbPath" to jsonPrimitiveOrNull(geoipDbPath ?: payload.geoipDbPath),
-                            "geositeDbPath" to
-                                jsonPrimitiveOrNull(geositeDbPath ?: payload.geositeDbPath),
-                            "environmentKind" to JsonPrimitive(environmentKind.name),
-                            "runtimeContext" to encodeNullable(json, nextRuntimeContext),
-                            "logContext" to encodeNullable(json, nextLogContext),
-                            "sessionOverrides" to
+                        buildMap {
+                            put("hostAutolearn", hostAutolearn)
+                            putAll(
+                                PacketBackendWire.proxyFields(
+                                    packetBackendRequested,
+                                    packetBackendSocketPath ?: PacketBackendWire.readProxyFields(original).socketPath,
+                                    includeNullSocketPath = true,
+                                ),
+                            )
+                            put("geoipDbPath", jsonPrimitiveOrNull(geoipDbPath ?: payload.geoipDbPath))
+                            put("geositeDbPath", jsonPrimitiveOrNull(geositeDbPath ?: payload.geositeDbPath))
+                            put("environmentKind", JsonPrimitive(environmentKind.name))
+                            put("runtimeContext", encodeNullable(json, nextRuntimeContext))
+                            put("logContext", encodeNullable(json, nextLogContext))
+                            put(
+                                "sessionOverrides",
                                 encodeNullable(
                                     json,
                                     SessionOverrideCodec.merge(
@@ -265,10 +274,11 @@ internal object RipDpiProxyJsonCodec {
                                         authToken = localAuthToken,
                                     ),
                                 ),
-                        )
-                    relayRuntimeSelection?.let { selection ->
-                        updates["upstreamRelay"] = patchRelayRuntimeSelection(original, selection)
-                    }
+                            )
+                            relayRuntimeSelection?.let { selection ->
+                                put("upstreamRelay", patchRelayRuntimeSelection(original, selection))
+                            }
+                        }
                     patchObject(
                         original,
                         updates,
@@ -278,20 +288,39 @@ internal object RipDpiProxyJsonCodec {
         return rewritten.toString()
     }
 
-    private fun decode(configJson: String): NativeProxyConfig {
-        val element = json.parseToJsonElement(configJson)
+    private fun decode(element: JsonObject): NativeProxyConfig {
         NativeProxyConfigValidation.validateUiPayloadShape(element)
         return json
-            .decodeFromString(NativeProxyConfig.serializer(), configJson)
+            .decodeFromJsonElement(NativeProxyConfig.serializer(), element)
             .also(NativeProxyConfigValidation::validateSupportedPayload)
+            .also { if (it is NativeProxyConfig.Ui) PacketBackendWire.readProxyFields(element) }
     }
 
-    private fun decodeOrNull(configJson: String): NativeProxyConfig? = runCatching { decode(configJson) }.getOrNull()
+    private fun encode(
+        payload: NativeProxyConfig,
+        packetBackendFields: Map<String, JsonElement> = emptyMap(),
+    ): String {
+        NativeProxyConfigValidation.validateSupportedPayload(payload)
+        val document = json.encodeToJsonElement(payload).jsonObject
+        return insertWireFields(document, packetBackendFields) {
+            it == "geoipDbPath" || it == "geositeDbPath" || it == "environmentKind"
+        }.toString()
+    }
 
-    private fun encode(payload: NativeProxyConfig): String =
-        payload
-            .also(NativeProxyConfigValidation::validateSupportedPayload)
-            .let(json::encodeToString)
+    @OptIn(ExperimentalSerializationApi::class)
+    fun prepareNativeCreateJson(configJson: String): String {
+        if (PacketBackendWire.preserveUnknownProxyFields) return configJson
+        // Persisted profiles keep opaque metadata. The standard JNI request
+        // only carries the top-level fields of its active wire contract.
+        val document = json.parseToJsonElement(configJson).jsonObject
+        val descriptor =
+            when (decode(document)) {
+                is NativeProxyConfig.CommandLine -> NativeProxyConfig.CommandLine.serializer().descriptor
+                is NativeProxyConfig.Ui -> NativeProxyConfig.Ui.serializer().descriptor
+            }
+        val knownKeys = descriptor.elementNames.toSet() + "kind"
+        return JsonObject(document.filterKeys { it in knownKeys }).toString()
+    }
 }
 
 private inline fun <reified T> encodeNullable(
