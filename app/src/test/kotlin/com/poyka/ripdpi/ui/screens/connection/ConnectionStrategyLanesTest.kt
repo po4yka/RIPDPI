@@ -463,7 +463,10 @@ class ConnectionStrategyLanesTest {
         runTest {
             // :core:engine stays off the app's classpath, so the config is written by hand.
             val config =
-                """{"kind":"ui","chains":{"tcpSteps":[{"kind":"split","marker":"host+1"}]},"schemaVersion":2}"""
+                """
+                {"kind":"ui","chains":{"tcpSteps":[{"kind":"split","marker":"midsld","midhostMarker":"",
+                "fakeHostTemplate":"","fragmentCount":0,"minFragmentSize":0,"maxFragmentSize":0}]},"schemaVersion":2}
+                """
             val passing =
                 candidate("oob", "OOB byte", succeeded = 6, latency = 110).copy(
                     proxyConfigJson = config,

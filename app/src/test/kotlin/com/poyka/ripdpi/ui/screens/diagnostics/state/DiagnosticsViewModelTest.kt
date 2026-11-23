@@ -1727,8 +1727,10 @@ class DiagnosticsViewModelTest {
         runTest {
             val profileId = "automatic-audit"
             val splitConfigJson =
-                """{"kind":"ui","chains":{"tcpSteps":[{"kind":"tlsrec","marker":"extlen"},""" +
-                    """{"kind":"split","marker":"host+1"}]},"schemaVersion":2}"""
+                HostfakeProxyConfigJson
+                    .replace("\"hostfake\"", "\"split\"")
+                    .replace("\"endhost+8\"", "\"host+1\"")
+                    .replace("\"googlevideo.com\"", "\"\"")
             val manager =
                 FakeDiagnosticsManager().apply {
                     profilesState.value =
