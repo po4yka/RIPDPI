@@ -21,6 +21,9 @@ enum class LogSubsystem {
     Proxy,
     Tunnel,
     Diagnostics,
+    Relay,
+    Warp,
+    AmneziaWg,
 }
 
 enum class LogSeverity {
@@ -42,9 +45,10 @@ data class LogEntry(
     val runtimeId: String? = null,
     val diagnosticsSessionId: String? = null,
     val isActiveSession: Boolean = false,
+    val relayStageKey: String? = null,
 ) {
     val dedupeKey: String =
-        listOf(
+        relayStageKey ?: listOf(
             subsystem.name,
             severity.name,
             source,

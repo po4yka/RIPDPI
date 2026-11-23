@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticRelayAttemptStage
 import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TimestampTimeSeconds
@@ -16,6 +17,8 @@ import com.poyka.ripdpi.ui.screens.logs.LogSubsystem
 import com.poyka.ripdpi.ui.screens.logs.LogType
 import java.util.Locale
 import javax.inject.Inject
+
+private const val RelayAttemptStageKind = "relay_attempt_stage"
 
 class LogEntryMapper
     @Inject
@@ -88,6 +91,7 @@ class LogEntryMapper
             defaultSubsystem: LogSubsystem,
             isActiveSession: Boolean,
         ): List<LogEntry> {
+            if (events.isEmpty()) return emptyList()
             val timestampSnapshot = timestamps.snapshot()
             return events.map { event -> runtimeEvent(event, defaultSubsystem, isActiveSession, timestampSnapshot) }
         }
@@ -108,17 +112,23 @@ class LogEntryMapper
             timestampSnapshot: LocalizedTimestampFormatter.Snapshot,
         ): LogEntry {
             val subsystem = normalizeLogSubsystem(event.subsystem, event.source, defaultSubsystem)
+            val severity = severityFromLevel(event.level)
+            val relayStage = event.relayAttemptStage()
+            val message = relayStage?.logMessage() ?: event.message
+            val relayStageKey = relayStage?.logKey(event.runtimeId, event.createdAt, message)
+            val eventKey = "${event.createdAt}-${event.source}-${event.runtimeId}-${message.hashCode()}"
             return LogEntry(
-                id = "runtime-${event.createdAt}-${event.source}-${event.message.hashCode()}",
+                id = relayStageKey ?: "runtime-$subsystem-$severity-$eventKey",
                 createdAtMs = event.createdAt,
                 timestamp = timestampSnapshot.format(event.createdAt, TimestampTimeSeconds),
                 subsystem = subsystem,
-                severity = severityFromLevel(event.level),
-                message = event.message,
+                severity = severity,
+                message = message,
                 source = event.source,
                 runtimeId = event.runtimeId,
                 diagnosticsSessionId = null,
                 isActiveSession = isActiveSession,
+                relayStageKey = relayStageKey,
             )
         }
 
@@ -132,21 +142,71 @@ class LogEntryMapper
             val isActive =
                 isLiveEvent ||
                     (diagnosticsSessionId != null && diagnosticsSessionId in activeSessionIds)
+            val relayStage = event.relayAttemptStage
+            val message = relayStage?.logMessage() ?: event.message
+            val relayStageKey = relayStage?.logKey(event.runtimeId, event.createdAt, message)
             return LogEntry(
-                id = event.id,
+                id = relayStageKey ?: event.id,
                 createdAtMs = event.createdAt,
                 timestamp = timestampSnapshot.format(event.createdAt, TimestampTimeSeconds),
                 subsystem = normalizeLogSubsystem(event.subsystem, event.source, LogSubsystem.Diagnostics),
                 severity = severityFromLevel(event.level),
-                message = event.message,
+                message = message,
                 source = event.source,
                 runtimeId = event.runtimeId,
                 diagnosticsSessionId = diagnosticsSessionId,
                 isActiveSession = isActive,
+                relayStageKey = relayStageKey,
             )
         }
 
         private fun formatTimestamp(timestampMs: Long): String = timestamps.format(timestampMs, TimestampTimeSeconds)
+    }
+
+private fun NativeRuntimeEvent.relayAttemptStage(): DiagnosticRelayAttemptStage? =
+    if (kind == RelayAttemptStageKind) {
+        DiagnosticRelayAttemptStage(
+            attemptId = attemptId,
+            attemptSequence = attemptSequence,
+            stage = stage,
+            outcome = outcome,
+            durationMs = durationMs,
+            failureStage = failureStage,
+            failureClass = failureClass,
+            ioErrorKind = ioErrorKind,
+            osErrorCode = osErrorCode,
+            peerClosePhase = peerClosePhase,
+            carrierDisposition = carrierDisposition,
+        )
+    } else {
+        null
+    }
+
+private fun DiagnosticRelayAttemptStage.logKey(
+    runtimeId: String?,
+    createdAt: Long,
+    message: String,
+): String =
+    if (!runtimeId.isNullOrBlank() && attemptId != null && attemptSequence != null) {
+        "relay-stage:$runtimeId:$attemptId:$attemptSequence"
+    } else {
+        "relay-stage:$createdAt:$message"
+    }
+
+private fun DiagnosticRelayAttemptStage.logMessage(): String =
+    buildString {
+        append("event=").append(RelayAttemptStageKind)
+        attemptId?.let { append(" attemptId=").append(it) }
+        attemptSequence?.let { append(" attemptSequence=").append(it) }
+        stage?.let { append(" stage=").append(it) }
+        outcome?.let { append(" outcome=").append(it) }
+        durationMs?.let { append(" durationMs=").append(it) }
+        failureStage?.let { append(" failureStage=").append(it) }
+        failureClass?.let { append(" failureClass=").append(it) }
+        ioErrorKind?.let { append(" ioErrorKind=").append(it) }
+        osErrorCode?.let { append(" osErrorCode=").append(it) }
+        peerClosePhase?.let { append(" peerClosePhase=").append(it) }
+        carrierDisposition?.let { append(" carrierDisposition=").append(it) }
     }
 
 private fun LogType.defaultSubsystem(): LogSubsystem =
@@ -179,6 +239,9 @@ private fun normalizeLogSubsystem(
         "service" -> LogSubsystem.Service
         "proxy", "autolearn" -> LogSubsystem.Proxy
         "tunnel", "worker" -> LogSubsystem.Tunnel
+        "relay" -> LogSubsystem.Relay
+        "warp" -> LogSubsystem.Warp
+        "amneziawg", "awg" -> LogSubsystem.AmneziaWg
         "diagnostics", "dns", "domain", "tcp", "quic", "telegram", "throughput", "strategy" -> LogSubsystem.Diagnostics
         else -> fallback
     }

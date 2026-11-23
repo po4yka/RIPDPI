@@ -10,7 +10,9 @@ import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticsBoundaryMapper
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.ui.logs.LogEntryMapper
@@ -18,6 +20,7 @@ import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -152,6 +155,141 @@ class LogsViewModelFlowTest {
                     ),
                 )
                 assertEquals(listOf("Changed event"), awaitItem().logs.map { it.message })
+            }
+        }
+
+    @Test
+    fun `relay warp and AmneziaWG telemetry updates enter the active log stream`() =
+        runTest {
+            val attemptStage =
+                NativeRuntimeEvent(
+                    source = "relay",
+                    level = "info",
+                    message = "relay attempt stage transition",
+                    createdAt = 42L,
+                    kind = "relay_attempt_stage",
+                    attemptId = 7L,
+                    attemptSequence = 1L,
+                    stage = "reality_tls",
+                    outcome = "failed",
+                    failureClass = "io_error",
+                    fingerprintHash = "private-network",
+                    policySignature = "private-policy",
+                )
+            val store = FakeServiceStateStore()
+            val relaySnapshot =
+                ServiceTelemetrySnapshot(
+                    relayTelemetry =
+                        NativeRuntimeSnapshot(
+                            source = "relay",
+                            nativeEvents = listOf(attemptStage, attemptStage.copy(attemptSequence = 2L)),
+                        ),
+                )
+            val warpSnapshot =
+                relaySnapshot.copy(
+                    warpTelemetry =
+                        NativeRuntimeSnapshot(
+                            source = "warp",
+                            nativeEvents = listOf(NativeRuntimeEvent("warp", "info", "WARP ready", 43L)),
+                        ),
+                )
+            val vm = createViewModel(serviceStateStore = store)
+
+            vm.uiState.test {
+                assertTrue(awaitItem().logs.isEmpty())
+                store.updateTelemetry(relaySnapshot)
+                val relayLogs = awaitItem().logs
+                val stageContext = "stage=reality_tls outcome=failed failureClass=io_error"
+                assertEquals(
+                    listOf(
+                        "event=relay_attempt_stage attemptId=7 attemptSequence=1 $stageContext",
+                        "event=relay_attempt_stage attemptId=7 attemptSequence=2 $stageContext",
+                    ),
+                    relayLogs.map { it.message },
+                )
+                assertEquals(2, relayLogs.map { it.id }.toSet().size)
+                assertTrue(relayLogs.all { it.subsystem == LogSubsystem.Relay && it.isActiveSession })
+
+                store.updateTelemetry(warpSnapshot)
+                assertEquals(LogSubsystem.Warp, awaitItem().logs.last().subsystem)
+                store.updateTelemetry(
+                    warpSnapshot.copy(
+                        awgTelemetry =
+                            NativeRuntimeSnapshot(
+                                source = "amneziawg",
+                                nativeEvents =
+                                    listOf(NativeRuntimeEvent("amneziawg", "error", "Handshake failed", 44L)),
+                            ),
+                    ),
+                )
+                assertEquals(LogSubsystem.AmneziaWg, awaitItem().logs.last().subsystem)
+
+                vm.toggleSubsystemFilter(LogSubsystem.Relay)
+                assertEquals(
+                    listOf(LogSubsystem.Warp, LogSubsystem.AmneziaWg),
+                    awaitItem().filteredLogs.map { it.subsystem },
+                )
+            }
+        }
+
+    @Test
+    fun `persisted relay attempt stage keeps the same log row after the native ring drains`() =
+        runTest {
+            val liveEvent =
+                NativeRuntimeEvent(
+                    source = "relay",
+                    level = "info",
+                    message = "relay attempt stage transition",
+                    createdAt = 42L,
+                    kind = "relay_attempt_stage",
+                    runtimeId = "123",
+                    attemptId = 7L,
+                    attemptSequence = 2L,
+                    stage = "reality_tls",
+                    outcome = "failed",
+                    failureClass = "io_error",
+                )
+            val persistedEvent =
+                DiagnosticsBoundaryMapper(Json).toDiagnosticEvent(
+                    NativeSessionEventEntity(
+                        id = "stored-stage",
+                        connectionSessionId = "connection-1",
+                        source = "relay",
+                        level = "info",
+                        message = "event=relay_attempt_stage",
+                        createdAt = 42L,
+                        runtimeId = "123",
+                        subsystem = "relay",
+                        attemptId = 7L,
+                        attemptSequence = 2L,
+                        stage = "reality_tls",
+                        outcome = "failed",
+                        failureClass = "io_error",
+                    ),
+                )
+            val timeline = StubDiagnosticsTimelineSource()
+            val store = FakeServiceStateStore()
+            store.updateTelemetry(
+                ServiceTelemetrySnapshot(
+                    relayTelemetry = NativeRuntimeSnapshot(source = "relay", nativeEvents = listOf(liveEvent)),
+                ),
+            )
+            val vm = createViewModel(timelineSource = timeline, serviceStateStore = store)
+
+            vm.uiState.test {
+                val liveRow = awaitItem().logs.single()
+                timeline.nativeEvents.value = listOf(persistedEvent)
+                expectNoEvents()
+
+                store.updateTelemetry(ServiceTelemetrySnapshot())
+                val persistedRow = awaitItem().logs.single()
+                assertEquals(liveRow.id, persistedRow.id)
+                assertEquals(
+                    "event=relay_attempt_stage attemptId=7 attemptSequence=2 " +
+                        "stage=reality_tls outcome=failed failureClass=io_error",
+                    persistedRow.message,
+                )
+                assertEquals("connection-1", persistedRow.diagnosticsSessionId)
             }
         }
 

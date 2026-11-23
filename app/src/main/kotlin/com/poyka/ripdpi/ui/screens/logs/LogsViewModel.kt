@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.logs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.activities.message
-import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
@@ -37,15 +36,9 @@ class LogsViewModel
 
         private val runtimeEventLogs =
             dependencies.serviceStateStore.telemetry
-                .map { telemetry ->
-                    RuntimeLogInput(
-                        proxyEvents = telemetry.proxyTelemetry.nativeEvents,
-                        tunnelEvents = telemetry.tunnelTelemetry.nativeEvents,
-                    )
-                }.distinctUntilChanged()
-                .map { input ->
-                    dependencies.logAggregatorUseCase.runtimeLogs(input.proxyEvents, input.tunnelEvents)
-                }
+                .map { it.runtimeLogEvents() }
+                .distinctUntilChanged()
+                .map { dependencies.logAggregatorUseCase.runtimeLogs(it) }
 
         private val diagnosticsEventLogs =
             combine(
@@ -182,11 +175,6 @@ class LogsViewModel
             }
         }
     }
-
-private data class RuntimeLogInput(
-    val proxyEvents: List<NativeRuntimeEvent>,
-    val tunnelEvents: List<NativeRuntimeEvent>,
-)
 
 private data class DiagnosticLogInput(
     val persisted: List<DiagnosticEvent>,

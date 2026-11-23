@@ -759,17 +759,6 @@ private fun LogsEmptyState(
 }
 
 @Composable
-internal fun subsystemLabel(subsystem: LogSubsystem): String =
-    stringResource(
-        when (subsystem) {
-            LogSubsystem.Service -> R.string.logs_subsystem_service
-            LogSubsystem.Proxy -> R.string.logs_subsystem_proxy
-            LogSubsystem.Tunnel -> R.string.logs_subsystem_tunnel
-            LogSubsystem.Diagnostics -> R.string.logs_subsystem_diagnostics
-        },
-    )
-
-@Composable
 private fun severityLabel(severity: LogSeverity): String =
     stringResource(
         when (severity) {

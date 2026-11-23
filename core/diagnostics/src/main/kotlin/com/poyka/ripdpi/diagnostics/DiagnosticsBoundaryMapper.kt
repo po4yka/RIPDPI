@@ -180,6 +180,7 @@ class DiagnosticsBoundaryMapper
                 policySignature = entity.policySignature,
                 fingerprintHash = entity.fingerprintHash,
                 subsystem = entity.subsystem,
+                relayAttemptStage = entity.relayAttemptStage(),
             )
 
         fun toDiagnosticExportRecord(entity: ExportRecordEntity): DiagnosticExportRecord =
@@ -329,6 +330,25 @@ private fun decodeNetworkSnapshot(
     json: Json,
     payload: String?,
 ): NetworkSnapshotModel? = decodeOrNull(json, NetworkSnapshotModel.serializer(), payload)
+
+private fun NativeSessionEventEntity.relayAttemptStage(): DiagnosticRelayAttemptStage? =
+    if (subsystem == "relay" && stage != null && outcome != null) {
+        DiagnosticRelayAttemptStage(
+            attemptId = attemptId,
+            attemptSequence = attemptSequence,
+            stage = stage,
+            outcome = outcome,
+            durationMs = durationMs,
+            failureStage = failureStage,
+            failureClass = failureClass,
+            ioErrorKind = ioErrorKind,
+            osErrorCode = osErrorCode,
+            peerClosePhase = peerClosePhase,
+            carrierDisposition = carrierDisposition,
+        )
+    } else {
+        null
+    }
 
 private fun decodeNetworkFingerprintSummary(
     json: Json,
