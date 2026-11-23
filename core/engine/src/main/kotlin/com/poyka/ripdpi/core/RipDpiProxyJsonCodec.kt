@@ -16,7 +16,9 @@ import com.poyka.ripdpi.core.codec.WsTunnelSectionCodec
 import com.poyka.ripdpi.core.codec.decodeEnvironmentKind
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.serialization.RipDpiNativeProxyJson
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -136,6 +138,36 @@ internal object RipDpiProxyJsonCodec {
                 environmentKind = decodeEnvironmentKind(payload.environmentKind),
             )
         }.getOrNull()
+    }
+
+    fun withDebugLogDefault(configJson: String): String {
+        val original =
+            try {
+                json.parseToJsonElement(configJson) as? JsonObject ?: return configJson
+            } catch (_: SerializationException) {
+                return configJson
+            }
+        val updates =
+            when (original["kind"]) {
+                JsonPrimitive("ui") -> {
+                    if (original["nativeLogLevel"] != null && original["nativeLogLevel"] != JsonNull) return configJson
+                    mapOf("nativeLogLevel" to JsonPrimitive("debug"))
+                }
+
+                JsonPrimitive("command_line") -> {
+                    val args = original["args"] as? JsonArray ?: return configJson
+                    val first = args.firstOrNull() as? JsonPrimitive
+                    val programArgCount = if (first != null && !first.content.startsWith('-')) 1 else 0
+                    // The CLI parser applies options in order. Explicit verbosity wins.
+                    val debugDefault = listOf(JsonPrimitive("--debug"), JsonPrimitive("1"))
+                    mapOf("args" to JsonArray(args.take(programArgCount) + debugDefault + args.drop(programArgCount)))
+                }
+
+                else -> {
+                    return configJson
+                }
+            }
+        return patchObject(original, updates).toString()
     }
 
     fun stripRuntimeContext(configJson: String): String {

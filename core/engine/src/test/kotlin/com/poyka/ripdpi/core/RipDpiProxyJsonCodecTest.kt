@@ -24,6 +24,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -36,6 +37,25 @@ import org.junit.Test
 private const val TestLocalProxyAuth = "alpha-123"
 
 class RipDpiProxyJsonCodecTest {
+    @Test
+    fun `debug defaults preserve explicit UI and command line log levels`() {
+        val defaults = RipDpiProxyUIPreferences().toNativeConfigJson()
+        val explicit = RipDpiProxyUIPreferences(nativeLogLevel = "warn").toNativeConfigJson()
+        val debug = RipDpiProxyJsonCodec.withDebugLogDefault(defaults)
+        assertEquals("debug", RipDpiProxyJsonCodec.decodeUiPreferences(debug)?.nativeLogLevel)
+        assertEquals(explicit, RipDpiProxyJsonCodec.withDebugLogDefault(explicit))
+
+        val cli = RipDpiProxyCmdPreferences(arrayOf("-x", "2")).toNativeConfigJson()
+        val debugCli = RipDpiProxyJsonCodec.withDebugLogDefault(cli)
+        val args =
+            Json
+                .parseToJsonElement(debugCli)
+                .jsonObject
+                .getValue("args")
+                .jsonArray
+        assertEquals(listOf("--debug", "1", "-x", "2"), args.map { it.jsonPrimitive.content })
+    }
+
     @Test
     fun `TUIC native JSON retains both NewReno spellings`() {
         for (congestion in listOf("new_reno", "newreno")) {
