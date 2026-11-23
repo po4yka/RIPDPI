@@ -95,6 +95,33 @@ fn formatter_uses_redacted_logcat_message_and_preserves_runtime_message() {
 }
 
 #[test]
+fn logcat_keeps_failed_relay_stage_context_without_network_identity() {
+    let mut formatter = MessageFieldFormatter::default();
+    formatter.record_named_str("kind", "relay_attempt_stage");
+    formatter.record_named_str("message", "relay stage finished");
+    formatter.record_named_str("runtime_id", "runtime-3");
+    formatter.record_named_str("attempt_id", "42");
+    formatter.record_named_str("stage", "connect");
+    formatter.record_named_str("fingerprint_hash", "private-network-key");
+    formatter.record_named_str("policy_signature", "private-policy");
+    formatter.record_named_str("failure_stage", "connect");
+    formatter.record_named_str("failure_class", "timeout");
+    formatter.record_named_str("os_error_code", "110");
+
+    assert_eq!(
+        formatter.finish_logcat_event("relay").as_deref(),
+        Some(
+            "relay stage finished event=relay_attempt_stage runtimeId=runtime-3 attemptId=42 \
+             stage=connect failureStage=connect failureClass=timeout osErrorCode=110"
+        )
+    );
+
+    let mut success = MessageFieldFormatter::default();
+    success.record_named_str("kind", "relay_attempt_stage");
+    assert_eq!(success.finish_logcat_event("relay"), None);
+}
+
+#[test]
 fn event_ring_layer_routes_and_drains_correlation_fields() {
     let buffers = EventRingBuffers::new(RingConfig {
         proxy_capacity: 8,
