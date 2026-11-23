@@ -14,15 +14,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import REPO_ROOT as ROOT
-ROUTE_FILE = ROOT / "app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/Route.kt"
+NAVIGATION_PATH = "kotlin/com/poyka/ripdpi/ui/navigation"
+ROUTE_FILES = (
+    ROOT / "app/src/main" / NAVIGATION_PATH / "Route.kt",
+    ROOT / "app/src/extended" / NAVIGATION_PATH / "DistributionSettings.kt",
+)
 JOURNEYS_DIR = ROOT / "app/src/androidTest/kotlin/com/poyka/ripdpi/ui/journeys"
-LEAF_ROUTE = re.compile(r"^\s*data (?:object|class) (\w+)\b.*:\s*Route\(\)", re.MULTILINE | re.DOTALL)
+LEAF_ROUTE = re.compile(r"^\s*(?:internal )?data (?:object|class) (\w+)\b.*:\s*Route\(\)", re.MULTILINE | re.DOTALL)
 
 
 def leaf_routes(route_source: str) -> list[str]:
     # A data class header can wrap across lines before `: Route()`, so match each declaration up to its brace.
     names = []
-    for declaration in re.split(r"(?=^\s*data (?:object|class) )", route_source, flags=re.MULTILINE):
+    for declaration in re.split(r"(?=^\s*(?:internal )?data (?:object|class) )", route_source, flags=re.MULTILINE):
         match = LEAF_ROUTE.match(declaration.split("{", 1)[0])
         if match:
             names.append(match.group(1))
@@ -51,7 +55,7 @@ def main() -> int:
     parser.add_argument("--summary", type=Path, help="Append the Markdown report to this file (GITHUB_STEP_SUMMARY).")
     args = parser.parse_args()
 
-    routes = leaf_routes(ROUTE_FILE.read_text(encoding="utf-8"))
+    routes = [route for file in ROUTE_FILES for route in leaf_routes(file.read_text(encoding="utf-8"))]
     sources = [path.read_text(encoding="utf-8") for path in sorted(JOURNEYS_DIR.rglob("*.kt"))]
     report = render(routes, covered_routes(sources, routes))
     print(report, end="")

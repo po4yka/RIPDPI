@@ -98,7 +98,7 @@ private fun SettingsWorkload() {
                 onOpenDomainBypass = ::unexpectedSettingsAction,
                 onOpenRoutingRules = ::unexpectedSettingsAction,
                 onOpenSplitTunnel = ::unexpectedSettingsAction,
-                onOpenRootModeStrategies = ::unexpectedSettingsAction,
+                onOpenDistributionSettingsDetail = { unexpectedSettingsAction() },
                 onOpenBackupRestore = ::unexpectedSettingsAction,
                 onOpenLogs = ::unexpectedSettingsAction,
                 onShareDebugBundle = ::unexpectedSettingsAction,

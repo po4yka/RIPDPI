@@ -165,7 +165,6 @@
     <string name="title_mode_editor">配置文件编辑器</string>
     <string name="title_strategy_config">策略配置</string>
     <string name="title_remembered_networks">已记住的网络</string>
-    <string name="title_root_mode_strategies">Root 模式策略</string>
     <string name="use_command_line_settings">使用命令行设置</string>
     <string name="scanner_title">扫描二维码</string>
     <string name="scanner_permission_rationale_title">摄像头访问</string>

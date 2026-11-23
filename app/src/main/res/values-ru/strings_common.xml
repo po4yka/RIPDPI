@@ -182,7 +182,6 @@
     <string name="title_shared_diagnostic_result">Общая диагностика</string>
     <string name="title_strategy_config">Конфигурация стратегии</string>
     <string name="title_remembered_networks">Запомненные сети</string>
-    <string name="title_root_mode_strategies">Стратегии root-режима</string>
     <string name="title_vpn_config">Конфигурация VPN</string>
     <string name="scanner_title">Сканировать QR-код</string>
     <string name="scanner_permission_rationale_title">Доступ к камере</string>

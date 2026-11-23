@@ -23,7 +23,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
-import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.navigation.RootModeStrategies
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -38,6 +38,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
+
+internal object RootModeTestTags {
+    const val SettingsEntry = "settings-root-mode-strategies"
+    const val Configure = "root-mode-strategies-configure"
+    const val Toggle = "root-mode-toggle"
+}
 
 data class RootModeStrategiesUiState(
     val rootModeEnabled: Boolean = false,
@@ -153,7 +159,7 @@ internal fun RootModeStrategiesScreen(
     RipDpiSettingsScaffold(
         modifier =
             modifier
-                .ripDpiTestTag(RipDpiTestTags.screen(Route.RootModeStrategies))
+                .ripDpiTestTag(RipDpiTestTags.screen(RootModeStrategies))
                 .fillMaxWidth()
                 .ripDpiScreenBackground(),
         title = stringResource(R.string.title_root_mode_strategies),
@@ -167,7 +173,7 @@ internal fun RootModeStrategiesScreen(
                     onCheckedChange = onRootModeEnabledChange,
                     label = stringResource(R.string.root_mode_toggle_label),
                     helperText = stringResource(R.string.root_mode_strategies_intro_body),
-                    testTag = RipDpiTestTags.RootModeToggle,
+                    testTag = RootModeTestTags.Toggle,
                 )
                 RootAccessStatus(uiState.rootAccess)
             }
@@ -192,7 +198,7 @@ internal fun RootModeStrategiesScreen(
                     enabled = uiState.rootModeEnabled,
                     variant = RipDpiButtonVariant.Outline,
                     trailingIcon = RipDpiIcons.ChevronRight,
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RootModeStrategiesConfigure),
+                    modifier = Modifier.ripDpiTestTag(RootModeTestTags.Configure),
                 )
             }
         }

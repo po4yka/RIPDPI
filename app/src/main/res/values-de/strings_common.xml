@@ -146,7 +146,6 @@
     <string name="title_local_bypass_config">Einstellungen für den direkten Pfad</string>
     <string name="title_strategy_config">Strategie-Konfiguration</string>
     <string name="title_remembered_networks">Gespeicherte Netzwerke</string>
-    <string name="title_root_mode_strategies">Root-Modus-Strategien</string>
     <string name="block_signal_http_blockpage">HTTP-Blockpage</string>
     <string name="block_signal_tcp_retransmissions">TCP-Retransmissionen</string>
     <string name="confirm_clear_remembered_networks_confirm">Löschen</string>

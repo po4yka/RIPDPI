@@ -179,13 +179,6 @@ sealed class Route {
     }
 
     @Serializable
-    data object RootModeStrategies : Route() {
-        override val stableRoute = "root_mode_strategies"
-        override val titleRes = R.string.title_root_mode_strategies
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
     data object DomainBypassList : Route() {
         override val stableRoute = "domain_bypass_list"
         override val titleRes = R.string.title_domain_bypass_list
@@ -529,7 +522,6 @@ sealed class Route {
                     AdvancedSettings,
                     StrategyConfig,
                     RememberedNetworks,
-                    RootModeStrategies,
                     DomainBypassList,
                     AssetProvider,
                     SplitTunnel,
@@ -562,7 +554,7 @@ sealed class Route {
                     MieruProfileEdit(),
                     SshProfile,
                     SshProfileEdit(),
-                )
+                ) + distributionSettingsDetails.map { it.route }
 
         fun fromStableRoute(route: String?): Route? = route?.let { key -> all.firstOrNull { it.stableRoute == key } }
     }

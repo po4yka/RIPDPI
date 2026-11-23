@@ -18,16 +18,8 @@
     <string name="settings_telemetry_salt_reset_body">إعادة تعيين الملح الخاص بكل تثبيت المستخدم لتجزئة بصمات الشبكة. لا يمكن ربط التجزئات المسجّلة سابقاً بالجلسات المستقبلية بعد الآن.</string>
     <string name="settings_telemetry_salt_reset_action">إعادة تعيين ملح القياسات</string>
     <string name="settings_seqovl_unsupported_reason">يتطلب تداخل التسلسل وصولاً إلى مقبس خام غير متاح على هذا الجهاز. فعّل وضع الجذر في الإعدادات لاستخدام هذه الميزة.</string>
-    <string name="root_mode_toggle_label">وضع الجذر</string>
-    <string name="settings_root_mode_strategies_body">اضبط FakeRST والفوضى المتعددة وتجزئة IP</string>
-    <string name="root_mode_strategies_intro_body">تحقن استراتيجيات إلغاء التزامن هذه الحزم أو تجزّئها أسفل مقبس VPN، وتعمل فقط على الأجهزة ذات صلاحية الجذر مع تفعيل وضع الجذر.</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">يحقن إعادة ضبط TCP مزيّفة لإلغاء تزامن تتبّع الحالة في DPI.</string>
     <string name="root_mode_strategy_multidisorder_title">الفوضى المتعددة</string>
-    <string name="root_mode_strategy_multidisorder_body">يعيد ترتيب عدة مقاطع دفعة واحدة لكسر الفحص المعتمد على إعادة التجميع.</string>
     <string name="root_mode_strategy_ipfrag2_title">تجزئة IP</string>
-    <string name="root_mode_strategy_ipfrag2_body">يقسّم الحزم في طبقة IP حتى لا يرى المفتّشون الحمولة الكاملة أبدًا.</string>
-    <string name="root_mode_strategies_configure_action">فتح محرّر الاستراتيجيات</string>
     <string name="theme_settings">المظهر</string>
     <string name="about_category">حول</string>
     <string name="advanced_settings_visual_controls_disabled">عناصر التحكم المرئية غير متاحة أثناء تفعيل تجاوزات سطر الأوامر.</string>
@@ -320,10 +312,6 @@
     <string name="settings_clear_community_cache_body">يحذف إحصاءات المجتمع التي جرى تنزيلها. يبقى سجل الفحوص لديك.</string>
     <string name="advanced_settings_unsaved_change">غير محفوظ</string>
     <string name="settings_storage_failed">تعذّر على RIPDPI حفظ الإعدادات في التخزين. أفرغ بعض المساحة وحاول مرة أخرى.</string>
-    <string name="root_mode_access_checking">جارٍ التحقق من صلاحية الجذر…</string>
-    <string name="root_mode_access_granted">صلاحية الجذر متاحة على هذا الجهاز.</string>
-    <string name="root_mode_access_denied">رُفضت صلاحية الجذر. اسمح لـ RIPDPI في مدير صلاحيات الجذر، ثم فعّل وضع الجذر مرة أخرى.</string>
-    <string name="root_mode_access_unavailable">لا يملك هذا الجهاز صلاحية الجذر، لذا لن تعمل هذه الاستراتيجيات.</string>
     <string name="import_subscription_confirm_empty_body">هذا الرابط لا يحتوي على رابط اشتراك.</string>
     <plurals name="backup_import_shareable_body">
         <item quantity="zero">لا يمكن استعادة %1$d ملف تعريف لأن بيانات الاعتماد أُزيلت. لا يزال بإمكانك استعادة المجموعات والمسارات والإعدادات.</item>

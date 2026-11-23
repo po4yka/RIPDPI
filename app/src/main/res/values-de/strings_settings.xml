@@ -149,16 +149,8 @@
     <string name="settings_support_debug_bundle_title">Support-Bundle teilen</string>
     <string name="settings_tethering_dns_warning_title">Risiko eines DNS-Lecks beim Tethering</string>
     <string name="settings_warning_backup_pin_body">Legen Sie eine vierstellige Fallback-PIN fest, damit Sie RIPDPI auch dann entsperren können, wenn die Biometrie nicht verfügbar ist.</string>
-    <string name="root_mode_toggle_label">Root-Modus</string>
-    <string name="settings_root_mode_strategies_body">FakeRST, Multi-Disorder und IP-Fragmentierung konfigurieren</string>
-    <string name="root_mode_strategies_intro_body">Diese Desync-Strategien injizieren oder fragmentieren Pakete unterhalb des VPN-Sockets und funktionieren nur auf gerooteten Geräten mit aktiviertem Root-Modus.</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">Injiziert ein gefälschtes TCP-Reset, um die zustandsbehaftete DPI-Verfolgung zu desynchronisieren.</string>
     <string name="root_mode_strategy_multidisorder_title">Multi-Disorder</string>
-    <string name="root_mode_strategy_multidisorder_body">Ordnet mehrere Segmente gleichzeitig neu an, um die auf Reassemblierung basierende Inspektion zu durchbrechen.</string>
     <string name="root_mode_strategy_ipfrag2_title">IP-Fragmentierung</string>
-    <string name="root_mode_strategy_ipfrag2_body">Teilt Pakete auf der IP-Ebene, sodass Inspektoren nie die vollständige Nutzlast sehen.</string>
-    <string name="root_mode_strategies_configure_action">Strategie-Editor öffnen</string>
     <string name="customization_icon_disintegrate">Auflösen</string>
     <string name="customization_options_section">Optionen</string>
     <string name="customization_shape_sheet_point_two">Wenn sich das Icon-Artwork ändert, muss Ihr Launcher möglicherweise aktualisiert werden, bevor die neue Maskenvorschau erscheint.</string>
@@ -319,10 +311,6 @@
     <string name="settings_clear_community_cache_body">Löscht heruntergeladene Community-Statistiken. Ihr Prüfverlauf bleibt erhalten.</string>
     <string name="advanced_settings_unsaved_change">Nicht gespeichert</string>
     <string name="settings_storage_failed">RIPDPI konnte die Einstellungen nicht speichern. Gib Speicherplatz frei und versuche es erneut.</string>
-    <string name="root_mode_access_checking">Root-Zugriff wird geprüft…</string>
-    <string name="root_mode_access_granted">Auf diesem Gerät ist Root-Zugriff verfügbar.</string>
-    <string name="root_mode_access_denied">Root-Zugriff wurde verweigert. Erlauben Sie RIPDPI in Ihrer Root-Verwaltung und schalten Sie den Root-Modus erneut ein.</string>
-    <string name="root_mode_access_unavailable">Dieses Gerät hat keinen Root-Zugriff, daher funktionieren diese Strategien nicht.</string>
     <string name="import_subscription_confirm_empty_body">Dieser Link enthält keine Abonnement-URL.</string>
     <plurals name="backup_import_shareable_body">
         <item quantity="one">%1$d Profil kann nicht wiederhergestellt werden, da die Anmeldedaten entfernt wurden. Gruppen, Routen und Einstellungen können wiederhergestellt werden.</item>

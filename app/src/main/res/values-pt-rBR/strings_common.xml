@@ -39,7 +39,6 @@
     <string name="title_advanced_settings">Configurações avançadas</string>
     <string name="title_strategy_config">Configuração de estratégia</string>
     <string name="title_remembered_networks">Redes memorizadas</string>
-    <string name="title_root_mode_strategies">Estratégias do modo root</string>
     <string name="title_blockcheck">Sonda de estratégia</string>
     <string name="title_biometric_prompt">Autenticação</string>
     <string name="title_app_icon">Ícone do app</string>

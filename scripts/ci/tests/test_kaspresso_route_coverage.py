@@ -53,8 +53,13 @@ class RouteCoverageTest(unittest.TestCase):
         self.assertIn("Not covered: `RuleEditor`", report)
 
     def test_repository_routes_parse(self) -> None:
-        routes = coverage.leaf_routes(coverage.ROUTE_FILE.read_text(encoding="utf-8"))
-        self.assertIn("Home", routes)
+        routes = [
+            route
+            for path in coverage.ROUTE_FILES
+            for route in coverage.leaf_routes(path.read_text(encoding="utf-8"))
+        ]
+        self.assertIn("Status", routes)
+        self.assertIn("RootModeStrategies", routes)
         self.assertEqual(len(routes), len(set(routes)))
 
 

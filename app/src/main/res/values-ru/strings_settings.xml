@@ -160,16 +160,8 @@
     <string name="settings_tethering_dns_warning_title">Риск утечки DNS при модеме</string>
     <string name="settings_vpn_flag_warning_body">Приложения во всех профилях Android (включая Рабочий профиль и Knox) могут обнаружить, что VPN активен. Для полной изоляции используйте отдельное устройство для российских приложений.</string>
     <string name="settings_vpn_flag_warning_title">Флаг VPN виден</string>
-    <string name="root_mode_toggle_label">Root-режим</string>
-    <string name="settings_root_mode_strategies_body">Настройте FakeRST, мульти-беспорядок и фрагментацию IP</string>
-    <string name="root_mode_strategies_intro_body">Эти стратегии десинхронизации вставляют или фрагментируют пакеты ниже VPN-сокета и работают только на устройствах с root и включённым root-режимом.</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">Вставляет поддельный сброс TCP, чтобы десинхронизировать отслеживание состояния DPI.</string>
     <string name="root_mode_strategy_multidisorder_title">Мульти-беспорядок</string>
-    <string name="root_mode_strategy_multidisorder_body">Меняет порядок сразу нескольких сегментов, чтобы нарушить проверку на основе сборки.</string>
     <string name="root_mode_strategy_ipfrag2_title">Фрагментация IP</string>
-    <string name="root_mode_strategy_ipfrag2_body">Разбивает пакеты на уровне IP, чтобы инспекторы никогда не видели полную полезную нагрузку.</string>
-    <string name="root_mode_strategies_configure_action">Открыть редактор стратегий</string>
     <string name="settings_language_title">Язык</string>
     <string name="language_picker_sheet_title">Выберите язык</string>
     <string name="language_picker_system_language">Язык системы</string>
@@ -318,10 +310,6 @@
     <string name="settings_clear_community_cache_body">Удаляет загруженную статистику сообщества. История проверок сохраняется.</string>
     <string name="advanced_settings_unsaved_change">Не сохранено</string>
     <string name="settings_storage_failed">RIPDPI не удалось записать настройки в хранилище. Освободите место и попробуйте снова.</string>
-    <string name="root_mode_access_checking">Проверка root-доступа…</string>
-    <string name="root_mode_access_granted">На этом устройстве есть root-доступ.</string>
-    <string name="root_mode_access_denied">В root-доступе отказано. Разрешите RIPDPI в менеджере root и снова включите root-режим.</string>
-    <string name="root_mode_access_unavailable">На этом устройстве нет root-доступа, поэтому эти стратегии не будут работать.</string>
     <string name="import_subscription_confirm_empty_body">Эта ссылка не содержит URL подписки.</string>
     <plurals name="backup_import_shareable_body">
         <item quantity="one">%1$d профиль нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.automation
 
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.ui.navigation.Route
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -68,6 +69,21 @@ class AutomationLaunchContractTest {
         assertEquals(AutomationServicePreset.Idle, config.servicePreset)
         assertEquals(AutomationDataPreset.CleanHome, config.dataPreset)
         assertEquals(AutomationThemePreset.System, config.themePreset)
+    }
+
+    @Test
+    fun `root strategies launch route is accepted in extended distributions`() {
+        val rootRoute = "root_mode_strategies"
+        val config =
+            resolveAutomationLaunchConfig(
+                intentArgs =
+                    mapOf(
+                        AutomationLaunchContract.Enabled to true,
+                        AutomationLaunchContract.StartRoute to rootRoute,
+                    ),
+            )
+
+        assertEquals(rootRoute.takeUnless { BuildConfig.DISTRIBUTION_CHANNEL == "play" }, config.startRoute)
     }
 
     @Test

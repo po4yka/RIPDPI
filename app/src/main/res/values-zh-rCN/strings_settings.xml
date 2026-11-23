@@ -161,16 +161,8 @@
     <string name="settings_support_debug_bundle_body">将最近的日志和诊断信息打包为 ZIP 文件分享给支持人员。不包含数据包捕获。</string>
     <string name="settings_telemetry_salt_reset_body">重置用于哈希网络指纹的每次安装盐值。之前记录的哈希将无法再与未来会话关联。</string>
     <string name="settings_warning_backup_pin_title">建议设置备用 PIN</string>
-    <string name="root_mode_toggle_label">Root 模式</string>
-    <string name="settings_root_mode_strategies_body">配置 FakeRST、多重乱序和 IP 分片</string>
-    <string name="root_mode_strategies_intro_body">这些去同步策略在 VPN 套接字下方注入或分片数据包,仅在已启用 root 模式的已 root 设备上有效。</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">注入伪造的 TCP 重置以打乱有状态的 DPI 跟踪。</string>
     <string name="root_mode_strategy_multidisorder_title">多重乱序</string>
-    <string name="root_mode_strategy_multidisorder_body">一次重排多个分段,以破坏基于重组的检测。</string>
     <string name="root_mode_strategy_ipfrag2_title">IP 分片</string>
-    <string name="root_mode_strategy_ipfrag2_body">在 IP 层拆分数据包,使检测器永远看不到完整的载荷。</string>
-    <string name="root_mode_strategies_configure_action">打开策略编辑器</string>
     <!-- Language picker -->
     <string name="settings_language_title">语言</string>
     <string name="language_picker_sheet_title">选择语言</string>
@@ -319,10 +311,6 @@
     <string name="settings_clear_community_cache_body">删除已下载的社区统计数据。您的检查历史会保留。</string>
     <string name="advanced_settings_unsaved_change">未保存</string>
     <string name="settings_storage_failed">RIPDPI 无法将设置写入存储。请释放一些空间后重试。</string>
-    <string name="root_mode_access_checking">正在检查 root 权限…</string>
-    <string name="root_mode_access_granted">此设备可获取 root 权限。</string>
-    <string name="root_mode_access_denied">root 权限被拒绝。请在 root 管理器中允许 RIPDPI，然后重新开启 root 模式。</string>
-    <string name="root_mode_access_unavailable">此设备没有 root 权限，因此这些策略无法生效。</string>
     <string name="import_subscription_confirm_empty_body">此链接不包含订阅 URL。</string>
     <plurals name="backup_import_shareable_body">
         <item quantity="other">由于已移除凭据，%1$d 个配置文件无法恢复。组、路由和设置仍可恢复。</item>

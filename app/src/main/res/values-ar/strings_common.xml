@@ -39,7 +39,6 @@
     <string name="title_advanced_settings">إعدادات متقدمة</string>
     <string name="title_strategy_config">إعداد الاستراتيجية</string>
     <string name="title_remembered_networks">الشبكات المحفوظة</string>
-    <string name="title_root_mode_strategies">استراتيجيات وضع الجذر</string>
     <string name="title_blockcheck">فحص الاستراتيجية</string>
     <string name="title_biometric_prompt">المصادقة</string>
     <string name="title_app_icon">أيقونة التطبيق</string>

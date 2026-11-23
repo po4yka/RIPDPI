@@ -39,7 +39,6 @@
     <string name="title_advanced_settings">Advanced settings</string>
     <string name="title_strategy_config">Strategy config</string>
     <string name="title_remembered_networks">Remembered networks</string>
-    <string name="title_root_mode_strategies">Root-mode strategies</string>
     <string name="title_blockcheck">Strategy probe</string>
     <string name="title_biometric_prompt">Authentication</string>
     <string name="title_app_icon">App icon</string>

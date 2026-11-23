@@ -18,16 +18,8 @@
     <string name="settings_telemetry_salt_reset_body">नेटवर्क फ़िंगरप्रिंट हैश करने के लिए उपयोग किए जाने वाले प्रति-इंस्टॉल साल्ट को रीसेट करें। पहले रिकॉर्ड किए गए हैश को अब भविष्य के सत्रों के साथ सहसंबद्ध नहीं किया जा सकता।</string>
     <string name="settings_telemetry_salt_reset_action">टेलीमेट्री साल्ट रीसेट करें</string>
     <string name="settings_seqovl_unsupported_reason">अनुक्रम ओवरलैप के लिए रॉ सॉकेट एक्सेस की आवश्यकता है जो इस डिवाइस पर उपलब्ध नहीं है। इस सुविधा का उपयोग करने के लिए सेटिंग्स में root मोड सक्षम करें।</string>
-    <string name="root_mode_toggle_label">रूट मोड</string>
-    <string name="settings_root_mode_strategies_body">FakeRST, multi-disorder, और IP विखंडन कॉन्फ़िगर करें</string>
-    <string name="root_mode_strategies_intro_body">ये desync रणनीतियाँ VPN सॉकेट के नीचे पैकेट इंजेक्ट या विखंडित करती हैं और केवल root मोड सक्षम किए गए rooted डिवाइस पर ही काम करती हैं।</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">stateful DPI ट्रैकिंग को desync करने के लिए एक नकली TCP reset इंजेक्ट करता है।</string>
     <string name="root_mode_strategy_multidisorder_title">Multi-disorder</string>
-    <string name="root_mode_strategy_multidisorder_body">reassembly-आधारित निरीक्षण को तोड़ने के लिए एक साथ कई सेगमेंट को पुनः क्रमित करता है।</string>
     <string name="root_mode_strategy_ipfrag2_title">IP विखंडन</string>
-    <string name="root_mode_strategy_ipfrag2_body">पैकेट को IP परत पर विभाजित करता है ताकि निरीक्षक कभी पूरा payload न देख सकें।</string>
-    <string name="root_mode_strategies_configure_action">रणनीति संपादक खोलें</string>
     <string name="theme_settings">थीम</string>
     <string name="backup_encryption_create_title">पूर्ण बैकअप एन्क्रिप्ट करें</string>
     <string name="backup_encryption_create_body">कम से कम 8 अक्षरों का पासफ़्रेज़ बनाएँ। किसी भी डिवाइस पर बैकअप पुनर्स्थापित करने के लिए इसकी आवश्यकता होगी।</string>
@@ -317,10 +309,6 @@
     <string name="settings_clear_community_cache_body">डाउनलोड किए गए कम्युनिटी आँकड़े हटाता है। आपका जाँच इतिहास बना रहता है।</string>
     <string name="advanced_settings_unsaved_change">सहेजा नहीं गया</string>
     <string name="settings_storage_failed">RIPDPI सेटिंग्स को स्टोरेज में नहीं लिख सका। कुछ जगह खाली करें और फिर से कोशिश करें।</string>
-    <string name="root_mode_access_checking">रूट एक्सेस की जाँच हो रही है…</string>
-    <string name="root_mode_access_granted">इस डिवाइस पर रूट एक्सेस उपलब्ध है।</string>
-    <string name="root_mode_access_denied">रूट एक्सेस अस्वीकार कर दिया गया। अपने रूट मैनेजर में RIPDPI को अनुमति दें, फिर रूट मोड दोबारा चालू करें।</string>
-    <string name="root_mode_access_unavailable">इस डिवाइस पर रूट एक्सेस नहीं है, इसलिए ये रणनीतियाँ काम नहीं करेंगी।</string>
     <string name="import_subscription_confirm_empty_body">इस लिंक में सदस्यता URL नहीं है।</string>
     <plurals name="backup_import_shareable_body">
         <item quantity="one">%1$d प्रोफ़ाइल पुनर्स्थापित नहीं की जा सकती क्योंकि क्रेडेंशियल हटा दिए गए थे। समूह, रूट और सेटिंग्स फिर भी पुनर्स्थापित की जा सकती हैं।</item>

@@ -5,7 +5,7 @@
 #   Read-only: never modifies any file.
 #
 #   Satisfies: weekly CI gate that detects per-locale missing/extra keys vs.
-#   app/src/main/res/values,
+#   app/src/main/res/values, app/src/extended/res/values,
 #   core/service/src/main/res/values, and core/detection/src/main/res/values.
 #
 #   Runnable from the repository root:
@@ -114,6 +114,7 @@ check_module() {
 }
 
 check_module "app/src/main/res/values"          "app/src/main/res"          "app"
+check_module "app/src/extended/res/values"      "app/src/extended/res"      "app (extended)"
 check_module "core/service/src/main/res/values" "core/service/src/main/res" "core/service"
 check_module "core/detection/src/main/res/values" "core/detection/src/main/res" "core/detection"
 

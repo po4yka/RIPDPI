@@ -412,6 +412,8 @@ val forwardedInstrumentationArguments =
         "ripdpi.runNetworkTests",
     )
 
+val extendedDistributions = setOf("fdroid", "github")
+
 extensions.configure<ApplicationExtension> {
     packaging.resources {
         // Merge rules take priority over exclusions. Name the Android services
@@ -500,6 +502,17 @@ extensions.configure<ApplicationExtension> {
             buildConfigField("String", "GITHUB_UPDATE_OWNER", "\"po4yka\"")
             buildConfigField("String", "GITHUB_UPDATE_REPO", "\"RIPDPI\"")
         }
+    }
+
+    extendedDistributions.forEach { distribution ->
+        sourceSets.getByName(distribution).apply {
+            kotlin.directories.add("src/extended/kotlin")
+            res.directories.add("src/extended/res")
+        }
+        sourceSets
+            .maybeCreate("test${distribution.replaceFirstChar(Char::uppercaseChar)}")
+            .kotlin.directories
+            .add("src/testExtended/kotlin")
     }
 
     testOptions {
@@ -779,7 +792,6 @@ aboutLibraries {
 // A native-less validation build ships no Rust code, so it needs no Rust notices.
 val nativeLessValidation = providers.gradleProperty("ripdpi.skipNativeBuild").orNull == "true"
 
-val extendedDistributions = setOf("fdroid", "github")
 val extendedRuntimeAssets =
     configurations.create("extendedRuntimeAssets") {
         isCanBeConsumed = false

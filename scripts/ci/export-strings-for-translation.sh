@@ -31,25 +31,26 @@ import sys
 import xml.etree.ElementTree as ET
 
 keys = set()
+seen = set()
 for prefix, resource_dir in (
     ("app", "app/src/main/res/values"),
+    ("app", "app/src/extended/res/values"),
     ("service", "core/service/src/main/res/values"),
     ("detection", "core/detection/src/main/res/values"),
 ):
     directory = pathlib.Path(resource_dir)
     if not directory.is_dir():
         raise SystemExit(f"ERROR: source resource directory not found: {directory}")
-    seen = set()
     for source in sorted(directory.glob("*.xml")):
         for resource in ET.parse(source).getroot():
             if resource.tag != "string":
                 continue
-            name = resource.attrib["name"]
-            if name in seen:
-                raise SystemExit(f"ERROR: duplicate source string key: {prefix}:{name}")
-            seen.add(name)
+            key = f'{prefix}:{resource.attrib["name"]}'
+            if key in seen:
+                raise SystemExit(f"ERROR: duplicate source string key: {key}")
+            seen.add(key)
             if resource.get("translatable") != "false":
-                keys.add(f"{prefix}:{name}")
+                keys.add(key)
 
 output = pathlib.Path(sys.argv[1])
 output.parent.mkdir(parents=True, exist_ok=True)

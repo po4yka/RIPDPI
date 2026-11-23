@@ -24,6 +24,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.createGraph
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.navigation.LocalShownBesideList
 import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
@@ -135,6 +137,29 @@ class SettingsListDetailNavigationTest {
         composeRule.onNodeWithTag(DNS_TAG).assertExists()
         composeRule.onNodeWithTag(settingsScreen).assertDoesNotExist()
         composeRule.onNode(hasContentDescription(BACK_LABEL)).assertExists()
+    }
+
+    @Test
+    fun rootSettingsDestinationIsAvailableInExtendedDistributions() {
+        showSettingsGraph()
+
+        composeRule.runOnIdle {
+            val graph =
+                navController.createGraph(startDestination = Route.Settings) {
+                    composable<Route.Settings> {}
+                    addDistributionSettingsRoutes(navController)
+                }
+            val destination = graph.findNode("com.poyka.ripdpi.ui.navigation.Route.RootModeStrategies")
+            val extendedDistribution = BuildConfig.DISTRIBUTION_CHANNEL != "play"
+            val expected = "root_mode_strategies".takeIf { extendedDistribution }
+
+            assertEquals(extendedDistribution, destination != null)
+            assertEquals(expected, destination?.stableRouteKey())
+            assertEquals(
+                expected,
+                settingsListDetail(destination, graph.findNode(Route.Settings::class))?.selected?.stableRoute,
+            )
+        }
     }
 
     private inline fun <reified T : Any> currentIs(): Boolean =

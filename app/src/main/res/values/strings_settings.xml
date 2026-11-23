@@ -19,16 +19,8 @@
     <string name="settings_telemetry_salt_reset_body">Reset the per-install salt used to hash network fingerprints. Previously recorded hashes can no longer be correlated with future sessions.</string>
     <string name="settings_telemetry_salt_reset_action">Reset telemetry salt</string>
     <string name="settings_seqovl_unsupported_reason">Sequence overlap requires raw socket access unavailable on this device. Enable root mode in settings to use this feature.</string>
-    <string name="root_mode_toggle_label">Root mode</string>
-    <string name="settings_root_mode_strategies_body">Configure FakeRST, multi-disorder, and IP fragmentation</string>
-    <string name="root_mode_strategies_intro_body">These desync strategies inject or fragment packets below the VPN socket and only work on rooted devices with root mode enabled.</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">Injects a spoofed TCP reset to desynchronise stateful DPI tracking.</string>
     <string name="root_mode_strategy_multidisorder_title">Multi-disorder</string>
-    <string name="root_mode_strategy_multidisorder_body">Reorders several segments at once to break reassembly-based inspection.</string>
     <string name="root_mode_strategy_ipfrag2_title">IP fragmentation</string>
-    <string name="root_mode_strategy_ipfrag2_body">Splits packets at the IP layer so inspectors never see the full payload.</string>
-    <string name="root_mode_strategies_configure_action">Open strategy editor</string>
     <string name="theme_settings">Theme</string>
     <string name="about_category">About</string>
     <string name="settings_mixed_inbound_title">Mixed inbound (SOCKS5 + HTTP)</string>
@@ -325,10 +317,6 @@
     <string name="settings_clear_community_cache_body">Deletes downloaded community statistics. Your check history stays.</string>
     <string name="advanced_settings_unsaved_change">Not saved</string>
     <string name="settings_storage_failed">RIPDPI could not write settings to storage. Free some space and try again.</string>
-    <string name="root_mode_access_checking">Checking root access…</string>
-    <string name="root_mode_access_granted">Root access is available on this device.</string>
-    <string name="root_mode_access_denied">Root access was denied. Allow RIPDPI in your root manager, then turn root mode on again.</string>
-    <string name="root_mode_access_unavailable">This device has no root access, so these strategies will not work.</string>
     <string name="import_subscription_confirm_empty_body">This link does not contain a subscription URL.</string>
     <plurals name="backup_import_shareable_body">
         <item quantity="one">%1$d profile cannot be restored because its credentials were removed. Groups, routes, and settings can still be restored.</item>

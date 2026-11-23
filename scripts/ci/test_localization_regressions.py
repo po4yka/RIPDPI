@@ -14,9 +14,9 @@ LOCALES = ("values", "values-ru", "values-es", "values-de", "values-fr", "values
 FORMAT = re.compile(r"%(?:\d+\$)?[a-zA-Z]")
 
 
-def resources(module, locale):
+def resources(module, locale, source_set="main"):
     result = {}
-    for file in sorted((ROOT / module / "src/main/res" / locale).glob("*.xml")):
+    for file in sorted((ROOT / module / "src" / source_set / "res" / locale).glob("*.xml")):
         for entry in ET.parse(file).getroot():
             name = entry.get("name")
             if entry.tag in ("string", "plurals", "string-array"):

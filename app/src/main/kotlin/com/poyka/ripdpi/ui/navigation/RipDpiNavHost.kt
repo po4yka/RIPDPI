@@ -18,6 +18,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -96,7 +97,8 @@ fun RipDpiNavHost(
     onExportEligibilityChanged: (Boolean) -> Unit = {},
     exportPreviewContent: @Composable () -> Unit = {},
 ) {
-    val navController = rememberNavController()
+    // Previously saved back stacks can contain a destination absent from the current graph.
+    val navController = key("ripdpi-nav-v2") { rememberNavController() }
     val diagnosticsInitialSection = rememberSaveable { mutableStateOf<DiagnosticsSection?>(null) }
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStackEntry?.destination
@@ -424,6 +426,7 @@ internal fun NavHostController.navigateConnectionSubRoute(destination: Route) {
  */
 internal fun NavDestination.stableRouteKey(): String? =
     stableRouteMatchers.firstOrNull { (_, matches) -> matches() }?.first
+        ?: distributionSettingsDetails.firstOrNull { hasRoute(it.route::class) }?.route?.stableRoute
 
 internal fun NavDestination.matchesRoute(route: Route): Boolean = stableRouteKey() == route.stableRoute
 
@@ -457,7 +460,6 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.AdvancedSettings.stableRoute to { hasRoute<Route.AdvancedSettings>() },
         Route.StrategyConfig.stableRoute to { hasRoute<Route.StrategyConfig>() },
         Route.RememberedNetworks.stableRoute to { hasRoute<Route.RememberedNetworks>() },
-        Route.RootModeStrategies.stableRoute to { hasRoute<Route.RootModeStrategies>() },
         Route.DomainBypassList.stableRoute to { hasRoute<Route.DomainBypassList>() },
         Route.AssetProvider.stableRoute to { hasRoute<Route.AssetProvider>() },
         Route.SplitTunnel.stableRoute to { hasRoute<Route.SplitTunnel>() },

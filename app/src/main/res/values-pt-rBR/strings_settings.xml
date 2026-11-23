@@ -18,16 +18,8 @@
     <string name="settings_telemetry_salt_reset_body">Redefine o salt por instalação usado para gerar hash das impressões digitais de rede. Hashes registrados anteriormente deixam de poder ser correlacionados com sessões futuras.</string>
     <string name="settings_telemetry_salt_reset_action">Redefinir salt de telemetria</string>
     <string name="settings_seqovl_unsupported_reason">A sobreposição de sequência requer acesso a sockets brutos, indisponível neste dispositivo. Ative o modo root nas configurações para usar este recurso.</string>
-    <string name="root_mode_toggle_label">Modo root</string>
-    <string name="settings_root_mode_strategies_body">Configure FakeRST, multi-disorder e fragmentação IP</string>
-    <string name="root_mode_strategies_intro_body">Essas estratégias de dessincronização injetam ou fragmentam pacotes abaixo do soquete VPN e só funcionam em dispositivos com root e com o modo root ativado.</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">Injeta um TCP reset falsificado para dessincronizar o rastreamento de DPI com estado.</string>
     <string name="root_mode_strategy_multidisorder_title">Multi-disorder</string>
-    <string name="root_mode_strategy_multidisorder_body">Reordena vários segmentos de uma vez para quebrar inspeções baseadas em remontagem.</string>
     <string name="root_mode_strategy_ipfrag2_title">Fragmentação IP</string>
-    <string name="root_mode_strategy_ipfrag2_body">Divide pacotes na camada IP para que os inspetores nunca vejam o payload completo.</string>
-    <string name="root_mode_strategies_configure_action">Abrir editor de estratégias</string>
     <string name="theme_settings">Tema</string>
     <string name="about_category">Sobre</string>
     <string name="settings_mixed_inbound_title">Entrada mista (SOCKS5 + HTTP)</string>
@@ -317,10 +309,6 @@
     <string name="settings_clear_community_cache_body">Exclui as estatísticas da comunidade baixadas. Seu histórico de verificações é mantido.</string>
     <string name="advanced_settings_unsaved_change">Não salvo</string>
     <string name="settings_storage_failed">O RIPDPI não conseguiu gravar as configurações no armazenamento. Libere espaço e tente novamente.</string>
-    <string name="root_mode_access_checking">Verificando o acesso root…</string>
-    <string name="root_mode_access_granted">O acesso root está disponível neste dispositivo.</string>
-    <string name="root_mode_access_denied">O acesso root foi negado. Permita o RIPDPI no seu gerenciador de root e ative o modo root novamente.</string>
-    <string name="root_mode_access_unavailable">Este dispositivo não tem acesso root, então essas estratégias não funcionarão.</string>
     <string name="import_subscription_confirm_empty_body">Este link não contém uma URL de assinatura.</string>
     <plurals name="backup_import_shareable_body">
         <item quantity="one">%1$d perfil não pode ser restaurado porque as credenciais foram removidas. Grupos, rotas e configurações ainda podem ser restaurados.</item>

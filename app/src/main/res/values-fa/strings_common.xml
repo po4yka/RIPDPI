@@ -38,7 +38,6 @@
     <string name="title_advanced_settings">تنظیمات پیشرفته</string>
     <string name="title_strategy_config">پیکربندی راهبرد</string>
     <string name="title_remembered_networks">شبکه‌های به‌خاطر‌سپرده</string>
-    <string name="title_root_mode_strategies">راهبردهای حالت روت</string>
     <string name="title_blockcheck">کاوش راهبرد</string>
     <string name="command_line_arguments">آرگومان‌های خط فرمان</string>
     <string name="confirm_clear_remembered_networks_dismiss">انصراف</string>

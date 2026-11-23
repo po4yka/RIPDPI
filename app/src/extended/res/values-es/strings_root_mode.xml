@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title_root_mode_strategies">Estrategias en modo root</string>
+    <string name="settings_root_mode_strategies_body">Configura FakeRST, multidesorden y fragmentación IP</string>
+    <string name="root_mode_toggle_label">Modo root</string>
+    <string name="root_mode_strategies_intro_body">Estas estrategias de desincronización inyectan o fragmentan paquetes por debajo del socket de la VPN y solo funcionan en dispositivos con root y el modo root activado.</string>
+    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
+    <string name="root_mode_strategy_fakerst_body">Inyecta un reinicio TCP falsificado para desincronizar el seguimiento de estado del DPI.</string>
+    <string name="root_mode_strategy_multidisorder_body">Reordena varios segmentos a la vez para romper la inspección basada en el reensamblado.</string>
+    <string name="root_mode_strategy_ipfrag2_body">Divide los paquetes en la capa IP para que los inspectores nunca vean la carga útil completa.</string>
+    <string name="root_mode_strategies_configure_action">Abrir el editor de estrategias</string>
+    <string name="root_mode_access_checking">Comprobando el acceso root…</string>
+    <string name="root_mode_access_granted">Este dispositivo tiene acceso root.</string>
+    <string name="root_mode_access_denied">Se denegó el acceso root. Permite RIPDPI en tu gestor de root y vuelve a activar el modo root.</string>
+    <string name="root_mode_access_unavailable">Este dispositivo no tiene acceso root, así que estas estrategias no funcionarán.</string>
+</resources>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title_root_mode_strategies">Стратегии root-режима</string>
+    <string name="settings_root_mode_strategies_body">Настройте FakeRST, мульти-беспорядок и фрагментацию IP</string>
+    <string name="root_mode_toggle_label">Root-режим</string>
+    <string name="root_mode_strategies_intro_body">Эти стратегии десинхронизации вставляют или фрагментируют пакеты ниже VPN-сокета и работают только на устройствах с root и включённым root-режимом.</string>
+    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
+    <string name="root_mode_strategy_fakerst_body">Вставляет поддельный сброс TCP, чтобы десинхронизировать отслеживание состояния DPI.</string>
+    <string name="root_mode_strategy_multidisorder_body">Меняет порядок сразу нескольких сегментов, чтобы нарушить проверку на основе сборки.</string>
+    <string name="root_mode_strategy_ipfrag2_body">Разбивает пакеты на уровне IP, чтобы инспекторы никогда не видели полную полезную нагрузку.</string>
+    <string name="root_mode_strategies_configure_action">Открыть редактор стратегий</string>
+    <string name="root_mode_access_checking">Проверка root-доступа…</string>
+    <string name="root_mode_access_granted">На этом устройстве есть root-доступ.</string>
+    <string name="root_mode_access_denied">В root-доступе отказано. Разрешите RIPDPI в менеджере root и снова включите root-режим.</string>
+    <string name="root_mode_access_unavailable">На этом устройстве нет root-доступа, поэтому эти стратегии не будут работать.</string>
+</resources>

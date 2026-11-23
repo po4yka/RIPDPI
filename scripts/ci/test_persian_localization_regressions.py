@@ -129,8 +129,8 @@ AUDITED_KEYS = (
 class PersianLocalizationRegressionsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.fa = resources("app", "values-fa")
-        cls.en = resources("app", "values")
+        cls.fa = resources("app", "values-fa") | resources("app", "values-fa", "extended")
+        cls.en = resources("app", "values") | resources("app", "values", "extended")
 
     def value(self, key):
         return text(self.fa[key])
@@ -250,10 +250,10 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
         required = {"values": {"one", "other"}, "values-ru": {"one", "few", "many", "other"},
                     "values-ar": {"zero", "one", "two", "few", "many", "other"},
                     "values-zh-rCN": {"other"}}
-        for module in ("app", "core/service"):
-            source = resources(module, "values")
+        for module, source_set in (("app", "main"), ("app", "extended"), ("core/service", "main")):
+            source = resources(module, "values", source_set)
             for locale in LOCALES:
-                translated = resources(module, locale)
+                translated = resources(module, locale, source_set)
                 for key, original in source.items():
                     if original.get("translatable") == "false":
                         continue

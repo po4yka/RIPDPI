@@ -46,6 +46,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.navigation.distributionSettingsDetails
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -123,17 +124,20 @@ private fun SettingsAdvancedConnectivitySection(
             showChevron = true,
             onClick = actions.onOpenSplitTunnel,
             variant = settingsDetailVariant(Route.SplitTunnel),
-            showDivider = true,
+            showDivider = distributionSettingsDetails.isNotEmpty(),
             testTag = RipDpiTestTags.SettingsSplitTunnel,
         )
-        SettingsRow(
-            title = stringResource(R.string.title_root_mode_strategies),
-            subtitle = stringResource(R.string.settings_root_mode_strategies_body),
-            showChevron = true,
-            onClick = actions.onOpenRootModeStrategies,
-            variant = settingsDetailVariant(Route.RootModeStrategies),
-            testTag = RipDpiTestTags.SettingsRootModeStrategies,
-        )
+        distributionSettingsDetails.forEachIndexed { index, detail ->
+            SettingsRow(
+                title = stringResource(detail.route.titleRes),
+                subtitle = stringResource(detail.subtitleRes),
+                showChevron = true,
+                onClick = { actions.onOpenDistributionSettingsDetail(detail.route) },
+                variant = settingsDetailVariant(detail.route),
+                showDivider = index < distributionSettingsDetails.lastIndex,
+                testTag = detail.testTag,
+            )
+        }
     }
 }
 

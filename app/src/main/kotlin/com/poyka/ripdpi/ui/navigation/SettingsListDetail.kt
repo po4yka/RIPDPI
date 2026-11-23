@@ -22,13 +22,12 @@ internal val settingsDetailRoutes: List<Route> =
         Route.DomainBypassList,
         Route.Routes,
         Route.SplitTunnel,
-        Route.RootModeStrategies,
         Route.DataTransparency,
         Route.AppCustomization,
         Route.DetectionCheck,
         Route.About,
         Route.BackupRestore,
-    )
+    ) + distributionSettingsDetails.map { it.route }
 
 /** The Settings list-detail pair on the back stack; [selected] is null while Settings itself is current. */
 internal data class SettingsListDetail(
@@ -104,7 +103,7 @@ internal fun SettingsHomeRoute(
         onOpenDomainBypass = { navController.navigateSettingsDetail(Route.DomainBypassList) },
         onOpenRoutingRules = { navController.navigateSettingsDetail(Route.Routes) },
         onOpenSplitTunnel = { navController.navigateSettingsDetail(Route.SplitTunnel) },
-        onOpenRootModeStrategies = { navController.navigateSettingsDetail(Route.RootModeStrategies) },
+        onOpenDistributionSettingsDetail = { navController.navigateSettingsDetail(it) },
         onOpenBackupRestore = { navController.navigateSettingsDetail(Route.BackupRestore) },
         onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
         onShareDebugBundle = actions.onShareDebugBundle,

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.navigation
 
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.screens.connection.ConnectionPath
 import com.poyka.ripdpi.ui.screens.status.StatusMode
@@ -116,7 +117,7 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
-    fun `route registry and stable matchers cover every NavHost destination`() {
+    fun `common route registry and stable matchers cover every common NavHost destination`() {
         val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt").readText()
         val importNavigationSource =
             listOf(
@@ -134,6 +135,7 @@ class RipDpiNavHostLogicTest {
                 .map { match -> match.groupValues[1] }
                 .toList()
         val registeredRouteTypes = Route.all.map { route -> route::class.java.simpleName }
+        val distributionRouteTypes = distributionSettingsDetails.map { it.route::class.java.simpleName }.toSet()
         val matcherPairs =
             Regex(
                 """Route\.([A-Za-z0-9_]+)(?:\(\))?\.stableRoute to \{ hasRoute<Route\.([A-Za-z0-9_]+)>\(\) }""",
@@ -168,9 +170,9 @@ class RipDpiNavHostLogicTest {
             matcherPairs.all { (keyType, destinationType) -> keyType == destinationType },
         )
         assertEquals(
-            "Route.all drifted from NavHost",
+            "Common Route.all destinations drifted from NavHost",
             registeredDestinationTypes.toSet(),
-            registeredRouteTypes.toSet(),
+            registeredRouteTypes.toSet() - distributionRouteTypes,
         )
         assertEquals(
             "Stable route matchers drifted from NavHost",
@@ -239,7 +241,14 @@ class RipDpiNavHostLogicTest {
 
         assertEquals("Every exclusion needs a prerequisite and reason", declaredExclusionRoutes, excludedRoutes)
         assertEquals(emptySet<String>(), pageRoutes intersect excludedRoutes)
-        assertEquals("Audit route coverage drifted", registeredRoutes, pageRoutes + excludedRoutes)
+        val routesForDistribution = pageRoutes + excludedRoutes
+        val expectedRoutes =
+            if (BuildConfig.DISTRIBUTION_CHANNEL == "play") {
+                routesForDistribution - ROOT_MODE_STRATEGIES_ROUTE
+            } else {
+                routesForDistribution
+            }
+        assertEquals("Audit route coverage drifted", expectedRoutes, registeredRoutes)
     }
 
     private fun assertAuditRequiredTags(auditSpec: String) {
@@ -377,6 +386,8 @@ private enum class ReachabilityMechanism {
     LaunchRequest,
 }
 
+private const val ROOT_MODE_STRATEGIES_ROUTE = "root_mode_strategies"
+
 private val ExpectedRootScreenTags: Map<String, String> =
     mapOf(
         Route.Onboarding.stableRoute to "onboarding-screen",
@@ -399,7 +410,7 @@ private val ExpectedRootScreenTags: Map<String, String> =
         Route.AdvancedSettings.stableRoute to "advanced_settings-screen",
         Route.StrategyConfig.stableRoute to "strategy_config-screen",
         Route.RememberedNetworks.stableRoute to "remembered_networks-screen",
-        Route.RootModeStrategies.stableRoute to "root_mode_strategies-screen",
+        ROOT_MODE_STRATEGIES_ROUTE to "root_mode_strategies-screen",
         Route.DomainBypassList.stableRoute to "domain_bypass_list-screen",
         Route.AssetProvider.stableRoute to "asset_provider-screen",
         Route.SplitTunnel.stableRoute to "split_tunnel-screen",
@@ -474,7 +485,7 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
         Route.AdvancedSettings.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.StrategyConfig.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.RememberedNetworks.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
-        Route.RootModeStrategies.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        ROOT_MODE_STRATEGIES_ROUTE to setOf(ReachabilityMechanism.InAppNavigate),
         Route.DomainBypassList.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.AssetProvider.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.SplitTunnel.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),

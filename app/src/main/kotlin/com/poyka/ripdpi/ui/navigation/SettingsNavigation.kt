@@ -29,7 +29,6 @@ import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
 import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksRoute
-import com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsDetailPlaceholder
 import com.poyka.ripdpi.ui.screens.settings.SettingsViewModel
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
@@ -60,6 +59,7 @@ internal fun NavGraphBuilder.addSettingsRoutes(
         }
         addAdvancedSettingsRoutes(navController, mainViewModel)
         addDetectionSettingsRoutes(navController)
+        addDistributionSettingsRoutes(navController)
     }
 }
 
@@ -87,12 +87,6 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     }
     composable<Route.RememberedNetworks> {
         RememberedNetworksRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.RootModeStrategies> {
-        RootModeStrategiesRoute(
-            onBack = { navController.popBackStack() },
-            onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
-        )
     }
     composable<Route.StrategyConfig> {
         val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
