@@ -7,6 +7,10 @@ license.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["privileged-packets"]
+privileged-packets = []
+
 [dependencies]
 etherparse = { workspace = true }
 ripdpi-packets = { workspace = true }

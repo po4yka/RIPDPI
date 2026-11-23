@@ -30,4 +30,6 @@ socket2 = { workspace = true }
 tracing = { workspace = true }
 
 [features]
+default = ["privileged-packets"]
+privileged-packets = []
 loom = ["dep:loom", "ripdpi-desync-runtime/loom"]

@@ -11,7 +11,7 @@ use ripdpi_packets::{
     second_level_domain_span, tls_marker_info,
 };
 use ripdpi_proxy_config::ProxyRuntimeContext;
-use ripdpi_strategy_config::{LoadedStrategyConfig, ProtocolName, StrategyMatch, parse_yaml_str};
+use ripdpi_strategy_config::{LoadedStrategyConfig, ProtocolName, StepType, StrategyMatch, parse_yaml_str};
 use ripdpi_strategy_registry::StrategyRegistry;
 use ripdpi_strategy_trait::{
     Capabilities, ConnectionState, DesyncAction, DesyncPlan, Dissect, FlowDirection, FlowId, HttpDissect, L7Protocol,
@@ -21,6 +21,8 @@ use ripdpi_strategy_trait::{
 pub use ripdpi_strategy_trait::DesyncPlan as PayloadPlan;
 
 static NEXT_FLOW_ID: AtomicU64 = AtomicU64::new(1);
+
+const SUPPORTS_EXTERNAL_PACKET_BACKEND: bool = cfg!(feature = "privileged-packets");
 
 struct SocketLuaRule {
     matcher: StrategyMatch,
@@ -53,7 +55,7 @@ impl SocketLuaStrategies {
 
     fn from_yaml(yaml: &str, base_dir: &Path) -> io::Result<Option<Arc<Self>>> {
         let config = parse_yaml_str(yaml, base_dir).map_err(invalid_config)?;
-        if let Some(kind) = config.unsupported_socket_window_step() {
+        if SUPPORTS_EXTERNAL_PACKET_BACKEND && let Some(kind) = config.unsupported_socket_window_step() {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 format!("strategy step {kind} has no production socket executor"),
@@ -61,9 +63,10 @@ impl SocketLuaStrategies {
         }
         let mut rules = Vec::new();
         for strategy in config.strategies {
-            if !strategy.steps.iter().any(|step| step.kind.registry_id() == "lua") {
+            if !strategy.steps.iter().any(|step| step.kind == StepType::Lua) {
                 continue;
             }
+            let skip_packet_rule = !SUPPORTS_EXTERNAL_PACKET_BACKEND && strategy.requires_external_packet_backend();
             let matcher = StrategyMatch {
                 hosts: strategy
                     .matcher
@@ -78,11 +81,15 @@ impl SocketLuaStrategies {
                 base_dir: config.base_dir.clone(),
                 strategies: vec![strategy],
             };
-            rules.push(SocketLuaRule {
-                matcher,
-                tcp: StrategyRegistry::from_loaded_socket_config(&isolated, true).map_err(invalid_config)?,
-                udp: StrategyRegistry::from_loaded_socket_config(&isolated, false).map_err(invalid_config)?,
-            });
+            let omit_unavailable_bundled = !SUPPORTS_EXTERNAL_PACKET_BACKEND;
+            let tcp = StrategyRegistry::from_loaded_socket_config(&isolated, true, omit_unavailable_bundled)
+                .map_err(invalid_config)?;
+            if skip_packet_rule || tcp.list().next().is_none() {
+                continue;
+            }
+            let udp = StrategyRegistry::from_loaded_socket_config(&isolated, false, omit_unavailable_bundled)
+                .map_err(invalid_config)?;
+            rules.push(SocketLuaRule { matcher, tcp, udp });
         }
         Ok((!rules.is_empty()).then(|| Arc::new(Self { rules })))
     }
@@ -462,7 +469,7 @@ mod tests {
     }
 
     #[test]
-    fn socket_load_rejects_window_steps_without_an_executor() {
+    fn socket_admission_handles_window_steps_by_edition() {
         for kind in ["wsize", "wssize"] {
             for prefix in ["", "      - type: split\n"] {
                 let context = ProxyRuntimeContext {
@@ -473,9 +480,13 @@ mod tests {
                     ..ProxyRuntimeContext::default()
                 };
                 let result = SocketLuaStrategies::load(Some(&context));
-                let Err(error) = result else { panic!("{kind} must fail production admission") };
-                assert_eq!(error.kind(), io::ErrorKind::Unsupported);
-                assert!(error.to_string().contains(kind));
+                if SUPPORTS_EXTERNAL_PACKET_BACKEND {
+                    let Err(error) = result else { panic!("{kind} must fail production admission") };
+                    assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+                    assert!(error.to_string().contains(kind));
+                } else {
+                    assert!(result.unwrap().is_none());
+                }
             }
         }
     }
@@ -519,6 +530,62 @@ mod tests {
                 assert_eq!(plan.actions, vec![DesyncAction::Write(payload.to_vec())]);
             }
         }
+    }
+
+    #[test]
+    fn legacy_bundled_rules_follow_edition_policy_without_hiding_custom_errors() {
+        let scripts = Scripts::new("function write(d) return 'custom' end");
+        let lib = scripts.0.join("zapret-lib.lua");
+        let strategy = scripts.0.join("zapret-antidpi.lua");
+        std::fs::write(&lib, include_bytes!("../../../../../app/src/play/assets/lua/zapret-lib.lua")).unwrap();
+        std::fs::write(&strategy, include_bytes!("../../../../../app/src/play/assets/lua/zapret-antidpi.lua")).unwrap();
+        let stock_rule = |id, function| {
+            rule(id, function, "drop", "").replace("candidate.lua", "zapret-lib.lua, zapret-antidpi.lua")
+        };
+        let load = |rules| SocketLuaStrategies::from_yaml(&format!("version: 1\nstrategies:\n{rules}"), &scripts.0);
+        let payload = b"GET / HTTP/1.1\r\nHost: example.org\r\n\r\n";
+        let (src, dst) = endpoints();
+        let legacy = stock_rule("legacy", "rst");
+        let current = stock_rule("current", "http_hostcase");
+        let result = load(legacy.clone() + &current);
+        if SUPPORTS_EXTERNAL_PACKET_BACKEND {
+            assert!(matches!(result, Err(error) if error.kind() == io::ErrorKind::InvalidInput));
+            return;
+        }
+
+        let plan = result.unwrap().unwrap().open_flow().plan(src, dst, "tcp", payload, None, None).unwrap().unwrap();
+        assert_eq!(plan.actions, vec![DesyncAction::Write(b"GET / HTTP/1.1\r\nhost: example.org\r\n\r\n".to_vec())]);
+        assert!(load(legacy.clone()).unwrap().is_none());
+
+        let typed_legacy =
+            rule("typed", "write", "drop", "").replace("    steps:\n", "    steps:\n      - type: fake_rst\n");
+        let plan = load(typed_legacy.clone() + &current)
+            .unwrap()
+            .unwrap()
+            .open_flow()
+            .plan(src, dst, "tcp", payload, None, None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(plan.actions, vec![DesyncAction::Write(b"GET / HTTP/1.1\r\nhost: example.org\r\n\r\n".to_vec())]);
+
+        let missing_custom_steps =
+            "      - type: lua\n        function: not_found\n        script_paths: [candidate.lua]\n";
+        assert!(
+            matches!(load(legacy.clone() + missing_custom_steps), Err(error) if error.kind() == io::ErrorKind::InvalidInput)
+        );
+        let escaped = rule("escape", "write", "drop", "").replace("candidate.lua", "../zapret-antidpi.lua");
+        assert!(matches!(load(legacy.clone() + &escaped), Err(error) if error.kind() == io::ErrorKind::InvalidInput));
+        std::fs::remove_file(strategy).unwrap();
+        let plan = load(legacy + &rule("custom", "write", "drop", ""))
+            .unwrap()
+            .unwrap()
+            .open_flow()
+            .plan(src, dst, "tcp", payload, None, None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(plan.actions, vec![DesyncAction::Write(b"custom".to_vec())]);
+        std::fs::write(scripts.0.join("candidate.lua"), "function malformed(").unwrap();
+        assert!(matches!(load(typed_legacy), Err(error) if error.kind() == io::ErrorKind::InvalidInput));
     }
 
     #[test]

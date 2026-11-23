@@ -41,5 +41,5 @@ tempfile = "3.27"
 tracing-subscriber = { workspace = true }
 
 [features]
-privileged-packets = ["ripdpi-runtime-platform/privileged-packets", "ripdpi-tunnel-config/privileged-packets"]
+privileged-packets = ["ripdpi-runtime-platform/privileged-packets", "ripdpi-tunnel-config/privileged-packets", "ripdpi-tunnel-core/privileged-packets"]
 loom = ["dep:loom"]

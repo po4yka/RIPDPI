@@ -235,7 +235,9 @@ impl<I: TunPacketInjector + Send> TunEgressPacketHandler for TunEgressIntercepto
 fn parse_rules(strategy_yaml: &str, base_dir: &Path, lua_socket_owned: bool) -> io::Result<Vec<EgressRule>> {
     let config = ripdpi_strategy_config::parse_yaml_str(strategy_yaml, base_dir)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid TUN strategy configuration"))?;
-    if let Some(kind) = config.unsupported_socket_window_step() {
+    if cfg!(feature = "privileged-packets")
+        && let Some(kind) = config.unsupported_socket_window_step()
+    {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
             format!("strategy step {kind} has no production socket executor"),
@@ -243,6 +245,9 @@ fn parse_rules(strategy_yaml: &str, base_dir: &Path, lua_socket_owned: bool) -> 
     }
     let mut rules = Vec::new();
     for strategy in &config.strategies {
+        if !cfg!(feature = "privileged-packets") && strategy.requires_external_packet_backend() {
+            continue;
+        }
         for step in &strategy.steps {
             if lua_socket_owned && step.kind == StepType::Lua {
                 continue;

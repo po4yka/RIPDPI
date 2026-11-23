@@ -38,7 +38,7 @@ pub use fixed_config::{CandidateArm, CandidateArmViolation, FIXED_CONFIG_PROTOCO
 use std::path::Path;
 
 use ripdpi_desync::AdaptivePlannerHints;
-use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail, StrategyStep};
+use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail, StepType, StrategyStep};
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncPlan, DesyncStrategy, STRATEGY_DESCRIPTOR_REGISTRATIONS, STRATEGY_STEP_REGISTRATIONS,
     StrategyContext, StrategyDescriptor, StrategyError, StrategyPlanOutcome, StrategyStepDescriptor,
@@ -83,6 +83,9 @@ pub enum StrategyRegistryError {
     /// Lua strategy configuration was invalid or failed to load.
     #[error("Lua strategy {function} failed: {error}")]
     Lua { function: String, error: String },
+    /// A function or file from the app's bundled recipe is absent in this build.
+    #[error("Lua strategy {function} failed: {error}")]
+    UnavailableBundledLua { function: String, error: String },
 }
 
 struct RegistryEntry {
@@ -151,15 +154,29 @@ impl StrategyRegistry {
 
     /// Compiles Lua steps for an existing TCP or UDP socket.
     /// Non-Lua steps are left to the ordinary proxy planner.
-    pub fn from_loaded_socket_config(config: &LoadedStrategyConfig, tcp: bool) -> Result<Self, StrategyRegistryError> {
+    /// When `omit_unavailable_bundled` is set, skip whole rules whose stock Lua
+    /// recipe is unavailable. Still validate every Lua step in those rules.
+    pub fn from_loaded_socket_config(
+        config: &LoadedStrategyConfig,
+        tcp: bool,
+        omit_unavailable_bundled: bool,
+    ) -> Result<Self, StrategyRegistryError> {
         let mut registry = Self::new();
         for strategy in &config.strategies {
-            for step in &strategy.steps {
-                if step.kind.registry_id() == "lua" {
-                    registry.register_with_policy(
-                        configured_lua_socket_strategy_from_step(step, &config.base_dir, tcp)?,
-                        on_fail_from_config(strategy.on_fail),
-                    );
+            let mut pending = Vec::new();
+            let mut unavailable = false;
+            for step in strategy.steps.iter().filter(|step| step.kind == StepType::Lua) {
+                match configured_lua_socket_strategy_from_step(step, &config.base_dir, tcp) {
+                    Ok(resolved) => pending.push(resolved),
+                    Err(StrategyRegistryError::UnavailableBundledLua { .. }) if omit_unavailable_bundled => {
+                        unavailable = true;
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+            if !unavailable {
+                for resolved in pending {
+                    registry.register_with_policy(resolved, on_fail_from_config(strategy.on_fail));
                 }
             }
         }
@@ -492,6 +509,10 @@ fn configured_lua_strategy(
     // rejects any path that canonicalizes outside `base_dir`.
     let engine = ripdpi_strategy_lua::LuaStrategyEngine::new_jailed(base_dir)
         .map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })?;
+    // The app emits these exact relative recipes for its stock files.
+    let bundled = socket_tcp.is_some()
+        && (step.script_paths.iter().map(String::as_str).eq(["zapret-lib.lua"])
+            || step.script_paths.iter().map(String::as_str).eq(["zapret-lib.lua", "zapret-antidpi.lua"]));
     for path in &step.script_paths {
         let path = path.trim();
         if path.is_empty() {
@@ -500,15 +521,39 @@ fn configured_lua_strategy(
                 error: "blank Lua script path".to_owned(),
             });
         }
-        engine
-            .load_script_registering_globals(path)
-            .map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })?;
+        if let Err(error) = engine.load_script_registering_globals(path) {
+            let unavailable = bundled
+                && matches!(
+                    &error,
+                    ripdpi_strategy_lua::LuaError::ScriptRead { source, .. }
+                        if source.kind() == std::io::ErrorKind::NotFound
+                );
+            return Err(lua_registry_error(function, error, unavailable));
+        }
     }
     let strategy = match socket_tcp {
         Some(tcp) => engine.make_socket_strategy(function, tcp),
         None => engine.make_strategy(function),
     };
-    strategy.map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })
+    strategy.map_err(|error| {
+        let unavailable = bundled && matches!(error, ripdpi_strategy_lua::LuaError::FunctionNotRegistered(_));
+        lua_registry_error(function, error, unavailable)
+    })
+}
+
+#[cfg(feature = "lua-strategies")]
+fn lua_registry_error(
+    function: &str,
+    error: ripdpi_strategy_lua::LuaError,
+    unavailable: bool,
+) -> StrategyRegistryError {
+    let function = function.to_owned();
+    let error = error.to_string();
+    if unavailable {
+        StrategyRegistryError::UnavailableBundledLua { function, error }
+    } else {
+        StrategyRegistryError::Lua { function, error }
+    }
 }
 
 #[cfg(not(feature = "lua-strategies"))]

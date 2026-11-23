@@ -321,7 +321,7 @@ fn bundled_editor_config_executes_in_fresh_socket_registry() {
     let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../core/engine/src/main/assets/lua");
     let yaml = "version: 1\nstrategies:\n  - id: lua:http_domcase\n    steps:\n      - type: lua\n        function: http_domcase\n        script_paths: [zapret-lib.lua, zapret-antidpi.lua]\n";
     let config = parse_yaml_str(yaml, assets).unwrap();
-    let registry = StrategyRegistry::from_loaded_socket_config(&config, true).unwrap();
+    let registry = StrategyRegistry::from_loaded_socket_config(&config, true, false).unwrap();
     let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     let mut dissect = Dissect {
         proto: L7Protocol::Http(HttpDissect { host: Some("example.com".into()), is_request: true }),

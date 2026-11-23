@@ -1195,7 +1195,7 @@ fn invalid_ipv6_extension_type_does_not_create_a_direct_action() {
 }
 
 #[test]
-fn production_constructor_rejects_window_steps_without_socket_ownership() {
+fn production_constructor_handles_window_steps_by_edition() {
     for kind in ["wsize", "wssize"] {
         for lua_socket_owned in [false, true] {
             let yaml = format!("version: 1\nstrategies:\n  - id: window\n    steps:\n      - type: {kind}\n");
@@ -1205,14 +1205,28 @@ fn production_constructor_rejects_window_steps_without_socket_ownership() {
                 lua_socket_owned,
                 RecordingInjector::default(),
             );
-            let Err(error) = result else { panic!("{kind} must fail production admission") };
-            assert_eq!(error.kind(), io::ErrorKind::Unsupported);
-            assert!(error.to_string().contains(kind));
+            if cfg!(feature = "privileged-packets") {
+                let Err(error) = result else { panic!("{kind} must fail production admission") };
+                assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+                assert!(error.to_string().contains(kind));
+            } else {
+                assert!(result.unwrap().rules.is_empty());
+            }
         }
     }
     assert!(
         TunEgressInterceptor::new_with_lua_owner(None, Path::new("."), false, RecordingInjector::default()).is_ok()
     );
+}
+
+#[cfg(not(feature = "privileged-packets"))]
+#[test]
+fn socket_owned_lua_does_not_block_compatible_tun_rules() {
+    let yaml = "version: 1\nstrategies:\n  - id: old\n    steps:\n      - type: lua\n        function: rst\n        script_paths: [zapret-lib.lua, zapret-antidpi.lua]\n  - id: old-packet\n    steps:\n      - type: wsize\n      - type: udplen\n  - id: current\n    steps:\n      - type: udplen\n";
+    let interceptor =
+        TunEgressInterceptor::new_with_lua_owner(Some(yaml), Path::new("."), true, RecordingInjector::default())
+            .unwrap();
+    assert_eq!(interceptor.rules.len(), 1);
 }
 
 #[test]

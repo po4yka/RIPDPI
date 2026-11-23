@@ -34,6 +34,8 @@ ripdpi-packets = { workspace = true }
 ripdpi-geo = { workspace = true }
 
 [features]
+default = ["privileged-packets"]
+privileged-packets = ["ripdpi-tunnel-intercept/privileged-packets"]
 
 [dev-dependencies]
 nix = { workspace = true }

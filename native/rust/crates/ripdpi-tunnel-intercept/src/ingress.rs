@@ -98,6 +98,9 @@ impl SynAckStrategy {
     }
 
     pub fn from_yaml(yaml: Option<&str>) -> Option<Self> {
+        if !cfg!(feature = "privileged-packets") {
+            return None;
+        }
         let yaml = yaml?.trim();
         if yaml.is_empty() {
             return None;
@@ -387,7 +390,8 @@ mod tests {
     fn strategy_loads_from_yaml_chain() {
         let yaml = "version: 1\nstrategies:\n  - id: handshake\n    steps:\n      - type: synack\n        ttl: 7\n";
 
-        assert_eq!(SynAckStrategy::from_yaml(Some(yaml)), Some(SynAckStrategy::LowTtl { ttl: 7 }));
+        let expected = cfg!(feature = "privileged-packets").then_some(SynAckStrategy::LowTtl { ttl: 7 });
+        assert_eq!(SynAckStrategy::from_yaml(Some(yaml)), expected);
     }
 
     #[test]

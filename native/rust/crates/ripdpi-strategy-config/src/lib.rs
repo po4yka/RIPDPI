@@ -79,6 +79,25 @@ pub struct LoadedStrategy {
     pub on_fail: OnFail,
 }
 
+impl LoadedStrategy {
+    /// Whether this legacy rule requires packet operations unavailable on the standard backend.
+    pub fn requires_external_packet_backend(&self) -> bool {
+        self.steps.iter().any(|step| {
+            matches!(
+                step.kind,
+                StepType::FakeRst
+                    | StepType::SeqOverlap
+                    | StepType::IpFrag
+                    | StepType::MultiDisorder
+                    | StepType::Wsize
+                    | StepType::Wssize
+                    | StepType::SynAck
+                    | StepType::SynAckSplit
+            )
+        })
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct StrategyMatch {
     pub proto: Vec<ProtocolName>,

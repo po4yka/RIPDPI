@@ -157,7 +157,7 @@ ripdpi-geo = { path = "crates/ripdpi-geo" }
 ripdpi-monitor-engine = { path = "crates/ripdpi-monitor-engine", default-features = false }
 ripdpi-monitor-lane-adapter = { path = "crates/ripdpi-monitor-lane-adapter", default-features = false }
 ripdpi-monitor-proxy-runtime = { path = "crates/ripdpi-monitor-proxy-runtime" }
-ripdpi-proxy-runtime-desync-adapter = { path = "crates/ripdpi-proxy-runtime-desync-adapter" }
+ripdpi-proxy-runtime-desync-adapter = { path = "crates/ripdpi-proxy-runtime-desync-adapter", default-features = false }
 ripdpi-proxy-runtime-adapter = { path = "crates/ripdpi-proxy-runtime-adapter", default-features = false }
 ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime", default-features = false }
 ripdpi-quality = { path = "crates/ripdpi-quality" }
@@ -238,9 +238,9 @@ enum-map = "3"
 arti-client = { version = "0.48.0", default-features = false, features = ["tokio", "rustls", "pt-client", "bridge-client", "onion-service-client", "static-sqlite"] }
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
-ripdpi-tunnel-intercept = { path = "crates/ripdpi-tunnel-intercept" }
+ripdpi-tunnel-intercept = { path = "crates/ripdpi-tunnel-intercept", default-features = false }
 ripdpi-tunnel-config = { path = "crates/ripdpi-tunnel-config", default-features = false }
-ripdpi-tunnel-core = { path = "crates/ripdpi-tunnel-core" }
+ripdpi-tunnel-core = { path = "crates/ripdpi-tunnel-core", default-features = false }
 
 hdrhistogram = "7"
 aes = "0.9"

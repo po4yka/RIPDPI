@@ -30,7 +30,7 @@ tracing = { workspace = true }
 
 [features]
 default = ["privileged-packets"]
-privileged-packets = ["ripdpi-runtime-platform/privileged-packets", "ripdpi-config/privileged-packets", "ripdpi-proxy-config/privileged-packets", "ripdpi-runtime-services/privileged-packets"]
+privileged-packets = ["ripdpi-runtime-platform/privileged-packets", "ripdpi-config/privileged-packets", "ripdpi-proxy-config/privileged-packets", "ripdpi-runtime-services/privileged-packets", "ripdpi-proxy-runtime-desync-adapter/privileged-packets"]
 # Compile-time switch for opt-in CLI daemonization; the implementation is the
 # in-repo double-fork primitive in ripdpi-runtime-platform, not an external
 # crate.
