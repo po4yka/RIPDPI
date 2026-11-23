@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.diagnostics
 
+import android.util.Log
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Severity
+import com.poyka.ripdpi.data.LogTags
 import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -30,6 +33,9 @@ class FileLogWriter(
     private val prevTruncatedMarkerFile = File(logDir, PREV_TRUNCATED_MARKER_FILE)
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US)
     private val lock = Any()
+    private var writeFailureActive = false
+    private var currentHasLoss = false
+    private var previousHasLoss = false
 
     override fun isLoggable(
         tag: String,
@@ -45,6 +51,7 @@ class FileLogWriter(
         synchronized(lock) {
             try {
                 ensureLogDir()
+                if (!logFile.exists() && !writeFailureActive) currentHasLoss = false
                 val timestamp = dateFormat.format(Date())
                 val line =
                     buildString {
@@ -68,8 +75,18 @@ class FileLogWriter(
                 FileOutputStream(logFile, true).use { fos ->
                     fos.write(lineBytes)
                 }
-            } catch (_: Exception) {
-                // Logging must never crash the app
+                writeFailureActive = false
+            } catch (
+                @Suppress("TooGenericExceptionCaught") error: Exception,
+            ) {
+                currentHasLoss = true
+                if (!writeFailureActive) {
+                    writeFailureActive = true
+                    // Use logcat directly. Kermit would call this failed writer again.
+                    resultCatchingExceptions {
+                        Log.w(LogTags.DIAGNOSTICS, "app_log_write_failed errorClass=${error.javaClass.simpleName}")
+                    }
+                }
             }
         }
     }
@@ -85,6 +102,7 @@ class FileLogWriter(
                 remaining -= currentBytes.size
                 val previousBytes = readUtf8Tail(prevLogFile, remaining)
                 val bytes = previousBytes + currentBytes
+                if (bytes.isEmpty() && writeFailureActive) throw AppLogWriteFailed()
                 bytes
                     .takeIf(ByteArray::isNotEmpty)
                     ?.let {
@@ -92,7 +110,10 @@ class FileLogWriter(
                             content = it.toString(Charsets.UTF_8),
                             byteCount = it.size,
                             truncated =
-                                truncatedMarkerFile.exists() ||
+                                writeFailureActive ||
+                                    (currentHasLoss && currentBytes.isNotEmpty()) ||
+                                    (previousHasLoss && previousBytes.isNotEmpty()) ||
+                                    truncatedMarkerFile.exists() ||
                                     prevTruncatedMarkerFile.exists() ||
                                     totalBytes > maxFileSize,
                         )
@@ -109,8 +130,11 @@ class FileLogWriter(
     private fun rotateIfNeeded(pendingBytes: Int) {
         if (logFile.exists() && logFile.length() + pendingBytes > maxFileSize) {
             deleteIfPresent(prevLogFile)
+            previousHasLoss = false
             deleteIfPresent(prevTruncatedMarkerFile)
             check(logFile.renameTo(prevLogFile)) { "Unable to rotate app log" }
+            previousHasLoss = currentHasLoss
+            currentHasLoss = false
             if (truncatedMarkerFile.exists()) {
                 check(truncatedMarkerFile.renameTo(prevTruncatedMarkerFile)) {
                     "Unable to rotate app log truncation marker"
@@ -141,6 +165,8 @@ class FileLogWriter(
         return bytes.copyOfRange(start, bytes.size)
     }
 }
+
+private class AppLogWriteFailed : IOException("No app log records available after a write failure")
 
 data class FileLogSnapshot(
     val content: String,

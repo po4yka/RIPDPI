@@ -1,11 +1,14 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveException
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveFailureCode
 import com.poyka.ripdpi.diagnostics.DiagnosticsLogRedactor
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
+import com.poyka.ripdpi.diagnostics.logSnapshotFailureDetails
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -98,10 +101,17 @@ internal class DiagnosticsPreparedExportManager
                 )
                 inspect(id)
             }.getOrElse { error ->
+                if (preparation == DiagnosticsExportPreparation.Logs) reportSaveLogsFailure(error)
                 withContext(NonCancellable) {
                     runCatching { discard(id) }.exceptionOrNull()?.let(error::addSuppressed)
                 }
                 throw error
+            }
+        }
+
+        private fun reportSaveLogsFailure(error: Throwable) {
+            if (error is Exception && error !is CancellationException) {
+                Logger.w(tag = LogTags.DIAGNOSTICS) { "save_logs_failed " + logSnapshotFailureDetails(error) }
             }
         }
 
