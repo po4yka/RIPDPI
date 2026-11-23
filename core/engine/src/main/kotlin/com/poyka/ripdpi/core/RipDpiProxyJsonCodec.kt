@@ -277,10 +277,7 @@ internal object RipDpiProxyJsonCodec {
                                 put("upstreamRelay", patchRelayRuntimeSelection(original, selection))
                             }
                         }
-                    patchObject(
-                        original,
-                        updates,
-                    )
+                    patchObject(original, updates)
                 }
             }
         return rewritten.toString()
