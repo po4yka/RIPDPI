@@ -1,10 +1,10 @@
 # RIPDPI BoringSSL vendor notes
 
-The source is the published `boring-sys` 5.5.0 crate:
+The source is the published `boring-sys` 5.6.0 crate:
 
-- Archive: `https://static.crates.io/crates/boring-sys/boring-sys-5.5.0.crate`
-- SHA-256: `666b6d090823b306ff043582051c10afd83ad4170cb5d677cb33f45c475d6feb`
-- Upstream Git revision: `bbdc50f0462a5e2ee3cdd71b09ea7a5eccd77240`.
+- Archive: `https://static.crates.io/crates/boring-sys/boring-sys-5.6.0.crate`
+- SHA-256: `30c5445059ff90c02d95d05345f2b5f13c135150eb8ac6432ea182d47420799e`
+- Upstream Git revision: `8ceea15cc9b04de2427dd8d26f7f3e9882c478f0`.
 
 The local changes are:
 
@@ -25,7 +25,7 @@ The local changes are:
 
 For an update, extract the published crate, compare it with the previous
 published crate, and apply these local changes to the new source. Do not change
-only the package version. BoringSSL has no stable internal ABI. Version 5.5.0
+only the package version. BoringSSL has no stable internal ABI. Version 5.6.0
 uses `FromOpaque` in public functions to access `SSLImpl` and `SSLContext`.
 The hook still runs after ClientHello serialization and before `add_message`.
 

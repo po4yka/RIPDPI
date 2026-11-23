@@ -118,7 +118,7 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         # actions out of that execution context; it only needs a JDK for Gradle's
         # JVM-only FleetCompat test.
         self.assertIn(
-            "actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78", fleet_job
+            "actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880", fleet_job
         )
         self.assertNotIn("uses: ./.github/actions/setup-android-rust", fleet_job)
         self.assertNotIn("actions/cache", fleet_job)

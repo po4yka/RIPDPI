@@ -143,7 +143,7 @@ dependencies = [
  "jni",
  "log",
  "loom",
- "nix 0.31.3",
+ "nix 0.32.0",
  "serde_json",
  "tracing",
  "tracing-log",
@@ -253,7 +253,7 @@ dependencies = [
  "libc",
  "once_cell",
  "postage",
- "rand 0.10.3",
+ "rand 0.10.4",
  "safelog",
  "serde",
  "tempfile",
@@ -678,9 +678,9 @@ dependencies = [
 
 [[package]]
 name = "boring"
-version = "5.5.0"
+version = "5.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3b3f402e3438173549c546e23b7fdd94d6f699b6e96ee10140edabcfc43dcfa"
+checksum = "78768ebbcd8b284d61c52e2058a4de72e61015aa2b41da2489b29a5211c7a2d5"
 dependencies = [
  "bitflags 2.13.2",
  "boring-sys",
@@ -691,7 +691,7 @@ dependencies = [
 
 [[package]]
 name = "boring-sys"
-version = "5.5.0"
+version = "5.6.0"
 dependencies = [
  "bindgen",
  "cmake",
@@ -712,7 +712,7 @@ dependencies = [
  "ip_network",
  "ip_network_table",
  "libc",
- "nix 0.31.3",
+ "nix 0.31.4",
  "parking_lot",
  "portable-atomic",
  "rand_core 0.6.4",
@@ -799,9 +799,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.12.1"
+version = "1.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
+checksum = "776dfebd015e2d8732c684a2c71003674ccb49457b539b9e82151ba38e96dd7c"
 
 [[package]]
 name = "caret"
@@ -1632,7 +1632,7 @@ dependencies = [
  "quote",
  "sha3",
  "strum",
- "syn 3.0.10",
+ "syn 2.0.119",
  "unicode-ident",
  "void",
 ]
@@ -2733,7 +2733,7 @@ dependencies = [
  "http",
  "idna",
  "ipnet",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rustls",
  "thiserror 2.0.21",
  "tinyvec",
@@ -2754,7 +2754,7 @@ dependencies = [
  "ipnet",
  "once_cell",
  "prefix-trie",
- "rand 0.10.3",
+ "rand 0.10.4",
  "ring",
  "thiserror 2.0.21",
  "tinyvec",
@@ -2775,7 +2775,7 @@ dependencies = [
  "moka",
  "once_cell",
  "parking_lot",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rustls",
  "smallvec",
  "thiserror 2.0.21",
@@ -3839,7 +3839,7 @@ checksum = "743fb55ba31b18fb1ecef6bdc9aa2743314978ac084044301a7eee33fb99a20d"
 name = "native-soak-support"
 version = "0.1.0"
 dependencies = [
- "nix 0.31.3",
+ "nix 0.32.0",
  "serde",
  "serde_json",
 ]
@@ -3942,9 +3942,22 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.31.3"
+version = "0.31.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
+checksum = "2bc81ce8148d3b4f3274da811f11cdd824ae661ee4ef732cdb229825cf5be7f7"
+dependencies = [
+ "bitflags 2.13.2",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+ "memoffset",
+]
+
+[[package]]
+name = "nix"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77730ed34f01f4990cb2ea67fec715ecebc6fab9a6396cf83c5529b13f581bdc"
 dependencies = [
  "bitflags 2.13.2",
  "cfg-if",
@@ -4068,7 +4081,7 @@ checksum = "93e7820bc0a80a0238e650327316f929ba18d5be054b647490a3a6a339f3e7c0"
 dependencies = [
  "num-integer",
  "num-traits",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rand_core 0.10.1",
 ]
 
@@ -4360,7 +4373,7 @@ dependencies = [
  "delegate",
  "futures",
  "log",
- "rand 0.10.3",
+ "rand 0.10.4",
  "sha2 0.11.1",
  "thiserror 2.0.21",
  "tokio",
@@ -4879,7 +4892,7 @@ dependencies = [
  "chacha20 0.10.2",
  "core_detect",
  "num-traits",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rand_xorshift",
  "regex-syntax",
  "rusty-fork",
@@ -5004,9 +5017,9 @@ checksum = "263a3f48f01e7309e857138bd47f785585b4a005e8e56c6d2824ce91195999c3"
 
 [[package]]
 name = "psl"
-version = "2.1.253"
+version = "2.1.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82576eafaa94759a92a0cf047f34d227665811d5cdf70f4b11e25cd813f3de54"
+checksum = "7b85209e5945ce6d43ae3ac56491c30ac506db07108346758667a82bb2478c53"
 dependencies = [
  "psl-types",
 ]
@@ -5074,7 +5087,7 @@ dependencies = [
  "bytes",
  "getrandom 0.4.3",
  "lru-slab",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rand_pcg",
  "ring",
  "rustc-hash",
@@ -5150,9 +5163,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.3"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
+checksum = "8f6fa277c67e6ea590466f04c3fe82cb509f0864fe470643e5570de9514a9b11"
 dependencies = [
  "chacha20 0.10.2",
  "getrandom 0.4.3",
@@ -5352,9 +5365,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.13.1"
+version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f020237b6c8eed93db2e2cb53c00c60a8e1bc73da7d073199a1180401450218d"
+checksum = "9807af0e638c12e753aa1b4e601791bf2a8f71274023c8bbeec12fc149950857"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -5364,9 +5377,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.4.18"
+version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad8553b9b26413251cbf30e620595c7a41b3887f03da04579c0e6b0d6a06b4b2"
+checksum = "41d60ef07df457506a0a1a2073112eb4aae5733dbd2813c3da77d1b0fd441158"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -5375,9 +5388,9 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.8.11"
+version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
+checksum = "d902046e6a28a1e4c3cab97258a0ce11e994903f01c2d97a9447a0b3df85f4f6"
 
 [[package]]
 name = "reqwest"
@@ -5567,7 +5580,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "jni",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ripdpi-diagnostics-dns",
  "ripdpi-dns-morph",
  "ripdpi-dns-resolver",
@@ -5713,7 +5726,7 @@ dependencies = [
  "aes",
  "libc",
  "local-network-fixture",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ring",
  "ripdpi-config",
  "ripdpi-failure-classifier",
@@ -5761,7 +5774,7 @@ dependencies = [
  "aes",
  "golden-test-support",
  "linkme",
- "rand 0.10.3",
+ "rand 0.10.4",
  "ring",
  "ripdpi-config",
  "ripdpi-ipfrag",
@@ -6000,7 +6013,7 @@ dependencies = [
  "metrics",
  "odoh-rs",
  "quinn",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rcgen",
  "reqwest",
  "ring",
@@ -6075,9 +6088,9 @@ dependencies = [
  "http",
  "httparse",
  "local-network-fixture",
- "nix 0.31.3",
+ "nix 0.32.0",
  "quinn",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rcgen",
  "ripdpi-native-protect",
  "ripdpi-protocol-loopback",
@@ -6216,7 +6229,7 @@ dependencies = [
  "hyper-util",
  "local-network-fixture",
  "pico-args",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rcgen",
  "ripdpi-packets",
  "ripdpi-subprocess-protect",
@@ -6242,7 +6255,7 @@ dependencies = [
 name = "ripdpi-network-time"
 version = "0.1.0"
 dependencies = [
- "nix 0.31.3",
+ "nix 0.32.0",
 ]
 
 [[package]]
@@ -6271,7 +6284,7 @@ version = "0.1.0"
 dependencies = [
  "etherparse",
  "libc",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ripdpi-capabilities",
  "ripdpi-config",
  "ripdpi-desync",
@@ -6359,7 +6372,7 @@ dependencies = [
  "constant_time_eq 0.6.1",
  "libc",
  "metrics",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ripdpi-config",
  "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
@@ -6465,7 +6478,7 @@ name = "ripdpi-relay-mux"
 version = "0.1.0"
 dependencies = [
  "golden-test-support",
- "rand 0.10.3",
+ "rand 0.10.4",
  "thiserror 2.0.21",
  "tokio",
 ]
@@ -6475,8 +6488,8 @@ name = "ripdpi-relay-tls-transports"
 version = "0.1.0"
 dependencies = [
  "libc",
- "nix 0.31.3",
- "rand 0.10.3",
+ "nix 0.32.0",
+ "rand 0.10.4",
  "ripdpi-anytls",
  "ripdpi-mieru",
  "ripdpi-native-protect",
@@ -6499,7 +6512,7 @@ name = "ripdpi-root-helper"
 version = "0.1.0"
 dependencies = [
  "libc",
- "nix 0.31.3",
+ "nix 0.32.0",
  "pico-args",
  "ripdpi-ipfrag",
  "ripdpi-privileged-ops",
@@ -6515,7 +6528,7 @@ name = "ripdpi-root-helper-protocol"
 version = "0.1.0"
 dependencies = [
  "libc",
- "nix 0.31.3",
+ "nix 0.32.0",
  "serde",
  "serde_json",
 ]
@@ -6582,7 +6595,7 @@ version = "0.1.0"
 dependencies = [
  "android-support",
  "libc",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ripdpi-capabilities",
  "ripdpi-config",
  "ripdpi-desync",
@@ -6659,7 +6672,7 @@ version = "0.1.0"
 name = "ripdpi-shadowsocks"
 version = "0.1.0"
 dependencies = [
- "rand 0.10.3",
+ "rand 0.10.4",
  "ripdpi-network-time",
  "shadowsocks",
 ]
@@ -6668,7 +6681,7 @@ dependencies = [
 name = "ripdpi-shadowtls"
 version = "0.1.0"
 dependencies = [
- "rand 0.10.3",
+ "rand 0.10.4",
  "rcgen",
  "ring",
  "ripdpi-native-protect",
@@ -6685,7 +6698,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "hex",
- "rand 0.10.3",
+ "rand 0.10.4",
  "ring",
  "serde",
  "serde_json",
@@ -6698,7 +6711,7 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "argon2",
- "rand 0.10.3",
+ "rand 0.10.4",
  "tokio",
 ]
 
@@ -6819,7 +6832,7 @@ dependencies = [
 name = "ripdpi-subprocess-protect"
 version = "0.1.0"
 dependencies = [
- "nix 0.31.3",
+ "nix 0.32.0",
  "socket2",
  "tokio",
 ]
@@ -6886,7 +6899,7 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "local-network-fixture",
- "nix 0.31.3",
+ "nix 0.32.0",
  "quinn",
  "rcgen",
  "ripdpi-native-protect",
@@ -6922,7 +6935,7 @@ dependencies = [
  "libc",
  "log",
  "loom",
- "nix 0.31.3",
+ "nix 0.32.0",
  "once_cell",
  "proptest",
  "ripdpi-flow-app-attribution",
@@ -6965,7 +6978,7 @@ dependencies = [
  "libc",
  "local-network-fixture",
  "lru",
- "nix 0.31.3",
+ "nix 0.32.0",
  "proptest",
  "quinn",
  "rcgen",
@@ -7077,7 +7090,7 @@ dependencies = [
  "chacha20 0.10.2",
  "chacha20poly1305 0.11.0",
  "getrandom 0.4.3",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ripdpi-packets",
  "ripdpi-wireguard-ws",
  "serde",
@@ -7156,7 +7169,7 @@ dependencies = [
  "cipher 0.5.2",
  "ctr",
  "futures",
- "nix 0.31.3",
+ "nix 0.32.0",
  "rcgen",
  "ripdpi-tls-profiles",
  "ripdpi-ws-transport-port",
@@ -7181,7 +7194,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "prost",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rcgen",
  "ripdpi-native-protect",
  "ripdpi-tls-profiles",
@@ -7318,7 +7331,7 @@ dependencies = [
  "pkcs5",
  "pkcs8 0.11.0",
  "polyval",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rand_core 0.10.1",
  "rsa 0.10.0-rc.18",
  "russh-cryptovec",
@@ -7348,7 +7361,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3aec6cb630dbe85d72ffd7bcd95f07e1bd69f9f270ee8adfa1afe443a6331438"
 dependencies = [
  "log",
- "nix 0.31.3",
+ "nix 0.31.4",
  "ssh-encoding",
  "windows-sys 0.61.2",
 ]
@@ -7895,7 +7908,7 @@ dependencies = [
  "lru_time_cache",
  "percent-encoding",
  "pin-project",
- "rand 0.10.3",
+ "rand 0.10.4",
  "sealed",
  "sendfd",
  "serde",
@@ -7927,7 +7940,7 @@ dependencies = [
  "chacha20poly1305 0.11.0",
  "hkdf",
  "md-5",
- "rand 0.10.3",
+ "rand 0.10.4",
  "sha1",
 ]
 
@@ -8427,7 +8440,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -8573,9 +8586,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-boring"
-version = "5.5.0"
+version = "5.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b50fa736fc3c3a967fea0b99ca3e9af6cfcc0b67da2d390940d9b01bb98424b"
+checksum = "c708fb8a3aad6d0c88f3740dc0c62b239253112789228dd2927d09ff6ea2d8f0"
 dependencies = [
  "antidote",
  "boring",
@@ -8805,7 +8818,7 @@ dependencies = [
  "itertools 0.15.0",
  "libc",
  "paste",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rand_chacha 0.10.0",
  "serde",
  "slab",
@@ -8849,7 +8862,7 @@ dependencies = [
  "educe",
  "itertools 0.15.0",
  "paste",
- "rand 0.10.3",
+ "rand 0.10.4",
  "smallvec",
  "thiserror 2.0.21",
  "tor-basic-utils",
@@ -8901,7 +8914,7 @@ dependencies = [
  "oneshot-fused-workaround",
  "percent-encoding",
  "postage",
- "rand 0.10.3",
+ "rand 0.10.4",
  "safelog",
  "serde",
  "serde_with",
@@ -8961,7 +8974,7 @@ dependencies = [
  "once_cell",
  "oneshot-fused-workaround",
  "pin-project",
- "rand 0.10.3",
+ "rand 0.10.4",
  "retry-error",
  "safelog",
  "serde",
@@ -9127,7 +9140,7 @@ dependencies = [
  "oneshot-fused-workaround",
  "paste",
  "postage",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rusqlite",
  "safelog",
  "scopeguard",
@@ -9210,7 +9223,7 @@ dependencies = [
  "oneshot-fused-workaround",
  "pin-project",
  "postage",
- "rand 0.10.3",
+ "rand 0.10.4",
  "safelog",
  "serde",
  "strum",
@@ -9250,7 +9263,7 @@ dependencies = [
  "itertools 0.15.0",
  "oneshot-fused-workaround",
  "postage",
- "rand 0.10.3",
+ "rand 0.10.4",
  "retry-error",
  "safelog",
  "slotmap-careful",
@@ -9294,7 +9307,7 @@ dependencies = [
  "humantime",
  "itertools 0.15.0",
  "paste",
- "rand 0.10.3",
+ "rand 0.10.4",
  "safelog",
  "serde",
  "signature 3.0.0",
@@ -9321,7 +9334,7 @@ dependencies = [
  "derive_more",
  "downcast-rs",
  "paste",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rsa 0.9.10",
  "signature 3.0.0",
  "ssh-key-fork-arti",
@@ -9353,7 +9366,7 @@ dependencies = [
  "humantime",
  "inventory",
  "itertools 0.15.0",
- "rand 0.10.3",
+ "rand 0.10.4",
  "safelog",
  "serde",
  "signature 3.0.0",
@@ -9422,7 +9435,7 @@ dependencies = [
  "getrandom 0.3.4",
  "getrandom 0.4.3",
  "hex",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rand_chacha 0.10.0",
  "rand_core 0.10.1",
  "rand_core 0.6.4",
@@ -9521,7 +9534,7 @@ dependencies = [
  "humantime",
  "itertools 0.15.0",
  "num_enum",
- "rand 0.10.3",
+ "rand 0.10.4",
  "serde",
  "strum",
  "thiserror 2.0.21",
@@ -9564,7 +9577,7 @@ dependencies = [
  "memchr",
  "paste",
  "phf 0.14.0",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rangemap",
  "saturating-time",
  "serde",
@@ -9653,7 +9666,7 @@ dependencies = [
  "pin-project",
  "polyval",
  "postage",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rand_core 0.10.1",
  "safelog",
  "slotmap-careful",
@@ -9739,7 +9752,7 @@ version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e2cb2278dd985503fa638254e966cdfd7fdd5dab18e536d22a68adcc285d65"
 dependencies = [
- "rand 0.10.3",
+ "rand 0.10.4",
  "serde",
  "tor-basic-utils",
  "tor-linkspec",
@@ -9952,7 +9965,7 @@ dependencies = [
  "libloading 0.9.0",
  "log",
  "netconfig-rs",
- "nix 0.31.3",
+ "nix 0.31.4",
  "route_manager",
  "scopeguard",
  "tokio",
@@ -9970,7 +9983,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
- "rand 0.10.3",
+ "rand 0.10.4",
  "sha1",
  "thiserror 2.0.21",
 ]
@@ -10106,9 +10119,9 @@ checksum = "3a3b425286980a367278453f3b6d28cdcb134b574e5a35824a6ff5eebad50bb6"
 
 [[package]]
 name = "uuid"
-version = "1.29.2"
+version = "1.29.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bed99139f7dac9b5cfe5f17be4d66dc7079a34dee1d74bcc77217119240e267c"
+checksum = "3c14b15dffa2f4bd712103e857140aa04a4f2ff6e955c77d7eb8e53ee02a3b64"
 dependencies = [
  "getrandom 0.4.3",
  "js-sys",
@@ -10990,9 +11003,9 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.9.1"
+version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e13084392c5e4bc371903e2935a5eaeed24905a7511356b883835e18a78f6879"
+checksum = "85ccff8a4805aba1eaa4cd4afcd49f7557dd2cf5fd79ffc37f8959466effc5aa"
 dependencies = [
  "zeroize_derive",
 ]
