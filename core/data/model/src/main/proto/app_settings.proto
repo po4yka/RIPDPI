@@ -266,8 +266,8 @@ message AppSettings {
   string ws_tunnel_fake_sni = 134;           // Cover domain for WS tunnel TLS SNI (empty = disabled)
   bool ws_tunnel_allow_insecure_sni = 305;   // Operator opt-in: honour ws_tunnel_fake_sni even though it disables TLS cert verification
 
-  // Root mode
-  bool root_mode_enabled = 135;
+  reserved 135;
+  reserved "root_mode_enabled";
 
   // WARP integration
   bool warp_enabled = 136;
@@ -511,4 +511,7 @@ message AppSettings {
 
   // Opt-in anonymous field reports (client-field-report v1). Off by default; a local consent that a backup never restores.
   bool field_report_enabled = 432;
+
+  // Device-local opt-in. Set only after the platform grants superuser access.
+  bool root_mode_authorized = 433;
 }

@@ -290,7 +290,7 @@ class RootHelperNfqwsTest {
                         },
                         nfqwsDispatcher = StandardTestDispatcher(testScheduler),
                     )
-                val ordinarySettings = AppSettings.newBuilder().setRootModeEnabled(true).build()
+                val ordinarySettings = AppSettings.newBuilder().setRootModeAuthorized(true).build()
                 val socketPath = manager.start(context)
                 val nonceFile = File(context.filesDir, "root_helper.sock.nonce")
                 val nonce = nonceFile.readText()
@@ -338,7 +338,7 @@ class RootHelperNfqwsTest {
     private fun settings(): AppSettings =
         AppSettings
             .newBuilder()
-            .setRootModeEnabled(true)
+            .setRootModeAuthorized(true)
             .setEnableCmdSettings(true)
             .setCmdArgs("nfqws2")
             .build()

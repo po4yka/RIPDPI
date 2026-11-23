@@ -5,6 +5,6 @@ import com.poyka.ripdpi.proto.AppSettings
 
 internal const val hasExtendedPacketControls = true
 
-internal fun AppSettings.rawPacketOperationsEnabled(): Boolean = rootModeEnabled
+internal fun AppSettings.rawPacketOperationsEnabled(): Boolean = rootModeAuthorized
 
 internal fun StrategyChainSet.supportedInDistribution(): Boolean = true

@@ -431,14 +431,14 @@ class StrategyPassageSceneTest {
                 ?.toSet()
         }
 
-        assertEquals(setOf(PassagePieceKind.Real), kinds(settings.clone().withLegacyPacketRequest(false)))
+        assertEquals(setOf(PassagePieceKind.Real), kinds(settings.clone().withPacketAuthorization(false)))
         val supportedKinds =
             if (BuildConfig.DISTRIBUTION_CHANNEL == "play") {
                 setOf(PassagePieceKind.Real)
             } else {
                 setOf(PassagePieceKind.Real, PassagePieceKind.Decoy)
             }
-        assertEquals(supportedKinds, kinds(settings.clone().withLegacyPacketRequest(true)))
+        assertEquals(supportedKinds, kinds(settings.clone().withPacketAuthorization(true)))
     }
 
     @Test
@@ -457,7 +457,7 @@ class StrategyPassageSceneTest {
 
         blocked.forEach { builder ->
             assertNull(strategyPassageFor(builder.clone().build()))
-            val configuredScene = strategyPassageFor(builder.clone().withLegacyPacketRequest(true).build())
+            val configuredScene = strategyPassageFor(builder.clone().withPacketAuthorization(true).build())
             if (BuildConfig.DISTRIBUTION_CHANNEL == "play") {
                 assertNull(configuredScene)
             } else {
@@ -503,7 +503,7 @@ class StrategyPassageSceneTest {
                         .setFakeMode("rand"),
                 ).addTcpChainSteps(StrategyTcpStep.newBuilder().setKind("split").setMarker("endhost"))
 
-        assertNull(strategyPassageFor(settings.withLegacyPacketRequest(true).build()))
+        assertNull(strategyPassageFor(settings.withPacketAuthorization(true).build()))
     }
 
     @Test
@@ -575,11 +575,11 @@ class StrategyPassageSceneTest {
     private fun activeSettings() = AppSettings.newBuilder().setDesyncHttp(true).setDesyncHttps(true)
 }
 
-private fun AppSettings.Builder.withLegacyPacketRequest(enabled: Boolean): AppSettings.Builder {
+private fun AppSettings.Builder.withPacketAuthorization(enabled: Boolean): AppSettings.Builder {
     val output = ByteArrayOutputStream()
     build().writeTo(output)
     CodedOutputStream.newInstance(output).apply {
-        writeBool(135, enabled)
+        writeBool(433, enabled)
         flush()
     }
     return AppSettings.parseFrom(output.toByteArray()).toBuilder()

@@ -32,6 +32,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -70,7 +72,7 @@ class RootModeStrategiesViewModel
 
         val uiState: StateFlow<RootModeStrategiesUiState> =
             combine(appSettingsRepository.settings, rootAccess) { settings, access ->
-                RootModeStrategiesUiState(rootModeEnabled = settings.rootModeEnabled, rootAccess = access)
+                RootModeStrategiesUiState(rootModeEnabled = settings.rootModeAuthorized, rootAccess = access)
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
@@ -85,19 +87,24 @@ class RootModeStrategiesViewModel
                 launchSettingsWrite(onFailure = {
                     if (rootAccess.value == RootAccessState.Checking) rootAccess.value = RootAccessState.Unavailable
                 }) {
-                    appSettingsRepository.update { rootModeEnabled = enabled }
+                    appSettingsRepository.update { rootModeAuthorized = false }
                     if (!enabled) {
                         rootAccess.value = RootAccessState.NotChecked
                         return@launchSettingsWrite
                     }
                     // The check runs only after the user turns root mode on, because it can open the root prompt.
                     rootAccess.value = RootAccessState.Checking
-                    rootAccess.value =
+                    val access =
                         when (rootAccessChecker.check()) {
                             RootAccessResult.Granted -> RootAccessState.Granted
                             RootAccessResult.Denied -> RootAccessState.Denied
                             RootAccessResult.Unavailable -> RootAccessState.Unavailable
                         }
+                    currentCoroutineContext().ensureActive()
+                    if (access == RootAccessState.Granted) {
+                        appSettingsRepository.update { rootModeAuthorized = true }
+                    }
+                    rootAccess.value = access
                 }
         }
 
@@ -169,7 +176,7 @@ internal fun RootModeStrategiesScreen(
         item(key = "root_mode_toggle") {
             RipDpiCard {
                 RipDpiSwitch(
-                    checked = uiState.rootModeEnabled,
+                    checked = uiState.rootModeEnabled || uiState.rootAccess == RootAccessState.Checking,
                     onCheckedChange = onRootModeEnabledChange,
                     label = stringResource(R.string.root_mode_toggle_label),
                     helperText = stringResource(R.string.root_mode_strategies_intro_body),

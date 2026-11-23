@@ -27,6 +27,12 @@ The Play runtime MUST exclude privileged packet operations, process launches, an
 - **WHEN** the user requests packet capture with separate consent and an active VPN
 - **THEN** the app records packets and lets the user view them after disconnect
 
+#### Scenario: Check superuser access in an extended build
+
+- **WHEN** the user enables the privileged mode and the access check does not grant permission
+- **THEN** the mode stays off, its controls stay disabled, and ordinary runtime startup does not request superuser access again
+- **AND** an upgrade does not treat the old stored opt-in as a successful access check
+
 ### Requirement: REQ-DISTRIBUTION-RELEASE — Verify release package content
 
 Release CI MUST verify the selected Play bundle and APK splits and prevent release promotion if privileged content is present.

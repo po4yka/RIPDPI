@@ -8,6 +8,20 @@ import org.junit.Test
 
 class ExtendedEditionAppSettingsTest {
     @Test
+    fun `old root setting does not authorize a helper launch`() {
+        val oldSettings = settingsWireFixture(includeDeviceScopedField = true, includeAuthorizedField = false)
+        val expected =
+            AppSettings.parseFrom(
+                settingsWireFixture(includeDeviceScopedField = false, includeSignatureField = true),
+            )
+        val settings = decodeStoredAppSettings(oldSettings)
+
+        assertFalse(settings.externalPacketOperationsEnabled())
+        assertArrayEquals(expected.toByteArray(), settings.toByteArray())
+        assertArrayEquals(expected.toByteArray(), encodeStoredAppSettings(AppSettings.parseFrom(oldSettings)))
+    }
+
+    @Test
     fun `read and write maintain the opt-in flag while export clears it`() {
         val bytes = settingsWireFixture(includeDeviceScopedField = true)
         val settings = decodeStoredAppSettings(bytes)

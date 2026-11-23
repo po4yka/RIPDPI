@@ -402,7 +402,7 @@ class VpnTunnelRuntimeTest {
             val settings =
                 AppSettingsSerializer.defaultValue
                     .toBuilder()
-                    .withLegacyPacketRequest(true)
+                    .withPacketAuthorization(true)
                     .setStrategyChainYaml("version: 1\nstrategies: []")
                     .build()
             var packetBackendSocketPath: String? = null
@@ -659,11 +659,11 @@ class VpnTunnelRuntimeTest {
         }
 }
 
-private fun AppSettings.Builder.withLegacyPacketRequest(enabled: Boolean): AppSettings.Builder {
+private fun AppSettings.Builder.withPacketAuthorization(enabled: Boolean): AppSettings.Builder {
     val output = ByteArrayOutputStream()
     build().writeTo(output)
     CodedOutputStream.newInstance(output).apply {
-        writeBool(135, enabled)
+        writeBool(433, enabled)
         flush()
     }
     return AppSettings.parseFrom(output.toByteArray()).toBuilder()

@@ -26,7 +26,7 @@ private class ExtendedPacketBackendRuntime(
     override val socketPath: String? get() = manager.socketPath
     override val ownsPacketStrategies: Boolean get() = manager.nfqwsActive
 
-    override fun allowsExternalOperations(settings: AppSettings): Boolean = settings.rootModeEnabled
+    override fun allowsExternalOperations(settings: AppSettings): Boolean = settings.rootModeAuthorized
 
     override suspend fun prepare(
         context: Context,
@@ -34,7 +34,7 @@ private class ExtendedPacketBackendRuntime(
         settings: AppSettings,
     ) {
         manager.claimedBy = mode
-        manager.syncRootMode(context, settings.rootModeEnabled)
+        manager.syncRootMode(context, settings.rootModeAuthorized)
         manager.syncNfqws(context, settings)
     }
 

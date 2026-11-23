@@ -86,7 +86,7 @@ class PlayPrivilegeBoundaryTest(unittest.TestCase):
         self.assertIn("root detection", boundary.content_findings(stream))
 
     def test_scan_detects_retired_settings_and_helper_state(self) -> None:
-        for field in ("fakeMd5Sig", "fake_md5sig", "RootHelperAvailabilityChange", "NON_ROOT_PRODUCTION"):
+        for field in ("fakeMd5Sig", "fake_md5sig", "RootHelperAvailabilityChange", "NON_ROOT_PRODUCTION", "rootModeAuthorized"):
             with self.subTest(field=field):
                 self.assertIn("root settings", boundary.content_findings(io.BytesIO(field.encode())))
 

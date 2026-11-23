@@ -13,7 +13,7 @@ internal object PacketBackendWire {
     private const val SocketPath = "rootHelperSocketPath"
     const val preserveUnknownProxyFields = true
 
-    fun md5SignatureEnabled(settings: AppSettings): Boolean = settings.fakeMd5Sig && settings.rootModeEnabled
+    fun md5SignatureEnabled(settings: AppSettings): Boolean = settings.fakeMd5Sig && settings.rootModeAuthorized
 
     fun proxyFields(
         requested: Boolean,

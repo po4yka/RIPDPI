@@ -50,21 +50,22 @@ class RootModeStrategiesViewModelTest {
         runTest {
             val repository = FakeAppSettingsRepository()
             val viewModel = RootModeStrategiesViewModel(repository) { RootAccessResult.Granted }
-            assertFalse(repository.snapshot().rootModeEnabled)
+            assertFalse(repository.snapshot().rootModeAuthorized)
             viewModel.setRootModeEnabled(true)
             advanceUntilIdle()
-            assertTrue(repository.snapshot().rootModeEnabled)
+            assertTrue(repository.snapshot().rootModeAuthorized)
             viewModel.setRootModeEnabled(false)
             advanceUntilIdle()
-            assertFalse(repository.snapshot().rootModeEnabled)
+            assertFalse(repository.snapshot().rootModeAuthorized)
         }
 
     @Test
     fun `turning root mode on reports root availability and turning it off clears it`() =
         runTest {
             var checks = 0
+            val repository = FakeAppSettingsRepository()
             val viewModel =
-                RootModeStrategiesViewModel(FakeAppSettingsRepository()) {
+                RootModeStrategiesViewModel(repository) {
                     checks++
                     RootAccessResult.Unavailable
                 }
@@ -76,12 +77,30 @@ class RootModeStrategiesViewModelTest {
             viewModel.setRootModeEnabled(true)
             advanceUntilIdle()
             assertEquals(RootAccessState.Unavailable, viewModel.uiState.value.rootAccess)
+            assertFalse(viewModel.uiState.value.rootModeEnabled)
+            assertFalse(repository.snapshot().rootModeAuthorized)
             assertEquals(1, checks)
 
             viewModel.setRootModeEnabled(false)
             advanceUntilIdle()
             assertEquals(RootAccessState.NotChecked, viewModel.uiState.value.rootAccess)
             assertEquals(1, checks)
+        }
+
+    @Test
+    fun `denial revokes persisted authorization`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            repository.update { rootModeAuthorized = true }
+            val viewModel = RootModeStrategiesViewModel(repository) { RootAccessResult.Denied }
+            backgroundScope.launch { viewModel.uiState.collect {} }
+
+            viewModel.setRootModeEnabled(true)
+            advanceUntilIdle()
+
+            assertFalse(repository.snapshot().rootModeAuthorized)
+            assertFalse(viewModel.uiState.value.rootModeEnabled)
+            assertEquals(RootAccessState.Denied, viewModel.uiState.value.rootAccess)
         }
 
     @Test
@@ -96,7 +115,7 @@ class RootModeStrategiesViewModelTest {
             viewModel.setRootModeEnabled(true)
             advanceUntilIdle()
 
-            assertTrue(viewModel.uiState.value.rootModeEnabled)
+            assertFalse(viewModel.uiState.value.rootModeEnabled)
             assertEquals(RootAccessState.Unavailable, viewModel.uiState.value.rootAccess)
         }
 
@@ -110,6 +129,7 @@ class RootModeStrategiesViewModelTest {
             viewModel.setRootModeEnabled(true)
             advanceUntilIdle()
             assertEquals(RootAccessState.Checking, viewModel.uiState.value.rootAccess)
+            assertFalse(viewModel.uiState.value.rootModeEnabled)
 
             viewModel.setRootModeEnabled(false)
             advanceUntilIdle()

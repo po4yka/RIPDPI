@@ -671,7 +671,7 @@ private fun invariantNetworkFingerprint(): NetworkFingerprint =
 private fun rootEnabledSettings(): AppSettings =
     defaultDiagnosticsAppSettings()
         .toBuilder()
-        .setRootModeEnabled(true)
+        .setRootModeAuthorized(true)
         .build()
 
 private fun validSeqovlRecommendedProxyConfigJson(): String =

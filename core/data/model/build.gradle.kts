@@ -51,7 +51,7 @@ abstract class PrepareStandardSettingsSchema : DefaultTask() {
             into(output)
         }
         val standardSchema =
-            schema.reserveEditionSetting("root_mode_enabled", 135).reserveEditionSetting("fake_md5sig", 331)
+            schema.reserveEditionSetting("root_mode_authorized", 433).reserveEditionSetting("fake_md5sig", 331)
         output.file(settingsSchema).asFile.writeText(standardSchema)
     }
 

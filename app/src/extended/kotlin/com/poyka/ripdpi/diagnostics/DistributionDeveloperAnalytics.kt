@@ -8,6 +8,6 @@ internal fun distributionDeveloperConfigDiff(
 ): DeveloperConfigDiffEntry? =
     DeveloperConfigDiffEntry(
         key = "rootModeEnabled",
-        defaultValue = defaults.rootModeEnabled.toString(),
-        actualValue = settings.rootModeEnabled.toString(),
-    ).takeIf { settings.rootModeEnabled != defaults.rootModeEnabled }
+        defaultValue = defaults.rootModeAuthorized.toString(),
+        actualValue = settings.rootModeAuthorized.toString(),
+    ).takeIf { settings.rootModeAuthorized != defaults.rootModeAuthorized }

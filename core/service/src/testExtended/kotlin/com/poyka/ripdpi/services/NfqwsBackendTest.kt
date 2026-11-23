@@ -52,7 +52,7 @@ class NfqwsBackendTest {
             AppSettings
                 .newBuilder()
                 .setEnableCmdSettings(true)
-                .setRootModeEnabled(true)
+                .setRootModeAuthorized(true)
                 .setCmdArgs("nfqws2 --filter-tcp=443 --lua-init='function custom(d) return VERDICT_PASS end'")
                 .build()
         assertEquals(
@@ -60,7 +60,7 @@ class NfqwsBackendTest {
             nfqwsArguments(settings),
         )
         assertThrows(IllegalArgumentException::class.java) {
-            nfqwsArguments(settings.toBuilder().setRootModeEnabled(false).build())
+            nfqwsArguments(settings.toBuilder().setRootModeAuthorized(false).build())
         }
         assertThrows(IllegalArgumentException::class.java) {
             nfqwsArguments(settings.toBuilder().setStrategyChainYaml("steps: []").build())

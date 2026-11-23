@@ -242,7 +242,7 @@ class PacketSmokeInstrumentedTest {
                     proxyPort = listenPort
                     desyncHttp = true
                     desyncHttps = false
-                    rootModeEnabled = true
+                    rootModeAuthorized = true
                     customTtl = true
                     defaultTtl = contract.getInt("realTtl")
                     setFakeTtl(contract.getInt("fakeTtl"))
@@ -633,7 +633,7 @@ class PacketSmokeInstrumentedTest {
                 desyncHttp = false
                 desyncHttps = true
                 enableCmdSettings = false
-                this.rootModeEnabled = rootModeEnabled
+                this.rootModeAuthorized = rootModeEnabled
                 setFakeTtl(packetSmokeFixtureFakeTtl())
                 setRawStrategyChainDsl(chainDsl)
             }

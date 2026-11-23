@@ -48,7 +48,7 @@ FINGERPRINTS = {
     ),
     "root detection": ("/data/adb/", "com.topjohnwu.magisk", "rootArtifacts", "rootArtifact="),
     "root settings": (
-        "root_mode_", "rootModeEnabled", "rootHelperSocketPath", "root_helper_socket_path",
+        "root_mode_", "rootModeEnabled", "rootModeAuthorized", "rootHelperSocketPath", "root_helper_socket_path",
         "root_helper_available", "rooted_production", "non_root_production", "exact_emitter_requires_root",
         "diagnostics_strategy_emitter_rooted", "fakeMd5Sig", "fake_md5sig", "RootHelperAvailabilityChange",
         "resolver_healthrootedcapability_context",

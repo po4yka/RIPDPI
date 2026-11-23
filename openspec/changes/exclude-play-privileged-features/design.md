@@ -25,3 +25,5 @@ Old sessions can leave an extracted executable or firewall state. Exercise clean
 ## Migration Plan
 
 Reserve old setting tags. Handle old settings at activation and storage boundaries. Verify signed update behavior before Play publication.
+
+Reserve the old opt-in tag because older versions wrote it before the access check completed. Extended builds store the new authorization flag only after a successful check. Existing users must enable the mode again.

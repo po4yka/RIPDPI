@@ -29,7 +29,7 @@ internal data class NfqwsBackendSession(
 internal fun nfqwsArguments(settings: AppSettings): List<String>? {
     val args = if (settings.enableCmdSettings) shellSplit(settings.cmdArgs) else emptyList()
     if (args.firstOrNull() != "nfqws2") return null
-    require(settings.rootModeEnabled) { "nfqws2 requires root mode" }
+    require(settings.rootModeAuthorized) { "nfqws2 requires root mode" }
     require(settings.strategyChainYaml.isBlank()) { "nfqws2 and the payload strategy chain cannot run together" }
     return args.drop(1)
 }

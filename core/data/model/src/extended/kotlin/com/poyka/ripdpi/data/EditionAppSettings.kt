@@ -6,7 +6,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonPrimitive
 
-fun AppSettings.externalPacketOperationsEnabled(): Boolean = rootModeEnabled
+fun AppSettings.externalPacketOperationsEnabled(): Boolean = rootModeAuthorized
 
 fun AppSettings.advancedTcpSignatureRequested(): Boolean = fakeMd5Sig
 
@@ -19,13 +19,16 @@ fun JsonObject.withEditionBackupSettings(settings: AppSettings): JsonObject =
 fun AppSettings.Builder.applyEditionBackupSettings(fields: JsonObject): AppSettings.Builder =
     fields[TcpSignatureBackupKey]?.let { setFakeMd5Sig(it.jsonPrimitive.boolean) } ?: this
 
-fun AppSettings.withoutDeviceScopedEditionSettings(): AppSettings = toBuilder().clearRootModeEnabled().build()
+fun AppSettings.withoutDeviceScopedEditionSettings(): AppSettings =
+    decodeStoredAppSettings(toBuilder().clearRootModeAuthorized().build().toByteArray())
 
-fun decodeStoredAppSettings(bytes: ByteArray): AppSettings = AppSettings.parseFrom(bytes)
+fun decodeStoredAppSettings(bytes: ByteArray): AppSettings =
+    AppSettings.parseFrom(bytes.withoutSettingsFields(LegacyPacketBackendField))
 
-fun encodeStoredAppSettings(settings: AppSettings): ByteArray = settings.toByteArray()
+fun encodeStoredAppSettings(settings: AppSettings): ByteArray =
+    settings.toByteArray().withoutSettingsFields(LegacyPacketBackendField)
 
-val sensitiveEditionSettingsPaths: Set<String> = setOf("settings.root_mode_enabled")
+val sensitiveEditionSettingsPaths: Set<String> = setOf("settings.root_mode_authorized")
 
 internal fun packetOperationUnavailable(operation: String): String = "$operation requires root mode"
 
