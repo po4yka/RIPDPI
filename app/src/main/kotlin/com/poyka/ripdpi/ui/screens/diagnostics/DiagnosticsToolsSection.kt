@@ -121,7 +121,6 @@ internal fun ToolsSection(
     tools: DiagnosticsToolsUiModel = DiagnosticsToolsUiModel(),
     dpiToolActions: DiagnosticsDpiToolActions = DiagnosticsDpiToolActions(),
     navActions: DiagnosticsToolsNavActions = DiagnosticsToolsNavActions(),
-    rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
@@ -140,13 +139,6 @@ internal fun ToolsSection(
     ) {
         header?.let { item(key = "header", contentType = "header") { it() } }
         approachItems(approaches, onSelectApproachMode, onSelectApproach)
-        if (rootModeEnabled) {
-            captureItem(pcapRecording, onTogglePcapRecording)
-            if (pcapRecording) {
-                disclosureItem()
-            }
-            pcapCaptureListItem(navActions.onOpenPcapCaptureList)
-        }
         shareItems(
             share = share,
             onShareSummary = shareActions.onShareSummary,
@@ -155,6 +147,11 @@ internal fun ToolsSection(
             onSaveLogs = shareActions.onSaveLogs,
             onOpenLogs = shareActions.onOpenLogs,
         )
+        captureItem(pcapRecording, onTogglePcapRecording)
+        if (pcapRecording) {
+            disclosureItem()
+        }
+        pcapCaptureListItem(navActions.onOpenPcapCaptureList)
         xrayProviderItem(tools.xrayProvider, tools.onRunXrayProviderProbe)
         remoteDeviceAcceptanceItem(
             report = tools.remoteDeviceAcceptance,

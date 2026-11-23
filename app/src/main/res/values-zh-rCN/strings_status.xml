@@ -189,7 +189,7 @@
     <string name="status_diagnostics_dns_resolver_transparent_proxy">可能检测到透明 DNS 代理。</string>
     <string name="status_diagnostics_effectiveness_section">该网络上的绕过策略有效性</string>
     <string name="status_diagnostics_network_transparent_proxy">透明代理</string>
-    <string name="status_diagnostics_pcap_helper">需要 Root 权限。此操作会将本次运行的原始数据包字节捕获到独立的本地 PCAP 文件中；已脱敏的诊断归档不会嵌入数据包捕获。</string>
+    <string name="status_diagnostics_pcap_helper">此操作会将本次运行的原始数据包字节捕获到独立的本地 PCAP 文件中；已脱敏的诊断归档不会嵌入数据包捕获。</string>
     <string name="status_diagnostics_recommendation_label">建议</string>
     <string name="status_diagnostics_regression_summary">新失败：%1$d，新恢复：%2$d，未变更：%3$d。</string>
     <string name="status_diagnostics_share_failed">分享分析日志和结果失败。</string>

@@ -61,7 +61,7 @@ internal fun buildHomeDiagnosticsUiState(
     val availability = resolveHomeDiagnosticsAvailability(settings, appStatus, connectionState, runtime, stringResolver)
     return StatusDiagnosticsUiState(
         pcapRecordingRequested = runtime.pcapRecordingRequested,
-        pcapToggleVisible = settings.rootModeEnabled,
+        pcapToggleVisible = settings.pcapCaptureEnabled,
         analysisAction =
             StatusDiagnosticsActionUiState(
                 label = stringResolver.getString(R.string.status_diagnostics_run_analysis),

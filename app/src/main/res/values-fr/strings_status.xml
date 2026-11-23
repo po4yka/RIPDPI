@@ -159,7 +159,7 @@
     <string name="status_diagnostics_effectiveness_row_value">Réussis : %1$d / Échoués : %2$d</string>
     <string name="status_diagnostics_network_ipv6">IPv6</string>
     <string name="status_diagnostics_network_transparent_proxy">Proxy transparent</string>
-    <string name="status_diagnostics_pcap_helper">Accès root requis. Capture les octets bruts des paquets de cette exécution dans un fichier PCAP local distinct ; les archives de diagnostic expurgées n’intègrent pas les captures de paquets.</string>
+    <string name="status_diagnostics_pcap_helper">Capture les octets bruts des paquets de cette exécution dans un fichier PCAP local distinct ; les archives de diagnostic expurgées n’intègrent pas les captures de paquets.</string>
     <string name="status_diagnostics_recommendation_label">Recommandation</string>
     <string name="status_diagnostics_routing_sanity_section">Cohérence du routage d\'app</string>
     <string name="status_diagnostics_stage_status_failed">Échec</string>

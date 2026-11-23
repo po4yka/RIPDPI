@@ -145,7 +145,7 @@
     <string name="status_diagnostics_detection_not_detected">No detection signals observed</string>
     <string name="status_diagnostics_vpn_detectors_title">Apps that detect VPNs</string>
     <string name="status_diagnostics_pcap_toggle">Capture packets (advanced)</string>
-    <string name="status_diagnostics_pcap_helper">Root required. Captures raw packet bytes for this run into a separate local PCAP file; redacted diagnostics archives do not embed packet captures.</string>
+    <string name="status_diagnostics_pcap_helper">Captures raw packet bytes for this run into a separate local PCAP file; redacted diagnostics archives do not embed packet captures.</string>
     <string name="status_diagnostics_detection_permission_required">Some detection checks need Android location or phone permissions to read Wi-Fi or cellular network identity. RIPDPI uses this only to compare network policy behavior; raw identifiers are not persisted and diagnostics exports redact them.</string>
     <string name="status_diagnostics_actionable_section">What to do next</string>
     <string name="status_diagnostics_network_section">On this network</string>

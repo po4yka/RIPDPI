@@ -144,7 +144,7 @@
     <string name="status_diagnostics_detection_not_detected">कोई पहचान संकेत नहीं देखा गया</string>
     <string name="status_diagnostics_vpn_detectors_title">VPN पहचानने वाले ऐप्स</string>
     <string name="status_diagnostics_pcap_toggle">पैकेट कैप्चर करें (उन्नत)</string>
-    <string name="status_diagnostics_pcap_helper">Root की आवश्यकता है। यह इस रन के कच्चे पैकेट बाइट एक अलग स्थानीय PCAP फ़ाइल में कैप्चर करता है; रिडैक्ट किए गए डायग्नोस्टिक्स संग्रह पैकेट कैप्चर एम्बेड नहीं करते।</string>
+    <string name="status_diagnostics_pcap_helper">यह इस रन के कच्चे पैकेट बाइट एक अलग स्थानीय PCAP फ़ाइल में कैप्चर करता है; रिडैक्ट किए गए डायग्नोस्टिक्स संग्रह पैकेट कैप्चर एम्बेड नहीं करते।</string>
     <string name="status_diagnostics_detection_permission_required">कुछ पहचान जाँचों को Wi-Fi या सेलुलर नेटवर्क पहचान पढ़ने के लिए Android स्थान या फ़ोन अनुमतियों की आवश्यकता होती है. RIPDPI इसका उपयोग केवल नेटवर्क नीति व्यवहार की तुलना के लिए करता है; कच्चे पहचानकर्ता संग्रहीत नहीं किए जाते और diagnostics निर्यात उन्हें छिपा देते हैं.</string>
     <string name="status_diagnostics_actionable_section">आगे क्या करें</string>
     <string name="status_diagnostics_network_section">इस नेटवर्क पर</string>

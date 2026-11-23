@@ -159,7 +159,7 @@
     <string name="status_diagnostics_effectiveness_row_value">Aciertos: %1$d / Fallos: %2$d</string>
     <string name="status_diagnostics_network_ipv6">IPv6</string>
     <string name="status_diagnostics_network_transparent_proxy">Proxy transparente</string>
-    <string name="status_diagnostics_pcap_helper">Requiere acceso root. Captura los bytes de paquetes sin procesar de esta ejecución en un archivo PCAP local independiente; los archivos de diagnóstico censurados no incluyen capturas de paquetes.</string>
+    <string name="status_diagnostics_pcap_helper">Captura los bytes de paquetes sin procesar de esta ejecución en un archivo PCAP local independiente; los archivos de diagnóstico censurados no incluyen capturas de paquetes.</string>
     <string name="status_diagnostics_recommendation_label">Recomendación</string>
     <string name="status_diagnostics_routing_sanity_section">Cordura del enrutamiento de aplicaciones</string>
     <string name="status_diagnostics_stage_status_failed">Falló</string>

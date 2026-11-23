@@ -159,7 +159,7 @@
     <string name="status_diagnostics_effectiveness_row_value">Bestanden: %1$d / Fehlgeschlagen: %2$d</string>
     <string name="status_diagnostics_network_ipv6">IPv6</string>
     <string name="status_diagnostics_network_transparent_proxy">Transparenter Proxy</string>
-    <string name="status_diagnostics_pcap_helper">Root-Rechte erforderlich. Erfasst die rohen Paketbytes dieses Laufs in einer separaten lokalen PCAP-Datei. Diagnosearchive mit unkenntlich gemachten Angaben betten keine Paketmitschnitte ein.</string>
+    <string name="status_diagnostics_pcap_helper">Erfasst die rohen Paketbytes dieses Laufs in einer separaten lokalen PCAP-Datei. Diagnosearchive mit unkenntlich gemachten Angaben betten keine Paketmitschnitte ein.</string>
     <string name="status_diagnostics_recommendation_label">Empfehlung</string>
     <string name="status_diagnostics_routing_sanity_section">App-Routing-Plausibilität</string>
     <string name="status_diagnostics_stage_status_failed">Fehlgeschlagen</string>

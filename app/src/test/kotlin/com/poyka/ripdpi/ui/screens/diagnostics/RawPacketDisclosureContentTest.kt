@@ -1,8 +1,11 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachMode
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsShareUiModel
@@ -40,12 +43,15 @@ class RawPacketDisclosureContentTest {
                             onSaveArchive = {},
                             onSaveLogs = {},
                         ),
-                    rootModeEnabled = true,
                     pcapRecording = true,
                     onTogglePcapRecording = {},
                 )
             }
         }
+
+        composeRule
+            .onNode(hasScrollAction())
+            .performScrollToNode(hasText("packet payloads", substring = true))
 
         // The disclosure must describe payloads, retention limits and separate archives.
         composeRule

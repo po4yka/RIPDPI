@@ -145,7 +145,7 @@
     <string name="status_diagnostics_detection_not_detected">لم تُرصد إشارات كشف</string>
     <string name="status_diagnostics_vpn_detectors_title">تطبيقات تكشف الـ VPN</string>
     <string name="status_diagnostics_pcap_toggle">التقاط الحزم (متقدم)</string>
-    <string name="status_diagnostics_pcap_helper">يتطلب صلاحيات root. يلتقط بايتات الحزم الخام لهذا التشغيل في ملف PCAP محلي منفصل؛ لا تُضمّن أرشيفات التشخيص المنقّحة التقاطات الحزم.</string>
+    <string name="status_diagnostics_pcap_helper">يلتقط بايتات الحزم الخام لهذا التشغيل في ملف PCAP محلي منفصل؛ لا تُضمّن أرشيفات التشخيص المنقّحة التقاطات الحزم.</string>
     <string name="status_diagnostics_detection_permission_required">تحتاج بعض فحوصات الكشف إلى أذونات الموقع أو الهاتف في Android لقراءة هوية شبكة Wi-Fi أو الشبكة الخلوية. يستخدم RIPDPI هذا فقط لمقارنة سلوك سياسة الشبكة؛ لا تُخزَّن المعرّفات الخام وتُحجب في صادرات التشخيص.</string>
     <string name="status_diagnostics_actionable_section">ما يجب فعله بعد ذلك</string>
     <string name="status_diagnostics_network_section">على هذه الشبكة</string>

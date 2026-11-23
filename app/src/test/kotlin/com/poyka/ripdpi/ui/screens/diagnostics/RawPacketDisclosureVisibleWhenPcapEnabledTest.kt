@@ -2,8 +2,11 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachMode
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsShareUiModel
@@ -22,10 +25,7 @@ class RawPacketDisclosureVisibleWhenPcapEnabledTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun toolsSection(
-        rootModeEnabled: Boolean,
-        pcapRecording: Boolean,
-    ) {
+    private fun toolsSection(pcapRecording: Boolean) {
         composeRule.setContent {
             RipDpiTheme {
                 ToolsSection(
@@ -43,7 +43,6 @@ class RawPacketDisclosureVisibleWhenPcapEnabledTest {
                             onSaveArchive = {},
                             onSaveLogs = {},
                         ),
-                    rootModeEnabled = rootModeEnabled,
                     pcapRecording = pcapRecording,
                     onTogglePcapRecording = {},
                 )
@@ -53,15 +52,17 @@ class RawPacketDisclosureVisibleWhenPcapEnabledTest {
 
     @Test
     fun disclosureCardHiddenWhenPcapNotRecording() {
-        toolsSection(rootModeEnabled = true, pcapRecording = false)
+        toolsSection(pcapRecording = false)
 
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Start recording"))
         composeRule.onNodeWithText("Raw-packet capture disclosure").assertIsNotDisplayed()
     }
 
     @Test
     fun disclosureCardVisibleWhenPcapRecording() {
-        toolsSection(rootModeEnabled = true, pcapRecording = true)
+        toolsSection(pcapRecording = true)
 
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Raw-packet capture disclosure"))
         composeRule.onNodeWithText("Raw-packet capture disclosure").assertIsDisplayed()
     }
 }

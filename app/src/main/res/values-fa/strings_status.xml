@@ -145,7 +145,7 @@
     <string name="status_diagnostics_detection_not_detected">هیچ سیگنال تشخیصی مشاهده نشد</string>
     <string name="status_diagnostics_vpn_detectors_title">برنامه‌هایی که VPN را تشخیص می‌دهند</string>
     <string name="status_diagnostics_pcap_toggle">ضبط بسته‌ها (پیشرفته)</string>
-    <string name="status_diagnostics_pcap_helper">به root نیاز دارد. بایت‌های خام بسته را برای این اجرا در یک فایل PCAP محلی جداگانه ضبط می‌کند؛ آرشیوهای تشخیصی ویرایش‌شده ضبط‌های بسته را در خود قرار نمی‌دهند.</string>
+    <string name="status_diagnostics_pcap_helper">بایت‌های خام بسته را برای این اجرا در یک فایل PCAP محلی جداگانه ضبط می‌کند؛ آرشیوهای تشخیصی ویرایش‌شده ضبط‌های بسته را در خود قرار نمی‌دهند.</string>
     <string name="status_diagnostics_detection_permission_required">برخی بررسی‌ها برای خواندن هویت Wi-Fi یا شبکهٔ سلولی به مجوز مکان یا تلفن Android نیاز دارند. RIPDPI فقط برای مقایسهٔ رفتار سیاست شبکه از آن استفاده می‌کند؛ شناسه‌های خام ذخیره نمی‌شوند و خروجی‌های تشخیصی آن‌ها را حذف می‌کنند.</string>
     <string name="status_diagnostics_actionable_section">گام بعدی چیست</string>
     <string name="status_diagnostics_network_section">در این شبکه</string>

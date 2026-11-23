@@ -11,6 +11,8 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -19,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -124,7 +127,6 @@ private fun DiagnosticsScreen(
     onOpenHistory: () -> Unit = {},
     onOpenModeEditor: () -> Unit = {},
     onReviewRecommendedPath: () -> Unit = {},
-    rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
 ) {
     DiagnosticsScreen(
@@ -169,7 +171,6 @@ private fun DiagnosticsScreen(
                 onOpenModeEditor = onOpenModeEditor,
                 onReviewRecommendedPath = onReviewRecommendedPath,
             ),
-        rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,
     )
 }
@@ -1899,7 +1900,6 @@ class DiagnosticsScreenTest {
     }
 
     private fun setToolsScreen(
-        rootModeEnabled: Boolean = false,
         pcapRecording: Boolean = false,
         tools: DiagnosticsToolsUiModel = DiagnosticsToolsUiModel(),
     ) {
@@ -1918,7 +1918,6 @@ class DiagnosticsScreenTest {
                             onSaveLogs = {},
                         ),
                     tools = tools,
-                    rootModeEnabled = rootModeEnabled,
                     pcapRecording = pcapRecording,
                 )
             }
@@ -2079,9 +2078,12 @@ class DiagnosticsScreenTest {
 
     @Test
     fun packetCaptureCopyDisclosesRetentionPayloadAndSeparateExports() {
-        setToolsScreen(rootModeEnabled = true, pcapRecording = true)
+        setToolsScreen(pcapRecording = true)
 
-        swipeToolsUntilTextVisible("packet payloads")
+        composeRule
+            .onNode(hasScrollAction())
+            .performScrollToNode(hasText("packet payloads", substring = true))
+        composeRule.onNodeWithText("packet payloads", substring = true).assertIsDisplayed()
         swipeToolsUntilTextVisible("up to three files")
         swipeToolsUntilTextVisible("older than 24 hours")
         swipeToolsUntilTextVisible("separate from redacted diagnostic archives")

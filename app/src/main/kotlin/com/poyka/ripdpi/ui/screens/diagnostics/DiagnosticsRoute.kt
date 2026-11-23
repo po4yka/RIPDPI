@@ -94,7 +94,6 @@ fun DiagnosticsRoute(
         pluggableTransportTool = toolsState.pluggableTransport,
         xrayProvider = toolsState.xrayProvider,
         remoteDeviceAcceptance = toolsState.remoteDeviceAcceptance,
-        rootModeEnabled = toolsState.rootModeEnabled,
         pcapRecording = pcapRecording,
         topBarExtraActions = topBarExtraActions,
         modifier = modifier,
@@ -212,12 +211,10 @@ private fun DiagnosticsViewModel.toolsRouteStateFlow(): Flow<DiagnosticsToolsRou
         }
     return combine(
         baseFlow,
-        rootModeEnabled,
         xrayProviderFlow,
         remoteDeviceAcceptanceReport,
-    ) { state, rootMode, xrayProvider, remoteDeviceAcceptance ->
+    ) { state, xrayProvider, remoteDeviceAcceptance ->
         state.copy(
-            rootModeEnabled = rootMode,
             xrayProvider = xrayProvider,
             remoteDeviceAcceptance = remoteDeviceAcceptance,
         )
@@ -447,7 +444,6 @@ private fun rememberPcapToggleAction(
 
 private data class DiagnosticsToolsRouteState(
     val pcapRecording: Boolean = false,
-    val rootModeEnabled: Boolean = false,
     val dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
     val cidrWhitelist: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
     val ipv4Whitelist: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),

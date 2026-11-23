@@ -159,7 +159,6 @@ fun DiagnosticsScreen(
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     xrayProvider: XrayProviderToolUiModel = XrayProviderToolUiModel(),
     remoteDeviceAcceptance: RemoteDeviceAcceptanceReport = RemoteDeviceAcceptanceReport(),
-    rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
     topBarExtraActions: @Composable () -> Unit = {},
 ) {
@@ -192,7 +191,6 @@ fun DiagnosticsScreen(
                     onRunRemoteDeviceAcceptance = actions.onRunRemoteDeviceAcceptance,
                     onShareRemoteDeviceAcceptance = actions.onShareRemoteDeviceAcceptance,
                 ),
-            rootModeEnabled = rootModeEnabled,
             pcapRecording = pcapRecording,
             topBarExtraActions = topBarExtraActions,
             modifier = modifier,
@@ -224,7 +222,6 @@ private fun DiagnosticsScreenFrame(
     homeDiagnostics: StatusDiagnosticsUiState,
     onToggleDebugInfo: () -> Unit,
     tools: DiagnosticsToolsUiModel,
-    rootModeEnabled: Boolean,
     pcapRecording: Boolean,
     topBarExtraActions: @Composable () -> Unit,
     modifier: Modifier,
@@ -292,7 +289,6 @@ private fun DiagnosticsScreenFrame(
                     onExpertModeChange = onExpertModeChange,
                     homeDiagnostics = homeDiagnostics,
                     tools = tools,
-                    rootModeEnabled = rootModeEnabled,
                     pcapRecording = pcapRecording,
                     modifier = Modifier.weight(1f),
                 )
@@ -351,7 +347,6 @@ private fun DiagnosticsScreenPager(
     onExpertModeChange: (Boolean) -> Unit,
     homeDiagnostics: StatusDiagnosticsUiState,
     tools: DiagnosticsToolsUiModel,
-    rootModeEnabled: Boolean,
     pcapRecording: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -424,7 +419,6 @@ private fun DiagnosticsScreenPager(
                         uiState = uiState,
                         actions = actions,
                         tools = tools,
-                        rootModeEnabled = rootModeEnabled,
                         pcapRecording = pcapRecording,
                         header = expertToggle,
                     )
@@ -439,7 +433,6 @@ private fun DiagnosticsToolsPagerPage(
     uiState: DiagnosticsScreenUiState,
     actions: DiagnosticsScreenActions,
     tools: DiagnosticsToolsUiModel,
-    rootModeEnabled: Boolean,
     pcapRecording: Boolean,
     header: @Composable () -> Unit,
 ) {
@@ -457,7 +450,6 @@ private fun DiagnosticsToolsPagerPage(
                 onOpenPcapCaptureList = actions.onOpenPcapCaptureList,
                 onOpenPastReplays = actions.onOpenPastReplays,
             ),
-        rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,
         onTogglePcapRecording = actions.onTogglePcapRecording,
         header = header,

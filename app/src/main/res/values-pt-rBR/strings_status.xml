@@ -145,7 +145,7 @@
     <string name="status_diagnostics_detection_not_detected">Nenhum sinal de detecção observado</string>
     <string name="status_diagnostics_vpn_detectors_title">Apps que detectam VPNs</string>
     <string name="status_diagnostics_pcap_toggle">Capturar pacotes (avançado)</string>
-    <string name="status_diagnostics_pcap_helper">Root necessário. Captura os bytes brutos dos pacotes desta execução em um arquivo PCAP local separado; arquivos de diagnóstico com dados sensíveis removidos não embutem capturas de pacotes.</string>
+    <string name="status_diagnostics_pcap_helper">Captura os bytes brutos dos pacotes desta execução em um arquivo PCAP local separado; arquivos de diagnóstico com dados sensíveis removidos não embutem capturas de pacotes.</string>
     <string name="status_diagnostics_detection_permission_required">Algumas verificações de detecção precisam das permissões de localização ou telefone do Android para ler a identidade da rede Wi-Fi ou celular. O RIPDPI usa isso apenas para comparar o comportamento da política de rede; identificadores brutos não são persistidos e as exportações de diagnóstico os removem.</string>
     <string name="status_diagnostics_actionable_section">O que fazer a seguir</string>
     <string name="status_diagnostics_network_section">Nesta rede</string>

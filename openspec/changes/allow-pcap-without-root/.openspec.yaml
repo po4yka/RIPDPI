@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-23
+goal: DGN-1795412913098712 Allow PCAP capture and viewing without root

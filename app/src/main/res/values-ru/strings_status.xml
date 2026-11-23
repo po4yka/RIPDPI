@@ -173,7 +173,7 @@
     <string name="status_diagnostics_network_section">В этой сети</string>
     <string name="status_diagnostics_network_transparent_proxy">Прозрачный прокси</string>
     <string name="status_diagnostics_network_transport">Транспорт</string>
-    <string name="status_diagnostics_pcap_helper">Требуются root-права. Необработанные байты пакетов этого запуска сохраняются в отдельный локальный файл PCAP; захваты пакетов не встраиваются в обезличенные диагностические архивы.</string>
+    <string name="status_diagnostics_pcap_helper">Необработанные байты пакетов этого запуска сохраняются в отдельный локальный файл PCAP; захваты пакетов не встраиваются в обезличенные диагностические архивы.</string>
     <string name="status_diagnostics_pcap_toggle">Захват пакетов (расширенно)</string>
     <string name="status_diagnostics_quick_scan">Быстрое сканирование</string>
     <string name="status_diagnostics_regression_failed_label">Новые сбои</string>

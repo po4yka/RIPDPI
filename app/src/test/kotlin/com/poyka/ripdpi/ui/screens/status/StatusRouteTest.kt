@@ -71,7 +71,7 @@ class StatusRouteTest {
                         AppSettings
                             .newBuilder()
                             .setOnboardingComplete(true)
-                            .setRootModeEnabled(true)
+                            .setPcapCaptureEnabled(true)
                             .build(),
                     ),
             )
