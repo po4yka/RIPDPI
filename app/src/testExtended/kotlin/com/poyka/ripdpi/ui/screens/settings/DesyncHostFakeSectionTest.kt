@@ -34,7 +34,7 @@ class DesyncHostFakeSectionTest {
                 HostFakeProfileCard(
                     SettingsUiState(
                         hasHostFake = true,
-                        rootModeEnabled = false,
+                        rawPacketOperationsEnabled = false,
                         desync =
                             DesyncCoreUiState(
                                 tcpChainSteps =

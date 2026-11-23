@@ -1659,7 +1659,6 @@
     <string name="detection_exposure_timing_reason">A latência ou os padrões temporais diferem do tráfego HTTPS direto comum.</string>
     <string name="detection_exposure_timing_hint">Tente uma saída mais próxima, reduza os saltos encadeados ou escolha um perfil de menor latência.</string>
     <string name="detection_exposure_native_signs_label">sinal do ambiente de execução nativo</string>
-    <string name="detection_exposure_native_signs_reason">As verificações nativas encontraram indícios de interceptadores, root ou interfaces ocultas.</string>
     <string name="detection_exposure_native_signs_hint">Remova a instrumentação sem relação com o teste e repita a verificação no perfil do dispositivo de destino.</string>
     <string name="detection_exposure_call_transport_label">vazamento do transporte de chamadas</string>
     <string name="detection_exposure_call_transport_reason">Os testes de transporte de chamadas ou STUN revelam um caminho diferente do esperado.</string>
@@ -1875,13 +1874,9 @@
     <string name="diagnostics_strategy_selection_winner">Vencedor</string>
     <string name="diagnostics_strategy_summary_worked">Funcionou</string>
     <string name="diagnostics_strategy_summary_na">Não se aplica</string>
-    <string name="diagnostics_strategy_emitter_non_root">Uso real sem root</string>
-    <string name="diagnostics_strategy_emitter_rooted">Uso real com root</string>
     <string name="diagnostics_strategy_emitter_lab">Somente diagnóstico de laboratório</string>
     <string name="diagnostics_strategy_realization_approximate">Alternativa aproximada</string>
-    <string name="diagnostics_strategy_realization_rooted">Execução exata com root</string>
     <string name="diagnostics_strategy_realization_lab">Caminho de laboratório</string>
-    <string name="diagnostics_strategy_note_rooted">A emissão exata neste caminho exigia recursos de execução com root.</string>
     <string name="diagnostics_strategy_note_approximate">A emissão exata não estava disponível; por isso, este candidato usou um caminho alternativo aproximado.</string>
     <string name="diagnostics_strategy_note_lab">Este candidato fica limitado ao diagnóstico e não faz parte das configurações padrão de uso real.</string>
     <string name="diagnostics_strategy_tcp_matrix">Matriz TCP / HTTP / HTTPS</string>

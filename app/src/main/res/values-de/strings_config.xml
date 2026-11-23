@@ -41,7 +41,6 @@
     <string name="adaptive_split_selector_body">Dieser visuelle Editor steuert den ersten Nicht-TLS-TCP-Sendeschritt. Verwenden Sie den manuellen Marker für explizite Offsets oder wechseln Sie zu einer adaptiven Voreinstellung, die pro Nutzlast aus aktiven TCP-MSS-Hinweisen und semantischen Markern auflöst.</string>
     <string name="adaptive_split_summary_label_protocols">Protokolle</string>
     <string name="config_badge_active">Aktiv</string>
-    <string name="config_chain_editor_helper_full">Der HTTPS-Abschnitt unten kann einzelne tlsrec- und randomisierte tlsrandrec-Schritte visuell erstellen, während die Karten Hostfake und Fake-Approximation hostnamenspezifische Fake-Chunks und Approximationen im Stil von Neuübertragungen erläutern. Linux-/Android-spezifische Approximationen sind als fakedsplit host+1 und fakeddisorder endhost für HTTP- oder TLS-SNI-nahe Nutzlasten verfügbar.</string>
     <string name="config_dns_disabled_helper">DNS-Override wird nur im lokalen VPN-Modus angewendet.</string>
     <string name="config_editor_body">%1$s wird bearbeitet. Änderungen werden auf diesem Gerät gespeichert, wenn Sie auf Speichern tippen.</string>
     <string name="config_error_invalid_marker">Gültigen Markerausdruck eingeben.</string>
@@ -123,14 +122,6 @@
     <string name="ripdpi_fake_tls_summary_base_original">Original-ClientHello als Basis</string>
     <string name="ripdpi_fake_tls_summary_size_exact">Genau %1$d Bytes</string>
     <string name="ripdpi_fake_tls_waiting_body">Fügen Sie einen Fake-TCP-Schritt hinzu, wenn RIPDPI Fake-HTTPS-ClientHello-Pakete mit dem unten stehenden Profil formen soll.</string>
-    <string name="ripdpi_hostfake_available_body">Fügen Sie einen Hostfake-Schritt hinzu, wenn Fake-Chunks nur rund um den HTTP-Host- oder TLS-SNI-Bereich auftreten sollen, statt die gesamte Nutzlast zu fälschen.</string>
-    <string name="ripdpi_hostfake_example_tls">tlsrec extlen
-hostfake endhost host=cdn.discordapp.net</string>
-    <string name="ripdpi_hostfake_restart_body">Hostfake ist in den Einstellungen konfiguriert, aber die laufende RIPDPI-Sitzung begann vor dieser Kettenänderung.</string>
-    <string name="ripdpi_hostfake_summary_label_http_example">HTTP-Beispiel</string>
-    <string name="ripdpi_hostfake_summary_label_tls_example">TLS-Beispiel</string>
-    <string name="ripdpi_hostfake_summary_profile_none">Nicht in der aktuellen Kette</string>
-    <string name="ripdpi_hostfake_summary_scope_none">Kein passendes Protokoll aktiviert</string>
     <string name="ripdpi_hosts_whitelist_setting">Host-Whitelist</string>
     <string name="ripdpi_http_method_space_setting">Zusätzliches Methoden-Leerzeichen</string>
     <string name="ripdpi_http_parser_aggressive_title">Aggressive Parser-Umgehungen bereit</string>
@@ -144,11 +135,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="ripdpi_http_parser_summary_label_safe">Sichere Parser-Anpassungen</string>
     <string name="ripdpi_max_connections_setting">Maximale Anzahl an Verbindungen</string>
     <string name="ripdpi_proxy_port_setting">Port</string>
-    <string name="ripdpi_seqovl_cli_title">Über Befehlszeile gesteuert</string>
-    <string name="ripdpi_seqovl_scope_note">Seqovl ist hart auf Runde 1 und Stream-Bytes 0..1500 begrenzt. In Phase 1 behalten nicht unterstützte Geräte die Konfiguration, senden aber denselben Verkehr wie Split.</string>
-    <string name="ripdpi_seqovl_summary_label_profile">Ketten-Profil</string>
-    <string name="ripdpi_seqovl_summary_profile_inactive">Nicht in der aktuellen Kette</string>
-    <string name="ripdpi_seqovl_summary_scope_https">Nur TLS-ClientHello</string>
     <string name="ripdpi_split_marker_setting">Primärer Split-Marker</string>
     <string name="ripdpi_tls_prelude_badge_stacked">Gestapelt × %1$d</string>
     <string name="ripdpi_tls_prelude_marker_unused">Nicht verwendet, solange TLS-Fragmentierung aus ist</string>
@@ -330,13 +316,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_tls_summary_mutation_dup_sid">Session-ID aus dem ursprünglichen ClientHello kopieren</string>
     <string name="ripdpi_fake_tls_summary_size_input">An Eingabe-ClientHello-Größe anpassen</string>
     <string name="ripdpi_fake_tls_waiting_title">Verfügbar für HTTPS-Fake-Schritte</string>
-    <string name="ripdpi_hostfake_available_title">Hostnamen-Targeting verfügbar</string>
-    <string name="ripdpi_hostfake_protocols_off_body">Aktivieren Sie HTTP- oder HTTPS-Bypass-Strategie, wenn hostfake auf Host- oder SNI-Felder zielen soll.</string>
-    <string name="ripdpi_hostfake_restart_title">Neu starten, um hostfake anzuwenden</string>
-    <string name="ripdpi_hostfake_summary_label_midhost">Echter Host-Split</string>
-    <string name="ripdpi_hostfake_summary_label_transport">Fake-Transport</string>
-    <string name="ripdpi_hostfake_summary_profile_single">1 Hostfake-Schritt</string>
-    <string name="ripdpi_hostfake_summary_template_random">Zufälliger Hostname gleicher Länge</string>
     <string name="ripdpi_http_host_extra_space_setting">Host extra Leerzeichen</string>
     <string name="ripdpi_http_parser_aggressive_body">RIPDPI wendet die ausgewählten Nginx-orientierten EOL-Umgehungen zusammen mit allen sicheren Parser-Anpassungen auf HTTP-Datenverkehr an.</string>
     <string name="ripdpi_http_parser_group_status_active">Aktiv</string>
@@ -349,11 +328,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_no_domain_setting">Keine Domain</string>
     <string name="ripdpi_readme_link">So funktioniert RIPDPI</string>
     <string name="open_source_licenses">Open-Source-Lizenzen</string>
-    <string name="ripdpi_seqovl_ready_body">Die gespeicherte Strategiekette enthält bereits seqovl und behält ihren Marker, ihre Überlappungsgröße und ihren Fake-Modus über Einstellungsbearbeitungen hinweg bei.</string>
-    <string name="ripdpi_seqovl_summary_fake_mode_profile">Profil</string>
-    <string name="ripdpi_seqovl_summary_label_runtime">Laufzeitpfad</string>
-    <string name="ripdpi_seqovl_summary_runtime_fallback">Fällt auf diesem Gerät auf Split zurück</string>
-    <string name="ripdpi_seqovl_summary_scope_none">Kein passendes Protokoll aktiviert</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="ripdpi_tls_prelude_cli_body">Visuelle Steuerungen für TLS-Datensatzfragmentierung sind pausiert, solange rohe RIPDPI-Argumente aktiviert sind. Verwenden Sie Kommandozeilen-Kettenflags für den nächsten Start.</string>
     <string name="ripdpi_tls_prelude_mode_body">Wählen Sie, ob HTTPS-ClientHello-Datenverkehr unangetastet bleibt, einmal an einer Markierung geteilt wird oder in randomisierte Tail-Datensätze aufgefächert wird.</string>
@@ -435,13 +409,6 @@ fakeddisorder endhost</string>
     <string name="config_engine_section">Engine</string>
     <string name="config_error_invalid_proxy_ip">Geben Sie eine gültige Proxy-Listen-Adresse ein.</string>
     <string name="config_fake_tls_size_helper">0 = Eingabegröße, positiv = exakte Ziel-Bytes, negativ = Eingabe minus N.</string>
-    <string name="config_placeholder_chain_dsl">[tcp]
-tlsrec extlen
-hostfake endhost+8 midhost=midsld host=googlevideo.com
-split midsld
-
-[udp]
-fake_burst 3</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
     <string name="config_relay_body">Leitet Proxy-Verkehr über einen Remote-Relay-Server. Geheimnisse bleiben im Keystore-basierten Anmeldeinformationsspeicher auf diesem Gerät.</string>
@@ -526,13 +493,6 @@ Quelle: %2$s</string>
     <string name="ripdpi_fake_tls_summary_mutation_none">Keine zusätzlichen TLS-Mutationen</string>
     <string name="ripdpi_fake_tls_summary_size_minus">Eingabe minus %1$d Bytes</string>
     <string name="ripdpi_fake_ttl_setting">TTL der Fake-Pakete</string>
-    <string name="ripdpi_hostfake_cli_body">Visuelle Hostfake-Hinweise bleiben hier sichtbar, aber die aktive Chain stammt aus rohen RIPDPI-Argumenten, solange Befehlszeileneinstellungen aktiviert sind.</string>
-    <string name="ripdpi_hostfake_protocols_off_title">HTTP und HTTPS sind aus</string>
-    <string name="ripdpi_hostfake_scope_note">Hostfake berührt nur Chunks in Host-/SNI-Größe. Es verwendet weder das vollständige Fake-TLS-Profil noch den Fake-Offset-Marker.</string>
-    <string name="ripdpi_hostfake_summary_label_profile">Chain-Profil</string>
-    <string name="ripdpi_hostfake_summary_midhost_marker">Echten Host bei %1$s splitten</string>
-    <string name="ripdpi_hostfake_summary_scope_http">Nur HTTP-Host</string>
-    <string name="ripdpi_hostfake_summary_transport">Fake-TTL %1$d</string>
     <string name="ripdpi_http_host_pad_setting">Host-Pad-Header</string>
     <string name="ripdpi_http_parser_aggressive_group_body">Aggressive, Nginx-orientierte Umgehungen. Diese können schwächere HTTP-Parser umgehen, können jedoch auch einige Server und CDNs brechen.</string>
     <string name="ripdpi_http_parser_badge_custom">Benutzerdefiniert</string>
@@ -545,12 +505,6 @@ Quelle: %2$s</string>
     <string name="ripdpi_http_parser_summary_label_aggressive">Aggressive Umgehungen</string>
     <string name="ripdpi_http_unix_eol_setting">Unix-Zeilenenden</string>
     <string name="ripdpi_protocols_category">Protokolle</string>
-    <string name="ripdpi_seqovl_available_body">Verwenden Sie seqovl, wenn das Gerät das Paket-eigene Backend unterstützt. Bis dahin bleiben gespeicherte seqovl-Schritte hin- und rückkonvertierbar, fallen zur Laufzeit aber auf split zurück.</string>
-    <string name="ripdpi_seqovl_ready_title">Sequenz-Overlap konfiguriert</string>
-    <string name="ripdpi_seqovl_summary_label_fake_mode">Fake-Modus</string>
-    <string name="ripdpi_seqovl_summary_label_scope">Verkehrsbereich</string>
-    <string name="ripdpi_seqovl_summary_runtime_supported">Paket-eigenes Backend verfügbar</string>
-    <string name="ripdpi_seqovl_unsupported_body">Dieses Gerät stellt das Paket-eigene Upstream-TCP-Backend, das seqovl benötigt, nicht bereit. Neue seqovl-Steuerungen bleiben deaktiviert, und gespeicherte seqovl-Schritte degradieren zu split.</string>
     <string name="ripdpi_tls_prelude_badge_https_only">Nur HTTPS</string>
     <string name="ripdpi_tls_prelude_cli_title">Über Befehlszeile gesteuert</string>
     <string name="ripdpi_tls_prelude_mode_off_body">Keinen TLS-Prelude-Schritt hinzufügen. RIPDPI behält das Record-Layout des ausgehenden ClientHello unverändert bei.</string>
@@ -700,7 +654,6 @@ Quelle: %2$s</string>
     <string name="quic_initial_support_v1_body">Erlaubt die Hostnamen-Extraktion aus Initial-Paketen von QUIC Version 1.</string>
     <string name="ripdpi_default_ttl_setting">Standard-TTL</string>
     <string name="ripdpi_drop_sack_setting">SACK verwerfen</string>
-    <string name="ripdpi_md5sig_setting">TCP-MD5-Signatur</string>
     <string name="ripdpi_tlsminor_setting">TLS-Record-Version überschreiben</string>
     <string name="ripdpi_tlsminor_value_title">TLS-Record-Minor-Version</string>
     <string name="ripdpi_tlsminor_value_body">Überschreibt das Minor-Versions-Byte (0–255) im TLS-Record-Header des echten ersten Pakets.</string>
@@ -723,12 +676,6 @@ Quelle: %2$s</string>
     <string name="ripdpi_fake_tls_summary_mutation_pad_encap">Padding-Camouflage</string>
     <string name="ripdpi_fake_tls_summary_sni_fixed">Fester Hostname: %1$s</string>
     <string name="ripdpi_host_mixed_case_setting">Host in gemischter Schreibweise</string>
-    <string name="ripdpi_hostfake_cli_title">Per Befehlszeile gesteuert</string>
-    <string name="ripdpi_hostfake_ready_body">Hostfake benötigt Root-Zugriff und Unterstützung für Raw-Pakete. Andernfalls verwendet RIPDPI eine einfache Aufteilung.</string>
-    <string name="ripdpi_hostfake_summary_end_marker_none">Standard-Schrittgrenze verwenden</string>
-    <string name="ripdpi_hostfake_summary_label_scope">Traffic-Bereich</string>
-    <string name="ripdpi_hostfake_summary_midhost_whole">Den realen Host als eine Spanne belassen</string>
-    <string name="ripdpi_hostfake_summary_scope_http_https">HTTP-Host und TLS-SNI</string>
     <string name="ripdpi_hosts_blacklist_setting">Hosts-Blacklist</string>
     <string name="ripdpi_http_host_tab_setting">Host-Tab-Trennzeichen</string>
     <string name="ripdpi_http_parser_aggressive_group_title">Aggressive Parser-Evasionen</string>
@@ -742,12 +689,7 @@ Quelle: %2$s</string>
     <string name="ripdpi_http_parser_summary_label_probing">Automatische Probe</string>
     <string name="ripdpi_ip_id_mode_body">Legt bevorzugte IPv4-IDs für rohe Fake-Pakete und Fragmente fest. Der Sender kann eine andere ID wählen, um eine Wiederverwendung zu verhindern. Seqgroup sendet auch gemischte Fake-/Original-TCP-Pakete über den Raw-Pfad.</string>
     <string name="ripdpi_protocols_hint">Deaktivieren Sie HTTP und HTTPS, um die TCP-Bypass-Strategie ohne Protokollfilter anzuwenden. UDP-Bypass wird separat konfiguriert.</string>
-    <string name="ripdpi_seqovl_available_title">Sequenzüberlappung verfügbar</string>
-    <string name="ripdpi_seqovl_restart_body">Die laufende RIPDPI-Sitzung wurde vor dieser Chain-Änderung gestartet, daher wird seqovl erst wirksam, wenn RIPDPI sich neu verbindet oder neu startet.</string>
     <string name="ripdpi_seqovl_summary_label_marker">Split-Marker</string>
-    <string name="ripdpi_seqovl_summary_marker_none">Schritt-Marker aus der Chain-DSL verwenden</string>
-    <string name="ripdpi_seqovl_summary_scope_http">Nur HTTP-Anfragen</string>
-    <string name="ripdpi_seqovl_unsupported_title">Sequenzüberlappung nicht verfügbar</string>
     <string name="ripdpi_tls_prelude_badge_random">Schwanz × %1$d</string>
     <string name="ripdpi_tls_prelude_https_disabled_body">Ein TLS-Prelude-Schritt ist gespeichert, aber RIPDPI ignoriert ihn, bis HTTPS-Bypass-Strategie wieder aktiviert wird.</string>
     <string name="ripdpi_tls_prelude_mode_off_title">Aus</string>
@@ -963,11 +905,6 @@ Quelle: %2$s</string>
     <string name="ripdpi_fake_tls_summary_mutation_randomize">Random, Session-ID und KeyShare randomisieren</string>
     <string name="ripdpi_fake_tls_summary_sni_randomized">Randomisierter Hostname mit derselben Länge wie die konfigurierte Fake-SNI</string>
     <string name="ripdpi_host_remove_spaces_setting">Host-Leerzeichen entfernen</string>
-    <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
-    <string name="ripdpi_hostfake_ready_title">Hostfake konfiguriert</string>
-    <string name="ripdpi_hostfake_summary_label_end_marker">Segmentgrenze</string>
-    <string name="ripdpi_hostfake_summary_label_template">Primärer Fake-Host</string>
-    <string name="ripdpi_hostfake_summary_scope_https">Nur TLS-SNI</string>
     <string name="ripdpi_hosts_mode_setting">Hosts</string>
     <string name="ripdpi_http_method_eol_setting">Method-EOL-Verschiebung</string>
     <string name="ripdpi_http_parser_aggressive_none">Keine aggressiven EOL-Umgehungen ausgewählt.</string>
@@ -981,11 +918,6 @@ Quelle: %2$s</string>
     <string name="ripdpi_http_parser_summary_label_profile">Profil</string>
     <string name="ripdpi_ip_id_mode_title">IPv4-ID-Modus</string>
     <string name="ripdpi_proxy">Proxy</string>
-    <string name="ripdpi_seqovl_cli_body">Visuelle seqovl-Hinweise bleiben hier sichtbar, aber die aktive Kette stammt aus Roh-RIPDPI-Argumenten, solange die Kommandozeilen-Einstellungen aktiviert sind.</string>
-    <string name="ripdpi_seqovl_restart_title">Neu starten, um seqovl erneut anzuwenden</string>
-    <string name="ripdpi_seqovl_summary_label_overlap">Überlappungs-Bytes</string>
-    <string name="ripdpi_seqovl_summary_profile_configured">1 seqovl-Schritt</string>
-    <string name="ripdpi_seqovl_summary_scope_http_https">HTTP-Anfragen und TLS-ClientHello</string>
     <string name="ripdpi_tls_prelude_badge_single">1 Split</string>
     <string name="ripdpi_tls_prelude_https_disabled_title">HTTPS-Bypass-Strategie ist aus</string>
     <string name="ripdpi_tls_prelude_mode_random_body">Fügt einen tlsrandrec-Schritt hinzu. RIPDPI behält einen optionalen Prefix bei und gibt dann randomisierte Tail-Records nach dem Marker aus.</string>
@@ -1256,10 +1188,6 @@ Quelle: %2$s</string>
     <plurals name="udp_fake_profile_scope_live">
         <item quantity="one">Wird für %1$d generisches UDP-fake_burst-Paket in der aktuellen Kette verwendet.</item>
         <item quantity="other">Wird für %1$d generische UDP-fake_burst-Pakete in der aktuellen Kette verwendet.</item>
-    </plurals>
-    <plurals name="ripdpi_hostfake_summary_profile_multiple">
-        <item quantity="one">%1$d hostfake-Schritt</item>
-        <item quantity="other">%1$d hostfake-Schritte</item>
     </plurals>
     <plurals name="ripdpi_fake_approx_summary_profile_multiple">
         <item quantity="one">%1$d Fake-Annäherungsschritt</item>

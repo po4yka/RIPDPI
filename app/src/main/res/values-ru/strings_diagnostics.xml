@@ -1703,7 +1703,6 @@
     <string name="detection_exposure_timing_reason">Задержка или временные характеристики отличаются от обычного прямого трафика HTTPS.</string>
     <string name="detection_exposure_timing_hint">Попробуйте более близкую точку выхода, сократите цепочку переходов или выберите профиль с меньшей задержкой.</string>
     <string name="detection_exposure_native_signs_label">признак нативной среды выполнения</string>
-    <string name="detection_exposure_native_signs_reason">Нативные проверки обнаружили признаки перехватчиков, root или скрытых интерфейсов.</string>
     <string name="detection_exposure_native_signs_hint">Удалите посторонние средства инструментирования и повторите проверку на целевом профиле устройства.</string>
     <string name="detection_exposure_call_transport_label">утечка транспорта звонков</string>
     <string name="detection_exposure_call_transport_reason">Проверки транспорта звонков или STUN обнаруживают путь, отличный от ожидаемого.</string>
@@ -1920,13 +1919,9 @@
     <string name="diagnostics_strategy_selection_winner">Победитель</string>
     <string name="diagnostics_strategy_summary_worked">Сработало</string>
     <string name="diagnostics_strategy_summary_na">Неприменимо</string>
-    <string name="diagnostics_strategy_emitter_non_root">Рабочий режим без root</string>
-    <string name="diagnostics_strategy_emitter_rooted">Рабочий режим с root</string>
     <string name="diagnostics_strategy_emitter_lab">Только лабораторная диагностика</string>
     <string name="diagnostics_strategy_realization_approximate">Приближённый запасной способ</string>
-    <string name="diagnostics_strategy_realization_rooted">Точное выполнение с root</string>
     <string name="diagnostics_strategy_realization_lab">Лабораторный путь</string>
-    <string name="diagnostics_strategy_note_rooted">Точная отправка на этом пути требовала возможностей среды выполнения с root.</string>
     <string name="diagnostics_strategy_note_approximate">Точная отправка была недоступна, поэтому этот кандидат выполнялся через приближённый запасной путь.</string>
     <string name="diagnostics_strategy_note_lab">Этот кандидат доступен только для диагностики и не входит в рабочие настройки по умолчанию.</string>
     <string name="diagnostics_strategy_tcp_matrix">Матрица TCP / HTTP / HTTPS</string>

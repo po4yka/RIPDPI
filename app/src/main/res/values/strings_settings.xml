@@ -18,9 +18,6 @@
     <string name="settings_strategy_pack_allow_rollback_override_body">Debug only. Allow equal or lower downloaded strategy-pack sequences for local validation. Signature, compatibility, and freshness checks still apply.</string>
     <string name="settings_telemetry_salt_reset_body">Reset the per-install salt used to hash network fingerprints. Previously recorded hashes can no longer be correlated with future sessions.</string>
     <string name="settings_telemetry_salt_reset_action">Reset telemetry salt</string>
-    <string name="settings_seqovl_unsupported_reason">Sequence overlap requires raw socket access unavailable on this device. Enable root mode in settings to use this feature.</string>
-    <string name="root_mode_strategy_multidisorder_title">Multi-disorder</string>
-    <string name="root_mode_strategy_ipfrag2_title">IP fragmentation</string>
     <string name="theme_settings">Theme</string>
     <string name="about_category">About</string>
     <string name="settings_mixed_inbound_title">Mixed inbound (SOCKS5 + HTTP)</string>

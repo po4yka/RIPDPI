@@ -619,7 +619,7 @@ private fun MutableList<CategoryEntry>.addAdvancedCategoryEntries(result: Detect
         RipDpiIcons.Public,
     )
     addOptionalCategory(
-        result.nativeSigns?.category,
+        result.nativeSigns?.presentedCategory(),
         stringResource(R.string.detection_check_category_native_signs),
         "native_signs",
         RipDpiIcons.NetworkCheck,

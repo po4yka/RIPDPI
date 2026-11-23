@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.rewritePrimaryTcpMarker
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.supportsAdaptiveMarker
 import com.poyka.ripdpi.data.validateStrategyChainUsage
+import com.poyka.ripdpi.platform.supportedInDistribution
 import com.poyka.ripdpi.ui.state.SettingsUiState
 
 private const val MinTtl = 1
@@ -58,13 +59,14 @@ internal class DesyncSettingsMutationWriter(
         uiState: SettingsUiState,
     ) {
         val parsed = parseStrategyChainDsl(value).getOrNull() ?: return
+        if (!parsed.supportedInDistribution()) return
         runCatching {
             validateStrategyChainUsage(
                 tcpSteps = parsed.tcpSteps,
                 udpSteps = parsed.udpSteps,
                 mode = uiState.selectedMode,
                 useCommandLineSettings = uiState.enableCmdSettings,
-                rootModeEnabled = uiState.rootModeEnabled,
+                rootModeEnabled = uiState.rawPacketOperationsEnabled,
             )
         }.getOrNull() ?: return
         updateValue("chainDsl", value) {

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_exposure_native_signs_reason">नेटिव जाँचों में हुक, रूट या छिपे हुए इंटरफ़ेस के निशान मिले।</string>
+    <string name="diagnostics_strategy_emitter_non_root">बिना रूट वास्तविक उपयोग</string>
+    <string name="diagnostics_strategy_emitter_rooted">रूट के साथ वास्तविक उपयोग</string>
+    <string name="diagnostics_strategy_realization_rooted">रूट के साथ सटीक निष्पादन</string>
+    <string name="diagnostics_strategy_note_rooted">इस मार्ग पर सटीक प्रेषण के लिए रूट वाली रनटाइम क्षमताएँ आवश्यक थीं।</string>
+</resources>

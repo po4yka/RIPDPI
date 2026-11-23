@@ -1773,7 +1773,6 @@
     <string name="detection_exposure_timing_reason">تختلف أنماط التأخير أو التوقيت عن حركة HTTPS المباشرة المعتادة.</string>
     <string name="detection_exposure_timing_hint">جرّب نقطة خروج أقرب، أو قلّل عدد القفزات المتسلسلة، أو اختر ملف تعريف بتأخير أقل.</string>
     <string name="detection_exposure_native_signs_label">إشارة من بيئة التنفيذ الأصلية</string>
-    <string name="detection_exposure_native_signs_reason">وجدت فحوص الشيفرة الأصلية آثارًا لاعتراض الاستدعاءات أو صلاحيات الجذر أو واجهات مخفية.</string>
     <string name="detection_exposure_native_signs_hint">أزل أدوات الرصد غير المرتبطة بهذا الإعداد وأعد الاختبار باستخدام ملف تعريف الجهاز المستهدف.</string>
     <string name="detection_exposure_call_transport_label">تسرّب عبر نقل المكالمات</string>
     <string name="detection_exposure_call_transport_reason">تكشف اختبارات نقل المكالمات أو STUN عن مسار مختلف عن المتوقع.</string>
@@ -1992,13 +1991,9 @@
     <string name="diagnostics_strategy_selection_winner">الفائز</string>
     <string name="diagnostics_strategy_summary_worked">نجح</string>
     <string name="diagnostics_strategy_summary_na">لا ينطبق</string>
-    <string name="diagnostics_strategy_emitter_non_root">تشغيل فعلي دون روت</string>
-    <string name="diagnostics_strategy_emitter_rooted">تشغيل فعلي مع روت</string>
     <string name="diagnostics_strategy_emitter_lab">تشخيص مختبري فقط</string>
     <string name="diagnostics_strategy_realization_approximate">مسار بديل تقريبي</string>
-    <string name="diagnostics_strategy_realization_rooted">تنفيذ دقيق مع روت</string>
     <string name="diagnostics_strategy_realization_lab">مسار مختبري</string>
-    <string name="diagnostics_strategy_note_rooted">تطلّب الإرسال الدقيق على هذا المسار إمكانات بيئة تشغيل بصلاحيات روت.</string>
     <string name="diagnostics_strategy_note_approximate">لم يتوفر الإرسال الدقيق، لذلك نُفّذ هذا المرشّح عبر مسار بديل تقريبي.</string>
     <string name="diagnostics_strategy_note_lab">يقتصر هذا المرشّح على التشخيص ولا يدخل ضمن الإعدادات الافتراضية للتشغيل الفعلي.</string>
     <string name="diagnostics_strategy_tcp_matrix">مصفوفة TCP / HTTP / HTTPS</string>

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.status
 
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -417,7 +418,7 @@ class StrategyPassageSceneTest {
     }
 
     @Test
-    fun `only root mode shows raw packets`() {
+    fun `saved packet strategies show only operations available in this distribution`() {
         val settings =
             activeSettings().setStrategyChains(listOf(tcp(TcpChainStepKind.HostFake, "endhost+8")), emptyList())
         val kinds = { builder: AppSettings.Builder ->
@@ -429,10 +430,13 @@ class StrategyPassageSceneTest {
         }
 
         assertEquals(setOf(PassagePieceKind.Real), kinds(settings.clone().setRootModeEnabled(false)))
-        assertEquals(
-            setOf(PassagePieceKind.Real, PassagePieceKind.Decoy),
-            kinds(settings.clone().setRootModeEnabled(true)),
-        )
+        val supportedKinds =
+            if (BuildConfig.DISTRIBUTION_CHANNEL == "play") {
+                setOf(PassagePieceKind.Real)
+            } else {
+                setOf(PassagePieceKind.Real, PassagePieceKind.Decoy)
+            }
+        assertEquals(supportedKinds, kinds(settings.clone().setRootModeEnabled(true)))
     }
 
     @Test
@@ -451,7 +455,12 @@ class StrategyPassageSceneTest {
 
         blocked.forEach { builder ->
             assertNull(strategyPassageFor(builder.clone().build()))
-            assertNotNull(strategyPassageFor(builder.clone().setRootModeEnabled(true).build()))
+            val configuredScene = strategyPassageFor(builder.clone().setRootModeEnabled(true).build())
+            if (BuildConfig.DISTRIBUTION_CHANNEL == "play") {
+                assertNull(configuredScene)
+            } else {
+                assertNotNull(configuredScene)
+            }
         }
     }
 

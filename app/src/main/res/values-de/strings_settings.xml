@@ -145,12 +145,9 @@
     <string name="settings_permissions_always_on_needed">Aktivieren Sie Immer-aktives VPN für RIPDPI in den Android-VPN-Einstellungen, wenn Sie harten Leckschutz benötigen.</string>
     <string name="settings_permissions_vpn_active">Für den aktuell gewählten lokalen VPN-Modus erforderlich.</string>
     <string name="settings_reset_confirm">Zurücksetzen</string>
-    <string name="settings_seqovl_unsupported_reason">Sequenzüberlappung erfordert Raw-Socket-Zugriff, der auf diesem Gerät nicht verfügbar ist. Aktivieren Sie den Root-Modus in den Einstellungen, um diese Funktion zu nutzen.</string>
     <string name="settings_support_debug_bundle_title">Support-Bundle teilen</string>
     <string name="settings_tethering_dns_warning_title">Risiko eines DNS-Lecks beim Tethering</string>
     <string name="settings_warning_backup_pin_body">Legen Sie eine vierstellige Fallback-PIN fest, damit Sie RIPDPI auch dann entsperren können, wenn die Biometrie nicht verfügbar ist.</string>
-    <string name="root_mode_strategy_multidisorder_title">Multi-Disorder</string>
-    <string name="root_mode_strategy_ipfrag2_title">IP-Fragmentierung</string>
     <string name="customization_icon_disintegrate">Auflösen</string>
     <string name="customization_options_section">Optionen</string>
     <string name="customization_shape_sheet_point_two">Wenn sich das Icon-Artwork ändert, muss Ihr Launcher möglicherweise aktualisiert werden, bevor die neue Maskenvorschau erscheint.</string>

@@ -59,6 +59,7 @@ import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.torBridgeValidationError
 import com.poyka.ripdpi.data.validateStrategyChainUsage
+import com.poyka.ripdpi.platform.supportedInDistribution
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
@@ -69,7 +70,7 @@ internal fun validateConfigDraft(
     draft: ConnectionDraft,
     supportsMasquePrivacyPass: Boolean = false,
     relayProfiles: List<RelayProfileRecord> = emptyList(),
-    rootModeEnabled: Boolean = false,
+    rawPacketOperationsEnabled: Boolean = false,
 ): ImmutableMap<String, String> =
     buildMap {
         putAll(validateBaseDraft(draft))
@@ -84,7 +85,7 @@ internal fun validateConfigDraft(
         if (draft.relayEnabled && !draft.useCommandLineSettings) {
             putAll(validateRelayDraft(draft, supportsMasquePrivacyPass, relayProfiles))
         }
-        validateStrategyDraft(draft, rootModeEnabled)?.let { put(ConnectionFieldStrategyChain, it) }
+        validateStrategyDraft(draft, rawPacketOperationsEnabled)?.let { put(ConnectionFieldStrategyChain, it) }
     }.toImmutableMap()
 
 private fun validateBaseDraft(draft: ConnectionDraft): Map<String, String> =
@@ -562,19 +563,20 @@ private fun masqueAuthError(
 
 private fun validateStrategyDraft(
     draft: ConnectionDraft,
-    rootModeEnabled: Boolean,
+    rawPacketOperationsEnabled: Boolean,
 ): String? =
     if (draft.useCommandLineSettings) {
         null
     } else {
         val chainValidation =
-            parseStrategyChainDsl(draft.chainDsl).map { chain ->
+            parseStrategyChainDsl(draft.chainDsl).mapCatching { chain ->
+                require(chain.supportedInDistribution())
                 validateStrategyChainUsage(
                     tcpSteps = chain.tcpSteps,
                     udpSteps = chain.udpSteps,
                     mode = draft.mode,
                     useCommandLineSettings = draft.useCommandLineSettings,
-                    rootModeEnabled = rootModeEnabled,
+                    rootModeEnabled = rawPacketOperationsEnabled,
                 )
             }
         if (chainValidation.isFailure) "invalid_chain" else null

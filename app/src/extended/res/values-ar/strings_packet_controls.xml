@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_chain_editor_helper_full">يمكن لقسم HTTPS أدناه تأليف خطوات tlsrec فردية وtlsrandrec عشوائية بصرياً، بينما تشرح بطاقات Hostfake والتقريب الوهمي القطع الوهمية المستهدفة بالمضيف وتقريبات أسلوب إعادة الإرسال. تقريبات Linux/Android فقط متاحة كـ fakedsplit host+1 وfakeddisorder endhost لحمولات HTTP أو TLS SNI المجاورة.</string>
+    <string name="config_placeholder_chain_dsl">[tcp]
+tlsrec extlen
+hostfake endhost+8 midhost=midsld host=googlevideo.com
+split midsld
+
+[udp]
+fake_burst 3</string>
+    <string name="ripdpi_hostfake_available_title">استهداف اسم المضيف متاح</string>
+    <string name="ripdpi_hostfake_available_body">أضف خطوة hostfake عندما تريد مقاطع مزيفة فقط حول نطاق HTTP Host أو TLS SNI بدلاً من تزوير الحمولة بالكامل.</string>
+    <string name="ripdpi_hostfake_ready_title">تم إعداد Hostfake</string>
+    <string name="ripdpi_hostfake_ready_body">يتطلب Hostfake صلاحيات root ودعم حزم raw. بخلاف ذلك، يستخدم RIPDPI تقسيماً عادياً.</string>
+    <string name="ripdpi_hostfake_restart_title">أعد التشغيل لتطبيق hostfake</string>
+    <string name="ripdpi_hostfake_restart_body">تم تكوين Hostfake في الإعدادات، لكن جلسة RIPDPI الحالية بدأت قبل تغيير هذه السلسلة.</string>
+    <string name="ripdpi_hostfake_protocols_off_title">HTTP وHTTPS معطّلان</string>
+    <string name="ripdpi_hostfake_protocols_off_body">فعّل HTTP أو HTTPS استراتيجية التجاوز إذا أردت أن يستهدف hostfake حقول Host أو SNI.</string>
+    <string name="ripdpi_hostfake_cli_title">يتحكم به سطر الأوامر</string>
+    <string name="ripdpi_hostfake_cli_body">توجيهات hostfake المرئية تبقى مرئية هنا، لكن السلسلة النشطة تأتي من وسيطات RIPDPI الخام أثناء تفعيل إعدادات سطر الأوامر.</string>
+    <string name="ripdpi_hostfake_summary_label_profile">ملف السلسلة</string>
+    <string name="ripdpi_hostfake_summary_label_scope">نطاق حركة المرور</string>
+    <string name="ripdpi_hostfake_summary_label_template">المضيف المزيف الأساسي</string>
+    <string name="ripdpi_hostfake_summary_label_midhost">تقسيم المضيف الحقيقي</string>
+    <string name="ripdpi_hostfake_summary_label_end_marker">حدود المقطع</string>
+    <string name="ripdpi_hostfake_summary_label_transport">النقل المزيف</string>
+    <string name="ripdpi_hostfake_summary_label_http_example">مثال HTTP</string>
+    <string name="ripdpi_hostfake_summary_label_tls_example">مثال TLS</string>
+    <string name="ripdpi_hostfake_summary_profile_none">غير موجود في السلسلة الحالية</string>
+    <string name="ripdpi_hostfake_summary_profile_single">خطوة hostfake واحدة</string>
+    <string name="ripdpi_hostfake_summary_scope_http_https">HTTP Host وTLS SNI</string>
+    <string name="ripdpi_hostfake_summary_scope_http">HTTP Host فقط</string>
+    <string name="ripdpi_hostfake_summary_scope_https">TLS SNI فقط</string>
+    <string name="ripdpi_hostfake_summary_scope_none">لا يوجد بروتوكول مطابق مفعّل</string>
+    <string name="ripdpi_hostfake_summary_template_random">اسم مضيف عشوائي بنفس الطول</string>
+    <string name="ripdpi_hostfake_summary_midhost_whole">الاحتفاظ بالمضيف الحقيقي كنطاق واحد</string>
+    <string name="ripdpi_hostfake_summary_midhost_marker">تقسيم المضيف الحقيقي عند %1$s</string>
+    <string name="ripdpi_hostfake_summary_end_marker_none">استخدام حدود الخطوة الافتراضية</string>
+    <string name="ripdpi_hostfake_summary_transport">TTL وهمي %1$d</string>
+    <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
+    <string name="ripdpi_hostfake_example_tls">tlsrec extlen
+hostfake endhost host=cdn.discordapp.net</string>
+    <string name="ripdpi_hostfake_scope_note">لا يعالج Hostfake إلا أجزاء بحجم Host/SNI. ولا يستخدم ملف TLS الوهمي الكامل أو علامة الإزاحة الوهمية.</string>
+    <string name="ripdpi_seqovl_available_title">تداخل التسلسل متاح</string>
+    <string name="ripdpi_seqovl_available_body">استخدم seqovl عندما يدعم الجهاز الخلفية المملوكة للحزمة. حتى ذلك الحين، تبقى خطوات seqovl المحفوظة قابلة للاسترجاع لكنها تعود إلى split أثناء التشغيل.</string>
+    <string name="ripdpi_seqovl_ready_title">تداخل التسلسل مُهيَّأ</string>
+    <string name="ripdpi_seqovl_ready_body">تحتوي استراتيجية التجاوز المحفوظة على seqovl بالفعل وستحتفظ بعلامته وحجم تداخله ووضعه الوهمي عبر تعديلات الإعدادات.</string>
+    <string name="ripdpi_seqovl_restart_title">أعد التشغيل لإعادة تطبيق seqovl</string>
+    <string name="ripdpi_seqovl_restart_body">بدأت جلسة RIPDPI الجارية قبل تغيير هذه السلسلة، لذا لن يسري seqovl حتى يعيد RIPDPI الاتصال أو إعادة التشغيل.</string>
+    <string name="ripdpi_seqovl_unsupported_title">تداخل التسلسل غير متاح</string>
+    <string name="ripdpi_seqovl_unsupported_body">لا يعرض هذا الجهاز الخلفية TCP المملوكة للحزمة التي يحتاجها seqovl. تبقى ضوابط seqovl الجديدة معطّلة وتتراجع خطوات seqovl المحفوظة إلى split.</string>
+    <string name="ripdpi_seqovl_cli_title">يُتحكم به من سطر الأوامر</string>
+    <string name="ripdpi_seqovl_cli_body">يظل التوجيه المرئي لـ seqovl مرئياً هنا، غير أن السلسلة النشطة تأتي من وسيطات RIPDPI الأولية عند تفعيل إعدادات سطر الأوامر.</string>
+    <string name="ripdpi_seqovl_summary_label_profile">ملف السلسلة</string>
+    <string name="ripdpi_seqovl_summary_label_scope">نطاق الحركة</string>
+    <string name="ripdpi_seqovl_summary_label_overlap">بايتات التداخل</string>
+    <string name="ripdpi_seqovl_summary_label_fake_mode">الوضع الوهمي</string>
+    <string name="ripdpi_seqovl_summary_label_runtime">مسار وقت التشغيل</string>
+    <string name="ripdpi_seqovl_summary_profile_inactive">غير موجود في السلسلة الحالية</string>
+    <string name="ripdpi_seqovl_summary_profile_configured">خطوة seqovl واحدة</string>
+    <string name="ripdpi_seqovl_summary_scope_http_https">طلبات HTTP وTLS ClientHello</string>
+    <string name="ripdpi_seqovl_summary_scope_http">طلبات HTTP فقط</string>
+    <string name="ripdpi_seqovl_summary_scope_https">TLS ClientHello فقط</string>
+    <string name="ripdpi_seqovl_summary_scope_none">لا يوجد بروتوكول مطابق مفعّل</string>
+    <string name="ripdpi_seqovl_summary_marker_none">استخدام علامة الخطوة من DSL السلسلة</string>
+    <string name="ripdpi_seqovl_summary_fake_mode_profile">ملف</string>
+    <string name="ripdpi_seqovl_summary_runtime_supported">الخلفية المملوكة للحزمة متاحة</string>
+    <string name="ripdpi_seqovl_summary_runtime_fallback">يعود إلى split على هذا الجهاز</string>
+    <string name="ripdpi_seqovl_scope_note">يُقيَّد seqovl بالجولة 1 وبايتات التدفق 0..1500. في المرحلة 1، تحتفظ الأجهزة غير المدعومة بالإعداد لكنها ترسل نفس الحركة كـ split.</string>
+    <string name="ripdpi_md5sig_setting">توقيع TCP MD5</string>
+    <string name="settings_seqovl_unsupported_reason">يتطلب تداخل التسلسل وصولاً إلى مقبس خام غير متاح على هذا الجهاز. فعّل وضع الجذر في الإعدادات لاستخدام هذه الميزة.</string>
+    <string name="root_mode_strategy_multidisorder_title">الفوضى المتعددة</string>
+    <string name="root_mode_strategy_ipfrag2_title">تجزئة IP</string>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="zero">%1$d خطوة hostfake</item>
+        <item quantity="one">%1$d خطوة hostfake</item>
+        <item quantity="two">%1$d خطوتان hostfake</item>
+        <item quantity="few">%1$d خطوات hostfake</item>
+        <item quantity="many">%1$d خطوة hostfake</item>
+        <item quantity="other">%1$d خطوة hostfake</item>
+    </plurals>
+</resources>

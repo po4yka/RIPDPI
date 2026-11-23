@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_exposure_native_signs_reason">بررسی‌های کد بومی، ردپای رهگیری فراخوانی‌ها، دسترسی ریشه یا رابط‌های پنهان را یافتند.</string>
+    <string name="diagnostics_strategy_emitter_non_root">عملیاتی بدون روت</string>
+    <string name="diagnostics_strategy_emitter_rooted">عملیاتی با روت</string>
+    <string name="diagnostics_strategy_realization_rooted">اجرای دقیق با روت</string>
+    <string name="diagnostics_strategy_note_rooted">ارسال دقیق در این مسیر به قابلیت‌های زمان اجرای روت‌شده نیاز داشت.</string>
+</resources>

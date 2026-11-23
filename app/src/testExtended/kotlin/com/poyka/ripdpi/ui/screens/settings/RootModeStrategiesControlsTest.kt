@@ -44,7 +44,7 @@ class RootModeStrategiesControlsTest {
             RipDpiTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     SettingsConnectivitySection(
-                        uiState = SettingsUiState(rootModeEnabled = false, uiPersona = "advanced"),
+                        uiState = SettingsUiState(rawPacketOperationsEnabled = false, uiPersona = "advanced"),
                         actions = testActions().copy(onOpenDistributionSettingsDetail = { destination = it }),
                     )
                 }

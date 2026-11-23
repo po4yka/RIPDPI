@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_exposure_native_signs_reason">وجدت فحوص الشيفرة الأصلية آثارًا لاعتراض الاستدعاءات أو صلاحيات الجذر أو واجهات مخفية.</string>
+    <string name="diagnostics_strategy_emitter_non_root">تشغيل فعلي دون روت</string>
+    <string name="diagnostics_strategy_emitter_rooted">تشغيل فعلي مع روت</string>
+    <string name="diagnostics_strategy_realization_rooted">تنفيذ دقيق مع روت</string>
+    <string name="diagnostics_strategy_note_rooted">تطلّب الإرسال الدقيق على هذا المسار إمكانات بيئة تشغيل بصلاحيات روت.</string>
+</resources>

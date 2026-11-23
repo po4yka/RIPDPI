@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_strategy_emitter_standard">محیط عملیاتی</string>
+    <string name="detection_exposure_native_signs_reason">بررسی‌های بومی نشانه‌هایی در محیط اجرا پیدا کردند.</string>
+    <string name="config_chain_editor_helper_full">گام‌های رکورد TLS را در بخش HTTPS تنظیم کنید. گام‌های تقسیم یا بی‌نظمی ساختگی را در ویرایشگر زنجیره اضافه کنید.</string>
+    <string name="config_placeholder_chain_dsl">[tcp]
+tlsrec extlen
+split midsld
+
+[udp]
+fake_burst 3</string>
+</resources>

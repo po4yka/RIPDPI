@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_chain_editor_helper_full">नीचे का HTTPS सेक्शन एकल tlsrec और यादृच्छिक tlsrandrec चरणों को दृश्य रूप से लिख सकता है, जबकि Hostfake और fake सन्निकटन कार्ड होस्टनाम-लक्षित fake खंडों और पुनःप्रेषण-शैली के सन्निकटनों को समझाते हैं। Linux/Android-केवल सन्निकटन HTTP या TLS SNI-निकटवर्ती पेलोड के लिए fakedsplit host+1 और fakeddisorder endhost के रूप में उपलब्ध हैं।</string>
+    <string name="config_placeholder_chain_dsl">[tcp]
+tlsrec extlen
+hostfake endhost+8 midhost=midsld host=googlevideo.com
+split midsld
+
+[udp]
+fake_burst 3</string>
+    <string name="ripdpi_hostfake_available_title">होस्टनेम लक्ष्यीकरण उपलब्ध</string>
+    <string name="ripdpi_hostfake_available_body">जब आप पूरे पेलोड को फ़ेक करने के बजाय केवल HTTP Host या TLS SNI स्पैन के आसपास फ़ेक चंक चाहते हैं, तो एक hostfake चरण जोड़ें।</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake कॉन्फ़िगर किया गया</string>
+    <string name="ripdpi_hostfake_ready_body">Hostfake के लिए रूट और raw पैकेट समर्थन आवश्यक है। इनके बिना RIPDPI साधारण विभाजन का उपयोग करता है।</string>
+    <string name="ripdpi_hostfake_restart_title">hostfake लागू करने के लिए पुनरारंभ करें</string>
+    <string name="ripdpi_hostfake_restart_body">hostfake सेटिंग्स में कॉन्फ़िगर किया गया है, लेकिन चल रहा RIPDPI सत्र इस चेन परिवर्तन से पहले शुरू हुआ था।</string>
+    <string name="ripdpi_hostfake_protocols_off_title">HTTP और HTTPS बंद हैं</string>
+    <string name="ripdpi_hostfake_protocols_off_body">यदि आप चाहते हैं कि hostfake Host या SNI फ़ील्ड को लक्षित करे तो HTTP या HTTPS बायपास स्ट्रैटेजी सक्षम करें।</string>
+    <string name="ripdpi_hostfake_cli_title">कमांड लाइन द्वारा नियंत्रित</string>
+    <string name="ripdpi_hostfake_cli_body">दृश्य hostfake मार्गदर्शन यहाँ दिखता रहता है, लेकिन कमांड लाइन सेटिंग्स सक्षम होने के दौरान सक्रिय चेन रॉ RIPDPI तर्कों से आती है।</string>
+    <string name="ripdpi_hostfake_summary_label_profile">चेन प्रोफ़ाइल</string>
+    <string name="ripdpi_hostfake_summary_label_scope">ट्रैफ़िक दायरा</string>
+    <string name="ripdpi_hostfake_summary_label_template">प्राथमिक फ़ेक होस्ट</string>
+    <string name="ripdpi_hostfake_summary_label_midhost">असली होस्ट विभाजन</string>
+    <string name="ripdpi_hostfake_summary_label_end_marker">सेगमेंट सीमा</string>
+    <string name="ripdpi_hostfake_summary_label_transport">फ़ेक ट्रांसपोर्ट</string>
+    <string name="ripdpi_hostfake_summary_label_http_example">HTTP उदाहरण</string>
+    <string name="ripdpi_hostfake_summary_label_tls_example">TLS उदाहरण</string>
+    <string name="ripdpi_hostfake_summary_profile_none">मौजूदा चेन में नहीं</string>
+    <string name="ripdpi_hostfake_summary_profile_single">1 hostfake चरण</string>
+    <string name="ripdpi_hostfake_summary_scope_http_https">HTTP Host और TLS SNI</string>
+    <string name="ripdpi_hostfake_summary_scope_http">केवल HTTP Host</string>
+    <string name="ripdpi_hostfake_summary_scope_https">केवल TLS SNI</string>
+    <string name="ripdpi_hostfake_summary_scope_none">कोई मेल खाता प्रोटोकॉल सक्षम नहीं</string>
+    <string name="ripdpi_hostfake_summary_template_random">समान लंबाई का यादृच्छिक होस्टनाम</string>
+    <string name="ripdpi_hostfake_summary_midhost_whole">असली होस्ट को एक स्पैन के रूप में रखें</string>
+    <string name="ripdpi_hostfake_summary_midhost_marker">असली होस्ट को %1$s पर विभाजित करें</string>
+    <string name="ripdpi_hostfake_summary_end_marker_none">डिफ़ॉल्ट चरण सीमा का उपयोग करें</string>
+    <string name="ripdpi_hostfake_summary_transport">फ़र्ज़ी TTL %1$d</string>
+    <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
+    <string name="ripdpi_hostfake_example_tls">tlsrec extlen
+hostfake endhost host=cdn.discordapp.net</string>
+    <string name="ripdpi_hostfake_scope_note">Hostfake केवल Host/SNI-आकार के हिस्सों को छूता है। यह पूर्ण Fake TLS प्रोफ़ाइल या फ़र्ज़ी ऑफ़सेट मार्कर का उपयोग नहीं करता।</string>
+    <string name="ripdpi_seqovl_available_title">अनुक्रम ओवरलैप उपलब्ध</string>
+    <string name="ripdpi_seqovl_available_body">जब डिवाइस पैकेट-स्वामित्व वाले बैकएंड का समर्थन करता है तो seqovl का उपयोग करें। तब तक, संग्रहीत seqovl चरण राउंड-ट्रिप करने योग्य रहते हैं लेकिन रनटाइम पर split पर वापस आ जाते हैं।</string>
+    <string name="ripdpi_seqovl_ready_title">अनुक्रम ओवरलैप कॉन्फ़िगर किया गया</string>
+    <string name="ripdpi_seqovl_ready_body">सहेजी गई बायपास रणनीति में पहले से seqovl शामिल है और सेटिंग्स संपादनों के दौरान अपना मार्कर, ओवरलैप आकार, और फ़र्ज़ी मोड बनाए रखेगी।</string>
+    <string name="ripdpi_seqovl_restart_title">seqovl फिर से लागू करने के लिए पुनः आरंभ करें</string>
+    <string name="ripdpi_seqovl_restart_body">चालू RIPDPI सत्र इस चेन परिवर्तन से पहले शुरू हुआ, इसलिए RIPDPI के पुनः कनेक्ट होने या पुनः आरंभ होने तक seqovl प्रभावी नहीं होगा।</string>
+    <string name="ripdpi_seqovl_unsupported_title">अनुक्रम ओवरलैप अनुपलब्ध</string>
+    <string name="ripdpi_seqovl_unsupported_body">यह डिवाइस उस पैकेट-स्वामित्व वाले अपस्ट्रीम TCP बैकएंड को उजागर नहीं करता जिसकी seqovl को आवश्यकता है। नए seqovl नियंत्रण अक्षम रहते हैं और संग्रहीत seqovl चरण split में गिर जाते हैं।</string>
+    <string name="ripdpi_seqovl_cli_title">कमांड लाइन द्वारा नियंत्रित</string>
+    <string name="ripdpi_seqovl_cli_body">दृश्य seqovl मार्गदर्शन यहाँ दिखाई देता रहता है, लेकिन कमांड लाइन सेटिंग्स सक्षम होने पर सक्रिय चेन रॉ RIPDPI तर्कों से आती है।</string>
+    <string name="ripdpi_seqovl_summary_label_profile">चेन प्रोफ़ाइल</string>
+    <string name="ripdpi_seqovl_summary_label_scope">ट्रैफ़िक दायरा</string>
+    <string name="ripdpi_seqovl_summary_label_overlap">ओवरलैप बाइट्स</string>
+    <string name="ripdpi_seqovl_summary_label_fake_mode">फ़र्ज़ी मोड</string>
+    <string name="ripdpi_seqovl_summary_label_runtime">रनटाइम पथ</string>
+    <string name="ripdpi_seqovl_summary_profile_inactive">वर्तमान चेन में नहीं</string>
+    <string name="ripdpi_seqovl_summary_profile_configured">1 seqovl चरण</string>
+    <string name="ripdpi_seqovl_summary_scope_http_https">HTTP अनुरोध और TLS ClientHello</string>
+    <string name="ripdpi_seqovl_summary_scope_http">केवल HTTP अनुरोध</string>
+    <string name="ripdpi_seqovl_summary_scope_https">केवल TLS ClientHello</string>
+    <string name="ripdpi_seqovl_summary_scope_none">कोई मेल खाता प्रोटोकॉल सक्षम नहीं</string>
+    <string name="ripdpi_seqovl_summary_marker_none">चेन DSL से चरण मार्कर का उपयोग करें</string>
+    <string name="ripdpi_seqovl_summary_fake_mode_profile">profile</string>
+    <string name="ripdpi_seqovl_summary_runtime_supported">पैकेट-स्वामित्व वाला बैकएंड उपलब्ध</string>
+    <string name="ripdpi_seqovl_summary_runtime_fallback">इस डिवाइस पर split पर वापस आ जाता है</string>
+    <string name="ripdpi_seqovl_scope_note">Seqovl राउंड 1 और स्ट्रीम बाइट्स 0..1500 तक सख्ती से सीमित है। चरण 1 में, असमर्थित डिवाइस कॉन्फ़िग रखते हैं लेकिन split के समान ट्रैफ़िक भेजते हैं।</string>
+    <string name="ripdpi_md5sig_setting">TCP MD5 Signature</string>
+    <string name="settings_seqovl_unsupported_reason">अनुक्रम ओवरलैप के लिए रॉ सॉकेट एक्सेस की आवश्यकता है जो इस डिवाइस पर उपलब्ध नहीं है। इस सुविधा का उपयोग करने के लिए सेटिंग्स में root मोड सक्षम करें।</string>
+    <string name="root_mode_strategy_multidisorder_title">Multi-disorder</string>
+    <string name="root_mode_strategy_ipfrag2_title">IP विखंडन</string>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="one">%1$d hostfake चरण</item>
+        <item quantity="other">%1$d hostfake चरण</item>
+    </plurals>
+</resources>

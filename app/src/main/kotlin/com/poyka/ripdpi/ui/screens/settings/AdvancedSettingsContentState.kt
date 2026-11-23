@@ -5,6 +5,7 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.FakeSeqModeDuplicate
 import com.poyka.ripdpi.data.FakeSeqModeSequential
+import com.poyka.ripdpi.platform.hasExtendedPacketControls
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import kotlinx.collections.immutable.ImmutableList
@@ -47,8 +48,8 @@ internal fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adv
     AdvancedSettingsContentState(
         visualEditorEnabled = !uiState.enableCmdSettings,
         hostPackApplyControlsEnabled = hostPackApplyEnabled(uiState),
-        showHostFakeSection = uiState.showHostFakeProfile,
-        showSeqOverlapSection = uiState.showSeqOverlapProfile,
+        showHostFakeSection = hasExtendedPacketControls && uiState.showHostFakeProfile,
+        showSeqOverlapSection = hasExtendedPacketControls && uiState.showSeqOverlapProfile,
         showFakeApproxSection = uiState.showFakeApproximationProfile,
         showFakeOrderingSection = uiState.showFakeOrderingProfile,
         showQuicFakeSection = uiState.showQuicFakeProfile,

@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.platform.rawPacketOperationsEnabled
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.ui.screens.diagnostics.state.recommendTransportRemediation
@@ -104,7 +105,7 @@ internal class ConnectionUiStateFactory(
                     draft = draft,
                     supportsMasquePrivacyPass = supportsMasquePrivacyPass,
                     relayProfiles = projection.relayProfileRecords,
-                    rootModeEnabled = projection.settings.rootModeEnabled,
+                    rawPacketOperationsEnabled = projection.settings.rawPacketOperationsEnabled(),
                 ),
             relayProfiles = projection.relayProfiles,
             vpnProfiles = projection.vpnProfiles,
@@ -121,7 +122,7 @@ internal class ConnectionUiStateFactory(
                     }.toImmutableList(),
             relayPresetSuggestion = relayPresetSuggestion,
             supportsMasquePrivacyPass = supportsMasquePrivacyPass,
-            rootModeEnabled = projection.settings.rootModeEnabled,
+            rawPacketOperationsEnabled = projection.settings.rawPacketOperationsEnabled(),
             masquePrivacyPassBuildStatus = masquePrivacyPassBuildStatus,
             isEditorDirty = projection.editorState.session.isDirty,
             isEditorLoading =

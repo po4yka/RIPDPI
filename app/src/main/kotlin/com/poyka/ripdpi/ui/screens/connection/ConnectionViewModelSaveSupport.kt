@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.platform.rawPacketOperationsEnabled
 import com.poyka.ripdpi.ui.screens.status.hasUnsupportedVpnDoq
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -98,13 +99,13 @@ internal suspend fun persistConfigSaveRequest(
 ): ConnectionSaveOutcome {
     val relayArtifacts = dependencies.relayArtifacts
     val relayProfileRecords = relayArtifacts.listProfiles()
-    val rootModeEnabled = dependencies.appSettingsRepository.snapshot().rootModeEnabled
+    val rawPacketsEnabled = dependencies.appSettingsRepository.snapshot().rawPacketOperationsEnabled()
     if (
         validateConfigDraft(
             draft = request.draft,
             supportsMasquePrivacyPass = supportsMasquePrivacyPass,
             relayProfiles = relayProfileRecords,
-            rootModeEnabled = rootModeEnabled,
+            rawPacketOperationsEnabled = rawPacketsEnabled,
         ).isNotEmpty()
     ) {
         return ConnectionSaveOutcome.ValidationFailed

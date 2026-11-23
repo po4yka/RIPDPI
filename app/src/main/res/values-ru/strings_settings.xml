@@ -60,7 +60,6 @@
     <string name="settings_start_on_boot_title">Запуск при загрузке</string>
     <string name="settings_start_on_boot_battery_warning">Оптимизация батареи всё ещё включена. Android может не дать RIPDPI запуститься при загрузке, пока вы не отключите для него оптимизацию батареи.</string>
     <string name="settings_full_tunnel_helper">Когда включено, весь трафик идёт через туннель. Per-app исключения недоступны в этом режиме.</string>
-    <string name="settings_seqovl_unsupported_reason">Sequence overlap требует доступа к raw-сокетам, недоступного на этом устройстве. Включите root-режим в настройках для использования этой функции.</string>
     <string name="settings_biometric_title">Требовать аутентификацию</string>
     <string name="settings_biometric_body_with_pin">Биометрическая разблокировка включена с резервным PIN-кодом.</string>
     <string name="settings_biometric_body_without_pin">Биометрическая разблокировка включена. Добавьте резервный PIN-код для запасного доступа.</string>
@@ -160,8 +159,6 @@
     <string name="settings_tethering_dns_warning_title">Риск утечки DNS при модеме</string>
     <string name="settings_vpn_flag_warning_body">Приложения во всех профилях Android (включая Рабочий профиль и Knox) могут обнаружить, что VPN активен. Для полной изоляции используйте отдельное устройство для российских приложений.</string>
     <string name="settings_vpn_flag_warning_title">Флаг VPN виден</string>
-    <string name="root_mode_strategy_multidisorder_title">Мульти-беспорядок</string>
-    <string name="root_mode_strategy_ipfrag2_title">Фрагментация IP</string>
     <string name="settings_language_title">Язык</string>
     <string name="language_picker_sheet_title">Выберите язык</string>
     <string name="language_picker_system_language">Язык системы</string>

@@ -17,9 +17,6 @@
     <string name="settings_strategy_pack_allow_rollback_override_body">للتطوير فقط. السماح بتسلسلات حزمة الاستراتيجية المنزّلة المتساوية أو الأقل للتحقق المحلي. لا تزال فحوصات التوقيع والتوافق والحداثة تُطبَّق.</string>
     <string name="settings_telemetry_salt_reset_body">إعادة تعيين الملح الخاص بكل تثبيت المستخدم لتجزئة بصمات الشبكة. لا يمكن ربط التجزئات المسجّلة سابقاً بالجلسات المستقبلية بعد الآن.</string>
     <string name="settings_telemetry_salt_reset_action">إعادة تعيين ملح القياسات</string>
-    <string name="settings_seqovl_unsupported_reason">يتطلب تداخل التسلسل وصولاً إلى مقبس خام غير متاح على هذا الجهاز. فعّل وضع الجذر في الإعدادات لاستخدام هذه الميزة.</string>
-    <string name="root_mode_strategy_multidisorder_title">الفوضى المتعددة</string>
-    <string name="root_mode_strategy_ipfrag2_title">تجزئة IP</string>
     <string name="theme_settings">المظهر</string>
     <string name="about_category">حول</string>
     <string name="advanced_settings_visual_controls_disabled">عناصر التحكم المرئية غير متاحة أثناء تفعيل تجاوزات سطر الأوامر.</string>

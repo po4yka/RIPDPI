@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_strategy_emitter_standard">प्रोडक्शन</string>
+    <string name="detection_exposure_native_signs_reason">नेटिव जाँच में रनटाइम के संकेत मिले।</string>
+    <string name="config_chain_editor_helper_full">TLS रिकॉर्ड चरणों को कॉन्फ़िगर करने के लिए HTTPS अनुभाग का उपयोग करें। चेन एडिटर में नकली विभाजन या नकली क्रम बदलने वाले चरण जोड़ें।</string>
+    <string name="config_placeholder_chain_dsl">[tcp]
+tlsrec extlen
+split midsld
+
+[udp]
+fake_burst 3</string>
+</resources>

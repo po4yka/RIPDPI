@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_chain_editor_helper_full">Секция HTTPS ниже позволяет визуально создавать отдельные шаги tlsrec и случайного tlsrandrec, а карточки Hostfake и приближения fake описывают ложные фрагменты с таргетингом на имя хоста и приближения в стиле повторной передачи. Приближения только для Linux/Android доступны как fakedsplit host+1 и fakeddisorder endhost для HTTP или полезных нагрузок, смежных с TLS SNI.</string>
+    <string name="config_placeholder_chain_dsl">[tcp]
+tlsrec extlen
+hostfake endhost+8 midhost=midsld host=googlevideo.com
+split midsld
+[udp]
+fake_burst 3</string>
+    <string name="ripdpi_hostfake_available_title">Таргетинг по имени хоста доступен</string>
+    <string name="ripdpi_hostfake_available_body">Добавьте шаг hostfake, если вы хотите, чтобы фейковые фрагменты создавались только вокруг диапазона HTTP Host или TLS SNI, а не подделывали всю полезную нагрузку целиком.</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake настроен</string>
+    <string name="ripdpi_hostfake_ready_body">Для hostfake нужны root и поддержка raw-пакетов. Иначе RIPDPI использует обычное разбиение.</string>
+    <string name="ripdpi_hostfake_restart_title">Перезапустите для применения hostfake</string>
+    <string name="ripdpi_hostfake_restart_body">Hostfake настроен в параметрах, но текущий сеанс RIPDPI был запущен до изменения цепочки.</string>
+    <string name="ripdpi_hostfake_protocols_off_title">HTTP и HTTPS отключены</string>
+    <string name="ripdpi_hostfake_protocols_off_body">Включите стратегию обхода HTTP или HTTPS, если хотите, чтобы hostfake воздействовал на поля Host или SNI.</string>
+    <string name="ripdpi_hostfake_cli_title">Управляется командной строкой</string>
+    <string name="ripdpi_hostfake_cli_body">Визуальные подсказки hostfake остаются видимыми, но активная цепочка поступает из необработанных аргументов RIPDPI, пока включены параметры командной строки.</string>
+    <string name="ripdpi_hostfake_summary_label_profile">Профиль цепочки</string>
+    <string name="ripdpi_hostfake_summary_label_scope">Охват трафика</string>
+    <string name="ripdpi_hostfake_summary_label_template">Основной фейковый хост</string>
+    <string name="ripdpi_hostfake_summary_label_midhost">Разбивка реального хоста</string>
+    <string name="ripdpi_hostfake_summary_label_end_marker">Граница сегмента</string>
+    <string name="ripdpi_hostfake_summary_label_transport">Фейковый транспорт</string>
+    <string name="ripdpi_hostfake_summary_label_http_example">Пример HTTP</string>
+    <string name="ripdpi_hostfake_summary_label_tls_example">Пример TLS</string>
+    <string name="ripdpi_hostfake_summary_profile_none">Не входит в текущую цепочку</string>
+    <string name="ripdpi_hostfake_summary_profile_single">1 шаг hostfake</string>
+    <string name="ripdpi_hostfake_summary_scope_http_https">HTTP Host и TLS SNI</string>
+    <string name="ripdpi_hostfake_summary_scope_http">Только HTTP Host</string>
+    <string name="ripdpi_hostfake_summary_scope_https">Только TLS SNI</string>
+    <string name="ripdpi_hostfake_summary_scope_none">Нет подходящего включённого протокола</string>
+    <string name="ripdpi_hostfake_summary_template_random">Случайное имя хоста той же длины</string>
+    <string name="ripdpi_hostfake_summary_midhost_whole">Оставить реальный хост единым диапазоном</string>
+    <string name="ripdpi_hostfake_summary_midhost_marker">Разбить реальный хост по %1$s</string>
+    <string name="ripdpi_hostfake_summary_end_marker_none">Использовать границу шага по умолчанию</string>
+    <string name="ripdpi_hostfake_summary_transport">Фейковый TTL %1$d</string>
+    <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
+    <string name="ripdpi_hostfake_example_tls">tlsrec extlen
+hostfake endhost host=cdn.discordapp.net</string>
+    <string name="ripdpi_hostfake_scope_note">Hostfake затрагивает только фрагменты размером Host/SNI. Он не использует полный профиль Fake TLS или маркер смещения фейка.</string>
+    <string name="ripdpi_md5sig_setting">TCP MD5-подпись</string>
+    <string name="ripdpi_seqovl_available_body">Используйте seqovl, когда устройство поддерживает бэкенд packet-owned. До этого сохранённые шаги seqovl остаются обратимыми, но во время выполнения откатываются к split.</string>
+    <string name="ripdpi_seqovl_available_title">Доступно перекрытие последовательностей</string>
+    <string name="ripdpi_seqovl_cli_body">Визуальные подсказки seqovl остаются видны здесь, но активная цепочка приходит из сырых аргументов RIPDPI, пока активны настройки командной строки.</string>
+    <string name="ripdpi_seqovl_cli_title">Управляется командной строкой</string>
+    <string name="ripdpi_seqovl_ready_body">Сохранённая стратегия обхода уже содержит seqovl и сохранит свой маркер, размер перекрытия и режим fake между правками настроек.</string>
+    <string name="ripdpi_seqovl_ready_title">Перекрытие последовательностей настроено</string>
+    <string name="ripdpi_seqovl_restart_body">Текущий сеанс RIPDPI запущен до этого изменения цепочки, поэтому seqovl не вступит в силу, пока RIPDPI не переподключится или не перезапустится.</string>
+    <string name="ripdpi_seqovl_restart_title">Перезапуск для повторного применения seqovl</string>
+    <string name="ripdpi_seqovl_scope_note">Seqovl жёстко ограничен раундом 1 и байтами потока 0..1500. В фазе 1 устройства без поддержки сохраняют конфигурацию, но отправляют тот же трафик, что split.</string>
+    <string name="ripdpi_seqovl_summary_fake_mode_profile">профиль</string>
+    <string name="ripdpi_seqovl_summary_label_fake_mode">Режим fake</string>
+    <string name="ripdpi_seqovl_summary_label_overlap">Байты перекрытия</string>
+    <string name="ripdpi_seqovl_summary_label_profile">Профиль цепочки</string>
+    <string name="ripdpi_seqovl_summary_label_runtime">Путь времени выполнения</string>
+    <string name="ripdpi_seqovl_summary_label_scope">Область трафика</string>
+    <string name="ripdpi_seqovl_summary_marker_none">Использовать маркер шага из DSL цепочки</string>
+    <string name="ripdpi_seqovl_summary_profile_configured">1 шаг seqovl</string>
+    <string name="ripdpi_seqovl_summary_profile_inactive">Нет в текущей цепочке</string>
+    <string name="ripdpi_seqovl_summary_runtime_fallback">На этом устройстве откатывается к split</string>
+    <string name="ripdpi_seqovl_summary_runtime_supported">Бэкенд packet-owned доступен</string>
+    <string name="ripdpi_seqovl_summary_scope_http_https">HTTP-запросы и TLS ClientHello</string>
+    <string name="ripdpi_seqovl_summary_scope_http">Только HTTP-запросы</string>
+    <string name="ripdpi_seqovl_summary_scope_https">Только TLS ClientHello</string>
+    <string name="ripdpi_seqovl_summary_scope_none">Ни один подходящий протокол не включён</string>
+    <string name="ripdpi_seqovl_unsupported_body">Это устройство не предоставляет восходящий TCP-бэкенд packet-owned, который нужен seqovl. Новые элементы управления seqovl остаются отключёнными, а сохранённые шаги seqovl деградируют до split.</string>
+    <string name="ripdpi_seqovl_unsupported_title">Перекрытие последовательностей недоступно</string>
+    <string name="settings_seqovl_unsupported_reason">Sequence overlap требует доступа к raw-сокетам, недоступного на этом устройстве. Включите root-режим в настройках для использования этой функции.</string>
+    <string name="root_mode_strategy_multidisorder_title">Мульти-беспорядок</string>
+    <string name="root_mode_strategy_ipfrag2_title">Фрагментация IP</string>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="one">%1$d шаг hostfake</item>
+        <item quantity="few">%1$d шага hostfake</item>
+        <item quantity="many">%1$d шагов hostfake</item>
+        <item quantity="other">%1$d шага hostfake</item>
+    </plurals>
+</resources>

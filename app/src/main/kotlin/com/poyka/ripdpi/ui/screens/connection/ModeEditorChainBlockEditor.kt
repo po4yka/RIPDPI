@@ -34,6 +34,7 @@ import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.validateStrategyChainUsage
+import com.poyka.ripdpi.platform.supportedInDistribution
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -57,9 +58,18 @@ internal fun ModeEditorChainBlockEditor(
 ) {
     val chainOverridden = draft.useCommandLineSettings
     var showRaw by rememberSaveable { mutableStateOf(false) }
+    val unsupportedStrategy =
+        androidx.compose.ui.res
+            .stringResource(R.string.config_error_unsupported)
     val chainState =
-        remember(draft.chainDsl, draft.mode, draft.useCommandLineSettings, uiState.rootModeEnabled) {
-            draft.chainValidationState(uiState.rootModeEnabled)
+        remember(
+            draft.chainDsl,
+            draft.mode,
+            draft.useCommandLineSettings,
+            uiState.rawPacketOperationsEnabled,
+            unsupportedStrategy,
+        ) {
+            draft.chainValidationState(uiState.rawPacketOperationsEnabled, unsupportedStrategy)
         }
     val showRawEditor = showRaw || chainState.chain == null
 
@@ -483,19 +493,25 @@ private data class ChainValidationState(
     val error: String?,
 )
 
-private fun ConnectionDraft.chainValidationState(rootModeEnabled: Boolean): ChainValidationState {
+private fun ConnectionDraft.chainValidationState(
+    rawPacketsEnabled: Boolean,
+    unsupportedStrategy: String,
+): ChainValidationState {
     val parsed =
         parseStrategyChainDsl(chainDsl).fold(
             onSuccess = { it },
             onFailure = { return ChainValidationState(chain = null, error = it.message ?: "invalid_chain") },
         )
+    if (!parsed.supportedInDistribution()) {
+        return ChainValidationState(chain = null, error = unsupportedStrategy)
+    }
     return runCatching {
         validateStrategyChainUsage(
             tcpSteps = parsed.tcpSteps,
             udpSteps = parsed.udpSteps,
             mode = mode,
             useCommandLineSettings = useCommandLineSettings,
-            rootModeEnabled = rootModeEnabled,
+            rootModeEnabled = rawPacketsEnabled,
         )
     }.fold(
         onSuccess = { ChainValidationState(chain = parsed, error = null) },

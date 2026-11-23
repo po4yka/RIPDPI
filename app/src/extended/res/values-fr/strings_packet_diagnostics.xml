@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_exposure_native_signs_reason">Les vérifications natives ont trouvé des traces d’interception, de root ou d’interfaces masquées.</string>
+    <string name="diagnostics_strategy_emitter_non_root">Utilisation réelle sans root</string>
+    <string name="diagnostics_strategy_emitter_rooted">Utilisation réelle avec root</string>
+    <string name="diagnostics_strategy_realization_rooted">Exécution exacte avec root</string>
+    <string name="diagnostics_strategy_note_rooted">L’émission exacte sur ce chemin nécessitait des capacités d’exécution avec root.</string>
+</resources>

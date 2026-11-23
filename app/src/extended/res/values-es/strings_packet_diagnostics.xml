@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_exposure_native_signs_reason">Las comprobaciones nativas encontraron indicios de interceptores, root o interfaces ocultas.</string>
+    <string name="diagnostics_strategy_emitter_non_root">Uso operativo sin root</string>
+    <string name="diagnostics_strategy_emitter_rooted">Uso operativo con root</string>
+    <string name="diagnostics_strategy_realization_rooted">Ejecución exacta con root</string>
+    <string name="diagnostics_strategy_note_rooted">La emisión exacta en esta ruta requirió capacidades de ejecución con root.</string>
+</resources>

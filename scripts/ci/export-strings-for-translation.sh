@@ -35,6 +35,7 @@ seen = set()
 for prefix, resource_dir in (
     ("app", "app/src/main/res/values"),
     ("app", "app/src/extended/res/values"),
+    ("app-play", "app/src/play/res/values"),
     ("service", "core/service/src/main/res/values"),
     ("detection", "core/detection/src/main/res/values"),
 ):

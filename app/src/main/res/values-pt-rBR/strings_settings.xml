@@ -17,9 +17,6 @@
     <string name="settings_strategy_pack_allow_rollback_override_body">Apenas para depuração. Permite sequências de strategy-pack baixadas iguais ou inferiores para validação local. As verificações de assinatura, compatibilidade e atualização continuam valendo.</string>
     <string name="settings_telemetry_salt_reset_body">Redefine o salt por instalação usado para gerar hash das impressões digitais de rede. Hashes registrados anteriormente deixam de poder ser correlacionados com sessões futuras.</string>
     <string name="settings_telemetry_salt_reset_action">Redefinir salt de telemetria</string>
-    <string name="settings_seqovl_unsupported_reason">A sobreposição de sequência requer acesso a sockets brutos, indisponível neste dispositivo. Ative o modo root nas configurações para usar este recurso.</string>
-    <string name="root_mode_strategy_multidisorder_title">Multi-disorder</string>
-    <string name="root_mode_strategy_ipfrag2_title">Fragmentação IP</string>
     <string name="theme_settings">Tema</string>
     <string name="about_category">Sobre</string>
     <string name="settings_mixed_inbound_title">Entrada mista (SOCKS5 + HTTP)</string>

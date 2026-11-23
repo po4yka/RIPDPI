@@ -1,3 +1,7 @@
+app-play:config_chain_editor_helper_full
+app-play:config_placeholder_chain_dsl
+app-play:detection_exposure_native_signs_reason
+app-play:diagnostics_strategy_emitter_standard
 app:about_build_section
 app:about_category
 app:about_description

@@ -478,7 +478,7 @@ internal fun StrategyProbeCandidateSummary.toCandidateUiModel(
         id = id,
         label = label,
         outcome = strategyProbeOutcomeLabel(outcome = outcome, skipped = skipped, stringResolver = stringResolver),
-        rationale = rationale,
+        rationale = presentedRationale(),
         metrics = buildStrategyProbeCandidateMetrics(this, recommended, stringResolver).toImmutableList(),
         tone = strategyProbeCandidateTone(outcome = outcome, skipped = skipped, recommended = recommended),
         skipped = skipped,
@@ -504,7 +504,7 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
                 skipped = candidate.skipped,
                 stringResolver = context,
             ),
-        rationale = candidate.rationale,
+        rationale = candidate.presentedRationale(),
         tone =
             strategyProbeCandidateTone(
                 outcome = candidate.outcome,
@@ -512,7 +512,7 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
                 recommended = recommended,
             ),
         recommended = recommended,
-        notes = (candidate.notes + strategyEmitterNotes(candidate, context)).distinct().toImmutableList(),
+        notes = (candidate.presentedNotes() + strategyEmitterNotes(candidate, context)).distinct().toImmutableList(),
         metrics = buildStrategyProbeCandidateMetrics(candidate, recommended, context).toImmutableList(),
         signature =
             deriveCandidateSignature(
@@ -523,7 +523,10 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
             buildStrategyProbeResultGroups(
                 candidateResults = candidateResults,
             ).toImmutableList(),
-        replaySessionId = sessionId?.takeIf { candidate.proxyConfigJson != null },
+        replaySessionId =
+            sessionId?.takeIf {
+                candidate.proxyConfigJson != null && candidate.canReplayInDistribution()
+            },
     )
 
 private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(

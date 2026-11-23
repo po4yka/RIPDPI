@@ -253,34 +253,6 @@ private fun FakeOrderingControls(model: DesyncSectionModel) {
 }
 
 @Composable
-private fun HostFakeControls(model: DesyncSectionModel) {
-    val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
-    if (!model.visibility.showHostFakeSection) return
-    HostFakeProfileCard(
-        uiState = model.uiState,
-        modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
-    )
-    if (model.showFakeOrOobSections) {
-        HorizontalDivider(color = colors.divider)
-    }
-}
-
-@Composable
-private fun SeqOverlapControls(model: DesyncSectionModel) {
-    val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
-    if (!model.visibility.showSeqOverlapSection) return
-    SeqOverlapProfileCard(
-        uiState = model.uiState,
-        modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
-    )
-    if (model.showFakeOrOobSections) {
-        HorizontalDivider(color = colors.divider)
-    }
-}
-
-@Composable
 private fun FakeApproximationControls(model: DesyncSectionModel) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -553,16 +525,7 @@ private fun DesyncPacketTailControls(model: DesyncSectionModel) {
         showDivider = true,
         testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DropSack),
     )
-    if (model.uiState.settings.rootModeEnabled) {
-        SettingsRow(
-            title = stringResource(R.string.ripdpi_md5sig_setting),
-            checked = model.uiState.fake.md5sig,
-            onCheckedChange = { model.actions.onToggleChanged(AdvancedToggleSetting.Md5Sig, it) },
-            enabled = model.visualEditorEnabled,
-            showDivider = true,
-            testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.Md5Sig),
-        )
-    }
+    PacketSignatureControl(model)
     SettingsRow(
         title = stringResource(R.string.ripdpi_tlsminor_setting),
         checked = model.uiState.fake.tlsMinorEnabled,
@@ -675,7 +638,7 @@ internal fun ChainEditorCollapsibleDescription() {
     }
 }
 
-private val DesyncSectionModel.showFakeOrOobSections: Boolean
+internal val DesyncSectionModel.showFakeOrOobSections: Boolean
     get() =
         visibility.showFakeOrderingSection ||
             visibility.showFakeApproxSection ||

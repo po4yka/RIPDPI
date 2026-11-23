@@ -295,7 +295,7 @@ class DefaultDeveloperAnalyticsSource
             add("tlsFingerprintProfile", settings.tlsFingerprintProfile, defaults.tlsFingerprintProfile)
             add("webrtcProtectionEnabled", settings.webrtcProtectionEnabled, defaults.webrtcProtectionEnabled)
             add("strategyEvolution", settings.strategyEvolution, defaults.strategyEvolution)
-            add("rootModeEnabled", settings.rootModeEnabled, defaults.rootModeEnabled)
+            distributionDeveloperConfigDiff(settings, defaults)?.let { entries += it }
             add("enableCmdSettings", settings.enableCmdSettings, defaults.enableCmdSettings)
             add("proxyPort", settings.proxyPort, defaults.proxyPort)
             return entries

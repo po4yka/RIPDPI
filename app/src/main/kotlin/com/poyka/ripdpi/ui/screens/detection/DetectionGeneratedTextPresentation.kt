@@ -8,7 +8,7 @@ import com.poyka.ripdpi.platform.StringResolver
 
 /** Resolve known generated prose at render time. Stored reports and unknown text stay unchanged. */
 internal fun StringResolver.detectionGeneratedText(raw: String): String =
-    detectionGeneratedResources[raw]?.let(::getString) ?: raw
+    (detectionGeneratedResources[raw] ?: raw.nativeSignsReasonResource())?.let(::getString) ?: raw
 
 internal fun ExposureVerdict.localized(
     strings: StringResolver,
@@ -112,8 +112,6 @@ private val detectionGeneratedResources =
         "Try a closer exit, reduce chained hops, or select a lower-latency profile." to
             R.string.detection_exposure_timing_hint,
         "native runtime signal" to R.string.detection_exposure_native_signs_label,
-        "Native checks found hook, root, or hidden-interface artifacts." to
-            R.string.detection_exposure_native_signs_reason,
         "Remove unrelated instrumentation and retest on the target device profile." to
             R.string.detection_exposure_native_signs_hint,
         "call transport leak" to R.string.detection_exposure_call_transport_label,

@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.toRelaySettingsModel
+import com.poyka.ripdpi.platform.rawPacketOperationsEnabled
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -509,8 +510,8 @@ fun strategyPassageFor(settings: AppSettings): StrategyPassageScene? {
     val tcpSteps = settings.effectiveTcpChainSteps()
     // Native code drops the UDP group when UDP desync is off (append_udp_group).
     val udpSteps = if (settings.desyncUdp) settings.effectiveUdpChainSteps() else emptyList()
-    // shortcut: root mode can be on while the helper fails to start, read the live helper state when the UI has it.
-    val rawPackets = settings.rootModeEnabled
+    // Use the selected setting until the UI receives the live packet backend state.
+    val rawPackets = settings.rawPacketOperationsEnabled()
     val replaced =
         settings.toRelaySettingsModel().enabled ||
             settings.enableCmdSettings ||

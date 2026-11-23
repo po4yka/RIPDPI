@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_chain_editor_helper_full">La sección HTTPS de abajo puede crear visualmente pasos únicos tlsrec y pasos tlsrandrec aleatorizados, mientras que las tarjetas de Hostfake y de aproximaciones fake explican fragmentos fake dirigidos al nombre de host y aproximaciones tipo retransmisión. Las aproximaciones exclusivas de Linux/Android están disponibles como fakedsplit host+1 y fakeddisorder endhost para cargas útiles HTTP o adyacentes al SNI TLS.</string>
+    <string name="ripdpi_hostfake_available_body">Añade un paso hostfake cuando quieras fragmentos fake solo alrededor del Host HTTP o del span de SNI TLS, en lugar de falsificar toda la carga útil.</string>
+    <string name="ripdpi_hostfake_example_tls">tlsrec extlen
+hostfake endhost host=cdn.discordapp.net</string>
+    <string name="ripdpi_hostfake_restart_body">Hostfake está configurado en los ajustes, pero la sesión activa de RIPDPI comenzó antes de este cambio de cadena.</string>
+    <string name="ripdpi_hostfake_summary_label_http_example">Ejemplo HTTP</string>
+    <string name="ripdpi_hostfake_summary_label_tls_example">Ejemplo TLS</string>
+    <string name="ripdpi_hostfake_summary_profile_none">No está en la cadena actual</string>
+    <string name="ripdpi_hostfake_summary_scope_none">Ningún protocolo coincidente activado</string>
+    <string name="ripdpi_seqovl_cli_title">Controlado por línea de comandos</string>
+    <string name="ripdpi_seqovl_scope_note">Seqovl está estrictamente limitado a la ronda 1 y a los bytes de flujo 0..1500. En la fase 1, los dispositivos no compatibles conservan la configuración pero envían el mismo tráfico que split.</string>
+    <string name="ripdpi_seqovl_summary_label_profile">Perfil de cadena</string>
+    <string name="ripdpi_seqovl_summary_profile_inactive">No está en la cadena actual</string>
+    <string name="ripdpi_seqovl_summary_scope_https">Solo ClientHello de TLS</string>
+    <string name="ripdpi_hostfake_available_title">Segmentación por nombre de host disponible</string>
+    <string name="ripdpi_hostfake_protocols_off_body">Habilita la estrategia de bypass HTTP o HTTPS si quieres que hostfake apunte a los campos Host o SNI.</string>
+    <string name="ripdpi_hostfake_restart_title">Reinicia para aplicar hostfake</string>
+    <string name="ripdpi_hostfake_summary_label_midhost">Split del host real</string>
+    <string name="ripdpi_hostfake_summary_label_transport">Transporte fake</string>
+    <string name="ripdpi_hostfake_summary_profile_single">1 paso hostfake</string>
+    <string name="ripdpi_hostfake_summary_template_random">Nombre de host aleatorio de la misma longitud</string>
+    <string name="ripdpi_seqovl_ready_body">La estrategia de bypass guardada ya contiene seqovl y preservará su marcador, tamaño de superposición y modo fake a través de las ediciones de ajustes.</string>
+    <string name="ripdpi_seqovl_summary_fake_mode_profile">perfil</string>
+    <string name="ripdpi_seqovl_summary_label_runtime">Ruta de runtime</string>
+    <string name="ripdpi_seqovl_summary_runtime_fallback">Recurre a split en este dispositivo</string>
+    <string name="ripdpi_seqovl_summary_scope_none">No hay protocolo coincidente habilitado</string>
+    <string name="config_placeholder_chain_dsl">[tcp]
+tlsrec extlen
+hostfake endhost+8 midhost=midsld host=googlevideo.com
+split midsld
+
+[udp]
+fake_burst 3</string>
+    <string name="ripdpi_hostfake_cli_body">La guía visual de hostfake sigue visible aquí, pero la cadena activa proviene de los argumentos RIPDPI en bruto mientras los ajustes de línea de comandos estén activados.</string>
+    <string name="ripdpi_hostfake_protocols_off_title">HTTP y HTTPS están desactivados</string>
+    <string name="ripdpi_hostfake_scope_note">Hostfake solo afecta a fragmentos del tamaño de Host/SNI. No usa el perfil completo de Fake TLS ni el marcador de offset fake.</string>
+    <string name="ripdpi_hostfake_summary_label_profile">Perfil de la cadena</string>
+    <string name="ripdpi_hostfake_summary_midhost_marker">Dividir el host real en %1$s</string>
+    <string name="ripdpi_hostfake_summary_scope_http">Solo Host HTTP</string>
+    <string name="ripdpi_hostfake_summary_transport">TTL fake %1$d</string>
+    <string name="ripdpi_seqovl_available_body">Usa seqovl cuando el dispositivo admita el backend de paquetes propios. Hasta entonces, los pasos seqovl almacenados se mantienen round-trippable pero recurren a split en tiempo de ejecución.</string>
+    <string name="ripdpi_seqovl_ready_title">Solapamiento de secuencia configurado</string>
+    <string name="ripdpi_seqovl_summary_label_fake_mode">Modo fake</string>
+    <string name="ripdpi_seqovl_summary_label_scope">Alcance del tráfico</string>
+    <string name="ripdpi_seqovl_summary_runtime_supported">Backend de paquetes propios disponible</string>
+    <string name="ripdpi_seqovl_unsupported_body">Este dispositivo no expone el backend TCP upstream de paquetes propios que necesita seqovl. Los nuevos controles de seqovl quedan deshabilitados y los pasos seqovl almacenados se degradan a split.</string>
+    <string name="ripdpi_md5sig_setting">Firma TCP MD5</string>
+    <string name="ripdpi_hostfake_cli_title">Controlado por línea de comandos</string>
+    <string name="ripdpi_hostfake_ready_body">Hostfake necesita root y compatibilidad con paquetes raw. De lo contrario, RIPDPI usa una división simple.</string>
+    <string name="ripdpi_hostfake_summary_end_marker_none">Usar el límite de paso predeterminado</string>
+    <string name="ripdpi_hostfake_summary_label_scope">Alcance de tráfico</string>
+    <string name="ripdpi_hostfake_summary_midhost_whole">Mantener el host real como un solo tramo</string>
+    <string name="ripdpi_hostfake_summary_scope_http_https">HTTP Host y TLS SNI</string>
+    <string name="ripdpi_seqovl_available_title">Solapamiento de secuencia disponible</string>
+    <string name="ripdpi_seqovl_restart_body">La sesión RIPDPI en ejecución se inició antes de este cambio de cadena, por lo que seqovl no surtirá efecto hasta que RIPDPI se reconecte o reinicie.</string>
+    <string name="ripdpi_seqovl_summary_marker_none">Usar el marcador de paso de la cadena DSL</string>
+    <string name="ripdpi_seqovl_summary_scope_http">Solo solicitudes HTTP</string>
+    <string name="ripdpi_seqovl_unsupported_title">Solapamiento de secuencia no disponible</string>
+    <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake configurado</string>
+    <string name="ripdpi_hostfake_summary_label_end_marker">Límite del segmento</string>
+    <string name="ripdpi_hostfake_summary_label_template">Host falso principal</string>
+    <string name="ripdpi_hostfake_summary_scope_https">Solo SNI de TLS</string>
+    <string name="ripdpi_seqovl_cli_body">La guía visual de seqovl sigue siendo visible aquí, pero la cadena activa proviene de los argumentos sin procesar de RIPDPI mientras la configuración de línea de comandos está habilitada.</string>
+    <string name="ripdpi_seqovl_restart_title">Reinicia para reaplicar seqovl</string>
+    <string name="ripdpi_seqovl_summary_label_overlap">Bytes de solapamiento</string>
+    <string name="ripdpi_seqovl_summary_profile_configured">1 paso seqovl</string>
+    <string name="ripdpi_seqovl_summary_scope_http_https">Solicitudes HTTP y TLS ClientHello</string>
+    <string name="settings_seqovl_unsupported_reason">El solapamiento de secuencia requiere acceso a sockets sin procesar no disponible en este dispositivo. Habilita el modo root en los ajustes para usar esta función.</string>
+    <string name="root_mode_strategy_multidisorder_title">Multidesorden</string>
+    <string name="root_mode_strategy_ipfrag2_title">Fragmentación IP</string>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="one">%1$d paso hostfake</item>
+        <item quantity="other">%1$d pasos hostfake</item>
+    </plurals>
+</resources>

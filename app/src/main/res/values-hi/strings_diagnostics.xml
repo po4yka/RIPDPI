@@ -1665,7 +1665,6 @@
     <string name="detection_exposure_timing_reason">विलंब या समय के पैटर्न सामान्य सीधे HTTPS ट्रैफ़िक से अलग हैं।</string>
     <string name="detection_exposure_timing_hint">नज़दीकी निकास आज़माएँ, जुड़े हुए मध्यवर्ती चरण कम करें या कम विलंब वाला प्रोफ़ाइल चुनें।</string>
     <string name="detection_exposure_native_signs_label">नेटिव रनटाइम के संकेत</string>
-    <string name="detection_exposure_native_signs_reason">नेटिव जाँचों में हुक, रूट या छिपे हुए इंटरफ़ेस के निशान मिले।</string>
     <string name="detection_exposure_native_signs_hint">असंबंधित इंस्ट्रुमेंटेशन हटाएँ और लक्षित डिवाइस प्रोफ़ाइल पर फिर जाँचें।</string>
     <string name="detection_exposure_call_transport_label">कॉल ट्रांसपोर्ट में लीक</string>
     <string name="detection_exposure_call_transport_reason">कॉल या STUN ट्रांसपोर्ट की जाँच अपेक्षा से अलग पथ दिखाती है।</string>
@@ -1880,13 +1879,9 @@
     <string name="diagnostics_strategy_selection_winner">विजेता</string>
     <string name="diagnostics_strategy_summary_worked">सफल</string>
     <string name="diagnostics_strategy_summary_na">लागू नहीं</string>
-    <string name="diagnostics_strategy_emitter_non_root">बिना रूट वास्तविक उपयोग</string>
-    <string name="diagnostics_strategy_emitter_rooted">रूट के साथ वास्तविक उपयोग</string>
     <string name="diagnostics_strategy_emitter_lab">केवल प्रयोगशाला निदान</string>
     <string name="diagnostics_strategy_realization_approximate">अनुमानित वैकल्पिक मार्ग</string>
-    <string name="diagnostics_strategy_realization_rooted">रूट के साथ सटीक निष्पादन</string>
     <string name="diagnostics_strategy_realization_lab">प्रयोगशाला मार्ग</string>
-    <string name="diagnostics_strategy_note_rooted">इस मार्ग पर सटीक प्रेषण के लिए रूट वाली रनटाइम क्षमताएँ आवश्यक थीं।</string>
     <string name="diagnostics_strategy_note_approximate">सटीक प्रेषण उपलब्ध नहीं था, इसलिए यह विकल्प अनुमानित वैकल्पिक मार्ग से चला।</string>
     <string name="diagnostics_strategy_note_lab">यह विकल्प केवल निदान तक सीमित है और वास्तविक उपयोग की डिफ़ॉल्ट सेटिंग में शामिल नहीं है।</string>
     <string name="diagnostics_strategy_tcp_matrix">TCP / HTTP / HTTPS मैट्रिक्स</string>

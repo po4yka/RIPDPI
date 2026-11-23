@@ -250,7 +250,7 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
         required = {"values": {"one", "other"}, "values-ru": {"one", "few", "many", "other"},
                     "values-ar": {"zero", "one", "two", "few", "many", "other"},
                     "values-zh-rCN": {"other"}}
-        for module, source_set in (("app", "main"), ("app", "extended"), ("core/service", "main")):
+        for module, source_set in (("app", "main"), ("app", "extended"), ("app", "play"), ("core/service", "main")):
             source = resources(module, "values", source_set)
             for locale in LOCALES:
                 translated = resources(module, locale, source_set)

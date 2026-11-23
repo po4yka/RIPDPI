@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_exposure_native_signs_reason">Нативные проверки обнаружили признаки перехватчиков, root или скрытых интерфейсов.</string>
+    <string name="diagnostics_strategy_emitter_non_root">Рабочий режим без root</string>
+    <string name="diagnostics_strategy_emitter_rooted">Рабочий режим с root</string>
+    <string name="diagnostics_strategy_realization_rooted">Точное выполнение с root</string>
+    <string name="diagnostics_strategy_note_rooted">Точная отправка на этом пути требовала возможностей среды выполнения с root.</string>
+</resources>

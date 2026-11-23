@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.blocksTrafficOnEngineFailure
 import com.poyka.ripdpi.data.effectiveAppRoutingEnabledPresetIds
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
+import com.poyka.ripdpi.platform.rawPacketOperationsEnabled
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -87,7 +88,7 @@ internal fun AppSettings.toUiState(
         diagnosticsExportIncludeHistory = diagnosticsExportIncludeHistory,
         strategyPackAllowRollbackOverride = strategyPackAllowRollbackOverride,
         pcapCaptureEnabled = pcapCaptureEnabled,
-        rootModeEnabled = rootModeEnabled,
+        rawPacketOperationsEnabled = rawPacketOperationsEnabled(),
         communityApiUrl = communityApiUrl,
         serviceStatus = serviceStatus,
         activeMode = serviceTelemetry.mode,

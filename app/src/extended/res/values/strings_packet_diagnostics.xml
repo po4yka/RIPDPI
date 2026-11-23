@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_exposure_native_signs_reason">Native checks found hook, root, or hidden-interface artifacts.</string>
+    <string name="diagnostics_strategy_emitter_non_root">Non-root production</string>
+    <string name="diagnostics_strategy_emitter_rooted">Rooted production</string>
+    <string name="diagnostics_strategy_realization_rooted">Rooted exact</string>
+    <string name="diagnostics_strategy_note_rooted">Exact emission on this path required rooted runtime capabilities.</string>
+</resources>

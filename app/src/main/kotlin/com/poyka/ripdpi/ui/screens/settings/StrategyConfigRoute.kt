@@ -19,6 +19,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.validateStrategyChainUsage
+import com.poyka.ripdpi.platform.supportedInDistribution
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import com.poyka.ripdpi.services.StrategyConfigRuntime
 import com.poyka.ripdpi.services.lua.LuaAssetManager
@@ -459,12 +460,13 @@ private fun validateStrategyConfigText(
 ): Result<Unit> =
     runCatching {
         val chain = parseStrategyChainDsl(configText).getOrThrow()
+        require(chain.supportedInDistribution())
         validateStrategyChainUsage(
             tcpSteps = chain.tcpSteps,
             udpSteps = chain.udpSteps,
             mode = uiState.selectedMode,
             useCommandLineSettings = uiState.enableCmdSettings,
-            rootModeEnabled = uiState.rootModeEnabled,
+            rootModeEnabled = uiState.rawPacketOperationsEnabled,
         )
     }
 

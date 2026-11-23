@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.WarpPayloadGenSuggestion
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 import com.poyka.ripdpi.diagnostics.mapPrivateDnsModeToStatus
+import com.poyka.ripdpi.platform.hasExtendedPacketControls
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.BiometricCapabilityChecker
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
@@ -159,7 +160,8 @@ internal class SettingsUiStateAssembler
                 hostAutolearnStorePresent = settingsUiDependencies.hostAutolearnStoreController.hasStore(),
                 biometricAvailability = biometricCapabilityChecker.canAuthenticate(),
                 routingProtectionSnapshot = settingsUiDependencies.routingProtectionCatalogService.snapshot(),
-                seqovlSupported = settingsUiDependencies.enginePlatformCapabilities.seqovlSupported(),
+                seqovlSupported =
+                    hasExtendedPacketControls && settingsUiDependencies.enginePlatformCapabilities.seqovlSupported(),
             )
 
         private fun buildNetworkState(settingsUiDependencies: SettingsUiDependencies): SettingsUiNetworkState {

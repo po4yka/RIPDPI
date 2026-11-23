@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_chain_editor_helper_full">بخش HTTPS زیر می‌تواند به‌صورت بصری مراحل tlsrec تنها و tlsrandrec تصادفی‌شده را بنویسد، در حالی که کارت‌های Hostfake و تقریب fake، تکه‌های fake هدف‌گذاری‌شده با نام میزبان و تقریب‌های سبک بازارسال را توضیح می‌دهند. تقریب‌های فقط لینوکس/اندروید به‌صورت fakedsplit host+1 و fakeddisorder endhost برای بارهای HTTP یا TLS مجاور SNI در دسترس هستند.</string>
+    <string name="config_placeholder_chain_dsl">[tcp]
+tlsrec extlen
+hostfake endhost+8 midhost=midsld host=googlevideo.com
+split midsld
+
+[udp]
+fake_burst 3</string>
+    <string name="ripdpi_hostfake_available_title">هدف‌گذاری نام میزبان در دسترس است</string>
+    <string name="ripdpi_hostfake_available_body">یک مرحلهٔ hostfake اضافه کنید وقتی می‌خواهید تکه‌های fake فقط در اطراف بخش HTTP Host یا TLS SNI باشند به‌جای fake کردن کل بار.</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake پیکربندی شده</string>
+    <string name="ripdpi_hostfake_ready_body">Hostfake به روت و پشتیبانی از بسته‌های raw نیاز دارد. در غیر این صورت، RIPDPI از تقسیم ساده استفاده می‌کند.</string>
+    <string name="ripdpi_hostfake_restart_title">برای اعمال hostfake راه‌اندازی مجدد کنید</string>
+    <string name="ripdpi_hostfake_restart_body">hostfake در تنظیمات پیکربندی شده، اما نشست در حال اجرای RIPDPI پیش از این تغییر زنجیره شروع شد.</string>
+    <string name="ripdpi_hostfake_protocols_off_title">HTTP و HTTPS خاموش هستند</string>
+    <string name="ripdpi_hostfake_protocols_off_body">اگر می‌خواهید hostfake فیلدهای Host یا SNI را هدف قرار دهد، راهبرد عبور HTTP یا HTTPS را فعال کنید.</string>
+    <string name="ripdpi_hostfake_cli_title">کنترل‌شده توسط خط فرمان</string>
+    <string name="ripdpi_hostfake_cli_body">راهنمایی بصری hostfake اینجا قابل مشاهده باقی می‌ماند، اما زنجیرهٔ فعال از آرگومان‌های خام RIPDPI می‌آید در حالی که تنظیمات خط فرمان فعال هستند.</string>
+    <string name="ripdpi_hostfake_summary_label_profile">نمایه زنجیره</string>
+    <string name="ripdpi_hostfake_summary_label_scope">دامنهٔ ترافیک</string>
+    <string name="ripdpi_hostfake_summary_label_template">میزبان fake اولیه</string>
+    <string name="ripdpi_hostfake_summary_label_midhost">تقسیم میزبان واقعی</string>
+    <string name="ripdpi_hostfake_summary_label_end_marker">مرز بخش</string>
+    <string name="ripdpi_hostfake_summary_label_transport">حمل‌و‌نقل fake</string>
+    <string name="ripdpi_hostfake_summary_label_http_example">مثال HTTP</string>
+    <string name="ripdpi_hostfake_summary_label_tls_example">مثال TLS</string>
+    <string name="ripdpi_hostfake_summary_profile_none">در زنجیرهٔ فعلی نیست</string>
+    <string name="ripdpi_hostfake_summary_profile_single">۱ مرحلهٔ hostfake</string>
+    <string name="ripdpi_hostfake_summary_scope_http_https">HTTP Host و TLS SNI</string>
+    <string name="ripdpi_hostfake_summary_scope_http">فقط HTTP Host</string>
+    <string name="ripdpi_hostfake_summary_scope_https">فقط TLS SNI</string>
+    <string name="ripdpi_hostfake_summary_scope_none">هیچ پروتکل منطبقی فعال نیست</string>
+    <string name="ripdpi_hostfake_summary_template_random">نام میزبان تصادفی با همان طول</string>
+    <string name="ripdpi_hostfake_summary_midhost_whole">میزبان واقعی را به‌عنوان یک بخش نگه دارید</string>
+    <string name="ripdpi_hostfake_summary_midhost_marker">میزبان واقعی را در %1$s تقسیم کنید</string>
+    <string name="ripdpi_hostfake_summary_end_marker_none">از مرز مرحلهٔ پیش‌فرض استفاده کنید</string>
+    <string name="ripdpi_hostfake_summary_transport">TTL fake %1$d</string>
+    <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
+    <string name="ripdpi_hostfake_example_tls">tlsrec extlen
+hostfake endhost host=cdn.discordapp.net</string>
+    <string name="ripdpi_hostfake_scope_note">hostfake فقط تکه‌های به اندازهٔ Host/SNI را لمس می‌کند. از نمایه کامل fake TLS یا نشانگر افست fake استفاده نمی‌کند.</string>
+    <string name="ripdpi_seqovl_available_title">همپوشانی توالی در دسترس است</string>
+    <string name="ripdpi_seqovl_available_body">از seqovl استفاده کنید وقتی دستگاه از بک‌اند متعلق به بسته پشتیبانی می‌کند. تا آن زمان، مراحل seqovl ذخیره‌شده قابل بازگشت باقی می‌مانند اما در زمان اجرا به split بازمی‌گردند.</string>
+    <string name="ripdpi_seqovl_ready_title">همپوشانی توالی پیکربندی شد</string>
+    <string name="ripdpi_seqovl_ready_body">راهبرد عبور ذخیره‌شده از قبل شامل seqovl است و نشانگر، اندازهٔ همپوشانی و حالت fake آن را در طول ویرایش‌های تنظیمات حفظ می‌کند.</string>
+    <string name="ripdpi_seqovl_restart_title">برای اعمال مجدد seqovl راه‌اندازی مجدد کنید</string>
+    <string name="ripdpi_seqovl_restart_body">نشست در حال اجرای RIPDPI پیش از این تغییر زنجیره شروع شد، بنابراین seqovl تا اتصال مجدد یا راه‌اندازی مجدد RIPDPI اعمال نمی‌شود.</string>
+    <string name="ripdpi_seqovl_unsupported_title">همپوشانی توالی در دسترس نیست</string>
+    <string name="ripdpi_seqovl_unsupported_body">این دستگاه بک‌اند TCP بالادست متعلق به بسته که seqovl نیاز دارد را در معرض نمی‌گذارد. کنترل‌های جدید seqovl غیرفعال باقی می‌مانند و مراحل seqovl ذخیره‌شده به split تنزل می‌یابند.</string>
+    <string name="ripdpi_seqovl_cli_title">کنترل‌شده توسط خط فرمان</string>
+    <string name="ripdpi_seqovl_cli_body">راهنمایی بصری seqovl اینجا قابل مشاهده باقی می‌ماند، اما زنجیرهٔ فعال از آرگومان‌های خام RIPDPI می‌آید در حالی که تنظیمات خط فرمان فعال هستند.</string>
+    <string name="ripdpi_seqovl_summary_label_profile">نمایه زنجیره</string>
+    <string name="ripdpi_seqovl_summary_label_scope">دامنهٔ ترافیک</string>
+    <string name="ripdpi_seqovl_summary_label_overlap">بایت‌های همپوشانی</string>
+    <string name="ripdpi_seqovl_summary_label_fake_mode">حالت fake</string>
+    <string name="ripdpi_seqovl_summary_label_runtime">مسیر زمان اجرا</string>
+    <string name="ripdpi_seqovl_summary_profile_inactive">در زنجیرهٔ فعلی نیست</string>
+    <string name="ripdpi_seqovl_summary_profile_configured">۱ مرحلهٔ seqovl</string>
+    <string name="ripdpi_seqovl_summary_scope_http_https">درخواست‌های HTTP و TLS ClientHello</string>
+    <string name="ripdpi_seqovl_summary_scope_http">فقط درخواست‌های HTTP</string>
+    <string name="ripdpi_seqovl_summary_scope_https">فقط TLS ClientHello</string>
+    <string name="ripdpi_seqovl_summary_scope_none">هیچ پروتکل منطبقی فعال نیست</string>
+    <string name="ripdpi_seqovl_summary_marker_none">از نشانگر مرحلهٔ DSL زنجیره استفاده کنید</string>
+    <string name="ripdpi_seqovl_summary_fake_mode_profile">نمایه</string>
+    <string name="ripdpi_seqovl_summary_runtime_supported">بک‌اند متعلق به بسته در دسترس است</string>
+    <string name="ripdpi_seqovl_summary_runtime_fallback">در این دستگاه به split بازمی‌گردد</string>
+    <string name="ripdpi_seqovl_scope_note">seqovl به‌سختی به دور ۱ و بایت‌های جریان ۰..۱۵۰۰ محدود شده است. در فاز ۱، دستگاه‌های پشتیبانی نشده پیکربندی را حفظ می‌کنند اما همان ترافیک split را ارسال می‌کنند.</string>
+    <string name="ripdpi_md5sig_setting">امضای TCP MD5</string>
+    <string name="settings_seqovl_unsupported_reason">همپوشانی توالی به دسترسی سوکت خام نیاز دارد که در این دستگاه در دسترس نیست. حالت روت را در تنظیمات فعال کنید تا از این ویژگی استفاده کنید.</string>
+    <string name="root_mode_strategy_multidisorder_title">چند-بی‌نظمی</string>
+    <string name="root_mode_strategy_ipfrag2_title">قطعه‌قطعه‌سازی IP</string>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="one">%1$d مرحلهٔ hostfake</item>
+        <item quantity="other">%1$d مرحلهٔ hostfake</item>
+    </plurals>
+</resources>

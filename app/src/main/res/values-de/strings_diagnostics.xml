@@ -1658,7 +1658,6 @@
     <string name="detection_exposure_timing_reason">Latenz oder zeitliche Muster weichen von gewöhnlichem direktem HTTPS-Verkehr ab.</string>
     <string name="detection_exposure_timing_hint">Versuchen Sie einen näheren Ausgang, verringern Sie verkettete Zwischenstationen oder wählen Sie ein Profil mit geringerer Latenz.</string>
     <string name="detection_exposure_native_signs_label">Signal der nativen Laufzeit</string>
-    <string name="detection_exposure_native_signs_reason">Native Prüfungen haben Hook-, Root- oder versteckte Schnittstellenmerkmale gefunden.</string>
     <string name="detection_exposure_native_signs_hint">Entfernen Sie nicht zugehörige Instrumentierung und testen Sie erneut mit dem Zielgeräteprofil.</string>
     <string name="detection_exposure_call_transport_label">Leck beim Anruftransport</string>
     <string name="detection_exposure_call_transport_reason">Anruf- oder STUN-Transporttests machen einen anderen Pfad als erwartet sichtbar.</string>
@@ -1873,13 +1872,9 @@
     <string name="diagnostics_strategy_selection_winner">Gewinner</string>
     <string name="diagnostics_strategy_summary_worked">Erfolgreich</string>
     <string name="diagnostics_strategy_summary_na">Nicht anwendbar</string>
-    <string name="diagnostics_strategy_emitter_non_root">Produktivbetrieb ohne Root</string>
-    <string name="diagnostics_strategy_emitter_rooted">Produktivbetrieb mit Root</string>
     <string name="diagnostics_strategy_emitter_lab">Nur Labordiagnose</string>
     <string name="diagnostics_strategy_realization_approximate">Näherungsweiser Ersatzpfad</string>
-    <string name="diagnostics_strategy_realization_rooted">Exakte Ausführung mit Root</string>
     <string name="diagnostics_strategy_realization_lab">Laborpfad</string>
-    <string name="diagnostics_strategy_note_rooted">Die exakte Übertragung auf diesem Pfad erforderte Laufzeitfunktionen mit Root-Rechten.</string>
     <string name="diagnostics_strategy_note_approximate">Eine exakte Übertragung war nicht verfügbar. Deshalb wurde dieser Kandidat über einen näherungsweisen Ersatzpfad ausgeführt.</string>
     <string name="diagnostics_strategy_note_lab">Dieser Kandidat bleibt auf die Diagnose beschränkt und gehört nicht zu den produktiven Standardeinstellungen.</string>
     <string name="diagnostics_strategy_tcp_matrix">TCP- / HTTP- / HTTPS-Matrix</string>

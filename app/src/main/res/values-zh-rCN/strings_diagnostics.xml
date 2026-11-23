@@ -1629,7 +1629,6 @@
     <string name="detection_exposure_timing_reason">延迟或时序模式与普通直连 HTTPS 流量不同。</string>
     <string name="detection_exposure_timing_hint">尝试更近的出口、减少链式跳数，或选择延迟更低的配置文件。</string>
     <string name="detection_exposure_native_signs_label">原生运行时信号</string>
-    <string name="detection_exposure_native_signs_reason">原生检测发现了挂钩、root 或隐藏接口的痕迹。</string>
     <string name="detection_exposure_native_signs_hint">移除无关的插桩工具，并在目标设备配置文件下重新检测。</string>
     <string name="detection_exposure_call_transport_label">通话传输泄漏</string>
     <string name="detection_exposure_call_transport_reason">通话或 STUN 传输探测发现了与预期不同的路径。</string>
@@ -1843,13 +1842,9 @@
     <string name="diagnostics_strategy_selection_winner">获胜者</string>
     <string name="diagnostics_strategy_summary_worked">有效</string>
     <string name="diagnostics_strategy_summary_na">不适用</string>
-    <string name="diagnostics_strategy_emitter_non_root">无 root 实际运行</string>
-    <string name="diagnostics_strategy_emitter_rooted">有 root 实际运行</string>
     <string name="diagnostics_strategy_emitter_lab">仅限实验室诊断</string>
     <string name="diagnostics_strategy_realization_approximate">近似回退方案</string>
-    <string name="diagnostics_strategy_realization_rooted">有 root 精确执行</string>
     <string name="diagnostics_strategy_realization_lab">实验室路径</string>
-    <string name="diagnostics_strategy_note_rooted">此路径上的精确发送需要具有 root 权限的运行时能力。</string>
     <string name="diagnostics_strategy_note_approximate">精确发送不可用，因此此候选方案通过近似回退路径执行。</string>
     <string name="diagnostics_strategy_note_lab">此候选方案仅用于诊断，不属于实际运行的默认配置。</string>
     <string name="diagnostics_strategy_tcp_matrix">TCP / HTTP / HTTPS 矩阵</string>

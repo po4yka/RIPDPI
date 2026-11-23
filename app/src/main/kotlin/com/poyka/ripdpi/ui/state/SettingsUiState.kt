@@ -66,7 +66,7 @@ data class SettingsUiState(
     val diagnosticsExportIncludeHistory: Boolean = true,
     val strategyPackAllowRollbackOverride: Boolean = false,
     val pcapCaptureEnabled: Boolean = false,
-    val rootModeEnabled: Boolean = false,
+    val rawPacketOperationsEnabled: Boolean = false,
     val communityApiUrl: String = "",
     val serviceStatus: AppStatus = AppStatus.Halted,
     val activeMode: Mode? = null,

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_strategy_emitter_standard">生产环境</string>
+    <string name="detection_exposure_native_signs_reason">原生检查发现了运行时痕迹。</string>
+    <string name="config_chain_editor_helper_full">在 HTTPS 部分配置 TLS 记录步骤。在链编辑器中添加模拟拆分或模拟乱序步骤。</string>
+    <string name="config_placeholder_chain_dsl">[tcp]
+tlsrec extlen
+split midsld
+
+[udp]
+fake_burst 3</string>
+</resources>

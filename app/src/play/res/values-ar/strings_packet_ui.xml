@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_strategy_emitter_standard">تشغيل عادي</string>
+    <string name="detection_exposure_native_signs_reason">رصدت الفحوصات الأصلية آثارًا في بيئة التشغيل.</string>
+    <string name="config_chain_editor_helper_full">استخدم قسم HTTPS لضبط خطوات سجلات TLS. أضف خطوات التقسيم الزائف أو الترتيب الزائف في محرر السلسلة.</string>
+    <string name="config_placeholder_chain_dsl">[tcp]
+tlsrec extlen
+split midsld
+
+[udp]
+fake_burst 3</string>
+</resources>

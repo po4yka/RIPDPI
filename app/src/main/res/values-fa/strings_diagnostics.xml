@@ -1658,7 +1658,6 @@
     <string name="detection_exposure_timing_reason">الگوهای تأخیر یا زمان‌بندی با ترافیک معمول و مستقیم HTTPS تفاوت دارند.</string>
     <string name="detection_exposure_timing_hint">یک نقطه خروج نزدیک‌تر را امتحان کنید، تعداد گره‌های زنجیره را کاهش دهید یا نمایه‌ای با تأخیر کمتر انتخاب کنید.</string>
     <string name="detection_exposure_native_signs_label">نشانه زمان اجرای کد بومی</string>
-    <string name="detection_exposure_native_signs_reason">بررسی‌های کد بومی، ردپای رهگیری فراخوانی‌ها، دسترسی ریشه یا رابط‌های پنهان را یافتند.</string>
     <string name="detection_exposure_native_signs_hint">ابزارهای پایش نامرتبط را حذف کنید و با نمایه دستگاه هدف دوباره آزمایش کنید.</string>
     <string name="detection_exposure_call_transport_label">نشت از مسیر انتقال تماس</string>
     <string name="detection_exposure_call_transport_reason">آزمون‌های انتقال تماس یا STUN مسیری متفاوت از مسیر مورد انتظار را آشکار می‌کنند.</string>
@@ -1873,13 +1872,9 @@
     <string name="diagnostics_strategy_selection_winner">برنده</string>
     <string name="diagnostics_strategy_summary_worked">موفق</string>
     <string name="diagnostics_strategy_summary_na">قابل اعمال نیست</string>
-    <string name="diagnostics_strategy_emitter_non_root">عملیاتی بدون روت</string>
-    <string name="diagnostics_strategy_emitter_rooted">عملیاتی با روت</string>
     <string name="diagnostics_strategy_emitter_lab">فقط عیب‌یابی آزمایشگاهی</string>
     <string name="diagnostics_strategy_realization_approximate">روش جایگزین تقریبی</string>
-    <string name="diagnostics_strategy_realization_rooted">اجرای دقیق با روت</string>
     <string name="diagnostics_strategy_realization_lab">مسیر آزمایشگاهی</string>
-    <string name="diagnostics_strategy_note_rooted">ارسال دقیق در این مسیر به قابلیت‌های زمان اجرای روت‌شده نیاز داشت.</string>
     <string name="diagnostics_strategy_note_approximate">ارسال دقیق در دسترس نبود؛ بنابراین این گزینه از مسیر جایگزین تقریبی اجرا شد.</string>
     <string name="diagnostics_strategy_note_lab">این گزینه فقط در محدودهٔ عیب‌یابی است و جزو پیش‌فرض‌های عملیاتی نیست.</string>
     <string name="diagnostics_strategy_tcp_matrix">ماتریس TCP / HTTP / HTTPS</string>

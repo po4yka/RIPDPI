@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_exposure_native_signs_reason">Native Prüfungen haben Hook-, Root- oder versteckte Schnittstellenmerkmale gefunden.</string>
+    <string name="diagnostics_strategy_emitter_non_root">Produktivbetrieb ohne Root</string>
+    <string name="diagnostics_strategy_emitter_rooted">Produktivbetrieb mit Root</string>
+    <string name="diagnostics_strategy_realization_rooted">Exakte Ausführung mit Root</string>
+    <string name="diagnostics_strategy_note_rooted">Die exakte Übertragung auf diesem Pfad erforderte Laufzeitfunktionen mit Root-Rechten.</string>
+</resources>

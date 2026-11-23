@@ -1661,7 +1661,6 @@
     <string name="detection_exposure_timing_reason">La latence ou les schémas temporels diffèrent du trafic HTTPS direct habituel.</string>
     <string name="detection_exposure_timing_hint">Essayez une sortie plus proche, réduisez les relais en chaîne ou choisissez un profil à plus faible latence.</string>
     <string name="detection_exposure_native_signs_label">signal de l’environnement d’exécution natif</string>
-    <string name="detection_exposure_native_signs_reason">Les vérifications natives ont trouvé des traces d’interception, de root ou d’interfaces masquées.</string>
     <string name="detection_exposure_native_signs_hint">Retirez l’instrumentation sans rapport avec le test et recommencez avec le profil de l’appareil cible.</string>
     <string name="detection_exposure_call_transport_label">fuite du transport des appels</string>
     <string name="detection_exposure_call_transport_reason">Les tests de transport des appels ou STUN révèlent un chemin différent de celui attendu.</string>
@@ -1877,13 +1876,9 @@
     <string name="diagnostics_strategy_selection_winner">Gagnant</string>
     <string name="diagnostics_strategy_summary_worked">Réussi</string>
     <string name="diagnostics_strategy_summary_na">Sans objet</string>
-    <string name="diagnostics_strategy_emitter_non_root">Utilisation réelle sans root</string>
-    <string name="diagnostics_strategy_emitter_rooted">Utilisation réelle avec root</string>
     <string name="diagnostics_strategy_emitter_lab">Diagnostic de laboratoire uniquement</string>
     <string name="diagnostics_strategy_realization_approximate">Solution de repli approximative</string>
-    <string name="diagnostics_strategy_realization_rooted">Exécution exacte avec root</string>
     <string name="diagnostics_strategy_realization_lab">Chemin de laboratoire</string>
-    <string name="diagnostics_strategy_note_rooted">L’émission exacte sur ce chemin nécessitait des capacités d’exécution avec root.</string>
     <string name="diagnostics_strategy_note_approximate">L’émission exacte était indisponible ; ce candidat a donc utilisé un chemin de repli approximatif.</string>
     <string name="diagnostics_strategy_note_lab">Ce candidat reste limité au diagnostic et ne fait pas partie des paramètres par défaut en utilisation réelle.</string>
     <string name="diagnostics_strategy_tcp_matrix">Matrice TCP / HTTP / HTTPS</string>

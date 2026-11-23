@@ -17,9 +17,6 @@
     <string name="settings_strategy_pack_allow_rollback_override_body">केवल डिबग। स्थानीय सत्यापन के लिए समान या निम्नतर डाउनलोड किए गए स्ट्रैटेजी-पैक अनुक्रमों की अनुमति दें। हस्ताक्षर, संगतता, और ताज़गी जाँचें फिर भी लागू होती हैं।</string>
     <string name="settings_telemetry_salt_reset_body">नेटवर्क फ़िंगरप्रिंट हैश करने के लिए उपयोग किए जाने वाले प्रति-इंस्टॉल साल्ट को रीसेट करें। पहले रिकॉर्ड किए गए हैश को अब भविष्य के सत्रों के साथ सहसंबद्ध नहीं किया जा सकता।</string>
     <string name="settings_telemetry_salt_reset_action">टेलीमेट्री साल्ट रीसेट करें</string>
-    <string name="settings_seqovl_unsupported_reason">अनुक्रम ओवरलैप के लिए रॉ सॉकेट एक्सेस की आवश्यकता है जो इस डिवाइस पर उपलब्ध नहीं है। इस सुविधा का उपयोग करने के लिए सेटिंग्स में root मोड सक्षम करें।</string>
-    <string name="root_mode_strategy_multidisorder_title">Multi-disorder</string>
-    <string name="root_mode_strategy_ipfrag2_title">IP विखंडन</string>
     <string name="theme_settings">थीम</string>
     <string name="backup_encryption_create_title">पूर्ण बैकअप एन्क्रिप्ट करें</string>
     <string name="backup_encryption_create_body">कम से कम 8 अक्षरों का पासफ़्रेज़ बनाएँ। किसी भी डिवाइस पर बैकअप पुनर्स्थापित करने के लिए इसकी आवश्यकता होगी।</string>

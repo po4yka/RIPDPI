@@ -17,9 +17,6 @@
     <string name="settings_strategy_pack_allow_rollback_override_body">فقط اشکال‌زدایی. اجازهٔ توالی‌های بستهٔ راهبرد دانلودشدهٔ برابر یا پایین‌تر برای اعتبارسنجی محلی. بررسی‌های امضا، سازگاری و تازگی هنوز اعمال می‌شوند.</string>
     <string name="settings_telemetry_salt_reset_body">نمک هر نصبی که برای هش کردن اثر انگشت شبکه استفاده می‌شود را بازنشانی کنید. هش‌های قبلاً ضبط‌شده دیگر نمی‌توانند با نشست‌های آینده مرتبط شوند.</string>
     <string name="settings_telemetry_salt_reset_action">بازنشانی نمک سنجش</string>
-    <string name="settings_seqovl_unsupported_reason">همپوشانی توالی به دسترسی سوکت خام نیاز دارد که در این دستگاه در دسترس نیست. حالت روت را در تنظیمات فعال کنید تا از این ویژگی استفاده کنید.</string>
-    <string name="root_mode_strategy_multidisorder_title">چند-بی‌نظمی</string>
-    <string name="root_mode_strategy_ipfrag2_title">قطعه‌قطعه‌سازی IP</string>
     <!-- gap-fill fa: sub-agent translations -->
     <string name="about_build_section">ساخت</string>
     <string name="about_license_title">مجوز</string>

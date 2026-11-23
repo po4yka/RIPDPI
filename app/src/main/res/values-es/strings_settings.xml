@@ -145,12 +145,9 @@
     <string name="settings_permissions_always_on_needed">Activa VPN siempre activa para RIPDPI en los ajustes de VPN de Android cuando necesites prevención estricta de fugas.</string>
     <string name="settings_permissions_vpn_active">Requerido para el modo VPN local seleccionado actualmente.</string>
     <string name="settings_reset_confirm">Restablecer</string>
-    <string name="settings_seqovl_unsupported_reason">El solapamiento de secuencia requiere acceso a sockets sin procesar no disponible en este dispositivo. Habilita el modo root en los ajustes para usar esta función.</string>
     <string name="settings_support_debug_bundle_title">Compartir paquete de soporte</string>
     <string name="settings_tethering_dns_warning_title">Riesgo de fuga DNS de anclaje a red</string>
     <string name="settings_warning_backup_pin_body">Establece un PIN de respaldo de cuatro dígitos para que aún puedas desbloquear RIPDPI si la biometría no está disponible.</string>
-    <string name="root_mode_strategy_multidisorder_title">Multidesorden</string>
-    <string name="root_mode_strategy_ipfrag2_title">Fragmentación IP</string>
     <string name="customization_icon_disintegrate">Desintegrar</string>
     <string name="customization_options_section">Opciones</string>
     <string name="customization_shape_sheet_point_two">Si la ilustración del icono cambia, es posible que el lanzador necesite actualizarse antes de que aparezca la nueva vista previa de la máscara.</string>

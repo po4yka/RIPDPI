@@ -1684,7 +1684,6 @@
     <string name="detection_exposure_timing_reason">Latency or timing patterns differ from ordinary direct HTTPS traffic.</string>
     <string name="detection_exposure_timing_hint">Try a closer exit, reduce chained hops, or select a lower-latency profile.</string>
     <string name="detection_exposure_native_signs_label">native runtime signal</string>
-    <string name="detection_exposure_native_signs_reason">Native checks found hook, root, or hidden-interface artifacts.</string>
     <string name="detection_exposure_native_signs_hint">Remove unrelated instrumentation and retest on the target device profile.</string>
     <string name="detection_exposure_call_transport_label">call transport leak</string>
     <string name="detection_exposure_call_transport_reason">Call or STUN transport probes reveal a different path than expected.</string>
@@ -1899,13 +1898,9 @@
     <string name="diagnostics_strategy_selection_winner">Winner</string>
     <string name="diagnostics_strategy_summary_worked">Worked</string>
     <string name="diagnostics_strategy_summary_na">N/A</string>
-    <string name="diagnostics_strategy_emitter_non_root">Non-root production</string>
-    <string name="diagnostics_strategy_emitter_rooted">Rooted production</string>
     <string name="diagnostics_strategy_emitter_lab">Lab diagnostics only</string>
     <string name="diagnostics_strategy_realization_approximate">Approximate fallback</string>
-    <string name="diagnostics_strategy_realization_rooted">Rooted exact</string>
     <string name="diagnostics_strategy_realization_lab">Lab path</string>
-    <string name="diagnostics_strategy_note_rooted">Exact emission on this path required rooted runtime capabilities.</string>
     <string name="diagnostics_strategy_note_approximate">Exact emission was unavailable, so this candidate ran through an approximate fallback path.</string>
     <string name="diagnostics_strategy_note_lab">This candidate stays in diagnostics-only coverage and is not part of production defaults.</string>
     <string name="diagnostics_strategy_tcp_matrix">TCP / HTTP / HTTPS matrix</string>

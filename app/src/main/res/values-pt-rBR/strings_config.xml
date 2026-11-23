@@ -170,7 +170,6 @@
     <string name="config_chain_cli_override_note">CLI tem precedência sobre a estratégia de desvio</string>
     <string name="config_chain_editor_label">Estratégia de desvio</string>
     <string name="config_chain_editor_helper_brief">Use as seções [tcp] e [udp] com marcadores de offset numéricos ou semânticos.</string>
-    <string name="config_chain_editor_helper_full">A seção HTTPS abaixo permite criar visualmente etapas únicas de tlsrec e de tlsrandrec randomizadas, enquanto os cartões Hostfake e aproximação fake explicam chunks fake direcionados ao hostname e aproximações no estilo de retransmissão. Aproximações exclusivas de Linux/Android estão disponíveis como fakedsplit host+1 e fakeddisorder endhost para payloads adjacentes a HTTP ou ao SNI do TLS.</string>
     <string name="config_split_marker_helper">Marcadores manuais aceitam offsets como 1, host, method+2, midsld-1 ou host+1. Use o seletor de predefinições adaptativas ou a DSL bruta da cadeia para auto(\u2026).</string>
     <string name="config_fake_offset_marker_helper">Aceita offsets numéricos ou semânticos como 0, host+1, endhost-2 ou endhost+1. Marcadores adaptativos auto(\u2026) não são compatíveis aqui.</string>
     <string name="config_fake_tls_size_helper">0 = do tamanho da entrada, positivo = bytes alvo exatos, negativo = entrada menos N.</string>
@@ -575,73 +574,7 @@
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_placeholder_chain_dsl">[tcp]
-tlsrec extlen
-hostfake endhost+8 midhost=midsld host=googlevideo.com
-split midsld
-
-[udp]
-fake_burst 3</string>
-    <string name="ripdpi_hostfake_available_title">Direcionamento de hostname disponível</string>
-    <string name="ripdpi_hostfake_available_body">Adicione uma etapa hostfake quando quiser chunks fake apenas ao redor do trecho do Host HTTP ou do SNI TLS, em vez de falsificar o payload inteiro.</string>
-    <string name="ripdpi_hostfake_ready_title">Hostfake configurado</string>
-    <string name="ripdpi_hostfake_ready_body">Hostfake precisa de root e suporte a pacotes raw. Caso contrário, o RIPDPI usa uma divisão simples.</string>
-    <string name="ripdpi_hostfake_restart_title">Reinicie para aplicar o hostfake</string>
-    <string name="ripdpi_hostfake_restart_body">O hostfake está configurado nas configurações, mas a sessão RIPDPI em execução foi iniciada antes desta alteração na cadeia.</string>
-    <string name="ripdpi_hostfake_protocols_off_title">HTTP e HTTPS estão desativados</string>
-    <string name="ripdpi_hostfake_protocols_off_body">Ative a estratégia de desvio de HTTP ou HTTPS se quiser que o hostfake direcione os campos Host ou SNI.</string>
-    <string name="ripdpi_hostfake_cli_title">Controlado pela linha de comando</string>
-    <string name="ripdpi_hostfake_cli_body">A orientação visual de hostfake permanece visível aqui, mas a cadeia ativa vem dos argumentos brutos do RIPDPI enquanto as configurações por linha de comando estão ativadas.</string>
-    <string name="ripdpi_hostfake_summary_label_profile">Perfil da cadeia</string>
-    <string name="ripdpi_hostfake_summary_label_scope">Escopo de tráfego</string>
-    <string name="ripdpi_hostfake_summary_label_template">Host fake principal</string>
-    <string name="ripdpi_hostfake_summary_label_midhost">Divisão do host real</string>
-    <string name="ripdpi_hostfake_summary_label_end_marker">Limite do segmento</string>
-    <string name="ripdpi_hostfake_summary_label_transport">Transporte fake</string>
-    <string name="ripdpi_hostfake_summary_label_http_example">Exemplo HTTP</string>
-    <string name="ripdpi_hostfake_summary_label_tls_example">Exemplo TLS</string>
-    <string name="ripdpi_hostfake_summary_profile_none">Fora da cadeia atual</string>
-    <string name="ripdpi_hostfake_summary_profile_single">1 etapa hostfake</string>
-    <string name="ripdpi_hostfake_summary_scope_http_https">Host HTTP e SNI TLS</string>
-    <string name="ripdpi_hostfake_summary_scope_http">Somente Host HTTP</string>
-    <string name="ripdpi_hostfake_summary_scope_https">Somente SNI TLS</string>
-    <string name="ripdpi_hostfake_summary_scope_none">Nenhum protocolo correspondente ativado</string>
-    <string name="ripdpi_hostfake_summary_template_random">Hostname aleatório de mesmo tamanho</string>
-    <string name="ripdpi_hostfake_summary_midhost_whole">Manter o host real como um único trecho</string>
-    <string name="ripdpi_hostfake_summary_midhost_marker">Divide o host real em %1$s</string>
-    <string name="ripdpi_hostfake_summary_end_marker_none">Usar o limite padrão da etapa</string>
-    <string name="ripdpi_hostfake_summary_transport">TTL fake %1$d</string>
-    <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
-    <string name="ripdpi_hostfake_example_tls">tlsrec extlen
-hostfake endhost host=cdn.discordapp.net</string>
-    <string name="ripdpi_hostfake_scope_note">O hostfake afeta apenas chunks do tamanho do Host/SNI. Ele não usa o perfil completo de TLS fake nem o marcador de offset fake.</string>
-    <string name="ripdpi_seqovl_available_title">Sobreposição de sequência disponível</string>
-    <string name="ripdpi_seqovl_available_body">Use seqovl quando o dispositivo oferecer o backend de propriedade de pacotes. Até lá, as etapas seqovl armazenadas permanecem reversíveis, mas caem para divisão em runtime.</string>
-    <string name="ripdpi_seqovl_ready_title">Sobreposição de sequência configurada</string>
-    <string name="ripdpi_seqovl_ready_body">A estratégia de desvio salva já contém seqovl e preservará o marcador, o tamanho de sobreposição e o modo fake entre edições nas configurações.</string>
-    <string name="ripdpi_seqovl_restart_title">Reinicie para reaplicar o seqovl</string>
-    <string name="ripdpi_seqovl_restart_body">A sessão RIPDPI em execução foi iniciada antes desta alteração na cadeia, então o seqovl não entrará em vigor até que o RIPDPI reconecte ou reinicie.</string>
-    <string name="ripdpi_seqovl_unsupported_title">Sobreposição de sequência indisponível</string>
-    <string name="ripdpi_seqovl_unsupported_body">Este dispositivo não expõe o backend TCP upstream de propriedade de pacotes de que o seqovl precisa. Os novos controles seqovl permanecem desativados e as etapas seqovl armazenadas degradam para divisão.</string>
-    <string name="ripdpi_seqovl_cli_title">Controlado pela linha de comando</string>
-    <string name="ripdpi_seqovl_cli_body">A orientação visual de seqovl permanece visível aqui, mas a cadeia ativa vem dos argumentos brutos do RIPDPI enquanto as configurações por linha de comando estão ativadas.</string>
-    <string name="ripdpi_seqovl_summary_label_profile">Perfil da cadeia</string>
-    <string name="ripdpi_seqovl_summary_label_scope">Escopo de tráfego</string>
     <string name="ripdpi_seqovl_summary_label_marker">Marcador de divisão</string>
-    <string name="ripdpi_seqovl_summary_label_overlap">Bytes de sobreposição</string>
-    <string name="ripdpi_seqovl_summary_label_fake_mode">Modo fake</string>
-    <string name="ripdpi_seqovl_summary_label_runtime">Caminho em runtime</string>
-    <string name="ripdpi_seqovl_summary_profile_inactive">Fora da cadeia atual</string>
-    <string name="ripdpi_seqovl_summary_profile_configured">1 etapa seqovl</string>
-    <string name="ripdpi_seqovl_summary_scope_http_https">Requisições HTTP e ClientHello TLS</string>
-    <string name="ripdpi_seqovl_summary_scope_http">Somente requisições HTTP</string>
-    <string name="ripdpi_seqovl_summary_scope_https">Somente ClientHello TLS</string>
-    <string name="ripdpi_seqovl_summary_scope_none">Nenhum protocolo correspondente ativado</string>
-    <string name="ripdpi_seqovl_summary_marker_none">Usar o marcador da etapa da DSL da cadeia</string>
-    <string name="ripdpi_seqovl_summary_fake_mode_profile">perfil</string>
-    <string name="ripdpi_seqovl_summary_runtime_supported">Backend de propriedade de pacotes disponível</string>
-    <string name="ripdpi_seqovl_summary_runtime_fallback">Volta para divisão neste dispositivo</string>
-    <string name="ripdpi_seqovl_scope_note">O seqovl é restrito rigidamente à rodada 1 e aos bytes de fluxo 0..1500. Na fase 1, dispositivos não compatíveis mantêm a configuração, mas enviam o mesmo tráfego da divisão.</string>
     <string name="ripdpi_fake_approx_available_title">Aproximações fake disponíveis</string>
     <string name="ripdpi_fake_approx_available_body">Adicione fakedsplit ou fakeddisorder quando quiser uma aproximação em Linux/Android da ambiguidade de retransmissão com suporte de fake, sem sobreposição bruta de sequência.</string>
     <string name="ripdpi_fake_approx_ready_title">Aproximações fake prontas</string>
@@ -985,7 +918,6 @@ Fonte: %2$s</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="ripdpi_fake_offset_setting">Marcador de offset falso</string>
     <string name="ripdpi_drop_sack_setting">Descartar SACK</string>
-    <string name="ripdpi_md5sig_setting">Assinatura TCP MD5</string>
     <string name="ripdpi_tlsminor_setting">Substituição da versão do registro TLS</string>
     <string name="ripdpi_tlsminor_value_title">Versão secundária do registro TLS</string>
     <string name="ripdpi_tlsminor_value_body">Substitui o byte de versão secundária (0–255) no cabeçalho do registro TLS do primeiro pacote genuíno enviado.</string>
@@ -1252,10 +1184,6 @@ Fonte: %2$s</string>
     <plurals name="udp_fake_profile_scope_live">
         <item quantity="one">Usado para %1$d pacote genérico de fake_burst UDP na cadeia atual.</item>
         <item quantity="other">Usado para %1$d pacotes genéricos de fake_burst UDP na cadeia atual.</item>
-    </plurals>
-    <plurals name="ripdpi_hostfake_summary_profile_multiple">
-        <item quantity="one">%1$d etapa hostfake</item>
-        <item quantity="other">%1$d etapas hostfake</item>
     </plurals>
     <plurals name="ripdpi_fake_approx_summary_profile_multiple">
         <item quantity="one">%1$d etapa de aproximação falsa</item>

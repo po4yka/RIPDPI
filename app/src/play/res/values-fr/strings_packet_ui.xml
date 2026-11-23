@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_strategy_emitter_standard">En production</string>
+    <string name="detection_exposure_native_signs_reason">Les vérifications natives ont détecté des traces dans l’environnement d’exécution.</string>
+    <string name="config_chain_editor_helper_full">Utilisez la section HTTPS pour configurer les étapes des enregistrements TLS. Ajoutez des étapes de découpage ou de réordonnancement simulé dans l’éditeur de chaîne.</string>
+    <string name="config_placeholder_chain_dsl">[tcp]
+tlsrec extlen
+split midsld
+
+[udp]
+fake_burst 3</string>
+</resources>

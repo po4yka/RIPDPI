@@ -65,7 +65,6 @@
     <string name="adaptive_split_summary_label_dsl">原始链 DSL</string>
     <string name="adaptive_split_summary_label_scope">范围</string>
     <string name="config_badge_active">活动</string>
-    <string name="config_chain_editor_helper_full">下方的 HTTPS 区块可以可视化地编写单个 tlsrec 和随机化的 tlsrandrec 步骤,而 Hostfake 和 fake 近似卡片则说明针对主机名的 fake 数据块以及重传式近似。仅在 Linux/Android 上提供的近似有 fakedsplit host+1 和 fakeddisorder endhost,用于 HTTP 或 TLS SNI 相邻负载。</string>
     <string name="config_cli_banner_body">以下参数优先于本页面的可视化控件。</string>
     <string name="config_cli_active_body">命令行参数优先于此屏幕上的设置。</string>
     <string name="config_reconnect_in_progress">正在重新连接。完成后请重试。</string>
@@ -179,14 +178,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_tls_summary_mutation_pad_encap">填充伪装</string>
     <string name="ripdpi_fake_tls_summary_size_minus">输入减去 %1$d 字节</string>
     <string name="ripdpi_fake_tls_waiting_title">可用于 HTTPS fake 步骤</string>
-    <string name="ripdpi_hostfake_available_body">如果希望仅在 HTTP Host 或 TLS SNI 范围附近发出假数据块,而不是伪造整个负载,请添加 hostfake 步骤。</string>
-    <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
-    <string name="ripdpi_hostfake_ready_body">Hostfake 需要 root 权限和原始数据包支持。否则，RIPDPI 将使用普通分段。</string>
-    <string name="ripdpi_hostfake_scope_note">Hostfake 仅作用于 Host/SNI 大小的数据块。它不使用完整的 Fake TLS 配置文件或 fake 偏移标记。</string>
-    <string name="ripdpi_hostfake_summary_label_midhost">真实主机分割</string>
-    <string name="ripdpi_hostfake_summary_label_tls_example">TLS 示例</string>
-    <string name="ripdpi_hostfake_summary_scope_http">仅 HTTP Host</string>
-    <string name="ripdpi_hostfake_summary_transport">伪造 TTL %1$d</string>
     <string name="ripdpi_http_host_extra_space_setting">Host 多余空格</string>
     <string name="ripdpi_http_method_space_setting">方法多余空格</string>
     <string name="ripdpi_http_parser_aggressive_none">未选择激进的 EOL 规避方式。</string>
@@ -204,12 +195,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_protocols_category">协议</string>
     <string name="ripdpi_readme_link">RIPDPI 工作原理</string>
     <string name="open_source_licenses">开源许可</string>
-    <string name="ripdpi_seqovl_cli_title">由命令行控制</string>
-    <string name="ripdpi_seqovl_restart_title">重启以重新应用 seqovl</string>
     <string name="ripdpi_seqovl_summary_label_marker">分割标记</string>
-    <string name="ripdpi_seqovl_summary_label_scope">流量范围</string>
-    <string name="ripdpi_seqovl_summary_runtime_fallback">在本设备上回退到 split</string>
-    <string name="ripdpi_seqovl_summary_scope_https">仅 TLS ClientHello</string>
     <string name="ripdpi_tls_prelude_badge_random">尾部 × %1$d</string>
     <string name="ripdpi_tls_prelude_cli_title">由命令行控制</string>
     <string name="ripdpi_tls_prelude_mode_body">选择 HTTPS ClientHello 流量保持不变、在标记处单次分割,还是扇出为随机化的尾部记录。</string>
@@ -403,15 +389,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_tls_summary_mutation_randomize">随机化 Random、Session ID 和 KeyShare</string>
     <string name="ripdpi_fake_tls_summary_sni_fixed">固定主机名:%1$s</string>
     <string name="ripdpi_fake_ttl_setting">伪造包的 TTL</string>
-    <string name="ripdpi_hostfake_available_title">主机名定向可用</string>
-    <string name="ripdpi_hostfake_example_tls">tlsrec extlen
-hostfake endhost host=cdn.discordapp.net</string>
-    <string name="ripdpi_hostfake_ready_title">Hostfake 已配置</string>
-    <string name="ripdpi_hostfake_summary_end_marker_none">使用默认步骤边界</string>
-    <string name="ripdpi_hostfake_summary_label_profile">链配置文件</string>
-    <string name="ripdpi_hostfake_summary_label_transport">伪造传输</string>
-    <string name="ripdpi_hostfake_summary_profile_none">不在当前链中</string>
-    <string name="ripdpi_hostfake_summary_scope_https">仅 TLS SNI</string>
     <string name="ripdpi_hosts_blacklist_setting">主机黑名单</string>
     <string name="ripdpi_http_host_pad_setting">Host Pad 标头</string>
     <string name="ripdpi_http_parser_aggressive_body">RIPDPI 将在 HTTP 流量上应用所选的偏向 Nginx 的 EOL 规避,以及任何安全的解析器调整。</string>
@@ -428,13 +405,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="ripdpi_http_parser_summary_label_safe">安全解析器调整</string>
     <string name="ripdpi_ip_id_mode_title">IPv4 ID 模式</string>
     <string name="ripdpi_protocols_hint">取消选中 HTTP 和 HTTPS，即可在不使用协议过滤器的情况下应用 TCP 绕过策略。UDP 绕过需单独配置。</string>
-    <string name="ripdpi_seqovl_available_body">当设备支持 packet-owned 后端时使用 seqovl。在此之前,已存储的 seqovl 步骤保持可往返,但在运行时回退为 split。</string>
-    <string name="ripdpi_seqovl_ready_body">已保存的绕过策略已包含 seqovl,并将在设置编辑之间保留其标记、重叠大小和伪造模式。</string>
-    <string name="ripdpi_seqovl_scope_note">Seqovl 被硬门控限制在第 1 轮和流字节 0..1500 范围内。在阶段 1 中,不受支持的设备保留配置但发送与 split 相同的流量。</string>
-    <string name="ripdpi_seqovl_summary_label_overlap">重叠字节数</string>
-    <string name="ripdpi_seqovl_summary_marker_none">使用链 DSL 中的步骤标记</string>
-    <string name="ripdpi_seqovl_summary_runtime_supported">packet-owned 后端可用</string>
-    <string name="ripdpi_seqovl_summary_scope_none">未启用匹配的协议</string>
     <string name="ripdpi_split_marker_setting">主分割标记</string>
     <string name="ripdpi_tls_prelude_badge_single">1 次分割</string>
     <string name="ripdpi_tls_prelude_https_disabled_body">已保存 TLS 前置步骤,但在再次启用 HTTPS 绕过策略 之前,RIPDPI 将忽略它。</string>
@@ -540,13 +510,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_strategy_lanes_more">另有 %1$d 个</string>
     <string name="config_strategy_lanes_other_network">其他网络</string>
     <string name="config_strategy_lanes_sites">已打开的网站：%1$d / %2$d</string>
-    <string name="config_placeholder_chain_dsl">[tcp]
-tlsrec extlen
-hostfake endhost+8 midhost=midsld host=googlevideo.com
-split midsld
-
-[udp]
-fake_burst 3</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
     <string name="config_preset_custom_body">用于手动 DNS、代理端点、引擎数值和可选命令行覆盖的配置文件。</string>
@@ -661,14 +624,6 @@ fake_burst 3</string>
     <string name="ripdpi_fake_tls_summary_size_exact">恰好 %1$d 字节</string>
     <string name="ripdpi_fake_tls_summary_sni_randomized">使用与配置的 fake SNI 等长的随机主机名</string>
     <string name="ripdpi_host_mixed_case_setting">Host 大小写混合</string>
-    <string name="ripdpi_hostfake_cli_body">可视化 hostfake 指引保持可见,但启用命令行设置时,活动链来自原始 RIPDPI 参数。</string>
-    <string name="ripdpi_hostfake_protocols_off_body">如果希望 hostfake 针对 Host 或 SNI 字段,请启用 HTTP 或 HTTPS 绕过策略。</string>
-    <string name="ripdpi_hostfake_restart_body">Hostfake 已在设置中配置,但正在运行的 RIPDPI 会话早于此链变更启动。</string>
-    <string name="ripdpi_hostfake_summary_label_end_marker">分段边界</string>
-    <string name="ripdpi_hostfake_summary_label_scope">流量范围</string>
-    <string name="ripdpi_hostfake_summary_midhost_marker">在 %1$s 处切分真实主机</string>
-    <string name="ripdpi_hostfake_summary_profile_single">1 个 hostfake 步骤</string>
-    <string name="ripdpi_hostfake_summary_scope_none">没有匹配的协议被启用</string>
     <string name="ripdpi_hosts_mode_setting">主机</string>
     <string name="ripdpi_http_host_tab_setting">Host 制表符分隔</string>
     <string name="ripdpi_http_parser_aggressive_group_body">激进的偏 Nginx 规避手段。可绕过较弱的 HTTP 解析器,但也可能破坏某些服务器和 CDN。</string>
@@ -684,13 +639,6 @@ fake_burst 3</string>
     <string name="ripdpi_http_parser_summary_label_scope">流量范围</string>
     <string name="ripdpi_max_connections_setting">最大连接数</string>
     <string name="ripdpi_proxy_port_setting">端口</string>
-    <string name="ripdpi_seqovl_available_title">序列重叠可用</string>
-    <string name="ripdpi_seqovl_ready_title">序列重叠已配置</string>
-    <string name="ripdpi_seqovl_summary_fake_mode_profile">配置文件</string>
-    <string name="ripdpi_seqovl_summary_label_profile">链配置文件</string>
-    <string name="ripdpi_seqovl_summary_profile_configured">1 个 seqovl 步骤</string>
-    <string name="ripdpi_seqovl_summary_scope_http_https">HTTP 请求和 TLS ClientHello</string>
-    <string name="ripdpi_seqovl_unsupported_body">此设备未暴露 seqovl 所需的、由数据包拥有的上游 TCP 后端。新的 seqovl 控件保持禁用,已存储的 seqovl 步骤将降级为 split。</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="ripdpi_tls_prelude_badge_stacked">叠加 × %1$d</string>
     <string name="ripdpi_tls_prelude_https_disabled_title">HTTPS 绕过策略 已关闭</string>
@@ -917,7 +865,6 @@ fake_burst 3</string>
     <string name="quic_initial_support_v1_title">支持 QUIC v1</string>
     <string name="ripdpi_default_ttl_setting">默认 TTL</string>
     <string name="ripdpi_drop_sack_setting">丢弃 SACK</string>
-    <string name="ripdpi_md5sig_setting">TCP MD5 签名</string>
     <string name="ripdpi_tlsminor_setting">TLS 记录版本覆盖</string>
     <string name="ripdpi_tlsminor_value_title">TLS 记录次版本号</string>
     <string name="ripdpi_tlsminor_value_body">覆盖真实首个数据包 TLS 记录头中的次版本号字节（0–255）。</string>
@@ -944,14 +891,6 @@ fake_burst 3</string>
     <string name="ripdpi_fake_tls_summary_size_input">与输入 ClientHello 大小一致</string>
     <string name="ripdpi_fake_tls_waiting_body">当您希望 RIPDPI 使用下方配置文件塑造伪 HTTPS ClientHello 数据包时,请添加 fake TCP 步骤。</string>
     <string name="ripdpi_host_remove_spaces_setting">移除 Host 空格</string>
-    <string name="ripdpi_hostfake_cli_title">由命令行控制</string>
-    <string name="ripdpi_hostfake_protocols_off_title">HTTP 和 HTTPS 均已关闭</string>
-    <string name="ripdpi_hostfake_restart_title">重启以应用 hostfake</string>
-    <string name="ripdpi_hostfake_summary_label_http_example">HTTP 示例</string>
-    <string name="ripdpi_hostfake_summary_label_template">主伪主机</string>
-    <string name="ripdpi_hostfake_summary_midhost_whole">将真实主机保留为一个整段</string>
-    <string name="ripdpi_hostfake_summary_scope_http_https">HTTP Host 和 TLS SNI</string>
-    <string name="ripdpi_hostfake_summary_template_random">同长度随机主机名</string>
     <string name="ripdpi_hosts_whitelist_setting">主机白名单</string>
     <string name="ripdpi_http_method_eol_setting">Method EOL 偏移</string>
     <string name="ripdpi_http_parser_aggressive_group_title">激进解析器规避</string>
@@ -967,13 +906,6 @@ fake_burst 3</string>
     <string name="ripdpi_http_unix_eol_setting">Unix 行尾</string>
     <string name="ripdpi_no_domain_setting">无域名</string>
     <string name="ripdpi_proxy">代理</string>
-    <string name="ripdpi_seqovl_cli_body">可视化 seqovl 指引仍在此处显示,但当启用命令行设置时,活动链来自原始 RIPDPI 参数。</string>
-    <string name="ripdpi_seqovl_restart_body">正在运行的 RIPDPI 会话在此链变更之前已启动,因此 seqovl 在 RIPDPI 重连或重启之前不会生效。</string>
-    <string name="ripdpi_seqovl_summary_label_fake_mode">伪模式</string>
-    <string name="ripdpi_seqovl_summary_label_runtime">运行时路径</string>
-    <string name="ripdpi_seqovl_summary_profile_inactive">不在当前链中</string>
-    <string name="ripdpi_seqovl_summary_scope_http">仅 HTTP 请求</string>
-    <string name="ripdpi_seqovl_unsupported_title">序列重叠不可用</string>
     <string name="ripdpi_tls_prelude_badge_https_only">仅 HTTPS</string>
     <string name="ripdpi_tls_prelude_cli_body">启用原始 RIPDPI 参数期间,可视化 TLS 记录分片控制已暂停。下次启动请使用命令行链标志。</string>
     <string name="ripdpi_tls_prelude_marker_unused">TLS 分片关闭时不使用</string>
@@ -1247,9 +1179,6 @@ fake_burst 3</string>
     </plurals>
     <plurals name="udp_fake_profile_scope_live">
         <item quantity="other">用于当前链上的 %1$d 个通用 UDP fake_burst 数据包。</item>
-    </plurals>
-    <plurals name="ripdpi_hostfake_summary_profile_multiple">
-        <item quantity="other">%1$d 个 hostfake 步骤</item>
     </plurals>
     <plurals name="ripdpi_fake_approx_summary_profile_multiple">
         <item quantity="other">%1$d 个 fake 近似步骤</item>

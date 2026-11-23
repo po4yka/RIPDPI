@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_exposure_native_signs_reason">原生检测发现了挂钩、root 或隐藏接口的痕迹。</string>
+    <string name="diagnostics_strategy_emitter_non_root">无 root 实际运行</string>
+    <string name="diagnostics_strategy_emitter_rooted">有 root 实际运行</string>
+    <string name="diagnostics_strategy_realization_rooted">有 root 精确执行</string>
+    <string name="diagnostics_strategy_note_rooted">此路径上的精确发送需要具有 root 权限的运行时能力。</string>
+</resources>
