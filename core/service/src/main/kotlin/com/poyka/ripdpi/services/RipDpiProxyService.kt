@@ -106,9 +106,9 @@ class RipDpiProxyService :
         teardown.awaitPrevious(destroyCleanupJob)
         runCatching {
             activeOwnership.attach {
-                activeOwnership.own { stateInitializer?.close() }
-                activeOwnership.own { coordinator?.onDestroy() }
-                activeOwnership.own { shellDelegate?.close() }
+                activeOwnership.own("proxy_state_initializer") { stateInitializer?.close() }
+                activeOwnership.own("proxy_runtime_coordinator") { coordinator?.onDestroy() }
+                activeOwnership.own("proxy_shell_delegate") { shellDelegate?.close() }
 
                 sessionComponent = sessionComponentBuilderProvider.get().host(this).build()
                 val sessionEntryPoint =
@@ -122,7 +122,7 @@ class RipDpiProxyService :
                     val stateStore = initializer.initialize(Mode.Proxy)
                     val runtimeCoordinator = sessionEntryPoint.coordinator()
                     val ownedPacketBackend = packetBackendRuntime
-                    activeOwnership.own { ownedPacketBackend.stopOnDestroy(Mode.Proxy) }
+                    activeOwnership.own("proxy_packet_backend") { ownedPacketBackend.stopOnDestroy(Mode.Proxy) }
                     sessionStateStore = stateStore
                     coordinator = runtimeCoordinator
                     shellDelegate =
@@ -145,7 +145,7 @@ class RipDpiProxyService :
                         )
                 }.getOrThrow()
                 selectorRuntimeLifecycleListeners.forEach { listener ->
-                    activeOwnership.own { listener.stop(Mode.Proxy) }
+                    activeOwnership.own("proxy_selector_listener") { listener.stop(Mode.Proxy) }
                     listener.start(Mode.Proxy)
                 }
             }

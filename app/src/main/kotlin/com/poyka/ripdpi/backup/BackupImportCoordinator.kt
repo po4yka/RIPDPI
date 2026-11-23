@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.backup
 
+import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.backup.BackupArchiveTooLargeException
 import com.poyka.ripdpi.data.backup.BackupDecryptionException
 import com.poyka.ripdpi.data.backup.BackupEncryption
@@ -60,6 +62,7 @@ internal class BackupImportCoordinator(
         if (currentState().importing || currentState().restoring) return
         updateState { it.copy(importing = true) }
         scope.launch {
+            var phase = "read"
             val outcome =
                 try {
                     val bytes =
@@ -71,6 +74,7 @@ internal class BackupImportCoordinator(
                     } else if (BackupEncryption.isEncrypted(bytes)) {
                         OpenImportOutcome.Encrypted(bytes)
                     } else {
+                        phase = "parse"
                         previewOutcome(decodeUtf8(bytes))
                     }
                 } catch (cancelled: CancellationException) {
@@ -78,7 +82,12 @@ internal class BackupImportCoordinator(
                     throw cancelled
                 } catch (_: BackupArchiveTooLargeException) {
                     OpenImportOutcome.TooLarge
-                } catch (_: Exception) {
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") failure: Exception,
+                ) {
+                    Logger.w(tag = LogTags.DATA) {
+                        "Backup import failed: phase=$phase error=${failure.javaClass.simpleName}"
+                    }
                     OpenImportOutcome.Malformed
                 }
             when (outcome) {
