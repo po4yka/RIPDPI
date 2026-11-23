@@ -2,6 +2,21 @@ use super::state::ProxyTelemetryState;
 
 impl ProxyTelemetryState {
     pub(super) fn emit_event(&self, source: &str, level: &str, message: &str, kind: Option<&str>) {
+        self.emit_event_with_logcat_message(source, level, message, kind, None);
+    }
+
+    pub(super) fn emit_redacted_event(&self, source: &str, level: &str, message: &str, logcat_message: &str) {
+        self.emit_event_with_logcat_message(source, level, message, None, Some(logcat_message));
+    }
+
+    fn emit_event_with_logcat_message(
+        &self,
+        source: &str,
+        level: &str,
+        message: &str,
+        kind: Option<&str>,
+        logcat_message: Option<&str>,
+    ) {
         let log_context = self.log_context.as_ref();
         let runtime_id = log_context.and_then(|context| context.runtime_id.as_deref()).unwrap_or("");
         let mode = log_context.and_then(|context| context.mode.as_deref()).unwrap_or("");
@@ -22,6 +37,7 @@ impl ProxyTelemetryState {
                 policy_signature,
                 fingerprint_hash,
                 diagnostics_session_id,
+                logcat_message,
                 "{message}"
             ),
             "debug" => tracing::debug!(
@@ -35,6 +51,7 @@ impl ProxyTelemetryState {
                 policy_signature,
                 fingerprint_hash,
                 diagnostics_session_id,
+                logcat_message,
                 "{message}"
             ),
             "warn" | "warning" => tracing::warn!(
@@ -48,6 +65,7 @@ impl ProxyTelemetryState {
                 policy_signature,
                 fingerprint_hash,
                 diagnostics_session_id,
+                logcat_message,
                 "{message}"
             ),
             "error" => tracing::error!(
@@ -61,6 +79,7 @@ impl ProxyTelemetryState {
                 policy_signature,
                 fingerprint_hash,
                 diagnostics_session_id,
+                logcat_message,
                 "{message}"
             ),
             _ => tracing::info!(
@@ -74,6 +93,7 @@ impl ProxyTelemetryState {
                 policy_signature,
                 fingerprint_hash,
                 diagnostics_session_id,
+                logcat_message,
                 "{message}"
             ),
         }

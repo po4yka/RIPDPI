@@ -34,7 +34,7 @@ pub(super) fn evict_oldest_pending_listen(
     if let Some((flow_key, handle)) = oldest {
         pending_listens.remove(&flow_key);
         socket_set.remove(handle);
-        debug!("Evicted oldest pending LISTEN socket for flow {} -> {}", flow_key.src, flow_key.dst);
+        debug!("Evicted oldest pending LISTEN socket");
     }
 }
 

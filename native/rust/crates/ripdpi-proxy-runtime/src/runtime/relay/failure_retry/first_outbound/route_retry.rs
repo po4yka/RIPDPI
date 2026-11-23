@@ -79,7 +79,6 @@ pub(super) fn handle_first_write_failure(
         state.discard_evolver_attempt(evolution_attempt);
         tracing::debug!(
             group_index = route.group_index,
-            target = %target,
             "retrying first outbound connect without TCP Fast Open for SynData"
         );
         return reconnect_without_tfo(state, target, route, host, original_request, retry_state);
@@ -112,7 +111,6 @@ pub(super) fn handle_first_response_failure(
         context.state.discard_evolver_attempt(session_state.evolution_attempt.take());
         tracing::debug!(
             group_index = context.route.group_index,
-            target = %context.target,
             "retrying first response path without TCP Fast Open for SynData"
         );
         return reconnect_without_tfo(
