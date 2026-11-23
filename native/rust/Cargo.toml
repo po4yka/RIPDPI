@@ -268,7 +268,7 @@ lru = "0.19"
 maxminddb = "0.33"
 memmap2 = "0.9.12"
 mlua = "0.12"
-nix = { version = "0.31", features = ["net", "ioctl", "fs", "mman", "signal", "process", "uio", "zerocopy"] }
+nix = { version = "0.32", features = ["net", "ioctl", "fs", "mman", "signal", "process", "uio", "zerocopy"] }
 odoh-rs = "=1.0.5"
 once_cell = "1"
 quinn = { version = "0.11", default-features = false, features = ["rustls", "ring", "runtime-tokio"] }
@@ -314,8 +314,8 @@ yamux = "0.14"
 # update cannot silently swap in a vendored-BoringSSL revision that
 # renames or removes any of those symbols. See
 # docs/design/reality-boringssl-patch.md.
-boring = "=5.5.0"
-tokio-boring = "=5.5.0"
+boring = "=5.6.0"
+tokio-boring = "=5.6.0"
 webpki-roots = "1.0"
 flume = "0.12"
 crossbeam-queue = "0.3"

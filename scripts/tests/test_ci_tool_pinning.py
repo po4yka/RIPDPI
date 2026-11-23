@@ -142,7 +142,7 @@ class CiToolPinningTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39",
+            "uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f",
             source,
         )
         self.assertIn("tool: cargo-fuzz@0.13.2", source)
