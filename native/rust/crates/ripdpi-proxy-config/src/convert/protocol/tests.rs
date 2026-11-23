@@ -4,7 +4,7 @@ use ripdpi_packets::IS_UDP;
 use crate::{ProxyUiConfig, ProxyUiUdpChainStep, runtime_config_from_ui};
 
 #[test]
-fn udp_group_preserves_selected_ipv4_id_policy() {
+fn udp_group_applies_edition_ipv4_id_policy() {
     for (name, expected) in [
         ("seq", ripdpi_config::IpIdMode::Seq),
         ("seqgroup", ripdpi_config::IpIdMode::SeqGroup),
@@ -25,7 +25,7 @@ fn udp_group_preserves_selected_ipv4_id_policy() {
         let config = runtime_config_from_ui(ui).expect("valid UDP fragmentation config");
         let group = config.groups.iter().find(|group| group.matches.proto == IS_UDP).expect("UDP group");
 
-        assert_eq!(group.actions.ip_id_mode, Some(expected), "{name}");
+        assert_eq!(group.actions.ip_id_mode, cfg!(feature = "privileged-packets").then_some(expected), "{name}");
     }
 }
 

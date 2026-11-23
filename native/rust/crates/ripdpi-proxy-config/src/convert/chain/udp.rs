@@ -35,10 +35,17 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
     let mut quic_sni_split_budget = MAX_QUIC_SNI_SPLIT_COUNT;
     let mut cid_churn_budget = MAX_FAKE_BURST_COUNT;
     for step in steps {
+        #[cfg(not(feature = "privileged-packets"))]
+        let kind = parse_udp_chain_step_kind(&step.kind)?;
+        #[cfg(not(feature = "privileged-packets"))]
+        if !super::keep_udp_step(kind) {
+            continue;
+        }
         if step.count < 0 {
             return Err(ProxyConfigError::InvalidConfig("udpChainSteps count must be non-negative".to_string()));
         }
 
+        #[cfg(feature = "privileged-packets")]
         let kind = parse_udp_chain_step_kind(&step.kind)?;
         if kind == UdpChainStepKind::QuicSniSplit {
             if step.count > quic_sni_split_budget {

@@ -29,14 +29,27 @@ pub(crate) fn parse_proxy_tcp_chain(
     let mut parsed = Vec::with_capacity(steps.len());
 
     for step in steps {
-        parsed.push(parse_proxy_tcp_chain_step(step, field_name)?);
+        let kind = parse_tcp_chain_step_kind(&step.kind)?;
+        #[cfg(not(feature = "privileged-packets"))]
+        if !super::keep_tcp_step(kind) {
+            continue;
+        }
+        let step = parse_proxy_tcp_chain_step(kind, step, field_name)?;
+        #[cfg(not(feature = "privileged-packets"))]
+        let step = super::with_socket_step_options(step);
+        parsed.push(step);
     }
 
+    #[cfg(not(feature = "privileged-packets"))]
+    super::clear_orphaned_preludes(&mut parsed, steps.len());
     Ok(parsed)
 }
 
-fn parse_proxy_tcp_chain_step(step: &ProxyUiTcpChainStep, field_name: &str) -> Result<TcpChainStep, ProxyConfigError> {
-    let kind = parse_tcp_chain_step_kind(&step.kind)?;
+fn parse_proxy_tcp_chain_step(
+    kind: TcpChainStepKind,
+    step: &ProxyUiTcpChainStep,
+    field_name: &str,
+) -> Result<TcpChainStep, ProxyConfigError> {
     let offset = offsets::parse_step_offset(kind, step, field_name)?;
     let midhost_offset = offsets::parse_midhost_offset(kind, step, field_name)?;
     let fake_host_template = hostfake::parse_fake_host_template(step, field_name)?;

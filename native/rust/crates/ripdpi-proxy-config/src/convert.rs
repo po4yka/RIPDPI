@@ -116,7 +116,15 @@ pub fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<Runtime
         .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid command-line proxy config: {}", err.option)))?;
 
     match parsed {
-        ripdpi_config::ParseResult::Run(config) => Ok(*config),
+        ripdpi_config::ParseResult::Run(config) => {
+            #[cfg(not(feature = "privileged-packets"))]
+            let config = {
+                let mut config = config;
+                config.groups.iter_mut().for_each(chain::normalize_command_line_group);
+                config
+            };
+            Ok(*config)
+        }
         _ => Err(ProxyConfigError::InvalidConfig(
             "Command-line proxy config must resolve to a runnable config".to_string(),
         )),
@@ -172,8 +180,15 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
 
     let (mut primary_group, group_protocol_state) =
         protocol::build_primary_group(groups.len(), &hosts, &protocols, &quic, &parser_evasions)?;
-    chain::apply_chain_section(&mut primary_group, &chains, root_mode)?;
+    chain::apply_chain_section(
+        &mut primary_group,
+        &chains,
+        #[cfg(feature = "privileged-packets")]
+        root_mode,
+    )?;
     fake_packet::apply_fake_packet_section(&mut primary_group, &fake_packets, root_mode)?;
+    #[cfg(not(feature = "privileged-packets"))]
+    chain::normalize_packet_options(&mut primary_group.actions);
     relay::attach_upstream_to_group(&mut primary_group, relay_upstream.as_ref());
 
     let primary_group_snapshot = primary_group.clone();

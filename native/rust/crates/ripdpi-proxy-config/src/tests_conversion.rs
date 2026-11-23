@@ -271,6 +271,7 @@ fn ui_payload_rejects_tcp_state_predicates_on_udp_steps() {
     assert!(err.to_string().contains("chains.udpSteps.activationFilter must not declare TCP-state predicates"));
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_parses_multidisorder_terminal_run() {
     let mut ui = minimal_ui();
@@ -286,6 +287,7 @@ fn ui_payload_parses_multidisorder_terminal_run() {
     assert_eq!(tcp_chain[2].kind(), TcpChainStepKind::MultiDisorder);
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_rejects_singleton_multidisorder_step() {
     let mut ui = minimal_ui();
@@ -296,6 +298,7 @@ fn ui_payload_rejects_singleton_multidisorder_step() {
     assert!(err.to_string().contains("multidisorder must declare at least two markers"));
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_rejects_conflicting_multidisorder_settings() {
     for (flags, unset, delay) in [("cwr", "", 0), ("", "psh", 0), ("", "", 40)] {
@@ -312,6 +315,7 @@ fn ui_payload_rejects_conflicting_multidisorder_settings() {
     }
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_accepts_inherited_or_equivalent_multidisorder_settings() {
     for (flags, unset, delay) in [("", "", 0), ("0", "0", 0), ("0x80", "psh", 17)] {
@@ -330,6 +334,7 @@ fn ui_payload_accepts_inherited_or_equivalent_multidisorder_settings() {
     }
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_rejects_mixed_multidisorder_chain() {
     let mut ui = minimal_ui();
@@ -340,6 +345,7 @@ fn ui_payload_rejects_mixed_multidisorder_chain() {
     assert!(err.to_string().contains("multidisorder must be the only tcp send step family"));
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_parses_ipfrag_steps_and_udp_split_bytes() {
     let mut ui = minimal_ui();
@@ -500,7 +506,10 @@ fn ui_payload_maps_fake_tls_source_and_secondary_profile() {
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
 
     assert_eq!(config.groups[0].actions.fake_tls_source, FakePacketSource::CapturedClientHello);
-    assert_eq!(config.groups[0].actions.fake_tls_secondary_profile, Some(TlsFakeProfile::GoogleChrome));
+    assert_eq!(
+        config.groups[0].actions.fake_tls_secondary_profile,
+        cfg!(feature = "privileged-packets").then_some(TlsFakeProfile::GoogleChrome)
+    );
 }
 
 #[test]
@@ -511,7 +520,7 @@ fn ui_payload_maps_fake_tcp_timestamp_settings() {
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
 
-    assert!(config.groups[0].actions.fake_tcp_timestamp_enabled);
+    assert_eq!(config.groups[0].actions.fake_tcp_timestamp_enabled, cfg!(feature = "privileged-packets"));
     assert_eq!(config.groups[0].actions.fake_tcp_timestamp_delta_ticks, -77);
 }
 
@@ -522,7 +531,10 @@ fn ui_payload_maps_ip_id_mode_seqgroup() {
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
 
-    assert_eq!(config.groups[0].actions.ip_id_mode, Some(ripdpi_config::IpIdMode::SeqGroup));
+    assert_eq!(
+        config.groups[0].actions.ip_id_mode,
+        cfg!(feature = "privileged-packets").then_some(ripdpi_config::IpIdMode::SeqGroup)
+    );
 }
 
 #[test]
@@ -536,19 +548,30 @@ fn ui_payload_rejects_invalid_ip_id_mode() {
 }
 
 #[test]
-fn ui_payload_parses_fake_order_and_seq_mode() {
+fn ui_payload_applies_edition_fake_order_and_flags() {
     let mut ui = minimal_ui();
     let mut step = tcp_step("fakedsplit", "host+1");
     step.fake_order = "2".to_string();
     step.fake_seq_mode = "sequential".to_string();
+    step.tcp_flags_set = "psh".to_string();
     ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), step];
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
     let parsed = &config.groups[0].actions.tcp_chain[1];
 
     assert_eq!(parsed.kind(), TcpChainStepKind::FakeSplit);
-    assert_eq!(parsed.fake_ordering().order, FakeOrder::RealFakeRealFake);
-    assert_eq!(parsed.fake_ordering().seq_mode, FakeSeqMode::Sequential);
+    #[cfg(feature = "privileged-packets")]
+    {
+        assert_eq!(parsed.fake_ordering().order, FakeOrder::RealFakeRealFake);
+        assert_eq!(parsed.fake_ordering().seq_mode, FakeSeqMode::Sequential);
+        assert_eq!(parsed.fake_flag_overrides().set, Some(0x08));
+    }
+    #[cfg(not(feature = "privileged-packets"))]
+    {
+        assert_eq!(parsed.fake_ordering().order, FakeOrder::BeforeEach);
+        assert_eq!(parsed.fake_ordering().seq_mode, FakeSeqMode::Duplicate);
+        assert_eq!(parsed.fake_flag_overrides().set, None);
+    }
 }
 
 #[test]
@@ -577,6 +600,7 @@ fn ui_payload_rejects_invalid_hostfake_template() {
     }
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_rejects_hostfake_non_default_order_without_midhost() {
     let mut ui = minimal_ui();
@@ -608,6 +632,7 @@ fn ui_payload_maps_extended_http_parser_evasions_into_mod_http() {
     );
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_rejects_unknown_ipv6_extension_profile() {
     let mut ui = minimal_ui();
@@ -675,6 +700,7 @@ fn ui_payload_rejects_udp_ipv6_profiles_without_ipfrag2() {
     }
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_preserves_udp_ipfrag2_ipv6_profiles() {
     for (profile, expected) in [
@@ -1107,6 +1133,7 @@ fn empty_fake_offset_marker_uses_compat_default_offset() {
     assert_eq!(config.groups[0].actions.fake_offset, Some(OffsetExpr::absolute(0)));
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_rejects_ipfrag2_mixed_with_other_send_steps() {
     let chains = [
@@ -1126,6 +1153,7 @@ fn ui_payload_rejects_ipfrag2_mixed_with_other_send_steps() {
     }
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_rejects_ipfrag2_udp_with_count() {
     let mut ui = minimal_ui();
@@ -1142,6 +1170,7 @@ fn ui_payload_rejects_ipfrag2_udp_with_count() {
     assert!(err.to_string().contains("must not declare count"));
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_rejects_ipfrag2_udp_without_positive_split_bytes() {
     let mut ui = minimal_ui();
@@ -1253,6 +1282,7 @@ fn ui_payload_limits_total_quic_packet_number_gap_count() {
     }
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_rejects_mixed_ipfrag2_udp_chain() {
     let mut ui = minimal_ui();
@@ -1427,3 +1457,54 @@ fn ui_payload_bounds_quic_version_decoy_counts_and_combined_repeats() {
 
 #[path = "tests_conversion/quic_sni_budget.rs"]
 mod quic_sni_budget;
+
+#[cfg(not(feature = "privileged-packets"))]
+#[test]
+fn legacy_packet_profiles_keep_socket_steps_and_plain_fallback() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("multidisorder", "host+1")];
+    let mut split = tcp_step("split", "host+3");
+    split.tcp_flags_orig_set = "psh".to_owned();
+    ui.chains.tcp_rotation = Some(ProxyUiTcpRotationConfig {
+        candidates: vec![ProxyUiTcpRotationCandidate { tcp_steps: vec![tcp_step("ipfrag2", "host+2"), split] }],
+        ..ProxyUiTcpRotationConfig::default()
+    });
+    ui.chains.udp_steps = vec![
+        ProxyUiUdpChainStep {
+            kind: "ipfrag2_udp".to_owned(),
+            count: 0,
+            split_bytes: 8,
+            activation_filter: None,
+            ipv6_extension_profile: "none".to_owned(),
+        },
+        ProxyUiUdpChainStep {
+            kind: "fake_burst".to_owned(),
+            count: 1,
+            split_bytes: 0,
+            activation_filter: None,
+            ipv6_extension_profile: "none".to_owned(),
+        },
+    ];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("convert saved profile");
+    let actions = &config.groups[0].actions;
+    assert!(actions.tcp_chain.is_empty(), "use plain TCP when no send step remains");
+    let rotation = actions.rotation_policy.as_ref().expect("keep the remaining rotation");
+    assert_eq!(rotation.candidates[0].tcp_chain.len(), 1);
+    assert_eq!(rotation.candidates[0].tcp_chain[0].kind(), TcpChainStepKind::Split);
+    assert_eq!(rotation.candidates[0].tcp_chain[0].offset().delta, 3);
+    assert_eq!(rotation.candidates[0].tcp_chain[0].original_flag_overrides().set, None);
+    assert_eq!(actions.udp_chain.len(), 1);
+    assert_eq!(actions.udp_chain[0].kind, UdpChainStepKind::FakeBurst);
+}
+
+#[test]
+fn legacy_packet_profiles_cli_keeps_split_and_applies_edition_policy() {
+    let args = ["ripdpi", "--md5sig", "--split", "2"].map(String::from).to_vec();
+    let config = runtime_config_from_command_line(args).expect("convert saved proxy arguments");
+    let actions = &config.groups[0].actions;
+    assert_eq!(actions.md5sig, cfg!(feature = "privileged-packets"));
+    assert_eq!(actions.tcp_chain.len(), 1);
+    assert_eq!(actions.tcp_chain[0].kind(), TcpChainStepKind::Split);
+    assert_eq!(actions.tcp_chain[0].offset().delta, 2);
+}
