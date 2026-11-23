@@ -138,11 +138,12 @@ internal class DefaultConnectionPolicyResolver
             val resolved = resolution.copy(localNetworkDependent = localNetworkDependent)
             if (forPreflight) return resolved
             val deferred = currentCoroutineContext()[DeferredPacketBackend]
-            if (deferred != null) {
+            return if (deferred == null) {
+                applyPacketBackend(mode, resolved)
+            } else {
                 deferred.prepare = { applyPacketBackend(mode, it) }
-                return resolved
+                resolved
             }
-            return applyPacketBackend(mode, resolved)
         }
 
         private suspend fun applyPacketBackend(

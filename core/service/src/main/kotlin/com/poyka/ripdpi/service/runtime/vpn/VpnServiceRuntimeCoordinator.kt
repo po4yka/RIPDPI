@@ -598,9 +598,7 @@ internal class VpnServiceRuntimeCoordinator(
         withContext(NonCancellable) {
             runCatching { stop() }
                 .onFailure { cleanupFailure ->
-                    log.e(cleanupFailure) {
-                        "Failed to terminate transport replacement request=$requestId"
-                    }
+                    log.e(cleanupFailure) { "Failed to terminate transport replacement request=$requestId" }
                 }
             val cleanupCompleted = runtimeSession == null && runtimeCompositionCoordinator.isStopped
             if (!cleanupCompleted) {
