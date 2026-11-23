@@ -567,7 +567,12 @@ class DiagnosticsRuntimeCoordinatorTest {
                 DefaultDiagnosticsRuntimeCoordinator(
                     runtimeControlPlane =
                         DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore)),
-                    runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
+                    runtimeModeProjectionStore =
+                        RuntimeModeProjectionStore(
+                            stateStore,
+                            settings,
+                            LocalPacketBackendRuntime,
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository = settings,
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
@@ -681,7 +686,12 @@ class DiagnosticsRuntimeCoordinatorSettlementTest {
                 DefaultDiagnosticsRuntimeCoordinator(
                     runtimeControlPlane =
                         DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore)),
-                    runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
+                    runtimeModeProjectionStore =
+                        RuntimeModeProjectionStore(
+                            stateStore,
+                            settings,
+                            LocalPacketBackendRuntime,
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository = settings,
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
@@ -728,7 +738,12 @@ class DiagnosticsRuntimeCoordinatorSettlementTest {
                 DefaultDiagnosticsRuntimeCoordinator(
                     runtimeControlPlane =
                         DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore)),
-                    runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
+                    runtimeModeProjectionStore =
+                        RuntimeModeProjectionStore(
+                            stateStore,
+                            settings,
+                            LocalPacketBackendRuntime,
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository = settings,
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
@@ -780,7 +795,12 @@ class DiagnosticsRuntimeCoordinatorSettlementTest {
                 DefaultDiagnosticsRuntimeCoordinator(
                     runtimeControlPlane =
                         DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore)),
-                    runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
+                    runtimeModeProjectionStore =
+                        RuntimeModeProjectionStore(
+                            stateStore,
+                            settings,
+                            LocalPacketBackendRuntime,
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository = settings,
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
@@ -1044,7 +1064,12 @@ class DiagnosticsRuntimeCoordinatorIntentRaceTest {
                 DefaultDiagnosticsRuntimeCoordinator(
                     runtimeControlPlane =
                         DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore)),
-                    runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
+                    runtimeModeProjectionStore =
+                        RuntimeModeProjectionStore(
+                            stateStore,
+                            settings,
+                            LocalPacketBackendRuntime,
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository = settings,
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
@@ -1237,7 +1262,12 @@ class DiagnosticsRuntimeCoordinatorIntentRaceTest {
                 DefaultDiagnosticsRuntimeCoordinator(
                     runtimeControlPlane =
                         DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore)),
-                    runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
+                    runtimeModeProjectionStore =
+                        RuntimeModeProjectionStore(
+                            stateStore,
+                            settings,
+                            LocalPacketBackendRuntime,
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository = settings,
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
@@ -1277,7 +1307,7 @@ private fun buildCoordinator(
     DefaultDiagnosticsRuntimeCoordinator(
         runtimeControlPlane =
             DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore)),
-        runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
+        runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings, LocalPacketBackendRuntime),
         serviceStateStore = stateStore,
         appSettingsRepository = settings,
         runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,

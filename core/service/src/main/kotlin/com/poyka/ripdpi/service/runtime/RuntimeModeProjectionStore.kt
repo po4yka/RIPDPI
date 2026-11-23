@@ -4,7 +4,6 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.services.LocalPacketBackendRuntime
 import com.poyka.ripdpi.services.PacketBackendRuntime
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,7 +48,7 @@ internal class RuntimeModeProjectionStore
     constructor(
         private val serviceStateStore: ServiceStateStore,
         private val appSettingsRepository: AppSettingsRepository,
-        private val packetBackendRuntime: PacketBackendRuntime = LocalPacketBackendRuntime,
+        private val packetBackendRuntime: PacketBackendRuntime,
     ) {
         private val diagnosticsScanActive = MutableStateFlow<Boolean?>(null)
 

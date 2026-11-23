@@ -39,6 +39,7 @@ class RuntimeModeProjectionStoreTest {
                 RuntimeModeProjectionStore(
                     FakeServiceStateStore(AppStatus.Halted to Mode.Proxy),
                     FakeAppSettingsRepository(),
+                    LocalPacketBackendRuntime,
                 )
 
             val projection = store.projection.first()
@@ -58,6 +59,7 @@ class RuntimeModeProjectionStoreTest {
                 RuntimeModeProjectionStore(
                     FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     settings,
+                    LocalPacketBackendRuntime,
                 )
 
             assertEquals(PacketBackendState.Disabled, store.projection.first().packetBackend)
@@ -81,7 +83,7 @@ class RuntimeModeProjectionStoreTest {
     fun `relay layer follows relay telemetry production`() =
         runTest {
             val stateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
-            val store = RuntimeModeProjectionStore(stateStore, FakeAppSettingsRepository())
+            val store = RuntimeModeProjectionStore(stateStore, FakeAppSettingsRepository(), LocalPacketBackendRuntime)
 
             assertEquals(RuntimeLayerState.Inactive, store.projection.first().relay)
 
@@ -101,6 +103,7 @@ class RuntimeModeProjectionStoreTest {
                 RuntimeModeProjectionStore(
                     FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
                     FakeAppSettingsRepository(),
+                    LocalPacketBackendRuntime,
                 )
 
             store.markDiagnosticsScanActive(true)
