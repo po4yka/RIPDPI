@@ -68,6 +68,7 @@ class RipDpiApp :
         )
         super.onCreate()
         BackupShareTempFileOwner().pruneExpired(cacheDir)
+        Logger.setTag("ripdpi")
         Logger.setLogWriters(platformLogWriter(), fileLogWriter, breadcrumbWriter)
         Logger.setMinSeverity(if (BuildConfig.DEBUG) Severity.Verbose else Severity.Warn)
         startupInitializer.initialize()
