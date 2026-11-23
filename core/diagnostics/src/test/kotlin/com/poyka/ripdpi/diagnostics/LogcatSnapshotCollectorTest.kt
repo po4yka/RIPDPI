@@ -3,7 +3,6 @@ package com.poyka.ripdpi.diagnostics
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -82,7 +81,10 @@ class LogcatSnapshotCollectorTest {
                     override suspend fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput = throw failure
                 }
 
-            assertSame(failure, runCatching { collector.capture() }.exceptionOrNull())
+            val capturedFailure = runCatching { collector.capture() }.exceptionOrNull()
+
+            assertEquals(IOException::class.java, capturedFailure?.javaClass)
+            assertEquals("logcat unavailable", capturedFailure?.message)
         }
 
     @Test
