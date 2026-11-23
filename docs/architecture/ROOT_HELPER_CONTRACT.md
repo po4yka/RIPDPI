@@ -14,7 +14,7 @@ Companion docs: [`ARCHITECTURE.md`](ARCHITECTURE.md),
 ## Invariant — the non-root baseline
 
 > **RIPDPI must fully function on non-rooted devices.** The root helper and
-> every privileged operation are **opt-in behind the `root_mode_enabled`
+> every privileged operation are **opt-in behind the `root_mode_authorized`
 > setting** (`AppSettings` proto field 135) and **must degrade gracefully**
 > when root is absent or the helper fails to start. A privileged code path
 > with no non-root fallback — a local non-privileged path, a clean error, or
@@ -29,7 +29,7 @@ runtime *may* select when capability probing confirms they work.
 
 `ripdpi-root-helper` is a **standalone privileged ELF binary** — not a `.so`,
 not JNI. On rooted devices (Magisk / KernelSU / APatch), when
-`root_mode_enabled` is set, `RootHelperManager.kt` extracts the binary from APK
+`root_mode_authorized` is set, `RootHelperManager.kt` extracts the binary from APK
 assets, launches it via `su`, and the native runtime talks to it over a
 Unix-domain socket. It runs as uid 0 and exists only to perform raw-socket /
 `TCP_REPAIR` / IP-fragmentation operations an unprivileged Android process
@@ -180,13 +180,13 @@ The helper refuses a `send_raw_ip_packet` packet whose IP header does not match
 the buffer or the target, or whose source and destination both are not
 addresses of this host.
 
-`start_nfqws2` runs the nfqws2 binary from the app's private files directory
-as uid 0. The helper checks that the binary and the working directory are
-inside that directory and owned by the app uid, that the binary is not group-
-or other-writable, and that every file argument resolves inside that
-directory. It does not check a digest of the binary or of the Lua scripts. So any code that runs as the app uid and holds the session nonce can
-make the helper run a binary of its choice as root. This is an open risk of the
-explicit nfqws2 root mode.
+The helper verifies the backend executable and the requested bundled Lua files
+against SHA-256 digests built into the helper for that ABI. It starts the executable
+from an unnamed, root-owned file after closing its writer. The child gets verified
+Lua content directly. Custom scripts and runtime Lua loaders are disabled.
+The backend drops to the app UID before it runs the scripts.
+
+This check starts after the root-helper process is running.
 
 ### Descriptor-driven request validation
 
@@ -301,7 +301,7 @@ TCP fixture checks this timing code; Android Unix-socket and root acceptance
 remain separate checks.
 
 **Lifecycle binding:** `syncRootMode` is driven from connection-policy
-resolution, so the helper is reconciled with the live `root_mode_enabled`
+resolution, so the helper is reconciled with the live `root_mode_authorized`
 setting on every policy change. The helper is **not** a long-lived daemon
 across the setting being toggled off.
 

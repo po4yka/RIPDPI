@@ -82,6 +82,11 @@ abstract class BuildRustNativeLibsTask
         @get:PathSensitive(PathSensitivity.NONE)
         abstract val instrumentedDiagnosticsRoot: RegularFileProperty
 
+        @get:InputDirectory
+        @get:Optional
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val trustedNfqws2Assets: DirectoryProperty
+
         @get:Input
         abstract val cargoProfile: Property<String>
 
@@ -182,6 +187,7 @@ abstract class BuildRustNativeLibsTask
             debugSymbolsRoot?.let(::pruneStaleAbiOutputs)
 
             // Validate all ABIs upfront before spawning parallel builds.
+            val nfqws2Assets = trustedNfqws2Assets.orNull?.asFile
             val abiConfigs =
                 abiList.map { abi ->
                     val target = abiToRustTarget(abi)
@@ -205,7 +211,8 @@ abstract class BuildRustNativeLibsTask
                         throw GradleException("Android archiver not found: ${ar.absolutePath}")
                     }
 
-                    AbiConfig(abi, target, linker, cxx, ar)
+                    val nfqws2Trust = nfqws2Assets?.let { nfqws2TrustManifest(it, abi) }.orEmpty()
+                    AbiConfig(abi, target, linker, cxx, ar, nfqws2Trust)
                 }
 
             // Build all ABIs in parallel (each ABI has its own CARGO_TARGET_DIR).
@@ -265,6 +272,29 @@ abstract class BuildRustNativeLibsTask
                 }
             } finally {
                 executor.shutdown()
+            }
+        }
+
+        private fun nfqws2TrustManifest(
+            directory: File,
+            abi: String,
+        ): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+
+            fun sha256(file: File): String = HexFormat.of().formatHex(digest.digest(file.readBytes()))
+
+            val scripts =
+                directory
+                    .resolve("zapret2/lua")
+                    .listFiles()
+                    .orEmpty()
+                    .filter { it.extension == "lua" }
+            require(scripts.isNotEmpty()) { "No shipped nfqws2 Lua scripts found" }
+            return buildString {
+                appendLine(sha256(directory.resolve("bin/$abi/nfqws2")))
+                for (script in scripts.sortedBy { it.name }) {
+                    appendLine("lua/${script.name}=${sha256(script)}")
+                }
             }
         }
 
@@ -396,6 +426,8 @@ abstract class BuildRustNativeLibsTask
                     instrumentedDiagnosticsRoot.orNull?.asFile?.let { certificate ->
                         put("RIPDPI_INSTRUMENTED_DIAGNOSTICS_ROOT_DER", certificate.absolutePath)
                     }
+                    // A helper only trusts the asset bytes produced by its own Gradle build.
+                    put("RIPDPI_NFQWS2_TRUST", config.nfqws2Trust)
                     // The cmake crate (used by boring-sys) reads CMAKE to select the cmake
                     // binary.  The Android SDK cmake lacks macOS platform defaults, preventing
                     // `-isysroot MacOSX.sdk` from being injected when cross-compiling for Android.
@@ -509,6 +541,7 @@ abstract class BuildRustNativeLibsTask
             val linker: File,
             val cxx: File,
             val ar: File,
+            val nfqws2Trust: String,
         )
 
         private fun resolveNdkToolchainBinDir(): File {
@@ -599,7 +632,9 @@ abstract class BuildRustNativeLibsTask
 
             pruneStaleAbiOutputs(outputRoot)
 
+            val nfqws2Assets = trustedNfqws2Assets.orNull?.asFile
             for (abi in abis.get()) {
+                val nfqws2Trust = nfqws2Assets?.let { nfqws2TrustManifest(it, abi) }
                 val abiOutputDir = outputRoot.resolve(abi).also { it.mkdirs() }
                 if (pruneUnknownArtifacts.get()) {
                     pruneStaleArtifactOutputs(abiOutputDir, expectedNames)
@@ -609,6 +644,11 @@ abstract class BuildRustNativeLibsTask
                     if (!source.isFile) {
                         throw GradleException(
                             "Prebuilt artifact missing: ${source.absolutePath}",
+                        )
+                    }
+                    if (nfqws2Trust != null && !source.readText(Charsets.ISO_8859_1).contains(nfqws2Trust)) {
+                        throw GradleException(
+                            "Prebuilt nfqws2 trust manifest does not match the packaged assets for $abi",
                         )
                     }
                     copyIfChanged(source, abiOutputDir.resolve(artifact.outputName))
@@ -1859,6 +1899,7 @@ val buildRustRootHelper =
         cpuBudget.set(rustNativeCpuBudget)
         forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
         artifactSpecs.set(rustRootHelperArtifactSpecs)
+        trustedNfqws2Assets.set(buildNfqws2.flatMap { it.outputDir })
         stripReleaseOutputs.set(true)
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(rustNativeLibsBuildDir)

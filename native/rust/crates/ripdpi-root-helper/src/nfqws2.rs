@@ -12,6 +12,7 @@ use nix::unistd::Pid;
 use ripdpi_root_helper_protocol::{Nfqws2Status, StartNfqws2Params};
 
 mod stale;
+mod trusted_assets;
 
 const QUEUE: u16 = 49379;
 const BYPASS_MARK: &str = "0x40000000/0x40000000";
@@ -97,6 +98,18 @@ impl Nfqws2Backend {
         if self.active.as_ref().is_some_and(|active| active.child.is_some() && active.config == config) {
             return self.status();
         }
+        let prepared = trusted_assets::TrustedAssets::shipped().and_then(|assets| {
+            let args = assets.prepare_args(&config.args, &config.directory)?;
+            Ok((assets.executable(&config.binary, &self.files_dir, 0)?, args))
+        });
+        let (executable, args) = match prepared {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                let mut status = self.status();
+                status.capability_error = Some(error.to_string());
+                return status;
+            }
+        };
         self.stop();
         if self.active.is_some() {
             return self.status();
@@ -109,8 +122,8 @@ impl Nfqws2Backend {
         let pidfile = config.directory.join(format!(".nfqws2-{}.pid", std::process::id()));
         let result = (|| {
             remove_pidfile(&pidfile)?;
-            let mut command = Command::new(&config.binary);
-            command.current_dir(&config.directory).args(&config.args).args([
+            let mut command = executable.command();
+            command.current_dir(&config.directory).args(args).args([
                 format!("--uid={}", self.uid),
                 format!("--qnum={QUEUE}"),
                 "--fwmark=0x40000000".to_owned(),
@@ -118,7 +131,7 @@ impl Nfqws2Backend {
                 "--intercept=1".to_owned(),
                 "--debug=0".to_owned(),
             ]);
-            command.env_remove("RIPDPI_PROTECT_PATH");
+            command.env_clear();
             if let Some(path) = &config.protect_path {
                 command.env("RIPDPI_PROTECT_PATH", path);
             }
@@ -374,9 +387,8 @@ fn validate_args(args: &[String], base: &Path, directory: &Path) -> io::Result<(
             "hostlist" | "hostlist-exclude" | "hostlist-auto" | "ipset" | "ipset-exclude" => {
                 validate_file_arg(value, base, directory)?;
             }
-            "lua-init" if value.starts_with('@') => {
-                validate_file_arg(&value[1..], base, directory)?;
-                validate_file_arg(&format!("{}.gz", &value[1..]), base, directory)?;
+            "lua-init" if !value.starts_with("@lua/") => {
+                return Err(invalid("nfqws2 only loads shipped Lua scripts"));
             }
             "blob" => {
                 if let Some(file) = blob_file(value) {
@@ -988,6 +1000,48 @@ mod tests {
         }
     }
 
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn rejected_replacement_reports_an_error_even_while_old_backend_is_running() {
+        use std::os::unix::fs::PermissionsExt;
+
+        use ripdpi_root_helper_protocol::{CMD_START_NFQWS2, HelperRequest, PROTOCOL_VERSION};
+
+        let owner_pid = std::process::id();
+        let directory = std::env::temp_dir().join(format!("nfqws2-rejected-replacement-{owner_pid}"));
+        fs::create_dir_all(&directory).expect("create private directory");
+        let directory = directory.canonicalize().expect("private directory");
+        let binary = directory.join("backend");
+        fs::write(&binary, "untrusted bytes").expect("write replacement backend");
+        fs::set_permissions(&binary, fs::Permissions::from_mode(0o700)).expect("executable bit");
+
+        let mut backend = backend_with_child(sleeping_child());
+        backend.files_dir = directory.clone();
+        backend.uid = fs::metadata(&directory).expect("owner metadata").uid();
+        let active = backend.active.as_mut().expect("running backend");
+        active.config.owner_pid = owner_pid;
+        active.config.owner_start = owner_identity(owner_pid, backend.uid).expect("owner identity");
+
+        let request = HelperRequest {
+            protocol_version: Some(PROTOCOL_VERSION),
+            command: CMD_START_NFQWS2.to_owned(),
+            session_nonce: None,
+            params: serde_json::json!({
+                "binary_path": binary,
+                "working_directory": directory,
+                "args": ["--lua-init=return true"],
+                "owner_pid": owner_pid,
+            }),
+        };
+        let response = crate::dispatch::dispatch_command_with_backend(&request, None, Some(&mut backend)).response;
+
+        backend.stop();
+        fs::remove_dir_all(directory).expect("remove private directory");
+        assert!(!response.ok, "rejected configuration was acknowledged");
+        assert_eq!(response.error.as_deref(), Some("nfqws2 only loads shipped Lua scripts"));
+        assert_eq!(response.data["running"], true, "the old backend still owns its process");
+    }
+
     #[test]
     fn stop_and_owner_death_reap_actual_owned_children_within_deadline() {
         for explicit_stop in [true, false] {
@@ -1096,43 +1150,13 @@ mod tests {
     fn private_files_reject_traversal_absolute_escape_and_symlink_escape() {
         let dir = std::env::temp_dir().join(format!("nfqws2-path-test-{}", std::process::id()));
         fs::create_dir_all(dir.join("work")).expect("test dir");
-        fs::write(dir.join("work/test.lua"), "return true").expect("script");
         std::os::unix::fs::symlink(std::env::temp_dir(), dir.join("work/outside")).expect("symlink");
         let base = fs::canonicalize(&dir).expect("base");
         let work = base.join("work");
-        validate_args(&["--lua-init=@test.lua".to_owned()], &base, &work).expect("private script");
         validate_args(&["--hostlist-auto=new.txt".to_owned()], &base, &work).expect("new private hostlist");
         for file in ["/etc/passwd", "../../outside.txt", "outside/new.txt"] {
-            assert!(validate_args(&[format!("--lua-init=@{file}")], &base, &work).is_err());
+            assert!(validate_args(&[format!("--hostlist={file}")], &base, &work).is_err());
         }
-        fs::remove_dir_all(dir).expect("remove test dir");
-    }
-
-    #[test]
-    fn lua_fallback_checks_compressed_and_dangling_paths() {
-        let dir = std::env::temp_dir().join(format!("nfqws2-compressed-test-{}", std::process::id()));
-        fs::create_dir_all(dir.join("private/work")).expect("test dir");
-        fs::write(dir.join("outside.lua"), "return true").expect("outside script");
-        let base = fs::canonicalize(dir.join("private")).expect("base");
-        let work = base.join("work");
-        let args = ["--lua-init=@script.lua".to_owned()];
-
-        fs::write(work.join("script.lua.gz"), "return true").expect("compressed-only script");
-        validate_args(&args, &base, &work).expect("private compressed fallback");
-        fs::remove_file(work.join("script.lua.gz")).expect("remove compressed script");
-        std::os::unix::fs::symlink(dir.join("outside.lua"), work.join("script.lua.gz")).expect("outside symlink");
-        assert!(validate_args(&args, &base, &work).is_err(), "compressed fallback escaped");
-        fs::write(work.join("script.lua"), "return true").expect("plain script");
-        assert!(validate_args(&args, &base, &work).is_err(), "plain file hid unsafe fallback");
-
-        fs::remove_file(work.join("script.lua.gz")).expect("remove outside symlink");
-        std::os::unix::fs::symlink(work.join("missing.lua"), work.join("script.lua.gz")).expect("dangling fallback");
-        assert!(validate_args(&args, &base, &work).is_err(), "dangling fallback accepted");
-        fs::remove_file(work.join("script.lua.gz")).expect("remove dangling fallback");
-        validate_args(&args, &base, &work).expect("plain script without compressed fallback");
-        fs::remove_file(work.join("script.lua")).expect("remove plain script");
-        std::os::unix::fs::symlink(work.join("missing.lua"), work.join("script.lua")).expect("dangling plain script");
-        assert!(validate_args(&args, &base, &work).is_err(), "dangling plain script accepted");
         fs::remove_dir_all(dir).expect("remove test dir");
     }
 
