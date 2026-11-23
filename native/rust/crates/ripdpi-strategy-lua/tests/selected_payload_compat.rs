@@ -33,6 +33,15 @@ fn engine() -> LuaStrategyEngine {
     engine
 }
 
+fn play_engine() -> LuaStrategyEngine {
+    let engine = LuaStrategyEngine::new().unwrap();
+    let assets = golden_test_support::repo_root().join("app/src/play/assets/lua");
+    for name in ["zapret-lib.lua", "zapret-antidpi.lua"] {
+        engine.load_script_registering_globals(assets.join(name)).unwrap();
+    }
+    engine
+}
+
 fn plan(
     engine: &LuaStrategyEngine,
     function: &str,
@@ -399,5 +408,45 @@ fn measured_mss_controls_lua_and_bundled_tcpseg() {
         assert_eq!(bytes(&result), payload);
         assert!(result.actions.iter().all(|action| matches!(action,
             DesyncAction::Write(bytes) if !bytes.is_empty() && bytes.len() <= usize::from(mss))));
+    }
+}
+
+#[test]
+fn play_bundle_preserves_socket_strategies_and_rejects_packet_operations() {
+    let engine = play_engine();
+    let functions = engine.list_registered_functions().unwrap();
+    for unavailable in ["send", "synack_split", "fake", "rst", "multidisorder", "ipfrag2"] {
+        assert!(!functions.iter().any(|name| name == unavailable), "{unavailable}");
+    }
+
+    let http = http_dissect();
+    let result = plan(&engine, "http_hostcase", HTTP, &http, FlowDirection::Outbound, 1).unwrap();
+    assert_eq!(bytes(&result), b"GET / HTTP/1.1\r\nhost: example.com\r\nUser-Agent: abcdef\r\n\r\n");
+    let result = plan(&engine, "drop", HTTP, &http, FlowDirection::Outbound, 2).unwrap();
+    assert_eq!(result.verdict, StrategyVerdict::Drop);
+    assert!(result.actions.is_empty());
+
+    engine
+        .load_bytes_registering_globals(
+            "wrappers",
+            br#"
+        function whole(ctx,d) d.arg.pos='0,-1'; tcpseg(ctx,d); return VERDICT_DROP end
+        function partial(ctx,d) d.arg.pos='1,-1'; tcpseg(ctx,d); return VERDICT_DROP end
+        function overlap(ctx,d) d.arg.seqovl='1'; return multisplit(ctx,d) end
+        function header(ctx,d) d.arg.ip_ttl='3'; return multisplit(ctx,d) end
+    "#,
+        )
+        .unwrap();
+    let dissect = Dissect { tcp_mss: Some(3), ..http };
+    for (function, expected) in [
+        ("multisplit", [b"ab".to_vec(), b"cde".to_vec(), b"fgh".to_vec()]),
+        ("whole", [b"abc".to_vec(), b"def".to_vec(), b"gh".to_vec()]),
+    ] {
+        let result = plan(&engine, function, b"abcdefgh", &dissect, FlowDirection::Outbound, 3).unwrap();
+        assert_eq!(result.verdict, StrategyVerdict::Apply);
+        assert_eq!(result.actions, expected.map(DesyncAction::Write), "{function}");
+    }
+    for unsupported in ["partial", "overlap", "header"] {
+        assert!(plan(&engine, unsupported, b"abcdefgh", &dissect, FlowDirection::Outbound, 4).is_err());
     }
 }

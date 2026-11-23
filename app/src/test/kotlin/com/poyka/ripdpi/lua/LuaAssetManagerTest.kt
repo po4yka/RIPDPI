@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.lua
 
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.services.lua.LuaAssetManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -32,8 +33,9 @@ class LuaAssetManagerTest {
 
     @Test
     fun currentManifestVersionReturnsBundledManifestVersion() {
+        val upstreamVersion = "zapret2-fd4716da5426550a3354b1b179f3dda446811a13"
         assertEquals(
-            "zapret2-fd4716da5426550a3354b1b179f3dda446811a13",
+            if (BuildConfig.FLAVOR == "play") "$upstreamVersion-play1" else upstreamVersion,
             LuaAssetManager.currentManifestVersion(context),
         )
     }
@@ -42,6 +44,7 @@ class LuaAssetManagerTest {
     fun extractIfOutdatedBacksUpUserModifiedScriptsBeforeOverwrite() {
         val luaDir = LuaAssetManager.ensureExtracted(context).toFile()
         val script = File(luaDir, "zapret-antidpi.lua")
+        val bundledScript = script.readText()
         script.writeText("-- user modified")
         File(luaDir, "lua-manifest.json")
             .writeText(
@@ -59,6 +62,6 @@ class LuaAssetManagerTest {
         val backup = File(luaDir, "zapret-antidpi.lua.user.bak")
         assertTrue(backup.isFile)
         assertEquals("-- user modified", backup.readText())
-        assertTrue(script.readText().contains("NFQWS2 ANTIDPI LIBRARY"))
+        assertEquals(bundledScript, script.readText())
     }
 }

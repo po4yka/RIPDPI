@@ -1182,7 +1182,7 @@ mod enabled {
         let dis = create_dis_table(lua, ctx, udp)?;
         desync.set("dis", dis.clone()).map_err(to_call)?;
         desync.set("caps", create_caps_table(lua, ctx)?).map_err(|error| LuaError::Call(error.to_string()))?;
-        install_zapret_call_globals(lua, ctx, Arc::clone(&call_plan), socket_tcp, &dis, &arg)?;
+        install_zapret_call_globals(lua, ctx, Arc::clone(&call_plan), socket_tcp, &desync, &dis, &arg)?;
         attach_action_functions(lua, &desync, ctx, call_plan)?;
         Ok(desync)
     }
@@ -1226,6 +1226,7 @@ mod enabled {
         ctx: &StrategyContext<'_>,
         call_plan: Arc<Mutex<LuaCallPlan>>,
         socket_tcp: Option<bool>,
+        desync: &Table,
         dis: &Table,
         arg: &Table,
     ) -> Result<(), LuaError> {
@@ -1271,6 +1272,10 @@ mod enabled {
                 Ok(true)
             })
             .map_err(to_call)?;
+        if socket_tcp == Some(true) {
+            // The socket finalizer requires exact, contiguous coverage of the original payload.
+            desync.set("write_segment", rawsend_dissect.clone()).map_err(to_call)?;
+        }
         lua.globals().set("rawsend_dissect", rawsend_dissect).map_err(to_call)?;
 
         positions::install(lua, &ctx.dissect.markers, ctx.payload, payload_name(&ctx.dissect.proto, ctx.payload))
