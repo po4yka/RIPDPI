@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core
 
+import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -122,18 +124,21 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
     }
 
     override fun start(jsonConfig: String): Int {
-        // Never log jsonConfig — it carries UUIDs / REALITY private keys.
+        // The config and native errors can carry credentials.
+        var phase = "configure"
         return try {
             check(protectController.get() != null) { "Xray protection is not registered" }
             inbound = XrayBridgeConfig.parse(jsonConfig)
             // Relay endpoints are resolved by the service's eligible-underlay callback.
             // Any remaining Go system lookup is denied before socket I/O, without plaintext fallback.
+            phase = "init_dns"
             ffi.initDns(
                 object : libXray.DialerController {
                     override fun protectFd(fd: Long): Boolean = false
                 },
                 "127.0.0.1:53",
             )
+            phase = "configure"
             val config = JSON.parseToJsonElement(jsonConfig).jsonObject.toMutableMap()
             val environment =
                 when (val current = config["env"]) {
@@ -143,10 +148,21 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
                 }
             environment["xray.location.asset"] = JsonPrimitive(datDir)
             config["env"] = JsonObject(environment)
+            phase = "run_xray"
             val response = invoke("runXray", buildJsonObject { put("xrayJson", JsonObject(config).toString()) })
-            if (response?.success == true) START_OK else START_REJECTED
-        } catch (_: Exception) {
-            // A native/API failure rejects activation without exposing configuration data.
+            if (response?.success == true) {
+                START_OK
+            } else {
+                val outcome = if (response == null) "invalid_response" else "native_rejected"
+                Logger.e(tag = LogTags.ENGINE) { "Xray linked start failed: phase=$phase outcome=$outcome" }
+                START_REJECTED
+            }
+        } catch (
+            @Suppress("TooGenericExceptionCaught") failure: Exception,
+        ) {
+            Logger.e(tag = LogTags.ENGINE) {
+                "Xray linked start failed: phase=$phase error=${failure.javaClass.simpleName}"
+            }
             START_REJECTED
         }
     }

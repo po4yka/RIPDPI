@@ -169,10 +169,14 @@ class RipDpiVpnService :
             activeOwnership.attach {
                 // Drop a revoke recorded by an earlier attach that failed before its delegate existed.
                 shellDelegate.discardPendingRevoke()
-                activeOwnership.own { if (::underlyingNetworkBinder.isInitialized) underlyingNetworkBinder.stop() }
-                activeOwnership.own { vpnRouteObservationAuthority.stop() }
-                activeOwnership.own { if (::sessionLifecycle.isInitialized) sessionLifecycle.destroy() }
-                activeOwnership.own { shellDelegate.release()?.close() }
+                activeOwnership.own("vpn_underlying_network_binder") {
+                    if (::underlyingNetworkBinder.isInitialized) underlyingNetworkBinder.stop()
+                }
+                activeOwnership.own("vpn_route_observation") { vpnRouteObservationAuthority.stop() }
+                activeOwnership.own("vpn_session_lifecycle") {
+                    if (::sessionLifecycle.isInitialized) sessionLifecycle.destroy()
+                }
+                activeOwnership.own("vpn_shell_delegate") { shellDelegate.release()?.close() }
 
                 underlyingNetworkBinder = VpnUnderlyingNetworkBinder(this, directDnsUnderlayAuthority)
                 underlyingNetworkBinder.start()
@@ -195,11 +199,11 @@ class RipDpiVpnService :
                     )
                 shellDelegate.install(sessionLifecycle.createShellDelegate())
                 val ownedPacketBackend = packetBackendRuntime
-                activeOwnership.own { ownedPacketBackend.stopOnDestroy(Mode.VPN) }
+                activeOwnership.own("vpn_packet_backend") { ownedPacketBackend.stopOnDestroy(Mode.VPN) }
                 // Start the selector-runtime loops (member hot-reload + latency failover)
                 // for the lifetime of the service. Each listener is idempotent.
                 selectorRuntimeLifecycleListeners.forEach { listener ->
-                    activeOwnership.own { listener.stop(Mode.VPN) }
+                    activeOwnership.own("vpn_selector_listener") { listener.stop(Mode.VPN) }
                     listener.start(Mode.VPN)
                 }
             }

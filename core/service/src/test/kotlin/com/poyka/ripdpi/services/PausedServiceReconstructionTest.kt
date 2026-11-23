@@ -175,7 +175,7 @@ class PausedServiceReconstructionTest {
             val ownership = ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership")
             var destroyed = false
             ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { runtime ->
-                ownership.own {
+                ownership.own("runtime") {
                     attempted.complete(Unit)
                     if (!allowRelease.isCompleted) throw RuntimeCleanupPendingException()
                     runtime.close()
@@ -234,7 +234,7 @@ class PausedServiceReconstructionTest {
             val defaultTimeout = RipDpiVpnService.teardown.timeoutMillis
             RipDpiVpnService.teardown.timeoutMillis = 100L
             ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { runtime ->
-                ownership.own {
+                ownership.own("runtime") {
                     attempted.complete(Unit)
                     if (!allowRelease.isCompleted) throw RuntimeCleanupPendingException()
                     runtime.close()

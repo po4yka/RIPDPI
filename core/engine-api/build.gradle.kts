@@ -17,6 +17,7 @@ extensions.configure<LibraryExtension> {
 
 dependencies {
     implementation(project(":core:data"))
+    implementation(libs.kermit)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
 
