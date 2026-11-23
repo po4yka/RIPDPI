@@ -389,6 +389,20 @@ jobs:
             "$RUNNER_TEMP/release-certificate.der" \
             "$RUNNER_TEMP/release-verification-truststore.p12" 2>/dev/null || true
 
+      - name: Verify privilege boundary in signed candidate artifacts
+        run: |
+          set -euo pipefail
+          candidate="$RUNNER_TEMP/release-candidate"
+          python3 scripts/ci/verify_play_privilege_boundary.py --edition play \
+            --mapping app/build/outputs/mapping/playRelease/mapping.txt \
+            "$candidate/app-play-release.aab"
+          for edition in github fdroid; do
+            for abi in arm64-v8a armeabi-v7a universal x86 x86_64; do
+              python3 scripts/ci/verify_play_privilege_boundary.py --edition "$edition" \
+                "$candidate/app-$edition-release-$abi.apk"
+            done
+          done
+
       - name: Verify native ELF payload from exact candidate APKs
         run: |
           set -euo pipefail

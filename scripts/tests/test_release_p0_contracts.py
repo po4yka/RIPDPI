@@ -7,6 +7,7 @@ import re
 import unittest
 from pathlib import Path
 
+from scripts.ci.release_candidate_manifest import ABIS
 from scripts.ci.release_signature_fingerprint import extract_certificate_sha256
 
 
@@ -119,6 +120,28 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('EVIDENCE_TEST = "app-github-release-androidTest.apk"', manifest_source)
         self.assertIn("PUBLISH_FILES = EXPECTED_FILES - {EVIDENCE_TEST}", manifest_source)
+
+    def test_privilege_boundary_verifies_exact_candidate_before_promotion(self) -> None:
+        signing = job(workflow("release-candidate.yml"), "build-signed-candidate")
+        start = signing.index("Verify privilege boundary in signed candidate artifacts")
+        end = signing.index("Verify native ELF payload from exact candidate APKs")
+        boundary = signing[start:end]
+        self.assertLess(signing.index("Verify release signatures and signer continuity"), start)
+        self.assertLess(end, signing.index("Upload immutable Android release candidate"))
+        self.assertIn('verify_play_privilege_boundary.py --edition play', boundary)
+        self.assertIn('"$candidate/app-play-release.aab"', boundary)
+        self.assertIn("--mapping app/build/outputs/mapping/playRelease/mapping.txt", boundary)
+        self.assertIn("for edition in github fdroid; do", boundary)
+        self.assertIn(f"for abi in {' '.join(ABIS)}; do", boundary)
+        self.assertIn('verify_play_privilege_boundary.py --edition "$edition"', boundary)
+        self.assertIn('"$candidate/app-$edition-release-$abi.apk"', boundary)
+
+        prepare = job(workflow("release.yml"), "prepare-exact-candidate")
+        start = prepare.index("Verify privilege boundary before Play bundle promotion")
+        end = prepare.index("Stage and verify flat release bundle")
+        self.assertLess(prepare.index("Verify immutable candidate bytes"), start)
+        self.assertIn('verify_play_privilege_boundary.py --edition play', prepare[start:end])
+        self.assertIn('"$RUNNER_TEMP/release-candidate/app-play-release.aab"', prepare[start:end])
 
     def test_release_instrumentation_is_checked_before_signing_candidate(self) -> None:
         ci_source = workflow("ci.yml")
