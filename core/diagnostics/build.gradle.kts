@@ -11,6 +11,10 @@ plugins {
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.diagnostics"
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {

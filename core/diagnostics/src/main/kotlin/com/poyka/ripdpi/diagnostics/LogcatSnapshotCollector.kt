@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.diagnostics.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -107,7 +108,7 @@ open class LogcatSnapshotCollector
          * point forward instead of relying on the current circular buffer contents.
          */
         protected open fun readLogcatOutput(sinceTimestampMs: Long? = null): LogcatReadOutput {
-            val command = buildLogcatCommand(android.os.Process.myPid(), sinceTimestampMs)
+            val command = buildLogcatCommand(android.os.Process.myPid(), sinceTimestampMs, BuildConfig.DEBUG)
             val process = Runtime.getRuntime().exec(command.toTypedArray())
             try {
                 process.errorStream.close()
@@ -286,6 +287,7 @@ private fun logcatTimestamp(line: ByteArray): String? =
 internal fun buildLogcatCommand(
     pid: Int,
     sinceTimestampMs: Long?,
+    isDebugBuild: Boolean,
 ): List<String> =
     buildList {
         add("logcat")
@@ -296,11 +298,11 @@ internal fun buildLogcatCommand(
             add(SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US).format(Date(sinceTimestampMs)))
         }
         // Keep archive collection limited to this app process; no unrestricted logcat fallback.
-        add("-s")
-        add("ripdpi-native:V")
-        add("ripdpi:V")
-        add("AndroidRuntime:E")
-        add("*:W")
+        if (isDebugBuild) {
+            add("*:V")
+        } else {
+            addAll(listOf("ripdpi-native:V", "ripdpi:V", "AndroidRuntime:E", "*:W"))
+        }
     }
 
 internal const val Utf8ContinuationMask = 0xC0

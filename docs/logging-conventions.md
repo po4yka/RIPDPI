@@ -37,9 +37,9 @@ Logger.withTag(LogTags.SERVICE).i { "Starting VPN" }
 Logger.withTag(LogTags.DIAGNOSTICS).w(error) { "Scan failed" }
 ```
 
-Available tags: `SERVICE`, `ENGINE`, `DIAGNOSTICS`, `DATA`, `UI`.
+Available tags are `SERVICE`, `DIAGNOSTICS`, `DATA`, and `UI`.
 
-For most logging, Kermit's auto-tag (class name) is sufficient. Use explicit tags when the class name doesn't clearly identify the subsystem.
+The default tag is `ripdpi`. Use an explicit tag to identify the subsystem.
 
 ## Silent Exception Rule
 
@@ -69,6 +69,6 @@ Logger.d { "Proxy readiness: state=${telemetry.state} elapsed=${elapsed}ms" }
 ## Diagnostics Archive Integration
 
 The diagnostics archive ZIP includes:
-- `logcat.txt` -- system logcat snapshot (512KB, filtered to app PID)
+- `logcat.txt` -- app logcat snapshot (512 KB, filtered to the app PID). Debug captures all tags and priorities
 - `app-log.txt` -- persistent file log (WARN+ entries from `FileLogWriter`)
 - `native-events.csv` -- structured native runtime events from Rust ring buffers
