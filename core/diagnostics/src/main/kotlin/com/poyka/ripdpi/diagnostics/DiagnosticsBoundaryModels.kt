@@ -220,6 +220,22 @@ data class DiagnosticEvent(
     val policySignature: String? = null,
     val fingerprintHash: String? = null,
     val subsystem: String? = null,
+    @Transient
+    val relayAttemptStage: DiagnosticRelayAttemptStage? = null,
+)
+
+data class DiagnosticRelayAttemptStage(
+    val attemptId: Long?,
+    val attemptSequence: Long?,
+    val stage: String?,
+    val outcome: String?,
+    val durationMs: Long?,
+    val failureStage: String?,
+    val failureClass: String?,
+    val ioErrorKind: String?,
+    val osErrorCode: Int?,
+    val peerClosePhase: String?,
+    val carrierDisposition: String?,
 )
 
 @Serializable

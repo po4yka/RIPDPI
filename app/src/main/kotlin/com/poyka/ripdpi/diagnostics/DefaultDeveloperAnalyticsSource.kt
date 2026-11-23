@@ -27,7 +27,6 @@ import javax.inject.Named
 import javax.inject.Singleton
 
 private const val BreadcrumbRingCapacity = 60
-private const val PanicBacktraceTailBytes = 6_144
 private const val BytesPerMb = 1_048_576L
 private const val DeveloperMessagePreviewLimit = 240
 private const val NativeDigestBufferBytes = 16 * 1024
@@ -215,13 +214,11 @@ class DefaultDeveloperAnalyticsSource
             val statusFile = File("/proc/self/status")
             val vmSize = parseProcStatusKb(statusFile, "VmSize")
             val vmRss = parseProcStatusKb(statusFile, "VmRSS")
-            val panic = runCatching { readLastPanic() }.getOrNull()
             return DeveloperNativeRuntimeSnapshot(
                 openFileDescriptors = fdDir.takeIf { it.isDirectory }?.listFiles()?.size,
                 threadCount = taskDir.takeIf { it.isDirectory }?.listFiles()?.size,
                 virtualMemoryKb = vmSize,
                 residentSetKb = vmRss,
-                lastPanicBacktrace = panic,
             )
         }
 
@@ -241,19 +238,6 @@ class DefaultDeveloperAnalyticsSource
                         ?.toLongOrNull()
                 }
             }.getOrNull()
-        }
-
-        private fun readLastPanic(): String? {
-            val latest =
-                File(appContext.filesDir, "native_panics")
-                    .takeIf { it.isDirectory }
-                    ?.listFiles()
-                    ?.maxByOrNull { it.lastModified() }
-            return latest
-                ?.readBytes()
-                ?.takeLast(PanicBacktraceTailBytes)
-                ?.toByteArray()
-                ?.let { bytes -> String(bytes, Charsets.UTF_8) }
         }
 
         private fun buildConfigDiff(settings: AppSettings): List<DeveloperConfigDiffEntry> {

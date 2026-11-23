@@ -15,17 +15,11 @@ class LogAggregatorUseCase
     constructor(
         private val logEntryMapper: LogEntryMapper,
     ) {
-        fun runtimeLogs(telemetry: ServiceTelemetrySnapshot): List<LogEntry> =
-            runtimeLogs(telemetry.proxyTelemetry.nativeEvents, telemetry.tunnelTelemetry.nativeEvents)
-
-        internal fun runtimeLogs(
-            proxyEvents: List<NativeRuntimeEvent>,
-            tunnelEvents: List<NativeRuntimeEvent>,
-        ): List<LogEntry> =
-            (
-                logEntryMapper.runtimeEvents(proxyEvents, LogSubsystem.Proxy, isActiveSession = true) +
-                    logEntryMapper.runtimeEvents(tunnelEvents, LogSubsystem.Tunnel, isActiveSession = true)
-            ).dedupeAndSort()
+        internal fun runtimeLogs(eventsBySubsystem: Map<LogSubsystem, List<NativeRuntimeEvent>>): List<LogEntry> =
+            eventsBySubsystem
+                .flatMap { (subsystem, events) ->
+                    logEntryMapper.runtimeEvents(events, subsystem, isActiveSession = true)
+                }.dedupeAndSort()
 
         fun diagnosticLogs(
             persisted: List<DiagnosticEvent>,
@@ -67,3 +61,12 @@ class LogAggregatorUseCase
         private fun List<LogEntry>.dedupeAndSort(): List<LogEntry> =
             distinctBy(LogEntry::dedupeKey).sortedBy(LogEntry::createdAtMs)
     }
+
+internal fun ServiceTelemetrySnapshot.runtimeLogEvents(): Map<LogSubsystem, List<NativeRuntimeEvent>> =
+    mapOf(
+        LogSubsystem.Proxy to proxyTelemetry.nativeEvents,
+        LogSubsystem.Tunnel to tunnelTelemetry.nativeEvents,
+        LogSubsystem.Relay to relayTelemetry.nativeEvents,
+        LogSubsystem.Warp to warpTelemetry.nativeEvents,
+        LogSubsystem.AmneziaWg to awgTelemetry.nativeEvents,
+    )

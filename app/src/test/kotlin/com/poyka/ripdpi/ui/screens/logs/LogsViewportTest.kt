@@ -199,6 +199,7 @@ class LogsViewportTest {
         var autoScroll: Boolean? = null
         var activeSessionOnly: Boolean? = null
         var selectedSeverity: LogSeverity? = null
+        val selectedSubsystems = mutableListOf<LogSubsystem>()
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
                 RipDpiTheme {
@@ -206,6 +207,7 @@ class LogsViewportTest {
                         uiState = LogsUiState(),
                         onAutoScrollChanged = { autoScroll = it },
                         onActiveSessionOnlyChanged = { activeSessionOnly = it },
+                        onToggleSubsystemFilter = { selectedSubsystems.add(it) },
                         onToggleSeverityFilter = { selectedSeverity = it },
                     )
                 }
@@ -215,11 +217,16 @@ class LogsViewportTest {
         composeRule.onNodeWithTag(RipDpiTestTags.LogsFilters).performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.LogsAutoScroll).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.LogsActiveSessionOnly).performScrollTo().performClick()
+        val egressSubsystems = listOf(LogSubsystem.Relay, LogSubsystem.Warp, LogSubsystem.AmneziaWg)
+        egressSubsystems.forEach { subsystem ->
+            composeRule.onNodeWithTag(RipDpiTestTags.logsSubsystemFilter(subsystem)).performScrollTo().performClick()
+        }
         composeRule.onNodeWithTag(RipDpiTestTags.logsSeverityFilter(LogSeverity.Error)).performScrollTo().performClick()
 
         composeRule.runOnIdle {
             assertEquals(false, autoScroll)
             assertEquals(true, activeSessionOnly)
+            assertEquals(egressSubsystems, selectedSubsystems)
             assertEquals(LogSeverity.Error, selectedSeverity)
         }
         composeRule.onNodeWithTag(RipDpiTestTags.LogsSheetDone).performScrollTo().performClick()
@@ -316,6 +323,7 @@ class LogsViewportTest {
         uiState: LogsUiState,
         onAutoScrollChanged: (Boolean) -> Unit = {},
         onActiveSessionOnlyChanged: (Boolean) -> Unit = {},
+        onToggleSubsystemFilter: (LogSubsystem) -> Unit = {},
         onToggleSeverityFilter: (LogSeverity) -> Unit = {},
         onSaveLogs: () -> Unit = {},
         onShareSupportBundle: () -> Unit = {},
@@ -323,7 +331,7 @@ class LogsViewportTest {
     ) {
         LogsScreen(
             uiState = uiState,
-            onToggleSubsystemFilter = {},
+            onToggleSubsystemFilter = onToggleSubsystemFilter,
             onToggleSeverityFilter = onToggleSeverityFilter,
             onAutoScrollChanged = onAutoScrollChanged,
             onActiveSessionOnlyChanged = onActiveSessionOnlyChanged,
