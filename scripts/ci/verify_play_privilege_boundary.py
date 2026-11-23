@@ -51,6 +51,7 @@ FINGERPRINTS = {
         "root_mode_", "rootModeEnabled", "rootHelperSocketPath", "root_helper_socket_path",
         "root_helper_available", "rooted_production", "non_root_production", "exact_emitter_requires_root",
         "diagnostics_strategy_emitter_rooted", "fakeMd5Sig", "fake_md5sig", "RootHelperAvailabilityChange",
+        "resolver_healthrootedcapability_context",
     ),
     "privileged IPC": ("v4/probe_capabilities", "v4/send_raw_ip_packet", "v4/send_fake_rst", "v4/start_nfqws2"),
     "privileged Lua": ("rawsend_dissect_ipfrag",),

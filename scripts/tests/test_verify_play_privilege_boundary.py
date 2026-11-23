@@ -95,6 +95,11 @@ class PlayPrivilegeBoundaryTest(unittest.TestCase):
 
         self.assertIn("root disclosure", boundary.content_findings(io.BytesIO(reason)))
 
+    def test_scan_detects_native_packet_learning_root_field(self) -> None:
+        field_names = b"ech_capableresolver_healthrootedcapability_context"
+
+        self.assertIn("root settings", boundary.content_findings(io.BytesIO(field_names)))
+
     def test_scan_distinguishes_executable_name_from_socket_lua_compatibility_constant(self) -> None:
         for encoding in ("utf-8", "utf-16-le"):
             with self.subTest(encoding=encoding):

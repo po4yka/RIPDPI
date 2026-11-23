@@ -959,6 +959,7 @@ fn learning_context_change_clears_pending_experiment() {
         alpn_class: LearningAlpnClass::H3,
         ech_capable: false,
         resolver_health: ResolverHealthClass::Healthy,
+        #[cfg(feature = "privileged-packets")]
         rooted: false,
         capability_context: CapabilityContext::Full,
         ..LearningContext::default()

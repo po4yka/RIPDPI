@@ -93,6 +93,7 @@ pub struct LearningContext {
     pub reachability_set: LearningReachabilitySet,
     pub ech_capable: bool,
     pub resolver_health: ResolverHealthClass,
+    #[cfg(feature = "privileged-packets")]
     pub rooted: bool,
     pub capability_context: CapabilityContext,
     /// Coarse classification of the host device — `Field` for real user

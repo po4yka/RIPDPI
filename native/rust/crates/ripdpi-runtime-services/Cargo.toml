@@ -21,4 +21,8 @@ tracing = { workspace = true }
 
 [features]
 default = ["privileged-packets"]
-privileged-packets = ["ripdpi-config/privileged-packets", "ripdpi-proxy-config/privileged-packets"]
+privileged-packets = [
+    "ripdpi-config/privileged-packets",
+    "ripdpi-proxy-config/privileged-packets",
+    "ripdpi-runtime-strategy/privileged-packets",
+]
