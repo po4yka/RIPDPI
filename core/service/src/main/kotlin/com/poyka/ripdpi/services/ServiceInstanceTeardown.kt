@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,7 +51,7 @@ private suspend fun awaitRuntimeRelease(
             }
         if (outcome == RuntimeStopOutcome.FullyReleased) return
         if (!reportedPending) {
-            Logger.e(pendingFailure) { "Service destruction retained cleanup ownership" }
+            Logger.e(pendingFailure, tag = LogTags.SERVICE) { "Service destruction retained cleanup ownership" }
             reportedPending = true
         }
         delay(DestructionRetryDelayMillis)

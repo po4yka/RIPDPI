@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.finalization
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.diagnostics.ActiveScanRegistry
 import com.poyka.ripdpi.diagnostics.ScanFinalizationService
@@ -35,7 +36,7 @@ internal suspend fun persistTerminalOrCheckpointFallback(
                 }.exceptionOrNull()
             if (finalizeFailure is CancellationException) throw finalizeFailure
             if (finalizeFailure != null) {
-                Logger.w(finalizeFailure) {
+                Logger.w(finalizeFailure, tag = LogTags.DIAGNOSTICS) {
                     "Scan finalization failed; retained terminal report"
                 }
                 if (

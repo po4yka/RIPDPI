@@ -3,6 +3,7 @@ package com.poyka.ripdpi.service.runtime.vpn
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
@@ -132,6 +133,8 @@ internal class VpnServiceRuntimeCoordinator(
         clock = clock,
         selectorListeners = selectorListeners,
     ) {
+    private val log = Logger.withTag(LogTags.SERVICE)
+
     private val proxyRuntimeStack =
         SharedProxyRuntimeStack(
             upstreamRelaySupervisor = upstreamRelaySupervisor,
@@ -569,19 +572,19 @@ internal class VpnServiceRuntimeCoordinator(
     ): Boolean =
         when {
             runtimeApplied -> {
-                Logger.i { "Transport failover request=$requestId completed before command cancellation" }
+                log.i { "Transport failover request=$requestId completed before command cancellation" }
                 true
             }
 
             !runtimeClaimed -> {
                 transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)
-                Logger.w(failure) { "Transport failover failed before runtime mutation request=$requestId" }
+                log.w(failure) { "Transport failover failed before runtime mutation request=$requestId" }
                 true
             }
 
             else -> {
                 if (failure is RuntimeCleanupPendingException && !runtimeCompositionCoordinator.retainVpnBarrier()) {
-                    Logger.e { "Failed to retain VPN barrier during pending transport cleanup" }
+                    log.e { "Failed to retain VPN barrier during pending transport cleanup" }
                 }
                 updateFailedStatusAfterRetainingProviderBarrier(
                     failureReason = classifyFailureReason(failure, isTunnelContext = true),
@@ -595,13 +598,13 @@ internal class VpnServiceRuntimeCoordinator(
         withContext(NonCancellable) {
             runCatching { stop() }
                 .onFailure { cleanupFailure ->
-                    Logger.e(cleanupFailure) {
+                    log.e(cleanupFailure) {
                         "Failed to terminate transport replacement request=$requestId"
                     }
                 }
             val cleanupCompleted = runtimeSession == null && runtimeCompositionCoordinator.isStopped
             if (!cleanupCompleted) {
-                Logger.e { "Transport replacement cleanup remained in flight request=$requestId" }
+                log.e { "Transport replacement cleanup remained in flight request=$requestId" }
             }
             cleanupCompleted
         }
@@ -633,7 +636,7 @@ internal class VpnServiceRuntimeCoordinator(
             TransportFailoverPreparation(session, resolution)
         } else {
             if (session != null && resolution != null) {
-                Logger.i { "Ignoring stale transport failover request=$requestId before runtime mutation" }
+                log.i { "Ignoring stale transport failover request=$requestId before runtime mutation" }
             }
             null
         }
@@ -643,7 +646,7 @@ internal class VpnServiceRuntimeCoordinator(
         var session: VpnRuntimeSession? = null
         val currentSession = runtimeSession
         if (status != ServiceStatus.Connected || stopping || currentSession == null) {
-            Logger.w { "Ignoring transport failover restart while VPN runtime is not connected" }
+            log.w { "Ignoring transport failover restart while VPN runtime is not connected" }
             transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)
         } else {
             session = currentSession
@@ -687,7 +690,7 @@ internal class VpnServiceRuntimeCoordinator(
                 runtimeCompositionCoordinator.retainFailClosedAfterHandoverFailure()
             }
         if (!retained && vpnTunnelRuntime.isForwarding) {
-            Logger.e { "Failed to retain Xray fail-closed VPN barrier before status failure" }
+            log.e { "Failed to retain Xray fail-closed VPN barrier before status failure" }
         }
     }
 
@@ -705,7 +708,7 @@ internal class VpnServiceRuntimeCoordinator(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
     ) {
-        Logger.d { "VPN status: $status -> $newStatus" }
+        log.d { "VPN status: $status -> $newStatus" }
         if (newStatus == ServiceStatus.Failed) {
             runtimeSession?.revokeInPathLease()
         }

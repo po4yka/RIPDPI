@@ -8,6 +8,7 @@ import com.poyka.ripdpi.activities.validationRecoveryKind
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
@@ -127,7 +128,7 @@ class DefaultOnboardingModeValidationRunner
                         ),
                 )
             } catch (e: OnboardingProbeException) {
-                Logger.w(e) { "Onboarding validation ${e.step} probe failed for $mode" }
+                Logger.w(e, tag = LogTags.UI) { "Onboarding validation ${e.step} probe failed for $mode" }
                 stopActiveValidation()
                 OnboardingValidationResult.Failed(
                     reason = e.reasonMessage,
@@ -137,7 +138,7 @@ class DefaultOnboardingModeValidationRunner
                     failedStep = e.step,
                 )
             } catch (e: TimeoutCancellationException) {
-                Logger.w(e) { "Onboarding validation timed out for $mode" }
+                Logger.w(e, tag = LogTags.UI) { "Onboarding validation timed out for $mode" }
                 stopActiveValidation()
                 OnboardingValidationResult.Failed(
                     reason = stringResolver.getString(R.string.onboarding_validation_failed_generic),
@@ -148,7 +149,7 @@ class DefaultOnboardingModeValidationRunner
                 stopActiveValidation()
                 throw e
             } catch (e: IOException) {
-                Logger.w(e) { "Onboarding validation failed for $mode" }
+                Logger.w(e, tag = LogTags.UI) { "Onboarding validation failed for $mode" }
                 stopActiveValidation()
                 OnboardingValidationResult.Failed(
                     reason = e.message ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
@@ -156,7 +157,7 @@ class DefaultOnboardingModeValidationRunner
                     failedStep = OnboardingValidationStep.Connectivity,
                 )
             } catch (e: ImmediateServiceStartRejected) {
-                Logger.w { "Onboarding validation start rejected for ${e.mode}: ${e.reason}" }
+                Logger.w(tag = LogTags.UI) { "Onboarding validation start rejected for ${e.mode}: ${e.reason}" }
                 stopActiveValidation()
                 OnboardingValidationResult.Failed(
                     reason = e.reason.displayMessage(stringResolver),
@@ -165,7 +166,7 @@ class DefaultOnboardingModeValidationRunner
                     failedStep = OnboardingValidationStep.Tunnel,
                 )
             } catch (e: ServiceStartupRejectedException) {
-                Logger.w(e) { "Onboarding validation failed for $mode" }
+                Logger.w(e, tag = LogTags.UI) { "Onboarding validation failed for $mode" }
                 stopActiveValidation()
                 OnboardingValidationResult.Failed(
                     reason = e.message ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
@@ -312,7 +313,7 @@ class DefaultOnboardingModeValidationRunner
             mode: Mode,
             route: LocalSocksRoute,
         ) {
-            Logger.d { "Onboarding DNS probe starting for $mode" }
+            Logger.d(tag = LogTags.UI) { "Onboarding DNS probe starting for $mode" }
             val host = resolveDnsProbeHost()
             withContext(dispatchers.io) {
                 try {

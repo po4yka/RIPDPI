@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -167,7 +168,7 @@ internal class AutolearnActivationReceiptPublisher
             generation: Long,
             error: Exception,
         ) {
-            Logger.w {
+            Logger.w(tag = LogTags.SERVICE) {
                 "autolearn_activation_warning kind=$kind " +
                     "generation=$generation failure_class=${error.javaClass.simpleName}"
             }

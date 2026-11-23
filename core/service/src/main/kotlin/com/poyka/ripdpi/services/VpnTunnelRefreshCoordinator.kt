@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.ServiceStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -37,7 +38,7 @@ internal class VpnTunnelRefreshCoordinator(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: RuntimeCommandSupersededException) {
-                    Logger.i { "VPN policy refresh yielded to a newer runtime command" }
+                    Logger.i(tag = LogTags.SERVICE) { "VPN policy refresh yielded to a newer runtime command" }
                 } catch (error: Exception) {
                     failCurrentGeneration(refreshSession, error)
                 }
@@ -78,7 +79,7 @@ internal class VpnTunnelRefreshCoordinator(
             } catch (_: RuntimeCommandSupersededException) {
                 // The claim in beginDnsRefresh runs before any tunnel or session change. The telemetry poll calls
                 // this refresh again, so the saved policy still applies if the newer command ends without it.
-                Logger.i { "VPN tunnel refresh yielded to a newer runtime command" }
+                Logger.i(tag = LogTags.SERVICE) { "VPN tunnel refresh yielded to a newer runtime command" }
             } catch (error: Exception) {
                 failCurrentGeneration(refreshSession, error)
             }

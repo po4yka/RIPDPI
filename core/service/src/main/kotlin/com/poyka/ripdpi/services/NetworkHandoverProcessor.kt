@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.ServiceStatus
@@ -226,7 +227,7 @@ internal class NetworkHandoverProcessor<TSession>(
     private fun shouldSkip(context: HandoverAttemptContext<TSession>): Boolean {
         if (context.fingerprint.captivePortalDetected) {
             updateHandoverState(NetworkHandoverStates.DeferredCaptivePortal)
-            Logger.i {
+            Logger.i(tag = LogTags.SERVICE) {
                 "${serviceLabel()}: captive portal detected, deferring handover until network is validated"
             }
             return true
@@ -301,7 +302,7 @@ internal class NetworkHandoverProcessor<TSession>(
         return if (retryDelayMillis != null) {
             HandoverAttemptResult.Retry(scheduleRetryAfterFailure(context, retryDelayMillis))
         } else {
-            Logger.e(failure) {
+            Logger.e(failure, tag = LogTags.SERVICE) {
                 "Failed to restart ${serviceLabel()} after handover (exhausted retries)"
             }
             HandoverAttemptResult.Exhausted(
@@ -320,7 +321,7 @@ internal class NetworkHandoverProcessor<TSession>(
         retryDelayMillis: Long,
     ): RetrySchedule {
         updateHandoverState(NetworkHandoverStates.RetryScheduled)
-        Logger.w {
+        Logger.w(tag = LogTags.SERVICE) {
             "${serviceLabel()} handover failed (attempt ${context.command.retryCount + 1}), " +
                 "retrying in ${retryDelayMillis}ms"
         }

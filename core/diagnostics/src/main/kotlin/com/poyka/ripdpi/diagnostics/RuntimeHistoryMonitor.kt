@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DeviceRuntimeEvidenceStore
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.OrderedServiceStateStore
 import com.poyka.ripdpi.data.ServiceHistoryEvent
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
@@ -107,9 +108,20 @@ class RuntimeHistoryMonitor
         ) {
             val failure = runCatching { persist() }.exceptionOrNull() ?: return
             when (failure) {
-                is CancellationException -> throw failure
-                is Exception -> Logger.e(failure) { "Runtime history $lane persistence failed" }
-                else -> throw failure
+                is CancellationException -> {
+                    throw failure
+                }
+
+                is Exception -> {
+                    Logger.e(
+                        failure,
+                        tag = LogTags.DIAGNOSTICS,
+                    ) { "Runtime history $lane persistence failed" }
+                }
+
+                else -> {
+                    throw failure
+                }
             }
         }
     }

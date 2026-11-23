@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.crash
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.diagnostics.export.redactDiagnosticsFreeText
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
@@ -26,7 +27,7 @@ class CrashReportReader(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Logger.w(e) { "Corrupt crash report, deleting" }
+                Logger.w(e, tag = LogTags.DIAGNOSTICS) { "Corrupt crash report, deleting" }
                 file.delete()
                 null
             }

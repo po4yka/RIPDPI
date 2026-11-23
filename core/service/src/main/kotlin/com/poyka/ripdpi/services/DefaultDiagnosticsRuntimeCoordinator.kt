@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RawPathExecutionCancelledException
 import com.poyka.ripdpi.data.RawPathExecutionOutcome
@@ -163,7 +164,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                     activeWindow.shouldResume =
                         activeWindow.shouldResume ||
                         (activeWindow.runtimeWasRunning && resumeIfRuntimeWasRunning)
-                    Logger.d { "$label joined active raw-path window" }
+                    Logger.d(tag = LogTags.SERVICE) { "$label joined active raw-path window" }
                     return@withLock null
                 }
 
@@ -182,7 +183,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                 runtimeModeProjectionStore.markDiagnosticsScanActive(true)
                 try {
                     val projection = runtimeModeProjectionStore.projection.first()
-                    Logger.d { "$label starting; runtime mode = $projection" }
+                    Logger.d(tag = LogTags.SERVICE) { "$label starting; runtime mode = $projection" }
                     if (runtimeWasRunning) {
                         runtimeControlPlane.execute(
                             RuntimeControlCommand.StopRuntime(
@@ -369,7 +370,9 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                 }
 
                 is ServiceStartResult.Rejected -> {
-                    Logger.w { "Diagnostics runtime resume rejected for ${startResult.mode}: ${startResult.reason}" }
+                    Logger.w(
+                        tag = LogTags.SERVICE,
+                    ) { "Diagnostics runtime resume rejected for ${startResult.mode}: ${startResult.reason}" }
                     false
                 }
             }

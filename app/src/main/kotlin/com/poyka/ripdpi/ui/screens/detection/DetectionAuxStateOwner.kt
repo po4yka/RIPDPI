@@ -12,6 +12,7 @@ import com.poyka.ripdpi.core.detection.debug.DetectionDebugFormatter
 import com.poyka.ripdpi.core.detection.hasIncompleteChecks
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.platform.userMessageRes
 import kotlinx.collections.immutable.toImmutableList
@@ -177,6 +178,6 @@ internal class DetectionAuxStateOwner(
 
 @StringRes
 private fun communityStatsErrorRes(error: Throwable): Int {
-    Logger.w(error) { "Community stats refresh failed" }
+    Logger.w(error, tag = LogTags.UI) { "Community stats refresh failed" }
     return error.userMessageRes()
 }

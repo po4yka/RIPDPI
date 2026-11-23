@@ -2,6 +2,7 @@ package com.poyka.ripdpi.service.runtime.proxy
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
@@ -447,7 +448,7 @@ internal class ProxyServiceRuntimeCoordinator(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
     ) {
-        Logger.d { "Proxy status: $status -> $newStatus" }
+        Logger.d(tag = LogTags.SERVICE) { "Proxy status: $status -> $newStatus" }
         if (newStatus ==
             ServiceStatus.Failed
         ) {
@@ -492,12 +493,14 @@ internal class ProxyServiceRuntimeCoordinator(
     ) {
         when (event.kind) {
             PermissionChangeEvent.KIND_NOTIFICATIONS -> {
-                Logger.i { "Notification permission revoked while proxy running" }
+                Logger.i(tag = LogTags.SERVICE) { "Notification permission revoked while proxy running" }
             }
 
             PermissionChangeEvent.KIND_LOCAL_NETWORK -> {
                 if (runtimeSession?.localNetworkDependent == true || upstreamRelaySupervisor.localNetworkDependent) {
-                    Logger.e { "Local network permission revoked while LAN-dependent proxy runtime is active" }
+                    Logger.e(
+                        tag = LogTags.SERVICE,
+                    ) { "Local network permission revoked while LAN-dependent proxy runtime is active" }
                     failAndStopFromCallback(
                         runtimeId,
                         FailureReason.PermissionLost(com.poyka.ripdpi.data.LocalNetworkPermission),

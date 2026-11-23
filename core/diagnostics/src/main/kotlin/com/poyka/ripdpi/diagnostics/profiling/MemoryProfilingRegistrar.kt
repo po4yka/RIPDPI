@@ -8,6 +8,7 @@ import android.os.ProfilingTrigger
 import androidx.annotation.RequiresApi
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationScope
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -63,7 +64,7 @@ class DefaultMemoryProfilingRegistrar
                     ),
                 )
             }.onFailure { error ->
-                Logger.w(error) { "Failed to register memory profiling triggers" }
+                Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Failed to register memory profiling triggers" }
             }
         }
 
@@ -79,7 +80,9 @@ class DefaultMemoryProfilingRegistrar
                 )
             applicationScope.launch {
                 runCatching { artifactWriteStore.insertNativeSessionEvent(event) }
-                    .onFailure { error -> Logger.w(error) { "Failed to persist profiling result event" } }
+                    .onFailure { error ->
+                        Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Failed to persist profiling result event" }
+                    }
             }
         }
 

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
 import com.poyka.ripdpi.data.InPathRouteUnavailableReason
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.RawPathExecutionResult
@@ -476,7 +477,7 @@ internal class DefaultDiagnosticsScanController
                             )
                         }.exceptionOrNull()
                     if (failure is CancellationException || failure is Error) throw failure
-                    failure?.let { Logger.e(it) { "Diagnostics scan execution failed" } }
+                    failure?.let { Logger.e(it, tag = LogTags.DIAGNOSTICS) { "Diagnostics scan execution failed" } }
                     // A failed cleanup write surfaces here (it replaces any cancellation): retry it once so the
                     // scan does not show as running until the next process. Raw-path scans are left to the
                     // settlement barrier, which owns their terminal record.
@@ -747,5 +748,5 @@ private suspend fun retryScanFailureWrite(
         runCatching { DiagnosticsReportPersister.persistScanFailure(sessionId, summary, scanRecordStore) }
             .exceptionOrNull() ?: return
     if (failure is Error) throw failure
-    Logger.w(failure) { "Diagnostics scan left in running state" }
+    Logger.w(failure, tag = LogTags.DIAGNOSTICS) { "Diagnostics scan left in running state" }
 }

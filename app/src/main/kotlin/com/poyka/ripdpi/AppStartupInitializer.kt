@@ -5,6 +5,7 @@ import android.database.SQLException
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.backup.ResetEventName
 import com.poyka.ripdpi.data.ApplicationScope
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsRetentionWorker
@@ -78,6 +79,7 @@ class AppStartupInitializer
     ) : AppStartupReadiness {
         private val readinessState = MutableStateFlow(AppStartupReadinessState.Pending)
         private val startupRunning = AtomicBoolean(false)
+        private val log = Logger.withTag(LogTags.STARTUP)
         override val readiness: StateFlow<AppStartupReadinessState> = readinessState.asStateFlow()
 
         fun initialize() {
@@ -145,9 +147,9 @@ class AppStartupInitializer
             startupRunning.set(false)
             readinessState.value = AppStartupReadinessState.Failed
             if (error is CancellationException) {
-                Logger.w { "$message: cancelled" }
+                log.w { "$message: cancelled" }
             } else {
-                Logger.e(error) { message }
+                log.e(error) { message }
             }
         }
 
@@ -171,21 +173,25 @@ class AppStartupInitializer
 
         private suspend fun initializeAfterReadiness(report: AppStartupReport) {
             runCatching { DiagnosticsRetentionWorker.enqueuePeriodic(context) }
-                .onFailure { error -> Logger.w(error) { "Diagnostics retention worker failed to enqueue" } }
+                .onFailure { error ->
+                    log.w(error) { "Diagnostics retention worker failed to enqueue" }
+                }
             runCatching { appShortcutsPublisher.start() }
-                .onFailure { error -> Logger.w(error) { "App shortcuts publisher failed to start" } }
-            Logger.i { report.toLogMessage() }
+                .onFailure { error ->
+                    log.w(error) { "App shortcuts publisher failed to start" }
+                }
+            log.i { report.toLogMessage() }
             // Register Android 17 OOM/anomaly profiling triggers (no-op below
             // API 37). A captured heap dump is delivered to our result callback.
             runCatching {
                 startupDiagnosticsProbes.memoryProfilingRegistrar.register()
             }.onFailure { error ->
-                Logger.w(error) { "Memory profiling registration failed" }
+                log.w(error) { "Memory profiling registration failed" }
             }
             runCatching {
                 startupDiagnosticsProbes.detectionObservationStarter.startObserving(context, applicationScope)
             }.onFailure { error ->
-                Logger.w(error) { "App startup detection observation failed" }
+                log.w(error) { "App startup detection observation failed" }
             }
         }
 
@@ -195,9 +201,9 @@ class AppStartupInitializer
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: SQLException) {
-                Logger.w { startupRecoveryWarning(StartupRecoveryWarning.RemoteAcceptanceDatabase) }
+                log.w { startupRecoveryWarning(StartupRecoveryWarning.RemoteAcceptanceDatabase) }
             } catch (_: IllegalStateException) {
-                Logger.w { startupRecoveryWarning(StartupRecoveryWarning.RemoteAcceptanceState) }
+                log.w { startupRecoveryWarning(StartupRecoveryWarning.RemoteAcceptanceState) }
             }
         }
 
@@ -209,7 +215,7 @@ class AppStartupInitializer
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
-                Logger.w { startupRecoveryWarning(StartupRecoveryWarning.RecentProcessExit) }
+                log.w { startupRecoveryWarning(StartupRecoveryWarning.RecentProcessExit) }
             }
         }
 
@@ -239,7 +245,7 @@ class AppStartupInitializer
                     when (val outcome = presetApplier.applyIfFresh()) {
                         PresetOutcome.Skipped -> Unit
 
-                        PresetOutcome.Applied -> Logger.i { "Packaged preset applied" }
+                        PresetOutcome.Applied -> log.i { "Packaged preset applied" }
 
                         // Reported as a failed, non-gating subsystem: the app continues without a preset.
                         is PresetOutcome.Rejected -> error("Packaged preset rejected: ${outcome.reason}")
@@ -257,7 +263,7 @@ class AppStartupInitializer
                     // Consume it exactly once and surface it so diagnostics can tell a
                     // deliberate reset apart from a crash in this session's logs.
                     if (startupDiagnosticsProbes.resetEventRecorder.consumeResetEvent()) {
-                        Logger.i { "Diagnostics event: $ResetEventName (recovered across restart)" }
+                        log.i { "Diagnostics event: $ResetEventName (recovered across restart)" }
                     }
                 }
             val strategyPackInitialization =
@@ -327,7 +333,7 @@ class AppStartupInitializer
         private suspend fun provisionPendingBootstraps() {
             try {
                 pendingBootstrapProvisioner.provisionPending().forEach { outcome ->
-                    Logger.i { "Pending bootstrap provision: $outcome" }
+                    log.i { "Pending bootstrap provision: $outcome" }
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -335,7 +341,7 @@ class AppStartupInitializer
                 @Suppress("TooGenericExceptionCaught") error: Exception,
             ) {
                 // The class name only: a transport message can carry the token URL.
-                Logger.w { "Pending bootstrap provisioning failed: ${error::class.simpleName}" }
+                log.w { "Pending bootstrap provisioning failed: ${error::class.simpleName}" }
             }
         }
 
@@ -350,13 +356,13 @@ class AppStartupInitializer
                 throw failure
             }
             return if (failure == null) {
-                Logger.i { "App startup subsystem succeeded: ${subsystem.logLabel}" }
+                log.i { "App startup subsystem succeeded: ${subsystem.logLabel}" }
                 AppStartupSubsystemResult(
                     subsystem = subsystem,
                     status = AppStartupSubsystemStatus.Succeeded,
                 )
             } else {
-                Logger.w(failure) { "App startup subsystem failed: ${subsystem.logLabel}" }
+                log.w(failure) { "App startup subsystem failed: ${subsystem.logLabel}" }
                 AppStartupSubsystemResult(
                     subsystem = subsystem,
                     status = AppStartupSubsystemStatus.Failed,

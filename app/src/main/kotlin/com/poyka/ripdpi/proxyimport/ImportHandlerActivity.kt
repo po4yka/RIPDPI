@@ -11,6 +11,7 @@ import androidx.core.content.IntentCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.subscription.profileTitleOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +45,7 @@ class ImportHandlerActivity : Activity() {
         val readingFile =
             runCatching { handleInboundIntent() }
                 .getOrElse {
-                    Logger.e { "Import handler failed to process inbound intent" }
+                    Logger.e(tag = LogTags.UI) { "Import handler failed to process inbound intent" }
                     toast(R.string.import_error_unsupported)
                     false
                 }

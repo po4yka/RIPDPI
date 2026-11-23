@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -288,10 +289,24 @@ class RuntimeSessionCoordinator
                                 }
                             // The application scope has no handler: a failed tick must not kill the process.
                             when (val failure = tick.exceptionOrNull()) {
-                                null -> intervalSeconds = tick.getOrNull() ?: break
-                                is CancellationException -> throw failure
-                                is Exception -> Logger.w(failure) { "Runtime history sample failed" }
-                                else -> throw failure
+                                null -> {
+                                    intervalSeconds = tick.getOrNull() ?: break
+                                }
+
+                                is CancellationException -> {
+                                    throw failure
+                                }
+
+                                is Exception -> {
+                                    Logger.w(
+                                        failure,
+                                        tag = LogTags.DIAGNOSTICS,
+                                    ) { "Runtime history sample failed" }
+                                }
+
+                                else -> {
+                                    throw failure
+                                }
                             }
                             delay(
                                 intervalSeconds.coerceIn(
@@ -539,11 +554,11 @@ private fun CoroutineScope.launchRunningStartRetry(
             when (val failure = runCatching { attempt() }.exceptionOrNull()) {
                 null -> return@launch
                 is CancellationException -> throw failure
-                is Exception -> Logger.w(failure) { "Runtime session start retry failed" }
+                is Exception -> Logger.w(failure, tag = LogTags.DIAGNOSTICS) { "Runtime session start retry failed" }
                 else -> throw failure
             }
         }
-        Logger.w { "Runtime session start gave up after $MaxRunningRetryAttempts retries" }
+        Logger.w(tag = LogTags.DIAGNOSTICS) { "Runtime session start gave up after $MaxRunningRetryAttempts retries" }
     }
 
 private const val MinDiagnosticsSampleIntervalSeconds = 5

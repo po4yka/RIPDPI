@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import co.touchlab.kermit.Logger
 import com.mikepenz.aboutlibraries.Libs
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -95,7 +96,7 @@ private fun packageNotices(
     return try {
         parsePackageNotices(context.assets.readText("$PackageNoticeAssetDir/$fileName"), idPrefix)
     } catch (error: JSONException) {
-        Logger.w(error) { "Unreadable license notices: $fileName" }
+        Logger.w(error, tag = LogTags.UI) { "Unreadable license notices: $fileName" }
         emptyList()
     }
 }

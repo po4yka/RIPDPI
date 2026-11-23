@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.PauseAuthorityRef
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyProfile
@@ -138,7 +139,7 @@ class RelayActivationSelectorReloadTrigger
                 reconcileAutomatic(automatic, reason)
             } else if (reason != null && manual != null) {
                 val restored = switches.revertRejectedSwitch(manual)
-                Logger.w { "Selector reload $reason; previous selection restored: $restored" }
+                Logger.w(tag = LogTags.UI) { "Selector reload $reason; previous selection restored: $restored" }
             }
         }
 
@@ -176,7 +177,7 @@ class RelayActivationSelectorReloadTrigger
             val live = settled.appliedMember(reload.groupId)
             val desired = reload.selection.profileId
             if (configuration?.isAppliedSelectorSuccessor(reload.previous, reload.groupId, desired) == true) {
-                Logger.i { "Automatic selector reload applied at revision ${configuration.revision}" }
+                Logger.i(tag = LogTags.UI) { "Automatic selector reload applied at revision ${configuration.revision}" }
             } else {
                 val failure =
                     when {
@@ -186,7 +187,7 @@ class RelayActivationSelectorReloadTrigger
                         else -> dispatchFailure ?: "unconfirmed"
                     }
                 val restored = live != null && live != desired && restoreLiveMember(reload, live, settled)
-                Logger.w { "Automatic selector reload $failure; live selection restored: $restored" }
+                Logger.w(tag = LogTags.UI) { "Automatic selector reload $failure; live selection restored: $restored" }
             }
         }
 
@@ -213,7 +214,9 @@ class RelayActivationSelectorReloadTrigger
                 changes.first { !it.isApplying(reload.previous) }
             }
                 ?: run {
-                    Logger.w { "Automatic selector reload timed out with an application still in progress" }
+                    Logger.w(
+                        tag = LogTags.UI,
+                    ) { "Automatic selector reload timed out with an application still in progress" }
                     // Keep the fence until that application settles or a new choice supersedes it.
                     changes.first { !it.isApplying(reload.previous) }
                 }

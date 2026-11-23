@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services.selector
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -111,9 +112,9 @@ class SelectorReloadCoordinator(
                                 trigger.hotReload(request)
                             } catch (cancelled: CancellationException) {
                                 currentCoroutineContext().ensureActive()
-                                Logger.e(cancelled) { "Selector runtime reload timed out" }
+                                Logger.e(cancelled, tag = LogTags.SERVICE) { "Selector runtime reload timed out" }
                             } catch (failure: Exception) {
-                                Logger.e(failure) { "Selector runtime reload failed" }
+                                Logger.e(failure, tag = LogTags.SERVICE) { "Selector runtime reload failed" }
                             }
                         }
                 } catch (cancelled: CancellationException) {
@@ -121,7 +122,9 @@ class SelectorReloadCoordinator(
                 } catch (failure: Exception) {
                     synchronized(lock) { if (subscriptionReady === ready) subscriptionFailure = failure }
                     ready.completeExceptionally(failure)
-                    Logger.w { "Selector selection unavailable: ${failure.javaClass.simpleName}" }
+                    Logger.w(
+                        tag = LogTags.SERVICE,
+                    ) { "Selector selection unavailable: ${failure.javaClass.simpleName}" }
                 } finally {
                     ready.cancel()
                 }

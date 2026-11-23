@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RawPathExecutionResult
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
@@ -306,7 +307,7 @@ private inline fun <T> decodeStoredOrNull(
     decode: () -> T,
 ): T? =
     runCatching(decode)
-        .onFailure { e -> Logger.w(e) { "Failed to decode stored diagnostics $label" } }
+        .onFailure { e -> Logger.w(e, tag = LogTags.DIAGNOSTICS) { "Failed to decode stored diagnostics $label" } }
         .getOrNull()
 
 private fun decodeStrategySignature(
@@ -345,7 +346,12 @@ private fun decodeProbeDetails(
 ): List<ProbeDetail> =
     runCatching {
         json.decodeFromString(ListSerializer(ProbeDetail.serializer()), payload)
-    }.onFailure { Logger.w(it) { "Failed to decode probe details" } }.getOrElse { emptyList() }
+    }.onFailure {
+        Logger.w(
+            it,
+            tag = LogTags.DIAGNOSTICS,
+        ) { "Failed to decode probe details" }
+    }.getOrElse { emptyList() }
 
 private fun <T> decodeOrNull(
     json: Json,
@@ -355,6 +361,6 @@ private fun <T> decodeOrNull(
     payload?.takeIf { it.isNotBlank() }?.let {
         runCatching { json.decodeFromString(serializer, it) }
             .onFailure { e ->
-                Logger.w(e) { "Failed to decode ${serializer.descriptor.serialName}" }
+                Logger.w(e, tag = LogTags.DIAGNOSTICS) { "Failed to decode ${serializer.descriptor.serialName}" }
             }.getOrNull()
     }

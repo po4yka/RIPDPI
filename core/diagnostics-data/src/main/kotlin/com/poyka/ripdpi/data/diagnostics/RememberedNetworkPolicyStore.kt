@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.diagnostics
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedConnectionConcurrencyPolicyJson
@@ -289,7 +290,12 @@ fun RememberedNetworkPolicyEntity.decodeSummary(
 ): NetworkFingerprintSummary? =
     runCatching {
         json.decodeFromString(NetworkFingerprintSummary.serializer(), summaryJson)
-    }.onFailure { Logger.w(it) { "Failed to decode network fingerprint summary" } }.getOrNull()
+    }.onFailure {
+        Logger.w(
+            it,
+            tag = LogTags.DIAGNOSTICS,
+        ) { "Failed to decode network fingerprint summary" }
+    }.getOrNull()
 
 fun RememberedNetworkPolicyEntity.toPolicyJson(json: Json = RipDpiJson): RememberedNetworkPolicyJson? {
     val summary = decodeSummary(json) ?: return null
@@ -303,13 +309,23 @@ fun RememberedNetworkPolicyEntity.toPolicyJson(json: Json = RipDpiJson): Remembe
                             .serializer(),
                         payload,
                     )
-                }.onFailure { Logger.w(it) { "Failed to decode VPN DNS policy" } }.getOrNull()
+                }.onFailure {
+                    Logger.w(
+                        it,
+                        tag = LogTags.DIAGNOSTICS,
+                    ) { "Failed to decode VPN DNS policy" }
+                }.getOrNull()
             }
     val connectionConcurrencyPolicy =
         connectionConcurrencyPolicyJson?.takeIf(String::isNotBlank)?.let { payload ->
             runCatching {
                 json.decodeFromString(RememberedConnectionConcurrencyPolicyJson.serializer(), payload)
-            }.onFailure { Logger.w(it) { "Failed to decode connection concurrency policy" } }.getOrNull()
+            }.onFailure {
+                Logger.w(
+                    it,
+                    tag = LogTags.DIAGNOSTICS,
+                ) { "Failed to decode connection concurrency policy" }
+            }.getOrNull()
         }
     return RememberedNetworkPolicyJson(
         fingerprintHash = fingerprintHash,
