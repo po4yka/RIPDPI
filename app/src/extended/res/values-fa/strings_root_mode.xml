@@ -15,4 +15,5 @@
     <string name="root_mode_helper_starting">در حال راه‌اندازی ابزار روت…</string>
     <string name="root_mode_helper_failed">راه‌اندازی ابزار روت ناموفق بود.</string>
     <string name="root_mode_strategy_requires_access">نیازمند روت</string>
+    <string name="root_mode_helper_ordinary_connection">اتصال بدون روت فعال است.</string>
 </resources>

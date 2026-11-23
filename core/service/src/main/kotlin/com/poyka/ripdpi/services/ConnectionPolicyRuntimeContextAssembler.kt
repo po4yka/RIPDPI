@@ -14,7 +14,6 @@ import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.core.toRipDpiMorphPolicy
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
-import com.poyka.ripdpi.core.withoutPacketStrategies
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DirectPolicyEnvironment
 import com.poyka.ripdpi.data.Mode
@@ -49,21 +48,15 @@ internal class ConnectionPolicyRuntimeContextAssembler
         private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
         private val strategyPackStateStore: StrategyPackStateStore,
     ) {
-        suspend fun captureProtectPath(
+        suspend fun applyPacketBackend(
             mode: Mode,
             settings: AppSettings,
-            forPreflight: Boolean,
-        ): String? {
-            val path = protectPath(mode, forPreflight)
-            if (!forPreflight) {
-                packetBackendRuntime.prepare(context, mode, settings)
-            }
-            return path
-        }
+            preferences: RipDpiProxyPreferences,
+        ): RipDpiProxyPreferences = packetBackendRuntime.prepare(context, mode, settings, preferences)
 
         fun hostAutolearnStorePath(): String = resolveHostAutolearnStorePath(context)
 
-        private fun protectPath(
+        fun protectPath(
             mode: Mode,
             forPreflight: Boolean = false,
         ): String? {
@@ -174,19 +167,14 @@ internal class ConnectionPolicyRuntimeContextAssembler
             runtimeContext: RipDpiRuntimeContext?,
             settings: AppSettings,
         ): RipDpiRuntimeContext? {
-            val configuredYaml =
-                settings.strategyChainYaml.takeIf {
-                    it.isNotBlank() &&
-                        !packetBackendRuntime.ownsPacketStrategies
-                }
+            val yaml = settings.strategyChainYaml.takeIf { it.isNotBlank() }
             // Both Lua owners need the extracted files before runtime setup.
             val luaScriptBaseDir =
-                configuredYaml?.let {
+                yaml?.let {
                     withContext(Dispatchers.IO) {
                         LuaAssetManager.ensureExtracted(context).toAbsolutePath().toString()
                     }
                 }
-            val yaml = configuredYaml.takeIf { packetBackendRuntime.socketPath == null }
             if (runtimeContext == null && yaml == null) return null
             val jailedYaml =
                 if (yaml != null && luaScriptBaseDir != null) {
@@ -212,7 +200,6 @@ internal class ConnectionPolicyRuntimeContextAssembler
             val effectiveRuntimeContext = withLuaSocketContext(runtimeContext, settings)
             return if (
                 settings.enableCmdSettings &&
-                !packetBackendRuntime.ownsPacketStrategies &&
                 packetBackendRuntime.acceptsCommandLine(settings.cmdArgs)
             ) {
                 RipDpiProxyCmdPreferences(
@@ -231,21 +218,13 @@ internal class ConnectionPolicyRuntimeContextAssembler
                         hostAutolearnStorePath,
                         networkScopeKey,
                         effectiveRuntimeContext,
-                        packetBackendRequested = packetBackendRuntime.allowsExternalOperations(settings),
-                        packetBackendSocketPath = packetBackendRuntime.socketPath,
                         environmentKind = environmentDetector.kind,
                         destinationRouting = destinationRouting,
                         geoipDbPath = geoPaths.geoipDbPath,
                         geositeDbPath = geoPaths.geositeDbPath,
                         awg = awg,
                         workerBearer = proxySessionSecretResolver.currentBearer(settings),
-                    ).let { preferences ->
-                        if (packetBackendRuntime.ownsPacketStrategies) {
-                            preferences.withoutPacketStrategies()
-                        } else {
-                            preferences
-                        }
-                    }
+                    )
             }
         }
 

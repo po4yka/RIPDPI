@@ -15,6 +15,7 @@ import com.poyka.ripdpi.services.AutolearnActivationReceiptPublisher
 import com.poyka.ripdpi.services.BaseServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.ConnectionPolicyResolution
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
+import com.poyka.ripdpi.services.DeferredPacketBackend
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
 import com.poyka.ripdpi.services.LocalPacketBackendRuntime
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
@@ -332,14 +333,16 @@ internal class ProxyServiceRuntimeCoordinator(
             evidence = startResult.toRuntimeStartEvidence(),
         )
         runtimeHooks.startHooks.evidencePublication.complete(session, resolution, startResult.toRuntimeStartEvidence())
+        monitorPacketBackend(packetBackendRuntime)
     }
 
     private suspend fun refreshDestinationRoutingPolicy() {
         val observedSession = runtimeSession ?: return
-        val resolution = resolveDestinationRoutingPolicy(observedSession) ?: return
+        val backend = DeferredPacketBackend()
+        val resolution = withContext(backend) { resolveDestinationRoutingPolicy(observedSession) } ?: return
         if (observedSession.currentDestinationRoutingDigest != resolution.destinationRoutingDigest) {
             mutex.withLock {
-                rebuildForDestinationRoutingPolicy(observedSession, resolution)
+                rebuildForDestinationRoutingPolicy(observedSession, resolution, backend)
             }
         }
     }
@@ -368,22 +371,25 @@ internal class ProxyServiceRuntimeCoordinator(
     private suspend fun rebuildForDestinationRoutingPolicy(
         observedSession: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
+        backend: DeferredPacketBackend,
     ) {
         val session = runtimeSession
         if (!isCurrentDestinationRoutingRefresh(session, observedSession, resolution)) return
         checkNotNull(session)
         handoverRestarting = true
         try {
+            val prepared = backend.prepare(resolution)
             proxyRuntimeStack.stop(skipRuntimeShutdown = false)
             applyActiveConnectionPolicy(
                 session = session,
-                resolution = resolution,
+                resolution = prepared,
                 restartReason = "destination_policy_changed",
                 appliedAt = clock.nowMillis(),
             )
-            val evidence = startResolvedRuntime(session, resolution)
-            publishRuntimeStartEvidence(session, resolution, evidence)
-            runtimeHooks.startHooks.evidencePublication.complete(session, resolution, evidence)
+            val evidence = startResolvedRuntime(session, prepared)
+            publishRuntimeStartEvidence(session, prepared, evidence)
+            runtimeHooks.startHooks.evidencePublication.complete(session, prepared, evidence)
+            monitorPacketBackend(packetBackendRuntime)
         } catch (cancelled: CancellationException) {
             stopRuntimeBestEffort()
             throw cancelled

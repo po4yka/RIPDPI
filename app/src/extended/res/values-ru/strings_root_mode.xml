@@ -15,4 +15,5 @@
     <string name="root_mode_helper_starting">Запуск root-helper…</string>
     <string name="root_mode_helper_failed">Не удалось запустить root-helper.</string>
     <string name="root_mode_strategy_requires_access">Требуется root</string>
+    <string name="root_mode_helper_ordinary_connection">Подключение работает без root.</string>
 </resources>

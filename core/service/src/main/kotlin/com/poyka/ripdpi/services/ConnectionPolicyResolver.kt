@@ -33,6 +33,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -133,7 +134,39 @@ internal class DefaultConnectionPolicyResolver
                 com.poyka.ripdpi.data
                     .AndroidLocalNetworkAccess(context)
                     .requireConnection(resolution)
-            return resolution.copy(localNetworkDependent = localNetworkDependent)
+            val resolved = resolution.copy(localNetworkDependent = localNetworkDependent)
+            if (forPreflight) return resolved
+            val deferred = currentCoroutineContext()[DeferredPacketBackend]
+            if (deferred != null) {
+                deferred.prepare = { applyPacketBackend(mode, it) }
+                return resolved
+            }
+            return applyPacketBackend(mode, resolved)
+        }
+
+        private suspend fun applyPacketBackend(
+            mode: Mode,
+            resolution: ConnectionPolicyResolution,
+        ): ConnectionPolicyResolution {
+            val preferences =
+                runtimeContextAssembler.applyPacketBackend(
+                    mode,
+                    resolution.settings,
+                    resolution.proxyPreferences,
+                )
+            if (preferences === resolution.proxyPreferences) return resolution
+            return resolution.copy(
+                proxyPreferences = preferences,
+                policySignature =
+                    signatureBuilder.build(
+                        mode = mode,
+                        proxyPreferences = preferences,
+                        activeDns = resolution.activeDns,
+                        resolverFallbackReason = resolution.resolverFallbackReason,
+                        matchedPolicy = resolution.matchedNetworkPolicy,
+                        destinationRoutingDigest = resolution.splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
+                    ),
+            )
         }
 
         private suspend fun buildBaselineCandidate(
@@ -146,7 +179,7 @@ internal class DefaultConnectionPolicyResolver
             val selectedAwgEgress = if (mode == Mode.VPN) selectedAwgEgress() else null
             val captured = captureRequestedStartSettings(mode, selectedAwgEgress)
             val settings = captured.settings
-            val protectPath = runtimeContextAssembler.captureProtectPath(mode, settings, forPreflight)
+            val protectPath = runtimeContextAssembler.protectPath(mode, forPreflight)
             val requestedConfiguration = captured.requested
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
             val networkScopeKey = fingerprintSnapshot?.scopeKey()

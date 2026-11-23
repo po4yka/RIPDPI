@@ -16,7 +16,7 @@ internal fun strategyAccessNotice(
     val required =
         buildSet {
             chain.tcpSteps.forEach { step ->
-                if (step.kind == TcpChainStepKind.FakeRst || step.kind == TcpChainStepKind.IpFrag2) {
+                if (step.kind in AccessRequiredTcpSteps) {
                     add(step.kind.wireName)
                 }
             }
@@ -34,3 +34,6 @@ internal fun strategyAccessNotice(
         tone = if (authorized) WarningBannerTone.Info else WarningBannerTone.Restricted,
     )
 }
+
+private val AccessRequiredTcpSteps =
+    setOf(TcpChainStepKind.FakeRst, TcpChainStepKind.IpFrag2, TcpChainStepKind.MultiDisorder)

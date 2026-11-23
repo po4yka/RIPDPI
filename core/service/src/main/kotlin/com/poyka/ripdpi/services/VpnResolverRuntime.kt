@@ -21,6 +21,7 @@ internal data class ResolverRefreshPlan(
     val requiresTunnelRebuild: Boolean,
     val requiresRuntimeRecompose: Boolean = false,
     val connectionPolicy: ConnectionPolicyResolution? = null,
+    val packetBackend: DeferredPacketBackend? = null,
 )
 
 internal fun requireSupportedVpnDnsTransport(

@@ -15,9 +15,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry
 import com.poyka.ripdpi.services.RootAccessResult
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.RootHelperState
+import com.poyka.ripdpi.services.RuntimePolicyReloadIntent
+import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -32,6 +35,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +43,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 internal object RootModeTestTags {
@@ -69,12 +74,13 @@ class RootModeStrategiesViewModel
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val rootHelperManager: RootHelperManager,
+        private val runtimeRegistry: ServiceRuntimeRegistry,
         private val rootAccessChecker: RootAccessChecker,
     ) : ViewModel() {
         internal constructor(
             appSettingsRepository: AppSettingsRepository,
             rootAccessChecker: RootAccessChecker,
-        ) : this(appSettingsRepository, RootHelperManager(), rootAccessChecker)
+        ) : this(appSettingsRepository, RootHelperManager(), DefaultServiceRuntimeRegistry(), rootAccessChecker)
 
         private val checkingAccess = MutableStateFlow(false)
         private var rootModeChange: Job? = null
@@ -118,10 +124,26 @@ class RootModeStrategiesViewModel
                     checkingAccess.value = true
                     val access = rootAccessChecker.check()
                     currentCoroutineContext().ensureActive()
-                    appSettingsRepository.update { rootModeAuthorized = access == RootAccessResult.Granted }
-                    rootHelperManager.recordAccessResult(access)
-                    checkingAccess.value = false
+                    withContext(NonCancellable) {
+                        val authorized = access == RootAccessResult.Granted
+                        appSettingsRepository.update { rootModeAuthorized = authorized }
+                        rootHelperManager.recordAccessResult(access)
+                        checkingAccess.value = false
+                        if (authorized) {
+                            rootHelperManager.allowRetry()
+                            reloadRootPolicy()
+                        }
+                    }
                 }
+        }
+
+        private suspend fun reloadRootPolicy() {
+            for ((mode, runtime) in runtimeRegistry.runtimes.value) {
+                runtime.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) {
+                    runtimeRegistry.current(mode)?.runtimeId == runtime.runtimeId &&
+                        appSettingsRepository.snapshot().rootModeAuthorized
+                }
+            }
         }
 
         fun retryRootAccess() = setRootModeEnabled(true)
@@ -220,7 +242,7 @@ private val RootModeStrategiesUiState.canRetry: Boolean
         when (rootAccess) {
             RootAccessState.Checking -> false
             RootAccessState.Denied, RootAccessState.Unavailable, RootAccessState.TimedOut -> true
-            else -> rootModeEnabled && helper == RootHelperState.Failed
+            else -> rootModeEnabled && helper.unavailable
         }
 
 @Composable
@@ -250,6 +272,10 @@ private fun RootAccessStatus(state: RootModeStrategiesUiState) {
 
             state.helper == RootHelperState.Starting -> {
                 R.string.root_mode_helper_starting to colors.mutedForeground
+            }
+
+            state.rootModeEnabled && state.helper == RootHelperState.OrdinaryConnection -> {
+                R.string.root_mode_helper_ordinary_connection to colors.warning
             }
 
             state.rootModeEnabled && state.helper == RootHelperState.Failed -> {

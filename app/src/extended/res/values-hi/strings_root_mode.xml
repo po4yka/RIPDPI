@@ -15,4 +15,5 @@
     <string name="root_mode_helper_starting">रूट सहायक शुरू हो रहा है…</string>
     <string name="root_mode_helper_failed">रूट सहायक शुरू नहीं हो सका।</string>
     <string name="root_mode_strategy_requires_access">रूट ज़रूरी है</string>
+    <string name="root_mode_helper_ordinary_connection">कनेक्शन रूट के बिना सक्रिय है।</string>
 </resources>

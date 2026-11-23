@@ -77,6 +77,10 @@ class RipDpiProxyUIPreferences(
         networkScopeKey: String? = hostAutolearn.networkScopeKey,
         runtimeContext: RipDpiRuntimeContext? = this.runtimeContext,
         logContext: RipDpiLogContext? = this.logContext,
+        chains: RipDpiChainConfig = this.chains,
+        fakePackets: RipDpiFakePacketConfig = this.fakePackets,
+        packetBackendRequested: Boolean = this.packetBackendRequested,
+        packetBackendSocketPath: String? = this.packetBackendSocketPath,
     ): RipDpiProxyUIPreferences =
         RipDpiProxyUIPreferences(
             listen = listen,

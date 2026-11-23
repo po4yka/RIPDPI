@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
+import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DnsResolverPlane
@@ -152,8 +153,10 @@ class ConnectionPolicyDestinationRoutingTest {
                         context: Context,
                         mode: Mode,
                         settings: AppSettings,
-                    ) {
+                        preferences: RipDpiProxyPreferences,
+                    ): RipDpiProxyPreferences {
                         backendCalls += mode
+                        return preferences
                     }
                 }
             val provider = ActiveProtectSocketPathProvider()

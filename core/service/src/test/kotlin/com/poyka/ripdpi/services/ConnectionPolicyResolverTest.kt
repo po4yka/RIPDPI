@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import android.content.Context
 import com.poyka.ripdpi.core.RipDpiChainConfig
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
+import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiWsTunnelConfig
@@ -906,8 +907,8 @@ class LuaConnectionPolicyResolverTest {
             val yaml = "version: 1\nstrategies:\n  - id: lua\n"
             for (mode in listOf(Mode.Proxy, Mode.VPN)) {
                 for ((root, available) in listOf(false to false, true to false, true to true)) {
-                    val effectiveRoot = root && available
                     for (commandLine in listOf(false, true)) {
+                        val effectiveRoot = root && available && !commandLine
                         val settings =
                             plainUdpSettings()
                                 .toBuilder()
@@ -1001,8 +1002,19 @@ private class FakePacketBackendRuntime(
         context: Context,
         mode: Mode,
         settings: AppSettings,
-    ) {
-        socketPath = startedSocketPath?.takeIf { (settings.uiPersona == "advanced") }
+        preferences: RipDpiProxyPreferences,
+    ): RipDpiProxyPreferences {
+        val ui = preferences as? RipDpiProxyUIPreferences ?: return preferences
+        socketPath = startedSocketPath?.takeIf { settings.uiPersona == "advanced" }
+        return ui.withSessionOverrides(
+            runtimeContext =
+                ui.runtimeContext?.takeIf { socketPath == null } ?: ui.runtimeContext?.copy(
+                    strategyChainYaml = null,
+                    luaScriptBaseDir = null,
+                ),
+            packetBackendRequested = allowsExternalOperations(settings),
+            packetBackendSocketPath = socketPath,
+        )
     }
 }
 

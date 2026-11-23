@@ -4031,6 +4031,7 @@ app:root_mode_access_timed_out
 app:root_mode_access_unavailable
 app:root_mode_helper_active
 app:root_mode_helper_failed
+app:root_mode_helper_ordinary_connection
 app:root_mode_helper_starting
 app:root_mode_strategies_configure_action
 app:root_mode_strategies_intro_body

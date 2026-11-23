@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.settings
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry
 import com.poyka.ripdpi.services.RootAccessResult
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -111,7 +112,7 @@ class RootModeStrategiesViewModelTest {
             val helper = RootHelperManager()
             var checks = 0
             val first =
-                RootModeStrategiesViewModel(repository, helper) {
+                RootModeStrategiesViewModel(repository, helper, DefaultServiceRuntimeRegistry()) {
                     checks++
                     RootAccessResult.TimedOut
                 }
@@ -119,7 +120,7 @@ class RootModeStrategiesViewModelTest {
             advanceUntilIdle()
 
             val reopened =
-                RootModeStrategiesViewModel(repository, helper) {
+                RootModeStrategiesViewModel(repository, helper, DefaultServiceRuntimeRegistry()) {
                     checks++
                     RootAccessResult.Granted
                 }

@@ -15,4 +15,5 @@
     <string name="root_mode_helper_starting">正在启动 root 助手…</string>
     <string name="root_mode_helper_failed">无法启动 root 助手。</string>
     <string name="root_mode_strategy_requires_access">需要 root 权限</string>
+    <string name="root_mode_helper_ordinary_connection">连接已启用，无需 root 权限。</string>
 </resources>

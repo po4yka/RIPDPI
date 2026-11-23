@@ -71,7 +71,7 @@ class RuntimeModeProjectionStoreTest {
                 RuntimeModeProjectionStore(
                     FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     settings,
-                    SelectablePacketBackend,
+                    SelectablePacketBackend(),
                 )
 
             assertEquals(PacketBackendState.EnabledUnavailable, store.projection.first().packetBackend)
@@ -116,7 +116,8 @@ class RuntimeModeProjectionStoreTest {
         runTest {
             val stateStore = FakeServiceStateStore(AppStatus.Halted to Mode.Proxy)
             val settings = FakeAppSettingsRepository()
-            val store = RuntimeModeProjectionStore(stateStore, settings, SelectablePacketBackend)
+            val backend = SelectablePacketBackend()
+            val store = RuntimeModeProjectionStore(stateStore, settings, backend)
 
             val emissions = mutableListOf<RuntimeModeProjection>()
             val collector =
@@ -127,9 +128,11 @@ class RuntimeModeProjectionStoreTest {
             stateStore.setStatus(AppStatus.Running, Mode.VPN)
             store.markDiagnosticsScanActive(true)
             settings.setPacketBackendRequested(true)
+            backend.socketAvailability.value = true
+            backend.socketAvailability.value = false
             collector.cancel()
 
-            assertEquals(4, emissions.size)
+            assertEquals(6, emissions.size)
 
             assertEquals(AppStatus.Halted, emissions[0].appStatus)
             assertEquals(RuntimeLayerState.Unknown, emissions[0].diagnosticsScan)
@@ -144,6 +147,8 @@ class RuntimeModeProjectionStoreTest {
 
             assertEquals(PacketBackendState.EnabledUnavailable, emissions[3].packetBackend)
             assertEquals(RuntimeLayerState.Active, emissions[3].diagnosticsScan)
+            assertEquals(PacketBackendState.EnabledAvailable, emissions[4].packetBackend)
+            assertEquals(PacketBackendState.EnabledUnavailable, emissions[5].packetBackend)
         }
 }
 
@@ -175,6 +180,8 @@ private class FakeAppSettingsRepository : AppSettingsRepository {
     }
 }
 
-private object SelectablePacketBackend : PacketBackendRuntime by LocalPacketBackendRuntime {
+private class SelectablePacketBackend : PacketBackendRuntime by LocalPacketBackendRuntime {
+    override val socketAvailability = MutableStateFlow<Boolean?>(null)
+
     override fun allowsExternalOperations(settings: AppSettings): Boolean = settings.uiPersona == "advanced"
 }

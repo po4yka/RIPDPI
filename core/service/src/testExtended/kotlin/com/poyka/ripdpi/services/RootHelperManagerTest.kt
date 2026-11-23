@@ -1,6 +1,11 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiChainConfig
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -16,6 +21,7 @@ import org.robolectric.annotation.Config
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PipedInputStream
@@ -32,6 +38,53 @@ class RootHelperManagerTest {
     fun `root helper has one process scoped DI owner`() {
         assertTrue(RootHelperManager::class.java.isAnnotationPresent(Singleton::class.java))
     }
+
+    @Test
+    fun `only a policy using the helper attempts to start it and can fall back`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            var attempts = 0
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = {
+                        attempts++
+                        throw IOException("helper asset unavailable")
+                    },
+                    processLaunchAttempts = { _, _, _ -> emptyList() },
+                    readinessProbe = { _, _, _ -> false },
+                )
+            val settings = AppSettings.newBuilder().setRootModeAuthorized(true).build()
+            val backend = ExtendedPacketBackendRuntime(manager, TestAppSettingsRepository(settings))
+            val split = TcpChainStepModel(TcpChainStepKind.Split, "host")
+            val local = RipDpiProxyUIPreferences(chains = RipDpiChainConfig(tcpSteps = listOf(split)))
+            val privileged =
+                RipDpiProxyUIPreferences(
+                    chains =
+                        RipDpiChainConfig(
+                            tcpSteps =
+                                listOf(
+                                    split,
+                                    TcpChainStepModel(TcpChainStepKind.FakeRst, "host"),
+                                    TcpChainStepModel(TcpChainStepKind.MultiDisorder, "host+1"),
+                                    TcpChainStepModel(TcpChainStepKind.MultiDisorder, "host+2"),
+                                ),
+                        ),
+                )
+
+            assertEquals(local, backend.prepare(context, Mode.VPN, settings, local))
+            assertEquals(RootHelperState.Stopped, manager.state.value)
+
+            val fallback = backend.prepare(context, Mode.VPN, settings, privileged) as RipDpiProxyUIPreferences
+            assertEquals(listOf(split), fallback.chains.tcpSteps)
+            assertNull(fallback.packetBackendSocketPath)
+            assertEquals(RootHelperState.Failed, manager.state.value)
+            backend.prepare(context, Mode.VPN, settings, privileged)
+            assertEquals(1, attempts)
+
+            manager.allowRetry()
+            backend.prepare(context, Mode.VPN, settings, privileged)
+            assertEquals(2, attempts)
+        }
 
     @Test
     fun `helper binary install replaces the file without writing the running inode`() {

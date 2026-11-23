@@ -60,6 +60,7 @@ class RootDetector
                     log.i { "root access confirmed via ${attempt.description}" }
                     return RootAccessResult.Granted
                 }
+                if (result.output.contains("permission denied", ignoreCase = true)) return RootAccessResult.Denied
                 sawDenied = true
                 log.w {
                     "root access denied via ${attempt.description}: " +
@@ -103,7 +104,10 @@ internal class RuntimeRootCommandRunner(
     private val timeoutMs: Long = RootCheckTimeoutMs,
 ) : RootCommandRunner {
     override fun run(command: List<String>): RootCommandResult {
-        val process = Runtime.getRuntime().exec(command.toTypedArray())
+        val process =
+            ProcessBuilder(command)
+                .redirectErrorStream(true)
+                .start()
         try {
             // Wait first: the output of `id` is small, and the wait can time out or be interrupted.
             if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {

@@ -20,6 +20,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicLong
 
 internal interface ServiceCoordinatorHost {
     val serviceScope: CoroutineScope
@@ -101,6 +102,8 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     // Written under the mutex; out-of-lock callbacks read them, so publish writes to every thread.
     @Volatile
     protected var status: ServiceStatus = ServiceStatus.Disconnected
+
+    private val packetMonitorGeneration = AtomicLong()
 
     @Volatile
     protected var runtimeSession: TSession? = null
@@ -291,17 +294,31 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         beforeStopFinalization: suspend () -> Unit = {},
     ) {
         val observedSession = runtimeSession ?: return
-        backend.monitor(host.serviceScope) { error ->
-            val failureReason = FailureReason.NativeError(error.message ?: "Packet backend failed")
-            val isCurrent = { runtimeSession?.runtimeId == observedSession.runtimeId }
-            if (!retainBarrierAfterEngineFailure(isCurrent, failureReason)) {
-                failAndStopRuntime(
-                    failureReason = failureReason,
-                    guard = RuntimeStopGuard(isCurrent = isCurrent),
-                    beforeStopFinalization = beforeStopFinalization,
-                )
-            }
+        val generation = packetMonitorGeneration.incrementAndGet()
+        val isCurrent = {
+            runtimeSession?.runtimeId == observedSession.runtimeId && packetMonitorGeneration.get() == generation
         }
+        backend.monitorSession(
+            scope = host.serviceScope,
+            reload = { reloadConnectionPolicy(observedSession) { isCurrent() } },
+            onFailure = {
+                val failureReason = FailureReason.NativeError("Packet backend unavailable")
+                val retained =
+                    retainBarrierAfterEngineFailure(isCurrent, failureReason) {
+                        withContext(ioDispatcher) {
+                            runCatching { backend.stopFor(observedSession.mode) }
+                                .onFailure { Logger.w(it) { "Packet backend cleanup is incomplete" } }
+                        }
+                    }
+                if (!retained) {
+                    failAndStopRuntime(
+                        failureReason = failureReason,
+                        guard = RuntimeStopGuard(isCurrent = isCurrent),
+                        beforeStopFinalization = beforeStopFinalization,
+                    )
+                }
+            },
+        )
     }
 
     /**
@@ -321,7 +338,8 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                 val lifecycleReady = status == ServiceStatus.Connected && !stopping && !handoverRestarting
                 if (runtimeSession?.runtimeId != observedSession.runtimeId || !lifecycleReady) return@withLock false
                 if (!isCurrent()) return@withLock false
-                val resolution = runtimeHooks.startHooks.resolveInitialConnectionPolicy()
+                val backend = DeferredPacketBackend()
+                val resolution = withContext(backend) { runtimeHooks.startHooks.resolveInitialConnectionPolicy() }
                 if (!isCurrent()) return@withLock false
                 val previousAttempt = observedSession.configurationAttempt
                 handoverRestarting = true
@@ -337,7 +355,11 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                                         SelectorRuntimeReloadTimeoutMillis
                                     }
                                 withTimeout(reloadTimeout) {
-                                    reloadResolvedRuntime(observedSession, resolution, clock.nowMillis())
+                                    reloadResolvedRuntime(
+                                        observedSession,
+                                        backend.prepare(resolution),
+                                        clock.nowMillis(),
+                                    )
                                 }
                                 null
                             } catch (superseded: RuntimeCommandSupersededException) {

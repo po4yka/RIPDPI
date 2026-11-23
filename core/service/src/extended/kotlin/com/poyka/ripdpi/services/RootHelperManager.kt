@@ -7,11 +7,15 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
@@ -20,6 +24,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.io.File
@@ -28,15 +33,19 @@ import java.io.InputStream
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
-enum class RootHelperState {
+enum class RootHelperState(
+    val unavailable: Boolean = false,
+) {
     Stopped,
     Starting,
     Ready,
-    Failed,
+    Failed(unavailable = true),
+    OrdinaryConnection(unavailable = true),
 }
 
 /**
@@ -73,6 +82,7 @@ open class RootHelperManager
             this.nfqwsDispatcher = nfqwsDispatcher
         }
 
+        private val retryRequested = AtomicBoolean()
         private val mutableState = MutableStateFlow(RootHelperState.Stopped)
         val state = mutableState.asStateFlow()
         private val mutableAccessResult = MutableStateFlow<RootAccessResult?>(null)
@@ -84,6 +94,8 @@ open class RootHelperManager
 
         private val backendSession = AtomicReference<NfqwsBackendSession?>(null)
         private var backendMonitor: Job? = null
+        private var helperMonitor: Job? = null
+        private var authorizationMonitor: Job? = null
         private var nfqwsRequester: (String, String, String, JsonObject) -> JsonObject = RootHelperIpc::request
         private var nfqwsExtractor: (Context) -> File = NfqwsBackendAssets::extract
         private var nfqwsDispatcher: CoroutineDispatcher = Dispatchers.IO
@@ -122,13 +134,14 @@ open class RootHelperManager
             private const val SESSION_NONCE_BYTES = 32
             private const val READY_POLL_INTERVAL_MS = 100L
             private const val READY_TIMEOUT_MS = 3000L
+            private const val START_TIMEOUT_MS = 6500L
             private const val STOP_TIMEOUT_MS = 1000L
             private const val BACKEND_POLL_INTERVAL_MS = 1000L
             private val SU_COMMAND_CANDIDATES = listOf("su", "/system/xbin/su", "/system/bin/su")
             private val secureRandom = SecureRandom()
         }
 
-        /** Absolute path of the live helper Unix socket, or `null` when the helper is not running. */
+        /** Endpoint still owned by this helper, including when shutdown needs another attempt. */
         open val socketPath: String?
             get() = activeSocketPath
 
@@ -178,7 +191,11 @@ open class RootHelperManager
                         )
                     }
                 val status = nfqwsRequester(socket, nonce, "v4/start_nfqws2", params)
-                check(status["running"]?.jsonPrimitive?.booleanOrNull == true) { "nfqws2 did not activate" }
+                if (status["running"]?.jsonPrimitive?.booleanOrNull != true ||
+                    status["capability_error"]?.jsonPrimitive?.contentOrNull != null
+                ) {
+                    throw IOException("nfqws2 did not activate")
+                }
                 if (!backendSession.compareAndSet(pending, pending.copy(running = true))) {
                     throw RuntimeCleanupPendingException()
                 }
@@ -233,6 +250,7 @@ open class RootHelperManager
                             }
                         if (!isActive) return@launch
                         if (failure != null && backendSession.compareAndSet(observed, observed.copy(running = false))) {
+                            mutableState.value = RootHelperState.Failed
                             onFailure(failure)
                             return@launch
                         }
@@ -257,8 +275,13 @@ open class RootHelperManager
             enabled: Boolean,
         ): String? {
             if (!enabled) {
+                retryRequested.set(false)
                 stop()
                 return null
+            }
+            if (state.value.unavailable) {
+                if (helperEndpoint != null) stopAfterFailure()
+                if (!retryRequested.getAndSet(false)) return null
             }
             return ensureStarted(context)
         }
@@ -288,65 +311,132 @@ open class RootHelperManager
             withContext(Dispatchers.IO) {
                 mutableState.value = RootHelperState.Starting
                 try {
-                    val binary = binaryExtractor(context)
-                    val socket = File(context.filesDir, SOCKET_NAME)
-                    val nonceFile = File(context.filesDir, NONCE_FILE_NAME)
-
-                    helperEndpoint = RootHelperEndpoint(socket, nonceFile)
-                    if (!predecessorsReaped) {
-                        endpointCleanup(socket, nonceFile)
-                        predecessorsReaped = true
-                    }
-                    removeStaleIpcFiles(socket, nonceFile)
-                    for (attempt in processLaunchAttempts(binary, socket, nonceFile)) {
-                        helperEndpoint = RootHelperEndpoint(socket, nonceFile)
-                        removeStaleSocket(socket)
-                        writeSessionNonce(nonceFile, generateSessionNonce())
-
-                        log.i { "starting root helper: ${attempt.description}" }
-                        val process =
-                            try {
-                                attempt.launch()
-                            } catch (e: IOException) {
-                                log.w(e) { "failed to launch root helper via ${attempt.description}" }
-                                null
-                            } catch (e: SecurityException) {
-                                log.w(e) { "failed to launch root helper via ${attempt.description}" }
-                                null
-                            }
-                        if (process == null) {
-                            continue
-                        }
-                        helperProcess = process
-                        // Nothing else reads the su pipes; an unread pipe fills and blocks the helper.
-                        helperOutput = RootHelperOutputDrainer.start(process) { line -> log.d { "helper: $line" } }
-
-                        if (readinessProbe(socket, READY_TIMEOUT_MS, READY_POLL_INTERVAL_MS)) {
-                            helperEndpoint = RootHelperEndpoint(socket, nonceFile, ready = true)
-                            mutableState.value = RootHelperState.Ready
-                            log.i { "root helper started, socket: ${socket.absolutePath}" }
-                            return@withContext socket.absolutePath
-                        }
-
-                        log.w { "root helper socket was not connectable via ${attempt.description}" }
-                        stop()
-                        mutableState.value = RootHelperState.Starting
-                    }
-
-                    log.e { "root helper socket was not connectable within ${READY_TIMEOUT_MS}ms" }
-                    removeStaleIpcFiles(socket, nonceFile)
-                    null
+                    val path = withTimeoutOrNull(START_TIMEOUT_MS) { launchHelper(context) }
+                    if (path != null) mutableState.value = RootHelperState.Ready
+                    path
                 } catch (e: IOException) {
                     log.e(e) { "failed to start root helper" }
-                    stop()
                     null
                 } finally {
-                    if (mutableState.value != RootHelperState.Ready) mutableState.value = RootHelperState.Failed
+                    if (mutableState.value != RootHelperState.Ready) {
+                        withContext(NonCancellable) { stopAfterFailure() }
+                    }
                 }
             }
 
+        private suspend fun launchHelper(context: Context): String? {
+            val binary = binaryExtractor(context)
+            val socket = File(context.filesDir, SOCKET_NAME)
+            val nonceFile = File(context.filesDir, NONCE_FILE_NAME)
+
+            helperEndpoint = RootHelperEndpoint(socket, nonceFile)
+            if (!predecessorsReaped) {
+                endpointCleanup(socket, nonceFile)
+                predecessorsReaped = true
+            }
+            removeStaleIpcFiles(socket, nonceFile)
+            for (attempt in processLaunchAttempts(binary, socket, nonceFile)) {
+                helperEndpoint = RootHelperEndpoint(socket, nonceFile)
+                removeStaleSocket(socket)
+                writeSessionNonce(nonceFile, generateSessionNonce())
+
+                log.i { "starting root helper: ${attempt.description}" }
+                val process =
+                    try {
+                        attempt.launch()
+                    } catch (e: IOException) {
+                        log.w(e) { "failed to launch root helper via ${attempt.description}" }
+                        continue
+                    } catch (e: SecurityException) {
+                        log.w(e) { "failed to launch root helper via ${attempt.description}" }
+                        continue
+                    }
+                helperProcess = process
+                // Nothing else reads the su pipes; an unread pipe fills and blocks the helper.
+                helperOutput = RootHelperOutputDrainer.start(process) { line -> log.d { "helper: $line" } }
+
+                if (readinessProbe(socket, READY_TIMEOUT_MS, READY_POLL_INTERVAL_MS)) {
+                    helperEndpoint = RootHelperEndpoint(socket, nonceFile, ready = true)
+                    return socket.absolutePath
+                }
+
+                log.w { "root helper socket was not connectable via ${attempt.description}" }
+                stop()
+                mutableState.value = RootHelperState.Starting
+            }
+            return null
+        }
+
+        internal fun supportsRawPackets(
+            ipv6: Boolean,
+            tcpRepair: Boolean,
+        ): Boolean {
+            val socket = activeSocketPath ?: return false
+            val nonce = activeNoncePath ?: return false
+            val capabilities =
+                try {
+                    RootHelperIpc.request(socket, nonce, "v4/probe_capabilities", buildJsonObject {})
+                } catch (error: IOException) {
+                    log.w(error) { "root helper capability check failed" }
+                    return false
+                }
+            return capabilities["raw_ipv4"]?.jsonPrimitive?.booleanOrNull == true &&
+                (!ipv6 || capabilities["raw_ipv6"]?.jsonPrimitive?.booleanOrNull == true) &&
+                (!tcpRepair || capabilities["tcp_repair"]?.jsonPrimitive?.booleanOrNull == true)
+        }
+
+        fun allowRetry() {
+            if (state.value.unavailable) retryRequested.set(true)
+        }
+
+        internal fun stopForOrdinaryStrategy() {
+            if (state.value.unavailable) {
+                if (helperEndpoint != null) stopAfterFailure()
+            } else {
+                stop()
+            }
+        }
+
+        internal fun stopAfterFailure() {
+            try {
+                stop()
+            } finally {
+                mutableState.value = RootHelperState.Failed
+            }
+        }
+
+        internal fun monitorHelper(
+            scope: CoroutineScope,
+            authorization: Flow<Boolean>,
+            onUnavailable: suspend () -> Unit,
+        ) {
+            helperMonitor?.cancel()
+            authorizationMonitor?.cancel()
+            mutableState.compareAndSet(RootHelperState.Failed, RootHelperState.OrdinaryConnection)
+            val process = helperProcess ?: return
+            authorizationMonitor =
+                scope.launch {
+                    authorization.first { !it }
+                    if (helperProcess === process) onUnavailable()
+                }
+            if (nfqwsActive) return // The backend monitor verifies the process and its installed rules together.
+            helperMonitor =
+                scope.launch {
+                    runInterruptible(Dispatchers.IO) { process.waitFor() }
+                    if (helperProcess === process &&
+                        mutableState.compareAndSet(RootHelperState.Ready, RootHelperState.Failed)
+                    ) {
+                        onUnavailable()
+                    }
+                }
+        }
+
         /** Stop the root helper process and clean up. */
         open fun stop() {
+            helperMonitor?.cancel()
+            helperMonitor = null
+            authorizationMonitor?.cancel()
+            authorizationMonitor = null
             val ownedBackend = backendSession.getAndUpdate { it?.copy(running = false) }
             backendMonitor?.cancel()
             backendMonitor = null
@@ -365,7 +455,10 @@ open class RootHelperManager
                     log.w(shutdownFailure) { "failed to request root helper shutdown" }
                     helperDied = !isRunning()
                     // A startup reaper can own cleanup even before the app starts an NFQUEUE session.
-                    if (!helperDied) throw RuntimeCleanupPendingException(shutdownFailure)
+                    if (!helperDied) {
+                        mutableState.value = RootHelperState.Failed
+                        throw RuntimeCleanupPendingException(shutdownFailure)
+                    }
                 }
             }
             val output = helperOutput

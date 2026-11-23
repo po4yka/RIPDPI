@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ResolverOverrideStore
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,11 +19,11 @@ internal class VpnResolverRefreshPlanner
             tunnelRunning: Boolean,
         ): ResolverRefreshPlan {
             val resolverOverride = resolverOverrideStore.override.value
+            val backend = DeferredPacketBackend()
             val connectionPolicy =
-                connectionPolicyResolver.resolve(
-                    mode = Mode.VPN,
-                    resolverOverride = resolverOverride,
-                )
+                withContext(backend) {
+                    connectionPolicyResolver.resolve(mode = Mode.VPN, resolverOverride = resolverOverride)
+                }
             val overrideScope = resolverOverride?.networkScopeKey
             if (overrideScope != null && overrideScope != connectionPolicy.networkScopeKey) {
                 // A failover choice belongs to the network that failed; elsewhere use the user's resolver.
@@ -48,6 +49,7 @@ internal class VpnResolverRefreshPlanner
                     currentDestinationRoutingDigest != null &&
                         currentDestinationRoutingDigest != connectionPolicy.destinationRoutingDigest,
                 connectionPolicy = connectionPolicy,
+                packetBackend = backend,
             )
         }
     }

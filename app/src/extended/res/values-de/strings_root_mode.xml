@@ -15,4 +15,5 @@
     <string name="root_mode_helper_starting">Root-Helfer wird gestartet…</string>
     <string name="root_mode_helper_failed">Der Root-Helfer konnte nicht gestartet werden.</string>
     <string name="root_mode_strategy_requires_access">Root erforderlich</string>
+    <string name="root_mode_helper_ordinary_connection">Die Verbindung ist ohne Root aktiv.</string>
 </resources>

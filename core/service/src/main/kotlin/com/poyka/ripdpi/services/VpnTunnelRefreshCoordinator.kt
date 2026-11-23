@@ -30,7 +30,10 @@ internal class VpnTunnelRefreshCoordinator(
             val latestConnectionPolicy = checkNotNull(latestRefreshPlan.connectionPolicy)
             if (latestRefreshPlan.requiresRuntimeRecompose) {
                 try {
-                    callbacks.recomposeRuntimeForPolicyChange(refreshSession, latestConnectionPolicy)
+                    val policy =
+                        latestRefreshPlan.packetBackend?.prepare?.invoke(latestConnectionPolicy)
+                            ?: latestConnectionPolicy
+                    callbacks.recomposeRuntimeForPolicyChange(refreshSession, policy)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: RuntimeCommandSupersededException) {

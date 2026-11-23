@@ -435,6 +435,7 @@ internal class VpnServiceRuntimeCoordinator(
                 "selector_reload",
             )
         publishReplacementEvidence(session, resolution, result)
+        monitorPacketBackend(packetBackendRuntime, ::retainProviderFailClosedBarrierIfActiveLocked)
     }
 
     private suspend fun restartAfterHandover(
@@ -444,6 +445,7 @@ internal class VpnServiceRuntimeCoordinator(
     ) {
         val startResult = runtimeCompositionCoordinator.restartAfterHandover(session, resolution, appliedAt)
         publishReplacementEvidence(session, resolution, startResult)
+        monitorPacketBackend(packetBackendRuntime, ::retainProviderFailClosedBarrierIfActiveLocked)
     }
 
     /**
