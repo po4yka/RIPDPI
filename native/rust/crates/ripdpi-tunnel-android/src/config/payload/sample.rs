@@ -47,6 +47,7 @@ pub(crate) fn sample_payload() -> TunnelConfigPayload {
         split_dns_policy: None,
         strategy_chain_yaml: None,
         protect_path: None,
+        #[cfg(feature = "privileged-packets")]
         root_helper_socket_path: None,
         lua_script_base_dir: None,
         lua_socket_owned: false,

@@ -12,3 +12,7 @@ ipnet = { workspace = true }
 ripdpi-packets = { workspace = true }
 
 [dev-dependencies]
+
+[features]
+default = ["privileged-packets"]
+privileged-packets = []

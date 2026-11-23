@@ -12,7 +12,7 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
-ripdpi-privileged-ops = { workspace = true }
+ripdpi-privileged-ops = { workspace = true, features = ["privileged-packets"] }
 ripdpi-root-helper-protocol = { workspace = true }
 ripdpi-ipfrag = { workspace = true }
 nix = { workspace = true }

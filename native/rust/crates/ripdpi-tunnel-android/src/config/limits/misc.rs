@@ -43,7 +43,10 @@ pub(crate) fn misc_config_from_payload(payload: &TunnelConfigPayload) -> MiscCon
     misc.uid_policy_allow_icmp = payload.uid_policy_allow_icmp;
     misc.strategy_chain_yaml = payload.strategy_chain_yaml.clone().filter(|value| !value.trim().is_empty());
     misc.protect_path = payload.protect_path.clone().filter(|value| !value.trim().is_empty());
-    misc.root_helper_socket_path = payload.root_helper_socket_path.clone().filter(|value| !value.trim().is_empty());
+    #[cfg(feature = "privileged-packets")]
+    {
+        misc.root_helper_socket_path = payload.root_helper_socket_path.clone().filter(|value| !value.trim().is_empty());
+    }
     misc.lua_script_base_dir = payload.lua_script_base_dir.clone().filter(|value| !value.trim().is_empty());
     misc.lua_socket_owned = payload.lua_socket_owned;
     misc

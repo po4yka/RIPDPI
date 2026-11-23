@@ -82,6 +82,7 @@ pub fn build_circular_tlsrec_split_candidate(base: &ProxyUiConfig) -> ProxyUiCon
         time_secs: 60,
         cancel_on_failure: None,
         candidates: vec![
+            #[cfg(feature = "privileged-packets")]
             ProxyUiTcpRotationCandidate { tcp_steps: build_tlsrec_hostfake_candidate(base, true).chains.tcp_steps },
             ProxyUiTcpRotationCandidate { tcp_steps: build_tlsrec_fake_rich_candidate(base).chains.tcp_steps },
             ProxyUiTcpRotationCandidate { tcp_steps: build_split_host_candidate(base).chains.tcp_steps },

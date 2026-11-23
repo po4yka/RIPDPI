@@ -7,6 +7,7 @@ use crate::types::StrategyProbeCandidateSummary;
 
 pub(in crate::engine::runners::strategy) use suffix::capability_suffix;
 
+#[cfg(feature = "privileged-packets")]
 const ROOTED_EMITTER_ELIGIBILITY_RATIONALE: &str = "Requires rooted production emitter tier";
 const LAB_EMITTER_ELIGIBILITY_RATIONALE: &str = "Requires lab-only emitter tier";
 const GENERIC_EMITTER_ELIGIBILITY_RATIONALE: &str = "Required emitter capability unavailable";
@@ -20,12 +21,15 @@ pub(in crate::engine::runners::strategy) fn capability_available(
         RuntimeCapability::TtlWrite => fake_ttl_available,
         RuntimeCapability::RawTcpFakeSend => ipfrag_caps.raw_ipv4,
         RuntimeCapability::RawUdpFragmentation => crate::candidates::supports_udp_ip_fragmentation_for(ipfrag_caps),
-        RuntimeCapability::ReplacementSocket | RuntimeCapability::RootHelperAvailable => ipfrag_caps.tcp_repair,
+        RuntimeCapability::ReplacementSocket => ipfrag_caps.tcp_repair,
+        #[cfg(feature = "privileged-packets")]
+        RuntimeCapability::RootHelperAvailable => ipfrag_caps.tcp_repair,
         RuntimeCapability::VpnProtect | RuntimeCapability::VpnProtectCallback | RuntimeCapability::NetworkBinding => {
             true
         }
         RuntimeCapability::VpnMode => true,
         RuntimeCapability::TcpWindowClamp => true,
+        _ => false,
     }
 }
 
@@ -35,6 +39,9 @@ pub(in crate::engine::runners::strategy) fn annotate_emitter_execution(
     fake_ttl_available: bool,
     ipfrag_caps: ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities,
 ) {
+    #[cfg(not(feature = "privileged-packets"))]
+    let _ = (summary, spec, fake_ttl_available, ipfrag_caps);
+    #[cfg(feature = "privileged-packets")]
     if spec.exact_emitter_requires_root
         && !ripdpi_runtime_platform::tcp::seqovl_supported()
         && spec.approximate_fallback_family.is_some()
@@ -46,6 +53,7 @@ pub(in crate::engine::runners::strategy) fn annotate_emitter_execution(
                 .push(format!("Exact rooted emitter unavailable; executed approximate {fallback_family} fallback"));
         }
     }
+    #[cfg(feature = "privileged-packets")]
     if summary.exact_emitter_requires_root
         && let Some(capability) = spec
             .requires_capabilities
@@ -57,7 +65,9 @@ pub(in crate::engine::runners::strategy) fn annotate_emitter_execution(
     }
 }
 
+#[cfg(feature = "privileged-packets")]
 fn missing_capability_note(spec: &StrategyCandidateSpec, capability: RuntimeCapability) -> String {
+    #[cfg(feature = "privileged-packets")]
     if spec.exact_emitter_requires_root
         || matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::RootedProduction)
     {
@@ -70,11 +80,13 @@ fn missing_capability_note(spec: &StrategyCandidateSpec, capability: RuntimeCapa
 }
 
 pub(in crate::engine::runners::strategy) fn missing_capability_rationale(spec: &StrategyCandidateSpec) -> &'static str {
+    #[cfg(feature = "privileged-packets")]
     if spec.exact_emitter_requires_root
         || matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::RootedProduction)
     {
-        ROOTED_EMITTER_ELIGIBILITY_RATIONALE
-    } else if matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::LabDiagnosticsOnly) {
+        return ROOTED_EMITTER_ELIGIBILITY_RATIONALE;
+    }
+    if matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::LabDiagnosticsOnly) {
         LAB_EMITTER_ELIGIBILITY_RATIONALE
     } else {
         GENERIC_EMITTER_ELIGIBILITY_RATIONALE

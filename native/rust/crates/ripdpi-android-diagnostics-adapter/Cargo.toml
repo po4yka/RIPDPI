@@ -22,5 +22,7 @@ serde_json = { workspace = true }
 ripdpi-android-bridge-support = { workspace = true, features = ["test-support"] }
 
 [features]
+default = ["privileged-packets"]
+privileged-packets = ["ripdpi-monitor-engine/privileged-packets"]
 instrumented-diagnostics-tls = ["ripdpi-monitor-engine/instrumented-diagnostics-tls"]
 loom = ["android-support/loom", "ripdpi-android-bridge-support/loom"]

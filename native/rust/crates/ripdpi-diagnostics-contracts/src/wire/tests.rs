@@ -111,7 +111,7 @@ fn diagnostics_progress_field_manifest_matches_contract_fixture() {
 
 #[test]
 fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
-    use golden_test_support::{assert_contract_fixture, extract_field_paths};
+    use golden_test_support::extract_field_paths;
 
     let report = EngineScanReportWire {
         schema_version: DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
@@ -401,8 +401,20 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
 
     let json = serde_json::to_value(&report).expect("serialize report");
     let paths = extract_field_paths(&json);
-    let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
-    assert_contract_fixture("diagnostics_scan_report_fields.json", &manifest);
+    const FIXTURE: &str = "diagnostics_scan_report_fields.json";
+    #[cfg(feature = "privileged-packets")]
+    {
+        let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
+        golden_test_support::assert_contract_fixture(FIXTURE, &manifest);
+    }
+    #[cfg(not(feature = "privileged-packets"))]
+    {
+        let fixture =
+            std::fs::read_to_string(golden_test_support::contract_fixture_path(FIXTURE)).expect("read field manifest");
+        let mut expected: Vec<String> = serde_json::from_str(&fixture).expect("parse field manifest");
+        expected.retain(|path| !path.ends_with(".exactEmitterRequiresRoot"));
+        assert_eq!(paths, expected);
+    }
 }
 
 fn execution_plan_fixture() -> ExecutionPlanSnapshot {

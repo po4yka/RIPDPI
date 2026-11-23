@@ -48,11 +48,13 @@ pub struct RuntimeProcessSettings {
     pub geosite_db_path: Option<String>,
     pub daemonize: bool,
     pub pid_file: Option<String>,
+    #[cfg(feature = "privileged-packets")]
     pub root_mode: bool,
+    #[cfg(feature = "privileged-packets")]
     pub root_helper_socket_path: Option<String>,
     /// Coarse environment classification supplied by the platform-side
     /// detector (Android Build properties, etc). Plumbed through the JNI
-    /// config bridge alongside [`Self::root_mode`]. Defaults to
+    /// config bridge. Defaults to
     /// [`EnvironmentKind::Unknown`] when unset.
     pub environment_kind: EnvironmentKind,
 }

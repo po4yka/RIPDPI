@@ -1,11 +1,13 @@
 #![forbid(unsafe_code)]
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RuntimeCapability {
     TtlWrite,
     RawTcpFakeSend,
     RawUdpFragmentation,
     ReplacementSocket,
+    #[cfg(feature = "privileged-packets")]
     RootHelperAvailable,
     VpnProtect,
     VpnProtectCallback,
@@ -21,6 +23,7 @@ impl RuntimeCapability {
             Self::RawTcpFakeSend => "raw_tcp_fake_send",
             Self::RawUdpFragmentation => "raw_udp_fragmentation",
             Self::ReplacementSocket => "replacement_socket",
+            #[cfg(feature = "privileged-packets")]
             Self::RootHelperAvailable => "root_helper_available",
             Self::VpnProtect => "vpn_protect",
             Self::VpnProtectCallback => "vpn_protect_callback",
@@ -36,6 +39,7 @@ pub enum CapabilityUnavailable {
     NotProbed,
     Unsupported,
     PermissionDenied,
+    #[cfg(feature = "privileged-packets")]
     MissingRootHelper,
 }
 
@@ -76,6 +80,7 @@ mod tests {
         assert_eq!(RuntimeCapability::RawTcpFakeSend.as_str(), "raw_tcp_fake_send");
         assert_eq!(RuntimeCapability::RawUdpFragmentation.as_str(), "raw_udp_fragmentation");
         assert_eq!(RuntimeCapability::ReplacementSocket.as_str(), "replacement_socket");
+        #[cfg(feature = "privileged-packets")]
         assert_eq!(RuntimeCapability::RootHelperAvailable.as_str(), "root_helper_available");
         assert_eq!(RuntimeCapability::VpnProtect.as_str(), "vpn_protect");
         assert_eq!(RuntimeCapability::VpnProtectCallback.as_str(), "vpn_protect_callback");
@@ -140,7 +145,7 @@ mod tests {
         assert_eq!(unavail.take(), None);
 
         let failed: CapabilityOutcome<u32> = CapabilityOutcome::ProbeFailed {
-            capability: RuntimeCapability::RootHelperAvailable,
+            capability: RuntimeCapability::ReplacementSocket,
             error: "oops".to_owned(),
         };
         assert_eq!(failed.take(), None);

@@ -44,6 +44,14 @@ class DiagnosticsWireContractTest {
     }
 
     @Test
+    fun `candidate plan decodes when the exact emitter flag is absent`() {
+        val candidate = sampleCandidatePlan("baseline_current")
+        val encoded = contractJson.encodeToJsonElement(candidate).jsonObject
+        val encodedWithoutFlag = JsonObject(encoded - "exactEmitterRequiresRoot")
+        assertEquals(candidate, contractJson.decodeFromJsonElement<StrategyCandidatePlanSnapshot>(encodedWithoutFlag))
+    }
+
+    @Test
     fun `http mutation receipt evidence keeps absence false and true distinct`() {
         val legacy =
             StrategyDesyncExecutionReceipt(

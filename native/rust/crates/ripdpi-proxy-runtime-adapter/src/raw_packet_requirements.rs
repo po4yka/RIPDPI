@@ -6,6 +6,7 @@ use ripdpi_runtime_platform::raw_packet::{IpFragmentationCapabilities, probe_ip_
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RawPacketRequirements {
     protect_path: Option<String>,
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     root_helper_socket_path: Option<String>,
     ipv6_enabled: bool,
     requires_packet_owned_tcp: bool,
@@ -15,6 +16,7 @@ pub struct RawPacketRequirements {
 pub fn raw_packet_requirements(config: &RuntimeConfig) -> RawPacketRequirements {
     RawPacketRequirements {
         protect_path: config.process.protect_path.clone(),
+        #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
         root_helper_socket_path: config.process.root_helper_socket_path.clone(),
         ipv6_enabled: config.network.ipv6,
         requires_packet_owned_tcp: requires_packet_owned_tcp(config),
@@ -27,6 +29,7 @@ pub fn validate_ip_fragmentation_support(requirements: &RawPacketRequirements) -
         return Ok(());
     }
 
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     let _root_helper = RootHelperProbeRegistration::for_path(requirements.root_helper_socket_path.as_deref());
     let capabilities = probe_ip_fragmentation_capabilities(requirements.protect_path.as_deref())?;
     validate_ip_fragmentation_capabilities(requirements, capabilities)
@@ -81,28 +84,18 @@ fn validate_ip_fragmentation_capabilities(
     }
 }
 
-/// Registration token carried by the `RootHelperProbeRegistration` RAII guard.
-///
-/// A `RootHelperGeneration` on platforms with a root helper; `()` elsewhere,
-/// where there is nothing to register. The portable alias keeps the guard
-/// struct compilable on every target while the `root_helper` module itself is
-/// `linux`/`android`-only.
-#[cfg(any(target_os = "linux", target_os = "android"))]
-type RootHelperToken = crate::platform::root_helper::RootHelperGeneration;
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-type RootHelperToken = ();
-
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 struct RootHelperProbeRegistration {
     /// `Some(token)` once this guard registered the root helper client; `None`
     /// when registration was skipped (helper already registered, or no usable
     /// path). Releasing through the generation token makes a stale `Drop` from
     /// a superseded session a no-op rather than clearing a newer session's
     /// registration.
-    generation: Option<RootHelperToken>,
+    generation: Option<crate::platform::root_helper::RootHelperGeneration>,
 }
 
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 impl RootHelperProbeRegistration {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
     fn for_path(path: Option<&str>) -> Self {
         if crate::platform::root_helper::has_root_helper() {
             return Self { generation: None };
@@ -113,28 +106,16 @@ impl RootHelperProbeRegistration {
         let generation = crate::platform::root_helper::register_root_helper_versioned(path.to_owned());
         Self { generation: Some(generation) }
     }
-
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    fn for_path(_path: Option<&str>) -> Self {
-        Self { generation: None }
-    }
 }
 
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 impl Drop for RootHelperProbeRegistration {
     fn drop(&mut self) {
         if let Some(generation) = self.generation {
-            unregister_root_helper(generation);
+            crate::platform::root_helper::unregister_root_helper_if(generation);
         }
     }
 }
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn unregister_root_helper(generation: RootHelperToken) {
-    crate::platform::root_helper::unregister_root_helper_if(generation);
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-fn unregister_root_helper(_generation: RootHelperToken) {}
 
 #[cfg(test)]
 mod tests {
@@ -246,6 +227,7 @@ mod tests {
         .expect("multidisorder should pass when raw sockets and tcp repair are available");
     }
 
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     #[test]
     fn raw_packet_requirements_captures_root_helper_socket_path() {
         let mut config = runtime_config_with_multidisorder(false);
@@ -256,7 +238,7 @@ mod tests {
         assert_eq!(requirements.root_helper_socket_path.as_deref(), Some(" /data/app/root_helper.sock "));
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     #[test]
     fn root_helper_probe_registration_registers_trimmed_path_until_drop() {
         use super::RootHelperProbeRegistration;
@@ -273,7 +255,7 @@ mod tests {
         assert!(!crate::platform::root_helper::has_root_helper());
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     #[test]
     fn root_helper_probe_registration_preserves_existing_registration() {
         use super::RootHelperProbeRegistration;

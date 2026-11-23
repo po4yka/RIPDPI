@@ -74,6 +74,7 @@ pub fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCandidateS
         ),
         "quic_dummy_prepend",
     ));
+    #[cfg(feature = "privileged-packets")]
     if supports_udp_ip_fragmentation() {
         candidates.push(candidate_spec_with_notes(
             "quic_ipfrag2",
@@ -93,7 +94,10 @@ pub fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCandidateS
 }
 
 pub fn build_full_matrix_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
-    let mut candidates = build_quic_candidates(base_tcp);
+    let candidates = build_quic_candidates(base_tcp);
+    #[cfg(feature = "privileged-packets")]
+    let mut candidates = candidates;
+    #[cfg(feature = "privileged-packets")]
     if supports_udp_ip_fragmentation() {
         for (id, label, profile, note) in [
             (

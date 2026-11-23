@@ -30,6 +30,8 @@ proptest = { workspace = true }
 ripdpi-android-bridge-support = { workspace = true, features = ["test-support"] }
 
 [features]
+default = ["privileged-packets"]
+privileged-packets = ["ripdpi-proxy-runtime/privileged-packets"]
 loom = ["dep:loom", "android-support/loom", "ripdpi-android-bridge-support/loom"]
 
 [dependencies.loom]

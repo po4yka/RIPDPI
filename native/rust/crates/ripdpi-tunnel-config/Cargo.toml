@@ -16,3 +16,7 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
+
+[features]
+default = ["privileged-packets"]
+privileged-packets = []

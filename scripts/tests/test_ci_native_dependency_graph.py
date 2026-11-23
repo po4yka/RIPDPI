@@ -408,13 +408,11 @@ class NativeDependencyGraphTest(unittest.TestCase):
         self.assertNotIn("GOSUMDB=off", action)
 
     def test_native_producers_cache_the_gradle_cargo_target_per_abi(self) -> None:
-        expected_mapping = (
-            'rust-cache-workspaces: "native/rust -> '
-            '../../core/engine/build/intermediates/rust-native-libs"'
-        )
-
         packaging = job_source("rust-native-packaging")
-        self.assertIn(expected_mapping, packaging)
+        x86_64 = job_source("rust-native-x86_64")
+        for producer in (packaging, x86_64):
+            for target_dir in ("rust-native-libs", "rust-play-native-libs"):
+                self.assertIn(f"native/rust -> ../../core/engine/build/intermediates/{target_dir}", producer)
         self.assertIn(
             "rust-cache-shared-key: rust-android-${{ matrix.abi.name }}",
             packaging,
@@ -424,8 +422,6 @@ class NativeDependencyGraphTest(unittest.TestCase):
             packaging,
         )
 
-        x86_64 = job_source("rust-native-x86_64")
-        self.assertIn(expected_mapping, x86_64)
         self.assertIn("rust-cache-shared-key: rust-android-x86_64", x86_64)
         self.assertIn(
             "rust-cache-save: ${{ github.ref == 'refs/heads/main' }}",

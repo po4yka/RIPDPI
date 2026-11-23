@@ -242,14 +242,14 @@ abstract class CopyRustNoticesTask : DefaultTask() {
     }
 }
 
-abstract class StageExtendedRuntimeAssetsTask
+abstract class StageRuntimeFilesTask
     @Inject
     constructor(
         private val fileSystemOperations: FileSystemOperations,
     ) : DefaultTask() {
         @get:InputFiles
         @get:PathSensitive(PathSensitivity.RELATIVE)
-        abstract val assets: ConfigurableFileCollection
+        abstract val inputDirectories: ConfigurableFileCollection
 
         @get:OutputDirectory
         abstract val outputDir: DirectoryProperty
@@ -257,7 +257,7 @@ abstract class StageExtendedRuntimeAssetsTask
         @TaskAction
         fun stage() {
             fileSystemOperations.sync {
-                from(assets)
+                from(inputDirectories)
                 into(outputDir)
             }
         }
@@ -813,17 +813,42 @@ dependencies {
     )
 }
 
+fun runtimeJniLibraries(edition: String) =
+    configurations.create("${edition}JniLibs") {
+        isCanBeConsumed = false
+        isCanBeResolved = true
+        dependencies.add(
+            project.dependencies.project(
+                mapOf(
+                    "path" to ":core:engine",
+                    "configuration" to "${edition}JniLibsElements",
+                ),
+            ),
+        )
+    }
+
+val extendedJniLibraries = runtimeJniLibraries("extended")
+val playJniLibraries = runtimeJniLibraries("play")
+
 extensions.configure<ApplicationAndroidComponentsExtension> {
     onVariants(selector().all()) { variant ->
         val distribution = variant.productFlavors.toMap().getValue("distribution")
+        if (!nativeLessValidation) {
+            val jniLibraries = if (distribution in extendedDistributions) extendedJniLibraries else playJniLibraries
+            val stageJniLibs =
+                tasks.register<StageRuntimeFilesTask>(variant.computeTaskName("stage", "RuntimeJniLibs")) {
+                    inputDirectories.from(jniLibraries)
+                }
+            variant.sources.jniLibs?.addGeneratedSourceDirectory(stageJniLibs, StageRuntimeFilesTask::outputDir)
+        }
         if (!nativeLessValidation && distribution in extendedDistributions) {
             val stageAssets =
-                tasks.register<StageExtendedRuntimeAssetsTask>(
+                tasks.register<StageRuntimeFilesTask>(
                     variant.computeTaskName("stage", "ExtendedRuntimeAssets"),
                 ) {
-                    assets.from(extendedRuntimeAssets)
+                    inputDirectories.from(extendedRuntimeAssets)
                 }
-            variant.sources.assets?.addGeneratedSourceDirectory(stageAssets, StageExtendedRuntimeAssetsTask::outputDir)
+            variant.sources.assets?.addGeneratedSourceDirectory(stageAssets, StageRuntimeFilesTask::outputDir)
         }
     }
 }

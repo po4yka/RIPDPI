@@ -20,6 +20,8 @@ loom = { workspace = true, optional = true }
 constant_time_eq = { workspace = true }
 
 [features]
+default = ["privileged-packets"]
+privileged-packets = ["ripdpi-proxy-runtime-adapter/privileged-packets"]
 daemonize = ["ripdpi-proxy-runtime-adapter/daemonize"]
 loom = ["dep:loom", "ripdpi-proxy-runtime-adapter/loom"]
 

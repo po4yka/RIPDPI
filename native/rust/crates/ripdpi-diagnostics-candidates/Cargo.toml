@@ -18,3 +18,7 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 serde_json = { workspace = true }
 socket2 = { workspace = true }
+
+[features]
+default = ["privileged-packets"]
+privileged-packets = ["ripdpi-diagnostics-contracts/privileged-packets", "ripdpi-proxy-config/privileged-packets", "ripdpi-runtime-platform/privileged-packets"]

@@ -149,8 +149,12 @@ fn build_strategy_probe_suite_full_matrix_has_extra_candidates() {
     assert!(!full.short_circuit_quic_burst);
     assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "circular_tlsrec_split"));
     assert!(!quick.tcp_candidates.iter().any(|candidate| candidate.id == "circular_tlsrec_split"));
-    assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_fakedsplit_altorder1"));
-    assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_fakedsplit_altorder2"));
+    for id in ["tlsrec_fakedsplit_altorder1", "tlsrec_fakedsplit_altorder2"] {
+        assert_eq!(
+            full.tcp_candidates.iter().any(|candidate| candidate.id == id),
+            cfg!(feature = "privileged-packets")
+        );
+    }
     assert!(!quick.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_fakedsplit_altorder1"));
 }
 
@@ -165,16 +169,16 @@ fn circular_tlsrec_split_candidate_uses_expected_rotation_defaults() {
     assert_eq!(rotation.seq, 65_536);
     assert_eq!(rotation.rst, 1);
     assert_eq!(rotation.time_secs, 60);
-    assert_eq!(rotation.candidates.len(), 3);
+    let expected = [
+        #[cfg(feature = "privileged-packets")]
+        build_tlsrec_hostfake_candidate(&minimal_ui_config(), true).chains.tcp_steps,
+        build_tlsrec_fake_rich_candidate(&minimal_ui_config()).chains.tcp_steps,
+        build_split_host_candidate(&minimal_ui_config()).chains.tcp_steps,
+    ];
     assert_eq!(
-        rotation.candidates[0].tcp_steps,
-        build_tlsrec_hostfake_candidate(&minimal_ui_config(), true).chains.tcp_steps
+        rotation.candidates.iter().map(|candidate| &candidate.tcp_steps).collect::<Vec<_>>(),
+        expected.iter().collect::<Vec<_>>()
     );
-    assert_eq!(
-        rotation.candidates[1].tcp_steps,
-        build_tlsrec_fake_rich_candidate(&minimal_ui_config()).chains.tcp_steps
-    );
-    assert_eq!(rotation.candidates[2].tcp_steps, build_split_host_candidate(&minimal_ui_config()).chains.tcp_steps);
 }
 
 #[test]
@@ -220,16 +224,19 @@ fn adaptive_fake_ttl_keeps_coherent_chrome_profile_lab_only() {
 }
 
 #[test]
-fn seqovl_candidates_always_included() {
+fn seqovl_candidates_follow_build_feature() {
     let base = minimal_ui_config();
     let quick = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1");
     let full = build_strategy_probe_suite("full_matrix_v1", &base).expect("full_matrix_v1");
 
-    // SeqOverlap candidates are now unconditionally included; the runtime
-    // falls back to split when TCP_REPAIR/CAP_NET_ADMIN is unavailable.
-    assert!(quick.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_midsld"));
-    assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_midsld"));
-    assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_sniext"));
+    for suite in [quick, full] {
+        for id in ["tlsrec_seqovl_midsld", "tlsrec_seqovl_sniext"] {
+            assert_eq!(
+                suite.tcp_candidates.iter().any(|candidate| candidate.id == id),
+                cfg!(feature = "privileged-packets")
+            );
+        }
+    }
 }
 
 #[test]
@@ -270,6 +277,7 @@ fn build_tcp_candidates_marks_ech_candidates_as_ech_only_and_targets_echext() {
     assert!(ech_tlsrec.notes.iter().any(|note| note.contains("ECH-capable HTTPS path")));
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn build_full_matrix_tcp_candidates_keeps_fake_flag_variants_lab_only() {
     let quick_candidates = build_tcp_candidates(&minimal_ui_config());
@@ -320,6 +328,7 @@ fn ipfrag_candidates_follow_platform_capability_probe() {
     assert!(!quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2_hopbyhop"));
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn rooted_and_lab_candidates_are_partitioned_between_quick_and_full_matrix() {
     let base = minimal_ui_config();
@@ -348,6 +357,7 @@ fn rooted_and_lab_candidates_are_partitioned_between_quick_and_full_matrix() {
     assert!(!fake_rst.config.fake_packets.fake_tls_randomize);
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn seqovl_candidates_keep_rooted_tier_and_fallback_metadata() {
     let candidates = build_tcp_candidates(&minimal_ui_config());
@@ -359,6 +369,7 @@ fn seqovl_candidates_keep_rooted_tier_and_fallback_metadata() {
     assert_eq!(seqovl.requires_capabilities, &[RuntimeCapability::ReplacementSocket]);
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn hostfake_candidates_need_the_raw_sender_and_have_no_fallback_family() {
     let candidates = build_tcp_candidates(&minimal_ui_config());
@@ -419,7 +430,10 @@ fn quic_ipfrag_candidate_records_udp_raw_capability_requirement() {
 
     assert_eq!(spec.config.chains.udp_steps[0].kind, "ipfrag2_udp");
     assert_eq!(spec.requires_capabilities, &[RuntimeCapability::RawUdpFragmentation]);
+    #[cfg(feature = "privileged-packets")]
     assert_eq!(spec.emitter_tier, StrategyEmitterTier::RootedProduction);
+    #[cfg(not(feature = "privileged-packets"))]
+    assert_eq!(spec.emitter_tier, StrategyEmitterTier::LabDiagnosticsOnly);
 }
 
 #[test]
@@ -678,6 +692,7 @@ fn opportunistic_pool_contains_ttl_write_candidates() {
     );
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn rooted_pool_contains_root_only_candidates() {
     let rooted = build_rooted_candidates(&minimal_ui_config());
@@ -696,6 +711,7 @@ fn rooted_pool_contains_root_only_candidates() {
     assert!(!primary.iter().any(|c| c.id == "multi_disorder"), "multi_disorder must not be in primary pool");
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn fixed_duplicate_hostfake_is_in_opportunistic_not_primary() {
     let primary = build_primary_candidates(&minimal_ui_config());
@@ -733,4 +749,16 @@ fn full_tcp_candidates_is_superset_of_primary_and_opportunistic() {
         );
     }
     assert!(full.len() >= primary.len() + opportunistic.len());
+}
+
+#[cfg(not(feature = "privileged-packets"))]
+#[test]
+fn full_probe_catalog_has_no_candidates_that_need_privileged_packets() {
+    let suite = build_strategy_probe_suite("full_matrix_v1", &minimal_ui_config()).expect("full matrix");
+    for candidate in suite.tcp_candidates.iter().chain(&suite.quic_candidates) {
+        assert!(!candidate.exact_emitter_requires_root, "{}", candidate.id);
+        assert!(!candidate.requires_capabilities.contains(&RuntimeCapability::RawUdpFragmentation), "{}", candidate.id);
+    }
+    assert!(suite.tcp_candidates.iter().any(|candidate| candidate.id == "split_host"));
+    assert!(!suite.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_fake_seqgroup"));
 }

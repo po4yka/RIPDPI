@@ -10,8 +10,8 @@ pub(crate) fn finalize_ui_config(
     groups: Vec<DesyncGroup>,
     listen: &ProxyUiListenConfig,
     host_autolearn: &ProxyUiHostAutolearnConfig,
-    root_mode: bool,
-    root_helper_socket_path: Option<String>,
+    #[cfg(feature = "privileged-packets")] root_mode: bool,
+    #[cfg(feature = "privileged-packets")] root_helper_socket_path: Option<String>,
     environment_kind: Option<&str>,
 ) -> Result<RuntimeConfig, ProxyConfigError> {
     config.groups = groups;
@@ -30,8 +30,11 @@ pub(crate) fn finalize_ui_config(
         ));
     }
 
-    config.process.root_mode = root_mode;
-    config.process.root_helper_socket_path = root_helper_socket_path;
+    #[cfg(feature = "privileged-packets")]
+    {
+        config.process.root_mode = root_mode;
+        config.process.root_helper_socket_path = root_helper_socket_path;
+    }
     config.process.environment_kind = parse_environment_kind(environment_kind);
 
     let _ = host_autolearn;
@@ -61,7 +64,9 @@ mod tests {
                 vec![],
                 &ProxyUiListenConfig::default(),
                 &ProxyUiHostAutolearnConfig::default(),
+                #[cfg(feature = "privileged-packets")]
                 false,
+                #[cfg(feature = "privileged-packets")]
                 None,
                 None,
             )

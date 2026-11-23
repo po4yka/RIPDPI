@@ -18,3 +18,7 @@ ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-policy = { workspace = true }
 ripdpi-runtime-strategy = { workspace = true }
 tracing = { workspace = true }
+
+[features]
+default = ["privileged-packets"]
+privileged-packets = ["ripdpi-config/privileged-packets", "ripdpi-proxy-config/privileged-packets"]

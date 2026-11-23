@@ -95,6 +95,9 @@ abstract class BuildRustNativeLibsTask
         abstract val artifactSpecs: ListProperty<String>
 
         @get:Input
+        abstract val cargoFeatures: ListProperty<String>
+
+        @get:Input
         abstract val abiParallelism: Property<Int>
 
         @get:Internal
@@ -130,6 +133,7 @@ abstract class BuildRustNativeLibsTask
         init {
             pruneUnknownArtifacts.convention(true)
             stripReleaseOutputs.convention(false)
+            cargoFeatures.convention(emptyList())
         }
 
         @TaskAction
@@ -404,6 +408,11 @@ abstract class BuildRustNativeLibsTask
                     put("BORING_BSSL_RUST_CPPLIB", "c++_static")
                 }
 
+            val enabledFeatures =
+                cargoFeatures.get() +
+                    listOfNotNull(
+                        "ripdpi-android/instrumented-diagnostics-tls".takeIf { instrumentedDiagnosticsRoot.isPresent },
+                    )
             val cargoCommand =
                 buildList {
                     add(cargoExecutablePath)
@@ -415,9 +424,9 @@ abstract class BuildRustNativeLibsTask
                         add(packageName)
                     }
                     add("--locked")
-                    if (instrumentedDiagnosticsRoot.isPresent) {
+                    if (enabledFeatures.isNotEmpty()) {
                         add("--features")
-                        add("ripdpi-android/instrumented-diagnostics-tls")
+                        add(enabledFeatures.joinToString(","))
                     }
                     add("--target")
                     add(config.target)
@@ -1660,6 +1669,8 @@ fun rustWorkspaceCrateSources() =
     )
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
 val generatedNativeSymbolsDir = layout.buildDirectory.dir("generated/nativeSymbols")
+val generatedPlayJniLibsDir = layout.buildDirectory.dir("generated/playJniLibs")
+val generatedPlayNativeSymbolsDir = layout.buildDirectory.dir("generated/playNativeSymbols")
 val generatedRootHelperAssetsDir = layout.buildDirectory.dir("generated/rootHelperAssets")
 val generatedNfqws2AssetsDir = layout.buildDirectory.dir("generated/nfqws2Assets")
 val generatedNaiveProxyAssetsDir = layout.buildDirectory.dir("generated/naiveProxyAssets")
@@ -1693,7 +1704,6 @@ val rustCloudflareOriginArtifactSpecs =
     )
 
 extensions.configure<LibraryExtension> {
-    sourceSets["main"].jniLibs.directories.add(generatedJniLibsDir.get().asFile.absolutePath)
     sourceSets["main"].jniLibs.directories.add(generatedHelperExecutableJniLibsDir.get().asFile.absolutePath)
     sourceSets["main"].assets.directories.add(generatedPtMetadataAssetsDir.get().asFile.absolutePath)
 }
@@ -1731,55 +1741,81 @@ val instrumentedDiagnosticsRootFile =
         rootProject.file(path)
     }
 
-val buildRustNativeLibs =
-    tasks.register<BuildRustNativeLibsTask>("buildRustNativeLibs") {
-        group = "build"
-        description = "Builds Rust native libraries into Gradle-managed jniLibs outputs."
+fun registerAppNativeBuild(
+    taskName: String,
+    extendedEdition: Boolean,
+) = tasks.register<BuildRustNativeLibsTask>(taskName) {
+    group = "build"
+    description = "Builds Rust native libraries into Gradle-managed jniLibs outputs."
 
-        nativeSources.from(rustWorkspaceManifestFile)
-        nativeSources.from(
-            listOf("Cargo.lock", "rust-toolchain.toml")
-                .map(rustWorkspaceDir::resolve)
-                .filter { it.isFile },
-        )
-        nativeSources.from(
-            fileTree(rustWorkspaceDir.resolve(".cargo")) {
-                include("**/*")
-            },
-        )
-        nativeSources.from(
-            fileTree(rustWorkspaceDir.resolve("vendor")) {
-                include("**/*")
-            },
-        )
-        nativeSources.from(
-            rustWorkspaceCrateSources(),
-        )
-        workspaceManifest.set(rustWorkspaceManifestFile)
-        sdkDir.set(resolveAndroidSdkDir())
-        cargoExecutable.set(resolveRustTool("cargo"))
-        rustupExecutable.set(resolveRustTool("rustup"))
-        ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
-        cmakeVersion.set(providers.gradleProperty("ripdpi.nativeCmakeVersion"))
-        cargoProfile.set(rustNativeCargoProfile)
-        sharedPriorsPublicKey.set(sharedPriorsPublicKeyProvider)
+    nativeSources.from(rustWorkspaceManifestFile)
+    nativeSources.from(
+        listOf("Cargo.lock", "rust-toolchain.toml")
+            .map(rustWorkspaceDir::resolve)
+            .filter { it.isFile },
+    )
+    nativeSources.from(
+        fileTree(rustWorkspaceDir.resolve(".cargo")) {
+            include("**/*")
+        },
+    )
+    nativeSources.from(
+        fileTree(rustWorkspaceDir.resolve("vendor")) {
+            include("**/*")
+        },
+    )
+    nativeSources.from(
+        rustWorkspaceCrateSources(),
+    )
+    workspaceManifest.set(rustWorkspaceManifestFile)
+    sdkDir.set(resolveAndroidSdkDir())
+    cargoExecutable.set(resolveRustTool("cargo"))
+    rustupExecutable.set(resolveRustTool("rustup"))
+    ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+    cmakeVersion.set(providers.gradleProperty("ripdpi.nativeCmakeVersion"))
+    cargoProfile.set(rustNativeCargoProfile)
+    sharedPriorsPublicKey.set(sharedPriorsPublicKeyProvider)
+    if (extendedEdition) {
         instrumentedDiagnosticsRootFile?.let { instrumentedDiagnosticsRoot.set(it) }
-        minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
-        abis.set(rustNativeAbis)
-        abiParallelism.set(rustNativeAbiParallelism)
-        cpuBudget.set(rustNativeCpuBudget)
-        forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
-        artifactSpecs.set(rustNativeArtifactSpecs)
-        stripReleaseOutputs.set(true)
+        cargoFeatures.set(listOf("ripdpi-android/privileged-packets", "ripdpi-tunnel-android/privileged-packets"))
+    }
+    minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
+    abis.set(rustNativeAbis)
+    abiParallelism.set(rustNativeAbiParallelism)
+    cpuBudget.set(rustNativeCpuBudget)
+    forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
+    artifactSpecs.set(rustNativeArtifactSpecs)
+    stripReleaseOutputs.set(true)
+    if (extendedEdition) {
         cargoTargetDir.set(rustNativeLibsBuildDir)
         outputDir.set(generatedJniLibsDir)
         debugSymbolsDir.set(generatedNativeSymbolsDir)
-        providers
-            .gradleProperty("ripdpi.prebuiltJniLibsDir")
-            .orNull
-            ?.takeIf(String::isNotBlank)
-            ?.let { prebuiltSourceDir.set(file(it)) }
+    } else {
+        cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-play-native-libs"))
+        outputDir.set(generatedPlayJniLibsDir)
+        debugSymbolsDir.set(generatedPlayNativeSymbolsDir)
     }
+    providers
+        .gradleProperty(if (extendedEdition) "ripdpi.prebuiltJniLibsDir" else "ripdpi.prebuiltPlayJniLibsDir")
+        .orNull
+        ?.takeIf(String::isNotBlank)
+        ?.let { prebuiltSourceDir.set(file(it)) }
+}
+
+val buildRustNativeLibs = registerAppNativeBuild("buildRustNativeLibs", extendedEdition = true)
+val buildPlayRustNativeLibs = registerAppNativeBuild("buildPlayRustNativeLibs", extendedEdition = false)
+
+configurations.create("extendedJniLibsElements") {
+    isCanBeConsumed = true
+    isCanBeResolved = false
+    outgoing.artifact(buildRustNativeLibs.flatMap { it.outputDir }) { builtBy(buildRustNativeLibs) }
+}
+
+configurations.create("playJniLibsElements") {
+    isCanBeConsumed = true
+    isCanBeResolved = false
+    outgoing.artifact(buildPlayRustNativeLibs.flatMap { it.outputDir }) { builtBy(buildPlayRustNativeLibs) }
+}
 
 val buildRustRootHelper =
     tasks.register<BuildRustNativeLibsTask>("buildRustRootHelper") {
@@ -2015,7 +2051,6 @@ if (!skipNativeBuildWiring) {
             name.matches(Regex("^copy.+JniLibsProjectOnly$")) ||
             name.matches(Regex("^merge.+NativeLibs$"))
         ) {
-            dependsOn(buildRustNativeLibs)
             dependsOn(stageHelperExecutableJniLibs)
         }
         if (name.matches(Regex("^merge.+Assets$"))) {
@@ -2024,7 +2059,6 @@ if (!skipNativeBuildWiring) {
     }
 
     tasks.named("preBuild") {
-        dependsOn(buildRustNativeLibs)
         dependsOn(stageHelperExecutableJniLibs)
     }
 } else {

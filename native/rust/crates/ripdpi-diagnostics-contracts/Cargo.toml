@@ -15,3 +15,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 golden-test-support = { workspace = true }
+
+[features]
+default = ["privileged-packets"]
+privileged-packets = []

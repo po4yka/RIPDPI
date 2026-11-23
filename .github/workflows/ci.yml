@@ -487,7 +487,9 @@ jobs:
           rust-components: ""
           rust-targets: ${{ matrix.abi.rust-target }}
           rust-cache-shared-key: rust-android-${{ matrix.abi.name }}
-          rust-cache-workspaces: "native/rust -> ../../core/engine/build/intermediates/rust-native-libs"
+          rust-cache-workspaces: |
+            native/rust -> ../../core/engine/build/intermediates/rust-native-libs
+            native/rust -> ../../core/engine/build/intermediates/rust-play-native-libs
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
           gradle-cache-read-only: "true"
 
@@ -495,6 +497,7 @@ jobs:
         run: |
           ./gradlew \
             :core:engine:buildRustNativeLibs \
+            :core:engine:buildPlayRustNativeLibs \
             :core:engine:buildRustRootHelper \
             :core:engine:buildRustNaiveProxy \
             :core:engine:buildRustCloudflareOrigin \
@@ -534,6 +537,8 @@ jobs:
             echo "::error::JNI lib outputs missing for ${{ matrix.abi.name }}"
             exit 1
           fi
+          cp -r "core/engine/build/generated/playJniLibs/${{ matrix.abi.name }}" \
+            "$RUNNER_TEMP/native-shard/playJniLibs-${{ matrix.abi.name }}"
           assets_dir="$RUNNER_TEMP/native-shard/assetsBin-${{ matrix.abi.name }}"
           mkdir -p "$assets_dir"
           stage_asset \
@@ -558,6 +563,9 @@ jobs:
           while read -r library crate; do
             bash .github/scripts/check-jni-symbols.sh \
               "$RUNNER_TEMP/native-shard/jniLibs-${{ matrix.abi.name }}/lib${library}.so" \
+              "native/rust/crates/${crate}/jni-symbols.baseline"
+            bash .github/scripts/check-jni-symbols.sh \
+              "$RUNNER_TEMP/native-shard/playJniLibs-${{ matrix.abi.name }}/lib${library}.so" \
               "native/rust/crates/${crate}/jni-symbols.baseline"
           done <<'EOF'
           ripdpi ripdpi-android
@@ -602,7 +610,9 @@ jobs:
           rust-components: ""
           rust-targets: x86_64-linux-android
           rust-cache-shared-key: rust-android-x86_64
-          rust-cache-workspaces: "native/rust -> ../../core/engine/build/intermediates/rust-native-libs"
+          rust-cache-workspaces: |
+            native/rust -> ../../core/engine/build/intermediates/rust-native-libs
+            native/rust -> ../../core/engine/build/intermediates/rust-play-native-libs
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
           gradle-cache-read-only: "true"
 
@@ -610,6 +620,7 @@ jobs:
         run: |
           ./gradlew \
             :core:engine:buildRustNativeLibs \
+            :core:engine:buildPlayRustNativeLibs \
             :core:engine:buildRustRootHelper \
             :core:engine:buildRustNaiveProxy \
             :core:engine:buildRustCloudflareOrigin \
@@ -649,6 +660,8 @@ jobs:
             echo "::error::JNI lib outputs missing for x86_64"
             exit 1
           fi
+          cp -r "core/engine/build/generated/playJniLibs/x86_64" \
+            "$RUNNER_TEMP/native-shard/playJniLibs-x86_64"
           assets_dir="$RUNNER_TEMP/native-shard/assetsBin-x86_64"
           mkdir -p "$assets_dir"
           stage_asset \
@@ -896,13 +909,19 @@ jobs:
         run: |
           set -euo pipefail
           jni_root="$RUNNER_TEMP/prebuilt/jniLibs"
+          play_jni_root="$RUNNER_TEMP/prebuilt/playJniLibs"
           assets_root="$RUNNER_TEMP/prebuilt/assetsBin"
-          mkdir -p "$jni_root" "$assets_root"
+          mkdir -p "$jni_root" "$play_jni_root" "$assets_root"
           for shard in "$RUNNER_TEMP/native-shards"/native-shard-*; do
             for d in "$shard"/jniLibs-*; do
               [ -d "$d" ] || continue
               abi="${d##*/jniLibs-}"
               cp -r "$d" "$jni_root/$abi"
+            done
+            for d in "$shard"/playJniLibs-*; do
+              [ -d "$d" ] || continue
+              abi="${d##*/playJniLibs-}"
+              cp -r "$d" "$play_jni_root/$abi"
             done
             for d in "$shard"/assetsBin-*; do
               [ -d "$d" ] || continue
@@ -923,6 +942,7 @@ jobs:
             --no-parallel
             --max-workers=2
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt/jniLibs"
+            -Pripdpi.prebuiltPlayJniLibsDir="$RUNNER_TEMP/prebuilt/playJniLibs"
             -Pripdpi.prebuiltRustNoticesDir="$RUNNER_TEMP/prebuilt/notices"
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt/assetsBin"
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt/assetsBin"
@@ -1237,13 +1257,19 @@ jobs:
         run: |
           set -euo pipefail
           jni_root="$RUNNER_TEMP/prebuilt-release/jniLibs"
+          play_jni_root="$RUNNER_TEMP/prebuilt-release/playJniLibs"
           assets_root="$RUNNER_TEMP/prebuilt-release/assetsBin"
-          mkdir -p "$jni_root" "$assets_root"
+          mkdir -p "$jni_root" "$play_jni_root" "$assets_root"
           for shard in "$RUNNER_TEMP/native-shards-release"/native-shard-*; do
             for d in "$shard"/jniLibs-*; do
               [ -d "$d" ] || continue
               abi="${d##*/jniLibs-}"
               cp -r "$d" "$jni_root/$abi"
+            done
+            for d in "$shard"/playJniLibs-*; do
+              [ -d "$d" ] || continue
+              abi="${d##*/playJniLibs-}"
+              cp -r "$d" "$play_jni_root/$abi"
             done
             for d in "$shard"/assetsBin-*; do
               [ -d "$d" ] || continue
@@ -1272,6 +1298,7 @@ jobs:
             -Pripdpi.enableAbiSplits=false
             -Pripdpi.nativeAbiParallelism=1
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-release/jniLibs"
+            -Pripdpi.prebuiltPlayJniLibsDir="$RUNNER_TEMP/prebuilt-release/playJniLibs"
             -Pripdpi.prebuiltRustNoticesDir="$RUNNER_TEMP/prebuilt-release/notices"
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-release/assetsBin"

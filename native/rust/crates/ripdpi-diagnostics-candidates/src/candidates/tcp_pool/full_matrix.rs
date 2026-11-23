@@ -2,6 +2,7 @@ use crate::candidates::prelude::*;
 
 pub fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let mut candidates = build_tcp_candidates(base);
+    #[cfg(feature = "privileged-packets")]
     candidates.push(candidate_spec_with_notes(
         "fake_rst",
         "Fake RST (TTL trick)",
@@ -9,6 +10,7 @@ pub fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCan
         build_fake_rst_candidate(base),
         vec!["Sends a fake RST with low TTL to clear DPI state; requires root"],
     ));
+    #[cfg(feature = "privileged-packets")]
     candidates.push(candidate_spec_with_notes(
         "fake_synfin",
         "Fake packet + SYN|FIN",
@@ -16,6 +18,7 @@ pub fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCan
         build_tlsrec_fake_flag_candidate(base, "syn|fin"),
         vec!["Applies SYN and FIN on the fake packet while preserving the normal payload flow"],
     ));
+    #[cfg(feature = "privileged-packets")]
     candidates.push(candidate_spec_with_notes(
         "fake_pshurg",
         "Fake packet + PSH|URG",
@@ -23,6 +26,7 @@ pub fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCan
         build_tlsrec_fake_flag_candidate(base, "psh|urg"),
         vec!["Applies PSH and URG on the fake packet while preserving the normal payload flow"],
     ));
+    #[cfg(feature = "privileged-packets")]
     if supports_tcp_ip_fragmentation() {
         for (id, label, profile, note) in [
             (
@@ -60,6 +64,7 @@ pub fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCan
         }
     }
     candidates.push(build_circular_tlsrec_split_spec(base));
+    #[cfg(feature = "privileged-packets")]
     candidates.push(candidate_spec_with_notes(
         "tlsrec_fakedsplit_altorder1",
         "TLS record + fakedsplit (altorder 1)",
@@ -67,6 +72,7 @@ pub fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCan
         build_tlsrec_fakedsplit_altorder_candidate(base, "1"),
         vec!["Emits both fake regions before both genuine fakedsplit regions"],
     ));
+    #[cfg(feature = "privileged-packets")]
     candidates.push(candidate_spec_with_notes(
         "tlsrec_fakedsplit_altorder2",
         "TLS record + fakedsplit (altorder 2)",
@@ -76,6 +82,7 @@ pub fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCan
     ));
     candidates.extend([
         build_activation_window_split_spec(base),
+        #[cfg(feature = "privileged-packets")]
         build_activation_window_hostfake_spec(base),
         build_adaptive_fake_ttl_spec(base),
         build_fake_payload_library_spec(base),

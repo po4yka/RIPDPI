@@ -22,10 +22,11 @@ pub(super) use crate::util::{
     TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR, UDP_FAKE_PROFILE_DNS_QUERY, ranged_probe_delay,
 };
 
+#[cfg(feature = "privileged-packets")]
+pub(super) use super::audit_specs::build_activation_window_hostfake_spec;
 pub(super) use super::audit_specs::{
-    apply_coherent_chrome_fake_profile, build_activation_window_hostfake_spec, build_activation_window_split_spec,
-    build_adaptive_fake_ttl_spec, build_circular_tlsrec_split_spec, build_fake_payload_library_spec,
-    default_audit_activation_filter,
+    apply_coherent_chrome_fake_profile, build_activation_window_split_spec, build_adaptive_fake_ttl_spec,
+    build_circular_tlsrec_split_spec, build_fake_payload_library_spec, default_audit_activation_filter,
 };
 pub(super) use super::config_builders::*;
 pub(super) use super::emitter::{
@@ -39,8 +40,9 @@ pub(super) use super::spec::{
     config_requires_fake_ttl, with_quic_layout_family,
 };
 pub(super) use super::step::tcp_step;
+#[cfg(feature = "privileged-packets")]
+pub(super) use super::tcp_pool::build_rooted_candidates;
 pub(super) use super::tcp_pool::{
-    build_full_matrix_tcp_candidates, build_opportunistic_candidates, build_primary_candidates,
-    build_rooted_candidates, build_tcp_candidates,
+    build_full_matrix_tcp_candidates, build_opportunistic_candidates, build_primary_candidates, build_tcp_candidates,
 };
 pub(super) use super::types::{CandidateEligibility, CandidateWarmup, StrategyCandidateSpec, StrategyProbeSuite};

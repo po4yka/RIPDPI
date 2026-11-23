@@ -9,7 +9,7 @@ use std::sync::Arc as StdArc;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::DesyncExecutionEvidence;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use ripdpi_proxy_runtime_adapter::platform::root_helper::RootHelperGeneration;
 use ripdpi_ws_transport_port::WsTransport;
 
@@ -93,6 +93,7 @@ pub(super) fn run_proxy_with_listener_internal(
     let (listener_addr, ipv6_only) = listener_platform::tcp_listener_binding(&listener)?;
     RuntimeState::validate_listener_auth(&config, listener_addr.ip())?;
     RuntimeState::ensure_config_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     let _root_helper = RootHelperRegistration::for_config(&config);
     let embedded_candidate_runtime = control.is_some();
     let mut state = RuntimeState::new(config, control.clone(), ws_transport)?;
@@ -140,27 +141,17 @@ pub(super) fn close_rejected_client(client: &TcpStream) {
     listener_platform::close_rejected_client(client);
 }
 
-/// Registration token carried by the `RootHelperRegistration` RAII guard.
-///
-/// A `RootHelperGeneration` on platforms with a root helper; `()` elsewhere,
-/// where there is nothing to register and the guard is inert. The portable
-/// alias keeps the guard struct compilable on every target while the
-/// `root_helper` module itself is `linux`/`android`-only.
-#[cfg(any(target_os = "linux", target_os = "android"))]
-type RootHelperToken = RootHelperGeneration;
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-type RootHelperToken = ();
-
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 struct RootHelperRegistration {
     /// `Some(token)` once this guard has registered the root helper client;
     /// `None` when registration was skipped. Releasing through the generation
     /// token makes a stale `Drop` from a superseded session a no-op instead
     /// of clobbering a newer session's registration.
-    generation: Option<RootHelperToken>,
+    generation: Option<RootHelperGeneration>,
 }
 
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 impl RootHelperRegistration {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
     fn for_config(config: &RuntimeConfig) -> Self {
         let Some(path) =
             config.process.root_helper_socket_path.as_deref().map(str::trim).filter(|path| !path.is_empty())
@@ -171,17 +162,13 @@ impl RootHelperRegistration {
             ripdpi_proxy_runtime_adapter::platform::root_helper::register_root_helper_versioned(path.to_owned());
         Self { generation: Some(generation) }
     }
-
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    fn for_config(_config: &RuntimeConfig) -> Self {
-        Self { generation: None }
-    }
 }
 
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 impl Drop for RootHelperRegistration {
     fn drop(&mut self) {
         if let Some(generation) = self.generation {
-            unregister_root_helper(generation);
+            ripdpi_proxy_runtime_adapter::platform::root_helper::unregister_root_helper_if(generation);
         }
     }
 }
@@ -198,6 +185,7 @@ impl Drop for RootHelperRegistration {
 // if a future change ever adds `Copy`/`Clone` to the struct, both
 // `AmbiguousIf*<()>` and `AmbiguousIf*<u8>` impls apply and the `_` in
 // the call site cannot be resolved → compile error.
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 const _: fn() = || {
     #[allow(dead_code)]
     struct Check<T>(core::marker::PhantomData<T>);
@@ -210,6 +198,7 @@ const _: fn() = || {
     <Check<RootHelperRegistration> as AmbiguousIfCopy<_>>::check();
 };
 
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 const _: fn() = || {
     #[allow(dead_code)]
     struct Check<T>(core::marker::PhantomData<T>);
@@ -221,14 +210,6 @@ const _: fn() = || {
     impl<T: Clone> AmbiguousIfClone<u8> for Check<T> {}
     <Check<RootHelperRegistration> as AmbiguousIfClone<_>>::check();
 };
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn unregister_root_helper(generation: RootHelperToken) {
-    ripdpi_proxy_runtime_adapter::platform::root_helper::unregister_root_helper_if(generation);
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-fn unregister_root_helper(_generation: RootHelperToken) {}
 
 #[derive(Clone)]
 pub(super) struct RuntimeShutdown {
@@ -245,7 +226,7 @@ impl RuntimeShutdown {
     }
 }
 
-#[cfg(all(test, any(target_os = "linux", target_os = "android")))]
+#[cfg(all(test, feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 mod tests {
     use std::sync::Mutex;
 

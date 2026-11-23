@@ -1,6 +1,7 @@
 mod full_matrix;
 mod opportunistic;
 mod primary;
+#[cfg(feature = "privileged-packets")]
 mod rooted;
 
 use super::prelude::*;
@@ -8,6 +9,7 @@ use super::prelude::*;
 pub use full_matrix::build_full_matrix_tcp_candidates;
 pub use opportunistic::build_opportunistic_candidates;
 pub use primary::build_primary_candidates;
+#[cfg(feature = "privileged-packets")]
 pub use rooted::build_rooted_candidates;
 
 /// Builds the full TCP candidate set for strategy probing: primary +
@@ -18,6 +20,7 @@ pub use rooted::build_rooted_candidates;
 pub fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let mut candidates = build_primary_candidates(base);
     candidates.extend(build_opportunistic_candidates(base));
+    #[cfg(feature = "privileged-packets")]
     candidates.extend(build_rooted_candidates(base));
     candidates
 }

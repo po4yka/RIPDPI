@@ -139,12 +139,16 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         ws_tunnel,
         destination_routing,
         native_log_level: _,
+        #[cfg(feature = "privileged-packets")]
         root_mode,
+        #[cfg(feature = "privileged-packets")]
         root_helper_socket_path,
         geoip_db_path,
         geosite_db_path,
         environment_kind,
     } = payload;
+    #[cfg(not(feature = "privileged-packets"))]
+    let root_mode = false;
 
     let mut config = RuntimeConfig {
         destination_routing: destination_routing::convert(destination_routing)?,
@@ -204,7 +208,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         groups,
         &listen,
         &host_autolearn,
+        #[cfg(feature = "privileged-packets")]
         root_mode,
+        #[cfg(feature = "privileged-packets")]
         root_helper_socket_path,
         environment_kind.as_deref(),
     )

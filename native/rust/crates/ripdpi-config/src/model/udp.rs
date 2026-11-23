@@ -19,7 +19,7 @@ pub enum UdpChainStepKind {
 impl UdpChainStepKind {
     pub const fn emitter_tier(self) -> EmitterTier {
         match self {
-            Self::IpFrag2Udp => EmitterTier::RootedProduction,
+            Self::IpFrag2Udp => EmitterTier::PACKET_OWNED,
             Self::FakeBurst
             | Self::DummyPrepend
             | Self::QuicSniSplit

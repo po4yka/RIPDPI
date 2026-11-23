@@ -13,7 +13,9 @@ pub fn plain_direct_probe_config(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = ProxyUiConfig {
         listen: base.listen.clone(),
         native_log_level: base.native_log_level.clone(),
+        #[cfg(feature = "privileged-packets")]
         root_mode: base.root_mode,
+        #[cfg(feature = "privileged-packets")]
         root_helper_socket_path: base.root_helper_socket_path.clone(),
         geoip_db_path: base.geoip_db_path.clone(),
         geosite_db_path: base.geosite_db_path.clone(),

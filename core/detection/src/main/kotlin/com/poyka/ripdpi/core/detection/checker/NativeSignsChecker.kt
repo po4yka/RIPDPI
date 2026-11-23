@@ -14,8 +14,7 @@ import java.net.NetworkInterface
 data class NativeSignsSnapshot(
     val nativeInterfaces: List<String> = emptyList(),
     val mapsLines: List<String> = emptyList(),
-    val mountsLines: List<String> = emptyList(),
-    val rootArtifacts: List<String> = emptyList(),
+    val reviewSignals: List<String> = emptyList(),
     val selinuxMode: String? = null,
 )
 
@@ -42,12 +41,11 @@ object NativeSignsChecker {
                 .sorted()
         val hookMarkers = hookMarkers(snapshot.mapsLines)
         val rwxRegions = rwxRegions(snapshot.mapsLines)
-        val rootArtifacts = rootArtifacts(snapshot)
         return result(
             hiddenInterfaces = hiddenInterfaces,
             hookMarkers = hookMarkers,
             rwxRegions = rwxRegions,
-            rootArtifacts = rootArtifacts,
+            reviewSignals = snapshot.reviewSignals.distinct().sorted(),
             selinuxMode = snapshot.selinuxMode,
         )
     }
@@ -56,7 +54,7 @@ object NativeSignsChecker {
         hiddenInterfaces: List<String>,
         hookMarkers: List<String>,
         rwxRegions: List<String>,
-        rootArtifacts: List<String>,
+        reviewSignals: List<String>,
         selinuxMode: String?,
     ): NativeSignsResult {
         val findings = mutableListOf<Finding>()
@@ -79,11 +77,11 @@ object NativeSignsChecker {
                 confidence = EvidenceConfidence.HIGH,
             )
         }
-        for (artifact in rootArtifacts) {
+        for (signal in reviewSignals) {
             addSignal(
                 findings = findings,
                 evidence = evidence,
-                description = "Root artifact: $artifact",
+                description = signal,
                 detected = false,
                 confidence = EvidenceConfidence.MEDIUM,
             )
@@ -107,11 +105,11 @@ object NativeSignsChecker {
             )
         }
         if (findings.isEmpty()) {
-            findings.add(Finding("Native signs: no hidden interfaces, hooks, or root artifacts detected"))
+            findings.add(Finding("Native signs: no relevant findings"))
         }
         val detected = hiddenInterfaces.isNotEmpty() || hookMarkers.isNotEmpty()
         val hasReviewOnlySignals =
-            rootArtifacts.isNotEmpty() ||
+            reviewSignals.isNotEmpty() ||
                 selinuxMode.equals(
                     "permissive",
                     ignoreCase = true,
@@ -129,7 +127,7 @@ object NativeSignsChecker {
             hiddenInterfaces = hiddenInterfaces,
             hookMarkers = hookMarkers,
             rwxRegions = rwxRegions,
-            rootArtifacts = rootArtifacts,
+            reviewSignals = reviewSignals,
         )
     }
 
@@ -186,16 +184,6 @@ object NativeSignsChecker {
             .map { line -> line.substringBeforeLast(' ') }
             .distinct()
 
-    private fun rootArtifacts(snapshot: NativeSignsSnapshot): List<String> =
-        (snapshot.rootArtifacts + overlayMounts(snapshot.mountsLines))
-            .distinct()
-            .sorted()
-
-    private fun overlayMounts(mountsLines: List<String>): List<String> =
-        mountsLines
-            .filter { line -> line.contains(" overlay ") || line.contains(" bind ") }
-            .map { line -> "mount:${line.take(MountFindingMaxChars)}" }
-
     private fun String.regionSizeBytes(): Long {
         val range = substringBefore(' ')
         val start = range.substringBefore('-').toLongOrNull(16) ?: return 0
@@ -212,7 +200,6 @@ object NativeSignsChecker {
         }.getOrDefault(emptyList())
 
     private const val LargeRwxRegionBytes = 4L * 1024L * 1024L
-    private const val MountFindingMaxChars = 160
     private val HookMarkers = listOf("frida", "substrate", "xposed", "lspatch", "zygisk", "riru")
 }
 
@@ -230,8 +217,7 @@ private fun JSONObject.toNativeSignsSnapshot(): NativeSignsSnapshot =
     NativeSignsSnapshot(
         nativeInterfaces = stringArray("nativeInterfaces"),
         mapsLines = stringArray("mapsLines"),
-        mountsLines = stringArray("mountsLines"),
-        rootArtifacts = stringArray("rootArtifacts"),
+        reviewSignals = stringArray("reviewSignals"),
         selinuxMode = optString("selinuxMode").takeIf(String::isNotBlank),
     )
 

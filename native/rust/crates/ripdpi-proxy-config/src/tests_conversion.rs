@@ -224,11 +224,15 @@ fn ui_payload_drops_fakerst_without_root_mode() {
     assert_eq!(fake_rst_steps(&config), 0);
     assert_eq!(config.groups[0].actions.tcp_chain.len(), 1);
 
-    ui.root_mode = true;
-    let config = runtime_config_from_payload(ui_payload(ui)).expect("fakerst with root");
-    assert_eq!(fake_rst_steps(&config), 2);
+    #[cfg(feature = "privileged-packets")]
+    {
+        ui.root_mode = true;
+        let config = runtime_config_from_payload(ui_payload(ui)).expect("fakerst with root");
+        assert_eq!(fake_rst_steps(&config), 2);
+    }
 }
 
+#[cfg(feature = "privileged-packets")]
 #[test]
 fn ui_payload_rejects_fakerst_that_unsets_rst_flag() {
     let mut ui = minimal_ui();

@@ -42,7 +42,7 @@ criterion = { workspace = true }
 local-network-fixture = { workspace = true }
 quic-mtu-test-util = { workspace = true }
 ripdpi-config = { workspace = true }
-ripdpi-proxy-runtime = { workspace = true }
+ripdpi-proxy-runtime = { workspace = true, features = ["privileged-packets"] }
 ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-adaptive = { workspace = true }
 ripdpi-runtime-api = { workspace = true }

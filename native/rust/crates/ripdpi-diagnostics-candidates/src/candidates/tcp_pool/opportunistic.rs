@@ -14,12 +14,14 @@ pub fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandi
     let tlsrec_disorder = build_tlsrec_disorder_candidate(base);
     let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
     let tlsrec_fake_hrr = build_tlsrec_fake_hrr_candidate(base);
+    #[cfg(feature = "privileged-packets")]
     let tlsrec_fake_seqgroup = build_tlsrec_fake_seqgroup_candidate(base);
     let tlsrec_fakedsplit = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
     let tlsrec_fakeddisorder = build_tlsrec_fake_approx_candidate(base, "fakeddisorder");
     // Fixed-duplicate HostFake (no follow-up split, no random host): demoted
     // from primary because it needs root, relies on TTL expiry of the fake segment, and
     // produces no differentiation over tlsrec_hostfake_split on capable hosts.
+    #[cfg(feature = "privileged-packets")]
     let tlsrec_hostfake = build_tlsrec_hostfake_candidate(base, false);
 
     vec![
@@ -55,6 +57,7 @@ pub fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandi
                 "Targets compliant servers that answer with HelloRetryRequest instead of a generic TLS alert",
             ],
         ),
+        #[cfg(feature = "privileged-packets")]
         candidate_spec_with_notes(
             "tlsrec_fake_seqgroup",
             "TLS record + rich fake (seqgroup)",
@@ -79,6 +82,7 @@ pub fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandi
             tlsrec_fakedsplit,
             vec!["Uses the Chrome-family fake ClientHello profile before approximate fallback emission"],
         ),
+        #[cfg(feature = "privileged-packets")]
         candidate_spec_with_notes(
             "tlsrec_hostfake",
             "TLS record + hostfake",

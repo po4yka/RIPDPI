@@ -140,7 +140,7 @@ object DetectionDebugFormatter {
         result?.hiddenInterfaces.orEmpty().forEach { appendLine("hiddenInterface=$it") }
         result?.hookMarkers.orEmpty().forEach { appendLine("hookMarker=$it") }
         result?.rwxRegions.orEmpty().forEach { appendLine("rwxRegion=$it") }
-        result?.rootArtifacts.orEmpty().forEach { appendLine("rootArtifact=$it") }
+        result?.reviewSignals.orEmpty().forEach { appendLine("reviewSignal=$it") }
         snapshot.getifaddrsRows.forEach { appendLine("getifaddrs=$it") }
         snapshot.tcpSockets.take(MAX_SOCKET_ROWS).forEach { appendLine("tcpSocket=$it") }
         snapshot.udpSockets.take(MAX_SOCKET_ROWS).forEach { appendLine("udpSocket=$it") }

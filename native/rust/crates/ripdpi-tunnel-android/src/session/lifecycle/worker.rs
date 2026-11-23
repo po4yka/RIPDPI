@@ -8,9 +8,11 @@ use tokio_util::sync::CancellationToken;
 
 use crate::telemetry::TunnelTelemetryState;
 
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 mod root_helper;
 mod worker_error;
 
+#[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use self::root_helper::{register_for_worker, unregister_for_worker};
 use self::worker_error::record_worker_result;
 
@@ -34,6 +36,7 @@ pub(crate) fn launch_tunnel_worker(launch: WorkerLaunch) -> std::io::Result<std:
 fn run_worker(launch: WorkerLaunch) {
     let WorkerLaunch { runtime, config, owned_fd, cancel, stats, telemetry, last_error, startup_ready, exited } =
         launch;
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     let root_helper_generation = register_for_worker(&config);
     let worker_cancel = cancel.clone();
     // Callsite cancellation contract: run_tunnel_with_ready is NOT cancel-safe
@@ -57,6 +60,7 @@ fn run_worker(launch: WorkerLaunch) {
     }));
 
     record_worker_result(result, &telemetry, &last_error);
+    #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     if let Some(generation) = root_helper_generation {
         unregister_for_worker(generation);
     }

@@ -1,10 +1,5 @@
-#[cfg(any(target_os = "linux", target_os = "android"))]
 pub(super) type WorkerRootHelperToken = ripdpi_runtime_platform::root_helper::RootHelperGeneration;
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub(super) struct WorkerRootHelperToken;
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
 pub(super) fn register_for_worker(config: &ripdpi_tunnel_config::Config) -> Option<WorkerRootHelperToken> {
     let Some(path) = config.misc.root_helper_socket_path.as_deref() else {
         ripdpi_runtime_platform::root_helper::unregister_root_helper();
@@ -17,20 +12,11 @@ pub(super) fn register_for_worker(config: &ripdpi_tunnel_config::Config) -> Opti
     Some(ripdpi_runtime_platform::root_helper::register_root_helper_versioned(path.to_owned()))
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub(super) fn register_for_worker(_config: &ripdpi_tunnel_config::Config) -> Option<WorkerRootHelperToken> {
-    None
-}
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
 pub(super) fn unregister_for_worker(generation: WorkerRootHelperToken) {
     ripdpi_runtime_platform::root_helper::unregister_root_helper_if(generation);
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub(super) fn unregister_for_worker(_generation: WorkerRootHelperToken) {}
-
-#[cfg(all(test, any(target_os = "linux", target_os = "android")))]
+#[cfg(test)]
 mod tests {
     use crate::config::{config_from_payload, sample_payload};
 

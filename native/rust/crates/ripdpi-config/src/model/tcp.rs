@@ -40,14 +40,22 @@ pub enum TcpChainStepKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum EmitterTier {
     NonRootProduction,
+    #[cfg(feature = "privileged-packets")]
     RootedProduction,
     LabDiagnosticsOnly,
 }
 
 impl EmitterTier {
+    #[cfg(feature = "privileged-packets")]
+    pub(super) const PACKET_OWNED: Self = Self::RootedProduction;
+
+    #[cfg(not(feature = "privileged-packets"))]
+    pub(super) const PACKET_OWNED: Self = Self::LabDiagnosticsOnly;
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::NonRootProduction => "non_root_production",
+            #[cfg(feature = "privileged-packets")]
             Self::RootedProduction => "rooted_production",
             Self::LabDiagnosticsOnly => "lab_diagnostics_only",
         }
@@ -119,7 +127,7 @@ impl TcpChainStepKind {
         match self {
             // HostFake lowers to a plain split without the raw ordered-segment sender.
             Self::SeqOverlap | Self::MultiDisorder | Self::IpFrag2 | Self::HostFake | Self::FakeRst => {
-                EmitterTier::RootedProduction
+                EmitterTier::PACKET_OWNED
             }
             Self::Split
             | Self::SynData

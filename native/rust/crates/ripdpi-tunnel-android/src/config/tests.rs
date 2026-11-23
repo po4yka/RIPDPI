@@ -170,6 +170,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 split_dns_policy: None,
                 strategy_chain_yaml: None,
                 protect_path: None,
+                #[cfg(feature = "privileged-packets")]
                 root_helper_socket_path: None,
                 lua_script_base_dir: None,
                 lua_socket_owned: false,
@@ -309,6 +310,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 split_dns_policy: None,
                 strategy_chain_yaml: None,
                 protect_path: None,
+                #[cfg(feature = "privileged-packets")]
                 root_helper_socket_path: None,
                 lua_script_base_dir: None,
                 lua_socket_owned: false,
@@ -400,7 +402,10 @@ fn maps_synack_runtime_fields_to_misc_config() {
     let mut payload = sample_payload();
     payload.strategy_chain_yaml = Some(chain_yaml.to_string());
     payload.protect_path = Some("/tmp/ripdpi-protect.sock".to_string());
-    payload.root_helper_socket_path = Some("/tmp/ripdpi-root-helper.sock".to_string());
+    #[cfg(feature = "privileged-packets")]
+    {
+        payload.root_helper_socket_path = Some("/tmp/ripdpi-root-helper.sock".to_string());
+    }
     payload.lua_script_base_dir = Some("/data/user/0/com.poyka.ripdpi/files/lua".to_string());
     payload.lua_socket_owned = true;
 
@@ -408,6 +413,7 @@ fn maps_synack_runtime_fields_to_misc_config() {
 
     assert_eq!(config.misc.strategy_chain_yaml.as_deref(), Some(chain_yaml));
     assert_eq!(config.misc.protect_path.as_deref(), Some("/tmp/ripdpi-protect.sock"),);
+    #[cfg(feature = "privileged-packets")]
     assert_eq!(config.misc.root_helper_socket_path.as_deref(), Some("/tmp/ripdpi-root-helper.sock"));
     assert_eq!(config.misc.lua_script_base_dir.as_deref(), Some("/data/user/0/com.poyka.ripdpi/files/lua"));
     assert!(config.misc.lua_socket_owned);
@@ -418,13 +424,17 @@ fn drops_blank_synack_runtime_fields() {
     let mut payload = sample_payload();
     payload.strategy_chain_yaml = Some(" \n\t ".to_string());
     payload.protect_path = Some("  ".to_string());
-    payload.root_helper_socket_path = Some("  ".to_string());
+    #[cfg(feature = "privileged-packets")]
+    {
+        payload.root_helper_socket_path = Some("  ".to_string());
+    }
     payload.lua_script_base_dir = Some("  ".to_string());
 
     let config = config_from_payload(payload).expect("config");
 
     assert_eq!(config.misc.strategy_chain_yaml, None);
     assert_eq!(config.misc.protect_path, None);
+    #[cfg(feature = "privileged-packets")]
     assert_eq!(config.misc.root_helper_socket_path, None);
     assert_eq!(config.misc.lua_script_base_dir, None);
 }

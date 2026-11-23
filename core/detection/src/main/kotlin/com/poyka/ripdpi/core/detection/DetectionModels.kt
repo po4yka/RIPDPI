@@ -227,7 +227,7 @@ data class NativeSignsResult(
     val hiddenInterfaces: List<String> = emptyList(),
     val hookMarkers: List<String> = emptyList(),
     val rwxRegions: List<String> = emptyList(),
-    val rootArtifacts: List<String> = emptyList(),
+    val reviewSignals: List<String> = emptyList(),
     val hasError: Boolean = false,
 )
 

@@ -49,6 +49,7 @@ fn default_strategy_probe_methodology_version() -> String {
 pub enum StrategyEmitterTier {
     #[default]
     NonRootProduction,
+    #[cfg(feature = "privileged-packets")]
     RootedProduction,
     LabDiagnosticsOnly,
 }
@@ -157,6 +158,7 @@ pub struct StrategyProbeCandidateSummary {
     #[serde(default)]
     pub emitter_tier: StrategyEmitterTier,
     #[serde(default)]
+    #[cfg_attr(not(feature = "privileged-packets"), serde(skip))]
     pub exact_emitter_requires_root: bool,
     #[serde(default)]
     pub emitter_downgraded: bool,

@@ -3,9 +3,10 @@ use super::prelude::*;
 pub(super) fn strategy_emitter_tier(tier: EmitterTier) -> StrategyEmitterTier {
     match tier {
         EmitterTier::NonRootProduction => StrategyEmitterTier::NonRootProduction,
+        #[cfg(feature = "privileged-packets")]
         EmitterTier::RootedProduction => StrategyEmitterTier::RootedProduction,
         EmitterTier::LabDiagnosticsOnly => StrategyEmitterTier::LabDiagnosticsOnly,
-        _ => StrategyEmitterTier::NonRootProduction,
+        _ => StrategyEmitterTier::LabDiagnosticsOnly,
     }
 }
 

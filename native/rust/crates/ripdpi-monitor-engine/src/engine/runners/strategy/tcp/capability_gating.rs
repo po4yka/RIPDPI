@@ -105,6 +105,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "privileged-packets")]
     #[test]
     fn hostfake_candidates_do_not_run_without_root() {
         let specs = build_tcp_candidates(&ProxyUiConfig::default());

@@ -88,7 +88,9 @@ data class StrategyCandidatePlanSnapshot(
     val label: String,
     val family: String,
     val emitterTier: StrategyEmitterTier,
-    val exactEmitterRequiresRoot: Boolean,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val exactEmitterRequiresRoot: Boolean = false,
     val approximateFallbackFamily: String? = null,
     val quicLayoutFamily: String? = null,
     val eligibility: String,

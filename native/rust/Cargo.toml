@@ -140,10 +140,10 @@ ripdpi-dns-resolver = { path = "crates/ripdpi-dns-resolver" }
 ripdpi-dns-morph = { path = "crates/ripdpi-dns-morph" }
 ripdpi-failure-classifier = { path = "crates/ripdpi-failure-classifier" }
 ripdpi-hysteria2 = { path = "crates/ripdpi-hysteria2" }
-ripdpi-proxy-config = { path = "crates/ripdpi-proxy-config" }
-ripdpi-diagnostics-candidates = { path = "crates/ripdpi-diagnostics-candidates" }
+ripdpi-proxy-config = { path = "crates/ripdpi-proxy-config", default-features = false }
+ripdpi-diagnostics-candidates = { path = "crates/ripdpi-diagnostics-candidates", default-features = false }
 ripdpi-diagnostics-classification = { path = "crates/ripdpi-diagnostics-classification" }
-ripdpi-diagnostics-contracts = { path = "crates/ripdpi-diagnostics-contracts" }
+ripdpi-diagnostics-contracts = { path = "crates/ripdpi-diagnostics-contracts", default-features = false }
 ripdpi-diagnostics-dns = { path = "crates/ripdpi-diagnostics-dns" }
 ripdpi-diagnostics-fat-header = { path = "crates/ripdpi-diagnostics-fat-header" }
 ripdpi-diagnostics-http = { path = "crates/ripdpi-diagnostics-http" }
@@ -154,12 +154,12 @@ ripdpi-diagnostics-tls = { path = "crates/ripdpi-diagnostics-tls" }
 ripdpi-diagnostics-transport = { path = "crates/ripdpi-diagnostics-transport" }
 ripdpi-ech-dns = { path = "crates/ripdpi-ech-dns" }
 ripdpi-geo = { path = "crates/ripdpi-geo" }
-ripdpi-monitor-engine = { path = "crates/ripdpi-monitor-engine" }
-ripdpi-monitor-lane-adapter = { path = "crates/ripdpi-monitor-lane-adapter" }
+ripdpi-monitor-engine = { path = "crates/ripdpi-monitor-engine", default-features = false }
+ripdpi-monitor-lane-adapter = { path = "crates/ripdpi-monitor-lane-adapter", default-features = false }
 ripdpi-monitor-proxy-runtime = { path = "crates/ripdpi-monitor-proxy-runtime" }
 ripdpi-proxy-runtime-desync-adapter = { path = "crates/ripdpi-proxy-runtime-desync-adapter" }
-ripdpi-proxy-runtime-adapter = { path = "crates/ripdpi-proxy-runtime-adapter" }
-ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime" }
+ripdpi-proxy-runtime-adapter = { path = "crates/ripdpi-proxy-runtime-adapter", default-features = false }
+ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime", default-features = false }
 ripdpi-quality = { path = "crates/ripdpi-quality" }
 ripdpi-runtime-api = { path = "crates/ripdpi-runtime-api" }
 ripdpi-runtime-adaptive = { path = "crates/ripdpi-runtime-adaptive" }
@@ -167,8 +167,8 @@ ripdpi-runtime-dns-cache = { path = "crates/ripdpi-runtime-dns-cache" }
 ripdpi-runtime-decision-engine = { path = "crates/ripdpi-runtime-decision-engine" }
 ripdpi-runtime-decision-ports = { path = "crates/ripdpi-runtime-decision-ports" }
 ripdpi-runtime-policy = { path = "crates/ripdpi-runtime-policy" }
-ripdpi-runtime-services = { path = "crates/ripdpi-runtime-services" }
-ripdpi-runtime-platform = { path = "crates/ripdpi-runtime-platform" }
+ripdpi-runtime-services = { path = "crates/ripdpi-runtime-services", default-features = false }
+ripdpi-runtime-platform = { path = "crates/ripdpi-runtime-platform", default-features = false }
 ripdpi-runtime-strategy = { path = "crates/ripdpi-runtime-strategy" }
 ripdpi-shared-priors = { path = "crates/ripdpi-shared-priors" }
 ripdpi-ws-bootstrap = { path = "crates/ripdpi-ws-bootstrap" }
@@ -178,8 +178,8 @@ ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }
 ripdpi-flow-app-attribution = { path = "crates/ripdpi-flow-app-attribution" }
 ripdpi-android-bridge-support = { path = "crates/ripdpi-android-bridge-support" }
 ripdpi-android-telemetry-adapter = { path = "crates/ripdpi-android-telemetry-adapter" }
-ripdpi-android-proxy-adapter = { path = "crates/ripdpi-android-proxy-adapter" }
-ripdpi-android-diagnostics-adapter = { path = "crates/ripdpi-android-diagnostics-adapter" }
+ripdpi-android-proxy-adapter = { path = "crates/ripdpi-android-proxy-adapter", default-features = false }
+ripdpi-android-diagnostics-adapter = { path = "crates/ripdpi-android-diagnostics-adapter", default-features = false }
 ripdpi-android-fetch-adapter = { path = "crates/ripdpi-android-fetch-adapter" }
 ripdpi-android-platform-adapter = { path = "crates/ripdpi-android-platform-adapter" }
 ripdpi-android-vpn-protect-adapter = { path = "crates/ripdpi-android-vpn-protect-adapter" }
@@ -198,11 +198,11 @@ ripdpi-session-limit = { path = "crates/ripdpi-session-limit" }
 ripdpi-socks5-core = { path = "crates/ripdpi-socks5-core" }
 ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-subprocess-protect = { path = "crates/ripdpi-subprocess-protect" }
-ripdpi-config = { path = "crates/ripdpi-config" }
+ripdpi-config = { path = "crates/ripdpi-config", default-features = false }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
 ripdpi-desync-runtime = { path = "crates/ripdpi-desync-runtime" }
-ripdpi-capabilities = { path = "crates/ripdpi-capabilities" }
-ripdpi-privileged-ops = { path = "crates/ripdpi-privileged-ops" }
+ripdpi-capabilities = { path = "crates/ripdpi-capabilities", default-features = false }
+ripdpi-privileged-ops = { path = "crates/ripdpi-privileged-ops", default-features = false }
 ripdpi-protocol-detect = { path = "crates/ripdpi-protocol-detect" }
 ripdpi-root-helper-protocol = { path = "crates/ripdpi-root-helper-protocol" }
 ripdpi-strategy-config = { path = "crates/ripdpi-strategy-config" }
@@ -239,7 +239,7 @@ arti-client = { version = "0.48.0", default-features = false, features = ["tokio
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
 ripdpi-tunnel-intercept = { path = "crates/ripdpi-tunnel-intercept" }
-ripdpi-tunnel-config = { path = "crates/ripdpi-tunnel-config" }
+ripdpi-tunnel-config = { path = "crates/ripdpi-tunnel-config", default-features = false }
 ripdpi-tunnel-core = { path = "crates/ripdpi-tunnel-core" }
 
 hdrhistogram = "7"

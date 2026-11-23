@@ -37,6 +37,7 @@ pub struct MiscConfig {
     pub uid_policy_allow_icmp: bool,
     pub strategy_chain_yaml: Option<String>,
     pub protect_path: Option<String>,
+    #[cfg(feature = "privileged-packets")]
     pub root_helper_socket_path: Option<String>,
     /// Absolute directory the TUN egress strategy loader jails `lua`-step
     /// `script_paths` to. When `None`, the loader falls back to `"."` (the
@@ -69,6 +70,7 @@ impl Default for MiscConfig {
             uid_policy_allow_icmp: false,
             strategy_chain_yaml: None,
             protect_path: None,
+            #[cfg(feature = "privileged-packets")]
             root_helper_socket_path: None,
             lua_script_base_dir: None,
             lua_socket_owned: false,

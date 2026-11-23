@@ -176,7 +176,10 @@ fn tcp_learning_context(
         reachability_set: reachability_set_context(host),
         ech_capable: classification.has_ech,
         resolver_health: resolver_health_context(runtime_context),
+        #[cfg(feature = "privileged-packets")]
         rooted: config.process.root_mode,
+        #[cfg(not(feature = "privileged-packets"))]
+        rooted: false,
         capability_context: capability_context(capability),
         environment: config.process.environment_kind,
     }
@@ -204,7 +207,10 @@ fn udp_learning_context(
         reachability_set: reachability_set_context(host),
         ech_capable: classification.has_ech,
         resolver_health: resolver_health_context(runtime_context),
+        #[cfg(feature = "privileged-packets")]
         rooted: config.process.root_mode,
+        #[cfg(not(feature = "privileged-packets"))]
+        rooted: false,
         capability_context: capability_context(capability),
         environment: config.process.environment_kind,
     }

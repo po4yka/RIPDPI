@@ -402,7 +402,9 @@ fn runtime_config_adapter_views_round_trip() {
         geosite_db_path: Some("geosite.db".to_string()),
         daemonize: true,
         pid_file: Some("ripdpi.pid".to_string()),
+        #[cfg(feature = "privileged-packets")]
         root_mode: false,
+        #[cfg(feature = "privileged-packets")]
         root_helper_socket_path: None,
         environment_kind: EnvironmentKind::Unknown,
     };
@@ -825,19 +827,25 @@ fn seq_overlap_fake_mode_default_is_profile() {
     assert_eq!(SeqOverlapFakeMode::default(), SeqOverlapFakeMode::Profile);
 }
 
+#[cfg(feature = "privileged-packets")]
+const EXPECTED_PACKET_EMITTER_TIER: EmitterTier = EmitterTier::RootedProduction;
+
+#[cfg(not(feature = "privileged-packets"))]
+const EXPECTED_PACKET_EMITTER_TIER: EmitterTier = EmitterTier::LabDiagnosticsOnly;
+
 #[test]
 fn tcp_step_kinds_map_to_expected_emitter_tiers() {
     assert_eq!(TcpChainStepKind::Split.emitter_tier(), EmitterTier::NonRootProduction);
-    assert_eq!(TcpChainStepKind::SeqOverlap.emitter_tier(), EmitterTier::RootedProduction);
-    assert_eq!(TcpChainStepKind::HostFake.emitter_tier(), EmitterTier::RootedProduction);
-    assert_eq!(TcpChainStepKind::MultiDisorder.emitter_tier(), EmitterTier::RootedProduction);
-    assert_eq!(TcpChainStepKind::IpFrag2.emitter_tier(), EmitterTier::RootedProduction);
-    assert_eq!(TcpChainStepKind::FakeRst.emitter_tier(), EmitterTier::RootedProduction);
+    assert_eq!(TcpChainStepKind::SeqOverlap.emitter_tier(), EXPECTED_PACKET_EMITTER_TIER);
+    assert_eq!(TcpChainStepKind::HostFake.emitter_tier(), EXPECTED_PACKET_EMITTER_TIER);
+    assert_eq!(TcpChainStepKind::MultiDisorder.emitter_tier(), EXPECTED_PACKET_EMITTER_TIER);
+    assert_eq!(TcpChainStepKind::IpFrag2.emitter_tier(), EXPECTED_PACKET_EMITTER_TIER);
+    assert_eq!(TcpChainStepKind::FakeRst.emitter_tier(), EXPECTED_PACKET_EMITTER_TIER);
 }
 
 #[test]
 fn udp_step_kinds_map_to_expected_emitter_tiers() {
     assert_eq!(UdpChainStepKind::FakeBurst.emitter_tier(), EmitterTier::NonRootProduction);
     assert_eq!(UdpChainStepKind::QuicCryptoSplit.emitter_tier(), EmitterTier::NonRootProduction);
-    assert_eq!(UdpChainStepKind::IpFrag2Udp.emitter_tier(), EmitterTier::RootedProduction);
+    assert_eq!(UdpChainStepKind::IpFrag2Udp.emitter_tier(), EXPECTED_PACKET_EMITTER_TIER);
 }

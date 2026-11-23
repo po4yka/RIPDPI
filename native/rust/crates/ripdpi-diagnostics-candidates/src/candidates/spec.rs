@@ -100,6 +100,7 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> Vec<Runtim
     let mut needs_raw_tcp = false;
     let mut needs_raw_udp = false;
     let mut needs_replacement_socket = false;
+    #[cfg(feature = "privileged-packets")]
     let mut needs_root = false;
 
     for step in all_steps {
@@ -118,6 +119,7 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> Vec<Runtim
             "seqovl" => {
                 needs_replacement_socket = true;
             }
+            #[cfg(feature = "privileged-packets")]
             "multidisorder" => {
                 needs_root = true;
             }
@@ -144,6 +146,7 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> Vec<Runtim
     if needs_replacement_socket {
         required.push(RuntimeCapability::ReplacementSocket);
     }
+    #[cfg(feature = "privileged-packets")]
     if needs_root {
         required.push(RuntimeCapability::RootHelperAvailable);
     }

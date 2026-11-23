@@ -75,6 +75,8 @@ pub struct StrategyCandidatePlanSnapshot {
     pub label: String,
     pub family: String,
     pub emitter_tier: StrategyEmitterTier,
+    #[serde(default)]
+    #[cfg_attr(not(feature = "privileged-packets"), serde(skip))]
     pub exact_emitter_requires_root: bool,
     pub approximate_fallback_family: Option<String>,
     pub quic_layout_family: Option<String>,

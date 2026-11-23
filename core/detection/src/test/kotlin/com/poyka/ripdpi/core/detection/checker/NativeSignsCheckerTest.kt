@@ -41,16 +41,17 @@ class NativeSignsCheckerTest {
     }
 
     @Test
-    fun rootSuBinaryProducesFinding() {
+    fun reviewSignalProducesFindingWithoutStrongDetection() {
         val result =
             NativeSignsChecker.check(
-                bridge = FakeNativeSignsBridge(rootArtifacts = listOf("/system/xbin/su")),
+                bridge = FakeNativeSignsBridge(reviewSignals = listOf("Modified mount")),
                 jvmInterfaceProvider = { emptyList() },
             )
 
-        assertEquals(listOf("/system/xbin/su"), result.rootArtifacts)
+        assertEquals(listOf("Modified mount"), result.reviewSignals)
         assertTrue(result.category.needsReview)
-        assertTrue(result.category.findings.any { it.description.contains("Root artifact") })
+        assertFalse(result.category.detected)
+        assertTrue(result.category.findings.any { it.description == "Modified mount" })
     }
 
     @Test
@@ -70,13 +71,13 @@ class NativeSignsCheckerTest {
     private data class FakeNativeSignsBridge(
         private val nativeInterfaces: List<String> = emptyList(),
         private val mapsLines: List<String> = emptyList(),
-        private val rootArtifacts: List<String> = emptyList(),
+        private val reviewSignals: List<String> = emptyList(),
     ) : NativeSignsBridge {
         override fun snapshot(): NativeSignsSnapshot =
             NativeSignsSnapshot(
                 nativeInterfaces = nativeInterfaces,
                 mapsLines = mapsLines,
-                rootArtifacts = rootArtifacts,
+                reviewSignals = reviewSignals,
             )
     }
 

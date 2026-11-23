@@ -59,11 +59,15 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
         self.assertIn('startsWith("app:assemble")', source)
         self.assertIn('!contains("debug")', source)
 
-    def test_native_tasks_share_one_cargo_target_root(self) -> None:
+    def test_extended_native_tasks_share_cargo_target_root_separately_from_play(self) -> None:
         source = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")
 
+        app_tasks = source[source.index("fun registerAppNativeBuild(") : source.index("val buildRustRootHelper =")]
+        self.assertIn('registerAppNativeBuild("buildRustNativeLibs", extendedEdition = true)', app_tasks)
+        self.assertIn('registerAppNativeBuild("buildPlayRustNativeLibs", extendedEdition = false)', app_tasks)
+        self.assertIn("cargoTargetDir.set(rustNativeLibsBuildDir)", app_tasks)
+        self.assertIn('layout.buildDirectory.dir("intermediates/rust-play-native-libs")', app_tasks)
         for task_name in (
-            "buildRustNativeLibs",
             "buildRustRootHelper",
             "buildRustNaiveProxy",
             "buildRustCloudflareOrigin",

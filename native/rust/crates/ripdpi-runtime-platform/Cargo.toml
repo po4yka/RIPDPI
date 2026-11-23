@@ -9,7 +9,7 @@ workspace = true
 
 [features]
 default = ["privileged-packets"]
-privileged-packets = ["dep:ripdpi-root-helper-protocol", "dep:serde_json", "ripdpi-privileged-ops/privileged-packets"]
+privileged-packets = ["ripdpi-capabilities/privileged-packets", "dep:ripdpi-root-helper-protocol", "dep:serde_json", "ripdpi-privileged-ops/privileged-packets"]
 
 [dependencies]
 ripdpi-capabilities = { workspace = true }
@@ -17,7 +17,7 @@ ripdpi-config = { workspace = true }
 ripdpi-desync = { workspace = true }
 ripdpi-ipfrag = { workspace = true }
 ripdpi-native-protect = { workspace = true }
-ripdpi-privileged-ops = { path = "../ripdpi-privileged-ops", default-features = false }
+ripdpi-privileged-ops = { workspace = true }
 ripdpi-root-helper-protocol = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true, optional = true }

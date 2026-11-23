@@ -44,8 +44,10 @@ pub struct ProxyUiConfig {
     pub destination_routing: ProxyUiDestinationRoutingConfig,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_log_level: Option<String>,
+    #[cfg(feature = "privileged-packets")]
     #[serde(default)]
     pub root_mode: bool,
+    #[cfg(feature = "privileged-packets")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root_helper_socket_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

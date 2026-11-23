@@ -19,13 +19,16 @@ pub fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSp
     let ech_split = build_ech_split_candidate(base);
     let ech_tlsrec = build_ech_tlsrec_candidate(base);
     let tlsrec_split_host = build_tlsrec_split_host_candidate(base);
+    #[cfg(feature = "privileged-packets")]
     let tlsrec_hostfake_split = build_tlsrec_hostfake_candidate(base, true);
+    #[cfg(feature = "privileged-packets")]
     let ipfrag_capable = supports_tcp_ip_fragmentation();
 
     let mut candidates = vec![
         candidate_spec("baseline_plain_direct", "Plain direct", "baseline", plain_direct),
         baseline,
         candidate_spec("tlsrec_split_host", "TLS record + split host", "tlsrec_split", tlsrec_split_host.clone()),
+        #[cfg(feature = "privileged-packets")]
         candidate_spec_with_notes(
             "tlsrec_hostfake_split",
             "TLS record + hostfake split",
@@ -33,6 +36,7 @@ pub fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSp
             tlsrec_hostfake_split,
             vec!["Adds a follow-up split after hostfake midhost reconstruction"],
         ),
+        #[cfg(feature = "privileged-packets")]
         candidate_spec_with_notes(
             "tlsrec_hostfake_random",
             "TLS record + hostfake (random)",
@@ -49,6 +53,7 @@ pub fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSp
             "tlsrandrec_split",
             build_tlsrandrec_split_candidate(base),
         ),
+        #[cfg(feature = "privileged-packets")]
         candidate_spec_with_notes(
             "tlsrec_seqovl_midsld",
             "TLS record + seq overlap (midsld)",
@@ -56,6 +61,7 @@ pub fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSp
             build_tlsrec_seqovl_candidate(base, "midsld"),
             vec!["Sequence overlap at midsld; falls back to split if TCP_REPAIR unavailable"],
         ),
+        #[cfg(feature = "privileged-packets")]
         candidate_spec_with_notes(
             "tlsrec_seqovl_sniext",
             "TLS record + seq overlap (sniext)",
@@ -122,6 +128,7 @@ pub fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSp
             vec!["Enables TCP Fast Open for the upstream connect path"],
         ));
     }
+    #[cfg(feature = "privileged-packets")]
     if ipfrag_capable {
         candidates.push(candidate_spec_with_notes(
             "ipfrag2",

@@ -8,7 +8,10 @@ pub fn build_circular_tlsrec_split_spec(base: &ProxyUiConfig) -> StrategyCandida
         build_circular_tlsrec_split_candidate(base),
         vec![
             "Rotates TLS record strategies between outbound rounds on the same TCP socket",
+            #[cfg(feature = "privileged-packets")]
             "Fallback order: hostfake split -> rich fake -> split host",
+            #[cfg(not(feature = "privileged-packets"))]
+            "Fallback order: rich fake -> split host",
         ],
     )
 }
@@ -25,6 +28,7 @@ pub fn build_activation_window_split_spec(base: &ProxyUiConfig) -> StrategyCandi
     )
 }
 
+#[cfg(feature = "privileged-packets")]
 pub fn build_activation_window_hostfake_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
     let mut config = build_tlsrec_hostfake_candidate(base, false);
     config.chains.group_activation_filter = Some(default_audit_activation_filter());
