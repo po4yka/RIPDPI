@@ -403,6 +403,44 @@ jobs:
             done
           done
 
+      - name: Verify privilege boundary in all Play APK splits
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d "$RUNNER_TEMP/play-splits.XXXXXX")"
+          trap 'rm -rf -- "$scratch"' EXIT
+          bundletool="$scratch/bundletool-all-1.18.3.jar"
+          # SHA-256 from https://api.github.com/repos/google/bundletool/releases/tags/1.18.3
+          bundletool_sha256=a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29
+          curl --fail --silent --show-error --location --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            --output "$bundletool" \
+            https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+          printf '%s  %s\n' "$bundletool_sha256" "$bundletool" | sha256sum --check --strict
+
+          # Generated split APKs are inspection inputs. Sign them with a disposable key.
+          keytool -genkeypair -noprompt -keystore "$scratch/verification.p12" \
+            -storetype PKCS12 -storepass verification-only -keypass verification-only \
+            -alias play-split-audit -keyalg RSA -keysize 2048 -validity 1 \
+            -dname 'CN=Play split audit'
+          java -jar "$bundletool" build-apks \
+            --bundle="$RUNNER_TEMP/release-candidate/app-play-release.aab" \
+            --output="$scratch/play.apks" --mode=default \
+            --ks="$scratch/verification.p12" --ks-key-alias=play-split-audit \
+            --ks-pass=pass:verification-only --key-pass=pass:verification-only
+
+          unzip -q "$scratch/play.apks" '*.apk' -d "$scratch/apks"
+          shopt -s globstar nullglob dotglob
+          splits=("$scratch/apks/splits/"*.apk)
+          if [ "${#splits[@]}" -eq 0 ]; then
+            echo "::error::Bundletool output contains no Play split APKs."
+            exit 1
+          fi
+          apks=("$scratch/apks/"**/*.apk)
+          for apk in "${apks[@]}"; do
+            python3 scripts/ci/verify_play_privilege_boundary.py --edition play --split "$apk"
+          done
+          echo "Verified ${#apks[@]} APKs from the signed Play AAB."
+
       - name: Verify native ELF payload from exact candidate APKs
         run: |
           set -euo pipefail
