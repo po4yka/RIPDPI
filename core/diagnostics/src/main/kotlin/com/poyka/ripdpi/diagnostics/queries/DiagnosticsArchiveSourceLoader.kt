@@ -223,5 +223,4 @@ internal class DiagnosticsArchiveSourceLoader
 internal fun diagnosticsArchiveCaptureFailureLogText(
     captureKind: String,
     error: Throwable,
-): String =
-    "Diagnostics archive capture failed: captureKind=$captureKind errorClass=${error::class.simpleName ?: "unknown"}"
+): String = "Diagnostics archive capture failed: captureKind=$captureKind ${logSnapshotFailureDetails(error)}"

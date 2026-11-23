@@ -3,8 +3,10 @@ package com.poyka.ripdpi.diagnostics
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class LogcatSnapshotCollectorTest {
     @Test
@@ -31,7 +33,7 @@ class LogcatSnapshotCollectorTest {
             val output = "03-12 10:00:00.000 I/RIPDPI: diagnostics ready\n"
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
+                    override suspend fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
                         output.asLogcatReadOutput(timeBound = sinceTimestampMs != null)
                 }
 
@@ -49,7 +51,7 @@ class LogcatSnapshotCollectorTest {
             val output = "03-12 10:00:00.000 I/RIPDPI: diagnostics ready\n"
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
+                    override suspend fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
                         output.asLogcatReadOutput(timeBound = sinceTimestampMs != null)
                 }
 
@@ -64,7 +66,7 @@ class LogcatSnapshotCollectorTest {
         runTest {
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
+                    override suspend fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
                         "   ".asLogcatReadOutput(timeBound = sinceTimestampMs != null)
                 }
 
@@ -72,15 +74,41 @@ class LogcatSnapshotCollectorTest {
         }
 
     @Test
-    fun `capture returns null when logcat command fails`() =
+    fun `capture propagates logcat command failure`() =
         runTest {
+            val failure = IOException("logcat unavailable")
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
-                        throw java.io.IOException("logcat unavailable")
+                    override suspend fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput = throw failure
                 }
 
-            assertNull(collector.capture())
+            assertSame(failure, runCatching { collector.capture() }.exceptionOrNull())
+        }
+
+    @Test
+    fun `command failure rejects partial output and reports the exit code`() =
+        runTest {
+            val failure =
+                runCatching {
+                    readLogcatProcessOutput(
+                        listOf("sh", "-c", "printf 'partial log\n'; printf 'private stderr\n' >&2; exit 7"),
+                        retainHead = false,
+                    )
+                }.exceptionOrNull() as LogcatCommandFailed
+
+            assertEquals(7, failure.exitCode)
+        }
+
+    @Test
+    fun `successful command keeps stdout only`() =
+        runTest {
+            val output =
+                readLogcatProcessOutput(
+                    listOf("sh", "-c", "printf 'app log\n'; printf 'private stderr\n' >&2"),
+                    retainHead = false,
+                )
+
+            assertEquals("app log\n", output.content)
         }
 
     @Test
@@ -88,7 +116,7 @@ class LogcatSnapshotCollectorTest {
         runTest {
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
+                    override suspend fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
                         "ж"
                             .repeat(LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
                             .asLogcatReadOutput(timeBound = sinceTimestampMs != null)
@@ -106,7 +134,7 @@ class LogcatSnapshotCollectorTest {
         runTest {
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
+                    override suspend fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
                         (
                             "oldest-marker\n" +
                                 "ж".repeat(LogcatSnapshotCollector.MAX_LOGCAT_BYTES) +
@@ -129,7 +157,7 @@ class LogcatSnapshotCollectorTest {
             val newestMarker = "latest-runtime-complete-marker"
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
+                    override suspend fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
                         (
                             "$startupMarker\n" +
                                 "ж".repeat(LogcatSnapshotCollector.MAX_LOGCAT_BYTES) +
@@ -171,7 +199,7 @@ class LogcatSnapshotCollectorTest {
             val retainedByteCount = retained.toByteArray(Charsets.UTF_8).size.toLong()
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
+                    override suspend fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
                         LogcatReadOutput(
                             content = retained,
                             sourceByteCount = sourceByteCount,

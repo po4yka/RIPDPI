@@ -6,6 +6,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.io.IOException
 import java.nio.file.Files
 
 class FileLogWriterTest {
@@ -31,6 +32,36 @@ class FileLogWriterTest {
         } catch (error: AssertionError) {
             assertSame(failure, error)
         }
+    }
+
+    @Test
+    fun `loss before any persisted record is reported as a failure`() {
+        val filesDir = Files.createTempDirectory("file-log-blocked").toFile()
+        filesDir.resolve("logs").writeText("blocks log directory creation")
+        val writer = FileLogWriter(filesDir)
+
+        writer.log(Severity.Warn, "lost record", "Diagnostics", null)
+
+        assertTrue(writer.readLogSnapshotResult().exceptionOrNull() is IOException)
+    }
+
+    @Test
+    fun `retained logs are incomplete when a later write fails`() {
+        val filesDir = Files.createTempDirectory("file-log-partial").toFile()
+        val writer = FileLogWriter(filesDir, maxFileSize = 102L)
+        writer.log(Severity.Warn, "retained record", "Diagnostics", null)
+        // A non-empty directory at the previous log path blocks rotation.
+        filesDir.resolve("logs/app_log.prev.txt").apply {
+            mkdir()
+            resolve("blocker").createNewFile()
+        }
+
+        writer.log(Severity.Warn, "this record would roll the log", "Diagnostics", null)
+        filesDir.resolve("logs/app_log.prev.txt").deleteRecursively()
+        val snapshot = requireNotNull(writer.readLogSnapshot())
+
+        assertTrue(snapshot.content.contains("retained record"))
+        assertTrue(snapshot.truncated)
     }
 
     @Test
