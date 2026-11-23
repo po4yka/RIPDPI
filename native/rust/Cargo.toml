@@ -268,7 +268,7 @@ lru = "0.19"
 maxminddb = "0.33"
 memmap2 = "0.9.12"
 mlua = "0.12"
-nix = { version = "0.31", features = ["net", "ioctl", "fs", "mman", "signal", "process", "uio", "zerocopy"] }
+nix = { version = "0.32", features = ["net", "ioctl", "fs", "mman", "signal", "process", "uio", "zerocopy"] }
 odoh-rs = "=1.0.5"
 once_cell = "1"
 quinn = { version = "0.11", default-features = false, features = ["rustls", "ring", "runtime-tokio"] }

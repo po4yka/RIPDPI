@@ -143,7 +143,7 @@ dependencies = [
  "jni",
  "log",
  "loom",
- "nix 0.31.3",
+ "nix 0.32.0",
  "serde_json",
  "tracing",
  "tracing-log",
@@ -712,7 +712,7 @@ dependencies = [
  "ip_network",
  "ip_network_table",
  "libc",
- "nix 0.31.3",
+ "nix 0.31.4",
  "parking_lot",
  "portable-atomic",
  "rand_core 0.6.4",
@@ -3839,7 +3839,7 @@ checksum = "743fb55ba31b18fb1ecef6bdc9aa2743314978ac084044301a7eee33fb99a20d"
 name = "native-soak-support"
 version = "0.1.0"
 dependencies = [
- "nix 0.31.3",
+ "nix 0.32.0",
  "serde",
  "serde_json",
 ]
@@ -3942,9 +3942,22 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.31.3"
+version = "0.31.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
+checksum = "2bc81ce8148d3b4f3274da811f11cdd824ae661ee4ef732cdb229825cf5be7f7"
+dependencies = [
+ "bitflags 2.13.2",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+ "memoffset",
+]
+
+[[package]]
+name = "nix"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77730ed34f01f4990cb2ea67fec715ecebc6fab9a6396cf83c5529b13f581bdc"
 dependencies = [
  "bitflags 2.13.2",
  "cfg-if",
@@ -5567,7 +5580,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "jni",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ripdpi-diagnostics-dns",
  "ripdpi-dns-morph",
  "ripdpi-dns-resolver",
@@ -5713,7 +5726,7 @@ dependencies = [
  "aes",
  "libc",
  "local-network-fixture",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ring",
  "ripdpi-config",
  "ripdpi-failure-classifier",
@@ -6075,7 +6088,7 @@ dependencies = [
  "http",
  "httparse",
  "local-network-fixture",
- "nix 0.31.3",
+ "nix 0.32.0",
  "quinn",
  "rand 0.10.3",
  "rcgen",
@@ -6242,7 +6255,7 @@ dependencies = [
 name = "ripdpi-network-time"
 version = "0.1.0"
 dependencies = [
- "nix 0.31.3",
+ "nix 0.32.0",
 ]
 
 [[package]]
@@ -6271,7 +6284,7 @@ version = "0.1.0"
 dependencies = [
  "etherparse",
  "libc",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ripdpi-capabilities",
  "ripdpi-config",
  "ripdpi-desync",
@@ -6359,7 +6372,7 @@ dependencies = [
  "constant_time_eq 0.6.1",
  "libc",
  "metrics",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ripdpi-config",
  "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
@@ -6475,7 +6488,7 @@ name = "ripdpi-relay-tls-transports"
 version = "0.1.0"
 dependencies = [
  "libc",
- "nix 0.31.3",
+ "nix 0.32.0",
  "rand 0.10.3",
  "ripdpi-anytls",
  "ripdpi-mieru",
@@ -6499,7 +6512,7 @@ name = "ripdpi-root-helper"
 version = "0.1.0"
 dependencies = [
  "libc",
- "nix 0.31.3",
+ "nix 0.32.0",
  "pico-args",
  "ripdpi-ipfrag",
  "ripdpi-privileged-ops",
@@ -6515,7 +6528,7 @@ name = "ripdpi-root-helper-protocol"
 version = "0.1.0"
 dependencies = [
  "libc",
- "nix 0.31.3",
+ "nix 0.32.0",
  "serde",
  "serde_json",
 ]
@@ -6582,7 +6595,7 @@ version = "0.1.0"
 dependencies = [
  "android-support",
  "libc",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ripdpi-capabilities",
  "ripdpi-config",
  "ripdpi-desync",
@@ -6819,7 +6832,7 @@ dependencies = [
 name = "ripdpi-subprocess-protect"
 version = "0.1.0"
 dependencies = [
- "nix 0.31.3",
+ "nix 0.32.0",
  "socket2",
  "tokio",
 ]
@@ -6886,7 +6899,7 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "local-network-fixture",
- "nix 0.31.3",
+ "nix 0.32.0",
  "quinn",
  "rcgen",
  "ripdpi-native-protect",
@@ -6922,7 +6935,7 @@ dependencies = [
  "libc",
  "log",
  "loom",
- "nix 0.31.3",
+ "nix 0.32.0",
  "once_cell",
  "proptest",
  "ripdpi-flow-app-attribution",
@@ -6965,7 +6978,7 @@ dependencies = [
  "libc",
  "local-network-fixture",
  "lru",
- "nix 0.31.3",
+ "nix 0.32.0",
  "proptest",
  "quinn",
  "rcgen",
@@ -7077,7 +7090,7 @@ dependencies = [
  "chacha20 0.10.2",
  "chacha20poly1305 0.11.0",
  "getrandom 0.4.3",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ripdpi-packets",
  "ripdpi-wireguard-ws",
  "serde",
@@ -7156,7 +7169,7 @@ dependencies = [
  "cipher 0.5.2",
  "ctr",
  "futures",
- "nix 0.31.3",
+ "nix 0.32.0",
  "rcgen",
  "ripdpi-tls-profiles",
  "ripdpi-ws-transport-port",
@@ -7348,7 +7361,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3aec6cb630dbe85d72ffd7bcd95f07e1bd69f9f270ee8adfa1afe443a6331438"
 dependencies = [
  "log",
- "nix 0.31.3",
+ "nix 0.31.4",
  "ssh-encoding",
  "windows-sys 0.61.2",
 ]
@@ -9952,7 +9965,7 @@ dependencies = [
  "libloading 0.9.0",
  "log",
  "netconfig-rs",
- "nix 0.31.3",
+ "nix 0.31.4",
  "route_manager",
  "scopeguard",
  "tokio",
