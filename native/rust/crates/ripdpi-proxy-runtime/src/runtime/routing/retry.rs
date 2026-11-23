@@ -111,7 +111,7 @@ fn connect_target_with_route_and_egress_mode(
                 }
                 let mut failure = RuntimeState::classify_connect_transport_error(&err.source);
                 if RuntimeState::connect_failure_retries_without_tfo(err.tcp_fast_open_enabled, &failure) {
-                    tracing::debug!(group_index = route.group_index, target = %target, "retrying connect without TCP Fast Open");
+                    tracing::debug!(group_index = route.group_index, "retrying connect without TCP Fast Open");
                     match connect_target_candidates_via_group(
                         &attempt_targets,
                         host.as_deref(),
@@ -200,7 +200,7 @@ fn reconnect_target_with_tfo_mode(
                 }
                 let mut failure = RuntimeState::classify_connect_transport_error(&err.source);
                 if allow_tfo && RuntimeState::connect_failure_retries_without_tfo(err.tcp_fast_open_enabled, &failure) {
-                    tracing::debug!(group_index = route.group_index, target = %target, "retrying reconnect without TCP Fast Open");
+                    tracing::debug!(group_index = route.group_index, "retrying reconnect without TCP Fast Open");
                     match connect_target_candidates_via_group(
                         &attempt_targets,
                         host.as_deref(),

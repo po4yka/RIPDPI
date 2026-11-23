@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use smoltcp::iface::SocketSet;
 use smoltcp::socket::AnySocket;
 use smoltcp::socket::tcp::{self, Socket as TcpSocket};
-use tracing::{debug, warn};
+use tracing::warn;
 
 use crate::io_loop::packet::{TcpFlowKey, endpoint_to_socketaddr, tcp_syn_flow_key};
 
@@ -46,7 +46,7 @@ pub(crate) fn ensure_pending_listen_for_syn(
     let buf = || tcp::SocketBuffer::new(vec![0u8; tcp_buffer_size]);
     let mut sock = TcpSocket::new(buf(), buf());
     if sock.listen(socketaddr_to_listen_endpoint(flow_key.dst)).is_err() {
-        warn!("listen({}) failed for flow {} -> {}", flow_key.dst.port(), flow_key.src, flow_key.dst);
+        warn!("TUN TCP listener setup failed");
         return;
     }
 
@@ -56,5 +56,4 @@ pub(crate) fn ensure_pending_listen_for_syn(
 
     let handle = socket_set.add(sock);
     pending_listens.insert(flow_key, PendingListener::new(handle, flow_key));
-    debug!("Added LISTEN socket for flow {} -> {}", flow_key.src, flow_key.dst);
 }

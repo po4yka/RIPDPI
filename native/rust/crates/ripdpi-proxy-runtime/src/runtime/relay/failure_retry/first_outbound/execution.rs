@@ -43,7 +43,6 @@ pub(super) fn execute_first_write(
     }
     let send_outcome = send_result?;
     tracing::debug!(
-        target = %target,
         strategy_family = send_outcome.strategy_family.unwrap_or("plain"),
         bytes_committed = send_outcome.bytes_committed,
         "first outbound payload forwarded"

@@ -117,7 +117,7 @@ internal class VpnEncryptedDnsFailoverController(
         state.resetAll()
         state.networkScopeKey = networkScopeKey
         reloadNetworkPreferences(state, networkScopeKey)
-        log.d { "network scope changed to $networkScopeKey, preferred=${state.preferredPath?.pathKey()}" }
+        log.d { "DNS network changed; hasPreferredPath=${state.preferredPath != null}" }
     }
 
     private suspend fun observeResolverChange(
@@ -149,7 +149,7 @@ internal class VpnEncryptedDnsFailoverController(
         state.currentPathPersisted = false
         state.attemptedPathKeys += currentPathKey
         state.expectedPathKey = null
-        log.d { "resolver changed pathKey=$currentPathKey attempts=${state.attemptedPathKeys.size}" }
+        log.d { "DNS resolver changed; failover=$controllerActivatedPath attempts=${state.attemptedPathKeys.size}" }
     }
 
     private fun resetRolledBackCounters(
@@ -190,7 +190,9 @@ internal class VpnEncryptedDnsFailoverController(
                 (telemetry.dnsFailuresTotal - state.pathStartFailures)
         if (successfulQueries <= 0 || !telemetry.lastDnsError.isNullOrBlank()) return
 
-        log.d { "success on path ${state.currentPathKey}, resetting failure counter" }
+        if (state.consecutiveFailureEvents > 0) {
+            log.d { "DNS recovered after ${state.consecutiveFailureEvents} failures" }
+        }
         state.consecutiveFailureEvents = 0
         if (!state.currentPathSelectedByFailover || state.currentPathPersisted) return
 
@@ -199,7 +201,7 @@ internal class VpnEncryptedDnsFailoverController(
             networkDnsPathPreferenceStore.rememberPreferredPath(fingerprint, currentPath)
             state.preferredPath = currentPath
             state.currentPathPersisted = true
-            log.i { "persisted preferred path ${state.currentPathKey} for $networkScopeKey" }
+            log.i { "Stored the successful DNS failover path" }
         }
     }
 
@@ -248,7 +250,8 @@ internal class VpnEncryptedDnsFailoverController(
         if (!failureEvent) return false
 
         state.consecutiveFailureEvents += 1
-        log.w { "failure #${state.consecutiveFailureEvents} error=${telemetry.lastDnsError}" }
+        val failureClass = classifyBlockReason(telemetry.lastDnsError.orEmpty()) ?: "other"
+        log.w { "DNS failure count=${state.consecutiveFailureEvents} failureClass=$failureClass" }
         val queriesSincePathStart = telemetry.dnsQueriesTotal - state.pathStartQueries
         if (queriesSincePathStart <= EagerFailoverMaxQueries &&
             isCatastrophicDnsError(telemetry.lastDnsError.orEmpty())
@@ -273,7 +276,7 @@ internal class VpnEncryptedDnsFailoverController(
         val fingerprintHash = networkScopeKey ?: return
         networkDnsBlockedPathStore.recordBlockedPath(fingerprintHash, currentPathKey, blockReason)
         state.blockedPathKeys = state.blockedPathKeys + currentPathKey
-        log.w { "path $currentPathKey blocked reason=$blockReason" }
+        log.w { "DNS path blocked; reason=$blockReason" }
     }
 
     private fun selectNextPath(
@@ -301,7 +304,7 @@ internal class VpnEncryptedDnsFailoverController(
             ),
         )
         state.expectedPathKey = nextPath.pathKey()
-        log.i { "switching to ${nextPath.pathKey()} (attempt #${state.attemptedPathKeys.size})" }
+        log.i { "Switching DNS path; attempt=${state.attemptedPathKeys.size}" }
         state.attemptedPathKeys += state.expectedPathKey.orEmpty()
         state.consecutiveFailureEvents = 0
         state.exhausted = false
@@ -332,8 +335,8 @@ internal class VpnEncryptedDnsFailoverController(
     }
 
     internal fun buildAutoFailoverReason(lastDnsError: String): String {
-        val normalizedError = lastDnsError.trim().ifEmpty { "unknown_error" }
-        return "$AutoFailoverReasonPrefix: $normalizedError"
+        val failureClass = classifyBlockReason(lastDnsError) ?: "unknown_error"
+        return "$AutoFailoverReasonPrefix: $failureClass"
     }
 
     internal fun classifyBlockReason(error: String): String? {

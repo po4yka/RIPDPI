@@ -26,7 +26,7 @@ impl ProxyTelemetryState {
             reason,
             host.as_deref().unwrap_or("<none>")
         );
-        self.emit_event("proxy", "warn", &message, None);
+        self.emit_redacted_event("proxy", "warn", &message, &format!("adaptive override active group={group_index} triggerMask={trigger_mask} failureClass={failure_class} reason={reason}"));
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.last_host = host.clone();
@@ -38,7 +38,7 @@ impl ProxyTelemetryState {
 
     pub fn on_telegram_dc_detected(&self, target: String, dc: u8) {
         let message = format!("telegram dc detected target={target} dc={dc}");
-        self.emit_event("proxy", "info", &message, None);
+        self.emit_redacted_event("proxy", "info", &message, &format!("telegram dc detected dc={dc}"));
         self.update_strings(|s| s.last_target = Some(target.clone()));
     }
 
@@ -46,7 +46,7 @@ impl ProxyTelemetryState {
         let level = if success { "info" } else { "warn" };
         let result = if success { "success" } else { "failed" };
         let message = format!("ws tunnel escalation target={target} dc={dc} result={result}");
-        self.emit_event("proxy", level, &message, None);
+        self.emit_redacted_event("proxy", level, &message, &format!("ws tunnel escalation dc={dc} result={result}"));
         self.update_strings(|s| s.last_target = Some(target.clone()));
     }
 
@@ -54,13 +54,13 @@ impl ProxyTelemetryState {
         // Ordering: Relaxed -- display-only cumulative counter; readers tolerate stale reads.
         self.ws_tunnel_fake_sni_active.fetch_add(1, Ordering::Relaxed);
         let message = format!("ws tunnel fake-sni handshake target={target} dc={dc}");
-        self.emit_event("proxy", "warn", &message, None);
+        self.emit_redacted_event("proxy", "warn", &message, &format!("ws tunnel fake-sni handshake dc={dc}"));
         self.update_strings(|s| s.last_target = Some(target.clone()));
     }
 
     pub fn on_quic_migration_status(&self, target: String, status: &'static str, reason: &'static str) {
         let message = format!("quic migration target={target} status={status} reason={reason}");
-        self.emit_event("proxy", "info", &message, None);
+        self.emit_redacted_event("proxy", "info", &message, &format!("quic migration status={status} reason={reason}"));
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.quic_migration_status = Some(status.to_string());
@@ -70,7 +70,7 @@ impl ProxyTelemetryState {
 
     pub fn on_morph_hint_applied(&self, target: String, policy_id: &str, family: &str) {
         let message = format!("morph hint applied target={target} policyId={policy_id} family={family}");
-        self.emit_event("proxy", "info", &message, None);
+        self.emit_redacted_event("proxy", "info", &message, &format!("morph hint applied family={family}"));
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.morph_hint_family = Some(family.to_string());
@@ -79,7 +79,7 @@ impl ProxyTelemetryState {
 
     pub fn on_morph_rollback(&self, target: String, policy_id: &str, reason: &str) {
         let message = format!("morph rollback target={target} policyId={policy_id} reason={reason}");
-        self.emit_event("proxy", "warn", &message, None);
+        self.emit_redacted_event("proxy", "warn", &message, &format!("morph rollback reason={reason}"));
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.morph_rollback_reason = Some(reason.to_string());

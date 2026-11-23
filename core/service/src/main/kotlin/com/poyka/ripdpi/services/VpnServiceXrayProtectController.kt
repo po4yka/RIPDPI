@@ -66,8 +66,6 @@ internal class VpnServiceXrayProtectController(
                     reason = FailureReason.PermissionLost("VPN"),
                     detail = "VpnService.protect() returned false for xray outbound fd=$fd",
                 )
-            } else {
-                log.d { "protected xray outbound fd=$fd" }
             }
             protected
         } catch (error: SecurityException) {
