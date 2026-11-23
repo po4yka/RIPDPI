@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="title_root_mode_strategies">استراتيجيات وضع الجذر</string>
-    <string name="settings_root_mode_strategies_body">اضبط FakeRST والفوضى المتعددة وتجزئة IP</string>
-    <string name="root_mode_toggle_label">وضع الجذر</string>
+    <string name="title_root_mode_strategies">وضع الجذر</string>
+    <string name="settings_root_mode_strategies_body">الوصول وحالة الاتصال</string>
+    <string name="root_mode_toggle_label">استخدام الجذر للاستراتيجيات</string>
     <string name="root_mode_strategies_intro_body">تحقن استراتيجيات إلغاء التزامن هذه الحزم أو تجزّئها أسفل مقبس VPN، وتعمل فقط على الأجهزة ذات صلاحية الجذر مع تفعيل وضع الجذر.</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">يحقن إعادة ضبط TCP مزيّفة لإلغاء تزامن تتبّع الحالة في DPI.</string>
-    <string name="root_mode_strategy_multidisorder_body">يعيد ترتيب عدة مقاطع دفعة واحدة لكسر الفحص المعتمد على إعادة التجميع.</string>
-    <string name="root_mode_strategy_ipfrag2_body">يقسّم الحزم في طبقة IP حتى لا يرى المفتّشون الحمولة الكاملة أبدًا.</string>
     <string name="root_mode_strategies_configure_action">فتح محرّر الاستراتيجيات</string>
     <string name="root_mode_access_checking">جارٍ التحقق من صلاحية الجذر…</string>
-    <string name="root_mode_access_granted">صلاحية الجذر متاحة على هذا الجهاز.</string>
+    <string name="root_mode_access_granted">مُنح الوصول سابقًا. يبدأ مساعد الجذر عندما تحتاج إليه إحدى الاستراتيجيات.</string>
     <string name="root_mode_access_denied">رُفضت صلاحية الجذر. اسمح لـ RIPDPI في مدير صلاحيات الجذر، ثم فعّل وضع الجذر مرة أخرى.</string>
     <string name="root_mode_access_unavailable">لا يملك هذا الجهاز صلاحية الجذر، لذا لن تعمل هذه الاستراتيجيات.</string>
+    <string name="root_mode_access_timed_out">لم يستجب مدير الجذر. حاول مرة أخرى.</string>
+    <string name="root_mode_access_retry">التحقق مجددًا</string>
+    <string name="root_mode_helper_active">مساعد الجذر نشط.</string>
+    <string name="root_mode_helper_starting">جارٍ تشغيل مساعد الجذر…</string>
+    <string name="root_mode_helper_failed">تعذر تشغيل مساعد الجذر.</string>
+    <string name="root_mode_strategy_requires_access">يتطلب الجذر</string>
 </resources>

@@ -4,6 +4,7 @@ import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RootAccessResult
+import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -101,6 +102,33 @@ class RootModeStrategiesViewModelTest {
             assertFalse(repository.snapshot().rootModeAuthorized)
             assertFalse(viewModel.uiState.value.rootModeEnabled)
             assertEquals(RootAccessState.Denied, viewModel.uiState.value.rootAccess)
+        }
+
+    @Test
+    fun `reopening after a timeout shows the last result without another request`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val helper = RootHelperManager()
+            var checks = 0
+            val first =
+                RootModeStrategiesViewModel(repository, helper) {
+                    checks++
+                    RootAccessResult.TimedOut
+                }
+            first.setRootModeEnabled(true)
+            advanceUntilIdle()
+
+            val reopened =
+                RootModeStrategiesViewModel(repository, helper) {
+                    checks++
+                    RootAccessResult.Granted
+                }
+            backgroundScope.launch { reopened.uiState.collect {} }
+            advanceUntilIdle()
+
+            assertEquals(RootAccessState.TimedOut, reopened.uiState.value.rootAccess)
+            assertFalse(reopened.uiState.value.rootModeEnabled)
+            assertEquals(1, checks)
         }
 
     @Test

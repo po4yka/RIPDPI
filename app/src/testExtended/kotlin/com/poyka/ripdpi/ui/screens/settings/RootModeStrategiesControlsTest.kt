@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -72,23 +71,28 @@ class RootModeStrategiesControlsTest {
     }
 
     @Test
-    fun `strategies are listed while root mode is off and root status shows once checked`() {
+    fun `the editor stays reachable and a failed access check offers retry`() {
+        var retried = false
         var state by mutableStateOf(RootModeStrategiesUiState(rootModeEnabled = false))
         composeRule.setContent {
             RipDpiTheme {
-                RootModeStrategiesScreen(uiState = state, onBack = {}, onOpenStrategyConfig = {})
+                RootModeStrategiesScreen(uiState = state, onBack = {}, onOpenStrategyConfig = {}, onRetry = {
+                    retried =
+                        true
+                })
             }
         }
         val app = RuntimeEnvironment.getApplication()
 
-        composeRule.onNodeWithText(app.getString(R.string.root_mode_strategy_fakerst_title)).assertExists()
         composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("root_mode_strategies_configure")
-        composeRule.onNodeWithTag(RootModeTestTags.Configure).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RootModeTestTags.Configure).assertIsEnabled()
         composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("root_mode_toggle")
         composeRule.onNodeWithText(app.getString(R.string.root_mode_access_denied)).assertDoesNotExist()
 
-        state = RootModeStrategiesUiState(rootModeEnabled = true, rootAccess = RootAccessState.Denied)
+        state = RootModeStrategiesUiState(rootModeEnabled = false, rootAccess = RootAccessState.Denied)
         composeRule.onNodeWithText(app.getString(R.string.root_mode_access_denied)).assertExists()
+        composeRule.onNodeWithTag(RootModeTestTags.Retry).performClick()
+        assertTrue(retried)
         composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("root_mode_strategies_configure")
         composeRule.onNodeWithTag(RootModeTestTags.Configure).assertIsEnabled()
     }

@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="title_root_mode_strategies">Root-मोड रणनीतियाँ</string>
-    <string name="settings_root_mode_strategies_body">FakeRST, multi-disorder, और IP विखंडन कॉन्फ़िगर करें</string>
-    <string name="root_mode_toggle_label">रूट मोड</string>
+    <string name="title_root_mode_strategies">रूट मोड</string>
+    <string name="settings_root_mode_strategies_body">पहुँच और कनेक्शन की स्थिति</string>
+    <string name="root_mode_toggle_label">रणनीतियों के लिए रूट इस्तेमाल करें</string>
     <string name="root_mode_strategies_intro_body">ये desync रणनीतियाँ VPN सॉकेट के नीचे पैकेट इंजेक्ट या विखंडित करती हैं और केवल root मोड सक्षम किए गए rooted डिवाइस पर ही काम करती हैं।</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">stateful DPI ट्रैकिंग को desync करने के लिए एक नकली TCP reset इंजेक्ट करता है।</string>
-    <string name="root_mode_strategy_multidisorder_body">reassembly-आधारित निरीक्षण को तोड़ने के लिए एक साथ कई सेगमेंट को पुनः क्रमित करता है।</string>
-    <string name="root_mode_strategy_ipfrag2_body">पैकेट को IP परत पर विभाजित करता है ताकि निरीक्षक कभी पूरा payload न देख सकें।</string>
     <string name="root_mode_strategies_configure_action">रणनीति संपादक खोलें</string>
     <string name="root_mode_access_checking">रूट एक्सेस की जाँच हो रही है…</string>
-    <string name="root_mode_access_granted">इस डिवाइस पर रूट एक्सेस उपलब्ध है।</string>
+    <string name="root_mode_access_granted">पहले अनुमति दी गई थी। रणनीति को ज़रूरत होने पर रूट सहायक शुरू होगा।</string>
     <string name="root_mode_access_denied">रूट एक्सेस अस्वीकार कर दिया गया। अपने रूट मैनेजर में RIPDPI को अनुमति दें, फिर रूट मोड दोबारा चालू करें।</string>
     <string name="root_mode_access_unavailable">इस डिवाइस पर रूट एक्सेस नहीं है, इसलिए ये रणनीतियाँ काम नहीं करेंगी।</string>
+    <string name="root_mode_access_timed_out">रूट प्रबंधक ने जवाब नहीं दिया। फिर कोशिश करें।</string>
+    <string name="root_mode_access_retry">फिर से जाँचें</string>
+    <string name="root_mode_helper_active">रूट सहायक सक्रिय है।</string>
+    <string name="root_mode_helper_starting">रूट सहायक शुरू हो रहा है…</string>
+    <string name="root_mode_helper_failed">रूट सहायक शुरू नहीं हो सका।</string>
+    <string name="root_mode_strategy_requires_access">रूट ज़रूरी है</string>
 </resources>

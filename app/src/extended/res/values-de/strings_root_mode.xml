@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="title_root_mode_strategies">Root-Modus-Strategien</string>
-    <string name="settings_root_mode_strategies_body">FakeRST, Multi-Disorder und IP-Fragmentierung konfigurieren</string>
-    <string name="root_mode_toggle_label">Root-Modus</string>
+    <string name="title_root_mode_strategies">Root-Modus</string>
+    <string name="settings_root_mode_strategies_body">Zugriff und Verbindungsstatus</string>
+    <string name="root_mode_toggle_label">Root für Strategien verwenden</string>
     <string name="root_mode_strategies_intro_body">Diese Desync-Strategien injizieren oder fragmentieren Pakete unterhalb des VPN-Sockets und funktionieren nur auf gerooteten Geräten mit aktiviertem Root-Modus.</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">Injiziert ein gefälschtes TCP-Reset, um die zustandsbehaftete DPI-Verfolgung zu desynchronisieren.</string>
-    <string name="root_mode_strategy_multidisorder_body">Ordnet mehrere Segmente gleichzeitig neu an, um die auf Reassemblierung basierende Inspektion zu durchbrechen.</string>
-    <string name="root_mode_strategy_ipfrag2_body">Teilt Pakete auf der IP-Ebene, sodass Inspektoren nie die vollständige Nutzlast sehen.</string>
     <string name="root_mode_strategies_configure_action">Strategie-Editor öffnen</string>
     <string name="root_mode_access_checking">Root-Zugriff wird geprüft…</string>
-    <string name="root_mode_access_granted">Auf diesem Gerät ist Root-Zugriff verfügbar.</string>
+    <string name="root_mode_access_granted">Zuvor gewährt. Der Root-Helfer startet bei Bedarf.</string>
     <string name="root_mode_access_denied">Root-Zugriff wurde verweigert. Erlauben Sie RIPDPI in Ihrer Root-Verwaltung und schalten Sie den Root-Modus erneut ein.</string>
     <string name="root_mode_access_unavailable">Dieses Gerät hat keinen Root-Zugriff, daher funktionieren diese Strategien nicht.</string>
+    <string name="root_mode_access_timed_out">Keine Antwort vom Root-Manager. Erneut versuchen.</string>
+    <string name="root_mode_access_retry">Erneut prüfen</string>
+    <string name="root_mode_helper_active">Der Root-Helfer ist aktiv.</string>
+    <string name="root_mode_helper_starting">Root-Helfer wird gestartet…</string>
+    <string name="root_mode_helper_failed">Der Root-Helfer konnte nicht gestartet werden.</string>
+    <string name="root_mode_strategy_requires_access">Root erforderlich</string>
 </resources>

@@ -71,7 +71,7 @@ class RootDetectorTest {
         }
 
     @Test
-    fun `a check that never returns stops the command and reports denied`() =
+    fun `a check that never returns stops the command and reports a timeout`() =
         runTest {
             val interrupted = CountDownLatch(1)
             val detector =
@@ -90,7 +90,7 @@ class RootDetectorTest {
                     checkTimeoutMs = 100,
                 )
 
-            assertEquals(RootAccessResult.Denied, detector.testRootAccess())
+            assertEquals(RootAccessResult.TimedOut, detector.testRootAccess())
             assertTrue(interrupted.await(5, TimeUnit.SECONDS))
         }
 

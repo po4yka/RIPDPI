@@ -29,14 +29,13 @@ class RootDetector
          * forms.
          * This triggers the root management app's permission dialog.
          * Only call when the user explicitly enables root mode.
-         * A check that does not finish within [RootCheckTimeoutMs] reports [RootAccessResult.Denied]:
-         * an `su` that does not answer means a root manager did not grant access.
+         * A check that does not finish within [RootCheckTimeoutMs] reports [RootAccessResult.TimedOut].
          */
         suspend fun testRootAccess(): RootAccessResult =
             withContext(Dispatchers.IO) {
                 withTimeoutOrNull(checkTimeoutMs) { runAttempts() } ?: run {
                     log.w { "root access check timed out after ${checkTimeoutMs}ms" }
-                    RootAccessResult.Denied
+                    RootAccessResult.TimedOut
                 }
             }
 
@@ -56,14 +55,15 @@ class RootDetector
                         log.w(e) { "root access unavailable via ${attempt.description}" }
                         continue
                     }
-                if (result.exitCode == 0 && result.output.contains("uid=0")) {
-                    log.i { "root access confirmed via ${attempt.description}: ${result.output}" }
+                if (result.exitCode == RootCommandTimedOutExitCode) return RootAccessResult.TimedOut
+                if (result.exitCode == 0 && result.output.substringBefore(' ') in setOf("uid=0", "uid=0(root)")) {
+                    log.i { "root access confirmed via ${attempt.description}" }
                     return RootAccessResult.Granted
                 }
                 sawDenied = true
                 log.w {
                     "root access denied via ${attempt.description}: " +
-                        "exitCode=${result.exitCode} output=${result.output}"
+                        "exitCode=${result.exitCode}"
                 }
             }
             return if (sawDenied) {
@@ -78,6 +78,7 @@ enum class RootAccessResult {
     Granted,
     Denied,
     Unavailable,
+    TimedOut,
 }
 
 internal data class RootCommandAttempt(

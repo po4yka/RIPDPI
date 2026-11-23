@@ -121,11 +121,20 @@ private fun StrategyConfigRouteScreen(
     applySavedConfig: () -> StrategyConfigApplyResult,
     modifier: Modifier,
 ) {
+    val draft = editorSession.draft
+    val accessNotice =
+        remember(context, draft.source, draft.configText, uiState.rawPacketOperationsEnabled) {
+            if (draft.source == StrategyConfigSource.BuiltIn) {
+                strategyAccessNotice(context, draft.configText, uiState.rawPacketOperationsEnabled)
+            } else {
+                null
+            }
+        }
     StrategyConfigScreen(
         state =
             editorSession.toRouteScreenState(
                 context = context,
-                banner = banner,
+                banner = banner ?: accessNotice,
                 isHydrating = editorViewModel.isHydrating,
                 hasHydrationError = editorViewModel.hasHydrationError,
                 hasPersistenceError = editorViewModel.hasPersistenceError,

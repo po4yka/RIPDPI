@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="title_root_mode_strategies">Root-mode strategies</string>
-    <string name="settings_root_mode_strategies_body">Configure FakeRST, multi-disorder, and IP fragmentation</string>
-    <string name="root_mode_toggle_label">Root mode</string>
+    <string name="title_root_mode_strategies">Root mode</string>
+    <string name="settings_root_mode_strategies_body">Access and session status</string>
+    <string name="root_mode_toggle_label">Use root for strategies</string>
     <string name="root_mode_strategies_intro_body">These desync strategies inject or fragment packets below the VPN socket and only work on rooted devices with root mode enabled.</string>
-    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
-    <string name="root_mode_strategy_fakerst_body">Injects a spoofed TCP reset to desynchronise stateful DPI tracking.</string>
-    <string name="root_mode_strategy_multidisorder_body">Reorders several segments at once to break reassembly-based inspection.</string>
-    <string name="root_mode_strategy_ipfrag2_body">Splits packets at the IP layer so inspectors never see the full payload.</string>
     <string name="root_mode_strategies_configure_action">Open strategy editor</string>
     <string name="root_mode_access_checking">Checking root access…</string>
-    <string name="root_mode_access_granted">Root access is available on this device.</string>
+    <string name="root_mode_access_granted">Previously granted. The helper starts when a strategy needs it.</string>
     <string name="root_mode_access_denied">Root access was denied. Allow RIPDPI in your root manager, then turn root mode on again.</string>
     <string name="root_mode_access_unavailable">This device has no root access, so these strategies will not work.</string>
+    <string name="root_mode_access_timed_out">No response from the root manager. Try again.</string>
+    <string name="root_mode_access_retry">Check again</string>
+    <string name="root_mode_helper_active">Root helper is active.</string>
+    <string name="root_mode_helper_starting">Starting root helper…</string>
+    <string name="root_mode_helper_failed">Could not start the root helper.</string>
+    <string name="root_mode_strategy_requires_access">Requires root</string>
 </resources>

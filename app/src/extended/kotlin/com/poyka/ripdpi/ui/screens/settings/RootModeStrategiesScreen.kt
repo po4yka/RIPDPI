@@ -1,10 +1,8 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,6 +16,8 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.services.RootAccessResult
+import com.poyka.ripdpi.services.RootHelperManager
+import com.poyka.ripdpi.services.RootHelperState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -44,12 +44,14 @@ import javax.inject.Inject
 internal object RootModeTestTags {
     const val SettingsEntry = "settings-root-mode-strategies"
     const val Configure = "root-mode-strategies-configure"
+    const val Retry = "root-mode-retry"
     const val Toggle = "root-mode-toggle"
 }
 
 data class RootModeStrategiesUiState(
     val rootModeEnabled: Boolean = false,
     val rootAccess: RootAccessState = RootAccessState.NotChecked,
+    val helper: RootHelperState = RootHelperState.Stopped,
 )
 
 enum class RootAccessState {
@@ -58,6 +60,7 @@ enum class RootAccessState {
     Granted,
     Denied,
     Unavailable,
+    TimedOut,
 }
 
 @HiltViewModel
@@ -65,14 +68,29 @@ class RootModeStrategiesViewModel
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
+        private val rootHelperManager: RootHelperManager,
         private val rootAccessChecker: RootAccessChecker,
     ) : ViewModel() {
-        private val rootAccess = MutableStateFlow(RootAccessState.NotChecked)
+        internal constructor(
+            appSettingsRepository: AppSettingsRepository,
+            rootAccessChecker: RootAccessChecker,
+        ) : this(appSettingsRepository, RootHelperManager(), rootAccessChecker)
+
+        private val checkingAccess = MutableStateFlow(false)
         private var rootModeChange: Job? = null
 
         val uiState: StateFlow<RootModeStrategiesUiState> =
-            combine(appSettingsRepository.settings, rootAccess) { settings, access ->
-                RootModeStrategiesUiState(rootModeEnabled = settings.rootModeAuthorized, rootAccess = access)
+            combine(
+                appSettingsRepository.settings,
+                checkingAccess,
+                rootHelperManager.lastAccessResult,
+                rootHelperManager.state,
+            ) { settings, checking, access, helper ->
+                RootModeStrategiesUiState(
+                    settings.rootModeAuthorized,
+                    if (checking) RootAccessState.Checking else access.toUiState(),
+                    helper,
+                )
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
@@ -85,58 +103,42 @@ class RootModeStrategiesViewModel
             rootModeChange =
                 // A check that throws (the su process cannot start) must not leave the spinner on.
                 launchSettingsWrite(onFailure = {
-                    if (rootAccess.value == RootAccessState.Checking) rootAccess.value = RootAccessState.Unavailable
+                    if (checkingAccess.value) {
+                        rootHelperManager.recordAccessResult(RootAccessResult.Unavailable)
+                        checkingAccess.value = false
+                    }
                 }) {
-                    appSettingsRepository.update { rootModeAuthorized = false }
                     if (!enabled) {
-                        rootAccess.value = RootAccessState.NotChecked
+                        appSettingsRepository.update { rootModeAuthorized = false }
+                        rootHelperManager.recordAccessResult(null)
+                        checkingAccess.value = false
                         return@launchSettingsWrite
                     }
-                    // The check runs only after the user turns root mode on, because it can open the root prompt.
-                    rootAccess.value = RootAccessState.Checking
-                    val access =
-                        when (rootAccessChecker.check()) {
-                            RootAccessResult.Granted -> RootAccessState.Granted
-                            RootAccessResult.Denied -> RootAccessState.Denied
-                            RootAccessResult.Unavailable -> RootAccessState.Unavailable
-                        }
+                    appSettingsRepository.update {}
+                    checkingAccess.value = true
+                    val access = rootAccessChecker.check()
                     currentCoroutineContext().ensureActive()
-                    if (access == RootAccessState.Granted) {
-                        appSettingsRepository.update { rootModeAuthorized = true }
-                    }
-                    rootAccess.value = access
+                    appSettingsRepository.update { rootModeAuthorized = access == RootAccessResult.Granted }
+                    rootHelperManager.recordAccessResult(access)
+                    checkingAccess.value = false
                 }
         }
+
+        fun retryRootAccess() = setRootModeEnabled(true)
 
         private companion object {
             const val STOP_TIMEOUT_MS = 5_000L
         }
     }
 
-private data class RootModeStrategyInfo(
-    val titleRes: Int,
-    val bodyRes: Int,
-    val testKey: String,
-)
-
-private val rootModeStrategies =
-    listOf(
-        RootModeStrategyInfo(
-            R.string.root_mode_strategy_fakerst_title,
-            R.string.root_mode_strategy_fakerst_body,
-            "fakerst",
-        ),
-        RootModeStrategyInfo(
-            R.string.root_mode_strategy_multidisorder_title,
-            R.string.root_mode_strategy_multidisorder_body,
-            "multidisorder",
-        ),
-        RootModeStrategyInfo(
-            R.string.root_mode_strategy_ipfrag2_title,
-            R.string.root_mode_strategy_ipfrag2_body,
-            "ipfrag2",
-        ),
-    )
+private fun RootAccessResult?.toUiState(): RootAccessState =
+    when (this) {
+        RootAccessResult.Granted -> RootAccessState.Granted
+        RootAccessResult.Denied -> RootAccessState.Denied
+        RootAccessResult.Unavailable -> RootAccessState.Unavailable
+        RootAccessResult.TimedOut -> RootAccessState.TimedOut
+        null -> RootAccessState.NotChecked
+    }
 
 @Composable
 fun RootModeStrategiesRoute(
@@ -151,6 +153,7 @@ fun RootModeStrategiesRoute(
         onBack = onBack,
         onOpenStrategyConfig = onOpenStrategyConfig,
         onRootModeEnabledChange = viewModel::setRootModeEnabled,
+        onRetry = viewModel::retryRootAccess,
         modifier = modifier,
     )
 }
@@ -161,6 +164,7 @@ internal fun RootModeStrategiesScreen(
     onBack: () -> Unit,
     onOpenStrategyConfig: () -> Unit,
     onRootModeEnabledChange: (Boolean) -> Unit = {},
+    onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     RipDpiSettingsScaffold(
@@ -182,16 +186,16 @@ internal fun RootModeStrategiesScreen(
                     helperText = stringResource(R.string.root_mode_strategies_intro_body),
                     testTag = RootModeTestTags.Toggle,
                 )
-                RootAccessStatus(uiState.rootAccess)
+                RootAccessStatus(uiState)
+                if (uiState.canRetry) {
+                    RipDpiButton(
+                        text = stringResource(R.string.root_mode_access_retry),
+                        onClick = onRetry,
+                        variant = RipDpiButtonVariant.Outline,
+                        modifier = Modifier.ripDpiTestTag(RootModeTestTags.Retry),
+                    )
+                }
             }
-        }
-
-        // Listed while off too, so the screen shows what root mode enables.
-        items(
-            items = rootModeStrategies,
-            key = { strategy -> "root_mode_strategy_${strategy.testKey}" },
-        ) { strategy ->
-            RootModeStrategyCard(strategy, enabled = uiState.rootModeEnabled)
         }
 
         item(key = "root_mode_strategies_configure") {
@@ -202,7 +206,6 @@ internal fun RootModeStrategiesScreen(
                 RipDpiButton(
                     text = stringResource(R.string.root_mode_strategies_configure_action),
                     onClick = onOpenStrategyConfig,
-                    enabled = uiState.rootModeEnabled,
                     variant = RipDpiButtonVariant.Outline,
                     trailingIcon = RipDpiIcons.ChevronRight,
                     modifier = Modifier.ripDpiTestTag(RootModeTestTags.Configure),
@@ -212,43 +215,60 @@ internal fun RootModeStrategiesScreen(
     }
 }
 
+private val RootModeStrategiesUiState.canRetry: Boolean
+    get() =
+        when (rootAccess) {
+            RootAccessState.Checking -> false
+            RootAccessState.Denied, RootAccessState.Unavailable, RootAccessState.TimedOut -> true
+            else -> rootModeEnabled && helper == RootHelperState.Failed
+        }
+
 @Composable
-private fun RootAccessStatus(state: RootAccessState) {
+private fun RootAccessStatus(state: RootModeStrategiesUiState) {
     val colors = RipDpiThemeTokens.colors
     val (textRes, color) =
-        when (state) {
-            RootAccessState.NotChecked -> return
-            RootAccessState.Checking -> R.string.root_mode_access_checking to colors.mutedForeground
-            RootAccessState.Granted -> R.string.root_mode_access_granted to colors.success
-            RootAccessState.Denied -> R.string.root_mode_access_denied to colors.warning
-            RootAccessState.Unavailable -> R.string.root_mode_access_unavailable to colors.warning
+        when {
+            state.rootAccess == RootAccessState.Checking -> {
+                R.string.root_mode_access_checking to colors.mutedForeground
+            }
+
+            state.rootAccess == RootAccessState.Denied -> {
+                R.string.root_mode_access_denied to colors.warning
+            }
+
+            state.rootAccess == RootAccessState.Unavailable -> {
+                R.string.root_mode_access_unavailable to colors.warning
+            }
+
+            state.rootAccess == RootAccessState.TimedOut -> {
+                R.string.root_mode_access_timed_out to colors.warning
+            }
+
+            state.helper == RootHelperState.Ready -> {
+                R.string.root_mode_helper_active to colors.success
+            }
+
+            state.helper == RootHelperState.Starting -> {
+                R.string.root_mode_helper_starting to colors.mutedForeground
+            }
+
+            state.rootModeEnabled && state.helper == RootHelperState.Failed -> {
+                R.string.root_mode_helper_failed to colors.warning
+            }
+
+            state.rootModeEnabled -> {
+                R.string.root_mode_access_granted to colors.mutedForeground
+            }
+
+            else -> {
+                return
+            }
         }
     Text(
         text = stringResource(textRes),
         style = RipDpiThemeTokens.type.secondaryBody,
         color = color,
     )
-}
-
-@Composable
-private fun RootModeStrategyCard(
-    strategy: RootModeStrategyInfo,
-    enabled: Boolean,
-) {
-    RipDpiCard {
-        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
-            Text(
-                text = stringResource(strategy.titleRes),
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = if (enabled) RipDpiThemeTokens.colors.foreground else RipDpiThemeTokens.colors.mutedForeground,
-            )
-            Text(
-                text = stringResource(strategy.bodyRes),
-                style = RipDpiThemeTokens.type.caption,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
-        }
-    }
 }
 
 @Preview(showBackground = true)

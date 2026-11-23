@@ -8,6 +8,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -29,6 +31,13 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
+
+enum class RootHelperState {
+    Stopped,
+    Starting,
+    Ready,
+    Failed,
+}
 
 /**
  * Manages the lifecycle of the root helper binary.
@@ -62,6 +71,15 @@ open class RootHelperManager
             this.nfqwsRequester = nfqwsRequester ?: RootHelperIpc::request
             this.nfqwsExtractor = nfqwsExtractor ?: NfqwsBackendAssets::extract
             this.nfqwsDispatcher = nfqwsDispatcher
+        }
+
+        private val mutableState = MutableStateFlow(RootHelperState.Stopped)
+        val state = mutableState.asStateFlow()
+        private val mutableAccessResult = MutableStateFlow<RootAccessResult?>(null)
+        val lastAccessResult = mutableAccessResult.asStateFlow()
+
+        fun recordAccessResult(result: RootAccessResult?) {
+            mutableAccessResult.value = result
         }
 
         private val backendSession = AtomicReference<NfqwsBackendSession?>(null)
@@ -268,6 +286,7 @@ open class RootHelperManager
          */
         open suspend fun start(context: Context): String? =
             withContext(Dispatchers.IO) {
+                mutableState.value = RootHelperState.Starting
                 try {
                     val binary = binaryExtractor(context)
                     val socket = File(context.filesDir, SOCKET_NAME)
@@ -304,12 +323,14 @@ open class RootHelperManager
 
                         if (readinessProbe(socket, READY_TIMEOUT_MS, READY_POLL_INTERVAL_MS)) {
                             helperEndpoint = RootHelperEndpoint(socket, nonceFile, ready = true)
+                            mutableState.value = RootHelperState.Ready
                             log.i { "root helper started, socket: ${socket.absolutePath}" }
                             return@withContext socket.absolutePath
                         }
 
                         log.w { "root helper socket was not connectable via ${attempt.description}" }
                         stop()
+                        mutableState.value = RootHelperState.Starting
                     }
 
                     log.e { "root helper socket was not connectable within ${READY_TIMEOUT_MS}ms" }
@@ -319,6 +340,8 @@ open class RootHelperManager
                     log.e(e) { "failed to start root helper" }
                     stop()
                     null
+                } finally {
+                    if (mutableState.value != RootHelperState.Ready) mutableState.value = RootHelperState.Failed
                 }
             }
 
@@ -357,6 +380,7 @@ open class RootHelperManager
             backendSession.set(null)
             output?.close()
             removeIpcFiles(socketPath, noncePath)
+            mutableState.value = RootHelperState.Stopped
             // Every policy resolution stops an absent helper on a non-rooted device; log real stops only.
             if (process != null || endpoint != null) log.i { "root helper stopped" }
         }
