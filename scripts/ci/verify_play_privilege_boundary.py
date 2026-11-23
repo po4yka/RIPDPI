@@ -32,9 +32,13 @@ OWNED_PRIVILEGE_CLASS = re.compile(
     rb"(?:RootDetector|(?:Runtime)?RootCommand(?:Runner|Result)|RootAccess(?:Checker|Result|State)\w*"
     rb"|RootModeStrategies\w*|RootHelper(?:Manager|Ipc|Endpoint|State)\w*|NfqwsBackend\w*)(?![\w])"
 )
+NFQWS_EXECUTABLE_NAME = (
+    re.compile(rb"(?<![a-z0-9_])nfqws2(?![a-z0-9_])"),
+    re.compile(rb"(?<![a-z0-9_]\x00)n\x00f\x00q\x00w\x00s\x002\x00(?![a-z0-9_]\x00)"),
+)
 
 FINGERPRINTS = {
-    "privileged executable": ("ripdpi-root-helper", "nfqws2", "ripdpi_root_helper_protocol"),
+    "privileged executable": ("ripdpi-root-helper", "ripdpi_root_helper_protocol"),
     "root request": (
         "/system/bin/su",
         "/system/xbin/su",
@@ -139,6 +143,8 @@ def content_findings(stream: BinaryIO) -> set[str]:
         for reason, needles in ENCODED_FINGERPRINTS.items():
             if reason not in findings and any(needle in folded for needle in needles):
                 findings.add(reason)
+        if "privileged executable" not in findings and any(pattern.search(folded) for pattern in NFQWS_EXECUTABLE_NAME):
+            findings.add("privileged executable")
         if "app privilege class" not in findings and OWNED_PRIVILEGE_CLASS.search(window):
             findings.add("app privilege class")
         previous = window[-OVERLAP:]

@@ -85,6 +85,12 @@ class PlayPrivilegeBoundaryTest(unittest.TestCase):
         stream = io.BytesIO(b"\x00" * (1024 * 1024 - 3) + b"/data/adb/magisk")
         self.assertIn("root detection", boundary.content_findings(stream))
 
+    def test_scan_distinguishes_executable_name_from_socket_lua_compatibility_constant(self) -> None:
+        for encoding in ("utf-8", "utf-16-le"):
+            with self.subTest(encoding=encoding):
+                self.assertEqual(set(), boundary.content_findings(io.BytesIO("NFQWS2_COMPAT_VER".encode(encoding))))
+                self.assertIn("privileged executable", boundary.content_findings(io.BytesIO("/bin/nfqws2".encode(encoding))))
+
     def test_r8_mapping_skips_removed_classes_and_checks_inlining(self) -> None:
         package = self.write_package(apk_members())
         mapping = self.directory / "mapping.txt"
