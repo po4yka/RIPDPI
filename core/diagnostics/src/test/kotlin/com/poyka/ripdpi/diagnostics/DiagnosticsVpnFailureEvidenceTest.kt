@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
@@ -7,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -16,16 +18,29 @@ class DiagnosticsVpnFailureEvidenceTest {
     @Test
     fun `offline default service state does not imply a previous VPN session`() =
         runTest {
-            assertFalse(requireNotNull(collectOfflineSnapshot(false).networkSnapshot).vpnServiceWasActive)
+            assertFalse(
+                requireNotNull(
+                    collectSnapshot(NativeNetworkSnapshot(transport = "none")).networkSnapshot,
+                ).vpnServiceWasActive,
+            )
         }
 
     @Test
     fun `explicit prior VPN evidence is preserved`() =
         runTest {
-            assertTrue(requireNotNull(collectOfflineSnapshot(true).networkSnapshot).vpnServiceWasActive)
+            val offline = NativeNetworkSnapshot(transport = "none", vpnServiceWasActive = true)
+            assertTrue(requireNotNull(collectSnapshot(offline).networkSnapshot).vpnServiceWasActive)
         }
 
-    private suspend fun collectOfflineSnapshot(vpnWasActive: Boolean): com.poyka.ripdpi.diagnostics.domain.ScanContext {
+    @Test
+    fun `unverified metadata does not enter the diagnostic plan`() =
+        runTest {
+            assertNull(collectSnapshot(NativeNetworkSnapshot(transport = "unknown")).networkSnapshot)
+        }
+
+    private suspend fun collectSnapshot(
+        snapshot: NativeNetworkSnapshot,
+    ): com.poyka.ripdpi.diagnostics.domain.ScanContext {
         val stores = FakeDiagnosticsHistoryStores()
         val collector =
             DefaultScanContextCollector(
@@ -36,9 +51,7 @@ class DiagnosticsVpnFailureEvidenceTest {
                     },
                 nativeNetworkSnapshotProvider =
                     object : NativeNetworkSnapshotProvider {
-                        override fun capture() =
-                            com.poyka.ripdpi.data
-                                .NativeNetworkSnapshot(transport = "none", vpnServiceWasActive = vpnWasActive)
+                        override fun capture() = snapshot
                     },
                 diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                 networkDnsPathPreferenceStore =

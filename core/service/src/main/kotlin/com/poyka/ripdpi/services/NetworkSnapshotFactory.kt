@@ -3,7 +3,6 @@ package com.poyka.ripdpi.services
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import android.net.TrafficStats
@@ -21,6 +20,7 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeWifiSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.NetworkMetadataCaptureScope
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import dagger.Binds
 import dagger.Module
@@ -92,44 +92,38 @@ class NetworkSnapshotFactory
     constructor(
         @param:ApplicationContext private val context: Context,
         private val fingerprintProvider: NetworkFingerprintProvider,
+        private val snapshotScope: NetworkMetadataCaptureScope,
     ) : NativeNetworkSnapshotProvider {
-        private val connectivityManager =
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         private val wifiManager =
             context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         private val telephonyManager =
             context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
 
         override fun capture(): NativeNetworkSnapshot {
-            val fingerprint = fingerprintProvider.capture()
-            val activeNetwork = activeNetworkOrNull()
-            val capabilities = activeNetwork?.let(connectivityManager::getNetworkCapabilities)
-            val linkProperties = activeNetwork?.let(connectivityManager::getLinkProperties)
             val uid = context.applicationInfo.uid
-            val txBytes = TrafficStats.getUidTxBytes(uid).takeIf { it >= 0 } ?: 0L
-            val rxBytes = TrafficStats.getUidRxBytes(uid).takeIf { it >= 0 } ?: 0L
-            val capturedAtMs = System.currentTimeMillis()
-            val wifi = resolveWifiSnapshot(capabilities, fingerprint?.wifi)
-            val cellular = resolveCellularSnapshot(fingerprint?.cellular)
-            val mtu = resolveMtu(linkProperties)
-            return buildNativeNetworkSnapshot(
-                fingerprint = fingerprint,
-                txBytes = txBytes,
-                rxBytes = rxBytes,
-                wifi = wifi,
-                cellular = cellular,
-                mtu = mtu,
-                capturedAtMs = capturedAtMs,
-            )
-        }
-
-        @android.annotation.SuppressLint("MissingPermission")
-        private fun activeNetworkOrNull() =
-            if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
-                connectivityManager.activeNetwork
+            val unavailable =
+                NativeNetworkSnapshot(
+                    transport = "unknown",
+                    trafficTxBytes = TrafficStats.getUidTxBytes(uid).takeIf { it >= 0 } ?: 0L,
+                    trafficRxBytes = TrafficStats.getUidRxBytes(uid).takeIf { it >= 0 } ?: 0L,
+                    capturedAtMs = System.currentTimeMillis(),
+                )
+            val capture = snapshotScope.begin() ?: return unavailable
+            val fingerprint = capture.network?.let { fingerprintProvider.capture() }
+            return if (capture.network != null && fingerprint == null) {
+                unavailable
             } else {
-                null
+                buildNativeNetworkSnapshot(
+                    fingerprint = fingerprint,
+                    txBytes = unavailable.trafficTxBytes,
+                    rxBytes = unavailable.trafficRxBytes,
+                    wifi = resolveWifiSnapshot(capture.capabilities, fingerprint?.wifi),
+                    cellular = resolveCellularSnapshot(fingerprint?.cellular),
+                    mtu = resolveMtu(capture.links),
+                    capturedAtMs = unavailable.capturedAtMs,
+                ).takeIf { capture.isCurrent() } ?: unavailable
             }
+        }
 
         private fun resolveMtu(linkProperties: LinkProperties?): Int? =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

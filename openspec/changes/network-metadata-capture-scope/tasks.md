@@ -13,4 +13,4 @@ metadata-worker: NetworkMetadataProvider.kt, NetworkSnapshotFactory.kt and tests
 ## Verification
 
 Targeted Kotlin tests and combined staticAnalysis.
-- [ ] DGN-1791484590804921 Guard network metadata capture and add regression tests #feature @item:DGN-1791484491975137
+- [x] DGN-1791484590804921 Guard network metadata capture and add regression tests #feature @item:DGN-1791484491975137

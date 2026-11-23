@@ -2,8 +2,8 @@
 task_id: DGN-1791484491975137
 change: network-metadata-capture-scope
 commit_sha: null
-local: required
-local_evidence: null
+local: passed
+local_evidence: "Passed 1950 diagnostics tests and 53 targeted service tests. Offline staticAnalysis, ci-gates, and architecture health passed."
 remote_ci: required
 remote_ci_evidence: null
 device: not_applicable
@@ -20,4 +20,4 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-METADATA-SCOPE | DGN-1791484590804921 | Targeted Kotlin tests and staticAnalysis | Pending |
+| REQ-METADATA-SCOPE | DGN-1791484590804921 | AndroidNetworkMetadataProviderTest, NetworkSnapshotFactoryScopeTest, DiagnosticsVpnFailureEvidenceTest, and staticAnalysis | Passed |

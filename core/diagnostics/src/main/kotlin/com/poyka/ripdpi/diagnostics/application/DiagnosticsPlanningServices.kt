@@ -172,7 +172,7 @@ internal class DefaultScanContextCollector
                     intent.requestedPathMode
                 }
             val serviceStatus = serviceStateStore.status.value
-            val networkSnapshot = nativeNetworkSnapshotProvider.capture()
+            val networkSnapshot = nativeNetworkSnapshotProvider.capture().takeUnless { it.transport == "unknown" }
             return ScanContext(
                 settings = intent.settings,
                 pathMode = pathMode,
