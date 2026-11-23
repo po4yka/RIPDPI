@@ -244,7 +244,7 @@ class RipDpiNavHostLogicTest {
         val routesForDistribution = pageRoutes + excludedRoutes
         val expectedRoutes =
             if (BuildConfig.DISTRIBUTION_CHANNEL == "play") {
-                routesForDistribution - ROOT_MODE_STRATEGIES_ROUTE
+                routesForDistribution - RootModeStrategiesRoute
             } else {
                 routesForDistribution
             }
@@ -386,7 +386,7 @@ private enum class ReachabilityMechanism {
     LaunchRequest,
 }
 
-private const val ROOT_MODE_STRATEGIES_ROUTE = "root_mode_strategies"
+private const val RootModeStrategiesRoute = "root_mode_strategies"
 
 private val ExpectedRootScreenTags: Map<String, String> =
     mapOf(
@@ -410,7 +410,7 @@ private val ExpectedRootScreenTags: Map<String, String> =
         Route.AdvancedSettings.stableRoute to "advanced_settings-screen",
         Route.StrategyConfig.stableRoute to "strategy_config-screen",
         Route.RememberedNetworks.stableRoute to "remembered_networks-screen",
-        ROOT_MODE_STRATEGIES_ROUTE to "root_mode_strategies-screen",
+        RootModeStrategiesRoute to "root_mode_strategies-screen",
         Route.DomainBypassList.stableRoute to "domain_bypass_list-screen",
         Route.AssetProvider.stableRoute to "asset_provider-screen",
         Route.SplitTunnel.stableRoute to "split_tunnel-screen",
@@ -485,7 +485,7 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
         Route.AdvancedSettings.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.StrategyConfig.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.RememberedNetworks.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
-        ROOT_MODE_STRATEGIES_ROUTE to setOf(ReachabilityMechanism.InAppNavigate),
+        RootModeStrategiesRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.DomainBypassList.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.AssetProvider.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.SplitTunnel.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
