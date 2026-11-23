@@ -239,14 +239,10 @@ internal object RipDpiProxyJsonCodec {
                 is NativeProxyConfig.Ui -> {
                     requireNotNull(decodeUiPreferences(configJson)) { "Unable to decode proxy UI preferences" }
                     val hostAutolearn =
-                        patchObject(
-                            original["hostAutolearn"]?.jsonObject ?: JsonObject(emptyMap()),
-                            mapOf(
-                                "storePath" to
-                                    jsonPrimitiveOrNull(hostAutolearnStorePath ?: payload.hostAutolearn.storePath),
-                                "networkScopeKey" to
-                                    jsonPrimitiveOrNull(networkScopeKey ?: payload.hostAutolearn.networkScopeKey),
-                            ),
+                        patchHostAutolearn(
+                            original,
+                            hostAutolearnStorePath ?: payload.hostAutolearn.storePath,
+                            networkScopeKey ?: payload.hostAutolearn.networkScopeKey,
                         )
                     val nextRuntimeContext =
                         ProxyRuntimeContextCodec.toNative(runtimeContext) ?: payload.runtimeContext
@@ -368,6 +364,16 @@ private inline fun <reified T> encodeNullable(
     json: Json,
     value: T?,
 ): JsonElement = value?.let(json::encodeToJsonElement) ?: JsonNull
+
+private fun patchHostAutolearn(
+    original: JsonObject,
+    storePath: String?,
+    scopeKey: String?,
+): JsonObject =
+    patchObject(
+        original["hostAutolearn"]?.jsonObject ?: JsonObject(emptyMap()),
+        mapOf("storePath" to jsonPrimitiveOrNull(storePath), "networkScopeKey" to jsonPrimitiveOrNull(scopeKey)),
+    )
 
 private fun jsonPrimitiveOrNull(value: String?): JsonElement = value?.let(::JsonPrimitive) ?: JsonNull
 

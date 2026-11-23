@@ -19,7 +19,7 @@ internal class RequestedRuntimeConfigurationCapture
         private val groups: ProxyGroupRepository,
         private val authority: com.poyka.ripdpi.data.PauseIntentAuthority,
         private val experiments: RuntimeExperimentSelectionProvider,
-        packetBackend: PacketBackendRuntime = LocalPacketBackendRuntime,
+        packetBackend: PacketBackendRuntime,
     ) : RequestedRuntimeConfigurationSource {
         private val materialFactory = RequestedRuntimeConfigurationMaterialFactory(identities)
         private val policyCapture = RequestedRuntimePolicyCapture(routing, secrets, packetBackend)
