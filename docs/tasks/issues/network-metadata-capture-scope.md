@@ -2,7 +2,7 @@
 id: DGN-1791484491975137
 title: Keep network metadata in one capture scope
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: medium
 owner: metadata-worker
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: network-metadata-capture-scope
 created: 2026-10-08
-updated: 2026-10-08
+updated: 2026-11-23
 ---
 
 ## Goal

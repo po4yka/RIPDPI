@@ -6,8 +6,8 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.net.ConnectivityManager
 import android.net.LinkProperties
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
@@ -16,6 +16,7 @@ import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
+import com.poyka.ripdpi.data.NetworkMetadataCaptureScope
 import com.poyka.ripdpi.data.NetworkPathObservation
 import com.poyka.ripdpi.data.VpnRouteEvidence
 import com.poyka.ripdpi.data.VpnRouteEvidenceProvider
@@ -168,6 +169,7 @@ class AndroidNetworkMetadataProvider
         private val publicIpInfoResolver: PublicIpInfoResolver,
         private val underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
         private val vpnRouteEvidenceProvider: VpnRouteEvidenceProvider,
+        private val snapshotScope: NetworkMetadataCaptureScope,
     ) : NetworkMetadataProvider {
         // System Private DNS status is read behind an injectable seam so the
         // status-mapping logic is unit-tested without a device. The default
@@ -175,19 +177,30 @@ class AndroidNetworkMetadataProvider
         // rather than wired through Hilt.
         private val systemPrivateDnsStatusProvider: SystemPrivateDnsStatusProvider =
             AndroidSystemPrivateDnsStatusProvider()
-        private val connectivityManager =
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         private val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
         private val activeVpnGenerationTracker = ActiveVpnPathGenerationTracker()
         private val captureGeneration = AtomicLong()
 
-        @SuppressLint("MissingPermission")
         override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel {
-            val hasNetworkPermission = hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)
-            val network = activeNetworkOrNull()
-            val capabilities = network?.let(connectivityManager::getNetworkCapabilities)
-            val linkProperties = network?.let(connectivityManager::getLinkProperties)
+            if (!hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
+                return unavailableSnapshot("permission_unavailable")
+            }
+            val capture = snapshotScope.begin()
+            val snapshot =
+                capture?.network?.let { network ->
+                    collectSnapshot(network, capture.capabilities, capture.links, includePublicIp)
+                        .takeIf { capture.isCurrent() }
+                }
+            return snapshot?.toStoredNetworkSnapshot() ?: unavailableSnapshot()
+        }
+
+        private suspend fun collectSnapshot(
+            network: Network,
+            capabilities: NetworkCapabilities?,
+            linkProperties: LinkProperties?,
+            includePublicIp: Boolean,
+        ): NetworkSnapshotModel {
             val publicIpInfo = if (includePublicIp) publicIpInfoResolver.resolve() else null
             val vpnObservation = captureActiveVpnObservation(network, capabilities, linkProperties)
             val underlayObservation =
@@ -196,7 +209,7 @@ class AndroidNetworkMetadataProvider
                 )
             val pathValidation =
                 resolvePathValidationEvidence(
-                    permissionAvailable = hasNetworkPermission,
+                    permissionAvailable = true,
                     activePath = capabilities?.toNetworkPathCapabilities(),
                     underlay = underlayObservation,
                     vpnRouteEvidence =
@@ -229,15 +242,31 @@ class AndroidNetworkMetadataProvider
                 pathValidation = pathValidation,
                 pathSnapshots = pathSnapshots,
                 capturedAt = System.currentTimeMillis(),
-            ).toStoredNetworkSnapshot()
+            )
         }
 
+        private fun unavailableSnapshot(captureStatus: String = "unavailable"): NetworkSnapshotModel =
+            NetworkSnapshotModel(
+                transport = "unavailable",
+                capabilities = emptyList(),
+                dnsServers = emptyList(),
+                privateDnsMode = "unavailable",
+                mtu = null,
+                localAddresses = emptyList(),
+                publicIp = null,
+                publicAsn = null,
+                captivePortalDetected = false,
+                networkValidated = false,
+                pathValidation = NetworkPathValidationEvidence(captureStatus = captureStatus),
+                capturedAt = System.currentTimeMillis(),
+            )
+
         private fun captureActiveVpnObservation(
-            network: android.net.Network?,
+            network: Network,
             capabilities: NetworkCapabilities?,
             linkProperties: LinkProperties?,
         ): NetworkPathObservation {
-            if (network == null || capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true) {
+            if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true) {
                 return NetworkPathObservation()
             }
             val shape = projectActiveVpnObservation(capabilities, linkProperties, generation = 0L)
@@ -269,14 +298,6 @@ class AndroidNetworkMetadataProvider
             }
             return values
         }
-
-        @SuppressLint("MissingPermission")
-        private fun activeNetworkOrNull() =
-            if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
-                connectivityManager.activeNetwork
-            } else {
-                null
-            }
 
         private fun resolvePrivateDnsMode(linkProperties: LinkProperties?): String {
             val privateDnsServerName =
