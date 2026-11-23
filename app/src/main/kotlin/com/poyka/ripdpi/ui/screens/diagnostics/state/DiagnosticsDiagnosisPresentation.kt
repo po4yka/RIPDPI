@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.Diagnosis
+import com.poyka.ripdpi.diagnostics.QuicInitialUnobservedDiagnosis
 import kotlinx.collections.immutable.toImmutableList
 import java.util.Locale
 
@@ -25,7 +26,7 @@ internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis
             },
         controlStatus = context.getString(diagnosticControlStatusResource(diagnosis.controlValidated)),
         measurementLimit =
-            if (diagnosis.code == "quic_initial_unobserved") {
+            if (diagnosis.code == QuicInitialUnobservedDiagnosis) {
                 context.getString(R.string.diagnostics_quic_initial_limit)
             } else {
                 null

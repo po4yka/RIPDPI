@@ -134,7 +134,8 @@ class HistoryConnectionDetailUiFactoryTest {
         assertEquals("Hidden (2)", fields["DNS"])
         assertEquals("Hidden", fields["Private DNS"])
         assertEquals("Hidden", fields["Public IP"])
-        assertEquals("true", fields["Validated"])
+        assertEquals("Unknown", fields["Validated"])
+        assertEquals("Unknown", fields["Captive portal"])
         assertTrue(fields.values.none { it.contains("192.0.2.53") || it.contains("resolver.private.example") })
     }
 

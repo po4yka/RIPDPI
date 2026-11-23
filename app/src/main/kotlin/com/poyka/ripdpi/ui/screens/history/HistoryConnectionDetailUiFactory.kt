@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
+import com.poyka.ripdpi.diagnostics.hasObservedNetworkCapabilities
 import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
@@ -278,11 +279,17 @@ internal class HistoryConnectionDetailUiFactory
                                     ),
                                     DiagnosticsFieldUiModel(
                                         stringResolver.getString(R.string.diagnostics_field_validated),
-                                        snapshot.networkValidated.toString(),
+                                        snapshot.networkValidated
+                                            .takeIf { snapshot.hasObservedNetworkCapabilities }
+                                            ?.toString()
+                                            ?: stringResolver.getString(R.string.diagnostics_field_unknown),
                                     ),
                                     DiagnosticsFieldUiModel(
                                         stringResolver.getString(R.string.diagnostics_field_captive_portal),
-                                        snapshot.captivePortalDetected.toString(),
+                                        snapshot.captivePortalDetected
+                                            .takeIf { snapshot.hasObservedNetworkCapabilities }
+                                            ?.toString()
+                                            ?: stringResolver.getString(R.string.diagnostics_field_unknown),
                                     ),
                                 ).toImmutableList(),
                         ),

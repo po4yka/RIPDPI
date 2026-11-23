@@ -169,7 +169,7 @@ class DiagnosticsSummaryProjector
                 }
                 if (report?.results.orEmpty().any(ProbeResult::isQuicInitialProbe) ||
                     selectedResults.any { isQuicInitialProbeType(it.probeType) } ||
-                    report?.diagnoses.orEmpty().any { it.code == "quic_initial_unobserved" }
+                    report?.diagnoses.orEmpty().any { it.code == QuicInitialUnobservedDiagnosis }
                 ) {
                     add("quicInitialLimit=$QuicInitialMeasurementLimit")
                 }
