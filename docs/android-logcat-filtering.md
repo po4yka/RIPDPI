@@ -17,20 +17,21 @@ These are **not** RIPDPI errors. They come from Android's libgui `FrameEventHist
 - `ViewRootImpl` restart after configuration changes.
 - Intensive recomposition where the client-side queue rolls over before the SurfaceFlinger callback arrives.
 
-There is no app-side remediation. Filter them from logcat when debugging RIPDPI:
+There is no app-side remediation. To collect logs, get the app UID from the device. Set `APP_UID` to the number after `uid:`. The UID filter keeps Kotlin, native and crash records across process restarts.
 
 ```bash
-# Drop the whole tag at emulator/device level:
-adb logcat -s 'ripdpi-native:*' 'com.poyka.ripdpi:*' FrameEvents:S
-
-# Or post-filter:
-adb logcat | grep -v FrameEvents
+adb shell pm list packages -U com.poyka.ripdpi
+adb logcat --uid="$APP_UID" -b main -b system -b crash -v threadtime FrameEvents:S
 ```
 
-## ripdpi-native tags worth keeping
+The default Kotlin tag is `ripdpi`. Components can use their own tags. Use the UID filter to keep those records.
 
-- `ripdpi-native:*` — everything the Rust bridge emits (routed via the `tracing` facade).
-- `com.poyka.ripdpi:*` — Kotlin-side logs.
+For native-only debugging, select the exact tags:
+
+```bash
+adb logcat --uid="$APP_UID" -v threadtime -s ripdpi-native ripdpi-tunnel-native \
+  ripdpi-relay-native ripdpi-warp-native ripdpi-amneziawg-native
+```
 
 ## Known benign stderr sources
 

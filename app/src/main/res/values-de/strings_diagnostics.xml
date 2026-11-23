@@ -623,6 +623,11 @@
     <string name="diagnostics_telegram_data_centers">Rechenzentren</string>
     <string name="diagnostics_telegram_tcp_endpoints">TCP-Endpunkte</string>
     <string name="diagnostics_telegram_ws_handshake">WebSocket-Handshake</string>
+    <string name="diagnostics_telegram_route_format">Route: %1$s</string>
+    <string name="diagnostics_telegram_route_experiment">Direkt (Routenexperiment)</string>
+    <string name="diagnostics_telegram_route_stable">Direkt (stabiler Quellport)</string>
+    <string name="diagnostics_telegram_route_diversity">Direkt (alternativer Quellport)</string>
+    <string name="diagnostics_telegram_socks5_negotiation">SOCKS5-Aushandlung</string>
     <string name="diagnostics_telegram_unmeasured_format">Nicht gemessen: %1$d</string>
     <string name="diagnostics_telegram_transferred">Übertragen</string>
     <string name="diagnostics_warn_notification_permission">Die Benachrichtigungsberechtigung ist deaktiviert, daher sind Service-Probleme möglicherweise schwerer zu bemerken.</string>

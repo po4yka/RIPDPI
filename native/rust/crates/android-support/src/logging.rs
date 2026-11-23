@@ -4,8 +4,6 @@ use std::sync::PoisonError;
 use log::LevelFilter;
 use std::sync::OnceLock;
 #[cfg(target_os = "android")]
-use tracing_log::LogTracer;
-#[cfg(target_os = "android")]
 use tracing_subscriber::prelude::*;
 
 use crate::sync::Mutex;
@@ -33,25 +31,27 @@ pub fn install_panic_hook() {
 pub fn init_android_logging(tag: &'static str) {
     static INIT: OnceLock<()> = OnceLock::new();
     INIT.get_or_init(|| {
+        log::set_max_level(default_android_log_level());
         #[cfg(target_os = "android")]
         {
             static LOGGER: OnceLock<OwnedVerboseLogger> = OnceLock::new();
             let logger = LOGGER.get_or_init(|| {
                 OwnedVerboseLogger(android_logger::AndroidLogger::new(android_logger::Config::default().with_tag(tag)))
             });
-            let _ = log::set_logger(logger);
+            if log::set_logger(logger).is_err() {
+                log::warn!("Android native logger is already installed");
+            }
 
-            let _ = LogTracer::init();
-
-            // A metadata-only per-layer filter caches the decision per callsite, so
-            // third-party DEBUG/TRACE events are never formatted for logcat.
             let logcat = AndroidLogLayer.with_filter(tracing_subscriber::filter::filter_fn(|metadata| {
                 allows_log_target(metadata.target(), tracing_log::AsLog::as_log(metadata.level()))
             }));
-            let _ = tracing_subscriber::registry().with(logcat).with(EventRingLayer::global()).try_init();
+            let subscriber = tracing_subscriber::registry().with(logcat).with(EventRingLayer::global());
+            // The Android logger owns the log facade. Installing LogTracer here would
+            // conflict with it and feed this layer's log records back into tracing.
+            if tracing::subscriber::set_global_default(subscriber).is_err() {
+                log::error!("Android native tracing subscriber is already installed");
+            }
         }
-
-        log::set_max_level(default_android_log_level());
 
         #[cfg(not(target_os = "android"))]
         {

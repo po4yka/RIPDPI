@@ -10,7 +10,7 @@ pub(in crate::runtime_policy) fn normalize_learned_host(host: &str) -> Option<St
         return None;
     }
     if is_system_telemetry_host(&normalized) {
-        tracing::debug!(host = normalized.as_str(), "autolearn: skipping system telemetry host");
+        tracing::debug!("autolearn: skipping system telemetry host");
         return None;
     }
     Some(normalized)

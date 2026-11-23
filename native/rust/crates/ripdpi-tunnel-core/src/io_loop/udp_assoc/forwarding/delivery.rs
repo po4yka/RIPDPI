@@ -47,7 +47,7 @@ pub(super) fn deliver_udp_datagram(
     let Some(mut datagram) =
         OutboundDatagram::try_new_for_destination(Arc::clone(&destination), payload, memory_budget)
     else {
-        debug!("UDP aggregate queue byte budget exhausted for {src}; dropping datagram");
+        debug!("UDP aggregate queue byte budget exhausted; dropping datagram");
         stats.record_tun_queue_drop();
         return None;
     };
@@ -57,7 +57,7 @@ pub(super) fn deliver_udp_datagram(
     match outbound.try_send(datagram) {
         Ok(()) => Some((admitted_id, destination)),
         Err(TrySendError::Full(_)) => {
-            debug!("UDP association queue full for {src}; dropping datagram");
+            debug!("UDP association queue full; dropping datagram");
             stats.record_tun_queue_drop();
             None
         }

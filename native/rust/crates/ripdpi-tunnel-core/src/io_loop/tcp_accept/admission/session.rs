@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use smoltcp::iface::SocketSet;
 use tokio_util::sync::CancellationToken;
-use tracing::info;
 
 use crate::dns_cache::DnsCache;
 use crate::io_loop::dns_intercept::DnsRequest;
@@ -81,5 +80,4 @@ pub(super) fn admit_session(
         cache.unpin(ip);
     }
     remove_evicted_session_socket(socket_set, sessions, evicted.map(|(handle, _)| handle));
-    info!("TCP session spawned: remote={}", pending.target_addr);
 }

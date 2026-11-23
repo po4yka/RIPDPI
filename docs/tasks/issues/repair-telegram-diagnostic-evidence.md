@@ -2,7 +2,7 @@
 id: DGN-1794734107413188
 title: Correct DIA-08 Telegram diagnostic evidence and transport
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics maintainers
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: repair-telegram-diagnostic-evidence
 created: 2026-11-15
-updated: 2026-11-15
+updated: 2026-11-23
 ---
 
 ## Goal

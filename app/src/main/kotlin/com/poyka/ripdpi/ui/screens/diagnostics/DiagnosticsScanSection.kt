@@ -405,7 +405,7 @@ internal fun ScanSection(
                             ),
                     )
                     visibleResults.forEach { probe ->
-                        if (probe.probeType == "telegram_availability") {
+                        if (probe.isTelegramAvailabilityProbe()) {
                             TelegramResultCard(
                                 probe = probe,
                                 onClick = { onSelectProbe(probe) },

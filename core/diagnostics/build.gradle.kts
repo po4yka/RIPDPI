@@ -16,6 +16,10 @@ extensions.configure<LibraryExtension> {
         create("standard") { dimension = "runtimeEdition" }
         create("extended") { dimension = "runtimeEdition" }
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {

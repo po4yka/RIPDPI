@@ -13,6 +13,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -20,16 +22,22 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.formatTelegramThroughput
 import com.poyka.ripdpi.ui.screens.diagnostics.state.parseTelegramDcResult
+import com.poyka.ripdpi.ui.screens.diagnostics.state.telegramDcPathDetails
 import com.poyka.ripdpi.ui.screens.diagnostics.state.telegramStatusLabelRes
+import com.poyka.ripdpi.ui.screens.diagnostics.state.telegramWebSocketDetails
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+internal fun DiagnosticsProbeResultUiModel.isTelegramAvailabilityProbe(): Boolean = probeType == "telegram_availability"
 
 @Composable
 internal fun TelegramResultCard(
     probe: DiagnosticsProbeResultUiModel,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val context = LocalContext.current
+    val strings = remember(context) { AndroidStringResolver(context) }
     val details = remember(probe.details) { probe.details.associate { it.label to it.value } }
     val verdict = details["verdict"] ?: probe.outcome
     val verdictTone = statusTone(probe.tone)
@@ -69,15 +77,11 @@ internal fun TelegramResultCard(
             error = details["uploadError"],
         )
 
-        TelegramConnectivitySection(details)
-        val wsOpenTime =
-            details["wsTunnelOpenMs"]?.toLongOrNull()?.let {
-                stringResource(R.string.diagnostics_metric_dns_latency_format, it)
-            }
+        TelegramConnectivitySection(details, strings)
         TelegramStatusRow(
             label = stringResource(R.string.diagnostics_telegram_ws_handshake),
             status = details["wsTunnelStatus"] ?: "not_run",
-            detail = wsOpenTime,
+            detail = strings.telegramWebSocketDetails(details).joinToString(" · "),
         )
         details["wsTunnelError"]?.takeUnless { it.isEmpty() || it == "none" }?.let { error ->
             SettingsRow(title = stringResource(R.string.diagnostics_telegram_error), value = error)
@@ -86,7 +90,10 @@ internal fun TelegramResultCard(
 }
 
 @Composable
-private fun TelegramConnectivitySection(details: Map<String, String>) {
+private fun TelegramConnectivitySection(
+    details: Map<String, String>,
+    strings: StringResolver,
+) {
     val dcReachable = details["dcReachable"]?.toIntOrNull()
     val dcAttempted = details["dcTotal"]?.toIntOrNull()
     val dcPlanned = details["dcPlanned"]?.toIntOrNull()
@@ -124,11 +131,11 @@ private fun TelegramConnectivitySection(details: Map<String, String>) {
         value = dcSummary,
     )
     details["dcResults"]?.split('|')?.mapNotNull(::parseTelegramDcResult)?.forEach { dc ->
-        val detail = dc.connectMs?.let { stringResource(R.string.diagnostics_metric_dns_latency_format, it) }
+        val detail = listOfNotNull(dc.endpointOrPorts) + strings.telegramDcPathDetails(dc)
         TelegramStatusRow(
             label = dc.label,
             status = dc.status,
-            detail = listOfNotNull(dc.endpointOrPorts, detail).joinToString(" · ").ifEmpty { null },
+            detail = detail.joinToString(" · "),
         )
     }
 }

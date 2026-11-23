@@ -74,6 +74,10 @@ extensions.configure<LibraryExtension> {
         create("extended") { dimension = "runtimeEdition" }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     // Exactly ONE of xrayLinked / xrayStub is added to `main`, so the FQN
     // com.poyka.ripdpi.core.XrayNativeBridgeLibXrayImpl is defined once. The
     // engine-api throwing stub was removed in the same change to avoid a

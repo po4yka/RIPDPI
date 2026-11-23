@@ -622,6 +622,11 @@
     <string name="diagnostics_telegram_data_centers">مراکز داده</string>
     <string name="diagnostics_telegram_tcp_endpoints">نقاط اتصال TCP</string>
     <string name="diagnostics_telegram_ws_handshake">دست‌دهی WebSocket</string>
+    <string name="diagnostics_telegram_route_format">مسیر: %1$s</string>
+    <string name="diagnostics_telegram_route_experiment">مستقیم (آزمایش مسیر)</string>
+    <string name="diagnostics_telegram_route_stable">مستقیم (درگاه مبدأ ثابت)</string>
+    <string name="diagnostics_telegram_route_diversity">مستقیم (درگاه مبدأ جایگزین)</string>
+    <string name="diagnostics_telegram_socks5_negotiation">مذاکرهٔ SOCKS5</string>
     <string name="diagnostics_telegram_unmeasured_format">اندازه‌گیری‌نشده: %1$d</string>
     <string name="diagnostics_telegram_peak_speed">حداکثر سرعت</string>
     <string name="diagnostics_telegram_upload">آپلود</string>

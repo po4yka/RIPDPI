@@ -1453,7 +1453,7 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.factory.runtimes.size)
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
             assertNotNull(override)
-            assertEquals("vpn_encrypted_dns_auto_failover: resolver timeout", override?.reason)
+            assertEquals("vpn_encrypted_dns_auto_failover: timeout", override?.reason)
             assertEquals(
                 override?.resolverId,
                 env.bridgeFactory.bridge.startedConfig

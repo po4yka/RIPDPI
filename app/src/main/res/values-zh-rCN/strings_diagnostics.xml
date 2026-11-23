@@ -622,6 +622,11 @@
     <string name="diagnostics_telegram_data_centers">数据中心</string>
     <string name="diagnostics_telegram_tcp_endpoints">TCP 端点</string>
     <string name="diagnostics_telegram_ws_handshake">WebSocket 握手</string>
+    <string name="diagnostics_telegram_route_format">路由：%1$s</string>
+    <string name="diagnostics_telegram_route_experiment">直连（路由实验）</string>
+    <string name="diagnostics_telegram_route_stable">直连（稳定源端口）</string>
+    <string name="diagnostics_telegram_route_diversity">直连（备用源端口）</string>
+    <string name="diagnostics_telegram_socks5_negotiation">SOCKS5 协商</string>
     <string name="diagnostics_telegram_unmeasured_format">未测量：%1$d</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s 可达</string>
     <string name="diagnostics_warn_power_restriction">电源或后台限制可能干扰稳定的诊断。</string>

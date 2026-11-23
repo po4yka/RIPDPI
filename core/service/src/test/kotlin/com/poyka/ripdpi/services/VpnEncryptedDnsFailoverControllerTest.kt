@@ -146,7 +146,12 @@ class VpnEncryptedDnsFailoverControllerTest {
                 activeDns = currentDns,
                 currentDnsSignature = dnsSignature(currentDns, overrideReason = null),
                 networkScopeKey = env.fingerprint.scopeKey(),
-                telemetry = dnsTelemetry(queries = 1, failures = 1, lastDnsError = "resolver timeout"),
+                telemetry =
+                    dnsTelemetry(
+                        queries = 1,
+                        failures = 1,
+                        lastDnsError = "resolver timeout at https://private-resolver.example/dns-query",
+                    ),
             )
 
             val failoverTriggered =
@@ -155,13 +160,18 @@ class VpnEncryptedDnsFailoverControllerTest {
                     activeDns = currentDns,
                     currentDnsSignature = dnsSignature(currentDns, overrideReason = null),
                     networkScopeKey = env.fingerprint.scopeKey(),
-                    telemetry = dnsTelemetry(queries = 2, failures = 2, lastDnsError = "resolver timeout"),
+                    telemetry =
+                        dnsTelemetry(
+                            queries = 2,
+                            failures = 2,
+                            lastDnsError = "resolver timeout at https://private-resolver.example/dns-query",
+                        ),
                 )
 
             val override = env.overrides.override.value
             assertTrue(failoverTriggered)
             assertNotNull(override)
-            assertEquals("vpn_encrypted_dns_auto_failover: resolver timeout", override?.reason)
+            assertEquals("vpn_encrypted_dns_auto_failover: timeout", override?.reason)
             assertTrue(override?.toActiveDnsSettings() != currentDns)
             assertTrue(env.state.attemptedPathKeys.contains(currentDns.toEncryptedDnsPathCandidate()!!.pathKey()))
         }

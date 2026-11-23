@@ -118,7 +118,7 @@ pub(super) fn pump_udp_upstream_responses(
             Err(err) if udp_platform::is_connection_refused(&err) => {}
             Err(err) => {
                 // ENETUNREACH, EHOSTUNREACH and similar errors end this flow, not the association.
-                tracing::debug!(target = %key.target, "UDP flow receive failed: {err}");
+                tracing::debug!(io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "UDP flow receive failed");
                 retire_failed_udp_flow(state, flow_state, &key, protect_path, Instant::now())?;
             }
         }

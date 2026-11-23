@@ -152,7 +152,7 @@ class DiagnosticsCatalogLegalSafetyTest {
         }
 
         val messagingProfile = profiles.single { it.id == "ru-messaging" }
-        assertEquals(5, messagingProfile.version)
+        assertEquals(6, messagingProfile.version)
         messagingProfile.serviceTargets.forEach { target ->
             assertNull(target.bootstrapUrl, "Profile target ${target.id} should not ship a bootstrap URL")
             assertNotNull(target.tcpEndpointHost, "Profile target ${target.id} still needs a TCP endpoint host")
@@ -165,17 +165,37 @@ class DiagnosticsCatalogLegalSafetyTest {
     }
 
     @Test
-    fun `full dpi profile includes telegram availability audit target`() {
+    fun `telegram profiles use explicit ports for production bootstrap addresses`() {
         val index = DiagnosticsCatalogIndex(DefaultDiagnosticsCatalogPackSource.load())
         val profiles = DefaultDiagnosticsCatalogProfileSource.load(index)
+        val bootstrapAddresses =
+            mapOf(
+                "DC1" to "149.154.175.50",
+                "DC2" to "149.154.167.51",
+                "DC3" to "149.154.175.100",
+                "DC4" to "149.154.167.91",
+                "DC5" to "149.154.171.5",
+            )
 
-        val fullProfile = profiles.single { it.id == "ru-dpi-full" }
-        val telegramTarget = requireNotNull(fullProfile.telegramTarget)
+        mapOf("dpi-detector-full" to 5, "ru-dpi-full" to 13, "ru-messaging" to 6).forEach { (id, version) ->
+            val profile = profiles.single { it.id == id }
+            val messaging = id == "ru-messaging"
+            val target = requireNotNull(profile.telegramTarget)
+            val expectedAddresses =
+                if (messaging) bootstrapAddresses.filterKeys { it == "DC1" || it == "DC2" } else bootstrapAddresses
+            val expectedEndpoints =
+                expectedAddresses.flatMap { (label, ip) ->
+                    listOf(TelegramDcEndpointDefinition(ip, label, 443), TelegramDcEndpointDefinition(ip, label, 80))
+                }
 
-        assertEquals(12, fullProfile.version)
-        assertEquals("https://telegram.org/img/Telegram200million.png", telegramTarget.mediaUrl)
-        assertEquals(5, telegramTarget.dcEndpoints.size)
-        assertEquals(listOf("DC1", "DC2", "DC3", "DC4", "DC5"), telegramTarget.dcEndpoints.map { it.label })
+            assertEquals(version, profile.version, id)
+            assertEquals(expectedEndpoints, target.dcEndpoints, id)
+            assertEquals(
+                if (messaging) "https://telegram.org/" else "https://telegram.org/img/Telegram200million.png",
+                target.mediaUrl,
+                id,
+            )
+        }
     }
 
     @Test

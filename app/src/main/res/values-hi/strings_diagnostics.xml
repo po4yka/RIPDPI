@@ -545,6 +545,11 @@
     <string name="diagnostics_telegram_data_centers">डेटा सेंटर</string>
     <string name="diagnostics_telegram_tcp_endpoints">TCP एंडपॉइंट</string>
     <string name="diagnostics_telegram_ws_handshake">WebSocket हैंडशेक</string>
+    <string name="diagnostics_telegram_route_format">मार्ग: %1$s</string>
+    <string name="diagnostics_telegram_route_experiment">सीधा (मार्ग परीक्षण)</string>
+    <string name="diagnostics_telegram_route_stable">सीधा (स्थिर स्रोत पोर्ट)</string>
+    <string name="diagnostics_telegram_route_diversity">सीधा (वैकल्पिक स्रोत पोर्ट)</string>
+    <string name="diagnostics_telegram_socks5_negotiation">SOCKS5 नेगोशिएशन</string>
     <string name="diagnostics_telegram_unmeasured_format">माप नहीं हुआ: %1$d</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s पहुँच योग्य</string>
     <string name="diagnostics_telegram_avg_speed">औसत गति</string>
