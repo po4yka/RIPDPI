@@ -9,12 +9,11 @@ use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
 use std::ptr;
 
+#[cfg(feature = "privileged-packets")]
+use socket2::SockAddrStorage;
 use socket2::SockRef;
 
 use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
-
-#[cfg(feature = "privileged-packets")]
-use crate::linux::fd::peer_addr;
 
 /// Thin wrapper around `libc::setsockopt` that handles the return-code check
 /// and `io::Error` conversion.
@@ -89,7 +88,7 @@ pub(crate) fn get_u32_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c
 #[cfg(feature = "privileged-packets")]
 #[repr(C)]
 struct TcpMd5Sig {
-    addr: libc::sockaddr_storage,
+    addr: SockAddrStorage,
     pad1: u16,
     key_len: u16,
     pad2: u32,
@@ -106,6 +105,8 @@ struct TcpMd5Sig {
 // strictest alignment).
 #[cfg(feature = "privileged-packets")]
 const _: () = {
+    assert!(size_of::<SockAddrStorage>() == size_of::<libc::sockaddr_storage>());
+    assert!(align_of::<SockAddrStorage>() == align_of::<libc::sockaddr_storage>());
     assert!(std::mem::size_of::<TcpMd5Sig>() >= std::mem::size_of::<libc::sockaddr_storage>() + 2 + 2 + 4 + 80);
     assert!(std::mem::align_of::<TcpMd5Sig>() == std::mem::align_of::<libc::sockaddr_storage>());
 };
@@ -121,7 +122,7 @@ pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
     }
 
     let fd = stream.as_raw_fd();
-    let addr = peer_addr(fd)?;
+    let addr = SockRef::from(stream).peer_addr()?.as_storage();
     let md5 = TcpMd5Sig { addr, pad1: 0, key_len, pad2: 0, key: [0; 80] };
 
     // SAFETY: `md5` is a valid `tcp_md5sig`-compatible buffer and `fd` is a

@@ -1661,6 +1661,7 @@ internal fun testRequestedRuntimeConfigurationCapture(
         object : RuntimeExperimentSelectionProvider {
             override fun current() = RuntimeExperimentSelection()
         },
+        LocalPacketBackendRuntime,
     )
 }
 
