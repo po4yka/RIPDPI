@@ -5,8 +5,6 @@
 
 use std::io::{self, Read};
 use std::mem::size_of;
-#[cfg(feature = "privileged-packets")]
-use std::mem::zeroed;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream};
 use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd};
 use std::os::unix::net::UnixStream;
@@ -88,18 +86,6 @@ pub fn original_dst(stream: &TcpStream) -> io::Result<SocketAddr> {
     let (storage, _) =
         unsafe { getsockopt_raw::<libc::sockaddr_storage>(fd, libc::IPPROTO_IPV6, IP6T_SO_ORIGINAL_DST) }?;
     storage_to_socket_addr(&storage)
-}
-
-#[cfg(feature = "privileged-packets")]
-pub(crate) fn peer_addr(fd: libc::c_int) -> io::Result<libc::sockaddr_storage> {
-    // SAFETY: `storage` is zero-initialized and `getpeername` writes at most
-    // `len` bytes into it for the valid socket descriptor `fd`.
-    let mut storage = unsafe { zeroed::<libc::sockaddr_storage>() };
-    let mut len = size_of::<libc::sockaddr_storage>() as libc::socklen_t;
-    // SAFETY: `fd` is a valid socket descriptor and `storage`/`len` are live
-    // writable stack slots whose sizes match the `getpeername` ABI.
-    let rc = unsafe { libc::getpeername(fd, (&mut storage as *mut libc::sockaddr_storage).cast(), &mut len) };
-    if rc == 0 { Ok(storage) } else { Err(io::Error::last_os_error()) }
 }
 
 // Compile-time guard for soundness issue #23 (type punning).
