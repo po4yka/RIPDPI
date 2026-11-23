@@ -502,21 +502,22 @@ private fun ConnectionDraft.chainValidationState(
             onSuccess = { it },
             onFailure = { return ChainValidationState(chain = null, error = it.message ?: "invalid_chain") },
         )
-    if (!parsed.supportedInDistribution()) {
-        return ChainValidationState(chain = null, error = unsupportedStrategy)
-    }
-    return runCatching {
-        validateStrategyChainUsage(
-            tcpSteps = parsed.tcpSteps,
-            udpSteps = parsed.udpSteps,
-            mode = mode,
-            useCommandLineSettings = useCommandLineSettings,
-            externalPacketOperationsEnabled = rawPacketsEnabled,
+    return if (!parsed.supportedInDistribution()) {
+        ChainValidationState(chain = null, error = unsupportedStrategy)
+    } else {
+        runCatching {
+            validateStrategyChainUsage(
+                tcpSteps = parsed.tcpSteps,
+                udpSteps = parsed.udpSteps,
+                mode = mode,
+                useCommandLineSettings = useCommandLineSettings,
+                externalPacketOperationsEnabled = rawPacketsEnabled,
+            )
+        }.fold(
+            onSuccess = { ChainValidationState(chain = parsed, error = null) },
+            onFailure = { ChainValidationState(chain = parsed, error = it.message ?: "invalid_chain") },
         )
-    }.fold(
-        onSuccess = { ChainValidationState(chain = parsed, error = null) },
-        onFailure = { ChainValidationState(chain = parsed, error = it.message ?: "invalid_chain") },
-    )
+    }
 }
 
 private fun StrategyChainSet.addTcp(step: TcpChainStepModel): StrategyChainSet = copy(tcpSteps = tcpSteps + step)
