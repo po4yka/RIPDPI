@@ -8,6 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / "play-store-screenshots"
 MANIFEST = PROJECT / "public/screenshots/source-capture.json"
+VARIANT = "playDebug"
+PACKAGE = "com.poyka.ripdpi"
 LOCALES = ("en", "ru", "es", "de", "fr", "fa", "zh-CN")
 FRAME_SIZE = (1080, 1800)
 DENSITY_DPI = 360
@@ -21,7 +23,7 @@ SCREENS = {
     "backup": ("backup_restore", "backup"),
 }
 INPUT_PATHS = (
-    "app/src/main", "app/src/debug", "app/src/github", "core",
+    "app/src/main", "app/src/debug", "app/src/play", "core",
     "app/build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
     "build-logic/convention/src/main",
 )

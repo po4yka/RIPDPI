@@ -18,10 +18,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, BACKUP_SCROLL_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from capture_build import OUTPUT_METADATA, check_play_apk, check_play_output, verify
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, BACKUP_SCROLL_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, PACKAGE, VARIANT, input_hashes, inputs_sha256, sha256
 
-PACKAGE = "com.poyka.ripdpi"
-VARIANT = "githubDebug"
 
 
 def is_new_completed_scan(receipt: dict | None, previous_id: str | None, clicked_at: int) -> bool:
@@ -133,6 +132,8 @@ class CaptureDevice:
         return step
 
     def show_route(self, name: str, route: str, *, reset: bool = False) -> None:
+        if name not in SCREENS or SCREENS[name][0] != route:
+            raise ValueError("Route is outside the Play screenshot capture contract.")
         locale_state = self.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
         self.locale = re.search(r"\[([a-zA-Z-]+)\]", locale_state)[1]
         profile = display_profile(self.locale, name)
@@ -810,7 +811,7 @@ def calibrate_relay_profiles(device: CaptureDevice, directory: Path, apk: Path,
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--serial", required=True, help="Dedicated 1080x1800, 360 dpi emulator; its app state is reset")
-    parser.add_argument("--prebuilt-jni-libs", type=Path, help="Optional native outputs from the same source revision")
+    parser.add_argument("--prebuilt-jni-libs", type=Path, help="Optional Play native outputs from the same source revision")
     parser.add_argument("--xray-artifacts", type=Path, help="Real producer artifacts; the release verifier must pass")
     parser.add_argument("--approve-vpn-consent", action="store_true",
                         help="Accept the normal Android VPN dialog on this disposable emulator")
@@ -834,20 +835,29 @@ def main() -> None:
     if args.build_bundle:
         if abi != "x86_64":
             parser.error("Sealed capture builds require the original x86_64 emulator ABI.")
-        from capture_build import verify
         bundle = verify(args.build_bundle)
         apk, xray_artifacts, revision = bundle["apk"], bundle["xray"], bundle["builtFromRevision"]
+        output_metadata = args.build_bundle / OUTPUT_METADATA
+        producer_filename = bundle["metadata"]["producerApk"]
         device.receipts["buildBundle"] = {"builtFromRevision": revision,
                                            "manifestSha256": sha256(args.build_bundle / "capture-build.json")}
     else:
         xray_artifacts = args.xray_artifacts.resolve()
         revision = run(["git", "rev-parse", "HEAD"])
-        build_args = ["./gradlew", ":app:assembleGithubDebug", f"-Pripdpi.nativeAbisOverride={abi}",
+        build_args = ["./gradlew", ":app:assemblePlayDebug", f"-Pripdpi.nativeAbisOverride={abi}",
                       f"-Pripdpi.prebuiltXrayAarDir={xray_artifacts}"]
         if args.prebuilt_jni_libs:
-            build_args.append(f"-Pripdpi.prebuiltJniLibsDir={args.prebuilt_jni_libs.resolve()}")
+            build_args.append(f"-Pripdpi.prebuiltPlayJniLibsDir={args.prebuilt_jni_libs.resolve()}")
         subprocess.run(build_args, cwd=ROOT, check=True)
-        apk = ROOT / f"app/build/outputs/apk/github/debug/app-github-{abi}-debug.apk"
+        apk = ROOT / f"app/build/outputs/apk/play/debug/app-play-{abi}-debug.apk"
+        output_metadata = apk.with_name(OUTPUT_METADATA)
+        producer_filename = apk.name
+        check_play_output(output_metadata, producer_filename, abi)
+        check_play_apk(apk, abi)
+    device.receipts["apkProducer"] = {
+        "variant": VARIANT, "abi": abi, "filename": producer_filename,
+        "gradleOutputMetadataSha256": sha256(output_metadata),
+    }
     subprocess.run(["bash", "scripts/native/verify-libxray-artifacts.sh", "--release"],
                    cwd=ROOT, env={**os.environ, "RIPDPI_XRAY_AAR_DIR": str(xray_artifacts)}, check=True)
     device.adb("install", "-r", str(apk))

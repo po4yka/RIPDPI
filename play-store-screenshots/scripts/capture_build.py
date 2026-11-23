@@ -14,9 +14,11 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
+import sys
 import zipfile
 
-ROOT = Path(__file__).resolve().parents[2]
+from source_captures import PACKAGE, ROOT, VARIANT
+
 INPUT_PATHS = (
     "app", "core", "native", "build-logic", "gradle", "quality", "testing",
     "config", "xray-protos", "baselineprofile", "scripts/native", "scripts/ci",
@@ -25,8 +27,12 @@ INPUT_PATHS = (
     ".github/workflows/play-store-screenshots.yml", "play-store-screenshots/scripts/capture_build.py",
 )
 XRAY_FILES = ("libxray.aar", "libxray-artifact.json", "build-go.mod", "build-go.sum")
-FILES = {"app.apk", *(f"xray/{name}" for name in XRAY_FILES)}
+OUTPUT_METADATA = "output-metadata.json"
+SEALED_APK = "app-play-debug.apk"
+FILES = {SEALED_APK, OUTPUT_METADATA, *(f"xray/{name}" for name in XRAY_FILES)}
 MANIFEST = "capture-build.json"
+SCHEMA_VERSION = 2
+CAPTURE_ABI = "x86_64"
 
 
 def sha256(path: Path) -> str:
@@ -123,8 +129,35 @@ def toolchains(root: Path) -> dict:
     return result
 
 
-def check_payload(apk: Path, xray: Path, *, producer_directory: bool = False) -> None:
+def check_play_output(metadata_path: Path, filename: str, abi: str) -> None:
+    ordinary(metadata_path)
+    metadata = json.loads(metadata_path.read_text())
+    if metadata.get("variantName") != VARIANT or metadata.get("applicationId") != PACKAGE:
+        raise ValueError(f"Gradle output metadata must identify {VARIANT} for {PACKAGE}")
+    matches = [
+        output for output in metadata.get("elements", [])
+        if output.get("outputFile") == filename
+        and {"filterType": "ABI", "value": abi} in output.get("filters", [])
+    ]
+    if filename != f"app-play-{abi}-debug.apk" or len(matches) != 1:
+        raise ValueError(f"Gradle output metadata must bind the {abi} Play APK")
+
+
+def check_play_apk(apk: Path, abi: str) -> None:
     ordinary(apk)
+    with zipfile.ZipFile(apk) as archive:
+        library = f"lib/{abi}/libripdpi.so"
+        if library not in archive.namelist() or archive.getinfo(library).file_size == 0:
+            raise ValueError(f"APK has no {abi} native runtime")
+    try:
+        subprocess.run([sys.executable, str(ROOT / "scripts/ci/verify_play_privilege_boundary.py"),
+                        "--edition", "play", str(apk)], check=True, timeout=120)
+    except subprocess.CalledProcessError as error:
+        raise ValueError("Capture APK failed the Play edition boundary check") from error
+
+
+def check_payload(apk: Path, xray: Path, *, producer_directory: bool = False) -> None:
+    check_play_apk(apk, CAPTURE_ABI)
     ordinary(xray, directory=True)
     names = {path.name for path in xray.iterdir()}
     required = set(XRAY_FILES)
@@ -144,9 +177,6 @@ def check_payload(apk: Path, xray: Path, *, producer_directory: bool = False) ->
             raise ValueError(f"Xray producer hash mismatch: {name}")
     if producer.get("schemaVersion") != 2 or "x86_64" not in producer.get("abis", []):
         raise ValueError("missing Xray x86_64 producer provenance")
-    with zipfile.ZipFile(apk) as archive:
-        if not any(re.fullmatch(r"lib/x86_64/[^/]+\.so", name) and archive.getinfo(name).file_size > 0 for name in archive.namelist()):
-            raise ValueError("APK has no x86_64 native libraries")
     with zipfile.ZipFile(xray / "libxray.aar") as archive:
         if "jni/x86_64/libgojni.so" not in archive.namelist():
             raise ValueError("Xray AAR has no x86_64 native library")
@@ -173,16 +203,20 @@ def inventory(bundle: Path) -> dict[str, str]:
 def seal(bundle: Path, apk: Path, xray_artifacts: Path, root: Path = ROOT) -> dict:
     bundle, apk, xray_artifacts, root = map(Path, (bundle, apk, xray_artifacts, root))
     ordinary(bundle.parent, directory=True)
+    output_metadata = apk.with_name(OUTPUT_METADATA)
+    check_play_output(output_metadata, apk.name, CAPTURE_ABI)
     check_payload(apk, xray_artifacts, producer_directory=True)
     revision = command(["git", "rev-parse", "HEAD"], root)
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
         raise ValueError("unknown original build revision")
-    metadata = {"schemaVersion": 1, "variant": "githubDebug", "abi": "x86_64",
+    metadata = {"schemaVersion": SCHEMA_VERSION, "variant": VARIANT, "abi": CAPTURE_ABI,
+                "producerApk": apk.name,
                 "builtFromRevision": revision, "inputs": input_hashes(root), "toolchains": toolchains(root)}
     # Exclusive mkdir: never overwrite or delete an existing bundle, even on error.
     bundle.mkdir()
     (bundle / "xray").mkdir()
-    shutil.copyfile(apk, bundle / "app.apk")
+    shutil.copyfile(apk, bundle / SEALED_APK)
+    shutil.copyfile(output_metadata, bundle / OUTPUT_METADATA)
     for name in XRAY_FILES:
         shutil.copyfile(xray_artifacts / name, bundle / "xray" / name)
     metadata["files"] = {name: sha256(bundle / name) for name in sorted(FILES)}
@@ -194,7 +228,7 @@ def verify(bundle: Path, root: Path = ROOT, expected_revision: str | None = None
     bundle, root = Path(bundle), Path(root)
     files = inventory(bundle)
     metadata = json.loads((bundle / MANIFEST).read_text())
-    if (metadata.get("schemaVersion"), metadata.get("variant"), metadata.get("abi")) != (1, "githubDebug", "x86_64"):
+    if (metadata.get("schemaVersion"), metadata.get("variant"), metadata.get("abi")) != (SCHEMA_VERSION, VARIANT, CAPTURE_ABI):
         raise ValueError("unsupported capture build metadata")
     if not re.fullmatch(r"[0-9a-f]{40}", metadata.get("builtFromRevision", "")):
         raise ValueError("missing original build revision")
@@ -206,8 +240,9 @@ def verify(bundle: Path, root: Path = ROOT, expected_revision: str | None = None
         raise ValueError("Android build inputs changed; rebuild required")
     if metadata.get("toolchains") != toolchains(root):
         raise ValueError("build toolchains changed; rebuild required")
-    check_payload(bundle / "app.apk", bundle / "xray")
-    return {"apk": bundle / "app.apk", "xray": bundle / "xray",
+    check_play_output(bundle / OUTPUT_METADATA, metadata.get("producerApk"), CAPTURE_ABI)
+    check_payload(bundle / SEALED_APK, bundle / "xray")
+    return {"apk": bundle / SEALED_APK, "xray": bundle / "xray",
             "builtFromRevision": metadata["builtFromRevision"], "metadata": metadata}
 
 

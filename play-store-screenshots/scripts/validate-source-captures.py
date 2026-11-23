@@ -8,7 +8,7 @@ import struct
 import re
 from pathlib import Path
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, BACKUP_SCROLL_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, BACKUP_SCROLL_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, VARIANT, input_hashes, inputs_sha256, sha256
 
 
 def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
@@ -25,8 +25,8 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
         errors.append("Capture all seven marketing locales.")
     if not re.fullmatch(r"[a-f0-9]{40}", manifest.get("builtFromRevision", "")):
         errors.append("Missing build revision provenance.")
-    if manifest.get("apk", {}).get("variant") != "githubDebug":
-        errors.append("The capture APK must be githubDebug.")
+    if manifest.get("apk", {}).get("variant") != VARIANT:
+        errors.append(f"The capture APK must be {VARIANT}.")
     for section, key in (("apk", "sha256"), ("libXray", "manifestSha256"), ("libXray", "aarSha256")):
         if not re.fullmatch(r"[a-f0-9]{64}", manifest.get(section, {}).get(key, "")):
             errors.append(f"Missing producer hash: {section}.{key}")
@@ -39,6 +39,13 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
     if manifest.get("state", {}).get("statusBar") != STATUS_BAR:
         errors.append("Use the native Android status bar without synthetic demo indicators.")
     receipts = manifest.get("runReceipts", {})
+    apk_producer = receipts.get("apkProducer", {})
+    abi = manifest.get("device", {}).get("abi")
+    if (abi not in ("arm64-v8a", "x86_64") or apk_producer.get("abi") != abi
+            or apk_producer.get("variant") != VARIANT
+            or apk_producer.get("filename") != f"app-play-{abi}-debug.apk"
+            or not re.fullmatch(r"[a-f0-9]{64}", apk_producer.get("gradleOutputMetadataSha256", ""))):
+        errors.append("Missing the verified Gradle Play APK producer receipt.")
     for frame, receipt in receipts.get("frameRecaptures", {}).items():
         path = f"play-store-screenshots/public/screenshots/{frame}.png"
         if (frame not in ("fa/relay", "zh-CN/relay") or not receipt.get("observedAtUtc")

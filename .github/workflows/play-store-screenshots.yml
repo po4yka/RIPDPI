@@ -27,7 +27,7 @@ on:
         type: boolean
         default: false
       reuse_capture_run:
-        description: Trusted completed run ID with an android-capture-build artifact; inputs must still match
+        description: Trusted completed run ID with an android-play-capture-build artifact; inputs must still match
         type: string
         default: ""
   schedule:
@@ -95,9 +95,9 @@ jobs:
           ):
               raise SystemExit("Rejected build artifact origin: expected completed trusted same-repository workflow dispatch")
           artifacts = [artifact for page in json.loads((root / "reuse-artifacts.json").read_text())
-                       for artifact in page["artifacts"] if artifact["name"] == "android-capture-build"]
+                       for artifact in page["artifacts"] if artifact["name"] == "android-play-capture-build"]
           if len(artifacts) != 1 or artifacts[0]["expired"]:
-              raise SystemExit("Expected exactly one unexpired android-capture-build artifact")
+              raise SystemExit("Expected exactly one unexpired android-play-capture-build artifact")
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               output.write(f"run-id={source['id']}\n")
               output.write(f"artifact-id={artifacts[0]['id']}\n")
@@ -110,7 +110,7 @@ jobs:
         with:
           artifact-ids: ${{ steps.reuse.outputs.artifact-id }}
           merge-multiple: true
-          path: ${{ runner.temp }}/android-capture-build
+          path: ${{ runner.temp }}/android-play-capture-build
           run-id: ${{ steps.reuse.outputs.run-id }}
           github-token: ${{ github.token }}
 
@@ -134,10 +134,10 @@ jobs:
         with:
           abis: x86_64
 
-      - name: Build actual current app before booting emulator
+      - name: Build the current Play app before booting emulator
         if: inputs.reuse_capture_run == ''
         run: >-
-          ./gradlew :app:assembleGithubDebug
+          ./gradlew :app:assemblePlayDebug
           -Pripdpi.nativeAbisOverride=x86_64
           -Pripdpi.prebuiltXrayAarDir=${{ github.workspace }}/native/xray/artifacts
           -Pripdpi.pluggableTransportAssetsMode=source
@@ -147,25 +147,25 @@ jobs:
         if: inputs.reuse_capture_run == ''
         run: |
           bash scripts/native/verify-libxray-artifacts.sh --release
-          python3 play-store-screenshots/scripts/capture_build.py seal "$RUNNER_TEMP/android-capture-build" \
-            --apk app/build/outputs/apk/github/debug/app-github-x86_64-debug.apk \
+          python3 play-store-screenshots/scripts/capture_build.py seal "$RUNNER_TEMP/android-play-capture-build" \
+            --apk app/build/outputs/apk/play/debug/app-play-x86_64-debug.apk \
             --xray-artifacts native/xray/artifacts
 
       - name: Verify sealed bytes, build inputs, and toolchain equivalence
         env:
           EXPECTED_REVISION: ${{ steps.reuse.outputs.head-sha || github.sha }}
         run: |
-          python3 play-store-screenshots/scripts/capture_build.py verify "$RUNNER_TEMP/android-capture-build" \
+          python3 play-store-screenshots/scripts/capture_build.py verify "$RUNNER_TEMP/android-play-capture-build" \
             --expected-revision "$EXPECTED_REVISION"
-          RIPDPI_XRAY_AAR_DIR="$RUNNER_TEMP/android-capture-build/xray" \
+          RIPDPI_XRAY_AAR_DIR="$RUNNER_TEMP/android-play-capture-build/xray" \
             bash scripts/native/verify-libxray-artifacts.sh --release
 
       - name: Preserve the verified build before emulator trials
         if: inputs.reuse_capture_run == ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: android-capture-build
-          path: ${{ runner.temp }}/android-capture-build/**
+          name: android-play-capture-build
+          path: ${{ runner.temp }}/android-play-capture-build/**
           if-no-files-found: error
           retention-days: 14
 
@@ -191,7 +191,7 @@ jobs:
           python3 play-store-screenshots/scripts/capture-android.py \
             --serial "$serial" --approve-vpn-consent \
             --failure-diagnostics "$RUNNER_TEMP/capture-diagnostics" \
-            --build-bundle "$RUNNER_TEMP/android-capture-build" "${calibration_args[@]}"
+            --build-bundle "$RUNNER_TEMP/android-play-capture-build" "${calibration_args[@]}"
           if [ "$CALIBRATE_RELAY" != "true" ]; then
             python3 play-store-screenshots/scripts/validate-source-captures.py
           fi

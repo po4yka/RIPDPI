@@ -16,13 +16,25 @@ class CaptureBuildTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.bundle = self.root / "sealed"
-        self.apk = self.root / "original.apk"
+        self.apk = self.root / "app-play-x86_64-debug.apk"
+        self.output_metadata = self.root / build.OUTPUT_METADATA
+        self.gradle_output = {
+            "applicationId": "com.poyka.ripdpi", "variantName": "playDebug",
+            "elements": [{"outputFile": self.apk.name, "filters": [{"filterType": "ABI", "value": "x86_64"}]}],
+        }
+        self.output_metadata.write_text(json.dumps(self.gradle_output))
         self.xray = self.root / "producer"
         self.xray.mkdir()
         (self.root / "app").mkdir()
         (self.root / "app/input.kt").write_text("original input")
         with zipfile.ZipFile(self.apk, "w") as archive:
-            archive.writestr("lib/x86_64/libfixture.so", b"synthetic fixture, not executable")
+            archive.writestr("AndroidManifest.xml", b"synthetic manifest")
+            archive.writestr("resources.arsc", b"synthetic resources")
+            archive.writestr("classes.dex", b"dex\n039\x00")
+            archive.writestr(
+                "lib/x86_64/libripdpi.so",
+                b"\x7fELF\x02\x01\x01" + bytes(9) + b"\x03\x00\x3e\x00" + bytes(44),
+            )
         with zipfile.ZipFile(self.xray / "libxray.aar", "w") as archive:
             archive.writestr("jni/x86_64/libgojni.so", b"synthetic fixture, not executable")
         (self.xray / "build-go.mod").write_text("module fixture")
@@ -52,6 +64,9 @@ class CaptureBuildTests(unittest.TestCase):
         result = self.verify()
         self.assertEqual(result["builtFromRevision"], "a" * 40)
         self.assertEqual(result["apk"].read_bytes(), self.apk.read_bytes())
+        self.assertEqual(result["metadata"]["variant"], "playDebug")
+        self.assertEqual(result["metadata"]["producerApk"], self.apk.name)
+        self.assertEqual((self.bundle / build.OUTPUT_METADATA).read_bytes(), self.output_metadata.read_bytes())
         for name in build.XRAY_FILES:
             self.assertEqual((result["xray"] / name).read_bytes(), (self.xray / name).read_bytes())
 
@@ -121,7 +136,7 @@ class CaptureBuildTests(unittest.TestCase):
 
     def test_payload_tamper_rejected(self):
         self.seal()
-        (self.bundle / "app.apk").write_bytes(b"changed")
+        (self.bundle / build.SEALED_APK).write_bytes(b"changed")
         with self.assertRaisesRegex(ValueError, "hash mismatch"):
             self.verify()
 
@@ -138,7 +153,7 @@ class CaptureBuildTests(unittest.TestCase):
 
     def test_missing_required_payload_rejected(self):
         self.seal()
-        for name in ("app.apk", "xray/libxray-artifact.json", "xray/libxray.aar"):
+        for name in (build.SEALED_APK, build.OUTPUT_METADATA, "xray/libxray-artifact.json", "xray/libxray.aar"):
             path = self.bundle / name
             data = path.read_bytes()
             path.unlink()
@@ -160,7 +175,7 @@ class CaptureBuildTests(unittest.TestCase):
 
     def test_symlink_leaf_and_ancestor_rejected(self):
         self.seal()
-        path = self.bundle / "app.apk"
+        path = self.bundle / build.SEALED_APK
         path.unlink()
         path.symlink_to(self.apk)
         with self.assertRaisesRegex(ValueError, "symlink"):
@@ -192,6 +207,35 @@ class CaptureBuildTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "APK has no x86_64"):
             self.seal()
         self.assertFalse(self.bundle.exists())
+
+    def test_seal_rejects_github_producer_metadata_for_otherwise_clean_apk(self):
+        self.gradle_output["variantName"] = "githubDebug"
+        self.output_metadata.write_text(json.dumps(self.gradle_output))
+        with self.assertRaisesRegex(ValueError, "must identify playDebug"):
+            self.seal()
+        self.assertFalse(self.bundle.exists())
+
+    def test_seal_rejects_play_metadata_that_does_not_bind_the_abi(self):
+        self.gradle_output["elements"][0]["filters"][0]["value"] = "arm64-v8a"
+        self.output_metadata.write_text(json.dumps(self.gradle_output))
+        with self.assertRaisesRegex(ValueError, "must bind the x86_64 Play APK"):
+            self.seal()
+
+    def test_seal_rejects_privilege_payload_with_valid_play_metadata(self):
+        with zipfile.ZipFile(self.apk, "a") as archive:
+            archive.writestr("assets/zapret2/licenses/README", b"fixture")
+        with self.assertRaisesRegex(ValueError, "failed the Play edition boundary"):
+            self.seal()
+        self.assertFalse(self.bundle.exists())
+
+    def test_reuse_rejects_old_seal_metadata(self):
+        self.seal()
+        manifest = self.bundle / build.MANIFEST
+        metadata = json.loads(manifest.read_text())
+        metadata.update(schemaVersion=1, variant="githubDebug")
+        manifest.write_text(json.dumps(metadata))
+        with self.assertRaisesRegex(ValueError, "unsupported capture build metadata"):
+            self.verify()
 
     def test_xray_manifest_content_must_match(self):
         (self.xray / "build-go.mod").write_text("tampered")

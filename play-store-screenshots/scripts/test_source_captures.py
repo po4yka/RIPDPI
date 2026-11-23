@@ -255,12 +255,16 @@ class SourceCaptureTests(unittest.TestCase):
                     output.write_bytes(data)
                     images[path] = sha256(output)
         self.data = {"schemaVersion": 1, "locales": list(LOCALES), "builtFromRevision": "a" * 40,
-                     "apk": {"variant": "githubDebug", "sha256": "b" * 64},
+                     "apk": {"variant": "playDebug", "sha256": "b" * 64},
                      "libXray": {"manifestSha256": "c" * 64, "aarSha256": "d" * 64},
-                     "device": {"screen": "1080x1800", "densityDpi": DENSITY_DPI, "api": 37},
+                     "device": {"screen": "1080x1800", "densityDpi": DENSITY_DPI, "api": 37, "abi": "x86_64"},
                      "state": {"servicePreset": "live", "displayProfiles": DISPLAY_PROFILES, "statusBar": STATUS_BAR, "homeScrollPixels": HOME_SCROLL_PIXELS}, "runReceipts": {"vpn": {"service": "RipDpiVpnService", "transport": "VPN CONNECTED; owner com.poyka.ripdpi", "observedAtUtc": "2026-10-10T00:00:00+00:00", "stoppedNormallyAtUtc": "2026-10-10T00:00:01+00:00"}, "diagnostics": {"id": "new", "previousSessionId": "old", "profileId": "default", "status": "completed", "clickedAt": 1000, "startedAt": 2000, "finishedAt": 3000, "resultCount": 21, "reportBytes": 1024, "reportSha256": "f" * 64, "outcomes": {"healthy": 21}}},
                      "theme": "light", "routes": {name: route for name, (route, _) in SCREENS.items()},
                      "uiInputs": self.inputs, "uiInputsSha256": inputs_sha256(self.inputs), "images": images}
+        self.data["runReceipts"]["apkProducer"] = {
+            "variant": "playDebug", "abi": "x86_64", "filename": "app-play-x86_64-debug.apk",
+            "gradleOutputMetadataSha256": "e" * 64,
+        }
         self.data["runReceipts"]["homeMeasurements"] = {locale: {"sampleCount": 2, "observedAtUtc": "2026-10-10T00:00:00+00:00", "contentScrollPixels": HOME_SCROLL_PIXELS[locale], "observedContentScrollPixels": HOME_SCROLL_PIXELS[locale]} for locale in LOCALES}
         self.data["runReceipts"]["permissions"] = {"api": 37, "granted": list(capture.runtime_permissions(37)), "observedAtUtc": "2026-10-10T00:00:00+00:00"}
         self.data["runReceipts"]["displayFrames"] = {f"{locale}/{name}": {**display_profile(locale, name), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"} for locale in LOCALES for name in DISPLAY_PROFILES}
@@ -288,6 +292,26 @@ class SourceCaptureTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "No frame was saved"):
             device.verify_locale("ru")
         device.verify_locale("en")
+
+    def test_unapproved_route_is_rejected_before_device_access(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.adb = Mock()
+        with self.assertRaisesRegex(ValueError, "outside the Play screenshot capture contract"):
+            device.show_route("strategies", "root_mode_strategies")
+        device.adb.assert_not_called()
+
+    def test_manifest_rejects_extended_producer_and_routes(self):
+        self.data["apk"]["variant"] = "githubDebug"
+        self.data["routes"]["settings"] = "root_mode_strategies"
+        self.save()
+        errors = self.validate()
+        self.assertIn("The capture APK must be playDebug.", errors)
+        self.assertIn("Unexpected capture theme or routes.", errors)
+
+    def test_manifest_requires_gradle_producer_receipt_for_the_device_abi(self):
+        self.data["runReceipts"]["apkProducer"]["filename"] = "app-play-arm64-v8a-debug.apk"
+        self.save()
+        self.assertIn("Missing the verified Gradle Play APK producer receipt.", self.validate())
 
     def test_relay_recapture_cannot_change_the_apk_producer_receipt(self):
         self.data["runReceipts"]["fullBatchCapturedAtUtc"] = "2026-10-10T00:00:00+00:00"
