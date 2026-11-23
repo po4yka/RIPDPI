@@ -17,7 +17,7 @@ echo "==> bless JVM telemetry/logging goldens"
 (cd "$repo_root" && ./gradlew \
   :core:engine:testDebugUnitTest \
   --tests com.poyka.ripdpi.core.NativeTelemetryGoldenTest \
-  :core:service:testDebugUnitTest \
+  :core:service:testExtendedDebugUnitTest \
   --tests com.poyka.ripdpi.services.ServiceTelemetryGoldenTest)
 
 echo "==> sync Android instrumentation goldens from JVM fixtures"

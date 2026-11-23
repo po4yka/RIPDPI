@@ -23,27 +23,10 @@ internal enum class RuntimeLayerState {
     Unknown,
 }
 
-/**
- * The root helper's observable availability.
- *
- * The root helper is opt-in behind `root_mode_enabled` and degrades gracefully
- * when root is absent — see `docs/architecture/RUNTIME_MODES.md` §5. A read-only
- * observer distinguishes four cases. [Disabled] (root mode is provably off, the
- * non-root baseline) and [Unknown] (the root-mode setting was not observed) are
- * deliberately separate: collapsing them would hide whether the non-root
- * baseline is in effect or merely unmeasured.
- */
-internal enum class RootHelperState {
-    /** Root mode is off — the non-root baseline; there is no root-helper layer. */
+internal enum class PacketBackendState {
     Disabled,
-
-    /** Root mode is on, but the helper socket is not (yet) connectable. */
     EnabledUnavailable,
-
-    /** Root mode is on and the helper socket is connectable — privileged ops are usable. */
     EnabledAvailable,
-
-    /** The root-mode setting was not observed, so availability is indeterminate. */
     Unknown,
 }
 
@@ -53,7 +36,7 @@ internal enum class RootHelperState {
  * RIPDPI deliberately has no single unified `RuntimeMode` type: runtime state
  * is the `(AppStatus, Mode)` pair in `ServiceStateStore.status`, the finer
  * per-supervisor [ServiceStatus] and the service-internal lifecycle phase, plus
- * the relay, diagnostics, and root-helper layers — each *inferred* from settings
+ * the relay, diagnostics, and packet-backend layers — each *inferred* from settings
  * and native handles (see `docs/architecture/RUNTIME_MODES.md`, "The runtime
  * mode state model"). That document names a *derived, read-only projection*
  * over those sources as the safe first step toward an eventual unified type.
@@ -69,7 +52,7 @@ internal enum class RootHelperState {
  * leaves it `Unknown` / `null` rather than guessing.
  *
  * The projection is a tested internal API: wiring it into a live observer would
- * mean injecting the relay / diagnostics / root coordinators into an existing
+ * mean injecting the relay and diagnostics coordinators into an existing
  * class, which is the broad rewiring `RUNTIME_MODES.md` warns against. Callers
  * adopt it incrementally as low-risk read-only paths appear.
  */
@@ -96,8 +79,8 @@ internal data class RuntimeModeProjection(
     val relay: RuntimeLayerState,
     /** Whether a diagnostics scan is currently in progress. */
     val diagnosticsScan: RuntimeLayerState,
-    /** Whether the privileged root helper is enabled and available. */
-    val rootHelper: RootHelperState,
+    /** Whether the external packet backend is requested and available. */
+    val packetBackend: PacketBackendState,
 ) {
     companion object {
         /**
@@ -114,10 +97,10 @@ internal data class RuntimeModeProjection(
          *   when it was not observed.
          * @param diagnosticsScanActive `true`/`false` when scan activity is
          *   known, `null` when it was not observed.
-         * @param rootModeEnabled the `root_mode_enabled` setting, or `null` when
+         * @param packetBackendRequested whether the packet backend is requested, or `null` when
          *   it was not observed.
-         * @param rootHelperSocketAvailable whether the root helper socket is
-         *   connectable (e.g. `RootHelperManager.socketPath != null`), or `null`
+         * @param packetBackendSocketAvailable whether the backend socket is
+         *   connectable (e.g. `PacketBackendRuntime.socketPath != null`), or `null`
          *   when it was not observed.
          */
         fun from(
@@ -126,8 +109,8 @@ internal data class RuntimeModeProjection(
             lifecyclePhase: ServiceLifecycleStateMachine.State? = null,
             relayActive: Boolean? = null,
             diagnosticsScanActive: Boolean? = null,
-            rootModeEnabled: Boolean? = null,
-            rootHelperSocketAvailable: Boolean? = null,
+            packetBackendRequested: Boolean? = null,
+            packetBackendSocketAvailable: Boolean? = null,
         ): RuntimeModeProjection {
             val (appStatus, mode) = status
             return RuntimeModeProjection(
@@ -137,7 +120,7 @@ internal data class RuntimeModeProjection(
                 lifecyclePhase = lifecyclePhase,
                 relay = layerStateOf(relayActive),
                 diagnosticsScan = layerStateOf(diagnosticsScanActive),
-                rootHelper = rootHelperStateOf(rootModeEnabled, rootHelperSocketAvailable),
+                packetBackend = packetBackendStateOf(packetBackendRequested, packetBackendSocketAvailable),
             )
         }
 
@@ -148,15 +131,15 @@ internal data class RuntimeModeProjection(
                 null -> RuntimeLayerState.Unknown
             }
 
-        private fun rootHelperStateOf(
-            rootModeEnabled: Boolean?,
+        private fun packetBackendStateOf(
+            packetBackendRequested: Boolean?,
             socketAvailable: Boolean?,
-        ): RootHelperState =
+        ): PacketBackendState =
             when {
-                rootModeEnabled == null -> RootHelperState.Unknown
-                !rootModeEnabled -> RootHelperState.Disabled
-                socketAvailable == true -> RootHelperState.EnabledAvailable
-                else -> RootHelperState.EnabledUnavailable
+                packetBackendRequested == null -> PacketBackendState.Unknown
+                !packetBackendRequested -> PacketBackendState.Disabled
+                socketAvailable == true -> PacketBackendState.EnabledAvailable
+                else -> PacketBackendState.EnabledUnavailable
             }
     }
 }

@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.services.LocalPacketBackendRuntime
+import com.poyka.ripdpi.services.PacketBackendRuntime
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -31,7 +33,7 @@ import javax.inject.Singleton
  *   into the path exactly while relay telemetry is being produced, i.e. while
  *   `relayTelemetryStatus` is anything other than [RuntimeTelemetryState.NoData]
  *   (the value reported when no relay runtime exists).
- * - `rootHelper` — `root_mode_enabled` from `AppSettingsRepository`.
+ * - `packetBackend` — the edition's packet backend selection.
  * - `diagnosticsScan` — published by the diagnostics raw-path scan coordinator
  *   through [markDiagnosticsScanActive]; `Unknown` until the first scan runs.
  *
@@ -39,8 +41,8 @@ import javax.inject.Singleton
  *
  * `serviceStatus` and `lifecyclePhase` come from the per-supervisor status
  * reporter and the service-internal `ServiceLifecycleStateMachine`, neither of
- * which is a process-level singleton; `rootHelperSocketAvailable` is a
- * non-reactive `RootHelperManager` getter. Observing them would mean the broad
+ * which is a process-level singleton; `packetBackendSocketAvailable` is a
+ * non-reactive `PacketBackendRuntime` getter. Observing them would mean the broad
  * rewiring `RUNTIME_MODES.md` warns against, so the store leaves them
  * unobserved (`null`) and the projection keeps them `Unknown` / `null`. They
  * are wired incrementally as low-risk read-only seams appear.
@@ -51,6 +53,7 @@ internal class RuntimeModeProjectionStore
     constructor(
         private val serviceStateStore: ServiceStateStore,
         private val appSettingsRepository: AppSettingsRepository,
+        private val packetBackendRuntime: PacketBackendRuntime = LocalPacketBackendRuntime,
     ) {
         private val diagnosticsScanActive = MutableStateFlow<Boolean?>(null)
 
@@ -74,8 +77,8 @@ internal class RuntimeModeProjectionStore
                     lifecyclePhase = null,
                     relayActive = relayActive(telemetry),
                     diagnosticsScanActive = scanActive,
-                    rootModeEnabled = settings.rootModeEnabled,
-                    rootHelperSocketAvailable = null,
+                    packetBackendRequested = packetBackendRuntime.allowsExternalOperations(settings),
+                    packetBackendSocketAvailable = null,
                 )
             }.distinctUntilChanged()
 

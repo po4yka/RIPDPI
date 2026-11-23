@@ -24,7 +24,7 @@ import java.util.UUID
  */
 internal class VpnRuntimeCompositionCoordinator(
     private val proxyRuntimeStack: SharedProxyRuntimeStack,
-    private val rootHelperManager: RootHelperManager,
+    private val packetBackendRuntime: PacketBackendRuntime,
     private val vpnTunnelRuntime: VpnTunnelRuntime,
     private val supervisorExitHandlerFor: (VpnRuntimeSession) -> VpnSupervisorExitHandler,
     private val applyActiveConnectionPolicy: suspend (
@@ -96,7 +96,7 @@ internal class VpnRuntimeCompositionCoordinator(
                 throw error
             }
         } finally {
-            rootHelperManager.stopFor(Mode.VPN)
+            packetBackendRuntime.stopFor(Mode.VPN)
         }
     }
 

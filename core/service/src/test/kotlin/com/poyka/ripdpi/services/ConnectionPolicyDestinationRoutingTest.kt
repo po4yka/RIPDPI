@@ -11,7 +11,6 @@ import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
-import com.poyka.ripdpi.data.RootSettingsSection
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.proto.AppSettings
@@ -146,22 +145,15 @@ class ConnectionPolicyDestinationRoutingTest {
     @Test
     fun `default VPN permission preflight does not require or activate a live endpoint`() =
         runTest {
-            val helperCalls = mutableListOf<String>()
-            val rootHelper =
-                object : RootHelperManager() {
-                    override suspend fun syncRootMode(
+            val backendCalls = mutableListOf<Mode>()
+            val backend =
+                object : PacketBackendRuntime by LocalPacketBackendRuntime {
+                    override suspend fun prepare(
                         context: Context,
-                        root: RootSettingsSection,
-                    ): String? {
-                        helperCalls += "root"
-                        return null
-                    }
-
-                    override suspend fun syncNfqws(
-                        context: Context,
+                        mode: Mode,
                         settings: AppSettings,
                     ) {
-                        helperCalls += "nfqws"
+                        backendCalls += mode
                     }
                 }
             val provider = ActiveProtectSocketPathProvider()
@@ -170,7 +162,7 @@ class ConnectionPolicyDestinationRoutingTest {
                     sampleFingerprint(),
                     EmptyDestinationRoutingPolicySource,
                     protection = provider,
-                    rootHelper = rootHelper,
+                    backend = backend,
                 )
             val preflight =
                 DefaultServiceStartLocalNetworkPreflight(
@@ -182,7 +174,7 @@ class ConnectionPolicyDestinationRoutingTest {
             preflight.requireAccess(Mode.VPN)
 
             assertNull(provider.current())
-            assertEquals(emptyList<String>(), helperCalls)
+            assertTrue(backendCalls.isEmpty())
             val activationFailure = runCatching { policy.resolve(Mode.VPN) }.exceptionOrNull()
             assertEquals("VPN protect endpoint is not active", activationFailure?.message)
         }
@@ -223,7 +215,7 @@ class ConnectionPolicyDestinationRoutingTest {
         source: DestinationRoutingPolicySource,
         settings: AppSettings = AppSettingsSerializer.defaultValue,
         protection: ActiveProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
-        rootHelper: RootHelperManager = RootHelperManager(),
+        backend: PacketBackendRuntime = LocalPacketBackendRuntime,
     ) = DefaultConnectionPolicyResolver(
         runtimeConfigurationCapture =
             testRequestedRuntimeConfigurationCapture(
@@ -249,7 +241,7 @@ class ConnectionPolicyDestinationRoutingTest {
                             preferredEdges: Map<String, List<PreferredEdgeCandidate>>,
                         ): Map<String, List<PreferredEdgeCandidate>> = preferredEdges
                     },
-                rootHelperManager = rootHelper,
+                packetBackendRuntime = backend,
                 environmentDetector = EnvironmentDetector(),
                 proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 activeProtectSocketPathProvider = protection,

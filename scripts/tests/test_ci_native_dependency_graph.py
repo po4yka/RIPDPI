@@ -372,7 +372,8 @@ class NativeDependencyGraphTest(unittest.TestCase):
         self.assertIn("xray-native]", linked)
         self.assertIn("native/xray/artifacts", linked)
         self.assertIn(":core:engine:testDebugUnitTest", linked)
-        self.assertIn(":core:service:testDebugUnitTest", linked)
+        self.assertIn(":core:service:testStandardDebugUnitTest", linked)
+        self.assertIn(":core:service:testExtendedDebugUnitTest", linked)
         required = job_source("ci-required")
         for job in ("xray-native", "xray-linked-unit-tests"):
             self.assertIn(f"      - {job}\n", required)

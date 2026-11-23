@@ -355,7 +355,7 @@
         {
           "id": "kotlin-service-telemetry-goldens",
           "path": "core/service/src/test/kotlin/com/poyka/ripdpi/services/ServiceTelemetryGoldenTest.kt",
-          "command": "./gradlew :core:service:testDebugUnitTest --tests 'com.poyka.ripdpi.services.ServiceTelemetryGoldenTest' -Pripdpi.skipNativeBuild=true"
+          "command": "./gradlew :core:service:testExtendedDebugUnitTest --tests 'com.poyka.ripdpi.services.ServiceTelemetryGoldenTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "rust-android-telemetry-contracts",

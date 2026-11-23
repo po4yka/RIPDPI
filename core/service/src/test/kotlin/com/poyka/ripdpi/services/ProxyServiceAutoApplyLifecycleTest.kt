@@ -242,7 +242,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                                     preferredEdges: Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>>,
                                 ): Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>> = preferredEdges
                             },
-                        rootHelperManager = RootHelperManager(),
+                        packetBackendRuntime = LocalPacketBackendRuntime,
                         environmentDetector = EnvironmentDetector(),
                         proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                         activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),

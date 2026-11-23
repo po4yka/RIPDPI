@@ -99,7 +99,7 @@ class ServiceSessionModuleTest {
                     statusReporter = statusReporter,
                     screenStateObserver = TestScreenStateObserver(),
                     directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
-                    rootHelperManager = RootHelperManager(),
+                    packetBackendRuntime = LocalPacketBackendRuntime,
                 )
 
             assertProxyFactoriesInvoked(proxyFactory, relayFactory, warpFactory, statusFactory, dispatchers)
@@ -180,7 +180,7 @@ class ServiceSessionModuleTest {
                     host = host,
                     dependencies = runtimeDependencies,
                     protectSocketServer = protectSocketServer,
-                    rootHelperManager = RootHelperManager(),
+                    packetBackendRuntime = LocalPacketBackendRuntime,
                     flowAttributionBridge = testFlowAttributionBridge(),
                 )
             val encryptedDnsFailoverController =
@@ -242,7 +242,7 @@ class ServiceSessionModuleTest {
                             autolearnActivationReceiptPublisher = testAutolearnActivationReceiptPublisher(),
                             statusReporter = statusReporter,
                             directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             xrayProviderSessionController = buildTestXrayProviderSessionController(vpnTunnelRuntime),
                         ),
                 )

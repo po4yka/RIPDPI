@@ -14,12 +14,12 @@ import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
+import com.poyka.ripdpi.services.PacketBackendRuntime
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.ProxyServiceSessionComponent
 import com.poyka.ripdpi.services.RelayRuntimeNetworkMode
-import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceCoordinatorHost
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
@@ -136,7 +136,7 @@ internal object ProxyServiceSessionModule {
         statusReporter: ServiceStatusReporter,
         screenStateObserver: ScreenStateObserver,
         directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
-        rootHelperManager: RootHelperManager,
+        packetBackendRuntime: PacketBackendRuntime,
     ): ProxyServiceRuntimeCoordinator =
         ProxyServiceRuntimeCoordinator(
             selectorListeners = selectorListeners,
@@ -153,6 +153,6 @@ internal object ProxyServiceSessionModule {
             configurationLifecycle = receipts.configurations,
             screenStateObserver = screenStateObserver,
             directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
-            rootHelperManager = rootHelperManager,
+            packetBackendRuntime = packetBackendRuntime,
         )
 }

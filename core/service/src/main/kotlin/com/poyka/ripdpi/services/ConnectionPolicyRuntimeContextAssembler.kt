@@ -26,7 +26,6 @@ import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import com.poyka.ripdpi.data.isRuntimeUsableDirectPolicy
-import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.lua.LuaAssetManager
 import com.poyka.ripdpi.services.lua.relativizeLuaScriptPaths
@@ -44,7 +43,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
         private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
         private val serverCapabilityStore: ServerCapabilityStore,
         private val antiCorrelationRoutingPolicy: AntiCorrelationRoutingPolicy,
-        private val rootHelperManager: RootHelperManager,
+        private val packetBackendRuntime: PacketBackendRuntime,
         private val environmentDetector: EnvironmentDetector,
         private val proxySessionSecretResolver: ProxySessionSecretResolver,
         private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
@@ -57,9 +56,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
         ): String? {
             val path = protectPath(mode, forPreflight)
             if (!forPreflight) {
-                rootHelperManager.claimedBy = mode
-                rootHelperManager.syncRootMode(context, settings.toSettingsSections().root)
-                rootHelperManager.syncNfqws(context, settings)
+                packetBackendRuntime.prepare(context, mode, settings)
             }
             return path
         }
@@ -177,7 +174,11 @@ internal class ConnectionPolicyRuntimeContextAssembler
             runtimeContext: RipDpiRuntimeContext?,
             settings: AppSettings,
         ): RipDpiRuntimeContext? {
-            val configuredYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() && !rootHelperManager.nfqwsActive }
+            val configuredYaml =
+                settings.strategyChainYaml.takeIf {
+                    it.isNotBlank() &&
+                        !packetBackendRuntime.ownsPacketStrategies
+                }
             // Both Lua owners need the extracted files before runtime setup.
             val luaScriptBaseDir =
                 configuredYaml?.let {
@@ -185,7 +186,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
                         LuaAssetManager.ensureExtracted(context).toAbsolutePath().toString()
                     }
                 }
-            val yaml = configuredYaml.takeIf { rootHelperManager.socketPath == null }
+            val yaml = configuredYaml.takeIf { packetBackendRuntime.socketPath == null }
             if (runtimeContext == null && yaml == null) return null
             val jailedYaml =
                 if (yaml != null && luaScriptBaseDir != null) {
@@ -209,7 +210,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
         ): RipDpiProxyPreferences {
             val geoPaths = resolveGeoDatabasePaths(context)
             val effectiveRuntimeContext = withLuaSocketContext(runtimeContext, settings)
-            return if (settings.enableCmdSettings && !rootHelperManager.nfqwsActive) {
+            return if (settings.enableCmdSettings && !packetBackendRuntime.ownsPacketStrategies) {
                 RipDpiProxyCmdPreferences(
                     settings.cmdArgs,
                     hostAutolearnStorePath = hostAutolearnStorePath,
@@ -226,8 +227,8 @@ internal class ConnectionPolicyRuntimeContextAssembler
                         hostAutolearnStorePath,
                         networkScopeKey,
                         effectiveRuntimeContext,
-                        rootMode = settings.rootModeEnabled,
-                        rootHelperSocketPath = rootHelperManager.socketPath,
+                        rootMode = packetBackendRuntime.allowsExternalOperations(settings),
+                        rootHelperSocketPath = packetBackendRuntime.socketPath,
                         environmentKind = environmentDetector.kind,
                         destinationRouting = destinationRouting,
                         geoipDbPath = geoPaths.geoipDbPath,
@@ -235,7 +236,11 @@ internal class ConnectionPolicyRuntimeContextAssembler
                         awg = awg,
                         workerBearer = proxySessionSecretResolver.currentBearer(settings),
                     ).let { preferences ->
-                        if (rootHelperManager.nfqwsActive) preferences.withoutPacketStrategies() else preferences
+                        if (packetBackendRuntime.ownsPacketStrategies) {
+                            preferences.withoutPacketStrategies()
+                        } else {
+                            preferences
+                        }
                     }
             }
         }

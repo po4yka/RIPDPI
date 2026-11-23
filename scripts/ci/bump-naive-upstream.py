@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None, get: FetchJson = github_json) -> int:
         return 1
     print(f"Pinned {tag} (was {pinned}). Next steps before you commit:")
     print("  1. python3 scripts/ci/fetch-naive-upstream.py")
-    print("  2. ./gradlew :core:service:testDebugUnitTest")
+    print("  2. ./gradlew :core:service:testExtendedDebugUnitTest")
     print("  3. the wire comparison and the android-naiveproxy acceptance scenario with --capture-tls;")
     print("     record the new JA4 in the change evidence")
     return 0

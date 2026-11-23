@@ -69,7 +69,7 @@ class ConnectionPolicyAutolearnTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = TestServerCapabilityStore(),
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),

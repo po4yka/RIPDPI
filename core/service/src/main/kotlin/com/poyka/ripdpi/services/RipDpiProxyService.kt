@@ -35,8 +35,8 @@ class RipDpiProxyService :
     lateinit var serviceStateStore: ServiceStateStore
 
     @Inject
-    lateinit var rootHelperManagerProvider: Provider<RootHelperManager>
-    private val rootHelperManager get() = rootHelperManagerProvider.get()
+    internal lateinit var packetBackendRuntimeProvider: Provider<PacketBackendRuntime>
+    private val packetBackendRuntime get() = packetBackendRuntimeProvider.get()
 
     @Inject
     internal lateinit var sessionComponentBuilderProvider: Provider<ProxyServiceSessionComponentBuilder>
@@ -120,8 +120,8 @@ class RipDpiProxyService :
                     stateInitializer = initializer
                     val stateStore = initializer.initialize(Mode.Proxy)
                     val runtimeCoordinator = sessionEntryPoint.coordinator()
-                    val ownedRootHelper = rootHelperManager
-                    activeOwnership.own { ownedRootHelper.stopOnDestroy(Mode.Proxy) }
+                    val ownedPacketBackend = packetBackendRuntime
+                    activeOwnership.own { ownedPacketBackend.stopOnDestroy(Mode.Proxy) }
                     sessionStateStore = stateStore
                     coordinator = runtimeCoordinator
                     shellDelegate =

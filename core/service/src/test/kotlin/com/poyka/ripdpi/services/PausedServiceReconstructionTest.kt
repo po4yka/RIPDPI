@@ -58,7 +58,7 @@ class PausedServiceReconstructionTest {
             service.runtimeEvidenceReporter = fixture.reporter
             service.sessionComponentBuilderProvider = fixture.forbidden("proxy active session")
             service.selectorRuntimeLifecycleListenersProvider = fixture.forbidden("selectors and probes")
-            service.rootHelperManagerProvider = fixture.forbidden("native root helper")
+            service.packetBackendRuntimeProvider = fixture.forbidden("packet backend")
             lifecycle.create()
             assertEquals(0, fixture.constructions.get())
             service.onStartCommand(null, 0, 1)
@@ -93,7 +93,7 @@ class PausedServiceReconstructionTest {
             service.activeProtectSocketPathProvider = ActiveProtectSocketPathProvider()
             service.sessionComponentBuilderProvider = fixture.forbidden("VPN JNI TUN protect native session")
             service.selectorRuntimeLifecycleListenersProvider = fixture.forbidden("selectors and probes")
-            service.rootHelperManagerProvider = fixture.forbidden("native root helper")
+            service.packetBackendRuntimeProvider = fixture.forbidden("packet backend")
             lifecycle.create()
             assertEquals(0, fixture.constructions.get())
             service.onStartCommand(null, 0, 1)

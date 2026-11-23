@@ -231,10 +231,10 @@ val qualityModulePaths =
         .sorted()
 val lintTaskPaths =
     qualityModulePaths.flatMap { modulePath ->
-        if (modulePath == ":app") {
-            listOf(":app:lintGithubDebug")
-        } else {
-            listOf("$modulePath:lintDebug")
+        when (modulePath) {
+            ":app" -> listOf(":app:lintGithubDebug")
+            ":core:service" -> listOf(":core:service:lintStandardDebug", ":core:service:lintExtendedDebug")
+            else -> listOf("$modulePath:lintDebug")
         }
     } + ":xray-protos:lint"
 
@@ -242,7 +242,12 @@ fun moduleRelativePath(modulePath: String): String = modulePath.removePrefix(":"
 
 fun moduleBuildDir(modulePath: String) = layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("build")
 
-fun coverageVariantName(modulePath: String): String = if (modulePath == ":app") "githubDebug" else "debug"
+fun coverageVariantName(modulePath: String): String =
+    when (modulePath) {
+        ":app" -> "githubDebug"
+        ":core:service" -> "extendedDebug"
+        else -> "debug"
+    }
 
 fun coverageVariantTaskSuffix(modulePath: String): String =
     coverageVariantName(modulePath).replaceFirstChar(Char::uppercaseChar)
@@ -304,6 +309,16 @@ fun kotlinDebugCoverageExecutionData(modulePath: String): FileTree {
     }
 }
 
+fun debugCoverageSources(modulePath: String) =
+    buildList {
+        val moduleDir = layout.projectDirectory.dir(moduleRelativePath(modulePath))
+        add(moduleDir.dir("src/main/java"))
+        add(moduleDir.dir("src/main/kotlin"))
+        if (modulePath == ":app" || modulePath == ":core:service") {
+            add(moduleDir.dir("src/extended/kotlin"))
+        }
+    }
+
 fun handwrittenJavaSources() =
     fileTree(layout.projectDirectory) {
         include("app/src/**/*.java")
@@ -326,14 +341,7 @@ tasks.register<JacocoReport>("kotlinCoverageReport") {
         csv.required.set(false)
     }
 
-    sourceDirectories.setFrom(
-        coverageModulePaths.flatMap { modulePath ->
-            listOf(
-                layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("src/main/java"),
-                layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("src/main/kotlin"),
-            )
-        },
-    )
+    sourceDirectories.setFrom(coverageModulePaths.flatMap(::debugCoverageSources))
     classDirectories.setFrom(coverageModulePaths.map(::kotlinDebugCoverageClasses))
     executionData.setFrom(coverageModulePaths.map(::kotlinDebugCoverageExecutionData))
     onlyIf { executionData.files.any { it.exists() } }
@@ -355,14 +363,7 @@ tasks.register<JacocoCoverageVerification>("kotlinCoverageVerification") {
         }
     }
 
-    sourceDirectories.setFrom(
-        coverageModulePaths.flatMap { modulePath ->
-            listOf(
-                layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("src/main/java"),
-                layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("src/main/kotlin"),
-            )
-        },
-    )
+    sourceDirectories.setFrom(coverageModulePaths.flatMap(::debugCoverageSources))
     classDirectories.setFrom(coverageModulePaths.map(::kotlinDebugCoverageClasses))
     executionData.setFrom(coverageModulePaths.map(::kotlinDebugCoverageExecutionData))
 }

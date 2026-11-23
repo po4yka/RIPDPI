@@ -486,18 +486,21 @@ extensions.configure<ApplicationExtension> {
     productFlavors {
         create("play") {
             dimension = "distribution"
+            missingDimensionStrategy("runtimeEdition", "standard")
             buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"play\"")
             buildConfigField("String", "GITHUB_UPDATE_OWNER", "\"\"")
             buildConfigField("String", "GITHUB_UPDATE_REPO", "\"\"")
         }
         create("fdroid") {
             dimension = "distribution"
+            missingDimensionStrategy("runtimeEdition", "extended")
             buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"fdroid\"")
             buildConfigField("String", "GITHUB_UPDATE_OWNER", "\"\"")
             buildConfigField("String", "GITHUB_UPDATE_REPO", "\"\"")
         }
         create("github") {
             dimension = "distribution"
+            missingDimensionStrategy("runtimeEdition", "extended")
             buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"github\"")
             buildConfigField("String", "GITHUB_UPDATE_OWNER", "\"po4yka\"")
             buildConfigField("String", "GITHUB_UPDATE_REPO", "\"RIPDPI\"")
@@ -509,8 +512,13 @@ extensions.configure<ApplicationExtension> {
             kotlin.directories.add("src/extended/kotlin")
             res.directories.add("src/extended/res")
         }
+        val flavorSuffix = distribution.replaceFirstChar(Char::uppercaseChar)
         sourceSets
-            .maybeCreate("test${distribution.replaceFirstChar(Char::uppercaseChar)}")
+            .maybeCreate("androidTest$flavorSuffix")
+            .kotlin.directories
+            .add("src/androidTestExtended/kotlin")
+        sourceSets
+            .maybeCreate("test$flavorSuffix")
             .kotlin.directories
             .add("src/testExtended/kotlin")
     }

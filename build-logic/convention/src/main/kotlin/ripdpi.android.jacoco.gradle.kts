@@ -26,7 +26,20 @@ val jacocoExcludes =
         "**/com/poyka/ripdpi/data/schemas/**",
     )
 
-val coverageVariantName = if (project.path == ":app") "githubDebug" else "debug"
+val coverageVariantName =
+    when (project.path) {
+        ":app" -> "githubDebug"
+        ":core:service" -> "extendedDebug"
+        else -> "debug"
+    }
+val coverageSources =
+    buildList {
+        add("src/main/java")
+        add("src/main/kotlin")
+        if (coverageVariantName != "debug") {
+            add("src/extended/kotlin")
+        }
+    }
 val coverageVariantTaskSuffix = coverageVariantName.replaceFirstChar(Char::uppercaseChar)
 val coverageUnitTestTaskName = "test${coverageVariantTaskSuffix}UnitTest"
 val transformedCoverageClasses =
@@ -95,12 +108,7 @@ tasks.register<JacocoReport>("jacocoDebugUnitTestReport") {
         csv.required.set(false)
     }
 
-    sourceDirectories.setFrom(
-        files(
-            "src/main/java",
-            "src/main/kotlin",
-        ),
-    )
+    sourceDirectories.setFrom(coverageSources)
 
     classDirectories.setFrom(coverageClassDirectories)
     executionData.setFrom(coverageExecutionData)
@@ -123,12 +131,7 @@ tasks.register<JacocoCoverageVerification>("jacocoDebugUnitTestCoverageVerificat
         }
     }
 
-    sourceDirectories.setFrom(
-        files(
-            "src/main/java",
-            "src/main/kotlin",
-        ),
-    )
+    sourceDirectories.setFrom(coverageSources)
 
     classDirectories.setFrom(coverageClassDirectories)
     executionData.setFrom(coverageExecutionData)

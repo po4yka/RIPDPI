@@ -108,7 +108,7 @@ class VpnRuntimeCompositionCoordinatorTest {
             val coordinator =
                 VpnRuntimeCompositionCoordinator(
                     proxyRuntimeStack = runtimeStack,
-                    rootHelperManager = RootHelperManager(),
+                    packetBackendRuntime = LocalPacketBackendRuntime,
                     vpnTunnelRuntime = tunnelRuntime,
                     supervisorExitHandlerFor = { exitHandler },
                     applyActiveConnectionPolicy = { _, _, _, _ -> },

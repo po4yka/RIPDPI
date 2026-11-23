@@ -36,7 +36,6 @@ import com.poyka.ripdpi.data.PreferredStack
 import com.poyka.ripdpi.data.QuicMode
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RememberedConnectionConcurrencyPolicyJson
-import com.poyka.ripdpi.data.RootSettingsSection
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.TcpFamily
@@ -46,6 +45,7 @@ import com.poyka.ripdpi.data.WsTunnelWorkerCredentialStore
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource
 import kotlinx.coroutines.test.runTest
@@ -178,7 +178,7 @@ class ConnectionPolicyResolverTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = TestServerCapabilityStore(),
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -288,7 +288,7 @@ class ConnectionPolicyResolverTest {
                                 networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                                 serverCapabilityStore = TestServerCapabilityStore(),
                                 antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                                rootHelperManager = RootHelperManager(),
+                                packetBackendRuntime = LocalPacketBackendRuntime,
                                 environmentDetector = EnvironmentDetector(),
                                 proxySessionSecretResolver =
                                     ProxySessionSecretResolver(
@@ -375,7 +375,7 @@ class ConnectionPolicyResolverTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = TestServerCapabilityStore(),
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(store),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -433,7 +433,7 @@ class ConnectionPolicyResolverTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = TestServerCapabilityStore(),
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = secrets,
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -507,7 +507,7 @@ class ConnectionPolicyResolverTest {
                             networkEdgePreferenceStore = edgeStore,
                             serverCapabilityStore = TestServerCapabilityStore(),
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -530,49 +530,58 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
-    fun `resolver starts root helper before building root mode preferences`() =
+    fun `resolver applies only the packet backend available in this runtime`() =
         runTest {
-            val rootHelper = FakeRootHelperManager("/tmp/ripdpi-root-helper.sock")
-            val resolver =
-                DefaultConnectionPolicyResolver(
-                    runtimeConfigurationCapture =
-                        testRequestedRuntimeConfigurationCapture(
-                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
-                            EmptyDestinationRoutingPolicySource,
-                        ),
-                    context = RuntimeEnvironment.getApplication(),
-                    appSettingsRepository =
-                        TestAppSettingsRepository(
-                            AppSettingsSerializer.defaultValue
-                                .toBuilder()
-                                .setRootModeEnabled(true)
-                                .build(),
-                        ),
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
-                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
-                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    runtimeContextAssembler =
-                        ConnectionPolicyRuntimeContextAssembler(
-                            context = RuntimeEnvironment.getApplication(),
-                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                            serverCapabilityStore = TestServerCapabilityStore(),
-                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = rootHelper,
-                            environmentDetector = EnvironmentDetector(),
-                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
-                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
-                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
-                        ),
+            val socketPath = "/tmp/packet-backend.sock"
+            val backendSockets =
+                listOf(
+                    LocalPacketBackendRuntime to null,
+                    FakePacketBackendRuntime(socketPath) to socketPath,
                 )
+            for ((backend, expectedPath) in backendSockets) {
+                val resolver =
+                    DefaultConnectionPolicyResolver(
+                        runtimeConfigurationCapture =
+                            testRequestedRuntimeConfigurationCapture(
+                                ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                                EmptyDestinationRoutingPolicySource,
+                            ),
+                        context = RuntimeEnvironment.getApplication(),
+                        appSettingsRepository =
+                            TestAppSettingsRepository(
+                                AppSettingsSerializer.defaultValue
+                                    .toBuilder()
+                                    .setRootModeEnabled(true)
+                                    .build(),
+                            ),
+                        networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                        networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                        rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                        awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                        destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                        runtimeContextAssembler =
+                            ConnectionPolicyRuntimeContextAssembler(
+                                context = RuntimeEnvironment.getApplication(),
+                                networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                                serverCapabilityStore = TestServerCapabilityStore(),
+                                antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                                packetBackendRuntime = backend,
+                                environmentDetector = EnvironmentDetector(),
+                                proxySessionSecretResolver =
+                                    ProxySessionSecretResolver(
+                                        EmptyWsTunnelWorkerCredentialStore,
+                                    ),
+                                activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                                strategyPackStateStore = InMemoryStrategyPackStateStore(),
+                            ),
+                    )
 
-            val resolution = resolver.resolve(mode = Mode.Proxy)
-            val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+                val resolution = resolver.resolve(mode = Mode.Proxy)
+                val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
 
-            assertEquals(listOf(true), rootHelper.syncCalls)
-            assertEquals("/tmp/ripdpi-root-helper.sock", rootHelper.socketPath)
-            assertEquals("/tmp/ripdpi-root-helper.sock", uiPreferences?.rootHelperSocketPath)
+                assertEquals(expectedPath, uiPreferences?.rootHelperSocketPath)
+                assertEquals(expectedPath != null, uiPreferences?.rootMode)
+            }
         }
 
     @Test
@@ -615,7 +624,7 @@ class ConnectionPolicyResolverTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = TestServerCapabilityStore(),
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -676,7 +685,7 @@ class ConnectionPolicyResolverTest {
                                 networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                                 serverCapabilityStore = TestServerCapabilityStore(),
                                 antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                                rootHelperManager = RootHelperManager(),
+                                packetBackendRuntime = LocalPacketBackendRuntime,
                                 environmentDetector = EnvironmentDetector(),
                                 proxySessionSecretResolver =
                                     ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
@@ -757,7 +766,7 @@ class ConnectionPolicyDnsHintsTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = capabilityStore,
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -817,7 +826,7 @@ class ConnectionPolicyDnsHintsTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = capabilityStore,
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -871,7 +880,7 @@ class ConnectionPolicyDnsHintsTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = capabilityStore,
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -930,8 +939,8 @@ class LuaConnectionPolicyResolverTest {
                                         networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                                         serverCapabilityStore = TestServerCapabilityStore(),
                                         antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                                        rootHelperManager =
-                                            FakeRootHelperManager(
+                                        packetBackendRuntime =
+                                            FakePacketBackendRuntime(
                                                 "/tmp/root-helper.sock".takeIf { available },
                                             ),
                                         environmentDetector = EnvironmentDetector(),
@@ -978,26 +987,20 @@ class LuaConnectionPolicyResolverTest {
             .build()
 }
 
-private class FakeRootHelperManager(
+private class FakePacketBackendRuntime(
     private val startedSocketPath: String?,
-) : RootHelperManager() {
-    val syncCalls = mutableListOf<Boolean>()
-    private var activePath: String? = null
+) : PacketBackendRuntime by LocalPacketBackendRuntime {
+    override var socketPath: String? = null
+        private set
 
-    override val socketPath: String?
-        get() = activePath
+    override fun allowsExternalOperations(settings: AppSettings): Boolean = settings.rootModeEnabled
 
-    override suspend fun syncRootMode(
+    override suspend fun prepare(
         context: Context,
-        root: RootSettingsSection,
-    ): String? {
-        syncCalls += root.rootModeEnabled
-        activePath = startedSocketPath?.takeIf { root.rootModeEnabled }
-        return activePath
-    }
-
-    override fun stop() {
-        activePath = null
+        mode: Mode,
+        settings: AppSettings,
+    ) {
+        socketPath = startedSocketPath?.takeIf { settings.rootModeEnabled }
     }
 }
 
@@ -1062,7 +1065,7 @@ class ConnectionPolicyAwgResolverTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = TestServerCapabilityStore(),
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -1140,7 +1143,7 @@ class ConnectionPolicyAwgResolverTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = TestServerCapabilityStore(),
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -1240,7 +1243,7 @@ class ConnectionPolicyStartAdmissionTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = TestServerCapabilityStore(),
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
@@ -1282,7 +1285,7 @@ class ConnectionPolicyStartAdmissionTest {
                             networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                             serverCapabilityStore = TestServerCapabilityStore(),
                             antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                            rootHelperManager = RootHelperManager(),
+                            packetBackendRuntime = LocalPacketBackendRuntime,
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),

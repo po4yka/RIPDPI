@@ -24,7 +24,7 @@ class RuntimeModeProjectionTest {
         assertEquals(Mode.Proxy, projection.mode)
         assertEquals(RuntimeLayerState.Unknown, projection.relay)
         assertEquals(RuntimeLayerState.Unknown, projection.diagnosticsScan)
-        assertEquals(RootHelperState.Unknown, projection.rootHelper)
+        assertEquals(PacketBackendState.Unknown, projection.packetBackend)
         assertNull(projection.serviceStatus)
         assertNull(projection.lifecyclePhase)
     }
@@ -93,11 +93,11 @@ class RuntimeModeProjectionTest {
         val projection =
             RuntimeModeProjection.from(
                 AppStatus.Running to Mode.VPN,
-                rootModeEnabled = false,
-                rootHelperSocketAvailable = true,
+                packetBackendRequested = false,
+                packetBackendSocketAvailable = true,
             )
 
-        assertEquals(RootHelperState.Disabled, projection.rootHelper)
+        assertEquals(PacketBackendState.Disabled, projection.packetBackend)
     }
 
     @Test
@@ -105,20 +105,20 @@ class RuntimeModeProjectionTest {
         val socketDown =
             RuntimeModeProjection.from(
                 AppStatus.Running to Mode.VPN,
-                rootModeEnabled = true,
-                rootHelperSocketAvailable = false,
+                packetBackendRequested = true,
+                packetBackendSocketAvailable = false,
             )
-        assertEquals(RootHelperState.EnabledUnavailable, socketDown.rootHelper)
+        assertEquals(PacketBackendState.EnabledUnavailable, socketDown.packetBackend)
 
         // Root mode on, socket reachability not observed: still "enabled, not
         // confirmed available".
         val socketUnobserved =
             RuntimeModeProjection.from(
                 AppStatus.Running to Mode.VPN,
-                rootModeEnabled = true,
-                rootHelperSocketAvailable = null,
+                packetBackendRequested = true,
+                packetBackendSocketAvailable = null,
             )
-        assertEquals(RootHelperState.EnabledUnavailable, socketUnobserved.rootHelper)
+        assertEquals(PacketBackendState.EnabledUnavailable, socketUnobserved.packetBackend)
     }
 
     @Test
@@ -126,11 +126,11 @@ class RuntimeModeProjectionTest {
         val projection =
             RuntimeModeProjection.from(
                 AppStatus.Running to Mode.VPN,
-                rootModeEnabled = true,
-                rootHelperSocketAvailable = true,
+                packetBackendRequested = true,
+                packetBackendSocketAvailable = true,
             )
 
-        assertEquals(RootHelperState.EnabledAvailable, projection.rootHelper)
+        assertEquals(PacketBackendState.EnabledAvailable, projection.packetBackend)
     }
 
     @Test
@@ -138,11 +138,11 @@ class RuntimeModeProjectionTest {
         val projection =
             RuntimeModeProjection.from(
                 AppStatus.Running to Mode.VPN,
-                rootModeEnabled = null,
-                rootHelperSocketAvailable = true,
+                packetBackendRequested = null,
+                packetBackendSocketAvailable = true,
             )
 
-        assertEquals(RootHelperState.Unknown, projection.rootHelper)
+        assertEquals(PacketBackendState.Unknown, projection.packetBackend)
     }
 
     @Test
@@ -196,8 +196,8 @@ class RuntimeModeProjectionTest {
                 lifecyclePhase = ServiceLifecycleStateMachine.State.RUNNING,
                 relayActive = true,
                 diagnosticsScanActive = false,
-                rootModeEnabled = true,
-                rootHelperSocketAvailable = true,
+                packetBackendRequested = true,
+                packetBackendSocketAvailable = true,
             )
 
         assertEquals(
@@ -208,7 +208,7 @@ class RuntimeModeProjectionTest {
                 lifecyclePhase = ServiceLifecycleStateMachine.State.RUNNING,
                 relay = RuntimeLayerState.Active,
                 diagnosticsScan = RuntimeLayerState.Inactive,
-                rootHelper = RootHelperState.EnabledAvailable,
+                packetBackend = PacketBackendState.EnabledAvailable,
             ),
             projection,
         )

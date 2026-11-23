@@ -18,12 +18,13 @@ import com.poyka.ripdpi.services.ConnectionPolicyResolution
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
 import com.poyka.ripdpi.services.InitialRelayRacePolicy
+import com.poyka.ripdpi.services.LocalPacketBackendRuntime
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.NoOpDirectPathPolicyTelemetryConsumer
+import com.poyka.ripdpi.services.PacketBackendRuntime
 import com.poyka.ripdpi.services.PermissionChangeEvent
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
-import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.RuntimeCleanupPendingException
 import com.poyka.ripdpi.services.RuntimeConfigurationLifecycle
 import com.poyka.ripdpi.services.RuntimeStartEvidence
@@ -108,7 +109,7 @@ internal class VpnServiceRuntimeCoordinator(
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
     private val transportFailoverRuntimeTimeoutMillis: Long = 60_000L,
-    private val rootHelperManager: RootHelperManager = RootHelperManager(),
+    private val packetBackendRuntime: PacketBackendRuntime = LocalPacketBackendRuntime,
     /**
      * Optional embedded-Xray provider seam. Null when the provider is not wired;
      * non-null in production (provided by `VpnServiceSessionModule`). It only
@@ -166,7 +167,7 @@ internal class VpnServiceRuntimeCoordinator(
     private val runtimeCompositionCoordinator =
         VpnRuntimeCompositionCoordinator(
             proxyRuntimeStack = proxyRuntimeStack,
-            rootHelperManager = rootHelperManager,
+            packetBackendRuntime = packetBackendRuntime,
             vpnTunnelRuntime = vpnTunnelRuntime,
             supervisorExitHandlerFor = ::supervisorExitHandlerFor,
             applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
@@ -418,7 +419,7 @@ internal class VpnServiceRuntimeCoordinator(
 
     private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) {
         telemetryCoordinator.start(tunnelRefreshCoordinator, replaceTelemetryJob)
-        monitorNfqws(rootHelperManager, ::retainProviderFailClosedBarrierIfActiveLocked)
+        monitorPacketBackend(packetBackendRuntime, ::retainProviderFailClosedBarrierIfActiveLocked)
     }
 
     override suspend fun reloadResolvedRuntime(

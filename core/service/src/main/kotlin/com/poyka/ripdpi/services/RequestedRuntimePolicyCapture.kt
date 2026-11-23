@@ -16,6 +16,7 @@ internal class RequestedRuntimePolicy(
 internal class RequestedRuntimePolicyCapture(
     private val routing: DestinationRoutingPolicySource,
     private val secrets: ProxySessionSecretResolver,
+    private val packetBackend: PacketBackendRuntime,
 ) {
     suspend fun capture(
         settings: AppSettings,
@@ -45,7 +46,7 @@ internal class RequestedRuntimePolicyCapture(
                 RipDpiProxyUIPreferences.fromSettings(
                     settings,
                     destinationRouting = destination,
-                    rootMode = settings.rootModeEnabled,
+                    rootMode = packetBackend.allowsExternalOperations(settings),
                     awg = awg,
                     workerBearer = secrets.currentBearer(settings),
                 )

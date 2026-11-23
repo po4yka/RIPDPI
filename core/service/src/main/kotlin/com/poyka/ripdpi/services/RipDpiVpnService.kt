@@ -52,8 +52,8 @@ class RipDpiVpnService :
     lateinit var vpnDhtMitigationPolicy: VpnDhtMitigationPolicy
 
     @Inject
-    lateinit var rootHelperManagerProvider: Provider<RootHelperManager>
-    private val rootHelperManager get() = rootHelperManagerProvider.get()
+    internal lateinit var packetBackendRuntimeProvider: Provider<PacketBackendRuntime>
+    private val packetBackendRuntime get() = packetBackendRuntimeProvider.get()
 
     @Inject
     lateinit var hardKillSwitchStateStore: AndroidHardKillSwitchStateStore
@@ -193,8 +193,8 @@ class RipDpiVpnService :
                         awaitRecoveryUnderlay = underlyingNetworkBinder::awaitEligibleUnderlay,
                     )
                 shellDelegate.install(sessionLifecycle.createShellDelegate())
-                val ownedRootHelper = rootHelperManager
-                activeOwnership.own { ownedRootHelper.stopOnDestroy(Mode.VPN) }
+                val ownedPacketBackend = packetBackendRuntime
+                activeOwnership.own { ownedPacketBackend.stopOnDestroy(Mode.VPN) }
                 // Start the selector-runtime loops (member hot-reload + latency failover)
                 // for the lifetime of the service. Each listener is idempotent.
                 selectorRuntimeLifecycleListeners.forEach { listener ->

@@ -25,13 +25,13 @@ import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
 import com.poyka.ripdpi.services.FlowAttributionBridge
 import com.poyka.ripdpi.services.InMemoryVpnProtectFailureMonitor
 import com.poyka.ripdpi.services.InitialRelayRacePolicy
+import com.poyka.ripdpi.services.PacketBackendRuntime
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.RelayRuntimeNetworkMode
 import com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector
 import com.poyka.ripdpi.services.RipDpiVpnService
-import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.RuntimeConfigurationIdentityFactory
 import com.poyka.ripdpi.services.RuntimeConfigurationLifecycle
 import com.poyka.ripdpi.services.ServiceSessionScope
@@ -79,7 +79,7 @@ internal data class VpnCoordinatorServices(
     val autolearnActivationReceiptPublisher: AutolearnActivationReceiptPublisher,
     val statusReporter: ServiceStatusReporter,
     val directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
-    val rootHelperManager: RootHelperManager,
+    val packetBackendRuntime: PacketBackendRuntime,
     val xrayProviderSessionController: XrayProviderSessionController,
 )
 
@@ -110,7 +110,7 @@ internal object VpnServiceSessionModule {
         host: VpnCoordinatorHost,
         dependencies: VpnServiceRuntimeRuntimeDependencies,
         protectSocketServer: VpnProtectSocketServer,
-        rootHelperManager: RootHelperManager,
+        packetBackendRuntime: PacketBackendRuntime,
         flowAttributionBridge: FlowAttributionBridge,
         recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector,
         appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore,
@@ -121,7 +121,7 @@ internal object VpnServiceSessionModule {
             host = host,
             dependencies = dependencies,
             protectSocketServer = protectSocketServer,
-            rootHelperManager = rootHelperManager,
+            packetBackendRuntime = packetBackendRuntime,
             flowAttributionBridge = flowAttributionBridge,
             recoveryReceiptCollector = recoveryReceiptCollector,
             appliedNetworkReceiptStore = appliedNetworkReceiptStore,
@@ -142,7 +142,7 @@ internal object VpnServiceSessionModule {
         host: VpnCoordinatorHost,
         dependencies: VpnServiceRuntimeRuntimeDependencies,
         protectSocketServer: VpnProtectSocketServer,
-        rootHelperManager: RootHelperManager,
+        packetBackendRuntime: PacketBackendRuntime,
         flowAttributionBridge: FlowAttributionBridge,
         recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector? = null,
         recoveryServiceInstanceId: String? = null,
@@ -167,7 +167,7 @@ internal object VpnServiceSessionModule {
                     // directly under <filesDir>, so derive it from the socket's parent
                     // ("lua" mirrors LuaAssetManager's target directory name).
                     luaScriptBaseDir = File(File(protectSocketServer.socketPath).parentFile, "lua").absolutePath,
-                    rootHelperSocketPathProvider = { rootHelperManager.socketPath },
+                    rootHelperSocketPathProvider = { packetBackendRuntime.socketPath },
                     geositeDbPath = geositeDbPath,
                 ),
             flowAttributionBridge = flowAttributionBridge,
@@ -396,7 +396,7 @@ internal object VpnServiceSessionModule {
         autolearnActivationReceiptPublisher: AutolearnActivationReceiptPublisher,
         statusReporter: ServiceStatusReporter,
         directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
-        rootHelperManager: RootHelperManager,
+        packetBackendRuntime: PacketBackendRuntime,
         xrayProviderSessionController: XrayProviderSessionController,
     ): VpnCoordinatorServices =
         VpnCoordinatorServices(
@@ -407,7 +407,7 @@ internal object VpnServiceSessionModule {
             autolearnActivationReceiptPublisher,
             statusReporter,
             directPathPolicyTelemetryConsumer,
-            rootHelperManager,
+            packetBackendRuntime,
             xrayProviderSessionController,
         )
 
@@ -451,7 +451,7 @@ internal object VpnServiceSessionModule {
             transportFailoverApplyTracker = transportFailoverApplyTracker,
             screenStateObserver = runtimeDependencies.screenStateObserver,
             directPathPolicyTelemetryConsumer = services.directPathPolicyTelemetryConsumer,
-            rootHelperManager = services.rootHelperManager,
+            packetBackendRuntime = services.packetBackendRuntime,
             xrayProviderSessionController = services.xrayProviderSessionController,
             initialRelayRacePolicy = initialRelayRacePolicy.orElse(null),
         )

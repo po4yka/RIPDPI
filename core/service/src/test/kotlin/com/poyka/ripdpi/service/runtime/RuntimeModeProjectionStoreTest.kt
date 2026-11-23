@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.fakes.FakeServiceStateStore
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.LocalPacketBackendRuntime
+import com.poyka.ripdpi.services.PacketBackendRuntime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,29 +51,30 @@ class RuntimeModeProjectionStoreTest {
         }
 
     @Test
-    fun `root mode off projects the disabled root-helper state`() =
+    fun `local edition projects a disabled backend even with a saved request`() =
         runTest {
-            val settings = FakeAppSettingsRepository().apply { setRootModeEnabled(false) }
+            val settings = FakeAppSettingsRepository().apply { setPacketBackendRequested(true) }
             val store =
                 RuntimeModeProjectionStore(
                     FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     settings,
                 )
 
-            assertEquals(RootHelperState.Disabled, store.projection.first().rootHelper)
+            assertEquals(PacketBackendState.Disabled, store.projection.first().packetBackend)
         }
 
     @Test
-    fun `root mode on projects enabled-unavailable while the socket is unobserved`() =
+    fun `selected packet backend projects enabled-unavailable while the socket is unobserved`() =
         runTest {
-            val settings = FakeAppSettingsRepository().apply { setRootModeEnabled(true) }
+            val settings = FakeAppSettingsRepository().apply { setPacketBackendRequested(true) }
             val store =
                 RuntimeModeProjectionStore(
                     FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     settings,
+                    SelectablePacketBackend,
                 )
 
-            assertEquals(RootHelperState.EnabledUnavailable, store.projection.first().rootHelper)
+            assertEquals(PacketBackendState.EnabledUnavailable, store.projection.first().packetBackend)
         }
 
     @Test
@@ -113,7 +116,7 @@ class RuntimeModeProjectionStoreTest {
         runTest {
             val stateStore = FakeServiceStateStore(AppStatus.Halted to Mode.Proxy)
             val settings = FakeAppSettingsRepository()
-            val store = RuntimeModeProjectionStore(stateStore, settings)
+            val store = RuntimeModeProjectionStore(stateStore, settings, SelectablePacketBackend)
 
             val emissions = mutableListOf<RuntimeModeProjection>()
             val collector =
@@ -123,23 +126,23 @@ class RuntimeModeProjectionStoreTest {
 
             stateStore.setStatus(AppStatus.Running, Mode.VPN)
             store.markDiagnosticsScanActive(true)
-            settings.setRootModeEnabled(true)
+            settings.setPacketBackendRequested(true)
             collector.cancel()
 
             assertEquals(4, emissions.size)
 
             assertEquals(AppStatus.Halted, emissions[0].appStatus)
             assertEquals(RuntimeLayerState.Unknown, emissions[0].diagnosticsScan)
-            assertEquals(RootHelperState.Disabled, emissions[0].rootHelper)
+            assertEquals(PacketBackendState.Disabled, emissions[0].packetBackend)
 
             assertEquals(AppStatus.Running, emissions[1].appStatus)
             assertEquals(Mode.VPN, emissions[1].mode)
             assertEquals(RuntimeLayerState.Unknown, emissions[1].diagnosticsScan)
 
             assertEquals(RuntimeLayerState.Active, emissions[2].diagnosticsScan)
-            assertEquals(RootHelperState.Disabled, emissions[2].rootHelper)
+            assertEquals(PacketBackendState.Disabled, emissions[2].packetBackend)
 
-            assertEquals(RootHelperState.EnabledUnavailable, emissions[3].rootHelper)
+            assertEquals(PacketBackendState.EnabledUnavailable, emissions[3].packetBackend)
             assertEquals(RuntimeLayerState.Active, emissions[3].diagnosticsScan)
         }
 }
@@ -163,11 +166,15 @@ private class FakeAppSettingsRepository : AppSettingsRepository {
         state.value = settings
     }
 
-    fun setRootModeEnabled(enabled: Boolean) {
+    fun setPacketBackendRequested(enabled: Boolean) {
         state.value =
             state.value
                 .toBuilder()
-                .setRootModeEnabled(enabled)
+                .setUiPersona(if (enabled) "advanced" else "simple")
                 .build()
     }
+}
+
+private object SelectablePacketBackend : PacketBackendRuntime by LocalPacketBackendRuntime {
+    override fun allowsExternalOperations(settings: AppSettings): Boolean = settings.uiPersona == "advanced"
 }

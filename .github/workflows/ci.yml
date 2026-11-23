@@ -742,7 +742,7 @@ jobs:
 
       - name: Run engine and service tests with the real gomobile API
         run: >-
-          ./gradlew :core:engine:testDebugUnitTest :core:service:testDebugUnitTest
+          ./gradlew :core:engine:testDebugUnitTest :core:service:testStandardDebugUnitTest :core:service:testExtendedDebugUnitTest
           -Pripdpi.skipNativeBuild=true --max-workers=4 --profile
 
       - uses: ./.github/actions/upload-build-observability

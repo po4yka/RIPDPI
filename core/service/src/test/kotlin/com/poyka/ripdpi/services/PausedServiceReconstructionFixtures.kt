@@ -62,8 +62,7 @@ internal fun pausedProxyCoordinator(
     fixture: PausedServiceReconstructionFixture,
 ): ProxyServiceRuntimeCoordinator {
     val dispatcher = Dispatchers.IO
-    val root = RootHelperManager()
-    service.rootHelperManagerProvider = Provider { root }
+    service.packetBackendRuntimeProvider = Provider { LocalPacketBackendRuntime }
     val supervisors =
         ProxyRuntimeSupervisorBundle(
             UpstreamRelaySupervisor(
@@ -124,7 +123,7 @@ internal fun pausedProxyCoordinator(
         screenStateObserver = TestScreenStateObserver(),
         ioDispatcher = dispatcher,
         clock = TestServiceClock(1_000),
-        rootHelperManager = root,
+        packetBackendRuntime = LocalPacketBackendRuntime,
     )
 }
 
@@ -164,7 +163,7 @@ internal fun initializePausedProxyService(
     service.runtimeEvidenceReporter = fixture.reporter
     service.sessionComponentBuilderProvider = fixture.forbidden("proxy graph")
     service.selectorRuntimeLifecycleListenersProvider = fixture.forbidden("selectors")
-    service.rootHelperManagerProvider = fixture.forbidden("root helper")
+    service.packetBackendRuntimeProvider = fixture.forbidden("packet backend")
     service.runtimeResumeIntentTracker = RuntimeResumeIntentTracker(fixture.authority)
     service.serviceIntentArbiter = fixture.arbiter
     service.acceptedUserStopRecorder =
@@ -214,7 +213,7 @@ internal fun initializePausedVpnService(
     service.serviceStopProvenanceRecorder = pausedServiceStopProvenanceRecorder()
     service.sessionComponentBuilderProvider = fixture.forbidden("VPN graph")
     service.selectorRuntimeLifecycleListenersProvider = fixture.forbidden("selectors")
-    service.rootHelperManagerProvider = fixture.forbidden("root helper")
+    service.packetBackendRuntimeProvider = fixture.forbidden("packet backend")
 }
 
 internal fun pausedServiceStopProvenanceRecorder(): RoomServiceStopProvenanceRecorder =

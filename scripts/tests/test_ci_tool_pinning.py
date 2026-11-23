@@ -52,7 +52,7 @@ class CiToolPinningTest(unittest.TestCase):
         )
         self.assertNotIn("build:\n    ./gradlew assembleDebug", source)
         for command in (
-            "./gradlew testDebugUnitTest :app:testGithubDebugUnitTest -Pripdpi.skipNativeBuild=true",
+            "./gradlew testDebugUnitTest :core:service:testStandardDebugUnitTest :core:service:testExtendedDebugUnitTest :app:testGithubDebugUnitTest -Pripdpi.skipNativeBuild=true",
             '"testDebugUnitTest" } }} -Pripdpi.skipNativeBuild=true',
             '"testDebugUnitTest" } }} --tests "{{class}}" -Pripdpi.skipNativeBuild=true',
             "./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true",

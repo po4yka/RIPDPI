@@ -16,15 +16,16 @@ import com.poyka.ripdpi.services.BaseServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.ConnectionPolicyResolution
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
+import com.poyka.ripdpi.services.LocalPacketBackendRuntime
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.NoOpDirectPathPolicyTelemetryConsumer
+import com.poyka.ripdpi.services.PacketBackendRuntime
 import com.poyka.ripdpi.services.PermissionChangeEvent
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSession
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxySupervisorExitHandler
 import com.poyka.ripdpi.services.ProxyTelemetryCoordinator
-import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.RuntimeConfigurationLifecycle
 import com.poyka.ripdpi.services.RuntimeStartEvidence
 import com.poyka.ripdpi.services.RuntimeStopGuard
@@ -48,7 +49,6 @@ import com.poyka.ripdpi.services.buildLogContext
 import com.poyka.ripdpi.services.completion
 import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import com.poyka.ripdpi.services.starting
-import com.poyka.ripdpi.services.stopFor
 import com.poyka.ripdpi.services.toRuntimeStartEvidence
 import com.poyka.ripdpi.services.withLogContext
 import kotlinx.coroutines.CancellationException
@@ -90,7 +90,7 @@ internal class ProxyServiceRuntimeCoordinator(
         DirectPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
-    private val rootHelperManager: RootHelperManager = RootHelperManager(),
+    private val packetBackendRuntime: PacketBackendRuntime = LocalPacketBackendRuntime,
     selectorListeners: Set<SelectorRuntimeLifecycleListener> = emptySet(),
 ) : BaseServiceRuntimeCoordinator<ProxyRuntimeSession>(
         mode = Mode.Proxy,
@@ -282,13 +282,13 @@ internal class ProxyServiceRuntimeCoordinator(
         try {
             proxyRuntimeStack.stop(skipRuntimeShutdown)
         } finally {
-            rootHelperManager.stopFor(Mode.Proxy)
+            packetBackendRuntime.stopFor(Mode.Proxy)
         }
     }
 
     private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) {
         telemetryCoordinator.start(replaceTelemetryJob)
-        monitorNfqws(rootHelperManager)
+        monitorPacketBackend(packetBackendRuntime)
     }
 
     override suspend fun reloadResolvedRuntime(

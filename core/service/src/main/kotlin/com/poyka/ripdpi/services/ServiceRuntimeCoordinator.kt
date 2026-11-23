@@ -286,13 +286,13 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         return retained
     }
 
-    protected fun monitorNfqws(
-        manager: RootHelperManager,
+    protected fun monitorPacketBackend(
+        backend: PacketBackendRuntime,
         beforeStopFinalization: suspend () -> Unit = {},
     ) {
         val observedSession = runtimeSession ?: return
-        manager.monitorNfqws(host.serviceScope) { error ->
-            val failureReason = FailureReason.NativeError(error.message ?: "nfqws2 failed")
+        backend.monitor(host.serviceScope) { error ->
+            val failureReason = FailureReason.NativeError(error.message ?: "Packet backend failed")
             val isCurrent = { runtimeSession?.runtimeId == observedSession.runtimeId }
             if (!retainBarrierAfterEngineFailure(isCurrent, failureReason)) {
                 failAndStopRuntime(
