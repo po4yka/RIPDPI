@@ -1,16 +1,20 @@
 package com.poyka.ripdpi.diagnostics
 
-import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.diagnostics.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 data class LogcatSnapshot(
@@ -71,18 +75,8 @@ open class LogcatSnapshotCollector
          */
         open suspend fun capture(sinceTimestampMs: Long? = null): LogcatSnapshot? =
             withContext(Dispatchers.IO) {
-                val output =
-                    try {
-                        readLogcatOutput(sinceTimestampMs)
-                    } catch (error: IOException) {
-                        Logger.e(error) { "Failed to collect logs" }
-                        null
-                    } catch (error: SecurityException) {
-                        Logger.e(error) { "Failed to collect logs" }
-                        null
-                    }
-
-                if (output == null || output.content.isBlank()) {
+                val output = readLogcatOutput(sinceTimestampMs)
+                if (output.content.isBlank()) {
                     null
                 } else {
                     val scope =
@@ -107,24 +101,51 @@ open class LogcatSnapshotCollector
          * When [sinceTimestampMs] is provided, uses `-T` to capture logs from that
          * point forward instead of relying on the current circular buffer contents.
          */
-        protected open fun readLogcatOutput(sinceTimestampMs: Long? = null): LogcatReadOutput {
-            val command = buildLogcatCommand(android.os.Process.myPid(), sinceTimestampMs, BuildConfig.DEBUG)
-            val process = Runtime.getRuntime().exec(command.toTypedArray())
-            try {
-                process.errorStream.close()
-                return process.inputStream.use { input ->
-                    readLineAlignedLogcatOutput(
-                        input = input,
-                        retainHead = sinceTimestampMs != null,
-                        maxBytes = MAX_LOGCAT_BYTES,
-                    )
+        protected open suspend fun readLogcatOutput(sinceTimestampMs: Long? = null): LogcatReadOutput =
+            readLogcatProcessOutput(
+                command = buildLogcatCommand(android.os.Process.myPid(), sinceTimestampMs, BuildConfig.DEBUG),
+                retainHead = sinceTimestampMs != null,
+            )
+    }
+
+internal class LogcatCommandFailed(
+    val exitCode: Int,
+) : IOException("logcat exited with code $exitCode")
+
+internal class LogcatCommandTimedOut : IOException("logcat capture timed out")
+
+internal fun logSnapshotFailureDetails(error: Throwable): String =
+    buildString {
+        append("errorClass=").append(error::class.simpleName ?: "unknown")
+        if (error is LogcatCommandFailed) append(" exitCode=").append(error.exitCode)
+    }
+
+internal suspend fun readLogcatProcessOutput(
+    command: List<String>,
+    retainHead: Boolean,
+): LogcatReadOutput =
+    coroutineScope {
+        // Standard error is outside the capture contract and must never block the child.
+        val process = ProcessBuilder(command).redirectError(File("/dev/null")).start()
+        try {
+            val output =
+                async(Dispatchers.IO) {
+                    process.inputStream.use { input ->
+                        readLineAlignedLogcatOutput(input, retainHead, LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+                    }
                 }
-            } finally {
-                process.destroy()
-                process.waitFor()
+            runInterruptible(Dispatchers.IO) {
+                if (!process.waitFor(LogcatTimeoutSeconds, TimeUnit.SECONDS)) throw LogcatCommandTimedOut()
+                val exitCode = process.exitValue()
+                if (exitCode != 0) throw LogcatCommandFailed(exitCode)
             }
+            output.await()
+        } finally {
+            if (process.isAlive) process.destroyForcibly()
         }
     }
+
+private const val LogcatTimeoutSeconds = 10L
 
 data class LogcatReadOutput(
     val content: String,
