@@ -123,6 +123,31 @@ class AndroidNetworkMetadataProviderTest {
         }
 
     @Test
+    fun `registration replay of the current route keeps the capture`() =
+        runTest {
+            val snapshot =
+                capture { callback ->
+                    val network = requireNotNull(connectivity.activeNetwork)
+                    callback.onAvailable(network)
+                    callback.onLinkPropertiesChanged(network, requireNotNull(connectivity.getLinkProperties(network)))
+                    callback.onBlockedStatusChanged(network, false)
+                }
+            assertEquals("wifi", snapshot.transport)
+        }
+
+    @Test
+    fun `blocked status change after the replay invalidates capture`() =
+        runTest {
+            assertUnavailable(
+                capture { callback ->
+                    val network = requireNotNull(connectivity.activeNetwork)
+                    callback.onBlockedStatusChanged(network, false)
+                    callback.onBlockedStatusChanged(network, true)
+                },
+            )
+        }
+
+    @Test
     fun `a new route on the same default network invalidates capture`() =
         runTest {
             assertUnavailable(

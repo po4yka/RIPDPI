@@ -49,32 +49,52 @@ class NetworkMetadataCaptureScope
         @SuppressLint("MissingPermission")
         private fun registerDefaultRouteObserver(): Boolean =
             runCatching {
+                val network = connectivity.activeNetwork
                 connectivity.registerDefaultNetworkCallback(
-                    object : ConnectivityManager.NetworkCallback() {
-                        override fun onAvailable(network: Network) {
-                            defaultRouteRevision.incrementAndGet()
-                        }
-
-                        override fun onLost(network: Network) {
-                            defaultRouteRevision.incrementAndGet()
-                        }
-
-                        override fun onLinkPropertiesChanged(
-                            network: Network,
-                            linkProperties: LinkProperties,
-                        ) {
-                            defaultRouteRevision.incrementAndGet()
-                        }
-
-                        override fun onBlockedStatusChanged(
-                            network: Network,
-                            blocked: Boolean,
-                        ) {
-                            defaultRouteRevision.incrementAndGet()
-                        }
-                    },
+                    DefaultRouteObserver(network, network?.let(connectivity::getLinkProperties)),
                 )
             }.isSuccess
+
+        // Registration replays the current route; only a real change may invalidate a capture.
+        private inner class DefaultRouteObserver(
+            private var network: Network?,
+            private var links: LinkProperties?,
+        ) : ConnectivityManager.NetworkCallback() {
+            private var blocked: Boolean? = null
+
+            override fun onAvailable(network: Network) {
+                if (network == this.network) return
+                this.network = network
+                links = null
+                blocked = null
+                defaultRouteRevision.incrementAndGet()
+            }
+
+            override fun onLost(network: Network) {
+                this.network = null
+                links = null
+                blocked = null
+                defaultRouteRevision.incrementAndGet()
+            }
+
+            override fun onLinkPropertiesChanged(
+                network: Network,
+                linkProperties: LinkProperties,
+            ) {
+                if (linkProperties == links) return
+                links = linkProperties
+                defaultRouteRevision.incrementAndGet()
+            }
+
+            override fun onBlockedStatusChanged(
+                network: Network,
+                blocked: Boolean,
+            ) {
+                val previous = this.blocked
+                this.blocked = blocked
+                if (previous != null && previous != blocked) defaultRouteRevision.incrementAndGet()
+            }
+        }
 
         private fun revision(): RouteRevision =
             RouteRevision(
