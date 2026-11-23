@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.engine.BuildConfig
 import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
@@ -333,7 +334,9 @@ class RipDpiProxy : RipDpiProxyRuntime {
                     val createdHandle =
                         withContext(NonCancellable) {
                             withContext(Dispatchers.IO) {
-                                nativeBindings.create(preferences.toNativeConfigJson())
+                                val config = preferences.toNativeConfigJson()
+                                val runtimeConfig = if (BuildConfig.DEBUG) withDebugProxyLogDefault(config) else config
+                                nativeBindings.create(runtimeConfig)
                             }.also { if (it != 0L) this@RipDpiProxy.handle = it }
                         }
                     if (createdHandle == 0L) {

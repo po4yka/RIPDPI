@@ -16,16 +16,18 @@ impl<S> Layer<S> for AndroidLogLayer
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
-    fn on_event(&self, event: &tracing::Event<'_>, _ctx: Context<'_, S>) {
-        let mut visitor = MessageFieldFormatter::default();
-        event.record(&mut visitor);
-        if visitor.kind().as_deref() == Some("relay_attempt_stage") {
+    fn on_event(&self, event: &tracing::Event<'_>, ctx: Context<'_, S>) {
+        let metadata = event.metadata();
+        let level = tracing_log::AsLog::as_log(metadata.level());
+        if level > log::max_level() {
             return;
         }
-        let metadata = event.metadata();
-        let message = visitor.finish(metadata.target());
-        let level = tracing_log::AsLog::as_log(metadata.level());
-        log::log!(level, "{message}");
+        let mut visitor = MessageFieldFormatter::default();
+        visitor.record_span_fields(event, &ctx);
+        event.record(&mut visitor);
+        if let Some(message) = visitor.finish_logcat_event(metadata.target()) {
+            log::log!(target: metadata.target(), level, "{message}");
+        }
     }
 }
 
@@ -59,17 +61,7 @@ where
 
     fn on_event(&self, event: &tracing::Event<'_>, ctx: Context<'_, S>) {
         let mut visitor = MessageFieldFormatter::default();
-        let mut attempt_sequence = None;
-        if let Some(scope) = ctx.event_scope(event) {
-            for span in scope.from_root() {
-                if let Some(fields) = span.extensions().get::<InheritedEventFields>() {
-                    visitor.inherit(fields);
-                    if fields.attempt_id.is_some() {
-                        attempt_sequence.clone_from(&fields.attempt_sequence);
-                    }
-                }
-            }
-        }
+        let attempt_sequence = visitor.record_span_fields(event, &ctx);
         event.record(&mut visitor);
         let is_relay_attempt_stage = visitor.kind.as_deref() == Some("relay_attempt_stage");
         if is_relay_attempt_stage && visitor.attempt_id.is_some() && visitor.attempt_sequence.is_none() {
@@ -201,9 +193,24 @@ impl MessageFieldFormatter {
             parts.push(message);
         }
 
-        for (field, value) in self.visible_fields {
-            parts.push(format!("{field}={value}"));
-        }
+        parts.extend(self.visible_fields.into_iter().map(|(field, value)| format!("{field}={value}")));
+        parts.extend(
+            [
+                ("event", self.kind),
+                ("runtimeId", self.runtime_id),
+                ("diagnosticsSessionId", self.diagnostics_session_id),
+                ("attemptId", self.attempt_id.map(|value| value.to_string())),
+                ("stage", self.stage),
+                ("outcome", self.outcome),
+                ("failureStage", self.failure_stage),
+                ("failureClass", self.failure_class),
+                ("ioErrorKind", self.io_error_kind),
+                ("osErrorCode", self.os_error_code.map(|value| value.to_string())),
+                ("durationMs", self.duration_ms.map(|value| value.to_string())),
+            ]
+            .into_iter()
+            .filter_map(|(field, value)| value.map(|value| format!("{field}={value}"))),
+        );
 
         if parts.is_empty() { target.to_string() } else { parts.join(" ") }
     }
@@ -256,6 +263,33 @@ impl MessageFieldFormatter {
     #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
     pub(crate) fn diagnostics_session_id(&self) -> Option<String> {
         self.diagnostics_session_id.clone()
+    }
+
+    #[cfg(any(target_os = "android", all(test, not(feature = "loom"))))]
+    pub(crate) fn finish_logcat_event(self, target: &str) -> Option<String> {
+        // Keep successful attempt stages in the ring. Logcat records the failing stage.
+        if self.kind.as_deref() == Some("relay_attempt_stage") && self.failure_class.is_none() {
+            return None;
+        }
+        Some(self.finish(target))
+    }
+
+    fn record_span_fields<S>(&mut self, event: &tracing::Event<'_>, ctx: &Context<'_, S>) -> Option<Arc<AtomicU64>>
+    where
+        S: Subscriber + for<'span> LookupSpan<'span>,
+    {
+        let mut attempt_sequence = None;
+        if let Some(scope) = ctx.event_scope(event) {
+            for span in scope.from_root() {
+                if let Some(fields) = span.extensions().get::<InheritedEventFields>() {
+                    self.inherit(fields);
+                    if fields.attempt_id.is_some() {
+                        attempt_sequence.clone_from(&fields.attempt_sequence);
+                    }
+                }
+            }
+        }
+        attempt_sequence
     }
 
     fn inherit(&mut self, inherited: &InheritedEventFields) {

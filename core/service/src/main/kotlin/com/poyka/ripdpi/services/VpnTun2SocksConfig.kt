@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.core.routing.DestinationDomainMatcherKind
 import com.poyka.ripdpi.core.routing.DestinationRoutingAction
 import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
+import com.poyka.ripdpi.core.service.BuildConfig
 import com.poyka.ripdpi.services.lua.relativizeLuaScriptPaths
 import java.util.Locale
 
@@ -44,6 +45,7 @@ internal fun buildVpnTun2SocksConfig(
     val mapDnsEnabled = dnsPlan.mapDnsEnabled
     return Tun2SocksConfig(
         tunnelMtu = tunnelMtu,
+        logLevel = if (BuildConfig.DEBUG) "debug" else "warn",
         tunnelIpv4 = TunnelIpv4Cidr,
         tunnelIpv6 = if (ipv6Enabled) TunnelIpv6Cidr else null,
         socks5Address = localProxyEndpoint.host,
