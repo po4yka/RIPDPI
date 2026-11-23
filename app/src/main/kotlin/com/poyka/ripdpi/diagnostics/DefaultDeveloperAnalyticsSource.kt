@@ -27,7 +27,6 @@ import javax.inject.Named
 import javax.inject.Singleton
 
 private const val BreadcrumbRingCapacity = 60
-private const val NativeLogTailLines = 80
 private const val PanicBacktraceTailBytes = 6_144
 private const val BytesPerMb = 1_048_576L
 private const val DeveloperMessagePreviewLimit = 240
@@ -216,14 +215,12 @@ class DefaultDeveloperAnalyticsSource
             val statusFile = File("/proc/self/status")
             val vmSize = parseProcStatusKb(statusFile, "VmSize")
             val vmRss = parseProcStatusKb(statusFile, "VmRSS")
-            val logTail = runCatching { readLogcatTail() }.getOrDefault(emptyList())
             val panic = runCatching { readLastPanic() }.getOrNull()
             return DeveloperNativeRuntimeSnapshot(
                 openFileDescriptors = fdDir.takeIf { it.isDirectory }?.listFiles()?.size,
                 threadCount = taskDir.takeIf { it.isDirectory }?.listFiles()?.size,
                 virtualMemoryKb = vmSize,
                 residentSetKb = vmRss,
-                recentLogTail = logTail,
                 lastPanicBacktrace = panic,
             )
         }
@@ -244,17 +241,6 @@ class DefaultDeveloperAnalyticsSource
                         ?.toLongOrNull()
                 }
             }.getOrNull()
-        }
-
-        private fun readLogcatTail(): List<String> {
-            val process =
-                ProcessBuilder("logcat", "-d", "-t", "$NativeLogTailLines", "-v", "time", "ripdpi:*", "*:S")
-                    .redirectErrorStream(true)
-                    .start()
-            val lines =
-                process.inputStream.bufferedReader().use { it.readLines() }
-            process.waitFor()
-            return lines.takeLast(NativeLogTailLines).map { it.take(DeveloperMessagePreviewLimit) }
         }
 
         private fun readLastPanic(): String? {
