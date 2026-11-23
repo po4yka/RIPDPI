@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 import androidx.annotation.StringRes
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.ProbeResult
+import com.poyka.ripdpi.platform.StringResolver
 import java.util.Locale
 
 /** Known Telegram captions. Unknown evidence values keep their original text. */
@@ -45,6 +46,9 @@ internal data class TelegramDcPresentation(
     val status: String,
     val connectMs: Long?,
     val endpointOrPorts: String?,
+    val path: String?,
+    val route: String?,
+    val failureStage: String?,
 )
 
 internal fun parseTelegramDcResult(value: String): TelegramDcPresentation? {
@@ -64,15 +68,84 @@ internal fun parseTelegramDcResult(value: String): TelegramDcPresentation? {
             ?.removePrefix("medianRttMs=")
             ?.removeSuffix("ms")
             ?.toLongOrNull()
+    val details = parts.getOrNull(DcDetailsIndex)
+    val fields =
+        details
+            ?.split(';')
+            ?.associate { field ->
+                field.substringBefore('=') to field.substringAfter('=', "")
+            }.orEmpty()
     val endpointOrPorts =
-        parts.getOrNull(DcDetailsIndex)?.let { details ->
-            if (details.startsWith("address=")) {
-                details.removePrefix("address=").substringBefore(';')
-            } else {
-                details.removePrefix("ports=").takeIf(String::isNotEmpty)
+        (fields["address"] ?: fields["ports"] ?: details?.takeUnless { '=' in it })?.takeIf(String::isNotEmpty)
+    return TelegramDcPresentation(
+        label = label,
+        status = status,
+        connectMs = connectMs,
+        endpointOrPorts = endpointOrPorts,
+        path = fields["path"],
+        route = fields["route"],
+        failureStage = fields["stage"],
+    )
+}
+
+internal fun StringResolver.telegramDcPathDetails(dc: TelegramDcPresentation): List<String> =
+    listOfNotNull(
+        dc.connectMs?.let { getString(R.string.diagnostics_metric_dns_latency_format, it) },
+        telegramRouteCaption(dc.path, dc.route),
+        telegramFailureStageCaption(dc.failureStage),
+    )
+
+internal fun StringResolver.telegramWebSocketDetails(details: Map<String, String>): List<String> =
+    listOfNotNull(
+        details["wsTunnelOpenMs"]?.toLongOrNull()?.let {
+            getString(
+                R.string.diagnostics_metric_dns_latency_format,
+                it,
+            )
+        },
+        telegramRouteCaption(details["wsTunnelPath"]),
+    )
+
+private fun StringResolver.telegramRouteCaption(
+    path: String?,
+    route: String? = null,
+): String {
+    val label =
+        when (path) {
+            "direct" -> {
+                getString(R.string.status_connection_path_direct)
+            }
+
+            "direct_route_experiment" -> {
+                getString(
+                    when (route) {
+                        "stable" -> R.string.diagnostics_telegram_route_stable
+                        "diversity" -> R.string.diagnostics_telegram_route_diversity
+                        else -> R.string.diagnostics_telegram_route_experiment
+                    },
+                )
+            }
+
+            "socks5" -> {
+                "SOCKS5"
+            }
+
+            else -> {
+                getString(R.string.diagnostics_field_unknown)
             }
         }
-    return TelegramDcPresentation(label, status, connectMs, endpointOrPorts)
+    return getString(R.string.diagnostics_telegram_route_format, label)
+}
+
+private fun StringResolver.telegramFailureStageCaption(stage: String?): String? {
+    val label =
+        when (stage) {
+            "dns_resolution" -> R.string.diagnostics_stages_dns
+            "tcp_connect" -> R.string.diagnostics_stages_tcp
+            "socks5_negotiation" -> R.string.diagnostics_telegram_socks5_negotiation
+            else -> return null
+        }
+    return getString(R.string.diagnostics_matrix_failure_stage, getString(label))
 }
 
 private const val DcDetailsIndex = 3
@@ -132,8 +205,15 @@ internal fun DiagnosticsUiFactorySupport.telegramShareLines(result: ProbeResult)
         addAll(telegramConnectivityShareLines(details))
         details["dcResults"]?.split('|')?.mapNotNull(::parseTelegramDcResult)?.forEach { dc ->
             val status = telegramStatusLabelRes(dc.status)?.let { context.getString(it) } ?: dc.status
-            val elapsed = dc.connectMs?.let { context.getString(R.string.diagnostics_metric_dns_latency_format, it) }
-            add(listOfNotNull(dc.label, dc.endpointOrPorts, status, elapsed).joinToString(" · "))
+            add(
+                (
+                    listOfNotNull(
+                        dc.label,
+                        dc.endpointOrPorts,
+                        status,
+                    ) + context.telegramDcPathDetails(dc)
+                ).joinToString(" · "),
+            )
         }
         add(telegramWebSocketShareLine(details))
     }
@@ -182,10 +262,8 @@ private fun DiagnosticsUiFactorySupport.telegramConnectivityShareLines(details: 
 private fun DiagnosticsUiFactorySupport.telegramWebSocketShareLine(details: Map<String, String>): String {
     val wsStatus = details["wsTunnelStatus"] ?: "not_run"
     val wsLabel = telegramStatusLabelRes(wsStatus)?.let { context.getString(it) } ?: wsStatus
-    val wsTime =
-        details["wsTunnelOpenMs"]?.toLongOrNull()?.let {
-            context.getString(R.string.diagnostics_metric_dns_latency_format, it)
-        }
-    return listOfNotNull(context.getString(R.string.diagnostics_telegram_ws_handshake), wsLabel, wsTime)
-        .joinToString(" · ")
+    return (
+        listOf(context.getString(R.string.diagnostics_telegram_ws_handshake), wsLabel) +
+            context.telegramWebSocketDetails(details)
+    ).joinToString(" · ")
 }

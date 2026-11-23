@@ -39,18 +39,27 @@ class DiagnosticsTelegramPresentationTest {
     @Test
     fun `DC details represent each port and historical reachability without truncating IPv6`() {
         assertEquals(
-            TelegramDcPresentation("DC1", "ok", 42, "[2001:db8::1]:443"),
-            parseTelegramDcResult("DC1:ok:42ms:address=[2001:db8::1]:443;family=ipv6;path=direct"),
+            TelegramDcPresentation("DC1", "ok", 42, "[2001:db8::1]:443", "direct_route_experiment", "stable", null),
+            parseTelegramDcResult(
+                "DC1:ok:42ms:address=[2001:db8::1]:443;family=ipv6;path=direct_route_experiment;route=stable",
+            ),
         )
         assertEquals(
-            TelegramDcPresentation("DC1", "fail", null, "[2001:db8::1]:80"),
+            TelegramDcPresentation("DC1", "fail", null, "[2001:db8::1]:80", "direct", null, "tcp_connect"),
             parseTelegramDcResult("DC1:fail::address=[2001:db8::1]:80;family=ipv6;path=direct;stage=tcp_connect"),
         )
         assertEquals(
-            TelegramDcPresentation("dc1", "ok", 45, "443:fail,80:ok:45ms"),
+            TelegramDcPresentation("dc1", "ok", 45, "443:fail,80:ok:45ms", null, null, null),
             parseTelegramDcResult("dc1:reachable=true:medianRttMs=45:ports=443:fail,80:ok:45ms"),
         )
-        assertEquals(TelegramDcPresentation("DC1", "ok", 42, null), parseTelegramDcResult("DC1:ok:42ms"))
+        assertEquals(
+            TelegramDcPresentation("DC1", "ok", 42, null, null, null, null),
+            parseTelegramDcResult("DC1:ok:42ms"),
+        )
+        assertEquals(
+            TelegramDcPresentation("DC1", "invalid_target", null, null, "direct_route_experiment", null, null),
+            parseTelegramDcResult("DC1:invalid_target::path=direct_route_experiment"),
+        )
         assertNull(parseTelegramDcResult("dc_probe_aborted:cancelled"))
     }
 
