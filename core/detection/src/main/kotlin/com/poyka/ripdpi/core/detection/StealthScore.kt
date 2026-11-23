@@ -427,7 +427,7 @@ private data class ExposureSignal(
         val nativeSigns =
             ExposureSignal(
                 label = "native runtime signal",
-                reason = "Native checks found hook, root, or hidden-interface artifacts.",
+                reason = "Native checks found runtime artifacts.",
                 hint = "Remove unrelated instrumentation and retest on the target device profile.",
                 priority = 12,
             )

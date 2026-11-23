@@ -90,6 +90,11 @@ class PlayPrivilegeBoundaryTest(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertIn("root settings", boundary.content_findings(io.BytesIO(field.encode())))
 
+    def test_scan_detects_root_disclosure_in_native_diagnostics(self) -> None:
+        reason = b"Native checks found hook, root, or hidden-interface artifacts."
+
+        self.assertIn("root disclosure", boundary.content_findings(io.BytesIO(reason)))
+
     def test_scan_distinguishes_executable_name_from_socket_lua_compatibility_constant(self) -> None:
         for encoding in ("utf-8", "utf-16-le"):
             with self.subTest(encoding=encoding):

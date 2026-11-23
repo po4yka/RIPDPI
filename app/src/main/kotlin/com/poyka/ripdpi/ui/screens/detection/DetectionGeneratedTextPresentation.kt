@@ -10,6 +10,9 @@ import com.poyka.ripdpi.platform.StringResolver
 internal fun StringResolver.detectionGeneratedText(raw: String): String =
     (detectionGeneratedResources[raw] ?: raw.nativeSignsReasonResource())?.let(::getString) ?: raw
 
+private fun String.nativeSignsReasonResource(): Int? =
+    R.string.detection_exposure_native_signs_reason.takeIf { startsWith("Native checks found ") }
+
 internal fun ExposureVerdict.localized(
     strings: StringResolver,
     score: Int,

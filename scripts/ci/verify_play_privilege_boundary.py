@@ -55,6 +55,7 @@ FINGERPRINTS = {
     "privileged IPC": ("v4/probe_capabilities", "v4/send_raw_ip_packet", "v4/send_fake_rst", "v4/start_nfqws2"),
     "privileged Lua": ("rawsend_dissect_ipfrag",),
     "root disclosure": (
+        "native checks found hook, root,",
         "root mode", "root-mode strategies", "root access", "rooted production", "rooted devices",
         "root-modus", "root-zugriff", "modo root", "acceso root", "acesso root", "mode root", "accès root",
         "root-режим", "root-доступ", "root 模式", "root 权限", "रूट मोड", "रूट एक्सेस",
