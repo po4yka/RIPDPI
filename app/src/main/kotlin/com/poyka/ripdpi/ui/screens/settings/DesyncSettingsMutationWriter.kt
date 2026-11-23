@@ -58,8 +58,7 @@ internal class DesyncSettingsMutationWriter(
         value: String,
         uiState: SettingsUiState,
     ) {
-        val parsed = parseStrategyChainDsl(value).getOrNull() ?: return
-        if (!parsed.supportedInDistribution()) return
+        val parsed = parseStrategyChainDsl(value).getOrNull()?.takeIf { it.supportedInDistribution() } ?: return
         runCatching {
             validateStrategyChainUsage(
                 tcpSteps = parsed.tcpSteps,
