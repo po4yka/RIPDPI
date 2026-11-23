@@ -94,35 +94,41 @@ pub(super) fn spawn_udp_worker(
         // Setup runs in this worker, so it never stalls the single TUN/smoltcp owner task. A proxy
         // that accepts but never answers is bounded by the connect timeout, and eviction or shutdown
         // stops it through `cancel`.
-        let mut session =
-            match connect_session(proxy_addr, &auth, protect_path.as_deref(), &memory_budget, connect_timeout, &cancel)
-                .await
-            {
-                Ok(Some(session)) => session.with_recv_timeout(idle_timeout),
-                Ok(None) => {
-                    send_event(&udp_tx, &cancel, UdpEvent::Closed { src, association_id }).await;
-                    return;
-                }
-                Err(err) => {
-                    debug!("UDP association {} for {} failed during setup: {}", association_id, src, err);
-                    let event = if matches!(
-                        err.kind(),
-                        std::io::ErrorKind::ConnectionRefused
-                            | std::io::ErrorKind::NotConnected
-                            | std::io::ErrorKind::NetworkUnreachable
-                            | std::io::ErrorKind::HostUnreachable
-                            | std::io::ErrorKind::ConnectionReset
-                            | std::io::ErrorKind::ConnectionAborted
-                            | std::io::ErrorKind::BrokenPipe
-                    ) {
-                        UdpEvent::SetupFailed { src, association_id }
-                    } else {
-                        UdpEvent::Closed { src, association_id }
-                    };
-                    send_event(&udp_tx, &cancel, event).await;
-                    return;
-                }
-            };
+        let mut session = match connect_session(
+            proxy_addr,
+            &auth,
+            protect_path.as_deref(),
+            &memory_budget,
+            connect_timeout,
+            &cancel,
+        )
+        .await
+        {
+            Ok(Some(session)) => session.with_recv_timeout(idle_timeout),
+            Ok(None) => {
+                send_event(&udp_tx, &cancel, UdpEvent::Closed { src, association_id }).await;
+                return;
+            }
+            Err(err) => {
+                debug!(association_id, io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "UDP association failed during setup");
+                let event = if matches!(
+                    err.kind(),
+                    std::io::ErrorKind::ConnectionRefused
+                        | std::io::ErrorKind::NotConnected
+                        | std::io::ErrorKind::NetworkUnreachable
+                        | std::io::ErrorKind::HostUnreachable
+                        | std::io::ErrorKind::ConnectionReset
+                        | std::io::ErrorKind::ConnectionAborted
+                        | std::io::ErrorKind::BrokenPipe
+                ) {
+                    UdpEvent::SetupFailed { src, association_id }
+                } else {
+                    UdpEvent::Closed { src, association_id }
+                };
+                send_event(&udp_tx, &cancel, event).await;
+                return;
+            }
+        };
         let mut pending_errors = PendingErrors::default();
         let mut next_datagram_id = 1u64;
         let mut response_sources = HashMap::new();
@@ -168,7 +174,7 @@ pub(super) fn spawn_udp_worker(
                         if err.raw_os_error() == Some(libc::EMSGSIZE) {
                             continue;
                         }
-                        debug!("UDP association {} for {} send failed: {}", association_id, src, err);
+                        debug!(association_id, io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "UDP association send failed");
                         pending_errors.clear();
                         // One reconnect, with the same bounds as the first setup.
                         session = match connect_session(
@@ -185,8 +191,10 @@ pub(super) fn spawn_udp_worker(
                             Ok(None) => break,
                             Err(retry_err) => {
                                 debug!(
-                                    "UDP association {} for {} reconnect failed: {}",
-                                    association_id, src, retry_err
+                                    association_id,
+                                    io_error_kind = ?retry_err.kind(),
+                                    os_error_code = retry_err.raw_os_error(),
+                                    "UDP association reconnect failed"
                                 );
                                 break;
                             }
@@ -200,7 +208,7 @@ pub(super) fn spawn_udp_worker(
                             if retry_err.raw_os_error() == Some(libc::EMSGSIZE) {
                                 continue;
                             }
-                            debug!("UDP association {} for {} retry failed: {}", association_id, src, retry_err);
+                            debug!(association_id, io_error_kind = ?retry_err.kind(), os_error_code = retry_err.raw_os_error(), "UDP association retry failed");
                             break;
                         }
                     }
@@ -255,7 +263,7 @@ pub(super) fn spawn_udp_worker(
                         }
                     }
                     Err(err) => {
-                        debug!("UDP association {} for {} failed: {}", association_id, src, err);
+                        debug!(association_id, io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "UDP association failed");
                         break;
                     }
                 },

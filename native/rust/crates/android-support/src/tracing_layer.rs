@@ -142,6 +142,7 @@ impl From<&MessageFieldFormatter> for InheritedEventFields {
 #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
 pub(crate) struct MessageFieldFormatter {
     message: Option<String>,
+    logcat_message: Option<String>,
     visible_fields: Vec<(String, String)>,
     ring: Option<String>,
     subsystem: Option<String>,
@@ -196,7 +197,7 @@ impl MessageFieldFormatter {
             parts.push(prefix);
         }
 
-        if let Some(message) = self.message {
+        if let Some(message) = self.logcat_message.or(self.message) {
             parts.push(message);
         }
 
@@ -282,6 +283,7 @@ impl MessageFieldFormatter {
         }
         match field {
             "message" => self.message = Some(value),
+            "logcat_message" => self.logcat_message = Some(value),
             "ring" => self.ring = Some(value),
             "subsystem" => self.subsystem = Some(value),
             "session" => self.session = Some(value),

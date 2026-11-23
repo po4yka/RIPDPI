@@ -188,7 +188,6 @@ pub(super) fn flush_outbound_payload(
     let send_outcome = send_result.map_err(OutboundSendError::into_io_error)?;
     state.note_application_traffic(send_outcome.bytes_committed as u64, 0);
     tracing::trace!(
-        target = %peer_addr,
         strategy_family = send_outcome.strategy_family.unwrap_or("plain"),
         bytes_committed = send_outcome.bytes_committed,
         "steady-state outbound payload forwarded"

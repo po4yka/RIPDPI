@@ -60,7 +60,7 @@ pub(in crate::io_loop) fn setup_io_loop(
     let mtu = config.tunnel.mtu as usize;
     device.set_tun_queue_drop_stats(Arc::clone(&stats));
 
-    info!("io_loop started (proxy={}, max_sessions={})", proxy_sockaddr, max_sessions);
+    info!(max_sessions, "io_loop started");
 
     Ok(LoopState {
         device,

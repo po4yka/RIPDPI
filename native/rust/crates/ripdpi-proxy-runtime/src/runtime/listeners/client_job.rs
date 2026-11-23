@@ -25,17 +25,17 @@ pub(crate) fn process_client_job(job: ClientJob) {
     if let Err(err) = &result {
         let shutting_down = state.shutdown_requested();
         if shutting_down && is_connection_closed_error(err) {
-            tracing::trace!("ripdpi client error during shutdown (expected): {err}");
+            tracing::trace!(io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "ripdpi client error during shutdown (expected)");
         } else if is_connection_closed_error(err) {
             if state.has_embedded_control() {
-                tracing::trace!("ripdpi client disconnected: {err}");
+                tracing::trace!(io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "ripdpi client disconnected");
             } else {
-                tracing::debug!("ripdpi client disconnected: {err}");
+                tracing::debug!(io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "ripdpi client disconnected");
             }
         } else if is_connection_timeout_error(err) {
-            tracing::warn!("ripdpi client timeout: {err}");
+            tracing::warn!(io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "ripdpi client timeout");
         } else {
-            tracing::error!("ripdpi client error: {err}");
+            tracing::error!(io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "ripdpi client error");
         }
         if counts_as_client_error(shutting_down, err) {
             state.note_client_error(err);

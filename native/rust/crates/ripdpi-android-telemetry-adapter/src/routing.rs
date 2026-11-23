@@ -15,7 +15,12 @@ impl ProxyTelemetryState {
             target,
             host.as_deref().unwrap_or("<none>")
         );
-        self.emit_event("proxy", "info", &message, None);
+        self.emit_redacted_event(
+            "proxy",
+            "info",
+            &message,
+            &format!("route selected phase={phase} group={group_index}"),
+        );
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.last_host = host.clone();
@@ -42,7 +47,12 @@ impl ProxyTelemetryState {
             trigger,
             host.as_deref().unwrap_or("<none>")
         );
-        self.emit_event("proxy", "warn", &message, None);
+        self.emit_redacted_event(
+            "proxy",
+            "warn",
+            &message,
+            &format!("route advanced from={from_group} to={to_group} trigger={trigger}"),
+        );
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.last_host = host.clone();
@@ -91,7 +101,17 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>"),
             failure.evidence.summary
         );
-        self.emit_event("proxy", level, &message, None);
+        self.emit_redacted_event(
+            "proxy",
+            level,
+            &message,
+            &format!(
+                "failure classified class={} stage={} action={}",
+                failure.class.as_str(),
+                failure.stage.as_str(),
+                failure.action.as_str()
+            ),
+        );
         {
             let evidence = failure.evidence.summary.clone();
             let class = failure.class.as_str().to_string();
@@ -119,7 +139,12 @@ impl ProxyTelemetryState {
         }
         let message =
             format!("retry pacing target={target} group={group_index} reason={reason} backoffMs={backoff_ms}");
-        self.emit_event("proxy", "info", &message, None);
+        self.emit_redacted_event(
+            "proxy",
+            "info",
+            &message,
+            &format!("retry pacing group={group_index} reason={reason} backoffMs={backoff_ms}"),
+        );
         {
             let reason_str = reason.to_string();
             self.update_strings(|s| {
