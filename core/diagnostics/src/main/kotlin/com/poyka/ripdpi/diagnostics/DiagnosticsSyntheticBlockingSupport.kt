@@ -95,6 +95,8 @@ internal fun ScanReport.resultsForDirectModePolicy(): List<ProbeResult> =
 
 internal fun ProbeResult.isQuicInitialProbe(): Boolean = isQuicInitialProbeType(probeType)
 
+const val QuicInitialUnobservedDiagnosis = "quic_initial_unobserved"
+
 fun isQuicInitialProbeType(probeType: String): Boolean =
     probeType == ProbeTypeQuicReachability || probeType == "strategy_quic"
 
