@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 
 /**
  * The service lifecycle state machine — enforces the
@@ -22,7 +23,7 @@ internal class ServiceLifecycleStateMachine {
         when (state) {
             State.STOPPED -> {
                 state = State.STARTING
-                Logger.d { "Lifecycle: STOPPED -> STARTING" }
+                Logger.d(tag = LogTags.SERVICE) { "Lifecycle: STOPPED -> STARTING" }
                 true
             }
 
@@ -35,22 +36,22 @@ internal class ServiceLifecycleStateMachine {
         }
 
     fun markStarted() {
-        Logger.d { "Lifecycle: $state -> RUNNING" }
+        Logger.d(tag = LogTags.SERVICE) { "Lifecycle: $state -> RUNNING" }
         state = State.RUNNING
     }
 
     fun markStartFailed() {
-        Logger.d { "Lifecycle: $state -> STOPPED (start failed)" }
+        Logger.d(tag = LogTags.SERVICE) { "Lifecycle: $state -> STOPPED (start failed)" }
         state = State.STOPPED
     }
 
     fun beginStop() {
-        Logger.d { "Lifecycle: $state -> STOPPING" }
+        Logger.d(tag = LogTags.SERVICE) { "Lifecycle: $state -> STOPPING" }
         state = State.STOPPING
     }
 
     fun markStopped() {
-        Logger.d { "Lifecycle: $state -> STOPPED" }
+        Logger.d(tag = LogTags.SERVICE) { "Lifecycle: $state -> STOPPED" }
         state = State.STOPPED
     }
 }

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.ServiceStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
@@ -27,7 +28,7 @@ internal class VpnProtectFailureWatcher(
                         @Suppress("TooGenericExceptionCaught") error: Exception,
                     ) {
                         // An escaped failure would kill the process with the TUN up and stop watching.
-                        Logger.e(error) { "VPN protect failure handling failed" }
+                        Logger.e(error, tag = LogTags.SERVICE) { "VPN protect failure handling failed" }
                     }
                 }
             }
@@ -45,7 +46,7 @@ internal class VpnProtectFailureWatcher(
         if (!dependencies.host.isVpnConsentRevoked()) {
             // The native side already failed this one socket. With the consent still held,
             // one rejected or malformed request is no reason to take the whole tunnel down.
-            Logger.w { "VPN protect failed for one socket, fd=${event.fd}: ${event.detail}" }
+            Logger.w(tag = LogTags.SERVICE) { "VPN protect failed for one socket, fd=${event.fd}: ${event.detail}" }
             return
         }
         val boundary =
@@ -53,7 +54,7 @@ internal class VpnProtectFailureWatcher(
                 session = state.runtimeSession(),
                 xrayGeneration = event.providerGeneration ?: dependencies.xrayController?.currentGenerationIfActive(),
             )
-        Logger.e { "VPN protect failed for fd=${event.fd}: ${event.detail}" }
+        Logger.e(tag = LogTags.SERVICE) { "VPN protect failed for fd=${event.fd}: ${event.detail}" }
         val guard =
             boundary.providerStopGuard(
                 controller = dependencies.xrayController,

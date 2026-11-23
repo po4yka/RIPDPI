@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStatus
@@ -107,7 +108,7 @@ internal class VpnTelemetryCoordinator(
                     ) {
                         // A store or reporter failure must not escape the service scope and kill the
                         // process with the TUN up; the next poll retries.
-                        Logger.w(error) { "VPN telemetry poll failed" }
+                        Logger.w(error, tag = LogTags.SERVICE) { "VPN telemetry poll failed" }
                         true
                     }
                 if (!keepPolling) return@replaceTelemetryJob
@@ -239,7 +240,7 @@ internal class VpnTelemetryCoordinator(
             } catch (
                 @Suppress("TooGenericExceptionCaught") error: Exception,
             ) {
-                Logger.w(error) { "VPN interface policy refresh failed" }
+                Logger.w(error, tag = LogTags.SERVICE) { "VPN interface policy refresh failed" }
             }
         }
     }

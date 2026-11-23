@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
@@ -32,7 +33,7 @@ internal class DiagnosticsMutationRunner(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (ignored: Exception) {
-                Logger.w { "Diagnostics action failed: ${ignored.javaClass.simpleName}" }
+                Logger.w(tag = LogTags.UI) { "Diagnostics action failed: ${ignored.javaClass.simpleName}" }
             }
         }
     }

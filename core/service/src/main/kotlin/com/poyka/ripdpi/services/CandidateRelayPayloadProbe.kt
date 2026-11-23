@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -150,10 +151,14 @@ class CandidateRelayPayloadProbe internal constructor(
             } catch (rejected: ServiceStartupRejectedException) {
                 // Stable code only: the message can name the server, and R8 renames reason classes.
                 val reason = rejected.reason.startupJournalKind()
-                Logger.w { "Candidate relay check rejected: kind=${profile.kind} reason=$reason" }
+                Logger.w(
+                    tag = LogTags.SERVICE,
+                ) { "Candidate relay check rejected: kind=${profile.kind} reason=$reason" }
                 return@withLock CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Configuration)
             } catch (_: Exception) {
-                Logger.w { "Candidate relay check rejected: kind=${profile.kind} reason=configuration" }
+                Logger.w(
+                    tag = LogTags.SERVICE,
+                ) { "Candidate relay check rejected: kind=${profile.kind} reason=configuration" }
                 return@withLock CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Configuration)
             }
             measureResolved(config, listenerCredentials, before, httpDeadlineMillis, probe)

@@ -9,6 +9,7 @@ import androidx.core.net.toUri
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ApplicationScope
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -93,7 +94,7 @@ class AppShortcutsPublisher
                 val infos = entries.take(limit).map { buildShortcut(it) }
                 ShortcutManagerCompat.setDynamicShortcuts(context, infos)
             }.onFailure { err ->
-                Logger.w(err) { "AppShortcutsPublisher: failed to publish dynamic shortcuts" }
+                Logger.w(err, tag = LogTags.UI) { "AppShortcutsPublisher: failed to publish dynamic shortcuts" }
             }
         }
 

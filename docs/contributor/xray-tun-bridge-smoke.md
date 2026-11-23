@@ -44,7 +44,7 @@ Import/select the Xray profile, choose Xray as the provider, and start the VPN.
 Confirm the provider state machine reaches `Running`:
 
 ```sh
-adb logcat -s ripdpi:* | grep -iE 'xray|provider' | grep -iE 'running|inbound'
+adb logcat -s Service:V Engine:V ripdpi:V ripdpi-native:V | grep -iE 'xray|provider' | grep -iE 'running|inbound'
 ```
 
 You should see the local inbound become ready on `127.0.0.1:<port>` (default
@@ -118,7 +118,7 @@ Trigger a network handover (toggle Wi-Fi <-> cellular, or change the configured
 inbound port) and confirm BOTH Xray and the tunnel restart:
 
 ```sh
-adb logcat -s ripdpi:* | grep -iE 'handover|restart|xray.*stop|tunnel.*stop'
+adb logcat -s Service:V Engine:V ripdpi:V ripdpi-native:V | grep -iE 'handover|restart|xray.*stop|tunnel.*stop'
 ```
 
 Expected order on a route change: **tunnel stops -> Xray stops -> Xray starts ->

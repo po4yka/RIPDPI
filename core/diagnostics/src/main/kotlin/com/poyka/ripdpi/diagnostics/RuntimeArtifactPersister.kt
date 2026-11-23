@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -58,7 +59,7 @@ class RuntimeArtifactPersister
                 networkMetadataProvider.captureSnapshot()
             }.onFailure { failure ->
                 if (failure is kotlinx.coroutines.CancellationException) throw failure
-                Logger.w(failure) { "Failed to capture network snapshot" }
+                Logger.w(failure, tag = LogTags.DIAGNOSTICS) { "Failed to capture network snapshot" }
             }.getOrNull()
 
         suspend fun persistConnectionSample(
@@ -228,7 +229,7 @@ class RuntimeArtifactPersister
                 runCatching { diagnosticsContextProvider.captureContext() }
                     .onFailure { failure ->
                         if (failure is kotlinx.coroutines.CancellationException) throw failure
-                        Logger.w(failure) { "Failed to capture diagnostic context" }
+                        Logger.w(failure, tag = LogTags.DIAGNOSTICS) { "Failed to capture diagnostic context" }
                     }.getOrNull()
             val event =
                 NativeSessionEventEntity(

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.strategy
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationScope
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.StrategyPackSnapshot
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.toStrategyPackSettingsModel
@@ -157,7 +158,7 @@ class DefaultStrategyPackService
         ): Boolean = currentRefreshKey != keyAtStart && currentRefreshKey != fetchedKey
 
         private suspend fun handleRelevantSettingsChange(key: StrategyPackRefreshKey) {
-            Logger.i {
+            Logger.i(tag = LogTags.SERVICE) {
                 "Strategy-pack settings changed: channel=${key.channel}, policy=${key.refreshPolicy}, " +
                     "pinnedPackId=${key.pinnedPackId}, pinnedPackVersion=${key.pinnedPackVersion}"
             }
@@ -207,12 +208,12 @@ class DefaultStrategyPackService
                 }
 
             if (schedulePlan.reason == StrategyPackRefreshScheduleReason.Startup && schedulePlan.delayMs > 0L) {
-                Logger.i {
+                Logger.i(tag = LogTags.SERVICE) {
                     "Automatic strategy-pack refresh skipped because cached snapshot is still fresh; " +
                         "rescheduling in ${schedulePlan.delayMs} ms"
                 }
             }
-            Logger.i {
+            Logger.i(tag = LogTags.SERVICE) {
                 "Automatic strategy-pack refresh scheduled in ${schedulePlan.delayMs} ms " +
                     "(${schedulePlan.reason.logLabel})"
             }
@@ -233,7 +234,7 @@ class DefaultStrategyPackService
                     currentRefreshKey == key && automaticRefreshJob === currentJob && key.isAutomatic
                 }
             if (!shouldRun) {
-                Logger.i { "Automatic strategy-pack refresh canceled before execution" }
+                Logger.i(tag = LogTags.SERVICE) { "Automatic strategy-pack refresh canceled before execution" }
                 return
             }
 
@@ -302,7 +303,7 @@ class DefaultStrategyPackService
                     schedulingMutex.withLock {
                         refreshBackoffPolicy.nextFailureBackoff(consecutiveAutomaticFailures)
                     }
-                Logger.w(error) {
+                Logger.w(error, tag = LogTags.SERVICE) {
                     "Automatic strategy-pack refresh failed; retrying in $retryDelayMs ms"
                 }
                 statePublisher.publishSelectionForSnapshot(
@@ -322,7 +323,7 @@ class DefaultStrategyPackService
         private fun cancelAutomaticRefreshLocked(because: String) {
             automaticRefreshJob?.cancel()
             if (automaticRefreshJob != null) {
-                Logger.i { "Automatic strategy-pack refresh canceled because $because" }
+                Logger.i(tag = LogTags.SERVICE) { "Automatic strategy-pack refresh canceled because $because" }
             }
             automaticRefreshJob = null
         }

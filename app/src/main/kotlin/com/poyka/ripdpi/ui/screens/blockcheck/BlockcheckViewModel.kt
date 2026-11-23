@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.BlockLayerDiagnosis
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeFailureKind
@@ -244,6 +245,6 @@ class NativeBlockcheckStrategyReloader : BlockcheckStrategyReloader {
 
 @StringRes
 private fun Throwable.loggedUserMessageRes(): Int {
-    Logger.w(this) { "Blockcheck failed" }
+    Logger.w(this, tag = LogTags.UI) { "Blockcheck failed" }
     return userMessageRes()
 }

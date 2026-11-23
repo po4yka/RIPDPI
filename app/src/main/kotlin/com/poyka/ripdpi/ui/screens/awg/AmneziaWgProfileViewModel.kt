@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
@@ -349,7 +350,9 @@ class AmneziaWgProfileViewModel
                     _uiState.update { it.copy(deleting = false) }
                     throw cancellation
                 } catch (expectedFailure: Exception) {
-                    Logger.w { "AmneziaWG profile delete failed: ${expectedFailure::class.simpleName}" }
+                    Logger.w(
+                        tag = LogTags.UI,
+                    ) { "AmneziaWG profile delete failed: ${expectedFailure::class.simpleName}" }
                     _uiState.update { it.copy(deleting = false, deleteFailed = true) }
                     return@launch
                 }

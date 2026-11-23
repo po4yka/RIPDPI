@@ -11,6 +11,7 @@ import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -322,7 +323,10 @@ internal class DefaultConnectionPolicyResolver
             } catch (
                 @Suppress("TooGenericExceptionCaught") error: Exception,
             ) {
-                Logger.w(error) { "Rejected invalid remembered connection policy; using baseline" }
+                Logger.w(
+                    error,
+                    tag = LogTags.SERVICE,
+                ) { "Rejected invalid remembered connection policy; using baseline" }
                 rememberedNetworkPolicyStore.recordFailure(matchedPolicy)
                 null
             }

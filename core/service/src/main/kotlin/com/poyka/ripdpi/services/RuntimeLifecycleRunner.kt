@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -24,7 +25,7 @@ internal class RuntimeLifecycleRunner(
                     ServiceLifecycleStateMachine.State.STOPPING,
                 ) && shouldRecoverRunning()
             ) {
-                Logger.i { "Recovering failed ${serviceLabel()} runtime before start" }
+                Logger.i(tag = LogTags.SERVICE) { "Recovering failed ${serviceLabel()} runtime before start" }
                 lifecycleState.beginStop()
                 setStopping(true)
                 try {
@@ -38,7 +39,7 @@ internal class RuntimeLifecycleRunner(
             }
 
             if (!lifecycleState.tryBeginStart()) {
-                Logger.d {
+                Logger.d(tag = LogTags.SERVICE) {
                     "Ignoring ${serviceLabel()} start while lifecycle state is ${lifecycleState.state}"
                 }
                 return@withLock null
@@ -59,14 +60,14 @@ internal class RuntimeLifecycleRunner(
         stopBlock: suspend () -> Unit,
     ): Boolean {
         if (isStopping()) {
-            Logger.d { "${serviceLabel()} stop already in progress" }
+            Logger.d(tag = LogTags.SERVICE) { "${serviceLabel()} stop already in progress" }
             return false
         }
 
         return mutex.withLock {
             if (guard != null && !guard.isCurrent()) return@withLock false
             if (isStopping()) {
-                Logger.d { "${serviceLabel()} stop already in progress" }
+                Logger.d(tag = LogTags.SERVICE) { "${serviceLabel()} stop already in progress" }
                 return@withLock false
             }
 

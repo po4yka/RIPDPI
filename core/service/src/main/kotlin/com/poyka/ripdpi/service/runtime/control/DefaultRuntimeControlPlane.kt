@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.service.runtime.control
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 
 /**
  * Default [RuntimeControlPlane] — a thin dispatcher that maps each
@@ -16,7 +17,7 @@ internal class DefaultRuntimeControlPlane(
     private val actions: RuntimeControlActions,
 ) : RuntimeControlPlane {
     override suspend fun execute(command: RuntimeControlCommand): RuntimeControlOutcome {
-        Logger.d { "RuntimeControlPlane received $command" }
+        Logger.d(tag = LogTags.SERVICE) { "RuntimeControlPlane received $command" }
         val outcome =
             when (command) {
                 is RuntimeControlCommand.StartRuntime -> actions.startRuntime(command.mode, command.reason)
@@ -27,7 +28,7 @@ internal class DefaultRuntimeControlPlane(
                 is RuntimeControlCommand.RefreshRelay -> actions.refreshRelay(command.reason)
                 is RuntimeControlCommand.RefreshDns -> actions.refreshDns(command.reason)
             }
-        Logger.d { "RuntimeControlPlane completed $command -> $outcome" }
+        Logger.d(tag = LogTags.SERVICE) { "RuntimeControlPlane completed $command -> $outcome" }
         return outcome
     }
 }

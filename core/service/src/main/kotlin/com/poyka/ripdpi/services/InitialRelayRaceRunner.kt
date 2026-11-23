@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.InitialTransportRaceCandidateSnapshot
 import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
 import com.poyka.ripdpi.data.InitialTransportSelectionException
+import com.poyka.ripdpi.data.LogTags
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
@@ -224,7 +225,7 @@ internal class InitialRelayRaceRunner(
         } catch (
             @Suppress("TooGenericExceptionCaught") _: Exception,
         ) {
-            Logger.w { "Initial relay race candidate kind=${candidate.relayKind} failed" }
+            Logger.w(tag = LogTags.SERVICE) { "Initial relay race candidate kind=${candidate.relayKind} failed" }
             outcomes[candidate.profileId] = candidate.toSnapshot(RaceOutcomeRuntimeFailed)
             attempts.send(RelayRaceAttempt(candidate, slots[candidate.profileId], probeResult = null))
         }

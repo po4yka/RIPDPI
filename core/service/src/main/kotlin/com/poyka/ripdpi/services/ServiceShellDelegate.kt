@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import android.content.Intent
 import android.net.VpnService
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
 import kotlinx.coroutines.CancellationException
@@ -258,7 +259,7 @@ internal class ServiceShellDelegate(
             }
 
             else -> {
-                Logger.w { "Unknown action for $serviceLabel service: $action" }
+                Logger.w(tag = LogTags.SERVICE) { "Unknown action for $serviceLabel service: $action" }
                 vpnStartGeneration?.let(serviceIntentArbiter::completeVpnStart)
                 android.app.Service.START_STICKY
             }
@@ -289,7 +290,9 @@ internal class ServiceShellDelegate(
             android.app.Service.START_NOT_STICKY
         } else {
             // A stop intent carries no start command, so it must not start a runtime.
-            Logger.w { "Ignoring diagnostics stop for $serviceLabel service while disconnect is blocked" }
+            Logger.w(
+                tag = LogTags.SERVICE,
+            ) { "Ignoring diagnostics stop for $serviceLabel service while disconnect is blocked" }
             android.app.Service.START_STICKY
         }
     }
@@ -319,7 +322,7 @@ internal class ServiceShellDelegate(
             }
             android.app.Service.START_NOT_STICKY
         } else {
-            Logger.d { "Skipping stale diagnostics stop for $serviceLabel service" }
+            Logger.d(tag = LogTags.SERVICE) { "Skipping stale diagnostics stop for $serviceLabel service" }
             android.app.Service.START_STICKY
         }
     }
@@ -355,7 +358,9 @@ internal class ServiceShellDelegate(
     ): Int {
         if (!isStopAllowed(action)) {
             // A stop intent carries no start command, so it must not start a runtime.
-            Logger.w { "Ignoring stop action for $serviceLabel service while disconnect is blocked" }
+            Logger.w(
+                tag = LogTags.SERVICE,
+            ) { "Ignoring stop action for $serviceLabel service while disconnect is blocked" }
             return android.app.Service.START_STICKY
         }
         val acceptedGuard =
@@ -513,7 +518,7 @@ internal class ServiceShellDelegate(
     ) {
         if (requestId == null || target == null) {
             requestId?.let(transportFailoverCommandHandler.reject)
-            Logger.w { "Ignoring transport failover restart without request identity" }
+            Logger.w(tag = LogTags.SERVICE) { "Ignoring transport failover restart without request identity" }
             vpnStartGeneration?.let(serviceIntentArbiter::completeVpnStart)
             return
         }
@@ -563,7 +568,7 @@ internal class ServiceShellDelegate(
         } catch (failure: CancellationException) {
             throw failure
         } catch (failure: Exception) {
-            Logger.e(failure) { "$serviceLabel service command failed" }
+            Logger.e(failure, tag = LogTags.SERVICE) { "$serviceLabel service command failed" }
         }
     }
 
@@ -633,7 +638,7 @@ internal class ServiceShellDelegate(
             }
         if (commandQueue.trySend(command).isFailure) {
             command.cancelWithoutExecution()
-            Logger.w { "Dropping $serviceLabel service command after queue closure" }
+            Logger.w(tag = LogTags.SERVICE) { "Dropping $serviceLabel service command after queue closure" }
         }
     }
 }

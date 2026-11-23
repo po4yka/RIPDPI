@@ -3,6 +3,7 @@ package com.poyka.ripdpi.hosts
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import kotlinx.coroutines.withContext
@@ -37,7 +38,7 @@ class LearnedHostsEraser
             withContext(dispatchers.io) {
                 when {
                     !storeController.markErasePending() || !storeController.clearStore() -> {
-                        Logger.w { "Learned-hosts erase failed; a recorded erase stays pending" }
+                        Logger.w(tag = LogTags.UI) { "Learned-hosts erase failed; a recorded erase stays pending" }
                         LearnedHostsEraseResult.Failed
                     }
 

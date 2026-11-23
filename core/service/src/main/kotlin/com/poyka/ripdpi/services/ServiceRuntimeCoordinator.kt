@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
@@ -279,9 +280,11 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                     kept
                 }
         if (retained) {
-            Logger.w { "Connection engine failed; keeping the VPN barrier until the user stops it" }
+            Logger.w(
+                tag = LogTags.SERVICE,
+            ) { "Connection engine failed; keeping the VPN barrier until the user stops it" }
         } else {
-            Logger.w { "Connection engine failed; stopping the service" }
+            Logger.w(tag = LogTags.SERVICE) { "Connection engine failed; stopping the service" }
         }
         return retained
     }
@@ -350,7 +353,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                                 failure
                             }
                         if (failure != null) {
-                            Logger.w(failure) { "Connection policy reload failed" }
+                            Logger.w(failure, tag = LogTags.SERVICE) { "Connection policy reload failed" }
                             failureReason = runtimeHooks.handoverHooks.classifyFailure(failure)
                             cleanupRequired = true
                             cleanupRequired = !runtimeHooks.handoverHooks.retainFailClosedAfterExhaustion()

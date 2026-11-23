@@ -5,6 +5,7 @@ package com.poyka.ripdpi.diagnostics
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.LogTags
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -81,7 +82,9 @@ class BridgeRetirementQueue
                     retirementScope
                         .launch(start = CoroutineStart.LAZY) {
                             if (runCatching { reservation.bridge.destroy() }.isFailure) {
-                                Logger.w { "Asynchronous diagnostics bridge retirement failed" }
+                                Logger.w(
+                                    tag = LogTags.DIAGNOSTICS,
+                                ) { "Asynchronous diagnostics bridge retirement failed" }
                             }
                         }
                 }

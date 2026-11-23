@@ -12,6 +12,7 @@ import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.CellularNetworkIdentityTuple
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
@@ -351,7 +352,7 @@ internal class AndroidNetworkFingerprintProvider
             try {
                 snapshotSource.capture()?.let(mapper::map)
             } catch (error: Exception) {
-                Logger.w(error) { "Unable to capture network fingerprint" }
+                Logger.w(error, tag = LogTags.SERVICE) { "Unable to capture network fingerprint" }
                 null
             }
     }

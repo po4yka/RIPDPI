@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PauseMutationPreparationSource
 import com.poyka.ripdpi.data.ProfileMutationOrigin
@@ -183,7 +184,7 @@ class SubscriptionStatusViewModel internal constructor(
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (expectedFailure: Exception) {
-                    Logger.w { "Subscription delete failed: ${expectedFailure::class.simpleName}" }
+                    Logger.w(tag = LogTags.UI) { "Subscription delete failed: ${expectedFailure::class.simpleName}" }
                     deleteFailedGroupId.value = groupId
                 }
             }

@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalPhase
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalReason
 import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneDelta
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateStore
@@ -477,5 +478,5 @@ internal fun remoteAcceptanceRecoveryWarning(warning: RemoteAcceptanceRecoveryWa
     }
 
 internal fun logRecoveryWarning(warning: RemoteAcceptanceRecoveryWarning) {
-    Logger.w { remoteAcceptanceRecoveryWarning(warning) }
+    Logger.w(tag = LogTags.SERVICE) { remoteAcceptanceRecoveryWarning(warning) }
 }

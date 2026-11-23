@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.codec.PacketBackendWire
 import com.poyka.ripdpi.core.codec.insertWireFields
 import com.poyka.ripdpi.core.lifetime.HandleReservation
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
@@ -284,10 +285,10 @@ class Tun2SocksTunnel(
                     }.also { handle = it }
                 }
             if (createdHandle == 0L) {
-                Logger.e { "Tunnel native session creation returned null handle" }
+                Logger.e(tag = LogTags.ENGINE) { "Tunnel native session creation returned null handle" }
                 throw NativeError.SessionCreationFailed("tunnel")
             }
-            Logger.d { "Tunnel native session created: handle=$createdHandle" }
+            Logger.d(tag = LogTags.ENGINE) { "Tunnel native session created: handle=$createdHandle" }
 
             var startAttempted = false
             try {
@@ -310,7 +311,7 @@ class Tun2SocksTunnel(
                 withContext(Dispatchers.IO) {
                     nativeBindings.start(createdHandle, tunFd)
                 }
-                Logger.d { "Tunnel native start completed: tunFd=$tunFd" }
+                Logger.d(tag = LogTags.ENGINE) { "Tunnel native start completed: tunFd=$tunFd" }
                 currentCoroutineContext().ensureActive()
             } catch (error: Exception) {
                 withContext(NonCancellable) {

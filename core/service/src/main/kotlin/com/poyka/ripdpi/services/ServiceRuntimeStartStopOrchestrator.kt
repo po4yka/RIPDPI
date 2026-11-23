@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -21,11 +22,13 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
     private val dependencies: ServiceRuntimeStartStopDependencies<TSession>,
     private val callbacks: ServiceRuntimeStartStopCallbacks<TSession>,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
+    private val log = Logger.withTag(LogTags.SERVICE)
+
     suspend fun start(
         stopSelfStartId: Int? = null,
         transaction: RuntimeStartTransaction? = null,
     ) {
-        Logger.i { "Starting ${dependencies.serviceLabel()}" }
+        log.i { "Starting ${dependencies.serviceLabel()}" }
 
         val context = currentCoroutineContext()
         val originalIntent =
@@ -87,10 +90,12 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                         failure,
                     )
                 val classifiedError = error.unwrapSupervisorStartupFailure()
-                Logger.e(classifiedError) { "Failed to start ${dependencies.serviceLabel()}" }
+                log.e(classifiedError) { "Failed to start ${dependencies.serviceLabel()}" }
                 matchedRememberedPolicy?.let { policy ->
                     runCatching { dependencies.rememberedNetworkPolicyStore.recordFailure(policy) }
-                        .onFailure { Logger.e(it) { "Failed to record remembered policy startup failure" } }
+                        .onFailure {
+                            log.e(it) { "Failed to record remembered policy startup failure" }
+                        }
                 }
                 val failureReason = callbacks.statusHooks.classifyStartupFailure(classifiedError)
                 callbacks.statusHooks.updateStatus(ServiceStatus.Failed, failureReason)
@@ -164,7 +169,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         beforeStopFinalization: suspend () -> Unit = {},
         requestServiceStop: (() -> Unit)?,
     ): RuntimeStopOutcome {
-        Logger.i { "Stopping ${dependencies.serviceLabel()}" }
+        log.i { "Stopping ${dependencies.serviceLabel()}" }
         if (guard == null) dependencies.handoverProcessor.cancel()
         var terminalTelemetryCancellation: CancellationException? = null
         val outcome =
@@ -225,7 +230,10 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                     terminalFailure,
                 )
             }.onFailure { failure ->
-                Logger.e(failure) { "Failed to publish stopped ${dependencies.serviceLabel()} status" }
+                Logger.e(
+                    failure,
+                    tag = LogTags.SERVICE,
+                ) { "Failed to publish stopped ${dependencies.serviceLabel()} status" }
             }
             dependencies.loopOwner.cancelTelemetry()
             runCatching { callbacks.onAfterStopCleanup(session) }
@@ -234,7 +242,10 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 }
             runCatching { session?.clearActiveConnectionPolicy() }
                 .onFailure { failure ->
-                    Logger.e(failure) { "Failed to clear stopped ${dependencies.serviceLabel()} policy" }
+                    Logger.e(
+                        failure,
+                        tag = LogTags.SERVICE,
+                    ) { "Failed to clear stopped ${dependencies.serviceLabel()} policy" }
                 }
             session?.let { activeSession ->
                 runCatching {
@@ -243,7 +254,10 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                         runtimeId = activeSession.runtimeId,
                     )
                 }.onFailure { failure ->
-                    Logger.e(failure) { "Failed to unregister stopped ${dependencies.serviceLabel()} runtime" }
+                    Logger.e(
+                        failure,
+                        tag = LogTags.SERVICE,
+                    ) { "Failed to unregister stopped ${dependencies.serviceLabel()} runtime" }
                 }
             }
             callbacks.setRuntimeSession(null)
@@ -260,14 +274,14 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 }
 
                 TerminalTelemetryCaptureOutcome.TimedOut -> {
-                    Logger.e {
+                    Logger.e(tag = LogTags.SERVICE) {
                         "Timed out capturing final ${dependencies.serviceLabel()} telemetry " +
                             "(attempt ${attempt + 1}/$TerminalTelemetryCaptureAttempts)"
                     }
                 }
 
                 is TerminalTelemetryCaptureOutcome.Failed -> {
-                    Logger.e(outcome.failure) {
+                    Logger.e(outcome.failure, tag = LogTags.SERVICE) {
                         "Failed to capture final ${dependencies.serviceLabel()} telemetry " +
                             "(attempt ${attempt + 1}/$TerminalTelemetryCaptureAttempts)"
                     }

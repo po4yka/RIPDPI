@@ -5,6 +5,7 @@ package com.poyka.ripdpi.diagnostics
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
@@ -72,7 +73,7 @@ class AutomaticProbeScheduler
                         // The delivery stays pending, so the next schedule() for it retries.
                         val failure = runCatching { runDelivery(event) }.exceptionOrNull()
                         if (failure is CancellationException || failure is Error) throw failure
-                        failure?.let { Logger.w(it) { "Automatic probe delivery stopped" } }
+                        failure?.let { Logger.w(it, tag = LogTags.DIAGNOSTICS) { "Automatic probe delivery stopped" } }
                     } finally {
                         pendingProbeJobs.remove(event.deliveryId)
                     }

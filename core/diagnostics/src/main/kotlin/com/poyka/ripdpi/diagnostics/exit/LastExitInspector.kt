@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -92,7 +93,7 @@ internal class AndroidProcessExitHistorySource
                     )
                 }
             }.getOrElse { error ->
-                Logger.w(error) { "Unable to read historical process exit reasons" }
+                Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Unable to read historical process exit reasons" }
                 emptyList()
             }
     }

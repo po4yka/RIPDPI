@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.HostPackPreset
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.applyCuratedHostPack
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
@@ -148,7 +149,7 @@ internal class SettingsMaintenanceActions(
             runCatching {
                 strategyPackService.refreshNow()
             }.onFailure { error ->
-                Logger.w(error) { "Strategy-pack catalog refresh failed" }
+                Logger.w(error, tag = LogTags.UI) { "Strategy-pack catalog refresh failed" }
                 strategyPackCatalogState.value =
                     StrategyPackCatalogUiState(
                         runtimeState = strategyPackStateStore.state.value,
