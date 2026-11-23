@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PolicyHandoverEvent
@@ -64,7 +65,7 @@ internal class ServiceRuntimeHandoverRestarter<TSession>(
             } catch (
                 @Suppress("TooGenericExceptionCaught") error: Exception,
             ) {
-                Logger.e(error) { "Failed to publish the policy handover event" }
+                Logger.e(error, tag = LogTags.SERVICE) { "Failed to publish the policy handover event" }
             }
             return currentFingerprintHash
         }

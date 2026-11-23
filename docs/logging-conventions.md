@@ -37,7 +37,9 @@ Logger.withTag(LogTags.SERVICE).i { "Starting VPN" }
 Logger.withTag(LogTags.DIAGNOSTICS).w(error) { "Scan failed" }
 ```
 
-Available tags are `SERVICE`, `DIAGNOSTICS`, `DATA`, and `UI`.
+Filter logcat with the values from `LogTags`: `Startup`, `Engine`, `Service`, `Diag`,
+`Data`, and `UI`. For example, use `adb logcat -s Service:V Engine:V` to
+inspect runtime startup and shutdown.
 
 The default tag is `ripdpi`. Use an explicit tag to identify the subsystem.
 

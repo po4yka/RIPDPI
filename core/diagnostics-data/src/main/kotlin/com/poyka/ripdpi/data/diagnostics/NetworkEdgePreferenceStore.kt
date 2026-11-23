@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.diagnostics
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
@@ -203,12 +204,20 @@ private val ListSerializer = kotlinx.serialization.builtins.ListSerializer(Prefe
 fun NetworkEdgePreferenceEntity.decodeEdges(json: Json = RipDpiJson): List<PreferredEdgeCandidate> =
     runCatching {
         json.decodeFromString(ListSerializer, edgesJson)
-    }.onFailure { Logger.w(it) { "Failed to decode preferred edge candidates" } }.getOrNull().orEmpty()
+    }.onFailure {
+        Logger.w(it, tag = LogTags.DIAGNOSTICS) { "Failed to decode preferred edge candidates" }
+    }.getOrNull()
+        .orEmpty()
 
 fun NetworkEdgePreferenceEntity.decodeSummary(json: Json = RipDpiJson): NetworkFingerprintSummary? =
     runCatching {
         json.decodeFromString(NetworkFingerprintSummary.serializer(), summaryJson)
-    }.onFailure { Logger.w(it) { "Failed to decode network fingerprint summary" } }.getOrNull()
+    }.onFailure {
+        Logger.w(
+            it,
+            tag = LogTags.DIAGNOSTICS,
+        ) { "Failed to decode network fingerprint summary" }
+    }.getOrNull()
 
 private fun String.normalizedEdgeHost(): String = trim().lowercase()
 

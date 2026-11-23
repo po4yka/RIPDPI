@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -269,7 +270,9 @@ class RipDpiProxyService :
                 }
             }.onFailure { failure ->
                 if (failure !is Exception || failure is kotlinx.coroutines.CancellationException) throw failure
-                Logger.e { "Proxy recovery prerequisite failed: ${failure::class.java.simpleName}" }
+                Logger.e(
+                    tag = LogTags.SERVICE,
+                ) { "Proxy recovery prerequisite failed: ${failure::class.java.simpleName}" }
                 if (failure is RuntimeCleanupPendingException) {
                     serviceStateStore.emitFailed(Sender.Proxy, RuntimeCleanupIncompleteFailure)
                 }

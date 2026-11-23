@@ -17,6 +17,7 @@ import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.core.withoutPacketStrategies
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DirectPolicyEnvironment
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.ServerCapabilityStore
@@ -296,7 +297,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
             policy: RememberedNetworkPolicyEntity,
             reason: String,
         ): Nothing? {
-            Logger.i { "Remembered policy ${policy.id} not replayable: $reason; using baseline" }
+            Logger.i(tag = LogTags.SERVICE) { "Remembered policy ${policy.id} not replayable: $reason; using baseline" }
             return null
         }
     }

@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.InitialTransportSelectionException
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -205,7 +206,7 @@ internal fun validateRelayEgressRequirements(
             else -> null
         }
     if (missingCapability != null) {
-        Logger.w { "Relay transport kind=${config.kind} missingCapability=$missingCapability" }
+        Logger.w(tag = LogTags.SERVICE) { "Relay transport kind=${config.kind} missingCapability=$missingCapability" }
         throw InitialTransportSelectionException(
             "Relay transport ${config.kind} is missing required capability $missingCapability",
         )

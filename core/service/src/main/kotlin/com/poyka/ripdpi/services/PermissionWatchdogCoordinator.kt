@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -20,7 +21,7 @@ internal class PermissionWatchdogCoordinator(
         job =
             scope.launch(dispatcher) {
                 permissionWatchdog.changes.collect { event ->
-                    Logger.i { "Permission change detected: ${event.kind}" }
+                    Logger.i(tag = LogTags.SERVICE) { "Permission change detected: ${event.kind}" }
                     onPermissionRevoked(runtimeId, event)
                 }
             }

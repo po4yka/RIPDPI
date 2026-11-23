@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.application
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationIoScope
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.diagnostics.AutomaticProbeScheduler
@@ -41,7 +42,7 @@ class DefaultDiagnosticsBootstrapper
             runCatching { rawPathSettlementBarrier.recoverPending() }
                 .onFailure { error ->
                     if (error is kotlinx.coroutines.CancellationException) throw error
-                    Logger.w(error) { "Pending raw-path settlement recovery skipped" }
+                    Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Pending raw-path settlement recovery skipped" }
                 }
             if (!initialized.compareAndSet(false, true)) {
                 return
@@ -59,7 +60,7 @@ class DefaultDiagnosticsBootstrapper
                 runCatching { archiveExporter.cleanupCache() }
                     .onFailure { error ->
                         if (error is kotlinx.coroutines.CancellationException) throw error
-                        Logger.w(error) { "Diagnostics archive cache cleanup skipped" }
+                        Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Diagnostics archive cache cleanup skipped" }
                     }
                 if (importBundledProfilesOnInitialize) {
                     // A corrupted override or unreadable bundled catalog must degrade to
@@ -67,7 +68,7 @@ class DefaultDiagnosticsBootstrapper
                     runCatching { profileImporter.importProfiles() }
                         .onFailure { error ->
                             if (error is kotlinx.coroutines.CancellationException) throw error
-                            Logger.w(error) { "Bundled diagnostics profile import skipped" }
+                            Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Bundled diagnostics profile import skipped" }
                         }
                 }
                 scope.launch { collectHandoverEvents() }
@@ -91,7 +92,10 @@ class DefaultDiagnosticsBootstrapper
                     }
                 val failure = collected.exceptionOrNull() ?: return
                 if (failure is kotlinx.coroutines.CancellationException || failure !is Exception) throw failure
-                Logger.w(failure) { "Policy handover event collection failed; resubscribing" }
+                Logger.w(
+                    failure,
+                    tag = LogTags.DIAGNOSTICS,
+                ) { "Policy handover event collection failed; resubscribing" }
                 delay(HandoverRetryBaseDelayMillis shl attempt.coerceAtMost(HandoverRetryMaxShift))
                 attempt += 1
             }
@@ -111,7 +115,7 @@ class DefaultDiagnosticsBootstrapper
                         .filter { it.status == "running" }
                 }.onFailure { error ->
                     if (error is kotlinx.coroutines.CancellationException) throw error
-                    Logger.w(error) { "Interrupted scan session recovery skipped" }
+                    Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Interrupted scan session recovery skipped" }
                 }.getOrNull() ?: return
             interrupted.forEach { session ->
                 runCatching {
@@ -124,13 +128,16 @@ class DefaultDiagnosticsBootstrapper
                     )
                 }.onFailure { error ->
                     if (error is kotlinx.coroutines.CancellationException) throw error
-                    Logger.w(error) { "Interrupted scan session ${session.id} left in running state" }
+                    Logger.w(
+                        error,
+                        tag = LogTags.DIAGNOSTICS,
+                    ) { "Interrupted scan session ${session.id} left in running state" }
                 }
             }
         }
 
         private fun logRuntimeHistoryBootstrapFailure(error: Throwable) {
-            Logger.w(error) { "Runtime history bootstrap skipped" }
+            Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Runtime history bootstrap skipped" }
         }
 
         private companion object {

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.platform
 import androidx.annotation.StringRes
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.LogTags
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -39,6 +40,6 @@ fun StringResolver.userMessage(
     error: Throwable,
     @StringRes fallback: Int = R.string.error_user_generic,
 ): String {
-    Logger.w(error) { "Operation failed: ${error.javaClass.simpleName}" }
+    Logger.w(error, tag = LogTags.UI) { "Operation failed: ${error.javaClass.simpleName}" }
     return getString(error.userMessageRes(fallback))
 }

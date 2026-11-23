@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.settings
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -93,7 +94,7 @@ internal class SettingsMutationRunner(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            Logger.w { "Settings action failed: ${failure.javaClass.simpleName}" }
+            Logger.w(tag = LogTags.UI) { "Settings action failed: ${failure.javaClass.simpleName}" }
             if (onFailure != null) onFailure(StorageFailureNotice) else effects.emit(StorageFailureNotice)
         }
     }

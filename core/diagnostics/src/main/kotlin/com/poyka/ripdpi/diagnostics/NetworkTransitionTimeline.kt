@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import android.net.NetworkCapabilities
 import android.os.SystemClock
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -189,7 +190,7 @@ internal class NetworkTransitionTimeline(
 
                             is Exception -> {
                                 persistenceUnhealthyEpochs.addBounded(command.admission.epoch)
-                                Logger.e(failure) { "Network transition persistence failed" }
+                                Logger.e(failure, tag = LogTags.DIAGNOSTICS) { "Network transition persistence failed" }
                             }
 
                             else -> {

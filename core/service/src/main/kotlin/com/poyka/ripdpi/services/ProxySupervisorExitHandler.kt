@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.classifyFailureReason
 
 internal class ProxySupervisorExitHandler(
@@ -18,7 +19,7 @@ internal class ProxySupervisorExitHandler(
             return
         }
         if (cause is SupervisorExitCause.Crash && cause.code == 0) {
-            Logger.i { "Proxy exited cleanly" }
+            Logger.i(tag = LogTags.SERVICE) { "Proxy exited cleanly" }
             proxyRuntimeSupervisor.detach()
             failAndStop(null)
             return
@@ -27,18 +28,18 @@ internal class ProxySupervisorExitHandler(
         val failureReason =
             when (cause) {
                 is SupervisorExitCause.Crash -> {
-                    Logger.e { "Proxy stopped with code ${cause.code}" }
+                    Logger.e(tag = LogTags.SERVICE) { "Proxy stopped with code ${cause.code}" }
                     FailureReason.NativeError("Proxy exited with code ${cause.code}")
                 }
 
                 is SupervisorExitCause.StartupFailure -> {
                     val error = cause.throwable
-                    Logger.e(error) { "Proxy failed" }
+                    Logger.e(error, tag = LogTags.SERVICE) { "Proxy failed" }
                     classifyFailureReason(error)
                 }
 
                 SupervisorExitCause.Cancellation -> {
-                    Logger.e { "Proxy runtime was cancelled unexpectedly" }
+                    Logger.e(tag = LogTags.SERVICE) { "Proxy runtime was cancelled unexpectedly" }
                     FailureReason.NativeError("Proxy runtime was cancelled unexpectedly")
                 }
 
@@ -59,18 +60,18 @@ internal class ProxySupervisorExitHandler(
         val failureReason =
             when (cause) {
                 is SupervisorExitCause.Crash -> {
-                    Logger.e { "WARP stopped with code ${cause.code}" }
+                    Logger.e(tag = LogTags.SERVICE) { "WARP stopped with code ${cause.code}" }
                     FailureReason.WarpRuntimeFailed("WARP exited with code ${cause.code}")
                 }
 
                 is SupervisorExitCause.StartupFailure -> {
                     val error = cause.throwable
-                    Logger.e(error) { "WARP failed" }
+                    Logger.e(error, tag = LogTags.SERVICE) { "WARP failed" }
                     classifyFailureReason(error)
                 }
 
                 SupervisorExitCause.Cancellation -> {
-                    Logger.e { "WARP runtime was cancelled unexpectedly" }
+                    Logger.e(tag = LogTags.SERVICE) { "WARP runtime was cancelled unexpectedly" }
                     FailureReason.WarpRuntimeFailed("WARP runtime was cancelled unexpectedly")
                 }
 
@@ -104,18 +105,18 @@ internal class ProxySupervisorExitHandler(
         val failureReason =
             when (cause) {
                 is SupervisorExitCause.Crash -> {
-                    Logger.e { "AmneziaWG stopped with code ${cause.code}" }
+                    Logger.e(tag = LogTags.SERVICE) { "AmneziaWG stopped with code ${cause.code}" }
                     FailureReason.NativeError("AmneziaWG exited with code ${cause.code}")
                 }
 
                 is SupervisorExitCause.StartupFailure -> {
                     val error = cause.throwable
-                    Logger.e(error) { "AmneziaWG failed" }
+                    Logger.e(error, tag = LogTags.SERVICE) { "AmneziaWG failed" }
                     classifyFailureReason(error)
                 }
 
                 SupervisorExitCause.Cancellation -> {
-                    Logger.e { "AmneziaWG runtime was cancelled unexpectedly" }
+                    Logger.e(tag = LogTags.SERVICE) { "AmneziaWG runtime was cancelled unexpectedly" }
                     FailureReason.NativeError("AmneziaWG runtime was cancelled unexpectedly")
                 }
 
@@ -131,15 +132,22 @@ internal class ProxySupervisorExitHandler(
     private fun logRelayExit(cause: SupervisorExitCause) {
         when (cause) {
             is SupervisorExitCause.Crash -> {
-                Logger.e { "Relay stopped with code ${cause.code}; keeping base proxy runtime active" }
+                Logger.e(
+                    tag = LogTags.SERVICE,
+                ) { "Relay stopped with code ${cause.code}; keeping base proxy runtime active" }
             }
 
             is SupervisorExitCause.StartupFailure -> {
-                Logger.e(cause.throwable) { "Relay failed after startup; keeping base proxy runtime active" }
+                Logger.e(
+                    cause.throwable,
+                    tag = LogTags.SERVICE,
+                ) { "Relay failed after startup; keeping base proxy runtime active" }
             }
 
             SupervisorExitCause.Cancellation -> {
-                Logger.e { "Relay runtime was cancelled unexpectedly; keeping base proxy runtime active" }
+                Logger.e(
+                    tag = LogTags.SERVICE,
+                ) { "Relay runtime was cancelled unexpectedly; keeping base proxy runtime active" }
             }
 
             SupervisorExitCause.ExpectedStop -> {}

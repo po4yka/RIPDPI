@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
@@ -154,14 +155,14 @@ internal class ServiceControllerDispatch(
             return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.Superseded)
         }
         if (mode == Mode.VPN && VpnService.prepare(context) != null) {
-            Logger.i {
+            Logger.i(tag = LogTags.SERVICE) {
                 "Cannot start VPN service: VPN consent not given"
             }
             return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.VpnConsentMissing)
         }
         when (mode) {
             Mode.VPN -> {
-                Logger.i { "Starting VPN" }
+                Logger.i(tag = LogTags.SERVICE) { "Starting VPN" }
                 val intent =
                     Intent(context, RipDpiVpnService::class.java).apply {
                         this.action = action
@@ -180,7 +181,7 @@ internal class ServiceControllerDispatch(
                     foregroundServiceStarter.startForegroundService(context, intent)
                 } catch (e: IllegalStateException) {
                     // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
-                    Logger.w(e) { "Foreground service start blocked" }
+                    Logger.w(e, tag = LogTags.SERVICE) { "Foreground service start blocked" }
                     return ServiceStartResult.Rejected(
                         mode = mode,
                         reason = ServiceStartRejectionReason.ForegroundServiceBlocked(e.message),
@@ -189,7 +190,7 @@ internal class ServiceControllerDispatch(
             }
 
             Mode.Proxy -> {
-                Logger.i { "Starting proxy" }
+                Logger.i(tag = LogTags.SERVICE) { "Starting proxy" }
                 val intent =
                     Intent(context, RipDpiProxyService::class.java).apply {
                         this.action = action
@@ -200,7 +201,7 @@ internal class ServiceControllerDispatch(
                     foregroundServiceStarter.startForegroundService(context, intent)
                 } catch (e: IllegalStateException) {
                     // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
-                    Logger.w(e) { "Foreground service start blocked" }
+                    Logger.w(e, tag = LogTags.SERVICE) { "Foreground service start blocked" }
                     return ServiceStartResult.Rejected(
                         mode = mode,
                         reason = ServiceStartRejectionReason.ForegroundServiceBlocked(e.message),
@@ -248,7 +249,7 @@ internal class ServiceControllerDispatch(
         val intent =
             when (currentMode) {
                 Mode.VPN -> {
-                    Logger.i { "Stopping VPN" }
+                    Logger.i(tag = LogTags.SERVICE) { "Stopping VPN" }
                     Intent(context, RipDpiVpnService::class.java).apply {
                         this.action = action
                         stampRuntimeStop(expectedSnapshot)
@@ -262,7 +263,7 @@ internal class ServiceControllerDispatch(
                 }
 
                 Mode.Proxy -> {
-                    Logger.i { "Stopping proxy" }
+                    Logger.i(tag = LogTags.SERVICE) { "Stopping proxy" }
                     Intent(context, RipDpiProxyService::class.java).apply {
                         this.action = action
                         stampRuntimeStop(expectedSnapshot)
@@ -279,7 +280,7 @@ internal class ServiceControllerDispatch(
             foregroundServiceStarter.startForegroundService(context, intent)
         } catch (e: IllegalStateException) {
             // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
-            Logger.w(e) { "Foreground service start blocked" }
+            Logger.w(e, tag = LogTags.SERVICE) { "Foreground service start blocked" }
         }
     }
 }

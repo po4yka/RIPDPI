@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services.routing
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleRepository
 import dagger.Binds
@@ -41,7 +42,7 @@ internal class RoomDestinationRoutingPolicySource internal constructor(
         val error = result.exceptionOrNull()
         if (error is CancellationException) throw error
         if (error != null) {
-            Logger.w(error) { "Destination routing snapshot unavailable" }
+            Logger.w(error, tag = LogTags.SERVICE) { "Destination routing snapshot unavailable" }
             return DestinationRoutingPolicySnapshot.Unavailable("rule_source_unavailable")
         }
         val rules = result.getOrThrow()

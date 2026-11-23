@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.export
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsCollectionStatus
@@ -309,7 +310,7 @@ internal class DefaultDiagnosticsArchiveExporter
                 .getOrElse { error ->
                     if (error is CancellationException || error is Error) throw error
                     // The class name only: a collector error message or trace can name hosts or addresses.
-                    Logger.w {
+                    Logger.w(tag = LogTags.DIAGNOSTICS) {
                         "Developer analytics collection failed (${error.javaClass.simpleName}); " +
                             "exporting a typed failure outcome"
                     }

@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundOutcome
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -353,7 +354,7 @@ internal class DefaultDeviceStateEventRecorder
                         }
                     }.exceptionOrNull()
                 if (failure is CancellationException || failure is Error) throw failure
-                failure?.let { Logger.w(it) { "Device state change was not recorded" } }
+                failure?.let { Logger.w(it, tag = LogTags.DIAGNOSTICS) { "Device state change was not recorded" } }
             }
         }
 

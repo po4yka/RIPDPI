@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -23,7 +24,7 @@ internal fun ViewModel.launchSettingsWrite(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (ignored: Exception) {
-            Logger.w { "Settings storage operation failed: ${ignored.javaClass.simpleName}" }
+            Logger.w(tag = LogTags.UI) { "Settings storage operation failed: ${ignored.javaClass.simpleName}" }
             onFailure()
         }
     }

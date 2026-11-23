@@ -10,6 +10,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.LocalSocksCredentials
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NumericIp
 import java.io.Closeable
 import java.io.EOFException
@@ -213,7 +214,9 @@ internal class ManagedClientSocksBridge(
                         handleClient(outer)
                     } catch (error: Exception) {
                         // A bad or aborted client ends only its own thread, never the process.
-                        Logger.d { "PT SOCKS bridge client closed: ${error.javaClass.simpleName}" }
+                        Logger.d(
+                            tag = LogTags.SERVICE,
+                        ) { "PT SOCKS bridge client closed: ${error.javaClass.simpleName}" }
                     } finally {
                         activeSockets -= outer
                         clientSlots.release()

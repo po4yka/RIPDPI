@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -58,7 +59,12 @@ internal class HomeCompositeRunJobs(
                     // The application scope has no handler: a failing failure handler must not kill the process.
                     val handlerFailure = runCatching { onFailure(error) }.exceptionOrNull()
                     if (handlerFailure is CancellationException || handlerFailure is Error) throw handlerFailure
-                    handlerFailure?.let { Logger.e(it) { "Home composite run failure handling failed" } }
+                    handlerFailure?.let {
+                        Logger.e(
+                            it,
+                            tag = LogTags.DIAGNOSTICS,
+                        ) { "Home composite run failure handling failed" }
+                    }
                 } finally {
                     val shouldRelease =
                         synchronized(lifecycleLock) {

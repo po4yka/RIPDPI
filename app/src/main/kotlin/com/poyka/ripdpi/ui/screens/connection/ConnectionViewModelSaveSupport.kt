@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.connection
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.platform.rawPacketOperationsEnabled
@@ -170,7 +171,7 @@ private suspend fun applyCommittedConfigSave(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (ignored: Exception) {
-            Logger.w { "Applying a saved config failed: ${ignored.javaClass.simpleName}" }
+            Logger.w(tag = LogTags.UI) { "Applying a saved config failed: ${ignored.javaClass.simpleName}" }
             onApplyFailure()
         }
     }.join()

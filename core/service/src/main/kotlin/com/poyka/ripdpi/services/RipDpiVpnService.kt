@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.Sender
@@ -475,7 +476,7 @@ class RipDpiVpnService :
             profileInterface: VpnProfileInterface?,
         ): Builder {
             val dnsServers = vpnBuilderDnsServers(dns, ipv6, profileInterface)
-            Logger.v { "DNS configured" }
+            Logger.v(tag = LogTags.SERVICE) { "DNS configured" }
             val builder = Builder()
             underlyingNetworkBinder.applyToBuilder(builder, preparedDirectDnsUnderlayToken)
             builder.setSession("RIPDPI")
@@ -708,7 +709,7 @@ class RipDpiVpnService :
                             IpPrefix(java.net.InetAddress.getByName(route.address), route.prefixLength),
                         )
                     }.onFailure { error ->
-                        Logger.w(error) {
+                        Logger.w(error, tag = LogTags.SERVICE) {
                             "Failed to exclude DHT trigger route ${route.address}/${route.prefixLength}"
                         }
                     }
@@ -716,7 +717,7 @@ class RipDpiVpnService :
             }
 
             plan.warningMessage?.let { warning ->
-                Logger.w { warning }
+                Logger.w(tag = LogTags.SERVICE) { warning }
             }
         }
     }

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.engine.BuildConfig
 import com.poyka.ripdpi.core.lifetime.HandleReservation
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -343,10 +344,10 @@ class RipDpiProxy : RipDpiProxyRuntime {
                             }.also { if (it != 0L) this@RipDpiProxy.handle = it }
                         }
                     if (createdHandle == 0L) {
-                        Logger.e { "Proxy native session creation returned null handle" }
+                        Logger.e(tag = LogTags.ENGINE) { "Proxy native session creation returned null handle" }
                         throw NativeError.SessionCreationFailed("proxy")
                     }
-                    Logger.d { "Proxy native session created: handle=$createdHandle" }
+                    Logger.d(tag = LogTags.ENGINE) { "Proxy native session created: handle=$createdHandle" }
                     createdHandle
                 } catch (error: Exception) {
                     readinessSignal = null
@@ -422,7 +423,7 @@ class RipDpiProxy : RipDpiProxyRuntime {
     override suspend fun awaitReady(timeoutMillis: Long) {
         val startupSignal = readinessSignal ?: throw NativeError.NotRunning("Proxy")
 
-        Logger.d { "Awaiting proxy readiness (timeout=${timeoutMillis}ms)" }
+        Logger.d(tag = LogTags.ENGINE) { "Awaiting proxy readiness (timeout=${timeoutMillis}ms)" }
         awaitRuntimeReady(
             startupSignal = startupSignal,
             timeoutMillis = timeoutMillis,
@@ -431,10 +432,10 @@ class RipDpiProxy : RipDpiProxyRuntime {
             pollTelemetry = { pollTelemetry() },
             onPoll = { telemetry, pollCount ->
                 if (pollCount % readyLogPollInterval == 0L) {
-                    Logger.d { "Proxy readiness: state=${telemetry.state} polls=$pollCount" }
+                    Logger.d(tag = LogTags.ENGINE) { "Proxy readiness: state=${telemetry.state} polls=$pollCount" }
                 }
             },
-            onTimeout = { details -> Logger.w { "$details after ${timeoutMillis}ms" } },
+            onTimeout = { details -> Logger.w(tag = LogTags.ENGINE) { "$details after ${timeoutMillis}ms" } },
         )
     }
 

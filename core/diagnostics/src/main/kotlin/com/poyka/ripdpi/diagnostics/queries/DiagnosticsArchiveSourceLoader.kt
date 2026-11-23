@@ -4,6 +4,7 @@ package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.StartupJournal
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -108,16 +109,28 @@ internal class DiagnosticsArchiveSourceLoader
             runCatching { logcatSnapshotCollector.capture(sinceTimestampMs = earliestSessionStart) }
                 .onFailure { error ->
                     when (error) {
-                        is CancellationException -> throw error
-                        is Error -> throw error
-                        else -> Logger.w { diagnosticsArchiveCaptureFailureLogText("logcat", error) }
+                        is CancellationException -> {
+                            throw error
+                        }
+
+                        is Error -> {
+                            throw error
+                        }
+
+                        else -> {
+                            Logger.w(
+                                tag = LogTags.DIAGNOSTICS,
+                            ) { diagnosticsArchiveCaptureFailureLogText("logcat", error) }
+                        }
                     }
                 }
 
         private fun captureFileLogSnapshot(): Result<FileLogSnapshot?> =
             fileLogWriter
                 .readLogSnapshotResult()
-                .onFailure { error -> Logger.w { diagnosticsArchiveCaptureFailureLogText("app_log", error) } }
+                .onFailure { error ->
+                    Logger.w(tag = LogTags.DIAGNOSTICS) { diagnosticsArchiveCaptureFailureLogText("app_log", error) }
+                }
 
         private fun buildCollectionWarnings(
             logcatCapture: Result<LogcatSnapshot?>,

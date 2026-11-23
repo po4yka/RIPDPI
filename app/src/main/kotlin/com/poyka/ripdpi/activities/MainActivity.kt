@@ -16,6 +16,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.automation.AutomationController
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.data.support.SupportSettingsDeepLinkParseResult
 import com.poyka.ripdpi.data.support.SupportSettingsDeepLinkParser
@@ -103,7 +104,7 @@ class MainActivity : AppCompatActivity() {
                 shellController.hostCommands.collect { command ->
                     runCatching { mainActivityHost.handle(command) }
                         .onFailure { error ->
-                            Logger.e(error) { "Host command failed: $command" }
+                            Logger.e(error, tag = LogTags.UI) { "Host command failed: $command" }
                             hostCommandFailurePermissionResult(command)?.let { (kind, result) ->
                                 viewModel.onPermissionResult(kind = kind, result = result)
                             }
@@ -156,7 +157,7 @@ class MainActivity : AppCompatActivity() {
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Exception) {
-            Logger.e(error) { "Process-death VPN recovery failed" }
+            Logger.e(error, tag = LogTags.UI) { "Process-death VPN recovery failed" }
         }
     }
 
@@ -187,7 +188,7 @@ class MainActivity : AppCompatActivity() {
                     },
                 )
             ) {
-                Logger.w { "Rejected selector selection without a valid shortcut capability" }
+                Logger.w(tag = LogTags.UI) { "Rejected selector selection without a valid shortcut capability" }
             }
         }
     }
@@ -205,7 +206,7 @@ internal fun applySelectorSelectionIntent(
     } else {
         runCatching { select(groupId, profileId) }
             .onFailure { error ->
-                Logger.w(error) { "Failed to apply selector selection from shortcut intent" }
+                Logger.w(error, tag = LogTags.UI) { "Failed to apply selector selection from shortcut intent" }
             }.isSuccess
     }
 }

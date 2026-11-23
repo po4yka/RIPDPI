@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import dagger.Binds
 import dagger.Module
@@ -47,7 +48,9 @@ internal class DefaultProxyRuntimeSupervisorFactory
 
         private fun applyPendingHostAutolearnErase() {
             if (!hostAutolearnStoreController.applyPendingErase()) {
-                Logger.w { "Pending learned-hosts erase could not delete the store; it stays pending" }
+                Logger.w(
+                    tag = LogTags.SERVICE,
+                ) { "Pending learned-hosts erase could not delete the store; it stays pending" }
             }
         }
     }

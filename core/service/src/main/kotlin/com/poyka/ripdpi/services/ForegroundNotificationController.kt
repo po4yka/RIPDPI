@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.os.SystemClock
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.PauseIntent
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
@@ -128,7 +129,7 @@ internal class ForegroundNotificationController(
                 .getSystemService(NotificationManager::class.java)
                 ?.notify(target.notificationId, notification())
         } catch (e: SecurityException) {
-            Logger.w { "Cannot update notification: permission revoked" }
+            Logger.w(tag = LogTags.SERVICE) { "Cannot update notification: permission revoked" }
         }
     }
 

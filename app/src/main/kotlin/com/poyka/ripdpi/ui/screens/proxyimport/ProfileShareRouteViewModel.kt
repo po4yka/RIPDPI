@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.proxyimport
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRepository
@@ -59,7 +60,9 @@ class ProfileShareRouteViewModel
                             throw cancelled
                         } catch (ignored: Exception) {
                             // An undecodable record (for example after a downgrade) is unshareable, not a crash.
-                            Logger.w { "Relay profile share load failed: ${ignored.javaClass.simpleName}" }
+                            Logger.w(
+                                tag = LogTags.UI,
+                            ) { "Relay profile share load failed: ${ignored.javaClass.simpleName}" }
                             null
                         }
                     ensureActive()
