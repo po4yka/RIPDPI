@@ -43,7 +43,7 @@ kotlinx-serialization = "1.13.0"
 kaml = "0.104.0"
 ipaddress = "5.6.2"
 room = "2.8.5"
-robolectric = "4.18"
+robolectric = "4.18.1"
 # Preinstrumented SDKs used by the test suite. Check DefaultSdkProvider when updating Robolectric.
 robolectric-sdk-24 = "7.0.0_r1-robolectric-r1-i7"
 robolectric-sdk-27 = "8.1.0-robolectric-4611349-i7"
