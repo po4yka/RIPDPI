@@ -16,7 +16,9 @@ import com.poyka.ripdpi.core.codec.WsTunnelSectionCodec
 import com.poyka.ripdpi.core.codec.decodeEnvironmentKind
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.serialization.RipDpiNativeProxyJson
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -292,6 +294,45 @@ internal object RipDpiProxyJsonCodec {
         payload
             .also(NativeProxyConfigValidation::validateSupportedPayload)
             .let(json::encodeToString)
+}
+
+internal fun withDebugProxyLogDefault(configJson: String): String {
+    val original =
+        try {
+            RipDpiNativeProxyJson.parseToJsonElement(configJson) as? JsonObject
+        } catch (_: SerializationException) {
+            null
+        } ?: return configJson
+    val updates =
+        when (original["kind"]) {
+            JsonPrimitive("ui") -> {
+                val level = original["nativeLogLevel"]
+                if (level == null ||
+                    level == JsonNull
+                ) {
+                    mapOf("nativeLogLevel" to JsonPrimitive("debug"))
+                } else {
+                    emptyMap()
+                }
+            }
+
+            JsonPrimitive("command_line") -> {
+                (original["args"] as? JsonArray)
+                    ?.let { args ->
+                        val first = args.firstOrNull() as? JsonPrimitive
+                        val programArgCount = if (first != null && !first.content.startsWith('-')) 1 else 0
+                        // The CLI parser applies options in order. Explicit verbosity wins.
+                        val debugDefault = listOf(JsonPrimitive("--debug"), JsonPrimitive("1"))
+                        val updatedArgs = args.take(programArgCount) + debugDefault + args.drop(programArgCount)
+                        mapOf("args" to JsonArray(updatedArgs))
+                    }.orEmpty()
+            }
+
+            else -> {
+                emptyMap()
+            }
+        }
+    return if (updates.isEmpty()) configJson else patchObject(original, updates).toString()
 }
 
 private inline fun <reified T> encodeNullable(
