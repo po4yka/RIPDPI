@@ -8,13 +8,21 @@ import org.junit.Test
 
 class LogcatSnapshotCollectorTest {
     @Test
-    fun `logcat command remains limited to the app pid`() {
-        val command = buildLogcatCommand(pid = 73, sinceTimestampMs = 1700000000000L)
+    fun `debug logcat retains every tag and priority within the app pid`() {
+        val command = buildLogcatCommand(pid = 73, sinceTimestampMs = 1700000000000L, isDebugBuild = true)
 
-        assertTrue(command.contains("--pid=73"))
-        assertTrue(command.contains("-T"))
-        assertTrue(command.contains("ripdpi:V"))
-        assertTrue(!command.contains("*:V"))
+        assertEquals(listOf("logcat", "--pid=73", "-d", "-T"), command.take(4))
+        assertEquals(listOf("*:V"), command.drop(5))
+    }
+
+    @Test
+    fun `release logcat retains warnings and proxy lifecycle within the app pid`() {
+        val command = buildLogcatCommand(pid = 73, sinceTimestampMs = null, isDebugBuild = false)
+
+        assertEquals(
+            listOf("logcat", "--pid=73", "-d", "ripdpi-native:V", "ripdpi:V", "AndroidRuntime:E", "*:W"),
+            command,
+        )
     }
 
     @Test
