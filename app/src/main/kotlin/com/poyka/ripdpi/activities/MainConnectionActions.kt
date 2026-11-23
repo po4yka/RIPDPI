@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.activities
 
 import android.os.SystemClock
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PauseAuthorityRef
 import com.poyka.ripdpi.data.RuntimeCommandOrigin
@@ -87,7 +89,7 @@ internal class MainConnectionActions(
                 return@launch
             }
             val attempt = resultFeedback.begin(mode)
-            setConnectingState()
+            setConnectingState(mode)
             var dispatchCompleted = false
             try {
                 when (val result = serviceController.start(mode)) {
@@ -258,13 +260,17 @@ internal class MainConnectionActions(
         }
     }
 
-    private fun startConnectingTimeout() {
+    private fun startConnectingTimeout(mode: Mode) {
         connectingTimeoutJob?.cancel()
         connectingTimeoutJob =
             mutations.launch {
                 delay(CONNECTING_TIMEOUT)
                 if (runtimeState.value.connectionState == ConnectionState.Connecting) {
                     connectingTimeoutJob = null
+                    Logger.w(tag = LogTags.UI) {
+                        "connection_start_timeout mode=$mode timeoutMs=${CONNECTING_TIMEOUT.inWholeMilliseconds} " +
+                            "serviceStatus=${serviceStateStore.status.value.first}"
+                    }
                     showError(stringResolver.getString(R.string.connection_timed_out))
                 }
             }
@@ -362,7 +368,7 @@ internal class MainConnectionActions(
         return true
     }
 
-    private fun setConnectingState() {
+    private fun setConnectingState(mode: Mode) {
         stopConnectionMetricsPolling()
         runtimeState.update {
             it.copy(
@@ -375,7 +381,7 @@ internal class MainConnectionActions(
                 connectionDuration = ZERO,
             )
         }
-        startConnectingTimeout()
+        startConnectingTimeout(mode)
     }
 
     private fun startConnectionMetricsPolling() {

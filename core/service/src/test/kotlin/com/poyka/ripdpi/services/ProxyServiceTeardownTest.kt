@@ -38,7 +38,7 @@ class ProxyServiceTeardownTest {
                     check(released.isCompleted) { "old proxy still owns resources" }
                     throw graphReached
                 }
-            ReflectionHelpers.getField<ActiveSessionOwnership>(old.get(), "activeOwnership").own {
+            ReflectionHelpers.getField<ActiveSessionOwnership>(old.get(), "activeOwnership").own("runtime") {
                 attempted.complete(Unit)
                 if (!permitRelease.isCompleted) throw RuntimeCleanupPendingException()
                 released.complete(Unit)

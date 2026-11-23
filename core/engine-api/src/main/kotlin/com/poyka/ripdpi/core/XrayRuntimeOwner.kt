@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core
 
+import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.xray.VpnProviderState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -73,11 +75,18 @@ class XrayRuntimeOwner(
                 scope
                     .async(start = CoroutineStart.LAZY) {
                         requireStarting(lease)
+                        var phase = "register_protect"
                         val code =
                             runCatching {
                                 bridge.registerProtect(lease.protect)
+                                phase = "start"
                                 bridge.start(renderedConfig)
-                            }.getOrElse { throw XrayRuntimeException.StartupFailed("Xray native start failed", -1) }
+                            }.getOrElse { failure ->
+                                Logger.e(tag = LogTags.ENGINE) {
+                                    "Xray native start failed: phase=$phase error=${failure.javaClass.simpleName}"
+                                }
+                                throw XrayRuntimeException.StartupFailed("Xray native start failed", -1)
+                            }
                         val version = runCatching { bridge.version() }.getOrDefault("unknown")
                         synchronized(lock) {
                             if (active === lease && !lease.stopRequested) {

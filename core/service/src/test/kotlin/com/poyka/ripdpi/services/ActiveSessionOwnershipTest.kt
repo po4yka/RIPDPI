@@ -19,8 +19,8 @@ class ActiveSessionOwnershipTest {
             val ownership = ActiveSessionOwnership()
             val events = mutableListOf<String>()
             ownership.attach {
-                ownership.own { events += "release binder" }
-                ownership.own { events += "release listener" }
+                ownership.own("binder") { events += "release binder" }
+                ownership.own("listener") { events += "release listener" }
                 events += "attached"
             }
             ownership.attach { error("already attached graph must not be created twice") }
@@ -46,9 +46,9 @@ class ActiveSessionOwnershipTest {
             val failure =
                 runCatching {
                     ownership.attach {
-                        ownership.own { events += "release binder" }
+                        ownership.own("binder") { events += "release binder" }
                         events += "start binder"
-                        ownership.own { events += "release partial listener" }
+                        ownership.own("listener") { events += "release partial listener" }
                         events += "start listener"
                         throw original
                     }
@@ -71,8 +71,8 @@ class ActiveSessionOwnershipTest {
             val failure =
                 runCatching {
                     ownership.attach {
-                        ownership.own { events += "release binder" }
-                        ownership.own {
+                        ownership.own("binder") { events += "release binder" }
+                        ownership.own("listener") {
                             events += "release listener"
                             check(!releaseFails) { "listener cleanup failed" }
                         }
@@ -101,7 +101,7 @@ class ActiveSessionOwnershipTest {
             var secondInitializations = 0
             runCatching {
                 ownership.attach {
-                    ownership.own { check(!releaseFails) { "cleanup still pending" } }
+                    ownership.own("listener") { check(!releaseFails) { "cleanup still pending" } }
                     error("first initialization failed")
                 }
             }
@@ -129,8 +129,8 @@ class ActiveSessionOwnershipTest {
             val operation =
                 async {
                     ownership.attach {
-                        ownership.own { events += "release binder" }
-                        ownership.own {
+                        ownership.own("binder") { events += "release binder" }
+                        ownership.own("listener") {
                             events += "cleanup begins"
                             delay(1)
                             events += "cleanup completes"
@@ -160,7 +160,7 @@ class ActiveSessionOwnershipTest {
             val failure =
                 runCatching {
                     ownership.attach {
-                        ownership.own {
+                        ownership.own("listener") {
                             events += "cleanup begins"
                             delay(1)
                             check(!releaseFails) { "cleanup failed" }

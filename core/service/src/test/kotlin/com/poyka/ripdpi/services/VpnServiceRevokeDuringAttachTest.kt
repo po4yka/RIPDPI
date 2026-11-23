@@ -20,7 +20,7 @@ class VpnServiceRevokeDuringAttachTest {
         service.runtimeEvidenceReporter =
             AndroidRuntimeEvidenceReporter(DefaultDeviceRuntimeEvidenceStore(), AndroidRuntimeEvidenceClock { 1_000 })
         // ensureActiveSession registers its first owned resource before it creates the shell delegate.
-        ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership").own {}
+        ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership").own("network_binder") {}
 
         service.onRevoke()
     }
