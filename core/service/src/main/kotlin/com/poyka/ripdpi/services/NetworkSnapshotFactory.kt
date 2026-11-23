@@ -160,36 +160,38 @@ class NetworkSnapshotFactory
             }
             val telephony = telephonyManager
             val canReadPhoneState = hasPhoneStatePermission()
-            val dataNetworkType =
-                telephony
+            val roaming =
+                cellularIdentity.roaming ?: telephony
                     ?.takeIf { canReadPhoneState }
-                    ?.let { describeMobileNetworkType(runCatching { it.dataNetworkType }.getOrNull()) }
-                    ?.takeUnless { it == "unknown" }
-                    ?: canonicalMobileNetworkType(cellularIdentity.dataNetworkType)
-            val serviceState =
-                telephony
-                    ?.takeIf { hasServiceStatePermission() }
-                    ?.let { describeServiceState(runCatching { it.serviceState?.state }.getOrNull()) }
-                    ?: "unknown"
-            val signalStrength = resolveSignalStrength(telephony, canReadPhoneState)
-            return NativeCellularSnapshot(
-                generation = cellularGeneration(dataNetworkType),
-                roaming =
-                    cellularIdentity.roaming ?: telephony
-                        ?.takeIf { canReadPhoneState }
-                        ?.let { runCatching { it.isNetworkRoaming }.getOrNull() }
-                        ?: false,
-                operatorCode = cellularIdentity.operatorCode,
-                dataNetworkType = dataNetworkType,
-                serviceState = serviceState,
-                carrierId =
+                    ?.let { runCatching { it.isNetworkRoaming }.getOrNull() }
+            return roaming?.let { observedRoaming ->
+                val dataNetworkType =
                     telephony
                         ?.takeIf { canReadPhoneState }
-                        ?.let { invokeInt(it, "getCarrierId") }
-                        ?.takeIf { it >= 0 },
-                signalLevel = signalStrength?.level,
-                signalDbm = resolveSignalDbm(signalStrength),
-            )
+                        ?.let { describeMobileNetworkType(runCatching { it.dataNetworkType }.getOrNull()) }
+                        ?.takeUnless { it == "unknown" }
+                        ?: canonicalMobileNetworkType(cellularIdentity.dataNetworkType)
+                val serviceState =
+                    telephony
+                        ?.takeIf { hasServiceStatePermission() }
+                        ?.let { describeServiceState(runCatching { it.serviceState?.state }.getOrNull()) }
+                        ?: "unknown"
+                val signalStrength = resolveSignalStrength(telephony, canReadPhoneState)
+                NativeCellularSnapshot(
+                    generation = cellularGeneration(dataNetworkType),
+                    roaming = observedRoaming,
+                    operatorCode = cellularIdentity.operatorCode,
+                    dataNetworkType = dataNetworkType,
+                    serviceState = serviceState,
+                    carrierId =
+                        telephony
+                            ?.takeIf { canReadPhoneState }
+                            ?.let { invokeInt(it, "getCarrierId") }
+                            ?.takeIf { it >= 0 },
+                    signalLevel = signalStrength?.level,
+                    signalDbm = resolveSignalDbm(signalStrength),
+                )
+            }
         }
 
         private fun currentWifiInfo(capabilities: NetworkCapabilities?): WifiInfo? =
@@ -286,7 +288,8 @@ internal fun buildNativeNetworkSnapshot(
             validated = fingerprint.networkValidated,
             captivePortal = fingerprint.captivePortalDetected,
             metered = fingerprint.metered,
-            privateDnsMode = fingerprint.privateDnsMode,
+            // The fingerprint uses "system" for non-strict DNS and missing observations.
+            privateDnsMode = fingerprint.privateDnsMode.takeUnless { it == "system" } ?: "unknown",
             dnsServers = fingerprint.dnsServers,
             cellular = cellular,
             wifi = wifi,

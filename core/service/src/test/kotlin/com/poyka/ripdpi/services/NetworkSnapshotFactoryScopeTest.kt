@@ -6,6 +6,7 @@ import android.Manifest
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkInfo
+import com.poyka.ripdpi.data.CellularNetworkIdentityTuple
 import com.poyka.ripdpi.data.DiagnosticsNetworkEpoch
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
@@ -35,6 +36,7 @@ class NetworkSnapshotFactoryScopeTest {
         val snapshot = capture()
         assertEquals("wifi", snapshot.transport)
         assertEquals(1500, snapshot.mtu)
+        assertEquals("unknown", snapshot.privateDnsMode)
         assertEquals(listOf("192.0.2.53"), snapshot.dnsServers)
     }
 
@@ -70,9 +72,27 @@ class NetworkSnapshotFactoryScopeTest {
         assertUnavailable(capture(hasFingerprint = false))
     }
 
+    @Test
+    fun `cellular metadata is omitted without a roaming observation`() {
+        shadowOf(application).denyPermissions(Manifest.permission.READ_PHONE_STATE)
+        val snapshot = capture(cellular = CellularNetworkIdentityTuple(dataNetworkType = "LTE"))
+        assertEquals("cellular", snapshot.transport)
+        assertNull(snapshot.cellular)
+    }
+
+    @Test
+    fun `observed false roaming keeps the cellular block`() {
+        shadowOf(application).denyPermissions(Manifest.permission.READ_PHONE_STATE)
+        val snapshot = capture(cellular = CellularNetworkIdentityTuple(dataNetworkType = "LTE", roaming = false))
+        val cellular = requireNotNull(snapshot.cellular)
+        assertFalse(cellular.roaming)
+        assertEquals("LTE", cellular.dataNetworkType)
+    }
+
     private fun capture(
         hasDefaultNetwork: Boolean = true,
         hasFingerprint: Boolean = true,
+        cellular: CellularNetworkIdentityTuple? = null,
         duringFingerprint: () -> Unit = {},
     ): NativeNetworkSnapshot {
         shadowOf(application).grantPermissions(Manifest.permission.ACCESS_NETWORK_STATE)
@@ -80,7 +100,7 @@ class NetworkSnapshotFactoryScopeTest {
             if (hasDefaultNetwork) {
                 ShadowNetworkInfo.newInstance(
                     NetworkInfo.DetailedState.CONNECTED,
-                    ConnectivityManager.TYPE_WIFI,
+                    if (cellular == null) ConnectivityManager.TYPE_WIFI else ConnectivityManager.TYPE_MOBILE,
                     0,
                     true,
                     true,
@@ -105,11 +125,12 @@ class NetworkSnapshotFactoryScopeTest {
                     duringFingerprint()
                     if (!hasFingerprint) return null
                     return NetworkFingerprint(
-                        transport = "wifi",
+                        transport = if (cellular == null) "wifi" else "cellular",
                         networkValidated = true,
                         captivePortalDetected = false,
                         privateDnsMode = "system",
                         dnsServers = listOf("192.0.2.53"),
+                        cellular = cellular,
                     )
                 }
             }

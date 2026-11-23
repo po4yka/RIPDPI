@@ -422,7 +422,7 @@ private fun resolveNetworkConfig(snapshot: NetworkSnapshotModel?): ResolvedNetwo
     } else {
         ResolvedNetworkConfig(
             transport = snapshot.transport,
-            privateDnsMode = redactPrivateDnsMode(snapshot.privateDnsMode),
+            privateDnsMode = snapshot.redactPrivateDnsMode(),
             mtu = snapshot.mtu,
             networkValidated = snapshot.networkValidated.takeIf { snapshot.hasObservedNetworkCapabilities },
             captivePortalDetected = snapshot.captivePortalDetected.takeIf { snapshot.hasObservedNetworkCapabilities },

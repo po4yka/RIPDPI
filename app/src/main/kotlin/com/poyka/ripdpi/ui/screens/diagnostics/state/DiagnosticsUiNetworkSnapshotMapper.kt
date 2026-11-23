@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import com.poyka.ripdpi.diagnostics.hasObservedNetworkCapabilities
+import com.poyka.ripdpi.diagnostics.observedPrivateDnsMode
 import com.poyka.ripdpi.ui.screens.status.labelRes
 import kotlinx.collections.immutable.toImmutableList
 
@@ -58,7 +59,7 @@ private fun DiagnosticsUiFactorySupport.networkFields(
         ),
         field(
             R.string.diagnostics_field_private_dns,
-            privateDnsModeValue(snapshot.privateDnsMode, showSensitiveDetails),
+            privateDnsModeValue(snapshot.observedPrivateDnsMode, showSensitiveDetails),
         ),
         field(
             R.string.diagnostics_field_interface_mtu,
@@ -310,6 +311,7 @@ private fun DiagnosticsUiFactorySupport.privateDnsModeValue(
     showSensitiveDetails: Boolean,
 ): String =
     when (mode.lowercase()) {
-        "system", "off", "none", "opportunistic", "strict", "unknown", "unavailable" -> mode
+        "off", "none", "opportunistic", "strict" -> mode
+        "unknown" -> unknownFieldLabel()
         else -> sensitiveNetworkValue(mode, showSensitiveDetails)
     }

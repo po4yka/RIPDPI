@@ -66,6 +66,7 @@ class AndroidNetworkMetadataProviderTest {
             val snapshot = capture()
             assertEquals("wifi", snapshot.transport)
             assertEquals(1500, snapshot.mtu)
+            assertEquals("off", snapshot.privateDnsMode)
             assertEquals(listOf("redacted"), snapshot.dnsServers)
             assertEquals("198.51.100.1", snapshot.publicIp)
             assertEquals("AS64500", snapshot.publicAsn)
@@ -73,6 +74,15 @@ class AndroidNetworkMetadataProviderTest {
             assertEquals(true, snapshot.pathValidation?.underlayValidated)
             assertEquals(true, snapshot.networkValidated)
             assertNotNull(snapshot.pathSnapshots)
+        }
+
+    @Test
+    fun `missing link properties leave Private DNS unknown`() =
+        runTest {
+            val snapshot = capture(hasLinks = false)
+            assertEquals("captured", snapshot.pathValidation?.captureStatus)
+            assertEquals("unknown", snapshot.privateDnsMode)
+            assertEquals(SystemPrivateDnsStatus.UNKNOWN.wireValue, snapshot.systemPrivateDnsStatus)
         }
 
     @Test
@@ -172,10 +182,12 @@ class AndroidNetworkMetadataProviderTest {
         }
 
     private suspend fun capture(
+        hasLinks: Boolean = true,
         duringLookup: (ConnectivityManager.NetworkCallback) -> Unit = {},
     ): NetworkSnapshotModel {
         shadowOf(application).grantPermissions(Manifest.permission.ACCESS_NETWORK_STATE)
         selectNetwork(ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI)
+        if (!hasLinks) shadow.setLinkProperties(connectivity.activeNetwork, null)
         val existingCallbacks = shadow.networkCallbacks.toSet()
         val scope = NetworkMetadataCaptureScope(application, epoch, underlay, vpnRoute)
         val callback = (shadow.networkCallbacks - existingCallbacks).single()

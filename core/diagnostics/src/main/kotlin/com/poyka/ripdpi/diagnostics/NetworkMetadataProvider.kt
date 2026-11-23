@@ -250,7 +250,7 @@ class AndroidNetworkMetadataProvider
                 transport = "unavailable",
                 capabilities = emptyList(),
                 dnsServers = emptyList(),
-                privateDnsMode = "unavailable",
+                privateDnsMode = "unknown",
                 mtu = null,
                 localAddresses = emptyList(),
                 publicIp = null,
@@ -300,16 +300,11 @@ class AndroidNetworkMetadataProvider
         }
 
         private fun resolvePrivateDnsMode(linkProperties: LinkProperties?): String {
-            val privateDnsServerName =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    linkProperties?.privateDnsServerName
-                } else {
-                    null
-                }
-            return when {
-                privateDnsServerName.isNullOrBlank() -> "system"
-                else -> privateDnsServerName
-            }
+            if (linkProperties == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return "unknown"
+            return runCatching {
+                linkProperties.privateDnsServerName?.takeIf(String::isNotBlank)
+                    ?: if (linkProperties.isPrivateDnsActive) "opportunistic" else "off"
+            }.getOrDefault("unknown")
         }
 
         private fun resolveMtu(linkProperties: LinkProperties?): Int? =

@@ -37,7 +37,7 @@ class SystemPrivateDnsDetectorTest {
 
     @Test
     fun mapLinkPropertiesToStatus_unknown_when_api_unsupported() {
-        // Below API 29 the resolver name cannot be read, even if one were configured.
+        // Below API 28 the resolver name cannot be read, even if one were configured.
         assertEquals(
             SystemPrivateDnsStatus.UNKNOWN,
             mapLinkPropertiesToStatus(privateDnsServerName = "dns.example.org", apiSupported = false),
@@ -52,6 +52,10 @@ class SystemPrivateDnsDetectorTest {
     fun mapPrivateDnsModeToStatus_classifies_captured_strings() {
         assertEquals(SystemPrivateDnsStatus.ABSENT, mapPrivateDnsModeToStatus("system"))
         assertEquals(SystemPrivateDnsStatus.ABSENT, mapPrivateDnsModeToStatus("System"))
+        assertEquals(SystemPrivateDnsStatus.ABSENT, mapPrivateDnsModeToStatus("off"))
+        assertEquals(SystemPrivateDnsStatus.ABSENT, mapPrivateDnsModeToStatus("opportunistic"))
+        assertEquals(SystemPrivateDnsStatus.UNKNOWN, mapPrivateDnsModeToStatus("unknown"))
+        assertEquals(SystemPrivateDnsStatus.UNKNOWN, mapPrivateDnsModeToStatus("unavailable"))
         assertEquals(SystemPrivateDnsStatus.PRESENT, mapPrivateDnsModeToStatus("dns.example.org"))
         assertEquals(SystemPrivateDnsStatus.UNKNOWN, mapPrivateDnsModeToStatus(""))
         assertEquals(SystemPrivateDnsStatus.UNKNOWN, mapPrivateDnsModeToStatus("   "))

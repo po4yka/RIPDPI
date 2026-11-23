@@ -39,20 +39,17 @@ enum class SystemPrivateDnsStatus(
  * Maps a captured `privateDnsMode` string (as produced by the network snapshot /
  * fingerprint pipeline) to a [SystemPrivateDnsStatus].
  *
- * The pipeline reports `"system"` when no strict Private DNS resolver is active
- * (off / opportunistic), a resolver hostname when strict Private DNS is set, and
- * an empty string when the value is unavailable.
+ * A resolver hostname or `"strict"` signals strict Private DNS.
+ * Non-strict modes do not carry a configured resolver hostname.
  *
  * @param privateDnsMode the captured value, e.g. `"system"`, `"dns.example.org"`, or `""`.
  */
-fun mapPrivateDnsModeToStatus(privateDnsMode: String?): SystemPrivateDnsStatus {
-    val normalized = privateDnsMode?.trim()
-    return when {
-        normalized.isNullOrBlank() -> SystemPrivateDnsStatus.UNKNOWN
-        normalized.equals("system", ignoreCase = true) -> SystemPrivateDnsStatus.ABSENT
+fun mapPrivateDnsModeToStatus(privateDnsMode: String?): SystemPrivateDnsStatus =
+    when (privateDnsMode?.trim()?.lowercase()) {
+        null, "", "unknown", "unavailable" -> SystemPrivateDnsStatus.UNKNOWN
+        "system", "off", "none", "opportunistic" -> SystemPrivateDnsStatus.ABSENT
         else -> SystemPrivateDnsStatus.PRESENT
     }
-}
 
 /**
  * Injectable seam over the Android APIs that report system Private DNS state.
@@ -71,7 +68,7 @@ interface SystemPrivateDnsStatusProvider {
  *
  * @param privateDnsServerName the strict Private DNS hostname Android reports, or
  *   `null` when there is none / the value is unavailable.
- * @param apiSupported `false` when the running platform is below API 29 (the level
+ * @param apiSupported `false` when the running platform is below API 28 (the level
  *   at which `getPrivateDnsServerName()` is available); the status is [UNKNOWN] then.
  */
 fun mapLinkPropertiesToStatus(
@@ -87,20 +84,17 @@ fun mapLinkPropertiesToStatus(
 /**
  * Production [SystemPrivateDnsStatusProvider] backed by [LinkProperties].
  *
- * Reads `getPrivateDnsServerName()` (API 29+) and never logs the resolver
+ * Reads `getPrivateDnsServerName()` (API 28+) and never logs the resolver
  * hostname. Any unexpected failure degrades to [SystemPrivateDnsStatus.UNKNOWN]
  * rather than throwing into the diagnostics capture path.
  */
 class AndroidSystemPrivateDnsStatusProvider : SystemPrivateDnsStatusProvider {
     override fun detect(linkProperties: LinkProperties?): SystemPrivateDnsStatus =
-        runCatching {
-            val apiSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-            val serverName =
-                if (apiSupported) {
-                    linkProperties?.privateDnsServerName
-                } else {
-                    null
-                }
-            mapLinkPropertiesToStatus(serverName, apiSupported)
-        }.getOrDefault(SystemPrivateDnsStatus.UNKNOWN)
+        if (linkProperties == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            SystemPrivateDnsStatus.UNKNOWN
+        } else {
+            runCatching {
+                mapLinkPropertiesToStatus(linkProperties.privateDnsServerName, apiSupported = true)
+            }.getOrDefault(SystemPrivateDnsStatus.UNKNOWN)
+        }
 }

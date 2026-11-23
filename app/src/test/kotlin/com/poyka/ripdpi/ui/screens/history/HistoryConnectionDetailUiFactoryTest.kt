@@ -140,6 +140,37 @@ class HistoryConnectionDetailUiFactoryTest {
     }
 
     @Test
+    fun `connection history distinguishes legacy Private DNS placeholder from observed off`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val strings = AndroidStringResolver(context)
+        val realFactory =
+            HistoryConnectionDetailUiFactory(
+                stringResolver = strings,
+                coreSupport = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(context), strings),
+            )
+        val original = historySnapshot(connectionSessionId = "connection-1")
+        val snapshot = requireNotNull(original.snapshot)
+        val detail =
+            realFactory.toConnectionDetail(
+                DiagnosticConnectionDetail(
+                    session = historyConnectionSession(),
+                    snapshots =
+                        listOf("system", "off").map { mode ->
+                            original.copy(snapshot = snapshot.copy(privateDnsMode = mode))
+                        },
+                    contexts = emptyList(),
+                    telemetry = emptyList(),
+                    events = emptyList(),
+                ),
+            )
+
+        assertEquals(
+            listOf("Unknown", "off"),
+            detail.snapshots.map { it.fields.single { field -> field.label == "Private DNS" }.value },
+        )
+    }
+
+    @Test
     fun `connection history explains values redacted before storage`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val strings = AndroidStringResolver(context)
