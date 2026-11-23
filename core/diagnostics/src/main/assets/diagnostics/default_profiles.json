@@ -787,7 +787,7 @@
     {
       "id": "dpi-detector-full",
       "name": "DPI Detector Full",
-      "version": 4,
+      "version": 5,
       "request": {
         "profileId": "dpi-detector-full",
         "displayName": "DPI Detector Full",
@@ -1217,9 +1217,14 @@
           "uploadPort": 443,
           "dcEndpoints": [
             {
-              "ip": "149.154.175.53",
+              "ip": "149.154.175.50",
               "label": "DC1",
               "port": 443
+            },
+            {
+              "ip": "149.154.175.50",
+              "label": "DC1",
+              "port": 80
             },
             {
               "ip": "149.154.167.51",
@@ -1227,9 +1232,19 @@
               "port": 443
             },
             {
+              "ip": "149.154.167.51",
+              "label": "DC2",
+              "port": 80
+            },
+            {
               "ip": "149.154.175.100",
               "label": "DC3",
               "port": 443
+            },
+            {
+              "ip": "149.154.175.100",
+              "label": "DC3",
+              "port": 80
             },
             {
               "ip": "149.154.167.91",
@@ -1237,9 +1252,19 @@
               "port": 443
             },
             {
-              "ip": "91.108.56.130",
+              "ip": "149.154.167.91",
+              "label": "DC4",
+              "port": 80
+            },
+            {
+              "ip": "149.154.171.5",
               "label": "DC5",
               "port": 443
+            },
+            {
+              "ip": "149.154.171.5",
+              "label": "DC5",
+              "port": 80
             }
           ],
           "stallTimeoutMs": 3000,
@@ -1363,7 +1388,7 @@
     {
       "id": "ru-messaging",
       "name": "Russia Messaging Services",
-      "version": 5,
+      "version": 6,
       "request": {
         "profileId": "ru-messaging",
         "displayName": "Russia Messaging Services",
@@ -1444,9 +1469,19 @@
               "port": 443
             },
             {
+              "ip": "149.154.175.50",
+              "label": "DC1",
+              "port": 80
+            },
+            {
               "ip": "149.154.167.51",
               "label": "DC2",
               "port": 443
+            },
+            {
+              "ip": "149.154.167.51",
+              "label": "DC2",
+              "port": 80
             }
           ],
           "stallTimeoutMs": 3000,
@@ -1609,7 +1644,7 @@
     {
       "id": "ru-dpi-full",
       "name": "Russia DPI Full",
-      "version": 12,
+      "version": 13,
       "request": {
         "profileId": "ru-dpi-full",
         "displayName": "Russia DPI Full",
@@ -1776,9 +1811,14 @@
           "uploadPort": 443,
           "dcEndpoints": [
             {
-              "ip": "149.154.175.53",
+              "ip": "149.154.175.50",
               "label": "DC1",
               "port": 443
+            },
+            {
+              "ip": "149.154.175.50",
+              "label": "DC1",
+              "port": 80
             },
             {
               "ip": "149.154.167.51",
@@ -1786,9 +1826,19 @@
               "port": 443
             },
             {
+              "ip": "149.154.167.51",
+              "label": "DC2",
+              "port": 80
+            },
+            {
               "ip": "149.154.175.100",
               "label": "DC3",
               "port": 443
+            },
+            {
+              "ip": "149.154.175.100",
+              "label": "DC3",
+              "port": 80
             },
             {
               "ip": "149.154.167.91",
@@ -1796,9 +1846,19 @@
               "port": 443
             },
             {
-              "ip": "91.108.56.130",
+              "ip": "149.154.167.91",
+              "label": "DC4",
+              "port": 80
+            },
+            {
+              "ip": "149.154.171.5",
               "label": "DC5",
               "port": 443
+            },
+            {
+              "ip": "149.154.171.5",
+              "label": "DC5",
+              "port": 80
             }
           ],
           "stallTimeoutMs": 3000,

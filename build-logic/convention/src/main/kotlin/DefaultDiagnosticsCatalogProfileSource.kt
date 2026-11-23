@@ -138,7 +138,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "dpi-detector-full",
             name = "DPI Detector Full",
-            version = 4,
+            version = 5,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = false, requiresRawPath = false),
@@ -185,7 +185,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-messaging",
             name = "Russia Messaging Services",
-            version = 5,
+            version = 6,
             family = CatalogDiagnosticProfileFamily.MESSAGING,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -269,7 +269,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-full",
             name = "Russia DPI Full",
-            version = 12,
+            version = 13,
             family = CatalogDiagnosticProfileFamily.DPI_FULL,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
