@@ -13,4 +13,4 @@ metadata-worker owns context model, metadata provider, snapshot factory, snapsho
 ## Verification
 
 Kotlin tests and staticAnalysis.
-- [ ] DGN-1791484702528910 Preserve availability in network models capture and UI with regression tests #feature @item:DGN-1791484646270191
+- [x] DGN-1791484702528910 Preserve availability in network models capture and UI with regression tests #feature @item:DGN-1791484646270191

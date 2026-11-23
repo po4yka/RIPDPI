@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.diagnostics.export.redactPrivateDnsMode
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
@@ -101,7 +102,7 @@ internal fun NetworkSnapshotModel.toRedactedSummary(): RedactedNetworkSummary =
     RedactedNetworkSummary(
         transport = transport,
         dnsServers = if (dnsServers.isEmpty()) "unknown" else "redacted(${dnsServers.size})",
-        privateDnsMode = privateDnsMode,
+        privateDnsMode = redactPrivateDnsMode(),
         publicIp = publicIp?.let { "redacted" } ?: "unknown",
         publicAsn = publicAsn?.let { "redacted" } ?: "unknown",
         localAddresses = if (localAddresses.isEmpty()) "unknown" else "redacted(${localAddresses.size})",

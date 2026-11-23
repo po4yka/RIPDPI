@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.hasObservedNetworkCapabilities
+import com.poyka.ripdpi.diagnostics.observedPrivateDnsMode
 import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
@@ -253,19 +254,23 @@ internal class HistoryConnectionDetailUiFactory
                                     ),
                                     DiagnosticsFieldUiModel(
                                         stringResolver.getString(R.string.diagnostics_field_private_dns),
-                                        when (snapshot.privateDnsMode.lowercase()) {
-                                            "system", "off", "none", "opportunistic", "strict", "unknown",
-                                            "unavailable",
-                                            -> {
-                                                snapshot.privateDnsMode
-                                            }
+                                        snapshot.observedPrivateDnsMode.let { mode ->
+                                            when (mode.lowercase()) {
+                                                "off", "none", "opportunistic", "strict" -> {
+                                                    mode
+                                                }
 
-                                            "redacted" -> {
-                                                stringResolver.getString(R.string.diagnostics_field_not_stored)
-                                            }
+                                                "unknown" -> {
+                                                    stringResolver.getString(R.string.diagnostics_field_unknown)
+                                                }
 
-                                            else -> {
-                                                coreSupport.redactValue(snapshot.privateDnsMode)
+                                                "redacted" -> {
+                                                    stringResolver.getString(R.string.diagnostics_field_not_stored)
+                                                }
+
+                                                else -> {
+                                                    coreSupport.redactValue(mode)
+                                                }
                                             }
                                         },
                                     ),

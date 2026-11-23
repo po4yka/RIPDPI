@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.QuicVersionEvidenceKey
 import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
+import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 import com.poyka.ripdpi.diagnostics.TlsHopEvidenceKey
 import com.poyka.ripdpi.diagnostics.TlsHopLocalKey
 import com.poyka.ripdpi.diagnostics.canonicalDnsResponseSemantics
@@ -23,6 +24,7 @@ import com.poyka.ripdpi.diagnostics.canonicalQuicVersionMatrixEvidence
 import com.poyka.ripdpi.diagnostics.canonicalTlsHopComparisonEvidence
 import com.poyka.ripdpi.diagnostics.canonicalTransferEvidence
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.observedPrivateDnsMode
 import com.poyka.ripdpi.diagnostics.sanitizeVpnRouteEvidenceForArchive
 import com.poyka.ripdpi.diagnostics.toSafeLocalNetworkContext
 import kotlinx.serialization.json.Json
@@ -64,7 +66,10 @@ class DiagnosticsArchiveRedactor
             model.copy(
                 publicIp = model.publicIp?.let { "redacted" },
                 publicAsn = model.publicAsn?.let { "redacted" },
-                privateDnsMode = redactPrivateDnsMode(model.privateDnsMode),
+                privateDnsMode = model.redactPrivateDnsMode(),
+                systemPrivateDnsStatus =
+                    model.systemPrivateDnsStatus.takeUnless { model.observedPrivateDnsMode == "unknown" }
+                        ?: SystemPrivateDnsStatus.UNKNOWN.wireValue,
                 dnsServers =
                     if (model.dnsServers.isNotEmpty()) {
                         listOf("redacted(${model.dnsServers.size})")
@@ -550,10 +555,9 @@ private fun CellularNetworkDetails.redactForArchive(): CellularNetworkDetails =
 
 private fun String.redactCellularIdentity(): String = if (equals("unknown", ignoreCase = true)) this else "redacted"
 
-internal fun redactPrivateDnsMode(value: String): String =
-    when (val normalized = value.trim().lowercase()) {
-        "system", "off", "none", "opportunistic", "strict", "unknown", "unavailable" -> normalized
-        "" -> "unknown"
+internal fun NetworkSnapshotModel.redactPrivateDnsMode(): String =
+    when (val mode = observedPrivateDnsMode.lowercase()) {
+        "off", "none", "opportunistic", "strict", "unknown" -> mode
         else -> "strict"
     }
 

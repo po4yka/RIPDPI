@@ -59,6 +59,7 @@ class DiagnosticsSummaryProjectorTest {
                 publicAsn = null,
                 captivePortalDetected = false,
                 networkValidated = false,
+                systemPrivateDnsStatus = SystemPrivateDnsStatus.ABSENT.wireValue,
                 capturedAt = 1L,
             )
         val legacy = project(snapshot = snapshot).environment.lines
@@ -66,6 +67,18 @@ class DiagnosticsSummaryProjectorTest {
         assertTrue("interfaceMtuLimit=Path MTU is outside the scope of this snapshot." in legacy)
         assertTrue("validated=unknown" in legacy)
         assertTrue("captivePortal=unknown" in legacy)
+        assertTrue("privateDns=unknown" in legacy)
+        val redactor = DiagnosticsArchiveRedactor(RipDpiJson)
+        val redactedLegacy = redactor.redact(snapshot)
+        assertEquals("unknown", redactedLegacy.privateDnsMode)
+        assertEquals(SystemPrivateDnsStatus.UNKNOWN.wireValue, redactedLegacy.systemPrivateDnsStatus)
+
+        val off = snapshot.copy(privateDnsMode = "off")
+        assertTrue("privateDns=off" in project(snapshot = off).environment.lines)
+        assertEquals("off", redactor.redact(off).privateDnsMode)
+
+        val strict = snapshot.copy(privateDnsMode = "resolver.example.test")
+        assertTrue("privateDns=strict" in project(snapshot = strict).environment.lines)
 
         val observed = snapshot.copy(pathValidation = NetworkPathValidationEvidence(captureStatus = "captured"))
         val current = project(snapshot = observed).environment.lines

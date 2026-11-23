@@ -2,7 +2,7 @@
 id: DGN-1791484646270191
 title: Keep unavailable network observations unknown
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: medium
 owner: metadata-worker
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: network-metadata-availability
 created: 2026-10-08
-updated: 2026-10-08
+updated: 2026-11-23
 ---
 
 ## Goal

@@ -47,6 +47,15 @@ data class NetworkSnapshotModel(
 val NetworkSnapshotModel.hasObservedNetworkCapabilities: Boolean
     get() = pathValidation?.captureStatus == "captured" && transport != "unavailable"
 
+val NetworkSnapshotModel.observedPrivateDnsMode: String
+    get() {
+        val mode = privateDnsMode.trim()
+        return when (mode.lowercase()) {
+            "", "system", "unavailable", "unknown" -> "unknown"
+            else -> mode
+        }
+    }
+
 @Serializable
 data class NetworkPathSnapshotPair(
     val captureGeneration: Long,

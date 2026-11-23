@@ -9,8 +9,8 @@ See proposal.md. Legacy booleans have no observation availability.
 
 ## Decisions
 
-- Add optional Kotlin availability metadata; absent legacy metadata is unknown for Boolean observations.
-- Preserve explicit legacy Private DNS hostnames but do not infer system mode from a default string.
+- Use the Kotlin capability capture marker. Legacy Boolean values without that marker are unknown.
+- Store explicit Private DNS modes in the existing field. Treat the legacy system placeholder as unknown. Preserve the strict mode when a legacy snapshot contains a resolver hostname.
 - Omit native cellular metadata when roaming has no observation, because its existing wire field cannot represent unknown.
 
 ## Contracts and ownership
@@ -25,5 +25,5 @@ See proposal.md. Legacy booleans have no observation availability.
 
 ## Migration Plan
 
-- Add an optional archive field. Older archives decode without it. No data rewrite. Revert the commit to roll back.
+- Older snapshots keep their stored data. Apply availability rules when building display and archive projections. Revert the commit to roll back.
 - Gates: diagnostics, service and app unit tests; combined staticAnalysis and architecture health.

@@ -2,8 +2,8 @@
 task_id: DGN-1791484646270191
 change: network-metadata-availability
 commit_sha: null
-local: required
-local_evidence: null
+local: passed
+local_evidence: "Passed 1953 diagnostics tests, 15 targeted service tests, and 24 targeted app tests. Offline staticAnalysis, ci-gates, and task validation passed."
 remote_ci: required
 remote_ci_evidence: null
 device: not_applicable
@@ -20,4 +20,4 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-METADATA-UNKNOWN | DGN-1791484702528910 | Kotlin unit tests and staticAnalysis | Pending |
+| REQ-METADATA-UNKNOWN | DGN-1791484702528910 | Platform capture, summary and archive redaction, history mapping, native snapshot tests, and staticAnalysis | Passed |

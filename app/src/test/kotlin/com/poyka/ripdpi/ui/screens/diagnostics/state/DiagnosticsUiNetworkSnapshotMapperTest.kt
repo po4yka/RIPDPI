@@ -25,6 +25,18 @@ class DiagnosticsUiNetworkSnapshotMapperTest {
     }
 
     @Test
+    fun `snapshot distinguishes legacy Private DNS placeholder from observed off`() {
+        val original = historySnapshot()
+        val snapshot = requireNotNull(original.snapshot)
+        val label = valueLabel(R.string.diagnostics_field_private_dns)
+
+        val legacy = original.copy(snapshot = snapshot.copy(privateDnsMode = "system"))
+        val off = original.copy(snapshot = snapshot.copy(privateDnsMode = "off"))
+        assertEquals("Unknown", fieldsFor(legacy, showSensitiveDetails = true)[label])
+        assertEquals("off", fieldsFor(off, showSensitiveDetails = false)[label])
+    }
+
+    @Test
     fun `new stored snapshot explains redaction and preserves address counts`() {
         val original = historySnapshot()
         val snapshot = requireNotNull(original.snapshot)
