@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.message
@@ -41,10 +42,11 @@ class DiagnosticsGermanSharePresentationTest {
                 ProbeDetail(
                     "dcResults",
                     "DC1:ok:42ms:address=192.0.2.10:443;family=ipv4;path=direct|" +
-                        "DC1:fail::address=192.0.2.10:80;family=ipv4;path=direct",
+                        "DC1:fail::address=192.0.2.10:80;family=ipv4;path=direct;stage=tcp_connect",
                 ),
                 ProbeDetail("wsTunnelStatus", "cancelled"),
                 ProbeDetail("wsTunnelOpenMs", "123"),
+                ProbeDetail("wsTunnelPath", "socks5"),
             )
         val report =
             DiagnosticsSessionProjection(
@@ -75,6 +77,70 @@ class DiagnosticsGermanSharePresentationTest {
         assertTrue(body.contains("Download: durchschnittlich 1,5 Mbps"))
         assertFalse(body.contains("slow"))
         assertEquals(details, report.results.single().details)
+    }
+
+    @Test
+    fun `share keeps the TCP and WebSocket routes separate and preserves old evidence`() {
+        val details =
+            listOf(
+                ProbeDetail(
+                    "dcResults",
+                    "DC1:ok:42ms:address=[2001:db8::1]:443;family=ipv6;path=socks5|" +
+                        "DC1:fail::address=[2001:db8::1]:80;family=ipv6;path=socks5;stage=socks5_negotiation|" +
+                        "DC2:reachable=true:medianRttMs=45:ports=443:ok:45ms",
+                ),
+                ProbeDetail("wsTunnelStatus", "ok"),
+                ProbeDetail("wsTunnelOpenMs", "123"),
+                ProbeDetail("wsTunnelPath", "direct"),
+            )
+        val report =
+            DiagnosticsSessionProjection(
+                results = listOf(ProbeResult("telegram_availability", "Telegram", "partial", details)),
+            )
+        val intent = DiagnosticsShareIntents.createSummaryShareIntent("Telegram", share("en", report))
+        val body = checkNotNull(intent.getStringExtra(Intent.EXTRA_TEXT))
+        listOf(
+            "DC1 · [2001:db8::1]:443 · Available · 42 ms · Route: SOCKS5",
+            "DC1 · [2001:db8::1]:80 · Unreachable · Route: SOCKS5 · Failure stage: SOCKS5 negotiation",
+            "DC2 · 443:ok:45ms · Available · 45 ms · Route: Unknown",
+            "WebSocket handshake · Available · 123 ms · Route: Direct",
+        ).forEach { line -> assertTrue(body.lineSequence().any { it == line }) }
+
+        val legacy =
+            report.copy(
+                results =
+                    listOf(
+                        report.results.single().copy(
+                            details =
+                                listOf(
+                                    ProbeDetail("dcResults", "DC2:reachable=true:medianRttMs=45:ports=443:ok:45ms"),
+                                    ProbeDetail("wsTunnelStatus", "ok"),
+                                    ProbeDetail("wsTunnelOpenMs", "123"),
+                                ),
+                        ),
+                    ),
+            )
+        val legacyBody = share("en", legacy)
+        assertTrue(legacyBody.contains("DC2 · 443:ok:45ms · Available · 45 ms · Route: Unknown"))
+        assertTrue(legacyBody.contains("WebSocket handshake · Available · 123 ms · Route: Unknown"))
+        assertFalse(legacyBody.contains("Failure stage:"))
+    }
+
+    @Test
+    fun `share distinguishes stable and alternate source ports for direct TCP`() {
+        val endpoints =
+            ProbeDetail(
+                "dcResults",
+                "DC1:ok:42ms:address=192.0.2.10:443;path=direct_route_experiment;route=stable|" +
+                    "DC1:ok:58ms:address=192.0.2.10:80;path=direct_route_experiment;route=diversity",
+            )
+        val report =
+            DiagnosticsSessionProjection(
+                results = listOf(ProbeResult("telegram_availability", "Telegram", "ok", listOf(endpoints))),
+            )
+        val body = share("en", report)
+        assertTrue(body.contains("DC1 · 192.0.2.10:443 · Available · 42 ms · Route: Direct (stable source port)"))
+        assertTrue(body.contains("DC1 · 192.0.2.10:80 · Available · 58 ms · Route: Direct (alternate source port)"))
     }
 
     @Test

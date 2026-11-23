@@ -19,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.diagnostics.Diagnosis
+import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
@@ -86,6 +87,50 @@ class HistoryScreenTest {
             "Control check failed",
             "Control check: no data",
             "QUIC Initial exchange only. This probe does not test a complete HTTP/3 request.",
+        ).forEach { text ->
+            composeRule.onNodeWithText(text).performScrollTo().assertIsDisplayed()
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "en-rUS-w411dp-h839dp-mdpi")
+    fun diagnosticsHistoryShowsTelegramEndpointAndOpeningRoutes() {
+        val result =
+            historyProbeResult("telegram_availability").copy(
+                probeType = "telegram_availability",
+                outcome = "partial",
+                details =
+                    listOf(
+                        ProbeDetail(
+                            "dcResults",
+                            "DC1:ok:42ms:address=192.0.2.10:443;family=ipv4;path=direct|" +
+                                "DC1:fail::address=192.0.2.10:80;family=ipv4;path=direct;stage=tcp_connect|" +
+                                "DC2:reachable=false:medianRttMs=:ports=443:fail",
+                        ),
+                        ProbeDetail("wsTunnelStatus", "ok"),
+                        ProbeDetail("wsTunnelPath", "socks5"),
+                        ProbeDetail("wsTunnelOpenMs", "123"),
+                    ),
+            )
+        val history = historyDiagnosticsDetail("telegram").copy(results = listOf(result))
+        val factory =
+            DiagnosticsSessionDetailUiFactory(DiagnosticsUiFactorySupport(RuntimeEnvironment.getApplication()))
+        val ui = factory.toSessionDetailUiModel(history, showSensitiveDetails = false)
+
+        composeRule.setContent {
+            RipDpiTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    DiagnosticsDetailContent(ui, matrixPairing = null, onCompareMatrixSession = {})
+                }
+            }
+        }
+
+        listOf(
+            "192.0.2.10:443 · 42 ms · Route: Direct",
+            "192.0.2.10:80 · Route: Direct · Failure stage: TCP connection",
+            "443:fail · Route: Unknown",
+            "WebSocket handshake",
+            "123 ms · Route: SOCKS5",
         ).forEach { text ->
             composeRule.onNodeWithText(text).performScrollTo().assertIsDisplayed()
         }

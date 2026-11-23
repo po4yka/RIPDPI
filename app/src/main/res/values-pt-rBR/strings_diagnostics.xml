@@ -512,6 +512,11 @@
     <string name="diagnostics_telegram_data_centers">Centros de dados</string>
     <string name="diagnostics_telegram_tcp_endpoints">Pontos de conexão TCP</string>
     <string name="diagnostics_telegram_ws_handshake">Negociação do WebSocket</string>
+    <string name="diagnostics_telegram_route_format">Rota: %1$s</string>
+    <string name="diagnostics_telegram_route_experiment">Direta (experimento de rota)</string>
+    <string name="diagnostics_telegram_route_stable">Direta (porta de origem estável)</string>
+    <string name="diagnostics_telegram_route_diversity">Direta (porta de origem alternativa)</string>
+    <string name="diagnostics_telegram_socks5_negotiation">Negociação SOCKS5</string>
     <string name="diagnostics_telegram_unmeasured_format">Não medido: %1$d</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s acessíveis</string>
     <string name="diagnostics_telegram_avg_speed">Velocidade média</string>

@@ -417,6 +417,11 @@
     <string name="diagnostics_telegram_data_centers">Дата-центры</string>
     <string name="diagnostics_telegram_tcp_endpoints">Точки подключения TCP</string>
     <string name="diagnostics_telegram_ws_handshake">Рукопожатие WebSocket</string>
+    <string name="diagnostics_telegram_route_format">Маршрут: %1$s</string>
+    <string name="diagnostics_telegram_route_experiment">Прямой (эксперимент с маршрутом)</string>
+    <string name="diagnostics_telegram_route_stable">Прямой (стабильный исходный порт)</string>
+    <string name="diagnostics_telegram_route_diversity">Прямой (другой исходный порт)</string>
+    <string name="diagnostics_telegram_socks5_negotiation">Согласование SOCKS5</string>
     <string name="diagnostics_telegram_unmeasured_format">Без измерения: %1$d</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s доступно</string>
     <string name="diagnostics_telegram_avg_speed">Средняя скорость</string>
