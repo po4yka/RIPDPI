@@ -11,6 +11,7 @@ import org.gradle.api.GradleException
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
@@ -240,6 +241,27 @@ abstract class CopyRustNoticesTask : DefaultTask() {
         }
     }
 }
+
+abstract class StageExtendedRuntimeAssetsTask
+    @Inject
+    constructor(
+        private val fileSystemOperations: FileSystemOperations,
+    ) : DefaultTask() {
+        @get:InputFiles
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val assets: ConfigurableFileCollection
+
+        @get:OutputDirectory
+        abstract val outputDir: DirectoryProperty
+
+        @TaskAction
+        fun stage() {
+            fileSystemOperations.sync {
+                from(assets)
+                into(outputDir)
+            }
+        }
+    }
 
 abstract class WriteReleaseIdentityManifestTask : DefaultTask() {
     @get:Input
@@ -756,6 +778,35 @@ aboutLibraries {
 
 // A native-less validation build ships no Rust code, so it needs no Rust notices.
 val nativeLessValidation = providers.gradleProperty("ripdpi.skipNativeBuild").orNull == "true"
+
+val extendedDistributions = setOf("fdroid", "github")
+val extendedRuntimeAssets =
+    configurations.create("extendedRuntimeAssets") {
+        isCanBeConsumed = false
+        isCanBeResolved = true
+    }
+
+dependencies {
+    add(
+        extendedRuntimeAssets.name,
+        project(path = ":core:engine", configuration = "extendedRuntimeAssetsElements"),
+    )
+}
+
+extensions.configure<ApplicationAndroidComponentsExtension> {
+    onVariants(selector().all()) { variant ->
+        val distribution = variant.productFlavors.toMap().getValue("distribution")
+        if (!nativeLessValidation && distribution in extendedDistributions) {
+            val stageAssets =
+                tasks.register<StageExtendedRuntimeAssetsTask>(
+                    variant.computeTaskName("stage", "ExtendedRuntimeAssets"),
+                ) {
+                    assets.from(extendedRuntimeAssets)
+                }
+            variant.sources.assets?.addGeneratedSourceDirectory(stageAssets, StageExtendedRuntimeAssetsTask::outputDir)
+        }
+    }
+}
 
 val generateRustNotices =
     tasks.register<GenerateRustNoticesTask>("generateRustNotices") {

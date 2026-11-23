@@ -1695,9 +1695,6 @@ val rustCloudflareOriginArtifactSpecs =
 extensions.configure<LibraryExtension> {
     sourceSets["main"].jniLibs.directories.add(generatedJniLibsDir.get().asFile.absolutePath)
     sourceSets["main"].jniLibs.directories.add(generatedHelperExecutableJniLibsDir.get().asFile.absolutePath)
-    // The root helper and nfqws2 run through `su` (root SELinux domain), so they stay assets.
-    sourceSets["main"].assets.directories.add(generatedRootHelperAssetsDir.get().asFile.absolutePath)
-    sourceSets["main"].assets.directories.add(generatedNfqws2AssetsDir.get().asFile.absolutePath)
     sourceSets["main"].assets.directories.add(generatedPtMetadataAssetsDir.get().asFile.absolutePath)
 }
 
@@ -1837,6 +1834,14 @@ val buildRustRootHelper =
             ?.takeIf(String::isNotBlank)
             ?.let { prebuiltSourceDir.set(file(it)) }
     }
+
+// Only the app variants that opt in consume these assets.
+configurations.create("extendedRuntimeAssetsElements") {
+    isCanBeConsumed = true
+    isCanBeResolved = false
+    outgoing.artifact(generatedRootHelperAssetsDir) { builtBy(buildRustRootHelper) }
+    outgoing.artifact(generatedNfqws2AssetsDir) { builtBy(buildNfqws2) }
+}
 
 val buildRustNaiveProxy =
     tasks.register<BuildRustNativeLibsTask>("buildRustNaiveProxy") {
@@ -2014,16 +2019,12 @@ if (!skipNativeBuildWiring) {
             dependsOn(stageHelperExecutableJniLibs)
         }
         if (name.matches(Regex("^merge.+Assets$"))) {
-            dependsOn(buildNfqws2)
-            dependsOn(buildRustRootHelper)
             dependsOn(stageHelperExecutableJniLibs)
         }
     }
 
     tasks.named("preBuild") {
-        dependsOn(buildNfqws2)
         dependsOn(buildRustNativeLibs)
-        dependsOn(buildRustRootHelper)
         dependsOn(stageHelperExecutableJniLibs)
     }
 } else {
