@@ -73,7 +73,7 @@ impl ProxyTelemetryState {
         // Ordering: Relaxed -- counter read for display only, no happens-before needed.
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         let message = format!("client error: {error}");
-        self.emit_event("proxy", "warn", &message, None);
+        self.emit_redacted_event("proxy", "warn", &message, "client error");
         self.update_strings(|s| s.last_error = Some(error.clone()));
     }
 
@@ -86,7 +86,12 @@ impl ProxyTelemetryState {
         }
         let error_str = error.to_string();
         let message = format!("client error: {error_str}");
-        self.emit_event("proxy", "warn", &message, None);
+        self.emit_redacted_event(
+            "proxy",
+            "warn",
+            &message,
+            &format!("client error kind={:?} errno={:?}", error.kind(), error.raw_os_error()),
+        );
         self.update_strings(|s| s.last_error = Some(error_str.clone()));
     }
 

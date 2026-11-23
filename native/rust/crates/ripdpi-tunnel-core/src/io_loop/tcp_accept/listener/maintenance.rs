@@ -15,12 +15,12 @@ pub(crate) fn gc_stale_pending_listens(
 ) {
     reconcile_pending_listeners(pending_listens, socket_set);
     let now = Instant::now();
-    pending_listens.retain(|flow_key, pending| {
+    pending_listens.retain(|_, pending| {
         let age = now.duration_since(pending.created_at);
         if age <= timeout {
             return true;
         }
-        debug!("GC stale LISTEN socket for flow {} -> {} (age {age:?})", flow_key.src, flow_key.dst);
+        debug!(age_ms = age.as_millis() as u64, "GC stale LISTEN socket");
         socket_set.remove(pending.handle);
         false
     });

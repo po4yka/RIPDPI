@@ -140,13 +140,13 @@ impl TcpSession {
         F: Future<Output = io::Result<P>>,
         P: AsyncRead + AsyncWrite + Unpin,
     {
-        debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session connecting to proxy");
+        debug!("tcp session connecting to proxy");
         let connect_result = tokio::select! {
             result = tokio::time::timeout(self.connect_timeout, connect(self.proxy_addr)) => result,
             _ = cancel.cancelled() => return Ok(()),
         };
         let mut proxy = connect_result.map_err(|_| timed_out("TCP proxy connect"))??;
-        debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session connected to proxy");
+        debug!("tcp session connected to proxy");
         self.run_with_proxy(local, cancel, &mut proxy).await
     }
 
@@ -166,7 +166,7 @@ impl TcpSession {
     {
         let setup = async {
             super::socks5::handshake(proxy, &self.auth).await?;
-            debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session SOCKS5 handshake complete");
+            debug!("tcp session SOCKS5 handshake complete");
             let started = Instant::now();
             match super::socks5::connect(proxy, &self.target).await {
                 Ok(()) => {
@@ -195,20 +195,14 @@ impl TcpSession {
             }
             _ = cancel.cancelled() => return Ok(()),
         }
-        debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session SOCKS5 CONNECT complete");
+        debug!("tcp session SOCKS5 CONNECT complete");
         let result = splice_with_idle_timeout(local, proxy, self.read_write_timeout, cancel).await;
         match &result {
             Ok((forward, backward)) => {
-                debug!(
-                    proxy = %self.proxy_addr,
-                    target = ?self.target,
-                    forward_bytes = *forward,
-                    backward_bytes = *backward,
-                    "tcp session relay completed"
-                );
+                debug!(forward_bytes = *forward, backward_bytes = *backward, "tcp session relay completed");
             }
             Err(err) => {
-                debug!(proxy = %self.proxy_addr, target = ?self.target, error = %err, "tcp session relay failed");
+                debug!(io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "tcp session relay failed");
             }
         }
         result.map(|_| ())

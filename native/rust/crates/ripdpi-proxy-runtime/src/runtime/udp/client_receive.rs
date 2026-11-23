@@ -117,7 +117,7 @@ pub(super) fn receive_and_forward_udp_client_packet(
                 }
                 // A send error belongs to this flow only (EAGAIN on a saturated uplink, a
                 // pending ICMP error): drop the datagram and keep the other flows going.
-                tracing::debug!(target = %packet.original_target, "UDP flow send failed: {err}");
+                tracing::debug!(io_error_kind = ?err.kind(), os_error_code = err.raw_os_error(), "UDP flow send failed");
                 if err.kind() != io::ErrorKind::WouldBlock {
                     retire_failed_udp_flow(state, flow_state, &packet.flow_key(), protect_path, now)?;
                 }

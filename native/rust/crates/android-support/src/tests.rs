@@ -85,6 +85,16 @@ fn formatter_renders_structured_prefix_fields_before_message() {
 }
 
 #[test]
+fn formatter_uses_redacted_logcat_message_and_preserves_runtime_message() {
+    let mut formatter = MessageFieldFormatter::default();
+    formatter.record_named_str("message", "route selected host=private-destination.example");
+    formatter.record_named_str("logcat_message", "route selected group=3");
+
+    assert_eq!(formatter.message_or_target("proxy"), "route selected host=private-destination.example");
+    assert_eq!(formatter.finish("proxy"), "route selected group=3");
+}
+
+#[test]
 fn event_ring_layer_routes_and_drains_correlation_fields() {
     let buffers = EventRingBuffers::new(RingConfig {
         proxy_capacity: 8,

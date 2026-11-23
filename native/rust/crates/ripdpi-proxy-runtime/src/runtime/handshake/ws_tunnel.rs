@@ -8,7 +8,7 @@ use super::super::ws::{RuntimeTelegramDc, RuntimeWsTunnelConfig, WsSeedClassific
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<RuntimeTelegramDc> {
     let dc = state.should_ws_tunnel_first(target)?;
-    tracing::info!("WS tunnel: sniffing MTProto for known Telegram target {target} (DC{})", dc.number());
+    tracing::info!("WS tunnel: sniffing MTProto for known Telegram DC {}", dc.number());
     Some(dc)
 }
 

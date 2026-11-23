@@ -178,13 +178,7 @@ pub mod connect {
             let _ = set_rcvbuf(&socket, rcvbuf);
         }
         let connect_started = std::time::Instant::now();
-        tracing::debug!(
-            target = %target,
-            bind_ip = %bind_ip,
-            tcp_fast_open = tfo,
-            protected = protect_path.is_some(),
-            "ripdpi upstream connect start"
-        );
+        tracing::debug!(tcp_fast_open = tfo, protected = protect_path.is_some(), "ripdpi upstream connect start");
         let connect_result = if let Some(cancelled) = control.cancelled {
             cancel::connect(&socket, target, connect_timeout, cancelled)
         } else if let Some(timeout) = connect_timeout {
@@ -200,19 +194,17 @@ pub mod connect {
                 tracing::trace!("ripdpi upstream connect cancelled");
             } else {
                 tracing::warn!(
-                    target = %target,
-                    bind_ip = %bind_ip,
                     tcp_fast_open = tfo,
                     protected = protect_path.is_some(),
                     elapsed_ms = connect_started.elapsed().as_millis() as u64,
-                    "ripdpi upstream connect failed: {source}"
+                    io_error_kind = ?source.kind(),
+                    os_error_code = source.raw_os_error(),
+                    "ripdpi upstream connect failed"
                 );
             }
             return Err(TcpConnectError { source, tcp_total_retransmissions, tcp_fast_open_enabled: tfo });
         }
         tracing::debug!(
-            target = %target,
-            bind_ip = %bind_ip,
             tcp_fast_open = tfo,
             protected = protect_path.is_some(),
             elapsed_ms = connect_started.elapsed().as_millis() as u64,

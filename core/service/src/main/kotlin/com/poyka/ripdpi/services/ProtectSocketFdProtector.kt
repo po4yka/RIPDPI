@@ -94,7 +94,6 @@ internal class ProtectSocketFdProtector(
                 )
         when (protectResult) {
             ProtectResult.Protected -> {
-                log.d { "protected fd=$fdInt" }
                 return true
             }
 

@@ -48,7 +48,6 @@ pub(super) fn maybe_rebind_udp_source_port(
                 "udp_source_port_rebind_after_handshake",
             );
             tracing::debug!(
-                target = %entry.current_target,
                 round = entry.session.round_count(),
                 "QUIC UDP source-port rebind (RFC 9000 migration requires QUIC-layer implementation)"
             );
@@ -56,8 +55,8 @@ pub(super) fn maybe_rebind_udp_source_port(
         }
         Err(err) => {
             tracing::debug!(
-                target = %entry.current_target,
-                %err,
+                io_error_kind = ?err.kind(),
+                os_error_code = err.raw_os_error(),
                 "failed to rebind UDP source port after QUIC handshake"
             );
             Ok(())

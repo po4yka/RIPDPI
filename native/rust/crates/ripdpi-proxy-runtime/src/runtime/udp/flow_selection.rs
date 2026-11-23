@@ -87,13 +87,7 @@ pub(super) fn ensure_udp_flow_selected(
         flow_state.remove(&flow_key);
     }
     if udp_flow_at_capacity(flow_state, &flow_key, flow_limit) {
-        tracing::warn!(
-            client = %packet.sender,
-            target = %packet.original_target,
-            flows = flow_state.len(),
-            limit = flow_limit,
-            "UDP flow rejected: at capacity"
-        );
+        tracing::warn!(flows = flow_state.len(), limit = flow_limit, "UDP flow rejected: at capacity");
         state.note_client_slot_exhausted();
         return Ok(false);
     }

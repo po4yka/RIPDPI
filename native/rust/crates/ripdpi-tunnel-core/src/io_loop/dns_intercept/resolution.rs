@@ -29,7 +29,7 @@ pub(in crate::io_loop) fn resolve_mapped_destination(
         sync_direct_dns_mapping_generation(Some(cache), active_generation);
     }
     let Some(entry) = cache.lookup(ip) else {
-        warn!("mapdns reverse lookup miss for synthetic target {}; dropping connection", dst);
+        warn!("mapdns reverse lookup miss for synthetic target; dropping connection");
         return None;
     };
     stats.record_last_host(Some(&entry.host));
