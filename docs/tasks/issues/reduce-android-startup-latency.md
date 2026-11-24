@@ -2,7 +2,7 @@
 id: AND-1795494902099648
 title: Reduce Android startup latency
 kind: feature
-status: doing
+status: review
 area: android
 priority: high
 owner: Android performance
