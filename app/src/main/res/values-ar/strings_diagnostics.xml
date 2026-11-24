@@ -595,11 +595,11 @@
     <string name="detection_check_copy">نسخ</string>
     <string name="detection_check_share">مشاركة</string>
     <string name="detection_onboarding_title">فحص الكشف</string>
-    <string name="detection_onboarding_body">قد يطلب الكشف من Android أذونات الهاتف والموقع لأن هوية Wi-Fi والشبكة الخلوية تساعد في تمييز سلوك الشبكة. لا تستخدم RIPDPI هذه البيانات للتتبع، ولا تُحفظ المعرّفات الخام، وتُخفي صادرات التشخيص المعرّفات الحساسة.</string>
+    <string name="detection_onboarding_body">قد يطلب الكشف من Android أذونات الهاتف والموقع لأن هوية Wi-Fi والشبكة الخلوية تساعد في تمييز سلوك الشبكة. لا تستخدم RIPDPI هذه البيانات للتتبع، ولا تُحفظ المعرّفات الخام، وتُخفي صادرات التشخيص المعرّفات الحساسة. تستخدم الفحوصات الإشارات التي تسمح بها.</string>
     <string name="detection_onboarding_allow">سماح</string>
     <string name="detection_onboarding_skip">تخطي</string>
-    <string name="detection_permission_rationale">يُصنّف Android هذه الأذونات ضمن أذونات الموقع لأن هوية Wi-Fi والشبكة الخلوية قد تدل على موقعك. لا تستخدم RIPDPI هذه البيانات للتتبع؛ تستخدمها الفحوصات فقط لتمييز سلوك الشبكة، ولا تُخزَّن المعرّفات الخام، وتُخفي صادرات التشخيص المعرّفات الحساسة.</string>
-    <string name="detection_permission_settings">تم رفض الأذونات. افتح الإعدادات فقط إذا أردت أن تقرأ فحوصات الكشف هوية Wi-Fi أو الشبكة الخلوية؛ لا تُحفظ المعرّفات الخام وتُخفيها صادرات التشخيص.</string>
+    <string name="detection_permission_rationale">يُصنّف Android هذه الأذونات ضمن أذونات الموقع لأن هوية Wi-Fi والشبكة الخلوية قد تدل على موقعك. لا تستخدم RIPDPI هذه البيانات للتتبع؛ تستخدمها الفحوصات فقط لتمييز سلوك الشبكة، ولا تُخزَّن المعرّفات الخام، وتُخفي صادرات التشخيص المعرّفات الحساسة. تستخدم الفحوصات الإشارات التي تسمح بها.</string>
+    <string name="detection_permission_settings">افتح الإعدادات فقط إذا أردت أن تقرأ فحوصات الكشف هوية Wi-Fi أو الشبكة الخلوية؛ لا تُحفظ المعرّفات الخام وتُخفيها صادرات التشخيص.</string>
     <string name="detection_privacy_mode">وضع الخصوصية</string>
     <string name="detection_history_title">السجل</string>
     <string name="detection_check_category_dns_leak">إعدادات DNS</string>

@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -46,6 +48,7 @@ import com.poyka.ripdpi.core.detection.RecommendationDestination
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
+import com.poyka.ripdpi.platform.userMessageRes
 import com.poyka.ripdpi.platform.withoutBidiIsolates
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -81,11 +84,6 @@ internal fun DetectionCheckRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val performHaptic = rememberRipDpiHapticPerformer()
-    // Re-probe on every resume: the user can grant the permissions in system Settings and come back.
-    LifecycleResumeEffect(viewModel) {
-        viewModel.refreshPermissionState()
-        onPauseOrDispose {}
-    }
     LifecycleEventEffect(viewModel.effects) { effect ->
         val feedback =
             when (effect) {
@@ -103,10 +101,7 @@ internal fun DetectionCheckRoute(
             }
         performHaptic(feedback)
     }
-    DetectionPermissionHandler(
-        uiState = uiState,
-        onPermissionsResult = remember(viewModel) { viewModel::onPermissionsResult },
-    ) { onRequestPermissions ->
+    DetectionPermissionHandler(viewModel) { onRequestPermissions ->
         DetectionCheckScreen(
             uiState = uiState,
             onStart = remember(viewModel) { viewModel::startCheck },
@@ -126,33 +121,66 @@ internal fun DetectionCheckRoute(
 
 @Composable
 private fun DetectionPermissionHandler(
-    uiState: DetectionCheckUiState,
-    onPermissionsResult: () -> Unit,
-    content: @Composable (onRequestPermissions: () -> Unit) -> Unit,
+    viewModel: DetectionCheckViewModel,
+    content: @Composable (onRequestPermissions: (DetectionPermissionPlanner.Action) -> Unit) -> Unit,
 ) {
     val context = LocalContext.current
+    val activity = LocalActivity.current
+    val shouldShowRationale = { permission: String ->
+        activity?.shouldShowRequestPermissionRationale(permission) == true
+    }
+    LifecycleResumeEffect(viewModel, activity) {
+        viewModel.refreshPermissionState(shouldShowRationale)
+        onPauseOrDispose {}
+    }
     val permissionLauncher =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions(),
-        ) { onPermissionsResult() }
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+            viewModel.onPermissionsResult(grants, shouldShowRationale)
+        }
+    val settingsLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            viewModel.onPermissionsResult(emptyMap(), shouldShowRationale)
+        }
 
-    content {
-        when (uiState.permissionAction) {
-            DetectionPermissionPlanner.Action.REQUEST,
-            DetectionPermissionPlanner.Action.SHOW_RATIONALE,
-            -> {
-                permissionLauncher.launch(uiState.missingPermissions.toTypedArray())
+    content { requestedAction ->
+        val state = viewModel.refreshPermissionState(shouldShowRationale)
+        val action =
+            when {
+                requestedAction == DetectionPermissionPlanner.Action.OPEN_SETTINGS -> {
+                    requestedAction.takeIf { state.canOpenPermissionSettings } ?: DetectionPermissionPlanner.Action.NONE
+                }
+
+                state.permissionAction == DetectionPermissionPlanner.Action.OPEN_SETTINGS -> {
+                    DetectionPermissionPlanner.Action.NONE
+                }
+
+                else -> {
+                    state.permissionAction
+                }
             }
+        runCatching {
+            when (action) {
+                DetectionPermissionPlanner.Action.REQUEST,
+                DetectionPermissionPlanner.Action.SHOW_RATIONALE,
+                -> {
+                    permissionLauncher.launch(state.permissionRequest.toTypedArray())
+                }
 
-            DetectionPermissionPlanner.Action.OPEN_SETTINGS -> {
-                val intent =
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
-                    }
-                context.startActivity(intent)
+                DetectionPermissionPlanner.Action.OPEN_SETTINGS -> {
+                    val intent =
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                    settingsLauncher.launch(intent)
+                }
+
+                DetectionPermissionPlanner.Action.NONE -> {
+                    viewModel.onPermissionsResult(emptyMap(), shouldShowRationale)
+                }
             }
-
-            DetectionPermissionPlanner.Action.NONE -> {}
+        }.onFailure { error ->
+            viewModel.onPermissionsResult(emptyMap(), shouldShowRationale)
+            Toast.makeText(context, error.userMessageRes(), Toast.LENGTH_SHORT).show()
         }
     }
 }
@@ -171,7 +199,7 @@ internal fun DetectionCheckScreen(
     onAcceptOnboarding: () -> Unit = onDismissOnboarding,
     onUnlockProtanopiaVariant: () -> Unit = {},
     onReloadCommunityStats: () -> Unit,
-    onRequestPermissions: () -> Unit,
+    onRequestPermissions: (DetectionPermissionPlanner.Action) -> Unit,
 ) {
     val performHaptic = rememberRipDpiHapticPerformer()
 
@@ -245,7 +273,7 @@ private fun DetectionCheckScreenContent(
     onOpenRecommendation: (RecommendationDestination) -> Unit,
     onUnlockProtanopiaVariant: () -> Unit,
     onReloadCommunityStats: () -> Unit,
-    onRequestPermissions: () -> Unit,
+    onRequestPermissions: (DetectionPermissionPlanner.Action) -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -268,8 +296,8 @@ private fun DetectionCheckScreenContent(
         // Detection settings (top-bar gear) owns the toggles; only the keylog warning stays here.
         DetectionTlsKeylogWarning(path = uiState.tlsKeylogWarningPath)
         DetectionPermissionWarning(
-            missingPermissions = uiState.missingPermissions,
             permissionAction = uiState.permissionAction,
+            canOpenPermissionSettings = uiState.canOpenPermissionSettings,
             onRequestPermissions = onRequestPermissions,
         )
         DetectionCheckControls(
@@ -325,7 +353,7 @@ private fun DetectionDialogHost(
     onDismissOnboarding: () -> Unit,
     onSkipOnboarding: () -> Unit,
     onAcceptOnboarding: () -> Unit,
-    onRequestPermissions: () -> Unit,
+    onRequestPermissions: (DetectionPermissionPlanner.Action) -> Unit,
 ) {
     if (showMethodologyDialog) {
         RipDpiDialog(
@@ -357,7 +385,7 @@ private fun DetectionDialogHost(
                     label = stringResource(R.string.detection_onboarding_allow),
                     onClick = {
                         onAcceptOnboarding()
-                        onRequestPermissions()
+                        onRequestPermissions(DetectionPermissionPlanner.Action.REQUEST)
                     },
                 ),
             visuals =
@@ -370,31 +398,36 @@ private fun DetectionDialogHost(
 
 @Composable
 private fun DetectionPermissionWarning(
-    missingPermissions: List<String>,
     permissionAction: DetectionPermissionPlanner.Action,
-    onRequestPermissions: () -> Unit,
+    canOpenPermissionSettings: Boolean,
+    onRequestPermissions: (DetectionPermissionPlanner.Action) -> Unit,
 ) {
-    if (missingPermissions.isEmpty()) return
+    if (permissionAction == DetectionPermissionPlanner.Action.NONE) return
 
+    val opensSettings = permissionAction == DetectionPermissionPlanner.Action.OPEN_SETTINGS
+    val title =
+        if (opensSettings) {
+            R.string.settings_permission_action_open_settings
+        } else {
+            R.string.detection_permission_title
+        }
     WarningBanner(
-        title = stringResource(R.string.detection_permission_title),
+        title = stringResource(title),
         message =
-            when (permissionAction) {
-                DetectionPermissionPlanner.Action.OPEN_SETTINGS -> {
-                    stringResource(R.string.detection_permission_settings)
-                }
-
-                else -> {
-                    stringResource(R.string.detection_permission_rationale)
-                }
-            },
-        tone =
-            when (permissionAction) {
-                DetectionPermissionPlanner.Action.OPEN_SETTINGS -> WarningBannerTone.Restricted
-                else -> WarningBannerTone.Info
-            },
-        onClick = onRequestPermissions,
+            stringResource(
+                if (opensSettings) R.string.detection_permission_settings else R.string.detection_permission_rationale,
+            ),
+        tone = if (opensSettings) WarningBannerTone.Restricted else WarningBannerTone.Info,
+        onClick = { onRequestPermissions(permissionAction) },
     )
+    if (!opensSettings && canOpenPermissionSettings) {
+        RipDpiButton(
+            text = stringResource(R.string.settings_permission_action_open_settings),
+            onClick = { onRequestPermissions(DetectionPermissionPlanner.Action.OPEN_SETTINGS) },
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }
 
 @Composable

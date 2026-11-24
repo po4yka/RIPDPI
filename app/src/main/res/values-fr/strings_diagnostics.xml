@@ -266,7 +266,7 @@
     <string name="detection_community_avg_score">Score moyen de furtivité : %d/100</string>
     <string name="detection_finding_detected">Détecté</string>
     <string name="detection_onboarding_allow">Autoriser</string>
-    <string name="detection_permission_rationale">Android classe ces autorisations comme localisation, car l’identité Wi-Fi et cellulaire peut indiquer où vous êtes. RIPDPI ne les utilise pas pour le suivi; les vérifications les utilisent seulement pour distinguer le comportement réseau, les identifiants bruts ne sont pas stockés et les exports de diagnostic les masquent.</string>
+    <string name="detection_permission_rationale">Android classe ces autorisations comme localisation, car l’identité Wi-Fi et cellulaire peut indiquer où vous êtes. RIPDPI ne les utilise pas pour le suivi; les vérifications les utilisent seulement pour distinguer le comportement réseau, les identifiants bruts ne sont pas stockés et les exports de diagnostic les masquent. Les vérifications utilisent les signaux que vous autorisez.</string>
     <string name="detection_resistance_badge_default">Par défaut</string>
     <string name="detection_resistance_entropy_mode_body">Choisissez le modèle de statistiques de charge utile que le chemin des faux paquets doit contrer.</string>
     <string name="detection_resistance_entropy_padding_title">Cible popcount (pour mille)</string>
@@ -377,8 +377,8 @@
     <string name="detection_check_subtitle">Vérifier la visibilité de votre configuration VPN/proxy.</string>
     <string name="detection_community_retry">Réessayer</string>
     <string name="detection_finding_ok">OK</string>
-    <string name="detection_onboarding_body">La détection peut demander à Android les autorisations téléphone et localisation, car l’identité Wi-Fi et cellulaire aide à distinguer le comportement réseau. RIPDPI ne les utilise pas pour le suivi, les identifiants bruts ne sont pas stockés et les exports de diagnostic masquent les identifiants sensibles.</string>
-    <string name="detection_permission_settings">Les autorisations ont été refusées. Ouvrez les paramètres seulement si vous voulez que les vérifications lisent l’identité Wi-Fi ou cellulaire; les identifiants bruts ne sont pas stockés et les exports de diagnostic les masquent.</string>
+    <string name="detection_onboarding_body">La détection peut demander à Android les autorisations téléphone et localisation, car l’identité Wi-Fi et cellulaire aide à distinguer le comportement réseau. RIPDPI ne les utilise pas pour le suivi, les identifiants bruts ne sont pas stockés et les exports de diagnostic masquent les identifiants sensibles. Les vérifications utilisent les signaux que vous autorisez.</string>
+    <string name="detection_permission_settings">Ouvrez les paramètres seulement si vous voulez que les vérifications lisent l’identité Wi-Fi ou cellulaire; les identifiants bruts ne sont pas stockés et les exports de diagnostic les masquent.</string>
     <string name="detection_resistance_badge_evolution">Évolution de stratégie</string>
     <string name="detection_resistance_entropy_mode_title">Mode de mise en forme d\'entropie</string>
     <string name="detection_resistance_evolution_cooldown_failures_body">Nombre d\'échecs consécutifs avant qu\'une combinaison soit mise en pause. Par défaut : 3.</string>

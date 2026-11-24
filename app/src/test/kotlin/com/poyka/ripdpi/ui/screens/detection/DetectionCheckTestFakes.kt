@@ -94,16 +94,16 @@ internal class FakeNetworkFingerprintProvider(
 }
 
 internal class FakeDetectionPermissionChecker(
-    private val granted: Set<String> = emptySet(),
+    var granted: Set<String> = emptySet(),
 ) : DetectionPermissionChecker {
     override fun isPermissionGranted(permission: String): Boolean = permission in granted
 }
 
 internal class FakeDetectionCheckPreferenceStore(
     private var onboardingShown: Boolean = false,
-    requestedPermissions: Set<String> = emptySet(),
+    deniedPermissions: Set<String> = emptySet(),
 ) : DetectionCheckPreferenceStore {
-    val requested = requestedPermissions.toMutableSet()
+    private val denied = deniedPermissions.toMutableSet()
     var markOnboardingShownCount = 0
 
     override fun wasOnboardingShown(): Boolean = onboardingShown
@@ -113,10 +113,12 @@ internal class FakeDetectionCheckPreferenceStore(
         onboardingShown = true
     }
 
-    override fun wasPermissionRequested(permission: String): Boolean = permission in requested
+    override fun wasPermissionDenied(permission: String): Boolean = permission in denied
 
-    override fun markPermissionsRequested(permissions: Array<String>) {
-        requested += permissions
+    override fun recordPermissionResults(grants: Map<String, Boolean>) {
+        for ((permission, granted) in grants) {
+            if (granted) denied.remove(permission) else denied.add(permission)
+        }
     }
 }
 

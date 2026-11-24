@@ -623,11 +623,11 @@
     <string name="detection_check_copy">Copy</string>
     <string name="detection_check_share">Share</string>
     <string name="detection_onboarding_title">Detection check</string>
-    <string name="detection_onboarding_body">Detection can ask Android for phone and location permissions because Wi-Fi and cellular identity help distinguish network behavior. RIPDPI does not use them for tracking, raw identifiers are not persisted, and diagnostics exports redact sensitive identifiers.</string>
+    <string name="detection_onboarding_body">Detection can ask Android for phone and location permissions because Wi-Fi and cellular identity help distinguish network behavior. RIPDPI does not use them for tracking, raw identifiers are not persisted, and diagnostics exports redact sensitive identifiers. Checks can run with the signals you allow.</string>
     <string name="detection_onboarding_allow">Allow</string>
     <string name="detection_onboarding_skip">Skip</string>
-    <string name="detection_permission_rationale">Android labels these as location permissions because Wi-Fi and cellular identity can imply where you are. RIPDPI does not use them for tracking; checks use them only to distinguish network behavior, raw identifiers are not stored, and diagnostics exports redact sensitive identifiers.</string>
-    <string name="detection_permission_settings">Permissions were denied. Open settings only if you want detection checks to read Wi-Fi or cellular identity; raw identifiers are not persisted and diagnostics exports redact them.</string>
+    <string name="detection_permission_rationale">Android labels these as location permissions because Wi-Fi and cellular identity can imply where you are. RIPDPI does not use them for tracking; checks use them only to distinguish network behavior, raw identifiers are not stored, and diagnostics exports redact sensitive identifiers. Checks can run with the signals you allow.</string>
+    <string name="detection_permission_settings">Open settings only if you want detection checks to read Wi-Fi or cellular identity; raw identifiers are not persisted and diagnostics exports redact them.</string>
     <string name="detection_privacy_mode">Privacy mode</string>
     <string name="detection_history_title">History</string>
     <string name="detection_check_category_dns_leak">DNS settings</string>

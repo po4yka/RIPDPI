@@ -53,7 +53,7 @@ internal interface DetectionCheckPreferenceStore {
 
     fun markOnboardingShown()
 
-    fun wasPermissionRequested(permission: String): Boolean
+    fun wasPermissionDenied(permission: String): Boolean
 
-    fun markPermissionsRequested(permissions: Array<String>)
+    fun recordPermissionResults(grants: Map<String, Boolean>)
 }

@@ -19,18 +19,24 @@ class DetectionCheckPreferences
             prefs.edit().putBoolean(PREF_ONBOARDING_SHOWN, true).apply()
         }
 
-        override fun wasPermissionRequested(permission: String): Boolean =
-            prefs.getBoolean(permissionRequestedKey(permission), false)
+        override fun wasPermissionDenied(permission: String): Boolean =
+            prefs.getBoolean(deniedPermissionKey(permission), false)
 
-        override fun markPermissionsRequested(permissions: Array<String>) {
+        override fun recordPermissionResults(grants: Map<String, Boolean>) {
+            if (grants.isEmpty()) return
             val editor = prefs.edit()
-            for (permission in permissions) {
-                editor.putBoolean(permissionRequestedKey(permission), true)
+            for ((permission, granted) in grants) {
+                if (granted) {
+                    editor.remove(deniedPermissionKey(permission))
+                } else {
+                    editor.putBoolean(deniedPermissionKey(permission), true)
+                }
             }
             editor.apply()
         }
 
-        private fun permissionRequestedKey(permission: String): String = "perm_requested_$permission"
+        // Old request flags also recorded cancellations and permissions that Android did not ask for.
+        private fun deniedPermissionKey(permission: String): String = "perm_denied_$permission"
 
         private companion object {
             const val PREFS_NAME = "detection_check_prefs"

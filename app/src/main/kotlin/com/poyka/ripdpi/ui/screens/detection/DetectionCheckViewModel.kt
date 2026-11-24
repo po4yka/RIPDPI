@@ -40,7 +40,8 @@ data class DetectionCheckUiState(
     val error: String? = null,
     val showOnboarding: Boolean = false,
     val permissionAction: DetectionPermissionPlanner.Action = DetectionPermissionPlanner.Action.NONE,
-    val missingPermissions: ImmutableList<String> = persistentListOf(),
+    val permissionRequest: ImmutableList<String> = persistentListOf(),
+    val canOpenPermissionSettings: Boolean = false,
     val history: ImmutableList<DetectionHistoryEntry> = persistentListOf(),
     val communityStats: CommunityStats? = null,
     val communityStatsLoading: Boolean = false,
@@ -113,7 +114,6 @@ class DetectionCheckViewModel
         private var startAfterPermissionResult = false
 
         init {
-            permissionStateOwner.refreshPermissionState()
             auxStateOwner.observeDetectionSettings()
             auxStateOwner.loadHistory()
             auxStateOwner.loadCommunityState()
@@ -141,19 +141,21 @@ class DetectionCheckViewModel
             startAfterPermissionResult = true
         }
 
-        fun onPermissionsResult() {
-            permissionStateOwner.onPermissionsResult()
+        internal fun onPermissionsResult(
+            grants: Map<String, Boolean>,
+            shouldShowRationale: (String) -> Boolean,
+        ) {
+            permissionStateOwner.onPermissionsResult(grants, shouldShowRationale)
             if (startAfterPermissionResult) {
                 startAfterPermissionResult = false
                 runCoordinator.startCheck()
             }
         }
 
-        fun refreshPermissionState() = permissionStateOwner.refreshPermissionState()
+        internal fun refreshPermissionState(shouldShowRationale: (String) -> Boolean): DetectionCheckUiState {
+            permissionStateOwner.refreshPermissionState(shouldShowRationale)
+            return reducer.value
+        }
 
         val unlockProtanopiaVariant: () -> Unit = auxStateOwner.unlockProtanopiaVariant
-
-        companion object {
-            fun requiredPermissions(): Array<String> = DetectionPermissionStateOwner.requiredPermissions()
-        }
     }

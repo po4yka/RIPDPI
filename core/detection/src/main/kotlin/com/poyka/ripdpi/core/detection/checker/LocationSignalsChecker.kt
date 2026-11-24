@@ -84,15 +84,6 @@ object LocationSignalsChecker {
                 context,
                 Manifest.permission.ACCESS_FINE_LOCATION,
             ) == PackageManager.PERMISSION_GRANTED
-        val nearbyWifiGranted =
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.NEARBY_WIFI_DEVICES,
-                ) == PackageManager.PERMISSION_GRANTED
-        val locationGranted =
-            fineLocationGranted && nearbyWifiGranted
-
         var networkMcc: String? = null
         var networkCountryIso: String? = null
         var networkOperatorName: String? = null
@@ -122,7 +113,7 @@ object LocationSignalsChecker {
         var bssid: String? = null
         var cellTowers = emptyList<CellTowerSignal>()
         var wifiAccessPoints = emptyList<WifiAccessPointSignal>()
-        if (locationGranted) {
+        if (fineLocationGranted) {
             try {
                 bssid = getBssid(context)
                 if (phoneGranted) {
@@ -147,7 +138,7 @@ object LocationSignalsChecker {
             isRoaming = isRoaming,
             bssid = bssid,
             phonePermissionGranted = phoneGranted,
-            locationPermissionGranted = locationGranted,
+            locationPermissionGranted = fineLocationGranted,
             cellTowerCandidatesCount = cellTowers.size,
             wifiAccessPointCandidatesCount = wifiAccessPoints.size,
         )

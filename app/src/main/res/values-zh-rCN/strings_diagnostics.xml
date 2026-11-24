@@ -395,8 +395,8 @@
     <string name="detection_community_avg_score">平均隐匿评分:%d/100</string>
     <string name="detection_community_local_title">您的统计数据</string>
     <string name="detection_finding_review">需要审查</string>
-    <string name="detection_onboarding_body">检测可能会向 Android 请求电话和位置权限，因为 Wi-Fi 和蜂窝网络身份有助于区分网络行为。RIPDPI 不会将其用于跟踪，原始标识符不会被保存，诊断导出也会将敏感标识符脱敏。</string>
-    <string name="detection_permission_rationale">Android 将这些权限归类为位置权限，因为 Wi-Fi 和蜂窝网络身份可能透露你所在的位置。RIPDPI 不会将其用于跟踪；检查仅用它区分网络行为，原始标识符不会被保存，诊断导出也会将敏感标识符脱敏。</string>
+    <string name="detection_onboarding_body">检测可能会向 Android 请求电话和位置权限，因为 Wi-Fi 和蜂窝网络身份有助于区分网络行为。RIPDPI 不会将其用于跟踪，原始标识符不会被保存，诊断导出也会将敏感标识符脱敏。 检测可以使用你允许读取的数据继续运行。</string>
+    <string name="detection_permission_rationale">Android 将这些权限归类为位置权限，因为 Wi-Fi 和蜂窝网络身份可能透露你所在的位置。RIPDPI 不会将其用于跟踪；检查仅用它区分网络行为，原始标识符不会被保存，诊断导出也会将敏感标识符脱敏。 检测可以使用你允许读取的数据继续运行。</string>
     <string name="detection_resistance_active_title">检测抗性已调优</string>
     <string name="detection_resistance_badge_quic_migrate">UDP 重绑定</string>
     <string name="detection_resistance_entropy_padding_body">较低的目标值产生更接近 ASCII 的填充,主要用于对抗位计数分类器。</string>
@@ -476,7 +476,7 @@
     <string name="detection_error_retry">重试</string>
     <string name="detection_history_title">历史记录</string>
     <string name="detection_onboarding_skip">跳过</string>
-    <string name="detection_permission_settings">权限已被拒绝。只有当你希望检测检查读取 Wi-Fi 或蜂窝网络身份时才打开设置；原始标识符不会被保存，诊断导出也会将其脱敏。</string>
+    <string name="detection_permission_settings">只有当你希望检测检查读取 Wi-Fi 或蜂窝网络身份时才打开设置；原始标识符不会被保存，诊断导出也会将其脱敏。</string>
     <string name="detection_resistance_badge_default">默认</string>
     <string name="detection_resistance_cli_title">命令行模式控制这些设置</string>
     <string name="detection_resistance_entropy_padding_max_body">运行时在塑造 fake 数据包时可添加的最大额外字节数。</string>

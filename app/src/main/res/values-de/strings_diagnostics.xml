@@ -266,7 +266,7 @@
     <string name="detection_community_avg_score">Durchschnittlicher Stealth-Score: %d/100</string>
     <string name="detection_finding_detected">Erkannt</string>
     <string name="detection_onboarding_allow">Zulassen</string>
-    <string name="detection_permission_rationale">Android stuft diese Berechtigungen als Standort ein, weil Wi-Fi- und Mobilfunkidentität verraten können, wo Sie sind. RIPDPI nutzt sie nicht zum Tracking; Prüfungen nutzen sie nur, um Netzwerkverhalten zu unterscheiden. Rohkennungen werden nicht gespeichert und Diagnoseexporte machen sensible Kennungen unkenntlich.</string>
+    <string name="detection_permission_rationale">Android stuft diese Berechtigungen als Standort ein, weil Wi-Fi- und Mobilfunkidentität verraten können, wo Sie sind. RIPDPI nutzt sie nicht zum Tracking; Prüfungen nutzen sie nur, um Netzwerkverhalten zu unterscheiden. Rohkennungen werden nicht gespeichert und Diagnoseexporte machen sensible Kennungen unkenntlich. Die Prüfungen nutzen die freigegebenen Signale.</string>
     <string name="detection_resistance_badge_default">Standard</string>
     <string name="detection_resistance_entropy_mode_body">Wählen Sie, welches Modell der Nutzlast-Statistik vom Fake-Paket-Pfad konterkariert werden soll.</string>
     <string name="detection_resistance_entropy_padding_title">Popcount-Ziel (Promille)</string>
@@ -377,8 +377,8 @@
     <string name="detection_check_subtitle">Prüfen Sie, wie sichtbar Ihre VPN-/Proxy-Konfiguration ist.</string>
     <string name="detection_community_retry">Erneut versuchen</string>
     <string name="detection_finding_ok">OK</string>
-    <string name="detection_onboarding_body">Die Erkennung kann Android nach Telefon- und Standortberechtigungen fragen, weil Wi-Fi- und Mobilfunkidentität helfen, Netzwerkverhalten zu unterscheiden. RIPDPI nutzt sie nicht zum Tracking. Rohkennungen werden nicht gespeichert und Diagnoseexporte machen sensible Kennungen unkenntlich.</string>
-    <string name="detection_permission_settings">Berechtigungen wurden verweigert. Öffnen Sie die Einstellungen nur, wenn die Prüfungen Wi-Fi- oder Mobilfunkidentität lesen sollen. Rohkennungen werden nicht gespeichert und Diagnoseexporte machen sie unkenntlich.</string>
+    <string name="detection_onboarding_body">Die Erkennung kann Android nach Telefon- und Standortberechtigungen fragen, weil Wi-Fi- und Mobilfunkidentität helfen, Netzwerkverhalten zu unterscheiden. RIPDPI nutzt sie nicht zum Tracking. Rohkennungen werden nicht gespeichert und Diagnoseexporte machen sensible Kennungen unkenntlich. Die Prüfungen nutzen die freigegebenen Signale.</string>
+    <string name="detection_permission_settings">Öffnen Sie die Einstellungen nur, wenn die Prüfungen Wi-Fi- oder Mobilfunkidentität lesen sollen. Rohkennungen werden nicht gespeichert und Diagnoseexporte machen sie unkenntlich.</string>
     <string name="detection_resistance_badge_evolution">Strategie-Evolution</string>
     <string name="detection_resistance_entropy_mode_title">Entropie-Shaping-Modus</string>
     <string name="detection_resistance_evolution_cooldown_failures_body">Anzahl aufeinanderfolgender Fehlschläge, bevor eine Kombination in Cooldown versetzt wird. Standard: 3.</string>

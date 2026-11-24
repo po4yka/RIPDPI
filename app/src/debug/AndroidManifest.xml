@@ -2,6 +2,9 @@
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <!-- Android 16 local network restriction test opt-in. -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+
 
     <application android:usesCleartextTraffic="true">
         <receiver

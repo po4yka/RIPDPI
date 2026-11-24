@@ -599,11 +599,11 @@
     <string name="detection_check_copy">Copiar</string>
     <string name="detection_check_share">Compartilhar</string>
     <string name="detection_onboarding_title">Verificação de detecção</string>
-    <string name="detection_onboarding_body">A detecção pode pedir ao Android as permissões de telefone e localização porque a identidade de Wi-Fi e celular ajuda a distinguir o comportamento da rede. O RIPDPI não as usa para rastreamento, identificadores brutos não são persistidos, e as exportações de diagnóstico ocultam identificadores sensíveis.</string>
+    <string name="detection_onboarding_body">A detecção pode pedir ao Android as permissões de telefone e localização porque a identidade de Wi-Fi e celular ajuda a distinguir o comportamento da rede. O RIPDPI não as usa para rastreamento, identificadores brutos não são persistidos, e as exportações de diagnóstico ocultam identificadores sensíveis. As verificações usam os sinais que você autorizar.</string>
     <string name="detection_onboarding_allow">Permitir</string>
     <string name="detection_onboarding_skip">Pular</string>
-    <string name="detection_permission_rationale">O Android rotula essas permissões como de localização porque a identidade de Wi-Fi e celular pode indicar onde você está. O RIPDPI não as usa para rastreamento; as verificações as usam apenas para distinguir o comportamento da rede, identificadores brutos não são armazenados, e as exportações de diagnóstico os ocultam.</string>
-    <string name="detection_permission_settings">As permissões foram negadas. Abra as configurações apenas se quiser que as verificações de detecção leiam a identidade de Wi-Fi ou celular; identificadores brutos não são persistidos e as exportações de diagnóstico os ocultam.</string>
+    <string name="detection_permission_rationale">O Android rotula essas permissões como de localização porque a identidade de Wi-Fi e celular pode indicar onde você está. O RIPDPI não as usa para rastreamento; as verificações as usam apenas para distinguir o comportamento da rede, identificadores brutos não são armazenados, e as exportações de diagnóstico os ocultam. As verificações usam os sinais que você autorizar.</string>
+    <string name="detection_permission_settings">Abra as configurações apenas se quiser que as verificações de detecção leiam a identidade de Wi-Fi ou celular; identificadores brutos não são persistidos e as exportações de diagnóstico os ocultam.</string>
     <string name="detection_privacy_mode">Modo de privacidade</string>
     <string name="detection_history_title">Histórico</string>
     <string name="detection_check_category_dns_leak">Configurações de DNS</string>

@@ -266,7 +266,7 @@
     <string name="detection_community_avg_score">Puntuación de sigilo media: %d/100</string>
     <string name="detection_finding_detected">Detectado</string>
     <string name="detection_onboarding_allow">Permitir</string>
-    <string name="detection_permission_rationale">Android clasifica estos permisos como ubicación porque la identidad de Wi-Fi y red celular puede indicar dónde estás. RIPDPI no los usa para seguimiento; las comprobaciones solo los usan para distinguir el comportamiento de la red, los identificadores sin procesar no se guardan y las exportaciones de diagnóstico los ocultan.</string>
+    <string name="detection_permission_rationale">Android clasifica estos permisos como ubicación porque la identidad de Wi-Fi y red celular puede indicar dónde estás. RIPDPI no los usa para seguimiento; las comprobaciones solo los usan para distinguir el comportamiento de la red, los identificadores sin procesar no se guardan y las exportaciones de diagnóstico los ocultan. Las comprobaciones usan los datos que autorices.</string>
     <string name="detection_resistance_badge_default">Por defecto</string>
     <string name="detection_resistance_entropy_mode_body">Elige qué modelo de estadísticas de payload debe contrarrestar la ruta de paquetes fake.</string>
     <string name="detection_resistance_entropy_padding_title">Objetivo de popcount (por mil)</string>
@@ -377,8 +377,8 @@
     <string name="detection_check_subtitle">Comprueba qué tan visible es tu configuración de VPN/proxy.</string>
     <string name="detection_community_retry">Reintentar</string>
     <string name="detection_finding_ok">OK</string>
-    <string name="detection_onboarding_body">La detección puede pedir a Android permisos de teléfono y ubicación porque la identidad de Wi-Fi y red celular ayuda a distinguir el comportamiento de la red. RIPDPI no los usa para seguimiento, los identificadores sin procesar no se guardan y las exportaciones de diagnóstico ocultan los identificadores sensibles.</string>
-    <string name="detection_permission_settings">Se denegaron los permisos. Abre la configuración solo si quieres que las comprobaciones lean la identidad de Wi-Fi o red celular; los identificadores sin procesar no se guardan y las exportaciones de diagnóstico los ocultan.</string>
+    <string name="detection_onboarding_body">La detección puede pedir a Android permisos de teléfono y ubicación porque la identidad de Wi-Fi y red celular ayuda a distinguir el comportamiento de la red. RIPDPI no los usa para seguimiento, los identificadores sin procesar no se guardan y las exportaciones de diagnóstico ocultan los identificadores sensibles. Las comprobaciones usan los datos que autorices.</string>
+    <string name="detection_permission_settings">Abre la configuración solo si quieres que las comprobaciones lean la identidad de Wi-Fi o red celular; los identificadores sin procesar no se guardan y las exportaciones de diagnóstico los ocultan.</string>
     <string name="detection_resistance_badge_evolution">Evolución de estrategia</string>
     <string name="detection_resistance_entropy_mode_title">Modo de modelado de entropía</string>
     <string name="detection_resistance_evolution_cooldown_failures_body">Número de fallos consecutivos antes de poner una combinación en enfriamiento. Predeterminado: 3.</string>

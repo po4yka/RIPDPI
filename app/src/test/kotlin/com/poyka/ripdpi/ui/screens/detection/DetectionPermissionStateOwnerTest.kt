@@ -18,42 +18,30 @@ import java.io.File
 class DetectionPermissionStateOwnerTest {
     private class Harness(
         val flow: MutableStateFlow<DetectionCheckUiState>,
-        val prefs: FakeDetectionCheckPreferenceStore,
+        val checker: FakeDetectionPermissionChecker,
         val owner: DetectionPermissionStateOwner,
     )
 
     private fun harness(
         granted: Set<String> = emptySet(),
-        requested: Set<String> = emptySet(),
+        denied: Set<String> = emptySet(),
         onboardingShown: Boolean = false,
     ): Harness {
         val flow = MutableStateFlow(DetectionCheckUiState())
-        val prefs = FakeDetectionCheckPreferenceStore(onboardingShown, requestedPermissions = requested)
+        val prefs = FakeDetectionCheckPreferenceStore(onboardingShown, deniedPermissions = denied)
+        val checker = FakeDetectionPermissionChecker(granted = granted)
         val stateOwner =
             DetectionPermissionStateOwner(
                 reducer = DetectionCheckStateReducer(flow),
-                permissionChecker = FakeDetectionPermissionChecker(granted = granted),
+                permissionChecker = checker,
                 preferences = prefs,
             )
-        return Harness(flow, prefs, stateOwner)
-    }
-
-    @Test
-    @Config(sdk = [33])
-    fun `requiredPermissions includes nearby wifi on tiramisu and above`() {
-        assertEquals(
-            setOf(
-                Manifest.permission.READ_PHONE_STATE,
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.NEARBY_WIFI_DEVICES,
-            ),
-            DetectionPermissionStateOwner.requiredPermissions().toSet(),
-        )
+        return Harness(flow, checker, stateOwner)
     }
 
     @Test
     @Config(sdk = [30])
-    fun `requiredPermissions omits nearby wifi below tiramisu`() {
+    fun `detection signals require phone and precise location`() {
         assertEquals(
             setOf(
                 Manifest.permission.READ_PHONE_STATE,
@@ -71,7 +59,11 @@ class DetectionPermissionStateOwnerTest {
                 .findAll(commonManifestFile().readText())
                 .map { match -> match.groupValues[1] }
                 .toSet()
-        val missingPermissions = DetectionPermissionStateOwner.requiredPermissions().toSet() - declaredPermissions
+        val h = harness()
+        h.owner.refreshPermissionState { false }
+        val missingPermissions =
+            h.flow.value.permissionRequest
+                .toSet() - declaredPermissions
 
         assertTrue(
             "Common manifest is missing Detection permissions: $missingPermissions",
@@ -81,15 +73,20 @@ class DetectionPermissionStateOwnerTest {
 
     @Test
     @Config(sdk = [33])
-    fun `refreshPermissionState reports missing for ungranted permissions`() {
-        val h = harness(granted = emptySet())
-        h.owner.refreshPermissionState()
+    fun `first request pairs precise with approximate location`() {
+        val h = harness()
+        h.owner.refreshPermissionState { false }
+
         assertEquals(
-            DetectionPermissionStateOwner.requiredPermissions().toSet(),
-            h.flow.value.missingPermissions
+            setOf(
+                Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ),
+            h.flow.value.permissionRequest
                 .toSet(),
         )
-        assertTrue(h.flow.value.permissionAction != DetectionPermissionPlanner.Action.NONE)
+        assertEquals(DetectionPermissionPlanner.Action.REQUEST, h.flow.value.permissionAction)
     }
 
     @Test
@@ -97,32 +94,109 @@ class DetectionPermissionStateOwnerTest {
     fun `refreshPermissionState reports none missing when all granted`() {
         val granted = DetectionPermissionStateOwner.requiredPermissions().toSet()
         val h = harness(granted = granted)
-        h.owner.refreshPermissionState()
+        h.owner.refreshPermissionState { false }
         assertTrue(
-            h.flow.value.missingPermissions
+            h.flow.value.permissionRequest
                 .isEmpty(),
         )
         assertEquals(DetectionPermissionPlanner.Action.NONE, h.flow.value.permissionAction)
     }
 
     @Test
+    @Config(sdk = [31])
+    fun `approximate grant keeps precise upgrade available and does not require a second phone grant`() {
+        val h =
+            harness(granted = setOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.ACCESS_COARSE_LOCATION))
+        h.owner.onPermissionsResult(
+            mapOf(
+                Manifest.permission.READ_PHONE_STATE to true,
+                Manifest.permission.ACCESS_COARSE_LOCATION to true,
+                Manifest.permission.ACCESS_FINE_LOCATION to false,
+            ),
+        ) { false }
+
+        assertEquals(DetectionPermissionPlanner.Action.REQUEST, h.flow.value.permissionAction)
+        assertEquals(
+            setOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION),
+            h.flow.value.permissionRequest
+                .toSet(),
+        )
+    }
+
+    @Test
+    @Config(sdk = [30])
+    fun `first request on Android 11 asks for precise location without approximate companion`() {
+        val h = harness(granted = setOf(Manifest.permission.READ_PHONE_STATE))
+        h.owner.refreshPermissionState { false }
+        assertEquals(listOf(Manifest.permission.ACCESS_FINE_LOCATION), h.flow.value.permissionRequest)
+    }
+
+    @Test
     @Config(sdk = [33])
-    fun `onPermissionsResult marks all requested then refreshes`() {
-        val granted = DetectionPermissionStateOwner.requiredPermissions().toSet()
-        val h = harness(granted = granted)
-        h.owner.onPermissionsResult()
-        assertEquals(granted, h.prefs.requested)
+    fun `empty and ambiguous dismissed results leave permissions requestable`() {
+        val h = harness()
+        h.owner.onPermissionsResult(emptyMap()) { false }
+        assertEquals(DetectionPermissionPlanner.Action.REQUEST, h.flow.value.permissionAction)
+        assertFalse(h.flow.value.canOpenPermissionSettings)
+
+        h.owner.onPermissionsResult(mapOf(Manifest.permission.READ_PHONE_STATE to false)) { false }
+        assertEquals(DetectionPermissionPlanner.Action.REQUEST, h.flow.value.permissionAction)
+        assertTrue(Manifest.permission.READ_PHONE_STATE in h.flow.value.permissionRequest)
+        assertTrue(h.flow.value.canOpenPermissionSettings)
+    }
+
+    @Test
+    @Config(sdk = [33])
+    fun `rationale makes the first refusal retryable and Settings appears after Android suppresses the prompt`() {
+        val permission = Manifest.permission.READ_PHONE_STATE
+        val h = harness(granted = setOf(Manifest.permission.ACCESS_FINE_LOCATION))
+        h.owner.onPermissionsResult(mapOf(permission to false)) { it == permission }
+        assertEquals(DetectionPermissionPlanner.Action.SHOW_RATIONALE, h.flow.value.permissionAction)
+        assertEquals(listOf(permission), h.flow.value.permissionRequest)
+
+        h.owner.onPermissionsResult(mapOf(permission to false)) { false }
+        assertEquals(DetectionPermissionPlanner.Action.OPEN_SETTINGS, h.flow.value.permissionAction)
         assertTrue(
-            h.flow.value.missingPermissions
+            h.flow.value.permissionRequest
                 .isEmpty(),
         )
     }
 
     @Test
     @Config(sdk = [33])
+    fun `a blocked permission does not prevent requesting other missing grants`() {
+        val blocked = Manifest.permission.ACCESS_FINE_LOCATION
+        val h = harness(denied = setOf(blocked))
+        h.owner.refreshPermissionState { false }
+
+        assertEquals(listOf(Manifest.permission.READ_PHONE_STATE), h.flow.value.permissionRequest)
+        assertTrue(h.flow.value.canOpenPermissionSettings)
+    }
+
+    @Test
+    @Config(sdk = [33])
+    fun `refresh reads a grant made in Settings and the permission is requestable if it is later revoked`() {
+        val permission = Manifest.permission.READ_PHONE_STATE
+        val otherGrants = setOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        val h = harness(denied = setOf(permission), granted = otherGrants)
+        h.owner.refreshPermissionState { false }
+        assertEquals(DetectionPermissionPlanner.Action.OPEN_SETTINGS, h.flow.value.permissionAction)
+
+        h.checker.granted = otherGrants + permission
+        h.owner.refreshPermissionState { false }
+        assertEquals(DetectionPermissionPlanner.Action.NONE, h.flow.value.permissionAction)
+
+        h.checker.granted = otherGrants
+        h.owner.refreshPermissionState { false }
+        assertEquals(DetectionPermissionPlanner.Action.REQUEST, h.flow.value.permissionAction)
+        assertEquals(listOf(permission), h.flow.value.permissionRequest)
+    }
+
+    @Test
+    @Config(sdk = [33])
     fun `first check with missing permissions opens the rationale instead of running`() {
         val h = harness()
-        h.owner.refreshPermissionState()
+        h.owner.refreshPermissionState { false }
         assertFalse(h.flow.value.showOnboarding)
 
         assertTrue(h.owner.showRationaleBeforeCheck())
@@ -133,12 +207,12 @@ class DetectionPermissionStateOwnerTest {
     @Config(sdk = [33])
     fun `check runs without the rationale once it was shown or nothing is missing`() {
         val seen = harness(onboardingShown = true)
-        seen.owner.refreshPermissionState()
+        seen.owner.refreshPermissionState { false }
         assertFalse(seen.owner.showRationaleBeforeCheck())
         assertFalse(seen.flow.value.showOnboarding)
 
         val granted = harness(granted = DetectionPermissionStateOwner.requiredPermissions().toSet())
-        granted.owner.refreshPermissionState()
+        granted.owner.refreshPermissionState { false }
         assertFalse(granted.owner.showRationaleBeforeCheck())
         assertFalse(granted.flow.value.showOnboarding)
     }
