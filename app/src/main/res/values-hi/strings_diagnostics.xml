@@ -2125,4 +2125,11 @@
     <string name="diagnostics_quic_initial_limit">केवल शुरुआती QUIC आदान-प्रदान। यह जाँच पूरे HTTP/3 अनुरोध को नहीं परखती।</string>
     <string name="diagnostics_field_interface_mtu">इंटरफ़ेस MTU</string>
     <string name="diagnostics_interface_mtu_value">%1$d बाइट · पाथ MTU इस स्नैपशॉट में नहीं मापा गया</string>
+    <string name="diagnostics_tcp16_head_requests">लिखे गए / नियोजित HEAD अनुरोध: %1$s / %2$s</string>
+    <string name="diagnostics_tcp16_head_responses">अंतिम HEAD प्रतिक्रियाएँ: %1$d</string>
+    <string name="diagnostics_tcp16_bytes_written">लिखे गए बाइट: %1$d</string>
+    <string name="diagnostics_tcp16_last_response_bytes">आखिरी प्रतिक्रिया तक लिखे गए बाइट: %1$d</string>
+    <string name="diagnostics_tcp16_byte_coverage">बाइट लक्ष्य तक पहुँचने के बाद सफल प्रतिक्रिया: %1$s</string>
+    <string name="diagnostics_tcp16_stage_write">HEAD अनुरोध लिखना</string>
+    <string name="diagnostics_tcp16_stage_stopped">माप रुक गया</string>
 </resources>

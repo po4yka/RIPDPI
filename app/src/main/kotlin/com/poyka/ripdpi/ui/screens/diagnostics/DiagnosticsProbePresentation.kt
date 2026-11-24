@@ -21,6 +21,8 @@ internal fun diagnosticProbeTitleResource(type: String): Int =
 
         type.startsWith("dns") || type == "strategy_dns" -> R.string.diagnostics_stages_dns
 
+        type == "tcp_fat_header" -> R.string.diagnostics_dpi_probe_kind_tcp16
+
         type.startsWith("tcp") || type == "strategy_tcp" -> R.string.diagnostics_stages_tcp
 
         type.startsWith(
@@ -40,7 +42,7 @@ internal fun diagnosticProbeTitleResource(type: String): Int =
 
 @StringRes
 internal fun diagnosticProbeOutcomeResource(probe: DiagnosticsProbeResultUiModel): Int =
-    verifiedTransferOutcomeResource(probe.outcome) ?: when (probe.outcome) {
+    fatHeaderOutcomeResource(probe) ?: verifiedTransferOutcomeResource(probe.outcome) ?: when (probe.outcome) {
         "matrix_available" -> {
             R.string.diagnostics_matrix_available
         }
@@ -99,6 +101,16 @@ internal fun diagnosticProbeOutcomeResource(probe: DiagnosticsProbeResultUiModel
             }
         }
     }
+
+@StringRes
+private fun fatHeaderOutcomeResource(probe: DiagnosticsProbeResultUiModel): Int? {
+    if (probe.fatHeaderEvidence.isEmpty()) return null
+    return when (probe.outcome) {
+        "tcp_fat_header_ok", "fat_ok", "whitelist_sni_ok" -> R.string.diagnostics_stages_succeeded
+        "inconclusive", "tcp_connect_failed" -> R.string.diagnostics_matrix_inconclusive
+        else -> null
+    }
+}
 
 @StringRes
 private fun verifiedTransferOutcomeResource(outcome: String): Int? =
@@ -183,7 +195,7 @@ private fun diagnosticProbeTitleFallback(
         stringResource(R.string.diagnostics_verified_upload_title)
     } else if (probe.outcome.startsWith("verified_download_")) {
         stringResource(R.string.diagnostics_verified_download_title)
-    } else if (expertMode) {
+    } else if (expertMode && probe.fatHeaderEvidence.isEmpty()) {
         probe.probeType
     } else {
         stringResource(diagnosticProbeTitleResource(probe.probeType))
@@ -209,7 +221,11 @@ internal fun diagnosticProbeOutcome(
         ?.firstOrNull()
         ?.value
         ?: verifiedTransferOutcomeResource(probe.outcome)?.let { stringResource(it) }
-        ?: if (expertMode) probe.outcome else stringResource(diagnosticProbeOutcomeResource(probe))
+        ?: if (expertMode && probe.fatHeaderEvidence.isEmpty()) {
+            probe.outcome
+        } else {
+            stringResource(diagnosticProbeOutcomeResource(probe))
+        }
 
 internal fun formatDiagnosticsProbeEvidence(probe: DiagnosticsProbeResultUiModel): String =
     buildString {
@@ -262,6 +278,11 @@ internal fun ProbeOutcome(
 ) {
     StatusIndicator(label = diagnosticProbeOutcome(probe, expertMode), tone = statusTone(probe.tone))
     QuicInitialMeasurementNote(probe.probeType)
+}
+
+@Composable
+internal fun FatHeaderEvidenceRows(probe: DiagnosticsProbeResultUiModel) {
+    probe.fatHeaderEvidence.forEach { MeasurementNote(it) }
 }
 
 @Composable

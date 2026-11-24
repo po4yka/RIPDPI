@@ -2189,4 +2189,11 @@
     <string name="diagnostics_quic_initial_limit">Эта проба охватывает только начальные пакеты QUIC. Полный запрос HTTP/3 за её пределами.</string>
     <string name="diagnostics_field_interface_mtu">MTU интерфейса</string>
     <string name="diagnostics_interface_mtu_value">%1$d Б · снимок не измеряет MTU пути</string>
+    <string name="diagnostics_tcp16_head_requests">Записано / запланировано HEAD-запросов: %1$s / %2$s</string>
+    <string name="diagnostics_tcp16_head_responses">Окончательные HEAD-ответы: %1$d</string>
+    <string name="diagnostics_tcp16_bytes_written">Записано байт: %1$d</string>
+    <string name="diagnostics_tcp16_last_response_bytes">Записано байт к последнему ответу: %1$d</string>
+    <string name="diagnostics_tcp16_byte_coverage">Успешный ответ после заданного объёма: %1$s</string>
+    <string name="diagnostics_tcp16_stage_write">Запись HEAD-запроса</string>
+    <string name="diagnostics_tcp16_stage_stopped">Измерение остановлено</string>
 </resources>

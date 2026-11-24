@@ -2076,4 +2076,11 @@
     <string name="diagnostics_quic_initial_limit">仅检查 QUIC 初始交换。此探测不会测试完整的 HTTP/3 请求。</string>
     <string name="diagnostics_field_interface_mtu">接口 MTU</string>
     <string name="diagnostics_interface_mtu_value">%1$d 字节 · 此快照未测量路径 MTU</string>
+    <string name="diagnostics_tcp16_head_requests">已写入 / 计划的 HEAD 请求：%1$s / %2$s</string>
+    <string name="diagnostics_tcp16_head_responses">最终 HEAD 响应：%1$d</string>
+    <string name="diagnostics_tcp16_bytes_written">已写入字节数：%1$d</string>
+    <string name="diagnostics_tcp16_last_response_bytes">收到最后一次响应时已写入的字节数：%1$d</string>
+    <string name="diagnostics_tcp16_byte_coverage">达到目标字节数后收到成功响应：%1$s</string>
+    <string name="diagnostics_tcp16_stage_write">写入 HEAD 请求</string>
+    <string name="diagnostics_tcp16_stage_stopped">测量已停止</string>
 </resources>

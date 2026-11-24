@@ -2118,4 +2118,11 @@
     <string name="diagnostics_quic_initial_limit">فقط تبادل اولیهٔ QUIC. این آزمون درخواست کامل HTTP/3 را بررسی نمی‌کند.</string>
     <string name="diagnostics_field_interface_mtu">MTU رابط</string>
     <string name="diagnostics_interface_mtu_value">%1$d بایت · بدون اندازه‌گیری MTU مسیر</string>
+    <string name="diagnostics_tcp16_head_requests">درخواست‌های HEAD نوشته‌شده / برنامه‌ریزی‌شده: %1$s / %2$s</string>
+    <string name="diagnostics_tcp16_head_responses">پاسخ‌های نهایی HEAD: %1$d</string>
+    <string name="diagnostics_tcp16_bytes_written">بایت‌های نوشته‌شده: %1$d</string>
+    <string name="diagnostics_tcp16_last_response_bytes">بایت‌های نوشته‌شده تا آخرین پاسخ: %1$d</string>
+    <string name="diagnostics_tcp16_byte_coverage">پاسخ موفق پس از رسیدن به حجم هدف: %1$s</string>
+    <string name="diagnostics_tcp16_stage_write">نوشتن درخواست HEAD</string>
+    <string name="diagnostics_tcp16_stage_stopped">اندازه‌گیری متوقف شد</string>
 </resources>

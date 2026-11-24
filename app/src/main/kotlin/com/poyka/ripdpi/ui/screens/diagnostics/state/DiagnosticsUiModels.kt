@@ -555,6 +555,7 @@ data class DiagnosticsProbeResultUiModel(
     val pmtu: DiagnosticsContextGroupUiModel? = null,
     val tlsHop: TlsHopResultUiModel? = null,
     val quicVersion: QuicVersionRowUiModel? = null,
+    val fatHeaderEvidence: ImmutableList<String> = persistentListOf(),
 )
 
 @Stable

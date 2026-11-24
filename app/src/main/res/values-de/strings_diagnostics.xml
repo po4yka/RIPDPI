@@ -2118,4 +2118,11 @@
     <string name="diagnostics_quic_initial_limit">Nur der initiale QUIC-Austausch. Dieser Test prüft keine vollständige HTTP/3-Anfrage.</string>
     <string name="diagnostics_field_interface_mtu">Schnittstellen-MTU</string>
     <string name="diagnostics_interface_mtu_value">%1$d B · Pfad-MTU nicht erfasst</string>
+    <string name="diagnostics_tcp16_head_requests">Geschriebene / geplante HEAD-Anfragen: %1$s / %2$s</string>
+    <string name="diagnostics_tcp16_head_responses">Endgültige HEAD-Antworten: %1$d</string>
+    <string name="diagnostics_tcp16_bytes_written">Geschriebene Bytes: %1$d</string>
+    <string name="diagnostics_tcp16_last_response_bytes">Bis zur letzten Antwort geschriebene Bytes: %1$d</string>
+    <string name="diagnostics_tcp16_byte_coverage">Erfolgreiche Antwort nach Erreichen der Zielgröße: %1$s</string>
+    <string name="diagnostics_tcp16_stage_write">HEAD-Anfrage schreiben</string>
+    <string name="diagnostics_tcp16_stage_stopped">Messung gestoppt</string>
 </resources>

@@ -328,6 +328,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         pmtu = result.toPmtuGroup(strings, networkScopeUnverified),
         tlsHop = result.toTlsHopResult(),
         quicVersion = result.toQuicVersionRow(),
+        fatHeaderEvidence = result.toFatHeaderEvidence(strings),
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =

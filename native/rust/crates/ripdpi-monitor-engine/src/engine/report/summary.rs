@@ -178,9 +178,10 @@ pub(in crate::engine) fn connectivity_analytics_summary(
         }
     }
 
+    // Keep synthetic TCP attention in the counters even when network connectivity is unverified.
     let verdict = if buckets.failed > 0 {
         "network_failures_detected"
-    } else if buckets.attention > 0 {
+    } else if buckets.attention > tcp_attention || (has_connectivity_success && tcp_attention > 0) {
         "attention_required"
     } else if buckets.inconclusive > 0 || !has_connectivity_success {
         "connectivity_inconclusive"
