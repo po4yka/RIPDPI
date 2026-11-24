@@ -1,0 +1,11 @@
+{
+  "change": "trn-1786264762917677-wire-amneziawg-rtk-south-jc4-cohort-into-android-client",
+  "evidence_summary": "PR 697 exact CI passed Rust and Kotlin tests and all four Android ABI jobs. Current pinned Rust passed the synthetic endpoint handshake. All 25 focused JVM tests passed. The producer cohort landed in deployment commit aa6d5d228.",
+  "execution_sha256": "b0d9280ffb236b6ebe9a391fad80643a4b41fd8494875ceb37fca010f5652aca",
+  "issue_sha256": "deccabfaddb4dbcbcf749c805cb7e267258507583c332dbd65ae85146c226bef",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T15:58:35Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1786264762917677"
+}

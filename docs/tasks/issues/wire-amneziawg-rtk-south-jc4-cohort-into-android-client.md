@@ -2,7 +2,7 @@
 id: TRN-1786264762917677
 title: Wire AmneziaWG RTK South cohort (Jc=4) into Android client
 kind: feature
-status: review
+status: done
 area: transport
 priority: medium
 owner: unassigned
@@ -15,6 +15,9 @@ updated: 2026-11-24
 source_wiki_pages:
   - wireguard-rtk-south-amneziawg-bypass
 linked_task: null
+closed_at: "2026-11-24T15:58:35Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: PR 697 exact CI passed Rust and Kotlin tests and all four Android ABI jobs. Current pinned Rust passed the synthetic endpoint handshake. All 25 focused JVM tests passed. The producer cohort landed in deployment commit aa6d5d228.
 ---
 
 ## Motivation
