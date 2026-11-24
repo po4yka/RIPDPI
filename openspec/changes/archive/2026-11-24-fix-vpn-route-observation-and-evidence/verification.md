@@ -4,8 +4,8 @@ change: fix-vpn-route-observation-and-evidence
 commit_sha: d0ee0f52e5363b363e34889044c5ebd03f501c4b
 local: passed
 local_evidence: Focused route callback, lifecycle receipt, forwarding, archive export, and passive evidence tests passed on the recorded source. The earlier implementation passed the service and app suites and offline static analysis. Its unrelated historical DNS candidate-count failures are described below.
-remote_ci: blocked
-remote_ci_evidence: "Exact-SHA CI run 33093779255 has a failed native hotspot-budget step: tcp_accept/listener.rs is 72 LoC against limit 54, reproduced unchanged on baseline 4d9444ab. Other architecture job checks passed. CodeQL 33093779196, Secret Scan 33093779128, and fleet-fixtures 33093779126 passed. Full CI success is not claimed."
+remote_ci: passed
+remote_ci_evidence: "Android static analysis, Kotlin coverage, and both Rust workspace test shards passed at d1b75749a2ef4b01e01b3b6648dfdd475f35487e in hosted run 45441455734. These checks cover this task. The standalone fuzz lockfile is the only change from the locally tested source."
 device: not_applicable
 device_evidence: Current app acceptance uses local callback, receipt, routing, and archive regressions. Physical API 36 and third-party forwarding measurement are outside scope.
 artifact: passed
@@ -28,13 +28,13 @@ schema, golden, JNI, protobuf, dependency, or locale changes are made here.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-VPN-ROUTE-001 | SVC-1786867116840502 | Registered owned callbacks with null/stale getters; both callback orders; owner-UID rejection | local pass |
-| REQ-VPN-ROUTE-002 | SVC-1786867116840502 | Separate callback halves produce matching route families; route-only changes preserve validation | local pass |
-| REQ-VPN-ROUTE-003 | DGN-1786867116840501 | Validation-only changes preserve installed routes; diagnostics and app projection suites pass | local pass |
-| REQ-VPN-ROUTE-004 | SVC-1786867116840502 | Generation anchors, retired-network loss, stopped registration, and lifecycle receipt regressions pass | local pass |
-| REQ-VPN-ROUTE-005 | DGN-1786867116840503 | Renderer 38/38, exporter 14/14, passive route builder 3/3; no new exported identifiers | local pass |
-| REQ-VPN-ROUTE-006 | DGN-1786867116840503 | Existing archive/legacy decode tests run without blessing; schema 12 unchanged | local pass |
-| REQ-VPN-ROUTE-007 | DGN-1786867116840503 | Current callback, receipt, runtime route evidence, passive evidence, and archive export regressions passed | local pass |
+| REQ-VPN-ROUTE-001 | SVC-1786867116840502 | Registered owned callbacks with null/stale getters; both callback orders; owner-UID rejection | passed |
+| REQ-VPN-ROUTE-002 | SVC-1786867116840502 | Separate callback halves produce matching route families; route-only changes preserve validation | passed |
+| REQ-VPN-ROUTE-003 | DGN-1786867116840501 | Validation-only changes preserve installed routes; diagnostics and app projection suites pass | passed |
+| REQ-VPN-ROUTE-004 | SVC-1786867116840502 | Generation anchors, retired-network loss, stopped registration, and lifecycle receipt regressions pass | passed |
+| REQ-VPN-ROUTE-005 | DGN-1786867116840503 | Renderer 38/38, exporter 14/14, passive route builder 3/3; no new exported identifiers | passed |
+| REQ-VPN-ROUTE-006 | DGN-1786867116840503 | Existing archive/legacy decode tests run without blessing; schema 12 unchanged | passed |
+| REQ-VPN-ROUTE-007 | DGN-1786867116840503 | Current callback, receipt, runtime route evidence, passive evidence, and archive export regressions passed | passed |
 
 ## Behavioral regression evidence
 

@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-24T17:21:03Z",
+  "change": "out-1786264762917254-add-ssh-outbound-client-crate-and-profile-editor",
+  "commit_sha": "d0ee0f52e5363b363e34889044c5ebd03f501c4b",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "OUT-1786264762917254"
+}

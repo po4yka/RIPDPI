@@ -1,0 +1,11 @@
+{
+  "change": "fix-vpn-route-observation-and-evidence",
+  "evidence_summary": "Callback, lifecycle receipt, runtime route evidence, archive export, redaction, and passive evidence regressions passed. Physical API 36 routing and third-party packet observations are outside the approved app scope. The scoped hosted checks passed in run 45441455734.",
+  "execution_sha256": "1345e3a5102de88a55deddeb5a3442ea42d13749acd251ffa366c81626a827b0",
+  "issue_sha256": "8c5d5f9977717ce842563770dbde452d5ede1e921220282c273af84a52fbacf7",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T17:21:22Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786867116840500"
+}

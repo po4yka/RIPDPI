@@ -2,7 +2,7 @@
 id: OUT-1786264762917254
 title: Add SSH outbound client crate and profile editor
 kind: feature
-status: review
+status: done
 area: outbound
 priority: medium
 owner: unassigned
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: out-1786264762917254-add-ssh-outbound-client-crate-and-profile-editor
 created: 2026-04-24
 updated: 2026-11-24
+closed_at: "2026-11-24T17:21:21Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: SSH Rust and editor, import, cipher, and transaction JVM tests passed. The editor and the signed-off atomic persistence specification use the same Keystore-encrypted Room storage contract. The scoped hosted checks passed in run 45441455734.
 ---
 
 ## Summary

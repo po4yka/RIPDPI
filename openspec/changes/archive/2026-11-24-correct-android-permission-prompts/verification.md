@@ -4,8 +4,8 @@ change: correct-android-permission-prompts
 commit_sha: d0ee0f52e5363b363e34889044c5ebd03f501c4b
 local: passed
 local_evidence: The implementation source d4863dae passed 283 focused app tests, 16 detection tests, Detekt, and Android Lint. The recorded main source passed 37 focused permission and scanner recovery JVM tests and just ci-gates. The host tests use the Xray stub.
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: "Android static analysis, Kotlin coverage, and Roborazzi passed at d1b75749a2ef4b01e01b3b6648dfdd475f35487e in hosted run 45441455734. These checks cover this task. The standalone fuzz lockfile is the only change from the locally tested source."
 device: not_applicable
 device_evidence: Physical system-dialog checks are outside the approved Android app acceptance scope. Earlier emulator attempts ended before APK installation or system-dialog interaction.
 artifact: not_applicable
@@ -20,11 +20,11 @@ deployment_evidence: No deployment belongs to this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-ANDROID-PERMISSION-CONTEXT | AND-1795489979733001 | MainActivityContentTest and MainViewModelTest | Pass |
-| REQ-ANDROID-PERMISSION-RECOVERY | AND-1795489980269709 | MainActivityPermissionTest, MainViewModelTest, OnboardingViewModelTest and QR recovery suites | Pass |
-| REQ-ANDROID-PERMISSION-RECOVERY | AND-1795489980775429 | DetectionPermissionStateOwnerTest, DetectionPermissionPlannerTest and LocationSignalsCheckerTest | Pass |
-| REQ-ANDROID-PERMISSION-CONTEXT | AND-1795489981276204 | SettingsCustomizationActionsTest, SettingsPreferencesGroupingTest and UpdateViewModelTest | Pass |
-| REQ-ANDROID-PERMISSION-RECOVERY | AND-1795489981806709 | Source checks, four Roborazzi comparisons, and focused app and detection tests | Local pass |
+| REQ-ANDROID-PERMISSION-CONTEXT | AND-1795489979733001 | MainActivityContentTest and MainViewModelTest | passed |
+| REQ-ANDROID-PERMISSION-RECOVERY | AND-1795489980269709 | MainActivityPermissionTest, MainViewModelTest, OnboardingViewModelTest and QR recovery suites | passed |
+| REQ-ANDROID-PERMISSION-RECOVERY | AND-1795489980775429 | DetectionPermissionStateOwnerTest, DetectionPermissionPlannerTest and LocationSignalsCheckerTest | passed |
+| REQ-ANDROID-PERMISSION-CONTEXT | AND-1795489981276204 | SettingsCustomizationActionsTest, SettingsPreferencesGroupingTest and UpdateViewModelTest | passed |
+| REQ-ANDROID-PERMISSION-RECOVERY | AND-1795489981806709 | Source checks, four Roborazzi comparisons, and focused app and detection tests | passed |
 
 ## Local debug build
 

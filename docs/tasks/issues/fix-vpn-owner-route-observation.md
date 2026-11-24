@@ -2,7 +2,7 @@
 id: DGN-1786867116840500
 title: Fix VPN owner-process route observation and evidence
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: Codex VPN route coordinator
@@ -13,6 +13,9 @@ openspec_change: fix-vpn-route-observation-and-evidence
 created: 2026-08-16
 updated: 2026-11-24
 status_detail: Current callback, route receipt, and archive regression tests passed within Android app acceptance.
+closed_at: "2026-11-24T17:21:22Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Callback, lifecycle receipt, runtime route evidence, archive export, redaction, and passive evidence regressions passed. Physical API 36 routing and third-party packet observations are outside the approved app scope. The scoped hosted checks passed in run 45441455734.
 ---
 
 ## Goal

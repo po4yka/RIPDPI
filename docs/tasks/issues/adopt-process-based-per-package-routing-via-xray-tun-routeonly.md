@@ -2,7 +2,7 @@
 id: RTE-1786264762917255
 title: Adopt process-based per-package routing via Xray TUN routeOnly
 kind: feature
-status: review
+status: done
 area: routing
 priority: medium
 owner: unassigned
@@ -13,6 +13,9 @@ openspec_change: rte-1786264762917255-adopt-process-based-per-package-routing-vi
 created: 2026-04-25
 updated: 2026-11-24
 status_detail: Local tests verified the Android app routing plan and filtering.
+closed_at: "2026-11-24T17:21:21Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Seventeen VPN routing policy tests and three split-tunnel UI tests verified local routing policy selection. External egress measurement is outside the approved app scope. The scoped hosted checks passed in run 45441455734.
 ---
 
 ## Summary

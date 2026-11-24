@@ -1,0 +1,11 @@
+{
+  "change": "out-1786264762917254-add-ssh-outbound-client-crate-and-profile-editor",
+  "evidence_summary": "SSH Rust and editor, import, cipher, and transaction JVM tests passed. The editor and the signed-off atomic persistence specification use the same Keystore-encrypted Room storage contract. The scoped hosted checks passed in run 45441455734.",
+  "execution_sha256": "c519bb3e1a5fe3187dbca600919299f7b63370251096077a8ad82b86b42c2c18",
+  "issue_sha256": "ffe7ce466aa2fecccb693566ed50398badbc250429d3e0346337ee0199042450",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T17:21:21Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "OUT-1786264762917254"
+}

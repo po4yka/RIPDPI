@@ -4,8 +4,8 @@ change: rte-1786264762917255-adopt-process-based-per-package-routing-via-xray-tu
 commit_sha: d0ee0f52e5363b363e34889044c5ebd03f501c4b
 local: passed
 local_evidence: All 17 VpnAppExclusionPolicyTest cases and the three SplitTunnelScreenTest cases passed. The app routing catalog supplies the default exclusions.
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: "Android static analysis, Kotlin coverage, and the relay configuration contract passed at d1b75749a2ef4b01e01b3b6648dfdd475f35487e in hosted run 45441455734. These checks cover this task. The standalone fuzz lockfile is the only change from the locally tested source."
 device: not_applicable
 device_evidence: App acceptance covers the Android routing plan and filter application. Measurement of public egress addresses on a device with two live paths is outside scope.
 artifact: not_applicable

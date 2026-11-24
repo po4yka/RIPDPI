@@ -2,7 +2,7 @@
 id: DGN-1786885244559735
 title: Fix split(host+1) strategy execution and evidence
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: Codex
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: fix-split-host-strategy-and-evidence
 created: 2026-08-16
 updated: 2026-11-24
+closed_at: "2026-11-24T17:21:22Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 545 current Rust runtime and monitor tests, eight Kotlin verdict tests, source gates, and hosted controlled HTTP and TLS packet tests passed. Earlier exact HTTP boundary capture and verified APK evidence are recorded. Physical Android measurements are outside the approved app acceptance scope. The scoped hosted checks passed in run 45441455734.
 ---
 
 ## Goal

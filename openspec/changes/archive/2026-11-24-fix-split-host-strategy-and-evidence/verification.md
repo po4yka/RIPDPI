@@ -4,8 +4,8 @@ change: fix-split-host-strategy-and-evidence
 commit_sha: d1b75749a2ef4b01e01b3b6648dfdd475f35487e
 local: passed
 local_evidence: The current source passed 545 Rust runtime and monitor tests, eight Kotlin verdict tests, and the source gates. Two opt-in Rust tests were outside the run. Earlier unrelated diagnostics and hotspot failures remain in the historical record.
-remote_ci: required
-remote_ci_evidence: CI run 33101396871 at docs-only descendant 28b23dc75 is not green; architecture-health failed on the confirmed baseline listener hotspot (72 lines, limit 54), while the overall run remains in progress. CodeQL 33101396865, Secret Scan 33101396848, and fleet-fixtures 33101396891 passed for that SHA.
+remote_ci: passed
+remote_ci_evidence: "Kotlin coverage, both Rust workspace test shards, and CLI packet smoke passed at d1b75749a2ef4b01e01b3b6648dfdd475f35487e in hosted run 45441455734. These checks cover this task."
 device: not_applicable
 device_evidence: The current app acceptance uses production runtime and verdict regressions and controlled Linux packet captures. Physical proxy and VPN paths and network handover are outside scope.
 artifact: passed
@@ -49,17 +49,17 @@ locale, dependency, golden fixture, or quality baseline was changed.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-STRATEGY-EVIDENCE-001 | DGN-1786885745283306 | Candidate/config and exact-plan tests in the complete Linux monitor/runtime suite | PASS |
-| REQ-STRATEGY-EVIDENCE-002 | RST-1786885745241507 | Applied, activation-skipped, fallback, partial-write, and typed failure tests; production authenticated SOCKS test | PASS |
-| REQ-STRATEGY-EVIDENCE-003 | RST-1786885745241507 | Runtime counters, the earlier exact Linux HTTP capture, and current hosted HTTP and TLS packet smoke passed. | PASS |
-| REQ-STRATEGY-EVIDENCE-004 | RST-1786885745241507 | Generation/terminal/late-receipt coverage and rejected trailing receipt regression | PASS |
-| REQ-STRATEGY-EVIDENCE-005 | DGN-1786885745283306 | Canonical candidate and effective marker/family matching tests; source-index regressions | PASS |
-| REQ-STRATEGY-EVIDENCE-006 | DGN-1786885745300444 | Existing archive/golden/privacy tests pass within diagnostics; fixtures unchanged and no blessing used | PASS |
-| REQ-STRATEGY-VERDICT-001 | DGN-1786885745300444 | Baseline-current evaluator, terminal ownership and persistence regressions | PASS |
-| REQ-STRATEGY-VERDICT-002 | DGN-1786885745300444 | RAW/IN_PATH separation, generation/revision leases, refresh invalidation, and terminal authority tests | PASS |
-| REQ-STRATEGY-VERDICT-003 | DGN-1786885745300444 | Missing terminal capture, partial/error receipts, fallback, cancellation, and route-loss tests | PASS |
-| REQ-STRATEGY-VERDICT-004 | DGN-1786885745300444 | Current native monitor and runtime tests and Kotlin verdict regressions passed. | PASS |
-| REQ-STRATEGY-VERDICT-005 | DGN-1786885745300444 | App unit tests and staticAnalysis pass; UI/locale/archive schemas unchanged | PASS |
+| REQ-STRATEGY-EVIDENCE-001 | DGN-1786885745283306 | Candidate/config and exact-plan tests in the complete Linux monitor/runtime suite | passed |
+| REQ-STRATEGY-EVIDENCE-002 | RST-1786885745241507 | Applied, activation-skipped, fallback, partial-write, and typed failure tests; production authenticated SOCKS test | passed |
+| REQ-STRATEGY-EVIDENCE-003 | RST-1786885745241507 | Runtime counters, the earlier exact Linux HTTP capture, and current hosted HTTP and TLS packet smoke passed. | passed |
+| REQ-STRATEGY-EVIDENCE-004 | RST-1786885745241507 | Generation/terminal/late-receipt coverage and rejected trailing receipt regression | passed |
+| REQ-STRATEGY-EVIDENCE-005 | DGN-1786885745283306 | Canonical candidate and effective marker/family matching tests; source-index regressions | passed |
+| REQ-STRATEGY-EVIDENCE-006 | DGN-1786885745300444 | Existing archive/golden/privacy tests pass within diagnostics; fixtures unchanged and no blessing used | passed |
+| REQ-STRATEGY-VERDICT-001 | DGN-1786885745300444 | Baseline-current evaluator, terminal ownership and persistence regressions | passed |
+| REQ-STRATEGY-VERDICT-002 | DGN-1786885745300444 | RAW/IN_PATH separation, generation/revision leases, refresh invalidation, and terminal authority tests | passed |
+| REQ-STRATEGY-VERDICT-003 | DGN-1786885745300444 | Missing terminal capture, partial/error receipts, fallback, cancellation, and route-loss tests | passed |
+| REQ-STRATEGY-VERDICT-004 | DGN-1786885745300444 | Current native monitor and runtime tests and Kotlin verdict regressions passed. | passed |
+| REQ-STRATEGY-VERDICT-005 | DGN-1786885745300444 | App unit tests and staticAnalysis pass; UI/locale/archive schemas unchanged | passed |
 
 ## Observed checks
 

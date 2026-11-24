@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-24T17:21:05Z",
+  "change": "fix-split-host-strategy-and-evidence",
+  "commit_sha": "d1b75749a2ef4b01e01b3b6648dfdd475f35487e",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "DGN-1786885244559735"
+}

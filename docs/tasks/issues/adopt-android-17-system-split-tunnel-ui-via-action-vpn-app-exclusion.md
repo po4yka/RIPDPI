@@ -2,7 +2,7 @@
 id: RTE-1786264762917959
 title: Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS
 kind: feature
-status: review
+status: done
 area: routing
 priority: medium
 owner: unassigned
@@ -13,6 +13,9 @@ openspec_change: rte-1786264762917959-adopt-android-17-system-split-tunnel-ui-vi
 created: 2026-04-25
 updated: 2026-11-24
 status_detail: App delegation and fallback passed local tests. Android owns persistence for system settings.
+closed_at: "2026-11-24T17:21:21Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Five JVM tests verified the SDK boundary, Android Settings action, and local fallback. The manifests contain no receiving intent filter for the system action. The scoped hosted checks passed in run 45441455734.
 ---
 
 ## Summary

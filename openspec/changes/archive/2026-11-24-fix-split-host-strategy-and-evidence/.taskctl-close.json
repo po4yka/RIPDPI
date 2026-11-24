@@ -1,0 +1,11 @@
+{
+  "change": "fix-split-host-strategy-and-evidence",
+  "evidence_summary": "545 current Rust runtime and monitor tests, eight Kotlin verdict tests, source gates, and hosted controlled HTTP and TLS packet tests passed. Earlier exact HTTP boundary capture and verified APK evidence are recorded. Physical Android measurements are outside the approved app acceptance scope. The scoped hosted checks passed in run 45441455734.",
+  "execution_sha256": "8bddb7574430d3f6c1ea45c4e8a711566565937092584bd1770db470926b7fa8",
+  "issue_sha256": "411bacd6fc13c5a62b54fb79d089b7852a55e90ef74de7c365dd7f531be722d8",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T17:21:22Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786885244559735"
+}

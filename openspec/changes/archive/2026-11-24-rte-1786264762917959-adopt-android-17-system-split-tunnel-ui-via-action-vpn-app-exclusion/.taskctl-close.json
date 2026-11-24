@@ -1,0 +1,11 @@
+{
+  "change": "rte-1786264762917959-adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion",
+  "evidence_summary": "Five JVM tests verified the SDK boundary, Android Settings action, and local fallback. The manifests contain no receiving intent filter for the system action. The scoped hosted checks passed in run 45441455734.",
+  "execution_sha256": "e508bb8c6157c716c5fd122810e3757d510b366d3b628480a60811857fecb944",
+  "issue_sha256": "141aa9084ed87c5e5db7cc527bbe1e4969301d19622e831d91ba73df3b9cc673",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T17:21:21Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RTE-1786264762917959"
+}

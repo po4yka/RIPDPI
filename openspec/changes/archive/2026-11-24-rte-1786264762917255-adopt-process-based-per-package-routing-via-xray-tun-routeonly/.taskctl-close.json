@@ -1,0 +1,11 @@
+{
+  "change": "rte-1786264762917255-adopt-process-based-per-package-routing-via-xray-tun-routeonly",
+  "evidence_summary": "Seventeen VPN routing policy tests and three split-tunnel UI tests verified local routing policy selection. External egress measurement is outside the approved app scope. The scoped hosted checks passed in run 45441455734.",
+  "execution_sha256": "f9bb7724120fbc5829a073179e6366e5d52f16cea9328153b03d6c9858d3590f",
+  "issue_sha256": "5d0df611d21f0417f5970dc39c6b14ffda18e27c3502c49c26b967a5a8b0fd9b",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T17:21:21Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RTE-1786264762917255"
+}

@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-24T17:20:30Z",
+  "change": "correct-android-permission-prompts",
+  "commit_sha": "d0ee0f52e5363b363e34889044c5ebd03f501c4b",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "AND-1795489914228572"
+}

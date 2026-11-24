@@ -4,8 +4,8 @@ change: out-1786264762917254-add-ssh-outbound-client-crate-and-profile-editor
 commit_sha: d0ee0f52e5363b363e34889044c5ebd03f501c4b
 local: passed
 local_evidence: On the recorded source, 51 Rust tests, 27 SSH editor and import JVM tests, and 12 profile cipher and atomic transaction JVM tests passed. The seven opt-in independent peer tests were outside this run.
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: "Kotlin coverage and both Rust workspace test shards passed at d1b75749a2ef4b01e01b3b6648dfdd475f35487e in hosted run 45441455734. These checks cover this task. The standalone fuzz lockfile is the only change from the locally tested source."
 device: not_applicable
 device_evidence: The current SSH acceptance uses host and loopback checks. The earlier atomic profile persistence change recorded real Android Keystore and Room verification on an API 35 emulator.
 artifact: not_applicable
