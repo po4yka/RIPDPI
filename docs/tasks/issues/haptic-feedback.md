@@ -2,7 +2,7 @@
 id: UIX-1792259264757428
 title: Control haptic feedback and deliver actual results once
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: Haptic integration
@@ -13,6 +13,9 @@ openspec_change: haptic-feedback
 created: 2026-10-17
 updated: 2026-11-24
 status_detail: The user authorized UI acceptance without a genuine backend bundle. Use the existing repository CI fixture only as a local ignored build input, then run combined-tree checks, emulator preference acceptance, and authorized main integration and push.
+closed_at: "2026-11-24T15:53:51Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Recorded local, APK, and API 37 emulator acceptance passed. Main CI 39120555775 passed at e82b513ff, which differs from the recorded source only in task documents.
 ---
 
 ## Goal

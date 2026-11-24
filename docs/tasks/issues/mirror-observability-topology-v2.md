@@ -2,7 +2,7 @@
 id: DAT-1790868146040476
 title: Mirror observability topology schema v2
 kind: chore
-status: review
+status: done
 area: data
 priority: high
 owner: Observability contract mirror
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: mirror-observability-topology-v2
 created: 2026-10-01
 updated: 2026-11-24
+closed_at: "2026-11-24T15:53:52Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: All 31 frozen producer mirrors match the merged source. Required PR 575 checks and main CI run 36900019871 passed.
 ---
 
 ## Goal

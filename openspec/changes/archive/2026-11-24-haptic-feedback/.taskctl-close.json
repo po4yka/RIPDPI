@@ -1,0 +1,11 @@
+{
+  "change": "haptic-feedback",
+  "evidence_summary": "Recorded local, APK, and API 37 emulator acceptance passed. Main CI 39120555775 passed at e82b513ff, which differs from the recorded source only in task documents.",
+  "execution_sha256": "e5630fcdcd463ca34bf40f2e2a0a35925862d8fac16b9330356cfb9158b28980",
+  "issue_sha256": "897d06461f3b958d224d4cba9c45391ae4d7b4bacad26595493a3f96555d521f",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T15:53:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1792259264757428"
+}

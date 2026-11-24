@@ -2,7 +2,7 @@
 id: DAT-1788011816707517
 title: Mirror protocol liveness schema 2
 kind: chore
-status: review
+status: done
 area: data
 priority: high
 owner: codex
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: mirror-protocol-liveness-schema2
 created: 2026-08-29
 updated: 2026-11-24
+closed_at: "2026-11-24T15:53:51Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Frozen producer comparison matched all 22 mirrors. Required hosted checks passed in run 33262017742 at ab2c4dd2, and PR 464 merged.
 ---
 
 ## Goal

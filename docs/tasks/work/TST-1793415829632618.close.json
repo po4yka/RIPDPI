@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Commit c3b001491 moved the unchanged fixture and updated all three readers. The 36 frozen producer contract files matched byte-for-byte. Data and app unit tests passed in Kotlin coverage job 124433985998 on main CI run 41165805189.",
+  "execution_sha256": "9ba5fade4ce305489192372828e04122a71f73cf8bfdb83429820975d7cdd8db",
+  "issue_sha256": "f58d37f43e48aa5a278405c67956b1296ee9072d127a2b12b1a33184c1e85591",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T15:53:52Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TST-1793415829632618"
+}

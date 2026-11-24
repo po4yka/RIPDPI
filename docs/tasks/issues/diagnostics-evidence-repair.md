@@ -2,7 +2,7 @@
 id: DGN-1793896868711593
 title: Preserve diagnostics evidence and validated recommendations
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: Diagnostics evidence repair
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: diagnostics-evidence-repair
 created: 2026-11-05
 updated: 2026-11-24
+closed_at: "2026-11-24T15:53:51Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation a8419a7cd passed the recorded local diagnostic, Rust, and artifact checks. Exact-commit hosted CI 42081368482 passed.
 ---
 
 ## Goal

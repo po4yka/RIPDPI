@@ -1,0 +1,11 @@
+{
+  "change": "mirror-observability-topology-v2",
+  "evidence_summary": "All 31 frozen producer mirrors match the merged source. Required PR 575 checks and main CI run 36900019871 passed.",
+  "execution_sha256": "6e0308cca45a98f221b627c41e3513538aa9b052b498b544e53b19298ea1cf63",
+  "issue_sha256": "86ccbd1ee1e5042aa023f02f07836bf7ffa4c5f2b5b2851d5e21566d3347b931",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T15:53:52Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1790868146040476"
+}

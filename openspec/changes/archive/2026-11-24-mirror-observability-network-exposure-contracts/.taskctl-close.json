@@ -1,0 +1,11 @@
+{
+  "change": "mirror-observability-network-exposure-contracts",
+  "evidence_summary": "Frozen producer comparison matched all 30 mirrors at PR head 87b29e902, including the seven owned contracts. Required hosted checks passed in run 33942374912, and PR 494 merged.",
+  "execution_sha256": "27d87943eb363404777e69d70c1ea4a3a66e7efa20716db2bf42b4fff71d949c",
+  "issue_sha256": "4be00e357b7a7810daa73e623053a9348c0e4591b38e21b6ee93d3d0769e360a",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T15:53:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1788100001077419"
+}

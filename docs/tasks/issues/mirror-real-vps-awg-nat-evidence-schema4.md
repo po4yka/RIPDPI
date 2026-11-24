@@ -2,7 +2,7 @@
 id: DAT-1788656601400373
 title: Mirror real VPS AWG NAT evidence schema 4
 kind: chore
-status: review
+status: done
 area: data
 priority: high
 owner: codex
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: mirror-real-vps-awg-nat-evidence-schema4
 created: 2026-09-06
 updated: 2026-11-24
+closed_at: "2026-11-24T15:53:52Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Frozen producer comparison matched all 31 mirrors at PR head 6b9bea117. Required hosted checks passed in run 34152536612, and PR 498 merged.
 ---
 
 ## Goal

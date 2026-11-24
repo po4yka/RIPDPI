@@ -55,7 +55,7 @@ and validate its exact revision.
 - **THEN** contract mirror validation fails instead of accepting a missing,
   stale, reformatted, or independently edited client contract
 
-### Requirement: REQ-MIRROR-SCOPE-ISOLATION — Contract-resource-only change
+### Requirement: REQ-MIRROR-SCOPE-ISOLATION — Schema-only client change
 
 A deployment-contract mirror change MUST limit client changes to vendored
 contract resources and its own task/OpenSpec records. It MUST NOT add or change

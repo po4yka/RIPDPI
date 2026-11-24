@@ -1,0 +1,11 @@
+{
+  "change": "mirror-protocol-liveness-schema2",
+  "evidence_summary": "Frozen producer comparison matched all 22 mirrors. Required hosted checks passed in run 33262017742 at ab2c4dd2, and PR 464 merged.",
+  "execution_sha256": "16dbba57a5db6e74149e811413b3eed050764d29e45b6319f57113c76b327a71",
+  "issue_sha256": "2aac48b394e4b3b9571c08693f0ec2647a4ff42f0892500db9b036be9b3cab76",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T15:53:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1788011816707517"
+}

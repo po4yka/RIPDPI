@@ -1,0 +1,11 @@
+{
+  "change": "mirror-real-vps-awg-nat-evidence-schema4",
+  "evidence_summary": "Frozen producer comparison matched all 31 mirrors at PR head 6b9bea117. Required hosted checks passed in run 34152536612, and PR 498 merged.",
+  "execution_sha256": "015948f18d2096569f49a8385652252960c58932bb74e41be8247863a70f1a06",
+  "issue_sha256": "fdac0621257984a28e8abc12d1978182421975041719c4aa4b841064f1a4951b",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T15:53:52Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1788656601400373"
+}

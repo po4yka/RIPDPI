@@ -1,0 +1,11 @@
+{
+  "change": "diagnostics-evidence-repair",
+  "evidence_summary": "Implementation a8419a7cd passed the recorded local diagnostic, Rust, and artifact checks. Exact-commit hosted CI 42081368482 passed.",
+  "execution_sha256": "ba2e5272739f10c2b7829178382d09cba975d2014ed3cfb999dc248f59166434",
+  "issue_sha256": "b4f804beb023ec94656271ab4e99c0332d9be01815dc315b10d05ceee19b2157",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T15:53:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1793896868711593"
+}
