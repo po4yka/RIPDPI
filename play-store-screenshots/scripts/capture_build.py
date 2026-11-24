@@ -26,12 +26,15 @@ INPUT_PATHS = (
     ".github/actions/setup-android-rust", ".github/actions/build-xray",
     ".github/workflows/play-store-screenshots.yml", "play-store-screenshots/scripts/capture_build.py",
 )
-XRAY_FILES = ("libxray.aar", "libxray-artifact.json", "build-go.mod", "build-go.sum")
+XRAY_NOTICES = "assets/notices/go-modules.json"
+XRAY_FILES = ("libxray.aar", "libxray-artifact.json", "build-go.mod", "build-go.sum", XRAY_NOTICES)
+XRAY_DIRECTORIES = {"assets", "assets/notices"}
+XRAY_SOURCES = "libxray-sources.jar"
 OUTPUT_METADATA = "output-metadata.json"
 SEALED_APK = "app-play-debug.apk"
 FILES = {SEALED_APK, OUTPUT_METADATA, *(f"xray/{name}" for name in XRAY_FILES)}
 MANIFEST = "capture-build.json"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 CAPTURE_ABI = "x86_64"
 
 
@@ -158,21 +161,26 @@ def check_play_apk(apk: Path, abi: str) -> None:
 
 def check_payload(apk: Path, xray: Path, *, producer_directory: bool = False) -> None:
     check_play_apk(apk, CAPTURE_ABI)
-    ordinary(xray, directory=True)
-    names = {path.name for path in xray.iterdir()}
     required = set(XRAY_FILES)
     # gomobile's buildSrcJar writes this companion beside the AAR, and
     # build-libxray.sh publishes the whole staging directory. It is not a
     # runtime input or covered by libxray-artifact.json, so never copy it into
     # the seal. The full producer verifier must already have passed in CI.
-    allowed = required | ({"libxray-sources.jar"} if producer_directory else set())
+    allowed = required | ({XRAY_SOURCES} if producer_directory else set())
+    companion = xray / XRAY_SOURCES
+    if producer_directory and companion.exists():
+        ordinary(companion)
+    names = regular_tree_files(xray, XRAY_DIRECTORIES)
     if not required.issubset(names) or not names.issubset(allowed):
         raise ValueError("unexpected or missing Xray producer files: "
                          f"missing={sorted(required - names)}, unexpected={sorted(names - allowed)}")
-    for name in names:
-        ordinary(xray / name)
     producer = json.loads((xray / "libxray-artifact.json").read_text())
-    for name, key in (("libxray.aar", "aarSha256"), ("build-go.mod", "goModSha256"), ("build-go.sum", "goSumSha256")):
+    for name, key in (
+        ("libxray.aar", "aarSha256"),
+        ("build-go.mod", "goModSha256"),
+        ("build-go.sum", "goSumSha256"),
+        (XRAY_NOTICES, "noticesSha256"),
+    ):
         if producer.get(key) != sha256(xray / name):
             raise ValueError(f"Xray producer hash mismatch: {name}")
     if producer.get("schemaVersion") != 2 or "x86_64" not in producer.get("abis", []):
@@ -182,19 +190,24 @@ def check_payload(apk: Path, xray: Path, *, producer_directory: bool = False) ->
             raise ValueError("Xray AAR has no x86_64 native library")
 
 
-def inventory(bundle: Path) -> dict[str, str]:
-    ordinary(bundle, directory=True)
+def regular_tree_files(root: Path, directories: set[str]) -> set[str]:
+    ordinary(root, directory=True)
     found = set()
-    for path in bundle.rglob("*"):
+    for path in root.rglob("*"):
         if path.is_symlink():
             raise ValueError("symlink in capture build bundle")
-        relative = path.relative_to(bundle).as_posix()
+        relative = path.relative_to(root).as_posix()
         if path.is_dir():
-            if relative != "xray":
+            if relative not in directories:
                 raise ValueError(f"unexpected bundle directory: {relative}")
         else:
             ordinary(path)
             found.add(relative)
+    return found
+
+
+def inventory(bundle: Path) -> dict[str, str]:
+    found = regular_tree_files(bundle, {"xray", *(f"xray/{name}" for name in XRAY_DIRECTORIES)})
     if found != FILES | {MANIFEST}:
         raise ValueError("unexpected or missing capture build files")
     return {name: sha256(safe_path(bundle, name)) for name in sorted(FILES)}
@@ -218,7 +231,9 @@ def seal(bundle: Path, apk: Path, xray_artifacts: Path, root: Path = ROOT) -> di
     shutil.copyfile(apk, bundle / SEALED_APK)
     shutil.copyfile(output_metadata, bundle / OUTPUT_METADATA)
     for name in XRAY_FILES:
-        shutil.copyfile(xray_artifacts / name, bundle / "xray" / name)
+        destination = bundle / "xray" / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(xray_artifacts / name, destination)
     metadata["files"] = {name: sha256(bundle / name) for name in sorted(FILES)}
     (bundle / MANIFEST).write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
     return verify(bundle, root)

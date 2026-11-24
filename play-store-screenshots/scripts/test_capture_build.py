@@ -42,6 +42,10 @@ class CaptureBuildTests(unittest.TestCase):
         producer = {"schemaVersion": 2, "abis": ["x86_64"]}
         for name, key in (("libxray.aar", "aarSha256"), ("build-go.mod", "goModSha256"), ("build-go.sum", "goSumSha256")):
             producer[key] = build.sha256(self.xray / name)
+        notices = self.xray / "assets/notices/go-modules.json"
+        notices.parent.mkdir(parents=True)
+        notices.write_text('{"licenses": [], "packages": []}')
+        producer["noticesSha256"] = build.sha256(notices)
         (self.xray / "libxray-artifact.json").write_text(json.dumps(producer))
         self.revision = "a" * 40
         self.tracked = "app/input.kt\0"
@@ -70,6 +74,33 @@ class CaptureBuildTests(unittest.TestCase):
         for name in build.XRAY_FILES:
             self.assertEqual((result["xray"] / name).read_bytes(), (self.xray / name).read_bytes())
 
+    def test_verified_xray_notices_survive_seal(self):
+        result = self.seal()
+        notices = "assets/notices/go-modules.json"
+        self.assertEqual((result["xray"] / notices).read_bytes(), (self.xray / notices).read_bytes())
+        self.assertEqual(result["metadata"]["files"][f"xray/{notices}"], build.sha256(self.xray / notices))
+
+    def test_generated_xray_notices_hash_mismatch_rejected(self):
+        (self.xray / "assets/notices/go-modules.json").write_text('{"packages": ["changed"]}')
+        with self.assertRaisesRegex(ValueError, "Xray producer hash mismatch: assets/notices/go-modules.json"):
+            self.seal()
+        self.assertFalse(self.bundle.exists())
+
+    def test_unknown_xray_notices_companion_rejected(self):
+        (self.xray / "assets/notices/extra.json").write_text("{}")
+        with self.assertRaisesRegex(ValueError, "unexpected or missing Xray producer files"):
+            self.seal()
+        self.assertFalse(self.bundle.exists())
+
+    def test_symlinked_xray_notices_directory_rejected(self):
+        notices_dir = self.xray / "assets/notices"
+        outside = self.root / "notices"
+        notices_dir.rename(outside)
+        notices_dir.symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            self.seal()
+        self.assertFalse(self.bundle.exists())
+
     def test_gomobile_producer_companion_is_not_a_runtime_bundle_input(self):
         # gomobile bind -o libxray.aar also emits libxray-sources.jar; the
         # production script publishes the entire verified staging directory.
@@ -77,7 +108,9 @@ class CaptureBuildTests(unittest.TestCase):
         with zipfile.ZipFile(companion, "w") as archive:
             archive.writestr("libXray/LibXray.java", "// synthetic source fixture")
         result = self.seal()
-        self.assertEqual({path.name for path in result["xray"].iterdir()}, set(build.XRAY_FILES))
+        sealed_xray = result["xray"]
+        files = {path.relative_to(sealed_xray).as_posix() for path in sealed_xray.rglob("*") if path.is_file()}
+        self.assertEqual(files, set(build.XRAY_FILES))
         self.assertNotIn("xray/libxray-sources.jar", result["metadata"]["files"])
         self.verify()
 
@@ -232,7 +265,7 @@ class CaptureBuildTests(unittest.TestCase):
         self.seal()
         manifest = self.bundle / build.MANIFEST
         metadata = json.loads(manifest.read_text())
-        metadata.update(schemaVersion=1, variant="githubDebug")
+        metadata["schemaVersion"] = 2
         manifest.write_text(json.dumps(metadata))
         with self.assertRaisesRegex(ValueError, "unsupported capture build metadata"):
             self.verify()
