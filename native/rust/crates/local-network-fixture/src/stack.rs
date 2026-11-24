@@ -179,8 +179,13 @@ fn start_echo_services(
         tls.server_config.clone(),
     )?;
 
-    let (verified_https_handles, verified_https_port) =
-        start_verified_https_server(&config.bind_host, context.stop.clone(), tls.server_config.clone())?;
+    let (verified_https_handles, verified_https_port) = start_verified_https_server(
+        &config.bind_host,
+        context.stop.clone(),
+        tls.server_config.clone(),
+        context.events.clone(),
+        config.dns_answer_ipv4.parse().map_err(util::other_io)?,
+    )?;
 
     Ok(EchoServices {
         tcp_handle,

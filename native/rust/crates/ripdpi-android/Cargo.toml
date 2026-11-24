@@ -33,5 +33,8 @@ jni = { workspace = true, features = ["invocation"] }
 
 [features]
 privileged-packets = ["ripdpi-android-proxy-adapter/privileged-packets", "ripdpi-android-diagnostics-adapter/privileged-packets"]
-instrumented-diagnostics-tls = ["ripdpi-android-diagnostics-adapter/instrumented-diagnostics-tls"]
+instrumented-diagnostics-tls = [
+    "ripdpi-android-diagnostics-adapter/instrumented-diagnostics-tls",
+    "ripdpi-android-platform-adapter/instrumented-diagnostics-tls",
+]
 loom = ["ripdpi-android-proxy-adapter/loom"]
