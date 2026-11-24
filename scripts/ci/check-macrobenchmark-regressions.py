@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
+
+
+STARTUP_ITERATIONS = {"startupCold": 15, "startupWarm": 10}
+STARTUP_METRICS = ("timeToInitialDisplayMs", "timeToFullDisplayMs")
 
 
 def read_json(path: Path) -> dict:
@@ -26,9 +31,7 @@ def compute_p95(runs: list[float | int]) -> float:
     if not runs:
         return 0.0
     s = sorted(runs)
-    idx = int(len(s) * 0.95)
-    idx = min(idx, len(s) - 1)
-    return float(s[idx])
+    return float(s[math.ceil(len(s) * 0.95) - 1])
 
 
 def parse_benchmarks(results_dir: Path) -> dict[str, dict[str, dict[str, float]]]:
@@ -45,19 +48,42 @@ def parse_benchmarks(results_dir: Path) -> dict[str, dict[str, dict[str, float]]
     for path in files:
         data = read_json(path)
         for bench in data.get("benchmarks", []):
-            name = bench.get("name", "")
-            if not name:
+            if bench.get("className", "").rsplit(".", 1)[-1] != "StartupBenchmark":
                 continue
+            name = bench.get("name", "").split("[", 1)[0]
+            if name not in STARTUP_ITERATIONS:
+                continue
+            if name in benchmarks:
+                raise ValueError(f"Duplicate startup benchmark: {name}")
+
+            results = bench.get("metrics", {})
             metrics: dict[str, dict[str, float]] = {}
-            for metric_name, metric_data in bench.get("metrics", {}).items():
-                median = metric_data.get("median", 0.0)
-                runs = metric_data.get("runs", [])
-                p95 = compute_p95(runs) if runs else metric_data.get("maximum", 0.0)
-                metrics[metric_name] = {"median": float(median), "p95": float(p95)}
-            if metrics:
-                benchmarks[name] = metrics
+            for metric_name in STARTUP_METRICS:
+                metric = results.get(metric_name, {})
+                median = metric.get("median")
+                runs = metric.get("runs", [])
+                if (
+                    len(runs) != STARTUP_ITERATIONS[name]
+                    or not valid_latency(median)
+                    or not all(valid_latency(run) for run in runs)
+                ):
+                    raise ValueError(f"Missing or incomplete startup metric: {name}/{metric_name}")
+                metrics[metric_name] = {"median": float(median), "p95": compute_p95(runs)}
+            benchmarks[name] = metrics
 
     return benchmarks
+
+
+def valid_latency(value: object) -> bool:
+    return type(value) in (int, float) and math.isfinite(value) and value > 0
+
+
+def validate_reference(baseline: dict) -> None:
+    for case in STARTUP_ITERATIONS:
+        for metric in STARTUP_METRICS:
+            entry = baseline.get("benchmarks", {}).get(case, {}).get(metric, {})
+            if not all(valid_latency(entry.get(statistic)) for statistic in ("median", "p95")):
+                raise ValueError(f"Missing or invalid startup reference: {case}/{metric}")
 
 
 def classify_threshold(name: str, cold_pct: float, warm_pct: float) -> float:
@@ -245,14 +271,13 @@ def main() -> int:
 
     if not results_dir.is_dir():
         print(f"Results directory not found: {results_dir}", file=sys.stderr)
-        print("No benchmark data to check. Skipping.", file=sys.stderr)
-        return 0
+        return 1
 
     current = parse_benchmarks(results_dir)
-    if not current:
-        print(f"No benchmark JSON files found in {results_dir}", file=sys.stderr)
-        print("No benchmark data to check. Skipping.", file=sys.stderr)
-        return 0
+    missing_cases = set(STARTUP_ITERATIONS) - current.keys()
+    if missing_cases:
+        print(f"Missing startup benchmarks: {', '.join(sorted(missing_cases))}", file=sys.stderr)
+        return 1
 
     # Resolve thresholds: CLI overrides > baseline file > hardcoded defaults.
     cold_pct = 20.0
@@ -265,7 +290,8 @@ def main() -> int:
     else:
         baseline = {"benchmarks": {}}
         if not args.dump_current:
-            print(f"Warning: baseline not found at {baseline_path}, skipping comparison.", file=sys.stderr)
+            print(f"Startup reference not found: {baseline_path}", file=sys.stderr)
+            return 1
 
     if args.max_cold_regression_percent is not None:
         cold_pct = args.max_cold_regression_percent
@@ -276,16 +302,7 @@ def main() -> int:
         print(build_baseline_payload(current, cold_pct, warm_pct), end="")
         return 0
 
-    if not baseline.get("benchmarks"):
-        print("Baseline has no benchmarks defined. Passing with current results only.")
-        for bench_name, metrics in sorted(current.items()):
-            for metric_name, values in sorted(metrics.items()):
-                print(f"  {bench_name}/{metric_name}: median={values['median']:.1f} p95={values['p95']:.1f}")
-        if args.markdown_output:
-            md_path = Path(args.markdown_output)
-            md_path.parent.mkdir(parents=True, exist_ok=True)
-            md_path.write_text(render_markdown([], [], warn_only=False))
-        return 0
+    validate_reference(baseline)
 
     failures, rows = check_regressions(current, baseline, cold_pct, warm_pct)
 

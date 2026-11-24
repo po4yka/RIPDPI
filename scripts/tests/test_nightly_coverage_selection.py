@@ -211,10 +211,10 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
 
     def test_macrobenchmark_uses_the_ci_native_abi_override(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
-        self.assertRegex(
-            source,
-            r"(?m):baselineprofile:pixel6Api34AtdDebugAndroidTest .*\n\s*-Pripdpi.nativeAbisOverride=x86_64",
-        )
+        job = workflow_job(source, "android-macrobenchmark")
+        self.assertIn(":baselineprofile:pixel6Api34AtdBenchmarkAndroidTest", job)
+        self.assertIn("-Pripdpi.startupBenchmark=true", job)
+        self.assertIn("-Pripdpi.nativeAbisOverride=x86_64", job)
         self.assertNotIn("-Pripdpi.localNativeAbis=x86_64", source)
 
     def test_relay_smoke_uses_the_ci_native_abi_override(self) -> None:

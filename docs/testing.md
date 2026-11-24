@@ -523,7 +523,16 @@ Common commands:
 
 CI runs `:app` integration tests on **Gradle Managed Devices** across the
 API 27 / 33 / 35 / 36 / 37 registry. The API 37 device uses forced 16 KiB pages.
-The optional macrobenchmark lane uses the separate pinned API 34 ATD device.
+The startup macrobenchmark runs cold and warm launches with the release-derived
+benchmark variant on the pinned API 34 ATD device. Each run requires both TTID
+and TTFD. To record the first CI reference, dispatch `CI` on `main` with
+`run_android_macrobenchmark` and `record_android_startup_reference` enabled.
+Later runs compare with the same reference and retain it after a successful check.
+
+Use `just bench-android` on a dedicated device to measure the connected-device
+benchmark. Use `just bench-android-reference` to read its results. These results
+are for that device. CI uses the reference recorded on its managed device.
+Debug builds can enable Compose tracing with `-Pripdpi.debugComposeTracing=true`.
 To run the app suite on managed emulators, use `just test-instrumented`.
 The shared registry and variant-specific task names are defined in
 `build-logic/convention/src/main/kotlin/RipDpiManagedDevices.kt`; CI selects

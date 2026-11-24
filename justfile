@@ -276,15 +276,16 @@ bench-rust-bless:
 # Run Android macrobenchmarks (requires connected device/emulator)
 [group('bench')]
 bench-android:
-    ./gradlew :baselineprofile:connectedAndroidTest \
+    ./gradlew :baselineprofile:connectedBenchmarkAndroidTest \
+      -Pripdpi.startupBenchmark=true \
       -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark
 
-# Bless new macrobenchmark baselines for CI
+# Print a reference from the connected device benchmark results.
 [group('bench')]
-bench-android-bless:
+bench-android-reference:
     python3 scripts/ci/check-macrobenchmark-regressions.py \
-      --results-dir baselineprofile/build/outputs/connected_android_test_additional_output \
-      --dump-current > scripts/ci/macrobenchmark-baseline.json
+      --results-dir baselineprofile/build/outputs/connected_android_test_additional_output/benchmarkAndroidTest \
+      --dump-current
 
 # ─── CI ───────────────────────────────────────────────────────────
 

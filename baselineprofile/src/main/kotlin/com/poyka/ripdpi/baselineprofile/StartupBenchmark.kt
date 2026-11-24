@@ -10,7 +10,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class StartupBenchmark {
-
     @get:Rule
     val benchmarkRule = MacrobenchmarkRule()
 
@@ -21,9 +20,10 @@ class StartupBenchmark {
             metrics = listOf(StartupTimingMetric()),
             iterations = 15,
             startupMode = StartupMode.COLD,
+            setupBlock = { pressHome() },
         ) {
-            pressHome()
             startActivityAndWait()
+            device.waitForIdle()
         }
     }
 
@@ -34,9 +34,10 @@ class StartupBenchmark {
             metrics = listOf(StartupTimingMetric()),
             iterations = 10,
             startupMode = StartupMode.WARM,
+            setupBlock = { pressHome() },
         ) {
-            pressHome()
             startActivityAndWait()
+            device.waitForIdle()
         }
     }
 }

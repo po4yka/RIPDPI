@@ -46,6 +46,11 @@ on:
         required: false
         default: false
         type: boolean
+      record_android_startup_reference:
+        description: Record the first Android startup reference on main
+        required: false
+        default: false
+        type: boolean
       run_android_network_e2e:
         description: Run Android network E2E emulator suite
         required: false
@@ -1961,7 +1966,8 @@ jobs:
           if printf '%s\n' "$changed_paths" | grep -E 'baseline' |
             grep -Ev '^native/rust/crates/(ripdpi-android|ripdpi-tunnel-android|ripdpi-relay-android|ripdpi-warp-android|ripdpi-amneziawg-android)/jni-symbols\.baseline$' |
             grep -Fxv -e 'baselineprofile/build.gradle.kts' \
-              -e 'baselineprofile/src/benchmark/kotlin/com/poyka/ripdpi/performance/ComposeStylesBenchmark.kt'; then
+              -e 'baselineprofile/src/benchmark/kotlin/com/poyka/ripdpi/performance/ComposeStylesBenchmark.kt' \
+              -e 'baselineprofile/src/main/kotlin/com/poyka/ripdpi/baselineprofile/StartupBenchmark.kt'; then
             echo "error: baseline files must not be modified in PRs — fix violations in code"
             exit 1
           fi
@@ -2428,15 +2434,47 @@ jobs:
           retention-days: 14
 
   android-macrobenchmark:
-    # Runs StartupBenchmark on a Gradle Managed Device. The :baselineprofile module
-    # already tolerates emulator runs (androidx.benchmark.suppressErrors includes
-    # EMULATOR) and the regression check is warn-only.
+    # Run StartupBenchmark on the same managed device for calibration and comparison.
     needs: [change-routing, pluggable-transport-assets, xray-native]
     if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '11 4 * * 4') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_macrobenchmark == 'true'))
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    concurrency:
+      group: android-startup-reference
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Resolve Android startup reference
+        id: startup-reference
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECORD_REFERENCE: ${{ inputs.record_android_startup_reference }}
+        run: |
+          set -euo pipefail
+          reference_run="$(gh api --paginate --method GET "repos/$GITHUB_REPOSITORY/actions/artifacts" \
+            -f name=android-startup-reference-v1 --jq '
+              .artifacts[]
+              | select(.expired == false and .workflow_run.head_branch == "main"
+                and .workflow_run.head_repository_id == .workflow_run.repository_id)
+              | .workflow_run.id
+            ' | sed -n '1p')"
+          if [[ -n "$reference_run" ]]; then
+            if [[ "$RECORD_REFERENCE" == true ]]; then
+              echo "A startup reference already exists. This run cannot replace it." >&2
+              exit 1
+            fi
+            gh run download "$reference_run" -n android-startup-reference-v1 -D "$RUNNER_TEMP/startup-reference"
+          elif [[ "$GITHUB_REF" == refs/heads/main && "$RECORD_REFERENCE" == true ]]; then
+            mkdir -p "$RUNNER_TEMP/startup-reference"
+            echo "record=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Startup reference missing. Run the benchmark on main with reference recording enabled." >&2
+            exit 1
+          fi
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -2487,7 +2525,8 @@ jobs:
 
       - name: Run macrobenchmarks on managed device
         run: |
-          ./gradlew :baselineprofile:pixel6Api34AtdDebugAndroidTest \
+          ./gradlew :baselineprofile:pixel6Api34AtdBenchmarkAndroidTest \
+            -Pripdpi.startupBenchmark=true \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
@@ -2500,14 +2539,34 @@ jobs:
         with:
           artifact-name: build-observability-android-macrobenchmark
 
-      - name: Check for regressions
+      - name: Record startup reference
+        if: steps.startup-reference.outputs.record == 'true'
         run: |
+          set -euo pipefail
           python3 scripts/ci/check-macrobenchmark-regressions.py \
             --results-dir baselineprofile/build/outputs \
-            --baseline scripts/ci/macrobenchmark-baseline.json \
-            --warn-only \
-            --markdown-output "$RUNNER_TEMP/macrobenchmark-summary.md"
-          cat "$RUNNER_TEMP/macrobenchmark-summary.md" >> "$GITHUB_STEP_SUMMARY"
+            --dump-current > "$RUNNER_TEMP/startup-reference/baseline.json"
+
+      - name: Check for regressions
+        run: |
+          result=0
+          python3 scripts/ci/check-macrobenchmark-regressions.py \
+            --results-dir baselineprofile/build/outputs \
+            --baseline "$RUNNER_TEMP/startup-reference/baseline.json" \
+            --markdown-output "$RUNNER_TEMP/macrobenchmark-summary.md" || result=$?
+          if [[ -f "$RUNNER_TEMP/macrobenchmark-summary.md" ]]; then
+            cat "$RUNNER_TEMP/macrobenchmark-summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$result"
+
+      - name: Retain startup reference
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-startup-reference-v1
+          path: ${{ runner.temp }}/startup-reference/baseline.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Upload macrobenchmark artifacts
         if: always()
