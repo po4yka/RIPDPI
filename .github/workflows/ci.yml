@@ -46,6 +46,11 @@ on:
         required: false
         default: false
         type: boolean
+      record_android_startup_reference:
+        description: Record the first Android startup reference on main
+        required: false
+        default: false
+        type: boolean
       run_android_network_e2e:
         description: Run Android network E2E emulator suite
         required: false
@@ -2432,8 +2437,12 @@ jobs:
     # Run StartupBenchmark on the same managed device for calibration and comparison.
     needs: [pluggable-transport-assets, xray-native]
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '11 4 * * 4') ||
-      github.event_name == 'workflow_dispatch'
+      !cancelled() &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      needs.xray-native.result == 'success' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '11 4 * * 4') ||
+      (github.event_name == 'workflow_dispatch' &&
+      (inputs.run_android_macrobenchmark || inputs.record_android_startup_reference)))
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -2449,7 +2458,7 @@ jobs:
         id: startup-reference
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_STARTUP_BENCHMARK: ${{ inputs.run_android_macrobenchmark }}
+          RECORD_REFERENCE: ${{ inputs.record_android_startup_reference }}
         run: |
           set -euo pipefail
           reference_run="$(gh api --paginate --method GET "repos/$GITHUB_REPOSITORY/actions/artifacts" \
@@ -2460,22 +2469,20 @@ jobs:
               | .workflow_run.id
             ' | sed -n '1p')"
           if [[ -n "$reference_run" ]]; then
-            if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$RUN_STARTUP_BENCHMARK" != true ]]; then
-              echo "Startup reference exists. This run did not request a startup measurement."
-              exit 0
+            if [[ "$RECORD_REFERENCE" == true ]]; then
+              echo "A startup reference already exists. This run cannot replace it." >&2
+              exit 1
             fi
             gh run download "$reference_run" -n android-startup-reference-v1 -D "$RUNNER_TEMP/startup-reference"
-          elif [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+          elif [[ "$GITHUB_REF" == refs/heads/main && "$RECORD_REFERENCE" == true ]]; then
             mkdir -p "$RUNNER_TEMP/startup-reference"
             echo "record=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Startup reference missing. Run CI manually on main to record a reference." >&2
+            echo "Startup reference missing. Run the benchmark on main with reference recording enabled." >&2
             exit 1
           fi
-          echo "run=true" >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/setup-android-rust
-        if: steps.startup-reference.outputs.run == 'true'
         with:
           rust-components: ""
           rust-targets: x86_64-linux-android
@@ -2484,30 +2491,25 @@ jobs:
           gradle-cache-read-only: "true"
 
       - uses: ./.github/actions/fetch-naive-upstream
-        if: steps.startup-reference.outputs.run == 'true'
         with:
           abis: x86_64
 
       - name: Download verified managed Xray runtime
-        if: steps.startup-reference.outputs.run == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: xray-native
           path: native/xray/artifacts
 
       - name: Verify downloaded managed Xray runtime
-        if: steps.startup-reference.outputs.run == 'true'
         run: bash scripts/native/verify-libxray-artifacts.sh --release
 
       - name: Download verified pluggable transport assets
-        if: steps.startup-reference.outputs.run == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: pluggable-transport-assets
           path: ${{ runner.temp }}/pluggable-transport-download
 
       - name: Extract verified pluggable transport assets
-        if: steps.startup-reference.outputs.run == 'true'
         run: |
           set -euo pipefail
           scripts/ci/extract-pluggable-transport-artifact.sh \
@@ -2515,14 +2517,12 @@ jobs:
             "$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
 
       - name: Enable KVM for emulator
-        if: steps.startup-reference.outputs.run == 'true'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
       - name: Install emulator and system image
-        if: steps.startup-reference.outputs.run == 'true'
         run: |
           android sdk install \
             "cmdline-tools/latest" \
@@ -2530,7 +2530,6 @@ jobs:
             "system-images/android-34/aosp_atd/x86_64"
 
       - name: Run macrobenchmarks on managed device
-        if: steps.startup-reference.outputs.run == 'true'
         run: |
           ./gradlew :baselineprofile:pixel6Api34AtdBenchmarkAndroidTest \
             -Pripdpi.startupBenchmark=true \
@@ -2542,7 +2541,7 @@ jobs:
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
       - uses: ./.github/actions/upload-build-observability
-        if: always() && steps.startup-reference.outputs.run == 'true'
+        if: always()
         with:
           artifact-name: build-observability-android-macrobenchmark
 
@@ -2555,7 +2554,6 @@ jobs:
             --dump-current > "$RUNNER_TEMP/startup-reference/baseline.json"
 
       - name: Check for regressions
-        if: steps.startup-reference.outputs.run == 'true'
         run: |
           result=0
           python3 scripts/ci/check-macrobenchmark-regressions.py \
@@ -2568,7 +2566,7 @@ jobs:
           exit "$result"
 
       - name: Retain startup reference
-        if: github.ref == 'refs/heads/main' && steps.startup-reference.outputs.run == 'true'
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-startup-reference-v1
@@ -2577,7 +2575,7 @@ jobs:
           retention-days: 90
 
       - name: Upload macrobenchmark artifacts
-        if: always() && steps.startup-reference.outputs.run == 'true'
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: macrobenchmark-artifacts

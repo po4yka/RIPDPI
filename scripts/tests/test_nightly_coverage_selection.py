@@ -219,9 +219,11 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
 
     def test_startup_reference_dispatch_runs_the_benchmark(self) -> None:
         job = workflow_job(CI_WORKFLOW.read_text(encoding="utf-8"), "android-macrobenchmark")
-        self.assertIn("github.event_name == 'workflow_dispatch'", job)
-        self.assertIn('elif [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_EVENT_NAME" == workflow_dispatch ]]', job)
-        self.assertIn("steps.startup-reference.outputs.run == 'true'", job)
+        self.assertIn("inputs.run_android_macrobenchmark || inputs.record_android_startup_reference", job)
+        self.assertNotIn("needs.change-routing", job)
+        self.assertIn("!cancelled() &&", job)
+        self.assertIn("needs.pluggable-transport-assets.result == 'success'", job)
+        self.assertIn("needs.xray-native.result == 'success'", job)
 
     def test_relay_smoke_uses_the_ci_native_abi_override(self) -> None:
         source = RELAY_SMOKE_SCRIPT.read_text(encoding="utf-8")
