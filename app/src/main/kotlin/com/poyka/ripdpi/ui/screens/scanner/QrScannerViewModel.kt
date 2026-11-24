@@ -23,6 +23,8 @@ enum class ScannerCameraState {
 
     /** Camera denied; only the image-file fallback path is available. */
     PERMISSION_DENIED,
+
+    CAMERA_UNAVAILABLE,
 }
 
 /** UI state for the QR scanner screen. */
@@ -31,6 +33,7 @@ data class QrScannerUiState(
     val imageFallbackAvailable: Boolean = true,
     /** In [ScannerCameraState.PERMISSION_DENIED], whether the system still shows its camera prompt. */
     val canRequestCameraPermissionAgain: Boolean = false,
+    val cameraSettingsFallback: Boolean = false,
     /** A recognised payload awaiting navigation. */
     val scanResult: ImportPayload? = null,
     val decodeError: String? = null,
@@ -66,13 +69,20 @@ class QrScannerViewModel
         internal fun showCameraRationaleOnce(
             sessionId: String,
             cameraPermissionGranted: Boolean,
+            canRequestAgain: Boolean,
         ) {
             if (cameraPermissionRequestSessionId == sessionId) return
             cameraPermissionRequestSessionId = sessionId
             if (!cameraPermissionGranted) {
                 _uiState.update {
                     it.copy(
-                        cameraState = ScannerCameraState.REQUESTING_PERMISSION,
+                        cameraState =
+                            if (canRequestAgain) {
+                                ScannerCameraState.REQUESTING_PERMISSION
+                            } else {
+                                ScannerCameraState.PERMISSION_DENIED
+                            },
+                        canRequestCameraPermissionAgain = canRequestAgain,
                         imageFallbackAvailable = true,
                     )
                 }
@@ -91,10 +101,15 @@ class QrScannerViewModel
             _uiState.update {
                 when {
                     cameraPermissionGranted -> {
-                        it.copy(cameraState = ScannerCameraState.SCANNING)
+                        if (it.cameraState == ScannerCameraState.CAMERA_UNAVAILABLE) {
+                            it
+                        } else {
+                            it.copy(cameraState = ScannerCameraState.SCANNING)
+                        }
                     }
 
-                    it.cameraState == ScannerCameraState.SCANNING -> {
+                    it.cameraState == ScannerCameraState.SCANNING ||
+                        it.cameraState == ScannerCameraState.CAMERA_UNAVAILABLE -> {
                         it.copy(
                             cameraState = ScannerCameraState.PERMISSION_DENIED,
                             canRequestCameraPermissionAgain = canRequestAgain,
@@ -106,6 +121,14 @@ class QrScannerViewModel
                     }
                 }
             }
+        }
+
+        internal fun offerCameraSettingsFallback() {
+            _uiState.update { it.copy(cameraSettingsFallback = true) }
+        }
+
+        internal fun onCameraUnavailable() {
+            _uiState.update { it.copy(cameraState = ScannerCameraState.CAMERA_UNAVAILABLE) }
         }
 
         /** Advances the camera state machine from the runtime-permission result. */
@@ -123,6 +146,7 @@ class QrScannerViewModel
                         },
                     imageFallbackAvailable = true,
                     canRequestCameraPermissionAgain = !granted && canRequestAgain,
+                    cameraSettingsFallback = false,
                 )
             }
         }

@@ -318,4 +318,5 @@
     <string name="ui_app_picker_no_matches">Aucune application correspondante</string>
     <string name="ui_app_picker_clear_search">Effacer la recherche</string>
     <string name="ui_profile_catalog_retry">Recharger les profils</string>
+    <string name="scanner_camera_unavailable">L’appareil photo est indisponible. Vous pouvez toujours importer une image de code QR.</string>
 </resources>

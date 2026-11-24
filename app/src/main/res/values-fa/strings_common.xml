@@ -314,4 +314,5 @@
     <string name="ui_app_picker_no_matches">برنامه مطابقی پیدا نشد</string>
     <string name="ui_app_picker_clear_search">پاک کردن جستجو</string>
     <string name="ui_profile_catalog_retry">بارگذاری دوباره نمایه‌ها</string>
+    <string name="scanner_camera_unavailable">دوربین در دسترس نیست. همچنان می‌توانید تصویر QR را وارد کنید.</string>
 </resources>

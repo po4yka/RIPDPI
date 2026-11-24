@@ -109,14 +109,27 @@ class QrScannerRoutePermissionRecoveryTest {
     fun `missing camera permission shows the rationale once per scanner session`() {
         val viewModel = QrScannerViewModel()
 
-        viewModel.showCameraRationaleOnce(sessionId = "session-1", cameraPermissionGranted = false)
+        viewModel.showCameraRationaleOnce(
+            sessionId = "session-1",
+            cameraPermissionGranted = false,
+            canRequestAgain = true,
+        )
         assertEquals(ScannerCameraState.REQUESTING_PERMISSION, viewModel.uiState.value.cameraState)
         viewModel.onCameraPermissionResult(granted = false, canRequestAgain = false)
-        viewModel.showCameraRationaleOnce(sessionId = "session-1", cameraPermissionGranted = false)
+        viewModel.showCameraRationaleOnce(
+            sessionId = "session-1",
+            cameraPermissionGranted = false,
+            canRequestAgain = true,
+        )
         assertEquals(ScannerCameraState.PERMISSION_DENIED, viewModel.uiState.value.cameraState)
 
-        viewModel.showCameraRationaleOnce(sessionId = "session-2", cameraPermissionGranted = false)
-        assertEquals(ScannerCameraState.REQUESTING_PERMISSION, viewModel.uiState.value.cameraState)
+        viewModel.showCameraRationaleOnce(
+            sessionId = "session-2",
+            cameraPermissionGranted = false,
+            canRequestAgain = false,
+        )
+        assertEquals(ScannerCameraState.PERMISSION_DENIED, viewModel.uiState.value.cameraState)
+        assertEquals(false, viewModel.uiState.value.canRequestCameraPermissionAgain)
     }
 
     @Test
@@ -155,7 +168,7 @@ class QrScannerRoutePermissionRecoveryTest {
                 QrScannerPermissionEffects(
                     sessionId = "session-1",
                     cameraPermissionGranted = false,
-                    canRequestCameraPermissionAgain = { false },
+                    canRequestCameraPermissionAgain = { true },
                     viewModel = viewModel,
                 )
             }
@@ -182,7 +195,7 @@ class QrScannerRoutePermissionRecoveryTest {
             QrScannerPermissionEffects(
                 sessionId = "session-1",
                 cameraPermissionGranted = permissionGranted.value,
-                canRequestCameraPermissionAgain = { false },
+                canRequestCameraPermissionAgain = { true },
                 viewModel = viewModel,
             )
         }
@@ -204,7 +217,11 @@ class QrScannerRoutePermissionRecoveryTest {
     @Test
     fun `a first denial or an expired one-time grant can still request the camera`() {
         val deniedOnce = QrScannerViewModel()
-        deniedOnce.showCameraRationaleOnce(sessionId = "session-1", cameraPermissionGranted = false)
+        deniedOnce.showCameraRationaleOnce(
+            sessionId = "session-1",
+            cameraPermissionGranted = false,
+            canRequestAgain = true,
+        )
         deniedOnce.onCameraPermissionResult(granted = false, canRequestAgain = true)
         assertEquals(ScannerCameraState.PERMISSION_DENIED, deniedOnce.uiState.value.cameraState)
         assertEquals(true, deniedOnce.uiState.value.canRequestCameraPermissionAgain)

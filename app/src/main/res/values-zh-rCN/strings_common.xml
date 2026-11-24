@@ -303,4 +303,5 @@
     <string name="ui_app_picker_no_matches">没有匹配的应用</string>
     <string name="ui_app_picker_clear_search">清除搜索</string>
     <string name="ui_profile_catalog_retry">重新加载配置文件</string>
+    <string name="scanner_camera_unavailable">相机不可用。你仍然可以导入二维码图片。</string>
 </resources>

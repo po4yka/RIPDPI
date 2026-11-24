@@ -4155,6 +4155,7 @@ app:runtime_config_title
 app:runtime_config_unknown
 app:runtime_config_unknown_body
 app:save_logs
+app:scanner_camera_unavailable
 app:scanner_invalid_qr_body
 app:scanner_invalid_qr_title
 app:scanner_permission_continue

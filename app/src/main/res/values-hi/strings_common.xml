@@ -315,4 +315,5 @@
     <string name="ui_app_picker_no_matches">कोई मेल खाता ऐप नहीं मिला</string>
     <string name="ui_app_picker_clear_search">खोज साफ़ करें</string>
     <string name="ui_profile_catalog_retry">प्रोफ़ाइल फिर लोड करें</string>
+    <string name="scanner_camera_unavailable">कैमरा उपलब्ध नहीं है। आप अब भी QR कोड की तस्वीर इंपोर्ट कर सकते हैं।</string>
 </resources>
