@@ -19,4 +19,4 @@ Required gates: frozen producer SHA, seven byte comparisons, full vendored
 directory comparison, JSON validity, strict task/OpenSpec validation,
 architecture health, proportional client tests, and exact-head hosted CI.
 - [x] DAT-1788100117996369 Mirror seven producer contracts and run local gates #chore !high @item:DAT-1788100001077419
-- [ ] DAT-1788100118704034 Publish exact client commit and verify hosted checks #chore !high @item:DAT-1788100001077419
+- [x] DAT-1788100118704034 Publish exact client commit and verify hosted checks #chore !high @item:DAT-1788100001077419

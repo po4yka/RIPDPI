@@ -2,7 +2,7 @@
 id: DAT-1788100001077419
 title: Mirror observability and network exposure contracts
 kind: chore
-status: doing
+status: review
 area: data
 priority: high
 owner: codex
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: mirror-observability-network-exposure-contracts
 created: 2026-08-30
-updated: 2026-09-05
+updated: 2026-11-24
 ---
 
 ## Goal
@@ -23,11 +23,11 @@ client mirrors.
 
 ## Acceptance criteria
 
-- [ ] The seven vendored contract files are byte-for-byte equal to one frozen
+- [x] The seven vendored contract files are byte-for-byte equal to one frozen
   producer commit and are valid JSON.
-- [ ] The complete client contract-mirror lane, task/OpenSpec validation, and
+- [x] The complete client contract-mirror lane, task/OpenSpec validation, and
   architecture checks pass on the exact client commit.
-- [ ] Required hosted CI passes before protected-main integration.
+- [x] Required hosted CI passes before protected-main integration.
 
 ## Scope
 

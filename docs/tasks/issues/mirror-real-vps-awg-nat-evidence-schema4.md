@@ -2,7 +2,7 @@
 id: DAT-1788656601400373
 title: Mirror real VPS AWG NAT evidence schema 4
 kind: chore
-status: doing
+status: review
 area: data
 priority: high
 owner: codex
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: mirror-real-vps-awg-nat-evidence-schema4
 created: 2026-09-06
-updated: 2026-09-06
+updated: 2026-11-24
 ---
 
 ## Goal
@@ -26,7 +26,7 @@ without adding client runtime, signer, relay, device, or deployment behavior.
   file, parses as JSON, and declares `real_vps_awg_nat_evidence_v4`.
 - [x] Focused mirror checks, task/OpenSpec validation, and architecture health
   pass on the exact client commit without Kotlin or Rust runtime changes.
-- [ ] Required hosted CI passes before protected-main integration.
+- [x] Required hosted CI passes before protected-main integration.
 
 ## Ownership
 

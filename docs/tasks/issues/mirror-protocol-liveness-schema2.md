@@ -2,7 +2,7 @@
 id: DAT-1788011816707517
 title: Mirror protocol liveness schema 2
 kind: chore
-status: doing
+status: review
 area: data
 priority: high
 owner: codex
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: mirror-protocol-liveness-schema2
 created: 2026-08-29
-updated: 2026-08-29
+updated: 2026-11-24
 ---
 
 ## Goal
@@ -26,7 +26,7 @@ without adding client runtime behavior or changing network-exposure contracts.
   the deployment producer at the frozen revision.
 - [x] JSON Schema draft validation and the complete 22-file contract mirror
   comparison pass.
-- [ ] Client data, task/OpenSpec, architecture, configured hook, and exact-head
+- [x] Client data, task/OpenSpec, architecture, configured hook, and exact-head
   hosted CI gates pass without Kotlin, Rust, device, or emulator changes.
 
 ## Ownership

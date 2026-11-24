@@ -1,11 +1,11 @@
 ---
 task_id: DAT-1788011816707517
 change: mirror-protocol-liveness-schema2
-commit_sha: 1e451f9e896d556d3a23f0593b3532f774abd8c0
+commit_sha: ab2c4dd2eb75854e055574b07c30bb61a8628a6a
 local: passed
 local_evidence: Exact source 1e451f9e896d556d3a23f0593b3532f774abd8c0; producer 8396ec8c954eda64ae4b78dc1c8f2d18de207c3b resolved exactly; all 22 contracts byte-identical; protocol-liveness SHA-256 bac087c726619884c6a7b4fabd2287811a275ceb04bb2267c143d9df67237f50; Draft 2020-12 and schema 2 positive/schema 1 rejection checks passed; core data 786 tests, task/OpenSpec, architecture health, and configured hooks passed.
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: PR 464 run 33262017742 passed ci-required, Kotlin coverage, task and OpenSpec validation, and architecture health at the recorded commit. Protected main received merge 9820fff06deb9e82276e953166e45083930de057.
 device: not_applicable
 device_evidence: This test-resource-only contract mirror does not change or require device behavior.
 artifact: not_applicable
@@ -21,4 +21,4 @@ deployment_evidence: No deployment is owned by this client contract mirror.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-MIRROR-BYTE-IDENTITY | DAT-1788011957968789 | Exact source 1e451f9e8; producer 8396ec8c resolved; all 22 contracts byte-identical; schema JSON/SHA-256 verified; core data 786 tests and local gates passed. | passed |
-| REQ-MIRROR-SCOPE-ISOLATION | DAT-1788011958473813 | Final diff review and exact-head hosted checks pending. | required |
+| REQ-MIRROR-SCOPE-ISOLATION | DAT-1788011958473813 | The recorded PR head has 22 byte-identical mirrors against the frozen producer, with no missing or extra files. Required hosted checks passed before merge. [Hosted CI](https://github.com/po4yka/RIPDPI/actions/runs/33262017742) | passed |
