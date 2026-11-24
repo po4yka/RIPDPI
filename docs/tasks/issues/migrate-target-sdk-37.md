@@ -2,7 +2,7 @@
 id: AND-1787932839013427
 title: Migrate Android runtime behavior to target SDK 37
 kind: feature
-status: doing
+status: review
 area: android
 priority: high
 owner: Codex
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: migrate-target-sdk-37
 created: 2026-08-28
-updated: 2026-08-28
+updated: 2026-11-24
 ---
 
 ## Goal

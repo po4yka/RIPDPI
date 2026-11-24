@@ -4,8 +4,8 @@ change: migrate-target-sdk-37
 commit_sha: d1b75749a2ef4b01e01b3b6648dfdd475f35487e
 local: passed
 local_evidence: The current source passed 64 focused app LAN, service admission and revocation, diagnostics, and TLS trust tests. Earlier implementation checks covered all variants, full static analysis, and all four Android ABIs.
-remote_ci: required
-remote_ci_evidence: The hosted API 27, 33, 35, 36, and 37 matrix is required for closure.
+remote_ci: passed
+remote_ci_evidence: Run 45441455734 passed the Android API 27, 33, 35, 36, and 37 jobs at the recorded source.
 device: passed
 device_evidence: The recorded local API 37 16-KiB emulator passed LAN grant and regrant, loopback, and JNI loading. Physical devices and same-L2 kernel measurements are outside app acceptance.
 artifact: passed
@@ -22,8 +22,8 @@ deployment_evidence: No deployment is owned by this change.
 |---|---|---|---|
 | REQ-T37-LAN | AND-1787933125693547 | App, service, and diagnostics regressions passed. The API 37 emulator passed a LAN grant and regrant. | passed |
 | REQ-T37-TLS | AND-1787933125835921 | OwnedStackBrowserServiceTest passed, including nested trust-failure checks. Earlier NSC serialization tests passed. | passed |
-| REQ-T37-RUNTIME | AND-1787933125533035 | The implementation produced target 37 APKs and loaded JNI on the API 37 16-KiB image. The current hosted runtime tests are pending. | local pass |
-| REQ-T37-CI | AND-1787933125977204 | Current CI routing defines the five Android API levels. Hosted results are pending. | pending |
+| REQ-T37-RUNTIME | AND-1787933125533035 | Target 37 APKs loaded JNI on the local API 37 16-KiB image. Hosted API 37 instrumentation and Kaspresso smoke passed. | passed |
+| REQ-T37-CI | AND-1787933125977204 | The hosted API 27, 33, 35, 36, and 37 matrix passed on the recorded source. | passed |
 
 ## Earlier local evidence (2026-08-28, recovered worktree)
 
@@ -176,3 +176,9 @@ App permission and trust regressions, positive API 37 emulator observations,
 and the hosted Android matrix define this task's acceptance. Physical lifecycle,
 same-L2 kernel enforcement, and controlled certificate endpoint measurements
 are outside this scope. The historical emulator failure remains in the record.
+
+[Hosted CI run 45441455734](https://github.com/po4yka/RIPDPI/actions/runs/45441455734)
+passed the Android instrumentation APK build and all five API jobs at
+`d1b75749a2`. The API 37 job used `google_apis_ps16k` and passed
+instrumentation and Kaspresso smoke. Play, F-Droid and GitHub release assembly,
+packaged ELF and JNI checks passed. All four native ABI builds passed.
