@@ -236,7 +236,7 @@
     <string name="update_available_title_format">A versão %1$s (%2$d) está disponível.</string>
     <string name="update_size_format">Tamanho do APK: %1$s</string>
     <string name="update_changelog_title">Registro de alterações</string>
-    <string name="update_permission_required">Permita instalações deste app e volte para continuar.</string>
+    <string name="update_permission_required">Para instalar atualizações do GitHub, permita instalações pelo RIPDPI nas configurações do Android. Depois, volte e toque em Baixar e instalar.</string>
     <string name="update_install_started">Instalador do Android aberto.</string>
     <string name="update_error_format">Falha na atualização: %1$s</string>
     <string name="update_error_network">falha na requisição de rede</string>

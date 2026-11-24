@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.ui.screens.customization
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
 import android.text.format.Formatter
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,10 +28,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -44,7 +48,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import com.poyka.ripdpi.updates.AvailableAppUpdate
 import com.poyka.ripdpi.updates.DistributionChannel
-import com.poyka.ripdpi.updates.UpdateEffect
 import com.poyka.ripdpi.updates.UpdateFailureReason
 import com.poyka.ripdpi.updates.UpdateUiState
 import com.poyka.ripdpi.updates.UpdateUiStatus
@@ -59,19 +62,32 @@ fun AboutRoute(
 ) {
     val updateUiState = updateViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    LifecycleEventEffect(updateViewModel.effects) { effect ->
-        when (effect) {
-            is UpdateEffect.OpenIntent -> context.startActivity(effect.intent)
-        }
+    LifecycleResumeEffect(updateViewModel) {
+        updateViewModel.onResume()
+        onPauseOrDispose { }
     }
     AboutScreen(
         onBack = onBack,
         updateUiState = updateUiState.value,
         onCheckForUpdates = updateViewModel::checkForUpdates,
         onInstallUpdate = updateViewModel::installAvailableUpdate,
+        onOpenInstallSettings = { updateViewModel.installPermissionSettings()?.let(context::openInstallSettings) },
         onOpenLicenses = onOpenLicenses,
         modifier = modifier,
     )
+}
+
+private fun Context.openInstallSettings(intent: Intent) {
+    val opened =
+        try {
+            startActivity(intent)
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        } catch (_: SecurityException) {
+            false
+        }
+    if (!opened) Toast.makeText(this, R.string.settings_system_screen_unavailable, Toast.LENGTH_LONG).show()
 }
 
 @Composable
@@ -81,6 +97,7 @@ internal fun AboutScreen(
     updateUiState: UpdateUiState = previewUpdateUiState(),
     onCheckForUpdates: () -> Unit = {},
     onInstallUpdate: () -> Unit = {},
+    onOpenInstallSettings: () -> Unit = {},
     onOpenLicenses: () -> Unit = {},
 ) {
     RipDpiSettingsScaffold(
@@ -106,6 +123,7 @@ internal fun AboutScreen(
                 updateUiState = updateUiState,
                 onCheckForUpdates = onCheckForUpdates,
                 onInstallUpdate = onInstallUpdate,
+                onOpenInstallSettings = onOpenInstallSettings,
             )
         }
 
@@ -259,6 +277,7 @@ private fun AboutUpdatesSection(
     updateUiState: UpdateUiState,
     onCheckForUpdates: () -> Unit,
     onInstallUpdate: () -> Unit,
+    onOpenInstallSettings: () -> Unit,
 ) {
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
@@ -296,9 +315,17 @@ private fun AboutUpdatesSection(
                 variant = RipDpiButtonVariant.Outline,
             )
             if (update != null && updateUiState.channelInfo.canInstallInApp) {
+                val permissionRequired = updateUiState.status == UpdateUiStatus.PermissionRequired
                 RipDpiButton(
-                    text = stringResource(R.string.update_install_action),
-                    onClick = onInstallUpdate,
+                    text =
+                        stringResource(
+                            if (permissionRequired) {
+                                R.string.settings_permission_action_open_settings
+                            } else {
+                                R.string.update_install_action
+                            },
+                        ),
+                    onClick = if (permissionRequired) onOpenInstallSettings else onInstallUpdate,
                     enabled = updateUiState.status != UpdateUiStatus.Downloading,
                     modifier = Modifier.fillMaxWidth(),
                 )

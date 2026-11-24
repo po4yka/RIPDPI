@@ -233,7 +233,7 @@
     <string name="update_available_title_format">Доступна версия %1$s (%2$d).</string>
     <string name="update_size_format">Размер APK: %1$s</string>
     <string name="update_changelog_title">Список изменений</string>
-    <string name="update_permission_required">Разрешите установку из этого приложения, затем вернитесь, чтобы продолжить.</string>
+    <string name="update_permission_required">Чтобы установить обновление с GitHub, разрешите установку из RIPDPI в настройках Android. Затем вернитесь и нажмите «Скачать и установить».</string>
     <string name="update_install_started">Установщик Android открыт.</string>
     <string name="update_error_format">Не удалось обновить: %1$s</string>
     <string name="update_error_network">ошибка сетевого запроса</string>

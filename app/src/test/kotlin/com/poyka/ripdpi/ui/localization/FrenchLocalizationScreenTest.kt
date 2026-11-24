@@ -86,7 +86,7 @@ class FrenchLocalizationScreenTest {
     fun `privacy scope and redaction fit large text`() = checkPrivacy(360, 1.5f, "fr-privacy-large")
 
     @Test
-    fun `update permission and install action are readable`() = checkUpdate(420, 1f, "fr-update")
+    fun `update permission and settings action are readable`() = checkUpdate(420, 1f, "fr-update")
 
     @Test
     @Config(qualifiers = "fr-w360dp-h1100dp-mdpi")
@@ -182,7 +182,7 @@ class FrenchLocalizationScreenTest {
         scale: Float,
         name: String,
     ) {
-        var installed = false
+        var settingsOpened = false
         content(width, scale) {
             AboutScreen(
                 onBack = {},
@@ -192,17 +192,17 @@ class FrenchLocalizationScreenTest {
                         status = UpdateUiStatus.PermissionRequired,
                         availableUpdate = AvailableAppUpdate(99, "99.0", "", 1_048_576),
                     ),
-                onInstallUpdate = { installed = true },
+                onOpenInstallSettings = { settingsOpened = true },
             )
         }
         readable(R.string.update_permission_required)
         capture(name)
         composeRule
-            .onNodeWithText(french(R.string.update_install_action))
+            .onNodeWithText(french(R.string.settings_permission_action_open_settings))
             .performScrollTo()
             .assertIsDisplayed()
             .performClick()
-        assertTrue(installed)
+        assertTrue(settingsOpened)
     }
 
     private fun checkBlocks(

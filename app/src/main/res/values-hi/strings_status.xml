@@ -236,7 +236,7 @@
     <string name="update_available_title_format">संस्करण %1$s (%2$d) उपलब्ध है।</string>
     <string name="update_size_format">APK आकार: %1$s</string>
     <string name="update_changelog_title">बदलाव सूची</string>
-    <string name="update_permission_required">इस ऐप से इंस्टॉल की अनुमति दें, फिर जारी रखने के लिए वापस आएँ।</string>
+    <string name="update_permission_required">GitHub अपडेट इंस्टॉल करने के लिए Android सेटिंग में RIPDPI से इंस्टॉल करने की अनुमति दें। फिर लौटकर ‘डाउनलोड और इंस्टॉल’ पर टैप करें।</string>
     <string name="update_install_started">Android इंस्टॉलर खुल गया।</string>
     <string name="update_error_format">अपडेट विफल: %1$s</string>
     <string name="update_error_network">नेटवर्क अनुरोध विफल रहा</string>

@@ -28,6 +28,9 @@ interface AppUpdateManager {
     suspend fun checkForUpdate(): UpdateCheckResult
 
     suspend fun install(update: AvailableAppUpdate): UpdateInstallResult
+
+    /** Returns the settings action when this channel needs an Android installation grant. */
+    fun installPermissionSettings(): Intent? = null
 }
 
 sealed interface UpdateCheckResult {
@@ -49,9 +52,7 @@ sealed interface UpdateInstallResult {
 
     data object Started : UpdateInstallResult
 
-    data class PermissionRequired(
-        val intent: Intent,
-    ) : UpdateInstallResult
+    data object PermissionRequired : UpdateInstallResult
 
     data class Failed(
         val reason: UpdateFailureReason,
@@ -96,10 +97,4 @@ sealed interface UpdateUiStatus {
     data class Failed(
         val reason: UpdateFailureReason,
     ) : UpdateUiStatus
-}
-
-sealed interface UpdateEffect {
-    data class OpenIntent(
-        val intent: Intent,
-    ) : UpdateEffect
 }

@@ -1,12 +1,10 @@
 package com.poyka.ripdpi.updates
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,14 +21,7 @@ class UpdateViewModel
             MutableStateFlow(
                 UpdateUiState(channelInfo = updateManager.channelInfo),
             )
-        private val _effects =
-            MutableSharedFlow<UpdateEffect>(
-                extraBufferCapacity = 1,
-                onBufferOverflow = BufferOverflow.DROP_OLDEST,
-            )
-
         val uiState: StateFlow<UpdateUiState> = _uiState.asStateFlow()
-        val effects = _effects.bufferForUiLifecycle(viewModelScope)
 
         // One check or install at a time: a check that ends during a download would re-enable Install, and two
         // downloads share one temporary APK file.
@@ -68,6 +59,25 @@ class UpdateViewModel
             }
         }
 
+        fun installPermissionSettings(): Intent? {
+            if (_uiState.value.status != UpdateUiStatus.PermissionRequired) return null
+            return updateManager.installPermissionSettings().also { intent ->
+                if (intent == null) setIdle()
+            }
+        }
+
+        fun onResume() {
+            when (_uiState.value.status) {
+                UpdateUiStatus.PermissionRequired -> installPermissionSettings()
+                UpdateUiStatus.InstallerStarted -> setIdle()
+                else -> Unit
+            }
+        }
+
+        private fun setIdle() {
+            _uiState.value = _uiState.value.copy(status = UpdateUiStatus.Idle)
+        }
+
         fun installAvailableUpdate() {
             val update = _uiState.value.availableUpdate
             if (update == null) {
@@ -86,9 +96,8 @@ class UpdateViewModel
                         _uiState.value = _uiState.value.copy(status = UpdateUiStatus.Failed(result.reason))
                     }
 
-                    is UpdateInstallResult.PermissionRequired -> {
+                    UpdateInstallResult.PermissionRequired -> {
                         _uiState.value = _uiState.value.copy(status = UpdateUiStatus.PermissionRequired)
-                        _effects.tryEmit(UpdateEffect.OpenIntent(result.intent))
                     }
 
                     UpdateInstallResult.Started -> {

@@ -236,7 +236,7 @@
     <string name="update_available_title_format">Version %1$s (%2$d) ist verfügbar.</string>
     <string name="update_size_format">APK-Größe: %1$s</string>
     <string name="update_changelog_title">Changelog</string>
-    <string name="update_permission_required">Erlauben Sie Installationen aus dieser App und kehren Sie dann zurück, um fortzufahren.</string>
+    <string name="update_permission_required">Um GitHub-Updates zu installieren, erlauben Sie Installationen aus RIPDPI in den Android-Einstellungen. Kehren Sie dann zurück und tippen Sie auf „Herunterladen und installieren“.</string>
     <string name="update_install_started">Android-Installation geöffnet.</string>
     <string name="update_error_format">Aktualisierung fehlgeschlagen: %1$s</string>
     <string name="update_error_network">Netzwerkanfrage fehlgeschlagen</string>

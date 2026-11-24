@@ -82,7 +82,7 @@ class GermanLocalizationScreenTest {
     fun privacyScopeAndRedactionFitLargeText() = checkPrivacy(360, 1.5f, "de-privacy-large")
 
     @Test
-    fun updatePermissionAndInstallActionAreReadable() = checkUpdate(420, 1f, "de-update")
+    fun updatePermissionAndSettingsActionAreReadable() = checkUpdate(420, 1f, "de-update")
 
     @Test
     @Config(qualifiers = "de-w360dp-h1100dp-mdpi")
@@ -143,7 +143,7 @@ class GermanLocalizationScreenTest {
         scale: Float,
         name: String,
     ) {
-        var installed = false
+        var settingsOpened = false
         content(width, scale) {
             AboutScreen(
                 onBack = {},
@@ -153,17 +153,17 @@ class GermanLocalizationScreenTest {
                         status = UpdateUiStatus.PermissionRequired,
                         availableUpdate = AvailableAppUpdate(99, "99.0", "", 1_048_576),
                     ),
-                onInstallUpdate = { installed = true },
+                onOpenInstallSettings = { settingsOpened = true },
             )
         }
         readable(R.string.update_permission_required)
         capture(name)
         composeRule
-            .onNodeWithText(german(R.string.update_install_action))
+            .onNodeWithText(german(R.string.settings_permission_action_open_settings))
             .performScrollTo()
             .assertIsDisplayed()
             .performClick()
-        assertTrue(installed)
+        assertTrue(settingsOpened)
     }
 
     private fun checkBlocks(

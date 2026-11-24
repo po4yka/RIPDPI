@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.updates
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
@@ -105,11 +106,8 @@ class GithubUpdateManager
                     val plan =
                         latestPlan?.takeIf { it.update.artifactName == update.artifactName }
                             ?: return@withContext UpdateInstallResult.Failed(UpdateFailureReason.NotAvailable)
-                    if (
-                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                        !context.packageManager.canRequestPackageInstalls()
-                    ) {
-                        return@withContext UpdateInstallResult.PermissionRequired(unknownSourcesIntent())
+                    if (!context.packageManager.canRequestPackageInstalls()) {
+                        return@withContext UpdateInstallResult.PermissionRequired
                     }
                     val apkFile = downloadApk(plan)
                     val validationFailure = validateDownloadedApk(plan.metadata, plan.artifact, apkFile)
@@ -117,12 +115,7 @@ class GithubUpdateManager
                         apkFile.delete()
                         return@withContext UpdateInstallResult.Failed(validationFailure)
                     }
-                    val installIntent = installIntent(apkFile)
-                    if (installIntent.resolveActivity(context.packageManager) == null) {
-                        return@withContext UpdateInstallResult.Failed(UpdateFailureReason.InstallerUnavailable)
-                    }
-                    context.startActivity(installIntent)
-                    UpdateInstallResult.Started
+                    launchInstaller(apkFile)
                 } catch (e: Exception) {
                     currentCoroutineContext().ensureActive()
                     UpdateInstallResult.Failed(e.toFailureReason())
@@ -251,11 +244,32 @@ class GithubUpdateManager
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        private fun unknownSourcesIntent(): Intent =
-            Intent(
-                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                Uri.parse("package:${BuildConfig.APPLICATION_ID}"),
-            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        override fun installPermissionSettings(): Intent? =
+            if (context.packageManager.canRequestPackageInstalls()) {
+                null
+            } else {
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${context.packageName}"),
+                )
+            }
+
+        private fun launchInstaller(apkFile: File): UpdateInstallResult {
+            if (!context.packageManager.canRequestPackageInstalls()) return UpdateInstallResult.PermissionRequired
+            val intent = installIntent(apkFile)
+            return try {
+                context.startActivity(intent)
+                UpdateInstallResult.Started
+            } catch (_: ActivityNotFoundException) {
+                UpdateInstallResult.Failed(UpdateFailureReason.InstallerUnavailable)
+            } catch (_: SecurityException) {
+                if (context.packageManager.canRequestPackageInstalls()) {
+                    UpdateInstallResult.Failed(UpdateFailureReason.InstallerUnavailable)
+                } else {
+                    UpdateInstallResult.PermissionRequired
+                }
+            }
+        }
 
         companion object {
             private const val UpdateMetadataAssetName = "update.json"

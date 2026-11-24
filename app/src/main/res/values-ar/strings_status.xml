@@ -236,7 +236,7 @@
     <string name="update_available_title_format">الإصدار %1$s (%2$d) متاح.</string>
     <string name="update_size_format">حجم ⁨APK⁩: %1$s</string>
     <string name="update_changelog_title">سجل التغييرات</string>
-    <string name="update_permission_required">اسمح بالتثبيت من هذا التطبيق، ثم عُد للمتابعة.</string>
+    <string name="update_permission_required">لتثبيت تحديثات GitHub، اسمح بالتثبيت من RIPDPI في إعدادات Android. ثم عُد واضغط على «التنزيل والتثبيت».</string>
     <string name="update_install_started">تم فتح مثبِّت Android.</string>
     <string name="update_error_format">فشل التحديث: %1$s</string>
     <string name="update_error_network">فشل طلب الشبكة</string>
