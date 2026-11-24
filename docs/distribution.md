@@ -46,9 +46,10 @@ The shared About screen shows one Updates section. The flavor implementation dec
 | F-Droid | Optional | Available |
 | GitHub Releases | Optional | Available |
 
-In the F-Droid and GitHub builds, open **Settings → Connection → Root mode**
-and turn on **Use root for strategies** to request access. The screen shows the
-access check and the helper status for the current connection. A saved
+In the F-Droid and GitHub builds, open **Settings → Connection**, expand
+**Routing, bypass, and advanced settings**, and open **Root mode**. Turn on
+**Use root for strategies** to request access. The screen shows the access
+check and the helper status for the current connection. A saved
 authorization alone leaves the helper idle. The service starts it when the
 selected policy uses it. After a refusal, timeout, or helper failure, use
 **Check again** for a new access check. Only systems with a compatible root
