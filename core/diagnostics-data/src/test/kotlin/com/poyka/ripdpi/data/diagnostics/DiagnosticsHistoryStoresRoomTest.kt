@@ -115,6 +115,8 @@ class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
             assertEquals(listOf("newer", "older"), observedProfiles.map { it.id })
             assertEquals("newer", catalog.getProfile("newer")?.id)
             assertEquals(3, catalog.getPackVersion("newer")?.version)
+            assertEquals(mapOf("older" to 1, "newer" to 1), catalog.getProfileVersions())
+            assertEquals(listOf("newer" to 3), catalog.getPackVersions().map { it.packId to it.version })
         }
 
     @Test
@@ -406,6 +408,21 @@ class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
                     createdAfter = 35L,
                 ),
             )
+        }
+
+    @Test
+    fun `artifact store persists a batch and replaces repeated event identities`() =
+        runTest {
+            val store = RoomDiagnosticsArtifactStore(db, dao)
+            val oldEvent = nativeEvent(id = "exit-a", sessionId = null, createdAt = 10L)
+            val replacement = oldEvent.copy(createdAt = 30L)
+            val otherEvent = nativeEvent(id = "exit-b", sessionId = null, createdAt = 20L)
+            store.insertNativeSessionEvent(oldEvent)
+
+            store.insertNativeSessionEvents(listOf(otherEvent, replacement))
+
+            assertEquals(replacement, store.getNativeEventById("exit-a"))
+            assertEquals(otherEvent, store.getNativeEventById("exit-b"))
         }
 
     @Test

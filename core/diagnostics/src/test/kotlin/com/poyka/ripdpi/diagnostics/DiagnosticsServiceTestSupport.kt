@@ -429,6 +429,10 @@ internal class FakeDiagnosticsHistoryStores :
 
     override suspend fun getPackVersion(packId: String): TargetPackVersionEntity? = packVersions[packId]
 
+    override suspend fun getPackVersions(): List<TargetPackVersionEntity> = packVersions.values.toList()
+
+    override suspend fun getProfileVersions(): Map<String, Int> = profilesState.value.associate { it.id to it.version }
+
     override suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
         sessionsState.value.find { it.id == sessionId }
 
@@ -542,6 +546,10 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) {
         beforeInsertTelemetrySample(sample)
         telemetryState.value = telemetryState.value + sample
+    }
+
+    override suspend fun insertNativeSessionEvents(events: List<NativeSessionEventEntity>) {
+        events.forEach { insertNativeSessionEvent(it) }
     }
 
     override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {

@@ -225,6 +225,10 @@ internal fun pausedServiceStopProvenanceRecorder(): RoomServiceStopProvenanceRec
 
             override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) = Unit
 
+            override suspend fun insertNativeSessionEvents(events: List<NativeSessionEventEntity>) {
+                events.forEach { insertNativeSessionEvent(it) }
+            }
+
             override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) = Unit
 
             override suspend fun insertExportRecord(record: ExportRecordEntity) = Unit

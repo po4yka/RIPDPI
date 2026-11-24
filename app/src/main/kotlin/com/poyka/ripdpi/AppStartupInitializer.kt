@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsRetentionWorker
+import com.poyka.ripdpi.diagnostics.traceStartupPhase
 import com.poyka.ripdpi.seed.PresetApplier
 import com.poyka.ripdpi.seed.PresetOutcome
 import com.poyka.ripdpi.services.BootSessionRecorder
@@ -99,8 +100,8 @@ class AppStartupInitializer
             applicationScope.launch {
                 val startupRecovery =
                     try {
-                        val recovered = recoverBeforeReadiness()
-                        reconcileRemoteAcceptanceBeforeReadiness()
+                        val recovered = traceStartupPhase("data_recovery") { recoverBeforeReadiness() }
+                        traceStartupPhase("remote_acceptance_recovery") { reconcileRemoteAcceptanceBeforeReadiness() }
                         recovered
                     } catch (cancellation: CancellationException) {
                         failStartupAndRethrow(cancellation, "Pre-readiness recovery failed; startup remains gated")
@@ -272,7 +273,7 @@ class AppStartupInitializer
                 }
             // Reconcile previous-process exits before runtime history starts collecting. Otherwise
             // the monitor can seal a root-cause assessment from the pre-reconciliation snapshot.
-            recordRecentProcessExits()
+            traceStartupPhase("process_exit_reconciliation") { recordRecentProcessExits() }
             val diagnosticsBootstrap =
                 runSubsystem(AppStartupSubsystem.DiagnosticsBootstrap) {
                     diagnosticsBootstrapperProvider.get().initialize()
@@ -350,7 +351,7 @@ class AppStartupInitializer
             action: suspend () -> Unit,
         ): AppStartupSubsystemResult {
             val failure =
-                runCatching { action() }
+                runCatching { traceStartupPhase(subsystem.logLabel, action) }
                     .exceptionOrNull()
             if (failure is CancellationException) {
                 throw failure

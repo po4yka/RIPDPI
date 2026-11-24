@@ -185,6 +185,10 @@ private class RecordingAutolearnArtifactWriteStore : DiagnosticsArtifactWriteSto
 
     override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) = Unit
 
+    override suspend fun insertNativeSessionEvents(events: List<NativeSessionEventEntity>) {
+        events.forEach { insertNativeSessionEvent(it) }
+    }
+
     override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
         this.event = event
     }

@@ -45,6 +45,9 @@ class RoomDiagnosticsArtifactStore
             override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) =
                 dao.insertNativeSessionEvent(event)
 
+            override suspend fun insertNativeSessionEvents(events: List<NativeSessionEventEntity>) =
+                dao.insertNativeSessionEvents(events)
+
             override suspend fun insertExportRecord(record: ExportRecordEntity) = dao.insertExportRecord(record)
 
             override suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity? =

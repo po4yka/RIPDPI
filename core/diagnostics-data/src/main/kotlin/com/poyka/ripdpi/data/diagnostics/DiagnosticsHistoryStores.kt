@@ -40,6 +40,10 @@ interface DiagnosticsProfileCatalog {
 
     suspend fun getPackVersion(packId: String): TargetPackVersionEntity?
 
+    suspend fun getPackVersions(): List<TargetPackVersionEntity>
+
+    suspend fun getProfileVersions(): Map<String, Int>
+
     suspend fun upsertProfile(profile: DiagnosticProfileEntity)
 
     suspend fun upsertPackVersion(version: TargetPackVersionEntity)
@@ -218,6 +222,8 @@ interface DiagnosticsArtifactWriteStore {
     suspend fun insertTelemetrySample(sample: TelemetrySampleEntity)
 
     suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
+
+    suspend fun insertNativeSessionEvents(events: List<NativeSessionEventEntity>)
 
     suspend fun insertExportRecord(record: ExportRecordEntity)
 }
@@ -424,6 +430,11 @@ class RoomDiagnosticsProfileCatalog
         override suspend fun getProfile(id: String): DiagnosticProfileEntity? = dao.getProfile(id)
 
         override suspend fun getPackVersion(packId: String): TargetPackVersionEntity? = dao.getPackVersion(packId)
+
+        override suspend fun getPackVersions(): List<TargetPackVersionEntity> = dao.getPackVersions()
+
+        override suspend fun getProfileVersions(): Map<String, Int> =
+            dao.getProfileVersions().associate { it.id to it.version }
 
         override suspend fun upsertProfile(profile: DiagnosticProfileEntity) {
             dao.upsertProfile(profile)

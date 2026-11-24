@@ -130,10 +130,8 @@ class DefaultLastExitInspector
                         memoryLimiterMarkerPresent = info.memoryLimiterMarkerPresent,
                     )
                 }
-            recordedEvents.forEach { event ->
-                artifactWriteStore.insertNativeSessionEvent(
-                    event,
-                )
+            if (recordedEvents.isNotEmpty()) {
+                artifactWriteStore.insertNativeSessionEvents(recordedEvents)
             }
             processExitRuntimeReconciler.reconcileStartupProcessExits(recordedEvents)
         }

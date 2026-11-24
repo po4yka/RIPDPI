@@ -53,6 +53,10 @@ class DiagnosticsBootstrapperTest {
             bootstrapper.initialize()
 
             assertEquals(1, runtimeHistoryStartup.startCalls)
+            assertEquals(0, archiveExporter.cleanupCalls)
+
+            runCurrent()
+
             assertEquals(1, archiveExporter.cleanupCalls)
         }
 

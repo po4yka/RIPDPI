@@ -178,6 +178,9 @@ interface DiagnosticsNativeEventWriteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNativeSessionEvents(events: List<NativeSessionEventEntity>)
+
     @Query("DELETE FROM native_session_events WHERE id = :eventId")
     suspend fun deleteNativeSessionEvent(eventId: String)
 

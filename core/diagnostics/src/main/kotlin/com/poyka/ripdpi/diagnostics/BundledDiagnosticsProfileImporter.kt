@@ -79,9 +79,10 @@ class BundledDiagnosticsProfileImporter
                     ?.let { overrideCatalog -> bundledCatalog.mergeOverride(overrideCatalog) }
                     ?: bundledCatalog
             val now = clock.now()
+            val packVersions = profileCatalog.getPackVersions().associate { it.packId to it.version }.toMutableMap()
             catalog.packs.forEach { pack ->
-                val persistedVersion = profileCatalog.getPackVersion(pack.id)
-                if (persistedVersion == null || persistedVersion.version < pack.version) {
+                val persistedVersion = packVersions[pack.id]
+                if (persistedVersion == null || persistedVersion < pack.version) {
                     profileCatalog.upsertPackVersion(
                         TargetPackVersionEntity(
                             packId = pack.id,
@@ -89,11 +90,13 @@ class BundledDiagnosticsProfileImporter
                             importedAt = now,
                         ),
                     )
+                    packVersions[pack.id] = pack.version
                 }
             }
+            val profileVersions = profileCatalog.getProfileVersions().toMutableMap()
             catalog.profiles.forEach { profile ->
-                val existingProfile = profileCatalog.getProfile(profile.id)
-                if (existingProfile == null || existingProfile.version < profile.version) {
+                val persistedVersion = profileVersions[profile.id]
+                if (persistedVersion == null || persistedVersion < profile.version) {
                     profileCatalog.upsertProfile(
                         DiagnosticProfileEntity(
                             id = profile.id,
@@ -109,6 +112,7 @@ class BundledDiagnosticsProfileImporter
                             updatedAt = now,
                         ),
                     )
+                    profileVersions[profile.id] = profile.version
                 }
             }
         }

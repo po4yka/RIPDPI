@@ -11,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.RuntimeHistoryStartup
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveExporter
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
+import com.poyka.ripdpi.diagnostics.traceStartupPhase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -39,7 +40,7 @@ class DefaultDiagnosticsBootstrapper
         private val initialized = AtomicBoolean(false)
 
         override suspend fun initialize() {
-            runCatching { rawPathSettlementBarrier.recoverPending() }
+            runCatching { traceStartupPhase("raw_path_recovery") { rawPathSettlementBarrier.recoverPending() } }
                 .onFailure { error ->
                     if (error is kotlinx.coroutines.CancellationException) throw error
                     Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Pending raw-path settlement recovery skipped" }
@@ -55,23 +56,24 @@ class DefaultDiagnosticsBootstrapper
                     if (error is kotlinx.coroutines.CancellationException) throw error
                     logRuntimeHistoryBootstrapFailure(error)
                 }
-                recoverInterruptedScanSessions()
-                // A failed cache sweep must not skip the profile import and the handover collector.
-                runCatching { archiveExporter.cleanupCache() }
-                    .onFailure { error ->
-                        if (error is kotlinx.coroutines.CancellationException) throw error
-                        Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Diagnostics archive cache cleanup skipped" }
-                    }
+                traceStartupPhase("interrupted_scan_recovery") { recoverInterruptedScanSessions() }
                 if (importBundledProfilesOnInitialize) {
                     // A corrupted override or unreadable bundled catalog must degrade to
                     // missing persisted profiles instead of crashing every startup caller.
-                    runCatching { profileImporter.importProfiles() }
+                    runCatching { traceStartupPhase("bundled_profile_import") { profileImporter.importProfiles() } }
                         .onFailure { error ->
                             if (error is kotlinx.coroutines.CancellationException) throw error
                             Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Bundled diagnostics profile import skipped" }
                         }
                 }
                 scope.launch { collectHandoverEvents() }
+                scope.launch {
+                    runCatching { traceStartupPhase("archive_cache_cleanup") { archiveExporter.cleanupCache() } }
+                        .onFailure { error ->
+                            if (error is kotlinx.coroutines.CancellationException) throw error
+                            Logger.w(error, tag = LogTags.DIAGNOSTICS) { "Diagnostics archive cache cleanup skipped" }
+                        }
+                }
                 completed = true
             } finally {
                 // A caller cancelled mid-way must leave the remaining steps to the next initialize().
