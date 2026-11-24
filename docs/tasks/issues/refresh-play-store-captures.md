@@ -2,7 +2,7 @@
 id: UIX-1792406373590934
 title: Refresh Android sources and Play Store screenshots
 kind: chore
-status: doing
+status: review
 area: ui
 priority: high
 owner: Marketing capture integration
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-19
-updated: 2026-10-19
+updated: 2026-11-24
 spec_reason: tooling-only
 ---
 
