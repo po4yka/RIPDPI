@@ -66,6 +66,17 @@ class MacrobenchmarkRegressionTest(unittest.TestCase):
         self.assertEqual(1, result.returncode)
         self.assertIn("startupWarm/timeToFullDisplayMs", result.stderr)
 
+    def test_extra_samples_are_accepted_but_display_series_must_match(self):
+        cold = benchmark("startupCold", 16, 800)
+        warm = benchmark("startupWarm", 11, 200)
+        self.write_results(cold, warm)
+        self.assertEqual(0, self.run_checker("--dump-current").returncode)
+        warm["metrics"]["timeToFullDisplayMs"]["runs"].pop()
+        self.write_results(cold, warm)
+        result = self.run_checker("--dump-current")
+        self.assertEqual(1, result.returncode)
+        self.assertIn("Unpaired startup metrics: startupWarm", result.stderr)
+
     def test_missing_case_or_duplicate_device_result_fails(self):
         self.write_results(self.cold)
         result = self.run_checker("--dump-current")

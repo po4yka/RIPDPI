@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 
-STARTUP_ITERATIONS = {"startupCold": 15, "startupWarm": 10}
+MIN_STARTUP_SAMPLES = {"startupCold": 15, "startupWarm": 10}
 STARTUP_METRICS = ("timeToInitialDisplayMs", "timeToFullDisplayMs")
 
 
@@ -51,24 +51,28 @@ def parse_benchmarks(results_dir: Path) -> dict[str, dict[str, dict[str, float]]
             if bench.get("className", "").rsplit(".", 1)[-1] != "StartupBenchmark":
                 continue
             name = bench.get("name", "").split("[", 1)[0]
-            if name not in STARTUP_ITERATIONS:
+            if name not in MIN_STARTUP_SAMPLES:
                 continue
             if name in benchmarks:
                 raise ValueError(f"Duplicate startup benchmark: {name}")
 
             results = bench.get("metrics", {})
             metrics: dict[str, dict[str, float]] = {}
+            sample_counts = set()
             for metric_name in STARTUP_METRICS:
                 metric = results.get(metric_name, {})
                 median = metric.get("median")
                 runs = metric.get("runs", [])
                 if (
-                    len(runs) != STARTUP_ITERATIONS[name]
+                    len(runs) < MIN_STARTUP_SAMPLES[name]
                     or not valid_latency(median)
                     or not all(valid_latency(run) for run in runs)
                 ):
                     raise ValueError(f"Missing or incomplete startup metric: {name}/{metric_name}")
                 metrics[metric_name] = {"median": float(median), "p95": compute_p95(runs)}
+                sample_counts.add(len(runs))
+            if len(sample_counts) != 1:
+                raise ValueError(f"Unpaired startup metrics: {name}")
             benchmarks[name] = metrics
 
     return benchmarks
@@ -79,7 +83,7 @@ def valid_latency(value: object) -> bool:
 
 
 def validate_reference(baseline: dict) -> None:
-    for case in STARTUP_ITERATIONS:
+    for case in MIN_STARTUP_SAMPLES:
         for metric in STARTUP_METRICS:
             entry = baseline.get("benchmarks", {}).get(case, {}).get(metric, {})
             if not all(valid_latency(entry.get(statistic)) for statistic in ("median", "p95")):
@@ -274,7 +278,7 @@ def main() -> int:
         return 1
 
     current = parse_benchmarks(results_dir)
-    missing_cases = set(STARTUP_ITERATIONS) - current.keys()
+    missing_cases = set(MIN_STARTUP_SAMPLES) - current.keys()
     if missing_cases:
         print(f"Missing startup benchmarks: {', '.join(sorted(missing_cases))}", file=sys.stderr)
         return 1

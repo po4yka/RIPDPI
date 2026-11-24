@@ -18,7 +18,8 @@ class StartupBenchmark {
         benchmarkRule.measureRepeated(
             packageName = "com.poyka.ripdpi",
             metrics = listOf(StartupTimingMetric()),
-            iterations = 15,
+            // Perfetto can lose the launch marker for one iteration.
+            iterations = 16,
             startupMode = StartupMode.COLD,
             setupBlock = { pressHome() },
         ) {
@@ -32,7 +33,7 @@ class StartupBenchmark {
         benchmarkRule.measureRepeated(
             packageName = "com.poyka.ripdpi",
             metrics = listOf(StartupTimingMetric()),
-            iterations = 10,
+            iterations = 11,
             startupMode = StartupMode.WARM,
             setupBlock = { pressHome() },
         ) {
