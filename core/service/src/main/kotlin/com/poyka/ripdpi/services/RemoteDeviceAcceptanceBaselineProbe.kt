@@ -64,10 +64,13 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
      * Uses only the local relay listener, so own-app VPN exclusion cannot bypass the tested egress.
      * cancel-safe: every network operation is bounded and propagates cancellation.
      */
-    suspend fun capture(snapshot: ServiceTelemetrySnapshot): RemoteDeviceAcceptanceReport {
+    suspend fun capture(
+        snapshot: ServiceTelemetrySnapshot,
+        forceFreshPayload: Boolean = false,
+    ): RemoteDeviceAcceptanceReport {
         val startedAt = monotonicClock()
         val before = captureContext(snapshot)
-        val probeEvidence = captureRelayEvidence(before)
+        val probeEvidence = captureRelayEvidence(before, forceFreshPayload)
         val after = captureContext(serviceStateStore.telemetry.value)
         val contextError = before.driftError(after)
         val pathPolicyAssessment =
@@ -135,7 +138,10 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
             null
         }
 
-    private suspend fun captureRelayEvidence(context: AcceptanceCaptureContext): AcceptanceRelayEvidence {
+    private suspend fun captureRelayEvidence(
+        context: AcceptanceCaptureContext,
+        forceFreshPayload: Boolean,
+    ): AcceptanceRelayEvidence {
         val endpoint = context.endpoint
         val unavailableEvidence =
             when {
@@ -193,7 +199,10 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                             endpoint = relayEndpoint,
                             families = families,
                             targets = probeTargets.udpPayloadTargets,
-                            underlayGeneration = context.underlayObservation.generation,
+                            underlayGeneration =
+                                context.underlayObservation.generation.takeUnless {
+                                    forceFreshPayload
+                                },
                             serviceStartedAt = context.serviceStartedAt,
                         )
                     } else {

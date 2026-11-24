@@ -43,6 +43,8 @@ internal class VpnRuntimeCompositionCoordinator(
     private val providerController: XrayProviderSessionController? = null,
     private val initialRelayRacePolicy: InitialRelayRacePolicy? = null,
 ) {
+    private var appliedNativeProxy: AppliedNativeVpnProxy? = null
+
     var currentLocalProxyEndpoint: LocalProxyEndpoint? = null
         private set
 
@@ -138,24 +140,51 @@ internal class VpnRuntimeCompositionCoordinator(
         restartReason: String,
     ): RuntimeStartEvidence {
         providerDelegate?.tryRestart(session, resolution, appliedAt, restartReason)?.let { evidence ->
+            appliedNativeProxy = null
             currentLocalProxyEndpoint = providerDelegate.currentLocalProxyEndpoint
             return evidence
         }
-        // Claim the runtime command first: a superseded claim then leaves the session state as it was.
+        val reusable = reusableNativeProxy(resolution, restartReason)
+        // Claim the runtime command before changing the stack or its published policy.
         applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
-        session.currentDns = null
-        session.currentDnsSignature = null
-        session.currentNetworkScopeKey = null
-        session.encryptedDnsFailoverState.resetAll()
-        session.revokeInPathLease()
-
-        // Keep the installed TUN as a blocking barrier while the proxy stack changes. The old
-        // TUN continues sending packets into the stopped local proxy, so no direct network window opens.
-        proxyRuntimeStack.stop(skipRuntimeShutdown = false)
-        currentLocalProxyEndpoint = null
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
-        // No egress check here: right after a handover the new network may not carry traffic yet.
-        val proxyStartResult = startProxyRuntime(session, resolution, logContext)
+        val proxyStartResult =
+            reusable ?: run {
+                session.currentDns = null
+                session.currentDnsSignature = null
+                session.currentNetworkScopeKey = null
+                session.encryptedDnsFailoverState.resetAll()
+                session.revokeInPathLease()
+                // The installed TUN remains a barrier while the old proxy stops.
+                proxyRuntimeStack.stop(skipRuntimeShutdown = false)
+                currentLocalProxyEndpoint = null
+                startProxyRuntime(session, resolution, logContext)
+            }
+        if (reusable == null || vpnTunnelRuntime.requiresHandoverRefresh(session, resolution)) {
+            session.suspendInPathLease()
+            rebuildNativeTunnel(resolution, logContext, proxyStartResult)
+            vpnTunnelRuntime.publishInPathLease(session, proxyStartResult.endpoint)
+        }
+        return publishNativeEvidence(session, resolution, proxyStartResult)
+    }
+
+    private fun reusableNativeProxy(
+        resolution: ConnectionPolicyResolution,
+        restartReason: String,
+    ): ProxyRuntimeStartResult? {
+        if (restartReason != "network_handover" || !vpnTunnelRuntime.isForwarding || !proxyRuntimeStack.hasLiveProxy) {
+            return null
+        }
+        return appliedNativeProxy
+            ?.takeIf { it.start.endpoint == currentLocalProxyEndpoint && it.matches(resolution) }
+            ?.start
+    }
+
+    private suspend fun rebuildNativeTunnel(
+        resolution: ConnectionPolicyResolution,
+        logContext: RipDpiLogContext,
+        proxyStartResult: ProxyRuntimeStartResult,
+    ) {
         vpnTunnelRuntime.rebuild(
             configurationInput = resolution.requestedConfiguration.tunnelInput,
             activeDns = resolution.activeDns,
@@ -175,9 +204,17 @@ internal class VpnRuntimeCompositionCoordinator(
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
             profileInterface = resolution.proxyPreferences.awgConfigOrNull()?.vpnProfileInterface(),
         )
-        vpnTunnelRuntime.publishInPathLease(session, proxyStartResult.endpoint)
+    }
+
+    private fun publishNativeEvidence(
+        session: VpnRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+        proxyStartResult: ProxyRuntimeStartResult,
+    ): RuntimeStartEvidence {
+        val evidence = readyNativeVpnEvidence(proxyStartResult, vpnTunnelRuntime.requireReadyEvidence())
+        appliedNativeProxy = AppliedNativeVpnProxy(resolution, proxyStartResult)
         updateRuntimeDnsState(session, resolution)
-        return readyNativeVpnEvidence(proxyStartResult, vpnTunnelRuntime.requireReadyEvidence())
+        return evidence
     }
 
     fun updateRuntimeDnsState(
@@ -185,18 +222,13 @@ internal class VpnRuntimeCompositionCoordinator(
         resolution: ConnectionPolicyResolution,
     ) {
         session.currentDns = resolution.activeDns
-        session.currentDnsSignature =
-            dnsSignature(
-                resolution.activeDns,
-                resolution.resolverFallbackReason,
-                resolution.splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
-                resolution.splitStrictDnsPolicy?.underlayLeaseGeneration,
-            )
+        session.currentDnsSignature = resolution.vpnDnsSignature()
         session.currentNetworkScopeKey = resolution.networkScopeKey
         session.recordDestinationPolicy(resolution)
     }
 
     fun resetAfterStop(session: VpnRuntimeSession?) {
+        appliedNativeProxy = null
         vpnTunnelRuntime.resetRuntimeState()
         currentLocalProxyEndpoint = null
         providerDelegate?.reset()
@@ -213,6 +245,7 @@ internal class VpnRuntimeCompositionCoordinator(
         // handled the start. Everything below this guard is the native
         // composition, unchanged.
         providerDelegate?.tryStart(session, resolution)?.let { evidence ->
+            appliedNativeProxy = null
             currentLocalProxyEndpoint = providerDelegate.currentLocalProxyEndpoint
             return evidence
         }
@@ -239,8 +272,7 @@ internal class VpnRuntimeCompositionCoordinator(
             profileInterface = resolution.proxyPreferences.awgConfigOrNull()?.vpnProfileInterface(),
         )
         vpnTunnelRuntime.publishInPathLease(session, proxyStartResult.endpoint)
-        updateRuntimeDnsState(session, resolution)
-        return readyNativeVpnEvidence(proxyStartResult, vpnTunnelRuntime.requireReadyEvidence())
+        return publishNativeEvidence(session, resolution, proxyStartResult)
     }
 
     private suspend fun startProxyRuntime(

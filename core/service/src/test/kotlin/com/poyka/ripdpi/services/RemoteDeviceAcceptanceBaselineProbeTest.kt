@@ -384,7 +384,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
         }
 
     @Test
-    fun `payload health cache reuses evidence during guided cooldown`() =
+    fun `guided retry refreshes payload evidence within the cache cooldown`() =
         runTest {
             var payloadCalls = 0
             val snapshot = runningRealitySnapshot()
@@ -397,6 +397,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     payloadHealthProbe =
                         RelayUdpPayloadHealthProbe { _, families, _ ->
                             payloadCalls += 1
+                            check(payloadCalls > 1) { "Initial payload probe is unavailable" }
                             successfulPayloadHealth(families)
                         },
                 )
@@ -410,10 +411,14 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     probeTargets = FixtureRemoteAcceptanceProbeTargets,
                 )
 
-            probe.capture(snapshot)
-            probe.capture(snapshot)
+            val initial = probe.capture(snapshot)
+            val cached = probe.capture(snapshot)
+            val retried = probe.capture(snapshot, forceFreshPayload = true)
 
-            assertEquals(1, payloadCalls)
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, initial.step(StepRelayUdpPayload).status)
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, cached.step(StepRelayUdpPayload).status)
+            assertEquals(RemoteDeviceAcceptanceStatus.Pass, retried.step(StepRelayUdpPayload).status)
+            assertEquals(2, payloadCalls)
         }
 
     @Test

@@ -57,6 +57,9 @@ internal class ProxyRuntimeSupervisor(
     private val stopCalls = AtomicInteger()
     private var exitReporting: AtomicBoolean? = null
 
+    val hasLiveProxy: Boolean
+        get() = forwardingLease.get() != null
+
     val runtime: RipDpiProxyRuntime?
         get() = proxyRuntime
 

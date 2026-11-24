@@ -77,8 +77,11 @@ object NetworkHandoverStates {
     const val DeferredCaptivePortal = "deferred_captive_portal"
     const val Restarting = "restarting"
     const val RetryScheduled = "retry_scheduled"
+    const val RuntimeReady = "runtime_ready"
     const val Revalidated = "revalidated"
     const val Failed = "failed"
+
+    fun isRuntimeReady(state: String?): Boolean = state == RuntimeReady || state == Revalidated
 }
 
 data class ServiceTelemetrySnapshot(

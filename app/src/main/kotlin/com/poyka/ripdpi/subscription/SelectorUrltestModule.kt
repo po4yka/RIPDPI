@@ -110,9 +110,9 @@ internal fun selectorRecoveryRequests(
                     it.reason !is FailureReason.PermissionLost
             }.map { },
         service.telemetry
-            .map { it.networkHandoverState }
+            .map { NetworkHandoverStates.isRuntimeReady(it.networkHandoverState) }
             .distinctUntilChanged()
             .drop(1)
-            .filter { it == NetworkHandoverStates.Revalidated }
+            .filter { it }
             .map { },
     )

@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.EnumMap
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -117,6 +118,10 @@ abstract class ServiceRuntimeSession
         }
     }
 
+internal class VpnHandoverStatus(
+    val value: String?,
+)
+
 class VpnRuntimeSession(
     runtimeId: String = UUID.randomUUID().toString(),
 ) : ServiceRuntimeSession(
@@ -125,7 +130,12 @@ class VpnRuntimeSession(
     ),
     HandoverAwareSession {
     override var pendingNetworkHandoverClass: String? = null
-    override var networkHandoverState: String? = null
+    internal val handoverStatus = AtomicReference(VpnHandoverStatus(null))
+    override var networkHandoverState: String?
+        get() = handoverStatus.get().value
+        set(value) {
+            handoverStatus.set(VpnHandoverStatus(value))
+        }
     override var lastSuccessfulHandoverFingerprintHash: String? = null
     override var lastSuccessfulHandoverPhysicalSignature: String? = null
     override var lastSuccessfulHandoverAt: Long = 0L

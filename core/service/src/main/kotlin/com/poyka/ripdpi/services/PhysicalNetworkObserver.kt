@@ -55,6 +55,14 @@ class PhysicalNetworkObserver
                     capabilities.snapshotCopy(NetworkCapabilities.CREATOR),
                     links.snapshotCopy(LinkProperties.CREATOR),
                     signature,
+                    (
+                        listOf(
+                            selected.registration,
+                            selected.network.networkHandle,
+                            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
+                        ) + links.routingMaterial()
+                    ).joinToString("|")
+                        .privateDigest(),
                 )
             }
 
@@ -131,31 +139,18 @@ class PhysicalNetworkObserver
                         network: Network,
                         properties: LinkProperties,
                     ) {
+                        val privateDns =
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                "${properties.isPrivateDnsActive}:${properties.privateDnsServerName.orEmpty()}"
+                            } else {
+                                "private-dns-unavailable"
+                            }
                         val fingerprint =
-                            listOf(
-                                properties.interfaceName.orEmpty(),
-                                properties.linkAddresses
-                                    .map { it.toString() }
-                                    .sorted()
-                                    .joinToString(),
-                                properties.routes
-                                    .map { it.toString() }
-                                    .sorted()
-                                    .joinToString(),
-                                properties.dnsServers
-                                    .map { it.hostAddress.orEmpty() }
-                                    .sorted()
-                                    .joinToString(),
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                    "${properties.isPrivateDnsActive}:${properties.privateDnsServerName.orEmpty()}"
-                                } else {
-                                    "private-dns-unavailable"
-                                },
-                                if (Build.VERSION.SDK_INT >= AndroidMtuApi) {
-                                    properties.mtu.toString()
-                                } else {
-                                    "mtu-unavailable"
-                                },
+                            (
+                                properties.routingMaterial() +
+                                    properties.dnsServers
+                                        .map { it.hostAddress.orEmpty() }
+                                        .sorted() + privateDns
                             ).joinToString("|").privateDigest()
                         state.links(
                             registration,
@@ -210,9 +205,18 @@ internal class PhysicalNetworkSnapshot(
     val capabilities: NetworkCapabilities,
     val links: LinkProperties,
     val semanticSignature: String,
+    val routeSignature: String,
 ) {
     override fun toString() = "PhysicalNetworkSnapshot([REDACTED])"
 }
+
+private fun LinkProperties.routingMaterial(): List<String> =
+    listOf(
+        interfaceName.orEmpty(),
+        linkAddresses.map { it.toString() }.sorted().joinToString(),
+        routes.map { it.toString() }.sorted().joinToString(),
+        if (Build.VERSION.SDK_INT >= AndroidMtuApi) mtu.toString() else "mtu-unavailable",
+    )
 
 private fun <T : Parcelable> T.snapshotCopy(creator: Parcelable.Creator<T>): T {
     val parcel = Parcel.obtain()

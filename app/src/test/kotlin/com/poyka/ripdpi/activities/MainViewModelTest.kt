@@ -507,6 +507,7 @@ class MainViewModelTest {
             ).status
 
         assertEquals(StatusConnectionActuatorStatus.Degraded, status(NetworkHandoverStates.Restarting))
+        assertEquals(StatusConnectionActuatorStatus.Locked, status(NetworkHandoverStates.RuntimeReady))
         assertEquals(StatusConnectionActuatorStatus.Locked, status(NetworkHandoverStates.Revalidated))
     }
 

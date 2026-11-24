@@ -44,7 +44,12 @@ internal class ServiceRuntimeHandoverRestarter<TSession>(
         appliedAt: Long,
         isCurrentAttempt: () -> Boolean,
     ): String? {
-        val resolution = resolveConnectionPolicy(currentFingerprint, event.classification)
+        val resolution =
+            resolveConnectionPolicy(currentFingerprint, event.classification)
+                .copy(
+                    samePhysicalRoute = event.canReusePhysicalRoute(currentFingerprint),
+                    physicalRouteSignature = currentFingerprint.physicalRouteSignature,
+                )
         val restartResult =
             if (isCurrentAttempt()) {
                 restartCurrentSession(session, resolution, currentFingerprint, appliedAt, isCurrentAttempt)
@@ -129,3 +134,12 @@ private data class HandoverRestartResult(
     val previousFingerprintHash: String?,
     val currentFingerprintHash: String,
 )
+
+private fun NetworkHandoverEvent.canReusePhysicalRoute(current: NetworkFingerprint): Boolean {
+    val previous = previousFingerprint ?: return false
+    return classification == "link_refresh" && previous.physicalRouteSignature != null &&
+        previous.physicalRouteSignature == current.physicalRouteSignature &&
+        previous.transport == current.transport && previous.metered == current.metered &&
+        previous.networkValidated && current.networkValidated &&
+        !previous.captivePortalDetected && !current.captivePortalDetected
+}

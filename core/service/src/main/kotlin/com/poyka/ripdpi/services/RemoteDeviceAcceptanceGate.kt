@@ -215,11 +215,17 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         if (triggers.any) {
             val result =
                 guidedDataPlaneResult(
-                    baselineProbe.capture(observation.telemetry).acceptanceDataPlaneStatus(),
+                    baselineProbe
+                        .capture(
+                            observation.telemetry,
+                            forceFreshPayload =
+                                triggers.handover &&
+                                    observation.telemetry.networkHandoverState == NetworkHandoverStates.Revalidated,
+                        ).acceptanceDataPlaneStatus(),
                 ).takeIf { isCurrent(run) }
             val latestObservation = currentGuidedObservation()
             if (result != null && isCurrent(run) && latestObservation.isVpnRunning) {
-                applyGuidedResult(startedAt, state, observation, triggers, result.status, result.errorClass)
+                applyGuidedResult(startedAt, state, triggers, result.status, result.errorClass)
             }
         }
     }
@@ -394,8 +400,8 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                     stepStatus(StepReconnect) != RemoteDeviceAcceptanceStatus.Pass,
             handover =
                 running &&
-                    observation.telemetry.networkHandoverState == NetworkHandoverStates.Revalidated &&
-                    state.lastHandoverState != NetworkHandoverStates.Revalidated &&
+                    NetworkHandoverStates.isRuntimeReady(observation.telemetry.networkHandoverState) &&
+                    observation.telemetry.networkHandoverState != state.lastHandoverState &&
                     isWifiMobileTransition(state.baselineUnderlay, observation.underlayTransport) &&
                     stepStatus(StepHandover) != RemoteDeviceAcceptanceStatus.Pass,
         )
@@ -403,7 +409,6 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
     private fun applyGuidedResult(
         startedAt: Long,
         state: GuidedRunState,
-        observation: GuidedObservation,
         triggers: GuidedTriggers,
         status: RemoteDeviceAcceptanceStatus,
         errorClass: String?,
@@ -415,7 +420,6 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         }
         if (triggers.handover) {
             updateStep(StepHandover, status, errorClass, durationMs)
-            state.baselineUnderlay = observation.underlayTransport
         }
     }
 
@@ -525,7 +529,7 @@ internal fun guidedDataPlaneResult(status: RemoteDeviceAcceptanceStatus): Guided
     }
 
 private data class GuidedRunState(
-    var baselineUnderlay: String?,
+    val baselineUnderlay: String?,
     var lastHandoverState: String?,
     var sawDisconnected: Boolean = false,
     val screenOffDwellTracker: RemoteScreenOffDwellTracker =

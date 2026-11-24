@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.LogTags
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkHandoverStates
 import kotlinx.coroutines.CancellationException
@@ -239,7 +240,7 @@ internal class NetworkHandoverProcessor<TSession>(
                 context.session.lastSuccessfulHandoverPhysicalSignature == physicalSignature &&
                 context.appliedAt - context.session.lastSuccessfulHandoverAt < handoverCooldownMillis
         if (isCoolingDown) {
-            updateHandoverState(NetworkHandoverStates.Revalidated)
+            updateHandoverState(context.session.completedHandoverState())
         }
         return isCoolingDown
     }
@@ -287,7 +288,7 @@ internal class NetworkHandoverProcessor<TSession>(
             context.session.lastSuccessfulHandoverFingerprintHash = appliedFingerprintHash
             context.session.lastSuccessfulHandoverPhysicalSignature = context.fingerprint.physicalNetworkSignature
             context.session.lastSuccessfulHandoverAt = context.appliedAt
-            updateHandoverState(NetworkHandoverStates.Revalidated)
+            updateHandoverState(context.session.completedHandoverState())
         }
     }
 
@@ -399,3 +400,6 @@ private sealed interface RestartOutcome {
 
     data object Ignored : RestartOutcome
 }
+
+private fun ServiceRuntimeSession.completedHandoverState(): String =
+    if (mode == Mode.VPN) NetworkHandoverStates.RuntimeReady else NetworkHandoverStates.Revalidated

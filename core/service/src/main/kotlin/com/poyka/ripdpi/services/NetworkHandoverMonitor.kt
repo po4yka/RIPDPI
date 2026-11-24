@@ -40,7 +40,7 @@ class DefaultNetworkHandoverMonitor
         @param:ApplicationScope private val scope: kotlinx.coroutines.CoroutineScope,
     ) : NetworkHandoverMonitor {
         private companion object {
-            private const val DebounceWindowMs = 2_000L
+            private const val DebounceWindowMs = 500L
             private const val StopTimeoutMs = 5_000L
         }
 

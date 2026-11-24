@@ -60,6 +60,7 @@ internal data class CapturedCellularIdentity(
 internal data class CapturedNetworkSnapshot(
     val directDnsUnderlayGeneration: Long? = null,
     val physicalNetworkSignature: String? = null,
+    val physicalRouteSignature: String? = null,
     val transports: Set<CapturedTransport>? = null,
     val networkValidated: Boolean = false,
     val captivePortalDetected: Boolean = false,
@@ -98,6 +99,7 @@ internal class DefaultAndroidNetworkSnapshotSource
                 directDnsUnderlayGeneration =
                     underlayAuthority.generationFor(network, capabilities, linkProperties),
                 physicalNetworkSignature = snapshot.semanticSignature,
+                physicalRouteSignature = snapshot.routeSignature,
                 transports = transports,
                 networkValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
                 captivePortalDetected =
@@ -243,6 +245,7 @@ internal class NetworkFingerprintMapper
                 metered = snapshot.metered,
                 directDnsUnderlayGeneration = snapshot.directDnsUnderlayGeneration,
                 physicalNetworkSignature = snapshot.physicalNetworkSignature,
+                physicalRouteSignature = snapshot.physicalRouteSignature,
             )
 
         private fun resolveTransport(transports: Set<CapturedTransport>?): String =

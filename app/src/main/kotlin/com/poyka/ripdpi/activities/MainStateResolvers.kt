@@ -538,7 +538,7 @@ private fun telemetryWarningStage(
         }
 
         // A completed handover keeps its state until the session ends, and it needs no warning.
-        telemetry.networkHandoverState.let { it != null && it != NetworkHandoverStates.Revalidated } ||
+        telemetry.networkHandoverState.let { it != null && !NetworkHandoverStates.isRuntimeReady(it) } ||
             StatusConnectionActuatorStage.Network in recentStages -> {
             StatusConnectionActuatorStage.Network
         }

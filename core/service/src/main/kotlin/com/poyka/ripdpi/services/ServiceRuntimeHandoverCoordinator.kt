@@ -121,7 +121,7 @@ internal class ServiceRuntimeHandoverCoordinator<TSession>(
         var resumed = false
         hooks.startHooks.evidencePublication.publishCaptured(session) {
             if (isCurrentAttempt()) {
-                session.networkHandoverState = NetworkHandoverStates.Revalidated
+                session.networkHandoverState = NetworkHandoverStates.RuntimeReady
                 hooks.statusHooks.publishConnected()
                 recoverableRuntimeId = null
                 resumed = true

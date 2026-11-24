@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.toStatus
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetrySamplingPolicy
@@ -15,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicReference
 
 internal interface VpnTelemetryRuntimeDependencies {
@@ -178,6 +180,7 @@ internal class VpnTelemetryCoordinator(
         evidenceCollector: DataPlaneEvidenceCollector,
         finalCapture: Boolean = false,
     ): VpnTelemetrySnapshot {
+        val handover = state.runtimeSession()?.handoverStatus?.get()
         val routeForwardingEvidenceSink = dependencies.vpnTunnelRuntime.routeForwardingEvidenceSink
         val proxyPoll = dependencies.proxyRuntimeSupervisor.pollTelemetryAndForwardingEvidence()
         val proxyTelemetryOutcome = proxyPoll.telemetry
@@ -219,12 +222,36 @@ internal class VpnTelemetryCoordinator(
                 )
             }
         val forwardingOutcome = evidenceResult.outcome
-        routeForwardingEvidenceSink?.record(
-            outcome = forwardingOutcome.wireValue,
-            terminal = forwardingOutcome.terminalFailure,
-            revision = forwardingOutcome.revision,
-        )
+        if (routeForwardingEvidenceSink != null &&
+            routeForwardingEvidenceSink.generation == tunnelPoll.tunnelGeneration
+        ) {
+            routeForwardingEvidenceSink.record(
+                outcome = forwardingOutcome.wireValue,
+                terminal = forwardingOutcome.terminalFailure,
+                revision = forwardingOutcome.revision,
+            )
+            if (!finalCapture && handover?.value == NetworkHandoverStates.RuntimeReady &&
+                forwardingOutcome.wireValue == DataPlaneCorrelationState.CrossLayerReturnObserved.wireValue
+            ) {
+                revalidateHandover(handover, routeForwardingEvidenceSink.generation)
+            }
+        }
         return evidenceResult.snapshot
+    }
+
+    private suspend fun revalidateHandover(
+        handover: VpnHandoverStatus,
+        generation: Long,
+    ) {
+        dependencies.mutex.withLock {
+            val session = state.runtimeSession() ?: return@withLock
+            if (state.status() == ServiceStatus.Connected && !state.stopping() &&
+                dependencies.vpnTunnelRuntime.routeForwardingEvidenceSink?.generation == generation
+            ) {
+                // A newer observation can supersede this sample without replacing the tunnel.
+                session.handoverStatus.compareAndSet(handover, VpnHandoverStatus(NetworkHandoverStates.Revalidated))
+            }
+        }
     }
 
     private fun nextTelemetryPollInterval(): Long =

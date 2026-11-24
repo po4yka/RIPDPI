@@ -40,6 +40,9 @@ internal class SharedProxyRuntimeStack(
             preferences.withRelayRuntimeSelection(selection, host, port)
         },
 ) {
+    val hasLiveProxy: Boolean
+        get() = proxyRuntimeSupervisor.hasLiveProxy
+
     val hasOwnedRuntime: Boolean
         get() =
             proxyRuntimeSupervisor.runtime != null ||

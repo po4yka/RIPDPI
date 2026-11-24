@@ -72,6 +72,8 @@ data class NetworkFingerprint(
     @Transient val directDnsUnderlayGeneration: Long? = null,
     /** Selected physical callback semantics; never persisted or included in the remembered-network key. */
     @Transient val physicalNetworkSignature: String? = null,
+    /** Selected physical route identity for runtime reuse. Excluded from persistence and scope hashing. */
+    @Transient val physicalRouteSignature: String? = null,
 ) {
     fun scopeKey(): String =
         canonicalParts()

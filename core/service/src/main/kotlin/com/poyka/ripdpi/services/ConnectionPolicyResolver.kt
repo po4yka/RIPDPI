@@ -56,6 +56,8 @@ internal data class ConnectionPolicyResolution(
     val localNetworkDependent: Boolean,
     val requestedConfiguration: RequestedRuntimeConfiguration,
     val catalogGeneration: Long,
+    val samePhysicalRoute: Boolean = false,
+    val physicalRouteSignature: String? = null,
 )
 
 /**
@@ -135,7 +137,11 @@ internal class DefaultConnectionPolicyResolver
                 com.poyka.ripdpi.data
                     .AndroidLocalNetworkAccess(context)
                     .requireConnection(resolution)
-            val resolved = resolution.copy(localNetworkDependent = localNetworkDependent)
+            val resolved =
+                resolution.copy(
+                    localNetworkDependent = localNetworkDependent,
+                    physicalRouteSignature = baseline.fingerprint?.physicalRouteSignature,
+                )
             if (forPreflight) return resolved
             val deferred = currentCoroutineContext()[DeferredPacketBackend]
             return if (deferred == null) {

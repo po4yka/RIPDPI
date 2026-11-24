@@ -204,7 +204,7 @@ class SelectorRecoveryScheduleTest {
             advanceTimeBy(500L)
             network = "settled"
             fakeService.updateTelemetry(
-                ServiceTelemetrySnapshot(networkHandoverState = NetworkHandoverStates.Revalidated),
+                ServiceTelemetrySnapshot(networkHandoverState = NetworkHandoverStates.RuntimeReady),
             )
             advanceTimeBy(500L)
             failures.emit(

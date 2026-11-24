@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+import com.poyka.ripdpi.core.RipDpiHostAutolearnConfig
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
@@ -8,6 +10,7 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.RipDpiXrayRuntime
+import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.core.XrayProtectController
 import com.poyka.ripdpi.core.XrayProviderOrchestrator
 import com.poyka.ripdpi.core.XrayRuntimeOwner
@@ -26,6 +29,7 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
@@ -1754,13 +1758,94 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun samePhysicalRouteRetainsProxyAndRebuildsOnlyChangedDns() =
+        runTest {
+            val initial = sampleFingerprint().copy(physicalRouteSignature = "route-a")
+            val proxyPreferences =
+                RipDpiProxyUIPreferences(
+                    hostAutolearn = RipDpiHostAutolearnConfig(networkScopeKey = initial.scopeKey()),
+                )
+            val resolution =
+                plainDnsResolution().copy(
+                    physicalRouteSignature = initial.physicalRouteSignature,
+                    proxyPreferences = proxyPreferences,
+                )
+            val env = newEnv(fingerprint = initial, resolutions = listOf(resolution))
+            val originalTun = env.tunnelProvider.session
+            env.startCaptured()
+            runCurrent()
+            val originalProxy = env.factory.lastRuntime
+            val metadataChange = initial.copy(dnsServers = listOf("192.0.2.53"))
+            env.resolver.enqueue(
+                resolution.copy(
+                    proxyPreferences =
+                        proxyPreferences.withSessionOverrides(
+                            networkScopeKey = metadataChange.scopeKey(),
+                        ),
+                ),
+            )
+            env.handoverMonitor.emit(NetworkHandoverEvent(initial, metadataChange, "link_refresh", 2_000L))
+            runCurrent()
+
+            assertSame(originalProxy, env.factory.lastRuntime)
+            assertEquals(1, env.bridgeFactory.bridge.startedConfigs.size)
+            assertFalse(originalTun.closed)
+            assertEquals(1, env.handoverEvents.published.size)
+
+            val newTun = TestVpnTunnelSession(tunFd = 8)
+            env.tunnelProvider.session = newTun
+            val newDns = resolution.activeDns.copy(dnsIp = "192.0.2.54")
+            val dnsChange = metadataChange.copy(dnsServers = listOf("192.0.2.54"))
+            env.resolver.enqueue(
+                resolution.copy(
+                    activeDns = newDns,
+                    proxyPreferences = proxyPreferences.withSessionOverrides(networkScopeKey = dnsChange.scopeKey()),
+                ),
+            )
+            env.handoverMonitor.emit(NetworkHandoverEvent(metadataChange, dnsChange, "link_refresh", 3_000L))
+            runCurrent()
+
+            assertSame(originalProxy, env.factory.lastRuntime)
+            assertEquals(0, originalProxy.stopCount)
+            assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
+            assertTrue(originalTun.closed)
+            assertFalse(newTun.closed)
+            assertEquals(2, env.handoverEvents.published.size)
+        }
+
+    @Test
+    fun metadataRefreshCannotReuseRuntimeFromAnotherPhysicalRoute() =
+        runTest {
+            val applied = sampleFingerprint().copy(physicalRouteSignature = "route-a")
+            val observed = applied.copy(physicalRouteSignature = "route-b")
+            val resolution = plainDnsResolution().copy(physicalRouteSignature = applied.physicalRouteSignature)
+            val env = newEnv(fingerprint = applied, resolutions = listOf(resolution))
+            val originalTun = env.tunnelProvider.session
+            env.startCaptured()
+            runCurrent()
+            val originalProxy = env.factory.lastRuntime
+            env.tunnelProvider.session = TestVpnTunnelSession(tunFd = 8)
+            val next = observed.copy(dnsServers = listOf("192.0.2.53"))
+
+            // A newer observation on B can supersede A-to-B while A is still applied.
+            env.handoverMonitor.emit(NetworkHandoverEvent(observed, next, "link_refresh", 2_000L))
+            runCurrent()
+
+            assertTrue(originalTun.closed)
+            assertEquals(1, originalProxy.stopCount)
+            assertEquals(2, env.events.count { it == "proxy:start" })
+        }
+
+    @Test
     fun handoverRestartUpdatesExplicitHandoverState() =
         runTest {
             val initialFingerprint = sampleFingerprint()
             val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
+            val replacementBridge = TestTun2SocksBridge()
             val env =
                 newEnv(
                     fingerprint = initialFingerprint,
+                    additionalTunnelBridges = listOf(replacementBridge),
                     resolutions =
                         listOf(
                             sampleResolution(mode = Mode.VPN, policySignature = "initial"),
@@ -1770,6 +1855,11 @@ class VpnServiceRuntimeCoordinatorTest {
 
             env.startCaptured()
             runCurrent()
+            env.factory.lastRuntime.forwardingEvidence = ProxyForwardingEvidence(upstreamApplicationBytes = 100)
+            env.bridgeFactory.bridge.forwardingEvidence = TunForwardingEvidence(tunWriteBytes = 128)
+            advanceTimeBy(1_000L)
+            runCurrent()
+            env.tunnelProvider.session = TestVpnTunnelSession(tunFd = 8)
 
             env.handoverMonitor.emit(
                 NetworkHandoverEvent(
@@ -1783,11 +1873,18 @@ class VpnServiceRuntimeCoordinatorTest {
             advanceTimeBy(1_000L)
             repeat(3) { runCurrent() }
 
-            assertEquals(
-                com.poyka.ripdpi.data.NetworkHandoverStates.Revalidated,
-                env.store.telemetry.value.networkHandoverState,
-            )
+            assertEquals(NetworkHandoverStates.RuntimeReady, env.store.telemetry.value.networkHandoverState)
             assertEquals("transport_switch", env.store.telemetry.value.tunnelTelemetry.networkHandoverClass)
+
+            env.factory.lastRuntime.forwardingEvidence = ProxyForwardingEvidence(upstreamApplicationBytes = 50)
+            advanceTimeBy(1_000L)
+            runCurrent()
+            assertEquals(NetworkHandoverStates.RuntimeReady, env.store.telemetry.value.networkHandoverState)
+
+            replacementBridge.forwardingEvidence = TunForwardingEvidence(tunWriteBytes = 64)
+            advanceTimeBy(1_000L)
+            runCurrent()
+            assertEquals(NetworkHandoverStates.Revalidated, env.store.telemetry.value.networkHandoverState)
         }
 
     @Test
@@ -2192,7 +2289,7 @@ class VpnServiceRuntimeCoordinatorTest {
             assertFalse(replacementTun.closed)
             assertEquals(replacementTun.tunFd, replacementBridge.startedTunFd)
             assertEquals(
-                com.poyka.ripdpi.data.NetworkHandoverStates.Revalidated,
+                NetworkHandoverStates.RuntimeReady,
                 env.store.telemetry.value.networkHandoverState,
             )
             assertEquals(0, env.host.stopsAfterQueuedCommands)
