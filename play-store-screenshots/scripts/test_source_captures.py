@@ -22,6 +22,25 @@ capture_spec.loader.exec_module(capture)
 
 
 class SourceCaptureTests(unittest.TestCase):
+
+    def test_home_measurements_use_current_localized_status_plurals(self):
+        for locale, label in (
+            ("en", "2 RTT samples"),
+            ("ru", "3 образца RTT"),
+            ("fa", "۲ نمونهٔ RTT"),
+            ("zh-CN", "2 个 RTT 样本"),
+        ):
+            with self.subTest(locale=locale):
+                device = capture.CaptureDevice("emulator-5556")
+                device.adb = Mock(return_value=f"[{locale}]")
+                tree = ElementTree.Element("hierarchy")
+                ElementTree.SubElement(tree, "node", {"text": label})
+                device.tree = Mock(return_value=tree)
+                with patch.object(capture.time, "monotonic", side_effect=[0, 1, 61]), patch.object(capture.time, "sleep"):
+                    device.wait_for_home_measurements()
+                count = 3 if locale == "ru" else 2
+                self.assertEqual(device.receipts["homeMeasurements"][locale]["sampleCount"], count)
+
     @patch.object(capture.time, "sleep")
     def test_normal_vpn_consent_accepts_only_android_dialog(self, _sleep):
         device = capture.CaptureDevice("emulator-5556")

@@ -196,8 +196,11 @@ class CaptureDevice:
         templates = [
             item.text for path in (ROOT / "app/src/main/res" / directory).glob("*.xml")
             for plurals in ElementTree.parse(path).getroot().findall("plurals")
-            if plurals.get("name") == "home_quality_samples"
-            for item in plurals.findall("item")]
+            if plurals.get("name") == "status_quality_samples"
+            for item in plurals.findall("item")
+            if item.text]
+        if not templates:
+            raise RuntimeError(f"Missing RTT sample plurals for {locale}. No frame was saved.")
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             tree = self.tree()
