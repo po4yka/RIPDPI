@@ -9,9 +9,13 @@ trap 'rm -rf -- "$work_dir"' EXIT
 control_port="${RIPDPI_FIXTURE_CONTROL_PORT:-46090}"
 android_host="${RIPDPI_FIXTURE_ANDROID_HOST:-10.0.2.2}"
 test_class="com.poyka.ripdpi.e2e.DiagnosticsNetworkE2ETest"
+doq_test_class="com.poyka.ripdpi.e2e.DoqIntegrityAndroidE2ETest"
 tests=(
   "$test_class#manualRawVolumeComparisonPersistsVerifiedShortAndStalledLongTransfers"
   "$test_class#manualRawHttp3ComparisonPersistsBodyDivergence"
+  "$doq_test_class#doqAndDohAgreeOnTheAppRouteWithAnActiveVpn"
+  "$doq_test_class#doqTimeoutKeepsTheIndependentDohAnswer"
+  "$doq_test_class#cancellingAStalledDoqExchangeAllowsTheNextCheck"
 )
 test_filter="$(IFS=,; printf '%s' "${tests[*]}")"
 results_dir="app/build/outputs/androidTest-results/connected/debug/flavors/github"

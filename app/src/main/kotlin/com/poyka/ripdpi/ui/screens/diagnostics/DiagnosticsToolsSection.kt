@@ -573,7 +573,7 @@ private fun RawPacketDisclosureCard() {
 }
 
 @Composable
-private fun DnsIntegrityToolCard(
+internal fun DnsIntegrityToolCard(
     tool: DiagnosticsDnsIntegrityToolUiModel,
     onRun: () -> Unit,
 ) {

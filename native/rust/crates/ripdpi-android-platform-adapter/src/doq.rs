@@ -196,7 +196,11 @@ async fn exchange_async(
     cancelled: &AtomicBool,
 ) -> Result<Vec<u8>, NativeDoqError> {
     let bootstrap_ips = run_cancellable(deadline, cancelled, bootstrap_ips(&request.endpoint, request.port)).await?;
-    let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(
+    #[cfg(all(target_os = "android", feature = "instrumented-diagnostics-tls"))]
+    let roots = vec![include_bytes!(env!("RIPDPI_INSTRUMENTED_DIAGNOSTICS_ROOT_DER")).as_slice().into()];
+    #[cfg(not(all(target_os = "android", feature = "instrumented-diagnostics-tls")))]
+    let roots = Vec::new();
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots_and_connect_hooks(
         EncryptedDnsEndpoint {
             protocol: EncryptedDnsProtocol::Doq,
             resolver_id: Some(request.endpoint.clone()),
@@ -211,6 +215,7 @@ async fn exchange_async(
         },
         EncryptedDnsTransport::Direct,
         timeout_duration,
+        roots,
         doq_connect_hooks(),
     )
     .map_err(NativeDoqError::from)?;

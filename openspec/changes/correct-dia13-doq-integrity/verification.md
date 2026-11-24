@@ -39,4 +39,6 @@ Task ID: `DGN-1794744781459086`
 
 ## Scope of evidence
 
-The host and loopback tests cover the diagnostic code and its local wire behavior. Android device and external provider acceptance are pending. Android socket protection still calls the platform synchronously. Cancelling or reaching the deadline discards any late result. The process-wide limit remains in effect until the active native exchange returns.
+The host and loopback tests cover the diagnostic code and its local wire behavior. Android socket protection still calls the platform synchronously. Cancelling or reaching the deadline discards any late result. The process-wide limit remains in effect until the active native exchange returns.
+
+The Android 15 arm64 emulator passed all five cases in `scripts/ci/run-android-raw-https-e2e.sh` with zero skips. The DNS Integrity card displayed a verified DoH answer and a matching native DoQ result on the direct app route before and during an active VPN. A stalled DoQ exchange preserved the independent DoH answer, and cancellation allowed the next check to complete. The run used the controlled TLS fixture. Physical Android and external provider acceptance are pending.

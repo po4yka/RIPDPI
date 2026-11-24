@@ -1,5 +1,5 @@
 use std::io::{self, ErrorKind, Read, Write};
-use std::net::{TcpListener, TcpStream, UdpSocket};
+use std::net::{Ipv4Addr, TcpListener, TcpStream, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
@@ -9,7 +9,8 @@ use rcgen::generate_simple_self_signed;
 use rustls::pki_types::PrivateKeyDer;
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
-use crate::http::read_until_marker;
+use crate::event::{EventLog, event};
+use crate::http::{HttpResponse, read_until_marker};
 use crate::types::{FixtureConfig, IO_POLL_DELAY};
 use crate::util;
 use crate::verified_http3;
@@ -23,6 +24,8 @@ pub(crate) fn start_verified_https_server(
     bind_host: &str,
     stop: Arc<AtomicBool>,
     server_config: Arc<ServerConfig>,
+    events: EventLog,
+    dns_answer: Ipv4Addr,
 ) -> io::Result<([JoinHandle<()>; 2], u16)> {
     let (listener, socket) = bind_verified_sockets(bind_host)?;
     listener.set_nonblocking(true)?;
@@ -33,8 +36,9 @@ pub(crate) fn start_verified_https_server(
             match listener.accept() {
                 Ok((socket, _)) => {
                     let config = server_config.clone();
+                    let events = events.clone();
                     thread::spawn(move || {
-                        let _ = serve_verified_https(socket, config);
+                        let _ = serve_verified_https(socket, config, events, dns_answer);
                     });
                 }
                 Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
@@ -57,7 +61,12 @@ fn bind_verified_sockets(bind_host: &str) -> io::Result<(TcpListener, UdpSocket)
     }
 }
 
-fn serve_verified_https(socket: TcpStream, server_config: Arc<ServerConfig>) -> io::Result<()> {
+fn serve_verified_https(
+    socket: TcpStream,
+    server_config: Arc<ServerConfig>,
+    events: EventLog,
+    dns_answer: Ipv4Addr,
+) -> io::Result<()> {
     let timeout = Some(Duration::from_secs(4));
     socket.set_nonblocking(false)?;
     socket.set_read_timeout(timeout)?;
@@ -76,6 +85,32 @@ fn serve_verified_https(socket: TcpStream, server_config: Arc<ServerConfig>) -> 
         stream.flush()?;
         // Wait for the peer or the socket timeout before closing the unfinished response.
         let _ = stream.sock.peek(&mut [0u8; 1]);
+    } else if request.starts_with(b"GET /dns-query?") {
+        let first_line = String::from_utf8_lossy(&request);
+        let target = first_line.split_whitespace().nth(1).unwrap_or("/dns-query");
+        events.record(event(
+            "dns_doh",
+            "https",
+            stream.sock.peer_addr()?,
+            stream.sock.local_addr().ok(),
+            target,
+            request.len(),
+            None,
+        ));
+        let name = target.split(['?', '&']).find_map(|param| param.strip_prefix("name="));
+        let response = if let Some(name) = name.filter(|name| !name.is_empty()) {
+            HttpResponse::json(
+                serde_json::json!({
+                    "Status": 0,
+                    "Question": [{ "name": name, "type": 1 }],
+                    "Answer": [{ "name": name, "type": 1, "TTL": 60, "data": dns_answer.to_string() }],
+                })
+                .to_string(),
+            )
+        } else {
+            HttpResponse::bad_request("missing DNS query name")
+        };
+        stream.write_all(&response.to_bytes())?;
     } else {
         stream.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
     }
