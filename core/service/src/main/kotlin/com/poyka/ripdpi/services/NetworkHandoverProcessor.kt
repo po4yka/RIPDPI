@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkHandoverStates
-import com.poyka.ripdpi.data.ServiceStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -44,7 +43,7 @@ internal class NetworkHandoverProcessor<TSession>(
     private val clock: ServiceClock,
     private val serviceLabel: () -> String,
     private val currentSession: () -> TSession?,
-    private val currentStatus: () -> ServiceStatus,
+    private val canRestart: (TSession, NetworkFingerprint) -> Boolean,
     private val isStopping: () -> Boolean,
     private val recordPendingClassification: (String) -> Unit,
     private val updateHandoverState: (String?) -> Unit,
@@ -219,9 +218,8 @@ internal class NetworkHandoverProcessor<TSession>(
         val session = currentSession()
         val currentFingerprint = command.event.currentFingerprint
         if (session == null || currentFingerprint == null) return null
-        val lifecycleReady = currentStatus() == ServiceStatus.Connected && !isStopping()
         return HandoverAttemptContext(command, session, currentFingerprint, clock.nowMillis())
-            .takeIf { lifecycleReady && isCurrent(command) }
+            .takeIf { canRestart(session, currentFingerprint) && isCurrent(command) }
     }
 
     private fun shouldSkip(context: HandoverAttemptContext<TSession>): Boolean {

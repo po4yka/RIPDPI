@@ -169,12 +169,13 @@ internal class AppliedRuntimeConfigurationStore
         fun fail(
             attempt: RuntimeConfigurationAttempt,
             failure: RuntimeConfigurationApplyFailure,
+            retainHandoverClaim: Boolean = false,
         ): Boolean =
             synchronized(lock) {
                 if (attempts[attempt.mode] != attempt || attempt.runtimeId in revokedRuntimes) {
                     false
                 } else {
-                    pauseReceipts.failed(attempt)
+                    pauseReceipts.failed(attempt, retainHandoverClaim)
                     applicationState.value = applicationState.value +
                         (
                             attempt.mode to

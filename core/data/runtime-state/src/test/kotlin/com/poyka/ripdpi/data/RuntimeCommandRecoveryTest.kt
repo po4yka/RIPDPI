@@ -171,6 +171,28 @@ class RuntimeCommandRecoveryTest {
         assertTrue(f.a.acknowledgeApplied(RuntimeAppliedIntent.Continuation(initial, identity), current))
     }
 
+    @Test fun `continuation retry replaces only its exact claim and still yields to stop`() {
+        val f = Fixture()
+        val start = f.a.reserveStart(Mode.Proxy)
+        assertTrue(f.a.claimActivation(start, identity))
+        assertTrue(f.a.acknowledgeApplied(RuntimeAppliedIntent.Activation(start), receipt(f.a)))
+        val first = identity.copy(revision = 2)
+        val retry = identity.copy(revision = 3)
+        val intent = RuntimeAppliedIntent.Continuation(start, identity)
+
+        assertTrue(f.a.claimContinuation(start, identity, first))
+        assertFalse(f.a.claimContinuation(start, identity, retry))
+        assertFalse(f.a.claimContinuation(start, identity, retry, replacesClaim = identity))
+        assertTrue(f.a.claimContinuation(start, identity, retry, replacesClaim = first))
+        assertFalse(f.a.acknowledgeApplied(intent, receipt(f.a).copy(identity = first)))
+        assertTrue(f.a.acknowledgeApplied(intent, receipt(f.a).copy(identity = retry)))
+
+        val next = identity.copy(revision = 4)
+        assertTrue(f.a.claimContinuation(start, retry, next))
+        f.a.reserveStop()
+        assertFalse(f.a.claimContinuation(start, retry, identity.copy(revision = 5), replacesClaim = next))
+    }
+
     @Test fun `old revision termination cannot kill a newer claimed continuation`() {
         val f = Fixture()
         val initial = f.a.reserveStart(Mode.Proxy)

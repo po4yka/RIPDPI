@@ -334,18 +334,19 @@ internal class VpnServiceRuntimeCoordinator(
                 ServiceRuntimeHandoverHooks(
                     resolveConnectionPolicy = ::resolveHandoverConnectionPolicy,
                     restartAfterHandover = ::restartAfterHandover,
-                    classifyFailure = ::classifyHandoverFailure,
+                    classifyFailure = ::classifyRuntimeFailure,
                     retainFailClosedAfterExhaustion = {
                         runtimeSession?.revokeInPathLease()
                         runtimeCompositionCoordinator.retainFailClosedAfterHandoverFailure()
                     },
+                    reportRetainedHandoverFailure = { updateStatus(ServiceStatus.Failed, it, retainClaim = true) },
                 ),
             statusHooks =
                 ServiceRuntimeStatusHooks(
                     publishConnected = ::publishConnected,
                     reportConnected = ::reportConnected,
-                    updateStatus = ::updateStatus,
-                    classifyStartupFailure = ::classifyStartupFailure,
+                    updateStatus = { status, reason -> updateStatus(status, reason) },
+                    classifyStartupFailure = ::classifyRuntimeFailure,
                     reportCallbackFailure = ::reportCallbackFailure,
                 ),
             permissionHooks = ServiceRuntimePermissionHooks(::onPermissionRevoked),
@@ -705,12 +706,13 @@ internal class VpnServiceRuntimeCoordinator(
     private fun updateStatus(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
+        retainClaim: Boolean = false,
     ) {
         log.d { "VPN status: $status -> $newStatus" }
         if (newStatus == ServiceStatus.Failed) {
             runtimeSession?.revokeInPathLease()
         }
-        configurationLifecycle.serviceStatusChanged(runtimeSession, newStatus)
+        configurationLifecycle.serviceStatusChanged(runtimeSession, newStatus, retainClaim)
         status = newStatus
         reportStatusEffects(newStatus, failureReason, ServiceStatusPublication.Apply)
     }
@@ -744,10 +746,7 @@ internal class VpnServiceRuntimeCoordinator(
         )
     }
 
-    private fun classifyStartupFailure(error: Exception): FailureReason =
-        classifyFailureReason(error, isTunnelContext = true)
-
-    private fun classifyHandoverFailure(error: Exception): FailureReason =
+    private fun classifyRuntimeFailure(error: Exception): FailureReason =
         classifyFailureReason(error, isTunnelContext = true)
 
     private fun onPermissionRevoked(

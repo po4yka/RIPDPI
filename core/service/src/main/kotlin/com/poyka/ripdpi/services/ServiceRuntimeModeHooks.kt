@@ -36,6 +36,7 @@ internal class ServiceRuntimeHandoverHooks<TSession>(
     val restartAfterHandover: suspend (TSession, ConnectionPolicyResolution, Long) -> Unit,
     val classifyFailure: (Exception) -> FailureReason,
     val retainFailClosedAfterExhaustion: suspend () -> Boolean = { false },
+    val reportRetainedHandoverFailure: ((FailureReason) -> Unit)? = null,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession
 
 internal class ServiceRuntimeStatusHooks(

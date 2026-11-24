@@ -2121,6 +2121,84 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun networkReturnRecoversExhaustedHandoverWithTunBarrier() =
+        runTest {
+            val initial = sampleFingerprint()
+            val obsoleteBridge = TestTun2SocksBridge()
+            val replacementBridge = TestTun2SocksBridge()
+            var proxyStartupFails = false
+            val env =
+                newEnv(
+                    fingerprint = initial,
+                    resolutions = listOf(plainDnsResolution()),
+                    additionalTunnelBridges = listOf(obsoleteBridge, replacementBridge),
+                    runtimeFactory = { events ->
+                        TestProxyRuntime(events).apply {
+                            if (proxyStartupFails) startFailure = IOException("network unavailable")
+                        }
+                    },
+                )
+            val originalTun = env.tunnelProvider.session
+
+            env.startCaptured()
+            runCurrent()
+            val originalRuntime = checkNotNull(env.runtimeRegistry.current(Mode.VPN))
+            proxyStartupFails = true
+            val lost = initial.copy(dnsServers = listOf("192.0.2.53"))
+            env.handoverMonitor.emit(NetworkHandoverEvent(initial, lost, "link_refresh", 2_000L))
+            advanceTimeBy(31_000L)
+            runCurrent()
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertFalse(originalTun.closed)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+            assertEquals(6, env.events.count { it == "proxy:start" })
+
+            env.handoverMonitor.emit(NetworkHandoverEvent(lost, null, "connectivity_loss", 33_000L))
+            val unvalidated = initial.copy(networkValidated = false)
+            env.handoverMonitor.emit(NetworkHandoverEvent(null, unvalidated, "connectivity_restore", 34_000L))
+            runCurrent()
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertFalse(originalTun.closed)
+
+            proxyStartupFails = false
+            val obsoleteTun = TestVpnTunnelSession(tunFd = 8)
+            val allowObsoleteStart = CompletableDeferred<Unit>()
+            obsoleteBridge.beforeStart = { allowObsoleteStart.await() }
+            env.tunnelProvider.session = obsoleteTun
+            env.tunnelProvider.beforeEstablish = { assertFalse(originalTun.closed) }
+            env.handoverMonitor.emit(NetworkHandoverEvent(unvalidated, initial, "link_refresh", 35_000L))
+            runCurrent()
+            assertEquals(obsoleteTun.tunFd, obsoleteBridge.startedTunFd)
+
+            env.handoverMonitor.emit(NetworkHandoverEvent(initial, null, "connectivity_loss", 36_000L))
+            runCurrent()
+            allowObsoleteStart.complete(Unit)
+            runCurrent()
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertEquals(1, obsoleteBridge.stopCount)
+            assertFalse(obsoleteTun.closed)
+
+            val replacementTun = TestVpnTunnelSession(tunFd = 9)
+            env.tunnelProvider.session = replacementTun
+            env.tunnelProvider.beforeEstablish = { assertFalse(obsoleteTun.closed) }
+            env.handoverMonitor.emit(NetworkHandoverEvent(null, initial, "connectivity_restore", 37_000L))
+            advanceTimeBy(1_000L)
+            runCurrent()
+
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertSame(originalRuntime, env.runtimeRegistry.current(Mode.VPN))
+            assertTrue(originalTun.closed)
+            assertFalse(replacementTun.closed)
+            assertEquals(replacementTun.tunFd, replacementBridge.startedTunFd)
+            assertEquals(
+                com.poyka.ripdpi.data.NetworkHandoverStates.Revalidated,
+                env.store.telemetry.value.networkHandoverState,
+            )
+            assertEquals(0, env.host.stopsAfterQueuedCommands)
+        }
+
+    @Test
     fun exhaustedHandoverResolutionFailureRevokesDiagnosticsRouteLease() =
         runTest {
             val initialFingerprint = sampleFingerprint()

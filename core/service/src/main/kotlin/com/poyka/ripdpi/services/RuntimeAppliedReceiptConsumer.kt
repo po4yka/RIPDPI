@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PauseIntentAuthority
 import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.data.RuntimeAppliedIntent
@@ -59,6 +60,7 @@ internal class RuntimeAppliedReceiptConsumer
                                 original.receipt,
                                 original.lastPositiveIdentity,
                                 identity,
+                                replacesClaim = previousVpnHandoverClaim(attempt, original),
                             )
                         }
 
@@ -75,6 +77,19 @@ internal class RuntimeAppliedReceiptConsumer
                 bindings.remove(it)
             }
             bindings[attempt] = Binding(original, false, requested, alreadyApplied)
+        }
+
+        private fun previousVpnHandoverClaim(
+            attempt: RuntimeConfigurationAttempt,
+            original: RuntimeAppliedIntent.Continuation,
+        ): RuntimeAppliedUseIdentity? {
+            if (!attempt.isVpnHandover()) return null
+            return bindings.keys
+                .singleOrNull {
+                    it.runtimeId == attempt.runtimeId && it.isVpnHandover() && it.originalIntent == original
+                }?.let { previous ->
+                    RuntimeAppliedUseIdentity(previous.runtimeId, previous.revision, previous.mode.preferenceValue)
+                }
         }
 
         fun acknowledge(
@@ -153,14 +168,19 @@ internal class RuntimeAppliedReceiptConsumer
             return authority.intentLinearizer.publishIf({ authority.allowsPublication(permit) }, publish)
         }
 
-        fun failed(attempt: RuntimeConfigurationAttempt) {
+        fun failed(
+            attempt: RuntimeConfigurationAttempt,
+            retainHandoverClaim: Boolean = false,
+        ) {
             val binding = bindings[attempt] ?: return
             binding.failed = true
             try {
-                authority.terminateActivation(
-                    binding.original.receipt,
-                    RuntimeAppliedUseIdentity(attempt.runtimeId, attempt.revision, attempt.mode.preferenceValue),
-                )
+                if (!retainHandoverClaim || !attempt.isVpnHandover()) {
+                    authority.terminateActivation(
+                        binding.original.receipt,
+                        RuntimeAppliedUseIdentity(attempt.runtimeId, attempt.revision, attempt.mode.preferenceValue),
+                    )
+                }
             } finally {
                 measured.release(binding.original.receipt.commandId)
             }
@@ -173,6 +193,9 @@ internal class RuntimeAppliedReceiptConsumer
             bindings.keys.removeAll { it.runtimeId == runtimeId }
         }
     }
+
+private fun RuntimeConfigurationAttempt.isVpnHandover(): Boolean =
+    mode == Mode.VPN && reason == RuntimeConfigurationApplyReason.NetworkHandover
 
 private fun RuntimeConfigurationApplyReason.recordsSuccessfulUse(): Boolean =
     this == RuntimeConfigurationApplyReason.InitialStart || this == RuntimeConfigurationApplyReason.UserReconnect ||

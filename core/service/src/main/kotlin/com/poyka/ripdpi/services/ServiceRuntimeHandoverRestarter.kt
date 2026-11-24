@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
-import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.policyHandoverDeliveryId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -19,11 +18,10 @@ internal class ServiceRuntimeHandoverRestarter<TSession>(
     private val mutex: Mutex,
     private val policyHandoverEventStore: PolicyHandoverEventStore,
     private val currentSession: () -> TSession?,
-    private val currentStatus: () -> ServiceStatus,
-    private val isStopping: () -> Boolean,
+    private val canRestart: (TSession, NetworkFingerprint) -> Boolean,
     private val setHandoverRestarting: (Boolean) -> Unit,
     private val resolveConnectionPolicy: suspend (NetworkFingerprint, String) -> ConnectionPolicyResolution,
-    private val restartAfterHandover: suspend (TSession, ConnectionPolicyResolution, Long) -> Unit,
+    private val restartAfterHandover: suspend (TSession, ConnectionPolicyResolution, Long, () -> Boolean) -> Boolean,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
     suspend fun restart(
         session: TSession,
@@ -46,11 +44,10 @@ internal class ServiceRuntimeHandoverRestarter<TSession>(
         appliedAt: Long,
         isCurrentAttempt: () -> Boolean,
     ): String? {
-        val currentFingerprintHash = currentFingerprint.scopeKey()
         val resolution = resolveConnectionPolicy(currentFingerprint, event.classification)
         val restartResult =
             if (isCurrentAttempt()) {
-                restartCurrentSession(session, resolution, currentFingerprintHash, appliedAt, isCurrentAttempt)
+                restartCurrentSession(session, resolution, currentFingerprint, appliedAt, isCurrentAttempt)
             } else {
                 null
             }
@@ -67,7 +64,7 @@ internal class ServiceRuntimeHandoverRestarter<TSession>(
             ) {
                 Logger.e(error, tag = LogTags.SERVICE) { "Failed to publish the policy handover event" }
             }
-            return currentFingerprintHash
+            return restartResult.currentFingerprintHash
         }
         return null
     }
@@ -75,27 +72,27 @@ internal class ServiceRuntimeHandoverRestarter<TSession>(
     private suspend fun restartCurrentSession(
         session: TSession,
         resolution: ConnectionPolicyResolution,
-        currentFingerprintHash: String,
+        fingerprint: NetworkFingerprint,
         appliedAt: Long,
         isCurrentAttempt: () -> Boolean,
     ): HandoverRestartResult? =
         mutex.withLock {
             val activeSession = currentSession()
-            val lifecycleReady = currentStatus() == ServiceStatus.Connected && !isStopping()
             val sessionCurrent = activeSession?.runtimeId == session.runtimeId
-            if (lifecycleReady && sessionCurrent && isCurrentAttempt()) {
+            if (sessionCurrent && canRestart(activeSession, fingerprint) && isCurrentAttempt()) {
                 val previousFingerprintHash = activeSession.currentActiveConnectionPolicy?.fingerprintHash
                 // Once stop/start begins it must finish under the lifecycle mutex; cancellation
                 // only invalidates publication and lets the newer event or Stop run next.
                 setHandoverRestarting(true)
-                try {
-                    withContext(NonCancellable) {
-                        restartAfterHandover(activeSession, resolution, appliedAt)
+                val restarted =
+                    try {
+                        withContext(NonCancellable) {
+                            restartAfterHandover(activeSession, resolution, appliedAt, isCurrentAttempt)
+                        }
+                    } finally {
+                        setHandoverRestarting(false)
                     }
-                } finally {
-                    setHandoverRestarting(false)
-                }
-                HandoverRestartResult(previousFingerprintHash, currentFingerprintHash)
+                if (restarted) HandoverRestartResult(previousFingerprintHash, fingerprint.scopeKey()) else null
             } else {
                 null
             }

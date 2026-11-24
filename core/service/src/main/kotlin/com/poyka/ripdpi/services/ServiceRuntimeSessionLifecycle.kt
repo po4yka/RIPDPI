@@ -45,6 +45,7 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
                 ),
             hooks = hooks,
             stopService = { guard -> stopAfterHandoverFailure?.invoke(guard) },
+            resumeTelemetry = { hooks.startHooks.startModeTelemetryUpdates(::replaceTelemetryJob) },
         )
     private val startStopOrchestrator =
         ServiceRuntimeStartStopOrchestrator(

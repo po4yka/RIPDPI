@@ -149,19 +149,22 @@ internal class RuntimeConfigurationLifecycle
         fun failed(
             session: ServiceRuntimeSession?,
             failure: RuntimeConfigurationApplyFailure,
+            retainHandoverClaim: Boolean = false,
         ) {
-            session?.configurationAttempt?.let { store.fail(it, failure) }
+            session?.configurationAttempt?.let { store.fail(it, failure, retainHandoverClaim) }
         }
 
         fun serviceStatusChanged(
             session: ServiceRuntimeSession?,
             status: com.poyka.ripdpi.data.ServiceStatus,
+            retainHandoverClaim: Boolean = false,
         ) {
             when (status) {
                 com.poyka.ripdpi.data.ServiceStatus.Failed -> {
                     failed(
                         session,
                         RuntimeConfigurationApplyFailure.RuntimeRejected,
+                        retainHandoverClaim,
                     )
                 }
 

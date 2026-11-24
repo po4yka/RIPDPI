@@ -17,6 +17,7 @@ interface RuntimeCommandApplications {
         receipt: RuntimeActivationReceipt,
         lastPositiveIdentity: RuntimeAppliedUseIdentity,
         nextIdentity: RuntimeAppliedUseIdentity,
+        replacesClaim: RuntimeAppliedUseIdentity? = null,
     ): Boolean
 
     fun acknowledgeApplied(
@@ -111,18 +112,32 @@ internal class CheckedRuntimeCommandApplications(
         receipt: RuntimeActivationReceipt,
         lastPositiveIdentity: RuntimeAppliedUseIdentity,
         nextIdentity: RuntimeAppliedUseIdentity,
+        replacesClaim: RuntimeAppliedUseIdentity?,
     ): Boolean =
         cell.locked {
             val before = cell.current()
             val command = before.command ?: return@locked false
-            val applied = command.phase as? RuntimeActivationPhase.Applied ?: return@locked false
             val followsPrevious =
                 nextIdentity.runtimeId == lastPositiveIdentity.runtimeId &&
                     nextIdentity.mode == lastPositiveIdentity.mode &&
                     nextIdentity.revision > lastPositiveIdentity.revision
-            if (!matchesRuntimeAuthority(receipt, command) || applied.identity != lastPositiveIdentity ||
-                !followsPrevious
-            ) {
+            val predecessorMatches =
+                when (val phase = command.phase) {
+                    is RuntimeActivationPhase.Applied -> {
+                        phase.identity == lastPositiveIdentity
+                    }
+
+                    is RuntimeActivationPhase.Claimed -> {
+                        phase.identity == replacesClaim &&
+                            phase.kind == RuntimeClaimKind.Continuation(lastPositiveIdentity) &&
+                            nextIdentity.revision > phase.identity.revision
+                    }
+
+                    else -> {
+                        false
+                    }
+                }
+            if (!matchesRuntimeAuthority(receipt, command) || !predecessorMatches || !followsPrevious) {
                 return@locked false
             }
             cell.publish(
