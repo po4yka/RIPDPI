@@ -63,6 +63,21 @@ class DiagnosticsArchiveEventSourceRoomTest : DiagnosticsRoomStoreTestBase() {
         }
 
     @Test
+    fun `artifact store persists a batch and replaces repeated event identities`() =
+        runTest {
+            val store = RoomDiagnosticsArtifactStore(db, dao)
+            val oldEvent = nativeEvent(id = "exit-a", sessionId = null, createdAt = 10L)
+            val replacement = oldEvent.copy(createdAt = 30L)
+            val otherEvent = nativeEvent(id = "exit-b", sessionId = null, createdAt = 20L)
+            store.insertNativeSessionEvent(oldEvent)
+
+            store.insertNativeSessionEvents(listOf(otherEvent, replacement))
+
+            assertEquals(replacement, store.getNativeEventById("exit-a"))
+            assertEquals(otherEvent, store.getNativeEventById("exit-b"))
+        }
+
+    @Test
     fun `artifact store reports exact native event counts beyond newest limits`() =
         runTest {
             val store = RoomDiagnosticsArtifactStore(db, dao)
