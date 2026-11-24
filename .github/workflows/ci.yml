@@ -2435,8 +2435,11 @@ jobs:
 
   android-macrobenchmark:
     # Run StartupBenchmark on the same managed device for calibration and comparison.
-    needs: [change-routing, pluggable-transport-assets, xray-native]
-    if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '11 4 * * 4') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_macrobenchmark == 'true'))
+    needs: [pluggable-transport-assets, xray-native]
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '11 4 * * 4') ||
+      (github.event_name == 'workflow_dispatch' &&
+      (inputs.run_android_macrobenchmark || inputs.record_android_startup_reference))
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:

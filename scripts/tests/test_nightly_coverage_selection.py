@@ -217,6 +217,11 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         self.assertIn("-Pripdpi.nativeAbisOverride=x86_64", job)
         self.assertNotIn("-Pripdpi.localNativeAbis=x86_64", source)
 
+    def test_startup_reference_dispatch_runs_the_benchmark(self) -> None:
+        job = workflow_job(CI_WORKFLOW.read_text(encoding="utf-8"), "android-macrobenchmark")
+        self.assertIn("inputs.run_android_macrobenchmark || inputs.record_android_startup_reference", job)
+        self.assertNotIn("needs.change-routing", job)
+
     def test_relay_smoke_uses_the_ci_native_abi_override(self) -> None:
         source = RELAY_SMOKE_SCRIPT.read_text(encoding="utf-8")
         self.assertIn("-Pripdpi.nativeAbisOverride=x86_64", source)

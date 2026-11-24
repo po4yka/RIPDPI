@@ -591,7 +591,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
     def test_every_android_asset_consumer_uses_the_pt_producer(self) -> None:
         workflow_consumers = {
             "phase0-baseline": "needs: [change-routing, pluggable-transport-assets, xray-native]",
-            "android-macrobenchmark": "needs: [change-routing, pluggable-transport-assets, xray-native]",
+            "android-macrobenchmark": "needs: [pluggable-transport-assets, xray-native]",
             "android-network-e2e": "needs: [change-routing, pluggable-transport-assets, xray-native]",
             "android-journeys": "needs: [change-routing, pluggable-transport-assets, xray-native]",
             "android-relay-emulator-smoke": "needs: [change-routing, pluggable-transport-assets, xray-native]",
