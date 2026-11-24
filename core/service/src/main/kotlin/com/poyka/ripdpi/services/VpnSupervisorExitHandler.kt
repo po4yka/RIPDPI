@@ -18,13 +18,6 @@ internal class VpnSupervisorExitHandler(
         if (cause is SupervisorExitCause.ExpectedStop) {
             return
         }
-        if (cause is SupervisorExitCause.Crash && cause.code == 0) {
-            Logger.i(tag = LogTags.SERVICE) { "VPN local proxy exited cleanly" }
-            proxyRuntimeStack.detachCompletedRuntimes()
-            failAndStop(null)
-            return
-        }
-
         val failureReason =
             when (cause) {
                 is SupervisorExitCause.Crash -> {

@@ -944,6 +944,31 @@ class ServiceRuntimeHandoverTest {
         }
 
     @Test
+    fun `late engine failure preserves a barrier retained after handover exhaustion`() =
+        runTest {
+            val initial = sampleFingerprint()
+            val env = newEnv(fingerprint = initial)
+            env.coordinator.handoverFailuresRemaining = 5
+            env.coordinator.handoverRetainResult = true
+            env.coordinator.retainsBarrierOnEngineFailure = true
+            env.coordinator.start()
+            runCurrent()
+
+            val current = initial.copy(dnsServers = listOf("192.0.2.53"))
+            env.handoverMonitor.emit(NetworkHandoverEvent(initial, current, "link_refresh", env.clock.nowMillis()))
+            advanceTimeBy(31_000L)
+            runCurrent()
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+
+            env.coordinator.installedEngineFailureCallbacks.single()(FailureReason.NativeError("proxy exited"))
+            runCurrent()
+
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(0, env.coordinator.stopCalls)
+        }
+
+    @Test
     fun handoverRetryExhaustionTransitionsToFailedAndStops() =
         runTest {
             val initialFingerprint = sampleFingerprint()

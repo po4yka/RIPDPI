@@ -256,7 +256,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     /**
      * Keeps the current session's fail-closed barrier after a connection engine died and publishes Failed.
      * Returns false when the caller must fail and stop the session as before: the setting asks for a stop,
-     * the session is stale, stopping, or not Connected, or the barrier could not be kept.
+     * the session is stale or stopping, or it has no TUN barrier to keep.
      */
     protected suspend fun retainBarrierAfterEngineFailure(
         isCurrent: () -> Boolean,
@@ -268,8 +268,9 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                 mutex.withLock {
                     val current = isCurrent() && !stopping
                     val runtimeId = runtimeSession?.runtimeId
-                    if (current && status == ServiceStatus.Failed && engineFailureBarrierRuntimeId == runtimeId) {
-                        return@withLock true
+                    if (current && status == ServiceStatus.Failed) {
+                        return@withLock engineFailureBarrierRuntimeId == runtimeId ||
+                            runtimeHooks.handoverHooks.retainFailClosedAfterExhaustion()
                     }
                     val kept =
                         current &&

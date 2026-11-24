@@ -62,7 +62,10 @@ internal class VpnTelemetryFailureHandler(
                     isCurrent = { state.runtimeSession() === session && xray.ownsGeneration(generation) },
                     failureReason = reason,
                 )
-            return if (guard.isCurrent() && callbacks.stopService(guard)) {
+            val handled =
+                guard.isCurrent() &&
+                    (callbacks.retainBarrierAfterEngineFailure(reason, guard) {} || callbacks.stopService(guard))
+            return if (handled) {
                 VpnTelemetryFailureHandling.StopAccepted
             } else {
                 VpnTelemetryFailureHandling.DiscardStale

@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.isUdpAssociateEnabled
 import com.poyka.ripdpi.core.relayConfigOrNull
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -111,30 +113,23 @@ internal class VpnRuntimeCompositionCoordinator(
      * retries are exhausted. The runtime remains registered so an explicit
      * user stop can close the barrier deliberately.
      */
-    suspend fun retainFailClosedAfterHandoverFailure(): Boolean =
-        when {
-            providerDelegate?.ownsActiveProviderPath == true || providerController?.isActive == true -> {
-                val barrierRetained =
-                    if (vpnTunnelRuntime.isRunning) {
-                        runCatching { vpnTunnelRuntime.retainFailClosedBarrier() }.getOrDefault(false)
-                    } else {
-                        !vpnTunnelRuntime.isForwarding
-                    }
-                currentLocalProxyEndpoint = null
-                barrierRetained && !vpnTunnelRuntime.isForwarding
-            }
-
-            !vpnTunnelRuntime.isRunning -> {
-                false
-            }
-
-            else -> {
-                val barrierRetained = runCatching { vpnTunnelRuntime.retainFailClosedBarrier() }.getOrDefault(false)
-                runCatching { proxyRuntimeStack.stop(skipRuntimeShutdown = false) }
-                currentLocalProxyEndpoint = null
-                barrierRetained && !vpnTunnelRuntime.isForwarding
-            }
+    suspend fun retainFailClosedAfterHandoverFailure(): Boolean {
+        if (!vpnTunnelRuntime.isRunning) return false
+        val retention =
+            runCatching { vpnTunnelRuntime.retainFailClosedBarrier() }
+                .recoverCatching { error ->
+                    Logger.w(error, tag = LogTags.SERVICE) { "Retrying shutdown of VPN forwarding" }
+                    vpnTunnelRuntime.retainFailClosedBarrier()
+                }
+        if (providerDelegate?.ownsActiveProviderPath != true && providerController?.isActive != true) {
+            runCatching { proxyRuntimeStack.stop(skipRuntimeShutdown = false) }
         }
+        currentLocalProxyEndpoint = null
+        return retention.getOrElse { error ->
+            Logger.e(error, tag = LogTags.SERVICE) { "VPN forwarding cleanup is incomplete; keeping the installed TUN" }
+            vpnTunnelRuntime.isRunning
+        }
+    }
 
     suspend fun restartAfterPolicyChange(
         session: VpnRuntimeSession,

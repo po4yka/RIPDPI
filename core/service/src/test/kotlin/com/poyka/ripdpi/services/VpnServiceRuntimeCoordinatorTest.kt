@@ -266,6 +266,101 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun unexpectedZeroProxyExitHonorsEngineFailurePolicy() =
+        runTest {
+            for (block in listOf(true, false)) {
+                val resolution = plainDnsResolution()
+                val env =
+                    newEnv(
+                        resolutions = listOf(resolution),
+                        appSettingsRepository =
+                            if (block) {
+                                TestAppSettingsRepository(resolution.settings)
+                            } else {
+                                stopOnEngineFailure(resolution)
+                            },
+                    )
+
+                env.startCaptured()
+                runCurrent()
+                env.factory.lastRuntime.complete(0)
+                runCurrent()
+
+                assertEngineExitPolicy(env, block, FailureReason.NativeError("Proxy exited with code 0"))
+            }
+        }
+
+    @Test
+    fun xrayListenerExitHonorsEngineFailurePolicy() =
+        runTest {
+            for (block in listOf(true, false)) {
+                val selectionStore = FakeSelectionStore()
+                val profileStore = FakeDurableXrayProfileStore()
+                selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+                profileStore.save("default", xrayProfile())
+                val xrayBridge = FakeXrayNativeBridge()
+                val resolution = plainDnsResolution()
+                val env =
+                    newEnv(
+                        resolutions = listOf(resolution),
+                        appSettingsRepository =
+                            if (block) {
+                                TestAppSettingsRepository(resolution.settings)
+                            } else {
+                                stopOnEngineFailure(resolution)
+                            },
+                        xrayProviderSessionControllerFactory = { tunnel, dispatcher ->
+                            buildXrayProviderSessionController(
+                                tunnel,
+                                xrayBridge,
+                                selectionStore,
+                                profileStore,
+                                dispatcher,
+                            )
+                        },
+                    )
+
+                env.startCaptured()
+                runCurrent()
+                if (block) {
+                    val bridge = env.bridgeFactory.bridge
+                    bridge.beforeStop = {
+                        if (bridge.stopCount == 1) throw IOException("TUN forwarding shutdown failed")
+                    }
+                }
+                xrayBridge.readyAfterPolls = Int.MAX_VALUE
+                advanceTimeBy(5_000L)
+                runCurrent()
+
+                assertEngineExitPolicy(
+                    env,
+                    block,
+                    FailureReason.NativeError("Xray engine or local listener exited unexpectedly"),
+                    expectedBridgeStops = if (block) 2 else 1,
+                )
+            }
+        }
+
+    private fun assertEngineExitPolicy(
+        env: Env,
+        block: Boolean,
+        reason: FailureReason,
+        expectedBridgeStops: Int = 1,
+    ) {
+        assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+        assertEquals(
+            reason,
+            env.store.eventHistory
+                .filterIsInstance<ServiceEvent.Failed>()
+                .lastOrNull()
+                ?.reason,
+        )
+        assertEquals(block, env.runtimeRegistry.current(Mode.VPN) != null)
+        assertEquals(!block, env.tunnelProvider.session.closed)
+        assertEquals(expectedBridgeStops, env.bridgeFactory.bridge.stopCount)
+    }
+
+    @Test
     fun relayExitKeepsTunAsBarrierUntilExplicitStopByDefault() =
         runTest {
             val resolution = relayResolution()
