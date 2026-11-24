@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.navigation
 
+import androidx.activity.compose.ReportDrawnWhen
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.EnterTransition
@@ -24,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
@@ -101,6 +103,13 @@ fun RipDpiNavHost(
     val navController = key("ripdpi-nav-v2") { rememberNavController() }
     val diagnosticsInitialSection = rememberSaveable { mutableStateOf<DiagnosticsSection?>(null) }
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val destinationLifecycle =
+        currentBackStackEntry
+            ?.lifecycle
+            ?.currentStateFlow
+            ?.collectAsStateWithLifecycle()
+            ?.value
+    ReportDrawnWhen { destinationLifecycle == Lifecycle.State.RESUMED && !launchRequests.relockRequested }
     val currentDestination = currentBackStackEntry?.destination
     val currentStableRoute = currentDestination?.stableRouteKey()
     val selectedTopLevel =

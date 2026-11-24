@@ -9,8 +9,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import co.touchlab.kermit.Logger
@@ -118,20 +124,31 @@ class MainActivity : AppCompatActivity() {
             viewModel.startupState.value.run { isReady && startDestination == Route.Onboarding }
         }
         val holdForBadge = splashHoldForBadge(badgeAnchor)
+        var startupContentComposed = false
         splashScreen.setKeepOnScreenCondition {
-            viewModel.startupState.value.readiness == AppStartupReadinessState.Pending ||
+            !startupContentComposed ||
+                viewModel.startupState.value.readiness == AppStartupReadinessState.Pending ||
                 holdForBadge(startsOnOnboarding())
         }
         splashScreen.setRipDpiExit(badgeAnchor, startsOnOnboarding)
 
         setContent {
-            CompositionLocalProvider(LocalOnboardingBadgeAnchor provides badgeAnchor) {
-                ProvideDeviceHourCycle {
-                    MainActivityContent(
-                        viewModel = viewModel,
-                        controller = shellController,
-                        exportPreview = exportPreview,
-                    )
+            val startupState by viewModel.startupState.collectAsStateWithLifecycle()
+            var contentStarted by rememberSaveable { mutableStateOf(false) }
+            if (contentStarted || startupState.readiness != AppStartupReadinessState.Pending) {
+                // After a failure, keep the retry screen visible when recovery starts again.
+                SideEffect {
+                    startupContentComposed = true
+                    contentStarted = true
+                }
+                CompositionLocalProvider(LocalOnboardingBadgeAnchor provides badgeAnchor) {
+                    ProvideDeviceHourCycle {
+                        MainActivityContent(
+                            viewModel = viewModel,
+                            controller = shellController,
+                            exportPreview = exportPreview,
+                        )
+                    }
                 }
             }
         }
