@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-24T17:35:13Z",
+  "change": "migrate-target-sdk-37",
+  "commit_sha": "d1b75749a2ef4b01e01b3b6648dfdd475f35487e",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "AND-1787932839013427"
+}

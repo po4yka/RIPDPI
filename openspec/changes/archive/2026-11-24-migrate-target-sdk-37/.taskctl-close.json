@@ -1,0 +1,11 @@
+{
+  "change": "migrate-target-sdk-37",
+  "evidence_summary": "CI 45441455734 passed the Android instrumentation APK build, all five API levels, all four native ABI builds, and the three release packaging shards at d1b75749a2. Local API 37 grant and regrant and packaged JNI smoke passed within the approved app acceptance scope.",
+  "execution_sha256": "3df99f119b2b07306658a0f88e3af3723e273c92e6a215516ae8f47dbcc9a7fd",
+  "issue_sha256": "fc3f31f015e735fef448bea155dfa6c7bade1fd68a2bc0d439094adc70695360",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T17:35:13Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "AND-1787932839013427"
+}

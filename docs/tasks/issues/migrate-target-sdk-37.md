@@ -2,7 +2,7 @@
 id: AND-1787932839013427
 title: Migrate Android runtime behavior to target SDK 37
 kind: feature
-status: review
+status: done
 area: android
 priority: high
 owner: Codex
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: migrate-target-sdk-37
 created: 2026-08-28
 updated: 2026-11-24
+closed_at: "2026-11-24T17:35:13Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: CI 45441455734 passed the Android instrumentation APK build, all five API levels, all four native ABI builds, and the three release packaging shards at d1b75749a2. Local API 37 grant and regrant and packaged JNI smoke passed within the approved app acceptance scope.
 ---
 
 ## Goal
