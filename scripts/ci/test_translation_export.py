@@ -15,11 +15,13 @@ class TranslationExportTest(unittest.TestCase):
         self.script.parent.mkdir(parents=True)
         shutil.copy2(pathlib.Path(__file__).with_name(self.script.name), self.script)
         self.write("app", "strings.xml", '<string name="base">Base</string>')
+        self.write("app", "strings.xml", '<string name="edition">Extended</string>', source_set="extended")
+        self.write("app", "strings.xml", '<string name="edition">Play</string>', source_set="play")
         self.write("core/service", "strings.xml", '<string name="status">Status</string>')
         self.write("core/detection", "strings.xml", '<string name="alert">Alert</string>')
 
-    def write(self, module, filename, body):
-        path = self.root / module / "src/main/res/values" / filename
+    def write(self, module, filename, body, *, source_set="main"):
+        path = self.root / module / "src" / source_set / "res/values" / filename
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("<resources>" + body + "</resources>", encoding="utf-8")
 
@@ -42,7 +44,8 @@ class TranslationExportTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stderr)
         manifest = self.root / "config/i18n/translatable-keys.txt"
         self.assertEqual(
-            ["app:base", "app:multiline", "app:xray", "detection:alert", "service:connected", "service:status"],
+            ["app-play:edition", "app:base", "app:edition", "app:multiline", "app:xray",
+             "detection:alert", "service:connected", "service:status"],
             manifest.read_text().splitlines(),
         )
         first = manifest.read_bytes()
@@ -51,11 +54,15 @@ class TranslationExportTest(unittest.TestCase):
 
     def test_rejects_duplicate_resource_keys(self):
         self.write("app", "extra.xml", '<string name="base">Conflicting</string>')
-        self.assertNotEqual(0, self.run_export().returncode)
+        result = self.run_export()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("duplicate source string key: app:base", result.stderr)
 
     def test_rejects_missing_source_catalog(self):
         shutil.rmtree(self.root / "core/service/src/main/res/values")
-        self.assertNotEqual(0, self.run_export().returncode)
+        result = self.run_export()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("source resource directory not found: core/service/src/main/res/values", result.stderr)
 
 
 if __name__ == "__main__":
