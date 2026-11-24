@@ -2,7 +2,7 @@
 id: UIX-1792259264757428
 title: Control haptic feedback and deliver actual results once
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: Haptic integration
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: haptic-feedback
 created: 2026-10-17
-updated: 2026-10-18
+updated: 2026-11-24
 status_detail: The user authorized UI acceptance without a genuine backend bundle. Use the existing repository CI fixture only as a local ignored build input, then run combined-tree checks, emulator preference acceptance, and authorized main integration and push.
 ---
 

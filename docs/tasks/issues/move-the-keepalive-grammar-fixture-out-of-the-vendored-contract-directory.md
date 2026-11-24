@@ -2,7 +2,7 @@
 id: TST-1793415829632618
 title: Move the keepalive-grammar fixture out of the vendored contract directory
 kind: chore
-status: doing
+status: review
 area: testing
 priority: medium
 owner: Deployment contract sync
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-31
-updated: 2026-10-31
+updated: 2026-11-24
 spec_reason: test-only
 ---
 

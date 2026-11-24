@@ -2,7 +2,7 @@
 id: DAT-1790868146040476
 title: Mirror observability topology schema v2
 kind: chore
-status: doing
+status: review
 area: data
 priority: high
 owner: Observability contract mirror
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: mirror-observability-topology-v2
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-11-24
 ---
 
 ## Goal

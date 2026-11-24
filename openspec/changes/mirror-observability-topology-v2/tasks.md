@@ -10,7 +10,7 @@ remain unchanged.
 ## Execution
 
 - [x] DAT-1790868271135771 Mirror frozen topology v2 and verify local contract gates #chore !high @item:DAT-1790868146040476
-- [ ] DAT-1790868271659032 Verify hosted checks and integrate the authorized mirror PR #chore !high @item:DAT-1790868146040476
+- [x] DAT-1790868271659032 Verify hosted checks and integrate the authorized mirror PR #chore !high @item:DAT-1790868146040476
 
 ## Verification
 

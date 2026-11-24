@@ -4,8 +4,8 @@ change: haptic-feedback
 commit_sha: 020d36fdc3e5becf53f8484f67ce100680281c71
 local: passed
 local_evidence: At f005bad646a56f36575c9eef27f12bb7f72d55f5, all 923 behavioral, storage, backup and CI fixture tests passed. Static analysis, Full and Simple locale lint, service lint and 21 strict screenshot tests passed. After rebase to 020d36fdc3e5becf53f8484f67ce100680281c71, production and build inputs are identical; architecture health, locked Cargo metadata and strict task and OpenSpec validation pass. All 16 affected bundle contract tests pass with zero failures, errors and skips.
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: Hosted CI run 39120555775 passed at main commit e82b513ff8ad9da3f6163a52a71ac8337f1f1877. Only the task board, execution steps, and verification record differ from the recorded source commit.
 device: passed
 device_evidence: At f005bad646a56f36575c9eef27f12bb7f72d55f5, API 37 Full and Simple passed all 16 instrumented tests and eight real UI checks. Off and System survived plain restarts without automation extras. Both Arabic RTL controls were reachable at font 200 percent. Installed APK hashes match, device settings were restored, and no crash or ANR was found. The existing CI fixture supplied the local Simple debug asset.
 artifact: passed
@@ -23,7 +23,7 @@ deployment_evidence: No deployment is owned by this app preference change.
 | REQ-HAPTIC-PREFERENCE | UIX-1792259354389850 | Storage, defaults, backup and restart tests; Full and Simple real Off and System plain restarts | passed |
 | REQ-HAPTIC-CONNECTION | UIX-1792259354945871 | Actual Running, acceptance, cancellation, equal retries, IO failure, restored state and deferred failure race regressions | passed |
 | REQ-HAPTIC-RESULT | UIX-1792259354945871 | Detection and diagnostics once-only, lifecycle, Off, IO and cancellation tests | passed |
-| REQ-HAPTIC-VALIDATION | UIX-1792259355458709 | 923 unit tests, 21 screenshot tests, lint, static analysis, 16 instrumented tests and eight real UI checks | passed locally; hosted CI required |
+| REQ-HAPTIC-VALIDATION | UIX-1792259355458709 | 923 unit tests, 21 screenshot tests, lint, static analysis, 16 instrumented tests, eight real UI checks, and hosted CI | passed |
 
 ## Source and local evidence
 
@@ -54,6 +54,6 @@ The local Simple debug build uses the existing `scripts/fixtures/embedded-relay-
 
 This proves real UI and preference persistence with explicit test data. It does not prove live relay connections, backend availability or tactile quality on physical hardware. Platform tests count haptic calls. Runtime failure events have no command ID; authority and epoch checks do not add protocol-level correlation to late native events.
 
-## Remaining publication gates
+## Integration and hosted CI
 
-The affected bundle contract gate passed on the rebased tree: 16 tests across RipdpiBundleContractTest, AwgDeployedTransportTest, AwgCohortFingerprintImportTest and CiRelayBundleFixtureTest, with zero failures, errors and skips. Integrate the job branch into main with fast-forward, push the authorized changes, and inspect hosted CI for the exact published SHA. Main and remote have not yet received this feature.
+The affected bundle contract gate passed on the rebased tree. All 16 tests across RipdpiBundleContractTest, AwgDeployedTransportTest, AwgCohortFingerprintImportTest, and CiRelayBundleFixtureTest ran with zero failures, errors, and skips. Main contains the feature at `e82b513ff8ad9da3f6163a52a71ac8337f1f1877`. The hosted run passed `ci-required`, Xray-linked unit tests, and Android instrumentation on APIs 27, 33, 35, 36, and 37. [Hosted CI run](https://github.com/po4yka/RIPDPI/actions/runs/39120555775)

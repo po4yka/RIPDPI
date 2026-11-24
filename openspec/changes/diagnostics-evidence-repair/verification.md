@@ -1,11 +1,11 @@
 ---
 task_id: DGN-1793896868711593
 change: diagnostics-evidence-repair
-commit_sha: null
+commit_sha: a8419a7cd13e98d6ae5e66e577459b104b122c84
 local: passed
 local_evidence: 1651 diagnostics, 306 engine, and 18 selected app tests passed; 623 Rust tests passed. Full staticAnalysis, affected-crate clippy, and independent code review passed.
-remote_ci: not_applicable
-remote_ci_evidence: Local repair only; no push or hosted run is authorized.
+remote_ci: passed
+remote_ci_evidence: Hosted CI run 42081368482 passed at the recorded main commit, including ci-required, Android static analysis, architecture health, Rust lint, and Xray-linked unit tests.
 device: not_applicable
 device_evidence: This change corrects evidence interpretation and configuration composition; no device or real-network acceptance is claimed.
 artifact: passed
@@ -44,4 +44,4 @@ Combined checks and independent review belong to DGN-1793897162019058.
 - Independent code review found no remaining actionable defects. The async review found no changed async functions.
 - The user approved the exact ten-fixture diff. The isolated golden writer regenerated the owned outputs and verified them without bless mode. The diff updates schema 9 to 10, the generated throughput catalog, the inconclusive throughput outcome, and the archive report digest and byte count.
 
-No physical-device, public-network, hosted CI, or soak acceptance was performed. The diagnostics wire schema changes to version 10; version 9 is rejected by the current schema check.
+The [hosted CI run](https://github.com/po4yka/RIPDPI/actions/runs/42081368482) verifies the same commit. The scope covers local and hosted source checks. Physical-device, public-network, and soak checks were outside this acceptance scope. This change advances the diagnostics wire schema from version 9 to version 10 and rejects reports with version 9.

@@ -2,7 +2,7 @@
 id: DGN-1793896868711593
 title: Preserve diagnostics evidence and validated recommendations
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics evidence repair
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: diagnostics-evidence-repair
 created: 2026-11-05
-updated: 2026-11-05
+updated: 2026-11-24
 ---
 
 ## Goal
