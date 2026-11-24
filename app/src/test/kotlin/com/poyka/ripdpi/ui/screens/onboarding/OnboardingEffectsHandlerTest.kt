@@ -27,7 +27,6 @@ class OnboardingEffectsHandlerTest {
                 effects = effects,
                 onComplete = {},
                 onRequestNotificationsPermission = { notificationsRequests += 1 },
-                onRequestNotificationsSettings = {},
                 onRequestVpnConsent = {},
             )
         }
@@ -50,7 +49,6 @@ class OnboardingEffectsHandlerTest {
                 effects = effects,
                 onComplete = {},
                 onRequestNotificationsPermission = {},
-                onRequestNotificationsSettings = {},
                 onRequestVpnConsent = { launchedIntent = it },
             )
         }
@@ -74,7 +72,6 @@ class OnboardingEffectsHandlerTest {
                 effects = effects,
                 onComplete = {},
                 onRequestNotificationsPermission = {},
-                onRequestNotificationsSettings = { error("not a permission request") },
                 onRequestVpnConsent = { error("not a permission request") },
                 onOpenSystemSettings = { openedIntent = it },
             )
@@ -87,29 +84,5 @@ class OnboardingEffectsHandlerTest {
         composeRule.waitForIdle()
 
         assertEquals(intent, openedIntent)
-    }
-
-    @Test
-    fun `notification settings effect forwards intent to callback`() {
-        val effects = MutableSharedFlow<OnboardingEffect>(extraBufferCapacity = 1)
-        var launchedIntent: Intent? = null
-
-        composeRule.setContent {
-            OnboardingEffectsHandler(
-                effects = effects,
-                onComplete = {},
-                onRequestNotificationsPermission = {},
-                onRequestNotificationsSettings = { launchedIntent = it },
-                onRequestVpnConsent = { launchedIntent = it },
-            )
-        }
-
-        val intent = Intent("test.notification.settings")
-        runBlocking {
-            effects.emit(OnboardingEffect.RequestNotificationsSettings(intent))
-        }
-        composeRule.waitForIdle()
-
-        assertEquals(intent, launchedIntent)
     }
 }

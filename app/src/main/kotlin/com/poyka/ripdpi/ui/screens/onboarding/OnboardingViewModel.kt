@@ -163,40 +163,33 @@ class OnboardingViewModel
                         persona = currentState.selectedPersona,
                     )
 
-                    when (val prompt = permissionCoordinator.nextValidationPrompt(currentState.selectedMode)) {
-                        OnboardingPermissionPrompt.Notifications -> {
-                            _uiState.update {
-                                it.withValidationState(OnboardingValidationState.RequestingNotifications)
-                            }
-                            _effects.emit(OnboardingEffect.RequestNotificationsPermission)
-                            return@launch
-                        }
-
-                        is OnboardingPermissionPrompt.NotificationSettings -> {
-                            _uiState.update {
-                                it.withValidationState(OnboardingValidationState.RequestingNotifications)
-                            }
-                            _effects.emit(OnboardingEffect.RequestNotificationsSettings(prompt.intent))
-                            return@launch
-                        }
-
-                        is OnboardingPermissionPrompt.VpnConsent -> {
-                            _uiState.update {
-                                it.withValidationState(OnboardingValidationState.RequestingVpnConsent)
-                            }
-                            _effects.emit(OnboardingEffect.RequestVpnConsent(prompt.intent))
-                            return@launch
-                        }
-
-                        null -> {
-                        }
-                    }
-                    performValidation(currentState.selectedMode)
+                    validateWithPermissions(currentState.selectedMode)
                 }
         }
 
-        fun onNotificationPermissionResult(result: PermissionResult) {
-            handlePermissionOutcome(permissionCoordinator.onNotificationPermissionResult(result))
+        private suspend fun validateWithPermissions(mode: Mode) {
+            when (val prompt = permissionCoordinator.nextValidationPrompt(mode)) {
+                OnboardingPermissionPrompt.Notifications -> {
+                    _uiState.update { it.withValidationState(OnboardingValidationState.RequestingNotifications) }
+                    _effects.emit(OnboardingEffect.RequestNotificationsPermission)
+                }
+
+                is OnboardingPermissionPrompt.VpnConsent -> {
+                    _uiState.update { it.withValidationState(OnboardingValidationState.RequestingVpnConsent) }
+                    _effects.emit(OnboardingEffect.RequestVpnConsent(prompt.intent))
+                }
+
+                null -> {
+                    performValidation(mode)
+                }
+            }
+        }
+
+        fun onNotificationPermissionResult() {
+            if (!permissionCoordinator.completeNotificationRequest()) return
+            _uiState.update { it.copy(notificationsNoteVisible = false) }
+            validationJob?.cancel()
+            validationJob = viewModelScope.launch { validateWithPermissions(_uiState.value.selectedMode) }
         }
 
         fun onVpnPermissionResult(result: PermissionResult) {

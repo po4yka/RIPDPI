@@ -7,6 +7,7 @@ import android.net.Uri
 import android.net.VpnService
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
+import com.poyka.ripdpi.permissions.RuntimePermissionDecision
 import com.poyka.ripdpi.shortcuts.ExtraSelectGroupId
 import com.poyka.ripdpi.shortcuts.ExtraSelectProfileId
 import com.poyka.ripdpi.shortcuts.ExtraSelectorCapability
@@ -28,19 +29,12 @@ import org.robolectric.annotation.Resetter
 @Config(shadows = [ShadowVpnPrepareService::class])
 class MainActivityPermissionTest {
     @Test
-    fun `notification result maps granted denied and permanent denial`() {
-        assertEquals(
-            PermissionResult.Granted,
-            mapNotificationPermissionResult(granted = true, shouldShowRationale = false),
-        )
-        assertEquals(
-            PermissionResult.Denied,
-            mapNotificationPermissionResult(granted = false, shouldShowRationale = true),
-        )
-        assertEquals(
-            PermissionResult.DeniedPermanently,
-            mapNotificationPermissionResult(granted = false, shouldShowRationale = false),
-        )
+    fun `runtime result distinguishes dismissal from denial and settings recovery`() {
+        assertEquals(PermissionResult.Granted, RuntimePermissionDecision.classify(true, false, false))
+        assertEquals(PermissionResult.Denied, RuntimePermissionDecision.classify(false, false, true))
+        assertEquals(PermissionResult.DeniedPermanently, RuntimePermissionDecision.classify(false, true, false))
+        assertEquals(PermissionResult.Cancelled, RuntimePermissionDecision.classify(false, false, false))
+        assertEquals(PermissionResult.Cancelled, RuntimePermissionDecision.classify(null, true, false))
     }
 
     @Test

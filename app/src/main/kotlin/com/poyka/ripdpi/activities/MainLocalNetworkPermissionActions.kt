@@ -22,12 +22,21 @@ internal class MainLocalNetworkPermissionActions(
 ) {
     private var deferredAction: PermissionAction? = null
     private var statusOverride: PermissionStatus? = null
+    private var resumeAfterGrant = false
+    private var waitingForSettings = false
 
     fun cancelDeferredAction() {
         deferredAction = null
+        resumeAfterGrant = false
+        waitingForSettings = false
     }
 
-    fun request(status: PermissionStatus) {
+    fun request(
+        status: PermissionStatus,
+        resumeDeferredAction: Boolean,
+    ) {
+        resumeAfterGrant = resumeDeferredAction && deferredAction != null
+        waitingForSettings = status == PermissionStatus.RequiresSettings
         when (status) {
             PermissionStatus.RequiresSettings -> {
                 mutations.trySend(
@@ -50,26 +59,35 @@ internal class MainLocalNetworkPermissionActions(
         deferredAction = action
         refreshSnapshot()
         onShowIssue(
-            createLocalNetworkPermissionIssue(permissionState.value.snapshot.localNetwork, true, stringResolver),
+            createLocalNetworkPermissionIssue(
+                permissionState.value.snapshot.localNetwork,
+                blocking = action != null,
+                stringResolver,
+            ),
         )
     }
 
     fun onForeground() {
-        if (deferredAction != null && permissionState.value.snapshot.localNetwork == PermissionStatus.Granted) {
-            onResult(PermissionResult.ReturnedFromSettings)
-        }
+        if (waitingForSettings) onResult(PermissionResult.ReturnedFromSettings)
     }
 
     fun onResult(result: PermissionResult) {
+        waitingForSettings = false
+        val action = deferredAction.takeIf { resumeAfterGrant }
+        resumeAfterGrant = false
         when (result) {
             PermissionResult.Granted, PermissionResult.ReturnedFromSettings -> {
                 statusOverride = null
                 refreshSnapshot()
                 if (permissionState.value.snapshot.localNetwork == PermissionStatus.Granted) {
-                    val action = deferredAction
-                    deferredAction = null
+                    cancelDeferredAction()
                     action?.let(resumeAction)
                 }
+            }
+
+            PermissionResult.Cancelled -> {
+                statusOverride = null
+                refreshSnapshot()
             }
 
             PermissionResult.Denied, PermissionResult.DeniedPermanently -> {

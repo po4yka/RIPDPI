@@ -50,7 +50,7 @@ internal class MainConnectionActions(
     private val currentSettings: () -> AppSettings,
     private val runtimeState: ConnectionRuntimeStateReducer,
     private val refreshPermissionSnapshot: () -> Unit,
-    private val onLocalNetworkRequired: (Mode) -> Unit = {},
+    private val onLocalNetworkRequired: (Mode, Boolean) -> Unit = { _, _ -> },
     private val hasExternalProvider: suspend (Mode) -> Boolean = { false },
 ) {
     private companion object {
@@ -62,6 +62,7 @@ internal class MainConnectionActions(
     private var connectingTimeoutJob: Job? = null
     private var lastNotifiedFailure: FailureFeedbackIdentity? = null
     private var failureFeedbackEpoch = 0L
+    private var startingVerifiedVpn = false
     private val resultFeedback =
         ConnectionResultFeedback(
             controller = serviceController,
@@ -75,49 +76,53 @@ internal class MainConnectionActions(
         observeServiceEvents()
     }
 
-    fun startMode(mode: Mode) =
-        mutations.launch {
-            failureFeedbackEpoch++
-            resultFeedback.clear()
-            if (mode == Mode.VPN && hasUnsupportedVpnDoq(currentSettings())) {
-                mutations.trySend(
-                    MainEffect.ShowError(
-                        stringResolver.getString(R.string.dns_custom_doq_unavailable),
-                        hapticFeedbackEnabled = !currentSettings().hapticFeedbackDisabled,
-                    ),
-                )
-                return@launch
-            }
-            val attempt = resultFeedback.begin(mode)
-            setConnectingState(mode)
-            var dispatchCompleted = false
-            try {
-                when (val result = serviceController.start(mode)) {
-                    is ServiceStartResult.Accepted -> {
-                        resultFeedback.accepted(attempt, result.receipt)
-                    }
-
-                    is ServiceStartResult.MaintenanceAccepted -> {
-                        error("Expected a mode-bound user start")
-                    }
-
-                    is ServiceStartResult.Rejected -> {
-                        refreshPermissionSnapshot()
-                        val message =
-                            stringResolver.getString(R.string.failed_to_start, result.mode.startSenderName) +
-                                ": " +
-                                result.reason.displayMessage(stringResolver)
-                        showError(message)
-                    }
-                }
-                dispatchCompleted = true
-            } finally {
-                if (!dispatchCompleted) resultFeedback.clear(attempt)
-            }
+    fun startMode(
+        mode: Mode,
+        verified: Boolean = false,
+    ) = mutations.launch {
+        failureFeedbackEpoch++
+        resultFeedback.clear()
+        if (mode == Mode.VPN && hasUnsupportedVpnDoq(currentSettings())) {
+            mutations.trySend(
+                MainEffect.ShowError(
+                    stringResolver.getString(R.string.dns_custom_doq_unavailable),
+                    hapticFeedbackEnabled = !currentSettings().hapticFeedbackDisabled,
+                ),
+            )
+            return@launch
         }
+        val attempt = resultFeedback.begin(mode)
+        startingVerifiedVpn = verified
+        setConnectingState(mode)
+        var dispatchCompleted = false
+        try {
+            when (val result = serviceController.start(mode)) {
+                is ServiceStartResult.Accepted -> {
+                    resultFeedback.accepted(attempt, result.receipt)
+                }
+
+                is ServiceStartResult.MaintenanceAccepted -> {
+                    error("Expected a mode-bound user start")
+                }
+
+                is ServiceStartResult.Rejected -> {
+                    refreshPermissionSnapshot()
+                    val message =
+                        stringResolver.getString(R.string.failed_to_start, result.mode.startSenderName) +
+                            ": " +
+                            result.reason.displayMessage(stringResolver)
+                    showError(message)
+                }
+            }
+            dispatchCompleted = true
+        } finally {
+            if (!dispatchCompleted) resultFeedback.clear(attempt)
+        }
+    }
 
     fun stop() =
         mutations.launch {
+            startingVerifiedVpn = false
             failureFeedbackEpoch++
             resultFeedback.clear()
             val wasConnecting = runtimeState.value.connectionState == ConnectionState.Connecting
@@ -284,6 +289,7 @@ internal class MainConnectionActions(
     }
 
     private fun onConnected() {
+        startingVerifiedVpn = false
         failureFeedbackEpoch++
         cancelConnectingTimeout()
         val baselineBytes = currentTransferredBytes()
@@ -331,8 +337,10 @@ internal class MainConnectionActions(
         reason: FailureReason,
     ) {
         if (reason == FailureReason.PermissionLost(com.poyka.ripdpi.data.LocalNetworkPermission)) {
+            val resumeVerification = startingVerifiedVpn
+            startingVerifiedVpn = false
             if (showError(stringResolver.getString(R.string.permissions_local_network_needed))) {
-                onLocalNetworkRequired(if (sender == Sender.VPN) Mode.VPN else Mode.Proxy)
+                onLocalNetworkRequired(if (sender == Sender.VPN) Mode.VPN else Mode.Proxy, resumeVerification)
             }
             return
         }

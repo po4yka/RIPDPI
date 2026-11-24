@@ -13,10 +13,6 @@ import javax.inject.Inject
 internal sealed interface OnboardingPermissionPrompt {
     data object Notifications : OnboardingPermissionPrompt
 
-    data class NotificationSettings(
-        val intent: Intent,
-    ) : OnboardingPermissionPrompt
-
     data class VpnConsent(
         val intent: Intent,
     ) : OnboardingPermissionPrompt
@@ -32,7 +28,6 @@ internal sealed interface OnboardingPermissionOutcome {
 
 private enum class PendingValidationPermission {
     Notifications,
-    NotificationSettings,
     VpnConsent,
 }
 
@@ -44,63 +39,33 @@ class OnboardingPermissionCoordinator
         private val stringResolver: StringResolver,
     ) {
         private var pendingValidationPermission: PendingValidationPermission? = null
-        private var notificationsRequireSettings: Boolean = false
+        private var notificationPromptOffered = false
 
         internal suspend fun nextValidationPrompt(mode: Mode): OnboardingPermissionPrompt? {
             val snapshot = permissionStatusProvider.currentSnapshot()
-            val notificationsPrompt = snapshot.notifications.validationPrompt()
-            val prompt =
-                notificationsPrompt ?: if (mode == Mode.VPN && snapshot.vpnConsent.requiresValidationPrompt()) {
-                    permissionPlatformBridge.prepareVpnPermissionIntent()?.let(OnboardingPermissionPrompt::VpnConsent)
-                } else {
-                    null
-                }
-            when (prompt) {
-                OnboardingPermissionPrompt.Notifications -> {
-                    pendingValidationPermission = PendingValidationPermission.Notifications
-                }
-
-                is OnboardingPermissionPrompt.NotificationSettings -> {
-                    pendingValidationPermission = PendingValidationPermission.NotificationSettings
-                }
-
-                is OnboardingPermissionPrompt.VpnConsent -> {
-                    pendingValidationPermission = PendingValidationPermission.VpnConsent
-                }
-
-                null -> {
-                    pendingValidationPermission = null
-                }
+            if (shouldOfferNotificationPrompt(snapshot.notifications)) {
+                notificationPromptOffered = true
+                pendingValidationPermission = PendingValidationPermission.Notifications
+                return OnboardingPermissionPrompt.Notifications
             }
-            return prompt
+            return if (mode == Mode.VPN && snapshot.vpnConsent.requiresValidationPrompt()) {
+                requestVpnConsentPrompt()
+            } else {
+                pendingValidationPermission = null
+                null
+            }
         }
 
-        /** True when starting the test opens the system notification dialog or the app settings. */
         internal fun notificationsPromptExpected(): Boolean =
-            permissionStatusProvider.currentSnapshot().notifications.requiresValidationPrompt()
+            shouldOfferNotificationPrompt(permissionStatusProvider.currentSnapshot().notifications)
+
+        private fun shouldOfferNotificationPrompt(status: PermissionStatus): Boolean =
+            !notificationPromptOffered &&
+                (status == PermissionStatus.RequiresSystemPrompt || status == PermissionStatus.Denied)
 
         internal fun batterySettingsIntent(): Intent = permissionPlatformBridge.createBatteryOptimizationIntent()
 
         internal fun vpnSettingsIntent(): Intent = permissionPlatformBridge.createVpnSettingsIntent()
-
-        private fun PermissionStatus.validationPrompt(): OnboardingPermissionPrompt? =
-            when {
-                this == PermissionStatus.Granted || this == PermissionStatus.NotApplicable -> {
-                    null
-                }
-
-                notificationsRequireSettings || this == PermissionStatus.RequiresSettings -> {
-                    OnboardingPermissionPrompt.NotificationSettings(permissionPlatformBridge.createAppSettingsIntent())
-                }
-
-                requiresValidationPrompt() -> {
-                    OnboardingPermissionPrompt.Notifications
-                }
-
-                else -> {
-                    null
-                }
-            }
 
         /**
          * Builds a VPN-consent prompt on demand. Used to recover when the service authoritatively
@@ -120,41 +85,11 @@ class OnboardingPermissionCoordinator
             return prompt
         }
 
-        internal fun onNotificationPermissionResult(result: PermissionResult): OnboardingPermissionOutcome? {
-            if (!pendingValidationPermission.isNotificationPermission()) {
-                return null
-            }
+        internal fun completeNotificationRequest(): Boolean {
+            if (pendingValidationPermission != PendingValidationPermission.Notifications) return false
             pendingValidationPermission = null
-            return when (result) {
-                PermissionResult.Granted -> {
-                    notificationsRequireSettings = false
-                    OnboardingPermissionOutcome.ContinueValidation
-                }
-
-                PermissionResult.Denied -> {
-                    OnboardingPermissionOutcome.Failed(notificationsFailureState())
-                }
-
-                PermissionResult.DeniedPermanently -> {
-                    notificationsRequireSettings = true
-                    OnboardingPermissionOutcome.Failed(notificationSettingsFailureState())
-                }
-
-                PermissionResult.ReturnedFromSettings -> {
-                    if (permissionStatusProvider.currentSnapshot().notifications == PermissionStatus.Granted) {
-                        notificationsRequireSettings = false
-                        OnboardingPermissionOutcome.ContinueValidation
-                    } else {
-                        notificationsRequireSettings = true
-                        OnboardingPermissionOutcome.Failed(notificationSettingsFailureState())
-                    }
-                }
-            }
+            return true
         }
-
-        private fun PendingValidationPermission?.isNotificationPermission(): Boolean =
-            this == PendingValidationPermission.Notifications ||
-                this == PendingValidationPermission.NotificationSettings
 
         internal fun onVpnPermissionResult(result: PermissionResult): OnboardingPermissionOutcome? {
             if (pendingValidationPermission != PendingValidationPermission.VpnConsent) {
@@ -164,6 +99,7 @@ class OnboardingPermissionCoordinator
             return when (result) {
                 PermissionResult.Granted -> OnboardingPermissionOutcome.ContinueValidation
 
+                PermissionResult.Cancelled,
                 PermissionResult.Denied,
                 PermissionResult.DeniedPermanently,
                 PermissionResult.ReturnedFromSettings,
@@ -174,18 +110,6 @@ class OnboardingPermissionCoordinator
         internal fun clearPendingPermission() {
             pendingValidationPermission = null
         }
-
-        private fun notificationsFailureState(): OnboardingValidationState.Failed =
-            OnboardingValidationState.Failed(
-                reason = stringResolver.getString(R.string.onboarding_validation_notifications_required),
-                recoveryKind = OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS,
-            )
-
-        private fun notificationSettingsFailureState(): OnboardingValidationState.Failed =
-            OnboardingValidationState.Failed(
-                reason = stringResolver.getString(R.string.onboarding_validation_notifications_required),
-                recoveryKind = OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS,
-            )
 
         private fun vpnPermissionFailureState(): OnboardingValidationState.Failed =
             OnboardingValidationState.Failed(

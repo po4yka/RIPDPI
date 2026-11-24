@@ -62,9 +62,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.mapNotificationPermissionResult
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
+import com.poyka.ripdpi.permissions.RuntimePermissionDecision
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -107,21 +107,11 @@ fun OnboardingRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notificationsPermissionLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            val shouldShowRationale =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    context.findActivity()?.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
-                        ?: true
-                } else {
-                    true
-                }
-            viewModel.onNotificationPermissionResult(
-                result = mapNotificationPermissionResult(granted, shouldShowRationale),
-            )
-        }
-    val notificationsSettingsLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            viewModel.onNotificationPermissionResult(PermissionResult.ReturnedFromSettings)
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+            context.findActivity()?.let { activity ->
+                RuntimePermissionDecision.fromActivityResult(activity, Manifest.permission.POST_NOTIFICATIONS, grants)
+            }
+            viewModel.onNotificationPermissionResult()
         }
     val vpnConsentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -139,14 +129,20 @@ fun OnboardingRoute(
         effects = viewModel.effects,
         onComplete = onComplete,
         onRequestNotificationsPermission = {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                notificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            val activity = context.findActivity()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && activity != null) {
+                val permission = Manifest.permission.POST_NOTIFICATIONS
+                RuntimePermissionDecision.recordRequest(activity, permission)
+                runCatching { notificationsPermissionLauncher.launch(arrayOf(permission)) }
+                    .onFailure { viewModel.onNotificationPermissionResult() }
             } else {
-                viewModel.onNotificationPermissionResult(PermissionResult.Granted)
+                viewModel.onNotificationPermissionResult()
             }
         },
-        onRequestNotificationsSettings = notificationsSettingsLauncher::launch,
-        onRequestVpnConsent = vpnConsentLauncher::launch,
+        onRequestVpnConsent = { intent ->
+            runCatching { vpnConsentLauncher.launch(intent) }
+                .onFailure { viewModel.onVpnPermissionResult(PermissionResult.Denied) }
+        },
         onOpenSystemSettings = { intent ->
             // A device without that settings screen leaves the user on the step, which stays complete without it.
             runCatching { context.startActivity(intent) }
@@ -183,7 +179,6 @@ internal fun OnboardingEffectsHandler(
     effects: Flow<OnboardingEffect>,
     onComplete: () -> Unit,
     onRequestNotificationsPermission: () -> Unit,
-    onRequestNotificationsSettings: (Intent) -> Unit,
     onRequestVpnConsent: (Intent) -> Unit,
     onOpenSystemSettings: (Intent) -> Unit = {},
 ) {
@@ -191,7 +186,6 @@ internal fun OnboardingEffectsHandler(
         when (effect) {
             OnboardingEffect.OnboardingComplete -> onComplete()
             OnboardingEffect.RequestNotificationsPermission -> onRequestNotificationsPermission()
-            is OnboardingEffect.RequestNotificationsSettings -> onRequestNotificationsSettings(effect.intent)
             is OnboardingEffect.RequestVpnConsent -> onRequestVpnConsent(effect.intent)
             is OnboardingEffect.OpenSystemSettings -> onOpenSystemSettings(effect.intent)
         }
@@ -798,9 +792,7 @@ private fun OnboardingValidationRecoveryKind.grantActionLabelRes(): Int? =
     when (this) {
         OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION -> R.string.onboarding_test_grant_permission
 
-        OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS,
-        OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS,
-        -> R.string.permissions_notifications_title
+        OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS -> R.string.permissions_notifications_title
 
         OnboardingValidationRecoveryKind.RETRY,
         OnboardingValidationRecoveryKind.SWITCH_MODE,

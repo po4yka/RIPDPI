@@ -76,15 +76,17 @@ internal class MainPermissionActions(
 
     fun onRepairPermissionRequested(kind: PermissionKind) {
         if (kind == PermissionKind.LocalNetwork) {
-            val snapshot = mergeSnapshotWithOverrides(permissionStatusProvider.currentSnapshot())
-            requestPermissionFor(
-                action = PermissionAction.RepairPermission(kind),
-                blockedBy = kind,
-                snapshot = snapshot,
-            )
+            requestLocalNetwork(resumeDeferredAction = false)
         } else {
             resolvePermissionAction(PermissionAction.RepairPermission(kind))
         }
+    }
+
+    fun onRetryLocalNetworkPermission() = requestLocalNetwork(resumeDeferredAction = true)
+
+    private fun requestLocalNetwork(resumeDeferredAction: Boolean) {
+        val snapshot = mergeSnapshotWithOverrides(permissionStatusProvider.currentSnapshot())
+        localNetwork.request(snapshot.localNetwork, resumeDeferredAction)
     }
 
     fun onPermissionResult(
@@ -163,7 +165,7 @@ internal class MainPermissionActions(
     ) {
         when (blockedBy) {
             PermissionKind.LocalNetwork -> {
-                localNetwork.request(snapshot.localNetwork)
+                localNetwork.request(snapshot.localNetwork, resumeDeferredAction = false)
             }
 
             PermissionKind.Notifications -> {
@@ -173,7 +175,7 @@ internal class MainPermissionActions(
                             createPermissionIssue(
                                 kind = PermissionKind.Notifications,
                                 status = PermissionStatus.RequiresSettings,
-                                blocking = true,
+                                blocking = false,
                                 stringResolver = stringResolver,
                             )
                         permissionState.update { it.copy(issue = issue, snapshot = snapshot) }
@@ -242,7 +244,7 @@ internal class MainPermissionActions(
                     createPermissionIssue(
                         kind = PermissionKind.Notifications,
                         status = PermissionStatus.Denied,
-                        blocking = true,
+                        blocking = false,
                         stringResolver = stringResolver,
                     ),
                 )
@@ -256,15 +258,18 @@ internal class MainPermissionActions(
                     createPermissionIssue(
                         kind = PermissionKind.Notifications,
                         status = PermissionStatus.RequiresSettings,
-                        blocking = true,
+                        blocking = false,
                         stringResolver = stringResolver,
                     ),
                 )
             }
 
-            PermissionResult.ReturnedFromSettings -> {
+            PermissionResult.Cancelled,
+            PermissionResult.ReturnedFromSettings,
+            -> {
+                permissionOverrides.remove(PermissionKind.Notifications)
+                pendingPermissionAction = null
                 refreshPermissionSnapshot()
-                resumePendingAction()
             }
         }
     }
@@ -280,6 +285,7 @@ internal class MainPermissionActions(
                 if (action != null) continueResolvedAction(action)
             }
 
+            PermissionResult.Cancelled,
             PermissionResult.Denied,
             PermissionResult.DeniedPermanently,
             -> {

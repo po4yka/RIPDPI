@@ -232,25 +232,6 @@ class OnboardingStepsScreenTest {
     }
 
     @Test
-    fun `blocked notifications point to the app settings, not to the vpn permission`() {
-        renderOnboarding(
-            OnboardingUiState(currentPage = OnboardingTestPageIndex).withValidationState(
-                OnboardingValidationState.Failed(
-                    reason = "Allow notifications so RIPDPI can show validation service status.",
-                    recoveryKind = OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS,
-                ),
-            ),
-        )
-
-        composeRule
-            .onNodeWithText("Open app settings and allow notifications for RIPDPI.", substring = true)
-            .assertExists()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.OnboardingValidateAction)
-            .assertTextEquals("Allow status notifications")
-    }
-
-    @Test
     fun `step progress is a polite live region so a step change is announced`() {
         renderOnboarding(OnboardingUiState(currentPage = 2))
 

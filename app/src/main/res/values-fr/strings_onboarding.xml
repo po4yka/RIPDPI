@@ -128,7 +128,7 @@
     <string name="onboarding_welcome_body">RIPDPI vérifie le chemin de votre réseau et améliore l\'envoi de votre trafic, avec un VPN ou un proxy local sur cet appareil.</string>
     <string name="onboarding_dns_title">Choisir le DNS</string>
     <string name="onboarding_background_title">Garder RIPDPI actif</string>
-    <string name="onboarding_test_notification_note">Android demande d\'autoriser les notifications au démarrage du test. RIPDPI en affiche une tant que le VPN ou le proxy local fonctionne.</string>
+    <string name="onboarding_test_notification_note">Android peut demander l’autorisation d’afficher les notifications d’état pendant la session VPN ou proxy. Vous pouvez lancer le test sans cette autorisation.</string>
     <string name="onboarding_test_proxy_card_title">Proxy local</string>
     <string name="onboarding_test_proxy_note">Le test démarre un proxy sur cet appareil. Seules les applications que vous dirigez vers lui l\'utilisent, et Android ne demande pas l\'autorisation VPN.</string>
     <string name="onboarding_done_title">Configuration terminée</string>

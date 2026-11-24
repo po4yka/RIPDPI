@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.permissions.PermissionKind
 
 @Composable
 fun StatusRoute(
@@ -61,7 +62,13 @@ fun StatusRoute(
         onOpenAdvancedSettings = onOpenAdvancedSettings,
         onOpenModeEditor = onOpenModeEditor,
         onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
-        onRepairPermission = remember(viewModel) { viewModel::onRepairPermissionRequested },
+        onRepairPermission = { kind ->
+            if (kind == PermissionKind.LocalNetwork) {
+                viewModel.onRetryLocalNetworkPermission()
+            } else {
+                viewModel.onRepairPermissionRequested(kind)
+            }
+        },
         onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
         onTogglePcapRecording = remember(viewModel) { viewModel::onToggleHomePcapRecording },
         onDismissBatteryBanner = remember(viewModel) { viewModel::onDismissBatteryBanner },

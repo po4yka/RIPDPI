@@ -126,7 +126,7 @@
     <string name="onboarding_welcome_body">RIPDPI 会检查你的网络路径，并通过本设备上的本地 VPN 或代理改进流量的发送方式。</string>
     <string name="onboarding_dns_title">选择 DNS</string>
     <string name="onboarding_background_title">让 RIPDPI 保持运行</string>
-    <string name="onboarding_test_notification_note">测试开始时，Android 会请求允许通知。本地 VPN 或代理运行期间，RIPDPI 会显示一条通知。</string>
+    <string name="onboarding_test_notification_note">Android 可能会请求在 VPN 或代理会话期间显示状态通知的权限。无需此权限也可以运行测试。</string>
     <string name="onboarding_test_proxy_card_title">本地代理</string>
     <string name="onboarding_test_proxy_note">测试会在本设备上启动一个代理。只有你指向它的应用才会使用它，Android 不会请求 VPN 权限。</string>
     <string name="onboarding_done_title">设置完成</string>

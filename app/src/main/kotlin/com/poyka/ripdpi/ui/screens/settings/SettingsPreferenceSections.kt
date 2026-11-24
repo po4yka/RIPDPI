@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LauncherIconManager
+import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -402,6 +403,9 @@ internal fun SettingsPermissionsSection(
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
+    val hasUnansweredPermission =
+        permissionSummary.snapshot.localNetwork == PermissionStatus.Unknown ||
+            permissionSummary.snapshot.notifications == PermissionStatus.Unknown
 
     if (permissionSummary.items.isEmpty() && permissionSummary.backgroundGuidance == null) return
     RipDpiCard {
@@ -434,8 +438,14 @@ internal fun SettingsPermissionsSection(
                 value = item.statusLabel,
                 onClick = if (actionable) ({ actions.onRepairPermission(item.kind) }) else null,
                 enabled = item.enabled,
-                showDivider = index != permissionSummary.items.lastIndex,
+                showDivider = hasUnansweredPermission || index != permissionSummary.items.lastIndex,
                 testTag = RipDpiTestTags.settingsPermission(item.kind),
+            )
+        }
+        if (hasUnansweredPermission) {
+            SettingsRow(
+                title = stringResource(R.string.settings_permission_action_open_settings),
+                onClick = actions.onOpenPermissionSettings,
             )
         }
     }

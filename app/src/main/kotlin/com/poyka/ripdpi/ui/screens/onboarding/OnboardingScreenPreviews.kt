@@ -81,7 +81,7 @@ private class OnboardingStateProvider : PreviewParameterProvider<OnboardingUiSta
             testState(
                 OnboardingValidationState.Failed(
                     reason = PreviewFailureReason,
-                    recoveryKind = OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS,
+                    recoveryKind = OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS,
                     failedStep = OnboardingValidationStep.Tunnel,
                 ),
             ),

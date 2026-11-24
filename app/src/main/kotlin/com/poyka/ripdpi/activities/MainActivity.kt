@@ -327,16 +327,6 @@ internal fun supportSettingsRouteFrom(intent: Intent?): SupportSettingsDeepLinkP
     return SupportSettingsDeepLinkParser.parse(data)
 }
 
-internal fun mapNotificationPermissionResult(
-    granted: Boolean,
-    shouldShowRationale: Boolean,
-): PermissionResult =
-    when {
-        granted -> PermissionResult.Granted
-        shouldShowRationale -> PermissionResult.Denied
-        else -> PermissionResult.DeniedPermanently
-    }
-
 internal fun mapVpnPermissionResult(context: Context): PermissionResult =
     if (VpnService.prepare(context) == null) {
         PermissionResult.Granted

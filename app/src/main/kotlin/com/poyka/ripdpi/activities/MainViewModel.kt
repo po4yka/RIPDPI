@@ -151,10 +151,14 @@ class MainViewModel
                 runtimeState = ConnectionRuntimeStateReducer(runtimeState),
                 refreshPermissionSnapshot = { permissionActions.refreshPermissionSnapshot() },
                 hasExternalProvider = { mode -> mainServiceDependencies.externalProviders.current(mode) != null },
-                onLocalNetworkRequired = { mode ->
-                    permissionActions.localNetwork.onRequired(
-                        if (mode == Mode.VPN) PermissionAction.StartVpnMode else PermissionAction.StartProxyMode,
-                    )
+                onLocalNetworkRequired = { mode, verified ->
+                    val action =
+                        when {
+                            mode == Mode.Proxy -> PermissionAction.StartProxyMode
+                            verified -> PermissionAction.StartVerifiedVpn
+                            else -> PermissionAction.StartVpnMode
+                        }
+                    permissionActions.localNetwork.onRequired(action)
                 },
             )
         }
@@ -169,7 +173,12 @@ class MainViewModel
                 permissionState = permissionState,
                 onStartMode = { mode -> connectionActions.startMode(mode) },
                 onStartVerifiedVpn = {
-                    homeDiagnostics.actions.continueVerifiedVpnStart { connectionActions.startMode(Mode.VPN) }
+                    homeDiagnostics.actions.continueVerifiedVpnStart {
+                        connectionActions.startMode(
+                            Mode.VPN,
+                            verified = true,
+                        )
+                    }
                 },
                 onShowPermissionIssue = { issue ->
                     permissionState.update { it.copy(issue = issue) }
@@ -328,6 +337,8 @@ class MainViewModel
         }
 
         fun onOpenVpnPermissionRequested() = permissionActions.onOpenVpnPermissionRequested()
+
+        fun onRetryLocalNetworkPermission() = permissionActions.onRetryLocalNetworkPermission()
 
         fun onRepairPermissionRequested(kind: PermissionKind) = permissionActions.onRepairPermissionRequested(kind)
 

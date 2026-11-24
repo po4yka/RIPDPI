@@ -178,8 +178,6 @@ private fun OnboardingValidationStatusBlock(
                             R.string.onboarding_test_failed_permission
                         },
                     )
-                } else if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS) {
-                    stringResource(R.string.permissions_notifications_open_settings)
                 } else if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS) {
                     state.reason
                 } else {

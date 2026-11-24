@@ -1234,7 +1234,7 @@ class MainViewModelTest {
             runCurrent()
             assertEquals(Mode.Proxy, viewModel.uiState.value.configuredMode)
 
-            viewModel.onRepairPermissionRequested(PermissionKind.LocalNetwork)
+            viewModel.onRetryLocalNetworkPermission()
             runCurrent()
 
             assertEquals(
@@ -1248,6 +1248,16 @@ class MainViewModelTest {
 
             assertEquals(listOf(Mode.VPN, Mode.VPN), serviceController.startedModes)
             assertNull(viewModel.uiState.value.permissionSummary.issue)
+
+            provider.snapshot = provider.snapshot.copy(localNetwork = PermissionStatus.RequiresSystemPrompt)
+            serviceStateStore.emitFailed(Sender.VPN, FailureReason.PermissionLost(LocalNetworkPermission))
+            runCurrent()
+            viewModel.onRepairPermissionRequested(PermissionKind.LocalNetwork)
+            provider.snapshot = provider.snapshot.copy(localNetwork = PermissionStatus.Granted)
+            viewModel.onPermissionResult(PermissionKind.LocalNetwork, PermissionResult.Granted)
+            runCurrent()
+
+            assertEquals(listOf(Mode.VPN, Mode.VPN), serviceController.startedModes)
             effectCollector.cancel()
             collector.cancel()
         }

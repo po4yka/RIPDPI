@@ -5,7 +5,6 @@ import androidx.appcompat.app.AppCompatActivity
 import com.poyka.ripdpi.activities.MainActivityHost
 import com.poyka.ripdpi.activities.MainActivityHostCommand
 import com.poyka.ripdpi.activities.MainViewModel
-import com.poyka.ripdpi.activities.mapNotificationPermissionResult
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.Tun2SocksBridge
@@ -57,6 +56,7 @@ import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
+import com.poyka.ripdpi.permissions.RuntimePermissionDecision
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
@@ -316,9 +316,10 @@ internal class RecordingMainActivityHost : MainActivityHost {
         viewModel?.onPermissionResult(
             kind = com.poyka.ripdpi.permissions.PermissionKind.Notifications,
             result =
-                mapNotificationPermissionResult(
-                    granted,
-                    shouldShowRationale,
+                RuntimePermissionDecision.classify(
+                    granted = granted,
+                    showedRationaleBefore = !shouldShowRationale,
+                    shouldShowRationale = shouldShowRationale,
                 ),
         )
     }

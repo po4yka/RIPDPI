@@ -56,7 +56,14 @@ internal fun buildPermissionSummary(
                     PermissionItemUiState(
                         kind = PermissionKind.LocalNetwork,
                         title = stringResolver.getString(R.string.permissions_local_network_title),
-                        subtitle = stringResolver.getString(R.string.permissions_local_network_needed),
+                        subtitle =
+                            stringResolver.getString(
+                                if (status == PermissionStatus.RequiresSettings) {
+                                    R.string.permissions_local_network_settings
+                                } else {
+                                    R.string.permissions_local_network_needed
+                                },
+                            ),
                         statusLabel =
                             stringResolver.getString(
                                 if (status == PermissionStatus.Granted) {
@@ -66,10 +73,18 @@ internal fun buildPermissionSummary(
                                 },
                             ),
                         actionLabel =
-                            if (status == PermissionStatus.Granted) {
-                                null
-                            } else {
-                                stringResolver.getString(R.string.settings_permission_action_allow)
+                            when (status) {
+                                PermissionStatus.Granted -> {
+                                    null
+                                }
+
+                                PermissionStatus.RequiresSettings -> {
+                                    stringResolver.getString(R.string.settings_permission_action_open_settings)
+                                }
+
+                                else -> {
+                                    stringResolver.getString(R.string.settings_permission_action_allow)
+                                }
                             },
                     )
                 },

@@ -121,7 +121,7 @@
     <string name="onboarding_welcome_body">RIPDPI проверяет сетевой путь и улучшает отправку трафика с помощью локального VPN или прокси на этом устройстве.</string>
     <string name="onboarding_dns_title">Выберите DNS</string>
     <string name="onboarding_background_title">Не давайте RIPDPI останавливаться</string>
-    <string name="onboarding_test_notification_note">При запуске проверки Android попросит разрешить уведомления. RIPDPI показывает уведомление, пока работает локальный VPN или прокси.</string>
+    <string name="onboarding_test_notification_note">Android может запросить разрешение на уведомления о работе VPN или прокси. Проверку можно пройти без этого разрешения.</string>
     <string name="onboarding_test_proxy_card_title">Локальный прокси</string>
     <string name="onboarding_test_proxy_note">Проверка запускает прокси на этом устройстве. Им пользуются только приложения, которые вы на него направите, и Android не запрашивает разрешение VPN.</string>
     <string name="onboarding_done_title">Настройка завершена</string>

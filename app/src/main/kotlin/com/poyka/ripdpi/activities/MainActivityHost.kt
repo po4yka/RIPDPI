@@ -13,12 +13,14 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
+import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.diagnostics.export.CheckedDiagnosticsExportHandoff
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose
 import com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService
+import com.poyka.ripdpi.permissions.RuntimePermissionDecision
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDocumentExportException
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDocumentExportStage
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsExportSupportCodes
@@ -98,8 +100,8 @@ internal class DefaultMainActivityHost
         private lateinit var viewModel: MainViewModel
         private lateinit var exportPreview: ExportPreviewViewModel
         private lateinit var vpnPermissionLauncher: ActivityResultLauncher<Intent>
-        private lateinit var localNetworkPermissionLauncher: ActivityResultLauncher<String>
-        private lateinit var notificationPermissionLauncher: ActivityResultLauncher<String>
+        private lateinit var localNetworkPermissionLauncher: ActivityResultLauncher<Array<String>>
+        private lateinit var notificationPermissionLauncher: ActivityResultLauncher<Array<String>>
         private lateinit var batteryOptimizationLauncher: ActivityResultLauncher<Intent>
         private lateinit var diagnosticsArchiveLauncher: ActivityResultLauncher<Intent>
         private val pendingDiagnosticsArchive = PendingDiagnosticsArchiveState()
@@ -126,26 +128,22 @@ internal class DefaultMainActivityHost
                     )
                 }
             notificationPermissionLauncher =
-                activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                    val shouldShowRationale =
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            activity.shouldShowRequestPermissionRationale(PostNotificationsPermission)
-                        } else {
-                            true
-                        }
+                activity.registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
                     viewModel.onPermissionResult(
                         kind = com.poyka.ripdpi.permissions.PermissionKind.Notifications,
-                        result = mapNotificationPermissionResult(granted, shouldShowRationale),
+                        result =
+                            RuntimePermissionDecision.fromActivityResult(
+                                activity,
+                                PostNotificationsPermission,
+                                grants,
+                            ),
                     )
                 }
             localNetworkPermissionLauncher =
-                activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                activity.registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
                     viewModel.onPermissionResult(
-                        com.poyka.ripdpi.permissions.PermissionKind.LocalNetwork,
-                        mapNotificationPermissionResult(
-                            granted,
-                            activity.shouldShowRequestPermissionRationale(com.poyka.ripdpi.data.LocalNetworkPermission),
-                        ),
+                        kind = com.poyka.ripdpi.permissions.PermissionKind.LocalNetwork,
+                        result = RuntimePermissionDecision.fromActivityResult(activity, LocalNetworkPermission, grants),
                     )
                 }
             batteryOptimizationLauncher =
@@ -196,13 +194,15 @@ internal class DefaultMainActivityHost
             when (command) {
                 MainActivityHostCommand.RequestLocalNetworkPermission -> {
                     if (Build.VERSION.SDK_INT >= com.poyka.ripdpi.data.LocalNetworkPermissionApi) {
-                        localNetworkPermissionLauncher.launch(com.poyka.ripdpi.data.LocalNetworkPermission)
+                        RuntimePermissionDecision.recordRequest(activity, LocalNetworkPermission)
+                        localNetworkPermissionLauncher.launch(arrayOf(LocalNetworkPermission))
                     }
                 }
 
                 MainActivityHostCommand.RequestNotificationsPermission -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        notificationPermissionLauncher.launch(PostNotificationsPermission)
+                        RuntimePermissionDecision.recordRequest(activity, PostNotificationsPermission)
+                        notificationPermissionLauncher.launch(arrayOf(PostNotificationsPermission))
                     }
                 }
 

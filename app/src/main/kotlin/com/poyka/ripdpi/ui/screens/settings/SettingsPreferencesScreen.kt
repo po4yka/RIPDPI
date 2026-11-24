@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
+import com.poyka.ripdpi.permissions.BatteryOptimizationIntents
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StartOnBootController
@@ -90,6 +91,12 @@ fun SettingsRoute(
                 onOpenLogs = onOpenLogs,
                 onShareDebugBundle = onShareDebugBundle,
                 onRepairPermission = onRepairPermission,
+                onOpenPermissionSettings = {
+                    launchSettingsIntents(
+                        context,
+                        listOf(BatteryOptimizationIntents.createAppDetailsIntent(context.packageName)),
+                    )
+                },
                 onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
                 onDismissBackgroundGuidance = onDismissBackgroundGuidance,
                 onThemeSelected = remember(customization) { customization::setAppTheme },
@@ -199,6 +206,7 @@ internal data class SettingsScreenActions(
     val onOpenLogs: () -> Unit = {},
     val onShareDebugBundle: () -> Unit,
     val onRepairPermission: (PermissionKind) -> Unit,
+    val onOpenPermissionSettings: () -> Unit = {},
     val onOpenVpnPermissionDialog: () -> Unit,
     val onDismissBackgroundGuidance: () -> Unit = {},
     val onThemeSelected: (String) -> Unit,

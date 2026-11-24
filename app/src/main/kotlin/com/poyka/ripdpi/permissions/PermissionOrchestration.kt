@@ -2,11 +2,9 @@ package com.poyka.ripdpi.permissions
 
 import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.os.PowerManager
-import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.data.LocalNetworkPermissionApi
@@ -83,6 +81,7 @@ data class PermissionResolution(
 
 enum class PermissionResult {
     Granted,
+    Cancelled,
     Denied,
     DeniedPermanently,
     ReturnedFromSettings,
@@ -139,13 +138,10 @@ class AndroidPermissionStatusProvider
         private val hardKillSwitchStateStore: AndroidHardKillSwitchStateStore,
     ) : PermissionStatusProvider {
         private fun currentLocalNetworkStatus(): PermissionStatus =
-            when {
-                Build.VERSION.SDK_INT < LocalNetworkPermissionApi -> PermissionStatus.NotApplicable
-
-                ContextCompat.checkSelfPermission(context, LocalNetworkPermission) ==
-                    PackageManager.PERMISSION_GRANTED -> PermissionStatus.Granted
-
-                else -> PermissionStatus.RequiresSystemPrompt
+            if (Build.VERSION.SDK_INT < LocalNetworkPermissionApi) {
+                PermissionStatus.NotApplicable
+            } else {
+                RuntimePermissionDecision.status(context, LocalNetworkPermission)
             }
 
         override fun currentSnapshot(): PermissionSnapshot {
@@ -198,15 +194,8 @@ class AndroidPermissionStatusProvider
                     notifications =
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                             PermissionStatus.Granted
-                        } else if (
-                            ContextCompat.checkSelfPermission(
-                                context,
-                                Manifest.permission.POST_NOTIFICATIONS,
-                            ) == PackageManager.PERMISSION_GRANTED
-                        ) {
-                            PermissionStatus.Granted
                         } else {
-                            PermissionStatus.RequiresSystemPrompt
+                            RuntimePermissionDecision.status(context, Manifest.permission.POST_NOTIFICATIONS)
                         },
                     batteryOptimization =
                         run {

@@ -359,10 +359,23 @@ internal class MainHomeDiagnosticsActions(
     }
 
     fun continueVerifiedVpnStart(startVpn: () -> Unit) {
-        if (homeDiagnosticsState.value.waitingForVerifiedVpnStart) {
+        mutations.launch {
+            val latestOutcome = homeDiagnosticsState.value.latestCompositeOutcome
+            if (!homeDiagnosticsState.value.waitingForVerifiedVpnStart) {
+                startVerifiedVpn()
+                return@launch
+            }
+            val fingerprint = diagnosticsHomeWorkflowService.currentFingerprintHash()
+            val current = homeDiagnosticsState.value
+            if (!current.waitingForVerifiedVpnStart) return@launch
+            if (latestOutcome?.matchesKnownNetwork(fingerprint) != true ||
+                current.latestCompositeOutcome != latestOutcome
+            ) {
+                cancelPendingVerifiedVpnStart()
+                mutations.emit(MainEffect.ShowError(stringResolver.getString(R.string.status_diagnostics_run_again)))
+                return@launch
+            }
             startVpn()
-        } else {
-            startVerifiedVpn()
         }
     }
 

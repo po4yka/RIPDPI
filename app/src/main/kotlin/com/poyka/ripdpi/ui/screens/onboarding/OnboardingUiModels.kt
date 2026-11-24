@@ -8,7 +8,6 @@ private val DefaultOnboardingPageCount = OnboardingPages.size
 enum class OnboardingValidationRecoveryKind {
     RETRY,
     REQUEST_NOTIFICATIONS,
-    REQUEST_NOTIFICATION_SETTINGS,
     REQUEST_VPN_PERMISSION,
     SWITCH_MODE,
 }
@@ -73,10 +72,6 @@ sealed interface OnboardingEffect {
     data object OnboardingComplete : OnboardingEffect
 
     data object RequestNotificationsPermission : OnboardingEffect
-
-    data class RequestNotificationsSettings(
-        val intent: Intent,
-    ) : OnboardingEffect
 
     data class RequestVpnConsent(
         val intent: Intent,

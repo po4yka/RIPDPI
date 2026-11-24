@@ -131,7 +131,7 @@
     <string name="onboarding_welcome_body">يفحص RIPDPI مسار شبكتك ويحسّن طريقة إرسال بياناتك باستخدام VPN أو وكيل محلي على هذا الجهاز.</string>
     <string name="onboarding_dns_title">اختيار DNS</string>
     <string name="onboarding_background_title">أبقِ RIPDPI قيد التشغيل</string>
-    <string name="onboarding_test_notification_note">يطلب Android السماح بالإشعارات عند بدء الاختبار. يعرض RIPDPI إشعاراً ما دام VPN أو الوكيل المحلي يعمل.</string>
+    <string name="onboarding_test_notification_note">قد يطلب Android إذنًا لعرض إشعارات الحالة أثناء جلسة VPN أو الوكيل. يمكنك إجراء الاختبار دون هذا الإذن.</string>
     <string name="onboarding_test_proxy_card_title">وكيل محلي</string>
     <string name="onboarding_test_proxy_note">يشغّل الاختبار وكيلاً على هذا الجهاز. لا تستخدمه إلا التطبيقات التي توجّهها إليه، ولا يطلب Android إذن VPN.</string>
     <string name="onboarding_done_title">اكتمل الإعداد</string>
