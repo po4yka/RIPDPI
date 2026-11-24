@@ -2,7 +2,7 @@
 id: RST-1788533847908829
 title: Upgrade Rust toolchain to 1.98.1
 kind: chore
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: unassigned
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-09-04
-updated: 2026-09-04
+updated: 2026-11-24
 spec_reason: tooling-only
 ---
 
