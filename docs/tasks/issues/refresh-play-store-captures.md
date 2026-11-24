@@ -2,7 +2,7 @@
 id: UIX-1792406373590934
 title: Refresh Android sources and Play Store screenshots
 kind: chore
-status: review
+status: done
 area: ui
 priority: high
 owner: Marketing capture integration
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-19
 updated: 2026-11-24
 spec_reason: tooling-only
+closed_at: "2026-11-24T18:03:09Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Published 4e1f923d8 passed CI 39299271956 attempt 2 and screenshot run 39299329396 with 42 Android frames and 56 reviewed marketing outputs. Current fixture regressions pass locally. API 35 job 138635098777 passed all six Xray cases and verified DNS recovery for TCP and xHTTP.
 ---
 
 ## Goal
