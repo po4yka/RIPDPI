@@ -2,7 +2,7 @@
 id: RST-1788533847908829
 title: Upgrade Rust toolchain to 1.98.1
 kind: chore
-status: review
+status: done
 area: rust-native
 priority: high
 owner: unassigned
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-09-04
 updated: 2026-11-24
 spec_reason: tooling-only
+closed_at: "2026-11-24T17:26:36Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Published CI run 33946401712 passed on aa6d49ed7f with Rust 1.98.1, four Android ABIs, debug and release package verification, native lint and workspace tests, Miri, cargo-deny, size checks, and the non-rooted API 35 controlled provider TUN suite.
 ---
 
 ## Goal
