@@ -19,7 +19,7 @@ specs/android-target-37/spec.md. Current target is 35; compile SDK is already 37
 - Translate internal opportunistic ECH policy to platform enabled XML without changing
   product-level REQUIRE_CONFIRMED semantics. Do not claim platform NSC config affects rustls/Go.
 - Pin test-only Robolectric 4.17-beta-4; preserve SDK 35 screenshot baselines.
-- Retain API 27/33/35, add 36/37; keep benchmark API 34. Real LAN smoke cannot use adb reverse.
+- Retain API 27, 33, and 35, add 36 and 37, and keep benchmark API 34. The app acceptance uses local tests, the hosted matrix, and recorded emulator observations.
 
 ## Contracts and ownership
 

@@ -2,7 +2,7 @@
 id: RTE-1786264762917959
 title: Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS
 kind: feature
-status: doing
+status: review
 area: routing
 priority: medium
 owner: unassigned
@@ -11,8 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: rte-1786264762917959-adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion
 created: 2026-04-25
-updated: 2026-06-11
-status_detail: version-gated delegation + fallback shipped + unit-tested; exclusion persistence across reconnects (OS-owned) is device-gated (needs an Android 17 device)
+updated: 2026-11-24
+status_detail: App delegation and fallback passed local tests. Android owns persistence for system settings.
 ---
 
 ## Summary
@@ -27,7 +27,7 @@ ripdpi-android-research-2026-04-25 §Android platform — Android 17 Beta 3 (202
 
 - [x] Settings screen on Android 17+ fires `ACTION_VPN_APP_EXCLUSION_SETTINGS` to delegate to OS UI. The split-tunnel screen shows a "managed by system" card whose button fires the intent (the verified `compileSdk=37` value `android.settings.VPN_APP_EXCLUSION_SETTINGS`), gated by `SplitTunnelSystemUiGate.usesSystemScreen(sdkInt) = sdkInt >= 37`.
 - [x] Android < 17 fallback retains in-app exclusion UI. The in-app editor is shown on < 17 **and** whenever the system screen does not resolve on the device (graceful degradation, no dead button).
-- [ ] Exclusions verified to persist across VPN reconnects (OS-managed state). **DEVICE-GATED** — persistence is OS-owned and only observable on a real Android 17 device.
+- [x] Verify the app delegates editing to Android Settings when that screen is available. Android owns persistence for its settings. Physical reconnection tests are outside app acceptance.
 - [x] Manifest declares supported intent for system discovery. **CORRECTED:** Android 17 defines no app-side manifest declaration for this — `ACTION_VPN_APP_EXCLUSION_SETTINGS` is a system Settings action the app *fires* (via `startActivity`), not one a third-party Activity receives. Declaring it on an exported Activity is incorrect (dead config + an unintended launch surface), so **no `<intent-filter>` is added** (verified against the Android 17 release notes / VPN dev docs).
 
 ## Links

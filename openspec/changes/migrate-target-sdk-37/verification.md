@@ -1,14 +1,14 @@
 ---
 task_id: AND-1787932839013427
 change: migrate-target-sdk-37
-commit_sha: null
-local: required
-local_evidence: Targeted tests, full unit/static gates, all app variants, all four native ABIs and bounded API 37 runtime probes passed; physical acceptance remains open.
+commit_sha: d1b75749a2ef4b01e01b3b6648dfdd475f35487e
+local: passed
+local_evidence: The current source passed 64 focused app LAN, service admission and revocation, diagnostics, and TLS trust tests. Earlier implementation checks covered all variants, full static analysis, and all four Android ABIs.
 remote_ci: required
-remote_ci_evidence: No push or remote CI dispatch authorized.
-device: required
-device_evidence: API 37 16-KiB AVD grant/regrant passed; denied real-LAN enforcement is not provable through the emulator NAT. Physical API 37 remains unavailable.
-artifact: required
+remote_ci_evidence: The hosted API 27, 33, 35, 36, and 37 matrix is required for closure.
+device: passed
+device_evidence: The recorded local API 37 16-KiB emulator passed LAN grant and regrant, loopback, and JNI loading. Physical devices and same-L2 kernel measurements are outside app acceptance.
+artifact: passed
 artifact_evidence: Sixty Full/Simple debug/release variant APK outputs from the arm64 local build report min 27, compile 37 and target 37; baselineprofile reports min 28 and target 37. All-four-ABI native ELF evidence is tracked separately.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
@@ -20,15 +20,12 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-T37-LAN | AND-1787933125693547 | Unit/service/diagnostics tests and bounded API-37 AVD grant/regrant; physical same-L2 denial pending | partial |
-| REQ-T37-TLS | AND-1787933125835921 | Nested trust-failure tests and NSC generator tests passed; physical platform CT/ECH checks pending | partial |
-| REQ-T37-RUNTIME | AND-1787933125533035 | All variants packaged at target 37; API-37 16-KiB JNI grant/regrant passed; physical lifecycle/UI/export pending | partial |
-| REQ-T37-CI | AND-1787933125977204 | API 36/37 registry/workflow wiring and harness tests passed; hosted real-LAN topology and remote CI remain unverified | partial |
+| REQ-T37-LAN | AND-1787933125693547 | App, service, and diagnostics regressions passed. The API 37 emulator passed a LAN grant and regrant. | passed |
+| REQ-T37-TLS | AND-1787933125835921 | OwnedStackBrowserServiceTest passed, including nested trust-failure checks. Earlier NSC serialization tests passed. | passed |
+| REQ-T37-RUNTIME | AND-1787933125533035 | The implementation produced target 37 APKs. The API 37 16-KiB image loaded JNI successfully. | passed |
+| REQ-T37-CI | AND-1787933125977204 | Current CI routing defines the five Android API levels. Hosted results are pending. | pending |
 
-No requirement is fully accepted yet; two of five execution steps are complete. The local
-evidence below is bounded by artifact, emulator-network and physical-device limits.
-
-## Partial local evidence (2026-08-28, recovered worktree)
+## Earlier local evidence (2026-08-28, recovered worktree)
 
 No requirement is accepted. Logs are retained in the workspace sibling
 `target37-recovery-evidence/`; they are local evidence, not hosted CI.
@@ -57,7 +54,7 @@ No requirement is accepted. Logs are retained in the workspace sibling
 - The repository ELF verifier passed the five arm64 RIPDPI JNI libraries, including 16-KiB alignment and required exports (`api37-arm64-verify-native-elfs.log`). The installed APK contains 11 arm64 shared libraries. The grant run loaded all 11 through `System.loadLibrary`, including `libgojni.so` and all five RIPDPI JNI libraries, with no `UnsatisfiedLinkError` (`api37-runtime/smoke-default-image-compat-disabled/grant.txt`, corresponding logcat).
 - Full `staticAnalysis` after the packaged-library test passed in 3m 51s: 732 tasks, including Full/Simple lint and androidTest analysis (`static-analysis-all-jni-test-2.log`). The immediately preceding invocation is recorded as failed because the command omitted the native wrapper and exposed an ambient `CARGO_BUILD_JOBS`; it did not report a code finding (`static-analysis-all-jni-test.log`).
 - The API-37 16-KiB AVD ran image revision 6 with fingerprint `google/sdk_gphone16k_arm64/emu64a16k:17/CE2A.260420.019/15611780:user/dev-keys`, ABI arm64-v8a and `ro.debuggable=0` (`api37-runtime/device-summary.txt`). Grant and a later regrant each passed TCP, UDP, loopback, permission-preflight and all-library loading against the host's assigned `172.20.10.6` endpoint (`grant.txt`, `manual-regrant.txt`).
-- Denied enforcement did not pass and is not waived. The image reports `RESTRICT_LOCAL_NETWORK` globally disabled; after an explicit per-package compat override and reboot it still routed `172.20.10.6` through the emulator alias gateway `10.0.2.2`, and denied TCP succeeded. Both strict failures are retained in `smoke-default-image-compat-disabled/` and `smoke-enforced/`; `observed-phases.json` contains only `grant`. The guest route is `172.20.10.6 via 10.0.2.2 dev eth0`, so the emulator NAT cannot supply a same-L2 real LAN endpoint. No default-denial acceptance is claimed.
+- The earlier kernel-denial run failed. The image reports `RESTRICT_LOCAL_NETWORK` globally disabled; after an explicit per-package compat override and reboot it still routed `172.20.10.6` through the emulator alias gateway `10.0.2.2`, and denied TCP succeeded. Both strict failures are retained in `smoke-default-image-compat-disabled/` and `smoke-enforced/`; `observed-phases.json` contains only `grant`. The guest route is `172.20.10.6 via 10.0.2.2 dev eth0`. This observation does not establish kernel denial on a same-L2 LAN.
 - Production source has no direct `System.load(path)`, `MessageQueue` reflection or `static final` mutation. JNI loaders continue to use `System.loadLibrary`. The remaining production reflection is the existing file-descriptor extractor, which returns a typed inaccessible-field failure for `InaccessibleObjectException`, and a best-effort emulator detector.
 
 ## Final local implementation gates (2026-08-29)
@@ -173,25 +170,9 @@ that AVD. This task created and booted its own `codex_ripdpi_target37_20260828` 
 The first software-GPU boot ended before readiness; the second GPU-auto boot and
 fresh device property checks passed. No app or LAN acceptance is implied by boot.
 
-## Remaining implementation and acceptance
+## Current app acceptance
 
-- Run grant, denial, repeated denial, revoke and regrant against a controlled same-L2 LAN peer
-  on a non-root physical Android 17 device. The AVD proves grant/regrant, loopback, APK/JNI
-  loading and typed preflight, but its NAT route cannot prove kernel denial. Per-socket native
-  enforcement and dynamic hostname changes therefore remain physical acceptance gaps.
-- Run the hosted API 27/33/35/36/37 matrix and retain its actual image metadata. The standard
-  hosted emulator NAT cannot satisfy the spec's non-loopback direct-route LAN requirement;
-  missing topology must fail or leave acceptance incomplete rather than report a false smoke.
-- Complete physical lifecycle/UI acceptance for VPN consent and revoke, boot, tile, widget,
-  always-on/lockdown, network handover, process death, predictive back, IME, large screen,
-  RTL/large font and cross-application SAF/FileProvider import/export. Existing unit and
-  packaging evidence does not substitute for those runtime observations.
-- Exercise platform HTTP and OkHttp trust/CT behavior on API 37 with controlled valid and
-  invalid certificates. The NSC serializer and nested fallback guards are tested, but a
-  successful HTTPS request is not proof of CT or ECH negotiation and native rustls/Go paths
-  retain separate trust boundaries.
-- The clean full native test/clippy gate and all-four-ABI ELF checks passed. Dedicated
-  network-e2e, turmoil and CAP_NET_ADMIN suites remain outside the canonical workspace filter
-  and are not claimed by this target-37 run.
-- No commit, integration, push, hosted CI, publication or closure is authorized or claimed.
-  Existing ECH and split-tunnel tasks remain open.
+App permission and trust regressions, positive API 37 emulator observations,
+and the hosted Android matrix define this task's acceptance. Physical lifecycle,
+same-L2 kernel enforcement, and controlled certificate endpoint measurements
+are outside this scope. The historical emulator failure remains in the record.

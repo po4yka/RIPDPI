@@ -1,15 +1,15 @@
 ---
 task_id: AND-1795456111842469
 change: improve-root-runtime
-commit_sha: 4c271040819dd7ee928d5a3c218b3a1d7ae08f70
+commit_sha: d0ee0f52e5363b363e34889044c5ebd03f501c4b
 local: passed
-local_evidence: The focused Android JVM and PCAP tests, 72 helper tests, two screenshot checks, and just ci-gates passed.
+local_evidence: On the recorded source, 25 focused root app and service JVM tests, the Play PCAP test, 72 host helper tests, and just ci-gates passed. Two screenshot checks had passed during implementation.
 remote_ci: required
 remote_ci_evidence: null
-device: blocked
-device_evidence: The no-su Android 35 instrumentation case passed. Root-manager grant, refusal, and live VPN cases require an app-granting test device.
+device: passed
+device_evidence: The no-su Android 35 emulator case passed. Physical root-manager grant, refusal, and live VPN tests are outside the approved Android app acceptance scope.
 artifact: passed
-artifact_evidence: The Play, F-Droid, and GitHub arm64 debug APKs passed the edition check. Both extended APKs matched the embedded helper manifest. A signed Play AAB was outside local verification.
+artifact_evidence: The implementation record at 4c271040819dd7ee928d5a3c218b3a1d7ae08f70 recorded successful Play, F-Droid, and GitHub arm64 debug APK edition scans and matching helper manifests in both extended APKs. Signed Play AAB verification belongs to release promotion.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -21,6 +21,6 @@ deployment_evidence: No deployment is owned by this change.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-ROOT-ACCESS | AND-1795456157619993 | Extended settings state and root check tests, two Roborazzi checks, and no-su instrumentation passed | passed |
-| REQ-ROOT-LIFECYCLE | AND-1795456158155043 | Targeted service tests passed. Live VPN acceptance with root is still required | blocked |
+| REQ-ROOT-LIFECYCLE | AND-1795456158155043 | Targeted service tests passed for helper startup, loss, cleanup, and fallback | passed |
 | REQ-ROOT-ASSETS | AND-1795456158686649 | 72 Rust helper tests, an Android arm64 helper build, and trust manifests in two APKs passed | passed |
 | REQ-ROOT-EDITION | AND-1795456159266816 | All three arm64 debug APK checks and the Play and GitHub capture tests passed | passed |

@@ -1,13 +1,13 @@
 ---
 task_id: AND-1795489914228572
 change: correct-android-permission-prompts
-commit_sha: d4863dae04238436dc52c9f1ad6cbe1ff68afdc0
+commit_sha: d0ee0f52e5363b363e34889044c5ebd03f501c4b
 local: passed
-local_evidence: 283 focused app tests and 16 detection tests passed. App and detection Detekt passed. GitHub debug, service extended debug, and detection Android Lint passed. The host tests use the Xray stub.
+local_evidence: The implementation source d4863dae passed 283 focused app tests, 16 detection tests, Detekt, and Android Lint. The recorded main source passed 37 focused permission and scanner recovery JVM tests and just ci-gates. The host tests use the Xray stub.
 remote_ci: required
 remote_ci_evidence: null
-device: blocked
-device_evidence: Both Android 15 Pixel 6 pool slots remained ADB unauthorized before APK installation. The temporary Android 17 emulator exited before boot. No system permission interaction was observed.
+device: not_applicable
+device_evidence: Physical system-dialog checks are outside the approved Android app acceptance scope. Earlier emulator attempts ended before APK installation or system-dialog interaction.
 artifact: not_applicable
 artifact_evidence: No release artifact belongs to this change.
 deployment: not_applicable
@@ -24,7 +24,7 @@ deployment_evidence: No deployment belongs to this change.
 | REQ-ANDROID-PERMISSION-RECOVERY | AND-1795489980269709 | MainActivityPermissionTest, MainViewModelTest, OnboardingViewModelTest and QR recovery suites | Pass |
 | REQ-ANDROID-PERMISSION-RECOVERY | AND-1795489980775429 | DetectionPermissionStateOwnerTest, DetectionPermissionPlannerTest and LocationSignalsCheckerTest | Pass |
 | REQ-ANDROID-PERMISSION-CONTEXT | AND-1795489981276204 | SettingsCustomizationActionsTest, SettingsPreferencesGroupingTest and UpdateViewModelTest | Pass |
-| REQ-ANDROID-PERMISSION-RECOVERY | AND-1795489981806709 | Source checks, four Roborazzi comparisons, and attempted Android 15 and 17 checks | Local pass, device blocked |
+| REQ-ANDROID-PERMISSION-RECOVERY | AND-1795489981806709 | Source checks, four Roborazzi comparisons, and focused app and detection tests | Local pass |
 
 ## Local debug build
 

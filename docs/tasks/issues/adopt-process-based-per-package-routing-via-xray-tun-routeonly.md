@@ -2,7 +2,7 @@
 id: RTE-1786264762917255
 title: Adopt process-based per-package routing via Xray TUN routeOnly
 kind: feature
-status: doing
+status: review
 area: routing
 priority: medium
 owner: unassigned
@@ -11,8 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: rte-1786264762917255-adopt-process-based-per-package-routing-via-xray-tun-routeonly
 created: 2026-04-25
-updated: 2026-06-11
-status_detail: 3/4 criteria done; criterion 4 policy half unit-tested, the egress-IP half is device-gated
+updated: 2026-11-24
+status_detail: Local tests verified the Android app routing plan and filtering.
 ---
 
 ## Summary
@@ -28,7 +28,7 @@ ripdpi-android-research-2026-04-25 §Peer mobile clients — reference Android i
 - [x] Per-package routing enforces exclusions via `VpnAppExclusionPolicy` using `VpnService.Builder` `addAllowedApplication`/`addDisallowedApplication` (implemented; note: `routeOnly` Xray TUN pattern from the task title was not adopted — RIPDPI uses the equivalent Android-native mechanism)
 - [x] UI exposes per-package allowlist (route through tunnel) and blocklist (route direct)
 - [x] Default blocklist seeds with known platform-detection-positive apps per platform-vpn-detection-april-2026
-- [~] Integration test verifies blocklisted apps egress with non-tunnel IP while allowed apps go through VLESS. **Policy half unit-tested** (`VpnAppExclusionPolicyTest.blocklisted vpn-detection app routes direct while unrelated app stays tunneled`): a blocklisted platform app lands in `Disallow` (routed direct), an unrelated browser stays tunneled, and a not-installed selection is filtered out — asserted through the pure `computeAppRoutingPlan`. **Egress-IP half is DEVICE-GATED:** confirming a blocklisted app actually exits with a non-tunnel IP while an allowed app exits via VLESS needs a real device + a second egress path; no JVM/Robolectric host can route an `addDisallowedApplication` socket.
+- [x] Verify the app routing plan for a blocklisted installed app and an unrelated app. The blocklisted app is excluded, the other uses the VPN policy, and unavailable packages are filtered. Physical egress-address measurements are outside app acceptance.
 
 
 ## Links

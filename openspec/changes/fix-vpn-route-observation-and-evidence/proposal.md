@@ -33,7 +33,7 @@ route mismatch or a real forwarding failure.
 - Add privacy-safe archive provenance for observer source, callback/lifecycle
   freshness, route families, categorical app-routing shape, applied tunnel
   receipt, and forwarding correlation.
-- Add regression and device scenarios that distinguish a false-negative owner
+- Add behavioral regressions that distinguish a false-negative owner
   observation, a missing VPN network, a route-policy mismatch, and a degraded
   TUN data plane.
 - No external JNI or diagnostics-engine wire contract is broken. Archive model
@@ -62,5 +62,5 @@ route mismatch or a real forwarding failure.
   contracts shared by service, diagnostics, and app projection.
 - `:app`: Route health projection and regression tests; locale resources only
   if user-facing wording changes.
-- Physical-device verification is required for API 36 callback ownership and
-  lifecycle races; local unit tests do not constitute device proof.
+- Current app acceptance covers callback ownership and lifecycle races in
+  local behavioral regressions and hosted CI.

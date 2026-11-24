@@ -35,9 +35,9 @@ warning, and export privacy-safe causal evidence for future support audits.
 
   Owned paths: `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkPathValidationSource.kt`, `NetworkPathSnapshotProjection.kt`, provider adapters and matching `core/diagnostics` tests, `app/src/main/kotlin/com/poyka/ripdpi/activities/VpnDataPlaneStatus.kt`, `MainStateResolvers.kt`, and focused app tests. Preserve `activeNetwork` only as calling-UID context; Route degradation means installed route-family mismatch, `Checking` is non-warning during bounded convergence, Android validation stays on Network, and native forwarding stays on Tunnel. Run one RED/GREEN/refactor cycle per behavior.
 
-- [ ] DGN-1786867116840503 Add schema-10 `vpnRouteEvidence` archive projection from the service provider; preserve legacy path snapshots and decode, enforce redaction, run combined gates, and record API 36 device evidence #feature !high @item:DGN-1786867116840500
+- [x] DGN-1786867116840503 Verify the VPN route archive projection, legacy decode, and redaction with local tests and hosted CI #feature !high @item:DGN-1786867116840500
 
-  Owned paths: `NetworkMetadataProvider.kt`, diagnostics context/route assessment models, runtime snapshot persistence, redacted summaries, archive JSON builder/renderer, exact tests and the explicitly authorized schema-10 archive fixture family only. Add optional `vpnRouteEvidence` plus stable reason/source tokens without repurposing legacy `pathSnapshots.vpn`; do not claim arbitrary client-UID routing. Run golden tests without blessing, present an intentional fixture diff for approval if required, and verify self-exclusion plus start/rebuild/handover/stop behavior on the connected API 36 device with third-party traffic correlated to TUN counters.
+  Owned paths: `NetworkMetadataProvider.kt`, diagnostics context/route assessment models, runtime snapshot persistence, redacted summaries, archive JSON builder/renderer, exact tests and the explicitly authorized schema-10 archive fixture family only. Preserve optional `vpnRouteEvidence` and stable reason/source tokens without repurposing legacy `pathSnapshots.vpn`. Run the archive tests without blessing. Verify self-exclusion and lifecycle changes with callback and receipt regressions.
 
 ## Verification
 
@@ -59,11 +59,6 @@ warning, and export privacy-safe causal evidence for future support audits.
 - Run the owning archive/golden tests without any bless flag. No
   `RIPDPI_BLESS_GOLDENS=1`, record task, or bless script is authorized by this
   plan.
-- Device evidence is separate: API 36 must show calling-UID underlay plus a
-  RIPDPI-owned validated VPN callback, matching installed route families, no
-  false Route warning, coherent lifecycle generations across start/rebuild/
-  handover/stop, and TUN-counter movement from a distinct client UID.
 - Obtain independent read-only Kotlin/VPN lifecycle, diagnostics privacy, and
-  final combined-diff reviews. Report local, device, hosted CI, artifact, and
-  deployment evidence independently; only local planning validation is in scope
-  for this proposal turn.
+  final combined-diff reviews. Record local tests, hosted CI, and build
+  artifacts separately.

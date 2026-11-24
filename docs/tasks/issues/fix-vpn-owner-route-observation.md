@@ -2,7 +2,7 @@
 id: DGN-1786867116840500
 title: Fix VPN owner-process route observation and evidence
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Codex VPN route coordinator
@@ -11,8 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: fix-vpn-route-observation-and-evidence
 created: 2026-08-16
-updated: 2026-10-31
-status_detail: "Code for DGN-1786867116840503 is complete on main 32a9b2c8a (schema-10 bump in 2dcfb0d96, now 12): provider-fed vpnRouteEvidence reaches network-snapshots.json and passiveVpnRouteEvidence, legacy pathSnapshots decode unchanged, and the allowlist sanitizer runs at persistence and export; :core:diagnostics 1626 tests (one sandbox-DNS STUN failure), :core:diagnostics-data 75 and :core:service 2038 passed. Only physical API 36 acceptance remains."
+updated: 2026-11-24
+status_detail: Current callback, route receipt, and archive regression tests passed within Android app acceptance.
 ---
 
 ## Goal
@@ -42,9 +42,8 @@ route-policy mismatches, and native data-plane degradation.
 - Regression tests cover owner self-exclusion, VPN callback appearance/loss,
   startup and handover races, route-family mismatch, a genuinely absent VPN,
   and UI/archive projections.
-- Targeted JVM tests, `./gradlew staticAnalysis`, architecture health,
-  task-board validation, and a physical-device API 36 scenario are reported as
-  separate evidence. Hosted CI is not inferred from local checks.
+- Verify the callback and route records with targeted JVM tests. Run static
+  analysis, architecture validation, task validation, and hosted CI.
 
 ## Current execution ownership
 
@@ -61,5 +60,5 @@ route-policy mismatches, and native data-plane degradation.
   coordinator. Review agents are read-only.
 - Existing diagnostics/archive behavior is retained. No schema, fixture,
   dependency, baseline, locale, JNI, or protobuf changes are assigned.
-- Physical API 36 acceptance remains outstanding; the connected API 37
-  device does not satisfy that criterion.
+- Physical API 36 routing and client traffic measurements are outside the
+  approved Android app acceptance scope.

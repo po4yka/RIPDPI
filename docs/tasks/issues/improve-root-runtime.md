@@ -2,7 +2,7 @@
 id: AND-1795456111842469
 title: Improve root mode in extended Android builds
 kind: feature
-status: doing
+status: review
 area: android
 priority: high
 owner: Android and native integration
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: improve-root-runtime
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 ## Goal
@@ -23,7 +23,8 @@ Show the state of root access and recover the connection when privileged operati
 - Root activation is explicit. The UI reports the actual helper state and offers retry.
 - A compatible connection continues without privileged operations if the helper fails.
 - The privileged backend only runs verified shipped files.
-- Verify the Play package boundary, the independent PCAP contract, and the root-manager flow on a compatible device.
+- Verify root access and helper state with app and service tests, including helper loss and fallback.
+- Verify the Play package boundary and the independent PCAP contract with local builds and tests.
 
 ## Ownership
 

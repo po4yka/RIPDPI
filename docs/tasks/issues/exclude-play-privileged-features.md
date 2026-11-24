@@ -2,7 +2,7 @@
 id: AND-1795444347241489
 title: Exclude privileged Android features from Google Play
 kind: feature
-status: doing
+status: review
 area: android
 priority: high
 owner: Android distribution
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: exclude-play-privileged-features
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 ## Goal
@@ -20,9 +20,9 @@ Ship Google Play builds without Android superuser functionality. Keep opt-in pri
 
 ## Acceptance criteria
 
-- Verify that Play release DEX, libraries, assets, resources, reports, and manifests exclude privileged features.
-- Check Play startup and old data on a device with privilege available. Exercise the normal VPN, proxy, and PCAP paths.
-- Verify both extended builds and a combined build from the same checkout.
+- Verify the Play package boundary and the GitHub and F-Droid debug APKs from one checkout.
+- Verify migration with repository tests. Exercise the ordinary Play VPN, proxy, and PCAP paths on a non-root emulator.
+- Verify the release scanner and its promotion wiring. Check the signed Play AAB and its APK splits in the release workflow before promotion.
 
 ## Ownership
 

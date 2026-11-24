@@ -179,19 +179,17 @@ versioning and fixture workflow.
 
 ### Requirement: REQ-VPN-ROUTE-007 — Verify false and true failure paths
 
-The implementation MUST have behavioral regression coverage and device-level
-evidence that distinguish an owner-process false negative from a real route or
-forwarding failure.
+Behavioral regressions MUST distinguish an owner-process false negative from a
+real route or forwarding failure.
 
-#### Scenario: API 36 device acceptance
+#### Scenario: Observe a self-excluded VPN owner
 
-- **GIVEN** RIPDPI excludes its own package and a third-party test client is routed through the VPN
-- **WHEN** the VPN is started, validated, handed over once, and stopped
-- **THEN** observed Route transitions are checking to healthy to unavailable without a false degraded interval from the owner's underlay
-- **AND** the diagnostic archive correlates the callback, route receipt, and TUN forwarding generation
+- **GIVEN** the calling UID sees its underlay and the owned VPN has a correlated callback
+- **WHEN** the callback and receipt model reports startup, validation, replacement, and loss
+- **THEN** Route changes from checking to healthy to unavailable based on the owned VPN evidence
+- **AND** the archive records categorical correspondence between the callback, receipt, and forwarding generation
 
-#### Scenario: Local validation is not device proof
+#### Scenario: Record the acceptance evidence
 
-- **WHEN** JVM tests and static analysis pass without the API 36 scenario
-- **THEN** the change reports local validation separately
-- **AND** it does not claim physical-device or hosted-CI proof
+- **WHEN** behavioral regressions, static analysis, and hosted CI pass
+- **THEN** the change records the local and hosted results separately

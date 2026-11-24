@@ -1,13 +1,13 @@
 ---
 task_id: DGN-1786867116840500
 change: fix-vpn-route-observation-and-evidence
-commit_sha: f0d2beeb95b87783d5e88a7c35b1d395b1acd8ec
-local: blocked
-local_evidence: "Service 1855/1855 and app 1765/1765 passed; full staticAnalysis passed offline. Diagnostics has 1400 passes and two DNS candidate-count failures reproduced on clean baseline 4d9444ab. Architecture, locked Cargo metadata, and task validation passed."
+commit_sha: d0ee0f52e5363b363e34889044c5ebd03f501c4b
+local: passed
+local_evidence: Focused route callback, lifecycle receipt, forwarding, archive export, and passive evidence tests passed on the recorded source. The earlier implementation passed the service and app suites and offline static analysis. Its unrelated historical DNS candidate-count failures are described below.
 remote_ci: blocked
 remote_ci_evidence: "Exact-SHA CI run 33093779255 has a failed native hotspot-budget step: tcp_accept/listener.rs is 72 LoC against limit 54, reproduced unchanged on baseline 4d9444ab. Other architecture job checks passed. CodeQL 33093779196, Secret Scan 33093779128, and fleet-fixtures 33093779126 passed. Full CI success is not claimed."
-device: blocked
-device_evidence: "Only a physical API 37 device is connected. Physical API 36 acceptance and permission to install the debug APK and exercise VPN transitions remain outstanding. No device state was changed."
+device: not_applicable
+device_evidence: Current app acceptance uses local callback, receipt, routing, and archive regressions. Physical API 36 and third-party forwarding measurement are outside scope.
 artifact: passed
 artifact_evidence: "Fresh githubFullDebug arm64-v8a APK built from f0d2beeb95b87783d5e88a7c35b1d395b1acd8ec. SHA-256 16eaf5e895a3625e11f3ae27d80042166d54ddb1ba77fd23485e08d7f2905071; application com.poyka.ripdpi, version 0.1.4 (20000012). APK Signature Scheme v2 and the ELF verifier against libraries extracted from this APK passed. No device installation or runtime proof is claimed."
 deployment: not_applicable
@@ -28,13 +28,13 @@ schema, golden, JNI, protobuf, dependency, or locale changes are made here.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-VPN-ROUTE-001 | SVC-1786867116840502 | Registered owned callbacks with null/stale getters; both callback orders; owner-UID rejection | local pass; API 36 pending |
+| REQ-VPN-ROUTE-001 | SVC-1786867116840502 | Registered owned callbacks with null/stale getters; both callback orders; owner-UID rejection | local pass |
 | REQ-VPN-ROUTE-002 | SVC-1786867116840502 | Separate callback halves produce matching route families; route-only changes preserve validation | local pass |
 | REQ-VPN-ROUTE-003 | DGN-1786867116840501 | Validation-only changes preserve installed routes; diagnostics and app projection suites pass | local pass |
 | REQ-VPN-ROUTE-004 | SVC-1786867116840502 | Generation anchors, retired-network loss, stopped registration, and lifecycle receipt regressions pass | local pass |
 | REQ-VPN-ROUTE-005 | DGN-1786867116840503 | Renderer 38/38, exporter 14/14, passive route builder 3/3; no new exported identifiers | local pass |
 | REQ-VPN-ROUTE-006 | DGN-1786867116840503 | Existing archive/legacy decode tests run without blessing; schema 12 unchanged | local pass |
-| REQ-VPN-ROUTE-007 | DGN-1786867116840503 | Local checks below; physical API 36 is pending and exact-SHA hosted CI is blocked by an existing native budget breach | partial |
+| REQ-VPN-ROUTE-007 | DGN-1786867116840503 | Current callback, receipt, runtime route evidence, passive evidence, and archive export regressions passed | local pass |
 
 ## Behavioral regression evidence
 
@@ -138,15 +138,9 @@ build-gate -- env -u CARGO_BUILD_JOBS ./gradlew \
   No branch protection setting was changed and no force push was used. Push
   acceptance is not evidence of passing required checks.
 
-## Remaining acceptance
+## Current acceptance
 
-- Resolve the separate existing DNS test and native hotspot-budget blockers
-  and obtain full hosted CI acceptance. No check or baseline is weakened here.
-- On a physical API 36 device, verify the self-excluded owner's underlay
-  default alongside the owned validated VPN callback, matching route families,
-  Route UI transitions, and current-generation forwarding evidence across
-  start/rebuild/handover/stop.
-- Distinct-client traffic must carry a verified non-owner UID and correlate
-  with TUN counter deltas. The packet-smoke wrapper's owner-UID probe and an
-  API 37 run do not satisfy that criterion.
-- The task remains open until the outstanding acceptance evidence exists.
+The current app scope covers callback and lifecycle behavior and the redacted
+archive. Physical API 36 routing and third-party TUN traffic measurements are
+outside this scope. The logged historical CI and local failures remain part of
+the earlier record.

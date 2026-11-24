@@ -2,7 +2,7 @@
 id: OUT-1786264762917254
 title: Add SSH outbound client crate and profile editor
 kind: feature
-status: doing
+status: review
 area: outbound
 priority: medium
 owner: unassigned
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: out-1786264762917254-add-ssh-outbound-client-crate-and-profile-editor
 created: 2026-04-24
-updated: 2026-06-05
+updated: 2026-11-24
 ---
 
 ## Summary
@@ -28,8 +28,8 @@ SSH tunnels are a common user-managed tunneled outbound option, especially for u
 - [x] Password and OpenSSH private-key auth both supported.
 - [x] Host-key verification is on by default; "trust on first use" is a per-profile opt-in.
 - [x] `direct-tcpip` forwarding to arbitrary target host:port works for TCP; UDP is out of scope for v1.
-- [x] `SshProfileScreen` validates host, port, user, and auth selection. Private key is stored via `EncryptedFile`; never SharedPreferences. (Validation done. Persistence: **all** profile editors — SSH, AnyTLS, AmneziaWG — are preview-only by design (`@HiltViewModel constructor()`, `onSave{saved=true}`); SSH credentials persist via the Keystore-backed import path (`KeystoreRelayCredentialStore` / `RelayCredentialRecord.ssh*`), which is Keystore-backed and never SharedPreferences. Wiring editor-side persistence for SSH alone would diverge from the uniform editor architecture and is out of scope.)
-- [ ] Host key fingerprint is surfaced on first connect with explicit accept / reject action. **(deferred: no connect-from-editor path exists; the Rust `SshError::HostKeyUntrusted` is config-driven with no runtime accept/reject channel, so a connect-time TOFU dialog is a cross-boundary JNI/event-channel feature with no existing pattern.)**
+- [x] The SSH editor validates host, port, user, and authentication. Profile writes use the accepted [atomic profile persistence contract](../../../openspec/specs/atomic-profile-persistence/spec.md). Android Keystore encrypts the private key and passphrase before the Room transaction stores them.
+- [x] The editor shows the observed host key fingerprint before it saves a new unpinned profile. Accept pins the observed key. Reject leaves the profile unsaved.
 - [x] Passphrase and private-key material are redacted in all diagnostic surfaces.
 
 ## Source references

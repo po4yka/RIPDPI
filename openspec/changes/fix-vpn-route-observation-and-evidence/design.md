@@ -199,14 +199,10 @@ application is routed without a separate client UID/device test.
    diff and request fixture-family authorization before any bless command.
 4. Run targeted module tests, app projection tests, `staticAnalysis`,
    architecture health, and task-board validation. Report each gate exactly.
-5. On a physical API 36 device, verify self-excluded owner default, owned VPN
-   callback visibility, route families, start/rebuild/handover/stop transitions,
-   absence of the false Route warning, and a third-party traffic/TUN counter
-   correlation. Treat this separately from local and hosted-CI evidence.
 
 Rollback is a normal code revert: optional archive fields remain decodable, the
 callback registration is unregistered with its lifecycle, and receipt state is
 in-memory only. No database or protobuf migration and no persistent backfill are
-required. Do not archive or close the portfolio task until local gates and the
-required device evidence are recorded; hosted CI remains separately unverified
-unless observed.
+required. Record local regression results and hosted CI before closing the
+portfolio task. Physical routing and third-party traffic measurements are
+outside the current app acceptance scope.

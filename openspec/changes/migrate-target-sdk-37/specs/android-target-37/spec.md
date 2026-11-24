@@ -47,10 +47,11 @@ and export MUST remain functional with actual Android runtime behavior.
 
 ### Requirement: REQ-T37-CI — Preserve and extend Android coverage
 
-CI MUST retain API 27/33/35 coverage, add API 36/37, preserve the API 34 benchmark,
-and run a mandatory API-37 LAN smoke with non-loopback endpoints and failure artifacts.
+CI MUST retain API 27, 33, and 35 coverage, add API 36 and 37, and preserve the
+API 34 benchmark. App acceptance MUST record positive API 37 emulator LAN
+grant and regrant checks and automated app permission regressions.
 
 #### Scenario: Missing runtime evidence
 
-- **WHEN** an image, LAN endpoint, physical device, or required test is unavailable
+- **WHEN** a required CI image or app test is unavailable
 - **THEN** acceptance stays incomplete and reports the exact missing evidence.

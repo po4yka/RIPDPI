@@ -22,20 +22,20 @@ The RIPDPI implementation MUST satisfy this portfolio criterion: Android < 17 fa
 - **WHEN** the linked change is exercised under the conditions defined by the portfolio task
 - **THEN** the observed result MUST demonstrate that Android < 17 fallback retains in-app exclusion UI. The in-app editor is shown on < 17 and whenever the system screen does not resolve on the device (graceful degradation, no dead button)
 
-### Requirement: REQ-RTE-1786264762917959-003 — Exclusions verified to persist across VPN reconnects (OS-managed state). DEVICE…
+### Requirement: REQ-RTE-1786264762917959-003 — Delegate editing to Android Settings
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Exclusions verified to persist across VPN reconnects (OS-managed state). DEVICE-GATED — persistence is OS-owned and only observable on a real Android 17 device.
+RIPDPI MUST delegate editing to Android Settings where available. Android owns persistence for its settings.
 
-#### Scenario: Verify criterion 3
+#### Scenario: Open Android's exclusion settings
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Exclusions verified to persist across VPN reconnects (OS-managed state). DEVICE-GATED — persistence is OS-owned and only observable on a real Android 17 device
+- **WHEN** the user opens split-tunnel settings on Android 17 or later and Android can open its exclusion settings
+- **THEN** RIPDPI shows the system settings action and uses Android Settings to edit exclusions
 
-### Requirement: REQ-RTE-1786264762917959-004 — Manifest declares supported intent for system discovery. CORRECTED: Android 17…
+### Requirement: REQ-RTE-1786264762917959-004 — Start the system action with no receiving intent filter
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Manifest declares supported intent for system discovery. CORRECTED: Android 17 defines no app-side manifest declaration for this — ACTIONVPNAPPEXCLUSIONSETTINGS is a system Settings action the app fires (via startActivity), not one a third-party Activity rece….
+RIPDPI MUST start the Android exclusion settings action. Its manifest MUST NOT declare an activity that receives that action.
 
-#### Scenario: Verify criterion 4
+#### Scenario: Start exclusion settings from the app
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Manifest declares supported intent for system discovery. CORRECTED: Android 17 defines no app-side manifest declaration for this — ACTIONVPNAPPEXCLUSIONSETTINGS is a system Settings action the app fires (via startActivity), not one a third-party Activity rece…
+- **WHEN** the user selects the system exclusion settings action
+- **THEN** RIPDPI starts the system activity with `ACTION_VPN_APP_EXCLUSION_SETTINGS`

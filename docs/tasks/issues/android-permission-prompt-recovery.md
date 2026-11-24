@@ -2,7 +2,7 @@
 id: AND-1795489914228572
 title: Correct Android permission prompts and recovery
 kind: bug
-status: doing
+status: review
 area: android
 priority: high
 owner: Android maintainer
@@ -22,7 +22,7 @@ Make Android permission and settings requests clear and recoverable.
 
 - Explain VPN, detection, update, boot, and optional runtime access before Android opens its UI.
 - Continue the original action after a grant and keep unrelated features available after denial.
-- Run focused tests and repository source gates. Record device evidence when available.
+- Run focused app and detection tests, screenshot comparisons, and repository source gates.
 
 ## Ownership
 
