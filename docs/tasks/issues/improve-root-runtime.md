@@ -2,7 +2,7 @@
 id: AND-1795456111842469
 title: Improve root mode in extended Android builds
 kind: feature
-status: review
+status: done
 area: android
 priority: high
 owner: Android and native integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: improve-root-runtime
 created: 2026-11-23
 updated: 2026-11-24
+closed_at: "2026-11-24T17:07:28Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: App and service tests verified explicit root activation, helper state, and fallback. Helper, package boundary, and no-su emulator checks passed. Both hosted Linux Rust shards and Android static analysis passed. Physical root acceptance is outside the approved app scope.
 ---
 
 ## Goal

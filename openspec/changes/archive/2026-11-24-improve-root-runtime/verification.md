@@ -4,8 +4,8 @@ change: improve-root-runtime
 commit_sha: d0ee0f52e5363b363e34889044c5ebd03f501c4b
 local: passed
 local_evidence: On the recorded source, 25 focused root app and service JVM tests, the Play PCAP test, 72 host helper tests, and just ci-gates passed. Two screenshot checks had passed during implementation.
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: Both Linux Rust workspace shards and cargo-deny passed on d1b75749a2ef4b01e01b3b6648dfdd475f35487e in run 45441447533. Android static analysis passed on the recorded source in run 45439549014. The two source revisions differ only in the standalone fuzz lockfile.
 device: passed
 device_evidence: The no-su Android 35 emulator case passed. Physical root-manager grant, refusal, and live VPN tests are outside the approved Android app acceptance scope.
 artifact: passed
@@ -24,3 +24,6 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-ROOT-LIFECYCLE | AND-1795456158155043 | Targeted service tests passed for helper startup, loss, cleanup, and fallback | passed |
 | REQ-ROOT-ASSETS | AND-1795456158686649 | 72 Rust helper tests, an Android arm64 helper build, and trust manifests in two APKs passed | passed |
 | REQ-ROOT-EDITION | AND-1795456159266816 | All three arm64 debug APK checks and the Play and GitHub capture tests passed | passed |
+
+- [Hosted Linux helper and workspace checks](https://github.com/po4yka/RIPDPI/actions/runs/45441447533/job/138620271126)
+- [Hosted Android static analysis](https://github.com/po4yka/RIPDPI/actions/runs/45439549014)

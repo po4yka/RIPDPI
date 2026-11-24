@@ -1,0 +1,11 @@
+{
+  "change": "improve-root-runtime",
+  "evidence_summary": "App and service tests verified explicit root activation, helper state, and fallback. Helper, package boundary, and no-su emulator checks passed. Both hosted Linux Rust shards and Android static analysis passed. Physical root acceptance is outside the approved app scope.",
+  "execution_sha256": "082a9a61d56621cb6b0e4340dcaffa848824809287c8ba05964020418e4a0ee8",
+  "issue_sha256": "879fb1d6e4422ac75569a3d502eca771553c36546d415d78b5186e4fb5564e2e",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T17:07:28Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "AND-1795456111842469"
+}
