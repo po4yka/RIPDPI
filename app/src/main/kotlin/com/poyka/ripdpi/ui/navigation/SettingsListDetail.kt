@@ -9,6 +9,7 @@ import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.navigation.rememberListDetailTwoPane
 import com.poyka.ripdpi.ui.screens.settings.LocalSelectedSettingsDetail
@@ -109,7 +110,7 @@ internal fun SettingsHomeRoute(
         onShareDebugBundle = actions.onShareDebugBundle,
         permissionSummary = permissionSummary,
         onRepairPermission = actions.onRepairPermission,
-        onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
+        onOpenVpnPermissionDialog = { mainViewModel.onRepairPermissionRequested(PermissionKind.VpnConsent) },
         onDismissBackgroundGuidance = mainViewModel::onDismissBackgroundGuidance,
         viewModel = settingsViewModel,
     )

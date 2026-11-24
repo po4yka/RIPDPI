@@ -64,7 +64,7 @@
     <string name="onboarding_test_row_state_done">Done</string>
     <string name="onboarding_test_row_state_failed">Failed</string>
     <string name="permissions_vpn_title">VPN permission</string>
-    <string name="permissions_vpn_body">Android will ask to create a local VPN. This routes traffic through the app on your device — nothing is sent externally.</string>
+    <string name="permissions_vpn_body">Android will ask for VPN access so RIPDPI can route traffic through its local tunnel. RIPDPI uses the servers in your active configuration.</string>
     <string name="permissions_vpn_continue">Continue</string>
     <string name="permissions_vpn_not_now">Not now</string>
     <string name="permissions_vpn_error_title">Permission still required</string>

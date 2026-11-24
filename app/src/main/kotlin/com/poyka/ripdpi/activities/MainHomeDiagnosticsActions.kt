@@ -358,6 +358,24 @@ internal class MainHomeDiagnosticsActions(
         }
     }
 
+    fun continueVerifiedVpnStart(startVpn: () -> Unit) {
+        if (homeDiagnosticsState.value.waitingForVerifiedVpnStart) {
+            startVpn()
+        } else {
+            startVerifiedVpn()
+        }
+    }
+
+    fun cancelPendingVerifiedVpnStart() {
+        homeDiagnosticsState.update { current ->
+            if (current.waitingForVerifiedVpnStart) {
+                current.copy(waitingForVerifiedVpnStart = false, verificationProgress = null)
+            } else {
+                current
+            }
+        }
+    }
+
     private fun canStartVerifiedVpn(): Boolean {
         val state = homeDiagnosticsState.value
         return state.latestCompositeOutcome?.actionable == true && !state.analysisInProgress() &&

@@ -146,19 +146,21 @@ internal class MainConnectionActions(
     }
 
     fun showPermissionIssue(issue: PermissionIssueUiState) {
-        failureFeedbackEpoch++
-        resultFeedback.clear()
-        stopConnectionMetricsPolling()
-        runtimeState.update {
-            it.copy(
-                connectionState = ConnectionState.Disconnected,
-                errorMessage = null,
-                connectingStartedAtMs = null,
-                connectionStartedAtMs = null,
-                baselineTransferredBytes = 0L,
-                dataTransferred = 0L,
-                connectionDuration = ZERO,
-            )
+        if (issue.blocking) {
+            failureFeedbackEpoch++
+            resultFeedback.clear()
+            stopConnectionMetricsPolling()
+            runtimeState.update {
+                it.copy(
+                    connectionState = ConnectionState.Disconnected,
+                    errorMessage = null,
+                    connectingStartedAtMs = null,
+                    connectionStartedAtMs = null,
+                    baselineTransferredBytes = 0L,
+                    dataTransferred = 0L,
+                    connectionDuration = ZERO,
+                )
+            }
         }
         mutations.trySend(
             MainEffect.ShowError(issue.message, hapticFeedbackEnabled = !currentSettings().hapticFeedbackDisabled),

@@ -149,15 +149,6 @@ class MainActivityShellControllerTest {
         }
 
     @Test
-    fun `show vpn dialog effect updates shell state`() {
-        val controller = MainActivityShellController()
-
-        controller.onEffect(MainEffect.ShowVpnPermissionDialog)
-
-        assertTrue(controller.state.value.vpnPermissionDialogVisible)
-    }
-
-    @Test
     fun `support code remains attached to the error snackbar event`() =
         runTest {
             val controller = MainActivityShellController()
@@ -227,21 +218,6 @@ class MainActivityShellControllerTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
-
-    @Test
-    fun `connected and connecting states dismiss vpn dialog`() {
-        val controller =
-            MainActivityShellController().apply {
-                showVpnPermissionDialog()
-            }
-
-        controller.onConnectionStateChanged(ConnectionState.Connecting)
-        assertFalse(controller.state.value.vpnPermissionDialogVisible)
-
-        controller.showVpnPermissionDialog()
-        controller.onConnectionStateChanged(ConnectionState.Connected)
-        assertFalse(controller.state.value.vpnPermissionDialogVisible)
-    }
 
     @Test
     fun `start configured mode request is consumed once`() {

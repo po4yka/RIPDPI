@@ -58,7 +58,7 @@
     <string name="onboarding_test_row_state_done">Concluído</string>
     <string name="onboarding_test_row_state_failed">Falhou</string>
     <string name="permissions_vpn_title">Permissão de VPN</string>
-    <string name="permissions_vpn_body">O Android pedirá para criar uma VPN local. Isso roteia o tráfego pelo app no seu dispositivo — nada é enviado externamente.</string>
+    <string name="permissions_vpn_body">O Android pedirá acesso à VPN para que o RIPDPI possa encaminhar o tráfego pelo túnel local. O RIPDPI usa os servidores da configuração ativa.</string>
     <string name="permissions_vpn_continue">Continuar</string>
     <string name="permissions_vpn_not_now">Agora não</string>
     <string name="permissions_vpn_error_title">Permissão ainda necessária</string>

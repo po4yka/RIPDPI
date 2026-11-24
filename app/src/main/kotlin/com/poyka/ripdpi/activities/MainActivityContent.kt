@@ -158,7 +158,6 @@ private fun ReadyMainActivityContent(
         controller = controller,
         shellState = shellState,
         canHandleStartConfiguredModeRequest = runtimeState.settingsLoaded,
-        connectionState = runtimeState.connectionState,
         snackbarHostState = snackbarHostState,
         onboardingHandOff = onboardingHandOff,
     )
@@ -210,11 +209,7 @@ private fun ReadyMainActivityContent(
             // The line has arrived in the hero. The button that ended onboarding gave its own haptic at the press.
             onLanded = { performHaptic(RipDpiHapticFeedback.Confirm) },
         )
-        MainActivityDialogs(
-            viewModel = viewModel,
-            controller = controller,
-            shellState = shellState,
-        )
+        MainActivityDialogs(viewModel = viewModel, controller = controller)
     }
 }
 
@@ -251,7 +246,6 @@ private fun MainActivityEffects(
     controller: MainActivityShellController,
     shellState: MainActivityShellState,
     canHandleStartConfiguredModeRequest: Boolean,
-    connectionState: ConnectionState,
     snackbarHostState: SnackbarHostState,
     onboardingHandOff: RipDpiHandOffState,
 ) {
@@ -315,10 +309,6 @@ private fun MainActivityEffects(
             controller.consumeStopConfiguredModeRequest()
         }
     }
-
-    LaunchedEffect(connectionState) {
-        controller.onConnectionStateChanged(connectionState)
-    }
 }
 
 private fun String.withSupportCode(supportCode: String?): String = supportCode?.let { "$this\n$it" } ?: this
@@ -327,13 +317,13 @@ private fun String.withSupportCode(supportCode: String?): String = supportCode?.
 private fun MainActivityDialogs(
     viewModel: MainViewModel,
     controller: MainActivityShellController,
-    shellState: MainActivityShellState,
 ) {
-    if (shellState.vpnPermissionDialogVisible) {
+    val vpnExplanationVisible by viewModel.vpnExplanationVisible.collectAsStateWithLifecycle()
+    if (vpnExplanationVisible) {
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
         VpnPermissionDialog(
             uiState = uiState,
-            onDismiss = controller::dismissVpnPermissionDialog,
+            onDismiss = viewModel::onVpnPermissionDismissed,
             onContinue = viewModel::onVpnPermissionContinueRequested,
         )
     }

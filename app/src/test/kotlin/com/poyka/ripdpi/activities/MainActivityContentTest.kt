@@ -371,8 +371,8 @@ class MainActivityContentTest {
     }
 
     @Test
-    fun `vpn dialog renders from shell state and continue emits vpn consent host command`() {
-        val controller = MainActivityShellController().apply { showVpnPermissionDialog() }
+    fun `vpn explanation renders from the view model and continue emits vpn consent host command`() {
+        val controller = MainActivityShellController()
         val commands = CopyOnWriteArrayList<MainActivityHostCommand>()
         val collectorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val collectorJob =
@@ -401,6 +401,7 @@ class MainActivityContentTest {
             )
         }
 
+        composeRule.runOnIdle { viewModel.onOpenVpnPermissionRequested() }
         composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialog).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialogContinue).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
@@ -412,7 +413,7 @@ class MainActivityContentTest {
 
     @Test
     fun `vpn dialog dismiss hides dialog`() {
-        val controller = MainActivityShellController().apply { showVpnPermissionDialog() }
+        val controller = MainActivityShellController()
         val viewModel = createViewModel()
         composeRule.setContent {
             MainActivityContent(
@@ -423,6 +424,7 @@ class MainActivityContentTest {
             )
         }
 
+        composeRule.runOnIdle { viewModel.onOpenVpnPermissionRequested() }
         composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialog).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialogDismiss).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {

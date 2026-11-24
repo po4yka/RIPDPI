@@ -24,7 +24,7 @@
     <string name="onboarding_validation_notifications_required">Разрешите уведомления, чтобы RIPDPI показывал статус сервиса проверки.</string>
     <string name="onboarding_validation_vpn_permission_denied">Разрешение VPN было отклонено, поэтому RIPDPI не смог подтвердить режим VPN.</string>
     <string name="permissions_vpn_title">Разрешение VPN</string>
-    <string name="permissions_vpn_body">Android запросит создание локального VPN. Это направляет трафик через приложение на вашем устройстве — ничего не отправляется во вне.</string>
+    <string name="permissions_vpn_body">Android запросит разрешение VPN, чтобы RIPDPI мог направлять трафик через локальный туннель. RIPDPI использует серверы из активной конфигурации.</string>
     <string name="permissions_vpn_continue">Продолжить</string>
     <string name="permissions_vpn_not_now">Не сейчас</string>
     <string name="permissions_vpn_error_title">Разрешение по-прежнему требуется</string>

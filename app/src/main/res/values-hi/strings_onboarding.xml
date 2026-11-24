@@ -58,7 +58,7 @@
     <string name="onboarding_test_row_state_done">पूर्ण</string>
     <string name="onboarding_test_row_state_failed">विफल</string>
     <string name="permissions_vpn_title">VPN अनुमति</string>
-    <string name="permissions_vpn_body">Android एक स्थानीय VPN बनाने के लिए पूछेगा। यह ट्रैफ़िक को आपके डिवाइस पर ऐप के माध्यम से रूट करता है — कुछ भी बाहरी रूप से नहीं भेजा जाता।</string>
+    <string name="permissions_vpn_body">Android VPN की अनुमति माँगेगा, ताकि RIPDPI ट्रैफ़िक को अपनी स्थानीय टनल से भेज सके। RIPDPI सक्रिय कॉन्फ़िगरेशन में दिए गए सर्वर इस्तेमाल करता है।</string>
     <string name="permissions_vpn_continue">जारी रखें</string>
     <string name="permissions_vpn_not_now">अभी नहीं</string>
     <string name="permissions_vpn_error_title">अनुमति अभी भी आवश्यक है</string>

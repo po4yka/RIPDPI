@@ -16,7 +16,7 @@
     <string name="onboarding_setup_finish">Fertigstellen</string>
     <string name="permissions_background_activity_body_huawei">Huawei-Geräte können RIPDPI im Hintergrund stoppen. Gehen Sie zu Einstellungen &gt; Akku &gt; App-Start, suchen Sie RIPDPI, deaktivieren Sie die automatische Verwaltung und aktivieren Sie Automatischer Start, Sekundärer Start und Im Hintergrund ausführen.</string>
     <string name="permissions_battery_body">Erlauben Sie RIPDPI, die Android-Akkuoptimierung zu ignorieren, damit Doze das lokale VPN oder den Proxy im Hintergrund seltener unterbricht.</string>
-    <string name="permissions_vpn_body">Android wird nach der Erstellung eines lokalen VPN fragen. Dadurch wird der Verkehr durch die App auf Ihrem Gerät geleitet — nichts wird nach außen gesendet.</string>
+    <string name="permissions_vpn_body">Android fragt nach der VPN-Berechtigung, damit RIPDPI den Datenverkehr durch seinen lokalen Tunnel leiten kann. RIPDPI verwendet die Server der aktiven Konfiguration.</string>
     <string name="permissions_vpn_title">VPN-Berechtigung</string>
     <string name="biometric_dialog_subtitle">Bestätigen Sie Ihre Identität</string>
     <string name="biometric_prompt_no_pin_title">Backup-PIN nicht verfügbar</string>

@@ -1418,7 +1418,7 @@ class MainViewModelTest {
 
             viewModel.effects.test {
                 viewModel.onPrimaryConnectionAction()
-                assertEquals(MainEffect.ShowVpnPermissionDialog, awaitItem())
+                assertTrue(viewModel.vpnExplanationVisible.value)
                 cancelAndIgnoreRemainingEvents()
             }
             collector.cancel()
@@ -1446,6 +1446,8 @@ class MainViewModelTest {
             advanceUntilIdle()
 
             viewModel.effects.test {
+                viewModel.onToggleVpn(enabled = true)
+                assertTrue(viewModel.vpnExplanationVisible.value)
                 viewModel.onVpnPermissionContinueRequested()
                 val effect = awaitItem() as MainEffect.RequestPermission
                 assertEquals(PermissionKind.VpnConsent, effect.kind)
@@ -1730,6 +1732,8 @@ class MainViewModelTest {
 
             viewModel.effects.test {
                 viewModel.onRepairPermissionRequested(PermissionKind.VpnConsent)
+                assertTrue(viewModel.vpnExplanationVisible.value)
+                viewModel.onVpnPermissionContinueRequested()
                 val effect = awaitItem() as MainEffect.RequestPermission
                 assertEquals(PermissionKind.VpnConsent, effect.kind)
 
@@ -1747,6 +1751,40 @@ class MainViewModelTest {
             }
 
             collector.cancel()
+        }
+
+    @Test
+    fun `retrying a denied VPN repair still only grants consent`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val provider =
+                FakePermissionStatusProvider(
+                    PermissionSnapshot(vpnConsent = PermissionStatus.RequiresSystemPrompt),
+                )
+            val viewModel =
+                createViewModel(
+                    serviceController = serviceController,
+                    permissionStatusProvider = provider,
+                )
+
+            viewModel.effects.test {
+                viewModel.onRepairPermissionRequested(PermissionKind.VpnConsent)
+                assertTrue(viewModel.vpnExplanationVisible.value)
+                viewModel.onVpnPermissionContinueRequested()
+                assertEquals(PermissionKind.VpnConsent, (awaitItem() as MainEffect.RequestPermission).kind)
+                viewModel.onPermissionResult(PermissionKind.VpnConsent, PermissionResult.Denied)
+                assertTrue(awaitItem() is MainEffect.ShowError)
+
+                viewModel.onOpenVpnPermissionRequested()
+                assertTrue(viewModel.vpnExplanationVisible.value)
+                viewModel.onVpnPermissionContinueRequested()
+                assertEquals(PermissionKind.VpnConsent, (awaitItem() as MainEffect.RequestPermission).kind)
+                provider.snapshot = provider.snapshot.copy(vpnConsent = PermissionStatus.Granted)
+                viewModel.onPermissionResult(PermissionKind.VpnConsent, PermissionResult.Granted)
+
+                assertTrue(serviceController.startedModes.isEmpty())
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 
     @Test
@@ -1772,7 +1810,7 @@ class MainViewModelTest {
 
             viewModel.effects.test {
                 viewModel.onPrimaryConnectionAction()
-                assertEquals(MainEffect.ShowVpnPermissionDialog, awaitItem())
+                assertTrue(viewModel.vpnExplanationVisible.value)
 
                 viewModel.onVpnPermissionContinueRequested()
                 assertEquals(PermissionKind.VpnConsent, (awaitItem() as MainEffect.RequestPermission).kind)
@@ -2046,7 +2084,7 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `home full analysis starts automatic audit profile`() =
+    fun `home full analysis runs with no VPN consent`() =
         runTest {
             val compositeRunService = StubDiagnosticsHomeCompositeRunService()
             val viewModel =
@@ -2056,7 +2094,10 @@ class MainViewModelTest {
                             workflowService = StubDiagnosticsHomeWorkflowService(),
                             compositeRunService = compositeRunService,
                         ),
-                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                    permissionStatusProvider =
+                        FakePermissionStatusProvider(
+                            PermissionSnapshot(vpnConsent = PermissionStatus.RequiresSystemPrompt),
+                        ),
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
@@ -2335,10 +2376,14 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `verified vpn action starts vpn mode after actionable audit`() =
+    fun `verified vpn explanation can be cancelled and retried`() =
         runTest {
             val compositeRunService = StubDiagnosticsHomeCompositeRunService()
             val serviceController = FakeServiceController()
+            val provider =
+                FakePermissionStatusProvider(
+                    PermissionSnapshot(vpnConsent = PermissionStatus.RequiresSystemPrompt),
+                )
             val homeWorkflowService =
                 StubDiagnosticsHomeWorkflowService().apply {
                     currentFingerprint = "fp-1"
@@ -2351,7 +2396,7 @@ class MainViewModelTest {
                             compositeRunService = compositeRunService,
                         ),
                     serviceController = serviceController,
-                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                    permissionStatusProvider = provider,
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
@@ -2369,6 +2414,21 @@ class MainViewModelTest {
             advanceUntilIdle()
 
             viewModel.onStartVerifiedVpn()
+            advanceUntilIdle()
+            assertTrue(viewModel.vpnExplanationVisible.value)
+            assertTrue(viewModel.homeDiagnosticsUiState.value.verifiedVpnAction.busy)
+
+            viewModel.onVpnPermissionDismissed()
+            advanceUntilIdle()
+            assertFalse(viewModel.vpnExplanationVisible.value)
+            assertFalse(viewModel.homeDiagnosticsUiState.value.verifiedVpnAction.busy)
+            assertTrue(serviceController.startedModes.isEmpty())
+
+            viewModel.onStartVerifiedVpn()
+            advanceUntilIdle()
+            viewModel.onVpnPermissionContinueRequested()
+            provider.snapshot = provider.snapshot.copy(vpnConsent = PermissionStatus.Granted)
+            viewModel.onPermissionResult(PermissionKind.VpnConsent, PermissionResult.Granted)
             advanceUntilIdle()
 
             assertEquals(listOf(Mode.VPN), serviceController.startedModes)

@@ -25,7 +25,7 @@
     <string name="onboarding_validation_vpn_permission_denied">VPN 权限被拒绝,因此 RIPDPI 无法验证 VPN 模式。</string>
     <string name="permissions_background_activity_body_xiaomi">小米/MIUI 设备可能会阻止 RIPDPI 在后台运行。请前往 设置 &gt; 应用 &gt; 应用管理 &gt; RIPDPI,将省电策略设置为「无限制」并启用「自启动」。</string>
     <string name="permissions_battery_title">电池优化</string>
-    <string name="permissions_vpn_body">Android 会请求创建本地 VPN。此操作通过应用在你的设备上路由流量 — 不会发送到外部。</string>
+    <string name="permissions_vpn_body">Android 将请求 VPN 权限，以便 RIPDPI 通过本地隧道路由流量。RIPDPI 使用当前配置中的服务器。</string>
     <string name="permissions_vpn_not_now">暂不</string>
     <string name="biometric_dialog_subtitle">验证您的身份</string>
     <string name="biometric_prompt_no_pin_body">此设备目前仅配置了生物识别认证。</string>

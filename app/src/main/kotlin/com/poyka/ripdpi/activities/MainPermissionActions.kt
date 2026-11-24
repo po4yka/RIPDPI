@@ -13,6 +13,7 @@ import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 internal class MainPermissionActions(
@@ -23,12 +24,16 @@ internal class MainPermissionActions(
     private val stringResolver: StringResolver,
     val permissionState: MutableStateFlow<PermissionRuntimeState>,
     private val onStartMode: (Mode) -> Unit,
-    private val onRunHomeAnalysis: () -> Unit,
+    private val onStartVerifiedVpn: () -> Unit,
     private val onShowPermissionIssue: (PermissionIssueUiState) -> Unit,
     private val onDismissError: () -> Unit,
 ) {
     private val permissionOverrides = mutableMapOf<PermissionKind, PermissionStatus>()
     private var pendingPermissionAction: PermissionAction? = null
+    private var pendingVpnAction: PermissionAction? = null
+    private var vpnRequestInProgress = false
+    private val _vpnExplanationVisible = MutableStateFlow(false)
+    val vpnExplanationVisible = _vpnExplanationVisible.asStateFlow()
     val localNetwork =
         MainLocalNetworkPermissionActions(
             mutations = mutations,
@@ -41,12 +46,32 @@ internal class MainPermissionActions(
         )
 
     fun onVpnPermissionContinueRequested() {
-        resolvePermissionAction(PermissionAction.StartVpnMode)
+        if (pendingVpnAction == null || vpnRequestInProgress) return
+        _vpnExplanationVisible.value = false
+        vpnRequestInProgress = true
+        val intent = permissionPlatformBridge.prepareVpnPermissionIntent()
+        if (intent == null) {
+            handleVpnPermissionResult(PermissionResult.Granted)
+        } else {
+            mutations.trySend(MainEffect.RequestPermission(PermissionKind.VpnConsent, intent))
+        }
+    }
+
+    fun onVpnPermissionDismissed() {
+        pendingVpnAction = null
+        _vpnExplanationVisible.value = false
     }
 
     fun onOpenVpnPermissionRequested() {
-        permissionState.update { current -> current.copy(issue = null) }
-        mutations.trySend(MainEffect.ShowVpnPermissionDialog)
+        showVpnPermissionDialog(pendingVpnAction ?: PermissionAction.RepairPermission(PermissionKind.VpnConsent))
+    }
+
+    private fun showVpnPermissionDialog(action: PermissionAction) {
+        if (vpnRequestInProgress) return
+        pendingVpnAction =
+            if (action == PermissionAction.StartConfiguredMode) PermissionAction.StartVpnMode else action
+        permissionState.update { it.copy(issue = null) }
+        _vpnExplanationVisible.value = true
     }
 
     fun onRepairPermissionRequested(kind: PermissionKind) {
@@ -107,7 +132,10 @@ internal class MainPermissionActions(
             return
         }
 
-        if (action.isStartModeAction()) localNetwork.cancelDeferredAction()
+        if (action.isStartModeAction()) {
+            localNetwork.cancelDeferredAction()
+            if (!vpnRequestInProgress) onVpnPermissionDismissed()
+        }
         onDismissError()
         val mergedSnapshot = mergeSnapshotWithOverrides(permissionStatusProvider.currentSnapshot())
         permissionState.update { it.copy(snapshot = mergedSnapshot) }
@@ -169,7 +197,7 @@ internal class MainPermissionActions(
             }
 
             PermissionKind.VpnConsent -> {
-                requestVpnConsent(action, snapshot)
+                showVpnPermissionDialog(action)
             }
 
             PermissionKind.AlwaysOnVpn,
@@ -194,36 +222,6 @@ internal class MainPermissionActions(
                         payload = createBatteryOptimizationIntent(),
                     ),
                 )
-            }
-        }
-    }
-
-    private fun requestVpnConsent(
-        action: PermissionAction,
-        snapshot: PermissionSnapshot,
-    ) {
-        when (action) {
-            PermissionAction.StartConfiguredMode -> {
-                mutations.trySend(MainEffect.ShowVpnPermissionDialog)
-            }
-
-            PermissionAction.StartProxyMode,
-            PermissionAction.StartVpnMode,
-            PermissionAction.RunHomeAnalysis,
-            is PermissionAction.RepairPermission,
-            -> {
-                val prepareIntent = permissionPlatformBridge.prepareVpnPermissionIntent()
-                if (prepareIntent == null) {
-                    onPermissionResult(PermissionKind.VpnConsent, PermissionResult.Granted)
-                } else {
-                    permissionState.update { it.copy(issue = null, snapshot = snapshot) }
-                    mutations.trySend(
-                        MainEffect.RequestPermission(
-                            kind = PermissionKind.VpnConsent,
-                            payload = prepareIntent,
-                        ),
-                    )
-                }
             }
         }
     }
@@ -272,16 +270,20 @@ internal class MainPermissionActions(
     }
 
     private fun handleVpnPermissionResult(result: PermissionResult) {
+        vpnRequestInProgress = false
+        val action = pendingVpnAction
         when (result) {
             PermissionResult.Granted -> {
+                pendingVpnAction = null
                 permissionOverrides.remove(PermissionKind.VpnConsent)
                 refreshPermissionSnapshot()
-                resumePendingAction()
+                if (action != null) continueResolvedAction(action)
             }
 
             PermissionResult.Denied,
             PermissionResult.DeniedPermanently,
             -> {
+                if (action == null) return
                 permissionOverrides[PermissionKind.VpnConsent] = PermissionStatus.Denied
                 pendingPermissionAction = null
                 refreshPermissionSnapshot()
@@ -289,7 +291,7 @@ internal class MainPermissionActions(
                     createPermissionIssue(
                         kind = PermissionKind.VpnConsent,
                         status = PermissionStatus.Denied,
-                        blocking = true,
+                        blocking = action !is PermissionAction.RepairPermission,
                         stringResolver = stringResolver,
                     ),
                 )
@@ -359,8 +361,8 @@ internal class MainPermissionActions(
                 onStartMode(Mode.VPN)
             }
 
-            PermissionAction.RunHomeAnalysis -> {
-                onRunHomeAnalysis()
+            PermissionAction.StartVerifiedVpn -> {
+                onStartVerifiedVpn()
             }
 
             is PermissionAction.RepairPermission -> {
@@ -416,4 +418,5 @@ internal class MainPermissionActions(
 private fun PermissionAction.isStartModeAction(): Boolean =
     this is PermissionAction.StartConfiguredMode ||
         this is PermissionAction.StartProxyMode ||
-        this is PermissionAction.StartVpnMode
+        this is PermissionAction.StartVpnMode ||
+        this is PermissionAction.StartVerifiedVpn

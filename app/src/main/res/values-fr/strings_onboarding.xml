@@ -16,7 +16,7 @@
     <string name="onboarding_setup_finish">Terminer</string>
     <string name="permissions_background_activity_body_huawei">Les appareils Huawei peuvent arrêter RIPDPI en arrière-plan. Allez dans Paramètres &gt; Batterie &gt; Lancement d\'applications, trouvez RIPDPI, désactivez la gestion automatique, et activez Lancement automatique, Lancement secondaire et Exécution en arrière-plan.</string>
     <string name="permissions_battery_body">Autorisez RIPDPI à ignorer l\'optimisation de batterie d\'Android afin que Doze risque moins d\'interrompre le VPN local ou le proxy en arrière-plan.</string>
-    <string name="permissions_vpn_body">Android demandera à créer un VPN local. Cela achemine le trafic via l\'application sur votre appareil — rien n\'est envoyé à l\'extérieur.</string>
+    <string name="permissions_vpn_body">Android demandera l’autorisation VPN pour que RIPDPI puisse acheminer le trafic par son tunnel local. RIPDPI utilise les serveurs de la configuration active.</string>
     <string name="permissions_vpn_title">Autorisation VPN</string>
     <string name="biometric_dialog_subtitle">Confirmez votre identité</string>
     <string name="biometric_prompt_no_pin_title">PIN de secours indisponible</string>

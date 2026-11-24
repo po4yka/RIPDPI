@@ -51,8 +51,6 @@ sealed interface MainEffect {
 
     data object ConnectionEstablished : MainEffect
 
-    data object ShowVpnPermissionDialog : MainEffect
-
     data class ShowError(
         val message: String,
         val supportCode: String? = null,
@@ -70,11 +68,10 @@ sealed interface MainEffect {
 @Immutable
 internal data class MainActivityRuntimeUiState(
     val settingsLoaded: Boolean = false,
-    val connectionState: ConnectionState = ConnectionState.Disconnected,
 )
 
 internal fun MainUiState.toActivityRuntimeUiState(): MainActivityRuntimeUiState =
-    MainActivityRuntimeUiState(settingsLoaded = settingsLoaded, connectionState = connectionState)
+    MainActivityRuntimeUiState(settingsLoaded = settingsLoaded)
 
 @Stable
 data class MainUiState(

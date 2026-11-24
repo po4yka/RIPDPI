@@ -20,7 +20,6 @@ internal data class MainActivityShellState(
     val startConfiguredModeRequested: Boolean = false,
     val stopConfiguredModeRequested: Boolean = false,
     val selectorSelectionRequested: SelectorSelectionRequest? = null,
-    val vpnPermissionDialogVisible: Boolean = false,
     val relockRequested: Boolean = false,
 )
 
@@ -179,10 +178,6 @@ internal class MainActivityShellController(
                 _hostCommands.trySend(MainActivityHostCommand.OpenIntent(effect.intent))
             }
 
-            MainEffect.ShowVpnPermissionDialog -> {
-                showVpnPermissionDialog()
-            }
-
             MainEffect.ConnectionEstablished -> {
                 _uiEvents.trySend(MainActivityUiEvent.ConnectionEstablished)
             }
@@ -236,22 +231,8 @@ internal class MainActivityShellController(
         _state.update { it.copy(selectorSelectionRequested = null) }
     }
 
-    fun showVpnPermissionDialog() {
-        _state.update { it.copy(vpnPermissionDialogVisible = true) }
-    }
-
-    fun dismissVpnPermissionDialog() {
-        _state.update { it.copy(vpnPermissionDialogVisible = false) }
-    }
-
     fun consumeRelockRequest() {
         _state.update { it.copy(relockRequested = false) }
-    }
-
-    fun onConnectionStateChanged(connectionState: ConnectionState) {
-        if (connectionState == ConnectionState.Connecting || connectionState == ConnectionState.Connected) {
-            dismissVpnPermissionDialog()
-        }
     }
 
     internal fun emitHostCommand(command: MainActivityHostCommand) {

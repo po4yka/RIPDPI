@@ -168,7 +168,9 @@ class MainViewModel
                 stringResolver = stringResolver,
                 permissionState = permissionState,
                 onStartMode = { mode -> connectionActions.startMode(mode) },
-                onRunHomeAnalysis = { homeDiagnostics.actions.runFullAnalysis() },
+                onStartVerifiedVpn = {
+                    homeDiagnostics.actions.continueVerifiedVpnStart { connectionActions.startMode(Mode.VPN) }
+                },
                 onShowPermissionIssue = { issue ->
                     permissionState.update { it.copy(issue = issue) }
                     connectionActions.showPermissionIssue(issue)
@@ -188,7 +190,7 @@ class MainViewModel
                 diagnosticsDependencies = mainDiagnosticsDependencies,
                 stringResolver = stringResolver,
                 requestVpnStart = {
-                    permissionActions.resolvePermissionAction(PermissionAction.StartVpnMode)
+                    permissionActions.resolvePermissionAction(PermissionAction.StartVerifiedVpn)
                 },
                 pcapCaptureRuntimeController = pcapCaptureRuntimeController,
             )
@@ -297,6 +299,7 @@ class MainViewModel
 
         fun onStopRequested() {
             permissionActions.localNetwork.cancelDeferredAction()
+            onVpnPermissionDismissed()
             // A freshly accepted start can still report Halted while its startup coroutine is
             // suspended. Forward Stop for that optimistic Connecting state as well. The service
             // owns the authoritative Android-lockdown check because its cached UI snapshot can be stale.
@@ -315,6 +318,14 @@ class MainViewModel
         }
 
         fun onVpnPermissionContinueRequested() = permissionActions.onVpnPermissionContinueRequested()
+
+        internal val vpnExplanationVisible
+            get() = permissionActions.vpnExplanationVisible
+
+        fun onVpnPermissionDismissed() {
+            permissionActions.onVpnPermissionDismissed()
+            homeDiagnostics.actions.cancelPendingVerifiedVpnStart()
+        }
 
         fun onOpenVpnPermissionRequested() = permissionActions.onOpenVpnPermissionRequested()
 
@@ -341,7 +352,7 @@ class MainViewModel
             mainLifecycleDependencies.settingsDismissCoordinator.dismissBackgroundGuidance(viewModelScope)
         }
 
-        fun onRunHomeFullAnalysis() = permissionActions.resolvePermissionAction(PermissionAction.RunHomeAnalysis)
+        fun onRunHomeFullAnalysis() = homeDiagnostics.actions.runFullAnalysis()
 
         fun onCancelHomeAnalysis() = homeDiagnostics.actions.cancelAnalysis()
 

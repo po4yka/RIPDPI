@@ -24,7 +24,7 @@
     <string name="onboarding_validation_notifications_required">اسمح بالإشعارات حتى يتمكَّن RIPDPI من عرض حالة خدمة التحقُّق.</string>
     <string name="onboarding_validation_vpn_permission_denied">تمَّ رفض إذن VPN، لذا تعذَّر على RIPDPI التحقُّق من وضع VPN.</string>
     <string name="permissions_vpn_title">إذن VPN</string>
-    <string name="permissions_vpn_body">سيطلب Android إنشاء VPN محلية. يُوجّه ذلك حركة المرور عبر التطبيق على جهازك دون إرسال أي شيء خارجياً.</string>
+    <string name="permissions_vpn_body">سيطلب Android إذن VPN ليتمكّن RIPDPI من توجيه حركة المرور عبر نفقه المحلي. يستخدم RIPDPI الخوادم في الإعداد النشط.</string>
     <string name="permissions_vpn_continue">متابعة</string>
     <string name="permissions_vpn_not_now">ليس الآن</string>
     <string name="permissions_vpn_error_title">الإذن مطلوب</string>
