@@ -529,8 +529,9 @@ The root helper is a **separate process**, not a `.so` — this boundary is
 Unix-socket IPC, **not JNI**.
 
 - **Kotlin lifecycle.** `RootHelperManager`
-  (`core/service/.../services/RootHelperManager.kt`) — when `root_mode_enabled`
-  is set — extracts the `ripdpi-root-helper` binary from APK assets, launches it
+  (`core/service/.../services/RootHelperManager.kt`) serves F-Droid and GitHub.
+  When `root_mode_authorized` is set and the selected policy uses the helper,
+  it extracts the `ripdpi-root-helper` binary from APK assets and launches it
   via `su`, and polls a filesystem-namespace Unix socket (`root_helper.sock`)
   for readiness, guarded by a 32-byte secure-random session nonce
   (`root_helper.sock.nonce`). `RootDetector` performs the `su` access test.
@@ -550,7 +551,7 @@ Unix-socket IPC, **not JNI**.
 - **Mandatory non-root fallback.** Every privileged op must fall back to a
   local non-privileged path (or be inert) when no helper is registered. The app
   must fully function on non-rooted devices; root features are opt-in behind
-  `root_mode_enabled`.
+  `root_mode_authorized`.
 - **Trust boundary.** The helper is a uid-0 process — treat every input as
   untrusted; protocol changes are security-sensitive.
 

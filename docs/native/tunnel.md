@@ -48,7 +48,7 @@ flowchart TD
     E --> O["libripdpi.so\nlocal SOCKS5 proxy"]
 ```
 
-The privileged raw-packet path is passed to native code as `rootHelperSocketPath` in `Tun2SocksConfig`. `RipDpiVpnService` only sets that field after `RootHelperManager` has started the helper and confirmed that the Unix socket accepts connections.
+In F-Droid and GitHub builds, `Tun2SocksConfig.packetBackendSocketPath` carries the helper endpoint to native code. The runtime supplies it after the selected policy starts a helper and the Unix socket is ready.
 
 See [../packet-strategy-runtime.md](../packet-strategy-runtime.md) for the action matrix and root-helper lifecycle diagram.
 

@@ -38,6 +38,37 @@ The shared About screen shows one Updates section. The flavor implementation dec
 - `fdroid` reports that F-Droid or a compatible client handles updates. GitHub APK update code is not compiled into this flavor.
 - `github` checks GitHub Releases, reads `update.json`, verifies the selected APK, and launches Android installer UI through a content URI.
 
+## Root Mode and Packet Capture
+
+| Channel | Root mode | PCAP recording and viewing |
+| --- | --- | --- |
+| Google Play | Excluded from the package | Available |
+| F-Droid | Optional | Available |
+| GitHub Releases | Optional | Available |
+
+In the F-Droid and GitHub builds, open **Settings → Connection → Root mode**
+and turn on **Use root for strategies** to request access. The screen shows the
+access check and the helper status for the current connection. A saved
+authorization alone leaves the helper idle. The service starts it when the
+selected policy uses it. After a refusal, timeout, or helper failure, use
+**Check again** for a new access check. Only systems with a compatible root
+manager can grant access.
+
+Authorization belongs to the device. Backups do not restore it.
+If you used a build with the legacy root toggle, confirm access again after
+updating. The legacy setting did not record whether the device granted access.
+
+The Play build excludes the root settings, permission request, and helper
+assets. The release candidate workflow checks the signed Play AAB, its R8
+mapping, the generated Play APK splits, and the expected helper assets in the
+F-Droid and GitHub APKs. See the
+[artifact verifier](../scripts/ci/verify_play_privilege_boundary.py).
+
+In all builds, PCAP recording requires separate consent and an active VPN.
+You can open existing captures after the VPN stops. Recording and viewing
+work on devices without root. For the capture workflow, see the
+[diagnostics guide](user-manual-diagnostics-ru.md#захват-пакетов-pcap).
+
 ## Signing Strategy
 
 The application ID currently stays `com.poyka.ripdpi` across all channels. Cross-channel replacement works only when the installed app and the candidate update use the same signing certificate lineage. If Play App Signing uses a different signing lineage than APK channels, users cannot update between those channels in place even when the package name matches.

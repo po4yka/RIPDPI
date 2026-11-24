@@ -574,6 +574,16 @@ Optional runner inputs:
 
 The Android runner reuses the shared fixture manifest, resets fixture faults/events between scenarios, collects `logcat`, `dumpsys connectivity`, `ip addr`, `ip route`, and grabs a failure screenshot on test failures. On rooted emulators or rooted devices with `tcpdump` installed, `capture_mode=raw` adds an on-device `pcap`; otherwise `auto` falls back to the ADB-observable lane.
 
+The runner capture is separate from the in-app PCAP recorder. The app records
+on a device without root when it has capture consent and an active VPN. See the
+[diagnostics guide](user-manual-diagnostics-ru.md#захват-пакетов-pcap).
+
+The extended Android test `RootModeAuthorizationInstrumentedTest` accepts the
+`ripdpi.rootAuthorization` instrumentation argument. Use an isolated debug
+installation. Use `unavailable` on an image without `su`. The `granted`,
+`denied-then-granted`, and `granted-live-vpn` cases require a root manager that
+can grant access to the app. The live case also requires Android VPN consent.
+
 In the raw lane, each `@RawPacketValidationOnly` scenario must pass its test and show its packet pattern in the capture. A valid pattern does not excuse a failed test. `hostfake`, `multidisorder`, `ipfrag2`, `seqovl`, and `fakerst` use root mode, so they fail on an image whose `su` the app cannot run.
 
 Physical-device note: `adb reverse` only covers TCP, so the runner skips DoQ scenarios when the fixture host is loopback on an unrooted physical device. Emulators and direct host-reachable devices can exercise the full DoQ path.

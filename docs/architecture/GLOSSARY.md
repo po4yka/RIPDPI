@@ -88,7 +88,7 @@ profile** and not the UI's starter `PresetCard`.
 operation that requires `uid 0` (FakeRst, MultiDisorder, raw IPv4/IPv6 emit,
 …). Primitives live in `native/rust/crates/ripdpi-privileged-ops`; each is
 dispatched to the **root helper** when available and **must** fall back to a
-local non-privileged path otherwise. Opt-in behind `root_mode_enabled`.
+local non-privileged path otherwise. Opt-in behind `root_mode_authorized`.
 
 **probe** — One diagnostic test executed against one target — an HTTP, TLS,
 DNS, TCP fat-header, Telegram-availability, or strategy probe. Probe types are
@@ -129,7 +129,7 @@ subscription). The active relay kind is the `relay_kind` string (see
 **root helper** — `ripdpi-root-helper`, a standalone privileged ELF binary
 (crate `native/rust/crates/ripdpi-root-helper`, not a `.so`) extracted from APK
 assets, launched via `su`, and reached over Unix-socket IPC. It executes
-**privileged operations** on rooted devices. Opt-in behind `root_mode_enabled`;
+**privileged operations** on rooted devices. Opt-in behind `root_mode_authorized`;
 the app must fully function on non-rooted devices without it. Lifecycle owner:
 `RootHelperManager.kt`.
 

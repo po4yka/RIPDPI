@@ -35,7 +35,7 @@ See [README.md](../../README.md) for the user-facing feature list.
 | **VPN / TUN** | `RipDpiVpnService.kt` (extends `LifecycleVpnService.kt`) | `VpnService` TUN device → TUN-to-SOCKS bridge → local proxy | `Tun2SocksTunnel.kt` → `libripdpi-tunnel.so`, then `libripdpi.so` |
 | **Diagnostics** | Driven from `:core:diagnostics` UI | Active scans + DNS/TLS/strategy probes; stops the VPN service for RAW_PATH scans | `NetworkDiagnostics.kt` → `ripdpi-monitor-engine` (linked into `libripdpi.so`) |
 | **Relay** | Composed into proxy/VPN mode | Encrypted relay transport; JNI relays via `RipDpiRelay.kt` / `RipDpiWarp.kt`; subprocess helpers (NaiveProxy, `cloudflared`) via `Subprocess*` services | `libripdpi-relay.so` / `libripdpi-warp.so`; subprocess helper binaries |
-| **Root helper** (optional, opt-in) | `RootHelperManager.kt` | Privileged raw-socket ops (FakeRst, MultiDisorder, IP fragmentation, raw IPv4/IPv6 emit) behind `root_mode_enabled` | `ripdpi-root-helper` ELF binary, Unix-socket IPC with SCM_RIGHTS fd passing |
+| **Root helper** (F-Droid and GitHub, opt-in) | `RootHelperManager.kt` | Privileged raw-socket ops (FakeRst, MultiDisorder, IP fragmentation, raw IPv4/IPv6 emit) behind `root_mode_authorized` | `ripdpi-root-helper` ELF binary, Unix-socket IPC with SCM_RIGHTS fd passing |
 
 Both proxy and VPN modes work **with or without** a relay configured. The app
 must fully function on **non-rooted devices**; root features degrade gracefully.

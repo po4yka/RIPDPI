@@ -40,7 +40,7 @@ convention plugin
 | `libripdpi-warp.so` | `ripdpi-warp-android` | `cdylib` | `:core:engine:buildRustNativeLibs` | `jniLibs/<abi>/` |
 | `libripdpi-amneziawg.so` | `ripdpi-amneziawg-android` | `cdylib` | `:core:engine:buildRustNativeLibs` | `jniLibs/<abi>/` |
 | `libripdpi-tunnel.so` | `ripdpi-tunnel-android` | `cdylib` | `:core:engine:buildRustNativeLibs` | `jniLibs/<abi>/` |
-| `ripdpi-root-helper` | `ripdpi-root-helper` | `bin` | `:core:engine:buildRustRootHelper` | APK assets (`rootHelperAssets/bin/<abi>/`) — run via `su` |
+| `ripdpi-root-helper` | `ripdpi-root-helper` | `bin` | `:core:engine:buildRustRootHelper` | F-Droid and GitHub APK assets (`rootHelperAssets/bin/<abi>/`) — run via `su` |
 | `ripdpi-naiveproxy` | `ripdpi-naiveproxy` | `bin` (`src/main.rs`) | NaiveProxy artifact task | jniLibs as `libripdpi-naiveproxy.so`, extracted at install and run from `nativeLibraryDir` as a subprocess helper |
 | `ripdpi-cloudflare-origin` | `ripdpi-cloudflare-origin` | `bin` | Cloudflare-origin artifact task | jniLibs as `libripdpi-cloudflare-origin.so`, extracted at install and run from `nativeLibraryDir` as a subprocess helper |
 | `ripdpi-webtunnel` | `ripdpi-webtunnel` | `bin` (`src/main.rs`) | Pluggable-transport asset task | jniLibs as `lib<upstreamBinary>.so` (name from `pluggable-transports.json`), run from `nativeLibraryDir` as a Tor PT managed-client helper |
@@ -370,7 +370,7 @@ and the only `cdylib` roots:
 
 ## 7. Root-helper / privileged crates
 
-Privileged execution is opt-in (rooted devices, `root_mode_enabled`) and isolated
+Privileged execution is opt-in (rooted devices, `root_mode_authorized`) and isolated
 into a small set of crates:
 
 | Crate | Role |

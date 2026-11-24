@@ -34,8 +34,9 @@ these breaks something downstream:
   See [`.claude/rules/vpnservice-protect-invariant.md`](../../.claude/rules/vpnservice-protect-invariant.md).
 - **No backend server.** Features work offline/locally; external data is static
   files or bundled assets only.
-- **Non-rooted baseline.** The app must fully function without root; root-only
-  capability is opt-in behind `root_mode_enabled` and degrades gracefully.
+- **Non-rooted baseline.** The app must fully function without root. Privileged
+  capabilities are opt-in behind `root_mode_authorized` in the extended F-Droid
+  and GitHub builds. Use a compatible fallback when the helper is unavailable.
 - **JNI containment.** Production normal/build dependencies may touch `jni` or
   `android-support` only in the 13 allowlisted L8 Android crates (12 currently
   depend on `jni`; see [`NATIVE_RUST.md`](NATIVE_RUST.md) §5). Dev-only test
@@ -455,7 +456,7 @@ validated recommendations drive remembered-policy persistence.
 ### Non-root fallback
 
 If the setting gates a root-only capability, it must be inert (not an error)
-when `root_mode_enabled` is off or root is unavailable.
+when `root_mode_authorized` is off or root is unavailable.
 
 ### Docs / tests / goldens to update
 
@@ -576,7 +577,7 @@ This is the defining constraint. Every privileged op **must** have a
 non-privileged path or degrade to inert: `ripdpi-runtime-platform` dispatch
 checks `with_root_helper()` and falls back to local Linux calls. The app must
 fully function on non-rooted devices; the new op is opt-in behind
-`root_mode_enabled`. Tactics are tiered `non_root_production` /
+`root_mode_authorized`. Tactics are tiered `non_root_production` /
 `rooted_production` / `lab_diagnostics_only` — device capability checks decide
 whether an emitter runs, they do not change the taxonomy.
 

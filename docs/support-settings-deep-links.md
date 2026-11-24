@@ -24,9 +24,9 @@ The package schema is versioned independently from the protobuf settings schema.
   "operations": [
     {
       "op": "set",
-      "path": "settings.root_mode_enabled",
+      "path": "settings.proxy_allow_lan",
       "value": false,
-      "sensitive_reason": "Disables rooted-device packet primitives for this support session."
+      "sensitive_reason": "Limits the local proxy listener to this device."
     }
   ]
 }
@@ -45,7 +45,7 @@ Fields:
 
 ## Setting coverage
 
-The registry is generated at runtime from `AppSettings.Builder` setters and repeated-field `addAll*` methods, excluding protobuf internals such as `setUnknownFields`. This means every top-level `AppSettings` field with a generated builder setter is addressable as `settings.<snake_case_field_name>`, and new settings become support-link addressable automatically when the protobuf builder exposes them.
+The registry is generated at runtime from `AppSettings.Builder` setters and repeated-field `addAll*` methods, excluding protobuf internals such as `setUnknownFields`. This means every top-level `AppSettings` field with a generated builder setter for that build is addressable as `settings.<snake_case_field_name>`, and new settings become support-link addressable automatically when the protobuf builder exposes them.
 
 Supported value shapes:
 
@@ -54,7 +54,9 @@ Supported value shapes:
 - `StrategyTcpStep`, `StrategyUdpStep`, and other protobuf-message settings use unpadded URL-safe Base64 of the serialized protobuf bytes.
 - Repeated TCP/UDP strategy chains use arrays of those encoded protobuf-message strings.
 
-Sensitive paths are flagged in the preview when they are explicitly listed or when the normalized path contains `token`, `credential`, `password`, `private_key`, or `keylog`. The explicit sensitive list currently includes `settings.root_mode_enabled`, `settings.proxy_allow_lan`, `settings.relay_dns_over_tunnel_enabled`, `settings.community_comparison_enabled`, `settings.detection_diagnostic_tls_keylog_path`, and `settings.ws_tunnel_allow_insecure_sni`.
+Sensitive paths are flagged in the preview when they are explicitly listed or when the normalized path contains `token`, `credential`, `password`, `private_key`, or `keylog`. The explicit sensitive list currently includes `settings.proxy_allow_lan`, `settings.relay_dns_over_tunnel_enabled`, `settings.community_comparison_enabled`, `settings.detection_diagnostic_tls_keylog_path`, and `settings.ws_tunnel_allow_insecure_sni`.
+
+For root authorization in F-Droid and GitHub, use the **Root mode** screen. It checks access with the device root manager.
 
 ## Apply semantics
 

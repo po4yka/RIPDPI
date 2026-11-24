@@ -106,7 +106,7 @@ RIPDPI's design principle: classify each target and each network separately, app
 - **Handover-aware restart**: live policy re-evaluation on transitions between Wi-Fi, cellular, and roaming.
 - **RIPDPI Browser**: app-owned browser for HTTPS targets that require the owned TLS stack; shared `SecureHttpClient` path for app-originated requests.
 - **Runtime telemetry and logs**: proxy lifecycle, route decisions, DNS failover events, diagnostics progress, and native runtime events — available as in-app history and support export.
-- **Optional root helper**: on rooted devices, unlocks raw-socket operations (FakeRst, MultiDisorder, IP fragmentation, full SeqOverlap, raw IPv4/IPv6 packet emission) via a privileged helper process.
+- **Optional root mode** is available in F-Droid and GitHub builds. See [Root mode by distribution](docs/distribution.md#root-mode-and-packet-capture).
 
 ## Runtime modes
 
@@ -122,7 +122,7 @@ Uses Android `VpnService` to redirect device traffic through RIPDPI's local engi
 
 RIPDPI records operational metadata for diagnostics and troubleshooting: network snapshots, resolver status, route decisions, scan results, service state, and native runtime events.
 
-Normal operation does not capture packets, persist traffic payloads, or record TLS secrets. Advanced packet capture is an explicit opt-in diagnostic tool: it stores raw packet bytes locally under bounded retention and includes them in an archive only when the user deliberately shares that archive.
+Normal operation does not capture packets, persist traffic payloads, or record TLS secrets. Packet capture is available in all three builds. Recording requires separate consent and an active VPN. You can view saved captures after disconnecting, including on devices without root. Raw packets stay in local PCAP files with limited retention. Use the capture viewer to export a redacted file separately from a diagnostics archive.
 
 Relay traffic privacy depends on the relay endpoint and profile you configure.
 

@@ -294,9 +294,11 @@ Combination checks:
 
 ## Root Helper and Privileged Operations
 
-- [ ] Root access detection succeeds on rooted test device.
-- [ ] Root access detection fails gracefully on non-rooted device.
-- [ ] `root_mode_enabled` gates helper startup.
+- [ ] Opening Root mode does not request access. The switch starts an explicit request.
+- [ ] The app handles a grant, refusal, timeout, and retry on a device with an app-granting root manager.
+- [ ] On a device without `su`, the switch stays off and an ordinary connection works.
+- [ ] Saved `root_mode_authorized` and a selected policy that uses the helper are both required to start it.
+- [ ] While the VPN runs, disabling root or losing the helper applies a compatible ordinary policy with the VPN barrier in place.
 - [ ] Helper binary extraction succeeds from APK assets.
 - [ ] Helper startup through `su` reports readiness.
 - [ ] Helper socket readiness polling times out with clear error.
@@ -309,6 +311,12 @@ Combination checks:
 - [ ] Non-rooted device sees graceful degradation for root-only actions.
 - [ ] Helper stop cleans up process and socket.
 - [ ] Helper logs do not include traffic payloads or private config.
+
+## Edition Boundaries and PCAP
+
+- [ ] The signed Play AAB and its APK splits pass the privilege-boundary check. The F-Droid and GitHub APKs include the expected helper assets.
+- [ ] Recording on a device without root requires separate consent and an active VPN.
+- [ ] A saved PCAP opens after the VPN stops. Its redacted export is separate from the diagnostics archive.
 
 ## Logging, History, Export, and Privacy
 

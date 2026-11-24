@@ -28,14 +28,14 @@ flowchart TD
     D --> E["ConnectionPolicyResolver"]
     E --> LP["Non-root Lua payload registry"]
     LP --> G
-    E --> F{"VPN mode?"}
+    E --> I{"Authorized policy in an extended build uses the helper?"}
+    I -- Yes --> J["RootHelperManager\nstart + socket readiness"]
+    I -- No --> K["Ordinary packet policy"]
+    J --> F{"VPN mode?"}
+    K --> F
     F -- No --> G["libripdpi.so\nproxy runtime"]
     F -- Yes --> H["RipDpiVpnService"]
-    H --> I{"Root mode enabled?"}
-    I -- Yes --> J["RootHelperManager\nstart + socket readiness"]
-    I -- No --> K["No privileged\nraw packet socket"]
-    J --> L["Tun2SocksConfig\nrootHelperSocketPath"]
-    K --> L
+    H --> L["Tun2SocksConfig\npacketBackendSocketPath"]
     L --> M["libripdpi-tunnel.so"]
     M --> N["TUN egress\npacket interceptor"]
     N --> O{"Action selected"}
@@ -104,7 +104,10 @@ midway through a connection.
 
 ## Root Helper Lifecycle
 
-The root helper is opt-in and only starts when root mode is enabled. The service waits for a connectable Unix socket before publishing the path to native code, so the tunnel does not start with a stale helper path.
+In F-Droid and GitHub builds, the service starts the helper when the device has
+saved root authorization and the selected strategy uses it. The service waits
+for a ready Unix socket and checks the capabilities that packet-owned strategies
+require. Google Play uses the ordinary packet backend.
 
 ```mermaid
 sequenceDiagram
@@ -115,19 +118,23 @@ sequenceDiagram
     participant Tunnel as libripdpi-tunnel.so
     participant Platform as ripdpi-runtime-platform
 
-    Service->>Manager: ensureStarted(rootModeEnabled)
+    Service->>Manager: apply an authorized policy that uses the helper
     Manager->>Su: start helper process
     Su->>Helper: exec helper with socket path
     Manager->>Helper: poll Unix socket readiness
     Helper-->>Manager: socket accepts connection
-    Manager-->>Service: rootHelperSocketPath
+    Manager-->>Service: ready packetBackendSocketPath
     Service->>Tunnel: start(config with socket path)
     Tunnel->>Platform: register root helper socket
     Platform->>Helper: send_raw_ip_packet(request)
     Helper-->>Platform: result
 ```
 
-Shutdown is bounded. The manager asks the helper to stop, waits briefly, and force-kills only when the process does not exit. On AOSP/userdebug devices, startup tries the normal `su -c` form first and then the `su 0 sh -c` form used by `adb root` style shells.
+On disable or helper failure, the service tries to replace the active policy
+with an ordinary policy and keeps the VPN barrier during replacement.
+The manager retains ownership while privileged cleanup is pending. See
+the [root helper contract](architecture/ROOT_HELPER_CONTRACT.md) for startup,
+cleanup, and the trusted assets used for `nfqws2`.
 
 ## TUN Egress Actions
 

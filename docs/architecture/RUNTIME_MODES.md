@@ -12,12 +12,11 @@ in [`NATIVE_RUST.md`](NATIVE_RUST.md).
 ## Invariant — the non-root baseline
 
 > **RIPDPI must fully function on non-rooted devices.** Proxy mode, VPN mode,
-> diagnostics, relay, on-device packet strategies, and encrypted DNS all run
-> with **no root**. The **root helper** and the privileged operations it
-> unlocks (FakeRst, MultiDisorder, IP fragmentation, raw IPv4/IPv6 emission)
-> are **opt-in behind `root_mode_enabled`** and **degrade gracefully** when
-> root is absent. A code path that hard-requires root is a bug — see
-> [AGENTS.md](../../AGENTS.md) § Project Rules.
+> diagnostics, relay, on-device packet strategies, and encrypted DNS work
+> without root. PCAP recording requires separate consent and an active VPN.
+> Viewing saved captures works after the VPN stops. The optional helper is
+> available in F-Droid and GitHub builds.
+> See [AGENTS.md](../../AGENTS.md) § Project Rules.
 
 This invariant constrains every section below.
 
@@ -55,7 +54,7 @@ layers and sessions whose "active" state is *inferred*:
 | Layer | "Active" is inferred from |
 |-------|---------------------------|
 | Relay | `relay_enabled` / `relay_kind != "off"` settings + a non-zero `RipDpiRelay` / `RipDpiWarp` / subprocess handle. Composes *into* proxy or VPN (§4). |
-| Root helper | the `root_mode_enabled` setting + `RootHelperManager.socketPath != null` (§5). |
+| Root helper | saved `root_mode_authorized` and live packet-backend availability (§5). |
 | Diagnostics scan | a non-zero `NetworkDiagnostics` native handle; raw-path vs in-path is the `ScanPathMode` on the request (§3). |
 
 ### Native-runtime liveness — the handle pattern
@@ -79,11 +78,10 @@ contract to reason against today.
 
 The safe first step now exists as `RuntimeModeProjection` plus
 `RuntimeModeProjectionStore` (`core/service/.../service/runtime/`). This is a
-derived, read-only view over `ServiceStateStore.status`, runtime telemetry,
-root-mode settings, and diagnostics scan activity. It does not replace `Mode`,
-`AppStatus`, `ServiceStatus`, or any start/stop path; deferred inputs such as
-per-supervisor lifecycle phase and root-helper socket availability remain
-unobserved until a low-risk read-only seam exists.
+derived, read-only view of `ServiceStateStore.status`, runtime telemetry,
+packet-backend availability, settings, and diagnostics scan activity. The
+existing modes and service coordinators still own start and stop. The
+per-supervisor lifecycle phase remains outside this projection.
 
 ---
 
@@ -245,33 +243,25 @@ See [`docs/relay-profile-examples.md`](../relay-profile-examples.md) and
 
 ## 5. Root-helper optional flow
 
-The root helper is **opt-in** and **only** starts when `root_mode_enabled` is
-set. It unlocks privileged raw-socket operations; without it the affected
-strategies degrade (see the [non-root invariant](#invariant--the-non-root-baseline)).
+The F-Droid and GitHub builds offer root mode as an opt-in. The settings screen
+uses `RootDetector` for the explicit access check and shows helper status
+separately from the result of that check. Authorization is stored on the
+device in `root_mode_authorized`.
 
-**Lifecycle** (`core/service/.../services/RootHelperManager.kt`,
-`RootDetector.kt`; [`docs/packet-strategy-runtime.md`](../packet-strategy-runtime.md)
-§ Root Helper Lifecycle):
+The extended packet backend considers the selected VPN or proxy policy before
+starting the helper. `RootHelperManager` starts it via `su`, waits for the Unix
+socket, and probes the capabilities needed by the selected packet strategy.
+Kotlin passes a ready endpoint as `packetBackendSocketPath` in
+`Tun2SocksConfig` or `RipDpiProxyUIPreferences`.
 
-```
-Service → RootHelperManager.ensureStarted(rootModeEnabled)
-  → extract ripdpi-root-helper binary from APK assets
-  → launch via `su` (tries `su -c`, then `su 0 sh -c`)
-  → poll the Unix socket for readiness (session-nonce guarded)
-  → publish rootHelperSocketPath ONLY after the socket accepts a connection
-```
+The service observes authorization and helper health after opening a session.
+When root mode is turned off or the helper fails, it replaces the active
+policy with a compatible ordinary path. The VPN keeps its traffic barrier
+during replacement and reports failure if safe replacement cannot finish.
+Read-only planning and DNS-only refreshes leave the helper lifecycle to the
+active policy.
 
-The path is then passed to native code as `rootHelperSocketPath` in
-`Tun2SocksConfig` (proxy mode uses `RipDpiProxyUIPreferences.rootHelperSocketPath`).
-`ripdpi-runtime-platform` checks `with_root_helper()` per privileged operation
-and **falls back to a local non-privileged attempt** when no helper is
-registered. Privileged primitives live in `ripdpi-privileged-ops`; the IPC
-protocol (`CMD_*`) is `ripdpi-root-helper-protocol`. The helper is a standalone
-ELF binary (crate `ripdpi-root-helper`), **not** a `.so`.
-
-Shutdown is bounded — `RootHelperManager.stop()` (called from both
-`RipDpiVpnService.onDestroy` and `RipDpiProxyService.onDestroy`) asks the helper
-to stop, waits briefly, and force-kills only if it does not exit.
+See the [root helper contract](ROOT_HELPER_CONTRACT.md) for IPC and cleanup.
 
 ---
 
@@ -343,9 +333,9 @@ mode-specific orchestration through concrete subclasses and composed collaborato
 - **Relay failure must not kill the base path.** Relay composes into proxy/VPN;
   a relay transport fault should surface as a relay error, not tear down the
   proxy or VPN session.
-- **Root helper is per-service and best-effort.** It is started and stopped
-  with the owning service; if it fails to come up, privileged strategies must
-  degrade, never block startup ([non-root invariant](#invariant--the-non-root-baseline)).
+- **The active service owns the helper.** If the helper is unavailable, the
+  service uses a compatible ordinary policy after privileged cleanup. If
+  cleanup remains pending, the service reports that failure.
 - **`jniStart` blocking contract differs.** The proxy `jniStart` occupies its
   thread (run on `Dispatchers.IO`); the tunnel `jniStart` returns after worker
   launch. Confusing the two stalls the runtime — see [`JNI_CONTRACT.md`](JNI_CONTRACT.md) §12.

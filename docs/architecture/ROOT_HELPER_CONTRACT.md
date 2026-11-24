@@ -28,8 +28,9 @@ runtime *may* select when capability probing confirms they work.
 ## What the root helper is
 
 `ripdpi-root-helper` is a **standalone privileged ELF binary** — not a `.so`,
-not JNI. On rooted devices (Magisk / KernelSU / APatch), when
-`root_mode_authorized` is set, `RootHelperManager.kt` extracts the binary from APK
+not JNI. F-Droid and GitHub APKs contain the helper. When the selected policy
+uses the helper and the device has saved authorization, `RootHelperManager.kt`
+extracts the binary from APK
 assets, launches it via `su`, and the native runtime talks to it over a
 Unix-domain socket. It runs as uid 0 and exists only to perform raw-socket /
 `TCP_REPAIR` / IP-fragmentation operations an unprivileged Android process
@@ -95,7 +96,7 @@ cannot.
   uses a 2 s total response budget for its pure protocol preflight and a 30 s
   budget for a command response. The receive loop applies the remaining budget
   to each read and rejects a frame completed at or after its deadline.
-- The socket path is published to native code (`Tun2SocksConfig.rootHelperSocketPath`)
+- The socket path is published to native code (`Tun2SocksConfig.packetBackendSocketPath`)
   **only after** the socket is confirmed connectable — never a stale path.
 
 ### Bounded TCP request payloads
@@ -265,9 +266,9 @@ not change the tactic taxonomy. Tactics are tiered `non_root_production` /
 ## Helper lifecycle — `RootHelperManager.kt`
 
 `RootHelperManager` (`core/service/.../services/RootHelperManager.kt`) owns the
-Kotlin side. `syncRootMode(context, rootModeEnabled)` is the entry point:
-`rootModeEnabled == false` stops the helper and returns `null`; `true` calls
-`ensureStarted()`.
+Kotlin side. The extended packet backend calls `syncRootMode` when it applies
+the selected policy. It starts the helper only with saved authorization and
+a policy that uses it. Ordinary strategies leave the helper idle.
 
 **Start** (`start()`):
 1. Extract `ripdpi-root-helper` from APK assets (`bin/<abi>/ripdpi-root-helper`)
@@ -275,7 +276,8 @@ Kotlin side. `syncRootMode(context, rootModeEnabled)` is the entry point:
 2. Stop a predecessor through its own socket and existing nonce. A live or
    uncertain predecessor blocks startup; retain its endpoint and nonce for retry.
 3. Mint and write a new session nonce for each launch attempt. Start the helper
-   and poll its socket within a 3000 ms total deadline, at 100 ms intervals.
+   and poll its socket at 100 ms intervals. Each readiness check has up to
+   3000 ms within a 6500 ms startup budget. Cleanup has its own deadline.
 4. Publish the socket after readiness. Before another attempt, confirm that the
    previous launcher exited; retain ownership if it did not.
 
@@ -300,10 +302,11 @@ socket, and rejects late completion even if the scheduler runs late. A host
 TCP fixture checks this timing code; Android Unix-socket and root acceptance
 remain separate checks.
 
-**Lifecycle binding:** `syncRootMode` is driven from connection-policy
-resolution, so the helper is reconciled with the live `root_mode_authorized`
-setting on every policy change. The helper is **not** a long-lived daemon
-across the setting being toggled off.
+**Lifecycle binding:** Applying a policy reconciles the helper with the live
+authorization. The active service observes authorization changes and helper
+exit. It replaces the policy on revocation or failure, preserves the VPN
+barrier during replacement, and reports pending cleanup if stopping fails.
+After helper failure, the settings screen offers an explicit retry.
 
 ## Non-root fallback contract
 

@@ -21,8 +21,9 @@ Do not paste live endpoints, credentials, subscription identifiers, SSIDs, BSSID
 
 | Check | Evidence | Result |
 | --- | --- | --- |
-| Root access detection succeeds | `adb shell su 0 id` redacted output | |
-| `root_mode_enabled` gates helper startup | Settings state and service log excerpt | |
+| The app can request and receive root access | Root mode screen and root manager result | |
+| Saved authorization and a selected policy gate helper startup | Settings state and service log excerpt | |
+| Disabling root keeps the VPN active on an ordinary policy | Before and after connection, helper, and policy state | |
 | Helper binary extraction succeeds | App-private path presence or manager log | |
 | Helper readiness polling succeeds | `RootHelperManager` log excerpt | |
 | Privileged send operation succeeds | Packet-smoke or native action artifact | |
