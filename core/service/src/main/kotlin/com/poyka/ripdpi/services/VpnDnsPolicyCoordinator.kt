@@ -20,6 +20,7 @@ internal class VpnDnsPolicyCoordinator(
         currentDnsSignature: String?,
         telemetry: com.poyka.ripdpi.data.NativeRuntimeSnapshot,
         dnsUsesSharedProxy: Boolean,
+        nativeGeneration: Long?,
     ): Boolean =
         encryptedDnsFailoverController.evaluate(
             state = session.encryptedDnsFailoverState,
@@ -27,6 +28,6 @@ internal class VpnDnsPolicyCoordinator(
             currentDnsSignature = currentDnsSignature ?: session.currentDnsSignature,
             networkScopeKey = session.currentNetworkScopeKey,
             telemetry = telemetry,
-            dnsUsesSharedProxy = dnsUsesSharedProxy,
+            source = DnsTelemetrySource(dnsUsesSharedProxy, nativeGeneration),
         )
 }

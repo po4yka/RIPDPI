@@ -77,10 +77,10 @@ class VpnEncryptedDnsFailoverControllerTest {
             assertFalse(observe(1, 1, "Connection refused"))
             assertTrue(env.state.exhausted)
 
-            env.clock.advanceBy(9 * 60 * 1_000L)
-            assertFalse(observe(2, 2, "Connection refused"))
-            env.clock.advanceBy(60 * 1_000L)
-            assertTrue(observe(3, 3, "Connection refused"))
+            env.clock.advanceBy(29_999L)
+            assertFalse(observe(1, 1, "Connection refused"))
+            env.clock.advanceBy(1L)
+            assertTrue(observe(1, 1, "Connection refused"))
             assertFalse(env.state.exhausted)
         }
 
@@ -100,6 +100,76 @@ class VpnEncryptedDnsFailoverControllerTest {
 
             assertNull(env.overrides.override.value)
             assertEquals(0, env.state.consecutiveFailureEvents)
+        }
+
+    @Test
+    fun `multiple failed queries in one poll trigger failover`() =
+        runTest {
+            val env = newEnv()
+            val dns = cloudflareDohDns()
+            val signature = dnsSignature(dns, null)
+            val scope = env.fingerprint.scopeKey()
+            assertFalse(env.controller.evaluate(env.state, dns, signature, scope, dnsTelemetry(0, 0)))
+
+            assertTrue(
+                env.controller.evaluate(env.state, dns, signature, scope, dnsTelemetry(2, 2, "resolver timeout")),
+            )
+            assertNotNull(env.overrides.override.value)
+        }
+
+    @Test
+    fun `local failures in a burst do not reach the resolver threshold`() =
+        runTest {
+            val env = newEnv()
+            val dns = cloudflareDohDns()
+            val signature = dnsSignature(dns, null)
+            val scope = env.fingerprint.scopeKey()
+            env.controller.evaluate(env.state, dns, signature, scope, dnsTelemetry(0, 0))
+            val mixed = dnsTelemetry(3, 3, "resolver timeout", resolverFailures = 1)
+            assertFalse(env.controller.evaluate(env.state, dns, signature, scope, mixed))
+            assertNull(env.overrides.override.value)
+        }
+
+    @Test
+    fun `successes in a mixed poll reset the DNS failure streak`() =
+        runTest {
+            val env = newEnv()
+            val dns = cloudflareDohDns()
+            val signature = dnsSignature(dns, null)
+            val scope = env.fingerprint.scopeKey()
+
+            suspend fun observe(
+                queries: Long,
+                failures: Long,
+            ) = env.controller.evaluate(
+                env.state,
+                dns,
+                signature,
+                scope,
+                dnsTelemetry(queries, failures, "resolver timeout"),
+            )
+            assertFalse(observe(0, 0))
+            assertFalse(observe(1, 1))
+            assertFalse(observe(6, 4))
+            assertNull(env.overrides.override.value)
+            assertTrue(observe(7, 5))
+        }
+
+    @Test
+    fun `first poll of a new bridge counts its failures`() =
+        runTest {
+            val env = newEnv()
+            val dns = cloudflareDohDns()
+            assertTrue(
+                env.controller.evaluate(
+                    env.state,
+                    dns,
+                    dnsSignature(dns, null),
+                    env.fingerprint.scopeKey(),
+                    dnsTelemetry(2, 2, "resolver timeout"),
+                    source = DnsTelemetrySource(generation = 1),
+                ),
+            )
         }
 
     @Test
@@ -529,9 +599,9 @@ class VpnEncryptedDnsFailoverControllerTest {
                 previousScope,
                 dnsTelemetry(queries, failures, error),
             )
-            observe(0, 0, null)
-            assertFalse(observe(10, 1, "Timeout: resolver timed out"))
-            assertTrue(observe(20, 2, "Timeout: resolver timed out"))
+            observe(10, 0, null)
+            assertFalse(observe(11, 1, "Timeout: resolver timed out"))
+            assertTrue(observe(12, 2, "Timeout: resolver timed out"))
 
             assertTrue(env.blockedPaths.getBlockedPathKeys(previousScope).isEmpty())
             assertEquals(
@@ -558,9 +628,9 @@ class VpnEncryptedDnsFailoverControllerTest {
                 env.fingerprint.scopeKey(),
                 dnsTelemetry(queries, failures, error),
             )
-            observe(0, 0, null)
-            assertFalse(observe(10, 1, "Timeout: resolver timed out"))
-            assertTrue(observe(20, 2, "Timeout: resolver timed out"))
+            observe(10, 0, null)
+            assertFalse(observe(11, 1, "Timeout: resolver timed out"))
+            assertTrue(observe(12, 2, "Timeout: resolver timed out"))
             assertEquals(
                 env.fingerprint.scopeKey(),
                 env.overrides.override.value
@@ -595,7 +665,7 @@ class VpnEncryptedDnsProxyFailoverTest {
                     dnsSignature(dns, null),
                     env.fingerprint.scopeKey(),
                     dnsTelemetry(queries, failures, error),
-                    dnsUsesSharedProxy = true,
+                    source = DnsTelemetrySource(usesSharedProxy = true),
                 )
                 observe(0, 0, null)
                 repeat(3) { assertFalse(observe((it + 1).toLong(), (it + 1).toLong(), error)) }
@@ -624,7 +694,7 @@ class VpnEncryptedDnsProxyFailoverTest {
                 dnsSignature(dns, null),
                 env.fingerprint.scopeKey(),
                 dnsTelemetry(queries, failures, error),
-                dnsUsesSharedProxy = true,
+                source = DnsTelemetrySource(usesSharedProxy = true),
             )
             observe(0, 0, null)
             assertFalse(observe(1, 1, "Tls: invalid peer certificate"))
@@ -649,7 +719,7 @@ class VpnEncryptedDnsProxyFailoverTest {
                 dnsSignature(dns, null),
                 env.fingerprint.scopeKey(),
                 dnsTelemetry(queries, failures, error),
-                dnsUsesSharedProxy = true,
+                source = DnsTelemetrySource(usesSharedProxy = true),
             )
             observe(0, 0, null)
             assertFalse(observe(1, 1, "Decode: invalid DNS response"))
@@ -693,7 +763,7 @@ class VpnEncryptedDnsProxyFailoverTest {
                 dnsSignature(dns, null),
                 env.fingerprint.scopeKey(),
                 dnsTelemetry(queries, failures, error),
-                dnsUsesSharedProxy = ready.encryptedDnsUsesSharedProxy,
+                source = DnsTelemetrySource(usesSharedProxy = ready.encryptedDnsUsesSharedProxy),
             )
             observe(0, 0, null)
             assertFalse(observe(1, 1, "Timeout: resolver timed out"))
@@ -748,12 +818,14 @@ private fun dnsTelemetry(
     queries: Long,
     failures: Long,
     lastDnsError: String? = null,
+    resolverFailures: Long = failures,
 ) = NativeRuntimeSnapshot(
     source = "tunnel",
     state = "running",
     health = "healthy",
     dnsQueriesTotal = queries,
     dnsFailuresTotal = failures,
+    dnsResolverFailuresTotal = resolverFailures,
     lastDnsError = lastDnsError,
 )
 

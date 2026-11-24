@@ -26,6 +26,7 @@ internal data class RuntimeTelemetryEvidencePoll<T>(
     val telemetry: RuntimeTelemetryOutcome,
     val forwardingEvidence: RuntimeForwardingEvidence<T>,
     val directPathLearningOrigin: DirectPathLearningOrigin? = null,
+    val tunnelGeneration: Long? = null,
 )
 
 internal suspend fun <T> captureFinalDataPlaneEvidence(

@@ -80,6 +80,7 @@ pub struct Stats {
     pub dns_cache_hits: AtomicU64,
     pub dns_cache_misses: AtomicU64,
     pub dns_failures_total: AtomicU64,
+    pub(crate) dns_resolver_failures_total: AtomicU64,
     pub split_dns_proxy_decisions: AtomicU64,
     /// Counts [`SplitDnsDecisionKind::DirectFailClosed`]: fail-closed SERVFAILs, not proxy fallbacks.
     /// The exported name is kept for the telemetry contract.
@@ -170,6 +171,7 @@ impl Stats {
             dns_cache_hits: AtomicU64::new(0),
             dns_cache_misses: AtomicU64::new(0),
             dns_failures_total: AtomicU64::new(0),
+            dns_resolver_failures_total: AtomicU64::new(0),
             split_dns_proxy_decisions: AtomicU64::new(0),
             split_dns_direct_fallback_decisions: AtomicU64::new(0),
             split_dns_block_decisions: AtomicU64::new(0),
@@ -364,6 +366,10 @@ impl Stats {
         if let (Some(reason), Ok(mut target)) = (reason, self.last_split_dns_coverage_reason.lock()) {
             *target = Some(reason.to_string());
         }
+    }
+
+    pub(crate) fn record_dns_resolver_failure(&self) {
+        self.dns_resolver_failures_total.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub(crate) fn record_dns_response_failure(&self, error: &str) {

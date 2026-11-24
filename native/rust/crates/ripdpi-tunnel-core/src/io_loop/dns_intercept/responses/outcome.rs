@@ -1,4 +1,4 @@
-use ripdpi_dns_resolver::EncryptedDnsExchangeSuccess;
+use ripdpi_dns_resolver::{EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess};
 
 use crate::Stats;
 use crate::dns_cache::DnsRewriteResult;
@@ -31,4 +31,17 @@ pub(super) fn record_failure(stats: &Stats, direct: bool, host: Option<&str>, er
     } else {
         stats.record_dns_failure(host, error, endpoint);
     }
+}
+
+pub(super) fn format_upstream_error(
+    stats: &Stats,
+    direct: bool,
+    kind: Option<EncryptedDnsErrorKind>,
+    error: String,
+) -> String {
+    let Some(kind) = kind else { return error };
+    if !direct {
+        stats.record_dns_resolver_failure();
+    }
+    format!("{kind:?}: {error}")
 }

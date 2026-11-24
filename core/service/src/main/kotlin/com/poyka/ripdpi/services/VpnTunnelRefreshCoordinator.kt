@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.LogTags
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -18,13 +19,15 @@ internal class VpnTunnelRefreshCoordinator(
         interfacePolicyChangeObserved: Boolean = false,
         forceTunnelRebuild: Boolean = false,
         recovery: Boolean = false,
+        expectedTunnelGeneration: Long? = null,
     ) {
         dependencies.mutex.withLock {
             val activeSession = state.runtimeSession()
             val canRefresh =
                 state.status() == ServiceStatus.Connected &&
                     dependencies.vpnTunnelRuntime.isRunning &&
-                    activeSession?.runtimeId == session.runtimeId
+                    activeSession?.runtimeId == session.runtimeId &&
+                    isCurrentTunnelGeneration(expectedTunnelGeneration)
             if (!canRefresh) return@withLock
             val refreshSession = checkNotNull(activeSession)
             val latestRefreshPlan = planRefreshOrFail(refreshSession) ?: return@withLock
@@ -120,8 +123,17 @@ internal class VpnTunnelRefreshCoordinator(
         val recoverDns = recoverIfNeeded(session, telemetry)
         // The synthetic address pool belongs to one tunnel session and never reuses an address,
         // so only a new tunnel session restores DNS once the pool is used up.
-        val poolUsedUp = isSyntheticDnsPoolUsedUp(telemetry.tunnelTelemetry.lastDnsError.orEmpty())
-        if (recoverDns || poolUsedUp) refreshIfNeeded(session, forceTunnelRebuild = poolUsedUp, recovery = true)
+        val poolUsedUp =
+            isCurrentTunnelGeneration(telemetry.tunnelGeneration) &&
+                isSyntheticDnsPoolUsedUp(telemetry.tunnelTelemetry.lastDnsError.orEmpty())
+        if (recoverDns || poolUsedUp) {
+            refreshIfNeeded(
+                session,
+                forceTunnelRebuild = poolUsedUp,
+                recovery = true,
+                expectedTunnelGeneration = telemetry.tunnelGeneration,
+            )
+        }
         return recoverDns || poolUsedUp
     }
 
@@ -131,9 +143,12 @@ internal class VpnTunnelRefreshCoordinator(
     ): Boolean =
         dependencies.mutex.withLock {
             val activeSession = state.runtimeSession()
-            if (state.status() != ServiceStatus.Connected || activeSession?.runtimeId != session.runtimeId ||
-                !dependencies.vpnTunnelRuntime.isForwarding
-            ) {
+            val currentSnapshot =
+                telemetry.tunnelTelemetryStatus.state == RuntimeTelemetryState.Snapshot &&
+                    isCurrentTunnelGeneration(telemetry.tunnelGeneration)
+            val connectedSession =
+                state.status() == ServiceStatus.Connected && activeSession?.runtimeId == session.runtimeId
+            if (!currentSnapshot || !connectedSession || !dependencies.vpnTunnelRuntime.isForwarding) {
                 return@withLock false
             }
             val recoverySession = checkNotNull(activeSession)
@@ -143,8 +158,12 @@ internal class VpnTunnelRefreshCoordinator(
                     dependencies.vpnTunnelRuntime.currentDnsSignature ?: recoverySession.currentDnsSignature,
                 telemetry = telemetry.tunnelTelemetry,
                 dnsUsesSharedProxy = dependencies.vpnTunnelRuntime.requireReadyEvidence().encryptedDnsUsesSharedProxy,
+                nativeGeneration = telemetry.tunnelGeneration,
             )
         }
+
+    private fun isCurrentTunnelGeneration(generation: Long?): Boolean =
+        generation == null || generation == dependencies.vpnTunnelRuntime.routeForwardingEvidenceSink?.generation
 }
 
 internal interface VpnTunnelRefreshDependencies {

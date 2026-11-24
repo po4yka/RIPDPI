@@ -200,6 +200,7 @@ internal class VpnTelemetryCoordinator(
                 awgTelemetryStatus = awgTelemetryOutcome.toStatus(),
                 tunnelTelemetry = state.applyPendingNetworkHandoverClass(tunnelTelemetry),
                 tunnelTelemetryStatus = tunnelTelemetryOutcome.toStatus(),
+                tunnelGeneration = tunnelPoll.tunnelGeneration,
             )
         val evidenceResult =
             if (finalCapture) {

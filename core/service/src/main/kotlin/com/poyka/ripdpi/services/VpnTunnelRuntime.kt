@@ -508,10 +508,10 @@ internal class VpnTunnelRuntime(
             tunnelBridge,
             appSettingsRepository.settings.map { it.pcapCaptureEnabled }.distinctUntilChanged(),
         )
-        forwardingLease.set(TunnelForwardingLease(tunnelBridge))
         retiringBridge = null
         tunSession = pendingTunnel.session
         activeRouteLifecycleGeneration = pendingTunnel.lifecycleGeneration
+        forwardingLease.set(TunnelForwardingLease(tunnelBridge, pendingTunnel.lifecycleGeneration))
         if (pendingSession === pendingTunnel.session) {
             pendingSession = null
             pendingRouteLifecycleGeneration = null
@@ -625,12 +625,11 @@ internal class VpnTunnelRuntime(
             } catch (_: Exception) {
                 RuntimeForwardingEvidence.Unavailable
             }
-        return RuntimeTelemetryEvidencePoll(
-            telemetry = telemetry,
-            forwardingEvidence =
-                evidence.takeIf { forwardingLease.get() === lease }
-                    ?: RuntimeForwardingEvidence.Unavailable,
-        )
+        return if (forwardingLease.get() === lease) {
+            RuntimeTelemetryEvidencePoll(telemetry, evidence, tunnelGeneration = lease.generation)
+        } else {
+            RuntimeTelemetryEvidencePoll(RuntimeTelemetryOutcome.NoData, RuntimeForwardingEvidence.Unavailable)
+        }
     }
 
     /** Stops native forwarding while deliberately retaining the installed TUN. */
@@ -744,6 +743,7 @@ private suspend fun retireAndStopBridge(
 
 private class TunnelForwardingLease(
     val bridge: Tun2SocksBridge,
+    val generation: Long,
 )
 
 private class GenerationBoundVpnTunnelSession(

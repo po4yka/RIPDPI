@@ -45,7 +45,10 @@ class VpnTunnelForwardingEvidenceTest {
             nativeStopStarted.await()
             releaseLeaseAcquisition.complete(Unit)
 
-            assertSame(RuntimeForwardingEvidence.Unavailable, poll.await().forwardingEvidence)
+            val stale = poll.await()
+            assertSame(RuntimeForwardingEvidence.Unavailable, stale.forwardingEvidence)
+            assertSame(com.poyka.ripdpi.data.RuntimeTelemetryOutcome.NoData, stale.telemetry)
+            assertEquals(null, stale.tunnelGeneration)
             releaseNativeStop.complete(Unit)
             stopping.await()
         }

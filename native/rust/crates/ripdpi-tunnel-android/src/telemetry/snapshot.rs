@@ -64,6 +64,7 @@ impl TunnelTelemetryState {
             dns_cache_hits: dns_stats.dns_cache_hits,
             dns_cache_misses: dns_stats.dns_cache_misses,
             dns_failures_total: dns_stats.dns_failures_total,
+            dns_resolver_failures_total: dns_stats.dns_resolver_failures_total,
             split_dns_proxy_decisions: dns_stats.split_dns_proxy_decisions,
             split_dns_direct_fallback_decisions: dns_stats.split_dns_direct_fallback_decisions,
             split_dns_block_decisions: dns_stats.split_dns_block_decisions,

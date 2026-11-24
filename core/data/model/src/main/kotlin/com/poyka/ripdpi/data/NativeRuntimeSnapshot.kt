@@ -239,6 +239,8 @@ data class NativeRuntimeSnapshot(
     val dnsCacheHits: Long = 0,
     val dnsCacheMisses: Long = 0,
     val dnsFailuresTotal: Long = 0,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val dnsResolverFailuresTotal: Long = 0,
     val splitDnsProxyDecisions: Long = 0,
     val splitDnsDirectFallbackDecisions: Long = 0,
     val splitDnsBlockDecisions: Long = 0,

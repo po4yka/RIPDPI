@@ -162,6 +162,17 @@ fn tunnel_upstream_address_updated_on_restart() {
 }
 
 #[test]
+fn tunnel_snapshot_emits_resolver_failures_separately() {
+    let state = TunnelTelemetryState::new(None);
+    let stats =
+        DnsStatsSnapshot { dns_failures_total: 9, dns_resolver_failures_total: 2, ..DnsStatsSnapshot::default() };
+    let snapshot = state.snapshot((0, 0, 0, 0), stats, None, None);
+    let json = serde_json::to_value(snapshot).expect("serializable tunnel telemetry");
+    assert_eq!(json["dnsFailuresTotal"], 9);
+    assert_eq!(json["dnsResolverFailuresTotal"], 2);
+}
+
+#[test]
 fn tunnel_snapshot_exposes_dht_trigger_observations() {
     let state = TunnelTelemetryState::new(None);
     let dns_stats = DnsStatsSnapshot {
@@ -244,6 +255,7 @@ fn tunnel_snapshot_field_manifest_matches_contract_fixture() {
         dns_cache_hits: 50,
         dns_cache_misses: 30,
         dns_failures_total: 5,
+        dns_resolver_failures_total: 0,
         split_dns_proxy_decisions: 7,
         split_dns_direct_fallback_decisions: 2,
         split_dns_block_decisions: 3,
@@ -306,6 +318,7 @@ fn tunnel_snapshot_field_manifest_matches_contract_fixture() {
         dns_cache_hits: dns_stats.dns_cache_hits,
         dns_cache_misses: dns_stats.dns_cache_misses,
         dns_failures_total: dns_stats.dns_failures_total,
+        dns_resolver_failures_total: dns_stats.dns_resolver_failures_total,
         split_dns_proxy_decisions: dns_stats.split_dns_proxy_decisions,
         split_dns_direct_fallback_decisions: dns_stats.split_dns_direct_fallback_decisions,
         split_dns_block_decisions: dns_stats.split_dns_block_decisions,

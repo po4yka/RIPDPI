@@ -11,7 +11,7 @@ use crate::{Stats, TunDevice};
 use super::DnsResponse;
 use delivery::deliver_dns_payload;
 pub(in crate::io_loop) use delivery::handle_dns_failure;
-use outcome::{record_failure, record_success};
+use outcome::{format_upstream_error, record_failure, record_success};
 use servfail::servfail_payload;
 
 pub(in crate::io_loop) fn handle_dns_result(
@@ -34,10 +34,7 @@ pub(in crate::io_loop) fn handle_dns_result(
             }
         },
         Err(err) => {
-            let formatted_error = match response.resolver_error_kind {
-                Some(kind) => format!("{kind:?}: {err}"),
-                None => err,
-            };
+            let formatted_error = format_upstream_error(stats, direct, response.resolver_error_kind, err);
             let endpoint = response.resolver_endpoint_label.as_deref();
             record_failure(stats, direct, response.host.as_deref(), &formatted_error, endpoint);
             servfail_payload(dns_cache, &response.query, "upstream failure")

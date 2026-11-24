@@ -69,6 +69,8 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) dns_cache_hits: u64,
     pub(crate) dns_cache_misses: u64,
     pub(crate) dns_failures_total: u64,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub(crate) dns_resolver_failures_total: u64,
     pub(crate) split_dns_proxy_decisions: u64,
     pub(crate) split_dns_direct_fallback_decisions: u64,
     pub(crate) split_dns_block_decisions: u64,

@@ -82,6 +82,7 @@ fn handle_dns_result_records_endpoint_for_upstream_failure() {
     let mut cache = test_dns_cache();
     let mut device = TunDevice::new(1500);
     let stats = Arc::new(Stats::default());
+    stats.record_dns_failure(None, "dns worker queue full", None);
     let query = build_query("fixture.test");
 
     handle_dns_result(
@@ -102,6 +103,8 @@ fn handle_dns_result_records_endpoint_for_upstream_failure() {
     );
 
     let snapshot = stats.dns_snapshot();
+    assert_eq!(snapshot.dns_failures_total, 2);
+    assert_eq!(snapshot.dns_resolver_failures_total, 1);
     assert_eq!(snapshot.last_dns_host.as_deref(), Some("fixture.test"));
     assert_eq!(snapshot.last_dns_error.as_deref(), Some("Tls: TLS handshake failed unexpected EOF"),);
     assert_eq!(snapshot.resolver_endpoint.as_deref(), Some("fixture.test:853"));

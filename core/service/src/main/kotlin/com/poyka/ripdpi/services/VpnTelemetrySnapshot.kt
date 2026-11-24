@@ -20,6 +20,7 @@ internal data class VpnTelemetrySnapshot(
     val tunnelTelemetry: NativeRuntimeSnapshot,
     val tunnelTelemetryStatus: RuntimeTelemetryStatus,
     val directPathLearningOrigin: DirectPathLearningOrigin? = null,
+    val tunnelGeneration: Long? = null,
 ) {
     fun failureReason(): FailureReason? =
         if (tunnelTelemetryStatus.state == RuntimeTelemetryState.EngineError) {

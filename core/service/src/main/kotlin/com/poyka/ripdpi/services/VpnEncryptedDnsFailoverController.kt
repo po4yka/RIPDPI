@@ -14,7 +14,7 @@ import com.poyka.ripdpi.data.toTemporaryResolverOverride
 
 private const val FailoverThreshold = 2
 private const val EagerFailoverMaxQueries = 3
-private const val ExhaustedRetryAfterMs = 10L * 60L * 1_000L
+private const val ExhaustedRetryAfterMs = 30_000L
 private const val AutoFailoverReasonPrefix = "vpn_encrypted_dns_auto_failover"
 
 internal class VpnEncryptedDnsFailoverState {
@@ -25,8 +25,10 @@ internal class VpnEncryptedDnsFailoverState {
     var expectedPathKey: String? = null
     var pathStartQueries: Long = 0
     var pathStartFailures: Long = 0
+    var nativeGeneration: Long? = null
     var lastObservedDnsQueriesTotal: Long = 0
     var lastObservedDnsFailuresTotal: Long = 0
+    var lastObservedResolverFailuresTotal: Long = 0
     var consecutiveFailureEvents: Int = 0
     var exhausted: Boolean = false
     var exhaustedAt: Long = 0
@@ -50,6 +52,7 @@ internal class VpnEncryptedDnsFailoverState {
         pathStartFailures = 0
         lastObservedDnsQueriesTotal = 0
         lastObservedDnsFailuresTotal = 0
+        lastObservedResolverFailuresTotal = 0
         consecutiveFailureEvents = 0
         exhausted = false
         currentPathSelectedByFailover = false
@@ -57,6 +60,11 @@ internal class VpnEncryptedDnsFailoverState {
         attemptedPathKeys.clear()
     }
 }
+
+internal data class DnsTelemetrySource(
+    val usesSharedProxy: Boolean = false,
+    val generation: Long? = null,
+)
 
 internal class VpnEncryptedDnsFailoverController(
     private val resolverOverrideStore: ResolverOverrideStore,
@@ -75,7 +83,7 @@ internal class VpnEncryptedDnsFailoverController(
         currentDnsSignature: String?,
         networkScopeKey: String?,
         telemetry: NativeRuntimeSnapshot,
-        dnsUsesSharedProxy: Boolean = false,
+        source: DnsTelemetrySource = DnsTelemetrySource(),
     ): Boolean {
         val encryptedDns = activeDns?.takeIf { it.isEncrypted }
         val currentPath = encryptedDns?.toEncryptedDnsPathCandidate()
@@ -86,6 +94,11 @@ internal class VpnEncryptedDnsFailoverController(
 
         synchronizeNetworkScope(state, networkScopeKey)
         observeResolverChange(state, currentPath, currentDnsSignature, networkScopeKey, telemetry)
+        if (source.generation != null && state.nativeGeneration != source.generation) {
+            state.nativeGeneration = source.generation
+            // A newly installed bridge owns fresh counters, including failures before the first poll.
+            resetCounters(state, queries = 0, failures = 0)
+        }
         resetRolledBackCounters(state, telemetry)
         val lastDnsError = telemetry.lastDnsError.orEmpty()
         val keepCurrentPath =
@@ -94,18 +107,20 @@ internal class VpnEncryptedDnsFailoverController(
                 isLocalTunnelDnsFailure(lastDnsError) ||
                 // With no network at all, every resolver fails; that says nothing about a path.
                 networkFingerprintProvider.capture() == null ||
-                (dnsUsesSharedProxy && isAmbiguousProxyFailure(lastDnsError))
+                (source.usesSharedProxy && isAmbiguousProxyFailure(lastDnsError))
         return if (keepCurrentPath) {
             // These failures cannot identify a blocked DNS endpoint (or failover is not allowed).
             // Consume their counters so they cannot trigger a later endpoint failover.
+            state.lastObservedDnsQueriesTotal = telemetry.dnsQueriesTotal
             state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
+            state.lastObservedResolverFailuresTotal = telemetry.dnsResolverFailuresTotal
             state.pathStartQueries = telemetry.dnsQueriesTotal
             state.pathStartFailures = telemetry.dnsFailuresTotal
             state.consecutiveFailureEvents = 0
             false
         } else {
             observeSuccessfulPath(state, currentPath, networkScopeKey, telemetry)
-            failoverAfterFailure(state, encryptedDns, currentPath, networkScopeKey, telemetry)
+            failoverAfterFailure(state, encryptedDns, currentPath, networkScopeKey, telemetry, source.usesSharedProxy)
         }
     }
 
@@ -140,11 +155,7 @@ internal class VpnEncryptedDnsFailoverController(
         }
         state.currentPathKey = currentPathKey
         state.currentDnsSignature = currentDnsSignature
-        state.pathStartQueries = telemetry.dnsQueriesTotal
-        state.pathStartFailures = telemetry.dnsFailuresTotal
-        state.lastObservedDnsQueriesTotal = telemetry.dnsQueriesTotal
-        state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
-        state.consecutiveFailureEvents = 0
+        resetCounters(state, telemetry.dnsQueriesTotal, telemetry.dnsFailuresTotal, telemetry.dnsResolverFailuresTotal)
         state.currentPathSelectedByFailover = controllerActivatedPath
         state.currentPathPersisted = false
         state.attemptedPathKeys += currentPathKey
@@ -158,16 +169,27 @@ internal class VpnEncryptedDnsFailoverController(
     ) {
         val countersRolledBack =
             telemetry.dnsQueriesTotal < state.lastObservedDnsQueriesTotal ||
-                telemetry.dnsFailuresTotal < state.lastObservedDnsFailuresTotal
-        state.lastObservedDnsQueriesTotal = telemetry.dnsQueriesTotal
+                telemetry.dnsFailuresTotal < state.lastObservedDnsFailuresTotal ||
+                telemetry.dnsResolverFailuresTotal < state.lastObservedResolverFailuresTotal
         if (!countersRolledBack) return
 
         log.i {
             "dns counters restarted at queries=${telemetry.dnsQueriesTotal}, failures=${telemetry.dnsFailuresTotal}"
         }
-        state.pathStartQueries = telemetry.dnsQueriesTotal
-        state.pathStartFailures = telemetry.dnsFailuresTotal
-        state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
+        resetCounters(state, telemetry.dnsQueriesTotal, telemetry.dnsFailuresTotal, telemetry.dnsResolverFailuresTotal)
+    }
+
+    private fun resetCounters(
+        state: VpnEncryptedDnsFailoverState,
+        queries: Long,
+        failures: Long,
+        resolverFailures: Long = 0,
+    ) {
+        state.pathStartQueries = queries
+        state.pathStartFailures = failures
+        state.lastObservedDnsQueriesTotal = queries
+        state.lastObservedDnsFailuresTotal = failures
+        state.lastObservedResolverFailuresTotal = resolverFailures
         state.consecutiveFailureEvents = 0
     }
 
@@ -194,6 +216,11 @@ internal class VpnEncryptedDnsFailoverController(
             log.d { "DNS recovered after ${state.consecutiveFailureEvents} failures" }
         }
         state.consecutiveFailureEvents = 0
+        if (state.exhausted) {
+            state.exhausted = false
+            state.attemptedPathKeys.clear()
+            state.attemptedPathKeys += currentPath.pathKey()
+        }
         if (!state.currentPathSelectedByFailover || state.currentPathPersisted) return
 
         val fingerprint = networkFingerprintProvider.capture()
@@ -211,16 +238,21 @@ internal class VpnEncryptedDnsFailoverController(
         currentPath: EncryptedDnsPathCandidate,
         networkScopeKey: String?,
         telemetry: NativeRuntimeSnapshot,
+        dnsUsesSharedProxy: Boolean,
     ): Boolean {
-        val failureObserved = observeFailureThreshold(state, telemetry)
-        if (failureObserved && state.exhausted && clock.nowMillis() - state.exhaustedAt >= ExhaustedRetryAfterMs) {
+        val failureObserved = observeFailureThreshold(state, telemetry, dnsUsesSharedProxy)
+        val retryExhausted =
+            state.exhausted && state.consecutiveFailureEvents >= FailoverThreshold &&
+                !telemetry.lastDnsError.isNullOrBlank() &&
+                clock.nowMillis() - state.exhaustedAt >= ExhaustedRetryAfterMs
+        if (retryExhausted) {
             // The candidates may have failed during an outage that is over now; try them again.
             state.attemptedPathKeys.clear()
             state.attemptedPathKeys += currentPath.pathKey()
             state.exhausted = false
             reloadNetworkPreferences(state, networkScopeKey)
         }
-        if (!failureObserved || state.exhausted) return false
+        if ((!failureObserved && !retryExhausted) || state.exhausted) return false
 
         // The session scope lags a deferred (captive-portal) handover; use the live network.
         val liveScopeKey = networkFingerprintProvider.capture()?.scopeKey()
@@ -242,18 +274,32 @@ internal class VpnEncryptedDnsFailoverController(
     private fun observeFailureThreshold(
         state: VpnEncryptedDnsFailoverState,
         telemetry: NativeRuntimeSnapshot,
+        dnsUsesSharedProxy: Boolean,
     ): Boolean {
-        val failureEvent =
-            telemetry.dnsFailuresTotal > state.lastObservedDnsFailuresTotal &&
-                !telemetry.lastDnsError.isNullOrBlank()
+        val queryDelta = telemetry.dnsQueriesTotal - state.lastObservedDnsQueriesTotal
+        val resolverDelta = telemetry.dnsResolverFailuresTotal - state.lastObservedResolverFailuresTotal
+        val failureDelta = telemetry.dnsFailuresTotal - state.lastObservedDnsFailuresTotal
+        state.lastObservedDnsQueriesTotal = telemetry.dnsQueriesTotal
         state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
-        if (!failureEvent) return false
+        state.lastObservedResolverFailuresTotal = telemetry.dnsResolverFailuresTotal
+        if (failureDelta <= 0L || telemetry.lastDnsError.isNullOrBlank()) return false
 
-        state.consecutiveFailureEvents += 1
+        val observedSuccess = queryDelta > failureDelta
+        if (observedSuccess) state.consecutiveFailureEvents = 0
+        // Mixed samples and shared-proxy samples can only attribute the latest failure.
+        val count =
+            if (dnsUsesSharedProxy || queryDelta != failureDelta) {
+                1
+            } else {
+                resolverDelta.coerceIn(1, minOf(failureDelta, FailoverThreshold.toLong())).toInt()
+            }
+        state.consecutiveFailureEvents =
+            (state.consecutiveFailureEvents + count)
+                .coerceAtMost(FailoverThreshold)
         val failureClass = classifyBlockReason(telemetry.lastDnsError.orEmpty()) ?: "other"
         log.w { "DNS failure count=${state.consecutiveFailureEvents} failureClass=$failureClass" }
         val queriesSincePathStart = telemetry.dnsQueriesTotal - state.pathStartQueries
-        if (queriesSincePathStart <= EagerFailoverMaxQueries &&
+        if (!observedSuccess && queriesSincePathStart <= EagerFailoverMaxQueries &&
             isCatastrophicDnsError(telemetry.lastDnsError.orEmpty())
         ) {
             log.w { "catastrophic error on bootstrap, eager failover triggered (queries=$queriesSincePathStart)" }
