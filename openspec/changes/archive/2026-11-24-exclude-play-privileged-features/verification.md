@@ -1,11 +1,11 @@
 ---
 task_id: AND-1795444347241489
 change: exclude-play-privileged-features
-commit_sha: d0ee0f52e5363b363e34889044c5ebd03f501c4b
+commit_sha: d1b75749a2ef4b01e01b3b6648dfdd475f35487e
 local: passed
-local_evidence: Implementation validation covered debug packages and both diagnostic test suites. On the recorded source, the Play PCAP test, 22 release scanner and promotion contract tests, and just ci-gates passed.
-remote_ci: required
-remote_ci_evidence: null
+local_evidence: Implementation validation covered debug packages and both diagnostic test suites. On d0ee0f52e5, the Play PCAP test, 22 release scanner and promotion contract tests, and just ci-gates passed.
+remote_ci: passed
+remote_ci_evidence: Full CI run 45441455734 passed on attempt 2 on the recorded source, including all three debug and release distribution jobs.
 device: passed
 device_evidence: The non-root API 35 emulator passed the VPN, proxy greeting, and PCAP consent, restart, and viewer checks documented below. A physical root device is outside the Android app acceptance scope.
 artifact: passed
@@ -20,9 +20,9 @@ deployment_evidence: Release publication is a separate operation.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-DISTRIBUTION-ARTIFACT | AND-1795444402230111 | All three arm64 debug APKs built and checked in one checkout. | Local pass |
-| REQ-DISTRIBUTION-RUNTIME | AND-1795444402897115 | Standard and extended Android tests and native build and migration checks. | Local pass |
-| REQ-DISTRIBUTION-RELEASE | AND-1795444403544089 | The release scanner and promotion contract tests passed. Signed AAB and split APK verification remains an executable promotion gate. | Local pass |
+| REQ-DISTRIBUTION-ARTIFACT | AND-1795444402230111 | All three arm64 debug APKs passed the local package scanner. Hosted debug builds and packaged ELF and size checks passed. | passed |
+| REQ-DISTRIBUTION-RUNTIME | AND-1795444402897115 | Standard and extended Android tests and the non-rooted API 35 VPN, proxy and PCAP checks passed. | passed |
+| REQ-DISTRIBUTION-RELEASE | AND-1795444403544089 | The release scanner and promotion contract tests and all three hosted release builds passed. Signed AAB and split APK verification remains a promotion gate. | passed |
 
 ## Recorded implementation and current local results
 
@@ -37,3 +37,11 @@ deployment_evidence: Release publication is a separate operation.
 - The capture action created no file with an active VPN and capture consent off. It also created no file with capture consent on and VPN disconnected.
 - The Play APK started the local proxy on the same emulator. Its SOCKS5 listener answered the client greeting on the configured loopback port.
 - The release scanner and release promotion contract passed 22 Python tests. The signed AAB and split APK checks run in the release workflow before promotion.
+
+## Hosted CI
+
+[Full CI run 45441455734](https://github.com/po4yka/RIPDPI/actions/runs/45441455734/attempts/2)
+passed at `d1b75749a2`. Play, GitHub, and F-Droid passed debug APK assembly
+and packaged ELF and size checks. All three release shards passed assembly
+and packaged ELF and JNI mapping checks. The Play debug shard passed after
+Maven Central returned HTTP 429 on the first attempt.

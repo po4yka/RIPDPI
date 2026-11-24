@@ -1,0 +1,11 @@
+{
+  "change": "exclude-play-privileged-features",
+  "evidence_summary": "CI 45441455734 attempt 2 passed at d1b75749a2. Play, GitHub and F-Droid debug and release packages passed. The package scanner and non-rooted API 35 VPN, proxy and PCAP checks are recorded in the archived verification. Signed AAB and split APK checks remain release promotion gates.",
+  "execution_sha256": "bf238c00632c1ffd7ed0dab5ec9fd78275a9159acca0d2d51ea5f1415d92daec",
+  "issue_sha256": "cbd99eeccbf1068918c95923fdd35ae8eb1ca1f95114c86d41db49e0d93003b1",
+  "outcome": "done",
+  "prepared_at": "2026-11-24T17:43:49Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "AND-1795444347241489"
+}
