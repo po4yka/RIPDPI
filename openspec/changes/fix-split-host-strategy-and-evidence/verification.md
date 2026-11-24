@@ -51,7 +51,7 @@ locale, dependency, golden fixture, or quality baseline was changed.
 |---|---|---|---|
 | REQ-STRATEGY-EVIDENCE-001 | DGN-1786885745283306 | Candidate/config and exact-plan tests in the complete Linux monitor/runtime suite | PASS |
 | REQ-STRATEGY-EVIDENCE-002 | RST-1786885745241507 | Applied, activation-skipped, fallback, partial-write, and typed failure tests; production authenticated SOCKS test | PASS |
-| REQ-STRATEGY-EVIDENCE-003 | RST-1786885745241507 | Runtime action counters, the exact earlier Linux HTTP capture, and the current hosted TCP split capture passed. TLS framing is covered separately by runtime tests. | PASS |
+| REQ-STRATEGY-EVIDENCE-003 | RST-1786885745241507 | Runtime counters, the earlier exact Linux HTTP capture, and current hosted HTTP and TLS packet smoke passed. | PASS |
 | REQ-STRATEGY-EVIDENCE-004 | RST-1786885745241507 | Generation/terminal/late-receipt coverage and rejected trailing receipt regression | PASS |
 | REQ-STRATEGY-EVIDENCE-005 | DGN-1786885745283306 | Canonical candidate and effective marker/family matching tests; source-index regressions | PASS |
 | REQ-STRATEGY-EVIDENCE-006 | DGN-1786885745300444 | Existing archive/golden/privacy tests pass within diagnostics; fixtures unchanged and no blessing used | PASS |
@@ -168,6 +168,10 @@ remain blockers; neither allowlists nor quality thresholds were relaxed.
 ## Current app acceptance
 
 The host tests exercise the production runtime, terminal receipts, and the
-RAW_PATH and owned IN_PATH verdict boundaries. The controlled capture establishes
-the HTTP split boundary. Physical Wi-Fi, cellular, handover, and separate
-TLS packet measurements are outside this app acceptance scope.
+RAW_PATH and owned IN_PATH verdict boundaries. The controlled HTTP capture
+establishes the exact split boundary. The hosted TLS split and unsplit
+capture cases also passed. Physical Android Wi-Fi, cellular, and handover
+measurements are outside app acceptance.
+
+- [Hosted HTTP split case](https://github.com/po4yka/RIPDPI/actions/runs/45441447533)
+- [Hosted TLS engine evidence](https://github.com/po4yka/RIPDPI/actions/runs/45441447552/job/138613378300)
