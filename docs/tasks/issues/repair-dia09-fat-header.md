@@ -2,7 +2,7 @@
 id: DGN-1794734095979878
 title: Repair DIA-09 TCP fat-header diagnostics
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: dgn-1794734095979878-repair-dia09-fat-header
 created: 2026-11-15
-updated: 2026-11-15
+updated: 2026-11-24
 ---
 
 ## Goal
