@@ -61,7 +61,7 @@
     <string name="settings_engine_failure_block_title">Block traffic if the connection fails</string>
     <string name="settings_engine_failure_block_body">No internet until you stop the VPN. When off, the VPN stops and traffic goes direct.</string>
     <string name="settings_start_on_boot_title">Start on boot</string>
-    <string name="settings_start_on_boot_battery_warning">Battery optimization is still active. Android may stop RIPDPI from starting on boot until you exempt it from battery optimization.</string>
+    <string name="settings_start_on_boot_battery_warning">Android or the device manufacturer may restrict startup. In settings, allow autostart or remove battery restrictions for RIPDPI.</string>
     <string name="settings_exclude_russian_apps_title">Exclude Russian apps</string>
     <string name="settings_exclude_russian_apps_body">Banking, delivery, and government apps bypass the VPN to avoid detection issues.</string>
     <string name="settings_full_tunnel_title">Full tunnel mode</string>
@@ -360,4 +360,6 @@
     <string name="settings_option_zero">Zero</string>
     <string name="settings_option_iana_bigsize">IANA large payload</string>
     <string name="settings_advanced_group_title">Routing, bypass, and advanced settings</string>
+    <string name="settings_system_screen_unavailable">Android could not open this settings screen.</string>
+    <string name="settings_start_on_boot_vendor_settings">Manage device autostart for RIPDPI</string>
 </resources>

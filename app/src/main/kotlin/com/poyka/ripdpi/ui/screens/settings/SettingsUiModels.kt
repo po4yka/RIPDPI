@@ -17,14 +17,6 @@ sealed interface SettingsEffect {
         val tone: SettingsNoticeTone,
         val messageOverride: String? = null,
     ) : SettingsEffect
-
-    /**
-     * Requests the host screen to launch the battery-optimization / vendor-autostart
-     * exemption flow after the user enables "Start on boot". The screen resolves the
-     * concrete intents from [com.poyka.ripdpi.platform.StartOnBootController] — Intent
-     * objects are intentionally kept out of the effect so it stays cleanly equatable.
-     */
-    data object RequestDisableBatteryOptimization : SettingsEffect
 }
 
 enum class SettingsNoticeTone {

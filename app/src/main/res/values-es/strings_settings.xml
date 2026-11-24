@@ -36,7 +36,7 @@
     <string name="settings_engine_failure_block_title">Bloquear el tráfico si falla la conexión</string>
     <string name="settings_engine_failure_block_body">Sin internet hasta que detengas la VPN. Si está desactivado, la VPN se detiene y el tráfico sale directo.</string>
     <string name="settings_start_on_boot_title">Iniciar al arrancar</string>
-    <string name="settings_start_on_boot_battery_warning">La optimización de batería sigue activa. Android podría impedir que RIPDPI se inicie al arrancar hasta que lo excluyas de la optimización de batería.</string>
+    <string name="settings_start_on_boot_battery_warning">Android o el fabricante pueden limitar el inicio. En los ajustes, permite el inicio automático o quita las restricciones de batería para RIPDPI.</string>
     <string name="about_links_section">Enlaces</string>
     <string name="advanced_settings_error_oob_data">Los datos OOB deben estar vacíos o ser un solo carácter.</string>
     <string name="customization_current_icon_caption">Ícono actual</string>
@@ -355,4 +355,6 @@
     <string name="settings_option_zero">Cero</string>
     <string name="settings_option_iana_bigsize">IANA, carga útil grande</string>
     <string name="settings_advanced_group_title">Enrutamiento, bypass y ajustes avanzados</string>
+    <string name="settings_system_screen_unavailable">Android no pudo abrir esta pantalla de ajustes.</string>
+    <string name="settings_start_on_boot_vendor_settings">Configurar el inicio automático de RIPDPI en el dispositivo</string>
 </resources>

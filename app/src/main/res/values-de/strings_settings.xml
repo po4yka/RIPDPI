@@ -36,7 +36,7 @@
     <string name="settings_engine_failure_block_title">Datenverkehr bei Verbindungsfehler blockieren</string>
     <string name="settings_engine_failure_block_body">Kein Internet, bis du das VPN stoppst. Wenn aus, stoppt das VPN und der Datenverkehr läuft direkt.</string>
     <string name="settings_start_on_boot_title">Beim Hochfahren starten</string>
-    <string name="settings_start_on_boot_battery_warning">Die Akkuoptimierung ist weiterhin aktiv. Android kann verhindern, dass RIPDPI beim Hochfahren startet, bis Sie es von der Akkuoptimierung ausnehmen.</string>
+    <string name="settings_start_on_boot_battery_warning">Android oder der Gerätehersteller kann den Start einschränken. Erlauben Sie in den Einstellungen den Autostart oder heben Sie die Akkubeschränkungen für RIPDPI auf.</string>
     <string name="about_links_section">Links</string>
     <string name="advanced_settings_error_oob_data">OOB-Daten müssen leer sein oder aus einem einzelnen Zeichen bestehen.</string>
     <string name="customization_current_icon_caption">Aktuelles Symbol</string>
@@ -354,4 +354,6 @@
     <string name="settings_option_zero">Null</string>
     <string name="settings_option_iana_bigsize">IANA, große Nutzlast</string>
     <string name="settings_advanced_group_title">Routing, Bypass und erweiterte Einstellungen</string>
+    <string name="settings_system_screen_unavailable">Android konnte diese Einstellungsseite nicht öffnen.</string>
+    <string name="settings_start_on_boot_vendor_settings">Geräte-Autostart für RIPDPI verwalten</string>
 </resources>

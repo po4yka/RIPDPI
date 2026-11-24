@@ -58,7 +58,7 @@
     <string name="settings_engine_failure_block_title">Блокировать трафик при сбое подключения</string>
     <string name="settings_engine_failure_block_body">Интернета не будет, пока вы не остановите VPN. Если выключено, VPN остановится, а трафик пойдёт напрямую.</string>
     <string name="settings_start_on_boot_title">Запуск при загрузке</string>
-    <string name="settings_start_on_boot_battery_warning">Оптимизация батареи всё ещё включена. Android может не дать RIPDPI запуститься при загрузке, пока вы не отключите для него оптимизацию батареи.</string>
+    <string name="settings_start_on_boot_battery_warning">Android или производитель устройства может ограничивать запуск. В настройках разрешите автозапуск или снимите ограничения батареи для RIPDPI.</string>
     <string name="settings_full_tunnel_helper">Когда включено, весь трафик идёт через туннель. Per-app исключения недоступны в этом режиме.</string>
     <string name="settings_biometric_title">Требовать аутентификацию</string>
     <string name="settings_biometric_body_with_pin">Биометрическая разблокировка включена с резервным PIN-кодом.</string>
@@ -355,4 +355,6 @@
     <string name="settings_option_zero">Нулевой</string>
     <string name="settings_option_iana_bigsize">IANA, большой пакет данных</string>
     <string name="settings_advanced_group_title">Маршрутизация, обход и расширенные настройки</string>
+    <string name="settings_system_screen_unavailable">Android не смог открыть этот экран настроек.</string>
+    <string name="settings_start_on_boot_vendor_settings">Настроить автозапуск RIPDPI на устройстве</string>
 </resources>

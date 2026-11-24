@@ -71,7 +71,7 @@
     <string name="settings_engine_failure_block_title">कनेक्शन विफल होने पर ट्रैफ़िक रोकें</string>
     <string name="settings_engine_failure_block_body">जब तक आप VPN बंद नहीं करते, इंटरनेट नहीं चलेगा। यह विकल्प बंद होने पर VPN रुक जाता है और ट्रैफ़िक सीधे जाता है।</string>
     <string name="settings_start_on_boot_title">बूट पर शुरू करें</string>
-    <string name="settings_start_on_boot_battery_warning">बैटरी ऑप्टिमाइज़ेशन अभी भी सक्रिय है। जब तक आप RIPDPI को बैटरी ऑप्टिमाइज़ेशन से छूट नहीं देते, तब तक Android इसे बूट पर शुरू होने से रोक सकता है।</string>
+    <string name="settings_start_on_boot_battery_warning">Android या डिवाइस निर्माता स्टार्टअप पर रोक लगा सकता है। सेटिंग में RIPDPI के लिए अपने आप शुरू होने की अनुमति दें या बैटरी प्रतिबंध हटाएँ।</string>
     <string name="settings_exclude_russian_apps_title">रूसी ऐप्स को बाहर रखें</string>
     <string name="settings_exclude_russian_apps_body">पता लगने की समस्याओं से बचने के लिए बैंकिंग, डिलीवरी और सरकारी ऐप्स VPN को बायपास करते हैं।</string>
     <string name="settings_full_tunnel_title">फ़ुल टनल मोड</string>
@@ -352,4 +352,6 @@
     <string name="settings_option_zero">शून्य</string>
     <string name="settings_option_iana_bigsize">IANA बड़ा पेलोड</string>
     <string name="settings_advanced_group_title">रूटिंग, बायपास और उन्नत सेटिंग</string>
+    <string name="settings_system_screen_unavailable">Android यह सेटिंग स्क्रीन नहीं खोल सका।</string>
+    <string name="settings_start_on_boot_vendor_settings">डिवाइस पर RIPDPI का ऑटोस्टार्ट प्रबंधित करें</string>
 </resources>

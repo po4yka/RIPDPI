@@ -1,10 +1,11 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -14,18 +15,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StartOnBootController
-import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.dns.DnsUiState
@@ -64,29 +61,20 @@ fun SettingsRoute(
     val context = LocalContext.current
     val startOnBootController =
         remember(context) { StartOnBootController(context.applicationContext) }
-    var batteryOptimizationIgnored by remember {
+    val vendorAutostartIntents = remember(startOnBootController) { startOnBootController.vendorAutostartIntents() }
+    var batteryOptimizationIgnored by remember(startOnBootController) {
         mutableStateOf(startOnBootController.isBatteryOptimizationIgnored())
     }
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, startOnBootController) {
-        val observer =
-            LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
-                    batteryOptimizationIgnored = startOnBootController.isBatteryOptimizationIgnored()
-                }
-            }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    LifecycleEventEffect(viewModel.batteryOptimizationRequests) {
-        launchBatteryOptimizationExemption(context, startOnBootController)
+    LifecycleResumeEffect(startOnBootController) {
         batteryOptimizationIgnored = startOnBootController.isBatteryOptimizationIgnored()
+        onPauseOrDispose {}
     }
     val customization = viewModel.customizationActions
     SettingsScreen(
         uiState = uiState.value,
         xrayProviderSnapshot = xrayProviderSnapshot.value,
         batteryOptimizationIgnored = batteryOptimizationIgnored,
+        hasVendorAutostart = vendorAutostartIntents.isNotEmpty(),
         actions =
             SettingsScreenActions(
                 onOpenAdvancedSettings = onOpenAdvancedSettings,
@@ -115,6 +103,13 @@ fun SettingsRoute(
                     remember(customization) { customization::setBlockTrafficOnEngineFailure },
                 onFieldReportChanged = remember(viewModel) { viewModel.maintenanceActions::setFieldReportEnabled },
                 onStartOnBootChanged = remember(customization) { customization::setStartOnBootEnabled },
+                onOpenBootSettings = {
+                    launchSettingsIntents(
+                        context,
+                        startOnBootController.batteryOptimizationIntents(),
+                    )
+                },
+                onOpenVendorAutostart = { launchSettingsIntents(context, vendorAutostartIntents) },
                 onBiometricChanged = remember(customization) { customization::setBiometricEnabled },
                 onSaveBackupPin = remember(customization) { customization::setBackupPin },
                 onResetSettings = remember(viewModel) { viewModel.maintenanceActions::resetSettings },
@@ -136,6 +131,7 @@ internal fun SettingsScreen(
     modifier: Modifier = Modifier,
     xrayProviderSnapshot: XrayProviderSnapshot? = null,
     batteryOptimizationIgnored: Boolean = true,
+    hasVendorAutostart: Boolean = false,
     notice: SettingsEffect.Notice? = null,
     onDismissNotice: () -> Unit = {},
 ) {
@@ -165,6 +161,7 @@ internal fun SettingsScreen(
                 actions = actions,
                 permissionSummary = permissionSummary,
                 batteryOptimizationIgnored = batteryOptimizationIgnored,
+                hasVendorAutostart = hasVendorAutostart,
             )
         }
         item { SettingsAppearanceSection(uiState = uiState, actions = actions) }
@@ -214,6 +211,8 @@ internal data class SettingsScreenActions(
     val onBlockTrafficOnEngineFailureChanged: (Boolean) -> Unit = {},
     val onFieldReportChanged: (Boolean) -> Unit = {},
     val onStartOnBootChanged: (Boolean) -> Unit,
+    val onOpenBootSettings: () -> Unit = {},
+    val onOpenVendorAutostart: () -> Unit = {},
     val onBiometricChanged: (Boolean) -> Unit,
     val onSaveBackupPin: (String) -> Unit,
     val onResetSettings: () -> Unit = {},
@@ -221,19 +220,22 @@ internal data class SettingsScreenActions(
     val onClearCommunityCache: () -> Unit = {},
 )
 
-private fun launchBatteryOptimizationExemption(
+private fun launchSettingsIntents(
     context: Context,
-    controller: StartOnBootController,
+    intents: List<android.content.Intent>,
 ) {
-    val launched =
-        controller.batteryOptimizationIntents().any { intent ->
-            runCatching { context.startActivity(intent) }.isSuccess
+    val opened =
+        intents.any { intent ->
+            try {
+                context.startActivity(intent)
+                true
+            } catch (_: ActivityNotFoundException) {
+                false
+            } catch (_: SecurityException) {
+                false
+            }
         }
-    if (!launched) {
-        Logger.withTag("StartOnBoot").w {
-            "no battery-optimization exemption activity resolved; relying on warning banner"
-        }
-    }
+    if (!opened) Toast.makeText(context, R.string.settings_system_screen_unavailable, Toast.LENGTH_LONG).show()
 }
 
 private fun previewActions(): SettingsScreenActions =

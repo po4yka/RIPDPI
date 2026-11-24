@@ -59,6 +59,7 @@ internal fun SettingsConnectivitySection(
     actions: SettingsScreenActions,
     permissionSummary: PermissionSummaryUiState = PermissionSummaryUiState(),
     batteryOptimizationIgnored: Boolean = true,
+    hasVendorAutostart: Boolean = false,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
         SettingsSection(title = stringResource(R.string.settings_connectivity_section), singleRow = true) {
@@ -71,9 +72,17 @@ internal fun SettingsConnectivitySection(
         }
         if (uiState.startOnBootEnabled && !batteryOptimizationIgnored) {
             WarningBanner(
-                title = stringResource(R.string.settings_start_on_boot_title),
+                title = stringResource(R.string.settings_permission_action_open_settings),
                 message = stringResource(R.string.settings_start_on_boot_battery_warning),
                 tone = WarningBannerTone.Warning,
+                onClick = actions.onOpenBootSettings,
+            )
+        }
+        if (uiState.startOnBootEnabled && hasVendorAutostart) {
+            RipDpiButton(
+                text = stringResource(R.string.settings_start_on_boot_vendor_settings),
+                onClick = actions.onOpenVendorAutostart,
+                variant = RipDpiButtonVariant.Outline,
             )
         }
         SettingsAdvancedConnectivitySection(uiState = uiState, actions = actions)

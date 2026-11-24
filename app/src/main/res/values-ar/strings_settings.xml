@@ -49,7 +49,7 @@
     <string name="settings_engine_failure_block_title">حظر حركة المرور عند فشل الاتصال</string>
     <string name="settings_engine_failure_block_body">لا إنترنت حتى توقف VPN. عند إيقاف هذا الخيار، يتوقف VPN وتمر حركة المرور مباشرةً.</string>
     <string name="settings_start_on_boot_title">التشغيل عند الإقلاع</string>
-    <string name="settings_start_on_boot_battery_warning">تحسين البطارية لا يزال نشطاً. قد يمنع Android بدء تشغيل RIPDPI عند الإقلاع حتى تُعفيه من تحسين البطارية.</string>
+    <string name="settings_start_on_boot_battery_warning">قد يقيّد Android أو مصنّع الجهاز بدء التشغيل. اسمح بالتشغيل التلقائي أو أزل قيود البطارية عن RIPDPI في الإعدادات.</string>
     <string name="settings_exclude_russian_apps_title">استثناء التطبيقات الروسية</string>
     <string name="settings_exclude_russian_apps_body">تتجاوز تطبيقات البنوك والتوصيل والحكومة الـ VPN لتجنب مشاكل الكشف.</string>
     <string name="settings_full_tunnel_title">وضع النفق الكامل</string>
@@ -359,4 +359,6 @@
     <string name="settings_option_zero">صفر</string>
     <string name="settings_option_iana_bigsize">IANA بحمولة كبيرة</string>
     <string name="settings_advanced_group_title">التوجيه والتجاوز والإعدادات المتقدمة</string>
+    <string name="settings_system_screen_unavailable">تعذّر على Android فتح شاشة الإعدادات هذه.</string>
+    <string name="settings_start_on_boot_vendor_settings">إدارة التشغيل التلقائي لـ RIPDPI على الجهاز</string>
 </resources>

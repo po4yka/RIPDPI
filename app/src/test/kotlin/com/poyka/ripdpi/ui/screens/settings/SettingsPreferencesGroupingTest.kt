@@ -181,23 +181,42 @@ class SettingsPreferencesGroupingTest {
     }
 
     @Test
-    fun connectionContainsBootControlWithoutLanguage() {
-        var enabled: Boolean? = null
+    fun bootSettingsOpenOnlyFromTheWarningAction() {
+        val state = androidx.compose.runtime.mutableStateOf(SettingsUiState())
+        val batteryOptimizationIgnored = androidx.compose.runtime.mutableStateOf(false)
+        var settingsOpens = 0
         composeRule.setContent {
             RipDpiTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     SettingsConnectivitySection(
-                        uiState = SettingsUiState(startOnBootEnabled = true),
-                        actions = noOpActions().copy(onStartOnBootChanged = { enabled = it }),
-                        batteryOptimizationIgnored = false,
+                        uiState = state.value,
+                        actions =
+                            noOpActions().copy(
+                                onStartOnBootChanged = { state.value = state.value.copy(startOnBootEnabled = it) },
+                                onOpenBootSettings = { settingsOpens += 1 },
+                            ),
+                        batteryOptimizationIgnored = batteryOptimizationIgnored.value,
                     )
                 }
             }
         }
+        val warning = composeRule.onNodeWithText(resource(R.string.settings_start_on_boot_battery_warning))
         composeRule.onNodeWithText(resource(R.string.settings_language_title)).assertDoesNotExist()
-        composeRule.onNodeWithText(resource(R.string.settings_start_on_boot_battery_warning)).assertExists()
+        warning.assertDoesNotExist()
+
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsStartOnBoot).performScrollTo().performClick()
-        assertEquals(false, enabled)
+        warning.assertExists()
+        assertEquals(0, settingsOpens)
+
+        composeRule
+            .onNodeWithText(resource(R.string.settings_permission_action_open_settings))
+            .performScrollTo()
+            .performClick()
+        assertEquals(1, settingsOpens)
+
+        composeRule.runOnIdle { batteryOptimizationIgnored.value = true }
+        warning.assertDoesNotExist()
+        assertTrue(state.value.startOnBootEnabled)
     }
 
     @Test

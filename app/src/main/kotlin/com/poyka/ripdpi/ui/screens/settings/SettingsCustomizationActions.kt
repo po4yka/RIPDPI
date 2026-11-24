@@ -53,11 +53,6 @@ internal class SettingsCustomizationActions(
             setStartOnBoot(enabled)
         }
         startOnBootController.setReceiverEnabled(enabled)
-        if (enabled && !startOnBootController.isBatteryOptimizationIgnored()) {
-            mutations.launch {
-                emit(SettingsEffect.RequestDisableBatteryOptimization)
-            }
-        }
     }
 
     fun setExcludeRussianAppsEnabled(enabled: Boolean) {

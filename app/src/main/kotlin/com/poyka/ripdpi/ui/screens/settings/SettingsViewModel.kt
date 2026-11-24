@@ -9,7 +9,6 @@ import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.services.ServiceIntentArbiter
-import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineStart
@@ -80,12 +79,6 @@ class SettingsViewModel
 
         fun acknowledgeDnsNotice(notice: SettingsEffect.Notice) = dnsNoticeState.acknowledge(notice)
 
-        // The battery request has its own flow: the Settings list pane and a detail beside it are both resumed on
-        // wide windows, and a single-delivery flow would hand the event to the wrong one.
-        val batteryOptimizationRequests =
-            settingsEffects
-                .filterIsInstance<SettingsEffect.RequestDisableBatteryOptimization>()
-                .bufferForUiLifecycle(viewModelScope)
         val hostPackCatalog: StateFlow<HostPackCatalogUiState> =
             settingsActionDependencies.hostPackCatalogUiStateStore.state
         val strategyPackCatalog: StateFlow<StrategyPackCatalogUiState> = strategyPackCatalogState

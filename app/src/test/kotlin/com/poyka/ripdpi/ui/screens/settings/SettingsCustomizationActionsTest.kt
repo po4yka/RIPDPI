@@ -28,7 +28,7 @@ class SettingsCustomizationActionsTest {
     @Test
     fun `haptic choice persists both values without changing boot behavior`() =
         runTest {
-            val harness = buildHarness(batteryIgnored = false)
+            val harness = buildHarness()
             harness.actions.setHapticFeedbackDisabled(true)
             advanceUntilIdle()
             assertTrue(harness.repository.snapshot().hapticFeedbackDisabled)
@@ -42,7 +42,7 @@ class SettingsCustomizationActionsTest {
     @Test
     fun `dynamic color choice persists both values`() =
         runTest {
-            val harness = buildHarness(batteryIgnored = false)
+            val harness = buildHarness()
             harness.actions.setDynamicColorEnabled(true)
             advanceUntilIdle()
             assertTrue(harness.repository.snapshot().dynamicColorEnabled)
@@ -55,7 +55,7 @@ class SettingsCustomizationActionsTest {
     @Test
     fun `engine failure choice persists both values and maps to ui state`() =
         runTest {
-            val harness = buildHarness(batteryIgnored = false)
+            val harness = buildHarness()
             assertTrue(
                 harness.repository
                     .snapshot()
@@ -89,7 +89,7 @@ class SettingsCustomizationActionsTest {
     @Test
     fun `acknowledging the reset notice clears the flag`() =
         runTest {
-            val harness = buildHarness(batteryIgnored = false)
+            val harness = buildHarness()
             harness.repository.update { setAppLockResetNoticePending(true) }
 
             harness.actions.acknowledgeAppLockResetNotice()
@@ -101,7 +101,7 @@ class SettingsCustomizationActionsTest {
     @Test
     fun `setting a new pin clears the reset notice but removing the pin keeps it`() =
         runTest {
-            val harness = buildHarness(batteryIgnored = false)
+            val harness = buildHarness()
             harness.repository.update { setAppLockResetNoticePending(true) }
 
             harness.actions.setBackupPin("")
@@ -113,16 +113,12 @@ class SettingsCustomizationActionsTest {
             assertFalse(harness.repository.snapshot().appLockResetNoticePending)
         }
 
-    private class RecordingStartOnBootController(
-        var batteryIgnored: Boolean,
-    ) : StartOnBootController(ApplicationProvider.getApplicationContext()) {
+    private class RecordingStartOnBootController : StartOnBootController(ApplicationProvider.getApplicationContext()) {
         val receiverEnabledCalls = mutableListOf<Boolean>()
 
         override fun setReceiverEnabled(enabled: Boolean) {
             receiverEnabledCalls += enabled
         }
-
-        override fun isBatteryOptimizationIgnored(): Boolean = batteryIgnored
     }
 
     private class Harness(
@@ -135,7 +131,7 @@ class SettingsCustomizationActionsTest {
             get() = effects.replayCache
     }
 
-    private fun CoroutineScope.buildHarness(batteryIgnored: Boolean): Harness {
+    private fun CoroutineScope.buildHarness(): Harness {
         val repository = FakeAppSettingsRepository()
         // replay buffer captures emissions without a live collector in the test.
         val effectFlow =
@@ -143,7 +139,7 @@ class SettingsCustomizationActionsTest {
                 replay = 16,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
-        val controller = RecordingStartOnBootController(batteryIgnored)
+        val controller = RecordingStartOnBootController()
         val actions =
             SettingsCustomizationActions(
                 mutations = SettingsMutationRunner(this, repository, effectFlow),
@@ -157,47 +153,28 @@ class SettingsCustomizationActionsTest {
     }
 
     @Test
-    fun `enabling persists proto, enables receiver, and prompts when battery not ignored`() =
+    fun `enabling boot persists the preference without requesting settings`() =
         runTest {
-            val harness = buildHarness(batteryIgnored = false)
+            val harness = buildHarness()
 
             harness.actions.setStartOnBootEnabled(true)
             advanceUntilIdle()
 
             assertTrue(harness.repository.snapshot().startOnBoot)
             assertEquals(listOf(true), harness.controller.receiverEnabledCalls)
-            assertTrue(
-                harness.emittedEffects.any { it is SettingsEffect.RequestDisableBatteryOptimization },
-            )
+            assertEquals(listOf(SettingsEffect.SettingChanged("startOnBoot", "true")), harness.emittedEffects)
         }
 
     @Test
-    fun `enabling does not prompt when battery already ignored`() =
+    fun `disabling boot persists the preference without requesting settings`() =
         runTest {
-            val harness = buildHarness(batteryIgnored = true)
-
-            harness.actions.setStartOnBootEnabled(true)
-            advanceUntilIdle()
-
-            assertTrue(harness.repository.snapshot().startOnBoot)
-            assertEquals(listOf(true), harness.controller.receiverEnabledCalls)
-            assertFalse(
-                harness.emittedEffects.any { it is SettingsEffect.RequestDisableBatteryOptimization },
-            )
-        }
-
-    @Test
-    fun `disabling persists, disables receiver, and never prompts`() =
-        runTest {
-            val harness = buildHarness(batteryIgnored = false)
+            val harness = buildHarness()
 
             harness.actions.setStartOnBootEnabled(false)
             advanceUntilIdle()
 
             assertFalse(harness.repository.snapshot().startOnBoot)
             assertEquals(listOf(false), harness.controller.receiverEnabledCalls)
-            assertFalse(
-                harness.emittedEffects.any { it is SettingsEffect.RequestDisableBatteryOptimization },
-            )
+            assertEquals(listOf(SettingsEffect.SettingChanged("startOnBoot", "false")), harness.emittedEffects)
         }
 }
