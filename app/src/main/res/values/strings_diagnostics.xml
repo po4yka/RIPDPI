@@ -2144,4 +2144,11 @@
     <string name="diagnostics_quic_initial_limit">QUIC Initial exchange only. This probe does not test a complete HTTP/3 request.</string>
     <string name="diagnostics_field_interface_mtu">Interface MTU</string>
     <string name="diagnostics_interface_mtu_value">%1$d B · path MTU outside snapshot scope</string>
+    <string name="diagnostics_tcp16_head_requests">HEAD requests written / planned: %1$s / %2$s</string>
+    <string name="diagnostics_tcp16_head_responses">Final HEAD responses: %1$d</string>
+    <string name="diagnostics_tcp16_bytes_written">Bytes written: %1$d</string>
+    <string name="diagnostics_tcp16_last_response_bytes">Bytes written at last response: %1$d</string>
+    <string name="diagnostics_tcp16_byte_coverage">Successful response after the byte target: %1$s</string>
+    <string name="diagnostics_tcp16_stage_write">Writing HEAD request</string>
+    <string name="diagnostics_tcp16_stage_stopped">Measurement stopped</string>
 </resources>

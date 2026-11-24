@@ -2285,4 +2285,11 @@
     <string name="diagnostics_quic_initial_limit">تبادل QUIC الأولي فقط. لا يختبر هذا الفحص طلب HTTP/3 كاملاً.</string>
     <string name="diagnostics_field_interface_mtu">MTU الواجهة</string>
     <string name="diagnostics_interface_mtu_value">%1$d بايت · لم يُقَس MTU المسار</string>
+    <string name="diagnostics_tcp16_head_requests">طلبات HEAD المكتوبة / المخططة: %1$s / %2$s</string>
+    <string name="diagnostics_tcp16_head_responses">ردود HEAD النهائية: %1$d</string>
+    <string name="diagnostics_tcp16_bytes_written">البايتات المكتوبة: %1$d</string>
+    <string name="diagnostics_tcp16_last_response_bytes">البايتات المكتوبة حتى آخر رد: %1$d</string>
+    <string name="diagnostics_tcp16_byte_coverage">رد ناجح بعد بلوغ الحجم المستهدف: %1$s</string>
+    <string name="diagnostics_tcp16_stage_write">كتابة طلب HEAD</string>
+    <string name="diagnostics_tcp16_stage_stopped">توقف القياس</string>
 </resources>

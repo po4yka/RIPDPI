@@ -12,6 +12,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.screens.diagnostics.DedicatedProbeEvidenceCards
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsSessionDiagnosesCard
+import com.poyka.ripdpi.ui.screens.diagnostics.ProbeResultRow
 import com.poyka.ripdpi.ui.screens.diagnostics.TelegramResultCard
 import com.poyka.ripdpi.ui.screens.diagnostics.hasDedicatedEvidenceCard
 import com.poyka.ripdpi.ui.screens.diagnostics.isSelectiveMatrixProbe
@@ -148,8 +149,15 @@ internal fun DiagnosticsDetailContent(
         ContextGroupCard(group = group)
     }
     detail.probeGroups.forEach { group ->
-        val (telegramProbes, otherProbes) = group.items.partition { it.isTelegramAvailabilityProbe() }
-        telegramProbes.forEach { TelegramResultCard(it) }
+        val (expandedProbes, otherProbes) =
+            group.items.partition { it.isTelegramAvailabilityProbe() || it.fatHeaderEvidence.isNotEmpty() }
+        expandedProbes.forEach { probe ->
+            if (probe.isTelegramAvailabilityProbe()) {
+                TelegramResultCard(probe)
+            } else {
+                ProbeResultRow(probe, onClick = null)
+            }
+        }
         val probes =
             otherProbes.filterNot {
                 it.isSelectiveMatrixProbe() || it.hasDedicatedEvidenceCard()

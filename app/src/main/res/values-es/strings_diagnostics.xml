@@ -2134,4 +2134,11 @@
     <string name="diagnostics_quic_initial_limit">Solo intercambio inicial de QUIC. Esta prueba no comprueba una solicitud HTTP/3 completa.</string>
     <string name="diagnostics_field_interface_mtu">MTU de la interfaz</string>
     <string name="diagnostics_interface_mtu_value">%1$d B · sin medir la MTU de la ruta</string>
+    <string name="diagnostics_tcp16_head_requests">Solicitudes HEAD escritas / previstas: %1$s / %2$s</string>
+    <string name="diagnostics_tcp16_head_responses">Respuestas HEAD finales: %1$d</string>
+    <string name="diagnostics_tcp16_bytes_written">Bytes escritos: %1$d</string>
+    <string name="diagnostics_tcp16_last_response_bytes">Bytes escritos al recibir la última respuesta: %1$d</string>
+    <string name="diagnostics_tcp16_byte_coverage">Respuesta correcta tras alcanzar el objetivo de bytes: %1$s</string>
+    <string name="diagnostics_tcp16_stage_write">Escritura de la solicitud HEAD</string>
+    <string name="diagnostics_tcp16_stage_stopped">Medición detenida</string>
 </resources>

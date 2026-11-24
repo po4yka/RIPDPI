@@ -118,6 +118,7 @@ internal fun CompactProbeRow(
             tone = statusTone(probe.tone),
         )
         VerifiedTransferComparisonRows(probe)
+        FatHeaderEvidenceRows(probe)
         if (probe.volumeTransferLegTitleResource() != null) {
             probe.transferEvidence?.runs?.singleOrNull()?.let { run ->
                 TransferByteCount(run)
@@ -342,6 +343,7 @@ internal fun ProbeResultRow(
     ) {
         ProbeResultHeader(probe)
         VerifiedTransferComparisonRows(probe)
+        FatHeaderEvidenceRows(probe)
         probe.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
         probe.transferEvidence?.let {
             DiagnosticsTransferCard(transfer = it, showTarget = probe.volumeTransferLegTitleResource() == null)
@@ -368,10 +370,11 @@ private fun ProbeResultHeader(probe: DiagnosticsProbeResultUiModel) {
             probe.pmtu != null -> probe.pmtu.title
             probe.http3 != null -> probe.http3.title
             probe.ipFamily != null -> stringResource(R.string.diagnostics_ip_title)
+            probe.fatHeaderEvidence.isNotEmpty() -> stringResource(R.string.diagnostics_dpi_probe_kind_tcp16)
             else -> probe.probeType
         }
     val outcome =
-        if (probe.isVerifiedTransferComparison) {
+        if (probe.isVerifiedTransferComparison || probe.fatHeaderEvidence.isNotEmpty()) {
             diagnosticProbeOutcome(probe, expertMode = false)
         } else {
             (probe.pmtu ?: probe.http3 ?: probe.ipFamily)?.fields?.firstOrNull()?.value ?: probe.outcome

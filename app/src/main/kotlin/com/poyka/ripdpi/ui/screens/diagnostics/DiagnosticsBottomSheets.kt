@@ -373,6 +373,7 @@ private fun probeDetail(
         DiagnosticsDnsResponseCards(probe.dnsResponses, initiallyExpanded = true)
         ProbeOutcome(probe, expertMode)
         VerifiedTransferComparisonRows(probe)
+        FatHeaderEvidenceRows(probe)
         probe.probeRetryCount?.takeIf { it > 0 }?.let { retryCount ->
             SettingsRow(
                 title = stringResource(R.string.diagnostics_probe_retry_count_label),

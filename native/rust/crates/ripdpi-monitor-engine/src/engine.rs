@@ -123,7 +123,6 @@ mod tests {
         let unknown = probe("doh_json_survey", "example.com", "inconclusive");
         for (mut results, expected) in [
             (vec![probe("network_environment", "wifi", "vpn_tunnel_down")], "attention_required"),
-            (vec![probe("tcp_fat_header", "8.8.8.8:443", "tcp_timeout")], "attention_required"),
             (
                 vec![
                     probe("network_environment", "wifi", "network_unavailable"),
@@ -136,6 +135,23 @@ mod tests {
             let analytics = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
             assert!(analytics.ends_with(&format!("network_verdict={expected}")), "{analytics}");
         }
+    }
+
+    #[test]
+    fn connectivity_analytics_summary_requires_positive_evidence_alongside_tcp_stress_attention() {
+        let mut results = vec![
+            probe("network_environment", "wifi", "network_available"),
+            probe("tcp_fat_header", "8.8.8.8:443", "tcp_timeout"),
+        ];
+        let path = crate::types::ScanPathMode::RawPath;
+        let summary = connectivity_analytics_summary(&results, &path);
+        assert!(summary.contains("tcp_attention=1"), "{summary}");
+        assert!(summary.ends_with("network_verdict=connectivity_inconclusive"), "{summary}");
+
+        results.push(probe("domain_reachability", "example.com", "tls_ok"));
+        let summary = connectivity_analytics_summary(&results, &path);
+        assert!(summary.contains("tcp_attention=1"), "{summary}");
+        assert!(summary.ends_with("network_verdict=attention_required"), "{summary}");
     }
 
     #[test]
@@ -195,12 +211,13 @@ mod tests {
     }
 
     #[test]
-    fn connectivity_analytics_requires_attention_for_a_standalone_tcp_reset() {
+    fn connectivity_analytics_keeps_a_standalone_tcp_reset_as_probe_attention() {
         let results = [probe("tcp_fat_header", "192.0.2.3:443", "tcp_reset")];
 
         let analytics = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
         assert!(analytics.contains("healthy=0 attention=1"));
-        assert!(analytics.ends_with("network_verdict=attention_required"));
+        assert!(analytics.contains("tcp_attention=1 tcp_resets=1"));
+        assert!(analytics.ends_with("network_verdict=connectivity_inconclusive"));
     }
 
     #[test]
