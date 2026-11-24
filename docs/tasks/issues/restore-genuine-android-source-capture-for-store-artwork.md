@@ -67,3 +67,23 @@ Independent full-size and phone-thumbnail review approved all 14 accepted raw
 frames and their matching XML/intrinsic receipts. These diagnostic frames are
 not published source assets. Full fixed-profile capture, review of all 42 source
 frames and 49 marketing outputs, and final exact-head CI remain pending.
+
+## Acceptance gap on 2026-11-25
+
+The capture seal now preserves the verified Xray notices and records tracked
+license links and their targets. Run
+[45469770665](https://github.com/po4yka/RIPDPI/actions/runs/45469770665)
+built and verified the Play APK bundle. The capture script now reads the
+current localized RTT labels and still requires observed samples.
+
+The [bundle reuse run](https://github.com/po4yka/RIPDPI/actions/runs/45476169545)
+verified that bundle and launched Play Debug on a clean API 37 emulator.
+During settings seeding, `DiagnosticsDao_Impl.observeRecentScanSessions`
+failed with `SQLiteException: no such table: scan_sessions`. The app
+process exited before normal VPN consent. The failure artifact contains
+the crash log and launcher hierarchy.
+
+Closure requires a verified diagnostics database at first read on a
+clean emulator, followed by normal VPN consent, real RTT and diagnostics
+receipts, strict source validation, and review of all 42 frames and 49
+unique generated images.
