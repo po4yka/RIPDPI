@@ -52,9 +52,7 @@ internal object RuntimePermissionDecision {
                 }
             }
 
-            PermissionResult.ReturnedFromSettings -> {
-                Unit
-            }
+            PermissionResult.ReturnedFromSettings -> {}
         }
         return result
     }

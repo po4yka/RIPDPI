@@ -173,7 +173,7 @@ class MainViewModel
                 permissionState = permissionState,
                 onStartMode = { mode -> connectionActions.startMode(mode) },
                 onStartVerifiedVpn = {
-                    homeDiagnostics.actions.continueVerifiedVpnStart {
+                    homeDiagnostics.continueVerifiedVpnStart {
                         connectionActions.startMode(
                             Mode.VPN,
                             verified = true,
@@ -333,14 +333,15 @@ class MainViewModel
 
         fun onVpnPermissionDismissed() {
             permissionActions.onVpnPermissionDismissed()
-            homeDiagnostics.actions.cancelPendingVerifiedVpnStart()
+            homeDiagnostics.cancelPendingVerifiedVpnStart()
         }
 
         fun onOpenVpnPermissionRequested() = permissionActions.onOpenVpnPermissionRequested()
 
-        fun onRetryLocalNetworkPermission() = permissionActions.onRetryLocalNetworkPermission()
-
-        fun onRepairPermissionRequested(kind: PermissionKind) = permissionActions.onRepairPermissionRequested(kind)
+        fun onRepairPermissionRequested(
+            kind: PermissionKind,
+            resumeLocalNetworkAction: Boolean = false,
+        ) = permissionActions.onRepairPermissionRequested(kind, resumeLocalNetworkAction)
 
         fun onPermissionResult(
             kind: PermissionKind,

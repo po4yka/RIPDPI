@@ -1,12 +1,15 @@
 package com.poyka.ripdpi.ui.screens.status
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionRuntimeState
 import com.poyka.ripdpi.activities.HomeDiagnosticsRuntimeState
 import com.poyka.ripdpi.activities.MainDiagnosticsDependencies
+import com.poyka.ripdpi.activities.MainEffect
 import com.poyka.ripdpi.activities.MainHomeDiagnosticsActions
 import com.poyka.ripdpi.activities.MainMutationRunner
 import com.poyka.ripdpi.activities.PermissionRuntimeState
 import com.poyka.ripdpi.activities.buildHomeDiagnosticsUiState
+import com.poyka.ripdpi.activities.matchesKnownNetwork
 import com.poyka.ripdpi.activities.resolveEffectiveConnectionState
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.platform.StringResolver
@@ -18,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 
 @Suppress("LongParameterList")
 internal class StatusDiagnosticsStateOwner(
@@ -26,9 +30,9 @@ internal class StatusDiagnosticsStateOwner(
     serviceStateStore: com.poyka.ripdpi.data.ServiceStateStore,
     connectionRuntimeState: MutableStateFlow<ConnectionRuntimeState>,
     permissionState: MutableStateFlow<PermissionRuntimeState>,
-    mutations: MainMutationRunner,
+    private val mutations: MainMutationRunner,
     private val diagnosticsDependencies: MainDiagnosticsDependencies,
-    stringResolver: StringResolver,
+    private val stringResolver: StringResolver,
     requestVpnStart: () -> Unit,
     pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
 ) {
@@ -96,6 +100,37 @@ internal class StatusDiagnosticsStateOwner(
             vpnStartBlockedByDns = { hasUnsupportedVpnDoq(settingsState.value) },
             pcapCaptureRuntimeController = pcapCaptureRuntimeController,
         )
+
+    fun continueVerifiedVpnStart(startVpn: () -> Unit) {
+        mutations.launch {
+            val latestOutcome = runtimeState.value.latestCompositeOutcome
+            if (!runtimeState.value.waitingForVerifiedVpnStart) {
+                actions.startVerifiedVpn()
+                return@launch
+            }
+            val fingerprint = diagnosticsDependencies.homeDiagnosticsServices.workflowService.currentFingerprintHash()
+            val current = runtimeState.value
+            if (!current.waitingForVerifiedVpnStart) return@launch
+            if (latestOutcome?.matchesKnownNetwork(fingerprint) != true ||
+                current.latestCompositeOutcome != latestOutcome
+            ) {
+                cancelPendingVerifiedVpnStart()
+                mutations.emit(MainEffect.ShowError(stringResolver.getString(R.string.status_diagnostics_run_again)))
+                return@launch
+            }
+            startVpn()
+        }
+    }
+
+    fun cancelPendingVerifiedVpnStart() {
+        runtimeState.update { current ->
+            if (current.waitingForVerifiedVpnStart) {
+                current.copy(waitingForVerifiedVpnStart = false, verificationProgress = null)
+            } else {
+                current
+            }
+        }
+    }
 
     fun onLocaleChanged(localeTags: String) {
         localeState.value = localeTags

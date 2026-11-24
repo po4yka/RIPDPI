@@ -193,7 +193,22 @@ class OnboardingViewModel
         }
 
         fun onVpnPermissionResult(result: PermissionResult) {
-            handlePermissionOutcome(permissionCoordinator.onVpnPermissionResult(result))
+            when (val outcome = permissionCoordinator.onVpnPermissionResult(result)) {
+                OnboardingPermissionOutcome.ContinueValidation -> {
+                    validationJob?.cancel()
+                    validationJob =
+                        viewModelScope.launch {
+                            performValidation(_uiState.value.selectedMode)
+                        }
+                }
+
+                is OnboardingPermissionOutcome.Failed -> {
+                    _uiState.update { it.withValidationState(outcome.state) }
+                }
+
+                null -> {
+                }
+            }
         }
 
         fun acceptSuggestedMode() {
@@ -289,25 +304,6 @@ class OnboardingViewModel
             vpnConsentRetryUsed = false
             permissionCoordinator.clearPendingPermission()
             validationCoordinator.stopActiveValidation()
-        }
-
-        private fun handlePermissionOutcome(outcome: OnboardingPermissionOutcome?) {
-            when (outcome) {
-                OnboardingPermissionOutcome.ContinueValidation -> {
-                    validationJob?.cancel()
-                    validationJob =
-                        viewModelScope.launch {
-                            performValidation(_uiState.value.selectedMode)
-                        }
-                }
-
-                is OnboardingPermissionOutcome.Failed -> {
-                    _uiState.update { it.withValidationState(outcome.state) }
-                }
-
-                null -> {
-                }
-            }
         }
 
         private fun completeOnboarding() {

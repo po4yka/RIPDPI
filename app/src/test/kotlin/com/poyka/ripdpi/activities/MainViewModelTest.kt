@@ -1234,7 +1234,7 @@ class MainViewModelTest {
             runCurrent()
             assertEquals(Mode.Proxy, viewModel.uiState.value.configuredMode)
 
-            viewModel.onRetryLocalNetworkPermission()
+            viewModel.onRepairPermissionRequested(PermissionKind.LocalNetwork, resumeLocalNetworkAction = true)
             runCurrent()
 
             assertEquals(

@@ -358,37 +358,6 @@ internal class MainHomeDiagnosticsActions(
         }
     }
 
-    fun continueVerifiedVpnStart(startVpn: () -> Unit) {
-        mutations.launch {
-            val latestOutcome = homeDiagnosticsState.value.latestCompositeOutcome
-            if (!homeDiagnosticsState.value.waitingForVerifiedVpnStart) {
-                startVerifiedVpn()
-                return@launch
-            }
-            val fingerprint = diagnosticsHomeWorkflowService.currentFingerprintHash()
-            val current = homeDiagnosticsState.value
-            if (!current.waitingForVerifiedVpnStart) return@launch
-            if (latestOutcome?.matchesKnownNetwork(fingerprint) != true ||
-                current.latestCompositeOutcome != latestOutcome
-            ) {
-                cancelPendingVerifiedVpnStart()
-                mutations.emit(MainEffect.ShowError(stringResolver.getString(R.string.status_diagnostics_run_again)))
-                return@launch
-            }
-            startVpn()
-        }
-    }
-
-    fun cancelPendingVerifiedVpnStart() {
-        homeDiagnosticsState.update { current ->
-            if (current.waitingForVerifiedVpnStart) {
-                current.copy(waitingForVerifiedVpnStart = false, verificationProgress = null)
-            } else {
-                current
-            }
-        }
-    }
-
     private fun canStartVerifiedVpn(): Boolean {
         val state = homeDiagnosticsState.value
         return state.latestCompositeOutcome?.actionable == true && !state.analysisInProgress() &&
@@ -624,5 +593,5 @@ private fun List<DiagnosticScanSession>.latestCompletedManualDiagnosticSession()
             session.status.equals("completed", ignoreCase = true)
     }.maxByOrNull { session -> session.finishedAt ?: session.startedAt }
 
-private fun DiagnosticsHomeCompositeOutcome.matchesKnownNetwork(currentFingerprint: String?): Boolean =
+internal fun DiagnosticsHomeCompositeOutcome.matchesKnownNetwork(currentFingerprint: String?): Boolean =
     isMeasuredOn(fingerprintHash, currentFingerprint)

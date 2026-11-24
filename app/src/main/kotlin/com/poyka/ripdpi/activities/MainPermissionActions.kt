@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Intent
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionAction
 import com.poyka.ripdpi.permissions.PermissionCoordinator
@@ -74,19 +73,16 @@ internal class MainPermissionActions(
         _vpnExplanationVisible.value = true
     }
 
-    fun onRepairPermissionRequested(kind: PermissionKind) {
+    fun onRepairPermissionRequested(
+        kind: PermissionKind,
+        resumeLocalNetworkAction: Boolean,
+    ) {
         if (kind == PermissionKind.LocalNetwork) {
-            requestLocalNetwork(resumeDeferredAction = false)
+            val snapshot = mergeSnapshotWithOverrides(permissionStatusProvider.currentSnapshot())
+            localNetwork.request(snapshot.localNetwork, resumeLocalNetworkAction)
         } else {
             resolvePermissionAction(PermissionAction.RepairPermission(kind))
         }
-    }
-
-    fun onRetryLocalNetworkPermission() = requestLocalNetwork(resumeDeferredAction = true)
-
-    private fun requestLocalNetwork(resumeDeferredAction: Boolean) {
-        val snapshot = mergeSnapshotWithOverrides(permissionStatusProvider.currentSnapshot())
-        localNetwork.request(snapshot.localNetwork, resumeDeferredAction)
     }
 
     fun onPermissionResult(
@@ -179,7 +175,9 @@ internal class MainPermissionActions(
                                 stringResolver = stringResolver,
                             )
                         permissionState.update { it.copy(issue = issue, snapshot = snapshot) }
-                        mutations.trySend(MainEffect.OpenAppSettings(createAppSettingsIntent()))
+                        mutations.trySend(
+                            MainEffect.OpenAppSettings(permissionPlatformBridge.createAppSettingsIntent()),
+                        )
                     }
 
                     PermissionStatus.Denied,
@@ -213,7 +211,7 @@ internal class MainPermissionActions(
                         stringResolver = stringResolver,
                     )
                 permissionState.update { it.copy(issue = issue, snapshot = snapshot) }
-                mutations.trySend(MainEffect.OpenAppSettings(createVpnSettingsIntent()))
+                mutations.trySend(MainEffect.OpenAppSettings(permissionPlatformBridge.createVpnSettingsIntent()))
             }
 
             PermissionKind.BatteryOptimization -> {
@@ -221,7 +219,7 @@ internal class MainPermissionActions(
                 mutations.trySend(
                     MainEffect.RequestPermission(
                         kind = PermissionKind.BatteryOptimization,
-                        payload = createBatteryOptimizationIntent(),
+                        payload = permissionPlatformBridge.createBatteryOptimizationIntent(),
                     ),
                 )
             }
@@ -413,12 +411,6 @@ internal class MainPermissionActions(
             vpnConsent = vpnStatus,
         )
     }
-
-    private fun createAppSettingsIntent(): Intent = permissionPlatformBridge.createAppSettingsIntent()
-
-    private fun createVpnSettingsIntent(): Intent = permissionPlatformBridge.createVpnSettingsIntent()
-
-    private fun createBatteryOptimizationIntent(): Intent = permissionPlatformBridge.createBatteryOptimizationIntent()
 }
 
 private fun PermissionAction.isStartModeAction(): Boolean =

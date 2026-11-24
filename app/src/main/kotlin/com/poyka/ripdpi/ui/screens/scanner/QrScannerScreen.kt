@@ -179,56 +179,13 @@ internal fun QrScannerScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.QrScanner)),
     ) {
-        when (uiState.cameraState) {
-            ScannerCameraState.REQUESTING_PERMISSION -> {
-                RipDpiCard {
-                    RipDpiPanelHeader(
-                        title = stringResource(R.string.scanner_permission_rationale_title),
-                        supporting = stringResource(R.string.scanner_permission_rationale_body),
-                    )
-                }
-                RipDpiButton(
-                    text = stringResource(R.string.scanner_permission_continue),
-                    onClick = onRequestCameraPermission,
-                    leadingIcon = RipDpiIcons.PhotoCamera,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            ScannerCameraState.SCANNING -> {
-                RipDpiCard {
-                    RipDpiPanelHeader(
-                        title = stringResource(R.string.scanner_scanning_title),
-                        supporting = stringResource(R.string.scanner_scanning_body),
-                    )
-                    CameraPreview(
-                        onQrDecoded = onQrDecoded,
-                        onCameraUnavailable = onCameraUnavailable,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f),
-                    )
-                }
-            }
-
-            ScannerCameraState.CAMERA_UNAVAILABLE -> {
-                WarningBanner(
-                    title = stringResource(R.string.scanner_title),
-                    message = stringResource(R.string.scanner_camera_unavailable),
-                    tone = WarningBannerTone.Restricted,
-                    icon = RipDpiIcons.CameraOff,
-                )
-            }
-
-            ScannerCameraState.PERMISSION_DENIED -> {
-                CameraDeniedContent(
-                    canRequestAgain = uiState.canRequestCameraPermissionAgain,
-                    onRequestCameraPermission = onRequestCameraPermission,
-                    onOpenAppSettings = onOpenAppSettings,
-                )
-            }
-        }
+        ScannerCameraContent(
+            uiState = uiState,
+            onQrDecoded = onQrDecoded,
+            onCameraUnavailable = onCameraUnavailable,
+            onRequestCameraPermission = onRequestCameraPermission,
+            onOpenAppSettings = onOpenAppSettings,
+        )
 
         uiState.seriesProgress?.let { progress ->
             WarningBanner(
@@ -258,6 +215,66 @@ internal fun QrScannerScreen(
                 variant = RipDpiButtonVariant.Secondary,
                 leadingIcon = RipDpiIcons.Image,
                 modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ScannerCameraContent(
+    uiState: QrScannerUiState,
+    onQrDecoded: (String) -> Unit,
+    onCameraUnavailable: () -> Unit,
+    onRequestCameraPermission: () -> Unit,
+    onOpenAppSettings: () -> Unit,
+) {
+    when (uiState.cameraState) {
+        ScannerCameraState.REQUESTING_PERMISSION -> {
+            RipDpiCard {
+                RipDpiPanelHeader(
+                    title = stringResource(R.string.scanner_permission_rationale_title),
+                    supporting = stringResource(R.string.scanner_permission_rationale_body),
+                )
+            }
+            RipDpiButton(
+                text = stringResource(R.string.scanner_permission_continue),
+                onClick = onRequestCameraPermission,
+                leadingIcon = RipDpiIcons.PhotoCamera,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        ScannerCameraState.SCANNING -> {
+            RipDpiCard {
+                RipDpiPanelHeader(
+                    title = stringResource(R.string.scanner_scanning_title),
+                    supporting = stringResource(R.string.scanner_scanning_body),
+                )
+                CameraPreview(
+                    onQrDecoded = onQrDecoded,
+                    onCameraUnavailable = onCameraUnavailable,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f),
+                )
+            }
+        }
+
+        ScannerCameraState.CAMERA_UNAVAILABLE -> {
+            WarningBanner(
+                title = stringResource(R.string.scanner_title),
+                message = stringResource(R.string.scanner_camera_unavailable),
+                tone = WarningBannerTone.Restricted,
+                icon = RipDpiIcons.CameraOff,
+            )
+        }
+
+        ScannerCameraState.PERMISSION_DENIED -> {
+            CameraDeniedContent(
+                canRequestAgain = uiState.canRequestCameraPermissionAgain,
+                onRequestCameraPermission = onRequestCameraPermission,
+                onOpenAppSettings = onOpenAppSettings,
             )
         }
     }
