@@ -1011,6 +1011,8 @@ mod tests {
         let directory = std::env::temp_dir().join(format!("nfqws2-rejected-replacement-{owner_pid}"));
         fs::create_dir_all(&directory).expect("create private directory");
         let directory = directory.canonicalize().expect("private directory");
+        let working_directory = directory.join("work");
+        fs::create_dir(&working_directory).expect("create private working directory");
         let binary = directory.join("backend");
         fs::write(&binary, "untrusted bytes").expect("write replacement backend");
         fs::set_permissions(&binary, fs::Permissions::from_mode(0o700)).expect("executable bit");
@@ -1028,7 +1030,7 @@ mod tests {
             session_nonce: None,
             params: serde_json::json!({
                 "binary_path": binary,
-                "working_directory": directory,
+                "working_directory": working_directory,
                 "args": ["--lua-init=return true"],
                 "owner_pid": owner_pid,
             }),
