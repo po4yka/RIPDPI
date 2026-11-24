@@ -22,12 +22,12 @@ deployment_evidence: No deployment is owned by this change.
 |---|---|---|---|
 | REQ-T37-LAN | AND-1787933125693547 | App, service, and diagnostics regressions passed. The API 37 emulator passed a LAN grant and regrant. | passed |
 | REQ-T37-TLS | AND-1787933125835921 | OwnedStackBrowserServiceTest passed, including nested trust-failure checks. Earlier NSC serialization tests passed. | passed |
-| REQ-T37-RUNTIME | AND-1787933125533035 | The implementation produced target 37 APKs. The API 37 16-KiB image loaded JNI successfully. | passed |
+| REQ-T37-RUNTIME | AND-1787933125533035 | The implementation produced target 37 APKs and loaded JNI on the API 37 16-KiB image. The current hosted runtime tests are pending. | local pass |
 | REQ-T37-CI | AND-1787933125977204 | Current CI routing defines the five Android API levels. Hosted results are pending. | pending |
 
 ## Earlier local evidence (2026-08-28, recovered worktree)
 
-No requirement is accepted. Logs are retained in the workspace sibling
+At that point no requirement was accepted. Logs are retained in the workspace sibling
 `target37-recovery-evidence/`; they are local evidence, not hosted CI.
 
 - `python3 -m unittest scripts.tests.test_taskctl`: 26 passed; `./taskctl validate`: 47 tasks and 226 steps valid.

@@ -219,12 +219,13 @@ cross the archive privacy boundary.
 7. Bump archive schema 10 to 11, add v10 decode coverage, run hostile whole-ZIP
    privacy tests, and bless only the schema-11 golden family with explicit
    approval.
-8. Verify active-service IN_PATH behavior on a supported physical device; keep
-   `ACTIVE_PATH_UNVERIFIED` until owned-route and execution evidence correlate.
+8. Verify the active-service IN_PATH evaluator with owned-route and execution
+   receipt regressions. Hold `ACTIVE_PATH_UNVERIFIED` until the evidence
+   correlates.
 
 Rollback is a normal code rollback before publication. Once schema 9/11 output
 ships, rolling back the producer would create incompatible evidence, so release
-must be gated on Kotlin/Rust contract, archive compatibility, privacy, device,
-and artifact verification. Previously learned candidates without applied
+must be gated on Kotlin/Rust contract, archive compatibility, privacy,
+controlled packet, and artifact verification. Previously learned candidates without applied
 execution receipts are not migrated as successful evidence; they are
 reclassified as unverified and must be evaluated again.

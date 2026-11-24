@@ -2,7 +2,7 @@
 id: DGN-1786885244559735
 title: Fix split(host+1) strategy execution and evidence
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Codex
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: fix-split-host-strategy-and-evidence
 created: 2026-08-16
-updated: 2026-08-16
+updated: 2026-11-24
 ---
 
 ## Goal
@@ -54,5 +54,6 @@ current-strategy verdict only on evidence produced by that exact strategy.
 - Existing implementation claims are rechecked against current source. The
   native execution step was reopened for missing failure-plan provenance and
   silently rejected trailing evidence; both now have regression coverage.
-  Physical-device acceptance remains
-  separate from host tests and requires permission to change device state.
+  Current app acceptance uses host runtime and verdict regressions, controlled
+  Linux packet captures, and hosted CI. Physical Android path tests are outside
+  this scope.

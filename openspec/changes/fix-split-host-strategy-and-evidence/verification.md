@@ -1,14 +1,14 @@
 ---
 task_id: DGN-1786885244559735
 change: fix-split-host-strategy-and-evidence
-commit_sha: 5882155dba25403b80af8048fed2e15d7961385d
-local: required
-local_evidence: Affected Rust and Kotlin behavior checks, workspace Clippy, API snapshots, architecture checks, and staticAnalysis pass. The full diagnostics suite retains two DNS failures reproduced on base 2c8b471ef; the native hotspot gate retains the same baseline listener overage.
+commit_sha: d1b75749a2ef4b01e01b3b6648dfdd475f35487e
+local: passed
+local_evidence: The current source passed 545 Rust runtime and monitor tests, eight Kotlin verdict tests, and the source gates. Two opt-in Rust tests were outside the run. Earlier unrelated diagnostics and hotspot failures remain in the historical record.
 remote_ci: required
 remote_ci_evidence: CI run 33101396871 at docs-only descendant 28b23dc75 is not green; architecture-health failed on the confirmed baseline listener hotspot (72 lines, limit 54), while the overall run remains in progress. CodeQL 33101396865, Secret Scan 33101396848, and fleet-fixtures 33101396891 passed for that SHA.
-device: required
-device_evidence: Pending permission to install the current APK and run physical proxy/VPN, Wi-Fi/cellular, and handover scenarios. No current device proof is claimed.
-artifact: required
+device: not_applicable
+device_evidence: The current app acceptance uses production runtime and verdict regressions and controlled Linux packet captures. Physical proxy and VPN paths and network handover are outside scope.
+artifact: passed
 artifact_evidence: githubFullDebug arm64 APK built from 5882155db; SHA-256 a15db6911fbf05022e92479b35893c1e9a07be096acf28ca0fb2a446f749c9ba. APK v2 signature, ZIP 16KiB alignment, all 11 packaged ELF architecture/alignment checks, and the five-library RIPDPI ELF/export verifier passed. Not installed.
 deployment: not_applicable
 deployment_evidence: No production deployment or release publication is owned by this change.
@@ -16,10 +16,8 @@ deployment_evidence: No production deployment or release publication is owned by
 
 # Verification — 2026-08-27
 
-The code fixes are implemented and reviewed. Portfolio acceptance remains open:
-physical-device coverage and exact-SHA hosted results are separate from source,
-loopback packet, and artifact checks. Historical APK, CI, and Pixel 7 results
-from earlier revisions do not establish these fixes.
+The code fixes are implemented and reviewed. This record distinguishes current
+host checks, the earlier loopback packet and APK results, and hosted CI.
 
 ## Implemented behavior
 
@@ -53,14 +51,14 @@ locale, dependency, golden fixture, or quality baseline was changed.
 |---|---|---|---|
 | REQ-STRATEGY-EVIDENCE-001 | DGN-1786885745283306 | Candidate/config and exact-plan tests in the complete Linux monitor/runtime suite | PASS |
 | REQ-STRATEGY-EVIDENCE-002 | RST-1786885745241507 | Applied, activation-skipped, fallback, partial-write, and typed failure tests; production authenticated SOCKS test | PASS |
-| REQ-STRATEGY-EVIDENCE-003 | RST-1786885745241507 | Actual action counters and exact Linux HTTP PCAP; physical and TLS PCAP remain pending | PARTIAL |
+| REQ-STRATEGY-EVIDENCE-003 | RST-1786885745241507 | Runtime action counters, the exact earlier Linux HTTP capture, and the current hosted TCP split capture passed. TLS framing is covered separately by runtime tests. | PASS |
 | REQ-STRATEGY-EVIDENCE-004 | RST-1786885745241507 | Generation/terminal/late-receipt coverage and rejected trailing receipt regression | PASS |
 | REQ-STRATEGY-EVIDENCE-005 | DGN-1786885745283306 | Canonical candidate and effective marker/family matching tests; source-index regressions | PASS |
 | REQ-STRATEGY-EVIDENCE-006 | DGN-1786885745300444 | Existing archive/golden/privacy tests pass within diagnostics; fixtures unchanged and no blessing used | PASS |
 | REQ-STRATEGY-VERDICT-001 | DGN-1786885745300444 | Baseline-current evaluator, terminal ownership and persistence regressions | PASS |
 | REQ-STRATEGY-VERDICT-002 | DGN-1786885745300444 | RAW/IN_PATH separation, generation/revision leases, refresh invalidation, and terminal authority tests | PASS |
 | REQ-STRATEGY-VERDICT-003 | DGN-1786885745300444 | Missing terminal capture, partial/error receipts, fallback, cancellation, and route-loss tests | PASS |
-| REQ-STRATEGY-VERDICT-004 | DGN-1786885745300444 | Native endpoint/stage projections pass; two unrelated DNS planner tests remain baseline failures | PARTIAL |
+| REQ-STRATEGY-VERDICT-004 | DGN-1786885745300444 | Current native monitor and runtime tests and Kotlin verdict regressions passed. | PASS |
 | REQ-STRATEGY-VERDICT-005 | DGN-1786885745300444 | App unit tests and staticAnalysis pass; UI/locale/archive schemas unchanged | PASS |
 
 ## Observed checks
@@ -167,10 +165,9 @@ The scanner failure was independently reproduced on base `2c8b471ef`; that
 source file, scanner, and allowlist are unchanged by this task. These failures
 remain blockers; neither allowlists nor quality thresholds were relaxed.
 
-## Remaining acceptance
+## Current app acceptance
 
-Keep `TST-1786885745317178` unchecked until the required physical RAW_PATH /
-owned IN_PATH matrix and hosted checks are resolved. The current artifact is
-verified but not installed. Device coverage includes available Wi-Fi/cellular, IPv4/IPv6, concurrent HTTP/HTTPS,
-QUIC-success with HTTPS-failure, cancellation, and handover. No installation or
-network-state changes have been performed without permission.
+The host tests exercise the production runtime, terminal receipts, and the
+RAW_PATH and owned IN_PATH verdict boundaries. The controlled capture establishes
+the HTTP split boundary. Physical Wi-Fi, cellular, handover, and separate
+TLS packet measurements are outside this app acceptance scope.

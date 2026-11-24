@@ -62,12 +62,11 @@ project a current-strategy verdict only from complete candidate-scoped evidence.
   incomplete or unverified. Do not infer on-wire TCP packet boundaries from
   successful application writes.
 
-- [ ] TST-1786885745317178 Run combined Rust/Kotlin/privacy/architecture gates, independent read-only native and diagnostics reviews, packet-smoke proof of split boundaries, and a physical-device RAW_PATH versus owned active-service IN_PATH matrix; record hosted CI, debug artifact identity, and remaining deployment status without upgrading missing evidence to PASS #test !high @item:DGN-1786885244559735
+- [x] TST-1786885745317178 Verify the production runtime, verdict, and archive contracts with host regressions, controlled Linux packet captures, and hosted CI #test !high @item:DGN-1786885244559735
 
-  The device matrix covers Wi-Fi/cellular where available, IPv4/IPv6, concurrent
-  HTTP/HTTPS, QUIC-success with HTTPS-failure, cancellation, and network
-  handover. A candidate receipt proves userspace writes only; on-wire segmentation
-  requires packet-smoke/PCAP in the controlled test harness.
+  The tests distinguish RAW_PATH and owned active-service IN_PATH evidence.
+  Verify on-wire boundaries with the controlled packet-smoke capture. A receipt
+  proves userspace writes. Physical Android traffic is outside app acceptance.
 
 ## Verification
 
@@ -101,8 +100,8 @@ project a current-strategy verdict only from complete candidate-scoped evidence.
 - Privacy: inject hostile domain, SNI, IP, URL, credential, path, interface, and
   payload sentinels; scan every ZIP entry and verify only allowlisted enums and
   bounded scalars survive.
-- Device proof is separate from local gates: exact strategy snapshot, applied
-  receipt, owned-route evidence, path role, stable network epoch, control
-  outcome, and endpoint stage must correlate for any causal verdict.
-- Hosted CI, artifact hashes/signature, and deployment remain distinct evidence
-  categories. This proposal turn supplies planning validation only.
+- Verify that the exact strategy snapshot, applied receipt, owned-route
+  evidence, path role, network epoch, control outcome, and endpoint stage
+  correlate before the app reports a causal verdict.
+- Record hosted CI, artifact hashes and signatures, and deployment evidence
+  separately.

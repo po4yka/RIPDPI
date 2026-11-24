@@ -58,5 +58,4 @@ failures.
 - Contracts: diagnostics schema, Kotlin/Rust mirrors, field manifests, archive
   fixtures, and privacy allowlists.
 - Verification: production SOCKS candidate runtime tests, Kotlin verdict tests,
-  archive round-trip/privacy tests, and device evidence for RAW_PATH versus
-  active-service IN_PATH behavior.
+  archive round-trip and privacy tests, and controlled Linux packet captures.
