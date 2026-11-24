@@ -38,7 +38,7 @@ The conformance tasks share one infrastructure substrate (`contract-fixtures/`, 
 ## Child tasks
 
 - VLESS cross-stack and Reality mux coverage — **done**: the sing-mux/yamux carrier, multi-stream interleave, and relay-core Reality mux fixture are covered by current tests; the former audit task is closed in git history.
-- [[add-hysteria2-salamander-obfuscation-conformance-fixtures]] — **externally-gated** (2026-06-11): harness shipped + passing; the 8 conformance goldens need real `apernet/hysteria` byte vectors at a pinned tag, unavailable locally and not fabricable. `status: blocked`.
+- [[add-hysteria2-salamander-obfuscation-conformance-fixtures]] — **done** (2026-10-31): nine upstream app/v2.13.0 vectors passed encode, decode, and mutation checks.
 - QUIC PMTUD regression — **done** (2026-07-16), task closed (git history is the audit trail): Hysteria 2, TUIC, and MASQUE/H3 exercise the production clients against `MtuDropSocket`; MASQUE covers IPv4/IPv6 CONNECT-UDP payload integrity, typed datagram sizing, black-hole detection, recovery telemetry, and redacted drop evidence.
 - Per-transport throughput benchmarks — **done** (2026-06-11), task closed (no issue file; git history is the audit trail): 7/7 benches wired; the `protocol-throughput/*` baseline was captured on the CI reference runner and committed to `scripts/ci/rust-bench-baseline.json`, arming the nightly enforced lane (see the Ship-definition item below).
 
@@ -47,7 +47,7 @@ The conformance tasks share one infrastructure substrate (`contract-fixtures/`, 
 - [ ] Every transport has at least eight upstream-pinned golden fixtures where a conformance bar applies, each round-tripped.
 - [x] The cross-stack chain test covers single-stream and VLESS Reality mux/multi-stream behavior.
 - [x] Throughput baselines for all seven transports are captured in `scripts/ci/rust-bench-baseline.json` and enforced. **Done 2026-06-11** (reference-runner capture; nightly enforced lane armed).
-- [ ] A deliberate framing/behavior regression in any covered layer fails a named test. *Partial:* VLESS mux, QUIC PMTUD, and throughput gates contribute; full coverage still awaits Salamander fixtures.
+- [ ] A deliberate framing/behavior regression in any covered layer fails a named test. Salamander, VLESS mux, and QUIC PMTUD checks now run. See the fixture and WS throughput gaps below.
 
 ## Risks / open questions
 
@@ -58,3 +58,14 @@ The conformance tasks share one infrastructure substrate (`contract-fixtures/`, 
 
 - `golden-bless-discipline.md`, `contract-fixtures/README.md`, `diagnostics-system` skill.
 - Completed orchestration-test epic: available in git history.
+
+## Acceptance gaps on 2026-11-24
+
+The upstream fixture pin check passes. The Salamander child landed nine
+upstream Hysteria 2 app/v2.13.0 vectors with encode/decode and a mutation
+check. VLESS has eight pinned sing-mux encoder comparisons. A round-trip
+through a compatible decoder for those eight records has yet to be shown.
+The committed throughput baseline covers seven benchmarks. The scheduled
+hard gate excludes `ws_tunnel_1MiB` because variance on the shared runner
+exceeds its threshold. Closure requires repeatable WS measurements with
+an enforced result and evidence for the outstanding fixture checks.

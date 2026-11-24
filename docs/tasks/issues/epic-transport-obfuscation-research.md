@@ -68,3 +68,11 @@ Frontmatter rollup: traffic-shaping → `backlog` (spike resolved; implementatio
 
 - `desync-engine` skill, `operator-protocol-class-blocking-shift-dec-2025` wiki page.
 - Dropped 2026-06-10: `add-format-transforming-encryption-marionette-style-protocol-shapeshift` (ML-detectable, no payoff).
+
+## Acceptance gaps on 2026-11-24
+
+The traffic-shaping and DNS-Morph children are implemented and archived.
+The operator-signature child `TRN-1786264762917526` remains blocked on
+measurements from three independent ISP networks. The methodology is available. The field results
+are needed to decide if the work graduates into a runtime-policy change.
+The earlier Marionette rejection and its reason are already recorded.

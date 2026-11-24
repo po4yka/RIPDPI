@@ -152,3 +152,13 @@ Child tasks (this epic is `parent:` for each):
 - Audit memory: `~/.claude/projects/-Users-po4yka-GitRep-RIPDPI/memory/project_native_audit_findings.md` (2026-06-10 section).
 - `.claude/rules/network-fingerprint-privacy.md`, `android-vpn-lifecycle.md`, `llm-rust-prompts.md`.
 - `docs/architecture/NATIVE_RUST.md` (crate taxonomy, prune candidates).
+
+## Acceptance gaps on 2026-11-24
+
+The Hilt scope, session-keyed refresh, WebSocket transport port, and
+PolicyPort split have terminal records in Git history. The API visibility and
+public contract tests in `reduce-pub-surface-monitor-engine-and-config` and
+the crate verdicts and dependency-growth guard in
+`triage-undocumented-orphan-diagnostics-crates` remain in backlog. The relay
+snapshot exhaustiveness child remains in review. The epic requires terminal
+decisions for these children.
