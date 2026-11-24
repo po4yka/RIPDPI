@@ -48,13 +48,16 @@ class CaptureBuildTests(unittest.TestCase):
         producer["noticesSha256"] = build.sha256(notices)
         (self.xray / "libxray-artifact.json").write_text(json.dumps(producer))
         self.revision = "a" * 40
-        self.tracked = "app/input.kt\0"
+        self.tracked = self.index_entry("app/input.kt")
         self.commands = patch.object(build, "command", side_effect=lambda args, root: self.revision if "rev-parse" in args else self.tracked)
         self.commands.start()
         self.addCleanup(self.commands.stop)
         self.tools = patch.object(build, "toolchains", return_value={"java": "17", "rustc": "1", "go": "1"})
         self.tools_mock = self.tools.start()
         self.addCleanup(self.tools.stop)
+
+    def index_entry(self, name, mode="100644"):
+        return f"{mode} {'a' * 40} 0\t{name}\0"
 
     def seal(self):
         return build.seal(self.bundle, self.apk, self.xray, self.root)
@@ -152,7 +155,7 @@ class CaptureBuildTests(unittest.TestCase):
     def test_tracked_input_added_rejected(self):
         self.seal()
         (self.root / "app/added.kt").write_text("new")
-        self.tracked += "app/added.kt\0"
+        self.tracked += self.index_entry("app/added.kt")
         with self.assertRaisesRegex(ValueError, "inputs changed"):
             self.verify()
 
@@ -166,6 +169,65 @@ class CaptureBuildTests(unittest.TestCase):
         (self.root / "app/input.kt").unlink()
         with self.assertRaisesRegex(ValueError, "missing regular file"):
             self.verify()
+
+    def test_tracks_safe_source_symlink_and_license_content(self):
+        license_dir = self.root / "LICENSES"
+        license_dir.mkdir()
+        license_file = license_dir / "snell.txt"
+        license_file.write_text("license text")
+        link = self.root / "app/LICENSE"
+        link.symlink_to("../LICENSES/snell.txt")
+        self.tracked += self.index_entry("app/LICENSE", "120000") + self.index_entry("LICENSES/snell.txt")
+
+        self.seal()
+        self.verify()
+        license_file.write_text("changed license")
+        with self.assertRaisesRegex(ValueError, "inputs changed"):
+            self.verify()
+
+        license_file.write_text("license text")
+        link.unlink()
+        link.symlink_to("../LICENSES/./snell.txt")
+        with self.assertRaisesRegex(ValueError, "inputs changed"):
+            self.verify()
+
+    def test_source_symlink_cannot_be_replaced_by_a_file_with_the_same_link_text(self):
+        link = self.root / "app/LICENSE"
+        link.symlink_to("input.kt")
+        link_entry = self.index_entry("app/LICENSE", "120000")
+        self.tracked += link_entry
+        self.seal()
+        link.unlink()
+        link.write_text("input.kt")
+        self.tracked = self.tracked.replace(link_entry, self.index_entry("app/LICENSE"))
+        with self.assertRaisesRegex(ValueError, "inputs changed"):
+            self.verify()
+
+    def test_source_symlink_rejects_untracked_target(self):
+        (self.root / "untracked-license.txt").write_text("untracked")
+        (self.root / "app/LICENSE").symlink_to("../untracked-license.txt")
+        self.tracked += self.index_entry("app/LICENSE", "120000")
+        with self.assertRaisesRegex(ValueError, "tracked regular build input"):
+            self.seal()
+
+    def test_source_symlink_rejects_a_link_in_the_target_path(self):
+        alternative = self.root / "other"
+        (alternative / "child").mkdir(parents=True)
+        (alternative / "input.kt").write_text("not the tracked input")
+        (self.root / "app/shortcut").symlink_to(alternative / "child", target_is_directory=True)
+        (self.root / "app/LICENSE").symlink_to("shortcut/../input.kt")
+        self.tracked += self.index_entry("app/LICENSE", "120000")
+        with self.assertRaisesRegex(ValueError, "symlink not allowed"):
+            self.seal()
+
+    def test_regular_tracked_input_cannot_be_replaced_by_symlink(self):
+        regular_input = self.root / "app/input.kt"
+        regular_input.unlink()
+        target = self.root / "app/target.kt"
+        target.write_text("a substitute")
+        regular_input.symlink_to(target)
+        with self.assertRaisesRegex(ValueError, "symlink not allowed"):
+            self.seal()
 
     def test_payload_tamper_rejected(self):
         self.seal()

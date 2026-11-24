@@ -21,7 +21,7 @@ from source_captures import PACKAGE, ROOT, VARIANT
 
 INPUT_PATHS = (
     "app", "core", "native", "build-logic", "gradle", "quality", "testing",
-    "config", "xray-protos", "baselineprofile", "scripts/native", "scripts/ci",
+    "config", "xray-protos", "baselineprofile", "scripts/native", "scripts/ci", "LICENSES",
     "build.gradle.kts", "settings.gradle.kts", "gradle.properties", "gradlew", "gradlew.bat", "lint.xml",
     ".github/actions/setup-android-rust", ".github/actions/build-xray",
     ".github/workflows/play-store-screenshots.yml", "play-store-screenshots/scripts/capture_build.py",
@@ -43,16 +43,17 @@ def sha256(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def safe_path(root: Path, relative: str) -> Path:
+def safe_path(root: Path, relative: str, *, allow_link_leaf: bool = False) -> Path:
     parts = PurePosixPath(relative)
     if not relative or parts.is_absolute() or ".." in parts.parts or str(parts) != relative or "\\" in relative:
         raise ValueError(f"unsafe relative path: {relative!r}")
     path = root
-    for component in parts.parts:
+    components = parts.parts[:-1] if allow_link_leaf else parts.parts
+    for component in components:
         path = path / component
         if path.is_symlink():
             raise ValueError(f"symlink not allowed: {relative}")
-    return path
+    return root.joinpath(*parts.parts)
 
 
 def ordinary(path: Path, directory: bool = False) -> None:
@@ -69,12 +70,32 @@ def command(args: list[str], root: Path) -> str:
 
 
 def input_hashes(root: Path) -> dict[str, str]:
-    paths = command(["git", "ls-files", "--cached", "-z", "--", *INPUT_PATHS], root).split("\0")
+    inventory = command(["git", "ls-files", "--cached", "--stage", "-z", "--", *INPUT_PATHS], root)
+    modes = {}
+    for entry in filter(None, inventory.split("\0")):
+        metadata, name = entry.split("\t", 1)
+        mode, _, stage = metadata.split()
+        if stage != "0" or name in modes:
+            raise ValueError(f"unmerged Android build input: {name}")
+        modes[name] = mode
+
     result = {}
-    for name in sorted(set(paths) - {""}):
-        path = safe_path(root, name)
-        ordinary(path)
-        result[name] = sha256(path)
+    for name, mode in sorted(modes.items()):
+        path = safe_path(root, name, allow_link_leaf=mode == "120000")
+        if mode == "120000":
+            if not path.is_symlink():
+                raise ValueError(f"missing tracked source symlink: {name}")
+            target = os.readlink(path)
+            target_name = os.path.normpath(os.path.join(os.path.dirname(name), target))
+            if modes.get(target_name) not in {"100644", "100755"}:
+                raise ValueError(f"source symlink must target a tracked regular build input: {name}")
+            # Check the original path as well, so traversal through a directory
+            # symlink cannot change what the normalized path refers to.
+            ordinary(path.parent / target)
+            result[name] = "symlink:" + hashlib.sha256(os.fsencode(target)).hexdigest()
+        else:
+            ordinary(path)
+            result[name] = sha256(path)
     if not result:
         raise ValueError("no tracked Android build inputs")
     return result
