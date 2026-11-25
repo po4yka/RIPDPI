@@ -9,8 +9,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ServiceStateStore
 import dagger.Binds
@@ -158,7 +160,7 @@ class DetectionCheckScheduler
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {
-                // Silent failure for background check
+                Log.w(LogTags.DIAGNOSTICS, "Background detection check failed")
             }
         }
 

@@ -7,8 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
+import android.util.Log
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -20,6 +22,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,6 +30,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
+import java.io.IOException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -106,6 +111,50 @@ class DetectionCheckSchedulerTest {
 
             assertEquals(2, runs)
             assertEquals(1, completedRuns)
+            assertEquals(1, history.size)
+            scheduler.stopObserving()
+        }
+
+    @Test
+    fun `failed background check logs a safe warning and the next check succeeds`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val state = DefaultServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) }
+            val fingerprint =
+                object : NetworkFingerprintProvider {
+                    override fun capture(): NetworkFingerprint = network("wifi")
+                }
+            val history = mutableListOf<DetectionHistoryEntry>()
+            val outcomes =
+                ArrayDeque(
+                    listOf(
+                        Result.failure(IOException("Private network identifier")),
+                        Result.success(cleanResult()),
+                    ),
+                )
+            val runner =
+                object : DetectionCheckRunner {
+                    override suspend fun run(
+                        context: Context,
+                        config: DetectionRunnerConfig,
+                        onProgress: (suspend (DetectionProgress) -> Unit)?,
+                    ): DetectionCheckResult = outcomes.removeFirst().getOrThrow()
+                }
+            val scheduler = DetectionCheckScheduler(context, state, fingerprint, runner, recordingHistory(history))
+
+            scheduler.startObserving(context, this)
+            runCurrent()
+
+            val warnings = ShadowLog.getLogsForTag(LogTags.DIAGNOSTICS).filter { it.type == Log.WARN }
+            assertEquals(listOf("Background detection check failed"), warnings.map { it.msg })
+            assertNull(warnings.single().throwable)
+            assertTrue(history.isEmpty())
+
+            state.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+            state.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+
             assertEquals(1, history.size)
             scheduler.stopObserving()
         }

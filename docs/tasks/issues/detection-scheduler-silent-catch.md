@@ -2,7 +2,7 @@
 id: DGN-1795610468531248
 title: Report failures of background detection checks
 kind: chore
-status: backlog
+status: review
 area: diagnostics
 priority: low
 owner: comment-ratchet

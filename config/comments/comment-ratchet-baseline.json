@@ -1,5 +1,5 @@
 {
- "total": 45667,
+ "total": 45666,
  "files": {
   ".claude/scripts/subagent-stop-audit-log.sh": 20,
   ".github/scripts/check-jni-symbols.sh": 24,
@@ -1194,7 +1194,6 @@
   "core/data/src/testFixtures/kotlin/com/poyka/ripdpi/data/awg/TestAwgProfileReadStore.kt": 1,
   "core/data/src/testFixtures/kotlin/com/poyka/ripdpi/data/testing/LegacyProfileKeyStore.kt": 2,
   "core/data/src/testFixtures/kotlin/com/poyka/ripdpi/data/testing/RoomProfileFixture.kt": 4,
-  "core/detection/src/main/kotlin/com/poyka/ripdpi/core/detection/DetectionCheckScheduler.kt": 1,
   "core/detection/src/main/kotlin/com/poyka/ripdpi/core/detection/checker/SystemPingProber.kt": 1,
   "core/detection/src/test/kotlin/com/poyka/ripdpi/core/detection/checker/BypassCheckerXrayPortRangeTest.kt": 1,
   "core/detection/src/test/kotlin/com/poyka/ripdpi/core/detection/checker/GeoIpHttpTest.kt": 1,
