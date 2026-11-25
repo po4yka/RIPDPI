@@ -514,14 +514,15 @@ impl WireGuardTunnel {
                 let mut peer = self.peer.lock().await;
                 let received =
                     receive_packet(&mut peer, self.amnezia.as_deref(), source, &mut recv_buf[..size], &mut send_buf);
-                // Use the same lock as timer expiry so readiness follows backend order.
-                self.handshake_readiness.observe(received.1);
+                // Stored before readiness, so a reader woken by readiness sees the round trip.
                 if received.1 == ReceiveOutcome::HandshakeResponse
                     && let Some(rtt) = peer.stats().4
                 {
                     // boringtun reports whole ms; clamp so a sub-ms answer still reads as measured.
                     self.handshake_rtt_ms.store(u64::from(rtt).max(1), Ordering::Relaxed);
                 }
+                // Use the same lock as timer expiry so readiness follows backend order.
+                self.handshake_readiness.observe(received.1);
                 received
             };
             if let Some(source) = received.source
@@ -863,6 +864,8 @@ mod tests {
         let consume = spawn_consume(&tunnel);
         assert_eq!(tunnel.handshake_rtt_ms(), None, "no round trip before a response");
         tunnel.initiate_handshake().await.unwrap();
+        // A delayed answer proves the value is the measured round trip, not the sub-ms clamp.
+        tokio::time::sleep(Duration::from_millis(40)).await;
         answer_initiation(&socket, &mut peer, |_| {}).await;
 
         let rtt = tokio::time::timeout(Duration::from_secs(2), async {
@@ -875,7 +878,8 @@ mod tests {
         })
         .await;
         consume.abort();
-        assert!(rtt.expect("a handshake response must record its round trip") >= 1);
+        let rtt = rtt.expect("a handshake response must record its round trip");
+        assert!((40..2_000).contains(&rtt), "round trip {rtt} ms does not match the 40 ms delay");
     }
 
     #[tokio::test]

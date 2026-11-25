@@ -24,7 +24,7 @@
 use std::io;
 use std::net::{IpAddr, Ipv6Addr};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
 use tokio::net::{TcpListener, TcpStream};
@@ -394,7 +394,8 @@ pub struct AmneziaWgTelemetry {
     /// TLS, or WS-upgrade failure). Additive; defaults to `0`.
     pub ws_carrier_handshake_failures: u64,
     pub listener_address: Option<String>,
-    /// Round trip of the last completed WireGuard handshake. Omitted until the first response.
+    /// Round trip of the last completed WireGuard handshake, refreshed on each rekey (not a live ping).
+    /// Over the WS carrier it includes the carrier hop. Omitted until the first response.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upstream_rtt_ms: Option<u64>,
     /// Redacted for privacy: AWG endpoints are user-supplied server identities.
@@ -519,7 +520,9 @@ impl AmneziaWgRuntime {
             ws_carrier_handshakes: self.ws_carrier_handshakes.load(Ordering::SeqCst),
             ws_carrier_handshake_failures: self.ws_carrier_handshake_failures.load(Ordering::SeqCst),
             listener_address: self.listener_address.lock().expect("listener address").clone(),
-            upstream_rtt_ms: running.then(|| self.tunnel.lock().ok()?.as_ref()?.handshake_rtt_ms()).flatten(),
+            upstream_rtt_ms: running
+                .then(|| self.tunnel.lock().unwrap_or_else(PoisonError::into_inner).as_ref()?.handshake_rtt_ms())
+                .flatten(),
             upstream_address: None,
             profile_id: Some(self.config.profile_id.clone()),
             last_error: self.last_error.lock().expect("last error").clone(),
@@ -551,9 +554,6 @@ impl AmneziaWgRuntime {
             () = self.stopped() => return Ok(()),
             tunnel = self.connect_tunnel(source_peer_ip, source_peer_ipv6, Arc::clone(&allowed_ips)) => Arc::new(tunnel?),
         };
-        if let Ok(mut slot) = self.tunnel.lock() {
-            *slot = Some(Arc::clone(&tunnel));
-        }
 
         let bus = Bus::new();
         let mut tasks = Vec::<JoinHandle<()>>::new();
@@ -565,6 +565,8 @@ impl AmneziaWgRuntime {
         let listener = TcpListener::bind(&bind_addr).await?;
         let bind_addr = listener.local_addr()?.to_string();
         let mtu = self.config.mtu.max(MIN_MTU) as usize;
+        // Published only after the last early return, so a failed start never keeps the tunnel alive.
+        *self.tunnel.lock().unwrap_or_else(PoisonError::into_inner) = Some(Arc::clone(&tunnel));
 
         {
             let (tunnel, bus) = (Arc::clone(&tunnel), bus.clone());
@@ -663,9 +665,7 @@ impl AmneziaWgRuntime {
         // handlers exiting before this runtime reports a completed shutdown.
         clients.shutdown().await;
         self.active_sessions.store(0, Ordering::SeqCst);
-        if let Ok(mut slot) = self.tunnel.lock() {
-            *slot = None;
-        }
+        *self.tunnel.lock().unwrap_or_else(PoisonError::into_inner) = None;
         let cleared_listener = self
             .listener_address
             .lock()
@@ -1325,6 +1325,7 @@ mod tests {
             telemetry.listener_address.expect("bound SOCKS listener").parse().expect("listener address");
         assert!(listener.ip().is_loopback() && listener.port() != 0);
         stopped.expect("stopped runtime unwinds").expect("runtime joins").expect("clean shutdown");
+        assert_eq!(runtime.telemetry().upstream_rtt_ms, None, "a stopped runtime reports no round trip");
         let (junk, confirmed) = endpoint_result.expect("endpoint finished").expect("endpoint joins");
         assert_eq!(junk.len(), junk_count, "Jc junk datagrams precede the initiation");
         assert!(junk.iter().all(|size| junk_sizes.contains(size)), "junk sizes {junk:?} outside [Jmin, Jmax]");
