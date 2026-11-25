@@ -3,7 +3,7 @@ task_id: UIX-1795615858043815
 change: uix-1795615858043815-complete-amneziawg-editor
 commit_sha: null
 local: required
-local_evidence: "./gradlew :app:testGithubDebugUnitTest --tests com.poyka.ripdpi.ui.screens.awg.* --tests com.poyka.ripdpi.ui.screens.profiles.* passed (192 tests, 0 failures, AmneziaWgProfileSaveTest 6/6); :app:verifyRoborazziGithubDebug --tests AmneziaWgProfileScreenshotTest passed after blessing 6 goldens; :app:lintGithubDebug and :core:service/:core:engine compileStandardDebugUnitTestKotlin passed (2026-11-25)."
+local_evidence: "./gradlew :app:testGithubDebugUnitTest --tests com.poyka.ripdpi.ui.screens.awg.* --tests com.poyka.ripdpi.ui.screens.profiles.* passed (192 tests, 0 failures; after review fix the awg package reran at 120 tests, 0 failures, AmneziaWgProfileSaveTest 7/7); :app:verifyRoborazziGithubDebug --tests AmneziaWgProfileScreenshotTest passed after blessing 6 goldens; :app:lintGithubDebug and :core:service/:core:engine compileStandardDebugUnitTestKotlin passed (2026-11-25)."
 remote_ci: required
 remote_ci_evidence: null
 device: required

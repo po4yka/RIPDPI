@@ -71,6 +71,20 @@ class AmneziaWgProfileSaveTest {
         }
 
     @Test
+    fun `an edit made while saving is not reported as saved`() =
+        runTest {
+            val viewModel = fixture.viewModel()
+            fixture.fillRequiredIdentity(viewModel)
+
+            viewModel.onSave()
+            viewModel.onNameChanged("Typed during the write")
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.saved)
+            assertFalse(viewModel.uiState.value.saving)
+        }
+
+    @Test
     fun `a blank name saves the default name`() =
         runTest {
             val viewModel = fixture.viewModel()

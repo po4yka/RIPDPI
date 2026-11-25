@@ -167,7 +167,7 @@ internal fun AmneziaWgProfileScreen(
             RelayEditorStatus(
                 complete = uiState.canActivate,
                 saving = uiState.activationStatus == AwgActivationStatus.Connecting,
-                loading = uiState.deleting,
+                loading = uiState.deleting || uiState.saving,
                 failed = connectFailed,
             ),
         onBack = onBack,

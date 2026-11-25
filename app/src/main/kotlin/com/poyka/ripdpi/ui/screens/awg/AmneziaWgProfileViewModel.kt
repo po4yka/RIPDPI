@@ -455,7 +455,10 @@ class AmneziaWgProfileViewModel
                         _uiState.update { it.copy(saving = false, saveFailed = true) }
                         return@launch
                     }
-                _uiState.update { it.copy(saving = false, saved = stored) }
+                // An edit made while the write ran is not in the stored row, so it is not reported as saved.
+                _uiState.update {
+                    it.copy(saving = false, saved = stored && it.editor === state.editor && it.name == state.name)
+                }
             }
         }
 
