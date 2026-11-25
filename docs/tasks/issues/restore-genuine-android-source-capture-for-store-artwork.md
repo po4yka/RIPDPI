@@ -2,7 +2,7 @@
 id: CIC-1792748686642962
 title: Restore genuine Android source capture for store artwork
 kind: bug
-status: doing
+status: review
 area: ci
 priority: high
 owner: Screenshot CI repair
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-23
-updated: 2026-10-23
+updated: 2026-11-25
 spec_reason: tooling-only
 ---
 
