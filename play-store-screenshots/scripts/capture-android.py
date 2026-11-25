@@ -19,7 +19,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 from capture_build import OUTPUT_METADATA, check_play_apk, check_play_output, verify
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, BACKUP_SCROLL_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, PACKAGE, VARIANT, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_CONTROLS, BACKUP_CONTROLS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, PACKAGE, VARIANT, SOURCE_SCHEMA_VERSION, input_hashes, inputs_sha256, sha256, whole_control_in_viewport
 
 
 
@@ -506,11 +506,38 @@ class CaptureDevice:
         raise RuntimeError("The relay switch did not settle in a complete visible viewport.")
 
     def show_relay_fields(self) -> None:
-        self.tap(self.tag(self.tree(), "config-mode-proxy"))
+        tag_name = "connection-scope-proxy"
+        proxy = self.tag(self.tree(), tag_name)
+        if proxy is None or proxy.get("checkable") != "true":
+            raise RuntimeError("The Proxy only mode control is missing.")
+        if proxy.get("checked") != "true":
+            self.tap(proxy)
+            for _ in range(5):
+                proxy = self.tag(self.tree(), tag_name)
+                if proxy is not None and proxy.get("checked") == "true":
+                    break
+                time.sleep(0.5)
+            else:
+                raise RuntimeError("Proxy only mode did not become selected.")
         self.enable_relay_for_capture()
         self.measure_relay_intrinsic_sizes()
         self.align("mode-editor-relay-chip-ru-mobile-relay")
         self.verify_relay_sections()
+
+    def record_visible_controls(self, receipt_key: str, controls: tuple[str, ...], screen: str) -> None:
+        tree = self.tree()
+        observed = {}
+        for tag_name in controls:
+            node = self.tag(tree, tag_name)
+            if node is None:
+                raise RuntimeError(f"The actual {screen} viewport is missing {tag_name}.")
+            bounds = self.bounds(node)
+            viewport = self.viewport_bounds(tree, node)
+            if not whole_control_in_viewport(bounds, viewport):
+                raise RuntimeError(f"The actual {screen} viewport clips {tag_name}: {bounds} in {viewport}.")
+            observed[tag_name] = {"bounds": bounds, "viewport": viewport}
+        self.receipts.setdefault(receipt_key, {})[self.locale] = {
+            "controls": observed, "observedAtUtc": datetime.now(timezone.utc).isoformat()}
 
     def show_dns_editor(self) -> None:
         for _ in range(16):
@@ -520,33 +547,13 @@ class CaptureDevice:
                 break
         else:
             raise RuntimeError("The actual custom DNS editor is missing.")
-        # The last screen contains the full custom DoH and IPv6 cards.
+        # Keep the custom DoH controls and the collapsed Advanced entry visible.
         for _ in range(3):
             self.scroll(550)
-        before = self.bounds(self.tag(self.tree(), "dns-custom-save"))[1]
-        offset = DNS_BOTTOM_FOCUS_PIXELS[self.locale]
-        if offset:
-            self.scroll(-offset)
-        after = self.bounds(self.tag(self.tree(), "dns-custom-save"))[1]
-        observed = after - before
-        if abs(observed - offset) > 4:
-            raise RuntimeError(f"The actual DNS editor did not reach its complete viewport: {self.locale}, requested {offset}px, observed {observed}px.")
-        self.receipts.setdefault("dnsFocus", {})[self.locale] = {
-            "requestedBottomScrollPixels": offset, "observedBottomScrollPixels": observed,
-            "observedAtUtc": datetime.now(timezone.utc).isoformat()}
+        self.record_visible_controls("dnsFocus", DNS_CONTROLS, "DNS editor")
 
     def focus_backup(self) -> None:
-        offset = BACKUP_SCROLL_PIXELS[self.locale]
-        before = self.bounds(self.tag(self.tree(), "backup-import-button"))[1]
-        if offset:
-            self.scroll(offset)
-        after = self.bounds(self.tag(self.tree(), "backup-import-button"))[1]
-        observed = before - after
-        if abs(observed - offset) > 4:
-            raise RuntimeError("The actual backup controls did not reach their complete viewport.")
-        self.receipts.setdefault("backupFocus", {})[self.locale] = {
-            "requestedScrollPixels": offset, "observedScrollPixels": observed,
-            "observedAtUtc": datetime.now(timezone.utc).isoformat()}
+        self.record_visible_controls("backupFocus", BACKUP_CONTROLS, "backup controls")
 
     @staticmethod
     def locale_migration_complete(package_state: str) -> bool:
@@ -672,7 +679,7 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
         path = PROJECT / f"public/screenshots/{source_name}.png"
         images[str(path.relative_to(ROOT))] = sha256(path)
     metadata = {
-        "schemaVersion": 1,
+        "schemaVersion": SOURCE_SCHEMA_VERSION,
         "capturedAtUtc": datetime.now(timezone.utc).isoformat(),
         "builtFromRevision": build_revision,
         "capturedWithRevision": run(["git", "rev-parse", "HEAD"]),
@@ -687,11 +694,11 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
         "theme": "light", "locales": list(LOCALES),
         "routes": {name: route for name, (route, _) in SCREENS.items()},
         "state": {"permissionPreset": "granted", "servicePreset": "live", "dataPreset": "settings_ready",
-                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "localeDisplayOverrides": DISPLAY_OVERRIDES, "dnsBottomFocusPixels": DNS_BOTTOM_FOCUS_PIXELS, "backupScrollPixels": BACKUP_SCROLL_PIXELS, "homeScrollPixels": HOME_SCROLL_PIXELS, "statusBar": STATUS_BAR,
+                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "localeDisplayOverrides": DISPLAY_OVERRIDES, "homeScrollPixels": HOME_SCROLL_PIXELS, "statusBar": STATUS_BAR,
                   "home": "real VPN service started through the app; Android VPN consent granted normally",
                   "diagnostics": "Scan tab with a new completed direct-path scan; all observed outcomes preserved",
                   "relay": "proxy-mode editor showing supported relay transports; unsaved edit; no credentials or relay connection",
-                  "dns-settings": "actual custom DoH editor prefilled from Cloudflare and IPv6 controls; no unsaved values applied",
+                  "dns-settings": "actual custom DoH editor prefilled from Cloudflare and collapsed Advanced entry; no unsaved values applied",
                   "strategies": "actual built-in strategy editor with save, reload, import and export; no claimed strategy outcome",
                   "backup": "actual local backup export and restore controls",
                   "history": "first dedicated route clears previous history; later routes preserve the new scan"},

@@ -50,7 +50,7 @@ The base display uses 360 dpi and font scale 1.0. Diagnostics and strategy confi
 | fa | 241 / 1.56 | 300 / 1 | 440 / 0.8181818 |
 | zh-CN | 251 / 1.5294118 | 360 / 0.8571429 | 500 / 0.72 |
 
-Home capture requires at least two observed RTT samples. Home starts at the top of its content. The manifest records its observed native scroll offset, which must remain within four pixels of zero. DNS capture focuses the complete custom DoH form and IPv6 controls. Its prefilled values are not applied. Native scroll focus is recorded per locale. Backup capture scrolls French by 12 pixels and Chinese by 16 pixels to keep the restore card whole. The import button must move by the requested distance within four pixels; the manifest records the observed offset for every locale.
+Home capture requires at least two observed RTT samples. Home starts at the top of its content. The manifest records its native scroll offset and checks it against zero with a four-pixel tolerance. Persian Home uses 255 dpi and a 0.8 font scale to fit the RTT count in the frame. DNS capture shows the prefilled custom DoH form and the Advanced entry. DNS and backup captures record the bounds of their controls and the scroll viewport in each locale. Validation requires the DoH URL, bootstrap addresses, Save and Advanced controls, and the backup export, share and import buttons to fit inside their scroll viewports.
 
 The English relay density is 271 dpi so the current editor can align the last recommended preset without clipping the preceding preset. Localized relay densities similarly fit the observed current transport groups and Advanced block. Every relay capture checks three stable observations of the last preset, all transport groups and Advanced wholly inside the actual scroll viewport. Chinese uses the same exact preset alignment rather than an additional bottom scroll that would clip it. Failed independent presentation routes are collected for diagnosis across locales, but any failure prevents writing a new manifest; live connection or scan failures abort immediately. Failure artifacts preserve raw partial frames and geometry before display cleanup, and are never publishable source captures.
 
@@ -120,7 +120,7 @@ render no longer reports retained committed files as successfully regenerated.
 | `01-hero.png` | Control your connection | Home connection state and traffic |
 | `02-diagnostics.png` | Check your network | Completed network check results |
 | `03-relays.png` | Choose your relay | Relay transport selection |
-| `04-dns.png` | Set your DNS | Custom DoH form and IPv6 options |
+| `04-dns.png` | Set your DNS | Custom DoH form and Advanced entry |
 | `05-strategies.png` | Tune your strategy | Strategy configuration editor |
 | `06-local-tools.png` | Save your settings | Backup and restore settings |
 | `feature-graphic.png` | Check your connection path | Brand group and an editorial phone → network → server diagram |

@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / "play-store-screenshots"
 MANIFEST = PROJECT / "public/screenshots/source-capture.json"
+SOURCE_SCHEMA_VERSION = 2
 VARIANT = "playDebug"
 PACKAGE = "com.poyka.ripdpi"
 LOCALES = ("en", "ru", "es", "de", "fr", "fa", "zh-CN")
@@ -76,10 +77,21 @@ DISPLAY_OVERRIDES = {
 }
 DISPLAY_OVERRIDES["en"]["relay"] = {"densityDpi": 271, "fontScale": 1.5}
 DISPLAY_OVERRIDES["fa"]["relay"] = {"densityDpi": 241, "fontScale": 1.56}
+DISPLAY_OVERRIDES["fa"]["home"] = {"densityDpi": 255, "fontScale": 0.8}
 DISPLAY_OVERRIDES["zh-CN"]["relay"] = {"densityDpi": 251, "fontScale": 1.5294118}
-DNS_BOTTOM_FOCUS_PIXELS = {locale: 35 if locale in ("de", "fr", "fa", "zh-CN") else 45 for locale in LOCALES}
-BACKUP_SCROLL_PIXELS = {locale: {"fr": 12, "zh-CN": 16}.get(locale, 0) for locale in LOCALES}
+DNS_CONTROLS = ("dns-custom-doh-url", "dns-custom-bootstrap", "dns-custom-save", "dns-advanced")
+BACKUP_CONTROLS = ("backup-export-button", "backup-share-button", "backup-import-button")
 
 
 def display_profile(locale: str, name: str) -> dict:
     return DISPLAY_OVERRIDES.get(locale, {}).get(name, DISPLAY_PROFILES[name])
+
+
+def whole_control_in_viewport(bounds: list[int], viewport: list[int]) -> bool:
+    if not (isinstance(bounds, list) and isinstance(viewport, list) and len(bounds) == len(viewport) == 4
+            and all(type(value) is int for value in bounds + viewport)):
+        return False
+    left, top, right, bottom = viewport
+    return (0 <= left < right <= FRAME_SIZE[0] and 0 <= top < bottom <= FRAME_SIZE[1]
+            and left + 4 <= bounds[0] < bounds[2] <= right - 4
+            and top + 4 <= bounds[1] < bounds[3] <= bottom - 4)

@@ -8,7 +8,20 @@ import struct
 import re
 from pathlib import Path
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, BACKUP_SCROLL_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, VARIANT, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_CONTROLS, BACKUP_CONTROLS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, VARIANT, SOURCE_SCHEMA_VERSION, input_hashes, inputs_sha256, sha256, whole_control_in_viewport
+
+
+def complete_viewports(receipts: dict, controls: tuple[str, ...]) -> bool:
+    if set(receipts) != set(LOCALES):
+        return False
+    for receipt in receipts.values():
+        observed = receipt.get("controls", {})
+        if not receipt.get("observedAtUtc") or set(observed) != set(controls):
+            return False
+        if any(not whole_control_in_viewport(control.get("bounds"), control.get("viewport"))
+               for control in observed.values()):
+            return False
+    return True
 
 
 def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
@@ -19,7 +32,7 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
     except (ValueError, OSError) as error:
         return [f"Cannot read the source manifest: {error}"]
     errors = []
-    if manifest.get("schemaVersion") != 1:
+    if manifest.get("schemaVersion") != SOURCE_SCHEMA_VERSION:
         errors.append("Unsupported source-capture schema.")
     if manifest.get("locales") != list(LOCALES):
         errors.append("Capture all seven marketing locales.")
@@ -90,21 +103,9 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
     displays = receipts.get("displayFrames", {})
     expected_displays = {f"{locale}/{name}": {**display_profile(locale, name), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
                          for locale in LOCALES for name in DISPLAY_PROFILES}
-    dns_focus = receipts.get("dnsFocus", {})
-    if (manifest.get("state", {}).get("dnsBottomFocusPixels") != DNS_BOTTOM_FOCUS_PIXELS
-            or set(dns_focus) != set(LOCALES)
-            or any(value.get("requestedBottomScrollPixels") != DNS_BOTTOM_FOCUS_PIXELS[locale]
-                   or not value.get("observedAtUtc")
-                   or abs(value.get("observedBottomScrollPixels", -1000) - DNS_BOTTOM_FOCUS_PIXELS[locale]) > 4
-                   for locale, value in dns_focus.items())):
+    if not complete_viewports(receipts.get("dnsFocus", {}), DNS_CONTROLS):
         errors.append("Missing actual DNS editor viewport receipts.")
-    backup_focus = receipts.get("backupFocus", {})
-    if (manifest.get("state", {}).get("backupScrollPixels") != BACKUP_SCROLL_PIXELS
-            or set(backup_focus) != set(LOCALES)
-            or any(value.get("requestedScrollPixels") != BACKUP_SCROLL_PIXELS[locale]
-                   or not value.get("observedAtUtc")
-                   or abs(value.get("observedScrollPixels", -1000) - BACKUP_SCROLL_PIXELS[locale]) > 4
-                   for locale, value in backup_focus.items())):
+    if not complete_viewports(receipts.get("backupFocus", {}), BACKUP_CONTROLS):
         errors.append("Missing actual backup controls viewport receipts.")
     if (displays != expected_displays or manifest.get("state", {}).get("displayProfiles") != DISPLAY_PROFILES
             or manifest.get("state", {}).get("localeDisplayOverrides") != DISPLAY_OVERRIDES):

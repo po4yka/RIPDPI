@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch, Mock
 from xml.etree import ElementTree
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_CONTROLS, BACKUP_CONTROLS, SOURCE_SCHEMA_VERSION, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
 
 spec = importlib.util.spec_from_file_location("validator", Path(__file__).with_name("validate-source-captures.py"))
 validator = importlib.util.module_from_spec(spec)
@@ -83,22 +83,26 @@ class SourceCaptureTests(unittest.TestCase):
             device.approve_vpn_consent()
         self.assertNotIn("vpnConsent", device.receipts)
 
-    def test_backup_focus_rejects_an_unobserved_scroll(self):
+    def test_backup_focus_rejects_a_clipped_import_button(self):
         device = capture.CaptureDevice("emulator-5556")
         device.locale = "fr"
         device.tree = Mock(return_value=ElementTree.fromstring(
-            '<hierarchy><node resource-id="backup-import-button" bounds="[100,1500][980,1600]" /></hierarchy>'))
-        device.scroll = Mock()
-        with self.assertRaisesRegex(RuntimeError, "backup.*viewport"):
+            '<hierarchy><node scrollable="true" bounds="[0,253][1080,1800]">'
+            '<node resource-id="backup-export-button" bounds="[104,779][976,917]" />'
+            '<node resource-id="backup-share-button" bounds="[104,940][976,1078]" />'
+            '<node resource-id="backup-import-button" bounds="[104,1662][976,1800]" />'
+            '</node></hierarchy>'))
+        with self.assertRaisesRegex(RuntimeError, "backup controls viewport clips backup-import-button"):
             device.focus_backup()
-        device.scroll.assert_called_once_with(12)
+        self.assertNotIn("backupFocus", device.receipts)
 
     def test_relay_frame_keeps_the_last_recommended_preset_whole(self):
         device = capture.CaptureDevice("emulator-5556")
         device.locale = "en"
-        device.tree = Mock(return_value=ElementTree.fromstring(
-            '<hierarchy><node resource-id="config-mode-proxy" />'
-            '<node checkable="true" clickable="true" checked="true" /></hierarchy>'))
+        proxy = '<hierarchy><node resource-id="connection-scope-proxy" checkable="true" checked="{}" /></hierarchy>'
+        unchecked = ElementTree.fromstring(proxy.format("false"))
+        checked = ElementTree.fromstring(proxy.format("true"))
+        device.tree = Mock(side_effect=[unchecked, checked, checked])
         device.tap = Mock()
         device.align = Mock()
         device.verify_relay_sections = Mock()
@@ -108,6 +112,7 @@ class SourceCaptureTests(unittest.TestCase):
         device.align.assert_called_once_with("mode-editor-relay-chip-ru-mobile-relay")
         device.locale = "zh-CN"
         device.show_relay_fields()
+        device.tap.assert_called_once_with(unchecked[0])
         self.assertEqual(device.verify_relay_sections.call_count, 2)
 
     def test_relay_alignment_swipes_outside_the_visible_port_field(self):
@@ -273,7 +278,7 @@ class SourceCaptureTests(unittest.TestCase):
                     output.parent.mkdir(parents=True, exist_ok=True)
                     output.write_bytes(data)
                     images[path] = sha256(output)
-        self.data = {"schemaVersion": 1, "locales": list(LOCALES), "builtFromRevision": "a" * 40,
+        self.data = {"schemaVersion": SOURCE_SCHEMA_VERSION, "locales": list(LOCALES), "builtFromRevision": "a" * 40,
                      "apk": {"variant": "playDebug", "sha256": "b" * 64},
                      "libXray": {"manifestSha256": "c" * 64, "aarSha256": "d" * 64},
                      "device": {"screen": "1080x1800", "densityDpi": DENSITY_DPI, "api": 37, "abi": "x86_64"},
@@ -287,15 +292,14 @@ class SourceCaptureTests(unittest.TestCase):
         self.data["runReceipts"]["homeMeasurements"] = {locale: {"sampleCount": 2, "observedAtUtc": "2026-10-10T00:00:00+00:00", "contentScrollPixels": HOME_SCROLL_PIXELS[locale], "observedContentScrollPixels": HOME_SCROLL_PIXELS[locale]} for locale in LOCALES}
         self.data["runReceipts"]["permissions"] = {"api": 37, "granted": list(capture.runtime_permissions(37)), "observedAtUtc": "2026-10-10T00:00:00+00:00"}
         self.data["runReceipts"]["displayFrames"] = {f"{locale}/{name}": {**display_profile(locale, name), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"} for locale in LOCALES for name in DISPLAY_PROFILES}
-        self.data["state"].update({"localeDisplayOverrides": DISPLAY_OVERRIDES, "dnsBottomFocusPixels": DNS_BOTTOM_FOCUS_PIXELS})
-        self.data["runReceipts"]["dnsFocus"] = {locale: {"requestedBottomScrollPixels": offset,
-            "observedBottomScrollPixels": offset, "observedAtUtc": "2026-10-10T00:00:00+00:00"}
-            for locale, offset in DNS_BOTTOM_FOCUS_PIXELS.items()}
-        self.data["state"]["backupScrollPixels"] = capture.BACKUP_SCROLL_PIXELS
-        self.data["runReceipts"]["backupFocus"] = {
-            locale: {"requestedScrollPixels": offset, "observedScrollPixels": offset,
-                     "observedAtUtc": "2026-10-19T00:00:00+00:00"}
-            for locale, offset in capture.BACKUP_SCROLL_PIXELS.items()}
+        self.data["state"]["localeDisplayOverrides"] = DISPLAY_OVERRIDES
+        for key, controls in (("dnsFocus", DNS_CONTROLS), ("backupFocus", BACKUP_CONTROLS)):
+            self.data["runReceipts"][key] = {
+                locale: {"observedAtUtc": "2026-10-10T00:00:00+00:00", "controls": {
+                    tag: {"bounds": [45, 120 + 140 * index, 1035, 220 + 140 * index],
+                          "viewport": [0, 54, 1080, 1800]}
+                    for index, tag in enumerate(controls)}}
+                for locale in LOCALES}
         self.save()
 
     def save(self):
@@ -355,18 +359,14 @@ class SourceCaptureTests(unittest.TestCase):
                 self.data["runReceipts"]["displayFrames"][f"{locale}/relay"] = {
                     **display_profile(locale, "relay"), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
 
-    def test_unobserved_backup_focus_is_rejected(self):
-        self.data["state"]["backupScrollPixels"] = capture.BACKUP_SCROLL_PIXELS
-        self.data["runReceipts"]["backupFocus"] = {
-            locale: {"requestedScrollPixels": offset, "observedScrollPixels": offset,
-                     "observedAtUtc": "2026-10-19T00:00:00+00:00"}
-            for locale, offset in capture.BACKUP_SCROLL_PIXELS.items()}
-        self.data["runReceipts"]["backupFocus"]["fr"]["observedScrollPixels"] = 0
+    def test_clipped_backup_focus_is_rejected(self):
+        observed = self.data["runReceipts"]["backupFocus"]["fr"]["controls"]
+        observed["backup-import-button"]["bounds"] = [45, 1662, 1035, 1800]
         self.save()
         self.assertTrue(any("backup controls viewport" in error for error in self.validate()))
 
-    def test_unobserved_dns_focus_is_rejected(self):
-        self.data["runReceipts"]["dnsFocus"]["ru"]["observedBottomScrollPixels"] = 0
+    def test_missing_dns_control_is_rejected(self):
+        del self.data["runReceipts"]["dnsFocus"]["ru"]["controls"]["dns-advanced"]
         self.save()
         self.assertTrue(any("DNS editor viewport" in error for error in self.validate()))
 
