@@ -77,11 +77,13 @@ class SubscriptionImportKaspressoTest :
                     click(continueAction)
                 }
             }
-            step("The confirmation shows the typed link; Add reports the failed first refresh") {
+            step("The confirmation shows the typed link; Check and then Add report the failed fetch") {
                 with(SubscriptionImportConfirmPage(composeRule)) {
                     awaitScreen()
                     composeRule.awaitText(TypedSubscriptionUrl)
-                    composeRule.awaitText(string(R.string.import_subscription_unnamed))
+                    composeRule.awaitText(TypedSubscriptionHost)
+                    check()
+                    awaitImportFailed()
                     confirmAdd()
                     awaitImportFailed()
                     // A failed import stays on the confirmation instead of reporting success.
@@ -114,11 +116,13 @@ class SubscriptionImportKaspressoTest :
                 ConnectionPage(composeRule).awaitScreen()
                 sendToApp(viewLinkIntent(SharedSubscriptionLink))
             }
-            step("The confirmation shows the link's name and URL; Add reports the failed refresh") {
+            step("The confirmation shows the link's name and URL; Check and then Add report the failed fetch") {
                 with(SubscriptionImportConfirmPage(composeRule)) {
                     awaitScreen(ImportJourneyLaunchMillis)
                     composeRule.awaitText(SharedSubscriptionName)
                     composeRule.awaitText(SharedSubscriptionUrl)
+                    check()
+                    awaitImportFailed()
                     confirmAdd()
                     awaitImportFailed()
                 }

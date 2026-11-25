@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.proxyimport.subscriptionHost
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -55,7 +56,7 @@ fun SubscriptionImportConfirmRoute(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val addedName = uiState.name.ifBlank { stringResource(R.string.import_subscription_unnamed) }
+    val addedName = subscriptionDisplayName(uiState)
     LifecycleEventEffect(viewModel.importedEvents) {
         context.toastImported(addedName)
         onImported(it)
@@ -66,6 +67,7 @@ fun SubscriptionImportConfirmRoute(
         // Once the import is saved, Back closes it the same way as Done.
         onBack = { if (uiState.skipped.isEmpty()) onBack() else onImported(uiState.awgKeyProfileId) },
         onConfirm = viewModel::confirm,
+        onCheck = viewModel::check,
         onDone = { onImported(uiState.awgKeyProfileId) },
         modifier = modifier,
     )
@@ -77,6 +79,7 @@ internal fun SubscriptionImportConfirmScreen(
     onBack: () -> Unit,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
+    onCheck: () -> Unit = {},
     onDone: () -> Unit = {},
 ) {
     SecureWindowEffect()
@@ -97,7 +100,7 @@ internal fun SubscriptionImportConfirmScreen(
         if (uiState.importFailed) {
             WarningBanner(
                 title = stringResource(R.string.strategy_config_import_failed_title),
-                message = importRejectionText(uiState.rejection),
+                message = subscriptionFailureText(uiState.rejection, uiState.refreshFailure, uiState.httpStatus),
                 tone = WarningBannerTone.Error,
             )
         }
@@ -125,20 +128,49 @@ internal fun SubscriptionImportConfirmScreen(
         }
         RipDpiCard {
             RipDpiPanelHeader(
-                title =
-                    uiState.name.takeIf { it.isNotBlank() }
-                        ?: stringResource(R.string.import_subscription_unnamed),
-                supporting = uiState.url,
+                title = subscriptionDisplayName(uiState),
+                supporting =
+                    listOfNotNull(
+                        uiState.serverCount?.let {
+                            pluralStringResource(R.plurals.import_subscription_servers, it, it)
+                        },
+                        uiState.url.takeIf { it.isNotBlank() },
+                    ).joinToString("\n"),
             )
         }
         // The import is saved once entries were skipped; the screen only waits for the user to read them.
         val saved = uiState.skipped.isNotEmpty()
         RipDpiButton(
-            text = stringResource(if (saved) R.string.xray_import_done_action else R.string.import_confirm_add_action),
-            onClick = if (saved) onDone else onConfirm,
+            text =
+                stringResource(
+                    when {
+                        saved -> R.string.xray_import_done_action
+                        uiState.needsCheck -> R.string.import_subscription_check_action
+                        else -> R.string.import_confirm_add_action
+                    },
+                ),
+            onClick =
+                when {
+                    saved -> onDone
+                    uiState.needsCheck -> onCheck
+                    else -> onConfirm
+                },
             enabled = !uiState.importing,
             loading = uiState.importing,
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier.fillMaxWidth().then(
+                    if (uiState.needsCheck) {
+                        Modifier.ripDpiTestTag(
+                            RipDpiTestTags.SubscriptionImportCheck,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ),
         )
     }
 }
+
+/** The name Add saves: the user's, then the server's title, then the link's host. */
+private fun subscriptionDisplayName(uiState: SubscriptionImportConfirmUiState): String =
+    uiState.name.ifBlank { uiState.fetchedTitle }.ifBlank { subscriptionHost(uiState.url).ifEmpty { uiState.url } }

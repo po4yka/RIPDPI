@@ -71,7 +71,11 @@ class SubscriptionRefreshDnsMorphTest : SubscriptionRefreshTestSupport() {
             val result = fixture.coordinator.refresh("subscription-group")
 
             assertEquals(
-                SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.SERVER_ERROR, retryable = true),
+                SubscriptionRefreshResult.Failed(
+                    SubscriptionRefreshFailure.SERVER_ERROR,
+                    retryable = true,
+                    httpStatus = 503,
+                ),
                 result,
             )
             assertEquals(

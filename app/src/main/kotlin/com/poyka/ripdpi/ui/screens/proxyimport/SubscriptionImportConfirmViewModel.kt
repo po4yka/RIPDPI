@@ -27,6 +27,8 @@ import com.poyka.ripdpi.data.subscription.SingBoxSkippedNode
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.proxyimport.subscriptionHost
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateScheduler
+import com.poyka.ripdpi.subscription.SubscriptionPreview
+import com.poyka.ripdpi.subscription.SubscriptionPreviewResult
 import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
 import com.poyka.ripdpi.subscription.isLocalBundle
@@ -57,13 +59,27 @@ data class SubscriptionImportConfirmUiState(
     val importFailed: Boolean = false,
     /** The named cause of [importFailed], when the payload itself was refused. */
     val rejection: ImportRejection? = null,
+    /** Why the fetch failed, when it was not the payload itself. */
+    val refreshFailure: SubscriptionRefreshFailure? = null,
+    /** The HTTP status the subscription server answered with, when it refused the fetch. */
+    val httpStatus: Int? = null,
+    /** The server-given title from Check, or empty. */
+    val fetchedTitle: String = "",
+    /** The number of servers Check found; `null` until Check succeeds. */
+    val serverCount: Int? = null,
+    /** Check ran; after a failed Check, Add still saves the link so auto-update can retry it. */
+    val checked: Boolean = false,
     /** Set once the import is saved with entries left out; the screen stays to show them. */
     val skipped: ImmutableList<SingBoxSkippedNode> = persistentListOf(),
     /** The imported AmneziaWG profile that still needs its private key, or empty; opened when the screen closes. */
     val awgKeyProfileId: String = "",
     /** A RIPDPI bundle the user holds locally; it has no [url]. */
     val localBundle: Boolean = false,
-)
+) {
+    /** An ordinary link is checked before Add; a bootstrap link is spent by its first fetch, so Add fetches it. */
+    val needsCheck: Boolean
+        get() = !bootstrap && !localBundle && url.isNotBlank() && !checked
+}
 
 /**
  * Backing [ViewModel] for the subscription-add import-confirmation destination.
@@ -90,6 +106,8 @@ class SubscriptionImportConfirmViewModel
         private val discardGroup: suspend (String) -> Unit,
         private val importLocalBundle: suspend (String, String) -> SubscriptionRefreshResult,
         private val awgKeyMissing: suspend (String) -> Boolean,
+        private val previewSubscription: suspend (String, String) -> SubscriptionPreviewResult,
+        private val installPreview: suspend (SubscriptionPreview) -> SubscriptionRefreshResult,
         @Suppress("UNUSED_PARAMETER") private val constructorMarker: Unit,
     ) : ViewModel() {
         @Inject
@@ -123,6 +141,8 @@ class SubscriptionImportConfirmViewModel
                     ?.privateKey
                     ?.isBlank() == true
             },
+            previewSubscription = refreshCoordinator::preview,
+            installPreview = refreshCoordinator::install,
             constructorMarker = Unit,
         )
 
@@ -144,6 +164,11 @@ class SubscriptionImportConfirmViewModel
                 String,
             ) -> SubscriptionRefreshResult = { _, _ -> error("No test import") },
             awgKeyMissing: suspend (String) -> Boolean = { false },
+            previewSubscription: suspend (
+                String,
+                String,
+            ) -> SubscriptionPreviewResult = { _, _ -> error("No test preview") },
+            installPreview: suspend (SubscriptionPreview) -> SubscriptionRefreshResult = { error("No test install") },
         ) : this(
             repository,
             bootstrapConsumer,
@@ -154,6 +179,8 @@ class SubscriptionImportConfirmViewModel
             discardGroup,
             importLocalBundle,
             awgKeyMissing,
+            previewSubscription,
+            installPreview,
             Unit,
         )
 
@@ -168,6 +195,9 @@ class SubscriptionImportConfirmViewModel
 
         // Kept out of the UI state: the bundle carries credentials.
         private var localBundleText: String? = null
+
+        // Kept out of the UI state: the fetched payload carries credentials.
+        private var preview: SubscriptionPreview? = null
 
         // A consumed one-time payload that is not saved yet: a retry saves it without spending the token again.
         private var unsavedBootstrap: UnsavedBootstrap? = null
@@ -215,8 +245,50 @@ class SubscriptionImportConfirmViewModel
         ) {
             completed = false
             localBundleText = null
+            preview = null
             _uiState.update {
                 SubscriptionImportConfirmUiState(url = url, name = name, bootstrap = bootstrap)
+            }
+        }
+
+        /** Fetches the link without saving it, so the user sees its name and server count before Add. */
+        fun check() {
+            val state = _uiState.value
+            if (!state.needsCheck || state.importing || completed) return
+            _uiState.update { it.clearedFailure().copy(importing = true) }
+            viewModelScope.launch {
+                try {
+                    val groupId =
+                        repository.list().firstOrNull { it.subscription?.link == state.url }?.id ?: groupIdFactory()
+                    val result = previewSubscription(groupId, state.url)
+                    // A new request replaced this one while the fetch ran.
+                    if (_uiState.value.url != state.url) return@launch
+                    when (result) {
+                        is SubscriptionPreviewResult.Fetched -> {
+                            preview = result.preview
+                            _uiState.update {
+                                it.copy(fetchedTitle = result.preview.title, serverCount = result.preview.serverCount)
+                            }
+                        }
+
+                        is SubscriptionPreviewResult.Failed -> {
+                            _uiState.update {
+                                it.copy(
+                                    importFailed = true,
+                                    rejection = result.rejection,
+                                    refreshFailure = result.failure,
+                                    httpStatus = result.httpStatus,
+                                )
+                            }
+                        }
+                    }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: Exception) {
+                    _uiState.update { it.copy(importFailed = true) }
+                } finally {
+                    _uiState.update { if (it.url == state.url) it.copy(importing = false, checked = true) else it }
+                }
             }
         }
 
@@ -235,7 +307,7 @@ class SubscriptionImportConfirmViewModel
             val bundle = localBundleText
             if (state.url.isBlank() && bundle == null) return
             if (state.importing || completed) return
-            _uiState.update { it.copy(importing = true, importFailed = false, rejection = null) }
+            _uiState.update { it.clearedFailure().copy(importing = true) }
             viewModelScope.launch {
                 try {
                     if (bundle != null) {
@@ -244,7 +316,7 @@ class SubscriptionImportConfirmViewModel
                     }
                     val groups = repository.list()
                     val existing = groups.firstOrNull { group -> group.subscription?.link == state.url }
-                    val groupId = existing?.id ?: groupIdFactory()
+                    val groupId = preview?.takeIf { it.link == state.url }?.groupId ?: existing?.id ?: groupIdFactory()
                     val groupName =
                         state.name.takeIf { it.isNotBlank() } ?: subscriptionHost(state.url).ifEmpty { state.url }
                     val order = existing?.order ?: groups.size
@@ -321,7 +393,9 @@ class SubscriptionImportConfirmViewModel
             groupId: String,
             isNewGroup: Boolean,
         ) {
-            val result = refreshSubscription(groupId)
+            // Add saves what Check showed; only a link without a check (a re-added one) is fetched here.
+            val checked = preview?.takeIf { it.groupId == groupId && it.link == _uiState.value.url }
+            val result = if (checked != null) installPreview(checked) else refreshSubscription(groupId)
             // A first fetch that is not a subscription at all (a web page, say) leaves nothing
             // worth retrying: drop the new group so auto-update never polls that URL again.
             if (isNewGroup && result is SubscriptionRefreshResult.Failed && result.failure in NotASubscription) {
@@ -336,7 +410,12 @@ class SubscriptionImportConfirmViewModel
 
                 is SubscriptionRefreshResult.Failed -> {
                     _uiState.update {
-                        it.copy(importFailed = true, rejection = result.rejection)
+                        it.copy(
+                            importFailed = true,
+                            rejection = result.rejection,
+                            refreshFailure = result.failure,
+                            httpStatus = result.httpStatus,
+                        )
                     }
                 }
 
@@ -409,10 +488,21 @@ class SubscriptionImportConfirmViewModel
                             null
                         }
 
-                        is BootstrapConsumeResult.AlreadyConsumed,
-                        is BootstrapConsumeResult.NetworkError,
-                        -> {
-                            _uiState.update { it.copy(importFailed = true) }
+                        is BootstrapConsumeResult.AlreadyConsumed -> {
+                            _uiState.update {
+                                it.copy(importFailed = true, refreshFailure = SubscriptionRefreshFailure.INVALIDATED)
+                            }
+                            null
+                        }
+
+                        is BootstrapConsumeResult.NetworkError -> {
+                            _uiState.update {
+                                it.copy(
+                                    importFailed = true,
+                                    refreshFailure = SubscriptionRefreshFailure.NETWORK_ERROR,
+                                    httpStatus = result.httpStatus,
+                                )
+                            }
                             null
                         }
                     }
@@ -503,6 +593,9 @@ class SubscriptionImportConfirmViewModel
             }
         }
     }
+
+private fun SubscriptionImportConfirmUiState.clearedFailure() =
+    copy(importFailed = false, rejection = null, refreshFailure = null, httpStatus = null)
 
 private val NotASubscription = setOf(SubscriptionRefreshFailure.PARSE_ERROR)
 

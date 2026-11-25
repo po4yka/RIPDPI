@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -302,6 +303,76 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
                 expectNoEvents()
             }
         }
+
+    @Test
+    fun `check shows the server count and Add saves that fetch without fetching again`() =
+        runTest {
+            val fixture = fixture(2_000L)
+            val viewModel = checkingViewModel(fixture)
+            viewModel.setRequest(server.url("/new-subscription").toString(), "", bootstrap = false)
+            assertTrue(viewModel.uiState.value.needsCheck)
+            server.enqueue(response(200, trojanPayload))
+
+            viewModel.check()
+            val checked = viewModel.uiState.first { it.checked && !it.importing }
+            assertEquals(1, checked.serverCount)
+            assertFalse(checked.needsCheck)
+            assertTrue(fixture.repository.list().none { it.id == "imported" })
+
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                awaitItem()
+            }
+            assertEquals(
+                1,
+                fixture.repository
+                    .list()
+                    .single { it.id == "imported" }
+                    .members.size,
+            )
+            assertEquals(1, server.requestCount)
+        }
+
+    @Test
+    fun `a refused check names the HTTP status, saves nothing, and leaves Add available`() =
+        runTest {
+            val fixture = fixture(2_000L)
+            val viewModel = checkingViewModel(fixture)
+            viewModel.setRequest(server.url("/new-subscription").toString(), "", bootstrap = false)
+            server.enqueue(response(404))
+
+            viewModel.check()
+            val failed = viewModel.uiState.first { it.checked && !it.importing }
+            assertTrue(failed.importFailed)
+            assertEquals(404, failed.httpStatus)
+            assertEquals(SubscriptionRefreshFailure.UNREACHABLE, failed.refreshFailure)
+            assertNull(failed.serverCount)
+            assertFalse(failed.needsCheck)
+            assertTrue(fixture.repository.list().none { it.id == "imported" })
+        }
+
+    @Test
+    fun `a refused first fetch on Add reports its HTTP status`() =
+        runTest {
+            val fixture = fixture(2_000L)
+            val viewModel = viewModel(fixture)
+            viewModel.setRequest(server.url("/new-subscription").toString(), "New fleet", bootstrap = false)
+            server.enqueue(response(503))
+
+            viewModel.confirm()
+            val failed = viewModel.uiState.first { it.importFailed && !it.importing }
+            assertEquals(503, failed.httpStatus)
+            assertEquals(SubscriptionRefreshFailure.SERVER_ERROR, failed.refreshFailure)
+        }
+
+    private fun checkingViewModel(fixture: Fixture) =
+        SubscriptionImportConfirmViewModel(
+            repository = fixture.repository,
+            groupIdFactory = { "imported" },
+            refreshSubscription = { error("Add must save the checked fetch") },
+            previewSubscription = fixture.coordinator::preview,
+            installPreview = fixture.coordinator::install,
+        )
 
     private fun viewModel(
         fixture: Fixture,

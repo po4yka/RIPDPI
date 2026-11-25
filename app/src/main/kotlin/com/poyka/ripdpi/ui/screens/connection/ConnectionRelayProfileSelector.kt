@@ -32,7 +32,9 @@ internal class ConnectionRelayProfileSelector(
     private val generation = AtomicLong()
 
     // Both read saved settings inside the selection lock, so a tap made before the UI updated still lands.
-    fun select(profileId: String) =
+
+    /** Returns the selection job, or `null` when a reconnect in progress refused it. */
+    fun select(profileId: String): Job? =
         changeActivePath {
             val settings = dependencies.appSettingsRepository.snapshot()
             val mode = settings.toConfigDraft().mode
@@ -128,12 +130,12 @@ internal class ConnectionRelayProfileSelector(
         )
     }
 
-    private fun changeActivePath(pathChange: suspend () -> PathChange) {
-        if (rejectWhileReconnecting()) return
+    private fun changeActivePath(pathChange: suspend () -> PathChange): Job? {
+        if (rejectWhileReconnecting()) return null
         val request = generation.incrementAndGet()
         val saveJob = activeSaveJob()
         if (saveJob != null) suppressSaveSuccess()
-        scope.launch {
+        return scope.launch {
             saveJob?.join()
             selectionLock.withLock {
                 if (generation.get() != request) return@withLock

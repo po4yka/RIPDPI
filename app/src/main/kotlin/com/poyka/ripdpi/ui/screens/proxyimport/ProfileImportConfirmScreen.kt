@@ -14,6 +14,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
@@ -33,6 +34,7 @@ fun ProfileImportConfirmRoute(
     importToken: String,
     onBack: () -> Unit,
     onImported: () -> Unit,
+    onSelected: (connect: Boolean) -> Unit,
     onUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileImportConfirmViewModel = hiltViewModel(),
@@ -46,12 +48,7 @@ fun ProfileImportConfirmRoute(
         }
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    val addedName = uiState.profile?.displayName.orEmpty()
-    LifecycleEventEffect(viewModel.importedEvents) {
-        context.toastImported(addedName)
-        onImported()
-    }
+    LifecycleEventEffect(viewModel.selectedEvents) { connect -> onSelected(connect) }
 
     val ssh = uiState.profile as? ProxyProfile.Ssh
     if (ssh != null && ssh.hostKeyFingerprint.isNullOrBlank()) {
@@ -61,8 +58,11 @@ fun ProfileImportConfirmRoute(
 
     ProfileImportConfirmScreen(
         uiState = uiState,
-        onBack = onBack,
+        // Once the profile is saved, Back leaves it saved and unselected.
+        onBack = if (uiState.saved) onImported else onBack,
         onConfirm = viewModel::confirm,
+        onSelect = { viewModel.select(connect = false) },
+        onConnect = { viewModel.select(connect = true) },
         modifier = modifier,
     )
 }
@@ -73,6 +73,8 @@ internal fun ProfileImportConfirmScreen(
     onBack: () -> Unit,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
+    onSelect: () -> Unit = {},
+    onConnect: () -> Unit = {},
 ) {
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.import_profile_confirm_title),
@@ -94,7 +96,12 @@ internal fun ProfileImportConfirmScreen(
 
         RipDpiCard {
             RipDpiPanelHeader(
-                title = profile.displayName,
+                title =
+                    if (uiState.saved) {
+                        stringResource(R.string.import_done_added, profile.displayName)
+                    } else {
+                        profile.displayName
+                    },
                 supporting = profileSummary(profile),
             )
         }
@@ -108,14 +115,33 @@ internal fun ProfileImportConfirmScreen(
                 RipDpiPanelHeader(title = stringResource(errorRes))
             }
         }
-        if (uiState.admissionErrorRes == null) {
-            RipDpiButton(
-                text = stringResource(R.string.import_confirm_add_action),
-                onClick = onConfirm,
-                enabled = !uiState.importing,
-                loading = uiState.importing,
-                modifier = Modifier.fillMaxWidth(),
-            )
+        when {
+            uiState.saved -> {
+                RipDpiButton(
+                    text = stringResource(R.string.vpn_connect),
+                    onClick = onConnect,
+                    enabled = !uiState.selecting,
+                    loading = uiState.selecting,
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ImportConnect),
+                )
+                RipDpiButton(
+                    text = stringResource(R.string.profile_variants_cta_select),
+                    onClick = onSelect,
+                    enabled = !uiState.selecting,
+                    variant = RipDpiButtonVariant.Outline,
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ImportSelect),
+                )
+            }
+
+            uiState.admissionErrorRes == null -> {
+                RipDpiButton(
+                    text = stringResource(R.string.import_confirm_add_action),
+                    onClick = onConfirm,
+                    enabled = !uiState.importing,
+                    loading = uiState.importing,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

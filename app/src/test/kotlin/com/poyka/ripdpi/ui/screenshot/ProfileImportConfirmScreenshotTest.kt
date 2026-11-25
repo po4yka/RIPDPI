@@ -37,6 +37,11 @@ class ProfileImportConfirmScreenshotTest {
         )
     }
 
+    @Test
+    fun savedState() {
+        capture("savedState", ProfileImportConfirmUiState(profile = sampleVlessProfile, saved = true))
+    }
+
     private fun capture(
         name: String,
         state: ProfileImportConfirmUiState,

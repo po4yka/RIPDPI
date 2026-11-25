@@ -7,6 +7,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -74,6 +75,23 @@ class ClipboardImportViewModelTest {
 
             assertTrue(viewModel.uiState.value.clipboardEmpty)
             assertNull(viewModel.uiState.value.navigateToConfirm)
+        }
+
+    @Test
+    fun `a link typed after an empty clipboard imports without reading or clearing the clipboard`() =
+        runTest {
+            val clipboard = FakeClipboardReader(null)
+            val viewModel = ClipboardImportViewModel(clipboard)
+            viewModel.setClearClipboardAfterImport(true)
+            viewModel.onImportFromClipboard()
+
+            viewModel.onLinkEntered("vless://uuid@example.com:443#Typed")
+
+            val state = viewModel.uiState.value
+            assertNotNull(state.navigateToConfirm)
+            assertFalse(state.clipboardEmpty)
+            assertEquals(1, clipboard.readCount)
+            assertFalse(clipboard.cleared)
         }
 
     @Test

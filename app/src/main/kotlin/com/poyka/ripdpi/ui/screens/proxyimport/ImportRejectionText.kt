@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.proxyimport
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.subscription.ImportRejection
 import com.poyka.ripdpi.data.subscription.SingBoxSkipReason
 import com.poyka.ripdpi.data.subscription.SingBoxSkippedNode
@@ -30,6 +31,52 @@ internal fun importRejectionText(rejection: ImportRejection?): String =
             null
         }
     } ?: stringResource(R.string.import_profile_confirm_error)
+
+/** Why a subscription import failed: the refused payload, a named cause, the HTTP status, or the transport, by that priority. */
+@Composable
+internal fun subscriptionFailureText(
+    rejection: ImportRejection?,
+    failure: SubscriptionRefreshFailure?,
+    httpStatus: Int?,
+): String {
+    val named =
+        when (failure) {
+            SubscriptionRefreshFailure.PARSE_ERROR,
+            SubscriptionRefreshFailure.INVALID_PAYLOAD,
+            -> R.string.import_subscription_failed_format
+
+            SubscriptionRefreshFailure.PAYLOAD_TOO_LARGE -> R.string.import_subscription_failed_too_large
+
+            SubscriptionRefreshFailure.EXPIRED -> R.string.import_subscription_failed_expired
+
+            SubscriptionRefreshFailure.INVALIDATED,
+            SubscriptionRefreshFailure.REVOKED,
+            -> R.string.import_subscription_failed_invalid
+
+            else -> null
+        }
+    return when {
+        rejection != null -> {
+            importRejectionText(rejection)
+        }
+
+        named != null -> {
+            stringResource(named)
+        }
+
+        httpStatus != null -> {
+            stringResource(R.string.import_subscription_failed_http, httpStatus)
+        }
+
+        failure == SubscriptionRefreshFailure.NETWORK_ERROR || failure == SubscriptionRefreshFailure.UNREACHABLE -> {
+            stringResource(R.string.import_subscription_failed_network)
+        }
+
+        else -> {
+            stringResource(R.string.import_subscription_failed)
+        }
+    }
+}
 
 /** The first skipped entries, one per line, as "tag: reason". */
 @Composable

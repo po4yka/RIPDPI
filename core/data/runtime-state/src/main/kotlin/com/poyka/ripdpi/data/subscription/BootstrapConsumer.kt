@@ -61,6 +61,8 @@ sealed interface BootstrapConsumeResult {
     /** A transient transport failure (timeout, DNS, non-410 5xx). Safe to retry later. */
     data class NetworkError(
         val reason: String,
+        /** The HTTP status the server answered with; `null` when it did not answer. */
+        val httpStatus: Int? = null,
     ) : BootstrapConsumeResult
 
     /** The 200 payload could not be parsed into any profile. */
@@ -239,7 +241,7 @@ class BootstrapConsumer(
                         }
 
                         !response.isSuccessful -> {
-                            BootstrapConsumeResult.NetworkError("HTTP ${response.code}")
+                            BootstrapConsumeResult.NetworkError("HTTP ${response.code}", response.code)
                         }
 
                         else -> {

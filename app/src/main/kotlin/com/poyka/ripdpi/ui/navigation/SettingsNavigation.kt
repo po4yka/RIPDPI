@@ -58,7 +58,7 @@ internal fun NavGraphBuilder.addSettingsRoutes(
             }
         }
         addAdvancedSettingsRoutes(navController, mainViewModel)
-        addDetectionSettingsRoutes(navController)
+        addDetectionSettingsRoutes(navController, mainViewModel)
         addDistributionSettingsRoutes(navController)
     }
 }
@@ -129,7 +129,10 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     }
 }
 
-private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostController) {
+private fun NavGraphBuilder.addDetectionSettingsRoutes(
+    navController: NavHostController,
+    mainViewModel: MainViewModel,
+) {
     composable<Route.DataTransparency> {
         DataTransparencyRoute(
             onBack = { navController.popBackStack() },
@@ -187,6 +190,6 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
             onBack = { navController.popBackStack() },
         )
     }
-    addImportRoutes(navController)
+    addImportRoutes(navController, mainViewModel)
     addReplayRoutes(navController)
 }

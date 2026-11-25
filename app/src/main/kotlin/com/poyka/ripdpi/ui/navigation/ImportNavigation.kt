@@ -5,6 +5,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.proxyimport.ImportPayload
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileRoute
@@ -20,13 +21,20 @@ import com.poyka.ripdpi.ui.screens.ssh.SshProfileRoute
 import com.poyka.ripdpi.ui.screens.support.SupportSettingsRoute
 import com.poyka.ripdpi.ui.screens.xray.XrayProfileImportRoute
 
-internal fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
+internal fun NavGraphBuilder.addImportRoutes(
+    navController: NavHostController,
+    mainViewModel: MainViewModel,
+) {
     composable<Route.ProfileImportConfirm> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.ProfileImportConfirm>()
         ProfileImportConfirmRoute(
             importToken = route.importToken,
             onBack = { navController.popBackStack() },
             onImported = { navController.navigateHome() },
+            onSelected = { connect ->
+                navController.navigateHome()
+                if (connect) mainViewModel.onStartRequested()
+            },
             onUnavailable = { navController.navigateHome() },
         )
     }

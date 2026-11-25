@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.screens
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -308,8 +311,59 @@ class SetupInteractionQualityTest {
             }
         }
         composeRule.onNodeWithText(text(R.string.import_profile_confirm_empty_title)).assertExists()
-        composeRule.onNodeWithText(text(R.string.import_subscription_unnamed)).assertDoesNotExist()
         composeRule.onNodeWithText(text(R.string.import_confirm_add_action)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `failed subscription check names the HTTP status and then offers Add`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SubscriptionImportConfirmScreen(
+                    uiState =
+                        SubscriptionImportConfirmUiState(
+                            url = "https://sub.example/feed",
+                            importFailed = true,
+                            refreshFailure = com.poyka.ripdpi.data.SubscriptionRefreshFailure.UNREACHABLE,
+                            httpStatus = 404,
+                            checked = true,
+                        ),
+                    onBack = {},
+                    onConfirm = {},
+                )
+            }
+        }
+        val message =
+            RuntimeEnvironment.getApplication().getString(R.string.import_subscription_failed_http, 404)
+        composeRule.onNodeWithText(message).assertExists()
+        composeRule.onNodeWithText(text(R.string.import_confirm_add_action)).assertExists()
+    }
+
+    @Test
+    fun `checked subscription shows its title and server count before Add`() {
+        var checks = 0
+        var state by mutableStateOf(SubscriptionImportConfirmUiState(url = "https://sub.example/feed"))
+        composeRule.setContent {
+            RipDpiTheme {
+                SubscriptionImportConfirmScreen(
+                    uiState = state,
+                    onBack = {},
+                    onConfirm = {},
+                    onCheck = { checks++ },
+                )
+            }
+        }
+        // An unnamed link is shown by its host until Check reads the server's title.
+        composeRule.onNodeWithText("sub.example").assertExists()
+        composeRule.onNodeWithText(text(R.string.import_confirm_add_action)).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.SubscriptionImportCheck).performClick()
+        assertEquals(1, checks)
+
+        state = state.copy(fetchedTitle = "Fleet", serverCount = 3, checked = true)
+        val servers =
+            RuntimeEnvironment.getApplication().resources.getQuantityString(R.plurals.import_subscription_servers, 3, 3)
+        composeRule.onNodeWithText("Fleet").assertExists()
+        composeRule.onNodeWithText(servers, substring = true).assertExists()
+        composeRule.onNodeWithText(text(R.string.import_confirm_add_action)).assertExists()
     }
 
     @Test

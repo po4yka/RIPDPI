@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screenshot
 
+import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmScreen
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmUiState
 import org.junit.Test
@@ -45,6 +46,33 @@ class SubscriptionImportConfirmScreenshotTest {
                 name = "Example Subscription",
                 bootstrap = false,
                 importing = true,
+            ),
+        )
+    }
+
+    @Test
+    fun checkedSubscription() {
+        capture(
+            "checkedSubscription",
+            SubscriptionImportConfirmUiState(
+                url = "https://sub.example.com/subscribe/abcdef0123456789",
+                fetchedTitle = "Example Fleet",
+                serverCount = 12,
+                checked = true,
+            ),
+        )
+    }
+
+    @Test
+    fun failedCheck() {
+        capture(
+            "failedCheck",
+            SubscriptionImportConfirmUiState(
+                url = "https://sub.example.com/subscribe/abcdef0123456789",
+                importFailed = true,
+                refreshFailure = SubscriptionRefreshFailure.UNREACHABLE,
+                httpStatus = 404,
+                checked = true,
             ),
         )
     }

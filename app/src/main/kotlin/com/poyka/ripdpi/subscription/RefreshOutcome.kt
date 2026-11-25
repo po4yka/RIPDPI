@@ -136,5 +136,7 @@ internal sealed interface RefreshOutcome {
         val lifecycleState: SubscriptionLifecycleState?,
         val retry: Boolean,
         val rejection: ImportRejection? = null,
+        /** The HTTP status of a refused fetch, when the server answered. */
+        val httpStatus: Int? = null,
     ) : RefreshOutcome
 }

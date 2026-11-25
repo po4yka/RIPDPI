@@ -74,6 +74,8 @@ internal class SubscriptionImportConfirmPage(
 ) : JourneyPage<SubscriptionImportConfirmPage>(rule, RipDpiTestTags.screen(Route.SubscriptionImportConfirm())) {
     fun confirmAdd() = rule.clickText(string(R.string.import_confirm_add_action))
 
+    fun check() = rule.clickText(string(R.string.import_subscription_check_action))
+
     fun awaitImportFailed(timeoutMillis: Long = 60_000) =
         rule.awaitText(string(R.string.strategy_config_import_failed_title), timeoutMillis)
 }

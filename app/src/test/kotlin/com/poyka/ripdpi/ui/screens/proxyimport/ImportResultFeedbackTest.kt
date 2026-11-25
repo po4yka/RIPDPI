@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.proxyimport
 
 import android.content.Context
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
@@ -41,20 +42,25 @@ class ImportResultFeedbackTest {
     }
 
     @Test
-    fun `a saved import names what it added`() {
+    fun `a saved import names what it added and Connect selects it`() {
         val profile = ProxyProfile.Trojan("p1", "Tokyo", "", "relay.example", 443, "fixture-password")
-        var imported = 0
-        render(importToken = PendingProxyImportStore.process.stage(profile), onImported = { imported++ })
+        val selected = mutableListOf<Boolean>()
+        render(importToken = PendingProxyImportStore.process.stage(profile), onSelected = { selected.add(it) })
 
         composeRule.onNodeWithText(context.getString(R.string.import_confirm_add_action)).performClick()
 
-        composeRule.waitUntil { imported == 1 }
-        assertEquals(context.getString(R.string.import_done_added, "Tokyo"), ShadowToast.getTextOfLatestToast())
+        val connect = context.getString(R.string.vpn_connect)
+        composeRule.waitUntil { composeRule.onAllNodesWithText(connect).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText(context.getString(R.string.import_done_added, "Tokyo")).assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.profile_variants_cta_select)).assertExists()
+        composeRule.onNodeWithText(connect).performClick()
+        composeRule.waitUntil { selected == listOf(true) }
     }
 
     private fun render(
         importToken: String,
         onImported: () -> Unit = {},
+        onSelected: (Boolean) -> Unit = {},
         onUnavailable: () -> Unit = {},
     ) {
         val viewModel =
@@ -66,6 +72,7 @@ class ImportResultFeedbackTest {
                         FakeAppSettingsRepository(),
                     ),
                 ),
+                serverSelection = { ImportedServerSelectionResult.Selected },
             )
         composeRule.setContent {
             RipDpiTheme {
@@ -73,6 +80,7 @@ class ImportResultFeedbackTest {
                     importToken = importToken,
                     onBack = {},
                     onImported = onImported,
+                    onSelected = onSelected,
                     onUnavailable = onUnavailable,
                     viewModel = viewModel,
                 )

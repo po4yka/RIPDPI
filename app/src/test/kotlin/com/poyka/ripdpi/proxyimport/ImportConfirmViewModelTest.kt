@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.fakes.FakeRelayProfileStore
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
+import com.poyka.ripdpi.ui.screens.proxyimport.ImportedServerSelectionResult
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -167,6 +168,86 @@ class ImportConfirmViewModelTest {
         }
 
     @Test
+    fun `saved profile is selected by its import id and Connect asks to start`() =
+        runTest {
+            val selected = mutableListOf<String>()
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    trojanActivator(),
+                    serverSelection = { id ->
+                        selected.add(id)
+                        ImportedServerSelectionResult.Selected
+                    },
+                )
+            viewModel.setProfile(selectableTrojan)
+            // Select waits for the save: nothing is selected before Add.
+            viewModel.select(connect = true)
+            advanceUntilIdle()
+            assertTrue(selected.isEmpty())
+
+            viewModel.confirm()
+            advanceUntilIdle()
+            viewModel.selectedEvents.test {
+                viewModel.select(connect = true)
+                assertEquals(true, awaitItem())
+            }
+            assertEquals(listOf(selectableTrojan.id), selected)
+            // The screen is leaving; a second tap does not select again.
+            viewModel.select(connect = true)
+            advanceUntilIdle()
+            assertEquals(1, selected.size)
+        }
+
+    @Test
+    fun `Connect does not ask to start a service that already follows the selection`() =
+        runTest {
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    trojanActivator(),
+                    serverSelection = { ImportedServerSelectionResult.AppliedToRunningService },
+                )
+            viewModel.setProfile(selectableTrojan)
+            viewModel.confirm()
+            advanceUntilIdle()
+            viewModel.selectedEvents.test {
+                viewModel.select(connect = true)
+                assertEquals(false, awaitItem())
+            }
+        }
+
+    @Test
+    fun `a selection that does not apply shows an error and stays on screen`() =
+        runTest {
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    trojanActivator(),
+                    serverSelection = { ImportedServerSelectionResult.Failed },
+                )
+            viewModel.setProfile(selectableTrojan)
+            viewModel.confirm()
+            advanceUntilIdle()
+            viewModel.selectedEvents.test {
+                viewModel.select(connect = false)
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+            assertEquals(R.string.relay_editor_activation_failed, viewModel.uiState.value.errorRes)
+            assertFalse(viewModel.uiState.value.selecting)
+        }
+
+    private val selectableTrojan =
+        ProxyProfile.Trojan("selectable-trojan", "Tokyo", "", "trojan.example", 443, "fixture-password")
+
+    private fun trojanActivator() =
+        RelayProfileActivator(
+            com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                FakeRelayProfileStore(),
+                FakeRelayCredentialStore(),
+                FakeAppSettingsRepository(),
+            ),
+        )
+
+    @Test
     fun `confirming a trojan profile saves it once under its import id`() =
         runTest {
             val relayProfileStore = FakeRelayProfileStore()
@@ -196,14 +277,12 @@ class ImportConfirmViewModelTest {
 
             viewModel.setProfile(profile)
             assertNull(viewModel.uiState.value.admissionErrorRes)
-            viewModel.importedEvents.test {
-                viewModel.confirm()
-                advanceUntilIdle()
-                awaitItem()
-                viewModel.confirm()
-                advanceUntilIdle()
-                expectNoEvents()
-            }
+            viewModel.confirm()
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.saved)
+            // A second Add after the save does not write the profile again.
+            viewModel.confirm()
+            advanceUntilIdle()
 
             val relayProfile = relayProfileStore.load(profile.id)
             val relayCredentials = relayCredentialStore.load(profile.id)

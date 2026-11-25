@@ -53,10 +53,21 @@ class ClipboardImportViewModel
          * from the user's "Import from clipboard" menu tap.
          */
         fun onImportFromClipboard() {
-            val text = clipboardReader.readPrimaryClipText()
-            when (val result = ClipboardImportClassifier.classify(text)) {
+            route(ClipboardImportClassifier.classify(clipboardReader.readPrimaryClipText()), fromClipboard = true)
+        }
+
+        /** Imports a link the user pasted or typed after the clipboard was empty; the clipboard is not read again. */
+        fun onLinkEntered(text: String) {
+            route(ClipboardImportClassifier.classify(text), fromClipboard = false)
+        }
+
+        private fun route(
+            result: ClipboardImportResult,
+            fromClipboard: Boolean,
+        ) {
+            when (result) {
                 is ClipboardImportResult.Importable -> {
-                    if (_uiState.value.clearClipboardAfterImport) {
+                    if (fromClipboard && _uiState.value.clearClipboardAfterImport) {
                         clipboardReader.clearPrimaryClip()
                     }
                     _uiState.update {

@@ -113,6 +113,7 @@ fun ConnectionRoute(
                 clipboardEmpty = clipboardImportState.clipboardEmpty,
                 onImportFromClipboard = onImportFromClipboard,
                 onDismissError = onDismissClipboardError,
+                onLinkEntered = remember(clipboardImportViewModel) { clipboardImportViewModel::onLinkEntered },
             )
         },
         onModeSelected = remember(viewModel) { viewModel::selectMode },
@@ -149,8 +150,8 @@ fun ConnectionRoute(
             ConnectionProfileActions(
                 scanServer = onScanServer,
                 share = onProfileShare,
-                select = remember(viewModel) { viewModel.relayProfileSelector::select },
-                selectDirect = remember(viewModel) { viewModel.relayProfileSelector::selectDirect },
+                select = remember(viewModel) { { id -> viewModel.relayProfileSelector.select(id) } },
+                selectDirect = remember(viewModel) { { viewModel.relayProfileSelector.selectDirect() } },
                 create = onOpenRoute,
                 createRelay = { kind ->
                     viewModel.startEditingPreset(newRelayPresetId(kind))

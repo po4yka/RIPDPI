@@ -2,10 +2,12 @@ package com.poyka.ripdpi.ui.screens.connection
 
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -41,11 +43,38 @@ class ConnectionImportMenuTest {
                     clipboardEmpty = false,
                     onImportFromClipboard = { importRequests += 1 },
                     onDismissError = {},
+                    onLinkEntered = {},
                 )
             }
         }
 
         composeRule.runOnIdle { assertEquals(0, importRequests) }
+    }
+
+    @Test
+    fun `an empty clipboard offers a field and imports the typed link`() {
+        val entered = mutableListOf<String>()
+
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionImportMenu(
+                    unknownContentScheme = null,
+                    clipboardEmpty = true,
+                    onImportFromClipboard = {},
+                    onDismissError = {},
+                    onLinkEntered = { entered.add(it) },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ClipboardImportSubmit).assertIsNotEnabled()
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.ClipboardImportLink,
+                useUnmergedTree = true,
+            ).performTextInput(TypedLink)
+        composeRule.onNodeWithTag(RipDpiTestTags.ClipboardImportSubmit).performClick()
+        composeRule.runOnIdle { assertEquals(listOf(TypedLink), entered) }
     }
 
     @Test
@@ -59,6 +88,7 @@ class ConnectionImportMenuTest {
                     clipboardEmpty = false,
                     onImportFromClipboard = { importRequests += 1 },
                     onDismissError = {},
+                    onLinkEntered = {},
                 )
             }
         }
@@ -87,6 +117,7 @@ class ConnectionImportMenuTest {
                     clipboardEmpty = false,
                     onImportFromClipboard = { importRequests += 1 },
                     onDismissError = {},
+                    onLinkEntered = {},
                 )
             }
         }
@@ -96,5 +127,9 @@ class ConnectionImportMenuTest {
         composeRule.runOnIdle {
             assertEquals(0, importRequests)
         }
+    }
+
+    private companion object {
+        const val TypedLink = "vless://uuid@example.com:443#Typed"
     }
 }

@@ -67,6 +67,7 @@ class BootstrapAlreadyConsumedTest {
                 val result = consumer.consume(url, groupId = "grp")
 
                 assertTrue(result is BootstrapConsumeResult.NetworkError)
+                assertEquals(503, (result as BootstrapConsumeResult.NetworkError).httpStatus)
             }
         }
 }

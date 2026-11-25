@@ -25,22 +25,32 @@ import javax.inject.Inject
 data class ProfileImportConfirmUiState(
     val profile: ProxyProfile? = null,
     val importing: Boolean = false,
+    /** Set once Add saved the profile; the screen then offers Select and Connect. */
+    val saved: Boolean = false,
+    val selecting: Boolean = false,
     @StringRes val admissionErrorRes: Int? = null,
     @StringRes val errorRes: Int? = null,
 )
 
-/** Confirms a share-link import and saves the profile for later selection. */
+/** Confirms a share-link import, saves the profile, and can then make it the active server. */
 @HiltViewModel
 class ProfileImportConfirmViewModel
     @Inject
     constructor(
         private val relayActivator: RelayProfileActivator,
+        private val serverSelection: ImportedServerSelection,
     ) : ViewModel() {
+        internal constructor(relayActivator: RelayProfileActivator) : this(
+            relayActivator,
+            { ImportedServerSelectionResult.Failed },
+        )
+
         private val _uiState = MutableStateFlow(ProfileImportConfirmUiState())
         val uiState: StateFlow<ProfileImportConfirmUiState> = _uiState.asStateFlow()
-        private val importedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
-        val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
-        private var completed = false
+        private val selectedEventChannel = Channel<Boolean>(capacity = Channel.BUFFERED)
+
+        /** Emits once the saved profile is the active server: `true` when the caller must also start the connection. */
+        val selectedEvents: Flow<Boolean> = selectedEventChannel.receiveAsFlow()
         private var loadedImportToken: String? = null
 
         /** Claims the pending profile once so credentials never enter navigation saved state. */
@@ -56,7 +66,6 @@ class ProfileImportConfirmViewModel
 
         /** Seeds the screen with the [profile] parsed from the inbound share link. */
         internal fun setProfile(profile: ProxyProfile?) {
-            completed = false
             _uiState.value =
                 ProfileImportConfirmUiState(
                     profile = profile,
@@ -78,7 +87,7 @@ class ProfileImportConfirmViewModel
         fun confirm() {
             val state = _uiState.value
             val profile = state.profile ?: return
-            if (state.admissionErrorRes != null || state.importing || completed) return
+            if (state.admissionErrorRes != null || state.importing || state.saved) return
             _uiState.update { it.copy(importing = true, errorRes = null) }
             viewModelScope.launch {
                 val saved =
@@ -89,11 +98,38 @@ class ProfileImportConfirmViewModel
                     } catch (_: Exception) {
                         false
                     }
-                completed = saved
                 _uiState.update {
-                    it.copy(importing = false, errorRes = R.string.import_profile_confirm_error.takeUnless { saved })
+                    it.copy(
+                        importing = false,
+                        saved = saved,
+                        errorRes = R.string.import_profile_confirm_error.takeUnless { saved },
+                    )
                 }
-                if (saved) importedEventChannel.send(Unit)
+            }
+        }
+
+        /** Makes the saved profile the active server; [connect] asks the caller to start the connection too. */
+        fun select(connect: Boolean) {
+            val state = _uiState.value
+            val profile = state.profile ?: return
+            if (!state.saved || state.selecting) return
+            _uiState.update { it.copy(selecting = true, errorRes = null) }
+            viewModelScope.launch {
+                val result =
+                    try {
+                        // The saved relay profile keeps the parsed profile's id.
+                        serverSelection.select(profile.id)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        ImportedServerSelectionResult.Failed
+                    }
+                if (result == ImportedServerSelectionResult.Failed) {
+                    _uiState.update { it.copy(selecting = false, errorRes = R.string.relay_editor_activation_failed) }
+                } else {
+                    // `selecting` stays set: the screen is leaving, and a second tap must not select again.
+                    selectedEventChannel.send(connect && result == ImportedServerSelectionResult.Selected)
+                }
             }
         }
     }

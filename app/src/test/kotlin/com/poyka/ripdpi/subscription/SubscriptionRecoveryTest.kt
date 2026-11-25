@@ -114,7 +114,7 @@ class SubscriptionRecoveryTest : SubscriptionRefreshTestSupport() {
             server.enqueue(response(503))
 
             assertEquals(
-                SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.SERVER_ERROR, true),
+                SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.SERVER_ERROR, true, httpStatus = 503),
                 fixture.coordinator.refresh("subscription-group"),
             )
             assertEquals(

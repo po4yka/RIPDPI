@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
@@ -80,7 +81,33 @@ sealed interface SubscriptionRefreshResult {
         val retryable: Boolean,
         /** The named cause of a rejected payload, when one is known. */
         val rejection: ImportRejection? = null,
+        /** The HTTP status of a refused fetch, when the server answered. */
+        val httpStatus: Int? = null,
     ) : SubscriptionRefreshResult
+}
+
+/** A fetched subscription that is not saved yet; [install] saves exactly what was shown. */
+class SubscriptionPreview internal constructor(
+    val groupId: String,
+    val link: String,
+    /** The server-given title, or empty. */
+    val title: String,
+    val serverCount: Int,
+    internal val attemptedAt: Long,
+    internal val outcome: RefreshOutcome.Updated,
+)
+
+/** Result of [SubscriptionRefreshCoordinator.preview]. */
+sealed interface SubscriptionPreviewResult {
+    data class Fetched(
+        val preview: SubscriptionPreview,
+    ) : SubscriptionPreviewResult
+
+    data class Failed(
+        val failure: SubscriptionRefreshFailure,
+        val rejection: ImportRejection? = null,
+        val httpStatus: Int? = null,
+    ) : SubscriptionPreviewResult
 }
 
 internal fun interface SubscriptionSignalPublisher {
@@ -188,6 +215,55 @@ class SubscriptionRefreshCoordinator private constructor(
         return result
     }
 
+    /**
+     * Fetches and parses [link] for a group that will get [groupId], without saving anything, so the
+     * user can see what the subscription holds before Add.
+     */
+    suspend fun preview(
+        groupId: String,
+        link: String,
+    ): SubscriptionPreviewResult {
+        val subscription = Subscription(link = link, kind = SubscriptionKind.LONG_LIVED, autoUpdate = true)
+        val group =
+            ProxyGroup(
+                id = groupId,
+                name = subscriptionHost(link),
+                type = ProxyGroupType.SUBSCRIPTION,
+                order = 0,
+                isSelector = false,
+                subscription = subscription,
+            )
+        val attemptedAt = clockMillis()
+        return when (val outcome = fetchMirrors(group, subscription)) {
+            is RefreshOutcome.Updated -> {
+                SubscriptionPreviewResult.Fetched(
+                    SubscriptionPreview(
+                        groupId = groupId,
+                        link = link,
+                        title = outcome.profileTitle,
+                        serverCount = outcome.profiles.size + outcome.awgProfiles.size,
+                        attemptedAt = attemptedAt,
+                        outcome = outcome,
+                    ),
+                )
+            }
+
+            is RefreshOutcome.Failure -> {
+                SubscriptionPreviewResult.Failed(outcome.failure, outcome.rejection, outcome.httpStatus)
+            }
+        }
+    }
+
+    /** Saves a [preview] into its group, which the caller has added, without a second fetch. */
+    suspend fun install(preview: SubscriptionPreview): SubscriptionRefreshResult {
+        val group =
+            repository.list().firstOrNull { it.id == preview.groupId && it.subscription?.link == preview.link }
+                ?: return SubscriptionRefreshResult.Superseded
+        val result = persistSuccess(group, preview.attemptedAt, preview.outcome)
+        signalPublisher.publish(repository.list(), clockMillis())
+        return result
+    }
+
     private suspend fun refreshGroup(
         group: ProxyGroup,
         manual: Boolean = false,
@@ -227,7 +303,12 @@ class SubscriptionRefreshCoordinator private constructor(
 
                 is RefreshOutcome.Failure -> {
                     if (persistFailure(group, attemptedAt, outcome)) {
-                        SubscriptionRefreshResult.Failed(outcome.failure, outcome.retry, outcome.rejection)
+                        SubscriptionRefreshResult.Failed(
+                            outcome.failure,
+                            outcome.retry,
+                            outcome.rejection,
+                            outcome.httpStatus,
+                        )
                     } else {
                         SubscriptionRefreshResult.Superseded
                     }
@@ -362,7 +443,7 @@ class SubscriptionRefreshCoordinator private constructor(
                     }.build()
             try {
                 deliveryHttpClient.newCall(request).execute().use { response ->
-                    classifyHttpFailure(response.code, group)?.let { return@use it }
+                    classifyHttpFailure(response.code, group)?.let { return@use it.copy(httpStatus = response.code) }
                     val payload =
                         try {
                             response.body.readBoundedSubscriptionPayload()
