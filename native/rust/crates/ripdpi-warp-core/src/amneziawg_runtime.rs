@@ -394,6 +394,9 @@ pub struct AmneziaWgTelemetry {
     /// TLS, or WS-upgrade failure). Additive; defaults to `0`.
     pub ws_carrier_handshake_failures: u64,
     pub listener_address: Option<String>,
+    /// Round trip of the last completed WireGuard handshake. Omitted until the first response.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upstream_rtt_ms: Option<u64>,
     /// Redacted for privacy: AWG endpoints are user-supplied server identities.
     /// Keep the Rust field for shared model parity, but never emit it in JSON.
     #[serde(skip_serializing)]
@@ -416,6 +419,7 @@ pub struct AmneziaWgRuntime {
     ws_carrier_handshakes: AtomicU64,
     ws_carrier_handshake_failures: AtomicU64,
     listener_address: Mutex<Option<String>>,
+    tunnel: Mutex<Option<Arc<WireGuardTunnel>>>,
     last_error: Mutex<Option<String>>,
     readiness_observer: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
@@ -436,6 +440,7 @@ impl AmneziaWgRuntime {
             ws_carrier_handshakes: AtomicU64::new(0),
             ws_carrier_handshake_failures: AtomicU64::new(0),
             listener_address: Mutex::new(None),
+            tunnel: Mutex::new(None),
             last_error: Mutex::new(None),
             readiness_observer: Mutex::new(None),
         })
@@ -514,6 +519,7 @@ impl AmneziaWgRuntime {
             ws_carrier_handshakes: self.ws_carrier_handshakes.load(Ordering::SeqCst),
             ws_carrier_handshake_failures: self.ws_carrier_handshake_failures.load(Ordering::SeqCst),
             listener_address: self.listener_address.lock().expect("listener address").clone(),
+            upstream_rtt_ms: running.then(|| self.tunnel.lock().ok()?.as_ref()?.handshake_rtt_ms()).flatten(),
             upstream_address: None,
             profile_id: Some(self.config.profile_id.clone()),
             last_error: self.last_error.lock().expect("last error").clone(),
@@ -545,6 +551,9 @@ impl AmneziaWgRuntime {
             () = self.stopped() => return Ok(()),
             tunnel = self.connect_tunnel(source_peer_ip, source_peer_ipv6, Arc::clone(&allowed_ips)) => Arc::new(tunnel?),
         };
+        if let Ok(mut slot) = self.tunnel.lock() {
+            *slot = Some(Arc::clone(&tunnel));
+        }
 
         let bus = Bus::new();
         let mut tasks = Vec::<JoinHandle<()>>::new();
@@ -654,6 +663,9 @@ impl AmneziaWgRuntime {
         // handlers exiting before this runtime reports a completed shutdown.
         clients.shutdown().await;
         self.active_sessions.store(0, Ordering::SeqCst);
+        if let Ok(mut slot) = self.tunnel.lock() {
+            *slot = None;
+        }
         let cleared_listener = self
             .listener_address
             .lock()
@@ -1308,6 +1320,7 @@ mod tests {
 
         readiness.expect("the runtime publishes readiness after the RTK South handshake");
         assert_eq!(telemetry.state, "running");
+        assert!(telemetry.upstream_rtt_ms.is_some(), "a running tunnel reports its handshake round trip");
         let listener: std::net::SocketAddr =
             telemetry.listener_address.expect("bound SOCKS listener").parse().expect("listener address");
         assert!(listener.ip().is_loopback() && listener.port() != 0);
@@ -1422,6 +1435,7 @@ mod tests {
         assert_eq!(t.state, "idle");
         assert_eq!(t.profile_id.as_deref(), Some("awg-1"));
         assert_eq!(t.upstream_address, None, "AWG telemetry must not expose endpoint host:port");
+        assert_eq!(t.upstream_rtt_ms, None, "no handshake round trip before the tunnel runs");
         // Carrier counters start at zero on a runtime that has never opened a
         // WG-over-WebSocket carrier (the plain-UDP / idle path).
         assert_eq!(t.ws_carrier_handshakes, 0);
@@ -1441,6 +1455,7 @@ mod tests {
         assert!(!json.contains("vpn.example.org"), "AWG endpoint host leaked in telemetry JSON: {json}");
         assert!(!json.contains("51820"), "AWG endpoint port leaked in telemetry JSON: {json}");
         assert!(!json.contains("upstreamAddress"), "AWG telemetry should omit the endpoint field entirely: {json}");
+        assert!(!json.contains("upstreamRttMs"), "an unknown round trip is omitted, not null: {json}");
     }
 
     #[test]

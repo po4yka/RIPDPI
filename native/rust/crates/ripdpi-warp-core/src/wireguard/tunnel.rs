@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::io;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use anyhow::Context;
@@ -124,6 +124,8 @@ pub(crate) struct WireGuardTunnel {
     reserved: [u8; 3],
     amnezia: Option<Arc<AwgWireCodec>>,
     handshake_readiness: HandshakeReadiness,
+    /// Last handshake round trip in ms; `0` until the first response.
+    handshake_rtt_ms: AtomicU64,
     carrier_cookie_id: [u8; 16],
 }
 
@@ -284,6 +286,7 @@ impl WireGuardTunnel {
             reserved,
             amnezia,
             handshake_readiness: HandshakeReadiness::default(),
+            handshake_rtt_ms: AtomicU64::new(0),
             carrier_cookie_id,
         })
     }
@@ -354,6 +357,12 @@ impl WireGuardTunnel {
 
     pub(crate) fn is_handshake_established(&self) -> bool {
         self.handshake_readiness.is_established()
+    }
+
+    /// Round trip of the last completed handshake, or `None` before the first response.
+    pub(crate) fn handshake_rtt_ms(&self) -> Option<u64> {
+        // A telemetry read; it orders nothing else, so Relaxed is enough.
+        Some(self.handshake_rtt_ms.load(Ordering::Relaxed)).filter(|rtt| *rtt != 0)
     }
 
     /// Encrypt and send one IP packet with backend transport padding.
@@ -507,6 +516,12 @@ impl WireGuardTunnel {
                     receive_packet(&mut peer, self.amnezia.as_deref(), source, &mut recv_buf[..size], &mut send_buf);
                 // Use the same lock as timer expiry so readiness follows backend order.
                 self.handshake_readiness.observe(received.1);
+                if received.1 == ReceiveOutcome::HandshakeResponse
+                    && let Some(rtt) = peer.stats().4
+                {
+                    // boringtun reports whole ms; clamp so a sub-ms answer still reads as measured.
+                    self.handshake_rtt_ms.store(u64::from(rtt).max(1), Ordering::Relaxed);
+                }
                 received
             };
             if let Some(source) = received.source
@@ -840,6 +855,27 @@ mod tests {
         .await;
         consume.abort();
         established.expect("a response with non-zero reserved bytes must complete the handshake");
+    }
+
+    #[tokio::test]
+    async fn handshake_response_records_the_round_trip() {
+        let (tunnel, socket, mut peer) = tunnel_and_peer().await;
+        let consume = spawn_consume(&tunnel);
+        assert_eq!(tunnel.handshake_rtt_ms(), None, "no round trip before a response");
+        tunnel.initiate_handshake().await.unwrap();
+        answer_initiation(&socket, &mut peer, |_| {}).await;
+
+        let rtt = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if let Some(rtt) = tunnel.handshake_rtt_ms() {
+                    return rtt;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        consume.abort();
+        assert!(rtt.expect("a handshake response must record its round trip") >= 1);
     }
 
     #[tokio::test]
