@@ -2,7 +2,7 @@
 id: SVC-1795615848338894
 title: Keep the working tunnel when a new server fails to start
 kind: bug
-status: doing
+status: review
 area: service
 priority: high
 owner: tunnel-fallback
