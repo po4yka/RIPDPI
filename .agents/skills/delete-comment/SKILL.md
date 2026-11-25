@@ -19,7 +19,13 @@ Take one module or crate. Each parallel writer uses its own worktree and its own
 
 ## 2. Classify each comment
 
-Read the code next to the comment before you decide. Doc comments (`///`, `//!`, `/** */`) are in scope.
+Read each comment block with the code next to it before you decide. Do not delete a whole file's comments in bulk: a lost decision record cannot be found again. Test comments that say why a test is built a certain way (a race, a timing, a fixture limit) are decision records. Doc comments (`///`, `//!`, `/** */`) are in scope.
+
+After the edit, prove that only comments changed. This command fails if any source file differs from the revision in more than comments and whitespace:
+
+```bash
+python3 scripts/ci/check_comment_ratchet.py --comment-only HEAD
+```
 
 | Category | Test | Action |
 | --- | --- | --- |
@@ -32,7 +38,7 @@ If a comment is two categories, use the stronger one: decision record, then excu
 
 ## Keep these
 
-- `// SAFETY:` comments and rustdoc `# Safety` and `# Cancel safety` sections. The ratchet does not count them.
+- `// SAFETY:` comments and rustdoc or KDoc `# Safety` and `# Cancel safety` sections. The ratchet does not count them. When you delete the other lines of such a KDoc block, keep its `/**` and `*/`.
 - Tool directives (`noqa`, `shellcheck`, `ktlint-disable`, `language=`, `@formatter:`), shebangs, and licence headers. The ratchet does not count them.
 - Vendored trees: `native/rust/vendor/`, `native/zapret2/`, `.agents/vendor/`.
 - A comment that a gate needs: docs in a crate with `#![deny(missing_docs)]`, or the only content of a body that detekt `EmptyCatchBlock` or `EmptyFunctionBlock` would flag. Leave it; it stays in the baseline. Report it.
@@ -46,7 +52,7 @@ Write one ADR for the area: `docs/adr/NNNN-<area>-code-decisions.md`, with the n
 For each hack (merge duplicates), create a task:
 
 ```bash
-./taskctl new --kind chore --priority low --area <area> --spec-mode not-required --spec-reason mechanical-refactor --title "<Remove the hack in Symbol>"
+./taskctl new --kind chore --priority low --area <area> --owner <owner> --spec-mode not-required --spec-reason mechanical-refactor --title "<Remove the hack in Symbol>"
 ```
 
 Write the location (`path#Symbol`), what the hack does, and the fix in the created `docs/tasks/issues/<slug>.md`. Then run `./taskctl validate` and `./taskctl generate-board`.
@@ -54,7 +60,8 @@ Write the location (`path#Symbol`), what the hack does, and the fix in the creat
 ## 5. Clean up and check
 
 - Delete blank lines left in a run, and an empty `/** */`.
-- Run the formatter (`cargo fmt`, ktlint) and the narrowest gate for the area: `cargo test -p <crate> --locked` or the module's `testDebugUnitTest`.
+- Run `--comment-only HEAD` before any lint fix, so that it proves the deletions alone.
+- Run the formatter (`cargo fmt`, ktlint), the linter (`cargo clippy -p <crate> --all-targets --locked -- -D warnings`, the module's `detekt`), and the narrowest test gate (`cargo test -p <crate> --locked`, the module's unit tests). A deletion can expose a lint: clippy `collapsible_if` once a comment between two `if`s is gone, or an unused import that only a KDoc `[link]` used. Fix it in code and name each such edit in the commit message.
 - Lower the baseline, then check it:
 
 ```bash

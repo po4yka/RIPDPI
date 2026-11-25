@@ -317,7 +317,14 @@ jobs:
         run: python3 scripts/ci/check_file_loc_limits.py
 
       - name: Run comment ratchet gate
-        run: python3 scripts/ci/check_comment_ratchet.py
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          python3 scripts/ci/check_comment_ratchet.py
+          if [ -n "$BASE_SHA" ] && [ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            python3 scripts/ci/check_comment_ratchet.py --against FETCH_HEAD
+          fi
 
       - name: Run native architecture contract tests
         run: python3 scripts/ci/test_native_architecture_contracts.py
