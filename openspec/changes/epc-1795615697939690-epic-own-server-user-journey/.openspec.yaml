@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-11-25"
+goal: "EPC-1795615697939690 Guide new users from install to their own VPN server"
+affected_areas: ["epic"]
+skip_specs: false
+retire_capabilities: false

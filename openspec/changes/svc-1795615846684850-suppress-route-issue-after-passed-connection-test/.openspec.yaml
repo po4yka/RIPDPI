@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-11-25"
+goal: "SVC-1795615846684850 Stop showing Route issue right after a passed connection test"
+affected_areas: ["service"]
+skip_specs: false
+retire_capabilities: false

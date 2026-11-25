@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-11-25"
+goal: "DGN-1795615859682455 Monitor the health of each server"
+affected_areas: ["diagnostics"]
+skip_specs: false
+retire_capabilities: false

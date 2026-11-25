@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-11-25"
+goal: "UIX-1795615852980919 Manage all servers in one list"
+affected_areas: ["ui"]
+skip_specs: false
+retire_capabilities: false

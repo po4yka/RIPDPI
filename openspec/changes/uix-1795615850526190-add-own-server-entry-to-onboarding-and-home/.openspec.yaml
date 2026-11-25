@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-11-25"
+goal: "UIX-1795615850526190 Add an own-server entry point to onboarding and home"
+affected_areas: ["ui"]
+skip_specs: false
+retire_capabilities: false

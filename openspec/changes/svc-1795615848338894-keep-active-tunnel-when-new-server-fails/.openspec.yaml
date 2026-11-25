@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-11-25"
+goal: "SVC-1795615848338894 Keep the working tunnel when a new server fails to start"
+affected_areas: ["service"]
+skip_specs: false
+retire_capabilities: false
