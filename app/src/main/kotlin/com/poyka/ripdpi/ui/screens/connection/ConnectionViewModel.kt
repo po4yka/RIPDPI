@@ -370,6 +370,12 @@ class ConnectionViewModel
             }
         }
 
+        internal var browsingRelay: Boolean
+            get() = dependencies.pathMemory.browsingRelay
+            set(value) {
+                dependencies.pathMemory.browsingRelay = value
+            }
+
         /** The active Xray and AmneziaWG selections live outside settings, so another screen can change them. */
         fun refreshPersistedSnapshot() {
             snapshotRefreshes.update { it + 1 }

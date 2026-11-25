@@ -335,6 +335,8 @@ private val RelayKindDescriptorsByKind: Map<String, RelayKindDescriptor> =
  */
 internal fun relayKindDescriptor(kindId: String): RelayKindDescriptor? = RelayKindDescriptorsByKind[kindId]
 
+fun relayKindLabels(): List<Pair<String, String>> = RelayKindDescriptors.map { it.kindId to it.label }
+
 fun relayTransportCapabilities(kindId: String): RelayTransportCapabilities? =
     relayKindDescriptor(kindId)?.let { descriptor ->
         RelayTransportCapabilities(

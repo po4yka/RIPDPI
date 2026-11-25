@@ -34,7 +34,6 @@ internal fun ConnectionProfileChoicesSheet(
     onPasteServerLink: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // Every choice either changes the active profile or leaves the screen, so each one closes the sheet.
     fun <T> closing(action: (T) -> Unit): (T) -> Unit =
         {
             onDismiss()
@@ -57,6 +56,11 @@ internal fun ConnectionProfileChoicesSheet(
                         select = closing(profileActions.select),
                         edit = closing(profileActions.edit),
                         create = closing(profileActions.create),
+                        createRelay = closing(profileActions.createRelay),
+                        openAwg = { id, needsPrivateKey ->
+                            onDismiss()
+                            profileActions.openAwg(id, needsPrivateKey)
+                        },
                         scanServer = {
                             onDismiss()
                             profileActions.scanServer()

@@ -10,7 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
@@ -128,13 +127,13 @@ class VpnProfileSearchTest {
         assertEquals(emptyList<String>(), edited)
     }
 
-    @Test fun `unknown kind has no invented edit but share uses exact id once`() {
+    @Test fun `unknown kind has no invented edit and its actions share the exact id once`() {
         composeRule.setContent { Content(profiles) }
         open()
         query("future")
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProfileList).performScrollToKey("profile:unknown-id")
-        sheetRow("unknown-id").assertHasNoClickAction()
-        sheetNode(RipDpiTestTags.connectionRelayProfileShare("unknown-id")).performScrollTo().performClick()
+        sheetRow("unknown-id").performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("unknown-id", "share")).performClick()
         composeRule.waitForIdle()
         assertEquals(listOf("unknown-id"), shared)
         assertEquals(emptyList<String>(), selected)

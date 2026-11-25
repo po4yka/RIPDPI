@@ -25,6 +25,7 @@ internal fun launchConfigEditorHydration(
         val hydration =
             runCatching {
                 relayProfileIdFromPresetId(presetId)?.let { relayArtifacts.hydrateProfile(it) }
+                    ?: newRelayKindFromPresetId(presetId)?.let { relayArtifacts.newProfileDraft(it) }
                     ?: relayArtifacts.hydrate(draft)
             }
         val error = hydration.exceptionOrNull()

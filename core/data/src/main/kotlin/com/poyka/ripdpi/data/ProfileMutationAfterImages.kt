@@ -159,7 +159,6 @@ internal class ProfileMutationRowWriter(
         }
     }
 
-    // Replay after a crash finds the profile already moved, so a missing source is a no-op.
     private fun renameRelay(intent: RelayRenameIntent) {
         val profile = rows.relayProfiles.load(intent.profileId) ?: return
         rows.relayCredentials.load(intent.profileId)?.let {

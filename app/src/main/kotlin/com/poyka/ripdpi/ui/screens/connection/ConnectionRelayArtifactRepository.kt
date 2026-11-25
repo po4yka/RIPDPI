@@ -53,6 +53,18 @@ class ConnectionRelayArtifactRepository
                 draft.withRelayArtifacts(profile, loadEditableCredentials(profileId))
             }
 
+        suspend fun newProfileDraft(kind: String): ConnectionDraft =
+            readRecovered {
+                val id = uniqueServerId(kind, relayProfileStore.list().map { it.id }.toSet())
+                appSettingsRepository
+                    .snapshot()
+                    .toBuilder()
+                    .apply { applyRelayAfterImage(RelayProfileRecord(id = id, kind = kind), enabled = true) }
+                    .build()
+                    .toConfigDraft()
+                    .withRelayArtifacts(null, null)
+            }
+
         suspend fun selectProfile(profileId: String): ConnectionDraft {
             val preparation =
                 profileMutations.captureMutation(

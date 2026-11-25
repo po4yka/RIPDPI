@@ -335,6 +335,12 @@ private fun relayProtocolSections(): List<RelayChipSectionModel> =
         ),
     )
 
+@Composable
+internal fun modeEditorRelayKindLabel(kind: String): String? {
+    val chip = relayProtocolSections().flatMap { it.chips }.firstOrNull { it.kind == kind } ?: return null
+    return chip.labelRes?.let { stringResource(it) } ?: chip.label
+}
+
 internal fun isModeEditorRelayKindSupported(kind: String): Boolean =
     kind in setOf(RelayKindObfs4, RelayKindSnowflake, RelayKindWebTunnel) ||
         relayProtocolSections().any { section -> section.chips.any { it.kind == kind } }

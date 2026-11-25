@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,8 +34,6 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 import java.text.NumberFormat
 
 internal class ProfileUtilityActions(
@@ -52,9 +49,6 @@ internal class ProfileUtilityActions(
     val resumeAutomatic: (String) -> Unit = {},
     // Null where the host has no import entry.
     val importProfile: (() -> Unit)? = null,
-    // Opens a saved AmneziaWG profile in its editor by id.
-    val openAwgProfile: ((id: String, needsPrivateKey: Boolean) -> Unit)? = null,
-    val checkAwgProfile: (String) -> Unit = {},
 )
 
 @Composable
@@ -63,7 +57,6 @@ internal fun ProfileUtilityScreen(
     onBack: () -> Unit,
     actions: ProfileUtilityActions,
     modifier: Modifier = Modifier,
-    awgProfiles: ImmutableList<AwgProfileItem> = persistentListOf(),
 ) {
     val search = rememberProfileSearchState()
     val catalog =
@@ -139,44 +132,6 @@ internal fun ProfileUtilityScreen(
                         ProfileUtilityRow(it, state, actions)
                     }
                 }
-            }
-        }
-        actions.openAwgProfile?.let { awgProfileSection(awgProfiles, it, actions.checkAwgProfile) }
-    }
-}
-
-private fun LazyListScope.awgProfileSection(
-    awgProfiles: ImmutableList<AwgProfileItem>,
-    openAwgProfile: (id: String, needsPrivateKey: Boolean) -> Unit,
-    checkAwgProfile: (String) -> Unit,
-) {
-    if (awgProfiles.isEmpty()) return
-    item(key = "section:awg", contentType = "section") {
-        SettingsCategoryHeader(title = "AmneziaWG")
-    }
-    items(awgProfiles, key = { ProfileUtilityTestTags.awgRow(it.id) }, contentType = { "awg" }) { profile ->
-        RipDpiCard {
-            SettingsRow(
-                title = profile.name,
-                subtitle = stringResource(R.string.awg_field_private_key).takeIf { profile.needsPrivateKey },
-                value =
-                    if (profile.needsPrivateKey) {
-                        stringResource(R.string.settings_permission_status_required)
-                    } else {
-                        awgMeasurementText(profile.measurement)
-                    },
-                onClick = { openAwgProfile(profile.id, profile.needsPrivateKey) },
-                showChevron = true,
-                testTag = ProfileUtilityTestTags.awgRow(profile.id),
-            )
-            if (!profile.needsPrivateKey) {
-                RipDpiButton(
-                    text = stringResource(R.string.profile_utility_check),
-                    onClick = { checkAwgProfile(profile.id) },
-                    wrapLabel = true,
-                    enabled = profile.measurement != ProfileMeasurementUiState.Checking,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(ProfileUtilityTestTags.awgCheck(profile.id)),
-                )
             }
         }
     }

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.profiles
 
-import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
@@ -16,7 +15,6 @@ import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toPersistentList
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -297,55 +295,6 @@ class ProfileUtilityScreenTest {
         composeRule.onNodeWithTag(ProfileUtilityTestTags.Fastest).assertIsNotEnabled()
     }
 
-    @Test
-    fun `saved AmneziaWG profiles open their editor, mark a missing key and check their server`() {
-        val opened = mutableListOf<Pair<String, Boolean>>()
-        val checked = mutableListOf<String>()
-        render(
-            state(),
-            ProfileUtilityActions(
-                { _, _, _ -> error("Unexpected favorite") },
-                { error("Unexpected check") },
-                { error("Unexpected selection") },
-                { error("Unexpected cancel") },
-                { error("Unexpected cleanup") },
-                { error("Unexpected probe URL edit") },
-                { error("Unexpected fastest selection") },
-                openAwgProfile = { id, needsPrivateKey -> opened += id to needsPrivateKey },
-                checkAwgProfile = { checked += it },
-            ),
-            listOf(
-                AwgProfileItem("awg-sub", "Home AWG", needsPrivateKey = true),
-                AwgProfileItem("awg-own", "Own", false, ProfileMeasurementUiState.Measured(42, 1)),
-            ),
-        )
-
-        composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-sub")).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText(text(R.string.settings_permission_status_required)).assertIsDisplayed()
-        val handshake = RuntimeEnvironment.getApplication().getString(R.string.profile_utility_handshake_measured, "42")
-        composeRule
-            .onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-own"))
-            .performScrollTo()
-            .assert(
-                androidx.compose.ui.test
-                    .hasText(handshake) or
-                    androidx.compose.ui.test
-                        .hasAnyDescendant(
-                            androidx.compose.ui.test
-                                .hasText(handshake),
-                        ),
-            )
-        composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-own")).performScrollTo().performClick()
-        composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-sub")).performScrollTo().performClick()
-
-        // The row that lacks its key asks for the key-only screen.
-        assertEquals(listOf("awg-own" to false, "awg-sub" to true), opened)
-
-        composeRule.onNodeWithTag(ProfileUtilityTestTags.awgCheck("awg-sub")).assertDoesNotExist()
-        composeRule.onNodeWithTag(ProfileUtilityTestTags.awgCheck("awg-own")).performScrollTo().performClick()
-        assertEquals(listOf("awg-own"), checked)
-    }
-
     private fun openDetails() {
         composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "details")).performScrollTo().performClick()
     }
@@ -397,7 +346,6 @@ class ProfileUtilityScreenTest {
     private fun render(
         state: ProfileUtilityUiState,
         actions: ProfileUtilityActions,
-        awgProfiles: List<AwgProfileItem> = emptyList(),
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -405,7 +353,6 @@ class ProfileUtilityScreenTest {
                     state,
                     { error("Unexpected back") },
                     actions,
-                    awgProfiles = awgProfiles.toPersistentList(),
                 )
             }
         }

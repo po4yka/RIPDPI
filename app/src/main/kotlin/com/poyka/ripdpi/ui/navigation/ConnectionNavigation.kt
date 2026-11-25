@@ -21,7 +21,7 @@ private fun ConnectionDestination(
     navController: NavHostController,
     mainViewModel: MainViewModel,
     route: Route,
-    initialPath: ConnectionPath,
+    initialPath: ConnectionPath?,
 ) {
     val configGraphEntry = remember(navController, entry) { navController.getBackStackEntry<ConnectionGraph>() }
     val configViewModel: ConnectionViewModel = hiltViewModel(configGraphEntry)
@@ -52,7 +52,7 @@ internal fun NavGraphBuilder.addConnectionRoutes(
     ) {
         composable<Route.Connection>(
             deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://config" }),
-        ) { ConnectionDestination(it, navController, mainViewModel, Route.Connection, ConnectionPath.Direct) }
+        ) { ConnectionDestination(it, navController, mainViewModel, Route.Connection, initialPath = null) }
         composable<Route.ConnectionDirect> {
             ConnectionDestination(it, navController, mainViewModel, Route.ConnectionDirect, ConnectionPath.Direct)
         }

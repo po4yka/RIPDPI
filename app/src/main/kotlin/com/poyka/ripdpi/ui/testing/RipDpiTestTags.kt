@@ -188,6 +188,12 @@ internal object RipDpiTestTags {
     const val AwgDeleteConfirm = "awg-delete-confirm"
     const val SubscriptionDeleteConfirm = "subscription-delete-confirm"
     const val ConnectionRelayImportAwgConf = "connection-relay-import-awg-conf"
+    const val ServerRenameDialog = "server-rename-dialog"
+    const val ServerRenameField = "server-rename-field"
+    const val ServerRenameConfirm = "server-rename-confirm"
+    const val ServerDeleteDialog = "server-delete-dialog"
+    const val ServerDeleteConfirm = "server-delete-confirm"
+    const val ServerActionMessage = "server-action-message"
     const val AwgConfImportFailed = "awg-conf-import-failed"
     const val SubscriptionAddUrl = "subscription-add-url"
     const val SubscriptionAddContinue = "subscription-add-continue"
@@ -525,9 +531,13 @@ internal object RipDpiTestTags {
 
     val connectionPath: (String) -> String = { pathKey -> "connection-path-${sanitize(pathKey)}" }
     val connectionRelayProfile: (String) -> String = { profileId -> "connection-relay-profile-${sanitize(profileId)}" }
-    val connectionRelayProfileShare: (
-        String,
-    ) -> String = { profileId -> "connection-relay-profile-share-${sanitize(profileId)}" }
+    val connectionAwgServer: (String) -> String = { id -> "connection-awg-server-${sanitize(id)}" }
+    val connectionAwgServerRow: (String) -> String = { id -> "connection-awg-server-row-${sanitize(id)}" }
+    val connectionAddServerKind: (String) -> String = { kind -> "connection-add-server-${sanitize(kind)}" }
+    val connectionServerActions: (String) -> String = { id -> "connection-server-actions-${sanitize(id)}" }
+    val connectionServerAction: (String, String) -> String = { id, action ->
+        "connection-server-$action-${sanitize(id)}"
+    }
 
     val settingsPermission: (PermissionKind) -> String = { kind -> "settings-permission-${sanitize(kind.name)}" }
 

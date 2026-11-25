@@ -540,7 +540,7 @@ private fun profileName(
     return if (cohort == AwgProfileForm.CUSTOM_COHORT_ID) "AmneziaWG" else "AmneziaWG ($cohort)"
 }
 
-private fun Map<Mode, RuntimeConfigurationApplication>.runsAwgProfile(profileId: String?): Boolean =
+internal fun Map<Mode, RuntimeConfigurationApplication>.runsAwgProfile(profileId: String?): Boolean =
     profileId != null && runningSelections().any { it.awgProfileId() == profileId }
 
 private fun AmneziaWgProfileUiState.busy(): Boolean =

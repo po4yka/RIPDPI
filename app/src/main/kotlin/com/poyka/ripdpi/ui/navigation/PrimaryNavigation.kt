@@ -172,9 +172,6 @@ private fun NavGraphBuilder.addProfileUtilityRoute(navController: NavHostControl
             onBack = { navController.popBackStack() },
             // The Relay section holds the paste-link, scan-QR and add-server entries.
             onImportProfile = { navController.navigateConnectionSubRoute(Route.ConnectionRelay) },
-            onOpenAwgProfile = { id, needsPrivateKey ->
-                navController.navigate(Route.AmneziaWgProfile(profileId = id, keyOnly = needsPrivateKey))
-            },
         )
     }
 }

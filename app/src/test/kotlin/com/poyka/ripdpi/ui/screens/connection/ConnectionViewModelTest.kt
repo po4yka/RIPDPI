@@ -730,7 +730,10 @@ class ConnectionViewModelApplyChangesTest {
             )
 
         assertTrue(buildConfigPresets(deactivated).first { it.id == "recommended" }.isSelected)
-        assertTrue(buildConfigPresets(deactivated.copy(relayEnabled = true)).first { it.id == "custom" }.isSelected)
+        val active = buildConfigPresets(deactivated.copy(relayEnabled = true)).first { it.id == "recommended" }
+        assertTrue(active.isSelected)
+        assertTrue(active.draft.relayEnabled)
+        assertEquals("saved", active.draft.relayProfileId)
         assertTrue(
             buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft().copy(proxyPort = "1081"))
                 .first {

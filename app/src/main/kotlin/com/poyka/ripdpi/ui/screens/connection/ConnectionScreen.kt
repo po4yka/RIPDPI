@@ -32,6 +32,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiSegmentedButton
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.profiles.SavedAwgProfilesViewModel
 import com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -56,7 +57,13 @@ data class ConnectionProfileActions(
     val selectDirect: () -> Unit = {},
     val edit: (String) -> Unit = {},
     val create: (Route) -> Unit = {},
+    val createRelay: (kind: String) -> Unit = {},
     val scanServer: () -> Unit = {},
+    val openAwg: (id: String, needsPrivateKey: Boolean) -> Unit = { _, _ -> },
+    val rename: (ServerKey, String) -> Unit = { _, _ -> },
+    val duplicate: (ServerKey) -> Unit = {},
+    val delete: (ServerKey) -> Unit = {},
+    val dismissMessage: () -> Unit = {},
 )
 
 @Composable
@@ -69,14 +76,23 @@ fun ConnectionRoute(
     onOpenRoute: (Route) -> Unit,
     modifier: Modifier = Modifier,
     route: Route = Route.Connection,
-    initialPath: ConnectionPath = ConnectionPath.Direct,
+    initialPath: ConnectionPath? = null,
     viewModel: ConnectionViewModel = hiltViewModel(),
     clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
     onImport: (ImportPayload) -> Unit = {},
     onProfileShare: (String) -> Unit = {},
     runtimeIntegration: ConnectionRuntimeIntegration = ConnectionRuntimeIntegration(),
 ) {
-    val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
+    val awgViewModel: SavedAwgProfilesViewModel = hiltViewModel()
+    val serverListViewModel: ServerListViewModel = hiltViewModel()
+    val uiState =
+        viewModel.uiState
+            .collectAsStateWithLifecycle()
+            .value
+            .copy(
+                awgServers = awgViewModel.profiles.collectAsStateWithLifecycle().value,
+                serverMessage = serverListViewModel.message.collectAsStateWithLifecycle().value,
+            )
     val runtime = connectionRuntimePresentation(viewModel, uiState, runtimeIntegration, onRetestStrategies)
     val clipboardImportState = clipboardImportViewModel.uiState.collectAsStateWithLifecycle().value
     val navigateTo = clipboardImportState.navigateToConfirm
@@ -141,6 +157,10 @@ fun ConnectionRoute(
                 select = remember(viewModel) { viewModel.relayProfileSelector::select },
                 selectDirect = remember(viewModel) { viewModel.relayProfileSelector::selectDirect },
                 create = onOpenRoute,
+                createRelay = { kind ->
+                    viewModel.startEditingPreset(newRelayPresetId(kind))
+                    onOpenModeEditor()
+                },
                 edit = { profileId ->
                     openRelayProfileEditor(
                         profileId,
@@ -150,8 +170,9 @@ fun ConnectionRoute(
                         onOpenModeEditor,
                     )
                 },
-            ),
-        initialPath = initialPath,
+            ).withServerActions(serverListViewModel, viewModel, onOpenRoute),
+        initialPath = initialPath ?: if (viewModel.browsingRelay) ConnectionPath.Relay else ConnectionPath.Direct,
+        onBrowsingRelayChange = { viewModel.browsingRelay = it },
     )
 }
 
@@ -195,12 +216,14 @@ fun ConnectionScreen(
     initialPath: ConnectionPath = ConnectionPath.Direct,
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     runtimeCallbacks: ConnectionRuntimeCallbacks = ConnectionRuntimeCallbacks(),
+    onBrowsingRelayChange: (Boolean) -> Unit = {},
 ) {
     val desyncSummary = uiState.draft.chainSummary
     // An active relay always shows Relay. Browsing covers the Relay section before a profile is active.
     var browsingRelay by rememberSaveable { mutableStateOf(initialPath == ConnectionPath.Relay) }
     // Browsing ends once a relay is active, so turning that relay off later returns to Direct.
     LaunchedEffect(uiState.usesRelayPath) { if (uiState.usesRelayPath) browsingRelay = false }
+    LaunchedEffect(browsingRelay) { onBrowsingRelayChange(browsingRelay) }
     val selectedPath = if (uiState.usesRelayPath || browsingRelay) ConnectionPath.Relay else ConnectionPath.Direct
     var showProfileChoices by rememberSaveable { mutableStateOf(false) }
 
@@ -220,10 +243,7 @@ fun ConnectionScreen(
         if (showProfileChoices) {
             ConnectionProfileChoicesSheet(
                 uiState = uiState,
-                onPresetSelected = { preset ->
-                    if (preset.kind == ConnectionPresetKind.Recommended) browsingRelay = false
-                    onPresetSelected(preset)
-                },
+                onPresetSelected = onPresetSelected,
                 profileActions = profileActions,
                 onPasteServerLink = onPasteServerLink,
                 onDismiss = { showProfileChoices = false },

@@ -126,7 +126,7 @@ class ConnectionSummaryTest {
             }
         }
 
-        composeRule.onNodeWithText("Recommended profile", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Recommended preset", useUnmergedTree = true).assertExists()
         // The card names the profile only; the scope and path controls under it show the rest.
         composeRule.onNodeWithText("Proxy only · Direct", useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithText("Whole device · Direct", useUnmergedTree = true).assertDoesNotExist()

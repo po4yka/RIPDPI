@@ -146,7 +146,7 @@ class ConnectionPathSelectionTest {
     }
 
     @Test
-    fun `relay without a saved profile browses and returns to direct after recommended`() {
+    fun `relay without a saved profile stays on relay after choosing the recommended preset`() {
         val manualDraft = defaultDraft.copy(proxyPort = "1081")
         composeRule.setContent {
             RipDpiTheme {
@@ -169,7 +169,7 @@ class ConnectionPathSelectionTest {
         composeRule.onNodeWithTag(RipDpiTestTags.connectionPreset("recommended")).performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionPresetResetConfirm).performClick()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.connectionPath("direct")).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPath("relay")).assertIsSelected()
     }
 
     @Test

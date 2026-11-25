@@ -39,7 +39,7 @@ internal data class ProfileUtilityItem(
  * A saved AmneziaWG profile. It opens in its editor; its [measurement] comes from a handshake check, not the relay
  * HTTP flow. [needsPrivateKey] marks a subscription row delivered without its key.
  */
-internal data class AwgProfileItem(
+data class AwgProfileItem(
     val id: String,
     val name: String,
     val needsPrivateKey: Boolean,

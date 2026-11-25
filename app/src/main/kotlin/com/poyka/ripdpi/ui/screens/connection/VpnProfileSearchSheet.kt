@@ -69,7 +69,7 @@ internal fun VpnProfileSearchSheet(
             selectedProfileId = selectedProfileId,
             search = search,
             actions =
-                ConnectionProfileActions(
+                actions.copy(
                     share = { act(actions.share, it) },
                     select = { act(actions.select, it) },
                     edit = { act(actions.edit, it) },
@@ -123,12 +123,10 @@ internal fun ColumnScope.VpnProfilePickerContent(
                     )
                 }
                 items(group, key = { "profile:${it.id}" }) { profile ->
-                    VpnProfileItem(
+                    RelayServerRow(
                         profile = profile,
                         selected = profile.id == selectedProfileId,
-                        onProfileShare = actions.share,
-                        onProfileSelect = actions.select,
-                        onProfileEdit = actions.edit,
+                        actions = actions,
                     )
                 }
             }

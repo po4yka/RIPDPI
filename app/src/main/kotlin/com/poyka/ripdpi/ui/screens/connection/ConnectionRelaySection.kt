@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.connection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,19 +29,14 @@ import com.poyka.ripdpi.ui.components.cards.EndpointSettingsRow
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
-import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenu
-import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenuAction
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
-import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.awg.rememberAwgConfFileImport
 import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import kotlinx.collections.immutable.persistentListOf
 
 private const val VpnProfilePreviewLimit = 3
 
@@ -83,7 +77,8 @@ internal fun ConnectionRelayProfileChoices(
 ) {
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.config_vpn_profiles_title))
-        VpnAddProfileAction(actions.create)
+        ServerActionMessage(uiState.serverMessage, actions.dismissMessage)
+        AddServerAction(actions)
         RipDpiButton(
             text = stringResource(R.string.config_vpn_add_server_paste),
             onClick = onPasteServerLink,
@@ -98,23 +93,20 @@ internal fun ConnectionRelayProfileChoices(
             variant = RipDpiButtonVariant.Outline,
             leadingIcon = RipDpiIcons.QrCodeScanner,
         )
-        VpnProfileList(uiState, actions.share, actions.select, actions.edit)
+        VpnProfileList(uiState, actions)
+        uiState.awgServers.forEach { server -> AwgServerRow(server, actions) }
     }
 }
 
 @Composable
 private fun VpnProfileList(
     uiState: ConnectionUiState,
-    onProfileShare: (String) -> Unit,
-    onProfileSelect: (String) -> Unit,
-    onProfileEdit: (String) -> Unit,
+    actions: ConnectionProfileActions,
 ) {
     var showSearch by rememberSaveable { mutableStateOf(false) }
     val search =
         com.poyka.ripdpi.ui.components.profiles
             .rememberProfileSearchState()
-    // Only manual servers live here; subscription and AmneziaWG servers are on the Profiles screen, so an empty
-    // list is no reason to say there are no servers.
     if (uiState.vpnProfiles.isEmpty()) return
     if (showSearch) {
         VpnProfileSearchSheet(
@@ -122,16 +114,14 @@ private fun VpnProfileList(
             selectedProfileId = uiState.activeRelayProfileId.takeIf { uiState.activeRelayEnabled },
             search = search,
             onDismiss = { showSearch = false },
-            actions = ConnectionProfileActions(share = onProfileShare, select = onProfileSelect, edit = onProfileEdit),
+            actions = actions,
         )
     }
     uiState.vpnProfiles.take(VpnProfilePreviewLimit).forEach { profile ->
-        VpnProfileItem(
+        RelayServerRow(
             profile = profile,
             selected = profile.id == uiState.activeRelayProfileId && uiState.activeRelayEnabled,
-            onProfileShare = onProfileShare,
-            onProfileSelect = onProfileSelect,
-            onProfileEdit = onProfileEdit,
+            actions = actions,
         )
     }
     RipDpiButton(
@@ -142,125 +132,6 @@ private fun VpnProfileList(
         leadingIcon = RipDpiIcons.Search,
         wrapLabel = true,
     )
-}
-
-@Composable
-internal fun VpnProfileItem(
-    profile: RelayProfileUiState,
-    selected: Boolean,
-    onProfileShare: (String) -> Unit,
-    onProfileSelect: (String) -> Unit,
-    onProfileEdit: (String) -> Unit,
-) {
-    Column(
-        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.connectionRelayProfile(profile.id)),
-        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
-    ) {
-        SettingsRow(
-            title = profile.selectorLabel,
-            subtitle = profile.trustLabel,
-            value = profile.kindLabel,
-            onClick =
-                if (isModeEditorRelayKindSupported(profile.kind) ||
-                    profile.kind == com.poyka.ripdpi.data.RelayKindMieru ||
-                    profile.kind == com.poyka.ripdpi.data.RelayKindSsh
-                ) {
-                    { onProfileEdit(profile.id) }
-                } else {
-                    null
-                },
-            showDivider = false,
-            testTag = RipDpiTestTags.connectionRelayProfileRow(profile.id),
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-        ) {
-            RipDpiButton(
-                text =
-                    stringResource(
-                        if (selected) R.string.profile_variants_cta_selected else R.string.profile_variants_cta_select,
-                    ),
-                onClick = { onProfileSelect(profile.id) },
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.connectionRelayProfileSelect(profile.id)),
-                variant = RipDpiButtonVariant.Outline,
-                wrapLabel = true,
-                enabled = !selected,
-            )
-            RipDpiButton(
-                text = stringResource(R.string.profile_share_action),
-                onClick = { onProfileShare(profile.id) },
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.connectionRelayProfileShare(profile.id)),
-                variant = RipDpiButtonVariant.Outline,
-                wrapLabel = true,
-                leadingIcon = RipDpiIcons.Share,
-            )
-        }
-    }
-}
-
-@Composable
-private fun VpnAddProfileAction(onCreateProfile: (Route) -> Unit) {
-    var showProfileMenu by rememberSaveable { mutableStateOf(false) }
-    val importAwgConfFile = rememberAwgConfFileImport(onCreateProfile)
-    Box {
-        RipDpiButton(
-            text = stringResource(R.string.config_vpn_add_profile_title),
-            onClick = { showProfileMenu = true },
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConnectionRelayAddProfile),
-            variant = RipDpiButtonVariant.Outline,
-            leadingIcon = RipDpiIcons.Add,
-        )
-        RipDpiContextMenu(
-            visible = showProfileMenu,
-            actions =
-                persistentListOf(
-                    RipDpiContextMenuAction(
-                        label = stringResource(R.string.anytls_editor_title),
-                        icon = RipDpiIcons.Public,
-                        testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.AnyTlsProfile),
-                        onClick = { onCreateProfile(Route.AnyTlsProfile) },
-                    ),
-                    RipDpiContextMenuAction(
-                        label = stringResource(R.string.mieru_editor_title),
-                        icon = RipDpiIcons.Public,
-                        testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.MieruProfile),
-                        onClick = { onCreateProfile(Route.MieruProfile) },
-                    ),
-                    RipDpiContextMenuAction(
-                        label = stringResource(R.string.ssh_editor_title),
-                        icon = RipDpiIcons.Public,
-                        testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.SshProfile),
-                        onClick = { onCreateProfile(Route.SshProfile) },
-                    ),
-                    RipDpiContextMenuAction(
-                        label = stringResource(R.string.awg_editor_title),
-                        icon = RipDpiIcons.Vpn,
-                        testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.AmneziaWgProfile()),
-                        onClick = { onCreateProfile(Route.AmneziaWgProfile()) },
-                    ),
-                    RipDpiContextMenuAction(
-                        label = stringResource(R.string.config_vpn_import_awg_conf),
-                        icon = RipDpiIcons.Vpn,
-                        testTag = RipDpiTestTags.ConnectionRelayImportAwgConf,
-                        onClick = importAwgConfFile,
-                    ),
-                    RipDpiContextMenuAction(
-                        label = stringResource(R.string.config_vpn_add_subscription),
-                        icon = RipDpiIcons.Add,
-                        testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.SubscriptionAdd),
-                        onClick = { onCreateProfile(Route.SubscriptionAdd) },
-                    ),
-                ),
-            onDismiss = { showProfileMenu = false },
-        )
-    }
 }
 
 @Composable

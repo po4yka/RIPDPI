@@ -300,6 +300,13 @@ internal fun relayProfilePresetId(profileId: String): String = RelayProfilePrese
 internal fun relayProfileIdFromPresetId(presetId: String): String? =
     presetId.takeIf { it.startsWith(RelayProfilePresetPrefix) }?.removePrefix(RelayProfilePresetPrefix)
 
+private const val NewRelayPresetPrefix = "new-relay:"
+
+internal fun newRelayPresetId(kind: String): String = NewRelayPresetPrefix + kind
+
+internal fun newRelayKindFromPresetId(presetId: String): String? =
+    presetId.takeIf { it.startsWith(NewRelayPresetPrefix) }?.removePrefix(NewRelayPresetPrefix)
+
 enum class ConnectionPresetKind {
     Recommended,
     Custom,
@@ -329,6 +336,8 @@ data class ConnectionUiState(
     val validationErrors: ImmutableMap<String, String> = persistentMapOf(),
     val relayProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
     val vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
+    val awgServers: ImmutableList<com.poyka.ripdpi.ui.screens.profiles.AwgProfileItem> = persistentListOf(),
+    val serverMessage: String? = null,
     val relayChainTrustWarning: RelayTrustDomainWarning? = null,
     val relayChainHopStatus: RelayChainHopStatusUiState = RelayChainHopStatusUiState(),
     val relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
@@ -519,9 +528,26 @@ internal fun AppSettings.toConfigDraft(): ConnectionDraft {
 }
 
 internal fun buildConfigPresets(currentDraft: ConnectionDraft): ImmutableList<ConnectionPreset> {
-    // Scope stays the user's choice, so applying the recommended settings never changes it.
-    val recommendedDraft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(mode = currentDraft.mode)
-    val isRecommended = !currentDraft.relayEnabled && currentDraft.directSettings() == recommendedDraft.directSettings()
+    val defaults = AppSettingsSerializer.defaultValue.toConfigDraft()
+    val recommendedDraft =
+        currentDraft.copy(
+            dnsIp = defaults.dnsIp,
+            dnsMode = defaults.dnsMode,
+            dnsProviderId = defaults.dnsProviderId,
+            encryptedDnsProtocol = defaults.encryptedDnsProtocol,
+            proxyIp = defaults.proxyIp,
+            proxyPort = defaults.proxyPort,
+            maxConnections = defaults.maxConnections,
+            bufferSize = defaults.bufferSize,
+            useCommandLineSettings = defaults.useCommandLineSettings,
+            commandLineArgs = defaults.commandLineArgs,
+            tcpChainSteps = defaults.tcpChainSteps,
+            udpChainSteps = defaults.udpChainSteps,
+            chainDsl = defaults.chainDsl,
+            desyncMethod = defaults.desyncMethod,
+            defaultTtl = defaults.defaultTtl,
+        )
+    val isRecommended = currentDraft.directSettings() == recommendedDraft.directSettings()
 
     return persistentListOf(
         ConnectionPreset(
@@ -539,7 +565,6 @@ internal fun buildConfigPresets(currentDraft: ConnectionDraft): ImmutableList<Co
     )
 }
 
-// A deactivated relay keeps its profile fields for reactivation, so they do not define a starter profile.
 private fun ConnectionDraft.directSettings(): List<Any> =
     listOf(
         dnsIp,

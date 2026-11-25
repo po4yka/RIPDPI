@@ -590,19 +590,12 @@ interface RelayUpsertMutationCoordinator {
     ): ProfileMutationOutcome
 }
 
-/** Deletes and renames saved relay profiles; editors and imports write through [RelayUpsertMutationCoordinator]. */
 interface RelayCatalogMutationCoordinator {
-    /** Throws [RelayProfileInUseException] for the active relay or a profile a chain or group uses. */
     suspend fun deleteRelay(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,
     ): ProfileMutationOutcome
 
-    /**
-     * Moves the profile and its credentials to [newProfileId] and follows it in the active selection.
-     * Throws [RelayProfileInUseException] when a chain or group uses it, [RelayProfileIdTakenException]
-     * when [newProfileId] exists.
-     */
     suspend fun renameRelay(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,

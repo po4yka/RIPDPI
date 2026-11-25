@@ -33,6 +33,7 @@ class ConnectionViewModelDependencies
         internal val externalProviders: ConnectionExternalProviders,
         // A reconnect outlives this screen: cancelling it midway would leave the service stopped.
         @param:ApplicationScope val applicationScope: CoroutineScope,
+        val pathMemory: ConnectionPathMemory = ConnectionPathMemory(),
     )
 
 class ConnectionImportDependencies

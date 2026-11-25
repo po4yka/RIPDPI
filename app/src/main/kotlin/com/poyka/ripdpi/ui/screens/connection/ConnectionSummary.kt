@@ -18,7 +18,8 @@ internal fun ConnectionSavedConnectionCard(
     onChangeProfile: () -> Unit,
 ) {
     val selectedPreset = uiState.presets.firstOrNull { it.isSelected }
-    val profileName =
+    val presetName = stringResource(titleResForPreset(selectedPreset?.kind ?: ConnectionPresetKind.Custom))
+    val serverName =
         when {
             uiState.activeExternalProvider != null -> {
                 uiState.activeExternalProvider.displayName
@@ -30,7 +31,7 @@ internal fun ConnectionSavedConnectionCard(
             }
 
             else -> {
-                stringResource(titleResForPreset(selectedPreset?.kind ?: ConnectionPresetKind.Custom))
+                null
             }
         }
     RipDpiCard(
@@ -39,7 +40,8 @@ internal fun ConnectionSavedConnectionCard(
     ) {
         SettingsRow(
             // No scope or path here: the two controls under this card show them.
-            title = profileName,
+            title = serverName ?: presetName,
+            subtitle = presetName.takeIf { serverName != null },
             onClick = onChangeProfile,
             showChevron = true,
             testTag = RipDpiTestTags.ConnectionProfileChange,

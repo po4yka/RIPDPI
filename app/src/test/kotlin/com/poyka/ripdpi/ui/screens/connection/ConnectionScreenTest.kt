@@ -9,7 +9,6 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
-import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
@@ -17,11 +16,14 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
@@ -292,10 +294,113 @@ class ConnectionScreenTest {
         editors.forEach { route ->
             composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
             composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddProfile).performScrollTo().performClick()
-            composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayCreateProfile(route)).performClick()
+            composeRule
+                .onNodeWithTag(
+                    RipDpiTestTags.connectionRelayCreateProfile(route),
+                ).performScrollTo()
+                .performClick()
         }
 
         composeRule.runOnIdle { assertEquals(editors, opened) }
+    }
+
+    @Test
+    fun `add server menu offers every relay kind that has an editor`() {
+        val created = mutableListOf<String>()
+        setConfigScreen(
+            initialPath = ConnectionPath.Relay,
+            profileActions = ConnectionProfileActions(createRelay = { created += it }),
+        )
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddProfile).performScrollTo().performClick()
+
+        listOf(
+            "vless",
+            "vless_reality",
+            "trojan",
+            "shadowsocks",
+            "hysteria2",
+            "tuic_v5",
+            "naiveproxy",
+            "shadowtls_v3",
+            "masque",
+            "tor",
+            "chain_relay",
+        ).forEach { kind ->
+            composeRule.onNodeWithTag(RipDpiTestTags.connectionAddServerKind(kind)).assertExists()
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionAddServerKind("snell")).assertDoesNotExist()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.connectionAddServerKind("trojan"))
+            .performScrollTo()
+            .performClick()
+
+        composeRule.runOnIdle { assertEquals(listOf("trojan"), created) }
+    }
+
+    @Test
+    fun `saved AmneziaWG servers share the servers list and open their editor`() {
+        val opened = mutableListOf<Pair<String, Boolean>>()
+        setConfigScreen(
+            initialPath = ConnectionPath.Relay,
+            profileActions = ConnectionProfileActions(openAwg = { id, needsKey -> opened += id to needsKey }),
+            vpnProfiles = persistentListOf(RelayProfileUiState("relay", "trojan", "Trojan", "", "")),
+            awgServers =
+                persistentListOf(
+                    com.poyka.ripdpi.ui.screens.profiles
+                        .AwgProfileItem("awg-sub", "Home AWG", needsPrivateKey = true),
+                    com.poyka.ripdpi.ui.screens.profiles
+                        .AwgProfileItem("awg-own", "Own", needsPrivateKey = false),
+                ),
+        )
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayProfile("relay")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionAwgServerRow("awg-own")).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionAwgServerRow("awg-sub")).performScrollTo().performClick()
+
+        composeRule.runOnIdle { assertEquals(listOf("awg-own" to false, "awg-sub" to true), opened) }
+    }
+
+    @Test
+    fun `long press on a server opens rename duplicate share and delete`() {
+        val renamed = mutableListOf<Pair<ServerKey, String>>()
+        val duplicated = mutableListOf<ServerKey>()
+        val deleted = mutableListOf<ServerKey>()
+        setConfigScreen(
+            initialPath = ConnectionPath.Relay,
+            profileActions =
+                ConnectionProfileActions(
+                    rename = { server, name -> renamed += server to name },
+                    duplicate = { duplicated += it },
+                    delete = { deleted += it },
+                ),
+            vpnProfiles = persistentListOf(RelayProfileUiState("relay", "trojan", "Trojan", "", "")),
+        )
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        val row = composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayProfileRow("relay"))
+
+        fun openMenu() = row.performScrollTo().performTouchInput { longClick() }
+
+        openMenu()
+        listOf("rename", "duplicate", "share", "delete").forEach { action ->
+            composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("relay", action)).assertExists()
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("relay", "duplicate")).performClick()
+        openMenu()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("relay", "rename")).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ServerRenameField).performTextReplacement("office")
+        composeRule.onNodeWithTag(RipDpiTestTags.ServerRenameConfirm).performClick()
+        openMenu()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("relay", "delete")).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ServerDeleteConfirm).performClick()
+
+        val relay = ServerKey.Relay("relay")
+        composeRule.runOnIdle {
+            assertEquals(listOf(relay), duplicated)
+            assertEquals(listOf(relay to "office"), renamed)
+            assertEquals(listOf(relay), deleted)
+        }
     }
 
     @Test
@@ -403,7 +508,7 @@ class ConnectionScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
-        composeRule.onNodeWithText("Add profile").assertExists()
+        composeRule.onNodeWithText("Add server").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayProfile("default")).assertExists()
         composeRule
             .onNodeWithTag(RipDpiTestTags.connectionRelayProfileRow("default"))
@@ -421,10 +526,11 @@ class ConnectionScreenTest {
             .performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.connectionRelayProfileShare("default"))
+            .onNodeWithTag(RipDpiTestTags.connectionServerActions("default"))
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("default", "share")).performClick()
         composeRule.runOnIdle {
             assertEquals("paste action should use the existing clipboard import callback", 1, pasteClicks)
             assertEquals("scan action should use the existing QR scanner callback", 1, scanClicks)
@@ -435,16 +541,23 @@ class ConnectionScreenTest {
     @Test
     fun `unknown relay can be selected without offering unsupported editing`() {
         val selected = mutableListOf<String>()
+        val edited = mutableListOf<String>()
         setConfigScreen(
             initialPath = ConnectionPath.Relay,
             vpnProfiles = persistentListOf(RelayProfileUiState("unknown-imported", "unknown", "Unknown", "", "")),
-            profileActions = ConnectionProfileActions(select = { selected += it }),
+            profileActions = ConnectionProfileActions(select = { selected += it }, edit = { edited += it }),
         )
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         composeRule
             .onNodeWithTag(RipDpiTestTags.connectionRelayProfileRow("unknown-imported"))
-            .assertHasNoClickAction()
+            .performScrollTo()
+            .performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("unknown-imported", "rename")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("unknown-imported", "rename")).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ServerRenameDialog).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ServerRenameConfirm).performClick()
+        composeRule.runOnIdle { assertEquals(emptyList<String>(), edited) }
         composeRule
             .onNodeWithTag(RipDpiTestTags.connectionRelayProfileSelect("unknown-imported"))
             .performScrollTo()
@@ -581,6 +694,7 @@ class ConnectionScreenTest {
         vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
         activeMode: Mode = Mode.VPN,
         runningMode: Mode? = null,
+        awgServers: ImmutableList<com.poyka.ripdpi.ui.screens.profiles.AwgProfileItem> = persistentListOf(),
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -591,7 +705,7 @@ class ConnectionScreenTest {
                             vpnProfiles = vpnProfiles,
                             activeMode = activeMode,
                             runningMode = runningMode,
-                        ),
+                        ).copy(awgServers = awgServers),
                     onModeSelected = onModeSelected,
                     onPresetSelected = {},
                     onEditCurrent = onEditCurrent,
