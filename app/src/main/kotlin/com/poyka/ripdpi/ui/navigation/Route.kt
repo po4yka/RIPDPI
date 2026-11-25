@@ -63,6 +63,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object ConnectionAddServer : Route() {
+        override val stableRoute = "config/add_server"
+        override val titleRes = R.string.config_vpn_add_server
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object Settings : Route() {
         override val stableRoute = "settings"
         override val titleRes = R.string.settings
@@ -507,6 +514,7 @@ sealed class Route {
                     Connection,
                     ConnectionDirect,
                     ConnectionRelay,
+                    ConnectionAddServer,
                     Diagnostics(),
                     History,
                     Logs,

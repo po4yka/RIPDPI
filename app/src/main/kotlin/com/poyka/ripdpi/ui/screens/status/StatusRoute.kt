@@ -21,6 +21,7 @@ fun StatusRoute(
     onOpenVpnConfig: () -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
     viewModel: MainViewModel,
+    onAddServer: (() -> Unit)? = null,
     pauseViewModel: com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel =
         androidx.hilt.lifecycle.viewmodel.compose
             .hiltViewModel(),
@@ -63,6 +64,7 @@ fun StatusRoute(
         onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
         onRepairPermission = { kind -> viewModel.onRepairPermissionRequested(kind, resumeLocalNetworkAction = true) },
         onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
+        onAddServer = onAddServer,
         onTogglePcapRecording = remember(viewModel) { viewModel::onToggleHomePcapRecording },
         onDismissBatteryBanner = remember(viewModel) { viewModel::onDismissBatteryBanner },
         onDismissBackgroundGuidance = remember(viewModel) { viewModel::onDismissBackgroundGuidance },

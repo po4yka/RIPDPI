@@ -65,6 +65,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.permissions.RuntimePermissionDecision
+import com.poyka.ripdpi.proxyimport.ImportPayload
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -74,6 +75,10 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.connection.ClipboardImportErrorBanner
+import com.poyka.ripdpi.ui.screens.connection.ClipboardImportNavigation
+import com.poyka.ripdpi.ui.screens.connection.ServerAddActions
+import com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -101,9 +106,19 @@ private val OnboardingPageBlur = 8.dp
 fun OnboardingRoute(
     onComplete: () -> Unit,
     onOpenAdvancedDns: () -> Unit,
+    onOpenRoute: (Route) -> Unit,
+    onImport: (ImportPayload) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: OnboardingViewModel = hiltViewModel(),
+    clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
 ) {
+    val clipboardImportState by clipboardImportViewModel.uiState.collectAsStateWithLifecycle()
+    ClipboardImportNavigation(clipboardImportViewModel, onImport)
+    ClipboardImportErrorBanner(
+        unknownContentScheme = clipboardImportState.unknownContentScheme,
+        clipboardEmpty = clipboardImportState.clipboardEmpty,
+        onDismiss = clipboardImportViewModel::dismissError,
+    )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notificationsPermissionLauncher =
@@ -170,6 +185,12 @@ fun OnboardingRoute(
                 onFinishKeepRunning = remember(viewModel) { viewModel::finishKeepingRunning },
                 onAcceptSuggestedMode = remember(viewModel) { viewModel::acceptSuggestedMode },
                 onChangeDns = onOpenAdvancedDns,
+                onPasteServerLink =
+                    remember(
+                        clipboardImportViewModel,
+                    ) { clipboardImportViewModel::onImportFromClipboard },
+                onScanServer = { onOpenRoute(Route.QrScanner) },
+                onOpenRoute = onOpenRoute,
             ),
     )
 }
@@ -215,6 +236,9 @@ internal data class OnboardingScreenActions(
     val onFinishKeepRunning: () -> Unit = {},
     val onAcceptSuggestedMode: () -> Unit = {},
     val onChangeDns: () -> Unit = {},
+    val onPasteServerLink: () -> Unit = {},
+    val onScanServer: () -> Unit = {},
+    val onOpenRoute: (Route) -> Unit = {},
 )
 
 @Composable
@@ -882,6 +906,10 @@ private fun OnboardingSetupPageScene(
                         onModeSelected = actions.onModeSelected,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                }
+
+                SetupPageKind.OwnServer -> {
+                    ServerAddActions(actions.onPasteServerLink, actions.onScanServer, actions.onOpenRoute)
                 }
 
                 SetupPageKind.ConnectionTest -> {

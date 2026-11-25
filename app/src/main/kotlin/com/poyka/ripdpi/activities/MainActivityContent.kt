@@ -39,6 +39,7 @@ import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.debug.RecompositionReportEffect
+import com.poyka.ripdpi.ui.navigation.LocalHasSavedServer
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostActions
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
@@ -46,6 +47,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.crash.CrashReportDialog
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
+import com.poyka.ripdpi.ui.screens.profiles.SavedServersViewModel
 import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
@@ -61,6 +63,9 @@ internal fun MainActivityContent(
     startupState: MainStartupState,
     exportPreview: ExportPreviewViewModel,
     pauseViewModelFactory: @Composable () -> StatusPauseViewModel = { hiltViewModel() },
+    hasSavedServerFactory: @Composable () -> Boolean? = {
+        hiltViewModel<SavedServersViewModel>().hasSavedServer.collectAsStateWithLifecycle().value
+    },
 ) {
     RecompositionReportEffect()
 
@@ -86,6 +91,7 @@ internal fun MainActivityContent(
                     startupState = startupState,
                     exportPreview = exportPreview,
                     pauseViewModelFactory = pauseViewModelFactory,
+                    hasSavedServerFactory = hasSavedServerFactory,
                 )
             }
         }
@@ -139,6 +145,7 @@ private fun ReadyMainActivityContent(
     startupState: MainStartupState,
     exportPreview: ExportPreviewViewModel,
     pauseViewModelFactory: @Composable () -> StatusPauseViewModel,
+    hasSavedServerFactory: @Composable () -> Boolean?,
 ) {
     val runtimeState by viewModel.activityRuntimeState.collectAsStateWithLifecycle(
         initialValue = remember(viewModel) { viewModel.uiState.value.toActivityRuntimeUiState() },
@@ -167,6 +174,7 @@ private fun ReadyMainActivityContent(
         return
     }
     val pauseViewModel = pauseViewModelFactory()
+    val hasSavedServer = hasSavedServerFactory()
     val performHaptic = rememberRipDpiHapticPerformer()
     Box(
         modifier =
@@ -174,7 +182,10 @@ private fun ReadyMainActivityContent(
                 .fillMaxSize()
                 .ripDpiAutomationTreeRoot(),
     ) {
-        CompositionLocalProvider(LocalRipDpiHandOff provides onboardingHandOff) {
+        CompositionLocalProvider(
+            LocalRipDpiHandOff provides onboardingHandOff,
+            LocalHasSavedServer provides hasSavedServer,
+        ) {
             key(
                 startupState.startDestination,
                 navigationStateKey(startupState.startDestination, viewModel.navigationSessionKey),

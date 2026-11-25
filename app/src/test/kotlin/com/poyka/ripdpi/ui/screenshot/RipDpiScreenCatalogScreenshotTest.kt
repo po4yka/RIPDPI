@@ -42,6 +42,8 @@ import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingTestPageIndex
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingUiState
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingValidationState
+import com.poyka.ripdpi.ui.screens.onboarding.SetupPageKind
+import com.poyka.ripdpi.ui.screens.onboarding.onboardingPageIndex
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareScreen
 import com.poyka.ripdpi.ui.screens.proxyimport.previewProfileShareUiState
 import com.poyka.ripdpi.ui.screens.proxyimport.renderShareQrBitmap
@@ -156,6 +158,11 @@ class RipDpiScreenCatalogScreenshotTest {
     @Test
     fun onboardingBackgroundScreen() {
         captureOnboardingScreen(OnboardingUiState(currentPage = OnboardingInfoPageCount + 3))
+    }
+
+    @Test
+    fun onboardingOwnServerScreen() {
+        captureOnboardingScreen(OnboardingUiState(currentPage = onboardingPageIndex(SetupPageKind.OwnServer)))
     }
 
     @Test

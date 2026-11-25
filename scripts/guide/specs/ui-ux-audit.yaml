@@ -207,6 +207,16 @@ pages:
     description: |
       VPN profile configuration state for tunnel setup.
 
+  - id: add_server
+    title: "Add Server"
+    route: "config/add_server"
+    flow_from: "home_idle"
+    flow_label: "add server"
+    expected_root: "config/add_server-screen"
+    state: "no saved server"
+    description: |
+      Connection tab with the Add server sheet open, reached from the home add-server action.
+
   - id: mode_editor
     title: "Mode Editor"
     route: "mode_editor"

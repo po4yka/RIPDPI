@@ -26,6 +26,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -57,6 +58,7 @@ class OnboardingStepsScreenTest {
                 SetupPageKind.ModeSelection,
                 SetupPageKind.DnsSelection,
                 SetupPageKind.BackgroundGuidance,
+                SetupPageKind.OwnServer,
                 SetupPageKind.ConnectionTest,
                 SetupPageKind.Completion,
             ),
@@ -86,7 +88,7 @@ class OnboardingStepsScreenTest {
         renderOnboarding(OnboardingUiState(currentPage = 0))
 
         composeRule.onNodeWithText("Welcome to RIPDPI").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Step 1 of 8").assertExists()
+        composeRule.onNodeWithContentDescription("Step 1 of 9").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingLanguage).assertHasClickAction()
     }
 
@@ -236,7 +238,7 @@ class OnboardingStepsScreenTest {
         renderOnboarding(OnboardingUiState(currentPage = 2))
 
         composeRule
-            .onNodeWithContentDescription("Step 3 of 8")
+            .onNodeWithContentDescription("Step 3 of 9")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
     }
 
@@ -311,6 +313,35 @@ class OnboardingStepsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingBatterySettings).assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingVpnSettings).assertCountEquals(0)
         composeRule.onAllNodesWithText("Always-on VPN").assertCountEquals(0)
+    }
+
+    @Test
+    fun `own server step offers each way to add a server and continues without one`() {
+        val used = mutableListOf<Any>()
+        composeRule.setContent {
+            RipDpiTheme {
+                OnboardingScreen(
+                    uiState = OnboardingUiState(currentPage = onboardingPageIndex(SetupPageKind.OwnServer)),
+                    actions =
+                        OnboardingScreenActions(
+                            onPasteServerLink = { used += "paste" },
+                            onScanServer = { used += "scan" },
+                            onOpenRoute = { used += it },
+                            onContinue = { used += "continue" },
+                        ),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Have your own server?").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddServerPaste).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddServerScan).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayImportAwgConf).performScrollTo().assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddProfile).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayCreateProfile(Route.SshProfile)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingContinue).performClick()
+
+        composeRule.runOnIdle { assertEquals(listOf("paste", "scan", Route.SshProfile, "continue"), used) }
     }
 
     /** A checklist row: the state description is on the row, and the label is its child. */

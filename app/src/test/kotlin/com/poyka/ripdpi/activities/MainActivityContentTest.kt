@@ -121,6 +121,7 @@ class MainActivityContentTest {
             recomposeTrigger.intValue
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
+                hasSavedServerFactory = { null },
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -155,6 +156,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
+                hasSavedServerFactory = { null },
                 pauseViewModelFactory = {
                     SideEffect { rootCompositions.incrementAndGet() }
                     rememberPauseViewModelForTest()
@@ -210,6 +212,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
+                hasSavedServerFactory = { null },
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview =
                     androidx.compose.runtime.remember {
@@ -244,6 +247,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
+                hasSavedServerFactory = { null },
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview =
                     androidx.compose.runtime.remember {
@@ -283,6 +287,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
+                hasSavedServerFactory = { null },
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -331,6 +336,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
+                hasSavedServerFactory = { null },
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -402,6 +408,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
+                hasSavedServerFactory = { null },
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -426,6 +433,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
+                hasSavedServerFactory = { null },
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -456,6 +464,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
+                hasSavedServerFactory = { null },
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,

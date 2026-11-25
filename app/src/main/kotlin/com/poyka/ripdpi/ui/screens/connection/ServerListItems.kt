@@ -31,7 +31,6 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.awg.rememberAwgConfFileImport
 import com.poyka.ripdpi.ui.screens.profiles.AwgProfileItem
 import com.poyka.ripdpi.ui.screens.profiles.ProfileMeasurementUiState
 import com.poyka.ripdpi.ui.screens.profiles.awgMeasurementText
@@ -42,7 +41,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
-private val DedicatedRelayEditors: Map<String, Route> =
+internal val DedicatedRelayEditors: Map<String, Route> =
     mapOf(
         RelayKindAnyTls to Route.AnyTlsProfile,
         RelayKindMieru to Route.MieruProfile,
@@ -53,70 +52,6 @@ internal fun relayKindHasEditor(kind: String): Boolean =
     kind in DedicatedRelayEditors || isModeEditorRelayKindSupported(kind)
 
 internal fun addableRelayKinds(): List<Pair<String, String>> = relayKindLabels().filter { relayKindHasEditor(it.first) }
-
-@Composable
-internal fun AddServerAction(actions: ConnectionProfileActions) {
-    var showMenu by rememberSaveable { mutableStateOf(false) }
-    val importAwgConfFile = rememberAwgConfFileImport(actions.create)
-    val relayActions =
-        addableRelayKinds().map { (kind, fallbackLabel) ->
-            RipDpiContextMenuAction(
-                label = modeEditorRelayKindLabel(kind) ?: fallbackLabel,
-                icon = RipDpiIcons.Public,
-                testTag =
-                    DedicatedRelayEditors[kind]?.let(RipDpiTestTags.connectionRelayCreateProfile)
-                        ?: RipDpiTestTags.connectionAddServerKind(kind),
-                onClick = {
-                    showMenu = false
-                    DedicatedRelayEditors[kind]?.let(actions.create) ?: actions.createRelay(kind)
-                },
-            )
-        }
-    val otherActions =
-        listOf(
-            RipDpiContextMenuAction(
-                label = stringResource(R.string.awg_editor_title),
-                icon = RipDpiIcons.Vpn,
-                testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.AmneziaWgProfile()),
-                onClick = {
-                    showMenu = false
-                    actions.create(Route.AmneziaWgProfile())
-                },
-            ),
-            RipDpiContextMenuAction(
-                label = stringResource(R.string.config_vpn_import_awg_conf),
-                icon = RipDpiIcons.Vpn,
-                testTag = RipDpiTestTags.ConnectionRelayImportAwgConf,
-                onClick = {
-                    showMenu = false
-                    importAwgConfFile()
-                },
-            ),
-            RipDpiContextMenuAction(
-                label = stringResource(R.string.config_vpn_add_subscription),
-                icon = RipDpiIcons.Add,
-                testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.SubscriptionAdd),
-                onClick = {
-                    showMenu = false
-                    actions.create(Route.SubscriptionAdd)
-                },
-            ),
-        )
-    Box {
-        RipDpiButton(
-            text = stringResource(R.string.config_vpn_add_profile_title),
-            onClick = { showMenu = true },
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConnectionRelayAddProfile),
-            variant = RipDpiButtonVariant.Outline,
-            leadingIcon = RipDpiIcons.Add,
-        )
-        RipDpiContextMenu(
-            visible = showMenu,
-            actions = (otherActions + relayActions).toImmutableList(),
-            onDismiss = { showMenu = false },
-        )
-    }
-}
 
 @Composable
 internal fun RelayServerRow(

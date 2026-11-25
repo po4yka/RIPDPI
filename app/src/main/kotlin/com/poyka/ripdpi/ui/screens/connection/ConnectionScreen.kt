@@ -96,13 +96,7 @@ fun ConnectionRoute(
             )
     val runtime = connectionRuntimePresentation(viewModel, uiState, runtimeIntegration, onRetestStrategies)
     val clipboardImportState = clipboardImportViewModel.uiState.collectAsStateWithLifecycle().value
-    val navigateTo = clipboardImportState.navigateToConfirm
-    if (navigateTo != null) {
-        androidx.compose.runtime.LaunchedEffect(navigateTo) {
-            clipboardImportViewModel.consumeNavigation()
-            onImport(navigateTo)
-        }
-    }
+    ClipboardImportNavigation(clipboardImportViewModel, onImport)
     val onImportFromClipboard =
         remember(clipboardImportViewModel) { clipboardImportViewModel::onImportFromClipboard }
     val onDismissClipboardError =
@@ -228,6 +222,7 @@ fun ConnectionScreen(
     LaunchedEffect(browsingRelay) { onBrowsingRelayChange(browsingRelay) }
     val selectedPath = if (uiState.usesRelayPath || browsingRelay) ConnectionPath.Relay else ConnectionPath.Direct
     var showProfileChoices by rememberSaveable { mutableStateOf(false) }
+    var showAddServer by rememberSaveable { mutableStateOf(route == Route.ConnectionAddServer) }
 
     RipDpiContentScreenScaffold(
         modifier =
@@ -239,7 +234,11 @@ fun ConnectionScreen(
         contentWidth = RipDpiScaffoldWidth.Content,
         actions = topBarActions,
     ) {
-        ConnectionSavedConnectionCard(uiState = uiState, onChangeProfile = { showProfileChoices = true })
+        ConnectionSavedConnectionCard(
+            uiState = uiState,
+            onChangeProfile = { showProfileChoices = true },
+            onAddServer = { showAddServer = true },
+        )
         ConnectionRuntimeFeedback(uiState, runtimeCallbacks.dismissError)
         ConnectionCliOverrideBanner(uiState)
         if (showProfileChoices) {
@@ -249,6 +248,14 @@ fun ConnectionScreen(
                 profileActions = profileActions,
                 onPasteServerLink = onPasteServerLink,
                 onDismiss = { showProfileChoices = false },
+            )
+        }
+
+        if (showAddServer) {
+            ConnectionAddServerSheet(
+                profileActions = profileActions,
+                onPasteServerLink = onPasteServerLink,
+                onDismiss = { showAddServer = false },
             )
         }
 
@@ -494,5 +501,20 @@ private fun ConnectionScreenLoadingPreview() {
             onPasteServerLink = {},
             initialPath = ConnectionPath.Direct,
         )
+    }
+}
+
+@Composable
+internal fun ClipboardImportNavigation(
+    viewModel: ClipboardImportViewModel,
+    onImport: (ImportPayload) -> Unit,
+) {
+    val navigateTo =
+        viewModel.uiState
+            .collectAsStateWithLifecycle()
+            .value.navigateToConfirm ?: return
+    LaunchedEffect(navigateTo) {
+        viewModel.consumeNavigation()
+        onImport(navigateTo)
     }
 }

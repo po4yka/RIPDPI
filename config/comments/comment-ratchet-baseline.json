@@ -254,7 +254,7 @@
   "app/src/main/kotlin/com/poyka/ripdpi/ui/debug/TrackRecomposition.kt": 21,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/ImportNavigation.kt": 12,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/OnboardingNavGate.kt": 2,
-  "app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/PrimaryNavigation.kt": 4,
+  "app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/PrimaryNavigation.kt": 3,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt": 32,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/Route.kt": 18,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/SettingsListDetail.kt": 12,

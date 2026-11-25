@@ -16,3 +16,6 @@ internal fun NavHostController.launchGateRoute(
     entry: NavBackStackEntry?,
     currentStableRoute: String?,
 ): String? = if (hasOnboardingEntry(entry)) Route.Onboarding.stableRoute else currentStableRoute
+
+internal fun NavHostController.popBackToOnboarding(): Boolean =
+    runCatching { getBackStackEntry<Route.Onboarding>() }.isSuccess && popBackStack<Route.Onboarding>(inclusive = false)

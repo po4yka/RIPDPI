@@ -363,7 +363,7 @@ class OnboardingScreenTest {
 
         // Busy footer CTA carries no actionable tag and shows the testing label.
         composeRule.onNodeWithText("Testing…").assertExists()
-        composeRule.onNodeWithContentDescription("Step 7 of 8").assertExists()
+        composeRule.onNodeWithContentDescription("Step 8 of 9").assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipTest).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidationStatus).assertExists()
@@ -379,7 +379,7 @@ class OnboardingScreenTest {
             ),
         )
 
-        composeRule.onNodeWithContentDescription("Step 7 of 8").assertExists()
+        composeRule.onNodeWithContentDescription("Step 8 of 9").assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipTest).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
     }
@@ -453,7 +453,7 @@ class OnboardingScreenTest {
         composeRule.waitForIdle()
         val indicatorTop =
             composeRule
-                .onNodeWithContentDescription("Step 4 of 8")
+                .onNodeWithContentDescription("Step 4 of 9")
                 .fetchSemanticsNode()
                 .boundsInRoot
                 .top

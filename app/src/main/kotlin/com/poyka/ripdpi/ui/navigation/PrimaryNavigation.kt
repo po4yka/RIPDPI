@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.navigation
 
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,6 +44,8 @@ internal fun NavGraphBuilder.addPrimaryRoutes(
             // bar, and with app lock the main screen itself, before that replacement.
             onComplete = {},
             onOpenAdvancedDns = { navController.navigate(Route.DnsSettings) },
+            onOpenRoute = { destination -> navController.navigate(destination) },
+            onImport = navController::navigateImport,
         )
     }
     addHomeRoute(navController, mainViewModel, pauseViewModel, onDiagnosticsInitialSectionChanged)
@@ -123,6 +126,13 @@ private fun NavGraphBuilder.addHomeRoute(
         deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://connect" }),
     ) {
         StatusRoute(
+            onAddServer =
+                {
+                    navController.navigate(Route.ConnectionAddServer) {
+                        launchSingleTop = true
+                        popUpTo<Route.Status>()
+                    }
+                }.takeIf { LocalHasSavedServer.current == false },
             onOpenDiagnostics = {
                 onDiagnosticsInitialSectionChanged(DiagnosticsSection.Scan)
                 navController.navigate(Route.Diagnostics()) {
@@ -170,8 +180,7 @@ private fun NavGraphBuilder.addProfileUtilityRoute(navController: NavHostControl
     composable<Route.ProfileUtility> {
         ProfileUtilityRoute(
             onBack = { navController.popBackStack() },
-            // The Relay section holds the paste-link, scan-QR and add-server entries.
-            onImportProfile = { navController.navigateConnectionSubRoute(Route.ConnectionRelay) },
+            onImportProfile = { navController.navigateConnectionSubRoute(Route.ConnectionAddServer) },
         )
     }
 }
@@ -205,3 +214,5 @@ private fun diagnosticsRouteCallbacks(
         onStartVerifiedVpn = mainViewModel::onStartVerifiedVpn,
         onDismissVerification = mainViewModel.dismissHomeVerificationSheet,
     )
+
+internal val LocalHasSavedServer = compositionLocalOf<Boolean?> { null }

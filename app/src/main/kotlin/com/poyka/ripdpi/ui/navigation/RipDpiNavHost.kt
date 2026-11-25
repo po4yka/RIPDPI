@@ -403,6 +403,7 @@ private fun RipDpiNavGraph(
 // Callers leave a finished flow (an import, a launch request), so its screens are dropped,
 // not saved. The tab save/restore options are ignored when a plainly pushed screen is on top.
 internal fun NavHostController.navigateHome() {
+    if (popBackToOnboarding()) return
     navigate(Route.Status) {
         launchSingleTop = true
         popUpTo<Route.Status>()
@@ -410,14 +411,6 @@ internal fun NavHostController.navigateHome() {
 }
 
 private fun NavHostController.navigateTopLevel(destination: Route) {
-    navigate(destination) {
-        launchSingleTop = true
-        restoreState = true
-        popUpTo<Route.Status> { saveState = true }
-    }
-}
-
-internal fun NavHostController.navigateConnectionSubRoute(destination: Route) {
     navigate(destination) {
         launchSingleTop = true
         restoreState = true
@@ -445,6 +438,7 @@ private val connectionSubRouteStableKeys =
     setOf(
         Route.ConnectionDirect.stableRoute,
         Route.ConnectionRelay.stableRoute,
+        Route.ConnectionAddServer.stableRoute,
     )
 
 private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>> =
@@ -453,6 +447,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.Connection.stableRoute to { hasRoute<Route.Connection>() },
         Route.ConnectionDirect.stableRoute to { hasRoute<Route.ConnectionDirect>() },
         Route.ConnectionRelay.stableRoute to { hasRoute<Route.ConnectionRelay>() },
+        Route.ConnectionAddServer.stableRoute to { hasRoute<Route.ConnectionAddServer>() },
         Route.Diagnostics().stableRoute to { hasRoute<Route.Diagnostics>() },
         Route.Settings.stableRoute to { hasRoute<Route.Settings>() },
         Route.Onboarding.stableRoute to { hasRoute<Route.Onboarding>() },

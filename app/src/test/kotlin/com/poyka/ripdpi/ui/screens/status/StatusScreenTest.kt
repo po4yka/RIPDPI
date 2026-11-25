@@ -4,6 +4,9 @@ import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
@@ -80,6 +83,31 @@ class StatusScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.StatusSubscriptionExpiryBanner).performClick()
 
         assertTrue(opened)
+    }
+
+    @Test
+    fun `add server shows only while the home screen offers it`() {
+        var onAddServer by mutableStateOf<(() -> Unit)?>(null)
+        var added = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                StatusScreen(
+                    uiState = MainUiState(),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                    onAddServer = onAddServer,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAddServer).assertDoesNotExist()
+        composeRule.runOnIdle { onAddServer = { added += 1 } }
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAddServer).performScrollTo().performClick()
+
+        composeRule.runOnIdle { assertEquals(1, added) }
     }
 
     @Test

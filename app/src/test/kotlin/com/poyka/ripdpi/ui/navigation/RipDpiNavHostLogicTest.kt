@@ -395,6 +395,7 @@ private val ExpectedRootScreenTags: Map<String, String> =
         Route.Connection.stableRoute to "config-screen",
         Route.ConnectionDirect.stableRoute to "config/local_bypass-screen",
         Route.ConnectionRelay.stableRoute to "config/vpn-screen",
+        Route.ConnectionAddServer.stableRoute to "config/add_server-screen",
         Route.Settings.stableRoute to "settings-screen",
         Route.BackupRestore.stableRoute to "backup_restore-screen",
         Route.Diagnostics().stableRoute to "diagnostics-screen",
@@ -461,6 +462,7 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
             ),
         Route.ConnectionDirect.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.ConnectionRelay.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.ConnectionAddServer.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.Settings.stableRoute to
             setOf(
                 ReachabilityMechanism.TopLevelNavigation,

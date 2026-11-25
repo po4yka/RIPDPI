@@ -11,11 +11,13 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 
 @Composable
 internal fun ConnectionSavedConnectionCard(
     uiState: ConnectionUiState,
     onChangeProfile: () -> Unit,
+    onAddServer: () -> Unit,
 ) {
     val selectedPreset = uiState.presets.firstOrNull { it.isSelected }
     val presetName = stringResource(titleResForPreset(selectedPreset?.kind ?: ConnectionPresetKind.Custom))
@@ -45,6 +47,13 @@ internal fun ConnectionSavedConnectionCard(
             onClick = onChangeProfile,
             showChevron = true,
             testTag = RipDpiTestTags.ConnectionProfileChange,
+            showDivider = true,
+        )
+        SettingsRow(
+            title = stringResource(R.string.config_vpn_add_server),
+            onClick = onAddServer,
+            leadingIcon = RipDpiIcons.Add,
+            testTag = RipDpiTestTags.ConnectionAddServer,
         )
     }
 }

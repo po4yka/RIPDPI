@@ -59,6 +59,9 @@ internal fun NavGraphBuilder.addConnectionRoutes(
         composable<Route.ConnectionRelay> {
             ConnectionDestination(it, navController, mainViewModel, Route.ConnectionRelay, ConnectionPath.Relay)
         }
+        composable<Route.ConnectionAddServer> {
+            ConnectionDestination(it, navController, mainViewModel, Route.ConnectionAddServer, ConnectionPath.Relay)
+        }
         composable<Route.ModeEditor> {
             val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConnectionGraph>() }
             val configViewModel: ConnectionViewModel = hiltViewModel(configGraphEntry)
@@ -68,5 +71,13 @@ internal fun NavGraphBuilder.addConnectionRoutes(
                 viewModel = configViewModel,
             )
         }
+    }
+}
+
+internal fun NavHostController.navigateConnectionSubRoute(destination: Route) {
+    navigate(destination) {
+        launchSingleTop = true
+        restoreState = true
+        popUpTo<Route.Status> { saveState = true }
     }
 }

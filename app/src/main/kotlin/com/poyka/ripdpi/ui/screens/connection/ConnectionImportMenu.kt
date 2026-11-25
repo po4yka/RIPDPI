@@ -81,7 +81,7 @@ fun ConnectionImportMenu(
  * The raw clipboard payload is never shown — at most the scheme prefix.
  */
 @Composable
-private fun ClipboardImportErrorBanner(
+internal fun ClipboardImportErrorBanner(
     unknownContentScheme: String?,
     clipboardEmpty: Boolean,
     onDismiss: () -> Unit,

@@ -75,6 +75,39 @@ internal fun ConnectionProfileChoicesSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ConnectionAddServerSheet(
+    profileActions: ConnectionProfileActions,
+    onPasteServerLink: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    RipDpiBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.config_vpn_add_server),
+    ) {
+        ServerAddActions(
+            onPasteLink = {
+                onDismiss()
+                onPasteServerLink()
+            },
+            onScanQr = {
+                onDismiss()
+                profileActions.scanServer()
+            },
+            onOpenRoute = { route ->
+                onDismiss()
+                profileActions.create(route)
+            },
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionAddServerSheet),
+            onCreateRelay = { kind ->
+                onDismiss()
+                profileActions.createRelay(kind)
+            },
+        )
+    }
+}
+
 @Composable
 private fun ConnectionPresetList(
     uiState: ConnectionUiState,

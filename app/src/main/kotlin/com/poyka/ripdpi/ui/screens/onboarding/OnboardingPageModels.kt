@@ -51,6 +51,7 @@ internal enum class SetupPageKind {
     ModeSelection,
     DnsSelection,
     BackgroundGuidance,
+    OwnServer,
     ConnectionTest,
     Completion,
 }
@@ -95,6 +96,12 @@ internal val OnboardingPages: List<OnboardingPage> =
             kind = SetupPageKind.BackgroundGuidance,
             icon = RipDpiIcons.Timer,
             titleRes = R.string.onboarding_background_title,
+            buttonLabelRes = R.string.onboarding_continue,
+        ),
+        OnboardingPage.Setup(
+            kind = SetupPageKind.OwnServer,
+            icon = RipDpiIcons.Public,
+            titleRes = R.string.onboarding_own_server_title,
             buttonLabelRes = R.string.onboarding_continue,
         ),
         OnboardingPage.Setup(

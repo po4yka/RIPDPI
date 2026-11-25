@@ -78,20 +78,11 @@ internal fun ConnectionRelayProfileChoices(
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.config_vpn_profiles_title))
         ServerActionMessage(uiState.serverMessage, actions.dismissMessage)
-        AddServerAction(actions)
-        RipDpiButton(
-            text = stringResource(R.string.config_vpn_add_server_paste),
-            onClick = onPasteServerLink,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConnectionRelayAddServerPaste),
-            variant = RipDpiButtonVariant.Outline,
-            leadingIcon = RipDpiIcons.Paste,
-        )
-        RipDpiButton(
-            text = stringResource(R.string.config_vpn_add_server_scan),
-            onClick = actions.scanServer,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConnectionRelayAddServerScan),
-            variant = RipDpiButtonVariant.Outline,
-            leadingIcon = RipDpiIcons.QrCodeScanner,
+        ServerAddActions(
+            onPasteLink = onPasteServerLink,
+            onScanQr = actions.scanServer,
+            onOpenRoute = actions.create,
+            onCreateRelay = actions.createRelay,
         )
         VpnProfileList(uiState, actions)
         uiState.awgServers.forEach { server -> AwgServerRow(server, actions) }

@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
@@ -65,6 +66,7 @@ fun StatusScreen(
     onRepairPermission: (PermissionKind) -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
     modifier: Modifier = Modifier,
+    onAddServer: (() -> Unit)? = null,
     onDismissBatteryBanner: () -> Unit = {},
     onDismissBackgroundGuidance: () -> Unit = {},
     onShareAnalysis: () -> Unit = {},
@@ -173,6 +175,16 @@ fun StatusScreen(
                     server = uiState.connectedServer,
                     uptime = uiState.connectionDuration,
                 )
+
+                onAddServer?.let { onClick ->
+                    RipDpiButton(
+                        text = stringResource(R.string.config_vpn_add_server),
+                        onClick = onClick,
+                        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.StatusAddServer),
+                        variant = RipDpiButtonVariant.Outline,
+                        leadingIcon = RipDpiIcons.Add,
+                    )
+                }
             },
             supporting = {
                 RipDpiAccordion(

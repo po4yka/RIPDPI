@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.After
@@ -73,6 +74,40 @@ class ConnectionSummaryTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.connectionPreset("recommended")).assertHasClickAction()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddProfile).assertHasClickAction()
+    }
+
+    @Test
+    fun `add server opens the add actions without the route diagram`() {
+        setConfigScreen(initialPath = ConnectionPath.Direct)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionAddServerSheet).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionAddServer).performScrollTo().performClick()
+        listOf(
+            RipDpiTestTags.ConnectionRelayAddServerPaste,
+            RipDpiTestTags.ConnectionRelayAddServerScan,
+            RipDpiTestTags.ConnectionRelayImportAwgConf,
+            RipDpiTestTags.ConnectionRelayAddProfile,
+        ).forEach { composeRule.onNodeWithTag(it).assertHasClickAction() }
+    }
+
+    @Test
+    fun `add server route opens with the add actions shown`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionScreen(
+                    uiState = configUiState(),
+                    onModeSelected = {},
+                    onPresetSelected = {},
+                    onEditCurrent = {},
+                    onOpenConfigEditor = {},
+                    onRetestStrategies = {},
+                    onPasteServerLink = {},
+                    route = Route.ConnectionAddServer,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddServerPaste).assertHasClickAction()
     }
 
     @Test

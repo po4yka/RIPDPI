@@ -176,6 +176,7 @@ private class SceneStage(
                         SetupPageKind.ModeSelection -> WallScene(parts)
                         SetupPageKind.DnsSelection -> CheckpointScene(parts)
                         SetupPageKind.BackgroundGuidance -> NightScene(parts)
+                        SetupPageKind.OwnServer -> ConnectScene(parts)
                         SetupPageKind.ConnectionTest -> BarrierScene(parts, arrival = false)
                         SetupPageKind.Completion -> BarrierScene(parts, arrival = true)
                     }

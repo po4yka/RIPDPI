@@ -528,7 +528,7 @@ class ConnectionScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
-        composeRule.onNodeWithText("Add server").assertExists()
+        composeRule.onNodeWithText("Add manually").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayProfile("default")).assertExists()
         composeRule
             .onNodeWithTag(RipDpiTestTags.connectionRelayProfileRow("default"))
