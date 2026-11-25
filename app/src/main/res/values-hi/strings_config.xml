@@ -979,7 +979,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_orig_set_title">मूल पैकेट: फ़्लैग सेट करें</string>
     <string name="tcp_flag_orig_clear_title">मूल पैकेट: फ़्लैग साफ़ करें</string>
     <!-- Profile share: QR + URI -->
-    <string name="profile_share_action">प्रोफ़ाइल शेयर करें</string>
+    <string name="profile_share_action">सर्वर शेयर करें</string>
     <string name="profile_share_title">प्रोफ़ाइल शेयर करें</string>
     <string name="profile_share_warning_title">इस QR कोड में गोपनीय जानकारी है</string>
     <string name="profile_share_warning_body">QR कोड और लिंक में आपके क्रेडेंशियल अंतर्निहित हैं। इन्हें केवल किसी विश्वसनीय व्यक्ति के साथ, किसी विश्वसनीय चैनल पर ही शेयर करें।</string>

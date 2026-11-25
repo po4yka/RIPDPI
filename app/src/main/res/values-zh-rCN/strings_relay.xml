@@ -81,7 +81,7 @@
     <string name="warp_setup_state_title">设置状态</string>
     <string name="relay_editor_activation_failed">无法激活此配置文件。请检查详细信息后重试。</string>
     <!-- AmneziaWG profile editor -->
-    <string name="awg_editor_title">AmneziaWG 配置文件</string>
+    <string name="awg_editor_title">AmneziaWG 服务器</string>
     <string name="awg_section_interface">接口</string>
     <string name="awg_section_peer">对端</string>
     <string name="awg_section_carrier">传输方式</string>
@@ -154,7 +154,7 @@
     <string name="awg_field_public_key">公钥</string>
     <string name="awg_copy_public_key_action">复制公钥</string>
     <!-- VMess profile editor (legacy outbound) -->
-    <string name="anytls_editor_title">AnyTLS 配置文件</string>
+    <string name="anytls_editor_title">AnyTLS 服务器</string>
     <string name="anytls_section_endpoint">端点</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_field_display_name">名称</string>
@@ -164,7 +164,7 @@
     <string name="anytls_field_sni">SNI</string>
     <string name="anytls_field_invalid">此字段的值无效。</string>
     <string name="anytls_save_action">保存</string>
-    <string name="mieru_editor_title">Mieru 配置文件</string>
+    <string name="mieru_editor_title">Mieru 服务器</string>
     <string name="mieru_section_endpoint">服务器地址</string>
     <string name="mieru_section_credentials">凭据</string>
     <string name="mieru_section_transport">传输</string>
@@ -185,7 +185,7 @@
     <string name="mieru_save_action">保存</string>
     <string name="mieru_experimental_title">实验性 — 未经真实服务器验证</string>
     <string name="mieru_experimental_body">Mieru 支持尚未在真实 Mieru 服务器上测试。连接可能失败。请报告问题以帮助我们验证此中继。</string>
-    <string name="ssh_editor_title">SSH 配置文件</string>
+    <string name="ssh_editor_title">SSH 服务器</string>
     <string name="ssh_section_endpoint">端点</string>
     <string name="ssh_section_auth">身份验证</string>
     <string name="ssh_section_host_key">主机密钥</string>

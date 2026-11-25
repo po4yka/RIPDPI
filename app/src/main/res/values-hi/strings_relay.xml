@@ -125,7 +125,7 @@
     <string name="owned_stack_browser_empty_body">कोई रिस्पॉन्स बॉडी नहीं।</string>
     <string name="relay_editor_activation_failed">इस प्रोफ़ाइल को सक्रिय नहीं किया जा सका। विवरण जाँचें और दोबारा प्रयास करें।</string>
     <!-- AmneziaWG profile editor -->
-    <string name="awg_editor_title">AmneziaWG प्रोफ़ाइल</string>
+    <string name="awg_editor_title">AmneziaWG सर्वर</string>
     <string name="awg_section_interface">इंटरफ़ेस</string>
     <string name="awg_section_peer">पीयर</string>
     <string name="awg_section_carrier">ट्रांसपोर्ट</string>
@@ -197,7 +197,7 @@
     <string name="awg_key_generation_error">कुंजी जोड़ी नहीं बनाई जा सकी। फिर से कोशिश करें।</string>
     <string name="awg_field_public_key">सार्वजनिक कुंजी</string>
     <string name="awg_copy_public_key_action">सार्वजनिक कुंजी कॉपी करें</string>
-    <string name="anytls_editor_title">AnyTLS प्रोफ़ाइल</string>
+    <string name="anytls_editor_title">AnyTLS सर्वर</string>
     <string name="anytls_section_endpoint">एंडपॉइंट</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_field_display_name">नाम</string>
@@ -207,7 +207,7 @@
     <string name="anytls_field_sni">SNI</string>
     <string name="anytls_field_invalid">इस फ़ील्ड के लिए मान्य मान नहीं है।</string>
     <string name="anytls_save_action">सहेजें</string>
-    <string name="mieru_editor_title">Mieru प्रोफ़ाइल</string>
+    <string name="mieru_editor_title">Mieru सर्वर</string>
     <string name="mieru_section_endpoint">एंडपॉइंट</string>
     <string name="mieru_section_credentials">क्रेडेंशियल</string>
     <string name="mieru_section_transport">ट्रांसपोर्ट</string>
@@ -228,7 +228,7 @@
     <string name="mieru_save_action">सहेजें</string>
     <string name="mieru_experimental_title">प्रायोगिक — लाइव सर्वरों पर सत्यापित नहीं</string>
     <string name="mieru_experimental_body">Mieru समर्थन का किसी वास्तविक Mieru सर्वर पर परीक्षण नहीं किया गया है। कनेक्शन विफल हो सकते हैं। इस रिले को सत्यापित करने में हमारी मदद के लिए समस्याओं की रिपोर्ट करें।</string>
-    <string name="ssh_editor_title">SSH प्रोफ़ाइल</string>
+    <string name="ssh_editor_title">SSH सर्वर</string>
     <string name="ssh_section_endpoint">एंडपॉइंट</string>
     <string name="ssh_section_auth">प्रमाणीकरण</string>
     <string name="ssh_section_host_key">होस्ट कुंजी</string>

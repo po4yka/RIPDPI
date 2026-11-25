@@ -949,7 +949,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_card_title">ساخت پرچم TCP</string>
     <string name="tcp_flag_orig_clear_title">بسته اصلی: پاک کردن پرچم‌ها</string>
     <!-- Profile share: QR + URI -->
-    <string name="profile_share_action">هم‌رسانی نمایه</string>
+    <string name="profile_share_action">هم‌رسانی سرور</string>
     <string name="profile_share_title">هم‌رسانی نمایه</string>
     <string name="profile_share_warning_title">این کد QR شامل اطلاعات محرمانه است</string>
     <string name="profile_share_warning_body">کد QR و پیوند، اعتبارنامه‌های شما را در بر دارند. آن‌ها را فقط با فردی که به او اعتماد دارید و از طریق مسیری مطمئن هم‌رسانی کنید.</string>

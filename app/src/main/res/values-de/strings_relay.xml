@@ -81,7 +81,7 @@
     <string name="warp_setup_state_body">Aktueller Anmeldungs-/Bereitstellungsstatus für das aktive WARP-Profil.</string>
     <string name="relay_editor_activation_failed">Dieses Profil konnte nicht aktiviert werden. Prüfen Sie die Angaben und versuchen Sie es erneut.</string>
     <!-- AmneziaWG profile editor -->
-    <string name="awg_editor_title">AmneziaWG-Profil</string>
+    <string name="awg_editor_title">AmneziaWG-Server</string>
     <string name="awg_section_interface">Schnittstelle</string>
     <string name="awg_section_peer">Peer</string>
     <string name="awg_section_carrier">Transport</string>
@@ -154,7 +154,7 @@
     <string name="awg_field_public_key">Öffentlicher Schlüssel</string>
     <string name="awg_copy_public_key_action">Öffentlichen Schlüssel kopieren</string>
     <!-- VMess profile editor (legacy outbound) -->
-    <string name="anytls_editor_title">AnyTLS-Profil</string>
+    <string name="anytls_editor_title">AnyTLS-Server</string>
     <string name="anytls_section_endpoint">Endpunkt</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_field_display_name">Name</string>
@@ -164,7 +164,7 @@
     <string name="anytls_field_sni">SNI</string>
     <string name="anytls_field_invalid">Kein gültiger Wert für dieses Feld.</string>
     <string name="anytls_save_action">Speichern</string>
-    <string name="mieru_editor_title">Mieru-Profil</string>
+    <string name="mieru_editor_title">Mieru-Server</string>
     <string name="mieru_section_endpoint">Endpunkt</string>
     <string name="mieru_section_credentials">Anmeldedaten</string>
     <string name="mieru_section_transport">Transport</string>
@@ -185,7 +185,7 @@
     <string name="mieru_save_action">Speichern</string>
     <string name="mieru_experimental_title">Experimentell — nicht mit echten Servern getestet</string>
     <string name="mieru_experimental_body">Die Mieru-Unterstützung wurde nicht mit einem echten Mieru-Server getestet. Verbindungen können fehlschlagen. Bitte Probleme melden, um die Überprüfung dieses Relays zu unterstützen.</string>
-    <string name="ssh_editor_title">SSH-Profil</string>
+    <string name="ssh_editor_title">SSH-Server</string>
     <string name="ssh_section_endpoint">Endpunkt</string>
     <string name="ssh_section_auth">Authentifizierung</string>
     <string name="ssh_section_host_key">Hostschlüssel</string>

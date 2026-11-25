@@ -80,7 +80,7 @@
     <string name="warp_zero_trust_org_body">Показывается, когда активный профиль принадлежит регистрации Zero Trust.</string>
     <string name="warp_zero_trust_org_title">Организация Zero Trust</string>
     <string name="relay_editor_activation_failed">Не удалось активировать профиль. Проверьте данные и повторите попытку.</string>
-    <string name="awg_editor_title">Профиль AmneziaWG</string>
+    <string name="awg_editor_title">Сервер AmneziaWG</string>
     <string name="awg_section_interface">Интерфейс</string>
     <string name="awg_section_peer">Пир</string>
     <string name="awg_section_carrier">Транспорт</string>
@@ -152,7 +152,7 @@
     <string name="awg_key_generation_error">Не удалось создать пару ключей. Повторите попытку.</string>
     <string name="awg_field_public_key">Публичный ключ</string>
     <string name="awg_copy_public_key_action">Копировать публичный ключ</string>
-    <string name="anytls_editor_title">Профиль AnyTLS</string>
+    <string name="anytls_editor_title">Сервер AnyTLS</string>
     <string name="anytls_section_endpoint">Адрес сервера</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_field_display_name">Название</string>
@@ -162,7 +162,7 @@
     <string name="anytls_field_sni">SNI</string>
     <string name="anytls_field_invalid">Недопустимое значение для этого поля.</string>
     <string name="anytls_save_action">Сохранить</string>
-    <string name="mieru_editor_title">Профиль Mieru</string>
+    <string name="mieru_editor_title">Сервер Mieru</string>
     <string name="mieru_section_endpoint">Адрес сервера</string>
     <string name="mieru_section_credentials">Учётные данные</string>
     <string name="mieru_section_transport">Транспорт</string>
@@ -183,7 +183,7 @@
     <string name="mieru_save_action">Сохранить</string>
     <string name="mieru_experimental_title">Экспериментально — не проверено на реальных серверах</string>
     <string name="mieru_experimental_body">Поддержка Mieru не тестировалась с настоящим сервером Mieru. Соединения могут не работать. Сообщайте об ошибках, чтобы помочь нам проверить этот ретранслятор.</string>
-    <string name="ssh_editor_title">Профиль SSH</string>
+    <string name="ssh_editor_title">Сервер SSH</string>
     <string name="ssh_section_endpoint">Адрес</string>
     <string name="ssh_section_auth">Аутентификация</string>
     <string name="ssh_section_host_key">Ключ хоста</string>

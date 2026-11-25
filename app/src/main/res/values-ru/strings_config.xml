@@ -947,7 +947,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_fake_set_title">Поддельный пакет: установить флаги</string>
     <string name="tcp_flag_orig_clear_title">Оригинальный пакет: очистить флаги</string>
     <string name="tcp_flag_orig_set_title">Оригинальный пакет: установить флаги</string>
-    <string name="profile_share_action">Поделиться профилем</string>
+    <string name="profile_share_action">Поделиться сервером</string>
     <string name="profile_share_title">Поделиться профилем</string>
     <string name="profile_share_warning_title">Этот QR-код содержит секреты</string>
     <string name="profile_share_warning_body">QR-код и ссылка содержат ваши учётные данные. Делитесь ими только с теми, кому доверяете, и по доверенному каналу.</string>

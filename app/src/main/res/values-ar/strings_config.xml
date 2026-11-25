@@ -948,7 +948,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_fake_clear_title">الحزمة المزيفة: مسح العلامات</string>
     <string name="tcp_flag_orig_set_title">الحزمة الأصلية: تعيين العلامات</string>
     <string name="tcp_flag_orig_clear_title">الحزمة الأصلية: مسح العلامات</string>
-    <string name="profile_share_action">مشاركة الملف الشخصي</string>
+    <string name="profile_share_action">مشاركة الخادم</string>
     <string name="profile_share_title">مشاركة الملف الشخصي</string>
     <string name="profile_share_warning_title">رمز QR هذا يحتوي على أسرار</string>
     <string name="profile_share_warning_body">يتضمن رمز QR والرابط بيانات اعتمادك. شاركهما فقط مع شخص تثق به عبر قناة تثق بها.</string>

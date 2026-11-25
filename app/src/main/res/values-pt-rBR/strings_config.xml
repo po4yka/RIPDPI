@@ -948,7 +948,7 @@ Fonte: %2$s</string>
     <string name="tcp_flag_fake_clear_title">Pacote falso: limpar flags</string>
     <string name="tcp_flag_orig_set_title">Pacote original: definir flags</string>
     <string name="tcp_flag_orig_clear_title">Pacote original: limpar flags</string>
-    <string name="profile_share_action">Compartilhar perfil</string>
+    <string name="profile_share_action">Compartilhar servidor</string>
     <string name="profile_share_title">Compartilhar perfil</string>
     <string name="profile_share_warning_title">Este código QR contém segredos</string>
     <string name="profile_share_warning_body">O código QR e o link incorporam suas credenciais. Compartilhe-os apenas com alguém de confiança, por um canal confiável.</string>

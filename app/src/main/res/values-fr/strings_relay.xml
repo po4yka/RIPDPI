@@ -81,7 +81,7 @@
     <string name="warp_setup_state_body">État actuel d\'inscription/provisionnement pour le profil WARP actif.</string>
     <string name="relay_editor_activation_failed">Ce profil n’a pas pu être activé. Vérifiez les informations et réessayez.</string>
     <!-- AmneziaWG profile editor -->
-    <string name="awg_editor_title">Profil AmneziaWG</string>
+    <string name="awg_editor_title">Serveur AmneziaWG</string>
     <string name="awg_section_interface">Interface</string>
     <string name="awg_section_peer">Pair</string>
     <string name="awg_section_carrier">Transport</string>
@@ -154,7 +154,7 @@
     <string name="awg_field_public_key">Clé publique</string>
     <string name="awg_copy_public_key_action">Copier la clé publique</string>
     <!-- VMess profile editor (legacy outbound) -->
-    <string name="anytls_editor_title">Profil AnyTLS</string>
+    <string name="anytls_editor_title">Serveur AnyTLS</string>
     <string name="anytls_section_endpoint">Point de connexion</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_field_display_name">Nom</string>
@@ -164,7 +164,7 @@
     <string name="anytls_field_sni">SNI</string>
     <string name="anytls_field_invalid">Valeur non valide pour ce champ.</string>
     <string name="anytls_save_action">Enregistrer</string>
-    <string name="mieru_editor_title">Profil Mieru</string>
+    <string name="mieru_editor_title">Serveur Mieru</string>
     <string name="mieru_section_endpoint">Point de terminaison</string>
     <string name="mieru_section_credentials">Identifiants</string>
     <string name="mieru_section_transport">Transport</string>
@@ -185,7 +185,7 @@
     <string name="mieru_save_action">Enregistrer</string>
     <string name="mieru_experimental_title">Expérimental — non vérifié avec des serveurs réels</string>
     <string name="mieru_experimental_body">La prise en charge de Mieru n\'a pas été testée avec un vrai serveur Mieru. Les connexions peuvent échouer. Signalez les problèmes pour nous aider à vérifier ce relais.</string>
-    <string name="ssh_editor_title">Profil SSH</string>
+    <string name="ssh_editor_title">Serveur SSH</string>
     <string name="ssh_section_endpoint">Point de connexion</string>
     <string name="ssh_section_auth">Authentification</string>
     <string name="ssh_section_host_key">Clé d\'hôte</string>

@@ -971,7 +971,7 @@ Source: %2$s</string>
     <string name="tcp_flag_orig_set_title">Original packet: set flags</string>
     <string name="tcp_flag_orig_clear_title">Original packet: clear flags</string>
     <!-- Profile share: QR + URI -->
-    <string name="profile_share_action">Share profile</string>
+    <string name="profile_share_action">Share server</string>
     <string name="profile_share_title">Share profile</string>
     <string name="profile_share_warning_title">This QR code contains secrets</string>
     <string name="profile_share_warning_body">The QR code and link embed your credentials. Only share them with someone you trust, over a channel you trust.</string>

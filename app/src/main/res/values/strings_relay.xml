@@ -81,7 +81,7 @@
     <string name="owned_stack_browser_empty_body">No response body.</string>
     <string name="relay_editor_activation_failed">Couldn\'t activate this profile. Check the details and try again.</string>
     <!-- AmneziaWG profile editor -->
-    <string name="awg_editor_title">AmneziaWG profile</string>
+    <string name="awg_editor_title">AmneziaWG server</string>
     <string name="awg_section_interface">Interface</string>
     <string name="awg_section_peer">Peer</string>
     <string name="awg_section_carrier">Transport</string>
@@ -156,7 +156,7 @@
     <string name="awg_field_public_key">Public key</string>
     <string name="awg_copy_public_key_action">Copy public key</string>
     <!-- VMess profile editor (legacy outbound) -->
-    <string name="anytls_editor_title">AnyTLS profile</string>
+    <string name="anytls_editor_title">AnyTLS server</string>
     <string name="anytls_section_endpoint">Endpoint</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_field_display_name">Name</string>
@@ -166,7 +166,7 @@
     <string name="anytls_field_sni">SNI</string>
     <string name="anytls_field_invalid">Not a valid value for this field.</string>
     <string name="anytls_save_action">Save</string>
-    <string name="mieru_editor_title">Mieru profile</string>
+    <string name="mieru_editor_title">Mieru server</string>
     <string name="mieru_section_endpoint">Endpoint</string>
     <string name="mieru_section_credentials">Credentials</string>
     <string name="mieru_section_transport">Transport</string>
@@ -187,7 +187,7 @@
     <string name="mieru_save_action">Save</string>
     <string name="mieru_experimental_title">Experimental — unverified against live servers</string>
     <string name="mieru_experimental_body">Mieru support has not been tested against a real Mieru server. Connections may fail. Report issues to help us verify this relay.</string>
-    <string name="ssh_editor_title">SSH profile</string>
+    <string name="ssh_editor_title">SSH server</string>
     <string name="ssh_section_endpoint">Endpoint</string>
     <string name="ssh_section_auth">Authentication</string>
     <string name="ssh_section_host_key">Host key</string>

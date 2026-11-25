@@ -949,7 +949,7 @@ Source : %2$s</string>
     <string name="ws_tunnel_allow_insecure_sni_label">Autoriser un SNI non sécurisé (désactive la vérification TLS)</string>
     <string name="ws_tunnel_allow_insecure_sni_helper">Applique le SNI factice du tunnel WS même si cela désactive la vérification du certificat TLS du tunnel. À activer uniquement avec une configuration d\'opérateur de confiance.</string>
     <!-- Profile share: QR + URI -->
-    <string name="profile_share_action">Partager le profil</string>
+    <string name="profile_share_action">Partager le serveur</string>
     <string name="profile_share_title">Partager le profil</string>
     <string name="profile_share_warning_title">Ce code QR contient des secrets</string>
     <string name="profile_share_warning_body">Le code QR et le lien intègrent vos identifiants. Ne les partagez qu\'avec une personne de confiance, via un canal de confiance.</string>

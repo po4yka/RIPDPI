@@ -81,7 +81,7 @@
     <string name="warp_zero_trust_org_body">هنگامی نمایش داده می‌شود که نمایه فعال متعلق به ثبت‌نام Zero Trust باشد.</string>
     <string name="relay_editor_activation_failed">این نمایه فعال نشد. جزئیات را بررسی کنید و دوباره تلاش کنید.</string>
     <!-- AmneziaWG profile editor -->
-    <string name="awg_editor_title">نمایهٔ AmneziaWG</string>
+    <string name="awg_editor_title">سرور AmneziaWG</string>
     <string name="awg_section_interface">رابط</string>
     <string name="awg_section_peer">همتا</string>
     <string name="awg_section_carrier">حامل انتقال</string>
@@ -154,7 +154,7 @@
     <string name="awg_field_public_key">کلید عمومی</string>
     <string name="awg_copy_public_key_action">کپی کلید عمومی</string>
     <!-- VMess profile editor (legacy outbound) -->
-    <string name="anytls_editor_title">نمایه AnyTLS</string>
+    <string name="anytls_editor_title">سرور AnyTLS</string>
     <string name="anytls_section_endpoint">نقطه اتصال</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_field_display_name">نام</string>
@@ -164,7 +164,7 @@
     <string name="anytls_field_sni">SNI</string>
     <string name="anytls_field_invalid">مقدار نامعتبر برای این فیلد.</string>
     <string name="anytls_save_action">ذخیره</string>
-    <string name="mieru_editor_title">نمایه Mieru</string>
+    <string name="mieru_editor_title">سرور Mieru</string>
     <string name="mieru_section_endpoint">نقطه اتصال</string>
     <string name="mieru_section_credentials">اطلاعات ورود</string>
     <string name="mieru_section_transport">انتقال</string>
@@ -185,7 +185,7 @@
     <string name="mieru_save_action">ذخیره</string>
     <string name="mieru_experimental_title">آزمایشی — تأییدنشده با سرورهای واقعی</string>
     <string name="mieru_experimental_body">پشتیبانی از Mieru با سرور واقعی Mieru آزمایش نشده است. ممکن است اتصالات ناموفق باشند. برای کمک به تأیید این رله، مشکلات را گزارش دهید.</string>
-    <string name="ssh_editor_title">نمایه SSH</string>
+    <string name="ssh_editor_title">سرور SSH</string>
     <string name="ssh_section_endpoint">نقطه اتصال</string>
     <string name="ssh_section_auth">احراز هویت</string>
     <string name="ssh_section_host_key">کلید میزبان</string>

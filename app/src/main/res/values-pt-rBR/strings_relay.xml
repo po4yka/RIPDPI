@@ -80,7 +80,7 @@
     <string name="owned_stack_browser_trace_native_platform_unavailable">A pilha da plataforma Android não está disponível neste dispositivo, então o RIPDPI usou o TLS próprio nativo.</string>
     <string name="owned_stack_browser_empty_body">Sem corpo de resposta.</string>
     <string name="relay_editor_activation_failed">Não foi possível ativar este perfil. Confira os detalhes e tente novamente.</string>
-    <string name="awg_editor_title">Perfil AmneziaWG</string>
+    <string name="awg_editor_title">Servidor AmneziaWG</string>
     <string name="awg_section_interface">Interface</string>
     <string name="awg_section_peer">Par</string>
     <string name="awg_section_carrier">Transporte</string>
@@ -152,7 +152,7 @@
     <string name="awg_key_generation_error">Não foi possível gerar o par de chaves. Tente novamente.</string>
     <string name="awg_field_public_key">Chave pública</string>
     <string name="awg_copy_public_key_action">Copiar chave pública</string>
-    <string name="anytls_editor_title">Perfil AnyTLS</string>
+    <string name="anytls_editor_title">Servidor AnyTLS</string>
     <string name="anytls_section_endpoint">Endpoint</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_field_display_name">Nome</string>
@@ -162,7 +162,7 @@
     <string name="anytls_field_sni">SNI</string>
     <string name="anytls_field_invalid">Valor inválido para este campo.</string>
     <string name="anytls_save_action">Salvar</string>
-    <string name="mieru_editor_title">Perfil Mieru</string>
+    <string name="mieru_editor_title">Servidor Mieru</string>
     <string name="mieru_section_endpoint">Endpoint</string>
     <string name="mieru_section_credentials">Credenciais</string>
     <string name="mieru_section_transport">Transporte</string>
@@ -183,7 +183,7 @@
     <string name="mieru_save_action">Salvar</string>
     <string name="mieru_experimental_title">Experimental — não verificado contra servidores reais</string>
     <string name="mieru_experimental_body">O suporte a Mieru não foi testado contra um servidor Mieru real. As conexões podem falhar. Relate problemas para nos ajudar a verificar este retransmissor.</string>
-    <string name="ssh_editor_title">Perfil SSH</string>
+    <string name="ssh_editor_title">Servidor SSH</string>
     <string name="ssh_section_endpoint">Endpoint</string>
     <string name="ssh_section_auth">Autenticação</string>
     <string name="ssh_section_host_key">Chave de host</string>

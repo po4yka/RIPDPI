@@ -80,7 +80,7 @@
     <string name="owned_stack_browser_trace_native_platform_unavailable">مكدس منصة Android غير متاح على هذا الجهاز، لذا استخدمت RIPDPI TLS الأصلي المملوك.</string>
     <string name="owned_stack_browser_empty_body">لا يوجد نص استجابة.</string>
     <string name="relay_editor_activation_failed">تعذّر تفعيل هذا الملف الشخصي. تحقق من التفاصيل وأعد المحاولة.</string>
-    <string name="awg_editor_title">ملف شخصي AmneziaWG</string>
+    <string name="awg_editor_title">خادم AmneziaWG</string>
     <string name="awg_section_interface">الواجهة</string>
     <string name="awg_section_peer">الند</string>
     <string name="awg_section_carrier">النقل</string>
@@ -175,7 +175,7 @@
     <string name="xray_import_capabilities_title">ما يوفره هذا الملف الشخصي</string>
     <string name="xray_import_finish_action">استخدام هذا الوضع</string>
     <string name="xray_import_done_action">تم</string>
-    <string name="anytls_editor_title">ملف تعريف AnyTLS</string>
+    <string name="anytls_editor_title">خادم AnyTLS</string>
     <string name="anytls_section_endpoint">نقطة الاتصال</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_field_display_name">الاسم</string>
@@ -185,7 +185,7 @@
     <string name="anytls_field_sni">SNI</string>
     <string name="anytls_field_invalid">القيمة غير صالحة لهذا الحقل.</string>
     <string name="anytls_save_action">حفظ</string>
-    <string name="mieru_editor_title">ملف تعريف Mieru</string>
+    <string name="mieru_editor_title">خادم Mieru</string>
     <string name="mieru_section_endpoint">نقطة الاتصال</string>
     <string name="mieru_section_credentials">بيانات الاعتماد</string>
     <string name="mieru_section_transport">بروتوكول النقل</string>
@@ -206,7 +206,7 @@
     <string name="mieru_save_action">حفظ</string>
     <string name="mieru_experimental_title">تجريبي — غير مُتحقَّق منه مع خوادم حقيقية</string>
     <string name="mieru_experimental_body">لم يُختبر دعم Mieru مع خادم Mieru حقيقي. قد تفشل الاتصالات. أبلغ عن المشكلات لمساعدتنا في التحقق من هذا الريلاي.</string>
-    <string name="ssh_editor_title">ملف تعريف SSH</string>
+    <string name="ssh_editor_title">خادم SSH</string>
     <string name="ssh_section_endpoint">نقطة الاتصال</string>
     <string name="ssh_section_auth">المصادقة</string>
     <string name="ssh_section_host_key">مفتاح المضيف</string>
