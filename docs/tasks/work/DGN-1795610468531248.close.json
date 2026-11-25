@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "The new regression failed without the Android diagnostics warning and then passed. It verifies the fixed warning has no Throwable, failed checks leave history empty, and a later check saves its result. All 453 detection tests, Ktlint, Detekt, and just ci-gates passed.",
+  "execution_sha256": "d8bc4a628935742c086484c89afaea13147382d2067a08e47a8538ce322ca5fb",
+  "issue_sha256": "1922025c7a6183b267bfc2f602c928d8491a5141b001955cece87365b9f6a33b",
+  "outcome": "done",
+  "prepared_at": "2026-11-25T14:39:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1795610468531248"
+}
