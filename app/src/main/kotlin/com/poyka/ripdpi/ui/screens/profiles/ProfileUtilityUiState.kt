@@ -36,17 +36,19 @@ internal data class ProfileUtilityItem(
 )
 
 /**
- * A saved AmneziaWG profile. It opens in its editor instead of the relay measurement flow, which cannot probe an AWG
- * tunnel, so its row always reads as not checked. [needsPrivateKey] marks a subscription row delivered without its key.
+ * A saved AmneziaWG profile. It opens in its editor; its [measurement] comes from a handshake check, not the relay
+ * HTTP flow. [needsPrivateKey] marks a subscription row delivered without its key.
  */
 internal data class AwgProfileItem(
     val id: String,
     val name: String,
     val needsPrivateKey: Boolean,
+    val measurement: ProfileMeasurementUiState = ProfileMeasurementUiState.NotChecked,
 )
 
-internal fun SavedAwgProfile.toAwgProfileItem(): AwgProfileItem =
-    AwgProfileItem(id, name, needsPrivateKey = request.privateKey.isBlank())
+internal fun SavedAwgProfile.toAwgProfileItem(
+    measurement: ProfileMeasurementUiState = ProfileMeasurementUiState.NotChecked,
+): AwgProfileItem = AwgProfileItem(id, name, needsPrivateKey = request.privateKey.isBlank(), measurement)
 
 internal sealed interface ProfileMeasurementUiState {
     data object NotChecked : ProfileMeasurementUiState

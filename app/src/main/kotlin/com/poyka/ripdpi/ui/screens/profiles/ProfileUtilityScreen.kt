@@ -54,6 +54,8 @@ internal class ProfileUtilityActions(
     val importProfile: (() -> Unit)? = null,
     // Opens a saved AmneziaWG profile in its editor by id.
     val openAwgProfile: ((id: String, needsPrivateKey: Boolean) -> Unit)? = null,
+    // Sends one handshake to a saved AmneziaWG server by id.
+    val checkAwgProfile: (String) -> Unit = {},
 )
 
 @Composable
@@ -140,13 +142,14 @@ internal fun ProfileUtilityScreen(
                 }
             }
         }
-        actions.openAwgProfile?.let { awgProfileSection(awgProfiles, it) }
+        actions.openAwgProfile?.let { awgProfileSection(awgProfiles, it, actions.checkAwgProfile) }
     }
 }
 
 private fun LazyListScope.awgProfileSection(
     awgProfiles: ImmutableList<AwgProfileItem>,
     openAwgProfile: (id: String, needsPrivateKey: Boolean) -> Unit,
+    checkAwgProfile: (String) -> Unit,
 ) {
     if (awgProfiles.isEmpty()) return
     item(key = "section:awg", contentType = "section") {
@@ -157,19 +160,26 @@ private fun LazyListScope.awgProfileSection(
             SettingsRow(
                 title = profile.name,
                 subtitle = stringResource(R.string.awg_field_private_key).takeIf { profile.needsPrivateKey },
-                // Relay checks cannot reach an AmneziaWG tunnel, so Check and select fastest skips these rows.
+                // Check and select fastest uses the relay HTTP check, so it skips these rows; each row checks itself.
                 value =
-                    stringResource(
-                        if (profile.needsPrivateKey) {
-                            R.string.settings_permission_status_required
-                        } else {
-                            R.string.profile_utility_not_checked
-                        },
-                    ),
+                    if (profile.needsPrivateKey) {
+                        stringResource(R.string.settings_permission_status_required)
+                    } else {
+                        awgMeasurementText(profile.measurement)
+                    },
                 onClick = { openAwgProfile(profile.id, profile.needsPrivateKey) },
                 showChevron = true,
                 testTag = ProfileUtilityTestTags.awgRow(profile.id),
             )
+            if (!profile.needsPrivateKey) {
+                RipDpiButton(
+                    text = stringResource(R.string.profile_utility_check),
+                    onClick = { checkAwgProfile(profile.id) },
+                    wrapLabel = true,
+                    enabled = profile.measurement != ProfileMeasurementUiState.Checking,
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(ProfileUtilityTestTags.awgCheck(profile.id)),
+                )
+            }
         }
     }
 }
@@ -406,6 +416,32 @@ private fun ProfileUtilityControls(
         )
     }
 }
+
+@Composable
+private fun awgMeasurementText(measurement: ProfileMeasurementUiState): String =
+    when (measurement) {
+        ProfileMeasurementUiState.NotChecked -> {
+            stringResource(R.string.profile_utility_not_checked)
+        }
+
+        ProfileMeasurementUiState.Checking -> {
+            stringResource(R.string.profile_utility_checking)
+        }
+
+        is ProfileMeasurementUiState.Measured -> {
+            stringResource(
+                R.string.profile_utility_handshake_measured,
+                NumberFormat
+                    .getIntegerInstance(
+                        LocalConfiguration.current.locales[0],
+                    ).format(measurement.latencyMillis),
+            )
+        }
+
+        is ProfileMeasurementUiState.Failed -> {
+            failureText(measurement.reason)
+        }
+    }
 
 @Composable
 private fun failureText(failure: ProfileUtilityFailure): String =

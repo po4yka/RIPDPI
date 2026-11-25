@@ -41,6 +41,7 @@ import com.poyka.ripdpi.data.WarpAmneziaPresetOff
 import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
 import com.poyka.ripdpi.data.WarpRouteModeOff
 import com.poyka.ripdpi.data.canonicalDefaultTcpChainSteps
+import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
@@ -349,6 +350,9 @@ data class RipDpiWarpAmneziaConfig(
     val i5: String = "",
     val presharedKey: String = "",
     val persistentKeepalive: Int = 25,
+    // Only an AmneziaWG endpoint check sets this; WARP config JSON stays unchanged without it.
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val v3: AmneziaWgV3Parameters = AmneziaWgV3Parameters(),
 )
 
 @Serializable

@@ -27,6 +27,7 @@ internal fun ProfileUtilityRoute(
             resumeAutomatic = viewModel::resumeAutomatic,
             importProfile = onImportProfile,
             openAwgProfile = onOpenAwgProfile,
+            checkAwgProfile = awgViewModel::check,
         ),
         awgProfiles = awgViewModel.profiles.collectAsStateWithLifecycle().value,
     )

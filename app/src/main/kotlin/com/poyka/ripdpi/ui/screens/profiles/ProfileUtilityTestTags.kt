@@ -13,6 +13,8 @@ internal object ProfileUtilityTestTags {
 
     fun awgRow(profileId: String): String = "profile_utility_awg:${profileId}_row"
 
+    fun awgCheck(profileId: String): String = "profile_utility_awg:${profileId}_check"
+
     fun automatic(groupId: String): String = "profile_utility_selector:${groupId}_automatic"
 
     fun action(

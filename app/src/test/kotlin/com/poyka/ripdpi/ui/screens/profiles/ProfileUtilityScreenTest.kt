@@ -298,8 +298,9 @@ class ProfileUtilityScreenTest {
     }
 
     @Test
-    fun `saved AmneziaWG profiles open their editor, mark a missing key and read as not checked`() {
+    fun `saved AmneziaWG profiles open their editor, mark a missing key and check their server`() {
         val opened = mutableListOf<Pair<String, Boolean>>()
+        val checked = mutableListOf<String>()
         render(
             state(),
             ProfileUtilityActions(
@@ -311,27 +312,28 @@ class ProfileUtilityScreenTest {
                 { error("Unexpected probe URL edit") },
                 { error("Unexpected fastest selection") },
                 openAwgProfile = { id, needsPrivateKey -> opened += id to needsPrivateKey },
+                checkAwgProfile = { checked += it },
             ),
             listOf(
                 AwgProfileItem("awg-sub", "Home AWG", needsPrivateKey = true),
-                AwgProfileItem("awg-own", "Own", false),
+                AwgProfileItem("awg-own", "Own", false, ProfileMeasurementUiState.Measured(42, 1)),
             ),
         )
 
         composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-sub")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(text(R.string.settings_permission_status_required)).assertIsDisplayed()
-        // Check and select fastest cannot reach an AmneziaWG tunnel; the row says so in its value.
-        val notChecked = text(R.string.profile_utility_not_checked)
+        // A checked row reads as a handshake time, not an HTTP result.
+        val handshake = RuntimeEnvironment.getApplication().getString(R.string.profile_utility_handshake_measured, "42")
         composeRule
             .onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-own"))
             .performScrollTo()
             .assert(
                 androidx.compose.ui.test
-                    .hasText(notChecked) or
+                    .hasText(handshake) or
                     androidx.compose.ui.test
                         .hasAnyDescendant(
                             androidx.compose.ui.test
-                                .hasText(notChecked),
+                                .hasText(handshake),
                         ),
             )
         composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-own")).performScrollTo().performClick()
@@ -339,6 +341,11 @@ class ProfileUtilityScreenTest {
 
         // The row that lacks its key asks for the key-only screen.
         assertEquals(listOf("awg-own" to false, "awg-sub" to true), opened)
+
+        // Only a row with its key can send a handshake.
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.awgCheck("awg-sub")).assertDoesNotExist()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.awgCheck("awg-own")).performScrollTo().performClick()
+        assertEquals(listOf("awg-own"), checked)
     }
 
     private fun openDetails() {
