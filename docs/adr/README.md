@@ -20,6 +20,7 @@ This directory indexes protocol and architecture decisions that should be treate
 | [ADR 0013: Build logic code decisions](0013-build-logic-code-decisions.md) | Accepted | 2026-11-25 | Decision records moved out of `build-logic` and `quality/detekt-rules` source comments. |
 | [ADR 0014: Relay protocol crates code decisions](0014-relay-protocol-crates-code-decisions.md) | Accepted | 2026-11-25 | Decision records moved out of the `ripdpi-trojan`, `ripdpi-anytls`, and `ripdpi-shadowtls` source comments. |
 | [ADR 0015: Diagnostics probe crates code decisions](0015-diagnostics-probe-crates-code-decisions.md) | Accepted | 2026-11-25 | Decision records moved out of the `ripdpi-diagnostics-http`, `-tls`, `-dns`, and `-transport` source comments. |
+| [ADR 0016: Server journey code decisions](0016-server-journey-code-decisions.md) | Accepted | 2026-11-25 | Decision records moved out of the source comments of the saved server check, connected server status, relay event server names, and AmneziaWG profile editor. |
 
 ## Cross-Link Rules
 

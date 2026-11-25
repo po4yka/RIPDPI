@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Names the saved server behind a relay profile token on this device. Names never enter the event store or exports. */
 fun interface ServerNames {
     fun nameOf(event: DiagnosticEvent): String?
 
@@ -28,7 +27,6 @@ fun interface ServerNames {
     }
 }
 
-/** Relay health events carry `opaqueRelayProfileToken(memberId)`; the saved selector members give the names. */
 @Singleton
 internal class SavedServerNames
     @Inject
@@ -45,7 +43,6 @@ internal class SavedServerNames
                         .associate { opaqueRelayProfileToken(it.id) to it.exitName() }
                 }.catch {
                     if (it is CancellationException) throw it
-                    // An unreadable catalog leaves events unnamed, as before.
                     emit(emptyMap())
                 }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
 

@@ -350,7 +350,6 @@ data class RipDpiWarpAmneziaConfig(
     val i5: String = "",
     val presharedKey: String = "",
     val persistentKeepalive: Int = 25,
-    // Only an AmneziaWG endpoint check sets this; WARP config JSON stays unchanged without it.
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val v3: AmneziaWgV3Parameters = AmneziaWgV3Parameters(),
 )

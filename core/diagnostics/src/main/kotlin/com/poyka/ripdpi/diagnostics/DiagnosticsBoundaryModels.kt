@@ -219,7 +219,6 @@ data class DiagnosticEvent(
     val subsystem: String? = null,
     @Transient
     val relayAttemptStage: DiagnosticRelayAttemptStage? = null,
-    /** `sha256(profileId)` of the relay the event concerns. Transient: exports carry only the archive alias. */
     @Transient
     val relayProfileToken: String? = null,
 )

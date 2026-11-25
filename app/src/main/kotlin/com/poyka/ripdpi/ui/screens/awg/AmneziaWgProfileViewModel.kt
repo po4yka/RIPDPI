@@ -76,17 +76,11 @@ class AwgVpnConsentRequest(
 data class AmneziaWgProfileUiState(
     val editor: AmneziaWgEditorState,
     val cohortOptions: ImmutableList<AwgCohortOption>,
-    /** The profile name the lists show; blank saves the cohort-derived default. */
     val name: String = "",
-    /** The public half of the key pair generated in this editor; it goes when the private key changes. */
     val generatedPublicKey: String? = null,
-    /** The last key generation failed; the next edit clears it. */
     val keyGenerationFailed: Boolean = false,
-    /** A Save without Connect runs. */
     val saving: Boolean = false,
-    /** The last Save stored the form; the next edit clears it. */
     val saved: Boolean = false,
-    /** The last Save failed; the next edit clears it. */
     val saveFailed: Boolean = false,
     val privateKeyRevealed: Boolean = false,
     val presharedKeyRevealed: Boolean = false,
@@ -210,10 +204,6 @@ class AmneziaWgProfileViewModel
             _uiState.update { if (it.loadingProfile) it else it.copy(name = name, saved = false, saveFailed = false) }
         }
 
-        /**
-         * Fills an empty private key from a fresh native X25519 pair and keeps its public half for copying.
-         * A key typed or pasted meanwhile wins: generation never replaces an existing key.
-         */
         @Suppress("TooGenericExceptionCaught")
         fun onGenerateKeyPair() {
             if (!_uiState.value.canGenerateKey()) return
@@ -437,7 +427,6 @@ class AmneziaWgProfileViewModel
             }
         }
 
-        /** Stores the form as the bound profile without VPN consent or activation. */
         @Suppress("TooGenericExceptionCaught")
         fun onSave() {
             val state = _uiState.value
@@ -451,11 +440,9 @@ class AmneziaWgProfileViewModel
                         _uiState.update { it.copy(saving = false) }
                         throw cancellation
                     } catch (ignored: Exception) {
-                        // Config exceptions can contain secrets; expose only the status.
                         _uiState.update { it.copy(saving = false, saveFailed = true) }
                         return@launch
                     }
-                // An edit made while the write ran is not in the stored row, so it is not reported as saved.
                 _uiState.update {
                     it.copy(saving = false, saved = stored && it.editor === state.editor && it.name == state.name)
                 }
@@ -505,10 +492,6 @@ class AmneziaWgProfileViewModel
             _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
         }
 
-        /**
-         * Saves [editor] as the bound row and returns its request with the stable id. Returns `null` without saving
-         * when the form changed since the tap or the edit would move a subscription profile to another server.
-         */
         private suspend fun persist(editor: AmneziaWgEditorState): AwgActivationRequest? {
             val state = _uiState.value
             if (state.editor !== editor || state.pendingCohortId != null) return null
@@ -548,10 +531,6 @@ class AmneziaWgProfileViewModel
         }
     }
 
-/**
- * The typed [name], or a default derived from the cohort id (server-coordinated, not user-private) rather than the
- * endpoint host, so the host never surfaces in a profile-list label unless the user types it.
- */
 private fun profileName(
     name: String,
     editor: AmneziaWgEditorState,
@@ -571,7 +550,6 @@ private fun AmneziaWgProfileUiState.busy(): Boolean =
 private fun AmneziaWgProfileUiState.canGenerateKey(): Boolean =
     !loadingProfile && editor.form.interfacePrivateKey.isBlank()
 
-/** Replaces the editor and clears the stale flags that described the previous input. */
 private fun AmneziaWgProfileUiState.withEditor(nextEditor: AmneziaWgEditorState): AmneziaWgProfileUiState =
     copy(
         editor = nextEditor,

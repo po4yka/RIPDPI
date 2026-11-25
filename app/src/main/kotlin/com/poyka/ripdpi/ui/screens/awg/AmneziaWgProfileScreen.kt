@@ -210,7 +210,6 @@ internal fun AmneziaWgProfileScreen(
             onRevealPresharedKey = onRevealPresharedKey,
             onRevealHeaderProtectionKey = onRevealHeaderProtectionKey,
         )
-        // Save stores the profile without asking for VPN consent or connecting.
         RipDpiButton(
             text = stringResource(R.string.awg_save_action),
             onClick = onSave,
@@ -463,7 +462,6 @@ private fun InterfaceSection(
     }
 }
 
-/** The generated public key, read-only, for the server's peer entry. It is not a secret, so the clip is plain. */
 @Composable
 private fun AwgPublicKeyField(publicKey: String) {
     val context = LocalContext.current

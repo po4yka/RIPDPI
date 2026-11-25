@@ -54,7 +54,6 @@ internal class ProfileUtilityActions(
     val importProfile: (() -> Unit)? = null,
     // Opens a saved AmneziaWG profile in its editor by id.
     val openAwgProfile: ((id: String, needsPrivateKey: Boolean) -> Unit)? = null,
-    // Sends one handshake to a saved AmneziaWG server by id.
     val checkAwgProfile: (String) -> Unit = {},
 )
 
@@ -160,7 +159,6 @@ private fun LazyListScope.awgProfileSection(
             SettingsRow(
                 title = profile.name,
                 subtitle = stringResource(R.string.awg_field_private_key).takeIf { profile.needsPrivateKey },
-                // Check and select fastest uses the relay HTTP check, so it skips these rows; each row checks itself.
                 value =
                     if (profile.needsPrivateKey) {
                         stringResource(R.string.settings_permission_status_required)

@@ -19,21 +19,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 sealed interface AwgEndpointCheckResult {
-    /** The server answered the handshake; [handshakeMillis] is its round trip. */
     data class Answered(
         val handshakeMillis: Long,
     ) : AwgEndpointCheckResult
 
     data object NoAnswer : AwgEndpointCheckResult
 
-    /** The profile is incomplete or uses the WebSocket carrier, which this UDP check cannot reach. */
     data object Unsupported : AwgEndpointCheckResult
 
-    /** The VPN session started, stopped, or changed protection while the check ran. */
     data object EnvironmentChanged : AwgEndpointCheckResult
 }
 
-/** One AmneziaWG handshake to a saved server. It never starts a tunnel or changes the selection. */
 fun interface AwgEndpointCheck {
     suspend fun check(request: AwgActivationRequest): AwgEndpointCheckResult
 }
@@ -48,7 +44,6 @@ internal class NativeAwgEndpointCheck
         override suspend fun check(request: AwgActivationRequest): AwgEndpointCheckResult {
             val probe = request.toProbeRequest() ?: return AwgEndpointCheckResult.Unsupported
             return withContext(Dispatchers.IO) {
-                // The lease keeps the probe socket under VpnService.protect while a VPN session owns the device.
                 protection.captureWarpProbe().use { lease ->
                     if (!lease.isCurrent()) return@withContext AwgEndpointCheckResult.EnvironmentChanged
                     val json =
@@ -79,7 +74,6 @@ internal class NativeAwgEndpointCheck
         }
     }
 
-/** The native probe request for this profile, or null when a UDP handshake cannot test it. */
 internal fun AwgActivationRequest.toProbeRequest(): WarpEndpointProbeNativeRequest? {
     val ready = carrier == AwgActivationRequest.CARRIER_UDP && runCatching { requireRuntimeReady() }.isSuccess
     if (!ready) return null
@@ -97,7 +91,6 @@ private fun AwgActivationObfuscation.toProbeConfig(
     persistentKeepalive: Int,
 ) = RipDpiWarpAmneziaConfig(
     wireProfile = wireProfile,
-    // The runtime runs its codec in passthrough when every knob is default; the probe must match.
     enabled = this != AwgActivationObfuscation(),
     jc = jc,
     jmin = jmin,
@@ -120,7 +113,6 @@ private fun AwgActivationObfuscation.toProbeConfig(
     v3 = v3,
 )
 
-// Long enough for a distant server; short, because a running check delays a VPN start (see ActiveProtectSocketPathProvider.set).
 private const val AwgCheckTimeoutMs = 5_000L
 
 @Module

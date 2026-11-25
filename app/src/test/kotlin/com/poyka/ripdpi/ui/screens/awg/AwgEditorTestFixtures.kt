@@ -38,7 +38,6 @@ internal val AwgPeerTestKey = Base64.getEncoder().encodeToString(ByteArray(32) {
 internal val AwgGeneratedPrivateTestKey = Base64.getEncoder().encodeToString(ByteArray(32) { 3 })
 internal val AwgGeneratedPublicTestKey = Base64.getEncoder().encodeToString(ByteArray(32) { 4 })
 
-/** Returns a fixed pair, or throws [failure] when set, without loading the native library. */
 internal class FakeWarpKeyPairGenerator : WarpKeyPairGenerator {
     var failure: Exception? = null
     var calls = 0

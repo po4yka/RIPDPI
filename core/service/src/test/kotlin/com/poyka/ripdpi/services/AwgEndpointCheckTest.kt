@@ -71,7 +71,6 @@ class AwgEndpointCheckTest {
                     .toInt(),
             )
             assertEquals(true, amnezia.getValue("enabled").jsonPrimitive.boolean)
-            // A profile without AWG 3.x keys keeps the WARP wire shape.
             assertFalse("v3" in amnezia)
         }
 

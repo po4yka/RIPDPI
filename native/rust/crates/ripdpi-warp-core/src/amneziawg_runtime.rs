@@ -394,8 +394,6 @@ pub struct AmneziaWgTelemetry {
     /// TLS, or WS-upgrade failure). Additive; defaults to `0`.
     pub ws_carrier_handshake_failures: u64,
     pub listener_address: Option<String>,
-    /// Round trip of the last completed WireGuard handshake, refreshed on each rekey (not a live ping).
-    /// Over the WS carrier it includes the carrier hop. Omitted until the first response.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upstream_rtt_ms: Option<u64>,
     /// Redacted for privacy: AWG endpoints are user-supplied server identities.
@@ -565,7 +563,6 @@ impl AmneziaWgRuntime {
         let listener = TcpListener::bind(&bind_addr).await?;
         let bind_addr = listener.local_addr()?.to_string();
         let mtu = self.config.mtu.max(MIN_MTU) as usize;
-        // Published only after the last early return, so a failed start never keeps the tunnel alive.
         *self.tunnel.lock().unwrap_or_else(PoisonError::into_inner) = Some(Arc::clone(&tunnel));
 
         {

@@ -322,7 +322,6 @@ class ProfileUtilityScreenTest {
 
         composeRule.onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-sub")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(text(R.string.settings_permission_status_required)).assertIsDisplayed()
-        // A checked row reads as a handshake time, not an HTTP result.
         val handshake = RuntimeEnvironment.getApplication().getString(R.string.profile_utility_handshake_measured, "42")
         composeRule
             .onNodeWithTag(ProfileUtilityTestTags.awgRow("awg-own"))
@@ -342,7 +341,6 @@ class ProfileUtilityScreenTest {
         // The row that lacks its key asks for the key-only screen.
         assertEquals(listOf("awg-own" to false, "awg-sub" to true), opened)
 
-        // Only a row with its key can send a handshake.
         composeRule.onNodeWithTag(ProfileUtilityTestTags.awgCheck("awg-sub")).assertDoesNotExist()
         composeRule.onNodeWithTag(ProfileUtilityTestTags.awgCheck("awg-own")).performScrollTo().performClick()
         assertEquals(listOf("awg-own"), checked)

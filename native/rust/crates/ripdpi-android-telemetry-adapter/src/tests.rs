@@ -355,7 +355,6 @@ fn failures_on_local_targets_do_not_count_toward_warnings() {
     assert_eq!(state.snapshot().connection_failure_events, 1);
 }
 
-// A DNS sinkhole answers 0.0.0.0 (dialled as 127.0.0.1); the refused dial advances the route at start-up (SVC-1795615846684850).
 #[test]
 fn route_advances_on_local_targets_do_not_count_toward_warnings() {
     let state = Arc::new(ProxyTelemetryState::new(None));

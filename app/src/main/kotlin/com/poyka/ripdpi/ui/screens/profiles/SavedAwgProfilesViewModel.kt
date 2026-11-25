@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Lists saved AmneziaWG profiles for the picker and checks each server; only names, key presence and results leave. */
 @HiltViewModel
 internal class SavedAwgProfilesViewModel
     @Inject
@@ -47,7 +46,6 @@ internal class SavedAwgProfilesViewModel
                     .toImmutableList()
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), persistentListOf())
 
-        /** Sends one handshake to the saved server; the selection and any running session stay as they are. */
         fun check(id: String) {
             val profile = saved.value.firstOrNull { it.id == id } ?: return
             if (checks.value[id] == ProfileMeasurementUiState.Checking) return

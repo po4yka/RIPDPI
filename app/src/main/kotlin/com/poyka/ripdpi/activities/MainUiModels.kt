@@ -104,7 +104,6 @@ data class MainUiState(
      * Null on the native provider path or when no Xray session is active.
      */
     val xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
-    /** The saved server that carries traffic now; null while disconnected or on a direct path. */
     val connectedServer: com.poyka.ripdpi.ui.screens.status.StatusConnectedServer? = null,
 ) {
     val localBypassCard: StatusModeCardUiState

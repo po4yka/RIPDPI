@@ -124,7 +124,6 @@ pub(crate) struct WireGuardTunnel {
     reserved: [u8; 3],
     amnezia: Option<Arc<AwgWireCodec>>,
     handshake_readiness: HandshakeReadiness,
-    /// Last handshake round trip in ms; `0` until the first response.
     handshake_rtt_ms: AtomicU64,
     carrier_cookie_id: [u8; 16],
 }
@@ -359,9 +358,7 @@ impl WireGuardTunnel {
         self.handshake_readiness.is_established()
     }
 
-    /// Round trip of the last completed handshake, or `None` before the first response.
     pub(crate) fn handshake_rtt_ms(&self) -> Option<u64> {
-        // A telemetry read; it orders nothing else, so Relaxed is enough.
         Some(self.handshake_rtt_ms.load(Ordering::Relaxed)).filter(|rtt| *rtt != 0)
     }
 
@@ -514,11 +511,9 @@ impl WireGuardTunnel {
                 let mut peer = self.peer.lock().await;
                 let received =
                     receive_packet(&mut peer, self.amnezia.as_deref(), source, &mut recv_buf[..size], &mut send_buf);
-                // Stored before readiness, so a reader woken by readiness sees the round trip.
                 if received.1 == ReceiveOutcome::HandshakeResponse
                     && let Some(rtt) = peer.stats().4
                 {
-                    // boringtun reports whole ms; clamp so a sub-ms answer still reads as measured.
                     self.handshake_rtt_ms.store(u64::from(rtt).max(1), Ordering::Relaxed);
                 }
                 // Use the same lock as timer expiry so readiness follows backend order.
@@ -864,7 +859,6 @@ mod tests {
         let consume = spawn_consume(&tunnel);
         assert_eq!(tunnel.handshake_rtt_ms(), None, "no round trip before a response");
         tunnel.initiate_handshake().await.unwrap();
-        // A delayed answer proves the value is the measured round trip, not the sub-ms clamp.
         tokio::time::sleep(Duration::from_millis(40)).await;
         answer_initiation(&socket, &mut peer, |_| {}).await;
 
