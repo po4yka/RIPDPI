@@ -21,7 +21,6 @@
     <string name="config_strategy_lanes_more">%1$d مورد دیگر</string>
     <string name="config_strategy_lanes_other_network">شبکه دیگر</string>
     <string name="config_strategy_lanes_sites">سایت‌های بازشده: %1$d از %2$d</string>
-    <string name="config_vpn_add_profile_title">افزودن سرور</string>
     <string name="config_vpn_add_server">افزودن سرور</string>
     <string name="config_vpn_add_server_manual">افزودن دستی</string>
     <string name="config_vpn_add_server_paste">چسباندن پیوند</string>

@@ -828,7 +828,6 @@ app:config_udp_chain_hint
 app:config_validation_banner_body
 app:config_validation_banner_title
 app:config_validation_fix
-app:config_vpn_add_profile_title
 app:config_vpn_add_server
 app:config_vpn_add_server_manual
 app:config_vpn_add_server_paste

@@ -21,7 +21,6 @@
     <string name="config_strategy_lanes_more">Mais %1$d</string>
     <string name="config_strategy_lanes_other_network">Outra rede</string>
     <string name="config_strategy_lanes_sites">Sites abertos: %1$d de %2$d</string>
-    <string name="config_vpn_add_profile_title">Adicionar servidor</string>
     <string name="config_vpn_add_server">Adicionar servidor</string>
     <string name="config_vpn_add_server_manual">Adicionar manualmente</string>
     <string name="config_vpn_add_server_paste">Colar link</string>

@@ -876,7 +876,6 @@ fakeddisorder endhost</string>
     <string name="config_vpn_protocol_summary">Как приложение подключается к серверу реле</string>
     <string name="config_vpn_protocol_title">Протокол реле</string>
     <string name="config_vpn_relay_server_summary">Адрес удалённого сервера, через который идёт ваш трафик</string>
-    <string name="config_vpn_add_profile_title">Добавить сервер</string>
     <string name="config_vpn_add_server">Добавить сервер</string>
     <string name="config_vpn_add_server_manual">Добавить вручную</string>
     <string name="config_vpn_add_server_paste">Вставить ссылку</string>

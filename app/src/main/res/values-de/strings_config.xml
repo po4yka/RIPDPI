@@ -425,7 +425,6 @@ fakeddisorder endhost</string>
     <string name="config_relay_xhttp_path">xHTTP-Pfad</string>
     <string name="config_udp_chain_hint">UDP-Fake-Bursts befinden sich jetzt im Bypass-Strategie-Editor als fake_burst-Anzahl.</string>
     <string name="config_vpn_credentials_summary">Schlüssel oder Passwörter für den Relay-Server, sicher auf diesem Gerät gespeichert</string>
-    <string name="config_vpn_add_profile_title">Server hinzufügen</string>
     <string name="config_vpn_add_server">Server hinzufügen</string>
     <string name="config_vpn_add_server_manual">Manuell hinzufügen</string>
     <string name="config_vpn_add_server_paste">Link einfügen</string>
