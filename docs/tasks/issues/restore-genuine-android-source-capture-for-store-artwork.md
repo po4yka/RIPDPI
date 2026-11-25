@@ -2,7 +2,7 @@
 id: CIC-1792748686642962
 title: Restore genuine Android source capture for store artwork
 kind: bug
-status: review
+status: done
 area: ci
 priority: high
 owner: Screenshot CI repair
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-23
 updated: 2026-11-25
 spec_reason: tooling-only
+closed_at: "2026-11-25T07:27:47Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Play Debug on clean API 37 captured 42 current Android frames and generated 49 unique reviewed assets in run 45563566881. CI run 45567977924 reproduced the committed files with no drift. Full app CI 45556163913 attempt 2 passed ci-required and all five Android instrumented lanes.
 ---
 
 ## Goal
