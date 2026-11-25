@@ -2,7 +2,7 @@
 id: SVC-1795615846684850
 title: Stop showing Route issue right after a passed connection test
 kind: bug
-status: doing
+status: review
 area: service
 priority: high
 owner: route-issue
