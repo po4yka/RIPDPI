@@ -1275,6 +1275,7 @@ Source: %2$s</string>
     <string name="profile_utility_check_select">Check and select</string>
     <string name="profile_utility_checking">Checking…</string>
     <string name="profile_utility_measured">HTTP: %1$s ms</string>
+    <string name="profile_utility_handshake_measured">Handshake: %1$s ms</string>
     <string name="profile_utility_not_checked">Not checked</string>
     <string name="profile_utility_unsupported">This profile cannot be checked here.</string>
     <string name="profile_utility_environment_changed">Network, policy or profile changed. Check again.</string>

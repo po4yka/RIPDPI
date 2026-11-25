@@ -1250,6 +1250,7 @@ fakeddisorder endhost</string>
     <string name="profile_utility_check_select">जाँचें और चुनें</string>
     <string name="profile_utility_checking">जाँच जारी है…</string>
     <string name="profile_utility_measured">HTTP: %1$s मिलीसेकंड</string>
+    <string name="profile_utility_handshake_measured">हैंडशेक: %1$s मिलीसेकंड</string>
     <string name="profile_utility_not_checked">जाँच नहीं हुई</string>
     <string name="profile_utility_unsupported">इस प्रोफ़ाइल की यहाँ जाँच नहीं हो सकती।</string>
     <string name="profile_utility_environment_changed">नेटवर्क, नीति या प्रोफ़ाइल बदल गई है। फिर जाँचें।</string>

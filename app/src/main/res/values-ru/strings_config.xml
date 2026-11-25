@@ -1274,6 +1274,7 @@ fakeddisorder endhost</string>
     <string name="profile_utility_check_select">Проверить и выбрать</string>
     <string name="profile_utility_checking">Проверка…</string>
     <string name="profile_utility_measured">HTTP: %1$s мс</string>
+    <string name="profile_utility_handshake_measured">Рукопожатие: %1$s мс</string>
     <string name="profile_utility_not_checked">Не проверен</string>
     <string name="profile_utility_unsupported">Этот профиль нельзя проверить здесь.</string>
     <string name="profile_utility_environment_changed">Сеть, политика или профиль изменились. Проверьте снова.</string>

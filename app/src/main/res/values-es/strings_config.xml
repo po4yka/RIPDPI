@@ -1250,6 +1250,7 @@ Origen: %2$s</string>
     <string name="profile_utility_check_select">Comprobar y seleccionar</string>
     <string name="profile_utility_checking">Comprobando…</string>
     <string name="profile_utility_measured">HTTP: %1$s ms</string>
+    <string name="profile_utility_handshake_measured">Negociación: %1$s ms</string>
     <string name="profile_utility_not_checked">Sin comprobar</string>
     <string name="profile_utility_unsupported">Este perfil no se puede comprobar aquí.</string>
     <string name="profile_utility_environment_changed">La red, la política o el perfil cambiaron. Comprueba de nuevo.</string>

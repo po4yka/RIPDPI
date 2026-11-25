@@ -482,6 +482,9 @@
     <string name="status_quality_partial">يحتاج تقييم الجودة إلى المزيد من عينات RTT الحالية.</string>
     <string name="status_quality_last_values">آخر قياسات تم الإبلاغ عنها؛ لا تصف جودة الاتصال الحالية.</string>
     <string name="status_quality_traffic_total">إجمالي البيانات</string>
+    <string name="status_server_metric">الخادم</string>
+    <string name="status_server_latency_metric">زمن استجابة الخادم</string>
+    <string name="status_server_uptime_metric">مدة الاتصال</string>
     <string name="pause_action">إيقاف الاتصال مؤقتًا</string>
     <string name="pause_until">متوقف حتى %1$s</string>
     <string name="pause_releasing">جارٍ تحرير موارد الاتصال…</string>

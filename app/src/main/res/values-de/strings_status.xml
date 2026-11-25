@@ -451,6 +451,9 @@
     <string name="status_quality_partial">Eine Qualitätsbewertung benötigt mehr aktuelle RTT-Messwerte.</string>
     <string name="status_quality_last_values">Zuletzt gemeldete Messwerte; sie beschreiben nicht die aktuelle Verbindungsqualität.</string>
     <string name="status_quality_traffic_total">Datenvolumen gesamt</string>
+    <string name="status_server_metric">Server</string>
+    <string name="status_server_latency_metric">Server-Latenz</string>
+    <string name="status_server_uptime_metric">Laufzeit</string>
     <string name="pause_action">Verbindung pausieren</string>
     <string name="pause_until">Pausiert bis %1$s</string>
     <string name="pause_releasing">Verbindungsressourcen werden freigegeben…</string>

@@ -1236,6 +1236,7 @@ fakeddisorder endhost</string>
     <string name="profile_utility_check_select">检查并选择</string>
     <string name="profile_utility_checking">正在检查…</string>
     <string name="profile_utility_measured">HTTP：%1$s 毫秒</string>
+    <string name="profile_utility_handshake_measured">握手：%1$s 毫秒</string>
     <string name="profile_utility_not_checked">未检查</string>
     <string name="profile_utility_unsupported">无法在此检查该配置文件。</string>
     <string name="profile_utility_environment_changed">网络、策略或配置文件已更改。请重新检查。</string>

@@ -3599,6 +3599,7 @@ app:profile_utility_failed
 app:profile_utility_favorite_add
 app:profile_utility_favorite_remove
 app:profile_utility_favorites
+app:profile_utility_handshake_measured
 app:profile_utility_last_used
 app:profile_utility_loading
 app:profile_utility_measured
@@ -4867,6 +4868,9 @@ app:status_remediation_stale_step_open_diagnostics
 app:status_remediation_stale_step_rerun
 app:status_remediation_stale_step_review
 app:status_remediation_stale_title
+app:status_server_latency_metric
+app:status_server_metric
+app:status_server_uptime_metric
 app:status_stat_mode
 app:status_stat_quality
 app:status_stat_route

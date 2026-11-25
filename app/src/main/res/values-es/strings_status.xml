@@ -455,6 +455,9 @@
     <string name="status_quality_partial">La evaluación de calidad necesita más muestras actuales de RTT.</string>
     <string name="status_quality_last_values">Últimas mediciones recibidas; no describen la calidad actual de la conexión.</string>
     <string name="status_quality_traffic_total">Tráfico total</string>
+    <string name="status_server_metric">Servidor</string>
+    <string name="status_server_latency_metric">Latencia del servidor</string>
+    <string name="status_server_uptime_metric">Tiempo activo</string>
     <string name="pause_action">Pausar conexión</string>
     <string name="pause_until">En pausa hasta %1$s</string>
     <string name="pause_releasing">Liberando recursos de conexión…</string>

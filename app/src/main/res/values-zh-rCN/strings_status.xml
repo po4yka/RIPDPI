@@ -443,6 +443,9 @@
     <string name="status_quality_partial">质量评估需要更多近期 RTT 样本。</string>
     <string name="status_quality_last_values">最近上报的测量不能反映当前连接质量。</string>
     <string name="status_quality_traffic_total">总流量</string>
+    <string name="status_server_metric">服务器</string>
+    <string name="status_server_latency_metric">服务器延迟</string>
+    <string name="status_server_uptime_metric">运行时间</string>
     <string name="pause_action">暂停连接</string>
     <string name="pause_until">暂停至 %1$s</string>
     <string name="pause_releasing">正在释放连接资源…</string>

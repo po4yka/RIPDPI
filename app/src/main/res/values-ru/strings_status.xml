@@ -463,6 +463,9 @@
     <string name="status_quality_partial">Для оценки качества нужно больше свежих образцов RTT.</string>
     <string name="status_quality_last_values">Последние полученные измерения не отражают текущее качество соединения.</string>
     <string name="status_quality_traffic_total">Всего трафика</string>
+    <string name="status_server_metric">Сервер</string>
+    <string name="status_server_latency_metric">Задержка сервера</string>
+    <string name="status_server_uptime_metric">Время работы</string>
     <string name="pause_action">Приостановить соединение</string>
     <string name="pause_until">Пауза до %1$s</string>
     <string name="pause_releasing">Освобождение ресурсов соединения…</string>

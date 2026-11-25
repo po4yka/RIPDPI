@@ -1246,6 +1246,7 @@ Fonte: %2$s</string>
     <string name="profile_utility_check_select">Verificar e selecionar</string>
     <string name="profile_utility_checking">Verificando…</string>
     <string name="profile_utility_measured">HTTP: %1$s ms</string>
+    <string name="profile_utility_handshake_measured">Handshake: %1$s ms</string>
     <string name="profile_utility_not_checked">Não verificado</string>
     <string name="profile_utility_unsupported">Este perfil não pode ser verificado aqui.</string>
     <string name="profile_utility_environment_changed">A rede, a política ou o perfil mudou. Verifique novamente.</string>

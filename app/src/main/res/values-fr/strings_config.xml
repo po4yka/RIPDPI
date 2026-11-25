@@ -1250,6 +1250,7 @@ Source : %2$s</string>
     <string name="profile_utility_check_select">Vérifier et sélectionner</string>
     <string name="profile_utility_checking">Vérification…</string>
     <string name="profile_utility_measured">HTTP : %1$s ms</string>
+    <string name="profile_utility_handshake_measured">Poignée de main : %1$s ms</string>
     <string name="profile_utility_not_checked">Non vérifié</string>
     <string name="profile_utility_unsupported">Ce profil ne peut pas être vérifié ici.</string>
     <string name="profile_utility_environment_changed">Le réseau, la règle ou le profil a changé. Vérifiez à nouveau.</string>

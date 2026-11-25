@@ -1250,6 +1250,7 @@ Quelle: %2$s</string>
     <string name="profile_utility_check_select">Prüfen und auswählen</string>
     <string name="profile_utility_checking">Wird geprüft…</string>
     <string name="profile_utility_measured">HTTP: %1$s ms</string>
+    <string name="profile_utility_handshake_measured">Handshake: %1$s ms</string>
     <string name="profile_utility_not_checked">Nicht geprüft</string>
     <string name="profile_utility_unsupported">Dieses Profil kann hier nicht geprüft werden.</string>
     <string name="profile_utility_environment_changed">Netzwerk, Richtlinie oder Profil geändert. Erneut prüfen.</string>

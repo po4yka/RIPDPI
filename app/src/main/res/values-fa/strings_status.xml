@@ -451,6 +451,9 @@
     <string name="status_quality_partial">ارزیابی کیفیت به نمونه‌های تازهٔ بیشتری از RTT نیاز دارد.</string>
     <string name="status_quality_last_values">آخرین اندازه‌گیری‌های گزارش‌شده؛ این مقادیر کیفیت فعلی اتصال را نشان نمی‌دهند.</string>
     <string name="status_quality_traffic_total">کل ترافیک</string>
+    <string name="status_server_metric">سرور</string>
+    <string name="status_server_latency_metric">تأخیر سرور</string>
+    <string name="status_server_uptime_metric">مدت اتصال</string>
     <string name="pause_action">توقف موقت اتصال</string>
     <string name="pause_until">توقف تا %1$s</string>
     <string name="pause_releasing">در حال آزادسازی منابع اتصال…</string>
