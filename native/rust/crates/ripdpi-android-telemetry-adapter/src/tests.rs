@@ -344,7 +344,9 @@ fn failures_on_local_targets_do_not_count_toward_warnings() {
         FailureAction::SurfaceOnly,
         "refused",
     );
-    for target in ["192.168.1.20:80", "169.254.1.1:80", "127.0.0.1:80", "[fe80::1]:80", "[fd00::1]:80"] {
+    for target in
+        ["192.168.1.20:80", "169.254.1.1:80", "127.0.0.1:80", "0.0.0.0:80", "[::]:80", "[fe80::1]:80", "[fd00::1]:80"]
+    {
         observer.on_failure_classified(target.parse().unwrap(), &failure, None);
     }
     assert_eq!(state.snapshot().connection_failure_events, 0);
@@ -353,12 +355,12 @@ fn failures_on_local_targets_do_not_count_toward_warnings() {
     assert_eq!(state.snapshot().connection_failure_events, 1);
 }
 
-// A sinkholed host resolves to 127.0.0.1; the refused dial advances the route at start-up (SVC-1795615846684850).
+// A DNS sinkhole answers 0.0.0.0 (dialled as 127.0.0.1); the refused dial advances the route at start-up (SVC-1795615846684850).
 #[test]
 fn route_advances_on_local_targets_do_not_count_toward_warnings() {
     let state = Arc::new(ProxyTelemetryState::new(None));
     let observer = ProxyTelemetryObserver { state: state.clone() };
-    for target in ["127.0.0.1:443", "192.168.1.20:443", "[fe80::1]:443", "[fd00::1]:443"] {
+    for target in ["127.0.0.1:443", "0.0.0.0:443", "[::]:443", "192.168.1.20:443", "[fe80::1]:443", "[fd00::1]:443"] {
         observer.on_route_advanced(target.parse().unwrap(), 0, 6, 32, None);
     }
     assert_eq!(state.snapshot().route_changes, 0);

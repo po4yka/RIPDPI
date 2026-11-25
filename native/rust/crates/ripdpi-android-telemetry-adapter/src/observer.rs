@@ -213,7 +213,10 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
 /// A closed port on a LAN device says nothing about the path to the internet.
 fn is_internet_target(ip: IpAddr) -> bool {
     match ip.to_canonical() {
-        IpAddr::V4(ip) => !(ip.is_private() || ip.is_loopback() || ip.is_link_local()),
-        IpAddr::V6(ip) => !(ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local()),
+        // Unspecified is the DNS-sinkhole answer, and the kernel dials it as loopback.
+        IpAddr::V4(ip) => !(ip.is_private() || ip.is_loopback() || ip.is_link_local() || ip.is_unspecified()),
+        IpAddr::V6(ip) => {
+            !(ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local() || ip.is_unspecified())
+        }
     }
 }
