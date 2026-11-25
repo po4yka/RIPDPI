@@ -586,6 +586,8 @@ data class DiagnosticsEventUiModel(
     val createdAtLabel: String,
     val tone: DiagnosticsTone,
     val occurrences: Int = 1,
+    /** The saved server the event concerns, named on this device only. */
+    val server: String? = null,
 )
 
 @Immutable

@@ -442,6 +442,7 @@ internal fun EventRow(
                     friendlySummary?.let { it to RipDpiThemeTokens.type.bodyEmphasis },
                     event.message to RipDpiThemeTokens.type.secondaryBody,
                     event.source to RipDpiThemeTokens.type.monoSmall,
+                    event.server?.let { it to RipDpiThemeTokens.type.monoSmall },
                     event.severity to RipDpiThemeTokens.type.monoSmall,
                 ),
             metadata = event.createdAtLabel to RipDpiThemeTokens.type.monoSmall,
@@ -464,6 +465,7 @@ internal fun EventRow(
                     verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
                 ) {
                     EventBadge(text = event.source, tone = event.tone)
+                    event.server?.let { EventBadge(text = it, tone = event.tone) }
                     EventBadge(text = event.severity, tone = event.tone)
                     if (event.occurrences > 1) {
                         EventBadge(

@@ -10,15 +10,38 @@ import com.poyka.ripdpi.data.RawPathExecutionSettlementOutcome
 import com.poyka.ripdpi.data.RawPathRuntimeContext
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class DiagnosticsBoundaryMapperTest {
+    @Test
+    fun `a relay event keeps its profile token for on-device naming but never serializes it`() {
+        val mapper = DiagnosticsBoundaryMapper(Json { ignoreUnknownKeys = true })
+        val token = "a".repeat(64)
+
+        val event =
+            mapper.toDiagnosticEvent(
+                NativeSessionEventEntity(
+                    id = "event-1",
+                    source = "app",
+                    level = "warn",
+                    message = "relay_health_decision",
+                    createdAt = 1L,
+                    relayProfileToken = token,
+                ),
+            )
+
+        assertEquals(token, event.relayProfileToken)
+        assertFalse(Json.encodeToString(event).contains(token))
+    }
+
     @Test
     fun `undecodable stored scan report maps to a session without a report`() {
         val mapper = DiagnosticsBoundaryMapper(Json { ignoreUnknownKeys = true })

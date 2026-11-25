@@ -15,12 +15,12 @@ internal fun List<DiagnosticsEventUiModel>.toWatchList(): List<DiagnosticsEventU
         .foldIdentical()
 
 /**
- * Folds rows with the same source, severity and message into the first (newest) one and adds up their
+ * Folds rows with the same source, severity, message and server into the first (newest) one and adds up their
  * counts. Guided mode applies it again after it rewrites raw messages, because different raw events can
  * then read the same.
  */
 internal fun List<DiagnosticsEventUiModel>.foldIdentical(): List<DiagnosticsEventUiModel> =
-    groupBy { Triple(it.source, it.severity, it.message) }
+    groupBy { listOf(it.source, it.severity, it.message, it.server) }
         .values
         .map { repeats -> repeats.first().copy(occurrences = repeats.sumOf { it.occurrences }) }
 

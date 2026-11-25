@@ -37,6 +37,19 @@ class DiagnosticsWatchListTest {
     }
 
     @Test
+    fun `the same failure on two servers stays two rows, each naming its server`() {
+        val home = event("relay-2", message = "relay_health_decision", createdAtLabel = "13:36").copy(server = "Home")
+        val office =
+            event(
+                "relay-1",
+                message = "relay_health_decision",
+                createdAtLabel = "13:30",
+            ).copy(server = "Office")
+
+        assertEquals(listOf(home, office), listOf(home, office).toWatchList())
+    }
+
+    @Test
     fun `info events stay out of the watch list`() {
         val info = event("info-1", message = "Connected.", createdAtLabel = "13:36", tone = DiagnosticsTone.Info)
 

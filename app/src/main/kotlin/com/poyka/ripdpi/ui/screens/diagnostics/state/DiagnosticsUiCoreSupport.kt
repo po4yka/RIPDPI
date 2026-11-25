@@ -98,6 +98,7 @@ internal class DiagnosticsUiCoreSupport
     constructor(
         internal val formatter: DiagnosticsUiFormatter,
         internal val strings: StringResolver,
+        internal val serverNames: ServerNames = ServerNames.None,
     )
 
 internal data class DiagnosticsCompletionUiPresentation(
@@ -339,6 +340,7 @@ internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): Di
         message = event.message,
         createdAtLabel = formatTimestamp(event.createdAt),
         tone = toneForEventLevel(event.level),
+        server = serverNames.nameOf(event),
     )
 
 internal fun DiagnosticsUiCoreSupport.toneForProbeOutcome(

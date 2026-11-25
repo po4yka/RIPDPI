@@ -181,6 +181,7 @@ class DiagnosticsBoundaryMapper
                 fingerprintHash = entity.fingerprintHash,
                 subsystem = entity.subsystem,
                 relayAttemptStage = entity.relayAttemptStage(),
+                relayProfileToken = entity.relayProfileToken,
             )
 
         fun toDiagnosticExportRecord(entity: ExportRecordEntity): DiagnosticExportRecord =
